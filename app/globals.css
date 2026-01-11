@@ -24,3 +24,23 @@ body {
 body {
   font-family: 'Courier New', monospace;
 }
+
+/* Liquid Chrome Button Styles */
+.liquid-button {
+  box-shadow: 
+    0 0 0 1px rgba(255,255,255,0.4),
+    0 10px 20px -5px rgba(0,0,0,0.5),
+    inset 0 1px 1px rgba(255,255,255,1);
+}
+
+.liquid-reflection {
+  width: 200%;
+  left: -50%;
+  transform: skewX(-20deg);
+  animation: chrome-shine 4s infinite linear;
+}
+
+@keyframes chrome-shine {
+  0% { transform: translateX(-100%) skewX(-20deg); }
+  100% { transform: translateX(100%) skewX(-20deg); }
+}

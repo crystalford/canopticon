@@ -1,6 +1,7 @@
 "use client"; // CRITICAL: This line fixes the 'client-only' error you saw in Vercel
 
 import React from 'react';
+import LiquidChromeButton from '@/components/LiquidChromeButton';
 
 export default function Home() {
   return (
@@ -37,39 +38,14 @@ export default function Home() {
           </p>
 
           {/* THE LIQUID CHROME BUTTON */}
-          <a href="/signals" className="liquid-button relative px-10 py-4 rounded-full font-bold text-black overflow-hidden transition-transform active:scale-95 inline-block">
-            <span className="relative z-10 flex items-center gap-2">
+          <LiquidChromeButton href="/signals" className="px-10 py-4">
+            <span className="flex items-center gap-2">
               Enter the Signal
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
             </span>
-            {/* Reflective Layers */}
-            <div className="absolute inset-0 bg-white" />
-            <div className="liquid-reflection absolute inset-0 bg-gradient-to-tr from-transparent via-white/80 to-transparent" />
-          </a>
+          </LiquidChromeButton>
         </div>
       </section>
-
-      {/* CSS Styles for the Chrome Effect */}
-      <style jsx>{`
-        .liquid-button {
-          box-shadow: 
-            0 0 0 1px rgba(255,255,255,0.4),
-            0 10px 20px -5px rgba(0,0,0,0.5),
-            inset 0 1px 1px rgba(255,255,255,1);
-        }
-        
-        .liquid-reflection {
-          width: 200%;
-          left: -50%;
-          transform: skewX(-20deg);
-          animation: chrome-shine 4s infinite linear;
-        }
-
-        @keyframes chrome-shine {
-          0% { transform: translateX(-100%) skewX(-20deg); }
-          100% { transform: translateX(100%) skewX(-20deg); }
-        }
-      `}</style>
     </main>
   );
 }

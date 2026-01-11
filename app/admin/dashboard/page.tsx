@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { Activity, Inbox, Zap, CheckCircle2, ArrowRight } from 'lucide-react'
+import LiquidChromeButton from '@/components/LiquidChromeButton'
 
 export default async function MissionControlDashboard() {
   // Fetch Real Data from Supabase
@@ -40,11 +41,9 @@ export default async function MissionControlDashboard() {
         </div>
         
         {/* Liquid Chrome Button */}
-        <button className="liquid-button relative px-6 py-2 rounded-full font-bold text-black overflow-hidden text-sm transition-transform active:scale-95">
-          <span className="relative z-10">Export Report</span>
-          <div className="absolute inset-0 bg-white" />
-          <div className="liquid-reflection absolute inset-0 bg-gradient-to-tr from-transparent via-white/80 to-transparent" />
-        </button>
+        <LiquidChromeButton>
+          Export Report
+        </LiquidChromeButton>
       </header>
 
       {/* Stats Cards */}
@@ -164,25 +163,6 @@ export default async function MissionControlDashboard() {
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        .liquid-button {
-          box-shadow: 
-            0 0 0 1px rgba(255,255,255,0.4),
-            0 10px 20px -5px rgba(0,0,0,0.5),
-            inset 0 1px 1px rgba(255,255,255,1);
-        }
-        .liquid-reflection {
-          width: 200%;
-          left: -50%;
-          transform: skewX(-20deg);
-          animation: chrome-shine 4s infinite linear;
-        }
-        @keyframes chrome-shine {
-          0% { transform: translateX(-100%) skewX(-20deg); }
-          100% { transform: translateX(100%) skewX(-20deg); }
-        }
-      `}</style>
     </main>
   )
 }
