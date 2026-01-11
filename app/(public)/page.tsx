@@ -1,4 +1,4 @@
-import { fetchAllFeeds } from '@/lib/ingestion/rss'
+import { getGlobalSignals } from '@/lib/ingestion'
 import Link from 'next/link'
 import LiquidChromeButton from '@/components/LiquidChromeButton'
 import Navigation from '@/components/Navigation'
@@ -6,7 +6,7 @@ import { ArrowRight, Globe, Zap } from 'lucide-react'
 
 export default async function Home() {
   // Fetch latest real signal (Server Side)
-  const signals = await fetchAllFeeds();
+  const signals = await getGlobalSignals();
   const latestSignal = signals.length > 0 ? signals[0] : null;
 
   return (

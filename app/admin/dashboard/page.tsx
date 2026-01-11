@@ -2,12 +2,12 @@ import Link from 'next/link'
 import { Activity, Inbox, Zap, CheckCircle2, ArrowRight, ExternalLink } from 'lucide-react'
 import LiquidChromeButton from '@/components/LiquidChromeButton'
 import Navigation from '@/components/Navigation'
-import { fetchAllFeeds } from '@/lib/ingestion/rss'
+import { getGlobalSignals } from '@/lib/ingestion'
 
 export default async function MissionControlDashboard() {
   // Fetch Real Data (Server-Side)
-  // In a real production app, this would query the DB, but for MVP "Real Mode" we fetch live.
-  const signals = await fetchAllFeeds();
+  // Aggregates RSS + Parliament Data
+  const signals = await getGlobalSignals();
 
   const recentLogs = [
     { id: '1', source: 'System', itemsCount: signals.length, status: 'success', timestamp: new Date().toISOString() }
