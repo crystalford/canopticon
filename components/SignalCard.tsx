@@ -85,6 +85,17 @@ export default function SignalCard({ signal }: { signal: Signal }) {
           {/* AI Analysis Result Area */}
           {analysis && (
             <div className="mt-4 p-4 rounded-xl bg-cyan-900/10 border border-cyan-500/20 text-sm animate-in fade-in slide-in-from-top-2">
+
+              {/* Visual Asset (Thumbnail) */}
+              {media.imageUrl && (
+                <div className="mb-4 rounded-lg overflow-hidden border border-white/10 relative group">
+                  <img src={media.imageUrl} alt="Generated Asset" className="w-full h-auto object-cover max-h-64" />
+                  <a href={media.imageUrl} download target="_blank" className="absolute top-2 right-2 bg-black/50 p-2 rounded hover:bg-black/80 text-white">
+                    <ImageIcon className="w-4 h-4" />
+                  </a>
+                </div>
+              )}
+
               <div className="flex items-start gap-3 mb-3">
                 <FileText className="w-4 h-4 text-cyan-400 mt-0.5" />
                 <div>
@@ -92,13 +103,36 @@ export default function SignalCard({ signal }: { signal: Signal }) {
                   <p className="text-gray-300 leading-relaxed">{analysis.summary}</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 mb-3">
                 <Video className="w-4 h-4 text-pink-400 mt-0.5" />
                 <div>
                   <span className="text-xs font-bold text-pink-400 uppercase tracking-wider block mb-1">TikTok Script</span>
-                  <p className="text-gray-400 font-mono text-xs leading-relaxed whitespace-pre-wrap border-l-2 border-pink-500/30 pl-3">
+                  <p className="text-gray-400 font-mono text-xs leading-relaxed whitespace-pre-wrap border-l-2 border-pink-500/30 pl-3 mb-2">
                     {analysis.script}
                   </p>
+
+                  {/* Audio Player */}
+                  {media.audioUrl && (
+                    <audio controls src={media.audioUrl} className="w-full h-8 mt-2 opacity-80" />
+                  )}
+
+                  {/* Generation Controls */}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={handleImage} disabled={loading === 'image' || !!media.imageUrl}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 text-xs font-medium text-purple-300 transition-colors disabled:opacity-50"
+                    >
+                      {loading === 'image' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
+                      Generate Art
+                    </button>
+                    <button
+                      onClick={handleAudio} disabled={loading === 'audio' || !!media.audioUrl}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 text-xs font-medium text-pink-300 transition-colors disabled:opacity-50"
+                    >
+                      {loading === 'audio' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />}
+                      Generate Audio
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -109,11 +143,11 @@ export default function SignalCard({ signal }: { signal: Signal }) {
         {/* Action Button */}
         <button
           onClick={handleAnalyze}
-          disabled={loading || !!analysis}
+          disabled={loading === 'analyze' || !!analysis}
           className="p-2 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group/btn min-w-[32px] flex justify-center"
           title="Analyze with AI"
         >
-          {loading ? (
+          {loading === 'analyze' ? (
             <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
           ) : (
             <Zap className={`w-4 h-4 ${analysis ? 'text-green-400' : 'text-gray-500 group-hover/btn:text-cyan-400'} transition-colors`} />

@@ -13,7 +13,7 @@ export async function generateThumbnail(headline: string): Promise<string | null
             size: "1024x1024",
             quality: "standard" // cost control, use hd if needed
         });
-        return response.data[0].url || null;
+        return response.data?.[0]?.url || null;
     } catch (e) {
         console.error("DALL-E Generation Failed:", e);
         return null;
