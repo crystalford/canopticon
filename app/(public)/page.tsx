@@ -1,3 +1,5 @@
+"use client"; // CRITICAL: This line fixes the 'client-only' error you saw in Vercel
+
 import React from 'react';
 
 export default function Home() {
