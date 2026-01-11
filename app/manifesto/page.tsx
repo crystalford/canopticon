@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Navigation from '@/components/Navigation'
 
 export default function ManifestoPage() {
   return (
@@ -10,47 +10,102 @@ export default function ManifestoPage() {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 flex justify-between items-center px-8 py-6 backdrop-blur-md border-b border-white/5 bg-black/20">
-        <Link href="/" className="text-xl font-bold tracking-tighter uppercase hover:text-white transition-colors">Canopticon</Link>
-        <div className="flex gap-8 text-sm font-medium text-gray-400">
-          <Link href="/manifesto" className="hover:text-white transition-colors text-white">Manifesto</Link>
-          <Link href="/signals" className="hover:text-white transition-colors">Signals</Link>
-          <Link href="/archive" className="hover:text-white transition-colors">Archive</Link>
-        </div>
-      </nav>
+      <Navigation currentPage="manifesto" />
 
       {/* Content */}
       <section className="relative pt-44 pb-20 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="p-12 rounded-3xl bg-white/[0.03] backdrop-blur-2xl border border-white/10 shadow-2xl">
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 bg-gradient-to-b from-white to-gray-500 bg-clip-text text-transparent">
-              The Digital Panopticon
+              Methodology
             </h1>
             
             <div className="prose prose-invert prose-lg max-w-none space-y-6 text-gray-300 leading-relaxed">
               <p className="text-xl text-gray-400">
-                Monitoring industrial transformation and the evolution of Canadian infrastructure. High-fidelity research for the modern era.
+                An automated political signal engine monitoring Canadian parliamentary proceedings, votes, and institutional friction.
               </p>
               
-              <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-white mt-8 mb-4">Our Mission</h2>
-                <p>
-                  Canopticon serves as a high-fidelity monitoring system for tracking the signals of industrial transformation across Canada. 
-                  We aggregate, analyze, and present data on infrastructure evolution, policy shifts, and technological adoption patterns.
-                </p>
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-white mt-8 mb-4">What We Monitor</h2>
+                  <p>
+                    CANOPTICON continuously ingests institutional output from Parliament:
+                  </p>
+                  <ul className="list-disc list-inside space-y-2 mt-4 text-gray-300">
+                    <li>House of Commons Hansard transcripts</li>
+                    <li>Parliamentary votes and voting records</li>
+                    <li>Committee proceedings and reports</li>
+                    <li>Procedural motions and points of order</li>
+                    <li>Public statements and institutional communications</li>
+                  </ul>
+                  <p className="mt-4">
+                    Raw intake is immutable. Every source is timestamped, linked, and preserved as an historical record.
+                  </p>
+                </div>
                 
-                <h2 className="text-2xl font-bold text-white mt-8 mb-4">Methodology</h2>
-                <p>
-                  Our system processes signals from multiple sources—government announcements, industry reports, financial filings, 
-                  and public discourse—to create a comprehensive view of systemic change. Each signal is verified, categorized, 
-                  and contextualized within broader transformation narratives.
-                </p>
+                <div>
+                  <h2 className="text-2xl font-bold text-white mt-8 mb-4">How Signals Are Generated</h2>
+                  <p className="mb-4">
+                    Signals are created automatically using deterministic detection rules. These rules identify patterns that indicate meaningful shifts:
+                  </p>
+                  
+                  <div className="space-y-4 mt-6">
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                      <h3 className="font-bold text-white mb-2">1. Cross-Speaker Phrase Repetition</h3>
+                      <p className="text-sm text-gray-400">
+                        When the same 5+ word phrase is used by 3+ different speakers in one day, it indicates coordinated messaging.
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                      <h3 className="font-bold text-white mb-2">2. Topic Spike vs Baseline</h3>
+                      <p className="text-sm text-gray-400">
+                        Topic keyword counts that exceed the rolling 14-day baseline by 2 standard deviations signal emerging focus areas.
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                      <h3 className="font-bold text-white mb-2">3. Procedural Friction Burst</h3>
+                      <p className="text-sm text-gray-400">
+                        High density of procedural terms (point of order, Speaker, adjournment) indicates institutional stress or conflict.
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                      <h3 className="font-bold text-white mb-2">4. Speech vs Vote Contradiction</h3>
+                      <p className="text-sm text-gray-400">
+                        When an MP&apos;s stated stance conflicts with their same-day vote record, it reveals strategic positioning.
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                      <h3 className="font-bold text-white mb-2">5. Delay Signal</h3>
+                      <p className="text-sm text-gray-400">
+                        Topics that appear repeatedly across days with no corresponding vote outcome suggest deferred action or deadlock.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <p className="mt-6">
+                    Each detected signal is assigned a confidence level (low, medium, high) and routed to either automated publishing or manual review.
+                  </p>
+                </div>
                 
-                <h2 className="text-2xl font-bold text-white mt-8 mb-4">Transparency</h2>
-                <p>
-                  All signals are timestamped, sourced, and made available for public review. We believe that understanding 
-                  the mechanisms of industrial transformation requires open access to high-quality data and analysis.
-                </p>
+                <div>
+                  <h2 className="text-2xl font-bold text-white mt-8 mb-4">What Silence Means</h2>
+                  <p>
+                    The absence of signals is also information. When expected topics or procedures don&apos;t generate signals within normal timeframes, 
+                    it may indicate strategic delay, behind-the-scenes negotiation, or institutional gridlock. CANOPTICON tracks both presence and absence.
+                  </p>
+                </div>
+                
+                <div>
+                  <h2 className="text-2xl font-bold text-white mt-8 mb-4">Publishing & Syndication</h2>
+                  <p>
+                    Every published signal has a permanent URL and includes source links, speaker attribution, and contextual metadata. 
+                    Published signals are automatically distributed to social platforms (X, TikTok) with links back to the canonical source.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

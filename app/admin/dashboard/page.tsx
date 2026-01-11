@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { Activity, Inbox, Zap, CheckCircle2, ArrowRight } from 'lucide-react'
 import LiquidChromeButton from '@/components/LiquidChromeButton'
+import Navigation from '@/components/Navigation'
 
 export default async function MissionControlDashboard() {
   // Fetch Real Data from Supabase
@@ -25,14 +26,18 @@ export default async function MissionControlDashboard() {
   const recentLogs = safeLogs.slice(0, 10)
 
   return (
-    <main className="min-h-screen bg-[#050505] text-white p-8 selection:bg-cyan-500/30">
+    <main className="min-h-screen bg-[#050505] text-white selection:bg-cyan-500/30">
       {/* Background Depth */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-900/10 blur-[120px] rounded-full" />
         <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-cyan-900/10 blur-[100px] rounded-full" />
       </div>
 
-      <header className="max-w-7xl mx-auto mb-12 flex justify-between items-end relative z-10">
+      {/* Navigation */}
+      <Navigation currentPage="dashboard" />
+
+      <div className="pt-24 p-8">
+        <header className="max-w-7xl mx-auto mb-12 flex justify-between items-end relative z-10">
         <div>
           <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
             Signal Command
@@ -162,6 +167,7 @@ export default async function MissionControlDashboard() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </main>
   )

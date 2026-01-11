@@ -1,9 +1,19 @@
-"use client"; // CRITICAL: This line fixes the 'client-only' error you saw in Vercel
+import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
+import LiquidChromeButton from '@/components/LiquidChromeButton'
+import Navigation from '@/components/Navigation'
+import { ArrowRight, Calendar } from 'lucide-react'
 
-import React from 'react';
-import LiquidChromeButton from '@/components/LiquidChromeButton';
+export default async function Home() {
+  // Fetch latest published signal
+  const { data: latestSignal } = await supabase
+    .from('signals')
+    .select('*')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+    .limit(1)
+    .single()
 
-export default function Home() {
   return (
     <main className="min-h-screen bg-[#050505] text-white selection:bg-cyan-500/30">
       {/* Background Glows for Depth */}
@@ -13,14 +23,7 @@ export default function Home() {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 flex justify-between items-center px-8 py-6 backdrop-blur-md border-b border-white/5 bg-black/20">
-        <a href="/" className="text-xl font-bold tracking-tighter uppercase hover:text-white transition-colors">Canopticon</a>
-        <div className="flex gap-8 text-sm font-medium text-gray-400">
-          <a href="/manifesto" className="hover:text-white transition-colors">Manifesto</a>
-          <a href="/signals" className="hover:text-white transition-colors">Signals</a>
-          <a href="/archive" className="hover:text-white transition-colors">Archive</a>
-        </div>
-      </nav>
+      <Navigation currentPage="home" />
 
       {/* Hero Section */}
       <section className="relative pt-44 pb-20 px-6 flex flex-col items-center justify-center text-center">
@@ -30,22 +33,43 @@ export default function Home() {
           <div className="absolute inset-0 border border-white/10 rounded-[2.5rem] pointer-events-none group-hover:border-white/20 transition-colors" />
           
           <h1 className="text-6xl md:text-8xl font-bold tracking-tight mb-6 bg-gradient-to-b from-white to-gray-500 bg-clip-text text-transparent">
-            The Digital <br /> Panopticon.
+            CANOPTICON
           </h1>
           
           <p className="text-lg text-gray-400 max-w-xl mx-auto mb-10 leading-relaxed">
-            Monitoring industrial transformation and the evolution of Canadian infrastructure. High-fidelity research for the modern era.
+            An automated political signal engine. Monitoring parliamentary proceedings, votes, and institutional friction to surface meaningful shifts before they become news.
           </p>
+
+          {/* Latest Signal Preview */}
+          {latestSignal && (
+            <div className="mb-10 p-6 rounded-2xl bg-white/[0.02] border border-white/5 text-left max-w-2xl mx-auto">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]"></div>
+                <span className="text-xs text-gray-500 uppercase tracking-wider">Latest Signal</span>
+              </div>
+              <h3 className="text-xl font-bold mb-2">{latestSignal.headline || 'Untitled Signal'}</h3>
+              {latestSignal.summary && (
+                <p className="text-sm text-gray-400 mb-4 line-clamp-2">{latestSignal.summary}</p>
+              )}
+              <Link
+                href={`/signal/${latestSignal.slug || latestSignal.id}`}
+                className="inline-flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                Read full signal
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          )}
 
           {/* THE LIQUID CHROME BUTTON */}
           <LiquidChromeButton href="/signals" className="px-10 py-4">
             <span className="flex items-center gap-2">
-              Enter the Signal
+              View All Signals
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
             </span>
           </LiquidChromeButton>
         </div>
       </section>
     </main>
-  );
+  )
 }

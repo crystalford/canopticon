@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { Archive, Calendar, ArrowRight } from 'lucide-react'
+import Navigation from '@/components/Navigation'
 
 export default async function ArchivePage() {
   // Fetch all signals (including archived ones)
@@ -21,14 +22,7 @@ export default async function ArchivePage() {
       </div>
 
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 flex justify-between items-center px-8 py-6 backdrop-blur-md border-b border-white/5 bg-black/20">
-        <Link href="/" className="text-xl font-bold tracking-tighter uppercase hover:text-white transition-colors">Canopticon</Link>
-        <div className="flex gap-8 text-sm font-medium text-gray-400">
-          <Link href="/manifesto" className="hover:text-white transition-colors">Manifesto</Link>
-          <Link href="/signals" className="hover:text-white transition-colors">Signals</Link>
-          <Link href="/archive" className="hover:text-white transition-colors text-white">Archive</Link>
-        </div>
-      </nav>
+      <Navigation currentPage="archive" />
 
       {/* Content */}
       <section className="relative pt-44 pb-20 px-6">
