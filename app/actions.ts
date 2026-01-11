@@ -1,7 +1,24 @@
 "use server"
 
 import { analyzeSignal } from '@/lib/analysis/ai'
+import { generateThumbnail, generateAudio } from '@/lib/content/media'
 import { supabase } from '@/lib/supabase'
+
+export async function generateMediaAction(headline: string, script: string) {
+  // This action can be called to generate either or both, for now let's expose separate ones or a combined one?
+  // Let's do separate to give user control.
+}
+
+export async function generateImageAction(headline: string) {
+  const imageUrl = await generateThumbnail(headline);
+  return imageUrl;
+}
+
+export async function generateAudioAction(script: string) {
+  const audioUrl = await generateAudio(script);
+  return audioUrl;
+}
+
 
 export async function analyzeSignalAction(headline: string, content: string) {
   const result = await analyzeSignal(headline, content);

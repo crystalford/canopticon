@@ -2,23 +2,44 @@
 
 import { useState } from 'react'
 import { Signal } from '@/types'
-import { analyzeSignalAction } from '@/app/actions'
-import { Zap, Loader2, FileText, Video, ExternalLink } from 'lucide-react'
+import { analyzeSignalAction, generateImageAction, generateAudioAction } from '@/app/actions'
+import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play } from 'lucide-react'
 
 export default function SignalCard({ signal }: { signal: Signal }) {
   const [analysis, setAnalysis] = useState<{ summary: string; script: string } | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string }>({})
+  const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio'
 
   const handleAnalyze = async () => {
-    setLoading(true)
+    setLoading('analyze')
     try {
       const result = await analyzeSignalAction(signal.headline, signal.summary || signal.headline)
       setAnalysis(result)
     } catch (e) {
       console.error(e)
     } finally {
-      setLoading(false)
+      setLoading(null)
     }
+  }
+
+  const handleImage = async () => {
+    if (!analysis) return;
+    setLoading('image')
+    try {
+      const url = await generateImageAction(signal.headline);
+      if (url) setMedia(prev => ({ ...prev, imageUrl: url }));
+    } catch (e) { console.error(e) }
+    finally { setLoading(null) }
+  }
+
+  const handleAudio = async () => {
+    if (!analysis?.script) return;
+    setLoading('audio')
+    try {
+      const url = await generateAudioAction(analysis.script);
+      if (url) setMedia(prev => ({ ...prev, audioUrl: url }));
+    } catch (e) { console.error(e) }
+    finally { setLoading(null) }
   }
 
   return (
