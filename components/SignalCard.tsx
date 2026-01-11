@@ -160,56 +160,60 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
                 </div>
               )}
 
-              {/* Generation Controls */}
-              <div className="flex flex-wrap gap-2 mt-3 p-2 bg-white/5 rounded-lg">
-                <button
-                  onClick={handleImage} disabled={loading === 'image' || !!media.imageUrl}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-purple-300 transition-colors disabled:opacity-50"
-                >
-                  {loading === 'image' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
-                  Art
-                </button>
-                <button
-                  onClick={handleAudio} disabled={loading === 'audio' || !!media.audioUrl}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-pink-300 transition-colors disabled:opacity-50"
-                >
-                  {loading === 'audio' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />}
-                  Voice
-                </button>
-                <div className="w-px h-6 bg-white/10 mx-1"></div>
-                <button
-                  onClick={handleThread} disabled={loading === 'thread' || !!media.thread}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-blue-400 transition-colors disabled:opacity-50"
-                >
-                  {loading === 'thread' ? <Loader2 className="w-3 h-3 animate-spin" /> : <span className="text-xs">𝕏</span>}
-                  Thread
-                </button>
-                <button
-                  onClick={handleArticle} disabled={loading === 'article' || !!media.article}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-orange-400 transition-colors disabled:opacity-50"
-                >
-                  {loading === 'article' ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
-                  Article
-                </button>
-              </div>
+              {/* Generation Controls (Admin Only) */}
+              {isAdmin && (
+                <div className="flex flex-wrap gap-2 mt-3 p-2 bg-white/5 rounded-lg">
+                  <button
+                    onClick={handleImage} disabled={loading === 'image' || !!media.imageUrl}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-purple-300 transition-colors disabled:opacity-50"
+                  >
+                    {loading === 'image' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
+                    Art
+                  </button>
+                  <button
+                    onClick={handleAudio} disabled={loading === 'audio' || !!media.audioUrl}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-pink-300 transition-colors disabled:opacity-50"
+                  >
+                    {loading === 'audio' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />}
+                    Voice
+                  </button>
+                  <div className="w-px h-6 bg-white/10 mx-1"></div>
+                  <button
+                    onClick={handleThread} disabled={loading === 'thread' || !!media.thread}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-blue-400 transition-colors disabled:opacity-50"
+                  >
+                    {loading === 'thread' ? <Loader2 className="w-3 h-3 animate-spin" /> : <span className="text-xs">𝕏</span>}
+                    Thread
+                  </button>
+                  <button
+                    onClick={handleArticle} disabled={loading === 'article' || !!media.article}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-orange-400 transition-colors disabled:opacity-50"
+                  >
+                    {loading === 'article' ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                    Article
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
         </div>
 
-        {/* Action Button */}
-        <button
-          onClick={handleAnalyze}
-          disabled={loading === 'analyze' || !!analysis}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group/btn min-w-[32px] flex justify-center"
-          title="Analyze with AI"
-        >
-          {loading === 'analyze' ? (
-            <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-          ) : (
-            <Zap className={`w-4 h-4 ${analysis ? 'text-green-400' : 'text-gray-500 group-hover/btn:text-cyan-400'} transition-colors`} />
-          )}
-        </button>
+        {/* Action Button (Admin Only) */}
+        {isAdmin && (
+          <button
+            onClick={handleAnalyze}
+            disabled={loading === 'analyze' || !!analysis}
+            className="p-2 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group/btn min-w-[32px] flex justify-center"
+            title="Analyze with AI"
+          >
+            {loading === 'analyze' ? (
+              <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+            ) : (
+              <Zap className={`w-4 h-4 ${analysis ? 'text-green-400' : 'text-gray-500 group-hover/btn:text-cyan-400'} transition-colors`} />
+            )}
+          </button>
+        )}
       </div>
     </div>
   )
