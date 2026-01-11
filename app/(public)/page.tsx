@@ -19,7 +19,7 @@ export default async function Home() {
       <Navigation currentPage="home" />
 
       {/* Hero */}
-      <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-4 text-center">
+      <section className="relative min-h-screen flex flex-col items-center justify-center px-4 text-center pt-32">
 
         {/* Status Pill */}
         <div className="mb-8 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-cyan-400">

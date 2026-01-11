@@ -26,9 +26,16 @@ export default function SignalCard({ signal }: { signal: Signal }) {
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           {/* Header */}
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono text-cyan-400">[{signal.source}]</span>
-            <h3 className="font-medium text-white truncate">{signal.headline}</h3>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-cyan-400/80 border border-cyan-500/20 px-1.5 py-0.5 rounded">
+              {signal.source}
+            </span>
+            {analysis && (
+              <span className="text-[10px] font-mono uppercase tracking-wider text-purple-400/80 border border-purple-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                <Zap className="w-3 h-3" /> Analyzed
+              </span>
+            )}
+            <h3 className="font-medium text-white truncate text-lg">{signal.headline}</h3>
           </div>
 
           {/* Summary / Content */}
