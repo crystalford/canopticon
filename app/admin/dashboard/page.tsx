@@ -3,6 +3,7 @@ import { Activity, Inbox, Zap, CheckCircle2, ArrowRight, ExternalLink } from 'lu
 import LiquidChromeButton from '@/components/LiquidChromeButton'
 import Navigation from '@/components/Navigation'
 import { getGlobalSignals } from '@/lib/ingestion'
+import SignalCard from '@/components/SignalCard'
 
 export default async function MissionControlDashboard() {
   // Fetch Real Data (Server-Side)
@@ -74,37 +75,11 @@ export default async function MissionControlDashboard() {
                 {signals.length === 0 ? (
                   <div className="p-6 text-sm text-gray-500 italic">Scanning generic frequencies... (No signals found)</div>
                 ) : (
-                  signals.slice(0, 8).map((signal) => (
-                    <div key={signal.id} className="group hover:bg-white/[0.02] transition-colors p-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-medium mb-1 truncate text-white">{signal.headline}</h3>
-                          <p className="text-xs text-gray-400 mb-2 line-clamp-1">{signal.summary}</p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span className="flex items-center gap-2 text-cyan-400 font-mono">
-                              [{signal.source}]
-                            </span>
-                            <span>{new Date(signal.publishedAt).toLocaleTimeString()}</span>
-                            {signal.entities.length > 0 && (
-                              <div className="flex gap-1">
-                                {signal.entities.slice(0, 2).map((e, i) => (
-                                  <span key={i} className="px-1.5 py-0.5 rounded bg-white/5 text-gray-300">{e}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <a
-                          href={signal.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-                    </div>
-                  ))
+                  <div className="divide-y divide-white/5">
+                    {signals.slice(0, 8).map((signal) => (
+                      <SignalCard key={signal.id} signal={signal} />
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
