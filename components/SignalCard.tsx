@@ -5,7 +5,7 @@ import { Signal } from '@/types'
 import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction } from '@/app/actions'
 import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play } from 'lucide-react'
 
-export default function SignalCard({ signal }: { signal: Signal }) {
+export default function SignalCard({ signal, isAdmin = false }: { signal: Signal; isAdmin?: boolean }) {
   const [analysis, setAnalysis] = useState<{ summary: string; script: string } | null>(null)
   const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string; thread?: string[]; article?: string }>({})
   const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio' | 'thread' | 'article'

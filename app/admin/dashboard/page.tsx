@@ -77,7 +77,7 @@ export default async function MissionControlDashboard() {
                 ) : (
                   <div className="divide-y divide-white/5">
                     {signals.slice(0, 8).map((signal) => (
-                      <SignalCard key={signal.id} signal={signal} />
+                      <SignalCard key={signal.id} signal={signal} isAdmin={true} />
                     ))}
                   </div>
                 )}
