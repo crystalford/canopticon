@@ -2,7 +2,22 @@
 
 import { analyzeSignal } from '@/lib/analysis/ai'
 import { generateThumbnail, generateAudio } from '@/lib/content/media'
+import { generateXThread, generateSubstackArticle } from '@/lib/content/formatters'
 import { supabase } from '@/lib/supabase'
+import { Signal } from '@/types' // Assuming Signal type is needed if we pass full object, checking imports
+
+// ... existing media actions ...
+
+export async function generateXThreadAction(signal: any, analysis: any) {
+  const thread = await generateXThread(signal, analysis);
+  return thread;
+}
+
+export async function generateArticleAction(signal: any, analysis: any) {
+  const article = await generateSubstackArticle(signal, analysis);
+  return article;
+}
+
 
 export async function generateMediaAction(headline: string, script: string) {
   // This action can be called to generate either or both, for now let's expose separate ones or a combined one?

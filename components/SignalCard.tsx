@@ -117,20 +117,27 @@ export default function SignalCard({ signal }: { signal: Signal }) {
                   )}
 
                   {/* Generation Controls */}
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex flex-wrap gap-2 mt-3 p-2 bg-white/5 rounded-lg">
                     <button
                       onClick={handleImage} disabled={loading === 'image' || !!media.imageUrl}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 text-xs font-medium text-purple-300 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-purple-300 transition-colors disabled:opacity-50"
                     >
                       {loading === 'image' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
-                      Generate Art
+                      Art
                     </button>
                     <button
                       onClick={handleAudio} disabled={loading === 'audio' || !!media.audioUrl}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 text-xs font-medium text-pink-300 transition-colors disabled:opacity-50"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-pink-300 transition-colors disabled:opacity-50"
                     >
                       {loading === 'audio' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />}
-                      Generate Audio
+                      Voice
+                    </button>
+                    <div className="w-px h-6 bg-white/10 mx-1"></div>
+                    <button className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-blue-400 transition-colors disabled:opacity-50 opacity-50 cursor-not-allowed" title="Coming Soon">
+                      <span className="text-xs">𝕏</span> Thread
+                    </button>
+                    <button className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-orange-400 transition-colors disabled:opacity-50 opacity-50 cursor-not-allowed" title="Coming Soon">
+                      <FileText className="w-3 h-3" /> Article
                     </button>
                   </div>
                 </div>
