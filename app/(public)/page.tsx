@@ -13,11 +13,11 @@ export default function Home() {
 
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 flex justify-between items-center px-8 py-6 backdrop-blur-md border-b border-white/5 bg-black/20">
-        <div className="text-xl font-bold tracking-tighter uppercase">Canopticon</div>
+        <a href="/" className="text-xl font-bold tracking-tighter uppercase hover:text-white transition-colors">Canopticon</a>
         <div className="flex gap-8 text-sm font-medium text-gray-400">
-          <a href="#" className="hover:text-white transition-colors">Manifesto</a>
-          <a href="#" className="hover:text-white transition-colors">Signals</a>
-          <a href="#" className="hover:text-white transition-colors">Archive</a>
+          <a href="/manifesto" className="hover:text-white transition-colors">Manifesto</a>
+          <a href="/signals" className="hover:text-white transition-colors">Signals</a>
+          <a href="/archive" className="hover:text-white transition-colors">Archive</a>
         </div>
       </nav>
 
@@ -37,7 +37,7 @@ export default function Home() {
           </p>
 
           {/* THE LIQUID CHROME BUTTON */}
-          <button className="liquid-button relative px-10 py-4 rounded-full font-bold text-black overflow-hidden transition-transform active:scale-95">
+          <a href="/signals" className="liquid-button relative px-10 py-4 rounded-full font-bold text-black overflow-hidden transition-transform active:scale-95 inline-block">
             <span className="relative z-10 flex items-center gap-2">
               Enter the Signal
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
@@ -45,7 +45,7 @@ export default function Home() {
             {/* Reflective Layers */}
             <div className="absolute inset-0 bg-white" />
             <div className="liquid-reflection absolute inset-0 bg-gradient-to-tr from-transparent via-white/80 to-transparent" />
-          </button>
+          </a>
         </div>
       </section>
 

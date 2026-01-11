@@ -1,10 +1,9 @@
 import { supabase } from '@/lib/supabase'
-import { Activity, Inbox, Zap, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import Link from 'next/link'
+import { Activity, Inbox, Zap, CheckCircle2, ArrowRight } from 'lucide-react'
 
-// We make this an async function so it can fetch data before loading
 export default async function MissionControlDashboard() {
-  
-  // 1. Fetch Real Data from Supabase
+  // Fetch Real Data from Supabase
   const { data: signals } = await supabase
     .from('signals')
     .select('*')
@@ -15,151 +14,175 @@ export default async function MissionControlDashboard() {
     .select('*')
     .order('created_at', { ascending: false })
 
-  // 2. Handle empty data (prevent crashes if DB is empty)
+  // Handle empty data
   const safeSignals = signals || []
   const safeLogs = intakeLogs || []
 
-  // 3. Filter data using real DB status fields
+  // Filter data
   const pendingSignals = safeSignals.filter((s) => s.status === 'draft')
   const publishedSignals = safeSignals.filter((s) => s.status === 'published')
-  const recentLogs = safeLogs.slice(0, 5)
+  const recentLogs = safeLogs.slice(0, 10)
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#22c55e] font-mono">
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        {/* Dashboard Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Activity className="w-8 h-8" />
-            <h1 className="text-4xl font-bold">MISSION CONTROL</h1>
-          </div>
-          <p className="text-sm text-[#22c55e]/70">
-            $ canopticon --dashboard --admin --live
-          </p>
-        </div>
+    <main className="min-h-screen bg-[#050505] text-white p-8 selection:bg-cyan-500/30">
+      {/* Background Depth */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-900/10 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-cyan-900/10 blur-[100px] rounded-full" />
+      </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a]">
-            <div className="text-sm text-[#22c55e]/70 mb-1">Total Signals</div>
-            <div className="text-2xl font-bold">{safeSignals.length}</div>
-          </div>
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a]">
-            <div className="text-sm text-[#22c55e]/70 mb-1">Drafts</div>
-            <div className="text-2xl font-bold text-yellow-500">{pendingSignals.length}</div>
-          </div>
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a]">
-            <div className="text-sm text-[#22c55e]/70 mb-1">Published</div>
-            <div className="text-2xl font-bold text-blue-500">{publishedSignals.length}</div>
-          </div>
-          <div className="border border-[#22c55e]/30 p-4 bg-[#0a0a0a]">
-            <div className="text-sm text-[#22c55e]/70 mb-1">Intake Logs</div>
-            <div className="text-2xl font-bold">{safeLogs.length}</div>
-          </div>
+      <header className="max-w-7xl mx-auto mb-12 flex justify-between items-end relative z-10">
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+            Signal Command
+          </h1>
+          <p className="text-gray-400 mt-2">Monitoring industrial and infrastructure shifts.</p>
         </div>
+        
+        {/* Liquid Chrome Button */}
+        <button className="liquid-button relative px-6 py-2 rounded-full font-bold text-black overflow-hidden text-sm transition-transform active:scale-95">
+          <span className="relative z-10">Export Report</span>
+          <div className="absolute inset-0 bg-white" />
+          <div className="liquid-reflection absolute inset-0 bg-gradient-to-tr from-transparent via-white/80 to-transparent" />
+        </button>
+      </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Intake Log Section */}
-          <div className="lg:col-span-1">
-            <div className="border border-[#22c55e]/30 p-6 bg-[#0a0a0a]">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="relative">
-                    <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#22c55e] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#22c55e]"></span>
-                    </span>
-                    <Inbox className="w-5 h-5" />
-                </div>
-                <h2 className="text-xl font-bold">INTAKE LOG</h2>
+      {/* Stats Cards */}
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 mb-12 relative z-10">
+        {[
+          { label: "Total Signals", value: safeSignals.length.toString(), trend: `${publishedSignals.length} published`, color: "text-cyan-400" },
+          { label: "Draft Queue", value: pendingSignals.length.toString(), trend: "Pending review", color: "text-yellow-400" },
+          { label: "Published", value: publishedSignals.length.toString(), trend: "Live", color: "text-green-400" },
+          { label: "Intake Logs", value: safeLogs.length.toString(), trend: "Active", color: "text-purple-400" }
+        ].map((stat, i) => (
+          <div key={i} className="p-6 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10 shadow-xl hover:border-white/20 transition-colors">
+            <p className="text-sm text-gray-500 font-medium mb-1">{stat.label}</p>
+            <div className="flex justify-between items-baseline">
+              <h3 className="text-3xl font-bold">{stat.value}</h3>
+              <span className={`text-xs font-mono ${stat.color}`}>{stat.trend}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
+        {/* Live Signal Feed */}
+        <section className="lg:col-span-1 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden shadow-2xl">
+          <div className="p-6 border-b border-white/10 bg-white/[0.02]">
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5" />
+              <h2 className="font-semibold text-lg">Live Signal Feed</h2>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <div className="divide-y divide-white/5">
+              {safeSignals.length === 0 ? (
+                <div className="p-6 text-sm text-gray-500 italic">Waiting for signals...</div>
+              ) : (
+                safeSignals.slice(0, 8).map((signal) => (
+                  <div key={signal.id} className="group hover:bg-white/[0.02] transition-colors p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium mb-1 truncate">{signal.headline || 'Untitled Signal'}</h3>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span className="flex items-center gap-2">
+                            <div className={`w-1.5 h-1.5 rounded-full ${signal.status === 'published' ? 'bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.5)]' : 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.5)]'}`} />
+                            {signal.status}
+                          </span>
+                          <span>{new Date(signal.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <Link 
+                        href={`/signal/${signal.slug || signal.id}`}
+                        className="text-xs text-gray-500 hover:text-white transition-colors flex items-center gap-1"
+                      >
+                        View
+                        <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Intake Log */}
+        <section className="lg:col-span-1 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden shadow-2xl">
+          <div className="p-6 border-b border-white/10 bg-white/[0.02]">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-500 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                </span>
+                <Inbox className="w-5 h-5" />
               </div>
-              <div className="space-y-3">
-                {recentLogs.length === 0 ? (
-                    <div className="text-xs text-[#22c55e]/50 italic">No logs detected yet...</div>
-                ) : (
-                    recentLogs.map((log) => (
-                    <div
-                        key={log.id}
-                        className="border-l-2 border-[#22c55e]/30 pl-3 py-2 text-sm"
-                    >
-                        <div className="flex items-center gap-2 mb-1">
-                        <CheckCircle2 className="w-4 h-4 text-[#22c55e]" />
-                        <span className="font-bold">{log.source}</span>
-                        <span className="text-[#22c55e]/50 text-xs">
-                            {new Date(log.created_at).toLocaleTimeString()}
+              <h2 className="font-semibold text-lg">Intake Log</h2>
+            </div>
+          </div>
+          <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto">
+            {recentLogs.length === 0 ? (
+              <div className="p-6 text-sm text-gray-500 italic">No logs detected yet...</div>
+            ) : (
+              recentLogs.map((log) => (
+                <div key={log.id} className="p-6 group hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-sm">{log.source || 'Unknown Source'}</span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(log.created_at).toLocaleTimeString()}
                         </span>
-                        </div>
-                        <div className="text-xs text-[#22c55e]/70">
-                        {log.summary}
-                        </div>
+                      </div>
+                      <p className="text-xs text-gray-400">{log.summary || 'No summary available'}</p>
                     </div>
-                    ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Signals Queue Section */}
-          <div className="lg:col-span-1">
-            <div className="border border-[#22c55e]/30 p-6 bg-[#0a0a0a]">
-              <div className="flex items-center gap-2 mb-4">
-                <Zap className="w-5 h-5" />
-                <h2 className="text-xl font-bold">SIGNALS QUEUE</h2>
-              </div>
-              <div className="space-y-3">
-                {safeSignals.length === 0 ? (
-                    <div className="text-xs text-[#22c55e]/50 italic">Waiting for signals...</div>
-                ) : (
-                    safeSignals.map((signal) => (
-                    <div
-                        key={signal.id}
-                        className={`border-l-2 ${signal.status === 'published' ? 'border-blue-500' : 'border-yellow-500'} pl-3 py-2 text-sm`}
-                    >
-                        <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold truncate pr-2">{signal.headline}</span>
-                        <span className="text-xs text-[#22c55e]/50">{signal.status}</span>
-                        </div>
-                        <div className="text-xs text-[#22c55e]/70">
-                        {new Date(signal.created_at).toLocaleTimeString()}
-                        </div>
-                    </div>
-                    ))
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Action Panel Section */}
-          <div className="lg:col-span-1">
-            <div className="border border-[#22c55e]/30 p-6 bg-[#0a0a0a]">
-              <div className="flex items-center gap-2 mb-4">
-                <Activity className="w-5 h-5" />
-                <h2 className="text-xl font-bold">ACTION PANEL</h2>
-              </div>
-              <div className="space-y-3">
-                <button className="w-full px-4 py-2 border border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e] hover:text-[#0a0a0a] transition-colors text-sm font-mono">
-                  REFRESH DATA
-                </button>
-                <div className="text-xs text-[#22c55e]/50 text-center pt-2">
-                    Automated actions enabled via n8n pipeline.
-                </div>
-              </div>
-              <div className="mt-6 pt-6 border-t border-[#22c55e]/20">
-                <p className="text-xs text-[#22c55e]/70 mb-2">System Status:</p>
-                <div className="space-y-1 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse"></div>
-                    <span>Supabase Connection: ACTIVE</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-[#22c55e] rounded-full animate-pulse"></div>
-                    <span>Live Monitoring: ON</span>
                   </div>
                 </div>
-              </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* System Status */}
+      <div className="max-w-7xl mx-auto mt-6 relative z-10">
+        <div className="p-6 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(6,182,212,0.5)]"></div>
+              <span className="text-sm text-gray-400">Supabase Connection: ACTIVE</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+              <span className="text-sm text-gray-400">Live Monitoring: ON</span>
+            </div>
+            <div className="text-xs text-gray-500 ml-auto">
+              Automated actions enabled via n8n pipeline
             </div>
           </div>
         </div>
       </div>
-    </div>
+
+      <style jsx>{`
+        .liquid-button {
+          box-shadow: 
+            0 0 0 1px rgba(255,255,255,0.4),
+            0 10px 20px -5px rgba(0,0,0,0.5),
+            inset 0 1px 1px rgba(255,255,255,1);
+        }
+        .liquid-reflection {
+          width: 200%;
+          left: -50%;
+          transform: skewX(-20deg);
+          animation: chrome-shine 4s infinite linear;
+        }
+        @keyframes chrome-shine {
+          0% { transform: translateX(-100%) skewX(-20deg); }
+          100% { transform: translateX(100%) skewX(-20deg); }
+        }
+      `}</style>
+    </main>
   )
 }
