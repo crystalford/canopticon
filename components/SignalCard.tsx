@@ -143,24 +143,82 @@ export default function SignalCard({ signal }: { signal: Signal }) {
                 </div>
               </div>
             </div>
+                  {/* Thread Result */}
+          {media.thread && (
+            <div className="mt-3 p-3 bg-black/20 rounded border-l-2 border-blue-500/50">
+              <span className="text-xs font-bold text-blue-400 block mb-2">𝕏 Thread Draft</span>
+              <div className="space-y-2">
+                {media.thread.map((tweet, i) => (
+                  <p key={i} className="text-xs text-gray-300 font-mono bg-black/30 p-2 rounded">{tweet}</p>
+                ))}
+              </div>
+            </div>
           )}
 
+          {/* Article Result */}
+          {media.article && (
+            <div className="mt-3 p-3 bg-black/20 rounded border-l-2 border-orange-500/50">
+              <span className="text-xs font-bold text-orange-400 block mb-2">Substack Draft</span>
+              <div className="text-xs text-gray-300 font-mono whitespace-pre-wrap h-32 overflow-y-auto custom-scrollbar">
+                {media.article}
+              </div>
+            </div>
+          )}
+
+          {/* Generation Controls */}
+          <div className="flex flex-wrap gap-2 mt-3 p-2 bg-white/5 rounded-lg">
+            <button
+              onClick={handleImage} disabled={loading === 'image' || !!media.imageUrl}
+              className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-purple-300 transition-colors disabled:opacity-50"
+            >
+              {loading === 'image' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
+              Art
+            </button>
+            <button
+              onClick={handleAudio} disabled={loading === 'audio' || !!media.audioUrl}
+              className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-pink-300 transition-colors disabled:opacity-50"
+            >
+              {loading === 'audio' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />}
+              Voice
+            </button>
+            <div className="w-px h-6 bg-white/10 mx-1"></div>
+            <button
+              onClick={handleThread} disabled={loading === 'thread' || !!media.thread}
+              className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-blue-400 transition-colors disabled:opacity-50"
+            >
+              {loading === 'thread' ? <Loader2 className="w-3 h-3 animate-spin" /> : <span className="text-xs">𝕏</span>}
+              Thread
+            </button>
+            <button
+              onClick={handleArticle} disabled={loading === 'article' || !!media.article}
+              className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-orange-400 transition-colors disabled:opacity-50"
+            >
+              {loading === 'article' ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+              Article
+            </button>
+          </div>
         </div>
-
-        {/* Action Button */}
-        <button
-          onClick={handleAnalyze}
-          disabled={loading === 'analyze' || !!analysis}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group/btn min-w-[32px] flex justify-center"
-          title="Analyze with AI"
-        >
-          {loading === 'analyze' ? (
-            <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-          ) : (
-            <Zap className={`w-4 h-4 ${analysis ? 'text-green-400' : 'text-gray-500 group-hover/btn:text-cyan-400'} transition-colors`} />
-          )}
-        </button>
       </div>
     </div>
+  )
+}
+
+        </div >
+
+  {/* Action Button */ }
+  < button
+onClick = { handleAnalyze }
+disabled = { loading === 'analyze' || !!analysis}
+className = "p-2 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group/btn min-w-[32px] flex justify-center"
+title = "Analyze with AI"
+  >
+  { loading === 'analyze' ? (
+  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+) : (
+  <Zap className={`w-4 h-4 ${analysis ? 'text-green-400' : 'text-gray-500 group-hover/btn:text-cyan-400'} transition-colors`} />
+)}
+        </button >
+      </div >
+    </div >
   )
 }
