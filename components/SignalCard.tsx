@@ -2,13 +2,13 @@
 
 import { useState } from 'react'
 import { Signal } from '@/types'
-import { analyzeSignalAction, generateImageAction, generateAudioAction } from '@/app/actions'
+import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction } from '@/app/actions'
 import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play } from 'lucide-react'
 
 export default function SignalCard({ signal }: { signal: Signal }) {
   const [analysis, setAnalysis] = useState<{ summary: string; script: string } | null>(null)
-  const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string }>({})
-  const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio'
+  const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string; thread?: string[]; article?: string }>({})
+  const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio' | 'thread' | 'article'
 
   const handleAnalyze = async () => {
     setLoading('analyze')
@@ -38,6 +38,26 @@ export default function SignalCard({ signal }: { signal: Signal }) {
     try {
       const url = await generateAudioAction(analysis.script);
       if (url) setMedia(prev => ({ ...prev, audioUrl: url }));
+    } catch (e) { console.error(e) }
+    finally { setLoading(null) }
+  }
+
+  const handleThread = async () => {
+    if (!analysis) return;
+    setLoading('thread')
+    try {
+      const thread = await generateXThreadAction(signal, analysis);
+      if (thread) setMedia(prev => ({ ...prev, thread }));
+    } catch (e) { console.error(e) }
+    finally { setLoading(null) }
+  }
+
+  const handleArticle = async () => {
+    if (!analysis) return;
+    setLoading('article')
+    try {
+      const article = await generateArticleAction(signal, analysis);
+      if (article) setMedia(prev => ({ ...prev, article }));
     } catch (e) { console.error(e) }
     finally { setLoading(null) }
   }
@@ -115,110 +135,82 @@ export default function SignalCard({ signal }: { signal: Signal }) {
                   {media.audioUrl && (
                     <audio controls src={media.audioUrl} className="w-full h-8 mt-2 opacity-80" />
                   )}
-
-                  {/* Generation Controls */}
-                  <div className="flex flex-wrap gap-2 mt-3 p-2 bg-white/5 rounded-lg">
-                    <button
-                      onClick={handleImage} disabled={loading === 'image' || !!media.imageUrl}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-purple-300 transition-colors disabled:opacity-50"
-                    >
-                      {loading === 'image' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
-                      Art
-                    </button>
-                    <button
-                      onClick={handleAudio} disabled={loading === 'audio' || !!media.audioUrl}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-pink-300 transition-colors disabled:opacity-50"
-                    >
-                      {loading === 'audio' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />}
-                      Voice
-                    </button>
-                    <div className="w-px h-6 bg-white/10 mx-1"></div>
-                    <button className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-blue-400 transition-colors disabled:opacity-50 opacity-50 cursor-not-allowed" title="Coming Soon">
-                      <span className="text-xs">𝕏</span> Thread
-                    </button>
-                    <button className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-orange-400 transition-colors disabled:opacity-50 opacity-50 cursor-not-allowed" title="Coming Soon">
-                      <FileText className="w-3 h-3" /> Article
-                    </button>
-                  </div>
                 </div>
               </div>
-            </div>
-                  {/* Thread Result */}
-          {media.thread && (
-            <div className="mt-3 p-3 bg-black/20 rounded border-l-2 border-blue-500/50">
-              <span className="text-xs font-bold text-blue-400 block mb-2">𝕏 Thread Draft</span>
-              <div className="space-y-2">
-                {media.thread.map((tweet, i) => (
-                  <p key={i} className="text-xs text-gray-300 font-mono bg-black/30 p-2 rounded">{tweet}</p>
-                ))}
+
+              {/* Thread Result */}
+              {media.thread && (
+                <div className="mt-3 p-3 bg-black/20 rounded border-l-2 border-blue-500/50">
+                  <span className="text-xs font-bold text-blue-400 block mb-2">𝕏 Thread Draft</span>
+                  <div className="space-y-2">
+                    {media.thread.map((tweet, i) => (
+                      <p key={i} className="text-xs text-gray-300 font-mono bg-black/30 p-2 rounded">{tweet}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Article Result */}
+              {media.article && (
+                <div className="mt-3 p-3 bg-black/20 rounded border-l-2 border-orange-500/50">
+                  <span className="text-xs font-bold text-orange-400 block mb-2">Substack Draft</span>
+                  <div className="text-xs text-gray-300 font-mono whitespace-pre-wrap h-32 overflow-y-auto custom-scrollbar">
+                    {media.article}
+                  </div>
+                </div>
+              )}
+
+              {/* Generation Controls */}
+              <div className="flex flex-wrap gap-2 mt-3 p-2 bg-white/5 rounded-lg">
+                <button
+                  onClick={handleImage} disabled={loading === 'image' || !!media.imageUrl}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-purple-300 transition-colors disabled:opacity-50"
+                >
+                  {loading === 'image' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
+                  Art
+                </button>
+                <button
+                  onClick={handleAudio} disabled={loading === 'audio' || !!media.audioUrl}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-pink-300 transition-colors disabled:opacity-50"
+                >
+                  {loading === 'audio' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />}
+                  Voice
+                </button>
+                <div className="w-px h-6 bg-white/10 mx-1"></div>
+                <button
+                  onClick={handleThread} disabled={loading === 'thread' || !!media.thread}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-blue-400 transition-colors disabled:opacity-50"
+                >
+                  {loading === 'thread' ? <Loader2 className="w-3 h-3 animate-spin" /> : <span className="text-xs">𝕏</span>}
+                  Thread
+                </button>
+                <button
+                  onClick={handleArticle} disabled={loading === 'article' || !!media.article}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-orange-400 transition-colors disabled:opacity-50"
+                >
+                  {loading === 'article' ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                  Article
+                </button>
               </div>
             </div>
           )}
 
-          {/* Article Result */}
-          {media.article && (
-            <div className="mt-3 p-3 bg-black/20 rounded border-l-2 border-orange-500/50">
-              <span className="text-xs font-bold text-orange-400 block mb-2">Substack Draft</span>
-              <div className="text-xs text-gray-300 font-mono whitespace-pre-wrap h-32 overflow-y-auto custom-scrollbar">
-                {media.article}
-              </div>
-            </div>
-          )}
-
-          {/* Generation Controls */}
-          <div className="flex flex-wrap gap-2 mt-3 p-2 bg-white/5 rounded-lg">
-            <button
-              onClick={handleImage} disabled={loading === 'image' || !!media.imageUrl}
-              className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-purple-300 transition-colors disabled:opacity-50"
-            >
-              {loading === 'image' ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
-              Art
-            </button>
-            <button
-              onClick={handleAudio} disabled={loading === 'audio' || !!media.audioUrl}
-              className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-pink-300 transition-colors disabled:opacity-50"
-            >
-              {loading === 'audio' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />}
-              Voice
-            </button>
-            <div className="w-px h-6 bg-white/10 mx-1"></div>
-            <button
-              onClick={handleThread} disabled={loading === 'thread' || !!media.thread}
-              className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-blue-400 transition-colors disabled:opacity-50"
-            >
-              {loading === 'thread' ? <Loader2 className="w-3 h-3 animate-spin" /> : <span className="text-xs">𝕏</span>}
-              Thread
-            </button>
-            <button
-              onClick={handleArticle} disabled={loading === 'article' || !!media.article}
-              className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-orange-400 transition-colors disabled:opacity-50"
-            >
-              {loading === 'article' ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
-              Article
-            </button>
-          </div>
         </div>
+
+        {/* Action Button */}
+        <button
+          onClick={handleAnalyze}
+          disabled={loading === 'analyze' || !!analysis}
+          className="p-2 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group/btn min-w-[32px] flex justify-center"
+          title="Analyze with AI"
+        >
+          {loading === 'analyze' ? (
+            <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+          ) : (
+            <Zap className={`w-4 h-4 ${analysis ? 'text-green-400' : 'text-gray-500 group-hover/btn:text-cyan-400'} transition-colors`} />
+          )}
+        </button>
       </div>
     </div>
-  )
-}
-
-        </div >
-
-  {/* Action Button */ }
-  < button
-onClick = { handleAnalyze }
-disabled = { loading === 'analyze' || !!analysis}
-className = "p-2 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group/btn min-w-[32px] flex justify-center"
-title = "Analyze with AI"
-  >
-  { loading === 'analyze' ? (
-  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-) : (
-  <Zap className={`w-4 h-4 ${analysis ? 'text-green-400' : 'text-gray-500 group-hover/btn:text-cyan-400'} transition-colors`} />
-)}
-        </button >
-      </div >
-    </div >
   )
 }
