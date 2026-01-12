@@ -150,7 +150,7 @@ import { scoreSignal } from '@/lib/agents/triage'
 
 // ... existing actions
 
-export async function runTriageAction(signalId: number, currentSignal: Signal) {
+export async function runTriageAction(signalId: string, currentSignal: Signal) {
   // 1. Score the signal
   const triage = await scoreSignal(currentSignal);
 
