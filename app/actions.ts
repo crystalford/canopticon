@@ -12,11 +12,15 @@ import { Signal } from '@/types' // Assuming Signal type is needed if we pass fu
 
 import { savePublication, getPublications } from '@/lib/content/persistence'
 
+import { revalidatePath } from 'next/cache'
+
 export async function updateSignalStatusAction(signalId: string, status: 'pending' | 'processing' | 'published' | 'archived') {
   await supabase
     .from('signals')
     .update({ status })
-    .eq('hash', signalId);
+    .eq('id', signalId);
+
+  revalidatePath('/admin/dashboard');
 }
 
 
@@ -150,6 +154,7 @@ import { scoreSignal } from '@/lib/agents/triage'
 
 // ... existing actions
 
+// ... existing single triage action
 export async function runTriageAction(signalId: string, currentSignal: Signal) {
   // 1. Score the signal
   const triage = await scoreSignal(currentSignal);
@@ -171,6 +176,46 @@ export async function runTriageAction(signalId: string, currentSignal: Signal) {
 
   // 4. Return result for UI feedback
   return triage;
+}
+
+export async function runBatchTriageAction() {
+  // 1. Fetch pending signals (Limit 5 to avoid timeouts)
+  const { data: signals } = await supabase
+    .from('signals')
+    .select('*')
+    .eq('status', 'pending')
+    .limit(5);
+
+  if (!signals || signals.length === 0) return { count: 0, message: "No pending signals found." };
+
+  let processed = 0;
+  let approved = 0;
+  let archived = 0;
+
+  // 2. Loop and Score
+  for (const signal of signals) {
+    // Assume Signal type match
+    const triage = await scoreSignal(signal as any); // Type cast if needed
+    processed++;
+
+    let newStatus = 'pending';
+    if (triage.recommended_action === 'approve') { newStatus = 'processing'; approved++; }
+    if (triage.recommended_action === 'archive') { newStatus = 'archived'; archived++; }
+
+    if (newStatus !== 'pending') {
+      await supabase
+        .from('signals')
+        .update({ status: newStatus })
+        .eq('id', signal.id);
+    }
+  }
+
+  return {
+    count: processed,
+    approved,
+    archived,
+    message: `Triaged ${processed} signals. Approved ${approved}, Archived ${archived}.`
+  };
 }
 
 export async function generateDailyBriefingAction() {

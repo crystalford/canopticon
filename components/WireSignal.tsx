@@ -5,13 +5,17 @@ import { Check, X, ExternalLink, Clock } from 'lucide-react'
 import { updateSignalStatusAction } from '@/app/actions'
 import { useState } from 'react'
 
+import { useRouter } from 'next/navigation'
+
 export default function WireSignal({ signal }: { signal: Signal }) {
     const [loading, setLoading] = useState(false)
+    const router = useRouter()
 
     const handleAction = async (status: 'processing' | 'archived') => {
         setLoading(true)
         try {
             await updateSignalStatusAction(signal.id, status)
+            router.refresh()
         } catch (e) {
             console.error(e)
         } finally {

@@ -6,6 +6,7 @@ import { getGlobalSignals } from '@/lib/ingestion'
 import SignalCard from '@/components/SignalCard'
 import WireSignal from '@/components/WireSignal'
 import WatchmanWidget from '@/components/WatchmanWidget'
+import TriageAgentButton from '@/components/TriageAgentButton'
 
 export default async function MissionControlDashboard() {
   // Fetch Real Data (Server-Side)
@@ -39,10 +40,13 @@ export default async function MissionControlDashboard() {
             <p className="text-gray-400 mt-2">Monitoring Canadian political landscape.</p>
           </div>
 
-          {/* Liquid Chrome Button */}
-          <LiquidChromeButton>
-            Force Ingest
-          </LiquidChromeButton>
+          {/* Actions */}
+          <div className="flex gap-4">
+            <TriageAgentButton />
+            <LiquidChromeButton>
+              Force Ingest
+            </LiquidChromeButton>
+          </div>
         </header>
 
         {/* Watchman Widget */}
