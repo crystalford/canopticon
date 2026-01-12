@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import Navigation from '@/components/Navigation'
+import AdminNavigation from '@/components/AdminNavigation'
 import { isUserAdmin } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import SourceManager from '@/components/SourceManager'
@@ -29,7 +29,7 @@ export default async function SettingsPage() {
 
     return (
         <main className="min-h-screen bg-[#050505] text-white">
-            <Navigation currentPage="sources" />
+            <AdminNavigation currentPage="settings" />
 
             <div className="pt-24 pb-16 px-4 max-w-5xl mx-auto">
                 <header className="mb-10 border-b border-white/10 pb-6">

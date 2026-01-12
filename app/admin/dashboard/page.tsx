@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import Navigation from '@/components/Navigation'
+import AdminNavigation from '@/components/AdminNavigation'
 import { isUserAdmin } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -65,7 +65,7 @@ export default async function AdminDashboard() {
 
   return (
     <main className="min-h-screen bg-[#050505] text-white">
-      <Navigation currentPage="dashboard" />
+      <AdminNavigation currentPage="dashboard" />
 
       <div className="pt-24 pb-16 px-4 max-w-[1600px] mx-auto">
         {/* Header */}

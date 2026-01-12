@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ArrowRight, Play, Radio, Shield, Zap } from 'lucide-react'
-import Navigation from '@/components/Navigation'
+import PublicNavigation from '@/components/PublicNavigation'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import LiquidChromeButton from '@/components/LiquidChromeButton'
 
@@ -26,7 +26,7 @@ export default async function PublicHomepage() {
   return (
     <main className="min-h-screen bg-[#050505] text-white selection:bg-cyan-500/30">
 
-      <Navigation currentPage="home" />
+      <PublicNavigation currentPage="home" />
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 px-8 overflow-hidden">

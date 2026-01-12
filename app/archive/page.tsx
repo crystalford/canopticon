@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import Navigation from '@/components/Navigation'
+import PublicNavigation from '@/components/PublicNavigation'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { FileText, Calendar, ArrowRight } from 'lucide-react'
 
@@ -23,7 +23,7 @@ export default async function ArchivePage() {
 
   return (
     <main className="min-h-screen bg-[#050505] text-white selection:bg-cyan-500/30">
-      <Navigation currentPage="archive" />
+      <PublicNavigation currentPage="archive" />
 
       <div className="pt-32 pb-20 px-4 max-w-4xl mx-auto">
         <header className="mb-12 border-b border-white/10 pb-8">

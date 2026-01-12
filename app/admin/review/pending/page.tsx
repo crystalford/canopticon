@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { isUserAdmin } from '@/lib/auth'
-import Navigation from '@/components/Navigation'
+import AdminNavigation from '@/components/AdminNavigation'
 import ReviewQueue from '@/components/ReviewQueue'
 import { redirect } from 'next/navigation'
 
@@ -29,7 +29,7 @@ export default async function ReviewPage() {
 
     return (
         <main className="min-h-screen bg-[#050505] text-white">
-            <Navigation currentPage="review" />
+            <AdminNavigation currentPage="review" />
 
             <div className="pt-24 px-4 max-w-[1600px] mx-auto h-[calc(100vh_-_24px)] flex flex-col">
                 <div className="mb-6 flex justify-between items-end">
