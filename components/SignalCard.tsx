@@ -286,7 +286,7 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
                           <tr key={i} className="hover:bg-white/[0.02]">
                             <td className="p-2 font-mono text-zinc-400">{scene.time}</td>
                             <td className="p-2 border-l border-white/5 text-gray-300">{scene.visual}</td>
-                            <td className="p-2 border-l border-white/5 text-pink-200/80 italic">"{scene.audio}"</td>
+                            <td className="p-2 border-l border-white/5 text-pink-200/80 italic">&quot;{scene.audio}&quot;</td>
                           </tr>
                         ))}
                       </tbody>
