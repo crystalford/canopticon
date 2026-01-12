@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Signal } from '@/types'
-import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction, analyzeSignalDeepAction, generateVideoScriptAction } from '@/app/actions'
-import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, BarChart, BrainCircuit, Clapperboard } from 'lucide-react'
+import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction, analyzeSignalDeepAction, generateVideoScriptAction, saveSignalPublicationAction } from '@/app/actions'
+import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, BarChart, BrainCircuit, Clapperboard, Save, Edit2 } from 'lucide-react'
 import { VideoScene } from '@/lib/content/video'
 
 export default function SignalCard({ signal, isAdmin = false }: { signal: Signal; isAdmin?: boolean }) {
@@ -222,12 +222,24 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
               )}
 
               {/* Article Result */}
-              {media.article && (
+              {media.article !== undefined && (
                 <div className="mt-3 p-3 bg-black/20 rounded border-l-2 border-orange-500/50">
-                  <span className="text-xs font-bold text-orange-400 block mb-2">Substack Draft</span>
-                  <div className="text-xs text-gray-300 font-mono whitespace-pre-wrap h-32 overflow-y-auto custom-scrollbar">
-                    {media.article}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-orange-400">Substack Draft</span>
+                    <button
+                      onClick={handleSaveArticle}
+                      disabled={loading === 'save-article'}
+                      className="flex items-center gap-1 text-[10px] bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 px-2 py-0.5 rounded transition-colors"
+                    >
+                      {loading === 'save-article' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                      Save Changes
+                    </button>
                   </div>
+                  <textarea
+                    value={media.article}
+                    onChange={(e) => setMedia(prev => ({ ...prev, article: e.target.value }))}
+                    className="w-full bg-transparent text-xs text-gray-300 font-mono whitespace-pre-wrap h-48 overflow-y-auto custom-scrollbar focus:outline-none resize-y p-2 rounded hover:bg-white/5 transition-colors border border-transparent focus:border-white/10"
+                  />
                 </div>
               )}
 

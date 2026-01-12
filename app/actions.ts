@@ -25,6 +25,11 @@ export async function getSignalPublicationsAction(signalHash: string) {
   return pubs;
 }
 
+export async function saveSignalPublicationAction(signalHash: string, type: any, content: any) {
+  await savePublication(signalHash, type, content);
+  return true;
+}
+
 export async function generateXThreadAction(signal: any, analysis: any) {
   const thread = await generateXThread(signal, analysis);
   if (thread) {
