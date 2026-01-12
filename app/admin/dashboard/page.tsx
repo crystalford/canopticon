@@ -7,6 +7,7 @@ import SignalCard from '@/components/SignalCard'
 import WireSignal from '@/components/WireSignal'
 import WatchmanWidget from '@/components/WatchmanWidget'
 import TriageAgentButton from '@/components/TriageAgentButton'
+import ForceIngestButton from '@/components/ForceIngestButton'
 import { isUserAdmin } from '@/lib/auth'
 
 export default async function MissionControlDashboard() {
