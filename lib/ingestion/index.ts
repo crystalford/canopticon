@@ -36,8 +36,22 @@ export async function getGlobalSignals(): Promise<Signal[]> {
         if (error) {
             console.error("Failed to persist signals:", error);
         }
-    } catch (dbError) {
-        console.warn("Database persistence skipped (likely missing keys)");
+        if (existingSignals) {
+            const dbMap = new Map(existingSignals.map(s => [s.hash, s]));
+
+            allSignals.forEach(s => {
+                const dbSignal = dbMap.get(s.id);
+                if (dbSignal) {
+                    s.status = dbSignal.status; // Override pending with DB status
+                    if (dbSignal.ai_summary) s.ai_summary = dbSignal.ai_summary;
+                    if (dbSignal.ai_script) s.ai_script = dbSignal.ai_script;
+                    if (dbSignal.ai_tags) s.ai_tags = dbSignal.ai_tags;
+                    if (dbSignal.analysis) s.analysis = dbSignal.analysis;
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Failed to merge DB state:", e);
     }
 
     // Sort by date descending (Newest first)
