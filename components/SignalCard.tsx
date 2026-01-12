@@ -122,6 +122,15 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
     finally { setLoading(null) }
   }
 
+  const handleSaveArticle = async () => {
+    if (!media.article) return;
+    setLoading('save-article');
+    try {
+      await saveSignalPublicationAction(signal.id, 'article', media.article);
+    } catch (e) { console.error(e) }
+    finally { setLoading(null) }
+  }
+
   return (
     <div className="group hover:bg-white/[0.02] transition-colors p-6 border-b border-white/5 last:border-0">
       <div className="flex items-start justify-between gap-4">
