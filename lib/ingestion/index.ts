@@ -59,7 +59,8 @@ export async function getGlobalSignals(): Promise<Signal[]> {
                     status: s.status, // Default pending
                     entities: s.entities,
                     topics: s.topics,
-                    raw_content: s.rawContent
+                    // Wrap in object to ensure it's valid JSONB, as RSS content is html string which crashes jsonb column
+                    raw_content: { content: s.rawContent || '' }
                 });
             }
         });

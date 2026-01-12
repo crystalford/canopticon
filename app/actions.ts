@@ -34,10 +34,15 @@ export async function runIngestAction() {
 export async function updateSignalStatusAction(signalId: string, status: 'pending' | 'processing' | 'published' | 'archived') {
   // if (!await isUserAdmin()) throw new Error("Unauthorized");
   try {
-    const { error } = await supabaseAdmin
+    const { data: updatedData, error } = await supabaseAdmin
       .from('signals')
       .update({ status })
-      .eq('hash', signalId);
+      .eq('hash', signalId)
+      .select();
+
+    if (updatedData && updatedData.length === 0) {
+      return { success: false, error: "Signal not found in DB (Count 0)" };
+    }
 
     if (status === 'published') {
       const { data: signal } = await supabaseAdmin.from('signals').select('*').eq('hash', signalId).single();
