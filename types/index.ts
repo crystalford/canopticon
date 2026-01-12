@@ -23,6 +23,9 @@ export interface Signal {
   ai_summary?: string;
   ai_script?: string;
   ai_tags?: string[];
+
+  // Stored JSONB analysis
+  analysis?: any;
 }
 
 export interface IntakeLog {
