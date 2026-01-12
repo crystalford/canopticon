@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect } from 'react'
 import { Trend } from '@/types'
 import { ingestTrendsAction, getTrendsAction, generateTrendResponseAction } from '@/app/actions'
