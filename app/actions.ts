@@ -47,6 +47,28 @@ export async function generateArticleAction(signal: any, analysis: any) {
 }
 
 
+export async function addSourceAction(name: string, url: string) {
+  const { data, error } = await supabase
+    .from('sources')
+    .insert({ name, url, active: true })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+  return data;
+}
+
+export async function toggleSourceAction(id: string, active: boolean) {
+  await supabase.from('sources').update({ active }).eq('id', id);
+}
+
+export async function deleteSourceAction(id: string) {
+  await supabase.from('sources').delete().eq('id', id);
+}
+
 export async function generateMediaAction(headline: string, script: string) {
   // This action can be called to generate either or both, for now let's expose separate ones or a combined one?
   // Let's do separate to give user control.

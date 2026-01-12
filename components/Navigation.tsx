@@ -5,7 +5,7 @@ import AuthButton from './AuthButton'
 import { useUser } from '@clerk/nextjs'
 
 interface NavigationProps {
-  currentPage?: 'home' | 'manifesto' | 'signals' | 'archive' | 'dashboard'
+  currentPage?: 'home' | 'manifesto' | 'signals' | 'archive' | 'dashboard' | 'sources'
 }
 
 export default function Navigation({ currentPage = 'home' }: NavigationProps) {
@@ -25,30 +25,39 @@ export default function Navigation({ currentPage = 'home' }: NavigationProps) {
             >
               Dashboard
             </Link>
+            </Link>
           )}
+        {isSignedIn && (
           <Link
-            href="/manifesto"
-            className={currentPage === 'manifesto' ? 'text-white' : 'hover:text-white transition-colors'}
+            href="/admin/sources"
+            className={currentPage === 'sources' ? 'text-white' : 'text-gray-400 hover:text-white transition-colors'}
           >
-            Manifesto
+            Sources
           </Link>
-          <Link
-            href="/signals"
-            className={currentPage === 'signals' ? 'text-white' : 'hover:text-white transition-colors'}
-          >
-            Signals
-          </Link>
-          <Link
-            href="/archive"
-            className={currentPage === 'archive' ? 'text-white' : 'hover:text-white transition-colors'}
-          >
-            Archive
-          </Link>
-        </div>
-        <div className="border-l border-white/10 pl-8">
-          <AuthButton />
-        </div>
+        )}
+        <Link
+          href="/manifesto"
+          className={currentPage === 'manifesto' ? 'text-white' : 'hover:text-white transition-colors'}
+        >
+          Manifesto
+        </Link>
+        <Link
+          href="/signals"
+          className={currentPage === 'signals' ? 'text-white' : 'hover:text-white transition-colors'}
+        >
+          Signals
+        </Link>
+        <Link
+          href="/archive"
+          className={currentPage === 'archive' ? 'text-white' : 'hover:text-white transition-colors'}
+        >
+          Archive
+        </Link>
       </div>
-    </nav>
+      <div className="border-l border-white/10 pl-8">
+        <AuthButton />
+      </div>
+    </div>
+    </nav >
   )
 }
