@@ -33,7 +33,7 @@ export interface IntakeLog {
   itemsCount: number;
 }
 
-export type PublicationType = 'image' | 'audio' | 'thread' | 'article';
+export type PublicationType = 'image' | 'audio' | 'thread' | 'article' | 'infographic';
 
 export interface Publication {
   id: string;

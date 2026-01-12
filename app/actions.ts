@@ -1,7 +1,7 @@
 "use server"
 
 import { analyzeSignal } from '@/lib/analysis/ai'
-import { generateThumbnail, generateAudio } from '@/lib/content/media'
+import { generateThumbnail, generateAudio, generateInfographic } from '@/lib/content/media'
 import { generateXThread, generateSubstackArticle } from '@/lib/content/formatters'
 import { supabase } from '@/lib/supabase'
 import { Signal } from '@/types' // Assuming Signal type is needed if we pass full object, checking imports
@@ -49,6 +49,14 @@ export async function generateImageAction(signalHash: string, headline: string) 
   const imageUrl = await generateThumbnail(headline);
   if (imageUrl) {
     await savePublication(signalHash, 'image', imageUrl);
+  }
+  return imageUrl;
+}
+
+export async function generateInfographicAction(signalHash: string, headline: string, summary: string) {
+  const imageUrl = await generateInfographic(headline, summary);
+  if (imageUrl) {
+    await savePublication(signalHash, 'infographic', imageUrl);
   }
   return imageUrl;
 }

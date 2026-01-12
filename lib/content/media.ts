@@ -38,3 +38,35 @@ export async function generateAudio(script: string): Promise<string | null> {
         return null;
     }
 }
+// ... existing exports
+
+export async function generateInfographic(headline: string, summary: string): Promise<string | null> {
+    if (!process.env.OPENAI_API_KEY) return null;
+
+    try {
+        // Step 1: Design the layout
+        const designResponse = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                { role: "system", content: "You are a data visualization expert. Describe a clear, high-contrast, minimalist infographic that represents the news story. Focus on ONE key statistic, map, or relationship. Do not ask for complex text. Output a specific image prompt for DALL-E 3." },
+                { role: "user", content: `Headline: ${headline}\nSummary: ${summary}` }
+            ]
+        });
+
+        const visualPrompt = designResponse.choices[0].message.content || `An infographic about ${headline}`;
+
+        // Step 2: Render
+        const response = await openai.images.generate({
+            model: "dall-e-3",
+            prompt: `A professional, vector-style flat infographic. ${visualPrompt}. High contrast colors (Cyan, Dark Blue, White). Minimal text. clean lines, corporate memphis style, political news context.`,
+            n: 1,
+            size: "1024x1024",
+            quality: "standard"
+        });
+
+        return response.data?.[0]?.url || null;
+    } catch (e) {
+        console.error("Infographic Generation Failed:", e);
+        return null;
+    }
+}
