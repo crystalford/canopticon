@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation'
 
 export default function WireSignal({ signal, isAdmin = false }: { signal: Signal, isAdmin?: boolean }) {
     const [loading, setLoading] = useState(false)
+    const [hidden, setHidden] = useState(false)
     const router = useRouter()
 
     const handleAction = async (status: 'processing' | 'archived') => {
@@ -19,7 +20,10 @@ export default function WireSignal({ signal, isAdmin = false }: { signal: Signal
             if (result && !result.success) {
                 alert("Action Failed: " + result.error);
             } else {
-                router.refresh()
+                // Optimistically hide the signal
+                setHidden(true)
+                // Force a hard refresh
+                setTimeout(() => router.refresh(), 100)
             }
         } catch (e: any) {
             console.error(e)
@@ -28,6 +32,8 @@ export default function WireSignal({ signal, isAdmin = false }: { signal: Signal
             setLoading(false)
         }
     }
+
+    if (hidden) return null;
 
     return (
         <div className="p-3 border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
