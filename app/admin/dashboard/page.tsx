@@ -32,12 +32,12 @@ export default async function AdminDashboard() {
     .order('created_at', { ascending: false })
     .limit(5);
 
-  // Fetch pending signals (preview)
+  // Fetch pending signals (preview) - now sorted by newest first to match Review page
   const { data: pendingSignals } = await supabaseAdmin
     .from('signals')
     .select('*, sources(name)')
     .eq('status', 'pending')
-    .order('confidence_score', { ascending: false })
+    .order('created_at', { ascending: false })  // Match Review page sort
     .limit(5);
 
   // Fetch recent published

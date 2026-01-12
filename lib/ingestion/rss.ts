@@ -2,6 +2,7 @@ import Parser from 'rss-parser';
 import { Signal } from '@/types';
 import crypto from 'crypto';
 import { SourceManager } from '@/lib/services/source-manager';
+import { calculateBasicConfidence } from './confidence';
 
 const parser = new Parser();
 
@@ -56,7 +57,17 @@ export async function fetchAllFeeds(): Promise<Signal[]> {
                     status: 'pending',
                     entities: entities,
                     topics: [source.category || 'politics'],
-                    raw_content: item.content
+                    raw_content: item.content,
+                    // Calculate basic confidence score
+                    confidence_score: calculateBasicConfidence(
+                        {
+                            id: hash,
+                            headline: item.title || '',
+                            summary: item.contentSnippet || '',
+                            publishedAt: item.isoDate || new Date().toISOString()
+                        } as Signal,
+                        source.reliability_score || 70
+                    )
                 };
             });
 

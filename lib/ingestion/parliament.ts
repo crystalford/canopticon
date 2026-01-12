@@ -1,6 +1,7 @@
 import { Signal } from '@/types';
 import crypto from 'crypto';
 import { SourceManager } from '@/lib/services/source-manager';
+import { calculateBasicConfidence } from './confidence';
 
 const OPEN_PARLIAMENT_API_BASE = 'https://api.openparliament.ca';
 
@@ -57,8 +58,18 @@ export async function fetchParliamentBills(): Promise<Signal[]> {
                 priority: 'high', // Legislation is always high priority signal
                 status: 'pending',
                 entities: ['Parliament of Canada', bill.number],
-                topics: ['Legislation'],
-                raw_content: JSON.stringify(bill)
+                topics: ['parliament', 'legislation'],
+                raw_content: bill.legisinfo_url,
+                // Calculate confidence - Parliament bills are high reliability
+                confidence_score: calculateBasicConfidence(
+                    {
+                        id: hash,
+                        headline: title,
+                        summary: '',
+                        publishedAt: bill.introduced
+                    } as Signal,
+                    95  // Parliament is very reliable source
+                )
             };
         });
     } catch (error: any) {
