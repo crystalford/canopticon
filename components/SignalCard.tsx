@@ -5,6 +5,7 @@ import { Signal } from '@/types'
 import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction, analyzeSignalDeepAction, generateVideoScriptAction, saveSignalPublicationAction } from '@/app/actions'
 import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, BarChart, BrainCircuit, Clapperboard, Save, Edit2 } from 'lucide-react'
 import { VideoScene } from '@/lib/content/video'
+import VideoPlayer from './VideoPlayer'
 
 export default function SignalCard({ signal, isAdmin = false }: { signal: Signal; isAdmin?: boolean }) {
   const [analysis, setAnalysis] = useState<{ summary: string; script: string } | null>(null)
@@ -272,25 +273,35 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
                     <Clapperboard className="w-4 h-4 text-pink-500" />
                     <span className="text-xs font-bold text-pink-400 uppercase tracking-wider">TikTok Storyboard</span>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="text-zinc-500 border-b border-white/5 bg-white/[0.02]">
-                          <th className="p-2 w-16">Time</th>
-                          <th className="p-2 border-l border-white/5">Visual</th>
-                          <th className="p-2 border-l border-white/5">Audio</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {media.videoScript.map((scene, i) => (
-                          <tr key={i} className="hover:bg-white/[0.02]">
-                            <td className="p-2 font-mono text-zinc-400">{scene.time}</td>
-                            <td className="p-2 border-l border-white/5 text-gray-300">{scene.visual}</td>
-                            <td className="p-2 border-l border-white/5 text-pink-200/80 italic">&quot;{scene.audio}&quot;</td>
+
+                  {/* Flexible Layout: Player on Desktop, Stacked on Mobile */}
+                  <div className="flex flex-col md:flex-row gap-0">
+                    {/* Video Player Preview */}
+                    <div className="p-4 bg-black/50 border-r border-white/5 flex items-center justify-center min-w-[300px]">
+                      <VideoPlayer script={{ intro: media.videoScript[0] as any, scenes: media.videoScript.slice(1, -1) as any, outro: media.videoScript[media.videoScript.length - 1] as any }} />
+                    </div>
+
+                    {/* Script Table */}
+                    <div className="flex-1 overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="text-zinc-500 border-b border-white/5 bg-white/[0.02]">
+                            <th className="p-2 w-16">Time</th>
+                            <th className="p-2 border-l border-white/5">Visual</th>
+                            <th className="p-2 border-l border-white/5">Audio</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {media.videoScript.map((scene, i) => (
+                            <tr key={i} className="hover:bg-white/[0.02]">
+                              <td className="p-2 font-mono text-zinc-400">{scene.time}</td>
+                              <td className="p-2 border-l border-white/5 text-gray-300">{scene.visual}</td>
+                              <td className="p-2 border-l border-white/5 text-pink-200/80 italic">&quot;{scene.audio}&quot;</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}
