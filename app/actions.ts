@@ -49,6 +49,7 @@ export async function updateSignalStatusAction(signalId: string, status: 'pendin
   }
 
 
+
   export async function getSignalPublicationsAction(signalHash: string) {
     const pubs = await getPublications(signalHash);
     return pubs;
