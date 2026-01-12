@@ -7,8 +7,12 @@ import SignalCard from '@/components/SignalCard'
 import WireSignal from '@/components/WireSignal'
 import WatchmanWidget from '@/components/WatchmanWidget'
 import TriageAgentButton from '@/components/TriageAgentButton'
+import { isUserAdmin } from '@/lib/auth'
 
 export default async function MissionControlDashboard() {
+  // Access Control
+  const isAdmin = await isUserAdmin();
+
   // Fetch Real Data (Server-Side)
   // Aggregates RSS + Parliament Data
   const signals = await getGlobalSignals();
@@ -35,18 +39,20 @@ export default async function MissionControlDashboard() {
         <header className="max-w-7xl mx-auto mb-8 flex justify-between items-end relative z-10">
           <div>
             <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
-              Signal Command
+              {isAdmin ? "Signal Command" : "Public Pulse"}
             </h1>
             <p className="text-gray-400 mt-2">Monitoring Canadian political landscape.</p>
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-4">
-            <TriageAgentButton />
-            <LiquidChromeButton>
-              Force Ingest
-            </LiquidChromeButton>
-          </div>
+          {/* Actions (Admin Only) */}
+          {isAdmin && (
+            <div className="flex gap-4">
+              <TriageAgentButton />
+              <LiquidChromeButton>
+                Force Ingest
+              </LiquidChromeButton>
+            </div>
+          )}
         </header>
 
         {/* Watchman Widget */}
@@ -95,7 +101,7 @@ export default async function MissionControlDashboard() {
               ) : (
                 <div>
                   {pendingSignals.map((signal) => (
-                    <WireSignal key={signal.id} signal={signal} />
+                    <WireSignal key={signal.id} signal={signal} isAdmin={isAdmin} />
                   ))}
                 </div>
               )}
@@ -107,7 +113,9 @@ export default async function MissionControlDashboard() {
             <div className="p-4 border-b border-white/10 bg-white/[0.02]">
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-cyan-400" />
-                <h2 className="font-semibold text-sm uppercase tracking-wider text-gray-400">Editorial Desk</h2>
+                <h2 className="font-semibold text-sm uppercase tracking-wider text-gray-400">
+                  {isAdmin ? "Editorial Desk" : "Public Feed"}
+                </h2>
                 <span className="ml-auto text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">{signals.filter(s => s.status === 'processing').length} Active</span>
               </div>
             </div>
@@ -123,7 +131,7 @@ export default async function MissionControlDashboard() {
               ) : (
                 <div className="divide-y divide-white/5">
                   {signals.filter(s => s.status === 'processing').map((signal) => (
-                    <SignalCard key={signal.id} signal={signal} isAdmin={true} />
+                    <SignalCard key={signal.id} signal={signal} isAdmin={isAdmin} />
                   ))}
                 </div>
               )}
@@ -131,7 +139,7 @@ export default async function MissionControlDashboard() {
           </section>
         </div>
 
-        {/* System Status */}
+        {/* System Status - Only show detail to Admins? Or keep opaque for public */}
         <div className="max-w-7xl mx-auto mt-6 relative z-10">
           <div className="p-6 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10">
             <div className="flex items-center gap-4">

@@ -7,11 +7,12 @@ import { useState } from 'react'
 
 import { useRouter } from 'next/navigation'
 
-export default function WireSignal({ signal }: { signal: Signal }) {
+export default function WireSignal({ signal, isAdmin = false }: { signal: Signal, isAdmin?: boolean }) {
     const [loading, setLoading] = useState(false)
     const router = useRouter()
 
     const handleAction = async (status: 'processing' | 'archived') => {
+        if (!isAdmin) return;
         setLoading(true)
         try {
             await updateSignalStatusAction(signal.id, status)
@@ -39,22 +40,24 @@ export default function WireSignal({ signal }: { signal: Signal }) {
                 </a>
             </h4>
 
-            <div className="flex items-center gap-2 mt-2 opacity-50 group-hover:opacity-100 transition-opacity">
-                <button
-                    onClick={() => handleAction('processing')}
-                    disabled={loading}
-                    className="flex-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 hover:text-green-300 py-1 rounded text-xs font-medium flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
-                >
-                    <Check className="w-3 h-3" /> Approve
-                </button>
-                <button
-                    onClick={() => handleAction('archived')}
-                    disabled={loading}
-                    className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 py-1 rounded text-xs font-medium flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
-                >
-                    <X className="w-3 h-3" /> Dismiss
-                </button>
-            </div>
+            {isAdmin && (
+                <div className="flex items-center gap-2 mt-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                    <button
+                        onClick={() => handleAction('processing')}
+                        disabled={loading}
+                        className="flex-1 bg-green-500/10 hover:bg-green-500/20 text-green-400 hover:text-green-300 py-1 rounded text-xs font-medium flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
+                    >
+                        <Check className="w-3 h-3" /> Approve
+                    </button>
+                    <button
+                        onClick={() => handleAction('archived')}
+                        disabled={loading}
+                        className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 py-1 rounded text-xs font-medium flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
+                    >
+                        <X className="w-3 h-3" /> Dismiss
+                    </button>
+                </div>
+            )}
         </div>
     )
 }
