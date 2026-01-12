@@ -18,10 +18,16 @@ import { triggerUplink } from '@/lib/publishing/webhook'
 import { getGlobalSignals } from '@/lib/ingestion'
 
 export async function runIngestAction() {
-  // if (!await isUserAdmin()) throw new Error("Unauthorized");
-  await getGlobalSignals();
-  revalidatePath('/admin/dashboard');
-  revalidatePath('/');
+  try {
+    const result = await getGlobalSignals();
+    console.log(`[Ingest Action] Fetched ${result.length} signals`);
+    revalidatePath('/admin/dashboard');
+    revalidatePath('/');
+    return { success: true, count: result.length };
+  } catch (e: any) {
+    console.error("[Ingest Action Failed]", e);
+    return { success: false, error: e.message || "Unknown Ingest Error" };
+  }
 }
 
 export async function updateSignalStatusAction(signalId: string, status: 'pending' | 'processing' | 'published' | 'archived') {

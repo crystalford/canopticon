@@ -13,11 +13,16 @@ export default function ForceIngestButton() {
     const handleIngest = async () => {
         setLoading(true)
         try {
-            await runIngestAction()
-            router.refresh()
+            const result: any = await runIngestAction()
+            if (result.success) {
+                alert(`Ingest Complete. Found ${result.count} signals.`);
+                router.refresh()
+            } else {
+                alert("Ingest Failed from Server: " + result.error);
+            }
         } catch (error: any) {
             console.error("Ingest Failed:", error)
-            alert("Ingest Failed: " + (error.message || "Unknown error"));
+            alert("Ingest Exception: " + (error.message || "Unknown error"));
         } finally {
             setLoading(false)
         }
