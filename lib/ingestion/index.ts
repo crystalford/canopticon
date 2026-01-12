@@ -55,7 +55,7 @@ export async function getGlobalSignals(): Promise<Signal[]> {
             allSignals.forEach(s => {
                 const dbSignal = dbMap.get(s.id);
                 if (dbSignal) {
-                    console.log(`[Ingest] Merging DB state for ${s.id}: ${dbSignal.status}`);
+                    console.log(`[Ingest] Merging DB state for ${s.id}: ${(dbSignal as any).status}`);
                     // @ts-ignore
                     s.status = dbSignal.status;
                     // @ts-ignore
