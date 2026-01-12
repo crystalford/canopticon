@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Download, Play, Loader2, Check, ExternalLink } from 'lucide-react'
-import { generateVideoMaterialsAction } from '@/app/actions'
+import { Download, Play, Loader2, Check, ExternalLink, Trash2 } from 'lucide-react'
+import { generateVideoMaterialsAction, flagSignalAction } from '@/app/actions'
 
 interface FlaggedSignalCardProps {
     signal: {
@@ -151,6 +151,17 @@ ${mats.angles?.length > 0
                 >
                     <ExternalLink className="w-3 h-3" /> Edit
                 </Link>
+                <button
+                    onClick={async () => {
+                        if (confirm("Unflag this item?")) {
+                            await flagSignalAction(signal.id);
+                            window.location.reload();
+                        }
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-red-400 rounded-lg transition-colors"
+                >
+                    <Trash2 className="w-3 h-3" /> Remove
+                </button>
             </div>
         </div>
     )
