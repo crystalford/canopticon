@@ -9,6 +9,8 @@ import {
   Radio, AlertCircle, ExternalLink, Activity, Video, Clock,
   CheckCircle, XCircle, ArrowRight, Zap
 } from 'lucide-react'
+import FlaggedSignalCard from '@/components/FlaggedSignalCard'
+import BudgetTracker from '@/components/BudgetTracker'
 
 export default async function AdminDashboard() {
   const isAdmin = await isUserAdmin();
@@ -53,13 +55,13 @@ export default async function AdminDashboard() {
 
   // Calculate stats
   const total = signals?.length || 0;
-  const pending = signals?.filter(s => s.status === 'pending').length || 0;
-  const flagged = signals?.filter(s => s.status === 'flagged').length || 0;
-  const published = signals?.filter(s => ['published', 'approved'].includes(s.status)).length || 0;
+  const pending = signals?.filter((s: any) => s.status === 'pending').length || 0;
+  const flagged = signals?.filter((s: any) => s.status === 'flagged').length || 0;
+  const published = signals?.filter((s: any) => ['published', 'approved'].includes(s.status)).length || 0;
 
-  const activeSources = sources?.filter(s => s.active && !s.auto_disabled).length || 0;
-  const warningSources = sources?.filter(s => s.consecutive_failures > 0 && s.consecutive_failures < 5).length || 0;
-  const disabledSources = sources?.filter(s => s.auto_disabled).length || 0;
+  const activeSources = sources?.filter((s: any) => s.active && !s.auto_disabled).length || 0;
+  const warningSources = sources?.filter((s: any) => s.consecutive_failures > 0 && s.consecutive_failures < 5).length || 0;
+  const disabledSources = sources?.filter((s: any) => s.auto_disabled).length || 0;
 
   return (
     <main className="min-h-screen bg-[#050505] text-white">
@@ -73,11 +75,12 @@ export default async function AdminDashboard() {
         </header>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
           <StatsCard label="Total Signals" value={total} icon={Radio} color="text-cyan-400" />
           <StatsCard label="Pending Review" value={pending} icon={Clock} color="text-yellow-400" alert={pending > 20} />
           <StatsCard label="Flagged for Video" value={flagged} icon={Video} color="text-purple-400" />
           <StatsCard label="Published" value={published} icon={CheckCircle} color="text-green-400" />
+          <BudgetTracker monthlyLimit={50} />
         </div>
 
         {/* Main Grid */}
@@ -98,20 +101,7 @@ export default async function AdminDashboard() {
             {flaggedSignals && flaggedSignals.length > 0 ? (
               <div className="space-y-3">
                 {flaggedSignals.map((signal: any) => (
-                  <div key={signal.id} className="flex items-center justify-between p-4 rounded-xl bg-black/40 border border-white/5 hover:border-purple-500/30 transition-colors">
-                    <div className="flex-1 min-w-0 mr-4">
-                      <h3 className="font-medium truncate">{signal.headline}</h3>
-                      <p className="text-sm text-gray-500">{signal.sources?.name || signal.source} • {new Date(signal.created_at).toLocaleTimeString()}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link
-                        href={`/articles/${signal.hash || signal.id}`}
-                        className="px-3 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
-                      >
-                        View
-                      </Link>
-                    </div>
-                  </div>
+                  <FlaggedSignalCard key={signal.id} signal={signal} />
                 ))}
               </div>
             ) : (
@@ -178,7 +168,7 @@ export default async function AdminDashboard() {
               </div>
             </div>
 
-            {sources?.filter(s => s.consecutive_failures > 0).slice(0, 3).map((source: any) => (
+            {sources?.filter((s: any) => s.consecutive_failures > 0).slice(0, 3).map((source: any) => (
               <div key={source.id} className="flex items-center gap-2 text-sm py-1 text-yellow-400">
                 <AlertCircle className="w-4 h-4" />
                 {source.name} - {source.consecutive_failures} failures
