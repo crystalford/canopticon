@@ -20,10 +20,11 @@ import { getGlobalSignals } from '@/lib/ingestion'
 export async function runIngestAction() {
   try {
     const result = await getGlobalSignals();
-    console.log(`[Ingest Action] Fetched ${result.length} signals`);
+    const { count } = await supabaseAdmin.from('signals').select('*', { count: 'exact', head: true });
+    console.log(`[Ingest Action] Fetched ${result.length} signals. DB Count: ${count}`);
     revalidatePath('/admin/dashboard');
     revalidatePath('/');
-    return { success: true, count: result.length };
+    return { success: true, count: result.length, dbCount: count };
   } catch (e: any) {
     console.error("[Ingest Action Failed]", e);
     return { success: false, error: e.message || "Unknown Ingest Error" };

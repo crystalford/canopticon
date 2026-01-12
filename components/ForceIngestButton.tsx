@@ -15,7 +15,7 @@ export default function ForceIngestButton() {
         try {
             const result: any = await runIngestAction()
             if (result.success) {
-                alert(`Ingest Complete. Found ${result.count} signals.`);
+                alert(`Ingest Complete. Found ${result.count} signals. (DB Total: ${result.dbCount})`);
                 router.refresh()
             } else {
                 alert("Ingest Failed from Server: " + result.error);
