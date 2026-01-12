@@ -19,45 +19,44 @@ export default function Navigation({ currentPage = 'home' }: NavigationProps) {
       <div className="flex items-center gap-8">
         <div className="flex gap-8 text-sm font-medium text-gray-400">
           {isSignedIn && (
-            <Link
-              href="/admin/dashboard"
-              className={currentPage === 'dashboard' ? 'text-white' : 'text-cyan-400 hover:text-cyan-300 transition-colors'}
-            >
-              Dashboard
-            </Link>
-            </Link>
+            <>
+              <Link
+                href="/admin/dashboard"
+                className={currentPage === 'dashboard' ? 'text-white' : 'text-cyan-400 hover:text-cyan-300 transition-colors'}
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/admin/sources"
+                className={currentPage === 'sources' ? 'text-white' : 'text-gray-400 hover:text-white transition-colors'}
+              >
+                Sources
+              </Link>
+            </>
           )}
-        {isSignedIn && (
           <Link
-            href="/admin/sources"
-            className={currentPage === 'sources' ? 'text-white' : 'text-gray-400 hover:text-white transition-colors'}
+            href="/manifesto"
+            className={currentPage === 'manifesto' ? 'text-white' : 'hover:text-white transition-colors'}
           >
-            Sources
+            Manifesto
           </Link>
-        )}
-        <Link
-          href="/manifesto"
-          className={currentPage === 'manifesto' ? 'text-white' : 'hover:text-white transition-colors'}
-        >
-          Manifesto
-        </Link>
-        <Link
-          href="/signals"
-          className={currentPage === 'signals' ? 'text-white' : 'hover:text-white transition-colors'}
-        >
-          Signals
-        </Link>
-        <Link
-          href="/archive"
-          className={currentPage === 'archive' ? 'text-white' : 'hover:text-white transition-colors'}
-        >
-          Archive
-        </Link>
+          <Link
+            href="/signals"
+            className={currentPage === 'signals' ? 'text-white' : 'hover:text-white transition-colors'}
+          >
+            Signals
+          </Link>
+          <Link
+            href="/archive"
+            className={currentPage === 'archive' ? 'text-white' : 'hover:text-white transition-colors'}
+          >
+            Archive
+          </Link>
+        </div>
+        <div className="border-l border-white/10 pl-8">
+          <AuthButton />
+        </div>
       </div>
-      <div className="border-l border-white/10 pl-8">
-        <AuthButton />
-      </div>
-    </div>
-    </nav >
+    </nav>
   )
 }
