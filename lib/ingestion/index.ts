@@ -65,19 +65,32 @@ export async function getGlobalSignals(): Promise<Signal[]> {
             }
         });
 
+
         // 5. Upsert only NEW signals
         if (signalsToUpsert.length > 0) {
             try {
-                const { error } = await supabaseAdmin.from('signals').upsert(
+                console.log(`[Ingest] Attempting to upsert ${signalsToUpsert.length} signals`);
+                console.log(`[Ingest] Sample payload:`, JSON.stringify(signalsToUpsert[0], null, 2));
+
+                const { error, data } = await supabaseAdmin.from('signals').upsert(
                     signalsToUpsert,
                     { onConflict: 'hash', ignoreDuplicates: true }
                 );
-                if (error) console.error("Failed to persist signals:", error);
-                else console.log(`[Ingest] Persisted ${signalsToUpsert.length} new signals`);
-            } catch (dbError) {
-                console.warn("Database persistence exception");
+
+                if (error) {
+                    console.error("Failed to persist signals - FULL ERROR:", JSON.stringify(error, null, 2));
+                    console.error("Error code:", error.code);
+                    console.error("Error message:", error.message);
+                    console.error("Error details:", error.details);
+                } else {
+                    console.log(`[Ingest] Persisted ${signalsToUpsert.length} new signals`);
+                }
+            } catch (dbError: any) {
+                console.error("Database persistence exception:", dbError);
+                console.error("Exception message:", dbError?.message);
             }
         }
+
 
         // Sort by date descending (Newest first)
         return allSignals.sort((a, b) =>
