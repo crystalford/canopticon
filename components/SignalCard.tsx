@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Signal } from '@/types'
-import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction } from '@/app/actions'
+import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction } from '@/app/actions'
 import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play } from 'lucide-react'
 
 export default function SignalCard({ signal, isAdmin = false }: { signal: Signal; isAdmin?: boolean }) {
@@ -225,18 +225,39 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
 
         {/* Action Button (Admin Only) */}
         {isAdmin && (
-          <button
-            onClick={handleAnalyze}
-            disabled={loading === 'analyze' || !!analysis}
-            className="p-2 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group/btn min-w-[32px] flex justify-center"
-            title="Analyze with AI"
-          >
-            {loading === 'analyze' ? (
-              <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-            ) : (
-              <Zap className={`w-4 h-4 ${analysis ? 'text-green-400' : 'text-gray-500 group-hover/btn:text-cyan-400'} transition-colors`} />
-            )}
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleAnalyze}
+              disabled={loading === 'analyze' || !!analysis}
+              className="p-2 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group/btn min-w-[32px] flex justify-center"
+              title="Analyze with AI"
+            >
+              {loading === 'analyze' ? (
+                <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+              ) : (
+                <Zap className={`w-4 h-4 ${analysis ? 'text-green-400' : 'text-gray-500 group-hover/btn:text-cyan-400'} transition-colors`} />
+              )}
+            </button>
+            <button
+              onClick={async () => {
+                if (confirm('Publish to live site?')) {
+                  setLoading('publish');
+                  await updateSignalStatusAction(signal.id, 'published');
+                  setLoading(null);
+                  // Ideally we'd remove it from view or show success, but for now status update will trigger re-render on refresh
+                }
+              }}
+              disabled={loading === 'publish'}
+              className="p-2 rounded-full hover:bg-green-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed group/btn min-w-[32px] flex justify-center"
+              title="Publish Signal"
+            >
+              {loading === 'publish' ? (
+                <Loader2 className="w-4 h-4 text-green-400 animate-spin" />
+              ) : (
+                <ExternalLink className="w-4 h-4 text-gray-500 group-hover/btn:text-green-400 transition-colors" />
+              )}
+            </button>
+          </div>
         )}
       </div>
     </div>
