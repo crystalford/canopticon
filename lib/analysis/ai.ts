@@ -133,3 +133,41 @@ export async function generateSocialPost(headline: string, content: string): Pro
     return "Error generating post.";
   }
 }
+
+export async function generateTrendTake(topic: string, domain: string = 'General', sentiment: number): Promise<string> {
+  if (!process.env.OPENAI_API_KEY) return "Error: No OpenAI Key";
+
+  const sentimentStr = sentiment < -0.3 ? "Negative/Controversial" : sentiment > 0.3 ? "Positive/Hype" : "Neutral/Discussion";
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a savvy political commentator on X (Twitter). Write a viral, provocative, and insightful "Hot Take" on the trending topic.
+- Topic: ${topic}
+- Domain: ${domain}
+- Current Sentiment: ${sentimentStr}
+
+Guidelines:
+- 1 tweet ONLY (max 280 chars).
+- Be witty, cynical, but smart.
+- If politics, take a "Realist" stance.
+- If tech, be skeptical of hype but optimistic on progress.
+- No hashtags unless it's the trend itself.
+- NO Emoji unless critical for tone.`
+        },
+        {
+          role: "user",
+          content: `Give me a hot take on: ${topic}`
+        }
+      ],
+      temperature: 0.8, // Slightly higher for creativity
+    });
+    return completion.choices[0].message.content || "";
+  } catch (e) {
+    console.error("Trend Take Error", e);
+    return "Error generating take.";
+  }
+}

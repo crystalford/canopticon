@@ -1,6 +1,6 @@
 "use server"
 
-import { analyzeSignal, generateSocialPost } from '@/lib/analysis/ai'
+import { analyzeSignal, generateSocialPost, generateTrendTake } from '@/lib/analysis/ai'
 import { generateThumbnail, generateAudio, generateInfographic } from '@/lib/content/media'
 import { deepResearch } from '@/lib/google'
 import { generateXThread, generateSubstackArticle } from '@/lib/content/formatters'
@@ -437,4 +437,12 @@ export async function getTrendsAction() {
 
   // De-dupe by topic if needed, but for now just raw feed
   return trends;
+}
+
+export async function generateTrendResponseAction(topic: string, domain: string, sentiment: number) {
+  const draft = await generateTrendTake(topic, domain, sentiment);
+  if (!draft || draft.startsWith("Error")) {
+    return { success: false, error: draft || "Failed to generate" };
+  }
+  return { success: true, draft };
 }
