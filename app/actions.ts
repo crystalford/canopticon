@@ -151,10 +151,36 @@ export async function addSourceAction(name: string, url: string) {
 
 export async function toggleSourceAction(id: string, active: boolean) {
   await supabaseAdmin.from('sources').update({ active }).eq('id', id);
+  revalidatePath('/admin/sources');
+}
+
+export async function updateSourceAction(id: string, updates: {
+  max_articles_per_ingest?: number;
+  priority?: number;
+  active?: boolean;
+}) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('sources')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/admin/sources');
+    return { success: true, source: data };
+  } catch (e: any) {
+    return { success: false, error: e.message || "Update failed" };
+  }
 }
 
 export async function deleteSourceAction(id: string) {
   await supabaseAdmin.from('sources').delete().eq('id', id);
+  revalidatePath('/admin/sources');
 }
 
 export async function generateMediaAction(headline: string, script: string) {
