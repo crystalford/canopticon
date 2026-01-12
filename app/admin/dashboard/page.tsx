@@ -4,6 +4,7 @@ import LiquidChromeButton from '@/components/LiquidChromeButton'
 import Navigation from '@/components/Navigation'
 import { getGlobalSignals } from '@/lib/ingestion'
 import SignalCard from '@/components/SignalCard'
+import WireSignal from '@/components/WireSignal'
 
 export default async function MissionControlDashboard() {
   // Fetch Real Data (Server-Side)
@@ -61,68 +62,61 @@ export default async function MissionControlDashboard() {
           ))}
         </div>
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 relative z-10">
-          {/* Live Signal Feed */}
-          <section className="lg:col-span-1 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-white/10 bg-white/[0.02]">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5" />
-                <h2 className="font-semibold text-lg">Live Political Signals</h2>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <div className="divide-y divide-white/5">
-                {signals.length === 0 ? (
-                  <div className="p-6 text-sm text-gray-500 italic">Scanning generic frequencies... (No signals found)</div>
-                ) : (
-                  <div className="divide-y divide-white/5">
-                    {signals.slice(0, 8).map((signal) => (
-                      <SignalCard key={signal.id} signal={signal} isAdmin={true} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
 
-          {/* Intake Log */}
-          <section className="lg:col-span-1 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-white/10 bg-white/[0.02]">
+          {/* THE WIRE (Triage) - 30% width */}
+          <section className="lg:col-span-4 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden shadow-2xl flex flex-col h-[800px]">
+            <div className="p-4 border-b border-white/10 bg-white/[0.02]">
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-500 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
                   </span>
-                  <Inbox className="w-5 h-5" />
+                  <Inbox className="w-4 h-4 text-gray-400" />
                 </div>
-                <h2 className="font-semibold text-lg">Intake Log (Live)</h2>
+                <h2 className="font-semibold text-sm uppercase tracking-wider text-gray-400">The Wire</h2>
+                <span className="ml-auto text-xs bg-white/10 px-2 py-0.5 rounded-full">{pendingSignals.length}</span>
               </div>
             </div>
-            <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto">
-              <div className="p-6 text-sm text-gray-400">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-500" />
-                  <span>System Online</span>
+            <div className="overflow-y-auto flex-1 custom-scrollbar">
+              {pendingSignals.length === 0 ? (
+                <div className="p-6 text-sm text-gray-500 italic text-center">No new signals on the wire.</div>
+              ) : (
+                <div>
+                  {pendingSignals.map((signal) => (
+                    <WireSignal key={signal.id} signal={signal} />
+                  ))}
                 </div>
-                <p className="text-gray-600">Connected to Canadian Political Feeds: CBC, CTV, Global.</p>
+              )}
+            </div>
+          </section>
+
+          {/* EDITORIAL DESK (Production) - 70% width */}
+          <section className="lg:col-span-8 rounded-3xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden shadow-2xl flex flex-col h-[800px]">
+            <div className="p-4 border-b border-white/10 bg-white/[0.02]">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-cyan-400" />
+                <h2 className="font-semibold text-sm uppercase tracking-wider text-gray-400">Editorial Desk</h2>
+                <span className="ml-auto text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">{signals.filter(s => s.status === 'processing').length} Active</span>
               </div>
-              {recentLogs.map((log) => (
-                <div key={log.id} className="p-6 group hover:bg-white/[0.02] transition-colors">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle2 className="w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-sm">RSS Ingester</span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(log.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400">Ingested {log.itemsCount} signals from configured sources.</p>
-                    </div>
+            </div>
+            <div className="overflow-y-auto flex-1 custom-scrollbar p-0">
+              {signals.filter(s => s.status === 'processing').length === 0 ? (
+                <div className="p-12 text-center">
+                  <div className="inline-flex justify-center items-center w-16 h-16 rounded-full bg-white/5 mb-4">
+                    <CheckCircle2 className="w-8 h-8 text-gray-600" />
                   </div>
+                  <p className="text-gray-500">Editorial desk is clear.</p>
+                  <p className="text-xs text-gray-600 mt-1">Approve signals from the wire to begin production.</p>
                 </div>
-              ))}
+              ) : (
+                <div className="divide-y divide-white/5">
+                  {signals.filter(s => s.status === 'processing').map((signal) => (
+                    <SignalCard key={signal.id} signal={signal} isAdmin={true} />
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         </div>

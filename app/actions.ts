@@ -10,6 +10,14 @@ import { Signal } from '@/types' // Assuming Signal type is needed if we pass fu
 
 import { savePublication, getPublications } from '@/lib/content/persistence'
 
+export async function updateSignalStatusAction(signalId: string, status: 'pending' | 'processing' | 'published' | 'archived') {
+  await supabase
+    .from('signals')
+    .update({ status })
+    .eq('hash', signalId);
+}
+
+
 export async function getSignalPublicationsAction(signalHash: string) {
   const pubs = await getPublications(signalHash);
   return pubs;
