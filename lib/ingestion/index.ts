@@ -9,8 +9,10 @@ export async function getGlobalSignals(): Promise<Signal[]> {
         fetchRSS(),
         fetchParliamentBills()
     ]);
+    // console.log(`[Ingest] Fetched ${rssSignals.length} RSS, ${parliamentSignals.length} Bills`);
 
     const allSignals = [...parliamentSignals, ...rssSignals];
+    // console.log(`[Ingest] Total Live Signals: ${allSignals.length}`);
 
     // Persist to Database (Fire and Forget to not slow down UI too much, 
     // or await if we want strict consistency)
@@ -53,6 +55,7 @@ export async function getGlobalSignals(): Promise<Signal[]> {
             allSignals.forEach(s => {
                 const dbSignal = dbMap.get(s.id);
                 if (dbSignal) {
+                    console.log(`[Ingest] Merging DB state for ${s.id}: ${dbSignal.status}`);
                     // @ts-ignore
                     s.status = dbSignal.status;
                     // @ts-ignore
