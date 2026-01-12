@@ -446,3 +446,34 @@ export async function generateTrendResponseAction(topic: string, domain: string,
   }
   return { success: true, draft };
 }
+
+// Article Editor Action
+export async function updateArticleAction(signalId: string, updates: {
+  headline?: string;
+  ai_summary?: string;
+  raw_content?: string;
+  metadata?: any;
+  ai_script?: string;
+}) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('signals')
+      .update(updates)
+      .eq('id', signalId)
+      .select()
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/admin/content');
+    revalidatePath(`/admin/content/${signalId}/edit`);
+    revalidatePath(`/articles/${data.hash}`);
+
+    return { success: true, signal: data };
+  } catch (e: any) {
+    return { success: false, error: e.message || "Update failed" };
+  }
+}
+

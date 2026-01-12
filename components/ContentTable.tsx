@@ -183,6 +183,13 @@ function ContentRow({ signal, isExpanded, onToggle, onPublish, onUnpublish, onDe
                         <div className="flex flex-wrap items-center gap-3 pt-2">
                             {isDraft && (
                                 <>
+                                    <a
+                                        href={`/admin/content/${signal.id}/edit`}
+                                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-sm transition-colors border border-cyan-500/20"
+                                    >
+                                        <Edit className="w-4 h-4" />
+                                        Edit
+                                    </a>
                                     <button
                                         onClick={onPublish}
                                         className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg text-sm transition-colors"
@@ -211,6 +218,13 @@ function ContentRow({ signal, isExpanded, onToggle, onPublish, onUnpublish, onDe
 
                             {isPublished && (
                                 <>
+                                    <a
+                                        href={`/admin/content/${signal.id}/edit`}
+                                        className="flex items-center gap-2 px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-sm transition-colors border border-cyan-500/20"
+                                    >
+                                        <Edit className="w-4 h-4" />
+                                        Edit
+                                    </a>
                                     <a
                                         href={`/articles/${signal.hash || signal.id}`}
                                         target="_blank"

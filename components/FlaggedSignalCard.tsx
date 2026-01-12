@@ -146,10 +146,10 @@ ${mats.angles?.length > 0
                 )}
 
                 <Link
-                    href={`/articles/${signal.hash || signal.id}`}
-                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                    href={`/admin/content/${signal.id}/edit`}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg border border-cyan-500/20 transition-colors"
                 >
-                    <ExternalLink className="w-3 h-3" /> View
+                    <ExternalLink className="w-3 h-3" /> Edit
                 </Link>
             </div>
         </div>
