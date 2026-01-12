@@ -7,8 +7,8 @@ import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, 
 
 export default function SignalCard({ signal, isAdmin = false }: { signal: Signal; isAdmin?: boolean }) {
   const [analysis, setAnalysis] = useState<{ summary: string; script: string } | null>(null)
-  const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string; thread?: string[]; article?: string }>({})
-  const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio' | 'thread' | 'article'
+  const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string; thread?: string[]; article?: string; infographicUrl?: string }>({})
+  const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio' | 'thread' | 'article' | 'infographic' | 'publish'
 
   // Hydrate state from DB
   useEffect(() => {
@@ -173,6 +173,17 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
                 </div>
               </div>
 
+              {media.infographicUrl && (
+                <div className="mb-4 rounded-lg overflow-hidden border border-white/10 relative group">
+                  <img src={media.infographicUrl} alt="Generated Infographic" className="w-full h-auto object-cover max-h-96" />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <a href={media.infographicUrl} download target="_blank" rel="noreferrer" className="bg-black/80 hover:bg-black text-white px-3 py-1 rounded text-xs flex items-center gap-1">
+                      <ImageIcon className="w-3 h-3" /> Download Chart
+                    </a>
+                  </div>
+                </div>
+              )}
+
               {/* Thread Result */}
               {media.thread && (
                 <div className="mt-3 p-3 bg-black/20 rounded border-l-2 border-blue-500/50">
@@ -211,6 +222,13 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
                   >
                     {loading === 'audio' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Volume2 className="w-3 h-3" />}
                     Voice
+                  </button>
+                  <button
+                    onClick={handleInfographic}
+                    disabled={loading === 'infographic' || !!media.infographicUrl}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 text-xs font-medium text-cyan-300 transition-colors disabled:opacity-50"
+                  >
+                    {loading === 'infographic' ? <Loader2 className="w-3 h-3 animate-spin" /> : <BarChart className="w-3 h-3" />} Data Viz
                   </button>
                   <div className="w-px h-6 bg-white/10 mx-1"></div>
                   <button
