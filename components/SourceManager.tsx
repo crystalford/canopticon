@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, Trash2, Power, Globe, Rss } from 'lucide-react'
 import { supabase } from '@/lib/supabase' // Start using client connection for simple toggles or move to actions if needed
 
@@ -17,6 +18,7 @@ export default function SourceManager({ initialSources }: { initialSources: any[
     const [url, setUrl] = useState('')
     const [name, setName] = useState('')
     const [loading, setLoading] = useState(false)
+    const router = useRouter()
 
     const handleAdd = async () => {
         if (!url || !name) return;
@@ -34,6 +36,8 @@ export default function SourceManager({ initialSources }: { initialSources: any[
         // Optimistic update
         setSources(sources.map(s => s.id === id ? { ...s, active: !currentState } : s))
         await toggleSourceAction(id, !currentState)
+        // Force server re-fetch to ensure state stays synced
+        router.refresh()
     }
 
     const handleDelete = async (id: string) => {

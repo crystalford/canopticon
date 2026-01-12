@@ -14,9 +14,7 @@ export default async function ArchivePage() {
   const { data: signals } = await supabaseAdmin
     .from('signals')
     .select('*, sources(name, category)')
-    .in('status', ['published', 'approved', 'archived']) // Show essentially everything except trash/pending? Or just Approved?
-    // Tech Spec says: "Auto-Publishing Logic: APPROVED signals -> published_archive"
-    // So we show 'published' and 'approved'
+    // Auto-Publishing Logic: Show APPROVED and PUBLISHED signals
     .in('status', ['published', 'approved'])
     .order('published_at', { ascending: false })
     .limit(100);

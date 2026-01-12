@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import FlaggedSignalCard from '@/components/FlaggedSignalCard'
 import BudgetTracker from '@/components/BudgetTracker'
+import ForceIngestButton from '@/components/ForceIngestButton'
 
 export default async function AdminDashboard() {
   const isAdmin = await isUserAdmin();
@@ -69,9 +70,12 @@ export default async function AdminDashboard() {
 
       <div className="pt-24 pb-16 px-4 max-w-[1600px] mx-auto">
         {/* Header */}
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Mission Control</h1>
-          <p className="text-gray-400">Your morning command center. What needs attention today.</p>
+        <header className="mb-8 flex justify-between items-end">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Mission Control</h1>
+            <p className="text-gray-400">Your morning command center. What needs attention today.</p>
+          </div>
+          <ForceIngestButton />
         </header>
 
         {/* Stats Row */}

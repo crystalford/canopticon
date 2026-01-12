@@ -57,6 +57,8 @@ export async function updateSignalStatusAction(signalId: string, status: 'pendin
     }
 
     revalidatePath('/admin/dashboard');
+    revalidatePath('/admin/review/pending');
+    revalidatePath('/archive');
     revalidatePath('/');
 
     return { success: true };
