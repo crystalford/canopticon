@@ -12,7 +12,7 @@ export interface Signal {
   cluster_id?: string;
 
   // Analysis
-  status: 'pending' | 'approved' | 'flagged' | 'rejected' | 'archived' | 'published' | 'processing';
+  status: 'pending' | 'draft' | 'flagged' | 'rejected' | 'deleted' | 'published' | 'processing';
   priority?: 'critical' | 'high' | 'normal' | 'low';
   analysis?: any; // JSONB for full analysis object
 

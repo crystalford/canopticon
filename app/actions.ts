@@ -31,7 +31,7 @@ export async function runIngestAction() {
   }
 }
 
-export async function updateSignalStatusAction(signalId: string, status: 'pending' | 'processing' | 'published' | 'archived' | 'approved') {
+export async function updateSignalStatusAction(signalId: string, status: 'pending' | 'processing' | 'published' | 'deleted' | 'draft') {
   // if (!await isUserAdmin()) throw new Error("Unauthorized");
   try {
     const { data: updatedData, error } = await supabaseAdmin
@@ -47,7 +47,7 @@ export async function updateSignalStatusAction(signalId: string, status: 'pendin
     if (updatedData) {
       for (const signal of updatedData) {
         // Auto-generate summary for approved/published signals if missing
-        if ((status === 'published' || status === 'approved') &&
+        if ((status === 'published' || status === 'draft') &&
           (!signal.ai_summary || signal.ai_summary.length < 100)) {
           console.log(`[Auto-Analyze] generating summary for ${signal.headline}`);
           // Await here to ensure archive view sees the summary immediately
@@ -278,8 +278,8 @@ export async function runTriageAction(signalId: string, currentSignal: Signal) {
 
   // 2. Auto-act based on recommendation
   let newStatus = currentSignal.status;
-  if (triage.recommended_action === 'approve') newStatus = 'approved'; // Changed to intermediate approved
-  if (triage.recommended_action === 'archive') newStatus = 'archived'; // Bin
+  if (triage.recommended_action === 'approve') newStatus = 'draft';
+  if (triage.recommended_action === 'archive') newStatus = 'deleted';
 
   // 3. Update DB
   if (triage.recommended_action !== 'review') {
@@ -320,8 +320,8 @@ export async function runBatchTriageAction() {
     processed++;
 
     let newStatus = 'pending';
-    if (triage.recommended_action === 'approve') { newStatus = 'approved'; approved++; }
-    if (triage.recommended_action === 'archive') { newStatus = 'archived'; archived++; }
+    if (triage.recommended_action === 'approve') { newStatus = 'draft'; approved++; }
+    if (triage.recommended_action === 'archive') { newStatus = 'deleted'; archived++; }
 
     // 3. Update DB
     const updatePayload: any = {

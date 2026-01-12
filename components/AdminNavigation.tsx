@@ -3,10 +3,10 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
-import { LayoutDashboard, Inbox, Settings, Shield, Radio, ExternalLink, Mic2, TrendingUp } from "lucide-react"
+import { LayoutDashboard, Inbox, Settings, Shield, Radio, ExternalLink, FileText, TrendingUp } from "lucide-react"
 import { UserButton } from "@clerk/nextjs"
 
-type CurrentPage = 'dashboard' | 'review' | 'settings' | 'sources' | 'studio' | 'trends';
+type CurrentPage = 'dashboard' | 'review' | 'settings' | 'sources' | 'content' | 'trends';
 
 export default function AdminNavigation({ currentPage }: { currentPage: CurrentPage }) {
     const pathname = usePathname();
@@ -14,7 +14,7 @@ export default function AdminNavigation({ currentPage }: { currentPage: CurrentP
     const adminLinks = [
         { name: 'Dashboard', href: '/admin/dashboard', id: 'dashboard', icon: LayoutDashboard },
         { name: 'Review', href: '/admin/review/pending', id: 'review', icon: Inbox },
-        { name: 'Studio', href: '/admin/studio', id: 'studio', icon: Mic2 },
+        { name: 'Content', href: '/admin/content', id: 'content', icon: FileText },
         { name: 'Social', href: '/admin/trends', id: 'trends', icon: TrendingUp },
         { name: 'Settings', href: '/admin/settings', id: 'settings', icon: Settings },
     ];
