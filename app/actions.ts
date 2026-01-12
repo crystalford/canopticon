@@ -30,10 +30,10 @@ export async function updateSignalStatusAction(signalId: string, status: 'pendin
     const { error } = await supabaseAdmin
       .from('signals')
       .update({ status })
-      .eq('id', signalId);
+      .eq('hash', signalId);
 
     if (status === 'published') {
-      const { data: signal } = await supabaseAdmin.from('signals').select('*').eq('id', signalId).single();
+      const { data: signal } = await supabaseAdmin.from('signals').select('*').eq('hash', signalId).single();
       if (signal) {
         triggerUplink(signal).catch(e => console.error(e));
       }
@@ -201,7 +201,7 @@ export async function runTriageAction(signalId: string, currentSignal: Signal) {
     const { error } = await supabaseAdmin
       .from('signals')
       .update({ status: newStatus })
-      .eq('id', signalId);
+      .eq('hash', signalId);
 
     if (error) console.error("Auto-Triage Update Failed:", error);
   }
@@ -238,7 +238,7 @@ export async function runBatchTriageAction() {
       await supabaseAdmin
         .from('signals')
         .update({ status: newStatus })
-        .eq('id', signal.id);
+        .eq('hash', signal.id);
     }
   }
 
