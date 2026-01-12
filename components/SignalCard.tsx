@@ -45,8 +45,9 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
     try {
       const result = await analyzeSignalAction(signal.headline, signal.summary || signal.headline)
       setAnalysis(result)
-    } catch (e) {
+    } catch (e: any) {
       console.error(e)
+      alert("Analysis Failed: " + (e.message || "Unknown Error"));
     } finally {
       setLoading(null)
     }

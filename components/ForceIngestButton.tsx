@@ -15,8 +15,9 @@ export default function ForceIngestButton() {
         try {
             await runIngestAction()
             router.refresh()
-        } catch (error) {
+        } catch (error: any) {
             console.error("Ingest Failed:", error)
+            alert("Ingest Failed: " + (error.message || "Unknown error"));
         } finally {
             setLoading(false)
         }

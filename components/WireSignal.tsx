@@ -17,8 +17,9 @@ export default function WireSignal({ signal, isAdmin = false }: { signal: Signal
         try {
             await updateSignalStatusAction(signal.id, status)
             router.refresh()
-        } catch (e) {
+        } catch (e: any) {
             console.error(e)
+            alert("Ingest Failed: " + (e.message || "Unknown error"));
         } finally {
             setLoading(false)
         }
