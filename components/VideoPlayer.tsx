@@ -45,6 +45,7 @@ export default function VideoPlayer({ script, autoPlay = false }: VideoPlayerPro
             }, 100)
         }
         return () => clearInterval(interval)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isPlaying, currentScene])
 
     // Effect to handle scene transitions based on progress

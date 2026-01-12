@@ -52,7 +52,7 @@ export default function WatchmanWidget() {
                 {briefing ? (
                     <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
                         <div className="bg-purple-900/10 rounded-xl p-5 border border-purple-500/10">
-                            <h3 className="text-xl font-serif text-white mb-2 leading-tight">"{briefing.narrative}"</h3>
+                            <h3 className="text-xl font-serif text-white mb-2 leading-tight">&quot;{briefing.narrative}&quot;</h3>
                             <div className="flex flex-wrap gap-2 mt-4">
                                 {briefing.key_themes.map((theme, i) => (
                                     <span key={i} className="text-[10px] uppercase font-bold tracking-wider text-purple-200 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/10">

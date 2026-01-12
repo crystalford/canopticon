@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Signal } from '@/types'
 import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction, analyzeSignalDeepAction, generateVideoScriptAction, saveSignalPublicationAction } from '@/app/actions'
 import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, BarChart, BrainCircuit, Clapperboard, Save, Edit2 } from 'lucide-react'
+/* eslint-disable @next/next/no-img-element */
 import { VideoScene } from '@/lib/content/video'
 import VideoPlayer from './VideoPlayer'
 
