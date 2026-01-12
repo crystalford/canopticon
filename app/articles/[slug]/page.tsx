@@ -9,17 +9,15 @@ import { notFound } from 'next/navigation'
 //   return [] 
 // }
 
-export default async function ArticlePage({ params }: { params: { slug: string } }) {
-    // For MVP, we might treat ID as slug or have a slug field.
-    // Schema has 'slug'.
-    // If slug not found, try ID or hash?
-
-    // Note: We don't have a robust 'articles' table population logic yet (Phase 1 auto-publish isn't fully creating article rows yet, just using signals).
-    // So for now, this page might 404 unless we manually populate 'articles'.
-    // Alternatively, we can fetch from 'signals' using hash if we treat shared links as such.
-
-    // Let's assume we are linking to this page via ID for Phase 1.
+export default async function ArticlePage({
+    params,
+    searchParams
+}: {
+    params: { slug: string }
+    searchParams: { preview?: string }
+}) {
     const { slug } = params;
+    const isPreview = searchParams.preview === 'true';
 
     // Try to find article
     const { data: article } = await supabaseAdmin
@@ -28,12 +26,25 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         .eq('slug', slug)
         .single();
 
+    // Fallback: Try treating slug as signal hash/ID
+    let signal = null;
     if (!article) {
-        // Fallback: Try to find signal by hash if 'slug' is actually a hash
-        const { data: signal } = await supabaseAdmin.from('signals').select('*').eq('hash', slug).single();
-        if (!signal) notFound();
+        const { data: signalData } = await supabaseAdmin
+            .from('signals')
+            .select('*, sources(name)')
+            .or(`hash.eq.${slug},id.eq.${slug}`)
+            .single();
 
-        // Render Signal View
+        signal = signalData;
+
+        // If not found in signals either, 404
+        if (!signal) notFound();
+    }
+
+    const content = article || signal;
+
+    // If we have a signal but no article, render the signal view
+    if (signal && !article) {
         return (
             <main className="min-h-screen bg-[#050505] text-white">
                 <Navigation currentPage="archive" />
@@ -54,6 +65,16 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     return (
         <main className="min-h-screen bg-[#050505] text-white">
             <Navigation currentPage="archive" />
+
+            {/* Preview Warning Banner */}
+            {isPreview && (
+                <div className="bg-yellow-500/20 border-b border-yellow-500/30 py-3 px-4 text-center">
+                    <p className="text-sm font-semibold text-yellow-400">
+                        ⚠️ PREVIEW MODE - This article is not published
+                    </p>
+                </div>
+            )}
+
             <div className="pt-32 px-4 max-w-3xl mx-auto">
                 <Link href="/archive" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-white mb-8 transition-colors">
                     <ArrowLeft className="w-4 h-4" /> Back to Archive

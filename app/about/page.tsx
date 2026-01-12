@@ -3,7 +3,7 @@ import { Shield, Radio, Zap, Video, BarChart3 } from 'lucide-react'
 
 export const metadata = {
     title: 'About - CANOPTICON',
-    description: 'High-signal political intelligence for Canadian conservatives.',
+    description: 'AI-powered political intelligence for Canadian content creators and analysts.',
 }
 
 export default function AboutPage() {
@@ -20,7 +20,7 @@ export default function AboutPage() {
                     </div>
                     <h1 className="text-4xl font-bold mb-4">About CANOPTICON</h1>
                     <p className="text-xl text-gray-400">
-                        High-signal political intelligence for Canadian conservatives.
+                        AI-powered political intelligence for content creators and analysts.
                     </p>
                 </header>
 
@@ -33,7 +33,7 @@ export default function AboutPage() {
                         </h2>
                         <p className="text-gray-300 leading-relaxed">
                             CANOPTICON is an AI-powered political intelligence platform designed to cut through the noise
-                            and surface high-impact political signals for Canadian conservative creators and strategists.
+                            and surface high-impact political signals for Canadian content creators, journalists, and analysts.
                         </p>
                     </section>
 
@@ -82,8 +82,8 @@ export default function AboutPage() {
                             For Content Creators
                         </h2>
                         <p className="text-gray-300 leading-relaxed">
-                            CANOPTICON helps conservative creators identify high-impact stories for TikTok, YouTube, and other platforms.
-                            Our AI generates video scripts, talking points, and strategic angles to maximize engagement.
+                            CANOPTICON helps content creators identify high-impact political stories for TikTok, YouTube, and other platforms.
+                            Our AI generates video scripts, talking points, and strategic angles based on deep analysis of bias, rhetoric, and fallacies.
                         </p>
                     </section>
 
