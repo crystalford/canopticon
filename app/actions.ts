@@ -2,6 +2,7 @@
 
 import { analyzeSignal } from '@/lib/analysis/ai'
 import { generateThumbnail, generateAudio, generateInfographic } from '@/lib/content/media'
+import { deepResearch } from '@/lib/google'
 import { generateXThread, generateSubstackArticle } from '@/lib/content/formatters'
 import { supabase } from '@/lib/supabase'
 import { Signal } from '@/types' // Assuming Signal type is needed if we pass full object, checking imports
@@ -90,4 +91,19 @@ export async function analyzeSignalAction(headline: string, content: string) {
     .eq('headline', headline);
 
   return result;
+}
+
+export async function analyzeSignalDeepAction(signalHash: string, content: string) {
+  const deepDive = await deepResearch(content);
+  if (deepDive) {
+    // We can store this as a specialized 'deep_dive' publication or just update the signal
+    // For now, let's store it as a 'article' type but maybe prefix it, or just use a new 'deep_dive' type?
+    // Let's reuse 'article' for now but distinct in UI, or actually 'deep_dive' is better if we update types.
+    // Let's stick to saving it as a publication of type 'article' with a special note?
+    // Actually, user wants "NotebookLM" style, which is often a report.
+    // Let's store it as 'article' for now to keep it simple, or update types.
+    // Let's update types to include 'deep_dive' later. For now, return it.
+    await savePublication(signalHash, 'article', deepDive); // Re-using article for persistence
+  }
+  return deepDive;
 }
