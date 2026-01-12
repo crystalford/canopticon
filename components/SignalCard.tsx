@@ -113,6 +113,15 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
     finally { setLoading(null) }
   }
 
+  const handleVideoScript = async () => {
+    setLoading('video')
+    try {
+      const script = await generateVideoScriptAction(signal.id, signal.headline, signal.summary || '');
+      if (script) setMedia(prev => ({ ...prev, videoScript: script }));
+    } catch (e) { console.error(e) }
+    finally { setLoading(null) }
+  }
+
   return (
     <div className="group hover:bg-white/[0.02] transition-colors p-6 border-b border-white/5 last:border-0">
       <div className="flex items-start justify-between gap-4">
