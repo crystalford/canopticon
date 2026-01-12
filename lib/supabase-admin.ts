@@ -10,11 +10,21 @@ if (!supabaseServiceKey) {
 
 // this client should ONLY be used in Server Actions or API routes
 // NEVER import this in a Client Component
-export const supabaseAdmin = (supabaseUrl && supabaseServiceKey)
-    ? createClient(supabaseUrl, supabaseServiceKey, {
+export const supabaseAdmin = (() => {
+    if (!supabaseUrl || !supabaseServiceKey) {
+        console.error("FATAL: Missing SUPABASE_SERVICE_ROLE_KEY or URL. Admin actions will fail.");
+        // We return a proxy that throws on any access to alert the developer immediately
+        return new Proxy({} as any, {
+            get: () => { throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY. Please verify your .env.local or deployment variables."); }
+        });
+    }
+
+    console.log(`[Supabase Admin] Initializing with URL: ${supabaseUrl}`);
+
+    return createClient(supabaseUrl, supabaseServiceKey, {
         auth: {
             autoRefreshToken: false,
             persistSession: false
         }
-    })
-    : createClient('https://placeholder.supabase.co', 'placeholder')
+    });
+})();
