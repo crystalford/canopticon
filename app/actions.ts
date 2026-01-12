@@ -103,7 +103,7 @@ export async function analyzeSignalDeepAction(signalHash: string, content: strin
     // Actually, user wants "NotebookLM" style, which is often a report.
     // Let's store it as 'article' for now to keep it simple, or update types.
     // Let's update types to include 'deep_dive' later. For now, return it.
-    await savePublication(signalHash, 'article', deepDive); // Re-using article for persistence
+    await savePublication(signalHash, 'research', deepDive); // Save as specialized research type
   }
   return deepDive;
 }

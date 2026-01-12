@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { Signal } from '@/types'
-import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction } from '@/app/actions'
-import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, BarChart } from 'lucide-react'
+import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction, analyzeSignalDeepAction } from '@/app/actions'
+import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, BarChart, BrainCircuit } from 'lucide-react'
 
 export default function SignalCard({ signal, isAdmin = false }: { signal: Signal; isAdmin?: boolean }) {
   const [analysis, setAnalysis] = useState<{ summary: string; script: string } | null>(null)
-  const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string; thread?: string[]; article?: string; infographicUrl?: string }>({})
-  const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio' | 'thread' | 'article' | 'infographic' | 'publish'
+  const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string; thread?: string[]; article?: string; infographicUrl?: string; research?: string }>({})
+  const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio' | 'thread' | 'article' | 'infographic' | 'research' | 'publish'
 
   // Hydrate state from DB
   useEffect(() => {
@@ -29,6 +29,7 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
         if (p.type === 'thread') newMedia.thread = p.content;
         if (p.type === 'article') newMedia.article = p.content;
         if (p.type === 'infographic') newMedia.infographicUrl = p.content;
+        if (p.type === 'research') newMedia.research = p.content;
       });
       setMedia(prev => ({ ...prev, ...newMedia }));
     };
@@ -206,6 +207,19 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
                 </div>
               )}
 
+              {/* Research Result */}
+              {media.research && (
+                <div className="mt-3 p-4 bg-purple-900/10 rounded-xl border border-purple-500/30">
+                  <div className="flex items-center gap-2 mb-3 border-b border-purple-500/20 pb-2">
+                    <BrainCircuit className="w-4 h-4 text-purple-400" />
+                    <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">Gemini 1.5 Pro Deep Dive</span>
+                  </div>
+                  <div className="text-xs text-purple-100 font-sans whitespace-pre-wrap leading-relaxed">
+                    {media.research}
+                  </div>
+                </div>
+              )}
+
               {/* Generation Controls (Admin Only) */}
               {isAdmin && (
                 <div className="flex flex-wrap gap-2 mt-3 p-2 bg-white/5 rounded-lg">
@@ -244,6 +258,14 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
                   >
                     {loading === 'article' ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
                     Article
+                  </button>
+                  <div className="w-px h-6 bg-white/10 mx-1"></div>
+                  <button
+                    onClick={handleDeepResearch} disabled={loading === 'research' || !!media.research}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded bg-purple-500/20 hover:bg-purple-500/30 text-xs font-medium text-purple-300 transition-colors disabled:opacity-50 border border-purple-500/20"
+                  >
+                    {loading === 'research' ? <Loader2 className="w-3 h-3 animate-spin" /> : <BrainCircuit className="w-3 h-3" />}
+                    Deep Search
                   </button>
                 </div>
               )}
