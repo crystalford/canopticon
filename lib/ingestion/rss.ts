@@ -1,14 +1,9 @@
 import Parser from 'rss-parser';
 import { Signal } from '@/types';
 import crypto from 'crypto';
+import { supabase } from '@/lib/supabase';
 
 const parser = new Parser();
-
-const SOURCES = [
-    { name: 'CBC Politics', url: 'https://www.cbc.ca/cmlink/rss-politics' },
-    { name: 'Global News Politics', url: 'https://globalnews.ca/politics/feed/' },
-    { name: 'CTV News Politics', url: 'https://www.ctvnews.ca/rss/ctvnews-ca-politics-public-xml-1.822302' }
-];
 
 function generateHash(str: string): string {
     return crypto.createHash('md5').update(str).digest('hex');
@@ -17,22 +12,32 @@ function generateHash(str: string): string {
 export async function fetchAllFeeds(): Promise<Signal[]> {
     const allSignals: Signal[] = [];
 
-    const promises = SOURCES.map(async (source) => {
+    // Fetch sources from Supabase
+    const { data: sources, error } = await supabase
+        .from('sources')
+        .select('*')
+        .eq('active', true);
+
+    if (error || !sources) {
+        console.error("Failed to fetch RSS sources:", error);
+        return [];
+    }
+
+    const promises = sources.map(async (source) => {
         try {
             const feed = await parser.parseURL(source.url);
 
             const signals: Signal[] = feed.items.map((item) => {
                 const hash = generateHash(item.link || item.title || '');
 
-                // Basic Entity Extraction (Naive implementation for MVP)
-                const content = (item.content || item.contentSnippet || '').toLowerCase();
+                // Content extraction (fallback hierarchy)
+                const rawContent = (item.content || item.contentSnippet || '').toLowerCase();
                 const entities: string[] = [];
-                if (content.includes('trudeau')) entities.push('Justin Trudeau');
-                if (content.includes('poilievre')) entities.push('Pierre Poilievre');
-                if (content.includes('jagmeet') || content.includes('singh')) entities.push('Jagmeet Singh');
-                if (content.includes('housing')) entities.push('Housing');
-                if (content.includes('inflation')) entities.push('Inflation');
-                if (content.includes('tax')) entities.push('Tax');
+                // Simple Entity Recognition
+                if (rawContent.includes('trudeau')) entities.push('Justin Trudeau');
+                if (rawContent.includes('poilievre')) entities.push('Pierre Poilievre');
+                if (rawContent.includes('housing')) entities.push('Housing');
+                if (rawContent.includes('inflation')) entities.push('Inflation');
 
                 return {
                     id: hash,
@@ -42,10 +47,10 @@ export async function fetchAllFeeds(): Promise<Signal[]> {
                     source: source.name,
                     publishedAt: item.isoDate || new Date().toISOString(),
                     summary: item.contentSnippet || '',
-                    priority: 'medium', // Default
+                    priority: 'medium',
                     status: 'pending',
                     entities: entities,
-                    topics: [],
+                    topics: [source.category || 'politics'],
                     rawContent: item.content
                 };
             });
@@ -60,7 +65,6 @@ export async function fetchAllFeeds(): Promise<Signal[]> {
     const results = await Promise.all(promises);
     results.forEach(batch => allSignals.push(...batch));
 
-    // Sort by date descending
     return allSignals.sort((a, b) =>
         new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
     );
