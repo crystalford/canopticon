@@ -417,7 +417,10 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
               onClick={async () => {
                 if (confirm('Publish to live site?')) {
                   setLoading('publish');
-                  await updateSignalStatusAction(signal.id, 'published');
+                  const result: any = await updateSignalStatusAction(signal.id, 'published');
+                  if (!result.success) {
+                    alert('Publish failed: ' + result.error);
+                  }
                   setLoading(null);
                   // Ideally we'd remove it from view or show success, but for now status update will trigger re-render on refresh
                 }
