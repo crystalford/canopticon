@@ -3,7 +3,8 @@ import SignalCard from '@/components/SignalCard'
 import Navigation from '@/components/Navigation'
 
 export default async function PublicSignalsPage() {
-    const signals = await getGlobalSignals();
+    const allSignals = await getGlobalSignals();
+    const signals = allSignals.filter(s => s.status === 'published');
 
     return (
         <div className="min-h-screen bg-[#050505] text-white">
