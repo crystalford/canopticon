@@ -12,14 +12,14 @@ export default async function PublicHomepage() {
   const { data: featuredSignals } = await supabaseAdmin
     .from('signals')
     .select('*, sources(name)')
-    .in('status', ['published', 'approved'])
+    .eq('status', 'published')
     .order('confidence_score', { ascending: false }) // Show highest impact first
     .limit(3);
 
   const { data: recentSignals } = await supabaseAdmin
     .from('signals')
     .select('*, sources(name)')
-    .in('status', ['published', 'approved'])
+    .eq('status', 'published')
     .order('published_at', { ascending: false })
     .limit(6);
 

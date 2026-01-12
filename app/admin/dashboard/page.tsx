@@ -38,7 +38,7 @@ export default async function AdminDashboard() {
   const { data: recentPublished } = await supabaseAdmin
     .from('signals')
     .select('*, sources(name)')
-    .in('status', ['published', 'approved'])
+    .eq('status', 'published')
     .order('created_at', { ascending: false })
     .limit(5);
 
@@ -52,7 +52,7 @@ export default async function AdminDashboard() {
   const total = signals?.length || 0;
   const pending = signals?.filter((s: any) => s.status === 'pending').length || 0;
   const flagged = signals?.filter((s: any) => s.status === 'flagged').length || 0;
-  const published = signals?.filter((s: any) => ['published', 'approved'].includes(s.status)).length || 0;
+  const published = signals?.filter((s: any) => s.status === 'published').length || 0;
 
   const activeSources = sources?.filter((s: any) => s.active && !s.auto_disabled).length || 0;
   const warningSources = sources?.filter((s: any) => s.consecutive_failures > 0 && s.consecutive_failures < 5).length || 0;

@@ -68,14 +68,11 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
 
         try {
             if (action === 'approve') {
-                await updateSignalStatusAction(targetId, 'published');
-                toast.success("Signal approved.");
+                await updateSignalStatusAction(targetId, 'approved');
+                toast.success("Sent to Studio.");
             } else if (action === 'reject') {
                 await updateSignalStatusAction(targetId, 'archived');
                 toast.info("Signal rejected.");
-            } else if (action === 'flag') {
-                await flagSignalAction(targetId);
-                toast.success("Signal flagged! Generating materials in background.");
             }
 
             // Remove from queue
@@ -232,14 +229,7 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
                             disabled={processing}
                             className="flex items-center gap-1 px-3 py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
                         >
-                            <Check className="w-3 h-3" /> Approve
-                        </button>
-                        <button
-                            onClick={() => handleBulkAction('flag')}
-                            disabled={processing}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-                        >
-                            <Video className="w-3 h-3" /> Flag
+                            <Check className="w-3 h-3" /> To Studio
                         </button>
                         <button
                             onClick={() => handleBulkAction('reject')}
@@ -416,21 +406,12 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
                                 </button>
 
                                 <button
-                                    onClick={() => handleAction('flag')}
-                                    disabled={processing}
-                                    className="flex flex-col items-center justify-center p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 transition-all disabled:opacity-50"
-                                >
-                                    <Video className="w-5 h-5 text-purple-400 mb-1" />
-                                    <span className="text-sm font-medium text-purple-400">Video [F]</span>
-                                </button>
-
-                                <button
                                     onClick={() => handleAction('approve')}
                                     disabled={processing}
-                                    className="flex flex-col items-center justify-center p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 transition-all disabled:opacity-50"
+                                    className="flex flex-col items-center justify-center p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 transition-all disabled:opacity-50 col-span-2"
                                 >
                                     <Check className="w-5 h-5 text-cyan-400 mb-1" />
-                                    <span className="text-sm font-medium text-cyan-400">Approve [A]</span>
+                                    <span className="text-sm font-medium text-cyan-400">Send to Studio [A]</span>
                                 </button>
                             </div>
                         </>
@@ -444,7 +425,7 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
 
             {/* Status Bar */}
             <div className="flex items-center justify-between text-xs text-gray-500 px-2">
-                <span>Keyboard: [J/K] Navigate • [Space] Toggle Select • [A] Approve • [R] Reject • [F] Flag • [S] Skip • [E] Edit • [Esc] Deselect</span>
+                <span>Keyboard: [J/K] Navigate • [Space] Toggle Select • [A] Accept (To Studio) • [R] Reject • [S] Skip • [E] Edit • [Esc] Deselect</span>
                 <span className="font-mono">{sortedQueue.length} signals</span>
             </div>
 

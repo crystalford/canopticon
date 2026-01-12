@@ -14,8 +14,8 @@ export default async function ArchivePage() {
   const { data: signals } = await supabaseAdmin
     .from('signals')
     .select('*, sources(name, category)')
-    // Auto-Publishing Logic: Show APPROVED and PUBLISHED signals
-    .in('status', ['published', 'approved'])
+    // Auto-Publishing Logic: Show ONLY PUBLISHED signals (Approved signals live in Studio)
+    .eq('status', 'published')
     .order('published_at', { ascending: false })
     .limit(100);
 

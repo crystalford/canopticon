@@ -1,6 +1,6 @@
 "use server"
 
-import { analyzeSignal } from '@/lib/analysis/ai'
+import { analyzeSignal, generateSocialPost } from '@/lib/analysis/ai'
 import { generateThumbnail, generateAudio, generateInfographic } from '@/lib/content/media'
 import { deepResearch } from '@/lib/google'
 import { generateXThread, generateSubstackArticle } from '@/lib/content/formatters'
@@ -194,11 +194,22 @@ export async function analyzeSignalAction(headline: string, content: string) {
   const result = await analyzeSignal(headline, content);
 
   // 1. Update Signals Table
+
+  // First, get current metadata to merge fallacies
+  const { data: current } = await supabaseAdmin.from('signals').select('metadata').eq('headline', headline).single();
+  const newMetadata = {
+    ...current?.metadata,
+    fallacies: result.fallacies,
+    bias: result.bias,
+    rhetoric: result.rhetoric
+  };
+
   await supabaseAdmin.from('signals')
     .update({
       ai_summary: result.summary,
       ai_script: result.script,
-      ai_tags: result.tags
+      ai_tags: result.tags,
+      metadata: newMetadata
     })
     .eq('headline', headline);
 
@@ -214,6 +225,27 @@ export async function analyzeSignalAction(headline: string, content: string) {
   }
 
   return result;
+}
+
+export async function generateSocialPostAction(signalId: string, headline: string, content: string) {
+  const post = await generateSocialPost(headline, content);
+
+  if (post && !post.startsWith("Error")) {
+    // Fetch current metadata to merge
+    const { data: current } = await supabaseAdmin.from('signals').select('metadata').eq('id', signalId).single();
+    const newMetadata = { ...current?.metadata, social_post: post };
+
+    await supabaseAdmin.from('signals')
+      .update({ metadata: newMetadata })
+      .eq('id', signalId);
+
+    // Revalidate studio so UI updates immediately
+    revalidatePath('/admin/studio');
+
+    return { success: true, post };
+  }
+
+  return { success: false, error: post };
 }
 
 export async function analyzeSignalDeepAction(signalHash: string, content: string) {
@@ -367,4 +399,42 @@ export async function generateVideoMaterialsAction(signalId: string) {
 
   revalidatePath('/admin/dashboard');
   return { success: true, materials };
+}
+
+import { twitter } from '@/lib/social/twitter'
+
+export async function ingestTrendsAction() {
+  try {
+    const trends = await twitter.getTrends();
+
+    // Store in DB
+    const { error } = await supabaseAdmin.from('trends').insert(trends);
+
+    if (error) {
+      console.error("[Trend Ingest DB Error]", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/admin/trends');
+    return { success: true, count: trends.length };
+  } catch (e: any) {
+    console.error("[Trend Ingest Failed]", e);
+    return { success: false, error: e.message };
+  }
+}
+
+export async function getTrendsAction() {
+  // Fetch latest trends, sorted by volume
+  const { data: trends, error } = await supabaseAdmin
+    .from('trends')
+    .select('*')
+    .order('timestamp', { ascending: false }) // Latest batch
+    .limit(20); // Top 20
+
+  if (error) {
+    return [];
+  }
+
+  // De-dupe by topic if needed, but for now just raw feed
+  return trends;
 }

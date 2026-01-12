@@ -79,3 +79,13 @@ export interface Publication {
   content: any;
   created_at: string;
 }
+
+export interface Trend {
+  id: string;
+  topic: string;
+  domain?: string; // e.g., 'Politics', 'Tech'
+  volume: number; // tweet volume
+  sentiment?: number; // -1 to 1
+  timestamp: string;
+  signal_id?: string; // If converted to signal
+}
