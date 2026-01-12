@@ -13,7 +13,7 @@ export default function PublicNavigation({ currentPage }: { currentPage: Current
 
     const publicLinks = [
         { name: 'Home', href: '/', id: 'home', icon: Radio },
-        { name: 'Archive', href: '/archive', id: 'archive', icon: FileText },
+        { name: 'Stories', href: '/archive', id: 'archive', icon: FileText },
         { name: 'About', href: '/about', id: 'about', icon: Info },
     ];
 

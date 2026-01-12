@@ -40,7 +40,7 @@ async function analyzeWithOpenAI(headline: string, content: string): Promise<AIA
       {
         role: "system",
         content: `You are CANOPTICON, an advanced political signal intelligence engine. 
-          Return a JSON object with: summary, script (30s TikTok style), tags (3 metadata tags).`
+          Return a JSON object with: summary (comprehensive, 2-3 paragraphs), script (30s TikTok style), tags (3 metadata tags).`
       },
       {
         role: "user",

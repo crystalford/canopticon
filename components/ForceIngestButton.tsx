@@ -1,5 +1,6 @@
 "use client"
 
+import { toast } from 'sonner'
 import { useState } from 'react'
 import { runIngestAction } from '@/app/actions'
 import { useRouter } from 'next/navigation'
@@ -12,17 +13,18 @@ export default function ForceIngestButton() {
 
     const handleIngest = async () => {
         setLoading(true)
+        const toastId = toast.loading("Ingesting signals...");
         try {
             const result: any = await runIngestAction()
             if (result.success) {
-                alert(`Ingest Complete. Found ${result.count} signals. (DB Total: ${result.dbCount})`);
+                toast.success(`Ingest Complete. Found ${result.count} signals.`, { id: toastId });
                 router.refresh()
             } else {
-                alert("Ingest Failed from Server: " + result.error);
+                toast.error("Ingest Failed: " + result.error, { id: toastId });
             }
         } catch (error: any) {
             console.error("Ingest Failed:", error)
-            alert("Ingest Exception: " + (error.message || "Unknown error"));
+            toast.error("Ingest Exception: " + error.message, { id: toastId });
         } finally {
             setLoading(false)
         }

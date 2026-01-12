@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   description: 'Signal monitoring and analysis system',
 }
 
+import { Toaster } from 'sonner'
+
 export default function RootLayout({
   children,
 }: {
@@ -18,7 +20,10 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={inter.className}>{children}</body>
+        <body className={inter.className}>
+          {children}
+          <Toaster theme="dark" position="bottom-right" />
+        </body>
       </html>
     </ClerkProvider>
   )

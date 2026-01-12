@@ -31,7 +31,7 @@ export async function runIngestAction() {
   }
 }
 
-export async function updateSignalStatusAction(signalId: string, status: 'pending' | 'processing' | 'published' | 'archived') {
+export async function updateSignalStatusAction(signalId: string, status: 'pending' | 'processing' | 'published' | 'archived' | 'approved') {
   // if (!await isUserAdmin()) throw new Error("Unauthorized");
   try {
     const { data: updatedData, error } = await supabaseAdmin
@@ -44,10 +44,19 @@ export async function updateSignalStatusAction(signalId: string, status: 'pendin
       return { success: false, error: "Signal not found in DB (Count 0)" };
     }
 
-    if (status === 'published') {
-      const { data: signal } = await supabaseAdmin.from('signals').select('*').eq('hash', signalId).single();
-      if (signal) {
-        triggerUplink(signal).catch(e => console.error(e));
+    if (updatedData) {
+      for (const signal of updatedData) {
+        // Auto-generate summary for approved/published signals if missing
+        if ((status === 'published' || status === 'approved') &&
+          (!signal.ai_summary || signal.ai_summary.length < 100)) {
+          console.log(`[Auto-Analyze] generating summary for ${signal.headline}`);
+          // Await here to ensure archive view sees the summary immediately
+          await analyzeSignalAction(signal.headline, signal.raw_content || signal.summary || '');
+        }
+
+        if (status === 'published') {
+          triggerUplink(signal).catch(e => console.error(e));
+        }
       }
     }
 

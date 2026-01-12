@@ -25,14 +25,14 @@ export default async function ArchivePage() {
 
       <div className="pt-32 pb-20 px-4 max-w-4xl mx-auto">
         <header className="mb-12 border-b border-white/10 pb-8">
-          <h1 className="text-4xl font-bold mb-4">Signal Archive</h1>
+          <h1 className="text-4xl font-bold mb-4">Stories</h1>
           <p className="text-gray-400">
             Comprehensive timeline of detected political signals, legislation, and media narratives.
           </p>
         </header>
 
         <div className="space-y-8">
-          {signals?.map((signal) => {
+          {signals?.map((signal: any) => {
             const date = new Date(signal.published_at || signal.created_at);
             return (
               <article key={signal.id} className="group relative pl-8 border-l border-white/10 hover:border-cyan-500/50 transition-colors">

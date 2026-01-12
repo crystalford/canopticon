@@ -32,13 +32,7 @@ export default async function AdminDashboard() {
     .order('created_at', { ascending: false })
     .limit(5);
 
-  // Fetch pending signals (preview) - now sorted by newest first to match Review page
-  const { data: pendingSignals } = await supabaseAdmin
-    .from('signals')
-    .select('*, sources(name)')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })  // Match Review page sort
-    .limit(5);
+
 
   // Fetch recent published
   const { data: recentPublished } = await supabaseAdmin
@@ -113,40 +107,10 @@ export default async function AdminDashboard() {
             )}
           </section>
 
-          {/* PENDING REVIEW */}
-          <section className="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Clock className="w-5 h-5 text-yellow-400" />
-                Pending Review
-              </h2>
-              <Link href="/admin/review/pending" className="text-sm text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
-                Review All <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
 
-            {pendingSignals && pendingSignals.length > 0 ? (
-              <div className="space-y-2">
-                {pendingSignals.map((signal: any) => (
-                  <div key={signal.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-colors">
-                    <span className="text-sm font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">
-                      {signal.confidence_score || '??'}%
-                    </span>
-                    <span className="flex-1 truncate text-sm">{signal.headline}</span>
-                    <span className="text-xs text-gray-500">{signal.sources?.name || signal.source}</span>
-                  </div>
-                ))}
-                {pending > 5 && (
-                  <p className="text-sm text-gray-500 text-center pt-2">+ {pending - 5} more pending</p>
-                )}
-              </div>
-            ) : (
-              <p className="text-gray-500 text-center py-4">All caught up! 🎉</p>
-            )}
-          </section>
 
           {/* SOURCE HEALTH */}
-          <section className="p-6 rounded-2xl bg-white/[0.02] border border-white/10">
+          <section className="lg:col-span-2 p-6 rounded-2xl bg-white/[0.02] border border-white/10">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <Activity className="w-5 h-5 text-green-400" />

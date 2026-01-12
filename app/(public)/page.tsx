@@ -48,7 +48,7 @@ export default async function PublicHomepage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/archive">
               <LiquidChromeButton>
-                Explore the Archive
+                Read Stories
               </LiquidChromeButton>
             </Link>
             <Link href="/about" className="px-6 py-3 rounded-full border border-white/10 hover:bg-white/5 transition-colors text-sm font-medium">
@@ -64,7 +64,7 @@ export default async function PublicHomepage() {
           <div className="flex items-end justify-between mb-8 border-b border-white/10 pb-4">
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <Zap className="w-5 h-5 text-yellow-400" />
-              High Impact Signals
+              Featured
             </h2>
           </div>
 
@@ -105,10 +105,10 @@ export default async function PublicHomepage() {
         <div className="flex items-end justify-between mb-8 border-b border-white/10 pb-4">
           <h2 className="text-xl font-bold flex items-center gap-2 text-gray-200">
             <Radio className="w-5 h-5 text-cyan-400" />
-            Latest Intercepts
+            Recent Stories
           </h2>
           <Link href="/archive" className="text-sm text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
-            View Full Archive <ArrowRight className="w-4 h-4" />
+            View All Stories <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 

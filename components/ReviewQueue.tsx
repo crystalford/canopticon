@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Signal } from '@/types'
 import {
-    Check, X, SkipForward, ExternalLink, RefreshCw, Flag, Video,
+    Check, X, SkipForward, ExternalLink, RefreshCw, Flag, Video, Pencil,
     Filter, ChevronDown, CheckSquare, Square, Clock, Zap, AlertCircle
 } from 'lucide-react'
 import { updateSignalStatusAction, flagSignalAction } from '@/app/actions'
 import { useRouter } from 'next/navigation'
+import EditBeforePublishModal from './EditBeforePublishModal'
+import { toast } from 'sonner'
 
 interface ReviewQueueProps {
     initialSignals: any[]
@@ -22,6 +24,7 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
     const [processing, setProcessing] = useState(false);
     const [sortBy, setSortBy] = useState<SortOption>('confidence');
     const [filterSource, setFilterSource] = useState<string>('all');
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const router = useRouter();
 
     // Get unique sources for filter dropdown
@@ -66,10 +69,13 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
         try {
             if (action === 'approve') {
                 await updateSignalStatusAction(targetId, 'published');
+                toast.success("Signal approved.");
             } else if (action === 'reject') {
                 await updateSignalStatusAction(targetId, 'archived');
+                toast.info("Signal rejected.");
             } else if (action === 'flag') {
                 await flagSignalAction(targetId);
+                toast.success("Signal flagged! Generating materials in background.");
             }
 
             // Remove from queue
@@ -86,7 +92,7 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
             }
         } catch (e) {
             console.error("Action failed", e);
-            alert("Failed to update status");
+            toast.error("Failed to update status");
         }
 
         setProcessing(false);
@@ -168,14 +174,20 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
                 handleAction('skip');
             } else if (key === 'f') {
                 handleAction('flag');
+            } else if (key === 'e') {
+                setIsEditModalOpen(true);
             } else if (key === 'escape') {
-                deselectAll();
+                if (isEditModalOpen) {
+                    setIsEditModalOpen(false);
+                } else {
+                    deselectAll();
+                }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleAction, processing, currentSignal, sortedQueue.length]);
+    }, [handleAction, processing, currentSignal, sortedQueue.length, isEditModalOpen]);
 
     if (queue.length === 0) {
         return (
@@ -280,7 +292,7 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
                                     key={signalId}
                                     onClick={() => setSelectedIndex(index)}
                                     className={`p-4 cursor-pointer transition-all ${isSelected ? 'bg-cyan-500/10 border-l-2 border-l-cyan-500' :
-                                            isChecked ? 'bg-yellow-500/5' : 'hover:bg-white/5'
+                                        isChecked ? 'bg-yellow-500/5' : 'hover:bg-white/5'
                                         }`}
                                 >
                                     <div className="flex items-start gap-3">
@@ -294,8 +306,8 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className={`text-xs font-mono px-1.5 py-0.5 rounded ${(signal.confidence_score || 0) >= 80 ? 'bg-green-500/20 text-green-400' :
-                                                        (signal.confidence_score || 0) >= 60 ? 'bg-cyan-500/20 text-cyan-400' :
-                                                            'bg-yellow-500/20 text-yellow-400'
+                                                    (signal.confidence_score || 0) >= 60 ? 'bg-cyan-500/20 text-cyan-400' :
+                                                        'bg-yellow-500/20 text-yellow-400'
                                                     }`}>
                                                     {signal.confidence_score || '??'}
                                                 </span>
@@ -327,8 +339,8 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-3">
                                         <span className={`text-lg font-mono px-2 py-1 rounded ${(currentSignal.confidence_score || 0) >= 80 ? 'bg-green-500/20 text-green-400' :
-                                                (currentSignal.confidence_score || 0) >= 60 ? 'bg-cyan-500/20 text-cyan-400' :
-                                                    'bg-yellow-500/20 text-yellow-400'
+                                            (currentSignal.confidence_score || 0) >= 60 ? 'bg-cyan-500/20 text-cyan-400' :
+                                                'bg-yellow-500/20 text-yellow-400'
                                             }`}>
                                             {currentSignal.confidence_score || '??'}%
                                         </span>
@@ -376,7 +388,15 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="grid grid-cols-4 gap-3">
+                            <div className="grid grid-cols-5 gap-3">
+                                <button
+                                    onClick={() => setIsEditModalOpen(true)}
+                                    disabled={processing}
+                                    className="flex flex-col items-center justify-center p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 transition-all disabled:opacity-50"
+                                >
+                                    <Pencil className="w-5 h-5 text-blue-400 mb-1" />
+                                    <span className="text-sm font-medium text-blue-400">Edit [E]</span>
+                                </button>
                                 <button
                                     onClick={() => handleAction('reject')}
                                     disabled={processing}
@@ -424,9 +444,31 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
 
             {/* Status Bar */}
             <div className="flex items-center justify-between text-xs text-gray-500 px-2">
-                <span>Keyboard: [J/K] Navigate • [Space] Toggle Select • [A] Approve • [R] Reject • [F] Flag • [S] Skip • [Esc] Deselect</span>
+                <span>Keyboard: [J/K] Navigate • [Space] Toggle Select • [A] Approve • [R] Reject • [F] Flag • [S] Skip • [E] Edit • [Esc] Deselect</span>
                 <span className="font-mono">{sortedQueue.length} signals</span>
             </div>
+
+            {/* Edit Modal */}
+            {isEditModalOpen && currentSignal && (
+                <EditBeforePublishModal
+                    signal={currentSignal}
+                    onClose={() => setIsEditModalOpen(false)}
+                    onSave={(action) => {
+                        // Remove signal from queue after save
+                        const targetId = currentSignal.hash || currentSignal.id;
+                        setQueue(prev => prev.filter(s => (s.hash || s.id) !== targetId));
+                        setSelectedIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(targetId);
+                            return next;
+                        });
+                        // Adjust selection if needed
+                        if (selectedIndex >= sortedQueue.length - 1) {
+                            setSelectedIndex(Math.max(0, sortedQueue.length - 2));
+                        }
+                    }}
+                />
+            )}
         </div>
     )
 }
