@@ -9,13 +9,13 @@ export interface Signal {
   url: string;
   source: string; // "CBC", "CTV", "Twitter"
   publishedAt: string;
-  
+
   // Analysis
   priority: SignalPriority;
   status: SignalStatus;
   entities: string[]; // "Trudeau", "Poilievre"
   topics: string[]; // "Housing", "Inflation"
-  
+
   // Raw
   rawContent?: string;
 }
@@ -26,4 +26,14 @@ export interface IntakeLog {
   source: string;
   status: 'success' | 'failed';
   itemsCount: number;
+}
+
+export type PublicationType = 'image' | 'audio' | 'thread' | 'article';
+
+export interface Publication {
+  id: string;
+  signal_hash: string;
+  type: PublicationType;
+  content: any; // URL string, array of strings, or text block
+  created_at: string;
 }

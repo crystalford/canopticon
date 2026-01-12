@@ -8,13 +8,26 @@ import { Signal } from '@/types' // Assuming Signal type is needed if we pass fu
 
 // ... existing media actions ...
 
+import { savePublication, getPublications } from '@/lib/content/persistence'
+
+export async function getSignalPublicationsAction(signalHash: string) {
+  const pubs = await getPublications(signalHash);
+  return pubs;
+}
+
 export async function generateXThreadAction(signal: any, analysis: any) {
   const thread = await generateXThread(signal, analysis);
+  if (thread) {
+    await savePublication(signal.id, 'thread', thread);
+  }
   return thread;
 }
 
 export async function generateArticleAction(signal: any, analysis: any) {
   const article = await generateSubstackArticle(signal, analysis);
+  if (article) {
+    await savePublication(signal.id, 'article', article);
+  }
   return article;
 }
 
@@ -24,13 +37,19 @@ export async function generateMediaAction(headline: string, script: string) {
   // Let's do separate to give user control.
 }
 
-export async function generateImageAction(headline: string) {
+export async function generateImageAction(signalHash: string, headline: string) {
   const imageUrl = await generateThumbnail(headline);
+  if (imageUrl) {
+    await savePublication(signalHash, 'image', imageUrl);
+  }
   return imageUrl;
 }
 
-export async function generateAudioAction(script: string) {
+export async function generateAudioAction(signalHash: string, script: string) {
   const audioUrl = await generateAudio(script);
+  if (audioUrl) {
+    await savePublication(signalHash, 'audio', audioUrl);
+  }
   return audioUrl;
 }
 
