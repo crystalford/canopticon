@@ -39,13 +39,18 @@ export async function updateSignalStatusAction(signalId: string, status: 'pendin
       }
     }
 
+    if (error) {
+      console.error("Supabase Error:", error);
+      return { success: false, error: "DB Error: " + error.message };
+    }
+
     revalidatePath('/admin/dashboard');
     revalidatePath('/');
 
-    if (error) throw error;
-  } catch (e) {
-    console.error(e);
-    throw e;
+    return { success: true };
+  } catch (e: any) {
+    console.error("Action Exception:", e);
+    return { success: false, error: e.message || "Server Exception" };
   }
 }
 

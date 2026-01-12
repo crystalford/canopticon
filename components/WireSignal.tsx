@@ -15,11 +15,15 @@ export default function WireSignal({ signal, isAdmin = false }: { signal: Signal
         if (!isAdmin) return;
         setLoading(true)
         try {
-            await updateSignalStatusAction(signal.id, status)
-            router.refresh()
+            const result = await updateSignalStatusAction(signal.id, status)
+            if (result && !result.success) {
+                alert("Action Failed: " + result.error);
+            } else {
+                router.refresh()
+            }
         } catch (e: any) {
             console.error(e)
-            alert("Ingest Failed: " + (e.message || "Unknown error"));
+            alert("System Error: " + (e.message || "Unknown error"));
         } finally {
             setLoading(false)
         }
