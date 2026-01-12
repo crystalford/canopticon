@@ -18,6 +18,11 @@ export interface Signal {
 
   // Raw
   rawContent?: string;
+
+  // AI Persistence
+  ai_summary?: string;
+  ai_script?: string;
+  ai_tags?: string[];
 }
 
 export interface IntakeLog {

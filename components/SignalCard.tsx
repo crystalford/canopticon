@@ -1,14 +1,38 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Signal } from '@/types'
-import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction } from '@/app/actions'
+import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction } from '@/app/actions'
 import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play } from 'lucide-react'
 
 export default function SignalCard({ signal, isAdmin = false }: { signal: Signal; isAdmin?: boolean }) {
   const [analysis, setAnalysis] = useState<{ summary: string; script: string } | null>(null)
   const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string; thread?: string[]; article?: string }>({})
   const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio' | 'thread' | 'article'
+
+  // Hydrate state from DB
+  useEffect(() => {
+    // Other hydration...
+    if (signal.ai_summary) {
+      setAnalysis({
+        summary: signal.ai_summary,
+        script: signal.ai_script || ''
+      });
+    }
+
+    const loadMedia = async () => {
+      const pubs = await getSignalPublicationsAction(signal.id);
+      const newMedia: any = {};
+      pubs.forEach(p => {
+        if (p.type === 'image') newMedia.imageUrl = p.content;
+        if (p.type === 'audio') newMedia.audioUrl = p.content;
+        if (p.type === 'thread') newMedia.thread = p.content;
+        if (p.type === 'article') newMedia.article = p.content;
+      });
+      setMedia(prev => ({ ...prev, ...newMedia }));
+    };
+    loadMedia();
+  }, [signal]);
 
   const handleAnalyze = async () => {
     setLoading('analyze')
@@ -26,7 +50,7 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
     if (!analysis) return;
     setLoading('image')
     try {
-      const url = await generateImageAction(signal.headline);
+      const url = await generateImageAction(signal.id, signal.headline);
       if (url) setMedia(prev => ({ ...prev, imageUrl: url }));
     } catch (e) { console.error(e) }
     finally { setLoading(null) }
@@ -36,7 +60,7 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
     if (!analysis?.script) return;
     setLoading('audio')
     try {
-      const url = await generateAudioAction(analysis.script);
+      const url = await generateAudioAction(signal.id, analysis.script);
       if (url) setMedia(prev => ({ ...prev, audioUrl: url }));
     } catch (e) { console.error(e) }
     finally { setLoading(null) }
