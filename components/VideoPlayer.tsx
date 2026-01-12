@@ -68,6 +68,7 @@ export default function VideoPlayer({ script, autoPlay = false }: VideoPlayerPro
             }, currentScene.duration * 1000)
         }
         return () => clearTimeout(timer)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isPlaying, currentSceneIndex])
 
 

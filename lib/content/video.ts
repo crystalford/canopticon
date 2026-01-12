@@ -4,6 +4,15 @@ export interface VideoScene {
     time: string;
     visual: string;
     audio: string;
+    text_overlay?: string;
+    voiceover?: string;
+    headline?: string;
+}
+
+export interface VideoScript {
+    intro: VideoScene;
+    scenes: VideoScene[];
+    outro: VideoScene;
 }
 
 export async function generateVideoScript(headline: string, summary: string): Promise<VideoScene[] | null> {

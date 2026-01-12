@@ -145,6 +145,34 @@ export async function analyzeSignalDeepAction(signalHash: string, content: strin
 // ... existing imports
 import { generateDailyBriefing } from '@/lib/agents/watchman'
 
+// ... existing imports
+import { scoreSignal } from '@/lib/agents/triage'
+
+// ... existing actions
+
+export async function runTriageAction(signalId: number, currentSignal: Signal) {
+  // 1. Score the signal
+  const triage = await scoreSignal(currentSignal);
+
+  // 2. Auto-act based on recommendation
+  let newStatus = currentSignal.status;
+  if (triage.recommended_action === 'approve') newStatus = 'processing'; // Editor Desk
+  if (triage.recommended_action === 'archive') newStatus = 'archived'; // Bin
+
+  // 3. Update DB
+  if (triage.recommended_action !== 'review') {
+    const { error } = await supabase
+      .from('signals')
+      .update({ status: newStatus })
+      .eq('id', signalId);
+
+    if (error) console.error("Auto-Triage Update Failed:", error);
+  }
+
+  // 4. Return result for UI feedback
+  return triage;
+}
+
 export async function generateDailyBriefingAction() {
   const briefing = await generateDailyBriefing();
   return briefing;

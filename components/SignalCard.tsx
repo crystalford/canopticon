@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Signal } from '@/types'
-import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction, analyzeSignalDeepAction, generateVideoScriptAction, saveSignalPublicationAction } from '@/app/actions'
+import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction, analyzeSignalDeepAction, generateVideoScriptAction, saveSignalPublicationAction, runTriageAction } from '@/app/actions'
 import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, BarChart, BrainCircuit, Clapperboard, Save, Edit2 } from 'lucide-react'
 /* eslint-disable @next/next/no-img-element */
 import { VideoScene } from '@/lib/content/video'
@@ -129,6 +129,21 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
     setLoading('save-article');
     try {
       await saveSignalPublicationAction(signal.id, 'article', media.article);
+    } catch (e) { console.error(e) }
+    finally { setLoading(null) }
+  }
+
+  const handleTriage = async () => {
+    setLoading('triage')
+    try {
+      // Assume runTriageAction is imported (I will add import in next step if missed)
+      const result = await runTriageAction(signal.id, signal);
+
+      // Visualize result (optional toast or alert, for now just log)
+      console.log("Triage Result:", result);
+
+      // If auto-moved, we might want to refresh or hide. 
+      // For now, let the optimistic UI or parent refresh handle it.
     } catch (e) { console.error(e) }
     finally { setLoading(null) }
   }
@@ -372,6 +387,19 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
         {/* Action Button (Admin Only) */}
         {isAdmin && (
           <div className="flex flex-col gap-2">
+
+            {/* Triage Button (Only for Pending) */}
+            {signal.status === 'pending' && (
+              <button
+                onClick={handleTriage}
+                disabled={loading === 'triage'}
+                className="p-2 rounded-full hover:bg-yellow-500/10 transition-colors disabled:opacity-50 group/btn min-w-[32px] flex justify-center border border-yellow-500/20"
+                title="Run AI Triage"
+              >
+                {loading === 'triage' ? <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" /> : <BrainCircuit className="w-4 h-4 text-yellow-500/50 group-hover/btn:text-yellow-400" />}
+              </button>
+            )}
+
             <button
               onClick={handleAnalyze}
               disabled={loading === 'analyze' || !!analysis}
