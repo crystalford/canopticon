@@ -77,17 +77,12 @@ export async function generateAudioAction(signalHash: string, script: string) {
 }
 
 
+import { storeMemory } from '@/lib/memory/cortex'
+
 export async function analyzeSignalAction(headline: string, content: string) {
   const result = await analyzeSignal(headline, content);
 
-  // Try to find the signal in DB to update it
-  // We search by headline/content hash or just headline for now since we don't have ID passed easily
-  // Ideally we pass ID, but for now we trust the flow.
-  // Actually, let's just use the logic: if we analyzed it, we want to store it.
-
-  // Update the signal in the DB with the new analysis
-  // We need to match it against an existing record.
-  // Strategy: We will update where headline matches.
+  // 1. Update Signals Table
   await supabase.from('signals')
     .update({
       ai_summary: result.summary,
@@ -95,6 +90,17 @@ export async function analyzeSignalAction(headline: string, content: string) {
       ai_tags: result.tags
     })
     .eq('headline', headline);
+
+  // 2. Memorize in Cortex (Vector DB)
+  const { data: signal } = await supabase.from('signals').select('id').eq('headline', headline).single();
+
+  if (signal) {
+    await storeMemory(
+      `HEADLINE: ${headline}\nSUMMARY: ${result.summary}\nTAGS: ${result.tags.join(', ')}`,
+      { type: 'signal_analysis', tags: result.tags },
+      signal.id
+    );
+  }
 
   return result;
 }
