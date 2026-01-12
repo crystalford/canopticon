@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { genAI } from "@/lib/google";
 import { Signal } from "@/types";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+// const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!); // Removed local init
 
 export interface TriageScore {
     score: number;

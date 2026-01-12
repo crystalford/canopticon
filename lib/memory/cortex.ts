@@ -8,7 +8,7 @@ export interface Memory {
     similarity?: number;
 }
 
-export async function storeMemory(content: string, metadata: any = {}, signalId?: number): Promise<boolean> {
+export async function storeMemory(content: string, metadata: any = {}, signalId?: string): Promise<boolean> {
     const vector = await generateEmbedding(content);
     if (!vector) return false;
 
