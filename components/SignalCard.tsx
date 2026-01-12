@@ -170,7 +170,7 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
 
           {/* Metadata */}
           <div className="flex items-center gap-3 text-xs text-gray-500 mb-3">
-            <span>{new Date(signal.publishedAt).toLocaleTimeString()}</span>
+            <span suppressHydrationWarning>{new Date(signal.publishedAt).toLocaleTimeString()}</span>
             {signal.entities.length > 0 && (
               <div className="flex gap-1">
                 {signal.entities.slice(0, 2).map((e, i) => (

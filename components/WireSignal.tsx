@@ -28,7 +28,7 @@ export default function WireSignal({ signal, isAdmin = false }: { signal: Signal
         <div className="p-3 border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
             <div className="flex justify-between items-start gap-2 mb-1">
                 <span className="text-[10px] font-mono text-cyan-500/70">{signal.source}</span>
-                <span className="text-[10px] text-gray-600 flex items-center gap-1">
+                <span suppressHydrationWarning className="text-[10px] text-gray-600 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {new Date(signal.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>

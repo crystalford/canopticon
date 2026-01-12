@@ -48,9 +48,7 @@ export default async function MissionControlDashboard() {
           {isAdmin && (
             <div className="flex gap-4">
               <TriageAgentButton />
-              <LiquidChromeButton>
-                Force Ingest
-              </LiquidChromeButton>
+              <ForceIngestButton />
             </div>
           )}
         </header>
