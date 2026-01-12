@@ -5,6 +5,7 @@ import Navigation from '@/components/Navigation'
 import { getGlobalSignals } from '@/lib/ingestion'
 import SignalCard from '@/components/SignalCard'
 import WireSignal from '@/components/WireSignal'
+import WatchmanWidget from '@/components/WatchmanWidget'
 
 export default async function MissionControlDashboard() {
   // Fetch Real Data (Server-Side)
@@ -30,7 +31,7 @@ export default async function MissionControlDashboard() {
       <Navigation currentPage="dashboard" />
 
       <div className="pt-24 p-8">
-        <header className="max-w-7xl mx-auto mb-12 flex justify-between items-end relative z-10">
+        <header className="max-w-7xl mx-auto mb-8 flex justify-between items-end relative z-10">
           <div>
             <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
               Signal Command
@@ -43,6 +44,11 @@ export default async function MissionControlDashboard() {
             Force Ingest
           </LiquidChromeButton>
         </header>
+
+        {/* Watchman Widget */}
+        <div className="max-w-7xl mx-auto mb-8 relative z-10">
+          <WatchmanWidget />
+        </div>
 
         {/* Stats Cards */}
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-6 mb-12 relative z-10">

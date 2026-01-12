@@ -120,6 +120,14 @@ export async function analyzeSignalDeepAction(signalHash: string, content: strin
   return deepDive;
 }
 
+// ... existing imports
+import { generateDailyBriefing } from '@/lib/agents/watchman'
+
+export async function generateDailyBriefingAction() {
+  const briefing = await generateDailyBriefing();
+  return briefing;
+}
+
 export async function generateVideoScriptAction(signalHash: string, headline: string, summary: string) {
   const script = await generateVideoScript(headline, summary);
   if (script) {
