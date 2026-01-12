@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Signal } from '@/types'
-import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction } from '@/app/actions'
-import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play } from 'lucide-react'
+import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction } from '@/app/actions'
+import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, BarChart } from 'lucide-react'
 
 export default function SignalCard({ signal, isAdmin = false }: { signal: Signal; isAdmin?: boolean }) {
   const [analysis, setAnalysis] = useState<{ summary: string; script: string } | null>(null)
@@ -28,6 +28,7 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
         if (p.type === 'audio') newMedia.audioUrl = p.content;
         if (p.type === 'thread') newMedia.thread = p.content;
         if (p.type === 'article') newMedia.article = p.content;
+        if (p.type === 'infographic') newMedia.infographicUrl = p.content;
       });
       setMedia(prev => ({ ...prev, ...newMedia }));
     };
@@ -82,6 +83,16 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
     try {
       const article = await generateArticleAction(signal, analysis);
       if (article) setMedia(prev => ({ ...prev, article }));
+    } catch (e) { console.error(e) }
+    finally { setLoading(null) }
+  }
+
+  const handleInfographic = async () => {
+    if (!analysis) return;
+    setLoading('infographic')
+    try {
+      const url = await generateInfographicAction(signal.id, signal.headline, analysis.summary);
+      if (url) setMedia(prev => ({ ...prev, infographicUrl: url }));
     } catch (e) { console.error(e) }
     finally { setLoading(null) }
   }
