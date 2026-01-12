@@ -13,6 +13,8 @@
     "@clerk/nextjs": "^5.0.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.39.3",
+    "axios": "^1.13.2",
+    "cheerio": "^1.1.2",
     "dotenv": "^17.2.3",
     "framer-motion": "^12.25.0",
     "lucide-react": "^0.344.0",

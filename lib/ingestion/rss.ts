@@ -3,6 +3,7 @@ import { Signal } from '@/types';
 import crypto from 'crypto';
 import { SourceManager } from '@/lib/services/source-manager';
 import { calculateBasicConfidence } from './confidence';
+import { fetchFullArticle } from './article-fetcher';
 
 const parser = new Parser();
 
@@ -13,7 +14,7 @@ function generateHash(str: string): string {
 export async function fetchAllFeeds(): Promise<Signal[]> {
     const allSignals: Signal[] = [];
 
-    // Fetch sources from SourceManager (replaces direct Supabase call)
+    // Fetch sources from SourceManager
     const sources = await SourceManager.getActiveSources();
 
     if (!sources || sources.length === 0) {
@@ -23,42 +24,70 @@ export async function fetchAllFeeds(): Promise<Signal[]> {
 
     // Process feeds in parallel
     const promises = sources.map(async (source) => {
-        // Skip if not RSS (though getActiveSources returns all types, we should filter or SourceManager should handle types)
         if (source.source_type !== 'rss') return [];
 
         try {
             const feed = await parser.parseURL(source.url);
-
-            // Record Success
             await SourceManager.recordSuccess(source.id);
 
-            const signals: Signal[] = feed.items.map((item) => {
-                const hash = generateHash(item.link || item.title || '');
+            // Process each feed item and fetch full content
+            const signals = await Promise.all(feed.items.slice(0, 10).map(async (item) => {
+                const hash = generateHash(item.link || item.guid || item.title || new Date().toISOString());
 
-                // Content extraction (fallback hierarchy)
-                const rawContent = (item.content || item.contentSnippet || '').toLowerCase();
-                const entities: string[] = [];
-                // Simple Entity Recognition (Placeholder for better NLP)
-                if (rawContent.includes('trudeau')) entities.push('Justin Trudeau');
-                if (rawContent.includes('poilievre')) entities.push('Pierre Poilievre');
-                if (rawContent.includes('housing')) entities.push('Housing');
-                if (rawContent.includes('inflation')) entities.push('Inflation');
+                let fullContent = '';
+                let wordCount = 0;
+
+                // Check if RSS already has full content
+                const rssContent = item['content:encoded'] || item.content || '';
+                const rssWordCount = rssContent.split(/\s+/).length;
+
+                if (rssWordCount > 200) {
+                    // RSS has sufficient content
+                    fullContent = rssContent;
+                    wordCount = rssWordCount;
+                    console.log(`✓ Using RSS content for "${item.title}" (${wordCount} words)`);
+                } else {
+                    // Fetch full article from URL
+                    console.log(`→ Fetching "${item.title}"...`);
+                    const fetchResult = await fetchFullArticle(item.link || '');
+
+                    if (fetchResult.success) {
+                        fullContent = fetchResult.content;
+                        wordCount = fetchResult.wordCount;
+                        console.log(`✓ Fetched ${wordCount} words`);
+                    } else {
+                        fullContent = rssContent;
+                        wordCount = rssWordCount;
+                        console.log(`⚠ Using RSS summary (${wordCount} words)`);
+                    }
+                }
+
+                const rawContent = fullContent || item.contentSnippet || '';
+
+                // Entity extraction
+                const entities = [];
+                if (rawContent.toLowerCase().includes('trudeau')) entities.push('Justin Trudeau');
+                if (rawContent.toLowerCase().includes('parliament')) entities.push('Parliament');
+                if (rawContent.toLowerCase().includes('inflation')) entities.push('Inflation');
 
                 return {
                     id: hash,
                     hash: hash,
                     source: source.name,
-                    source_id: source.id, // Link to Source ID
+                    source_id: source.id,
                     headline: item.title || 'Untitled Signal',
                     url: item.link || '',
                     publishedAt: item.isoDate || new Date().toISOString(),
                     summary: item.contentSnippet || '',
-                    priority: 'normal', // Default
+                    priority: 'normal',
                     status: 'pending',
                     entities: entities,
                     topics: [source.category || 'politics'],
-                    raw_content: item.content,
-                    // Calculate basic confidence score
+                    raw_content: rawContent, // Full article content!
+                    metadata: {
+                        word_count: wordCount,
+                        content_source: wordCount > 200 ? 'fetched' : 'rss'
+                    },
                     confidence_score: calculateBasicConfidence(
                         {
                             id: hash,
@@ -69,12 +98,11 @@ export async function fetchAllFeeds(): Promise<Signal[]> {
                         source.reliability_score || 70
                     )
                 };
-            });
+            }));
 
             return signals;
         } catch (error) {
             console.error(`Failed to fetch ${source.name}:`, error);
-            // Record Failure
             await source.id ? SourceManager.recordFailure(source.id) : null;
             return [];
         }
