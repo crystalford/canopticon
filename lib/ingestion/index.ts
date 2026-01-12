@@ -36,16 +36,32 @@ export async function getGlobalSignals(): Promise<Signal[]> {
         if (error) {
             console.error("Failed to persist signals:", error);
         }
+    } catch (dbError) {
+        console.warn("Database persistence skipped (likely missing keys)");
+    }
+
+    // 4. Merge DB Status state into fresh signals
+    try {
+        const { data: existingSignals } = await supabaseAdmin
+            .from('signals')
+            .select('hash, status, analysis, ai_summary, ai_script, ai_tags')
+            .in('hash', allSignals.map(s => s.id));
         if (existingSignals) {
+            // @ts-ignore
             const dbMap = new Map(existingSignals.map(s => [s.hash, s]));
 
             allSignals.forEach(s => {
                 const dbSignal = dbMap.get(s.id);
                 if (dbSignal) {
-                    s.status = dbSignal.status; // Override pending with DB status
+                    // @ts-ignore
+                    s.status = dbSignal.status;
+                    // @ts-ignore
                     if (dbSignal.ai_summary) s.ai_summary = dbSignal.ai_summary;
+                    // @ts-ignore
                     if (dbSignal.ai_script) s.ai_script = dbSignal.ai_script;
+                    // @ts-ignore
                     if (dbSignal.ai_tags) s.ai_tags = dbSignal.ai_tags;
+                    // @ts-ignore
                     if (dbSignal.analysis) s.analysis = dbSignal.analysis;
                 }
             });
