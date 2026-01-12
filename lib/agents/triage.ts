@@ -1,7 +1,7 @@
-import { genAI } from "@/lib/google";
+import OpenAI from "openai";
 import { Signal } from "@/types";
 
-// const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!); // Removed local init
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export interface TriageScore {
     score: number;
@@ -10,8 +10,6 @@ export interface TriageScore {
 }
 
 export async function scoreSignal(signal: Signal): Promise<TriageScore> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Use Flash for speed/cost
-
     const prompt = `
   You are 'The General', a ruthless Intelligence Officer for a high-tech news empire.
   Your job is to TRIAGE incoming information signals.
@@ -33,7 +31,7 @@ export async function scoreSignal(signal: Signal): Promise<TriageScore> {
   - Irrelevant clickbait
   - Duplicate or stale news
 
-  Return a JSON object:
+  Return ONLY a JSON object:
   {
     "score": number (0-100),
     "reasoning": "Brief, punchy explanation of the score.",
@@ -42,9 +40,13 @@ export async function scoreSignal(signal: Signal): Promise<TriageScore> {
   `;
 
     try {
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
-        // Simple JSON extraction for now - robust parsing can be added later
+        const completion = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.3,
+        });
+
+        const text = completion.choices[0].message.content || "{}";
         const jsonStart = text.indexOf('{');
         const jsonEnd = text.lastIndexOf('}') + 1;
         const jsonStr = text.substring(jsonStart, jsonEnd);
