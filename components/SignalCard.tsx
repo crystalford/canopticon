@@ -98,6 +98,19 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
     finally { setLoading(null) }
   }
 
+  const handleDeepResearch = async () => {
+    setLoading('research')
+    try {
+      // Pass full content if available, fallback to summary/headline. Ideally we scarped content.
+      // For now using summary + headline as proxy for full content or we'd fetch it.
+      // In real app we likely have signal.rawContent
+      const content = signal.rawContent || (signal.headline + "\n\n" + signal.summary);
+      const report = await analyzeSignalDeepAction(signal.id, content);
+      if (report) setMedia(prev => ({ ...prev, research: report }));
+    } catch (e) { console.error(e) }
+    finally { setLoading(null) }
+  }
+
   return (
     <div className="group hover:bg-white/[0.02] transition-colors p-6 border-b border-white/5 last:border-0">
       <div className="flex items-start justify-between gap-4">
