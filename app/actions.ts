@@ -13,6 +13,14 @@ import { Signal } from '@/types' // Assuming Signal type is needed if we pass fu
 import { savePublication, getPublications } from '@/lib/content/persistence'
 
 import { revalidatePath } from 'next/cache'
+import { triggerUplink } from '@/lib/publishing/webhook'
+import { getGlobalSignals } from '@/lib/ingestion'
+
+export async function runIngestAction() {
+  await getGlobalSignals();
+  revalidatePath('/admin/dashboard');
+  revalidatePath('/');
+}
 
 export async function updateSignalStatusAction(signalId: string, status: 'pending' | 'processing' | 'published' | 'archived') {
   await supabase
@@ -20,7 +28,15 @@ export async function updateSignalStatusAction(signalId: string, status: 'pendin
     .update({ status })
     .eq('id', signalId);
 
+  if (status === 'published') {
+    const { data: signal } = await supabase.from('signals').select('*').eq('id', signalId).single();
+    if (signal) {
+      triggerUplink(signal).catch(e => console.error(e));
+    }
+  }
+
   revalidatePath('/admin/dashboard');
+  revalidatePath('/');
 }
 
 
