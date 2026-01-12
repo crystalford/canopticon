@@ -10,17 +10,15 @@ export async function getGlobalSignals(): Promise<Signal[]> {
             fetchRSS(),
             fetchParliamentBills()
         ]);
-        // console.log(`[Ingest] Fetched ${rssSignals.length} RSS, ${parliamentSignals.length} Bills`);
 
         const allSignals = [...parliamentSignals, ...rssSignals];
-        // console.log(`[Ingest] Total Live Signals: ${allSignals.length}`);
 
         // 3. fetch existing signals first to preserve state
         let existingSignals: any[] = [];
         try {
             const { data } = await supabaseAdmin
                 .from('signals')
-                .select('hash, status, analysis, ai_summary, ai_script, ai_tags')
+                .select('hash, status, metadata, ai_summary, ai_script, ai_tags')
                 .in('hash', allSignals.map(s => s.id));
             if (data) existingSignals = data;
         } catch (e) {
@@ -35,17 +33,10 @@ export async function getGlobalSignals(): Promise<Signal[]> {
             const dbSignal = dbMap.get(s.id);
             if (dbSignal) {
                 // Found in DB: Merge status and DO NOT add to upsert list (preserve DB source of truth)
-                console.log(`[Ingest] Merging DB state for ${s.id}: ${dbSignal.status}`);
-                // @ts-ignore
-                s.status = dbSignal.status;
-                // @ts-ignore
-                if (dbSignal.ai_summary) s.ai_summary = dbSignal.ai_summary;
-                // @ts-ignore
-                if (dbSignal.ai_script) s.ai_script = dbSignal.ai_script;
-                // @ts-ignore
-                if (dbSignal.ai_tags) s.ai_tags = dbSignal.ai_tags;
-                // @ts-ignore
-                if (dbSignal.analysis) s.analysis = dbSignal.analysis;
+                // We typically do NOT update existing signals on every ingest to save DB writes,
+                // unless we want to update metadata or implementation changed.
+                // For MVP, we skip existing.
+                console.log(`[Ingest] Signal exists: ${s.id} (${dbSignal.status})`);
             } else {
                 // Not in DB: Add to upsert list
                 signalsToUpsert.push({
@@ -54,43 +45,39 @@ export async function getGlobalSignals(): Promise<Signal[]> {
                     summary: s.summary,
                     url: s.url,
                     source: s.source,
+                    source_id: s.source_id,
                     published_at: s.publishedAt,
-                    priority: s.priority,
+                    priority: s.priority || 'normal',
                     status: s.status, // Default pending
                     entities: s.entities,
                     topics: s.topics,
-                    // Wrap in object to ensure it's valid JSONB, as RSS content is html string which crashes jsonb column
-                    raw_content: { content: s.rawContent || '' }
+                    confidence_score: s.confidence_score,
+                    signal_type: s.signal_type,
+                    // Wrap in object to ensure it's valid JSONB
+                    raw_content: { content: s.raw_content || '' }
                 });
             }
         });
-
 
         // 5. Upsert only NEW signals
         if (signalsToUpsert.length > 0) {
             try {
                 console.log(`[Ingest] Attempting to upsert ${signalsToUpsert.length} signals`);
-                console.log(`[Ingest] Sample payload:`, JSON.stringify(signalsToUpsert[0], null, 2));
 
-                const { error, data } = await supabaseAdmin.from('signals').upsert(
+                const { error } = await supabaseAdmin.from('signals').upsert(
                     signalsToUpsert,
                     { onConflict: 'hash', ignoreDuplicates: true }
                 );
 
                 if (error) {
-                    console.error("Failed to persist signals - FULL ERROR:", JSON.stringify(error, null, 2));
-                    console.error("Error code:", error.code);
-                    console.error("Error message:", error.message);
-                    console.error("Error details:", error.details);
+                    console.error("Failed to persist signals:", error);
                 } else {
                     console.log(`[Ingest] Persisted ${signalsToUpsert.length} new signals`);
                 }
             } catch (dbError: any) {
                 console.error("Database persistence exception:", dbError);
-                console.error("Exception message:", dbError?.message);
             }
         }
-
 
         // Sort by date descending (Newest first)
         return allSignals.sort((a, b) =>
@@ -99,7 +86,6 @@ export async function getGlobalSignals(): Promise<Signal[]> {
 
     } catch (globalError) {
         console.error("CRITICAL INGESTION ERROR:", globalError);
-        // Fallback: return what we have or empty
         return [];
     }
 }

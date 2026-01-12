@@ -1,15 +1,9 @@
 import OpenAI from "openai";
-import { Signal } from "@/types";
+import { Signal, TriageScore } from "@/types";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-export interface TriageScore {
-    score: number;
-    reasoning: string;
-    recommended_action: 'approve' | 'archive' | 'review';
-}
-
-export async function scoreSignal(signal: Signal): Promise<TriageScore> {
+export async function scoreSignal(signal: Signal, sourceReliability?: number): Promise<TriageScore> {
     const prompt = `
   You are 'The General', a ruthless Intelligence Officer for a high-tech news empire.
   Your job is to TRIAGE incoming information signals.
@@ -34,7 +28,7 @@ export async function scoreSignal(signal: Signal): Promise<TriageScore> {
   Return ONLY a JSON object:
   {
     "score": number (0-100),
-    "reasoning": "Brief, punchy explanation of the score.",
+    "reasoning": "Brief, punchy explanation.",
     "recommended_action": "approve" | "archive" | "review" (approve if >80, archive if <20, review otherwise)
   }
   `;
@@ -50,7 +44,21 @@ export async function scoreSignal(signal: Signal): Promise<TriageScore> {
         const jsonStart = text.indexOf('{');
         const jsonEnd = text.lastIndexOf('}') + 1;
         const jsonStr = text.substring(jsonStart, jsonEnd);
-        return JSON.parse(jsonStr) as TriageScore;
+
+        let result = JSON.parse(jsonStr) as TriageScore;
+
+        // Auto-Approval Override (Phase 1 Logic)
+        // If high confidence score (from AI) AND high source reliability (from DB), auto-approve.
+        if (sourceReliability && sourceReliability > 0.7 && result.score >= 75) {
+            // Ensure it's approved if it meets the bar, even if AI was slightly conservative on action
+            if (result.recommended_action === 'review') {
+                result.recommended_action = 'approve';
+                result.reasoning += " [Auto-Approved due to Reliability]";
+            }
+        }
+
+        return result;
+
     } catch (error) {
         console.error("Triage Error:", error);
         return {

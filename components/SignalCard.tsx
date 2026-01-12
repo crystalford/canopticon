@@ -7,6 +7,7 @@ import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, 
 /* eslint-disable @next/next/no-img-element */
 import { VideoScene } from '@/lib/content/video'
 import VideoPlayer from './VideoPlayer'
+import VideoGenerator from './VideoGenerator'
 
 export default function SignalCard({ signal, isAdmin = false }: { signal: Signal; isAdmin?: boolean }) {
   const [analysis, setAnalysis] = useState<{ summary: string; script: string } | null>(null)
@@ -109,7 +110,7 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
       // Pass full content if available, fallback to summary/headline. Ideally we scarped content.
       // For now using summary + headline as proxy for full content or we'd fetch it.
       // In real app we likely have signal.rawContent
-      const content = signal.rawContent || (signal.headline + "\n\n" + signal.summary);
+      const content = signal.raw_content || (signal.headline + "\n\n" + signal.summary);
       const report = await analyzeSignalDeepAction(signal.id, content);
       if (report) setMedia(prev => ({ ...prev, research: report }));
     } catch (e) { console.error(e) }
@@ -413,6 +414,12 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
                 <Zap className={`w-4 h-4 ${analysis ? 'text-green-400' : 'text-gray-500 group-hover/btn:text-cyan-400'} transition-colors`} />
               )}
             </button>
+
+            {/* Video Prep Button */}
+            <div className="flex items-center justify-center">
+              <VideoGenerator signalId={signal.id} hasExistingMaterials={!!media.videoScript} />
+            </div>
+
             <button
               onClick={async () => {
                 if (confirm('Publish to live site?')) {

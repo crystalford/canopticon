@@ -205,7 +205,7 @@ export async function runTriageAction(signalId: string, currentSignal: Signal) {
 
   // 2. Auto-act based on recommendation
   let newStatus = currentSignal.status;
-  if (triage.recommended_action === 'approve') newStatus = 'processing'; // Editor Desk
+  if (triage.recommended_action === 'approve') newStatus = 'approved'; // Changed to intermediate approved
   if (triage.recommended_action === 'archive') newStatus = 'archived'; // Bin
 
   // 3. Update DB
@@ -223,10 +223,10 @@ export async function runTriageAction(signalId: string, currentSignal: Signal) {
 }
 
 export async function runBatchTriageAction() {
-  // 1. Fetch pending signals (Limit 5 to avoid timeouts)
+  // 1. Fetch pending signals with Source Reliability
   const { data: signals } = await supabaseAdmin
     .from('signals')
-    .select('*')
+    .select('*, sources(reliability_score)')
     .eq('status', 'pending')
     .limit(5);
 
@@ -238,20 +238,29 @@ export async function runBatchTriageAction() {
 
   // 2. Loop and Score
   for (const signal of signals) {
+    // Extract reliability from join
+    // @ts-ignore
+    const reliability = signal.sources?.reliability_score;
+
     // Assume Signal type match
-    const triage = await scoreSignal(signal as any); // Type cast if needed
+    const triage = await scoreSignal(signal as any, reliability);
     processed++;
 
     let newStatus = 'pending';
-    if (triage.recommended_action === 'approve') { newStatus = 'processing'; approved++; }
+    if (triage.recommended_action === 'approve') { newStatus = 'approved'; approved++; }
     if (triage.recommended_action === 'archive') { newStatus = 'archived'; archived++; }
 
-    if (newStatus !== 'pending') {
-      await supabaseAdmin
-        .from('signals')
-        .update({ status: newStatus })
-        .eq('hash', signal.id);
-    }
+    // 3. Update DB
+    const updatePayload: any = {
+      confidence_score: triage.score,
+      metadata: { triage_reason: triage.reasoning }
+    };
+    if (newStatus !== 'pending') updatePayload.status = newStatus;
+
+    await supabaseAdmin
+      .from('signals')
+      .update(updatePayload)
+      .eq('hash', signal.hash);
   }
 
   return {
@@ -273,4 +282,48 @@ export async function generateVideoScriptAction(signalHash: string, headline: st
     await savePublication(signalHash, 'video_script', script);
   }
   return script;
+}
+
+import { generateVideoMaterials } from '@/lib/agents/video-producer'
+
+export async function generateVideoMaterialsAction(signalId: string) {
+  const { data: signal } = await supabaseAdmin.from('signals').select('*').eq('id', signalId).single();
+  if (!signal) return { success: false, error: "Signal not found" };
+
+  const materials = await generateVideoMaterials(signal as any);
+  if (!materials) return { success: false, error: "AI Generation Failed" };
+
+  let articleId;
+  const { data: existingArticle } = await supabaseAdmin.from('articles').select('id').eq('signal_id', signalId).single();
+
+  if (existingArticle) {
+    articleId = existingArticle.id;
+  } else {
+    const { data: newArticle, error } = await supabaseAdmin.from('articles').insert({
+      signal_id: signalId,
+      slug: signal.hash, // Use hash as slug
+      headline: signal.headline,
+      summary: signal.ai_summary || signal.summary,
+      published_at: new Date().toISOString(),
+      tier: 'curated',
+      video_status: 'script_ready'
+    }).select().single();
+
+    if (error) return { success: false, error: "Failed to create article stub: " + error.message };
+    articleId = newArticle.id;
+  }
+
+  const { error: videoError } = await supabaseAdmin.from('video_materials').upsert({
+    article_id: articleId,
+    script: materials.script,
+    quotes: materials.quotes,
+    contradictions: materials.contradictions,
+    angles: materials.angles,
+    updated_at: new Date().toISOString()
+  });
+
+  if (videoError) return { success: false, error: "DB Error: " + videoError.message };
+
+  revalidatePath('/admin/dashboard');
+  return { success: true, materials };
 }
