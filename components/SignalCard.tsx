@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { Signal } from '@/types'
-import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction, analyzeSignalDeepAction } from '@/app/actions'
-import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, BarChart, BrainCircuit } from 'lucide-react'
+import { analyzeSignalAction, generateImageAction, generateAudioAction, generateXThreadAction, generateArticleAction, getSignalPublicationsAction, updateSignalStatusAction, generateInfographicAction, analyzeSignalDeepAction, generateVideoScriptAction } from '@/app/actions'
+import { Zap, Loader2, FileText, Video, ExternalLink, ImageIcon, Volume2, Play, BarChart, BrainCircuit, Clapperboard } from 'lucide-react'
+import { VideoScene } from '@/lib/content/video'
 
 export default function SignalCard({ signal, isAdmin = false }: { signal: Signal; isAdmin?: boolean }) {
   const [analysis, setAnalysis] = useState<{ summary: string; script: string } | null>(null)
-  const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string; thread?: string[]; article?: string; infographicUrl?: string; research?: string }>({})
-  const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio' | 'thread' | 'article' | 'infographic' | 'research' | 'publish'
+  const [media, setMedia] = useState<{ imageUrl?: string; audioUrl?: string; thread?: string[]; article?: string; infographicUrl?: string; research?: string; videoScript?: VideoScene[] }>({})
+  const [loading, setLoading] = useState<string | null>(null) // 'analyze' | 'image' | 'audio' | 'thread' | 'article' | 'infographic' | 'research' | 'video' | 'publish'
 
   // Hydrate state from DB
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
         if (p.type === 'article') newMedia.article = p.content;
         if (p.type === 'infographic') newMedia.infographicUrl = p.content;
         if (p.type === 'research') newMedia.research = p.content;
+        if (p.type === 'video_script') newMedia.videoScript = p.content;
       });
       setMedia(prev => ({ ...prev, ...newMedia }));
     };
@@ -233,6 +235,36 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
                 </div>
               )}
 
+              {/* Video Script Result (Storyboard) */}
+              {media.videoScript && (
+                <div className="mt-3 p-0 bg-black/40 rounded-xl overflow-hidden border border-zinc-800">
+                  <div className="flex items-center gap-2 p-3 bg-zinc-900/50 border-b border-zinc-800">
+                    <Clapperboard className="w-4 h-4 text-pink-500" />
+                    <span className="text-xs font-bold text-pink-400 uppercase tracking-wider">TikTok Storyboard</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="text-zinc-500 border-b border-white/5 bg-white/[0.02]">
+                          <th className="p-2 w-16">Time</th>
+                          <th className="p-2 border-l border-white/5">Visual</th>
+                          <th className="p-2 border-l border-white/5">Audio</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {media.videoScript.map((scene, i) => (
+                          <tr key={i} className="hover:bg-white/[0.02]">
+                            <td className="p-2 font-mono text-zinc-400">{scene.time}</td>
+                            <td className="p-2 border-l border-white/5 text-gray-300">{scene.visual}</td>
+                            <td className="p-2 border-l border-white/5 text-pink-200/80 italic">"{scene.audio}"</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* Generation Controls (Admin Only) */}
               {isAdmin && (
                 <div className="flex flex-wrap gap-2 mt-3 p-2 bg-white/5 rounded-lg">
@@ -279,6 +311,14 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
                   >
                     {loading === 'research' ? <Loader2 className="w-3 h-3 animate-spin" /> : <BrainCircuit className="w-3 h-3" />}
                     Deep Search
+                  </button>
+                  <div className="w-px h-6 bg-white/10 mx-1"></div>
+                  <button
+                    onClick={handleVideoScript} disabled={loading === 'video' || !!media.videoScript}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded bg-pink-500/20 hover:bg-pink-500/30 text-xs font-medium text-pink-300 transition-colors disabled:opacity-50 border border-pink-500/20"
+                  >
+                    {loading === 'video' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Clapperboard className="w-3 h-3" />}
+                    Video
                   </button>
                 </div>
               )}

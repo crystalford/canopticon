@@ -107,3 +107,11 @@ export async function analyzeSignalDeepAction(signalHash: string, content: strin
   }
   return deepDive;
 }
+
+export async function generateVideoScriptAction(signalHash: string, headline: string, summary: string) {
+  const script = await generateVideoScript(headline, summary);
+  if (script) {
+    await savePublication(signalHash, 'video_script', script);
+  }
+  return script;
+}
