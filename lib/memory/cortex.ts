@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { generateEmbedding } from './embedding';
 
 export interface Memory {
@@ -12,7 +12,7 @@ export async function storeMemory(content: string, metadata: any = {}, signalId?
     const vector = await generateEmbedding(content);
     if (!vector) return false;
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
         .from('memory_vectors')
         .insert({
             content,
@@ -32,7 +32,7 @@ export async function recallMemories(query: string, threshold = 0.5, limit = 5):
     const vector = await generateEmbedding(query);
     if (!vector) return [];
 
-    const { data, error } = await supabase.rpc('match_memories', {
+    const { data, error } = await supabaseAdmin.rpc('match_memories', {
         query_embedding: vector,
         match_threshold: threshold,
         match_count: limit

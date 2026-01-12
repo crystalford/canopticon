@@ -5,8 +5,9 @@ import { generateThumbnail, generateAudio, generateInfographic } from '@/lib/con
 import { deepResearch } from '@/lib/google'
 import { generateXThread, generateSubstackArticle } from '@/lib/content/formatters'
 import { generateVideoScript } from '@/lib/content/video'
-import { supabase } from '@/lib/supabase'
-import { Signal } from '@/types' // Assuming Signal type is needed if we pass full object, checking imports
+import { supabaseAdmin } from '@/lib/supabase-admin'
+import { isUserAdmin } from '@/lib/auth'
+import { Signal } from '@/types'
 
 // ... existing media actions ...
 
@@ -17,19 +18,20 @@ import { triggerUplink } from '@/lib/publishing/webhook'
 import { getGlobalSignals } from '@/lib/ingestion'
 
 export async function runIngestAction() {
+  if (!await isUserAdmin()) throw new Error("Unauthorized");
   await getGlobalSignals();
   revalidatePath('/admin/dashboard');
   revalidatePath('/');
 }
 
 export async function updateSignalStatusAction(signalId: string, status: 'pending' | 'processing' | 'published' | 'archived') {
-  await supabase
+  await supabaseAdmin
     .from('signals')
     .update({ status })
     .eq('id', signalId);
 
   if (status === 'published') {
-    const { data: signal } = await supabase.from('signals').select('*').eq('id', signalId).single();
+    const { data: signal } = await supabaseAdmin.from('signals').select('*').eq('id', signalId).single();
     if (signal) {
       triggerUplink(signal).catch(e => console.error(e));
     }
@@ -68,7 +70,7 @@ export async function generateArticleAction(signal: any, analysis: any) {
 
 
 export async function addSourceAction(name: string, url: string) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('sources')
     .insert({ name, url, active: true })
     .select()
@@ -82,11 +84,11 @@ export async function addSourceAction(name: string, url: string) {
 }
 
 export async function toggleSourceAction(id: string, active: boolean) {
-  await supabase.from('sources').update({ active }).eq('id', id);
+  await supabaseAdmin.from('sources').update({ active }).eq('id', id);
 }
 
 export async function deleteSourceAction(id: string) {
-  await supabase.from('sources').delete().eq('id', id);
+  await supabaseAdmin.from('sources').delete().eq('id', id);
 }
 
 export async function generateMediaAction(headline: string, script: string) {
@@ -125,7 +127,7 @@ export async function analyzeSignalAction(headline: string, content: string) {
   const result = await analyzeSignal(headline, content);
 
   // 1. Update Signals Table
-  await supabase.from('signals')
+  await supabaseAdmin.from('signals')
     .update({
       ai_summary: result.summary,
       ai_script: result.script,
@@ -134,7 +136,7 @@ export async function analyzeSignalAction(headline: string, content: string) {
     .eq('headline', headline);
 
   // 2. Memorize in Cortex (Vector DB)
-  const { data: signal } = await supabase.from('signals').select('id').eq('headline', headline).single();
+  const { data: signal } = await supabaseAdmin.from('signals').select('id').eq('headline', headline).single();
 
   if (signal) {
     await storeMemory(
@@ -182,7 +184,7 @@ export async function runTriageAction(signalId: string, currentSignal: Signal) {
 
   // 3. Update DB
   if (triage.recommended_action !== 'review') {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('signals')
       .update({ status: newStatus })
       .eq('id', signalId);
@@ -196,7 +198,7 @@ export async function runTriageAction(signalId: string, currentSignal: Signal) {
 
 export async function runBatchTriageAction() {
   // 1. Fetch pending signals (Limit 5 to avoid timeouts)
-  const { data: signals } = await supabase
+  const { data: signals } = await supabaseAdmin
     .from('signals')
     .select('*')
     .eq('status', 'pending')
@@ -219,7 +221,7 @@ export async function runBatchTriageAction() {
     if (triage.recommended_action === 'archive') { newStatus = 'archived'; archived++; }
 
     if (newStatus !== 'pending') {
-      await supabase
+      await supabaseAdmin
         .from('signals')
         .update({ status: newStatus })
         .eq('id', signal.id);

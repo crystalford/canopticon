@@ -1,9 +1,10 @@
 import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 import { Publication, PublicationType } from '@/types';
 
 export async function savePublication(signalHash: string, type: PublicationType, content: any): Promise<Publication | null> {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('publications')
             .upsert({
                 signal_hash: signalHash,

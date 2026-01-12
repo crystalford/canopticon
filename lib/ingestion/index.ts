@@ -1,7 +1,7 @@
 import { Signal } from '@/types';
 import { fetchAllFeeds as fetchRSS } from './rss';
 import { fetchParliamentBills } from './parliament';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function getGlobalSignals(): Promise<Signal[]> {
     // Parallel execution of all ingestion services
@@ -16,7 +16,7 @@ export async function getGlobalSignals(): Promise<Signal[]> {
     // or await if we want strict consistency)
     // We use upsert based on 'id' or 'hash' to avoid duplicates.
     try {
-        const { error } = await supabase.from('signals').upsert(
+        const { error } = await supabaseAdmin.from('signals').upsert(
             allSignals.map(s => ({
                 hash: s.id, // Using ID as hash for uniqueness
                 headline: s.headline,
