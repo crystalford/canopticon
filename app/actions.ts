@@ -4,6 +4,7 @@ import { analyzeSignal } from '@/lib/analysis/ai'
 import { generateThumbnail, generateAudio, generateInfographic } from '@/lib/content/media'
 import { deepResearch } from '@/lib/google'
 import { generateXThread, generateSubstackArticle } from '@/lib/content/formatters'
+import { generateVideoScript } from '@/lib/content/video'
 import { supabase } from '@/lib/supabase'
 import { Signal } from '@/types' // Assuming Signal type is needed if we pass full object, checking imports
 
