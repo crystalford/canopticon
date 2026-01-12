@@ -52,8 +52,7 @@ export default async function ArchivePage() {
                   </span>
                 </div>
 
-                <Link href={`/`} className="block group-hover:translate-x-1 transition-transform">
-                  {/* Future: href={`/articles/${signal.slug}`} */}
+                <Link href={`/articles/${signal.hash || signal.id}`} className="block group-hover:translate-x-1 transition-transform">
                   <h2 className="text-xl font-bold mb-2 group-hover:text-cyan-400 transition-colors">
                     {signal.headline}
                   </h2>

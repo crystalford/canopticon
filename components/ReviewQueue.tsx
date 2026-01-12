@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Signal } from '@/types'
-import { Check, X, SkipForward, ExternalLink, RefreshCw } from 'lucide-react'
-import { updateSignalStatusAction } from '@/app/actions'
+import { Check, X, SkipForward, ExternalLink, RefreshCw, Flag, Video } from 'lucide-react'
+import { updateSignalStatusAction, flagSignalAction } from '@/app/actions'
 import { useRouter } from 'next/navigation'
 
 interface ReviewQueueProps {
@@ -18,48 +18,46 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
 
     const currentSignal = queue[currentIndex];
 
-    const handleAction = useCallback(async (action: 'approve' | 'reject' | 'skip') => {
+    const handleAction = useCallback(async (action: 'approve' | 'reject' | 'skip' | 'flag') => {
         if (!currentSignal || processing) return;
         setProcessing(true);
 
-        // Optimistic UI Update
-        const nextIndex = currentIndex + 1;
+        const signalId = currentSignal.hash || currentSignal.id;
 
-        // Perform server action
-        let status: 'processed' | 'archived' | 'pending' = 'pending';
-        if (action === 'approve') status = 'approved'; // "Processed" / "Approved"
-        if (action === 'reject') status = 'archived';
-
-        if (action !== 'skip') {
-            try {
-                // @ts-ignore
-                await updateSignalStatusAction(currentSignal.hash || currentSignal.id, status);
-            } catch (e) {
-                console.error("Action failed", e);
-                alert("Failed to update status");
-                setProcessing(false);
-                return;
+        try {
+            if (action === 'approve') {
+                await updateSignalStatusAction(signalId, 'published');
+            } else if (action === 'reject') {
+                await updateSignalStatusAction(signalId, 'archived');
+            } else if (action === 'flag') {
+                await flagSignalAction(signalId);
             }
+            // Skip doesn't call server
+
+            // Remove from queue (client-side)
+            setQueue(prev => prev.filter((_, i) => i !== currentIndex));
+        } catch (e) {
+            console.error("Action failed", e);
+            alert("Failed to update status");
         }
 
-        // Remove from queue (client-side)
-        setQueue(prev => prev.filter((_, i) => i !== currentIndex));
-        // Index stays same since we removed item, unless we are empty
         setProcessing(false);
-
     }, [currentSignal, currentIndex, processing]);
 
     // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (processing) return;
+            const key = e.key.toLowerCase();
 
-            if (e.key.toLowerCase() === 'a' || e.key === 'ArrowRight') {
+            if (key === 'a' || e.key === 'ArrowRight') {
                 handleAction('approve');
-            } else if (e.key.toLowerCase() === 'r' || e.key === 'Delete' || e.key === 'x') {
+            } else if (key === 'r' || e.key === 'Delete' || key === 'x') {
                 handleAction('reject');
-            } else if (e.key.toLowerCase() === 's' || e.key === 'ArrowDown') {
+            } else if (key === 's' || e.key === 'ArrowDown') {
                 handleAction('skip');
+            } else if (key === 'f') {
+                handleAction('flag');
             }
         };
 
@@ -124,62 +122,96 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
                             </a>
                         </div>
                     </div>
-
-                    {/* Visual Flair handling status processing overlay if needed */}
                 </div>
 
-                {/* CONTROLS */}
-                <div className="grid grid-cols-3 gap-4">
+                {/* CONTROLS - Now with 4 buttons including FLAG */}
+                <div className="grid grid-cols-4 gap-3">
                     <button
                         onClick={() => handleAction('reject')}
-                        className="group flex flex-col items-center justify-center p-6 rounded-2xl bg-red-500/5 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40 transition-all duration-200">
-                        <div className="p-3 bg-red-500/10 rounded-full mb-2 group-hover:scale-110 transition-transform">
-                            <X className="w-6 h-6 text-red-500" />
+                        disabled={processing}
+                        className="group flex flex-col items-center justify-center p-4 rounded-2xl bg-red-500/5 border border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40 transition-all duration-200 disabled:opacity-50">
+                        <div className="p-2 bg-red-500/10 rounded-full mb-1 group-hover:scale-110 transition-transform">
+                            <X className="w-5 h-5 text-red-500" />
                         </div>
-                        <span className="font-semibold text-red-400">Reject [R]</span>
+                        <span className="font-semibold text-red-400 text-sm">Reject [R]</span>
                     </button>
 
                     <button
                         onClick={() => handleAction('skip')}
-                        className="group flex flex-col items-center justify-center p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-200">
-                        <div className="p-3 bg-white/5 rounded-full mb-2 group-hover:scale-110 transition-transform">
-                            <SkipForward className="w-6 h-6 text-gray-400" />
+                        disabled={processing}
+                        className="group flex flex-col items-center justify-center p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-200 disabled:opacity-50">
+                        <div className="p-2 bg-white/5 rounded-full mb-1 group-hover:scale-110 transition-transform">
+                            <SkipForward className="w-5 h-5 text-gray-400" />
                         </div>
-                        <span className="font-semibold text-gray-400">Skip [S]</span>
+                        <span className="font-semibold text-gray-400 text-sm">Skip [S]</span>
+                    </button>
+
+                    <button
+                        onClick={() => handleAction('flag')}
+                        disabled={processing}
+                        className="group flex flex-col items-center justify-center p-4 rounded-2xl bg-purple-500/5 border border-purple-500/20 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all duration-200 disabled:opacity-50">
+                        <div className="p-2 bg-purple-500/10 rounded-full mb-1 group-hover:scale-110 transition-transform">
+                            <Video className="w-5 h-5 text-purple-400" />
+                        </div>
+                        <span className="font-semibold text-purple-400 text-sm">Video [F]</span>
                     </button>
 
                     <button
                         onClick={() => handleAction('approve')}
-                        className="group flex flex-col items-center justify-center p-6 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 hover:bg-cyan-500/10 hover:border-cyan-500/40 transition-all duration-200 shadow-[0_0_20px_rgba(6,182,212,0.05)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)]">
-                        <div className="p-3 bg-cyan-500/10 rounded-full mb-2 group-hover:scale-110 transition-transform">
-                            <Check className="w-6 h-6 text-cyan-400" />
+                        disabled={processing}
+                        className="group flex flex-col items-center justify-center p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/20 hover:bg-cyan-500/10 hover:border-cyan-500/40 transition-all duration-200 shadow-[0_0_20px_rgba(6,182,212,0.05)] hover:shadow-[0_0_30px_rgba(6,182,212,0.1)] disabled:opacity-50">
+                        <div className="p-2 bg-cyan-500/10 rounded-full mb-1 group-hover:scale-110 transition-transform">
+                            <Check className="w-5 h-5 text-cyan-400" />
                         </div>
-                        <span className="font-semibold text-cyan-400">Approve [A]</span>
+                        <span className="font-semibold text-cyan-400 text-sm">Approve [A]</span>
                     </button>
                 </div>
+
+                {/* Processing Indicator */}
+                {processing && (
+                    <div className="text-center text-sm text-gray-500 animate-pulse">
+                        Processing...
+                    </div>
+                )}
             </div>
 
-            {/* RIGHT: CONTEXT (AI Analysis placeholder or Similar signals) */}
+            {/* RIGHT: CONTEXT (AI Analysis) */}
             <div className="hidden lg:block p-8 rounded-3xl bg-black/20 border border-white/5">
                 <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-6 border-b border-white/5 pb-2">Analysis Net</h3>
 
                 <div className="space-y-6">
                     <div>
                         <label className="text-xs text-gray-500 block mb-1">AI Confidence</label>
-                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                            <div className="h-full bg-cyan-500" style={{ width: `${currentSignal.confidence_score || 50}%` }} />
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div
+                                className={`h-full transition-all ${(currentSignal.confidence_score || 50) >= 75 ? 'bg-green-500' :
+                                        (currentSignal.confidence_score || 50) >= 50 ? 'bg-cyan-500' : 'bg-yellow-500'
+                                    }`}
+                                style={{ width: `${currentSignal.confidence_score || 50}%` }}
+                            />
                         </div>
                         <div className="flex justify-between text-xs mt-1 text-gray-400">
                             <span>Low</span>
-                            <span>{currentSignal.confidence_score || 50}%</span>
+                            <span className="font-mono">{currentSignal.confidence_score || 50}%</span>
                             <span>High</span>
                         </div>
                     </div>
 
                     <div>
+                        <label className="text-xs text-gray-500 block mb-2">Signal Type</label>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${currentSignal.signal_type === 'breaking' ? 'bg-red-500/20 text-red-400' :
+                                currentSignal.signal_type === 'contradiction' ? 'bg-orange-500/20 text-orange-400' :
+                                    currentSignal.signal_type === 'shift' ? 'bg-purple-500/20 text-purple-400' :
+                                        'bg-cyan-500/20 text-cyan-400'
+                            }`}>
+                            {currentSignal.signal_type || 'novelty'}
+                        </span>
+                    </div>
+
+                    <div>
                         <label className="text-xs text-gray-500 block mb-2">Key Topics</label>
                         <div className="flex flex-wrap gap-2">
-                            {currentSignal.ai_tags?.map((tag: any, i: any) => (
+                            {currentSignal.ai_tags?.map((tag: string, i: number) => (
                                 <span key={i} className="text-sm text-gray-300">#{tag}</span>
                             ))}
                             {(!currentSignal.ai_tags || currentSignal.ai_tags.length === 0) && <span className="text-sm text-gray-600">No tags generated</span>}
@@ -191,6 +223,20 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
                         <p className="text-sm text-gray-300 leading-relaxed italic">
                             "{currentSignal.metadata?.triage_reason || "Pending analysis..."}"
                         </p>
+                    </div>
+
+                    {/* Queue Position */}
+                    <div className="pt-4 border-t border-white/5">
+                        <div className="flex justify-between text-xs text-gray-500">
+                            <span>Queue Position</span>
+                            <span className="font-mono">{currentIndex + 1} / {queue.length}</span>
+                        </div>
+                        <div className="h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
+                            <div
+                                className="h-full bg-cyan-500 transition-all"
+                                style={{ width: `${((currentIndex + 1) / queue.length) * 100}%` }}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

@@ -70,7 +70,7 @@ export default async function PublicHomepage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {featuredSignals.map((signal: any) => (
-              <Link key={signal.id} href={`/archive`} className="group relative block h-full">
+              <Link key={signal.id} href={`/articles/${signal.hash || signal.id}`} className="group relative block h-full">
                 {/* In real app, link to /articles/${signal.slug} */}
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10 rounded-3xl" />
                 <div className="h-[400px] rounded-3xl bg-white/5 border border-white/10 overflow-hidden relative group-hover:border-white/20 transition-all">
@@ -114,7 +114,7 @@ export default async function PublicHomepage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {recentSignals?.map((signal: any) => (
-            <Link key={signal.id} href={`/archive`} className="block p-6 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-colors">
+            <Link key={signal.id} href={`/articles/${signal.hash || signal.id}`} className="block p-6 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-colors">
               <div className="flex justify-between items-start mb-4">
                 <span className="text-xs text-gray-500">{new Date(signal.published_at).toLocaleDateString()}</span>
                 <Shield className="w-4 h-4 text-gray-700" />

@@ -66,6 +66,36 @@ export async function updateSignalStatusAction(signalId: string, status: 'pendin
   }
 }
 
+export async function flagSignalAction(signalId: string) {
+  try {
+    // 1. Update signal status to 'flagged'
+    const { data: signal, error } = await supabaseAdmin
+      .from('signals')
+      .update({ status: 'flagged' })
+      .eq('hash', signalId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Flag Error:", error);
+      return { success: false, error: "DB Error: " + error.message };
+    }
+
+    // 2. Auto-generate video materials for flagged signals
+    if (signal) {
+      // Trigger video materials generation in background
+      generateVideoMaterialsAction(signal.id).catch(e => console.error("Video Gen Error:", e));
+    }
+
+    revalidatePath('/admin/dashboard');
+    revalidatePath('/admin/review/pending');
+    return { success: true };
+  } catch (e: any) {
+    console.error("Flag Exception:", e);
+    return { success: false, error: e.message || "Server Exception" };
+  }
+}
+
 
 export async function getSignalPublicationsAction(signalHash: string) {
   const pubs = await getPublications(signalHash);

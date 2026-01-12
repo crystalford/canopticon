@@ -5,15 +5,15 @@ import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
 import { LayoutDashboard, Radio, FileText, Info, Inbox, Settings } from "lucide-react"
 
-type CurrentPage = 'home' | 'dashboard' | 'archive' | 'about' | 'review' | 'sources';
+type CurrentPage = 'home' | 'dashboard' | 'archive' | 'about' | 'review' | 'sources' | 'settings';
 
 export default function Navigation({ currentPage }: { currentPage: CurrentPage }) {
   const pathname = usePathname();
 
   const navLinks = [
     { name: 'Dashboard', href: '/admin/dashboard', id: 'dashboard', icon: LayoutDashboard },
-    { name: 'Review Wire', href: '/admin/review/pending', id: 'review', icon: Inbox },
-    { name: 'Sources', href: '/admin/sources', id: 'sources', icon: Settings },
+    { name: 'Review', href: '/admin/review/pending', id: 'review', icon: Inbox },
+    { name: 'Settings', href: '/admin/settings', id: 'settings', icon: Settings },
     { name: 'Archive', href: '/archive', id: 'archive', icon: FileText },
     { name: 'About', href: '/about', id: 'about', icon: Info },
   ];
@@ -34,7 +34,7 @@ export default function Navigation({ currentPage }: { currentPage: CurrentPage }
         {/* Dynamic Navigation Pill */}
         <div className="pointer-events-auto bg-black/50 backdrop-blur-2xl border border-white/10 rounded-full p-1.5 flex gap-1 shadow-2xl">
           {navLinks.map((link) => {
-            const isActive = currentPage === link.id;
+            const isActive = currentPage === link.id || (link.id === 'settings' && currentPage === 'sources');
             const Icon = link.icon;
 
             return (
@@ -55,7 +55,7 @@ export default function Navigation({ currentPage }: { currentPage: CurrentPage }
                   />
                 )}
                 <span className="relative z-10 flex items-center gap-2">
-                  {/* Only show icon if not active or show both? Design choice. Let's show text. */}
+                  <Icon className="w-4 h-4" />
                   {link.name}
                 </span>
               </Link>
