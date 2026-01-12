@@ -2,15 +2,21 @@ import { getGlobalSignals } from '@/lib/ingestion'
 import Link from 'next/link'
 import LiquidChromeButton from '@/components/LiquidChromeButton'
 import Navigation from '@/components/Navigation'
-import { ArrowRight, Globe, Zap } from 'lucide-react'
+import { ArrowRight, Globe, Zap, Radio } from 'lucide-react'
+import SignalCard from '@/components/SignalCard'
 
 export default async function Home() {
   // Fetch latest real signal (Server Side)
   const signals = await getGlobalSignals();
-  const latestSignal = signals.length > 0 ? signals[0] : null;
+  // Filter for published only (simulate public view)
+  // In a real app we'd filter at DB level, here we filter in memory
+  const publishedSignals = signals.filter(s => s.status === 'published');
+
+  // Latest 9
+  const feed = publishedSignals.slice(0, 9);
 
   return (
-    <main className="min-h-screen bg-[#050505] text-white selection:bg-cyan-500/30">
+    <main className="min-h-screen bg-[#050505] text-white selection:bg-cyan-500/30 pb-24">
       {/* Background Ambience */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-gradient-to-br from-purple-900/20 via-black to-cyan-900/20 blur-[130px] opacity-60" />
@@ -19,7 +25,7 @@ export default async function Home() {
       <Navigation currentPage="home" />
 
       {/* Hero */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-4 text-center pt-32">
+      <section className="relative flex flex-col items-center justify-center px-4 text-center pt-32 mb-24">
 
         {/* Status Pill */}
         <div className="mb-8 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-cyan-400">
@@ -37,36 +43,38 @@ export default async function Home() {
 
         {/* Primary CTA */}
         <div className="flex flex-col items-center gap-4">
-          <LiquidChromeButton href="/signals" className="px-12 py-5 text-lg">
+          <LiquidChromeButton href="/admin/dashboard" className="px-12 py-5 text-lg">
             <span className="flex items-center gap-3">
-              Access Feed
+              Enter Command
               <ArrowRight className="w-5 h-5" />
             </span>
           </LiquidChromeButton>
           <span className="text-xs text-gray-500 mt-4">Authorized access only</span>
         </div>
+      </section>
 
-        {/* Latest Signal Ticker / Card */}
-        {latestSignal && (
-          <div className="mt-24 w-full max-w-3xl">
-            <div className="p-1 rounded-3xl bg-gradient-to-r from-white/10 via-white/5 to-white/10">
-              <div className="bg-black/90 backdrop-blur-xl rounded-[1.3rem] p-8 border border-white/5 flex flex-col md:flex-row items-start md:items-center gap-6 text-left hover:bg-white/[0.02] transition-colors">
-                <div className="p-3 rounded-full bg-cyan-500/10 text-cyan-400">
-                  <Globe className="w-6 h-6" />
-                </div>
-                <div className="flex-1">
-                  <div className="text-xs text-gray-500 mb-1 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                    LATEST INTERCEPT
-                  </div>
-                  <h3 className="text-lg font-medium text-white mb-1 line-clamp-1">{latestSignal.headline}</h3>
-                  <p className="text-sm text-gray-400 line-clamp-1">{latestSignal.summary}</p>
-                </div>
-                <Link href={`/signals`} className="text-sm font-medium text-white underline decoration-white/30 hover:decoration-white transition-all underline-offset-4">
-                  Analyze
-                </Link>
+      {/* Public Pulse Feed */}
+      <section className="max-w-7xl mx-auto px-4">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="h-px flex-1 bg-white/10"></div>
+          <div className="flex items-center gap-2 text-cyan-400 font-mono text-sm tracking-widest">
+            <Radio className="w-4 h-4 animate-pulse" />
+            PUBLIC INTERCEPTS
+          </div>
+          <div className="h-px flex-1 bg-white/10"></div>
+        </div>
+
+        {feed.length === 0 ? (
+          <div className="text-center py-24 text-gray-600">
+            <p>No public signals currently broadcasting.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {feed.map(signal => (
+              <div key={signal.id} className="relative">
+                <SignalCard signal={signal} isAdmin={false} />
               </div>
-            </div>
+            ))}
           </div>
         )}
       </section>
