@@ -41,7 +41,7 @@ export default function AdminNavigation({ currentPage }: { currentPage: CurrentP
                 {/* Admin Navigation Pill */}
                 <div className="pointer-events-auto bg-black/80 backdrop-blur-2xl border border-red-500/30 rounded-full p-1.5 flex gap-1 shadow-2xl shadow-red-500/10">
                     {adminLinks.map((link) => {
-                        const isActive = currentPage === link.id || (link.id === 'settings' && currentPage === 'sources');
+                        const isActive = currentPage === link.id;
                         const Icon = link.icon;
 
                         return (

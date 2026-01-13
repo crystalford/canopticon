@@ -24,8 +24,8 @@ export default async function ContentPage({ searchParams }: { searchParams: { st
     } else if (statusFilter === 'published') {
         query = query.eq('status', 'published');
     } else {
-        // Show both draft and published
-        query = query.in('status', ['draft', 'published']);
+        // Show draft, published, and pending (safety net for ingestion)
+        query = query.in('status', ['draft', 'published', 'pending']);
     }
 
     const { data: content } = await query;
