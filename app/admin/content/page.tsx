@@ -30,8 +30,8 @@ export default async function ContentPage({ searchParams }: { searchParams: { st
 
     const { data: content } = await query;
 
-    const draftCount = content?.filter(s => s.status === 'draft').length || 0;
-    const publishedCount = content?.filter(s => s.status === 'published').length || 0;
+    const draftCount = content?.filter((s: any) => s.status === 'draft').length || 0;
+    const publishedCount = content?.filter((s: any) => s.status === 'published').length || 0;
 
     return (
         <main className="min-h-screen bg-[#050505] text-white">
