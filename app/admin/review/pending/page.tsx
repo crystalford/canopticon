@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { isUserAdmin } from '@/lib/auth'
 import AdminNavigation from '@/components/AdminNavigation'
 import ReviewQueue from '@/components/ReviewQueue'
-import RescueButton from '@/components/RescueButton'
+
 import { redirect } from 'next/navigation'
 
 export default async function ReviewPage() {
@@ -39,7 +39,6 @@ export default async function ReviewPage() {
                         <p className="text-gray-400 text-sm">Keyboard Shortcuts: [A] Approve, [R] Reject, [S] Skip</p>
                     </div>
                     <div className="flex gap-3 items-center">
-                        <RescueButton />
                         <div className="bg-white/5 px-4 py-2 rounded-full text-sm font-mono text-cyan-400">
                             {signals?.length || 0} Pending
                         </div>
