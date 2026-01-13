@@ -12,7 +12,7 @@ export default function WireSignal({ signal, isAdmin = false }: { signal: Signal
     const [hidden, setHidden] = useState(false)
     const router = useRouter()
 
-    const handleAction = async (status: 'processing' | 'archived') => {
+    const handleAction = async (status: 'processing' | 'deleted') => {
         if (!isAdmin) return;
         setLoading(true)
         try {
