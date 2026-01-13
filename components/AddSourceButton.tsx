@@ -2,9 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, X, Loader2, Link as LinkIcon, Rss } from 'lucide-react'
-import { createSourceAction } from '@/app/actions'
-import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
+import { addSourceAction } from '@/app/actions'
 
 export default function AddSourceButton() {
     const [isOpen, setIsOpen] = useState(false);
@@ -22,22 +20,18 @@ export default function AddSourceButton() {
         setLoading(true);
 
         try {
-            const result = await createSourceAction({
-                name: formData.name,
-                url: formData.url,
-                category: formData.category,
-                priority: 99, // Default to end of list
-                active: true,
-                source_type: 'rss'
-            });
+            const result = await addSourceAction(
+                formData.name,
+                formData.url
+            );
 
-            if (result.success) {
+            if (result) {
                 toast.success("Source added successfully");
                 setIsOpen(false);
                 setFormData({ name: '', url: '', category: 'politics' });
                 router.refresh();
             } else {
-                toast.error("Failed to add source: " + result.error);
+                toast.error("Failed to add source");
             }
         } catch (error) {
             toast.error("An unexpected error occurred");
