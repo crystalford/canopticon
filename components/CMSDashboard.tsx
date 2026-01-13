@@ -94,7 +94,7 @@ export default function CMSDashboard({ stats }: DashboardProps) {
                                 <div className="max-w-md mx-auto py-12">
                                     <Radio className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                                     <h3 className="text-xl font-bold text-white mb-2">The Wire is monitored elsewhere.</h3>
-                                    <p className="mb-6">Please use the dedicated "Review Wire" interface for high-speed triage.</p>
+                                    <p className="mb-6">Please use the dedicated &quot;Review Wire&quot; interface for high-speed triage.</p>
                                     <a href="/admin/review/pending" className="inline-flex items-center gap-2 px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full font-medium transition-colors">
                                         Go to Review Interface
                                     </a>
@@ -110,7 +110,7 @@ export default function CMSDashboard({ stats }: DashboardProps) {
                                 exit={{ opacity: 0, y: -10 }}
                             >
                                 <div className="p-8 text-center text-gray-400">
-                                    <p>Editorial Desk functionality coming in Phase 1.5. Currently managing via 'Review' and 'Archive'.</p>
+                                    <p>Editorial Desk functionality coming in Phase 1.5. Currently managing via &apos;Review&apos; and &apos;Archive&apos;.</p>
                                 </div>
                             </motion.div>
                         )}
