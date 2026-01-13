@@ -10,6 +10,9 @@ const nextConfig = {
     maxInactiveAge: 0,
     pagesBufferLength: 0,
   },
+  // Force dynamic rendering
+  poweredByHeader: false,
+  generateEtags: false,
 }
 
 module.exports = nextConfig
