@@ -61,7 +61,7 @@ export default function WireSignal({ signal, isAdmin = false }: { signal: Signal
                         <Check className="w-3 h-3" /> Approve
                     </button>
                     <button
-                        onClick={() => handleAction('archived')}
+                        onClick={() => handleAction('deleted')}
                         disabled={loading}
                         className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 py-1 rounded text-xs font-medium flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
                     >
