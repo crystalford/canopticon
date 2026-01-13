@@ -49,6 +49,7 @@ export default async function ReviewPage() {
                     {/* Client Component for Interactive Triage */}
                     <ReviewQueue initialSignals={signals || []} />
                 </div>
+            </div>
         </main>
     )
 }
