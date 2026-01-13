@@ -362,7 +362,7 @@ export default function ReviewQueue({ initialSignals }: ReviewQueueProps) {
                                 {currentSignal.metadata?.triage_reason && (
                                     <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl mb-6">
                                         <label className="text-xs text-blue-400 block mb-1">AI Analysis</label>
-                                        <p className="text-sm text-gray-300 italic">"{currentSignal.metadata.triage_reason}"</p>
+                                        <p className="text-sm text-gray-300 italic">&quot;{currentSignal.metadata.triage_reason}&quot;</p>
                                     </div>
                                 )}
 

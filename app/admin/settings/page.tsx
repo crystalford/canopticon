@@ -2,7 +2,6 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import AdminNavigation from '@/components/AdminNavigation'
 import { isUserAdmin } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import SourceManager from '@/components/SourceManager'
 import { Settings, Database, Zap, Bell, Key } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
@@ -69,14 +68,6 @@ export default async function SettingsPage() {
                     </div>
                 </div>
 
-                {/* Sources Section */}
-                <section className="mb-10">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <Database className="w-5 h-5 text-cyan-400" />
-                        Source Management
-                    </h2>
-                    <SourceManager initialSources={sources || []} />
-                </section>
 
                 {/* Auto-Approval Settings */}
                 <section className="mb-10 p-6 rounded-2xl bg-white/[0.03] border border-white/10">

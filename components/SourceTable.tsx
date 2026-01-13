@@ -82,7 +82,7 @@ function SourceRow({ source, isExpanded, onToggle, onRefresh }: any) {
             if (result.success) {
                 toast.success("Source updated!");
                 setEditing(false);
-                onRefresh();
+                window.location.reload();
             } else {
                 toast.error("Update failed: " + result.error);
             }
@@ -98,7 +98,8 @@ function SourceRow({ source, isExpanded, onToggle, onRefresh }: any) {
         try {
             await toggleSourceAction(source.id, !source.active);
             toast.success(source.active ? "Source disabled" : "Source enabled");
-            onRefresh();
+            // Force hard refresh to bypass cache
+            window.location.reload();
         } catch (e) {
             toast.error("Failed to toggle source");
         } finally {
@@ -238,8 +239,8 @@ function SourceRow({ source, isExpanded, onToggle, onRefresh }: any) {
                                         onClick={(e) => { e.stopPropagation(); handleToggle(); }}
                                         disabled={toggling}
                                         className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors border disabled:opacity-50 ${source.active
-                                                ? 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/20'
-                                                : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/20'
+                                            ? 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/20'
+                                            : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/20'
                                             }`}
                                     >
                                         {source.active ? 'Disable' : 'Enable'}

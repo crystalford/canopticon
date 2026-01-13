@@ -127,15 +127,15 @@ export default function StudioItem({ signal }: StudioItemProps) {
                                     <div className="flex-1 h-2 bg-gray-700 rounded-full overflow-hidden relative">
                                         <div
                                             className={`absolute h-full rounded-full transition-all duration-500 ${signal.metadata.bias.orientation === 'Left' ? 'bg-blue-500 left-0' :
-                                                    signal.metadata.bias.orientation === 'Right' ? 'bg-red-500 right-0' :
-                                                        'bg-gray-400 left-1/2 -translate-x-1/2'
+                                                signal.metadata.bias.orientation === 'Right' ? 'bg-red-500 right-0' :
+                                                    'bg-gray-400 left-1/2 -translate-x-1/2'
                                                 }`}
                                             style={{ width: `${Math.max(10, signal.metadata.bias.intensity * 100)}%` }}
                                         />
                                     </div>
                                     <span className={`font-bold ${signal.metadata.bias.orientation === 'Left' ? 'text-blue-400' :
-                                            signal.metadata.bias.orientation === 'Right' ? 'text-red-400' :
-                                                'text-gray-400'
+                                        signal.metadata.bias.orientation === 'Right' ? 'text-red-400' :
+                                            'text-gray-400'
                                         }`}>
                                         {signal.metadata.bias.orientation}
                                     </span>
@@ -172,7 +172,7 @@ export default function StudioItem({ signal }: StudioItemProps) {
                     <div className="text-xs text-blue-400 mb-1 flex items-center gap-1">
                         <Share2 className="w-3 h-3" /> Social Draft
                     </div>
-                    <p className="text-sm text-gray-300 italic">"{signal.metadata.social_post}"</p>
+                    <p className="text-sm text-gray-300 italic">&quot;{signal.metadata.social_post}&quot;</p>
                 </div>
             )}
 
