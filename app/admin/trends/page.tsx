@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic'
 export default function TrendsPage() {
     return (
         <div className="min-h-screen bg-black text-white font-sans selection:bg-cyan-500/30">
-            <AdminNavigation />
+            <AdminNavigation currentPage="trends" />
 
             <main className="pl-64">
                 <div className="max-w-7xl mx-auto p-8">
