@@ -49,12 +49,6 @@ export default async function ReviewPage() {
                     {/* Client Component for Interactive Triage */}
                     <ReviewQueue initialSignals={signals || []} />
                 </div>
-
-                <div className="flex-1 overflow-hidden">
-                    {/* Client Component for Interactive Triage */}
-                    <ReviewQueue initialSignals={signals || []} />
-                </div>
-            </div>
         </main>
     )
 }
