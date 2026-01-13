@@ -82,7 +82,7 @@ function SourceRow({ source, isExpanded, onToggle, onRefresh }: any) {
             if (result.success) {
                 toast.success("Source updated!");
                 setEditing(false);
-                window.location.reload();
+                onRefresh();
             } else {
                 toast.error("Update failed: " + result.error);
             }
@@ -98,8 +98,7 @@ function SourceRow({ source, isExpanded, onToggle, onRefresh }: any) {
         try {
             await toggleSourceAction(source.id, !source.active);
             toast.success(source.active ? "Source disabled" : "Source enabled");
-            // Force hard refresh to bypass cache
-            window.location.reload();
+            onRefresh();
         } catch (e) {
             toast.error("Failed to toggle source");
         } finally {
