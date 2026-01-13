@@ -417,7 +417,7 @@ export default function SignalCard({ signal, isAdmin = false }: { signal: Signal
 
             {/* Video Prep Button */}
             <div className="flex items-center justify-center">
-              <VideoGenerator signalId={signal.id} hasExistingMaterials={!!media.videoScript} />
+              <VideoGenerator signalId={signal.id} signalHeadline={signal.headline} signalHash={signal.hash} hasExistingMaterials={!!media.videoScript} />
             </div>
 
             <button
