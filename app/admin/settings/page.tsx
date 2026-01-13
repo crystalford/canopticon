@@ -64,7 +64,7 @@ export default async function SettingsPage() {
                             <Bell className="w-5 h-5 text-purple-400" />
                             <span className="text-sm text-gray-400">Active Sources</span>
                         </div>
-                        <p className="text-3xl font-bold font-mono">{sources?.filter(s => s.active).length || 0}</p>
+                        <p className="text-3xl font-bold font-mono">{sources?.filter((s: any) => s.active).length || 0}</p>
                     </div>
                 </div>
 
