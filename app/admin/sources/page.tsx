@@ -17,9 +17,9 @@ export default async function SourcesPage() {
         .select('*')
         .order('priority', { ascending: true });
 
-    const activeSources = sources?.filter(s => s.active && !s.auto_disabled).length || 0;
-    const warningSources = sources?.filter(s => s.consecutive_failures > 0 && s.consecutive_failures < 5).length || 0;
-    const disabledSources = sources?.filter(s => s.auto_disabled || !s.active).length || 0;
+    const activeSources = sources?.filter((s: any) => s.active && !s.auto_disabled).length || 0;
+    const warningSources = sources?.filter((s: any) => s.consecutive_failures > 0 && s.consecutive_failures < 5).length || 0;
+    const disabledSources = sources?.filter((s: any) => s.auto_disabled || !s.active).length || 0;
 
     return (
         <main className="min-h-screen bg-[#050505] text-white">
