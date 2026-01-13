@@ -26,18 +26,27 @@ export async function fetchFullArticle(url: string): Promise<ArticleFetchResult>
     }
 
     try {
-        // Use Jina AI Reader API - free tier allows 20k requests/day
+        // Use Jina AI Reader API
+        // Added aggressive Timeout and fallback handling
         const jinaUrl = `https://r.jina.ai/${url}`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
         const response = await fetch(jinaUrl, {
             headers: {
                 'Accept': 'text/plain',
-                'X-Return-Format': 'text'
+                'X-Return-Format': 'text',
+                'User-Agent': "Canopticon/1.0"
             },
-            signal: AbortSignal.timeout(10000) // 10 second timeout
+            signal: controller.signal,
+            next: { revalidate: 3600 }
         });
 
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
+            console.warn(`[Jina] HTTP Error ${response.status} for ${url}`);
             return {
                 success: false,
                 content: '',
@@ -49,7 +58,12 @@ export async function fetchFullArticle(url: string): Promise<ArticleFetchResult>
         const content = await response.text();
         const wordCount = content.split(/\s+/).filter(w => w.length > 0).length;
 
-        // Validate we got meaningful content
+        // Validation - Jina sometimes returns error HTML
+        if (content.includes("Cloudflare") || content.includes("Access denied")) {
+            console.warn(`[Jina] Blocked by Cloudflare/Bot-detection: ${url}`);
+            return { success: false, content: '', wordCount: 0, error: "Blocked" };
+        }
+
         if (wordCount < 50) {
             return {
                 success: false,
@@ -66,6 +80,7 @@ export async function fetchFullArticle(url: string): Promise<ArticleFetchResult>
         };
 
     } catch (error: any) {
+        console.error(`[Jina] Exception fetching ${url}:`, error.message);
         return {
             success: false,
             content: '',
