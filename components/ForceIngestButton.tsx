@@ -17,7 +17,7 @@ export default function ForceIngestButton() {
         try {
             const result: any = await runIngestAction()
             if (result.success) {
-                toast.success(`Ingest Complete. Found ${result.count} signals.`, { id: toastId });
+                toast.success(result.message || `Ingest Complete. Found ${result.count} signals.`, { id: toastId });
                 router.refresh()
             } else {
                 toast.error("Ingest Failed: " + result.error, { id: toastId });

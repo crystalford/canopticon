@@ -19,15 +19,22 @@ import { getGlobalSignals } from '@/lib/ingestion'
 
 export async function runIngestAction() {
   try {
+    console.log('[runIngestAction] Starting ingestion...');
     const result = await getGlobalSignals();
     const { count } = await supabaseAdmin.from('signals').select('*', { count: 'exact', head: true });
     console.log(`[Ingest Action] Fetched ${result.length} signals. DB Count: ${count}`);
     revalidatePath('/admin/dashboard');
+    revalidatePath('/admin/content');
     revalidatePath('/');
-    return { success: true, count: result.length, dbCount: count };
+    return {
+      success: true,
+      count: result.length,
+      dbCount: count,
+      message: `Found ${result.length} signals from sources. Database has ${count} total signals.`
+    };
   } catch (e: any) {
     console.error("[Ingest Action Failed]", e);
-    return { success: false, error: e.message || "Unknown Ingest Error" };
+    return { success: false, error: e.message || "Unknown Ingest Error", count: 0 };
   }
 }
 
