@@ -79,8 +79,8 @@ export async function fetchAllFeeds(): Promise<Signal[]> {
                     url: item.link || '',
                     publishedAt: item.isoDate || new Date().toISOString(),
                     summary: item.contentSnippet || '',
-                    priority: 'normal',
-                    status: 'pending',
+                    priority: 'normal' as const,
+                    status: 'pending' as const,
                     entities: entities,
                     topics: [source.category || 'politics'],
                     raw_content: rawContent, // Full article content!
