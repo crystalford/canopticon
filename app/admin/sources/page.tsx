@@ -34,7 +34,10 @@ export default async function SourcesPage() {
                             Control RSS feeds, article limits, and ingestion priority
                         </p>
                     </div>
-                    <ForceIngestButton />
+                    <div className="flex items-center gap-3">
+                        <AddSourceButton />
+                        <ForceIngestButton />
+                    </div>
                 </header>
 
                 {/* Stats */}
