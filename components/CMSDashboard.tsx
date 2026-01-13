@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LayoutDashboard, Radio, FileText, Settings, Search, Filter, AlertCircle, X, Users, Activity, ExternalLink } from 'lucide-react'
-import ContentItem from './ContentItem'
 import { Signal, Publication } from '@/types'
 
 interface DashboardProps {
