@@ -1,73 +1,41 @@
+import { supabase } from '@/lib/db'
+
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-import { supabaseAdmin } from '@/lib/supabase-admin'
-import AdminNavigation from '@/components/AdminNavigation'
-import { isUserAdmin } from '@/lib/auth'
-import { redirect } from 'next/navigation'
-import ContentTable from '@/components/ContentTable'
-
-export default async function ContentPage({ searchParams }: { searchParams: { status?: string } }) {
-    const isAdmin = await isUserAdmin();
-    if (!isAdmin) redirect('/');
-
-    const statusFilter = searchParams.status || 'all';
-
-    // Fetch both drafts and published
-    let query = supabaseAdmin
+export default async function ContentPage() {
+    const { data: signals, error } = await supabase
         .from('signals')
-        .select('*, sources(name)')
-        .order('created_at', { ascending: false });
+        .select('*')
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .limit(100)
 
-    if (statusFilter === 'draft') {
-        query = query.eq('status', 'draft');
-    } else if (statusFilter === 'published') {
-        query = query.eq('status', 'published');
-    } else {
-        // Show draft, published, and pending (safety net for ingestion)
-        query = query.in('status', ['draft', 'published', 'pending']);
+    if (error) {
+        return <div className="p-8 text-red-500">Error: {error.message}</div>
     }
 
-    const { data: content } = await query;
-
-    const draftCount = content?.filter((s: any) => s.status === 'draft').length || 0;
-    const publishedCount = content?.filter((s: any) => s.status === 'published').length || 0;
-
     return (
-        <main className="min-h-screen bg-[#050505] text-white">
-            <AdminNavigation currentPage="content" />
+        <main className="min-h-screen bg-black text-white p-8">
+            <div className="max-w-6xl mx-auto">
+                <h1 className="text-3xl font-bold mb-8">Published Content</h1>
 
-            <div className="pt-24 pb-16 px-4 max-w-[1600px] mx-auto">
-                {/* Header */}
-                <header className="mb-8">
-                    <h1 className="text-3xl font-bold mb-2">Content</h1>
-                    <p className="text-gray-400">Manage drafts and published stories</p>
-                </header>
-
-                {/* Stats */}
-                <div className="flex items-center gap-4 mb-6">
-                    <a
-                        href="/admin/content?status=all"
-                        className={`px-4 py-2 rounded-lg transition-colors ${statusFilter === 'all' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
-                    >
-                        All ({draftCount + publishedCount})
-                    </a>
-                    <a
-                        href="/admin/content?status=draft"
-                        className={`px-4 py-2 rounded-lg transition-colors ${statusFilter === 'draft' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
-                    >
-                        🟡 Drafts ({draftCount})
-                    </a>
-                    <a
-                        href="/admin/content?status=published"
-                        className={`px-4 py-2 rounded-lg transition-colors ${statusFilter === 'published' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
-                    >
-                        🟢 Published ({publishedCount})
-                    </a>
-                </div>
-
-                {/* Content Table */}
-                <ContentTable initialContent={content || []} />
+                {!signals || signals.length === 0 ? (
+                    <div className="text-center text-gray-500 py-12">
+                        No published content
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {signals.map((signal) => (
+                            <div key={signal.id} className="border-b border-gray-800 py-4">
+                                <h3 className="font-bold mb-1">{signal.headline}</h3>
+                                <p className="text-sm text-gray-500">
+                                    {new Date(signal.published_at).toLocaleDateString()}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </main>
     )
