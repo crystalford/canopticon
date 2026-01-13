@@ -6,6 +6,7 @@ import { isUserAdmin } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import SourceTable from '@/components/SourceTable'
 import ForceIngestButton from '@/components/ForceIngestButton'
+import AddSourceButton from '@/components/AddSourceButton'
 
 export default async function SourcesPage() {
     const isAdmin = await isUserAdmin();
