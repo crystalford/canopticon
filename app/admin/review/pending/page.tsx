@@ -73,7 +73,7 @@ async function DebugList() {
 
     return (
         <div className="space-y-1">
-            {latest.map(s => (
+            {latest.map((s: any) => (
                 <div key={s.id} className="flex gap-4">
                     <span className="text-cyan-400">[{s.status}]</span>
                     <span className="text-gray-500">{new Date(s.created_at).toLocaleTimeString()}</span>
