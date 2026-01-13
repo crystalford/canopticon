@@ -80,7 +80,7 @@ export async function fetchAllFeeds(): Promise<Signal[]> {
                     publishedAt: item.isoDate || new Date().toISOString(),
                     summary: item.contentSnippet || '',
                     priority: 'normal' as const,
-                    status: 'draft' as const,
+                    status: 'pending' as const,
                     entities: entities,
                     topics: [source.category || 'politics'],
                     raw_content: rawContent, // Full article content!
