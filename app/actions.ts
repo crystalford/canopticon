@@ -512,15 +512,15 @@ export async function updateArticleAction(signalId: string, updates: {
 
 export async function rescueSignalsAction() {
   try {
-    // Reset 'draft' signals created in the last 6 hours to 'pending'
-    // This fixes the issue where signals ingested during the "draft-only" window are invisible in Review
-    const cutoff = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+    // Reset 'draft' AND 'deleted' signals created in the last 24 hours to 'pending'
+    // The Debug Box showed signals were stuck in [deleted] status, likely from previous ingest/clear cycles.
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     const { data, error } = await supabaseAdmin
       .from('signals')
       .update({ status: 'pending' })
-      .eq('status', 'draft')
-      .gt('created_at', cutoff) // Use created_at to target ingestion time, not published_at
+      .in('status', ['draft', 'deleted']) // Target both invisible states
+      .gt('created_at', cutoff)
       .select();
 
     if (error) {
