@@ -15,6 +15,7 @@ export default function AdminNavigation({ currentPage }: { currentPage: CurrentP
         { name: 'Dashboard', href: '/admin/dashboard', id: 'dashboard', icon: LayoutDashboard },
         { name: 'Review', href: '/admin/review/pending', id: 'review', icon: Inbox },
         { name: 'Content', href: '/admin/content', id: 'content', icon: FileText },
+        { name: 'Sources', href: '/admin/sources', id: 'sources', icon: Radio },
         { name: 'Social', href: '/admin/trends', id: 'trends', icon: TrendingUp },
         { name: 'Settings', href: '/admin/settings', id: 'settings', icon: Settings },
     ];
