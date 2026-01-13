@@ -51,36 +51,11 @@ export default async function ReviewPage() {
                     <ReviewQueue initialSignals={signals || []} />
                 </div>
 
-                {/* DEBUG SECTION - REMOVE AFTER FIX */}
-                <div className="mt-8 p-4 bg-red-900/20 border border-red-500/30 rounded text-xs font-mono text-gray-300">
-                    <h3 className="font-bold text-red-400 mb-2">DEBUG: Latest DB Entries</h3>
-                    <DebugList />
+                <div className="flex-1 overflow-hidden">
+                    {/* Client Component for Interactive Triage */}
+                    <ReviewQueue initialSignals={signals || []} />
                 </div>
             </div>
         </main>
-    )
-}
-
-async function DebugList() {
-    // Fetch absolute latest signals regardless of status
-    const { data: latest } = await supabaseAdmin
-        .from('signals')
-        .select('id, headline, status, created_at, source')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-    if (!latest) return <div>No DB entries found</div>
-
-    return (
-        <div className="space-y-1">
-            {latest.map((s: any) => (
-                <div key={s.id} className="flex gap-4">
-                    <span className="text-cyan-400">[{s.status}]</span>
-                    <span className="text-gray-500">{new Date(s.created_at).toLocaleTimeString()}</span>
-                    <span className="truncate max-w-[300px]">{s.headline}</span>
-                    <span className="text-gray-600">({s.source})</span>
-                </div>
-            ))}
-        </div>
     )
 }
