@@ -71,29 +71,95 @@ CRITICAL: Return ONLY the JSON object. No markdown, no code blocks, no explanati
 
 export async function generateDailyBrief(): Promise<DailyBrief> {
     try {
-        // Get Gemini API key
-        const apiKey = await getSetting(SETTINGS_KEYS.GEMINI_API_KEY) || process.env.GEMINI_API_KEY
-        if (!apiKey) {
-            throw new Error('Gemini API Key not configured')
+        // Get configured AI provider and key
+        const provider = await getSetting(SETTINGS_KEYS.AI_PROVIDER) || 'anthropic'
+
+        let apiKey: string | null = null
+
+        if (provider === 'anthropic') {
+            apiKey = await getSetting(SETTINGS_KEYS.ANTHROPIC_API_KEY) || process.env.ANTHROPIC_API_KEY
+        } else if (provider === 'gemini') {
+            apiKey = await getSetting(SETTINGS_KEYS.GEMINI_API_KEY) || process.env.GEMINI_API_KEY
+        } else {
+            apiKey = await getSetting(SETTINGS_KEYS.OPENAI_API_KEY) || process.env.OPENAI_API_KEY
         }
 
-        // Initialize Gemini
-        const genAI = new GoogleGenerativeAI(apiKey)
-        // Use 2.0-flash-exp for free tier (has lower rate limits but is available)
-        const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash-exp',
-            generationConfig: {
-                maxOutputTokens: 8000, // Limit output to stay within free tier
-            }
-        })
+        if (!apiKey) {
+            throw new Error(`${provider} API Key not configured`)
+        }
 
-        // Generate brief
-        const result = await model.generateContent(DISCOVERY_PROMPT)
-        const response = await result.response
-        const text = response.text()
+        let responseText: string
+
+        if (provider === 'anthropic') {
+            // Use Anthropic Claude
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01'
+                },
+                body: JSON.stringify({
+                    model: 'claude-3-5-sonnet-20241022',
+                    max_tokens: 8000,
+                    messages: [{
+                        role: 'user',
+                        content: DISCOVERY_PROMPT
+                    }]
+                })
+            })
+
+            if (!response.ok) {
+                const error = await response.text()
+                throw new Error(`Anthropic API error: ${error}`)
+            }
+
+            const data = await response.json()
+            responseText = data.content[0].text
+
+        } else if (provider === 'gemini') {
+            // Use Gemini
+            const genAI = new GoogleGenerativeAI(apiKey)
+            const model = genAI.getGenerativeModel({
+                model: 'gemini-2.0-flash-exp',
+                generationConfig: {
+                    maxOutputTokens: 8000,
+                }
+            })
+
+            const result = await model.generateContent(DISCOVERY_PROMPT)
+            const response = await result.response
+            responseText = response.text()
+
+        } else {
+            // Use OpenAI
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [{
+                        role: 'user',
+                        content: DISCOVERY_PROMPT
+                    }],
+                    max_tokens: 8000
+                })
+            })
+
+            if (!response.ok) {
+                const error = await response.text()
+                throw new Error(`OpenAI API error: ${error}`)
+            }
+
+            const data = await response.json()
+            responseText = data.choices[0].message.content
+        }
 
         // Parse response
-        const cleanedText = text.replace(/```json\n?|\n?```/g, '').trim()
+        const cleanedText = responseText.replace(/```json\n?|\n?```/g, '').trim()
         const parsed = JSON.parse(cleanedText)
 
         if (!parsed.stories || !Array.isArray(parsed.stories)) {
