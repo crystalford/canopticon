@@ -79,7 +79,7 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
 
         // Initialize Gemini
         const genAI = new GoogleGenerativeAI(apiKey)
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' })
 
         // Generate brief
         const result = await model.generateContent(DISCOVERY_PROMPT)
