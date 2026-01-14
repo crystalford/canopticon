@@ -20,47 +20,63 @@ export interface DailyBrief {
     status: 'draft' | 'published'
 }
 
-const DISCOVERY_PROMPT = `You are a Canadian political news analyst with deep expertise in federal politics, policy, and parliamentary affairs.
+const DISCOVERY_PROMPT = `You are a strict Political News Editor for a Canadian wire service (CP Style).
 
-Search the top Canadian political stories from the provided REAL-TIME NEWS CONTEXT.
+Your goal is to extract and write SUBSTANTIVE "EXPLAINER-STYLE" news stories (800+ words) from the provided REAL-TIME NEWS CONTEXT.
+If a story is NOT in the context, DO NOT WRITE IT.
 
-For each of the top 5 most significant stories found in the context:
-1. Analyze the context provided
-2. Provide a DETAILED, COMPREHENSIVE 800-1200 word deep-dive analysis.
-3. Identify key political players.
-4. Rate significance (1-10).
-5. Cite source URLs from the context provided.
+For each of the top 5 most significant stories, write a comprehensive deep-dive.
 
-Focus on depth, nuance, and professional political analysis. Avoid superficial summaries.
+CRITICAL INSTRUCTION: MULTI-SOURCE SYNTHESIS
+- You must synthesize information from MULTIPLE sources in the context to build a complete picture.
+- Do NOT rely on a single article. Look for corroborating details or differing perspectives.
+- If only one source is available, use your INTERNAL KNOWLEDGE to provide the missing context (historical precedence, standard procedure, etc.).
 
-Focus on:
-- Federal politics and Parliament
-- Major policy announcements
-- Legislative changes
-- Cabinet decisions
-- Political controversies
-- Economic policy
-- International relations (Canada-focused)
+MANDATORY STRUCTURE (4-6 Paragraphs Minimum):
 
-Exclude:
-- Provincial/municipal news (unless nationally significant)
-- Sports, entertainment, lifestyle
-- Minor procedural updates
+1. THE LEAD: Objective facts (Who, what, when, where, why).
+2. THE CONTEXTUAL/PROCEDURAL DEEP DIVE (Internal Knowledge Allowed):
+   - Explain the technical process. How does a leadership race work? What are the constitutional implications? 
+   - Use phrases like "Under standard party rules..." or "Historically, this process involves..."
+3. THE DATA & EVIDENCE:
+   - Cite specific numbers/polls from the text. 
+   - If no specific polls are in the text, mention "Recent general polling trends suggest..." based on general context.
+4. THE STAKEHOLDERS (Who wins/loses):
+   - Analyze implications for Opposition parties, provinces, or industries.
+5. THE RISKS & OUTLOOK:
+   - What happens next? What are the friction points?
+
+Style Rules:
+- DO NOT say "This story is rated 8/10".
+- DO NOT list "Key Players include...".
+- START directly with the dateline city (e.g., "OTTAWA - ...").
+- TONE: Professional, authoritative, "Smart Brevity" style but with depth.
 
 Return ONLY valid XML in this exact format:
 <brief>
   <story>
-    <headline>Clear, compelling headline</headline>
-    <summary>Full 800-1200 word deep-dive analysis (can use multiple paragraphs)</summary>
+    <headline>Compelling Headline (Max 10 words)</headline>
+    <summary>
+      OTTAWA - (Lead paragraph...)
+      
+      (Deep Process Paragraph...)
+      
+      (Stakes & Data Paragraph...)
+      
+      (Risks & Conclusion Paragraph...)
+      
+      (Ensure total length is substantial, 600-800 words, by explaining the 'How' and 'Why' in detail.)
+    </summary>
     <key_players>Name (Role), Name (Role)</key_players>
     <significance>8</significance>
     <sources>https://source1.com, https://source2.com</sources>
   </story>
 </brief>
 
-CRITICAL: Return ONLY the XML. No markdown, no code blocks, no explanation.`
+CRITICAL: Return ONLY the XML. No markdown.`
 
 // Google News RSS for Canadian Politics (Last 24h)
+// Updated to fetch more items to ensure multi-source coverage
 const GOOGLE_NEWS_RSS = 'https://news.google.com/rss/search?q=Canadian+federal+politics+Parliament+Canada+when:1d&hl=en-CA&gl=CA&ceid=CA:en'
 
 async function fetchNewsContext(): Promise<string> {
@@ -71,7 +87,8 @@ async function fetchNewsContext(): Promise<string> {
         // Simple regex parse to avoid deps (robust enough for Google News RSS structure)
         const items = xml.match(/<item>[\s\S]*?<\/item>/g) || []
 
-        return items.slice(0, 20).map(item => {
+        // Increased limit from 20 to 50 to provide more source material for synthesis
+        return items.slice(0, 50).map(item => {
             const title = item.match(/<title>(.*?)<\/title>/)?.[1] || ''
             const link = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
             const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
