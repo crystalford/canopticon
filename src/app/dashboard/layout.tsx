@@ -29,46 +29,45 @@ export default async function DashboardLayout({
                             </Link>
                         </div>
 
-                        <nav className="flex items-center gap-6">
-                            <Link
-                                href="/dashboard"
-                                className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors text-sm font-medium"
-                            >
-                                Signals
-                            </Link>
-                            <Link
-                                href="/dashboard/articles"
-                                className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors text-sm font-medium"
-                            >
-                                Articles
-                            </Link>
-                            <Link
-                                href="/dashboard/sources"
-                                className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors text-sm font-medium"
-                            >
-                                Sources
-                            </Link>
-                            <Link
-                                href="/dashboard/settings"
-                                className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors text-sm font-medium"
-                            >
-                                Settings
-                            </Link>
-                            <Link
-                                href="/"
-                                className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-sm"
-                            >
-                                View Site →
-                            </Link>
-                        </nav>
-                    </div>
+                        <Link
+                            href="/dashboard"
+                            className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors text-sm font-medium"
+                        >
+                            Daily Brief
+                        </Link>
+                        <Link
+                            href="/dashboard/articles"
+                            className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors text-sm font-medium"
+                        >
+                            Articles
+                        </Link>
+                        <Link
+                            href="/dashboard/manual-sources"
+                            className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors text-sm font-medium"
+                        >
+                            Manual Sources
+                        </Link>
+                        <Link
+                            href="/dashboard/settings"
+                            className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors text-sm font-medium"
+                        >
+                            Settings
+                        </Link>
+                        <Link
+                            href="/"
+                            className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-sm"
+                        >
+                            View Site →
+                        </Link>
+                    </nav>
                 </div>
-            </header>
-
-            {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {children}
-            </main>
         </div>
+            </header >
+
+        {/* Main Content */ }
+        < main className = "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" >
+            { children }
+            </main >
+        </div >
     )
 }
