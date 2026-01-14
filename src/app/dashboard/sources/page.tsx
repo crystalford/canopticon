@@ -15,6 +15,9 @@ interface Source {
 }
 
 export default function SourcesPage() {
+    const [manualUrl, setManualUrl] = useState('')
+    const [submitting, setSubmitting] = useState(false)
+    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
     const [sources, setSources] = useState<Source[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -35,6 +38,37 @@ export default function SourcesPage() {
         }
     }
 
+    const handleManualSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!manualUrl) return
+
+        setSubmitting(true)
+        setMessage(null)
+
+        try {
+            const res = await fetch('/api/ingest/manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: manualUrl }),
+            })
+
+            const data = await res.json()
+
+            if (res.ok) {
+                setMessage({ type: 'success', text: 'Article ingested successfully! Check the dashboard.' })
+                setManualUrl('')
+                // Refresh sources to see the "Manual Submission" source if it was just created
+                fetchSources()
+            } else {
+                setMessage({ type: 'error', text: data.error || 'Failed to ingest article' })
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'An error occurred during submission' })
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     const disableSource = async (id: string) => {
         try {
             const res = await fetch(`/api/sources/${id}/disable`, { method: 'POST' })
@@ -46,6 +80,33 @@ export default function SourcesPage() {
         }
     }
 
+    const syncSource = async (source: Source) => {
+        // Only verify for Parliament initially
+        const isParliament = source.name.includes('Parliament')
+        if (!isParliament) return
+
+        setMessage({ type: 'success', text: `Syncing ${source.name}...` })
+        setSubmitting(true)
+
+        try {
+            const res = await fetch('/api/ingest/parliament', { method: 'POST' })
+            const data = await res.json()
+
+            if (res.ok) {
+                setMessage({
+                    type: 'success',
+                    text: `Sync complete: ${data.stats.ingested} ingested, ${data.stats.skipped} skipped, ${data.stats.errors} errors`
+                })
+            } else {
+                setMessage({ type: 'error', text: 'Sync failed' })
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Sync failed' })
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
     return (
         <div>
             <div className="flex justify-between items-center mb-8">
@@ -54,6 +115,38 @@ export default function SourcesPage() {
                     <p className="text-slate-600 dark:text-slate-400 mt-1">Manage ingestion sources</p>
                 </div>
             </div>
+
+            {/* Manual Ingestion Form */}
+            <div className="card p-6 mb-8 border-l-4 border-l-primary-500">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Manual Ingestion</h2>
+                <form onSubmit={handleManualSubmit} className="flex gap-4">
+                    <input
+                        type="url"
+                        value={manualUrl}
+                        onChange={(e) => setManualUrl(e.target.value)}
+                        placeholder="https://www.canada.ca/en/..."
+                        className="input flex-1"
+                        required
+                    />
+                    <button
+                        type="submit"
+                        disabled={submitting}
+                        className="btn-primary whitespace-nowrap"
+                    >
+                        {submitting ? 'Ingesting...' : 'Ingest URL'}
+                    </button>
+                </form>
+                {message && (
+                    <div className={`mt-4 p-3 rounded-lg text-sm ${message.type === 'success'
+                        ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                        : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                        }`}>
+                        {message.text}
+                    </div>
+                )}
+            </div>
+
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Configured Sources</h2>
 
             {loading ? (
                 <div className="card p-8 text-center">
@@ -87,7 +180,16 @@ export default function SourcesPage() {
                                         <p>Reliability: {source.reliabilityWeight}/100</p>
                                     </div>
                                 </div>
-                                <div className="ml-4">
+                                <div className="ml-4 flex gap-2">
+                                    {source.name.includes('Parliament') && (
+                                        <button
+                                            onClick={() => syncSource(source)}
+                                            disabled={submitting}
+                                            className="btn-secondary text-sm"
+                                        >
+                                            Sync Now
+                                        </button>
+                                    )}
                                     {source.isActive && (
                                         <button
                                             onClick={() => disableSource(source.id)}
