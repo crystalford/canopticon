@@ -74,14 +74,14 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
         // Get configured AI provider and key
         const provider = await getSetting(SETTINGS_KEYS.AI_PROVIDER) || 'anthropic'
 
-        let apiKey: string | null = null
+        let apiKey: string | null
 
         if (provider === 'anthropic') {
-            apiKey = await getSetting(SETTINGS_KEYS.ANTHROPIC_API_KEY) || process.env.ANTHROPIC_API_KEY
+            apiKey = (await getSetting(SETTINGS_KEYS.ANTHROPIC_API_KEY) || process.env.ANTHROPIC_API_KEY) ?? null
         } else if (provider === 'gemini') {
-            apiKey = await getSetting(SETTINGS_KEYS.GEMINI_API_KEY) || process.env.GEMINI_API_KEY
+            apiKey = (await getSetting(SETTINGS_KEYS.GEMINI_API_KEY) || process.env.GEMINI_API_KEY) ?? null
         } else {
-            apiKey = await getSetting(SETTINGS_KEYS.OPENAI_API_KEY) || process.env.OPENAI_API_KEY
+            apiKey = (await getSetting(SETTINGS_KEYS.OPENAI_API_KEY) || process.env.OPENAI_API_KEY) ?? null
         }
 
         if (!apiKey) {
