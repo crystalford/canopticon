@@ -80,16 +80,20 @@ export default function SourcesPage() {
         }
     }
 
-    const syncSource = async (source: Source) => {
+    const syncSource = async (source: Source, limit: number) => {
         // Only verify for Parliament initially
         const isParliament = source.name.includes('Parliament')
         if (!isParliament) return
 
-        setMessage({ type: 'success', text: `Syncing ${source.name}...` })
+        setMessage({ type: 'success', text: `Syncing ${source.name} (Limit: ${limit})...` })
         setSubmitting(true)
 
         try {
-            const res = await fetch('/api/ingest/parliament', { method: 'POST' })
+            const res = await fetch('/api/ingest/parliament', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ limit }),
+            })
             const data = await res.json()
 
             if (res.ok) {
@@ -199,13 +203,26 @@ export default function SourcesPage() {
                                 </div>
                                 <div className="ml-4 flex gap-2">
                                     {source.name.includes('Parliament') && (
-                                        <button
-                                            onClick={() => syncSource(source)}
-                                            disabled={submitting}
-                                            className="btn-secondary text-sm"
-                                        >
-                                            Sync Now
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="100"
+                                                defaultValue="10"
+                                                className="input w-20 py-1 px-2 text-sm"
+                                                id={`limit-${source.id}`}
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    const limitInput = document.getElementById(`limit-${source.id}`) as HTMLInputElement
+                                                    syncSource(source, parseInt(limitInput.value) || 10)
+                                                }}
+                                                disabled={submitting}
+                                                className="btn-secondary text-sm"
+                                            >
+                                                Sync Now
+                                            </button>
+                                        </div>
                                     )}
                                     {source.isActive && (
                                         <button
@@ -224,6 +241,48 @@ export default function SourcesPage() {
                     ))}
                 </div>
             )}
+            {/* Danger Zone */}
+            <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700">
+                <h3 className="text-lg font-semibold text-red-600 mb-4">Danger Zone</h3>
+                <div className="card p-6 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <h4 className="font-medium text-red-900 dark:text-red-200">Purge All Data</h4>
+                            <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                                Delete all signals, articles, and logs. This cannot be undone.
+                                Use this to reset the system for a fresh ingestion.
+                            </p>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (confirm('ARE YOU SURE? This will delete ALL data (signals, articles, clusters).')) {
+                                    if (confirm('Really clean everything?')) {
+                                        setSubmitting(true)
+                                        setMessage({ type: 'success', text: 'Purging data...' })
+                                        try {
+                                            const res = await fetch('/api/admin/purge', { method: 'POST' })
+                                            if (res.ok) {
+                                                setMessage({ type: 'success', text: 'Data purged successfully. You can now re-sync.' })
+                                                fetchSources()
+                                            } else {
+                                                setMessage({ type: 'error', text: 'Purge failed' })
+                                            }
+                                        } catch (e) {
+                                            setMessage({ type: 'error', text: 'Purge failed' })
+                                        } finally {
+                                            setSubmitting(false)
+                                        }
+                                    }
+                                }
+                            }}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+                            disabled={submitting}
+                        >
+                            {submitting ? 'Purging...' : 'Purge All Data'}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }

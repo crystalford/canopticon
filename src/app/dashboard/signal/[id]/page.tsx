@@ -235,8 +235,8 @@ export default function SignalDetailPage() {
                 {articles.map(article => (
                     <div key={article.id} className="card p-4">
                         <h3 className="font-medium text-slate-900 dark:text-white mb-2">{article.title}</h3>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-3 mb-3">
-                            {article.bodyText.slice(0, 300)}...
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 whitespace-pre-wrap">
+                            {article.bodyText.slice(0, 5000)}...
                         </p>
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-slate-500">

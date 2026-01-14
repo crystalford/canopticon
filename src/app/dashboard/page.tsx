@@ -11,6 +11,9 @@ interface Signal {
     status: 'pending' | 'flagged' | 'approved' | 'archived'
     aiNotes?: string
     createdAt: string
+    articleTitle?: string
+    articleUrl?: string
+    articleBody?: string
 }
 
 export default function DashboardPage() {
@@ -139,6 +142,25 @@ export default function DashboardPage() {
                                         <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2">
                                             {signal.aiNotes}
                                         </p>
+                                    )}
+                                    {signal.articleTitle && (
+                                        <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                                            <a
+                                                href={signal.articleUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                onClick={(e) => e.stopPropagation()} // Prevent card click
+                                                className="text-xs font-medium text-primary-600 hover:underline flex items-center gap-1"
+                                            >
+                                                Source: {signal.articleTitle}
+                                                <span className="text-slate-400">↗</span>
+                                            </a>
+                                            {signal.articleBody && (
+                                                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                                                    {signal.articleBody.slice(0, 300)}...
+                                                </p>
+                                            )}
+                                        </div>
                                     )}
                                     <p className="text-xs text-slate-400 mt-2">
                                         {new Date(signal.createdAt).toLocaleString()}

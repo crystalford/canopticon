@@ -92,8 +92,13 @@ export async function fetchRecentVotes(limit: number = 20): Promise<OpenParliame
  * Convert a bill to raw article format
  */
 function billToRawArticle(bill: OpenParliamentBill, sourceId: string, fullText: string = ''): RawArticleInput {
+    // Handle name which might be an object (en/fr) or string
+    const billName = typeof bill.name === 'object'
+        ? (bill.name as any).en || (bill.name as any).fr || 'Unknown Bill'
+        : bill.name
+
     let bodyText = `
-Bill ${bill.number} - ${bill.name}
+Bill ${bill.number} - ${billName}
 
 Session: ${bill.session}
 Introduced: ${bill.introduced}
@@ -111,7 +116,7 @@ For full text and updates, see the official LEGISinfo page.
         sourceId,
         externalId: bill.url,
         originalUrl: bill.legisinfo_url || `https://openparliament.ca${bill.url}`,
-        title: `Bill ${bill.number}: ${bill.name}`,
+        title: `Bill ${bill.number}: ${billName}`,
         bodyText,
         publishedAt: bill.introduced ? new Date(bill.introduced) : undefined,
         rawPayload: bill as unknown as Record<string, unknown>,
@@ -149,7 +154,7 @@ The motion ${vote.result === 'Agreed to' ? 'passed' : 'failed'} with ${vote.yea_
 /**
  * Run the Parliament worker to fetch and ingest new content
  */
-export async function runParliamentWorker(sourceId: string): Promise<{
+export async function runParliamentWorker(sourceId: string, limit: number = 10): Promise<{
     processed: number
     ingested: number
     skipped: number
@@ -162,13 +167,13 @@ export async function runParliamentWorker(sourceId: string): Promise<{
         component: 'parliament-worker',
         runId,
         level: 'info',
-        message: 'Parliament worker started',
-        metadata: { sourceId },
+        message: `Parliament worker started (Limit: ${limit})`,
+        metadata: { sourceId, limit },
     })
 
     try {
         // Fetch bills
-        const bills = await fetchRecentBills(10)
+        const bills = await fetchRecentBills(limit)
         for (const bill of bills) {
             stats.processed++
 
@@ -204,7 +209,7 @@ export async function runParliamentWorker(sourceId: string): Promise<{
         }
 
         // Fetch votes
-        const votes = await fetchRecentVotes(10)
+        const votes = await fetchRecentVotes(limit)
         for (const vote of votes) {
             stats.processed++
             const article = voteToRawArticle(vote, sourceId)

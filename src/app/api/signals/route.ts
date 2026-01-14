@@ -23,8 +23,13 @@ export async function GET(request: NextRequest) {
                 aiNotes: signals.aiNotes,
                 createdAt: signals.createdAt,
                 clusterId: signals.clusterId,
+                articleTitle: rawArticles.title,
+                articleUrl: rawArticles.originalUrl,
+                articleBody: rawArticles.bodyText,
             })
             .from(signals)
+            .leftJoin(clusters, eq(signals.clusterId, clusters.id))
+            .leftJoin(rawArticles, eq(clusters.primaryArticleId, rawArticles.id))
             .orderBy(desc(signals.createdAt))
             .limit(50)
 
@@ -38,7 +43,8 @@ export async function GET(request: NextRequest) {
         }
 
         if (conditions.length > 0) {
-            query = query.where(and(...conditions)) as typeof query
+            // @ts-ignore - Dynamic query composition type safety
+            query = query.where(and(...conditions))
         }
 
         const result = await query

@@ -8,13 +8,16 @@ export const dynamic = 'force-dynamic'
  * POST /api/ingest/parliament
  * Trigger the Parliament of Canada ingestion worker
  */
-export async function POST() {
+export async function POST(request: Request) {
     try {
+        const body = await request.json().catch(() => ({}))
+        const limit = body.limit || 10
+
         // 1. Ensure source exists
         const sourceId = await ensureParliamentSource()
 
         // 2. Run worker
-        const stats = await runParliamentWorker(sourceId)
+        const stats = await runParliamentWorker(sourceId, limit)
 
         // 3. Trigger signal pipeline for immediate feedback
         const pipelineStats = await processUnprocessedArticles()
