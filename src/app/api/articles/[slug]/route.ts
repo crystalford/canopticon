@@ -48,9 +48,6 @@ export async function GET(
     }
 }
 
-/**
- * PATCH /api/articles/[slug] - Update article
- */
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ slug: string }> }
@@ -68,10 +65,18 @@ export async function PATCH(
         const { slug } = await params
         const body = await request.json()
 
+        console.log('PATCH /api/articles/[slug]:', { slug, body })
+
+        // Sanitize dates - convert Date objects to proper timestamp format
+        const sanitizedBody = { ...body }
+        if (sanitizedBody.publishedAt && typeof sanitizedBody.publishedAt === 'object') {
+            sanitizedBody.publishedAt = new Date(sanitizedBody.publishedAt)
+        }
+
         // Update article
         const [updatedArticle] = await db
             .update(articles)
-            .set(body)
+            .set(sanitizedBody)
             .where(eq(articles.slug, slug))
             .returning()
 
@@ -82,11 +87,12 @@ export async function PATCH(
             )
         }
 
+        console.log('Article updated successfully:', updatedArticle.slug)
         return NextResponse.json({ article: updatedArticle })
     } catch (error) {
         console.error('Error updating article:', error)
         return NextResponse.json(
-            { error: 'Failed to update article' },
+            { error: `Failed to update article: ${error}` },
             { status: 500 }
         )
     }
