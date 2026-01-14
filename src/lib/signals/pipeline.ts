@@ -76,41 +76,43 @@ export async function processArticle(articleId: string): Promise<PipelineResult>
 
         await logPipeline(runId, 'info', 'Processing article', { articleId })
 
-        // Step 2: Generate embedding
+        // Step 2: Generate embedding (Optional / Fail-open)
         const textForEmbedding = `${article.title}\n\n${article.bodyText.slice(0, 800)}`
-        const embedding = await generateEmbedding(textForEmbedding)
 
-        if (!embedding) {
-            recordFailure()
-            return { success: false, action: 'error', reason: 'Embedding generation failed' }
+        let embedding: number[] | null = null
+        try {
+            embedding = await generateEmbedding(textForEmbedding)
+        } catch (error) {
+            console.error('Embedding failed, proceeding without AI:', error)
         }
-        recordSuccess()
 
-        // Step 3: Similarity search against recent clusters
-        const cutoffDate = new Date(Date.now() - CLUSTER_WINDOW_HOURS * 60 * 60 * 1000)
-        const matchResult = await findMatchingCluster(embedding, cutoffDate)
-
+        // Step 3: Similarity search (Only if we have an embedding)
         let clusterId: string
         let isNewCluster = false
 
-        // Step 4: Cluster assignment or creation
-        if (matchResult.match && matchResult.similarity >= SIMILARITY_THRESHOLDS.autoMatch) {
-            // Auto-match to existing cluster
-            clusterId = matchResult.clusterId!
+        if (embedding) {
+            const cutoffDate = new Date(Date.now() - CLUSTER_WINDOW_HOURS * 60 * 60 * 1000)
+            const matchResult = await findMatchingCluster(embedding, cutoffDate)
 
-            // Check cluster article limit
-            const clusterSize = await getClusterSize(clusterId)
-            if (clusterSize >= MAX_ARTICLES_PER_CLUSTER) {
-                // Create new cluster instead
+            if (matchResult.match && matchResult.similarity >= SIMILARITY_THRESHOLDS.autoMatch) {
+                // Auto-match logic...
+                clusterId = matchResult.clusterId!
+                const clusterSize = await getClusterSize(clusterId)
+                if (clusterSize >= MAX_ARTICLES_PER_CLUSTER) {
+                    clusterId = await createCluster(articleId)
+                    isNewCluster = true
+                } else {
+                    await addToCluster(clusterId, articleId)
+                }
+            } else {
                 clusterId = await createCluster(articleId)
                 isNewCluster = true
-            } else {
-                await addToCluster(clusterId, articleId)
             }
         } else {
-            // Create new cluster
+            // No embedding? Just create a new cluster for this article
             clusterId = await createCluster(articleId)
             isNewCluster = true
+            await logPipeline(runId, 'warn', 'Skipped clustering due to missing embedding', { articleId })
         }
 
         // Mark article as processed
