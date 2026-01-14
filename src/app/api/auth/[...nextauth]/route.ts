@@ -1,10 +1,10 @@
 import NextAuth from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import bcrypt from 'bcryptjs'
 import type { AuthOptions } from 'next-auth'
 
 /**
  * NextAuth configuration for single-operator authentication (Phase 1)
+ * Simple password comparison - no hashing complexity needed for single operator
  */
 const authOptions: AuthOptions = {
     providers: [
@@ -21,9 +21,9 @@ const authOptions: AuthOptions = {
 
                 // Single operator credentials from env
                 const operatorEmail = process.env.OPERATOR_EMAIL
-                const operatorPasswordHash = process.env.OPERATOR_PASSWORD_HASH
+                const operatorPassword = process.env.OPERATOR_PASSWORD
 
-                if (!operatorEmail || !operatorPasswordHash) {
+                if (!operatorEmail || !operatorPassword) {
                     console.error('Operator credentials not configured')
                     return null
                 }
@@ -32,8 +32,7 @@ const authOptions: AuthOptions = {
                     return null
                 }
 
-                const isValid = await bcrypt.compare(credentials.password, operatorPasswordHash)
-                if (!isValid) {
+                if (credentials.password !== operatorPassword) {
                     return null
                 }
 
