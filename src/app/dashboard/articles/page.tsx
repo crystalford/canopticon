@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { FileText, Edit, Eye } from 'lucide-react'
 
 interface Article {
     id: string
@@ -38,21 +39,6 @@ export default function ArticlesPage() {
         }
     }
 
-    const publishArticle = async (id: string) => {
-        try {
-            const res = await fetch('/api/articles/publish', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ article_id: id }),
-            })
-            if (res.ok) {
-                fetchArticles()
-            }
-        } catch (error) {
-            console.error('Failed to publish:', error)
-        }
-    }
-
     return (
         <div>
             <div className="flex justify-between items-center mb-8">
@@ -79,61 +65,68 @@ export default function ArticlesPage() {
                 <div className="card p-8 text-center">
                     <p className="text-slate-500 dark:text-slate-400">No articles yet</p>
                     <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
-                        Generate articles from approved signals
+                        Publish articles from the Daily Brief dashboard
                     </p>
                 </div>
             ) : (
                 <div className="space-y-4">
                     {articles.map(article => (
-                        <div key={article.id} className="card p-4">
+                        <div key={article.id} className="card p-6 hover:shadow-lg transition-shadow">
                             <div className="flex justify-between items-start">
                                 <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-2">
                                         {article.isDraft ? (
-                                            <span className="badge status-pending">Draft</span>
+                                            <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                                                📝 Draft
+                                            </span>
                                         ) : (
-                                            <span className="badge status-approved">Published</span>
+                                            <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                                ✅ Published
+                                            </span>
                                         )}
                                     </div>
-                                    <h3 className="font-medium text-slate-900 dark:text-white mb-2">
+                                    <h3 className="font-semibold text-lg text-slate-900 dark:text-white mb-2">
                                         {article.headline}
                                     </h3>
                                     <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">
                                         {article.summary.slice(0, 200)}...
                                     </p>
                                     {article.topics && article.topics.length > 0 && (
-                                        <div className="flex gap-1 flex-wrap">
+                                        <div className="flex gap-2 flex-wrap mb-3">
                                             {article.topics.slice(0, 5).map(topic => (
-                                                <span key={topic} className="text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded">
+                                                <span key={topic} className="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded">
                                                     {topic}
                                                 </span>
                                             ))}
                                         </div>
                                     )}
+                                    <p className="text-xs text-slate-400">
+                                        {article.publishedAt
+                                            ? `Published: ${new Date(article.publishedAt).toLocaleString()}`
+                                            : `Created: ${new Date(article.createdAt).toLocaleString()}`}
+                                    </p>
                                 </div>
                                 <div className="ml-4 flex flex-col gap-2">
-                                    {article.isDraft ? (
-                                        <button
-                                            onClick={() => publishArticle(article.id)}
-                                            className="btn-primary text-sm"
-                                        >
-                                            Publish
-                                        </button>
-                                    ) : (
-                                        <Link
+                                    <Link
+                                        href={`/dashboard/articles/${article.slug}`}
+                                        className="btn-primary text-sm flex items-center gap-2"
+                                    >
+                                        <Edit className="w-4 h-4" />
+                                        Edit
+                                    </Link>
+                                    {!article.isDraft && (
+                                        <a
                                             href={`/articles/${article.slug}`}
-                                            className="btn-secondary text-sm"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn-secondary text-sm flex items-center gap-2"
                                         >
+                                            <Eye className="w-4 h-4" />
                                             View
-                                        </Link>
+                                        </a>
                                     )}
                                 </div>
                             </div>
-                            <p className="text-xs text-slate-400 mt-3">
-                                {article.publishedAt
-                                    ? `Published: ${new Date(article.publishedAt).toLocaleString()}`
-                                    : `Created: ${new Date(article.createdAt).toLocaleString()}`}
-                            </p>
                         </div>
                     ))}
                 </div>
