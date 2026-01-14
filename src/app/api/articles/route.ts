@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db, articles } from '@/db'
 import { eq, desc, and, isNull, isNotNull } from 'drizzle-orm'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/articles - List published articles (public endpoint)
  */

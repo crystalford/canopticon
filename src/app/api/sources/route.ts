@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { db, sources } from '@/db'
 import { desc } from 'drizzle-orm'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/sources - List all sources
  */

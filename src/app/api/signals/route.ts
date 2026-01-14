@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db, signals, clusters, rawArticles } from '@/db'
 import { eq, desc, and } from 'drizzle-orm'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/signals - List signals with optional filtering
  */
