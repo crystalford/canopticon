@@ -173,6 +173,9 @@ export async function runParliamentWorker(sourceId: string): Promise<{
             if (result.success) {
                 if (result.skipped) stats.skipped++
                 else stats.ingested++
+            } else if (result.skipped) {
+                // Handle case where success is false but it was intentionally skipped (e.g. quality gate)
+                stats.skipped++
             } else {
                 stats.errors++
             }
@@ -188,6 +191,8 @@ export async function runParliamentWorker(sourceId: string): Promise<{
             if (result.success) {
                 if (result.skipped) stats.skipped++
                 else stats.ingested++
+            } else if (result.skipped) {
+                stats.skipped++
             } else {
                 stats.errors++
             }

@@ -35,9 +35,9 @@ export interface WorkerConfig {
  * Quality gates from 03_INGESTION_ARCHITECTURE section 6
  */
 export function passesQualityGates(article: RawArticleInput): { passes: boolean; reason?: string } {
-    // body_text < 500 characters
-    if (article.bodyText.length < 500) {
-        return { passes: false, reason: 'Body text too short (< 500 chars)' }
+    // body_text < 100 characters (lowered from 500 to allow for metadata-heavy items like Bills)
+    if (article.bodyText.length < 100) {
+        return { passes: false, reason: 'Body text too short (< 100 chars)' }
     }
 
     // missing published_at (warn but allow)
