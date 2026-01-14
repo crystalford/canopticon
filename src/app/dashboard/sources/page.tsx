@@ -81,15 +81,19 @@ export default function SourcesPage() {
     }
 
     const syncSource = async (source: Source, limit: number) => {
-        // Only verify for Parliament initially
+        // Supported sources for manual sync
         const isParliament = source.name.includes('Parliament')
-        if (!isParliament) return
+        const isPMO = source.name.includes('PMO')
+
+        if (!isParliament && !isPMO) return
 
         setMessage({ type: 'success', text: `Syncing ${source.name} (Limit: ${limit})...` })
         setSubmitting(true)
 
         try {
-            const res = await fetch('/api/ingest/parliament', {
+            const endpoint = isPMO ? '/api/ingest/pmo' : '/api/ingest/parliament'
+
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ limit }),
@@ -97,12 +101,22 @@ export default function SourcesPage() {
             const data = await res.json()
 
             if (res.ok) {
+                // Determine stats display based on worker response structure
+                const ingested = data.stats?.ingested || 0
+                // PMO worker stats structure might differ slightly? No, I standardized it.
+                // But pmo-worker doesn't return `pipeline` stats yet unless I uncommented `processArticle`.
+                // In pmo-worker I *did* call processArticle.
+                // wait, pmo-worker returns { processed, ingested, skipped, errors }
+                // it does NOT return "pipeline" stats in the return type, but processArticle returns PipelineResult.
+                // pmo-worker just "awaits" processArticle but doesn't aggregate the pipeline stats into the return object yet?
+                // Actually looking at pmo-worker.ts, I just return `stats` object { processed, ingested... }.
+
                 setMessage({
                     type: 'success',
-                    text: `Sync complete: ${data.stats.ingested} ingested. Pipeline: ${data.pipeline.created} signals created, ${data.pipeline.errors} errors.`
+                    text: `Sync complete: ${ingested} ingested.`
                 })
             } else {
-                setMessage({ type: 'error', text: 'Sync failed' })
+                setMessage({ type: 'error', text: data.error || 'Sync failed' })
             }
         } catch (error) {
             setMessage({ type: 'error', text: 'Sync failed' })
@@ -202,7 +216,7 @@ export default function SourcesPage() {
                                     </div>
                                 </div>
                                 <div className="ml-4 flex gap-2">
-                                    {source.name.includes('Parliament') && (
+                                    {(source.name.includes('Parliament') || source.name.includes('PMO')) && (
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="number"

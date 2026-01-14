@@ -180,6 +180,17 @@ export const subscribers = pgTable('subscribers', {
     confirmedAt: timestamp('confirmed_at'),
 })
 
+/**
+ * System Settings (Key-Value Store)
+ * used for AI API keys, provider selection, global toggles
+ */
+export const systemSettings = pgTable('system_settings', {
+    key: text('key').primaryKey(),
+    value: text('value').notNull(),
+    isEncrypted: boolean('is_encrypted').default(false).notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // ============================================================================
 // RELATIONS
 // ============================================================================

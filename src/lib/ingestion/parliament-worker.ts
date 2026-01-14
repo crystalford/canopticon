@@ -41,7 +41,8 @@ interface OpenParliamentVote {
  */
 export async function fetchRecentBills(limit: number = 20): Promise<OpenParliamentBill[]> {
     try {
-        const response = await fetch(`${OPEN_PARLIAMENT_BASE}/bills/?limit=${limit}&format=json`, {
+        // Enforce session=44-1 to get recent bills (avoiding 2006 historic C-1s)
+        const response = await fetch(`${OPEN_PARLIAMENT_BASE}/bills/?limit=${limit}&format=json&session=44-1`, {
             headers: {
                 'Accept': 'application/json',
                 'User-Agent': 'CANOPTICON/1.0 (Political Research)',

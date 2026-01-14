@@ -49,6 +49,12 @@ export default async function DashboardLayout({
                                 Sources
                             </Link>
                             <Link
+                                href="/dashboard/settings"
+                                className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors text-sm font-medium"
+                            >
+                                Settings
+                            </Link>
+                            <Link
                                 href="/"
                                 className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors text-sm"
                             >

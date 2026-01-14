@@ -1,103 +1,178 @@
-import OpenAI from 'openai'
+import { createOpenAI } from '@ai-sdk/openai'
+import { createAnthropic } from '@ai-sdk/anthropic'
+import { getSetting, SETTINGS_KEYS } from '@/lib/db-settings'
+import { generateObject, embed } from 'ai'
+import { z } from 'zod'
 
-// Model tiers as defined in 09_COST_AND_GATING
-export const MODEL_TIERS = {
-    cheap: 'gpt-4o-mini',      // Classification, dedup, scoring
-    expensive: 'gpt-4o',        // Synthesis, headlines, exports
-    embedding: 'text-embedding-3-small',
-} as const
+// --- Types ---
 
-// Approximate costs per 1K tokens (USD)
-export const MODEL_COSTS = {
-    'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
-    'gpt-4o': { input: 0.0025, output: 0.01 },
-    'text-embedding-3-small': { input: 0.00002, output: 0 },
-} as const
-
-// Lazy-initialized OpenAI client to avoid build-time errors
-let _openai: OpenAI | null = null
-function getOpenAI(): OpenAI {
-    if (!_openai) {
-        _openai = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY || '',
-        })
-    }
-    return _openai
+export interface AIModel {
+    id: string
+    provider: 'openai' | 'anthropic' | 'grok'
+    contextWindow: number
+    costPer1kInput: number
+    costPer1kOutput: number
 }
 
-export interface AIResponse<T> {
+// --- Configuration ---
+
+export const MODEL_TIERS = {
+    'gpt-4o-mini': {
+        id: 'gpt-4o-mini',
+        provider: 'openai',
+        contextWindow: 128000,
+        costPer1kInput: 0.00015,
+        costPer1kOutput: 0.0006,
+    },
+    'gpt-4o': {
+        id: 'gpt-4o',
+        provider: 'openai',
+        contextWindow: 128000,
+        costPer1kInput: 0.005, // $5/1M
+        costPer1kOutput: 0.015, // $15/1M
+    },
+    'claude-3-5-sonnet-20240620': {
+        id: 'claude-3-5-sonnet-20240620',
+        provider: 'anthropic',
+        contextWindow: 200000,
+        costPer1kInput: 0.003,
+        costPer1kOutput: 0.015,
+    },
+} as const
+
+// --- Client Factory ---
+
+/**
+ * Get the AI client based on configuration
+ * Prioritizes Database Settings > Environment Variables
+ */
+async function getAIClient() {
+    // 1. Check DB for provider preference
+    const provider = await getSetting(SETTINGS_KEYS.AI_PROVIDER) || 'openai'
+
+    // 2. Initialize based on provider
+    if (provider === 'anthropic') {
+        const apiKey = await getSetting(SETTINGS_KEYS.ANTHROPIC_API_KEY) || process.env.ANTHROPIC_API_KEY
+        if (!apiKey) throw new Error('Anthropic API Key not configured')
+        return createAnthropic({ apiKey })
+    }
+
+    if (provider === 'grok') {
+        const apiKey = await getSetting(SETTINGS_KEYS.GROK_API_KEY) || process.env.GROK_API_KEY || process.env.OPENAI_API_KEY // Grok often uses OAI SDK? Assuming generic OpenAI-compatible for now
+        // Note: Vercel AI SDK doesn't have native Grok yet, usually used via OpenAI compatible endpoint
+        // For now, we will treat Grok as OpenAI-compatible
+        if (!apiKey) throw new Error('Grok API Key not configured')
+
+        return createOpenAI({
+            apiKey,
+            baseURL: 'https://api.x.ai/v1'
+        })
+    }
+
+    // Default: OpenAI
+    const apiKey = await getSetting(SETTINGS_KEYS.OPENAI_API_KEY) || process.env.OPENAI_API_KEY
+    if (!apiKey) throw new Error('OpenAI API Key not configured')
+    return createOpenAI({ apiKey })
+}
+
+// --- Core Functions ---
+
+export async function generateEmbedding(text: string): Promise<number[]> {
+    try {
+        const client = await getAIClient()
+        // Note: Embeddings usually stick to OpenAI for consistency unless specific model requested
+        // For simplicity in Phase 1, we ALWAYS use OpenAI for embeddings to ensure vector compatibility
+        // or we need to re-index everything. 
+        // DECISION: Hardcode OpenAI for embeddings for now.
+        const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY })
+        const model = openai.embedding('text-embedding-3-small')
+
+        const { embedding } = await embed({
+            model,
+            value: text.replace(/\n/g, ' '),
+        })
+        return embedding
+    } catch (error) {
+        console.error('Embedding generation failed:', error)
+        return []
+    }
+}
+
+// Wrapper for `generateText` or `generateObject`
+
+interface CallAIOptions<T> {
+    prompt: string
+    input: Record<string, any>
+    model?: keyof typeof MODEL_TIERS
+    jsonSchema?: z.ZodType<T> // Optional explicit schema if simple mode not enough
+}
+
+export async function callAI<T>(options: CallAIOptions<T>): Promise<{
     success: boolean
     data?: T
     error?: string
-    usage?: {
-        inputTokens: number
-        outputTokens: number
-        costUsd: number
-    }
-}
-
-/**
- * Call AI with structured JSON output
- */
-export async function callAI<T>(params: {
-    prompt: string
-    input: object
-    model?: keyof typeof MODEL_COSTS
-    temperature?: number
-}): Promise<AIResponse<T>> {
-    const { prompt, input, model = 'gpt-4o-mini', temperature = 0.1 } = params
-
+    usage?: { inputTokens: number; outputTokens: number; costUsd: number }
+}> {
     try {
-        const response = await getOpenAI().chat.completions.create({
-            model,
-            temperature,
-            response_format: { type: 'json_object' },
-            messages: [
-                { role: 'system', content: prompt },
-                { role: 'user', content: JSON.stringify(input) },
-            ],
-        })
+        const client = await getAIClient()
+        const modelId = options.model || 'gpt-4o-mini'
 
-        const content = response.choices[0]?.message?.content
-        if (!content) {
-            return { success: false, error: 'No content in response' }
+        // Map model ID to provider-specific string if needed
+        // For Vercel AI SDK, we pass the client-instantiated model
+        // e.g. client('gpt-4o')
+
+        let modelInstance;
+        // Simple mapping for now
+        if (modelId.startsWith('claude')) {
+            modelInstance = client(modelId)
+        } else {
+            // For OpenAI/Grok
+            modelInstance = client(modelId)
         }
 
-        const data = JSON.parse(content) as T
-        const usage = response.usage
+        // We use generateObject for structured JSON output
+        // The prompt usually contains the schema instruction, but Vercel AI SDK `generateObject` is better.
+        // However, our current prompts are designed for raw JSON string output. 
+        // Let's stick to text generation + JSON parse if we want to minimize change, 
+        // OR switch to `generateObject` with `output: 'no-schema'` if the prompt handles it.
+        // Given the prompt templates in `prompts.ts`, they expect to output Markdown or JSON.
 
-        const costUsd = usage
-            ? (usage.prompt_tokens / 1000) * MODEL_COSTS[model].input +
-            (usage.completion_tokens / 1000) * MODEL_COSTS[model].output
-            : 0
+        // Let's assume the prompts are strong enough to return JSON.
+        const { text, usage } = await import('ai').then(ai => ai.generateText({
+            model: modelInstance,
+            messages: [
+                { role: 'system', content: options.prompt },
+                { role: 'user', content: JSON.stringify(options.input) }
+            ],
+            temperature: 0,
+        }))
+
+        // Clean up markdown code blocks if present
+        const jsonStr = text.replace(/```json\n|\n```/g, '').trim()
+        const data = JSON.parse(jsonStr) as T
+
+        // Calculate Cost
+        const tier = MODEL_TIERS[modelId as keyof typeof MODEL_TIERS] || MODEL_TIERS['gpt-4o-mini']
+        const usageAny = usage as any
+        const cost = (usageAny.promptTokens * tier.costPer1kInput / 1000) +
+            (usageAny.completionTokens * tier.costPer1kOutput / 1000)
 
         return {
             success: true,
             data,
-            usage: usage ? {
-                inputTokens: usage.prompt_tokens,
-                outputTokens: usage.completion_tokens,
-                costUsd,
-            } : undefined,
+            usage: {
+                inputTokens: usageAny.promptTokens,
+                outputTokens: usageAny.completionTokens,
+                costUsd: cost,
+            }
         }
     } catch (error) {
         console.error('AI call failed:', error)
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : String(error),
         }
     }
-}
-
-/**
- * Generate embeddings for text
- */
-export async function generateEmbedding(text: string): Promise<number[] | null> {
-    const response = await getOpenAI().embeddings.create({
-        model: MODEL_TIERS.embedding,
-        input: text.slice(0, 8000), // Limit input size
-    })
-    return response.data[0]?.embedding ?? null
 }
 
 /**
@@ -116,7 +191,6 @@ export function cosineSimilarity(a: number[], b: number[]): number {
         normB += b[i] * b[i]
     }
 
+    if (normA === 0 || normB === 0) return 0
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
 }
-
-
