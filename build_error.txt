@@ -1,0 +1,358 @@
+﻿
+> canopticon@0.1.0 build
+> next build
+
+  Γû▓ Next.js 14.2.35
+
+   Creating an optimized production build ...
+node.exe : <w> [webpa
+ck.cache.PackFileCach
+eStrategy] Skipped 
+not serializable 
+cache item 'Compilati
+on/modules|C:\Users\s
+uppo\Desktop\canoptic
+on\node_modules\next\
+dist\build\webpack\lo
+aders\css-loader\src\
+index.js??ruleSet[1].
+rules[14].oneOf[12].u
+se[2]!C:\Users\suppo\
+Desktop\canopticon\no
+de_modules\next\dist\
+build\webpack\loaders
+\postcss-loader\src\i
+ndex.js??ruleSet[1].r
+ules[14].oneOf[12].us
+e[3]!C:\Users\suppo\D
+esktop\canopticon\src
+\app\globals.css': 
+No serializer 
+registered for 
+PostCSSSyntaxError
+At line:1 char:1
++ & "C:\Program Files
+\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (<w> [we   
+ bpack.ca...tCSSS    
+yntaxError:Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+<w> while 
+serializing webpack/l
+ib/cache/PackFileCach
+eStrategy.PackContent
+Items -> webpack/lib/
+NormalModule -> webpa
+ck/lib/ModuleBuildErr
+or -> 
+PostCSSSyntaxError
+Failed to compile.
+
+./src/app/globals.css
+:32:3
+Syntax error: C:\User
+s\suppo\Desktop\canop
+ticon\src\app\globals
+.css The `prose` 
+class does not 
+exist. If `prose` is 
+a custom class, make 
+sure it is defined 
+within a `@layer` 
+directive.
+
+ [90m 30 | 
+[39m[90m/* 
+Typography */[39m
+ [90m 31 | [39m[33
+m.prose-canopticon[3
+9m [33m{[39m
+[1m[31m>[39m[22m
+[90m 32 | [39m  
+[36m@apply[39m 
+prose prose-slate 
+max-w-none[33m;[39m
+ [90m    | [39m  
+[1m[31m^[39m[22m
+ [90m 33 | [39m  
+[36m@apply[39m pros
+e-headings[33m:[39m
+font-semibold prose-h
+eadings[33m:[39mtra
+cking-tight[33m;[39
+m
+ [90m 34 | [39m  
+[36m@apply[39m pros
+e-p[33m:[39mtext-sl
+ate-600 dark[33m:[3
+9mprose-p[33m:[39mt
+ext-slate-300[33m;[
+39m
+
+./src/app/globals.css
+Syntax error: C:\User
+s\suppo\Desktop\canop
+ticon\src\app\globals
+.css The `prose` 
+class does not 
+exist. If `prose` is 
+a custom class, make 
+sure it is defined 
+within a `@layer` 
+directive. (32:3)
+
+ [90m 30 | 
+[39m[90m/* 
+Typography */[39m
+ [90m 31 | [39m[33
+m.prose-canopticon[3
+9m [33m{[39m
+[1m[31m>[39m[22m
+[90m 32 | [39m  
+[36m@apply[39m 
+prose prose-slate 
+max-w-none[33m;[39m
+ [90m    | [39m  
+[1m[31m^[39m[22m
+ [90m 33 | [39m  
+[36m@apply[39m pros
+e-headings[33m:[39m
+font-semibold prose-h
+eadings[33m:[39mtra
+cking-tight[33m;[39
+m
+ [90m 34 | [39m  
+[36m@apply[39m pros
+e-p[33m:[39mtext-sl
+ate-600 dark[33m:[3
+9mprose-p[33m:[39mt
+ext-slate-300[33m;[
+39m
+
+    at 
+tryRunOrWebpackError 
+(C:\Users\suppo\Deskt
+op\canopticon\node_mo
+dules\next\dist\compi
+led\webpack\bundle5.j
+s:28:312989)
+    at __webpack_requ
+ire_module__ (C:\User
+s\suppo\Desktop\canop
+ticon\node_modules\ne
+xt\dist\compiled\webp
+ack\bundle5.js:28:131
+165)
+    at __nested_webpa
+ck_require_153728__ (
+C:\Users\suppo\Deskto
+p\canopticon\node_mod
+ules\next\dist\compil
+ed\webpack\bundle5.js
+:28:130607)
+    at C:\Users\suppo
+\Desktop\canopticon\n
+ode_modules\next\dist
+\compiled\webpack\bun
+dle5.js:28:131454
+    at 
+symbolIterator (C:\Us
+ers\suppo\Desktop\can
+opticon\node_modules\
+next\dist\compiled\ne
+o-async\async.js:1:14
+444)
+    at done (C:\Users
+\suppo\Desktop\canopt
+icon\node_modules\nex
+t\dist\compiled\neo-a
+sync\async.js:1:14824
+)
+    at Hook.eval [as 
+callAsync] (eval at 
+create (C:\Users\supp
+o\Desktop\canopticon\
+node_modules\next\dis
+t\compiled\webpack\bu
+ndle5.js:13:28858), 
+<anonymous>:15:1)
+    at Hook.CALL_ASYN
+C_DELEGATE [as 
+_callAsync] (C:\Users
+\suppo\Desktop\canopt
+icon\node_modules\nex
+t\dist\compiled\webpa
+ck\bundle5.js:13:2601
+2)
+    at C:\Users\suppo
+\Desktop\canopticon\n
+ode_modules\next\dist
+\compiled\webpack\bun
+dle5.js:28:130328
+    at 
+symbolIterator (C:\Us
+ers\suppo\Desktop\can
+opticon\node_modules\
+next\dist\compiled\ne
+o-async\async.js:1:14
+402)
+-- inner error --
+Syntax error: C:\User
+s\suppo\Desktop\canop
+ticon\src\app\globals
+.css The `prose` 
+class does not 
+exist. If `prose` is 
+a custom class, make 
+sure it is defined 
+within a `@layer` 
+directive. (32:3)
+
+ [90m 30 | 
+[39m[90m/* 
+Typography */[39m
+ [90m 31 | [39m[33
+m.prose-canopticon[3
+9m [33m{[39m
+[1m[31m>[39m[22m
+[90m 32 | [39m  
+[36m@apply[39m 
+prose prose-slate 
+max-w-none[33m;[39m
+ [90m    | [39m  
+[1m[31m^[39m[22m
+ [90m 33 | [39m  
+[36m@apply[39m pros
+e-headings[33m:[39m
+font-semibold prose-h
+eadings[33m:[39mtra
+cking-tight[33m;[39
+m
+ [90m 34 | [39m  
+[36m@apply[39m pros
+e-p[33m:[39mtext-sl
+ate-600 dark[33m:[3
+9mprose-p[33m:[39mt
+ext-slate-300[33m;[
+39m
+
+    at 
+Object.<anonymous> (C
+:\Users\suppo\Desktop
+\canopticon\node_modu
+les\next\dist\build\w
+ebpack\loaders\css-lo
+ader\src\index.js??ru
+leSet[1].rules[14].on
+eOf[12].use[2]!C:\Use
+rs\suppo\Desktop\cano
+pticon\node_modules\n
+ext\dist\build\webpac
+k\loaders\postcss-loa
+der\src\index.js??rul
+eSet[1].rules[14].one
+Of[12].use[3]!C:\User
+s\suppo\Desktop\canop
+ticon\src\app\globals
+.css:1:7)
+    at C:\Users\suppo
+\Desktop\canopticon\n
+ode_modules\next\dist
+\compiled\webpack\bun
+dle5.js:28:922493
+    at Hook.eval [as 
+call] (eval at 
+create (C:\Users\supp
+o\Desktop\canopticon\
+node_modules\next\dis
+t\compiled\webpack\bu
+ndle5.js:13:28636), 
+<anonymous>:7:1)
+    at 
+Hook.CALL_DELEGATE 
+[as _call] (C:\Users\
+suppo\Desktop\canopti
+con\node_modules\next
+\dist\compiled\webpac
+k\bundle5.js:13:25906
+)
+    at C:\Users\suppo
+\Desktop\canopticon\n
+ode_modules\next\dist
+\compiled\webpack\bun
+dle5.js:28:131198
+    at 
+tryRunOrWebpackError 
+(C:\Users\suppo\Deskt
+op\canopticon\node_mo
+dules\next\dist\compi
+led\webpack\bundle5.j
+s:28:312943)
+    at __webpack_requ
+ire_module__ (C:\User
+s\suppo\Desktop\canop
+ticon\node_modules\ne
+xt\dist\compiled\webp
+ack\bundle5.js:28:131
+165)
+    at __nested_webpa
+ck_require_153728__ (
+C:\Users\suppo\Deskto
+p\canopticon\node_mod
+ules\next\dist\compil
+ed\webpack\bundle5.js
+:28:130607)
+    at C:\Users\suppo
+\Desktop\canopticon\n
+ode_modules\next\dist
+\compiled\webpack\bun
+dle5.js:28:131454
+    at 
+symbolIterator (C:\Us
+ers\suppo\Desktop\can
+opticon\node_modules\
+next\dist\compiled\ne
+o-async\async.js:1:14
+444)
+
+Generated code for C:
+\Users\suppo\Desktop\
+canopticon\node_modul
+es\next\dist\build\we
+bpack\loaders\css-loa
+der\src\index.js??rul
+eSet[1].rules[14].one
+Of[12].use[2]!C:\User
+s\suppo\Desktop\canop
+ticon\node_modules\ne
+xt\dist\build\webpack
+\loaders\postcss-load
+er\src\index.js??rule
+Set[1].rules[14].oneO
+f[12].use[3]!C:\Users
+\suppo\Desktop\canopt
+icon\src\app\globals.
+css
+
+Import trace for 
+requested module:
+./src/app/globals.css
+
+
+> Build failed 
+because of webpack 
+errors
