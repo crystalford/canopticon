@@ -285,3 +285,125 @@ async function logPipeline(
         console.error('Failed to log pipeline:', error)
     }
 }
+
+/**
+ * Run on-demand analysis for an existing signal
+ */
+export async function runSignalAnalysis(signalId: string): Promise<PipelineResult> {
+    const runId = uuidv4()
+
+    try {
+        // 1. Fetch Signal and related data
+        const [signal] = await db
+            .select()
+            .from(signals)
+            .where(eq(signals.id, signalId))
+            .limit(1)
+
+        if (!signal) throw new Error('Signal not found')
+
+        const [cluster] = await db
+            .select()
+            .from(clusters)
+            .where(eq(clusters.id, signal.clusterId))
+            .limit(1)
+
+        // Get the primary article
+        const [article] = await db
+            .select()
+            .from(rawArticles)
+            .where(eq(rawArticles.id, cluster.primaryArticleId))
+            .limit(1)
+
+        if (!article) throw new Error('Primary article not found')
+
+        await logPipeline(runId, 'info', 'Starting on-demand analysis', { signalId })
+
+        // 2. Check Cost Limits
+        const costCheck = await checkCostLimits(signalId)
+        if (!costCheck.allowed) {
+            return { success: false, action: 'error', reason: `Cost limit reached: ${costCheck.reason}` }
+        }
+
+        // 3. Generate Embedding (if strictly needed for clustering later, for now we just skip to classification)
+        // We can add this back if "re-clustering" becomes a feature
+
+        // 4. Classification
+        const classifyInput: SigClassifyInput = {
+            title: article.title,
+            body_excerpt: article.bodyText.slice(0, 1000),
+        }
+
+        const classifyResult = await callAI<SigClassifyOutput>({
+            prompt: SIG_CLASSIFY_V1.prompt,
+            input: classifyInput,
+            model: 'gpt-4o-mini',
+        })
+
+        if (!classifyResult.success || !classifyResult.data) {
+            throw new Error(classifyResult.error || 'Classification failed')
+        }
+
+        if (classifyResult.usage) {
+            await recordAIUsage({
+                signalId,
+                model: 'gpt-4o-mini',
+                promptName: 'SIG_CLASSIFY_V1',
+                inputTokens: classifyResult.usage.inputTokens,
+                outputTokens: classifyResult.usage.outputTokens,
+                costUsd: classifyResult.usage.costUsd,
+            })
+        }
+
+        // 5. Scoring
+        const triageInput: SigTriageInput = {
+            title: article.title,
+            body_excerpt: article.bodyText.slice(0, 1000),
+        }
+
+        const triageResult = await callAI<SigTriageOutput>({
+            prompt: SIG_TRIAGE_SCORE_V1.prompt,
+            input: triageInput,
+            model: 'gpt-4o-mini',
+        })
+
+        let significanceScore = 50
+        if (triageResult.success && triageResult.data) {
+            significanceScore = triageResult.data.significance_score
+            if (triageResult.usage) {
+                await recordAIUsage({
+                    signalId,
+                    model: 'gpt-4o-mini',
+                    promptName: 'SIG_TRIAGE_SCORE_V1',
+                    inputTokens: triageResult.usage.inputTokens,
+                    outputTokens: triageResult.usage.outputTokens,
+                    costUsd: triageResult.usage.costUsd,
+                })
+            }
+        }
+
+        // 6. Update Signal
+        await db
+            .update(signals)
+            .set({
+                signalType: classifyResult.data.signal_type,
+                confidenceScore: Math.round(classifyResult.data.confidence),
+                significanceScore: Math.round(significanceScore),
+                aiNotes: classifyResult.data.notes,
+                status: 'flagged' // Move to flagged for review after analysis
+            })
+            .where(eq(signals.id, signalId))
+
+        await logPipeline(runId, 'info', 'Analysis complete', {
+            type: classifyResult.data.signal_type,
+            score: significanceScore
+        })
+
+        return { success: true, signalId, action: 'merged' } // reused action type
+
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        await logPipeline(runId, 'error', `Analysis failed: ${message}`, { signalId })
+        return { success: false, action: 'error', reason: message }
+    }
+}
