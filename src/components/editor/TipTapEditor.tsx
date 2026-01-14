@@ -35,7 +35,7 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
                 placeholder: 'Write your article content here...',
             }),
         ],
-        content: content ? JSON.parse(content) : '',
+        content: content ? (typeof content === 'string' ? JSON.parse(content) : content) : '',
         editorProps: {
             attributes: {
                 class: 'prose prose-slate max-w-none focus:outline-none min-h-[500px] p-6 text-base leading-relaxed',
