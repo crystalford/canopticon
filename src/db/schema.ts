@@ -109,12 +109,19 @@ export const articles = pgTable('articles', {
     briefId: uuid('brief_id').references(() => briefs.id), // Link to source brief
     slug: text('slug').notNull().unique(),
     headline: text('headline').notNull(),
-    summary: text('summary').notNull(),
+    summary: text('summary').notNull(), // Plain text summary (from brief or manual)
+    content: jsonb('content'), // Rich text content (TipTap JSON format)
+    excerpt: text('excerpt'), // SEO excerpt (auto-generated or manual)
+    metaDescription: text('meta_description'), // SEO meta description
+    featuredImageUrl: text('featured_image_url'), // Featured image URL
+    author: text('author').default('CANOPTICON').notNull(),
+    readingTime: integer('reading_time'), // Auto-calculated (words / 200)
     topics: text('topics').array(),
     entities: text('entities').array(),
     isDraft: boolean('is_draft').default(true).notNull(),
     publishedAt: timestamp('published_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
 /**

@@ -47,3 +47,50 @@ export async function GET(
         )
     }
 }
+
+/**
+ * PATCH /api/articles/[slug] - Update article
+ */
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ slug: string }> }
+) {
+    try {
+        // Require authentication
+        const session = await getServerSession()
+        if (!session) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        const { slug } = await params
+        const body = await request.json()
+
+        // Update article
+        const [updatedArticle] = await db
+            .update(articles)
+            .set({
+                ...body,
+                updatedAt: new Date(),
+            })
+            .where(eq(articles.slug, slug))
+            .returning()
+
+        if (!updatedArticle) {
+            return NextResponse.json(
+                { error: 'Article not found' },
+                { status: 404 }
+            )
+        }
+
+        return NextResponse.json({ article: updatedArticle })
+    } catch (error) {
+        console.error('Error updating article:', error)
+        return NextResponse.json(
+            { error: 'Failed to update article' },
+            { status: 500 }
+        )
+    }
+}
