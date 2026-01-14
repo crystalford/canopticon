@@ -22,10 +22,10 @@ export interface DailyBrief {
 
 const DISCOVERY_PROMPT = `You are a Canadian political news analyst with deep expertise in federal politics, policy, and parliamentary affairs.
 
-Search the web for the top 5 most significant Canadian political stories from the last 24 hours.
+Search the top Canadian political stories from the provided REAL-TIME NEWS CONTEXT.
 
-For each story:
-1. Read the full article(s) from reputable Canadian news sources
+For each of the top 5 most significant stories found in the context:
+1. Analyze the context provided
 2. Provide a comprehensive 500-800 word summary with full context:
    - What happened
    - Why it matters
@@ -69,12 +69,48 @@ Return ONLY valid JSON in this exact format:
 
 CRITICAL: Return ONLY the JSON object. No markdown, no code blocks, no explanations.`
 
+// Google News RSS for Canadian Politics (Last 24h)
+const GOOGLE_NEWS_RSS = 'https://news.google.com/rss/search?q=Canadian+federal+politics+Parliament+Canada+when:1d&hl=en-CA&gl=CA&ceid=CA:en'
+
+async function fetchNewsContext(): Promise<string> {
+    try {
+        const res = await fetch(GOOGLE_NEWS_RSS)
+        const xml = await res.text()
+
+        // Simple regex parse to avoid deps (robust enough for Google News RSS structure)
+        const items = xml.match(/<item>[\s\S]*?<\/item>/g) || []
+
+        return items.slice(0, 20).map(item => {
+            const title = item.match(/<title>(.*?)<\/title>/)?.[1] || ''
+            const link = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
+            const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
+            const description = item.match(/<description>(.*?)<\/description>/)?.[1] || ''
+                .replace(/<[^>]*>/g, '') // Strip HTML
+                .replace('&nbsp;', ' ')
+
+            return `Title: ${title}\nDate: ${pubDate}\nLink: ${link}\nContext: ${description}\n---`
+        }).join('\n')
+    } catch (e) {
+        console.error('Failed to fetch news context:', e)
+        return ''
+    }
+}
+
 export async function generateDailyBrief(): Promise<DailyBrief> {
     try {
+        // 1. Fetch Real-time Context
+        const newsContext = await fetchNewsContext()
+
+        if (!newsContext) {
+            throw new Error('Failed to fetch current news context for analysis')
+        }
+
+        const promptWithContext = `${DISCOVERY_PROMPT}\n\nREAL-TIME NEWS CONTEXT (LAST 24 HOURS):\n${newsContext}`
+
         // Get configured AI provider and key
         const provider = await getSetting(SETTINGS_KEYS.AI_PROVIDER) || 'anthropic'
 
-        let apiKey: string | null
+        let apiKey: string | null = null
 
         if (provider === 'anthropic') {
             apiKey = (await getSetting(SETTINGS_KEYS.ANTHROPIC_API_KEY) || process.env.ANTHROPIC_API_KEY) ?? null
@@ -100,11 +136,11 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
                     'anthropic-version': '2023-06-01'
                 },
                 body: JSON.stringify({
-                    model: 'claude-3-haiku-20240307',
-                    max_tokens: 4000, // Haiku limit
+                    model: 'claude-3-5-sonnet-20241022',
+                    max_tokens: 8000,
                     messages: [{
                         role: 'user',
-                        content: DISCOVERY_PROMPT
+                        content: promptWithContext
                     }]
                 })
             })
@@ -127,7 +163,7 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
                 }
             })
 
-            const result = await model.generateContent(DISCOVERY_PROMPT)
+            const result = await model.generateContent(promptWithContext)
             const response = await result.response
             responseText = response.text()
 
@@ -143,7 +179,7 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
                     model: 'gpt-4o-mini',
                     messages: [{
                         role: 'user',
-                        content: DISCOVERY_PROMPT
+                        content: promptWithContext
                     }],
                     max_tokens: 8000
                 })
