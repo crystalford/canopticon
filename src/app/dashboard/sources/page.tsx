@@ -114,6 +114,23 @@ export default function SourcesPage() {
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Sources</h1>
                     <p className="text-slate-600 dark:text-slate-400 mt-1">Manage ingestion sources</p>
                 </div>
+                <button
+                    onClick={async () => {
+                        if (!confirm('Initialize default sources (Parliament)?')) return
+                        setMessage({ type: 'success', text: 'Initializing...' })
+                        try {
+                            // Triggering the parliament endpoint ensures it exists
+                            await fetch('/api/ingest/parliament', { method: 'POST' })
+                            fetchSources()
+                            setMessage({ type: 'success', text: 'Sources initialized' })
+                        } catch (e) {
+                            setMessage({ type: 'error', text: 'Failed to initialize' })
+                        }
+                    }}
+                    className="btn-secondary text-sm"
+                >
+                    Initialize Defaults
+                </button>
             </div>
 
             {/* Manual Ingestion Form */}
