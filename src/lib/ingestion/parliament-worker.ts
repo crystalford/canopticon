@@ -91,8 +91,8 @@ export async function fetchRecentVotes(limit: number = 20): Promise<OpenParliame
 /**
  * Convert a bill to raw article format
  */
-function billToRawArticle(bill: OpenParliamentBill, sourceId: string): RawArticleInput {
-    const bodyText = `
+function billToRawArticle(bill: OpenParliamentBill, sourceId: string, fullText: string = ''): RawArticleInput {
+    let bodyText = `
 Bill ${bill.number} - ${bill.name}
 
 Session: ${bill.session}
@@ -102,6 +102,10 @@ Status: ${bill.status_code || 'Unknown'}
 This bill was introduced in the Parliament of Canada during session ${bill.session}. 
 For full text and updates, see the official LEGISinfo page.
   `.trim()
+
+    if (fullText) {
+        bodyText += `\n\n--- FULL TEXT ---\n\n${fullText.slice(0, 50000)}` // Limit to 50k chars
+    }
 
     return {
         sourceId,
@@ -167,7 +171,25 @@ export async function runParliamentWorker(sourceId: string): Promise<{
         const bills = await fetchRecentBills(10)
         for (const bill of bills) {
             stats.processed++
-            const article = billToRawArticle(bill, sourceId)
+
+            // Try to fetch full text if available
+            let fullText = ''
+            if (bill.text_url) {
+                try {
+                    const textRes = await fetch(bill.text_url, {
+                        headers: { 'User-Agent': 'CANOPTICON/1.0' }
+                    })
+                    if (textRes.ok) {
+                        const rawText = await textRes.text()
+                        // Basic cleanup of extracted text (removing HTML tags if it returns HTML)
+                        fullText = rawText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+                    }
+                } catch (err) {
+                    console.warn(`Failed to fetch full text for bill ${bill.number}`, err)
+                }
+            }
+
+            const article = billToRawArticle(bill, sourceId, fullText)
             const result = await ingestRawArticle(article)
 
             if (result.success) {

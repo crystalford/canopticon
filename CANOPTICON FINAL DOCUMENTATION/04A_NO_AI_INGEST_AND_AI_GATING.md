@@ -1,6 +1,6 @@
 # 04A_NO_AI_INGEST_AND_AI_GATING
 
-Version: v1.0
+Version: v1.1
 Status: Authoritative Amendment
 Scope: Phase 1 (Overrides where conflicting)
 
@@ -131,7 +131,22 @@ AI may NOT:
 
 ---
 
-## 7. OVERRIDES
+## 7. AI EXECUTION RULE (CRITICAL)
+
+**AI is not a pipeline stage in Canopticon.**
+
+* AI must never run automatically after ingestion, signal creation, or triage.
+* There are no background jobs, hooks, listeners, or cron tasks that invoke AI.
+* AI execution is manual only and requires an explicit operator action (e.g. clicking “Generate Article”, “Generate Summary”, or “Generate Analysis”).
+* If no operator action occurs, AI never runs, regardless of how many signals are ingested.
+* AI services may exist and remain idle, but must not be triggered implicitly by system state changes.
+* Treat AI like a manual export tool, not a processing step.
+
+**Any implementation that violates this rule is incorrect.**
+
+---
+
+## 8. OVERRIDES
 
 If this document conflicts with:
 * 04_SIGNAL_PIPELINE.md
