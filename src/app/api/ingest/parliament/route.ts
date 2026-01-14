@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import { ensureParliamentSource, runParliamentWorker } from '@/lib/ingestion/parliament-worker'
+import { processUnprocessedArticles } from '@/lib/signals/pipeline'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/ingest/parliament
@@ -13,9 +16,13 @@ export async function POST() {
         // 2. Run worker
         const stats = await runParliamentWorker(sourceId)
 
+        // 3. Trigger signal pipeline for immediate feedback
+        const pipelineStats = await processUnprocessedArticles()
+
         return NextResponse.json({
             success: true,
-            stats
+            stats,
+            pipeline: pipelineStats
         })
 
     } catch (error) {

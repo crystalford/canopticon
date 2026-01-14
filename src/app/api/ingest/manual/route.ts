@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db, sources } from '@/db'
 import { eq } from 'drizzle-orm'
 import { submitUrl } from '@/lib/ingestion/manual-worker'
+import { processUnprocessedArticles } from '@/lib/signals/pipeline'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/ingest/manual
@@ -46,9 +49,13 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        // 3. Trigger signal pipeline
+        const pipelineStats = await processUnprocessedArticles()
+
         return NextResponse.json({
             success: true,
-            articleId: result.articleId
+            articleId: result.articleId,
+            pipeline: pipelineStats
         })
 
     } catch (error) {
