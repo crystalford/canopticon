@@ -206,25 +206,7 @@ export default function DashboardPage() {
                                 </div>
                             )}
 
-                            <div className="flex items-center gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                                <div className="flex-1">
-                                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                        Sources:
-                                    </h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        {story.sourceUrls.map((url, i) => (
-                                            <a
-                                                key={i}
-                                                href={url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-sm text-primary-600 dark:text-primary-400 hover:underline"
-                                            >
-                                                Source {i + 1} ↗
-                                            </a>
-                                        ))}
-                                    </div>
-                                </div>
+                            <div className="flex items-center justify-end gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                                 <button
                                     onClick={() => handlePublish(index)}
                                     disabled={publishing === index}

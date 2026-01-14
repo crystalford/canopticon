@@ -29,7 +29,6 @@ For each of the top 5 most significant stories:
 1. Write a clear, objective news article based strictly on facts in the context.
 2. Identify key political players.
 3. Rate significance (1-10).
-4. CRITICAL: Cite at least 2-3 distinct source URLs from the context. Include all sources you used to write the story.
 
 Style Rules:
 - DO NOT say "This story is rated 8/10" in the text.
@@ -50,7 +49,6 @@ Return ONLY valid XML in this exact format:
     </summary>
     <key_players>François Legault (Quebec Premier), Coalition Avenir Québec (Ruling party)</key_players>
     <significance>8</significance>
-    <sources>https://source1.com, https://source2.com</sources>
   </story>
 </brief>
 
@@ -231,14 +229,10 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
 
 export async function getTodaysBrief(): Promise<DailyBrief | null> {
     try {
-        // Look for any brief generated in the last 24 hours
-        // This is more robust than "today at 00:00" which involves timezone complexity
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-
+        // Simply fetch the most recent brief (no time filtering to avoid timezone issues)
         const [brief] = await db
             .select()
             .from(briefs)
-            .where(sql`${briefs.generatedAt} >= ${twentyFourHoursAgo}`)
             .orderBy(desc(briefs.generatedAt))
             .limit(1)
 
