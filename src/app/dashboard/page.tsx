@@ -43,10 +43,8 @@ export default function DashboardPage() {
         try {
             const res = await fetch('/api/signals/triage', { method: 'POST' })
             const data = await res.json()
-            const data = await res.json()
             const errorDetails = data.reasons?.length ? `\nErrors: ${data.reasons.join(', ')}` : ''
             alert(`Triage complete: ${data.processed} processed, ${data.created} created, ${data.errors} errors${errorDetails}`)
-            fetchSignals()
             fetchSignals()
         } catch (error) {
             alert('Triage failed')
