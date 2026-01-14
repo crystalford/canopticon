@@ -209,14 +209,64 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
             cleanedText = cleanedText.substring(firstOpenBrace, lastCloseBrace + 1)
         }
 
-        // 3. Attempt parse
+        // 3. Robust JSON Parser for AI Output
+        // Sanitizes unescaped newlines/tabs inside string values which are common in AI responses
+        function sanitizeAndParseJson(str: string): any {
+            // Simple state machine to escape control chars only inside strings
+            let result = ''
+            let inString = false
+            let isEscaped = false
+
+            for (let i = 0; i < str.length; i++) {
+                const char = str[i]
+
+                if (inString) {
+                    if (char === '\\') {
+                        isEscaped = !isEscaped
+                        result += char
+                    } else if (char === '"' && !isEscaped) {
+                        inString = false
+                        result += char
+                    } else if (char === '\n') {
+                        // REPAIR: Unescaped newline in string -> escape it
+                        result += '\\n'
+                    } else if (char === '\r') {
+                        // REPAIR: Unescaped carriage return -> ignore or escape
+                        // result += '\\r' // Usually safe to ignore CR in JSON strings if we keep LF
+                    } else if (char === '\t') {
+                        // REPAIR: Unescaped tab -> escape it
+                        result += '\\t'
+                    } else {
+                        // Normal char
+                        isEscaped = false
+                        result += char
+                    }
+                } else {
+                    // Not in string
+                    if (char === '"') {
+                        inString = true
+                    }
+                    result += char
+                    isEscaped = false
+                }
+            }
+
+            return JSON.parse(result)
+        }
+
+        // 4. Attempt parse with sanitization
         let parsed: any
         try {
+            // Try standard parse first (faster)
             parsed = JSON.parse(cleanedText)
         } catch (e) {
-            console.error('JSON Parse Error. Raw text:', responseText)
-            // Fallback: try to fix common JSON errors if needed, or valid json recovery
-            throw new Error(`Failed to parse AI response as JSON: ${(e as Error).message}`)
+            console.log('Standard parse failed, attempting sanitization...', (e as Error).message)
+            try {
+                parsed = sanitizeAndParseJson(cleanedText)
+            } catch (innerE) {
+                console.error('JSON Repair Failed. Raw text:', responseText)
+                throw new Error(`Failed to parse AI response as JSON: ${(innerE as Error).message}`)
+            }
         }
 
         if (!parsed.stories || !Array.isArray(parsed.stories)) {
