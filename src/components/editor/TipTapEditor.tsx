@@ -80,8 +80,8 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
         <div className="flex flex-col h-full relative">
             {/* Toolbar */}
             <div className="flex flex-col p-2 border-b border-white/5 bg-black/20 backdrop-blur sticky top-0 z-10">
-                {/* AI Toolbar (Conditional) */}
-                <AiToolbar editor={editor} />
+                {/* AI Toolbar (Conditional) - PAUSED PER USER REQUEST */}
+                {/* <AiToolbar editor={editor} /> */}
 
                 {/* Main Toolbar */}
                 <div className="flex flex-wrap gap-1">

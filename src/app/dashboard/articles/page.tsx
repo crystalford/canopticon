@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FileText, Edit, Eye } from 'lucide-react'
+import { FileText, Edit, Eye, Filter, Calendar, List } from 'lucide-react'
 
 interface Article {
     id: string
@@ -40,92 +40,110 @@ export default function ArticlesPage() {
     }
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-8">
+        <div className="space-y-8">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-white/5">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Articles</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-1">Manage synthesized articles</p>
+                    <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Intelligence Archive</h1>
+                    <p className="text-slate-400 text-sm">Manage and publish synthesized briefs.</p>
                 </div>
-                <label className="flex items-center gap-2 text-sm">
-                    <input
-                        type="checkbox"
-                        checked={showDrafts}
-                        onChange={(e) => setShowDrafts(e.target.checked)}
-                        className="rounded border-slate-300"
-                    />
-                    Show drafts
-                </label>
+
+                <div className="flex items-center gap-3 bg-black/20 p-1 rounded-lg border border-white/10">
+                    <button
+                        onClick={() => setShowDrafts(!showDrafts)}
+                        className={`
+                            flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
+                            ${showDrafts
+                                ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30 shadow-[0_0_10px_rgba(14,165,233,0.1)]'
+                                : 'text-slate-500 hover:text-slate-300'
+                            }
+                        `}
+                    >
+                        <Filter className="w-3 h-3" />
+                        {showDrafts ? 'Showing Drafts' : 'Published Only'}
+                    </button>
+                    <div className="w-px h-4 bg-white/10" />
+                    <span className="px-3 text-xs text-slate-500 font-mono">
+                        {articles.length} ITEMS
+                    </span>
+                </div>
             </div>
 
             {loading ? (
-                <div className="card p-8 text-center">
-                    <div className="animate-pulse-subtle text-slate-500">Loading articles...</div>
+                <div className="grid gap-4 opacity-50">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="glass-panel p-6 h-32 animate-pulse" />
+                    ))}
                 </div>
             ) : articles.length === 0 ? (
-                <div className="card p-8 text-center">
-                    <p className="text-slate-500 dark:text-slate-400">No articles yet</p>
-                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
-                        Publish articles from the Daily Brief dashboard
+                <div className="glass-panel p-16 text-center">
+                    <div className="w-16 h-16 rounded-full bg-white/5 mx-auto mb-4 flex items-center justify-center">
+                        <List className="w-8 h-8 text-slate-600" />
+                    </div>
+                    <p className="text-white font-medium mb-1">No articles found</p>
+                    <p className="text-sm text-slate-500">
+                        Generate new briefs from the Daily Brief dashboard to create articles.
                     </p>
                 </div>
             ) : (
-                <div className="space-y-4">
+                <div className="grid gap-4">
                     {articles.map(article => (
-                        <div key={article.id} className="card p-6 hover:shadow-lg transition-shadow">
-                            <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        {article.isDraft ? (
-                                            <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                                                📝 Draft
-                                            </span>
-                                        ) : (
-                                            <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                                ✅ Published
-                                            </span>
-                                        )}
-                                    </div>
-                                    <h3 className="font-semibold text-lg text-slate-900 dark:text-white mb-2">
-                                        {article.headline}
-                                    </h3>
-                                    <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">
-                                        {article.summary.slice(0, 200)}...
-                                    </p>
-                                    {article.topics && article.topics.length > 0 && (
-                                        <div className="flex gap-2 flex-wrap mb-3">
-                                            {article.topics.slice(0, 5).map(topic => (
-                                                <span key={topic} className="text-xs px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded">
-                                                    {topic}
-                                                </span>
-                                            ))}
+                        <div key={article.id} className="glass-card p-6 flex flex-col md:flex-row gap-6 group">
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-3">
+                                    {article.isDraft ? (
+                                        <div className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-[0_0_8px_rgba(251,191,36,0.2)]">
+                                            Draft
+                                        </div>
+                                    ) : (
+                                        <div className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-green-500/10 text-green-400 border border-green-500/20 shadow-[0_0_8px_rgba(74,222,128,0.2)]">
+                                            Published
                                         </div>
                                     )}
-                                    <p className="text-xs text-slate-400">
-                                        {article.publishedAt
-                                            ? `Published: ${new Date(article.publishedAt).toLocaleString()}`
-                                            : `Created: ${new Date(article.createdAt).toLocaleString()}`}
-                                    </p>
+                                    <span className="text-[10px] text-slate-600 font-mono uppercase flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        {new Date(article.createdAt).toLocaleDateString()}
+                                    </span>
                                 </div>
-                                <div className="ml-4 flex flex-col gap-2">
-                                    <Link
-                                        href={`/dashboard/articles/${article.slug}`}
-                                        className="btn-primary text-sm flex items-center gap-2"
+
+                                <h3 className="text-lg font-bold text-white mb-2 truncate group-hover:text-primary-400 transition-colors">
+                                    {article.headline}
+                                </h3>
+
+                                <p className="text-sm text-slate-400 line-clamp-2 mb-4 leading-relaxed">
+                                    {article.summary}
+                                </p>
+
+                                {article.topics && article.topics.length > 0 && (
+                                    <div className="flex gap-2">
+                                        {article.topics.slice(0, 3).map(topic => (
+                                            <span key={topic} className="px-1.5 py-0.5 rounded text-[10px] bg-white/5 border border-white/10 text-slate-500">
+                                                {topic}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-3 border-l border-white/5 pl-6">
+                                <Link
+                                    href={`/dashboard/articles/${article.slug}`}
+                                    className="btn-secondary h-9 w-9 p-0 rounded-full md:w-auto md:h-auto md:px-4 md:py-2 md:rounded-lg"
+                                    title="Edit Article"
+                                >
+                                    <Edit className="w-4 h-4 md:mr-2" />
+                                    <span className="hidden md:inline">Edit</span>
+                                </Link>
+                                {!article.isDraft && (
+                                    <a
+                                        href={`/articles/${article.slug}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"
+                                        title="View Live"
                                     >
-                                        <Edit className="w-4 h-4" />
-                                        Edit
-                                    </Link>
-                                    {!article.isDraft && (
-                                        <a
-                                            href={`/articles/${article.slug}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="btn-secondary text-sm flex items-center gap-2"
-                                        >
-                                            <Eye className="w-4 h-4" />
-                                            View
-                                        </a>
-                                    )}
-                                </div>
+                                        <Eye className="w-4 h-4" />
+                                    </a>
+                                )}
                             </div>
                         </div>
                     ))}

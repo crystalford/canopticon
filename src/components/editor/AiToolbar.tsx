@@ -1,5 +1,5 @@
 import { Editor } from '@tiptap/react'
-import { Sparkles, Scissors, Minimize2, Maximize2, CheckCheck, BookOpen, Loader2 } from 'lucide-react'
+import { Sparkles, Scissors, Minimize2, Maximize2, CheckCheck, BookOpen, Loader2, MousePointer2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 interface AiToolbarProps {
@@ -19,6 +19,9 @@ export default function AiToolbar({ editor }: AiToolbarProps) {
         }
 
         editor.on('selectionUpdate', updateSelection)
+        // Initial check
+        updateSelection()
+
         return () => {
             editor.off('selectionUpdate', updateSelection)
         }
@@ -28,7 +31,8 @@ export default function AiToolbar({ editor }: AiToolbarProps) {
         const { from, to } = editor.state.selection
         const text = editor.state.doc.textBetween(from, to)
 
-        if (!text || text.length < 5) return
+        // Prevent action if no selection (redundant check but safe)
+        if (!hasSelection || !text || text.length < 5) return
 
         setLoading(task)
 
@@ -56,53 +60,69 @@ export default function AiToolbar({ editor }: AiToolbarProps) {
         }
     }
 
-    if (!hasSelection) return null
-
     return (
-        <div className="flex items-center gap-1 p-1 mb-2 bg-primary-500/10 border border-primary-500/20 rounded-lg animate-in fade-in slide-in-from-bottom-2">
-            <span className="px-2 text-[10px] font-bold text-primary-400 uppercase tracking-wider">AI Tools:</span>
+        <div className="flex items-center gap-1 p-1 mb-2 bg-primary-500/5 border border-primary-500/10 rounded-lg animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex items-center gap-2 px-2 border-r border-primary-500/10 mr-1 min-w-[120px]">
+                <Sparkles className={`w-3 h-3 ${hasSelection ? 'text-primary-400' : 'text-slate-600'}`} />
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${hasSelection ? 'text-primary-400' : 'text-slate-600'}`}>
+                    {hasSelection ? 'AI Ready' : 'Select Text'}
+                </span>
+            </div>
+
             <AiButton
                 onClick={() => handleAiAction('fix_grammar')}
                 icon={CheckCheck}
                 label="Fix Grammar"
                 loading={loading === 'fix_grammar'}
+                disabled={!hasSelection}
             />
-            <div className="w-px h-3 bg-primary-500/20 mx-1" />
+            <div className="w-px h-3 bg-primary-500/10 mx-1" />
             <AiButton
                 onClick={() => handleAiAction('shorten')}
                 icon={Minimize2}
                 label="Shorten"
                 loading={loading === 'shorten'}
+                disabled={!hasSelection}
             />
             <AiButton
                 onClick={() => handleAiAction('simplify')}
                 icon={BookOpen}
                 label="Simplify"
                 loading={loading === 'simplify'}
+                disabled={!hasSelection}
             />
             <AiButton
                 onClick={() => handleAiAction('improve_writing')}
                 icon={Sparkles}
                 label="Improve"
                 loading={loading === 'improve_writing'}
+                disabled={!hasSelection}
             />
-            <div className="w-px h-3 bg-primary-500/20 mx-1" />
+            <div className="w-px h-3 bg-primary-500/10 mx-1" />
             <AiButton
                 onClick={() => handleAiAction('expand')}
                 icon={Maximize2}
                 label="Expand"
                 loading={loading === 'expand'}
+                disabled={!hasSelection}
             />
         </div>
     )
 }
 
-function AiButton({ onClick, icon: Icon, label, loading }: any) {
+function AiButton({ onClick, icon: Icon, label, loading, disabled }: any) {
     return (
         <button
             onClick={onClick}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-primary-300 hover:text-white hover:bg-primary-500/20 rounded transition-colors disabled:opacity-50"
+            disabled={disabled || loading}
+            className={`
+                flex items-center gap-1.5 px-2 py-1 text-xs font-medium rounded transition-colors
+                ${disabled
+                    ? 'text-slate-600 cursor-not-allowed opacity-50'
+                    : 'text-primary-300 hover:text-white hover:bg-primary-500/20'
+                }
+            `}
+            title={disabled ? "Select text to use this tool" : label}
         >
             {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Icon className="w-3 h-3" />}
             {label}
