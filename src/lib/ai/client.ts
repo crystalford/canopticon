@@ -93,16 +93,11 @@ export async function callAI<T>(params: {
  * Generate embeddings for text
  */
 export async function generateEmbedding(text: string): Promise<number[] | null> {
-    try {
-        const response = await getOpenAI().embeddings.create({
-            model: MODEL_TIERS.embedding,
-            input: text.slice(0, 8000), // Limit input size
-        })
-        return response.data[0]?.embedding ?? null
-    } catch (error) {
-        console.error('Embedding generation failed:', error)
-        return null
-    }
+    const response = await getOpenAI().embeddings.create({
+        model: MODEL_TIERS.embedding,
+        input: text.slice(0, 8000), // Limit input size
+    })
+    return response.data[0]?.embedding ?? null
 }
 
 /**
