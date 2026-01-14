@@ -95,7 +95,7 @@ export default function SourcesPage() {
             if (res.ok) {
                 setMessage({
                     type: 'success',
-                    text: `Sync complete: ${data.stats.ingested} ingested, ${data.stats.skipped} skipped, ${data.stats.errors} errors`
+                    text: `Sync complete: ${data.stats.ingested} ingested. Pipeline: ${data.pipeline.created} signals created, ${data.pipeline.errors} errors.`
                 })
             } else {
                 setMessage({ type: 'error', text: 'Sync failed' })

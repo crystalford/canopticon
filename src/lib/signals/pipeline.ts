@@ -360,8 +360,9 @@ export async function processUnprocessedArticles(): Promise<{
     created: number
     merged: number
     errors: number
+    reasons: string[]
 }> {
-    const stats = { processed: 0, created: 0, merged: 0, errors: 0 }
+    const stats = { processed: 0, created: 0, merged: 0, errors: 0, reasons: [] as string[] }
 
     const unprocessed = await db
         .select({ id: rawArticles.id })
@@ -376,7 +377,12 @@ export async function processUnprocessedArticles(): Promise<{
 
         if (result.action === 'created') stats.created++
         else if (result.action === 'merged') stats.merged++
-        else if (result.action === 'error') stats.errors++
+        else if (result.action === 'error') {
+            stats.errors++
+            if (result.reason && stats.reasons.length < 3) {
+                stats.reasons.push(result.reason)
+            }
+        }
     }
 
     return stats

@@ -43,7 +43,10 @@ export default function DashboardPage() {
         try {
             const res = await fetch('/api/signals/triage', { method: 'POST' })
             const data = await res.json()
-            alert(`Triage complete: ${data.processed} processed, ${data.created} created, ${data.errors} errors`)
+            const data = await res.json()
+            const errorDetails = data.reasons?.length ? `\nErrors: ${data.reasons.join(', ')}` : ''
+            alert(`Triage complete: ${data.processed} processed, ${data.created} created, ${data.errors} errors${errorDetails}`)
+            fetchSignals()
             fetchSignals()
         } catch (error) {
             alert('Triage failed')
@@ -95,8 +98,8 @@ export default function DashboardPage() {
                         key={f}
                         onClick={() => setFilter(f)}
                         className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === f
-                                ? 'bg-primary-600 text-white'
-                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                             }`}
                     >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
