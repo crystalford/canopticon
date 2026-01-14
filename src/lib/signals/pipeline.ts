@@ -54,11 +54,6 @@ export async function processArticle(articleId: string): Promise<PipelineResult>
     const runId = uuidv4()
 
     try {
-        // Check circuit breaker
-        if (isCircuitOpen()) {
-            return { success: false, action: 'error', reason: 'Circuit breaker open' }
-        }
-
         // Fetch the article
         const [article] = await db
             .select()
@@ -74,149 +69,28 @@ export async function processArticle(articleId: string): Promise<PipelineResult>
             return { success: true, action: 'skipped', reason: 'Already processed' }
         }
 
-        await logPipeline(runId, 'info', 'Processing article', { articleId })
+        await logPipeline(runId, 'info', 'Processing article (Manual Mode)', { articleId })
 
-        // Step 2: Generate embedding (Optional / Fail-open)
-        const textForEmbedding = `${article.title}\n\n${article.bodyText.slice(0, 800)}`
+        // MANUAL MODE: No AI, No Clustering
+        // 1. Create a new Cluster for this article
+        const clusterId = await createCluster(articleId)
 
-        let embedding: number[] | null = null
-        try {
-            embedding = await generateEmbedding(textForEmbedding)
-        } catch (error) {
-            console.error('Embedding failed, proceeding without AI:', error)
-        }
+        // 2. Create a default "Pending" signal
+        // Default values: Type=shift (neutral), Confidence=0, Significance=0, Status=pending
+        const signalId = await createSignal(
+            clusterId,
+            'shift',      // default type
+            0,            // 0 confidence (no AI)
+            0,            // 0 significance (no AI)
+            'pending',
+            'Manual ingestion. Waiting for operator review.'
+        )
 
-        // Step 3: Similarity search (Only if we have an embedding)
-        let clusterId: string
-        let isNewCluster = false
-
-        if (embedding) {
-            const cutoffDate = new Date(Date.now() - CLUSTER_WINDOW_HOURS * 60 * 60 * 1000)
-            const matchResult = await findMatchingCluster(embedding, cutoffDate)
-
-            if (matchResult.match && matchResult.similarity >= SIMILARITY_THRESHOLDS.autoMatch) {
-                // Auto-match logic...
-                clusterId = matchResult.clusterId!
-                const clusterSize = await getClusterSize(clusterId)
-                if (clusterSize >= MAX_ARTICLES_PER_CLUSTER) {
-                    clusterId = await createCluster(articleId)
-                    isNewCluster = true
-                } else {
-                    await addToCluster(clusterId, articleId)
-                }
-            } else {
-                clusterId = await createCluster(articleId)
-                isNewCluster = true
-            }
-        } else {
-            // No embedding? Just create a new cluster for this article
-            clusterId = await createCluster(articleId)
-            isNewCluster = true
-            await logPipeline(runId, 'warn', 'Skipped clustering due to missing embedding', { articleId })
-        }
-
-        // Mark article as processed
+        // 3. Mark article as processed
         await db
             .update(rawArticles)
             .set({ isProcessed: true })
             .where(eq(rawArticles.id, articleId))
-
-        // Only create signal for new clusters
-        if (!isNewCluster) {
-            await logPipeline(runId, 'info', 'Article merged into existing cluster', { clusterId })
-            return { success: true, clusterId, action: 'merged' }
-        }
-
-        // Step 5-6: Signal type determination and confidence
-        const costCheck = await checkCostLimits()
-        if (!costCheck.allowed) {
-            await logPipeline(runId, 'warn', `Cost limit reached: ${costCheck.reason}`, {})
-            return { success: true, clusterId, action: 'created', reason: 'Signal pending - cost limit' }
-        }
-
-        const classifyInput: SigClassifyInput = {
-            title: article.title,
-            body_excerpt: article.bodyText.slice(0, 1000),
-        }
-
-        const classifyResult = await callAI<SigClassifyOutput>({
-            prompt: SIG_CLASSIFY_V1.prompt,
-            input: classifyInput,
-            model: 'gpt-4o-mini',
-        })
-
-        if (!classifyResult.success || !classifyResult.data) {
-            recordFailure()
-            // Create signal with defaults
-            const signalId = await createSignal(clusterId, 'breaking', 50, 50, 'pending')
-            return { success: true, signalId, clusterId, action: 'created', reason: 'Classification failed - using defaults' }
-        }
-        recordSuccess()
-
-        if (classifyResult.usage) {
-            await recordAIUsage({
-                model: 'gpt-4o-mini',
-                promptName: 'SIG_CLASSIFY_V1',
-                inputTokens: classifyResult.usage.inputTokens,
-                outputTokens: classifyResult.usage.outputTokens,
-                costUsd: classifyResult.usage.costUsd,
-            })
-        }
-
-        // Step 7: Significance scoring
-        const triageInput: SigTriageInput = {
-            title: article.title,
-            body_excerpt: article.bodyText.slice(0, 1000),
-        }
-
-        const triageResult = await callAI<SigTriageOutput>({
-            prompt: SIG_TRIAGE_SCORE_V1.prompt,
-            input: triageInput,
-            model: 'gpt-4o-mini',
-        })
-
-        let significanceScore = 50 // default
-        if (triageResult.success && triageResult.data) {
-            significanceScore = triageResult.data.significance_score
-            recordSuccess()
-
-            if (triageResult.usage) {
-                await recordAIUsage({
-                    model: 'gpt-4o-mini',
-                    promptName: 'SIG_TRIAGE_SCORE_V1',
-                    inputTokens: triageResult.usage.inputTokens,
-                    outputTokens: triageResult.usage.outputTokens,
-                    costUsd: triageResult.usage.costUsd,
-                })
-            }
-        } else {
-            recordFailure()
-        }
-
-        // Step 8: Triage decision
-        let status: 'pending' | 'flagged' | 'archived' = 'pending'
-        if (significanceScore < TRIAGE_RULES.autoArchive) {
-            status = 'archived'
-        } else if (significanceScore >= TRIAGE_RULES.flagged) {
-            status = 'flagged'
-        }
-
-        // Step 9: Signal persistence
-        const signalId = await createSignal(
-            clusterId,
-            classifyResult.data.signal_type,
-            classifyResult.data.confidence,
-            significanceScore,
-            status,
-            classifyResult.data.notes
-        )
-
-        await logPipeline(runId, 'info', 'Signal created', {
-            signalId,
-            type: classifyResult.data.signal_type,
-            significance: significanceScore,
-            status
-        })
 
         return { success: true, signalId, clusterId, action: 'created' }
 
