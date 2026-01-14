@@ -38,7 +38,7 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
         content: content ? JSON.parse(content) : '',
         editorProps: {
             attributes: {
-                class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-xl focus:outline-none min-h-[400px] max-w-none p-4',
+                class: 'prose prose-slate max-w-none focus:outline-none min-h-[500px] p-6 text-base leading-relaxed',
             },
         },
         onUpdate: ({ editor }) => {

@@ -55,11 +55,25 @@ export async function POST(request: NextRequest) {
         const baseSlug = simpleSlugify(story.headline)
         const uniqueSlug = `${baseSlug}-${uuidv4().substring(0, 8)}`
 
+        // Convert summary text to TipTap JSON format
+        const paragraphs = story.summary.split('\n\n').filter((p: string) => p.trim())
+        const tipTapContent = {
+            type: 'doc',
+            content: paragraphs.map((p: string) => ({
+                type: 'paragraph',
+                content: [{
+                    type: 'text',
+                    text: p.trim()
+                }]
+            }))
+        }
+
         // Note: status field doesn't exist in schema, relies on isDraft boolean
         const [article] = await db.insert(articles).values({
             briefId: briefId,
             headline: story.headline,
             summary: story.summary,
+            content: JSON.stringify(tipTapContent), // Add TipTap JSON
             slug: uniqueSlug,
             isDraft: true,
             topics: story.keyPlayers || [],
