@@ -100,7 +100,7 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
                     'anthropic-version': '2023-06-01'
                 },
                 body: JSON.stringify({
-                    model: 'claude-3-opus-20240229',
+                    model: 'claude-3-5-sonnet-latest',
                     max_tokens: 8000,
                     messages: [{
                         role: 'user',
