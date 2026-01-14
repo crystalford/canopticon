@@ -6,6 +6,7 @@ import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Bold, Italic, List, ListOrdered, Link as LinkIcon, Image as ImageIcon, Heading2, Quote } from 'lucide-react'
+import AiToolbar from './AiToolbar'
 
 interface TipTapEditorProps {
     content: string | null
@@ -76,60 +77,66 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
     )
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full relative">
             {/* Toolbar */}
-            <div className="flex flex-wrap gap-1 p-2 border-b border-white/5 bg-black/20 backdrop-blur sticky top-0 z-10">
-                <ToolbarButton
-                    onClick={() => editor.chain().focus().toggleBold().run()}
-                    isActive={editor.isActive('bold')}
-                    icon={Bold}
-                    title="Bold"
-                />
-                <ToolbarButton
-                    onClick={() => editor.chain().focus().toggleItalic().run()}
-                    isActive={editor.isActive('italic')}
-                    icon={Italic}
-                    title="Italic"
-                />
-                <div className="w-px bg-white/10 mx-1 my-1"></div>
-                <ToolbarButton
-                    onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                    isActive={editor.isActive('heading', { level: 2 })}
-                    icon={Heading2}
-                    title="Heading"
-                />
-                <div className="w-px bg-white/10 mx-1 my-1"></div>
-                <ToolbarButton
-                    onClick={() => editor.chain().focus().toggleBulletList().run()}
-                    isActive={editor.isActive('bulletList')}
-                    icon={List}
-                    title="Bullet List"
-                />
-                <ToolbarButton
-                    onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                    isActive={editor.isActive('orderedList')}
-                    icon={ListOrdered}
-                    title="Numbered List"
-                />
-                <ToolbarButton
-                    onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                    isActive={editor.isActive('blockquote')}
-                    icon={Quote}
-                    title="Blockquote"
-                />
-                <div className="w-px bg-white/10 mx-1 my-1"></div>
-                <ToolbarButton
-                    onClick={addLink}
-                    isActive={editor.isActive('link')}
-                    icon={LinkIcon}
-                    title="Link"
-                />
-                <ToolbarButton
-                    onClick={addImage}
-                    isActive={false}
-                    icon={ImageIcon}
-                    title="Image"
-                />
+            <div className="flex flex-col p-2 border-b border-white/5 bg-black/20 backdrop-blur sticky top-0 z-10">
+                {/* AI Toolbar (Conditional) */}
+                <AiToolbar editor={editor} />
+
+                {/* Main Toolbar */}
+                <div className="flex flex-wrap gap-1">
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleBold().run()}
+                        isActive={editor.isActive('bold')}
+                        icon={Bold}
+                        title="Bold"
+                    />
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleItalic().run()}
+                        isActive={editor.isActive('italic')}
+                        icon={Italic}
+                        title="Italic"
+                    />
+                    <div className="w-px bg-white/10 mx-1 my-1"></div>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                        isActive={editor.isActive('heading', { level: 2 })}
+                        icon={Heading2}
+                        title="Heading"
+                    />
+                    <div className="w-px bg-white/10 mx-1 my-1"></div>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleBulletList().run()}
+                        isActive={editor.isActive('bulletList')}
+                        icon={List}
+                        title="Bullet List"
+                    />
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                        isActive={editor.isActive('orderedList')}
+                        icon={ListOrdered}
+                        title="Numbered List"
+                    />
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                        isActive={editor.isActive('blockquote')}
+                        icon={Quote}
+                        title="Blockquote"
+                    />
+                    <div className="w-px bg-white/10 mx-1 my-1"></div>
+                    <ToolbarButton
+                        onClick={addLink}
+                        isActive={editor.isActive('link')}
+                        icon={LinkIcon}
+                        title="Link"
+                    />
+                    <ToolbarButton
+                        onClick={addImage}
+                        isActive={false}
+                        icon={ImageIcon}
+                        title="Image"
+                    />
+                </div>
             </div>
 
             {/* Editor Content */}

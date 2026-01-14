@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { db, articles } from '@/db'
 import { eq, desc } from 'drizzle-orm'
 import { NewsletterSection } from '@/components/newsletter'
+import { ArrowRight, Globe, Shield, Activity, Calendar } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,67 +26,65 @@ export default async function HomePage() {
     const publishedArticles = await getPublishedArticles()
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen bg-background text-slate-300 selection:bg-primary-500/30">
             {/* Header */}
-            <header className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-700 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">C</span>
-                            </div>
-                            <span className="font-semibold text-xl tracking-tight">CANOPTICON</span>
+            <header className="border-b border-white/5 bg-black/20 backdrop-blur-md sticky top-0 z-50">
+                <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-primary-500/20 flex items-center justify-center border border-primary-500/50 shadow-[0_0_15px_rgba(14,165,233,0.15)]">
+                            <span className="text-primary-400 font-bold text-sm">C</span>
                         </div>
-                        <nav className="flex items-center gap-6">
-                            <Link href="/" className="text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors">
-                                Home
-                            </Link>
-                            <Link href="/dashboard" className="btn-primary text-sm">
-                                Operator Dashboard
-                            </Link>
-                        </nav>
+                        <span className="font-bold text-xl tracking-tight text-white">CANOPTICON</span>
                     </div>
+                    <nav className="flex items-center gap-8">
+                        <Link href="/dashboard" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+                            Operator Login
+                        </Link>
+                    </nav>
                 </div>
             </header>
 
-            {/* Hero Section */}
             <main>
-                <section className="py-20 px-4 sm:px-6 lg:px-8">
-                    <div className="max-w-4xl mx-auto text-center">
-                        <h1 className="text-5xl font-bold tracking-tight text-slate-900 dark:text-white mb-6">
-                            Primary-Source Political Intelligence
+                {/* Hero */}
+                <section className="relative py-32 px-6 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-b from-primary-500/5 to-transparent pointer-events-none" />
+                    <div className="max-w-4xl mx-auto text-center relative z-10">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-primary-300 font-mono mb-8">
+                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                            SYSTEM ONLINE
+                        </div>
+                        <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-white mb-6">
+                            Primary-Source <br />
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-indigo-400">Political Intelligence</span>
                         </h1>
-                        <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 max-w-2xl mx-auto">
-                            Real-time synthesis of Canadian political events from authoritative sources.
-                            No opinion. No spin. Just structure.
+                        <p className="text-xl text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+                            Real-time synthesis of Canadian political events. No opinion. No spin. Just raw data and structured analysis.
                         </p>
                         <div className="flex justify-center gap-4">
-                            <Link href="#articles" className="btn-primary">
-                                Read Latest
+                            <Link href="#articles" className="btn-primary group">
+                                Read Intelligence
+                                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                             </Link>
                         </div>
                     </div>
                 </section>
 
-                {/* Articles Section */}
-                <section id="articles" className="py-16 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-slate-800/50">
+                {/* Articles */}
+                <section id="articles" className="py-20 px-6">
                     <div className="max-w-7xl mx-auto">
-                        <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-8">
-                            Latest Articles
-                        </h2>
+                        <div className="flex items-center justify-between mb-12">
+                            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                                <Activity className="w-6 h-6 text-primary-500" />
+                                Latest Dispatches
+                            </h2>
+                        </div>
 
                         {publishedArticles.length === 0 ? (
-                            <div className="card p-12 text-center">
-                                <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                                    </svg>
-                                </div>
-                                <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">
-                                    No articles yet
-                                </h3>
-                                <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                                    The system is initializing. Articles will appear here once the ingestion pipeline processes primary sources.
+                            <div className="glass-panel p-16 text-center">
+                                <Activity className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium text-white mb-2">Awaiting Intelligence</h3>
+                                <p className="text-slate-500 max-w-sm mx-auto">
+                                    The ingestion pipeline is currently active. New dispatches will appear here shortly.
                                 </p>
                             </div>
                         ) : (
@@ -94,30 +93,25 @@ export default async function HomePage() {
                                     <Link
                                         key={article.id}
                                         href={`/articles/${article.slug}`}
-                                        className="card p-6 block hover:shadow-lg transition-shadow"
+                                        className="glass-card flex flex-col h-full group p-6"
                                     >
-                                        {article.publishedAt && (
-                                            <time className="text-xs text-slate-500 dark:text-slate-400">
-                                                {new Date(article.publishedAt).toLocaleDateString('en-CA', {
-                                                    year: 'numeric',
-                                                    month: 'short',
-                                                    day: 'numeric',
-                                                })}
-                                            </time>
-                                        )}
-                                        <h3 className="font-semibold text-slate-900 dark:text-white mt-1 mb-2 line-clamp-2">
+                                        <div className="flex items-center gap-2 mb-4 text-xs font-mono text-slate-500">
+                                            <Calendar className="w-3 h-3" />
+                                            {article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : 'DRAFT'}
+                                        </div>
+
+                                        <h3 className="text-xl font-bold text-white mb-3 group-hover:text-primary-400 transition-colors">
                                             {article.headline}
                                         </h3>
-                                        <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-3">
-                                            {article.summary.slice(0, 150)}...
+
+                                        <p className="text-slate-400 text-sm leading-relaxed mb-4 line-clamp-3">
+                                            {article.summary}
                                         </p>
-                                        {article.topics && article.topics.length > 0 && (
-                                            <div className="flex gap-1 mt-3 flex-wrap">
+
+                                        {article.topics && (
+                                            <div className="mt-auto flex flex-wrap gap-2">
                                                 {article.topics.slice(0, 3).map(topic => (
-                                                    <span
-                                                        key={topic}
-                                                        className="text-xs px-2 py-0.5 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 rounded"
-                                                    >
+                                                    <span key={topic} className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/5 border border-white/10 text-slate-400 uppercase tracking-wider">
                                                         {topic}
                                                     </span>
                                                 ))}
@@ -130,61 +124,43 @@ export default async function HomePage() {
                     </div>
                 </section>
 
-                {/* Newsletter Section */}
-                <section className="py-16 px-4 sm:px-6 lg:px-8">
-                    <div className="max-w-xl mx-auto">
-                        <NewsletterSection />
-                    </div>
-                </section>
-
-                {/* Info Section */}
-                <section className="py-16 px-4 sm:px-6 lg:px-8 bg-slate-50 dark:bg-slate-800/50">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="grid md:grid-cols-3 gap-8">
-                            <div className="text-center">
-                                <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
-                                    <svg className="w-6 h-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </div>
-                                <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Primary Sources Only</h3>
-                                <p className="text-slate-600 dark:text-slate-400 text-sm">
-                                    Direct from Parliament, PMO, federal ministries, and courts. No opinion journalism.
-                                </p>
-                            </div>
-                            <div className="text-center">
-                                <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
-                                    <svg className="w-6 h-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                    </svg>
-                                </div>
-                                <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Near Real-Time</h3>
-                                <p className="text-slate-600 dark:text-slate-400 text-sm">
-                                    Events detected and synthesized within minutes of occurrence.
-                                </p>
-                            </div>
-                            <div className="text-center">
-                                <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-xl flex items-center justify-center mx-auto mb-4">
-                                    <svg className="w-6 h-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
-                                    </svg>
-                                </div>
-                                <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Neutral Posture</h3>
-                                <p className="text-slate-600 dark:text-slate-400 text-sm">
-                                    Non-performative, non-adversarial. Structure over spin.
-                                </p>
-                            </div>
-                        </div>
+                {/* Features */}
+                <section className="py-20 px-6 border-t border-white/5 bg-white/5">
+                    <div className="max-w-7xl mx-auto grid md:grid-cols-3 gap-12">
+                        <Feature
+                            icon={Globe}
+                            title="Primary Only"
+                            desc="Sourced directly from Hansard, Court Records, and official releases."
+                        />
+                        <Feature
+                            icon={Activity}
+                            title="Real-Time"
+                            desc="Events detected and synthesized within minutes of occurrence."
+                        />
+                        <Feature
+                            icon={Shield}
+                            title="Zero Bias"
+                            desc="Non-performative, non-adversarial. Strict structural reporting."
+                        />
                     </div>
                 </section>
             </main>
 
-            {/* Footer */}
-            <footer className="border-t border-slate-200 dark:border-slate-800 py-8 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-7xl mx-auto text-center text-slate-500 dark:text-slate-400 text-sm">
-                    <p>© 2026 CANOPTICON. Primary-source political synthesis.</p>
-                </div>
+            <footer className="border-t border-white/5 py-12 px-6 text-center text-slate-600 text-sm">
+                <p>&copy; {new Date().getFullYear()} CANOPTICON. All rights reserved.</p>
             </footer>
+        </div>
+    )
+}
+
+function Feature({ icon: Icon, title, desc }: any) {
+    return (
+        <div className="text-center">
+            <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-4 text-primary-400">
+                <Icon className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
+            <p className="text-slate-400 leading-relaxed">{desc}</p>
         </div>
     )
 }
