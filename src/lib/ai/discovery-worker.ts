@@ -235,13 +235,14 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
 
 export async function getTodaysBrief(): Promise<DailyBrief | null> {
     try {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
+        // Look for any brief generated in the last 24 hours
+        // This is more robust than "today at 00:00" which involves timezone complexity
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
 
         const [brief] = await db
             .select()
             .from(briefs)
-            .where(sql`${briefs.generatedAt} >= ${today}`)
+            .where(sql`${briefs.generatedAt} >= ${twentyFourHoursAgo}`)
             .orderBy(desc(briefs.generatedAt))
             .limit(1)
 

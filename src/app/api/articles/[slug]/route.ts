@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
 import { db, articles } from '@/db'
 import { eq } from 'drizzle-orm'
 
@@ -25,8 +26,12 @@ export async function GET(
             )
         }
 
-        // Don't show drafts on public endpoint
-        if (article.isDraft) {
+        // Check for session to allow draft access
+        const session = await getServerSession()
+        const isAdmin = !!session
+
+        // Don't show drafts on public endpoint unless admin/authenticated
+        if (article.isDraft && !isAdmin) {
             return NextResponse.json(
                 { error: 'Article not found' },
                 { status: 404 }
