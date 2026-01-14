@@ -26,19 +26,22 @@ Search the top Canadian political stories from the provided REAL-TIME NEWS CONTE
 
 For each of the top 5 most significant stories found in the context:
 1. Analyze the context provided
-2. Provide a comprehensive 500-800 word summary with full context:
-   - What happened
-   - Why it matters
-   - Background context
-   - Political implications
-   - Key quotes (if available)
+2. Provide a DETAILED, COMPREHENSIVE 800-1200 word deep-dive analysis:
+   - What happened (detailed sequence of events)
+   - Why it matters (deep policy analysis)
+   - Historical background and context
+   - Political implications for all major parties
+   - Key quotes and reactions
+   - Future outlook and next steps
 3. Identify key political players (names and roles)
 4. Rate significance (1-10) based on:
    - Impact on Canadians
    - Policy implications
    - Political consequences
    - Public interest
-5. Cite 2-3 source URLs from reputable Canadian news outlets
+5. Cite source URLs from the context provided
+
+Focus on depth, nuance, and professional political analysis. Avoid superficial summaries.
 
 Focus on:
 - Federal politics and Parliament
@@ -59,7 +62,7 @@ Return ONLY valid JSON in this exact format:
   "stories": [
     {
       "headline": "Clear, compelling headline",
-      "summary": "Full 500-800 word analysis with context...",
+      "summary": "Full 800-1200 word deep-dive analysis...",
       "keyPlayers": ["Name (Role)", "Name (Role)"],
       "significance": 8,
       "sourceUrls": ["https://...", "https://..."]
