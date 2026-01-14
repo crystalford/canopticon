@@ -4,23 +4,18 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TipTapEditor from '@/components/editor/TipTapEditor'
-import { FileText, Eye, Save, Upload, Trash2 } from 'lucide-react'
+import { FileText, Eye, Save, Upload, Trash2, ChevronLeft, Globe, Image as ImageIcon } from 'lucide-react'
 
 interface Article {
-    id: string
     headline: string
-    summary: string
     content: string | null
     excerpt: string | null
     metaDescription: string | null
     featuredImageUrl: string | null
     author: string
-    readingTime: number | null
     slug: string
     isDraft: boolean
     publishedAt: string | null
-    topics: string[]
-    entities: string[]
 }
 
 export default function ArticleEditorPage({ params }: { params: { slug: string } }) {
@@ -32,7 +27,6 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     // Form state
     const [headline, setHeadline] = useState('')
     const [content, setContent] = useState<string | null>(null)
-    const [summary, setSummary] = useState('')
     const [excerpt, setExcerpt] = useState('')
     const [metaDescription, setMetaDescription] = useState('')
     const [featuredImageUrl, setFeaturedImageUrl] = useState('')
@@ -47,19 +41,16 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
         try {
             const res = await fetch(`/api/articles/${params.slug}`)
             if (!res.ok) throw new Error('Article not found')
-
             const data = await res.json()
             const a = data.article
             setArticle(a)
             setHeadline(a.headline)
             setContent(a.content)
-            setSummary(a.summary)
             setExcerpt(a.excerpt || '')
             setMetaDescription(a.metaDescription || '')
             setFeaturedImageUrl(a.featuredImageUrl || '')
         } catch (err) {
             setError('Failed to load article')
-            console.error(err)
         } finally {
             setLoading(false)
         }
@@ -68,26 +59,16 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     const handleSave = async () => {
         setSaving(true)
         try {
-            const res = await fetch(`/api/articles/${params.slug}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    headline,
-                    summary,
-                    content,
-                    excerpt: excerpt || null,
-                    metaDescription: metaDescription || null,
-                    featuredImageUrl: featuredImageUrl || null,
-                })
+            await updateArticle({
+                headline,
+                content,
+                excerpt: excerpt || null,
+                metaDescription: metaDescription || null,
+                featuredImageUrl: featuredImageUrl || null,
             })
-
-            if (!res.ok) throw new Error('Failed to save')
-
-            const data = await res.json()
-            setArticle(data.article)
-            alert('✅ Saved successfully')
+            alert('Draft saved')
         } catch (err) {
-            alert('❌ Failed to save changes')
+            alert('Failed to save')
         } finally {
             setSaving(false)
         }
@@ -96,174 +77,164 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     const handlePublish = async () => {
         setPublishing(true)
         try {
-            const res = await fetch(`/api/articles/${params.slug}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    isDraft: false,
-                    publishedAt: new Date().toISOString(),
-                })
-            })
-
-            if (!res.ok) throw new Error('Failed to publish')
-
-            const data = await res.json()
-            setArticle(data.article)
-            alert('🚀 Published successfully!')
+            await updateArticle({ isDraft: false, publishedAt: new Date().toISOString() })
+            alert('Published successfully')
         } catch (err) {
-            alert('❌ Failed to publish')
+            alert('Failed to publish')
         } finally {
             setPublishing(false)
         }
     }
 
     const handleUnpublish = async () => {
-        if (!confirm('Are you sure you want to unpublish this article?')) return
-
+        if (!confirm('Unpublish this article?')) return
         setPublishing(true)
         try {
-            const res = await fetch(`/api/articles/${params.slug}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    isDraft: true,
-                })
-            })
-
-            if (!res.ok) throw new Error('Failed to unpublish')
-
-            const data = await res.json()
-            setArticle(data.article)
-            alert('Article unpublished')
+            await updateArticle({ isDraft: true })
+            alert('Unpublished')
         } catch (err) {
-            alert('❌ Failed to unpublish')
+            alert('Failed to unpublish')
         } finally {
             setPublishing(false)
         }
     }
 
-    if (loading) return <div className="p-12 text-center">Loading editor...</div>
-    if (error || !article) return <div className="p-12 text-center text-red-600">Error: {error || 'Article not found'}</div>
+    const updateArticle = async (data: any) => {
+        const res = await fetch(`/api/articles/${params.slug}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        if (!res.ok) throw new Error('Update failed')
+        const json = await res.json()
+        setArticle(json.article)
+    }
+
+    if (loading) return <div className="p-12 text-center text-slate-400">Loading editor...</div>
+    if (error || !article) return <div className="p-12 text-center text-red-400">Error: {error || 'Article not found'}</div>
 
     return (
-        <div className="max-w-5xl mx-auto pb-20">
+        <div className="max-w-6xl mx-auto pb-20 space-y-8">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <Link href="/dashboard/articles" className="text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400">
-                    ← Back to Articles
-                </Link>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 md:static z-20 bg-background/80 backdrop-blur-md pb-4 pt-2 md:py-0 border-b border-white/5 md:border-none">
+                <div className="flex items-center gap-4">
+                    <Link href="/dashboard/articles" className="p-2 rounded-full hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
+                        <ChevronLeft className="w-5 h-5" />
+                    </Link>
+                    <div>
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className={`w-2 h-2 rounded-full ${article.isDraft ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]' : 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]'}`} />
+                            <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">
+                                {article.isDraft ? 'DRAFT STATUS' : 'LIVE'}
+                            </span>
+                        </div>
+                        <h1 className="text-lg font-bold text-white max-w-md truncate">{headline}</h1>
+                    </div>
+                </div>
+
                 <div className="flex items-center gap-3">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${article.isDraft ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-                        {article.isDraft ? '📝 Draft' : '✅ Published'}
-                    </span>
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="btn-secondary flex items-center gap-2"
-                    >
-                        <Save className="w-4 h-4" />
-                        {saving ? 'Saving...' : 'Save Changes'}
+                    <button onClick={handleSave} disabled={saving} className="btn-secondary">
+                        <Save className="w-4 h-4 mr-2" />
+                        {saving ? 'Saving...' : 'Save Draft'}
                     </button>
+
                     {article.isDraft ? (
-                        <button
-                            onClick={handlePublish}
-                            disabled={publishing}
-                            className="btn-primary flex items-center gap-2"
-                        >
-                            <Upload className="w-4 h-4" />
-                            {publishing ? 'Publishing...' : 'Publish Now'}
+                        <button onClick={handlePublish} disabled={publishing} className="btn-primary">
+                            <Upload className="w-4 h-4 mr-2" />
+                            {publishing ? 'Publishing...' : 'Publish'}
                         </button>
                     ) : (
-                        <button
-                            onClick={handleUnpublish}
-                            disabled={publishing}
-                            className="btn-secondary flex items-center gap-2"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                            {publishing ? 'Unpublishing...' : 'Unpublish'}
-                        </button>
-                    )}
-                    {!article.isDraft && (
-                        <a
-                            href={`/articles/${article.slug}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn-secondary flex items-center gap-2"
-                        >
-                            <Eye className="w-4 h-4" />
-                            View Live
-                        </a>
+                        <div className="flex gap-2">
+                            <button onClick={handleUnpublish} disabled={publishing} className="btn-secondary text-red-300 hover:text-red-200 hover:border-red-500/30">
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Unpublish
+                            </button>
+                            <a href={`/articles/${article.slug}`} target="_blank" rel="noopener noreferrer" className="btn-secondary">
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Live
+                            </a>
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* Main Editor */}
-            <div className="space-y-6">
-                <div className="card p-8">
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Headline</label>
-                    <input
-                        type="text"
-                        value={headline}
-                        onChange={(e) => setHeadline(e.target.value)}
-                        className="input text-2xl font-bold mb-6"
-                        placeholder="Article headline..."
-                    />
-
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Content</label>
-                    <TipTapEditor
-                        content={content}
-                        onChange={setContent}
-                    />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Main Editor */}
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="glass-panel p-1">
+                        <input
+                            type="text"
+                            value={headline}
+                            onChange={(e) => setHeadline(e.target.value)}
+                            className="w-full bg-transparent border-none text-3xl font-bold text-white placeholder-slate-600 px-6 py-4 focus:ring-0 focus:outline-none"
+                            placeholder="Article Headline..."
+                        />
+                        <div className="border-t border-white/5">
+                            <TipTapEditor
+                                content={content}
+                                onChange={setContent}
+                            />
+                        </div>
+                    </div>
                 </div>
 
-                {/* SEO Section */}
-                <div className="card p-8">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                        <FileText className="w-5 h-5" />
-                        SEO & Metadata
-                    </h3>
+                {/* Sidebar Configuration */}
+                <div className="space-y-6">
+                    <div className="glass-panel p-6">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Globe className="w-4 h-4" />
+                            Metadata & SEO
+                        </h3>
 
-                    <div className="space-y-4">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-slate-400 text-xs font-medium mb-1.5 block">Excerpt</label>
+                                <textarea
+                                    value={excerpt}
+                                    onChange={(e) => setExcerpt(e.target.value)}
+                                    className="input min-h-[100px] text-sm leading-relaxed bg-black/40"
+                                    placeholder="Brief summary for previews..."
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-slate-400 text-xs font-medium mb-1.5 block">
+                                    Meta Description
+                                    <span className={`ml-2 ${metaDescription.length > 160 ? 'text-red-400' : 'text-slate-600'}`}>
+                                        {metaDescription.length}/160
+                                    </span>
+                                </label>
+                                <textarea
+                                    value={metaDescription}
+                                    onChange={(e) => setMetaDescription(e.target.value.slice(0, 170))}
+                                    className="input min-h-[80px] text-sm"
+                                    placeholder="Search engine description..."
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="glass-panel p-6">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <ImageIcon className="w-4 h-4" />
+                            Media
+                        </h3>
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Featured Image URL
-                            </label>
-                            <input
-                                type="text"
-                                value={featuredImageUrl}
-                                onChange={(e) => setFeaturedImageUrl(e.target.value)}
-                                className="input"
-                                placeholder="https://example.com/image.jpg"
-                            />
+                            <label className="text-slate-400 text-xs font-medium mb-1.5 block">Featured Image URL</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={featuredImageUrl}
+                                    onChange={(e) => setFeaturedImageUrl(e.target.value)}
+                                    className="input text-sm"
+                                    placeholder="https://..."
+                                />
+                            </div>
                             {featuredImageUrl && (
-                                <img src={featuredImageUrl} alt="Preview" className="mt-2 max-w-xs rounded shadow" />
+                                <div className="mt-3 relative aspect-video rounded-lg overflow-hidden border border-white/10">
+                                    <img src={featuredImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                </div>
                             )}
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Excerpt (Brief Summary)
-                            </label>
-                            <textarea
-                                value={excerpt}
-                                onChange={(e) => setExcerpt(e.target.value)}
-                                className="input h-20"
-                                placeholder="A brief summary for article previews..."
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                Meta Description (SEO)
-                                <span className="text-xs text-slate-500 ml-2">({metaDescription.length}/160)</span>
-                            </label>
-                            <textarea
-                                value={metaDescription}
-                                onChange={(e) => setMetaDescription(e.target.value.slice(0, 160))}
-                                className="input h-20"
-                                placeholder="SEO description (150-160 characters)..."
-                                maxLength={160}
-                            />
                         </div>
                     </div>
                 </div>

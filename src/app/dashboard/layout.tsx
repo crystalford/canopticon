@@ -1,31 +1,27 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, FileText, Settings, Globe, PlusCircle, Newspaper } from 'lucide-react'
+import { LayoutDashboard, FileText, Settings, Globe, PlusCircle, Newspaper, User } from 'lucide-react'
 
 export default async function DashboardLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    // Check authentication
     const session = await getServerSession()
-
-    if (!session) {
-        redirect('/login')
-    }
+    if (!session) redirect('/login')
 
     return (
-        <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans">
-            {/* Sidebar */}
-            <aside className="w-64 bg-slate-900 border-r border-slate-800 flex-shrink-0 flex flex-col hidden md:flex">
-                {/* Logo Area */}
-                <div className="h-16 flex items-center px-6 border-b border-slate-800">
-                    <Link href="/dashboard" className="flex items-center gap-2 group">
-                        <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-lg flex items-center justify-center shadow-lg shadow-primary-500/20 group-hover:shadow-primary-500/40 transition-shadow">
-                            <span className="text-white font-bold text-lg">C</span>
+        <div className="flex h-screen overflow-hidden font-sans text-slate-300">
+            {/* Glass Sidebar */}
+            <aside className="w-64 flex-shrink-0 flex flex-col border-r border-white/5 bg-black/20 backdrop-blur-xl hidden md:flex">
+                {/* Logo */}
+                <div className="h-16 flex items-center px-6 border-b border-white/5">
+                    <Link href="/dashboard" className="flex items-center gap-3 group">
+                        <div className="relative w-8 h-8 rounded-lg bg-primary-500/20 flex items-center justify-center border border-primary-500/50 shadow-[0_0_15px_rgba(14,165,233,0.15)] group-hover:shadow-[0_0_20px_rgba(14,165,233,0.3)] transition-all">
+                            <span className="text-primary-400 font-bold text-lg">C</span>
                         </div>
-                        <span className="font-bold text-xl tracking-tight text-slate-100 group-hover:text-white transition-colors">
+                        <span className="font-bold text-lg tracking-wide text-white group-hover:text-primary-400 transition-colors">
                             CANOPTICON
                         </span>
                     </Link>
@@ -33,36 +29,27 @@ export default async function DashboardLayout({
 
                 {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-                    <div className="px-3 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Intelligence
-                    </div>
-
+                    <NavSection title="Intelligence" />
                     <NavLink href="/dashboard" icon={LayoutDashboard} label="Daily Brief" />
                     <NavLink href="/dashboard/articles" icon={FileText} label="Articles" />
 
-                    <div className="px-3 mt-8 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        Sources
-                    </div>
-
+                    <NavSection title="Sources" className="mt-8" />
                     <NavLink href="/dashboard/manual-sources" icon={PlusCircle} label="Manual Ingest" />
                     <NavLink href="/dashboard/sources" icon={Newspaper} label="Source Monitor" />
 
-                    <div className="px-3 mt-8 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                        System
-                    </div>
-
+                    <NavSection title="System" className="mt-8" />
                     <NavLink href="/dashboard/settings" icon={Settings} label="Settings" />
-                    <NavLink href="/" icon={Globe} label="View Public Site" />
+                    <NavLink href="/" icon={Globe} label="Public Site" />
                 </nav>
 
                 {/* User Footer */}
-                <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+                <div className="p-4 border-t border-white/5 bg-white/5 mx-3 mb-3 rounded-xl">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-medium text-slate-300">
-                            {session.user?.email?.[0]?.toUpperCase() || 'U'}
+                        <div className="w-10 h-10 rounded-full bg-primary-500/20 border border-primary-500/30 flex items-center justify-center text-primary-300">
+                            <User className="w-5 h-5" />
                         </div>
                         <div className="overflow-hidden">
-                            <p className="text-sm font-medium text-slate-200 truncate">
+                            <p className="text-sm font-medium text-white truncate">
                                 {session.user?.name || 'Operator'}
                             </p>
                             <p className="text-xs text-slate-500 truncate">
@@ -73,17 +60,10 @@ export default async function DashboardLayout({
                 </div>
             </aside>
 
-            {/* Main Content Area */}
+            {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden relative">
-                {/* Top Mobile Bar (visible only on small screens) */}
-                <header className="md:hidden bg-slate-900 border-b border-slate-800 h-16 flex items-center px-4 justify-between shrink-0">
-                    <span className="font-bold text-lg text-slate-100">CANOPTICON</span>
-                    {/* Add mobile menu trigger here if needed */}
-                </header>
-
-                {/* Scrollable Content */}
-                <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                    <div className="max-w-7xl mx-auto p-6 md:p-8 lg:p-10">
+                <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
+                    <div className="max-w-7xl mx-auto p-6 md:p-10">
                         {children}
                     </div>
                 </main>
@@ -92,14 +72,21 @@ export default async function DashboardLayout({
     )
 }
 
-// Helper Component for Nav Links
+function NavSection({ title, className = '' }: { title: string, className?: string }) {
+    return (
+        <div className={`px-3 mb-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest ${className}`}>
+            {title}
+        </div>
+    )
+}
+
 function NavLink({ href, icon: Icon, label }: { href: string; icon: any; label: string }) {
     return (
         <Link
             href={href}
-            className="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-400 rounded-md hover:bg-slate-800 hover:text-white transition-all group"
+            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-400 rounded-lg hover:bg-white/5 hover:text-white transition-all group"
         >
-            <Icon className="w-5 h-5 text-slate-500 group-hover:text-primary-400 transition-colors" />
+            <Icon className="w-4 h-4 text-slate-500 group-hover:text-primary-400 transition-colors" />
             {label}
         </Link>
     )

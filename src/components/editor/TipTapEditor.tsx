@@ -23,22 +23,22 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
             Link.configure({
                 openOnClick: false,
                 HTMLAttributes: {
-                    class: 'text-blue-600 underline',
+                    class: 'text-primary-400 underline decoration-primary-500/30 hover:decoration-primary-500 transition-colors',
                 },
             }),
             Image.configure({
                 HTMLAttributes: {
-                    class: 'max-w-full h-auto rounded-lg',
+                    class: 'max-w-full h-auto rounded-lg border border-white/10 shadow-lg my-6',
                 },
             }),
             Placeholder.configure({
-                placeholder: 'Write your article content here...',
+                placeholder: 'Write your article here...',
             }),
         ],
         content: content ? (typeof content === 'string' ? JSON.parse(content) : content) : '',
         editorProps: {
             attributes: {
-                class: 'prose prose-slate max-w-none focus:outline-none min-h-[500px] p-6 text-base leading-relaxed',
+                class: 'prose prose-invert max-w-none focus:outline-none min-h-[500px] p-6 text-slate-300 leading-relaxed prose-headings:text-white prose-headings:font-bold prose-strong:text-white prose-blockquote:border-l-primary-500 prose-blockquote:bg-white/5 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg not-italic',
             },
         },
         onUpdate: ({ editor }) => {
@@ -46,99 +46,96 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
         },
     })
 
-    if (!editor) {
-        return null
-    }
+    if (!editor) return null
 
     const addLink = () => {
         const url = window.prompt('Enter URL:')
-        if (url) {
-            editor.chain().focus().setLink({ href: url }).run()
-        }
+        if (url) editor.chain().focus().setLink({ href: url }).run()
     }
 
     const addImage = () => {
         const url = window.prompt('Enter image URL:')
-        if (url) {
-            editor.chain().focus().setImage({ src: url }).run()
-        }
+        if (url) editor.chain().focus().setImage({ src: url }).run()
     }
 
+    const ToolbarButton = ({ onClick, isActive, icon: Icon, title }: any) => (
+        <button
+            type="button"
+            onClick={onClick}
+            title={title}
+            className={`
+                p-2 rounded-md transition-all duration-200
+                ${isActive
+                    ? 'bg-primary-500/20 text-primary-400 shadow-[0_0_10px_rgba(14,165,233,0.1)]'
+                    : 'text-slate-500 hover:text-slate-200 hover:bg-white/5'
+                }
+            `}
+        >
+            <Icon className="w-4 h-4" />
+        </button>
+    )
+
     return (
-        <div className="border border-gray-300 rounded-lg overflow-hidden">
+        <div className="flex flex-col h-full">
             {/* Toolbar */}
-            <div className="bg-gray-100 border-b border-gray-300 p-2 flex flex-wrap gap-1">
-                <button
-                    type="button"
+            <div className="flex flex-wrap gap-1 p-2 border-b border-white/5 bg-black/20 backdrop-blur sticky top-0 z-10">
+                <ToolbarButton
                     onClick={() => editor.chain().focus().toggleBold().run()}
-                    className={`p-2 rounded hover:bg-gray-200 ${editor.isActive('bold') ? 'bg-gray-300' : ''}`}
+                    isActive={editor.isActive('bold')}
+                    icon={Bold}
                     title="Bold"
-                >
-                    <Bold className="w-4 h-4" />
-                </button>
-                <button
-                    type="button"
+                />
+                <ToolbarButton
                     onClick={() => editor.chain().focus().toggleItalic().run()}
-                    className={`p-2 rounded hover:bg-gray-200 ${editor.isActive('italic') ? 'bg-gray-300' : ''}`}
+                    isActive={editor.isActive('italic')}
+                    icon={Italic}
                     title="Italic"
-                >
-                    <Italic className="w-4 h-4" />
-                </button>
-                <div className="w-px bg-gray-300 mx-1"></div>
-                <button
-                    type="button"
+                />
+                <div className="w-px bg-white/10 mx-1 my-1"></div>
+                <ToolbarButton
                     onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                    className={`p-2 rounded hover:bg-gray-200 ${editor.isActive('heading', { level: 2 }) ? 'bg-gray-300' : ''}`}
-                    title="Heading 2"
-                >
-                    <Heading2 className="w-4 h-4" />
-                </button>
-                <div className="w-px bg-gray-300 mx-1"></div>
-                <button
-                    type="button"
+                    isActive={editor.isActive('heading', { level: 2 })}
+                    icon={Heading2}
+                    title="Heading"
+                />
+                <div className="w-px bg-white/10 mx-1 my-1"></div>
+                <ToolbarButton
                     onClick={() => editor.chain().focus().toggleBulletList().run()}
-                    className={`p-2 rounded hover:bg-gray-200 ${editor.isActive('bulletList') ? 'bg-gray-300' : ''}`}
+                    isActive={editor.isActive('bulletList')}
+                    icon={List}
                     title="Bullet List"
-                >
-                    <List className="w-4 h-4" />
-                </button>
-                <button
-                    type="button"
+                />
+                <ToolbarButton
                     onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                    className={`p-2 rounded hover:bg-gray-200 ${editor.isActive('orderedList') ? 'bg-gray-300' : ''}`}
+                    isActive={editor.isActive('orderedList')}
+                    icon={ListOrdered}
                     title="Numbered List"
-                >
-                    <ListOrdered className="w-4 h-4" />
-                </button>
-                <button
-                    type="button"
+                />
+                <ToolbarButton
                     onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                    className={`p-2 rounded hover:bg-gray-200 ${editor.isActive('blockquote') ? 'bg-gray-300' : ''}`}
-                    title="Quote"
-                >
-                    <Quote className="w-4 h-4" />
-                </button>
-                <div className="w-px bg-gray-300 mx-1"></div>
-                <button
-                    type="button"
+                    isActive={editor.isActive('blockquote')}
+                    icon={Quote}
+                    title="Blockquote"
+                />
+                <div className="w-px bg-white/10 mx-1 my-1"></div>
+                <ToolbarButton
                     onClick={addLink}
-                    className={`p-2 rounded hover:bg-gray-200 ${editor.isActive('link') ? 'bg-gray-300' : ''}`}
-                    title="Add Link"
-                >
-                    <LinkIcon className="w-4 h-4" />
-                </button>
-                <button
-                    type="button"
+                    isActive={editor.isActive('link')}
+                    icon={LinkIcon}
+                    title="Link"
+                />
+                <ToolbarButton
                     onClick={addImage}
-                    className="p-2 rounded hover:bg-gray-200"
-                    title="Add Image"
-                >
-                    <ImageIcon className="w-4 h-4" />
-                </button>
+                    isActive={false}
+                    icon={ImageIcon}
+                    title="Image"
+                />
             </div>
 
             {/* Editor Content */}
-            <EditorContent editor={editor} />
+            <div className="flex-1 bg-black/10">
+                <EditorContent editor={editor} />
+            </div>
         </div>
     )
 }
