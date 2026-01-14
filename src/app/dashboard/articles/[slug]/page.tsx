@@ -79,8 +79,10 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
         try {
             await updateArticle({ isDraft: false, publishedAt: new Date() })
             alert('Published successfully')
+            fetchArticle() // Refresh to show updated status
         } catch (err) {
-            alert('Failed to publish')
+            console.error('Publish error:', err)
+            alert(`Failed to publish: ${err}`)
         } finally {
             setPublishing(false)
         }
