@@ -118,10 +118,10 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
             responseText = data.content[0].text
 
         } else if (provider === 'gemini') {
-            // Use Gemini
+            // Use Gemini - 2.0-flash-exp is the only one consistently available on free tier/v1beta
             const genAI = new GoogleGenerativeAI(apiKey)
             const model = genAI.getGenerativeModel({
-                model: 'gemini-1.5-flash-001',
+                model: 'gemini-2.0-flash-exp',
                 generationConfig: {
                     maxOutputTokens: 8000,
                 }
@@ -158,9 +158,27 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
             responseText = data.choices[0].message.content
         }
 
-        // Parse response
-        const cleanedText = responseText.replace(/```json\n?|\n?```/g, '').trim()
-        const parsed = JSON.parse(cleanedText)
+        // Robust JSON Extraction
+        // 1. Remove markdown code blocks
+        let cleanedText = responseText.replace(/```json\n?|```/g, '').trim()
+
+        // 2. Find the first '{' and last '}' to handle preamble/postscript
+        const firstOpenBrace = cleanedText.indexOf('{')
+        const lastCloseBrace = cleanedText.lastIndexOf('}')
+
+        if (firstOpenBrace !== -1 && lastCloseBrace !== -1) {
+            cleanedText = cleanedText.substring(firstOpenBrace, lastCloseBrace + 1)
+        }
+
+        // 3. Attempt parse
+        let parsed: any
+        try {
+            parsed = JSON.parse(cleanedText)
+        } catch (e) {
+            console.error('JSON Parse Error. Raw text:', responseText)
+            // Fallback: try to fix common JSON errors if needed, or valid json recovery
+            throw new Error(`Failed to parse AI response as JSON: ${(e as Error).message}`)
+        }
 
         if (!parsed.stories || !Array.isArray(parsed.stories)) {
             throw new Error('Invalid response format from Gemini')
