@@ -100,8 +100,8 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
                     'anthropic-version': '2023-06-01'
                 },
                 body: JSON.stringify({
-                    model: 'claude-3-5-sonnet-20241022',
-                    max_tokens: 8000,
+                    model: 'claude-3-haiku-20240307',
+                    max_tokens: 4000, // Haiku limit
                     messages: [{
                         role: 'user',
                         content: DISCOVERY_PROMPT
@@ -121,7 +121,7 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
             // Use Gemini
             const genAI = new GoogleGenerativeAI(apiKey)
             const model = genAI.getGenerativeModel({
-                model: 'gemini-2.0-flash-exp',
+                model: 'gemini-1.5-flash-001',
                 generationConfig: {
                     maxOutputTokens: 8000,
                 }
