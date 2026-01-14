@@ -87,7 +87,11 @@ export default function ArticlesPage() {
             ) : (
                 <div className="grid gap-4">
                     {articles.map(article => (
-                        <div key={article.id} className="glass-card p-6 flex flex-col md:flex-row gap-6 group">
+                        <Link
+                            key={article.id}
+                            href={`/dashboard/articles/${article.slug}`}
+                            className="glass-card p-6 flex flex-col md:flex-row gap-6 group block hover:border-primary-500/20 transition-colors"
+                        >
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-3 mb-3">
                                     {article.isDraft ? (
@@ -124,15 +128,7 @@ export default function ArticlesPage() {
                                 )}
                             </div>
 
-                            <div className="flex items-center gap-3 border-l border-white/5 pl-6">
-                                <Link
-                                    href={`/dashboard/articles/${article.slug}`}
-                                    className="btn-secondary h-9 w-9 p-0 rounded-full md:w-auto md:h-auto md:px-4 md:py-2 md:rounded-lg"
-                                    title="Edit Article"
-                                >
-                                    <Edit className="w-4 h-4 md:mr-2" />
-                                    <span className="hidden md:inline">Edit</span>
-                                </Link>
+                            <div className="flex items-center gap-3 md:border-l border-white/5 md:pl-6">
                                 {!article.isDraft && (
                                     <a
                                         href={`/articles/${article.slug}`}
@@ -140,12 +136,13 @@ export default function ArticlesPage() {
                                         rel="noopener noreferrer"
                                         className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors"
                                         title="View Live"
+                                        onClick={(e) => e.stopPropagation()}
                                     >
                                         <Eye className="w-4 h-4" />
                                     </a>
                                 )}
                             </div>
-                        </div>
+                        </Link>
                     ))}
                 </div>
             )}
