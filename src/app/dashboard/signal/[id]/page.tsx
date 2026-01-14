@@ -96,6 +96,25 @@ export default function SignalDetailPage() {
         }
     }
 
+    const deleteSignal = async () => {
+        if (!confirm('Are you sure you want to PERMANENTLY DELETE this signal?')) return
+        if (!confirm('This will remove the signal and the source article. It will be re-imported next sync if still available.')) return
+
+        setUpdating(true)
+        try {
+            const res = await fetch(`/api/signals/${params.id}`, { method: 'DELETE' })
+            if (res.ok) {
+                router.push('/dashboard')
+            } else {
+                alert('Failed to delete signal')
+            }
+        } catch (error) {
+            alert('Error deleting signal')
+        } finally {
+            setUpdating(false)
+        }
+    }
+
     const runAnalysis = async () => {
         if (!confirm('Run AI analysis on this signal? This will verify the content and generate scores.')) return
 
@@ -219,11 +238,31 @@ export default function SignalDetailPage() {
                         <button
                             onClick={() => updateStatus('flagged')}
                             disabled={updating}
-                            className="btn-ghost"
+                            className="btn-ghost text-sm"
                         >
                             Flag for Review
                         </button>
                     )}
+
+                    <div className="flex-1"></div>
+
+                    <button
+                        onClick={deleteSignal}
+                        disabled={updating}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium px-4"
+                    >
+                        Delete
+                    </button>
+
+                    <div className="flex-1"></div>
+
+                    <button
+                        onClick={deleteSignal}
+                        disabled={updating}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium px-4"
+                    >
+                        Delete
+                    </button>
                 </div>
             </div>
 

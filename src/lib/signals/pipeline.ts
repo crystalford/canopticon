@@ -82,8 +82,8 @@ export async function processArticle(articleId: string): Promise<PipelineResult>
             'shift',      // default type
             0,            // 0 confidence (no AI)
             0,            // 0 significance (no AI)
-            'pending',
-            'Manual ingestion. Waiting for operator review.'
+            'pending', // status
+            '' // notes
         )
 
         // 3. Mark article as processed
