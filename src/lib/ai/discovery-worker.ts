@@ -26,11 +26,10 @@ Extract and write news stories from the provided REAL-TIME NEWS CONTEXT.
 If a story is NOT in the context, DO NOT WRITE IT.
 
 For each of the top 5 most significant stories:
-1. Write a clear, objective news article.
-2. Provide context and analysis where relevant.
-3. Identify key political players.
-4. Rate significance (1-10).
-5. Cite source URLs (include all URLs you reference).
+1. Write a clear, objective news article based strictly on facts in the context.
+2. Identify key political players.
+3. Rate significance (1-10).
+4. CRITICAL: Cite at least 2-3 distinct source URLs from the context. Include all sources you used to write the story.
 
 Style Rules:
 - DO NOT say "This story is rated 8/10" in the text.
