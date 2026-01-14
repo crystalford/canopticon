@@ -4,149 +4,118 @@
 
 :root {
   --foreground-rgb: 15, 23, 42;
-  --background-start-rgb: 248, 250, 252;
-  --background-end-rgb: 241, 245, 249;
+  --background-start-rgb: 255, 255, 255;
+  --background-end-rgb: 255, 255, 255;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-rgb: 248, 250, 252;
-    --background-start-rgb: 15, 23, 42;
-    --background-end-rgb: 30, 41, 59;
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
   }
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-  min-height: 100vh;
+  background: white;
+  @apply dark:bg-slate-950 dark:text-slate-100;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Typography */
-.prose-canopticon {
-  @apply prose prose-slate max-w-none;
-  @apply prose-headings:font-semibold prose-headings:tracking-tight;
-  @apply prose-p:text-slate-600 dark:prose-p:text-slate-300;
-  @apply prose-a:text-primary-600 hover:prose-a:text-primary-500;
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-/* Card styles */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 dark:bg-slate-700 rounded-full;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400 dark:bg-slate-600;
+}
+
+/* Typography Enhancements */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  @apply tracking-tight;
+}
+
+/* Card Styles */
 .card {
-  @apply bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700;
-  @apply transition-shadow hover:shadow-md;
+  @apply bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden;
 }
 
-/* Badge styles */
-.badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+/* Inputs */
+.input {
+  @apply w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-4 py-2 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all;
 }
 
-.badge-breaking {
-  @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300;
-}
-
-.badge-repetition {
-  @apply bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300;
-}
-
-.badge-contradiction {
-  @apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300;
-}
-
-.badge-shift {
-  @apply bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300;
-}
-
-/* Status badges */
-.status-pending {
-  @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300;
-}
-
-.status-flagged {
-  @apply bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300;
-}
-
-.status-approved {
-  @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300;
-}
-
-.status-archived {
-  @apply bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300;
-}
-
-/* Button base */
-.btn {
-  @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium;
-  @apply transition-all duration-200 ease-in-out;
-  @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
-  @apply disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
+/* Buttons */
 .btn-primary {
-  @apply btn bg-primary-600 text-white hover:bg-primary-700;
-  @apply focus:ring-primary-500;
+  @apply inline-flex items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all;
 }
 
 .btn-secondary {
-  @apply btn bg-slate-100 text-slate-700 hover:bg-slate-200;
-  @apply dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600;
-  @apply focus:ring-slate-500;
+  @apply inline-flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all;
 }
 
 .btn-danger {
-  @apply btn bg-red-600 text-white hover:bg-red-700;
-  @apply focus:ring-red-500;
+  @apply inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all;
 }
 
-.btn-ghost {
-  @apply btn bg-transparent text-slate-600 hover:bg-slate-100;
-  @apply dark:text-slate-300 dark:hover:bg-slate-800;
+/* Status Badges */
+.badge {
+  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
 }
 
-/* Input styles */
-.input {
-  @apply block w-full rounded-lg border border-slate-300 px-4 py-2;
-  @apply bg-white dark:bg-slate-800;
-  @apply text-slate-900 dark:text-slate-100;
-  @apply placeholder-slate-400 dark:placeholder-slate-500;
-  @apply focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20;
-  @apply dark:border-slate-600 dark:focus:border-primary-400;
-  @apply transition-colors;
+.status-pending {
+  @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-500;
 }
 
-/* Score indicators */
-.score-high {
-  @apply text-green-600 dark:text-green-400;
+.status-approved {
+  @apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-500;
 }
 
-.score-medium {
-  @apply text-yellow-600 dark:text-yellow-400;
+.status-rejected {
+  @apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-500;
 }
 
-.score-low {
-  @apply text-red-600 dark:text-red-400;
-}
-
-/* Animation utilities */
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
-
+/* Animations */
 @keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
 }
 
 .animate-pulse-subtle {
-  animation: pulse-subtle 2s ease-in-out infinite;
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Prose Dark Mode Overrides */
+.prose-canopticon {
+  @apply prose prose-slate dark:prose-invert max-w-none;
+}
+
+.prose-canopticon a {
+  @apply text-primary-600 dark:text-primary-400 no-underline hover:underline;
 }
