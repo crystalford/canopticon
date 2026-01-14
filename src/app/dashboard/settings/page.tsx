@@ -5,8 +5,8 @@ import { useState, useEffect } from 'react'
 
 export default function SettingsPage() {
     const [provider, setProvider] = useState('openai')
-    const [status, setStatus] = useState({ openai: false, anthropic: false, grok: false })
-    const [inputs, setInputs] = useState({ openai_key: '', anthropic_key: '', grok_key: '' })
+    const [status, setStatus] = useState({ openai: false, anthropic: false, grok: false, gemini: false })
+    const [inputs, setInputs] = useState({ openai_key: '', anthropic_key: '', grok_key: '', gemini_key: '' })
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
@@ -42,12 +42,13 @@ export default function SettingsPage() {
                     openai_key: inputs.openai_key || undefined, // Only send if changed
                     anthropic_key: inputs.anthropic_key || undefined,
                     grok_key: inputs.grok_key || undefined,
+                    gemini_key: inputs.gemini_key || undefined,
                 })
             })
 
             if (res.ok) {
                 setMessage({ type: 'success', text: 'Settings saved successfully' })
-                setInputs({ openai_key: '', anthropic_key: '', grok_key: '' }) // Clear inputs
+                setInputs({ openai_key: '', anthropic_key: '', grok_key: '', gemini_key: '' }) // Clear inputs
                 fetchSettings() // Refresh status
             } else {
                 setMessage({ type: 'error', text: 'Failed to save settings' })
@@ -124,6 +125,24 @@ export default function SettingsPage() {
                             <div className="font-medium text-slate-900 dark:text-white">xAI (Grok)</div>
                             <div className="text-sm text-slate-500">Grok Beta</div>
                         </label>
+
+                        <label className={`
+                            cursor-pointer p-4 rounded-lg border-2 transition-all block
+                            ${provider === 'gemini'
+                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
+                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'}
+                        `}>
+                            <input
+                                type="radio"
+                                name="provider"
+                                value="gemini"
+                                checked={provider === 'gemini'}
+                                onChange={(e) => setProvider(e.target.value)}
+                                className="sr-only"
+                            />
+                            <div className="font-medium text-slate-900 dark:text-white">Google Gemini</div>
+                            <div className="text-sm text-slate-500">Gemini 2.5 Flash (FREE)</div>
+                        </label>
                     </div>
                 </div>
 
@@ -176,6 +195,20 @@ export default function SettingsPage() {
                                 value={inputs.grok_key}
                                 onChange={(e) => setInputs({ ...inputs, grok_key: e.target.value })}
                                 placeholder={status.grok ? '••••••••••••••••' : 'xai-...'}
+                                className="input w-full max-w-lg"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                Gemini API Key
+                                {status.gemini && <span className="ml-2 text-xs text-green-600 font-normal">✓ Configured</span>}
+                            </label>
+                            <input
+                                type="password"
+                                value={inputs.gemini_key}
+                                onChange={(e) => setInputs({ ...inputs, gemini_key: e.target.value })}
+                                placeholder={status.gemini ? '••••••••••••••••' : 'AIza...'}
                                 className="input w-full max-w-lg"
                             />
                         </div>

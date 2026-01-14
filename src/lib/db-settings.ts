@@ -3,10 +3,11 @@ import { db, systemSettings } from '@/db'
 import { eq } from 'drizzle-orm'
 
 export const SETTINGS_KEYS = {
-    AI_PROVIDER: 'ai_provider', // 'openai', 'anthropic', 'grok'
+    AI_PROVIDER: 'ai_provider', // 'openai', 'anthropic', 'grok', 'gemini'
     OPENAI_API_KEY: 'openai_api_key',
     ANTHROPIC_API_KEY: 'anthropic_api_key',
     GROK_API_KEY: 'grok_api_key',
+    GEMINI_API_KEY: 'gemini_api_key',
 } as const
 
 export async function getSetting(key: string): Promise<string | null> {

@@ -1,5 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { createAnthropic } from '@ai-sdk/anthropic'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { getSetting, SETTINGS_KEYS } from '@/lib/db-settings'
 import { generateObject, embed } from 'ai'
 import { z } from 'zod'
@@ -8,7 +9,7 @@ import { z } from 'zod'
 
 export interface AIModel {
     id: string
-    provider: 'openai' | 'anthropic' | 'grok'
+    provider: 'openai' | 'anthropic' | 'grok' | 'gemini'
     contextWindow: number
     costPer1kInput: number
     costPer1kOutput: number
@@ -37,6 +38,13 @@ export const MODEL_TIERS = {
         contextWindow: 200000,
         costPer1kInput: 0.003,
         costPer1kOutput: 0.015,
+    },
+    'gemini-2.5-flash': {
+        id: 'gemini-2.5-flash',
+        provider: 'gemini',
+        contextWindow: 1000000,
+        costPer1kInput: 0, // Free tier
+        costPer1kOutput: 0,
     },
 } as const
 
@@ -67,6 +75,15 @@ async function getAIClient() {
             apiKey,
             baseURL: 'https://api.x.ai/v1'
         })
+    }
+
+    if (provider === 'gemini') {
+        const apiKey = await getSetting(SETTINGS_KEYS.GEMINI_API_KEY) || process.env.GEMINI_API_KEY
+        if (!apiKey) throw new Error('Gemini API Key not configured')
+
+        // Gemini uses its own SDK, not Vercel AI SDK
+        // We'll return a wrapper that mimics the interface
+        return new GoogleGenerativeAI(apiKey) as any
     }
 
     // Default: OpenAI
