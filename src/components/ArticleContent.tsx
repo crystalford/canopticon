@@ -8,7 +8,9 @@ import ImageExtension from '@tiptap/extension-image'
 export default function ArticleContent({ content }: { content: any }) {
     const editor = useEditor({
         extensions: [
-            StarterKit,
+            StarterKit.configure({
+                link: false, // Disable built-in link, we configure it separately
+            }),
             LinkExtension.configure({
                 HTMLAttributes: {
                     class: 'text-primary-400 underline decoration-primary-500/30 hover:decoration-primary-500 transition-colors',

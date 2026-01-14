@@ -20,6 +20,7 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
                 heading: {
                     levels: [2, 3, 4],
                 },
+                link: false, // Disable built-in link, we configure it separately
             }),
             Link.configure({
                 openOnClick: false,

@@ -71,10 +71,7 @@ export async function PATCH(
         // Update article
         const [updatedArticle] = await db
             .update(articles)
-            .set({
-                ...body,
-                updatedAt: new Date(),
-            })
+            .set(body)
             .where(eq(articles.slug, slug))
             .returning()
 

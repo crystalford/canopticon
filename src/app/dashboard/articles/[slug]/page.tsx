@@ -77,7 +77,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     const handlePublish = async () => {
         setPublishing(true)
         try {
-            await updateArticle({ isDraft: false, publishedAt: new Date().toISOString() })
+            await updateArticle({ isDraft: false, publishedAt: new Date() })
             alert('Published successfully')
         } catch (err) {
             alert('Failed to publish')
