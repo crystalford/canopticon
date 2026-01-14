@@ -26,20 +26,10 @@ Search the top Canadian political stories from the provided REAL-TIME NEWS CONTE
 
 For each of the top 5 most significant stories found in the context:
 1. Analyze the context provided
-2. Provide a DETAILED, COMPREHENSIVE 800-1200 word deep-dive analysis:
-   - What happened (detailed sequence of events)
-   - Why it matters (deep policy analysis)
-   - Historical background and context
-   - Political implications for all major parties
-   - Key quotes and reactions
-   - Future outlook and next steps
-3. Identify key political players (names and roles)
-4. Rate significance (1-10) based on:
-   - Impact on Canadians
-   - Policy implications
-   - Political consequences
-   - Public interest
-5. Cite source URLs from the context provided
+2. Provide a DETAILED, COMPREHENSIVE 800-1200 word deep-dive analysis.
+3. Identify key political players.
+4. Rate significance (1-10).
+5. Cite source URLs from the context provided.
 
 Focus on depth, nuance, and professional political analysis. Avoid superficial summaries.
 
@@ -57,20 +47,18 @@ Exclude:
 - Sports, entertainment, lifestyle
 - Minor procedural updates
 
-Return ONLY valid JSON in this exact format:
-{
-  "stories": [
-    {
-      "headline": "Clear, compelling headline",
-      "summary": "Full 800-1200 word deep-dive analysis...",
-      "keyPlayers": ["Name (Role)", "Name (Role)"],
-      "significance": 8,
-      "sourceUrls": ["https://...", "https://..."]
-    }
-  ]
-}
+Return ONLY valid XML in this exact format:
+<brief>
+  <story>
+    <headline>Clear, compelling headline</headline>
+    <summary>Full 800-1200 word deep-dive analysis (can use multiple paragraphs)</summary>
+    <key_players>Name (Role), Name (Role)</key_players>
+    <significance>8</significance>
+    <sources>https://source1.com, https://source2.com</sources>
+  </story>
+</brief>
 
-CRITICAL: Return ONLY the JSON object. No markdown, no code blocks, no explanations.`
+CRITICAL: Return ONLY the XML. No markdown, no code blocks, no explanation.`
 
 // Google News RSS for Canadian Politics (Last 24h)
 const GOOGLE_NEWS_RSS = 'https://news.google.com/rss/search?q=Canadian+federal+politics+Parliament+Canada+when:1d&hl=en-CA&gl=CA&ceid=CA:en'
@@ -97,51 +85,6 @@ async function fetchNewsContext(): Promise<string> {
         console.error('Failed to fetch news context:', e)
         return ''
     }
-}
-
-// Robust JSON Parser for AI Output
-// Sanitizes unescaped newlines/tabs inside string values which are common in AI responses
-function sanitizeAndParseJson(str: string): any {
-    // Simple state machine to escape control chars only inside strings
-    let result = ''
-    let inString = false
-    let isEscaped = false
-
-    for (let i = 0; i < str.length; i++) {
-        const char = str[i]
-
-        if (inString) {
-            if (char === '\\') {
-                isEscaped = !isEscaped
-                result += char
-            } else if (char === '"' && !isEscaped) {
-                inString = false
-                result += char
-            } else if (char === '\n') {
-                // REPAIR: Unescaped newline in string -> escape it
-                result += '\\n'
-            } else if (char === '\r') {
-                // REPAIR: Unescaped carriage return -> ignore or escape
-                // result += '\\r' // Usually safe to ignore CR in JSON strings if we keep LF
-            } else if (char === '\t') {
-                // REPAIR: Unescaped tab -> escape it
-                result += '\\t'
-            } else {
-                // Normal char
-                isEscaped = false
-                result += char
-            }
-        } else {
-            // Not in string
-            if (char === '"') {
-                inString = true
-            }
-            result += char
-            isEscaped = false
-        }
-    }
-
-    return JSON.parse(result)
 }
 
 export async function generateDailyBrief(): Promise<DailyBrief> {
@@ -242,51 +185,45 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
             responseText = data.choices[0].message.content
         }
 
-        // Robust JSON Extraction
-        // 1. Remove markdown code blocks
-        let cleanedText = responseText.replace(/```json\n?|```/g, '').trim()
+        // XML Parsing Logic
+        const stories: BriefStory[] = []
 
-        // 2. Find the first '{' and last '}' to handle preamble/postscript
-        const firstOpenBrace = cleanedText.indexOf('{')
-        const lastCloseBrace = cleanedText.lastIndexOf('}')
+        // Simple Regex XML Parser (Robust for AI output)
+        const storyMatches = responseText.match(/<story>[\s\S]*?<\/story>/g) || []
 
-        if (firstOpenBrace !== -1 && lastCloseBrace !== -1) {
-            cleanedText = cleanedText.substring(firstOpenBrace, lastCloseBrace + 1)
-        }
+        for (const match of storyMatches) {
+            const headline = match.match(/<headline>([\s\S]*?)<\/headline>/)?.[1]?.trim() || ''
+            const summary = match.match(/<summary>([\s\S]*?)<\/summary>/)?.[1]?.trim() || ''
+            const significanceStr = match.match(/<significance>([\s\S]*?)<\/significance>/)?.[1]?.trim() || '0'
+            const playersStr = match.match(/<key_players>([\s\S]*?)<\/key_players>/)?.[1]?.trim() || ''
+            const sourcesStr = match.match(/<sources>([\s\S]*?)<\/sources>/)?.[1]?.trim() || ''
 
-        // 3. Robust JSON Parser for AI Output
-        // (Function moved to module scope)
-
-        // 4. Attempt parse with sanitization
-        let parsed: any
-        try {
-            // Try standard parse first (faster)
-            parsed = JSON.parse(cleanedText)
-        } catch (e) {
-            console.log('Standard parse failed, attempting sanitization...', (e as Error).message)
-            try {
-                parsed = sanitizeAndParseJson(cleanedText)
-            } catch (innerE) {
-                console.error('JSON Repair Failed. Raw text:', responseText)
-                throw new Error(`Failed to parse AI response as JSON: ${(innerE as Error).message}`)
+            if (headline && summary) {
+                stories.push({
+                    headline,
+                    summary,
+                    significance: parseInt(significanceStr) || 5,
+                    keyPlayers: playersStr.split(',').map(s => s.trim()).filter(s => s),
+                    sourceUrls: sourcesStr.split(',').map(s => s.trim()).filter(s => s)
+                })
             }
         }
 
-        if (!parsed.stories || !Array.isArray(parsed.stories)) {
-            throw new Error('Invalid response format from Gemini')
+        if (stories.length === 0) {
+            throw new Error('Failed to parse any stories from AI response (XML)')
         }
 
         // Store in database
         const [brief] = await db.insert(briefs).values({
             generatedAt: new Date(),
-            stories: parsed.stories,
+            stories: stories,
             status: 'draft',
         }).returning()
 
         return {
             id: brief.id,
             generatedAt: brief.generatedAt,
-            stories: parsed.stories as BriefStory[],
+            stories: stories,
             status: brief.status as 'draft' | 'published',
         }
 
