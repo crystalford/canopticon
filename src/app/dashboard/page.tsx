@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Sparkles, FileText, ArrowRight, Clock, Users } from 'lucide-react'
 
 interface BriefStory {
     headline: string
@@ -23,7 +24,7 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
     const [generating, setGenerating] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const [expandedStory, setExpandedStory] = useState<number | null>(null)
+    const [publishing, setPublishing] = useState<number | null>(null)
 
     useEffect(() => {
         fetchBrief()
@@ -61,8 +62,6 @@ export default function DashboardPage() {
         }
     }
 
-    const [publishing, setPublishing] = useState<number | null>(null) // Track which story is being published
-
     const handlePublish = async (storyIndex: number) => {
         if (!brief) return
         setPublishing(storyIndex)
@@ -79,7 +78,6 @@ export default function DashboardPage() {
 
             if (res.ok) {
                 const data = await res.json()
-                // direct user to the new article or show success
                 window.open(`/dashboard/articles/${data.slug}`, '_blank')
             } else {
                 alert('Failed to publish story')
@@ -92,131 +90,167 @@ export default function DashboardPage() {
         }
     }
 
-    const getSignificanceBadge = (score: number) => {
-        if (score >= 8) return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-        if (score >= 6) return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+    const getSignificanceColor = (score: number) => {
+        if (score >= 8) return 'text-red-600 dark:text-red-400'
+        if (score >= 6) return 'text-amber-600 dark:text-amber-400'
+        return 'text-slate-600 dark:text-slate-400'
     }
 
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="text-slate-500">Loading...</div>
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-8 h-8 border-4 border-primary-500/30 border-t-primary-500 rounded-full animate-spin"></div>
+                    <div className="text-slate-500 font-medium">Loading Intelligence...</div>
+                </div>
             </div>
         )
     }
 
     return (
-        <div className="max-w-6xl mx-auto">
-            <div className="flex justify-between items-start mb-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-3">
                         Daily Brief
+                        <span className="px-3 py-1 bg-primary-100/50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-sm font-medium rounded-full">
+                            {new Date().toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+                        </span>
                     </h1>
-                    <p className="text-slate-600 dark:text-slate-400">
-                        AI-curated Canadian political news
+                    <p className="text-slate-600 dark:text-slate-400 max-w-2xl">
+                        AI-synthesized intelligence from Canadian political sources.
                     </p>
                 </div>
+
                 <button
                     onClick={handleGenerate}
                     disabled={generating}
-                    className="btn-primary px-6 py-3 text-lg"
+                    className="btn-primary px-6 py-3 text-base shadow-lg shadow-primary-500/20 hover:shadow-primary-500/40 relative overflow-hidden group"
                 >
-                    {generating ? (
-                        <>
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Generating...
-                        </>
-                    ) : (
-                        '✨ Generate Today\'s Brief'
-                    )}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        {generating ? (
+                            <>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Synthesizing...
+                            </>
+                        ) : (
+                            <>
+                                <Sparkles className="w-5 h-5" />
+                                Generate New Brief
+                            </>
+                        )}
+                    </div>
                 </button>
             </div>
 
             {error && (
-                <div className="card p-4 mb-6 border-l-4 border-l-red-500 bg-red-50 dark:bg-red-900/20">
-                    <p className="text-red-700 dark:text-red-300">{error}</p>
+                <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 flex items-start gap-3">
+                    <div className="text-red-600 mt-0.5">⚠️</div>
+                    <p className="text-red-700 dark:text-red-300 font-medium">{error}</p>
                 </div>
             )}
 
             {!brief && !generating && (
-                <div className="card p-12 text-center">
-                    <div className="text-6xl mb-4">📰</div>
+                <div className="py-20 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/50">
+                    <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner">
+                        📡
+                    </div>
                     <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                        No brief generated yet
+                        No Intelligence Generated
                     </h2>
-                    <p className="text-slate-600 dark:text-slate-400 mb-6">
-                        Click "Generate Today's Brief" to discover the top 5 Canadian political stories
+                    <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-8">
+                        Initialize a scan of Canadian political news sources to generate today's briefing.
                     </p>
+                    <button onClick={handleGenerate} className="btn-secondary">
+                        Start Scan
+                    </button>
                 </div>
             )}
 
             {brief && (
-                <div className="space-y-6">
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
-                        Generated {new Date(brief.generatedAt).toLocaleString()}
+                <div className="space-y-6 animate-in fade-in duration-500">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-1">
+                        <Clock className="w-3 h-3" />
+                        Generated {new Date(brief.generatedAt).toLocaleTimeString()}
                     </div>
 
-                    {brief.stories.map((story, index) => (
-                        <div key={index} className="card p-6 hover:shadow-lg transition-shadow">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                        <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                                            #{index + 1}
-                                        </span>
-                                        <span className={`badge ${getSignificanceBadge(story.significance)}`}>
-                                            Significance: {story.significance}/10
-                                        </span>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {brief.stories.map((story, index) => (
+                            <div
+                                key={index}
+                                className={`
+                                    group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300
+                                    ${index === 0 ? 'lg:col-span-2 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-900/50 border-primary-100 dark:border-primary-900/30' : ''}
+                                `}
+                            >
+                                <div className="p-6 md:p-8 flex flex-col h-full">
+                                    {/* Card Header */}
+                                    <div className="flex items-start justify-between gap-4 mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold font-mono text-sm">
+                                                #{index + 1}
+                                            </span>
+                                            {index === 0 && (
+                                                <span className="bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 text-xs px-2 py-1 rounded font-medium uppercase tracking-wide">
+                                                    Top Story
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className={`flex items-center gap-1.5 font-bold text-sm ${getSignificanceColor(story.significance)}`}>
+                                            <span className="w-2 h-2 rounded-full bg-current opacity-75" />
+                                            {story.significance}/10 Impact
+                                        </div>
                                     </div>
-                                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">
+
+                                    {/* Content */}
+                                    <h2 className={`font-bold text-slate-900 dark:text-white mb-3 ${index === 0 ? 'text-2xl md:text-3xl' : 'text-xl'}`}>
                                         {story.headline}
                                     </h2>
-                                </div>
-                            </div>
 
-                            <div className="mb-4">
-                                <div className={`text-slate-700 dark:text-slate-300 leading-relaxed ${expandedStory === index ? '' : 'line-clamp-4'
-                                    }`}>
-                                    {story.summary}
-                                </div>
-                                <button
-                                    onClick={() => setExpandedStory(expandedStory === index ? null : index)}
-                                    className="text-primary-600 dark:text-primary-400 text-sm font-medium mt-2 hover:underline"
-                                >
-                                    {expandedStory === index ? 'Show less' : 'Read full summary'}
-                                </button>
-                            </div>
+                                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed mb-6 line-clamp-4 group-hover:line-clamp-none transition-all">
+                                        {story.summary}
+                                    </p>
 
-                            {story.keyPlayers.length > 0 && (
-                                <div className="mb-4">
-                                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                                        Key Players:
-                                    </h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        {story.keyPlayers.map((player, i) => (
-                                            <span key={i} className="badge bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                                                {player}
-                                            </span>
-                                        ))}
+                                    {/* Footer */}
+                                    <div className="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        {/* Key Players */}
+                                        <div className="flex items-center gap-2 text-slate-500 overflow-hidden">
+                                            <Users className="w-4 h-4 shrink-0" />
+                                            <div className="flex gap-2 ms-1 overflow-x-auto scrollbar-none mask-linear-fade">
+                                                {story.keyPlayers.slice(0, 3).map((player, i) => (
+                                                    <span key={i} className="text-xs font-medium whitespace-nowrap px-2 py-1 bg-slate-50 dark:bg-slate-800 rounded text-slate-600 dark:text-slate-400">
+                                                        {player}
+                                                    </span>
+                                                ))}
+                                                {story.keyPlayers.length > 3 && (
+                                                    <span className="text-xs self-center">+{story.keyPlayers.length - 3}</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Action */}
+                                        <button
+                                            onClick={() => handlePublish(index)}
+                                            disabled={publishing === index}
+                                            className="btn-secondary group-hover:border-primary-500/50 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors flex items-center gap-2 whitespace-nowrap"
+                                        >
+                                            {publishing === index ? (
+                                                'Opening Editor...'
+                                            ) : (
+                                                <>
+                                                    <FileText className="w-4 h-4" />
+                                                    Draft Article
+                                                    <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                                                </>
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
-                            )}
-
-                            <div className="flex items-center justify-end gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                                <button
-                                    onClick={() => handlePublish(index)}
-                                    disabled={publishing === index}
-                                    className="btn-secondary text-sm disabled:opacity-50"
-                                >
-                                    {publishing === index ? 'Saving...' : 'Publish Draft'}
-                                </button>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
