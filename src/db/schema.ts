@@ -105,7 +105,8 @@ export const signals = pgTable('signals', {
  */
 export const articles = pgTable('articles', {
     id: uuid('id').primaryKey().defaultRandom(),
-    signalId: uuid('signal_id').references(() => signals.id).notNull(),
+    signalId: uuid('signal_id').references(() => signals.id), // Nullable now
+    briefId: uuid('brief_id').references(() => briefs.id), // Link to source brief
     slug: text('slug').notNull().unique(),
     headline: text('headline').notNull(),
     summary: text('summary').notNull(),

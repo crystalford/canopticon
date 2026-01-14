@@ -61,6 +61,37 @@ export default function DashboardPage() {
         }
     }
 
+    const [publishing, setPublishing] = useState<number | null>(null) // Track which story is being published
+
+    const handlePublish = async (storyIndex: number) => {
+        if (!brief) return
+        setPublishing(storyIndex)
+
+        try {
+            const res = await fetch('/api/brief/publish', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    briefId: brief.id,
+                    storyIndex
+                })
+            })
+
+            if (res.ok) {
+                const data = await res.json()
+                // direct user to the new article or show success
+                window.open(`/dashboard/articles/${data.slug}`, '_blank')
+            } else {
+                alert('Failed to publish story')
+            }
+        } catch (e) {
+            console.error(e)
+            alert('Error publishing story')
+        } finally {
+            setPublishing(null)
+        }
+    }
+
     const getSignificanceBadge = (score: number) => {
         if (score >= 8) return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
         if (score >= 6) return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
@@ -194,8 +225,12 @@ export default function DashboardPage() {
                                         ))}
                                     </div>
                                 </div>
-                                <button className="btn-secondary text-sm">
-                                    Publish
+                                <button
+                                    onClick={() => handlePublish(index)}
+                                    disabled={publishing === index}
+                                    className="btn-secondary text-sm disabled:opacity-50"
+                                >
+                                    {publishing === index ? 'Saving...' : 'Publish Draft'}
                                 </button>
                             </div>
                         </div>

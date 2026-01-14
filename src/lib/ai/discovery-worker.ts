@@ -99,6 +99,51 @@ async function fetchNewsContext(): Promise<string> {
     }
 }
 
+// Robust JSON Parser for AI Output
+// Sanitizes unescaped newlines/tabs inside string values which are common in AI responses
+function sanitizeAndParseJson(str: string): any {
+    // Simple state machine to escape control chars only inside strings
+    let result = ''
+    let inString = false
+    let isEscaped = false
+
+    for (let i = 0; i < str.length; i++) {
+        const char = str[i]
+
+        if (inString) {
+            if (char === '\\') {
+                isEscaped = !isEscaped
+                result += char
+            } else if (char === '"' && !isEscaped) {
+                inString = false
+                result += char
+            } else if (char === '\n') {
+                // REPAIR: Unescaped newline in string -> escape it
+                result += '\\n'
+            } else if (char === '\r') {
+                // REPAIR: Unescaped carriage return -> ignore or escape
+                // result += '\\r' // Usually safe to ignore CR in JSON strings if we keep LF
+            } else if (char === '\t') {
+                // REPAIR: Unescaped tab -> escape it
+                result += '\\t'
+            } else {
+                // Normal char
+                isEscaped = false
+                result += char
+            }
+        } else {
+            // Not in string
+            if (char === '"') {
+                inString = true
+            }
+            result += char
+            isEscaped = false
+        }
+    }
+
+    return JSON.parse(result)
+}
+
 export async function generateDailyBrief(): Promise<DailyBrief> {
     try {
         // 1. Fetch Real-time Context
@@ -210,49 +255,7 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
         }
 
         // 3. Robust JSON Parser for AI Output
-        // Sanitizes unescaped newlines/tabs inside string values which are common in AI responses
-        function sanitizeAndParseJson(str: string): any {
-            // Simple state machine to escape control chars only inside strings
-            let result = ''
-            let inString = false
-            let isEscaped = false
-
-            for (let i = 0; i < str.length; i++) {
-                const char = str[i]
-
-                if (inString) {
-                    if (char === '\\') {
-                        isEscaped = !isEscaped
-                        result += char
-                    } else if (char === '"' && !isEscaped) {
-                        inString = false
-                        result += char
-                    } else if (char === '\n') {
-                        // REPAIR: Unescaped newline in string -> escape it
-                        result += '\\n'
-                    } else if (char === '\r') {
-                        // REPAIR: Unescaped carriage return -> ignore or escape
-                        // result += '\\r' // Usually safe to ignore CR in JSON strings if we keep LF
-                    } else if (char === '\t') {
-                        // REPAIR: Unescaped tab -> escape it
-                        result += '\\t'
-                    } else {
-                        // Normal char
-                        isEscaped = false
-                        result += char
-                    }
-                } else {
-                    // Not in string
-                    if (char === '"') {
-                        inString = true
-                    }
-                    result += char
-                    isEscaped = false
-                }
-            }
-
-            return JSON.parse(result)
-        }
+        // (Function moved to module scope)
 
         // 4. Attempt parse with sanitization
         let parsed: any
