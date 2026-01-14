@@ -191,6 +191,18 @@ export const systemSettings = pgTable('system_settings', {
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
+/**
+ * AI Daily Briefs
+ * Stores AI-generated daily news briefs with curated stories
+ */
+export const briefs = pgTable('briefs', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    generatedAt: timestamp('generated_at').defaultNow().notNull(),
+    stories: jsonb('stories').notNull(), // Array of story objects
+    status: text('status').default('draft').notNull(), // 'draft' | 'published'
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 // ============================================================================
 // RELATIONS
 // ============================================================================
@@ -291,3 +303,6 @@ export type NewOperator = typeof operators.$inferInsert
 
 export type Subscriber = typeof subscribers.$inferSelect
 export type NewSubscriber = typeof subscribers.$inferInsert
+
+export type Brief = typeof briefs.$inferSelect
+export type NewBrief = typeof briefs.$inferInsert
