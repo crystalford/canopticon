@@ -53,6 +53,35 @@ export default async function ArticlePage({ params }: { params: { slug: string }
                 </div>
             </header>
 
+            {/* Structured Data (JSON-LD) for Google News */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{
+                    __html: JSON.stringify({
+                        '@context': 'https://schema.org',
+                        '@type': 'NewsArticle',
+                        headline: article.headline,
+                        description: article.metaDescription || article.summary,
+                        image: article.featuredImageUrl ? [article.featuredImageUrl] : [],
+                        datePublished: article.publishedAt ? new Date(article.publishedAt).toISOString() : new Date().toISOString(),
+                        dateModified: article.updatedAt ? new Date(article.updatedAt).toISOString() : new Date().toISOString(),
+                        author: [{
+                            '@type': 'Person',
+                            name: article.author || 'Canopticon Analyst',
+                            url: 'https://canopticon.com'
+                        }],
+                        publisher: {
+                            '@type': 'Organization',
+                            name: 'Canopticon',
+                            logo: {
+                                '@type': 'ImageObject',
+                                url: 'https://canopticon.com/icon' // Assuming you have an icon route or static file
+                            }
+                        }
+                    })
+                }}
+            />
+
             <article className="max-w-3xl mx-auto px-6 py-12">
                 {/* Meta Header */}
                 <div className="mb-8 space-y-4">
