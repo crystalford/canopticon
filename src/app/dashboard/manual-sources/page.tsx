@@ -1,61 +1,60 @@
 'use client'
 
 import Link from 'next/link'
+import { Database, FileText } from 'lucide-react'
 
 export default function ManualSourcesPage() {
     return (
-        <div className="max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-                Manual Sources
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400 mb-8">
-                Manage legacy ingestion pipelines, RSS feeds, and raw signals.
-            </p>
+        <div className="space-y-8">
+            <div className="pb-6 border-b border-white/5">
+                <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
+                    Manual Sources
+                </h1>
+                <p className="text-slate-400 text-sm">
+                    Manage legacy ingestion pipelines, RSS feeds, and raw signals.
+                </p>
+            </div>
 
             <div className="grid md:grid-cols-2 gap-6">
                 {/* RSS Sources Card */}
-                <Link href="/dashboard/sources" className="block group">
-                    <div className="card p-6 h-full hover:shadow-lg transition-all border-l-4 border-l-blue-500">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                                RSS & JSON Sources
-                            </h2>
-                            <span className="text-2xl">📡</span>
-                        </div>
-                        <p className="text-slate-600 dark:text-slate-400 mb-4">
-                            Configure automated data ingestion from RSS feeds, JSON endpoints, and Parliament data.
-                        </p>
-                        <span className="text-blue-600 dark:text-blue-400 font-medium group-hover:underline">
-                            Manage Sources →
-                        </span>
+                <Link href="/dashboard/sources" className="glass-card p-8 group hover:border-primary-500/20 transition-all">
+                    <div className="flex items-center justify-between mb-4">
+                        <Database className="w-8 h-8 text-primary-400" />
                     </div>
+                    <h2 className="text-xl font-bold text-white mb-2 group-hover:text-primary-400 transition-colors">
+                        RSS & JSON Sources
+                    </h2>
+                    <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                        Configure automated data ingestion from RSS feeds, JSON endpoints, and Parliament data.
+                    </p>
+                    <span className="text-primary-400 text-sm font-medium group-hover:underline">
+                        Manage Sources →
+                    </span>
                 </Link>
 
                 {/* Signals Card */}
-                <Link href="/dashboard/signal" className="block group">
-                    <div className="card p-6 h-full hover:shadow-lg transition-all border-l-4 border-l-purple-500">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-purple-600 transition-colors">
-                                Raw Signals
-                            </h2>
-                            <span className="text-2xl">📶</span>
-                        </div>
-                        <p className="text-slate-600 dark:text-slate-400 mb-4">
-                            View and triage raw signals ingested from configured sources before they are processed.
-                        </p>
-                        <span className="text-purple-600 dark:text-purple-400 font-medium group-hover:underline">
-                            View Signals →
-                        </span>
+                <Link href="/dashboard/signal" className="glass-card p-8 group hover:border-primary-500/20 transition-all">
+                    <div className="flex items-center justify-between mb-4">
+                        <FileText className="w-8 h-8 text-primary-400" />
                     </div>
+                    <h2 className="text-xl font-bold text-white mb-2 group-hover:text-primary-400 transition-colors">
+                        Raw Signals
+                    </h2>
+                    <p className="text-slate-400 text-sm mb-6 leading-relaxed">
+                        View and triage raw signals ingested from configured sources before processing.
+                    </p>
+                    <span className="text-primary-400 text-sm font-medium group-hover:underline">
+                        View Signals →
+                    </span>
                 </Link>
             </div>
 
-            <div className="mt-12 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wider mb-4">
+            <div className="glass-panel p-6">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
                     Legacy Pipeline Status
                 </h3>
-                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                    <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
                     <div>System operational</div>
                 </div>
             </div>

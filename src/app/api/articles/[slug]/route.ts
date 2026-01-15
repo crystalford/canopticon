@@ -97,3 +97,41 @@ export async function PATCH(
         )
     }
 }
+
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ slug: string }> }
+) {
+    try {
+        const session = await getServerSession()
+        if (!session) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        const { slug } = await params
+
+        const [deletedArticle] = await db
+            .delete(articles)
+            .where(eq(articles.slug, slug))
+            .returning()
+
+        if (!deletedArticle) {
+            return NextResponse.json(
+                { error: 'Article not found' },
+                { status: 404 }
+            )
+        }
+
+        console.log('Article deleted:', deletedArticle.slug)
+        return NextResponse.json({ success: true })
+    } catch (error) {
+        console.error('Error deleting article:', error)
+        return NextResponse.json(
+            { error: `Failed to delete article: ${error}` },
+            { status: 500 }
+        )
+    }
+}

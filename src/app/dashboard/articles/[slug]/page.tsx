@@ -101,6 +101,21 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
         }
     }
 
+    const handleDelete = async () => {
+        if (!confirm('Permanently delete this article? This cannot be undone.')) return
+        try {
+            const res = await fetch(`/api/articles/${params.slug}`, { method: 'DELETE' })
+            if (res.ok) {
+                alert('Article deleted')
+                router.push('/dashboard/articles')
+            } else {
+                alert('Failed to delete article')
+            }
+        } catch (err) {
+            alert('Error deleting article')
+        }
+    }
+
     const updateArticle = async (data: any) => {
         const res = await fetch(`/api/articles/${params.slug}`, {
             method: 'PATCH',
@@ -135,6 +150,12 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <button onClick={handleDelete} className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors" title="Delete Article">
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    <div className="w-px h-6 bg-white/10" />
+
                     <button onClick={handleSave} disabled={saving} className="btn-secondary">
                         <Save className="w-4 h-4 mr-2" />
                         {saving ? 'Saving...' : 'Save Draft'}
