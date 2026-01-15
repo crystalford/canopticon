@@ -45,12 +45,12 @@ export async function POST(request: NextRequest) {
             slug = `${baseSlug}-${counter++}`
         }
 
-        // Create the new article
         const [newArticle] = await db.insert(articles).values({
             slug,
             headline: title,
+            summary: title, // Use title as summary
             content: forensicContent,
-            status: 'draft',
+            isDraft: true,
         }).returning()
 
         return NextResponse.json({
