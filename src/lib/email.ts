@@ -1,12 +1,12 @@
 
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 const FROM_EMAIL = 'Canopticon Intelligence <intelligence@canopticon.com>' // Ideally configured in env
 
 export async function sendWelcomeEmail(email: string) {
-    if (!process.env.RESEND_API_KEY) {
+    if (!resend) {
         console.warn('RESEND_API_KEY missing, skipping email.')
         return
     }
@@ -35,7 +35,7 @@ export async function sendWelcomeEmail(email: string) {
 }
 
 export async function sendArticleEmail(email: string, article: { headline: string, content: string | null, summary: string }) {
-    if (!process.env.RESEND_API_KEY) return
+    if (!resend) return
 
     // Simple HTML conversion for TipTap JSON if specific renderer needed, 
     // but for now relying on summary or pre-processed HTML. 
