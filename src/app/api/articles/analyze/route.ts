@@ -59,12 +59,10 @@ export async function POST(request: NextRequest) {
                 'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-                model: 'claude-3-haiku-20240307', // Fast model for tool use
+                model: 'claude-3-haiku-20240307',
                 max_tokens: 300,
+                system: INVESTIGATOR_PERSONA,
                 messages: [{
-                    role: 'system',
-                    content: INVESTIGATOR_PERSONA
-                }, {
                     role: 'user',
                     content: `Analyze this text and generate search queries:\nTITLE: ${headline}\nTEXT: ${safeText.slice(0, 2000)}`
                 }]
@@ -115,12 +113,10 @@ Write the Deep Dive Report now.`
                 'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-                model: 'claude-3-5-sonnet-20240620', // Upgrade to Sonnet 3.5 for better performance
+                model: 'claude-3-5-sonnet-20240620',
                 max_tokens: 4000,
+                system: ANALYST_PERSONA,
                 messages: [{
-                    role: 'system',
-                    content: ANALYST_PERSONA
-                }, {
                     role: 'user',
                     content: prompt
                 }]
