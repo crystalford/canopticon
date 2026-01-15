@@ -24,24 +24,24 @@ export default function ForensicTool({ editorContent, headline }: ForensicToolPr
         setResult('')
 
         try {
-            // Extract text from TipTap JSON if needed, for now assuming string or simple parse
+            // Extract text
             let textToAnalyze = ''
             try {
                 const json = JSON.parse(editorContent)
-                // Simple extraction (this is rough, but effective for MVP)
                 textToAnalyze = JSON.stringify(json)
             } catch {
                 textToAnalyze = editorContent
             }
 
-            addLog('Scanning Signal for Entities...')
-
-            // Artificial delay for UI feel (optional, but requested "Terminal style")
-            await new Promise(r => setTimeout(r, 800))
+            // Step 1: Scanning
+            addLog('Scanning Signal for Anomalies...')
+            addLog('> Generating Investigative Queries (Agent: Claude-3-Haiku)...')
 
             setStatus('researching')
+
+            // We do the whole chain in one API call for atomicity, but the backend does the steps.
+            // Ideally we'd stream status, but simple fetch is safer for now.
             addLog('Connecting to Intelligence Grid...')
-            addLog(`Target: ${headline.slice(0, 30)}...`)
 
             const res = await fetch('/api/articles/analyze', {
                 method: 'POST',
@@ -50,11 +50,18 @@ export default function ForensicTool({ editorContent, headline }: ForensicToolPr
             })
 
             setStatus('analyzing')
-            addLog('Compiling Forensic Report...')
 
             if (!res.ok) throw new Error('Analysis Protocol Failed')
 
             const data = await res.json()
+
+            // Retroactively show what happened (Pseudo-stream)
+            if (data.steps && data.steps.queries) {
+                data.steps.queries.forEach((q: string) => addLog(`> Investigating: "${q}"...`))
+            }
+            addLog(`> Intercepted ${data.steps?.researchSize || 0} bytes of Intelligence.`)
+            addLog('Compiling Forensic Report (Agent: Claude-3-Opus)...')
+
             setResult(data.analysis)
             addLog('Report Generated Successfully.')
             setStatus('complete')
