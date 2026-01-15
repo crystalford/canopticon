@@ -95,6 +95,30 @@ export default function DashboardPage() {
         }
     }
 
+    const handleDeleteStory = async (storyIndex: number, e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!brief || !confirm('Remove this story from the brief?')) return
+
+        const updatedStories = brief.stories.filter((_, i) => i !== storyIndex)
+
+        // Update brief in database
+        try {
+            const res = await fetch(`/api/brief/${brief.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stories: updatedStories })
+            })
+            if (res.ok) {
+                setBrief({ ...brief, stories: updatedStories })
+            } else {
+                alert('Failed to remove story')
+            }
+        } catch (e) {
+            alert('Error removing story')
+        }
+    }
+
     const getSignificanceBadge = (score: number) => {
         if (score >= 8) return 'bg-red-500/10 text-red-400 border-red-500/20'
         if (score >= 6) return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
@@ -208,6 +232,13 @@ export default function DashboardPage() {
                                 </div>
 
                                 <div className="flex items-center gap-3 md:border-l border-white/5 md:pl-6">
+                                    <button
+                                        onClick={(e) => handleDeleteStory(index, e)}
+                                        className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                                        title="Remove Story"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
                                     <div className="text-slate-500 group-hover:text-primary-400 transition-colors flex items-center gap-2">
                                         {publishing === index ? (
                                             <span className="text-xs">Opening...</span>
