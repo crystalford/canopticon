@@ -57,15 +57,25 @@ CRITICAL: Return ONLY the XML. No markdown. No layer labels in the text.`
 // Google News RSS for Canadian Politics (Last 24h)
 const GOOGLE_NEWS_RSS = 'https://news.google.com/rss/search?q=Canadian+federal+politics+Parliament+Canada+when:1d&hl=en-CA&gl=CA&ceid=CA:en'
 
-async function fetchNewsContext(): Promise<string> {
+interface NewsContextResult {
+    context: string
+    sourceUrls: string[]
+}
+
+async function fetchNewsContext(): Promise<NewsContextResult> {
     try {
+        console.log('[Brief] Fetching news context from Google News RSS...')
         const res = await fetch(GOOGLE_NEWS_RSS)
         const xml = await res.text()
 
         // Simple regex parse to avoid deps (robust enough for Google News RSS structure)
         const items = xml.match(/<item>[\s\S]*?<\/item>/g) || []
+        console.log(`[Brief] Found ${items.length} RSS items`)
 
-        return items.slice(0, 20).map(item => {
+        const contextItems: string[] = []
+        const sourceUrls: string[] = []
+
+        items.slice(0, 20).forEach(item => {
             const title = item.match(/<title>(.*?)<\/title>/)?.[1] || ''
             const link = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
             const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
@@ -73,24 +83,83 @@ async function fetchNewsContext(): Promise<string> {
                 .replace(/<[^>]*>/g, '') // Strip HTML
                 .replace('&nbsp;', ' ')
 
-            return `Title: ${title}\nDate: ${pubDate}\nLink: ${link}\nContext: ${description}\n---`
-        }).join('\n')
+            contextItems.push(`Title: ${title}\nDate: ${pubDate}\nLink: ${link}\nContext: ${description}\n---`)
+            if (link) sourceUrls.push(link)
+        })
+
+        return {
+            context: contextItems.join('\n'),
+            sourceUrls
+        }
     } catch (e) {
-        console.error('Failed to fetch news context:', e)
-        return ''
+        console.error('[Brief] Failed to fetch news context:', e)
+        return { context: '', sourceUrls: [] }
+    }
+}
+
+/**
+ * Get source URLs from briefs created in the last N days
+ */
+async function getRecentBriefSourceUrls(days: number = 7): Promise<Set<string>> {
+    try {
+        const cutoffDate = new Date()
+        cutoffDate.setDate(cutoffDate.getDate() - days)
+
+        const recentBriefs = await db
+            .select()
+            .from(briefs)
+            .where(sql`${briefs.generatedAt} >= ${cutoffDate}`)
+
+        const urls = new Set<string>()
+        for (const brief of recentBriefs) {
+            const stories = brief.stories as BriefStory[]
+            for (const story of stories) {
+                if (story.sourceUrls) {
+                    story.sourceUrls.forEach(url => urls.add(url))
+                }
+            }
+        }
+
+        return urls
+    } catch (e) {
+        console.error('[Brief] Failed to fetch recent brief URLs:', e)
+        return new Set()
     }
 }
 
 export async function generateDailyBrief(): Promise<DailyBrief> {
     try {
-        // 1. Fetch Real-time Context
-        const newsContext = await fetchNewsContext()
+        // 1. Get URLs already covered in recent briefs (last 7 days)
+        const recentUrls = await getRecentBriefSourceUrls(7)
+        console.log(`[Brief] Found ${recentUrls.size} source URLs in recent briefs (last 7 days)`)
 
-        if (!newsContext) {
+        // 2. Fetch Real-time News Context
+        const newsContextResult = await fetchNewsContext()
+
+        if (!newsContextResult.context) {
             throw new Error('Failed to fetch current news context for analysis')
         }
 
-        const promptWithContext = `${DISCOVERY_PROMPT}\n\nREAL-TIME NEWS CONTEXT (LAST 24 HOURS):\n${newsContext}`
+        // 3. Filter out duplicate URLs
+        const freshUrls = newsContextResult.sourceUrls.filter(url => !recentUrls.has(url))
+        console.log(`[Brief] Filtered out ${newsContextResult.sourceUrls.length - freshUrls.length} duplicate URLs`)
+        console.log(`[Brief] Sending ${freshUrls.length} fresh stories to AI for analysis`)
+
+        if (freshUrls.length === 0) {
+            console.warn('[Brief] ⚠️  No fresh stories available - all RSS items were already covered in recent briefs')
+        }
+
+        // Build context with only fresh URLs
+        const freshContext = newsContextResult.context
+            .split('---')
+            .filter(item => {
+                const linkMatch = item.match(/Link: (.*?)\n/)
+                if (!linkMatch) return false
+                return freshUrls.includes(linkMatch[1])
+            })
+            .join('---')
+
+        const promptWithContext = `${DISCOVERY_PROMPT}\n\nREAL-TIME NEWS CONTEXT (LAST 24 HOURS - FRESH STORIES ONLY):\n${freshContext}`
 
         // Get configured AI provider and key
         const provider = await getSetting(SETTINGS_KEYS.AI_PROVIDER) || 'anthropic'
@@ -204,8 +273,11 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
         }
 
         if (stories.length === 0) {
+            console.warn('[Brief] ⚠️  AI did not generate any stories from the available context')
             throw new Error('Failed to parse any stories from AI response (XML)')
         }
+
+        console.log(`[Brief] ✓ Successfully generated ${stories.length} stories`)
 
         // Store in database
         const [brief] = await db.insert(briefs).values({
