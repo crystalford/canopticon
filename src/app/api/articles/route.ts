@@ -3,6 +3,7 @@ import { db, articles } from '@/db'
 import { eq, desc, and, isNull, isNotNull } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 /**
  * GET /api/articles - List published articles (public endpoint)
@@ -35,7 +36,14 @@ export async function GET(request: NextRequest) {
 
         const result = await query
 
-        return NextResponse.json({ articles: result })
+        return NextResponse.json(
+            { articles: result },
+            {
+                headers: {
+                    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+                }
+            }
+        )
     } catch (error) {
         console.error('Error fetching articles:', error)
         return NextResponse.json(

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TipTapEditor from '@/components/editor/TipTapEditor'
-import { FileText, Eye, Save, Upload, Trash2, ChevronLeft, Globe, Image as ImageIcon } from 'lucide-react'
+import { FileText, Eye, Save, Upload, Trash2, ChevronLeft, Globe, Image as ImageIcon, Wand2, Clock } from 'lucide-react'
 
 interface Article {
     headline: string
@@ -59,18 +59,62 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     const handleSave = async () => {
         setSaving(true)
         try {
+            // Calculate reading time from content
+            const readingTime = calculateReadingTime(content)
+
             await updateArticle({
                 headline,
                 content,
                 excerpt: excerpt || null,
                 metaDescription: metaDescription || null,
                 featuredImageUrl: featuredImageUrl || null,
+                readingTime,
             })
             alert('Draft saved')
         } catch (err) {
             alert('Failed to save')
         } finally {
             setSaving(false)
+        }
+    }
+
+    // Extract plain text from TipTap JSON content
+    const getPlainTextFromContent = (contentJson: string | null): string => {
+        if (!contentJson) return ''
+        try {
+            const parsed = JSON.parse(contentJson)
+            const extractText = (node: any): string => {
+                if (node.text) return node.text
+                if (node.content) return node.content.map(extractText).join(' ')
+                return ''
+            }
+            return extractText(parsed)
+        } catch {
+            return ''
+        }
+    }
+
+    // Calculate reading time (words / 200)
+    const calculateReadingTime = (contentJson: string | null): number => {
+        const text = getPlainTextFromContent(contentJson)
+        const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length
+        return Math.max(1, Math.ceil(wordCount / 200))
+    }
+
+    // Auto-generate metadata from content
+    const handleAutoFillMetadata = () => {
+        const plainText = getPlainTextFromContent(content)
+
+        // Auto-fill excerpt (first ~200 chars of content)
+        if (!excerpt && plainText) {
+            const autoExcerpt = plainText.slice(0, 200).trim()
+            setExcerpt(autoExcerpt + (plainText.length > 200 ? '...' : ''))
+        }
+
+        // Auto-fill meta description (from headline + excerpt)
+        if (!metaDescription) {
+            const desc = `${headline}. ${plainText.slice(0, 120)}`.slice(0, 155)
+            setMetaDescription(desc + '...')
         }
     }
 
@@ -201,13 +245,31 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                     </div>
                 </div>
 
-                {/* Sidebar Configuration */}
                 <div className="space-y-6">
+                    {/* Reading Time */}
+                    <div className="glass-panel p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-slate-400">
+                            <Clock className="w-4 h-4" />
+                            <span className="text-sm">Reading Time</span>
+                        </div>
+                        <span className="text-white font-bold">{calculateReadingTime(content)} min</span>
+                    </div>
+
                     <div className="glass-panel p-6">
-                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <Globe className="w-4 h-4" />
-                            Metadata & SEO
-                        </h3>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                <Globe className="w-4 h-4" />
+                                Metadata & SEO
+                            </h3>
+                            <button
+                                onClick={handleAutoFillMetadata}
+                                className="text-xs text-primary-400 hover:text-primary-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-primary-500/10 transition-colors"
+                                title="Auto-fill from content"
+                            >
+                                <Wand2 className="w-3 h-3" />
+                                Auto-fill
+                            </button>
+                        </div>
 
                         <div className="space-y-4">
                             <div>
