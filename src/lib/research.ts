@@ -83,7 +83,7 @@ async function searchGoogleNewsRSS(query: string): Promise<string> {
 
     const enrichedItems = await Promise.all(deepDivePromise)
 
-    return `--- INTELLIGENCE ON: "${query}" ---\n` + enrichedItems.map((item: ArticleItem | null) => {
+    return `--- INTELLIGENCE ON: "${query}" ---\n` + enrichedItems.map((item: any) => {
         if (!item) return ''
         const content = item.fullText
             ? `\n\n[FULL CONTENT EXTRACTED]:\n${item.fullText}\n`

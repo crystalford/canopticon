@@ -424,7 +424,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                         </h3>
 
                         <ForensicTool
-                            editorContent={content}
+                            editorContent={content || ''}
                             headline={headline}
                         />
 
