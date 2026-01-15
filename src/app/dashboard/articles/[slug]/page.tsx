@@ -273,6 +273,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                         <ForensicTool
                             editorContent={content || ''}
                             headline={headline}
+                            articleId={article.id}
                         />
                     </div>
                 </div>

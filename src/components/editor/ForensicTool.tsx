@@ -3,15 +3,18 @@
 import { useState } from 'react'
 import { Search, BrainCircuit, Terminal, FileText, ChevronRight, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import { useRouter } from 'next/navigation'
 
 interface ForensicToolProps {
     editorContent: string
     headline: string
+    articleId?: string
 }
 
-export default function ForensicTool({ editorContent, headline }: ForensicToolProps) {
+export default function ForensicTool({ editorContent, headline, articleId }: ForensicToolProps) {
+    const router = useRouter()
     const [isOpen, setIsOpen] = useState(false)
-    const [status, setStatus] = useState<'idle' | 'scanning' | 'researching' | 'analyzing' | 'complete'>('idle')
+    const [status, setStatus] = useState<'idle' | 'scanning' | 'researching' | 'analyzing' | 'complete' | 'creating'>('idle')
     const [logs, setLogs] = useState<string[]>([])
     const [result, setResult] = useState<string>('')
 
@@ -150,10 +153,30 @@ export default function ForensicTool({ editorContent, headline }: ForensicToolPr
                             Copy to Clipboard
                         </button>
                         <button
-                            onClick={() => {
-                                // Logic to save as new draft could go here
-                                alert('Feature coming soon: Save as Response')
+                            onClick={async () => {
+                                setStatus('creating')
+                                addLog('Creating Response Article...')
+                                try {
+                                    const res = await fetch('/api/articles/create-response', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            originalArticleId: articleId,
+                                            forensicContent: result
+                                        })
+                                    })
+                                    if (!res.ok) throw new Error('Failed to create article')
+                                    const data = await res.json()
+                                    addLog(`Success! Redirecting to new article...`)
+                                    setTimeout(() => {
+                                        router.push(`/dashboard/articles/${data.slug}`)
+                                    }, 500)
+                                } catch (error: any) {
+                                    addLog(`ERROR: ${error.message}`)
+                                    setStatus('complete')
+                                }
                             }}
+                            disabled={status === 'creating'}
                             className="btn-primary"
                         >
                             Create Response Article
