@@ -176,7 +176,7 @@ export default function ForensicTool({ editorContent, headline, articleId }: For
                                     setStatus('complete')
                                 }
                             }}
-                            disabled={status === 'creating' || status !== 'complete'}
+                            disabled={status === 'creating' as any}
                             className="btn-primary"
                         >
                             Create Response Article
