@@ -128,7 +128,8 @@ interface CallAIOptions<T> {
     prompt: string
     input: Record<string, any>
     model?: keyof typeof MODEL_TIERS
-    jsonSchema?: z.ZodType<T> // Optional explicit schema if simple mode not enough
+    jsonSchema?: z.ZodType<T>
+    outputFormat?: 'json' | 'text' // NEW: Support output format
 }
 
 export async function callAI<T>(options: CallAIOptions<T>): Promise<{
@@ -142,26 +143,13 @@ export async function callAI<T>(options: CallAIOptions<T>): Promise<{
         const modelId = options.model || 'gpt-4o-mini'
 
         // Map model ID to provider-specific string if needed
-        // For Vercel AI SDK, we pass the client-instantiated model
-        // e.g. client('gpt-4o')
-
         let modelInstance;
-        // Simple mapping for now
         if (modelId.startsWith('claude')) {
             modelInstance = client(modelId)
         } else {
-            // For OpenAI/Grok
             modelInstance = client(modelId)
         }
 
-        // We use generateObject for structured JSON output
-        // The prompt usually contains the schema instruction, but Vercel AI SDK `generateObject` is better.
-        // However, our current prompts are designed for raw JSON string output. 
-        // Let's stick to text generation + JSON parse if we want to minimize change, 
-        // OR switch to `generateObject` with `output: 'no-schema'` if the prompt handles it.
-        // Given the prompt templates in `prompts.ts`, they expect to output Markdown or JSON.
-
-        // Let's assume the prompts are strong enough to return JSON.
         const { text, usage } = await import('ai').then(ai => ai.generateText({
             model: modelInstance,
             messages: [
@@ -171,20 +159,27 @@ export async function callAI<T>(options: CallAIOptions<T>): Promise<{
             temperature: 0,
         }))
 
-        // Clean up markdown code blocks if present
-        let jsonStr = text.replace(/```json\n|\n```/g, '').trim()
+        let data: T
 
-        // Robust fallback: If strict parse fails, try to find the first { ... } block
-        try {
-            JSON.parse(jsonStr)
-        } catch (e) {
-            const match = text.match(/\{[\s\S]*\}/)
-            if (match) {
-                jsonStr = match[0]
+        if (options.outputFormat === 'text') {
+            // Return raw text
+            data = text as unknown as T
+        } else {
+            // Default: JSON parsing
+            // Clean up markdown code blocks if present
+            let jsonStr = text.replace(/```json\n|\n```/g, '').trim()
+
+            // Robust fallback: If strict parse fails, try to find the first { ... } block
+            try {
+                JSON.parse(jsonStr)
+            } catch (e) {
+                const match = text.match(/\{[\s\S]*\}/)
+                if (match) {
+                    jsonStr = match[0]
+                }
             }
+            data = JSON.parse(jsonStr) as T
         }
-
-        const data = JSON.parse(jsonStr) as T
 
         // Calculate Cost
         const tier = MODEL_TIERS[modelId as keyof typeof MODEL_TIERS] || MODEL_TIERS['gpt-4o-mini']
