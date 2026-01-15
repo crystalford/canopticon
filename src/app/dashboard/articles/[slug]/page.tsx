@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TipTapEditor from '@/components/editor/TipTapEditor'
-import { FileText, Eye, Save, Upload, Trash2, ChevronLeft, Globe, Image as ImageIcon, Wand2, Clock } from 'lucide-react'
+import { FileText, Eye, Save, Upload, Trash2, ChevronLeft, Globe, Image as ImageIcon, Wand2, Clock, Video } from 'lucide-react'
 
 interface Article {
     headline: string
@@ -32,6 +32,8 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     const [featuredImageUrl, setFeaturedImageUrl] = useState('')
     const [saving, setSaving] = useState(false)
     const [publishing, setPublishing] = useState(false)
+    const [generatingScript, setGeneratingScript] = useState(false)
+    const [videoScript, setVideoScript] = useState<any>(null)
 
     useEffect(() => {
         fetchArticle()
@@ -115,6 +117,26 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
         if (!metaDescription) {
             const desc = `${headline}. ${plainText.slice(0, 120)}`.slice(0, 155)
             setMetaDescription(desc + '...')
+        }
+    }
+
+    // Generate 60-second video script
+    const handleGenerateVideoScript = async () => {
+        setGeneratingScript(true)
+        try {
+            const res = await fetch(`/api/articles/${params.slug}/video-script`, {
+                method: 'POST'
+            })
+            if (res.ok) {
+                const data = await res.json()
+                setVideoScript(data.script)
+            } else {
+                alert('Failed to generate script')
+            }
+        } catch (err) {
+            alert('Error generating script')
+        } finally {
+            setGeneratingScript(false)
         }
     }
 
