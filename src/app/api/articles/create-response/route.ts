@@ -49,7 +49,13 @@ export async function POST(request: NextRequest) {
             slug,
             headline: title,
             summary: title, // Use title as summary
-            content: forensicContent,
+            content: JSON.stringify({
+                type: 'doc',
+                content: [{
+                    type: 'paragraph',
+                    content: [{ type: 'text', text: forensicContent }]
+                }]
+            }),
             isDraft: true,
         }).returning()
 
