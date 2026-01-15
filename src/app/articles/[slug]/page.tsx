@@ -79,11 +79,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
                         {article.headline}
                     </h1>
 
-                    {article.excerpt && (
-                        <p className="text-xl text-slate-400 leading-relaxed border-l-2 border-primary-500 pl-4 py-1">
-                            {article.excerpt}
-                        </p>
-                    )}
+
 
                     {/* Author Block */}
                     <div className="flex items-center gap-3 pt-4 border-t border-white/5">
