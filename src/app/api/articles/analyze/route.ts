@@ -75,7 +75,16 @@ export async function POST(request: NextRequest) {
         console.log('[Forensic Debug] Analysis Success:', analysisRes.success)
         if (analysisRes.error) console.error('[Forensic Debug] Analysis Error:', analysisRes.error)
 
-        const rawText = analysisRes.data || ''
+        
+        if (!analysisRes.success) {
+            return NextResponse.json({
+                success: true,
+                analysis: `[DEBUG: AI CALL FAILED]\n\nError: ${analysisRes.error || 'Unknown AI error'}\n\nThis likely indicates an API issue, rate limit, or configuration problem.`,
+                steps: { queries, researchSize: researchResults.length }
+            })
+        }
+        
+                const rawText = analysisRes.data || ''
         console.log('[Forensic Debug] Raw Text Length:', rawText.length)
         console.log('[Forensic Debug] Preview:', rawText.substring(0, 200))
 
