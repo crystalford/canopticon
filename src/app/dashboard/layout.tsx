@@ -1,7 +1,8 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, FileText, Settings, Globe, PlusCircle, Newspaper, User } from 'lucide-react'
+import { LayoutDashboard, FileText, Settings, Globe, PlusCircle, Newspaper, User, Radio } from 'lucide-react'
+import Logo from '@/components/Logo'
 
 export default async function DashboardLayout({
     children,
@@ -17,13 +18,8 @@ export default async function DashboardLayout({
             <aside className="w-64 flex-shrink-0 flex flex-col border-r border-white/5 bg-black/20 backdrop-blur-xl hidden md:flex">
                 {/* Logo */}
                 <div className="h-16 flex items-center px-6 border-b border-white/5">
-                    <Link href="/dashboard" className="flex items-center gap-3 group">
-                        <div className="relative w-8 h-8 rounded-lg bg-primary-500/20 flex items-center justify-center border border-primary-500/50 shadow-[0_0_15px_rgba(14,165,233,0.15)] group-hover:shadow-[0_0_20px_rgba(14,165,233,0.3)] transition-all">
-                            <span className="text-primary-400 font-bold text-lg">C</span>
-                        </div>
-                        <span className="font-bold text-lg tracking-wide text-white group-hover:text-primary-400 transition-colors">
-                            CANOPTICON
-                        </span>
+                    <Link href="/dashboard" className="w-full">
+                        <Logo />
                     </Link>
                 </div>
 
@@ -31,6 +27,7 @@ export default async function DashboardLayout({
                 <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
                     <NavSection title="Intelligence" />
                     <NavLink href="/dashboard" icon={LayoutDashboard} label="Daily Brief" />
+                    <NavLink href="/dashboard/feed" icon={Radio} label="Wire Service" />
                     <NavLink href="/dashboard/articles" icon={FileText} label="Articles" />
 
                     <NavSection title="Sources" className="mt-8" />
