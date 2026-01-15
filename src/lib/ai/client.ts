@@ -172,7 +172,18 @@ export async function callAI<T>(options: CallAIOptions<T>): Promise<{
         }))
 
         // Clean up markdown code blocks if present
-        const jsonStr = text.replace(/```json\n|\n```/g, '').trim()
+        let jsonStr = text.replace(/```json\n|\n```/g, '').trim()
+
+        // Robust fallback: If strict parse fails, try to find the first { ... } block
+        try {
+            JSON.parse(jsonStr)
+        } catch (e) {
+            const match = text.match(/\{[\s\S]*\}/)
+            if (match) {
+                jsonStr = match[0]
+            }
+        }
+
         const data = JSON.parse(jsonStr) as T
 
         // Calculate Cost
