@@ -1,62 +1,191 @@
 'use client'
 
-import Link from 'next/link'
-import { Database, FileText } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Database, RefreshCw, Power, Trash2, Activity } from 'lucide-react'
+
+interface Source {
+    id: string
+    name: string
+    protocol: string
+    endpoint: string
+    pollingInterval: string
+    reliabilityWeight: number
+    isActive: boolean
+    createdAt: string
+    updatedAt: string
+}
 
 export default function ManualSourcesPage() {
+    const [manualUrl, setManualUrl] = useState('')
+    const [submitting, setSubmitting] = useState(false)
+    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+    const [sources, setSources] = useState<Source[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        fetchSources()
+    }, [])
+
+    const fetchSources = async () => {
+        setLoading(true)
+        try {
+            const res = await fetch('/api/sources')
+            const data = await res.json()
+            setSources(data.sources || [])
+        } catch (error) {
+            console.error('Failed to fetch sources:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleManualSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!manualUrl) return
+
+        setSubmitting(true)
+        setMessage(null)
+
+        try {
+            const res = await fetch('/api/ingest/manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: manualUrl }),
+            })
+
+            const data = await res.json()
+
+            if (res.ok) {
+                setMessage({ type: 'success', text: 'Article ingested successfully! Check the Wire Service feed.' })
+                setManualUrl('')
+                // fetchSources() // No need to refresh sources list for a manual submission
+            } else {
+                setMessage({ type: 'error', text: data.error || 'Failed to ingest article' })
+            }
+        } catch (error) {
+            setMessage({ type: 'error', text: 'An error occurred during submission' })
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const disableSource = async (id: string) => {
+        try {
+            await fetch(`/api/sources/${id}/disable`, { method: 'POST' })
+            fetchSources()
+        } catch (error) {
+            console.error('Failed to disable source:', error)
+        }
+    }
+
     return (
         <div className="space-y-8">
             <div className="pb-6 border-b border-white/5">
-                <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">
-                    Manual Sources
-                </h1>
-                <p className="text-slate-400 text-sm">
-                    Manage legacy ingestion pipelines, RSS feeds, and raw signals.
-                </p>
+                <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">System Status</h1>
+                <p className="text-slate-400 text-sm">Monitor ingestion pipelines and manual overrides.</p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-                {/* RSS Sources Card */}
-                <Link href="/dashboard/sources" className="glass-card p-8 group hover:border-primary-500/20 transition-all">
-                    <div className="flex items-center justify-between mb-4">
-                        <Database className="w-8 h-8 text-primary-400" />
-                    </div>
-                    <h2 className="text-xl font-bold text-white mb-2 group-hover:text-primary-400 transition-colors">
-                        RSS & JSON Sources
-                    </h2>
-                    <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                        Configure automated data ingestion from RSS feeds, JSON endpoints, and Parliament data.
-                    </p>
-                    <span className="text-primary-400 text-sm font-medium group-hover:underline">
-                        Manage Sources →
-                    </span>
-                </Link>
-
-                {/* Signals Card */}
-                <Link href="/dashboard/signal" className="glass-card p-8 group hover:border-primary-500/20 transition-all">
-                    <div className="flex items-center justify-between mb-4">
-                        <FileText className="w-8 h-8 text-primary-400" />
-                    </div>
-                    <h2 className="text-xl font-bold text-white mb-2 group-hover:text-primary-400 transition-colors">
-                        Raw Signals
-                    </h2>
-                    <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                        View and triage raw signals ingested from configured sources before processing.
-                    </p>
-                    <span className="text-primary-400 text-sm font-medium group-hover:underline">
-                        View Signals →
-                    </span>
-                </Link>
-            </div>
-
-            <div className="glass-panel p-6">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
+            {/* Legacy Pipeline Status */}
+            <div className="glass-panel p-6 border-l-2 border-green-500 bg-green-500/5">
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <Activity className="w-4 h-4 text-green-400" />
                     Legacy Pipeline Status
                 </h3>
-                <div className="flex items-center gap-2 text-sm text-slate-400">
+                <div className="flex items-center gap-2 text-sm text-green-300">
                     <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                    <div>System operational</div>
+                    <div className="font-mono">SYSTEM OPERATIONAL</div>
                 </div>
+            </div>
+
+            {/* Manual Ingestion */}
+            <div className="glass-panel p-6 border-l-2 border-primary-500">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Database className="w-5 h-5 text-primary-400" />
+                    Manual Ingestion
+                </h2>
+                <p className="text-xs text-slate-500 mb-4">
+                    Submit a URL to be scraped and added to the <span className="text-primary-400 font-mono">Wire Service</span> feed immediately.
+                </p>
+                <form onSubmit={handleManualSubmit} className="flex gap-4">
+                    <input
+                        type="url"
+                        value={manualUrl}
+                        onChange={(e) => setManualUrl(e.target.value)}
+                        placeholder="https://www.canada.ca/en/..."
+                        className="input flex-1"
+                        required
+                    />
+                    <button
+                        type="submit"
+                        disabled={submitting}
+                        className="btn-primary whitespace-nowrap"
+                    >
+                        {submitting ? 'Ingesting...' : 'Ingest URL'}
+                    </button>
+                </form>
+                {message && (
+                    <div className={`mt-4 p-3 rounded-lg text-sm ${message.type === 'success'
+                        ? 'bg-green-500/10 text-green-300 border border-green-500/20'
+                        : 'bg-red-500/10 text-red-300 border border-red-500/20'
+                        }`}>
+                        {message.text}
+                    </div>
+                )}
+            </div>
+
+            {/* Configured Sources */}
+            <div>
+                <h2 className="text-lg font-semibold text-white mb-4">Active Feed Sources</h2>
+
+                {loading ? (
+                    <div className="glass-panel p-8 text-center">
+                        <div className="text-slate-400">Loading sources...</div>
+                    </div>
+                ) : sources.length === 0 ? (
+                    <div className="glass-panel p-8 text-center">
+                        <Database className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                        <p className="text-slate-400">No sources configured</p>
+                        <p className="text-sm text-slate-500 mt-1">
+                            Sources will be added automatically when workers run.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {sources.map(source => (
+                            <div key={source.id} className="glass-card p-4 flex items-center justify-between group hover:border-white/10 transition-colors">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <h3 className="font-medium text-white">{source.name}</h3>
+                                        {source.isActive ? (
+                                            <span className="px-2 py-0.5 rounded text-[10px] bg-green-500/10 text-green-400 border border-green-500/20 font-bold uppercase tracking-wider">
+                                                Active
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-0.5 rounded text-[10px] bg-slate-500/10 text-slate-500 border border-slate-500/20 uppercase tracking-wider">
+                                                Disabled
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-500 font-mono truncate max-w-md">
+                                        {source.endpoint}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-4 text-xs text-slate-500">
+                                    <span className="hidden md:inline-block">
+                                        Polling: {source.pollingInterval}
+                                    </span>
+                                    <button
+                                        onClick={() => disableSource(source.id)}
+                                        className="p-2 rounded-lg hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                        title="Disable Source"
+                                    >
+                                        <Power className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     )

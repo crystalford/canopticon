@@ -31,8 +31,7 @@ export default async function DashboardLayout({
                     <NavLink href="/dashboard/articles" icon={FileText} label="Articles" />
 
                     <NavSection title="Sources" className="mt-8" />
-                    <NavLink href="/dashboard/manual-sources" icon={PlusCircle} label="Manual Ingest" />
-                    <NavLink href="/dashboard/sources" icon={Newspaper} label="Source Monitor" />
+                    <NavLink href="/dashboard/manual-sources" icon={Newspaper} label="Sources & Status" />
 
                     <NavSection title="System" className="mt-8" />
                     <NavLink href="/dashboard/settings" icon={Settings} label="Settings" />

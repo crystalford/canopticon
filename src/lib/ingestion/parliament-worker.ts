@@ -176,6 +176,17 @@ export async function runParliamentWorker(sourceId: string, limit: number = 10):
         // Fetch bills
         const bills = await fetchRecentBills(limit)
         for (const bill of bills) {
+            // Filter out bills older than 60 days to keep feed fresh
+            if (bill.introduced) {
+                const introDate = new Date(bill.introduced)
+                const cutoffDate = new Date()
+                cutoffDate.setDate(cutoffDate.getDate() - 60)
+
+                if (introDate < cutoffDate) {
+                    continue
+                }
+            }
+
             stats.processed++
 
             // Try to fetch full text if available
