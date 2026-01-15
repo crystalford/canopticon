@@ -29,6 +29,7 @@ export default function FeedItemCard({ item }: { item: FeedItem }) {
 
             if (res.ok) {
                 const data = await res.json()
+                router.refresh() // Update the feed list (remove this item) before navigating
                 router.push(`/dashboard/articles/${data.slug}`)
             } else {
                 alert('Failed to convert')
