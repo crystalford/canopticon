@@ -34,7 +34,7 @@ async function searchGeneric(query: string): Promise<string> {
     }
 }
 
-import { extractArticleContent } from './ingestion/manual-worker'
+import { extractArticleContent } from '@/lib/scraper-util'
 
 /**
  * reliable free search using Google News RSS + Deep Content Fetch via Scraper

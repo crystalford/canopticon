@@ -1,6 +1,7 @@
 import { RawArticleInput, ingestRawArticle, IngestionResult } from './core'
 import { db, logs } from '@/db'
 import { v4 as uuidv4 } from 'uuid'
+import { extractArticleContent } from '@/lib/scraper-util'
 
 /**
  * Manual URL Submission Worker
@@ -33,51 +34,7 @@ export async function ingestManualSubmission(input: ManualSubmissionInput): Prom
     return ingestRawArticle(article)
 }
 
-/**
- * Extract article content from a URL using basic fetch
- * This is a simple implementation - for production, consider using a proper article extraction service
- */
-export async function extractArticleContent(url: string): Promise<{
-    title: string
-    bodyText: string
-    publishedAt?: Date
-} | null> {
-    try {
-        const response = await fetch(url, {
-            headers: {
-                'User-Agent': 'CANOPTICON/1.0 (Political Research Bot)',
-            },
-        })
 
-        if (!response.ok) {
-            console.error(`Failed to fetch URL: ${response.status}`)
-            return null
-        }
-
-        const html = await response.text()
-
-        // Basic extraction - in production, use a proper library like @mozilla/readability
-        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
-        const title = titleMatch?.[1]?.trim() || 'Untitled'
-
-        // Extract text from body, removing script and style tags
-        let bodyText = html
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-
-        // Limit to first 10000 characters for safety
-        bodyText = bodyText.slice(0, 10000)
-
-        return { title, bodyText }
-
-    } catch (error) {
-        console.error('Article extraction failed:', error)
-        return null
-    }
-}
 
 /**
  * Submit a URL and auto-extract content

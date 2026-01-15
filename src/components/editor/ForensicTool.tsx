@@ -51,7 +51,10 @@ export default function ForensicTool({ editorContent, headline }: ForensicToolPr
 
             setStatus('analyzing')
 
-            if (!res.ok) throw new Error('Analysis Protocol Failed')
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}))
+                throw new Error(errorData.error || 'Analysis Protocol Failed')
+            }
 
             const data = await res.json()
 
@@ -66,9 +69,9 @@ export default function ForensicTool({ editorContent, headline }: ForensicToolPr
             addLog('Report Generated Successfully.')
             setStatus('complete')
 
-        } catch (e) {
+        } catch (e: any) {
             console.error(e)
-            addLog('ERROR: Connection Severed.')
+            addLog(`ERROR: ${e.message}`)
             setStatus('idle')
         }
     }

@@ -140,10 +140,10 @@ Write the Deep Dive Report now.`
             }
         })
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Forensic Deep Dive Error:', error)
         return NextResponse.json(
-            { error: 'Internal Server Error' },
+            { error: error.message || 'Internal Server Error' },
             { status: 500 }
         )
     }
