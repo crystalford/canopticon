@@ -84,7 +84,15 @@ export async function POST(request: NextRequest) {
 
         if (!analysis || analysis.length < 50) {
             console.error('Analysis Extraction Failed. Raw:', rawText)
-            throw new Error('Failed to generate valid analysis report')
+            // DEBUG MODE: Return the raw failure so we can see it in the UI
+            return NextResponse.json({
+                success: true,
+                analysis: `[DEBUG: EXTRACTION FAILED]\n\nRaw Output:\n${rawText}\n\nError: Analysis too short or missing tags.`,
+                steps: {
+                    queries,
+                    researchSize: researchResults.length
+                }
+            })
         }
 
         return NextResponse.json({
