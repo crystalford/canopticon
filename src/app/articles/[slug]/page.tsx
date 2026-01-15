@@ -18,6 +18,15 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     const article = await getArticle(params.slug)
     if (!article) return { title: 'Not Found' }
 
+    const ogUrl = new URL(`${process.env.NEXT_PUBLIC_SITE_URL}/api/og`)
+    ogUrl.searchParams.set('title', article.headline)
+    if (article.publishedAt) {
+        ogUrl.searchParams.set('date', new Date(article.publishedAt).toLocaleDateString())
+    }
+    if (article.readingTime) {
+        ogUrl.searchParams.set('readTime', article.readingTime.toString())
+    }
+
     return {
         title: article.headline,
         description: article.metaDescription || article.summary,
@@ -27,13 +36,13 @@ export async function generateMetadata({ params }: { params: { slug: string } })
             type: 'article',
             publishedTime: article.publishedAt ? new Date(article.publishedAt).toISOString() : undefined,
             authors: [article.author || 'CANOPTICON'],
-            images: article.featuredImageUrl ? [article.featuredImageUrl] : undefined,
+            images: [ogUrl.toString()],
         },
         twitter: {
             card: 'summary_large_image',
             title: article.headline,
             description: article.metaDescription || article.summary,
-            images: article.featuredImageUrl ? [article.featuredImageUrl] : undefined,
+            images: [ogUrl.toString()],
         },
     }
 }
@@ -98,9 +107,9 @@ export default async function ArticlePage({ params }: { params: { slug: string }
 
                     <div className="flex flex-wrap gap-2 mb-4">
                         {article.topics?.map((topic: string) => (
-                            <span key={topic} className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary-500/10 text-primary-400 border border-primary-500/20 uppercase tracking-wider shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+                            <Link key={topic} href={`/topics/${topic.toLowerCase().replace(/\s+/g, '-')}`} className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary-500/10 text-primary-400 border border-primary-500/20 uppercase tracking-wider shadow-[0_0_10px_rgba(239,68,68,0.2)] hover:bg-primary-500/20 transition-colors">
                                 {topic}
-                            </span>
+                            </Link>
                         ))}
                     </div>
 
