@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TipTapEditor from '@/components/editor/TipTapEditor'
+import ForensicTool from '@/components/editor/ForensicTool'
 import { ChevronLeft, Save, Globe, Eraser, Loader2, Sparkles, AlertCircle, CheckCircle, Wand2, Clock, Video, ImageIcon, Upload, X, Trash2, Eye } from 'lucide-react'
 
 interface Article {
@@ -418,31 +419,40 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                     </div>
 
                     <div className="glass-panel p-6">
-                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <Video className="w-4 h-4" />
-                            Content Repurposing
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
+                            AI Tools
                         </h3>
 
-                        {!videoScript ? (
+                        <ForensicTool
+                            editorContent={content}
+                            headline={headline}
+                        />
+
+                        <div className="mt-6 pt-6 border-t border-white/10">
                             <button
                                 onClick={handleGenerateVideoScript}
                                 disabled={generatingScript}
-                                className="w-full btn-secondary flex items-center justify-center gap-2 mb-2"
+                                className="w-full flex items-center justify-between p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all group"
                             >
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400 group-hover:scale-110 transition-transform">
+                                        <Video className="w-5 h-5" />
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="font-bold text-white">Video Script</div>
+                                        <div className="text-xs text-slate-400">Generate 60s TikTok script</div>
+                                    </div>
+                                </div>
                                 {generatingScript ? (
-                                    <>
-                                        <Wand2 className="w-4 h-4 animate-spin" />
-                                        Generating Script...
-                                    </>
+                                    <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
                                 ) : (
-                                    <>
-                                        <Wand2 className="w-4 h-4" />
-                                        Generate Video Script (60s)
-                                    </>
+                                    <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-white transition-colors" />
                                 )}
                             </button>
-                        ) : (
-                            <div className="space-y-4">
+                        </div>
+
+                        {videoScript && (
+                            <div className="space-y-4 mt-6">
                                 <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-xs text-green-300 flex items-center gap-2">
                                     <Video className="w-3 h-3" />
                                     Script Generated
