@@ -87,13 +87,18 @@ async function fetchNewsContext(): Promise<{ items: RssItem[], context: string }
         const items: RssItem[] = []
         const contextParts: string[] = []
 
-        itemMatches.slice(0, 25).forEach(item => {
+        itemMatches.slice(0, 25).forEach((item, index) => {
             const title = item.match(/<title>(.*?)<\/title>/)?.[1] || ''
             const link = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
             const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
             const description = (item.match(/<description>(.*?)<\/description>/)?.[1] || '')
                 .replace(/<[^>]*>/g, '') // Strip HTML
                 .replace('&nbsp;', ' ')
+
+            // Log RSS titles for debugging
+            if (index < 5) {
+                console.log(`[Brief] RSS #${index + 1}: ${title.substring(0, 60)}...`)
+            }
 
             items.push({ title, link, pubDate, description })
             contextParts.push(`Title: ${title}\nDate: ${pubDate}\nContext: ${description}\n---`)
