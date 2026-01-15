@@ -3,6 +3,7 @@ import { db, rawArticles, sources } from '@/db'
 import { eq, desc, and } from 'drizzle-orm'
 import { Radio, FileText, ArrowRight, Archive, RefreshCw, MessageSquare } from 'lucide-react'
 import FeedItemCard from './FeedItemCard'
+import RefreshFeedButton from './RefreshFeedButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,10 +44,7 @@ export default async function WireServicePage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <button className="btn-secondary">
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Refresh Feed
-                    </button>
+                    <RefreshFeedButton />
                     <Link href="/dashboard/manual-sources" className="btn-secondary">
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Add Source
