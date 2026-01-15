@@ -65,24 +65,25 @@ export async function POST(request: NextRequest) {
         // --- STEP 3: FORENSIC SYNTHESIS ---
         const prompt = `SOURCE SIGNAL: "${headline}"\n${text}\n\n--- INTELLIGENCE DOSSIER (LIVE SEARCH RESULTS) ---\n${researchResults}\n\n--- INSTRUCTION ---\nWrite the Deep Dive Report now.`
 
-        const analysisRes = await callAI<any>({
+        const analysisRes = await callAI<{ report: string }>({
             model: 'claude-3-5-sonnet-20240620',
-            prompt: ANALYST_PERSONA,
+            prompt: ANALYST_PERSONA + '\n\nIMPORTANT: Return the report inside a JSON object: { "report": "markdown content here" }',
             input: { task: prompt }
         })
 
-        // Note: callAI parses JSON, but for open-ended text we might get raw string or markdown.
-        // The implementation in client.ts assumes JSON output.
-        // We need to handle this.
-        // However, looking at client.ts: `const jsonStr = text.replace(/```json\n|\n```/g, '').trim()`
-        // It strictly wants JSON.
-        // We need an option for RAW TEXT output in callAI, OR we force the LLM to wrap the markdown in a JSON field.
+        if (!analysisRes.success || !analysisRes.data || !analysisRes.data.report) {
+            console.error('Analysis Gen Failed:', analysisRes.error)
+            throw new Error('Failed to generate analysis report')
+        }
 
-        // Wait, `callAI` forces JSON parsing.
-        // I need to update `callAI` or add a `generateText` wrapper in `client.ts`.
-        // OR I can just instruct the LLM to return JSON: { "report": "markdown content..." }
-
-        // Let's modify the Persona to request JSON wrapper for safety with current client.ts
+        return NextResponse.json({
+            success: true,
+            analysis: analysisRes.data.report,
+            steps: {
+                queries,
+                researchSize: researchResults.length
+            }
+        })
 
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 })

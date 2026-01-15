@@ -37,7 +37,6 @@ export const MODEL_TIERS = {
         provider: 'anthropic',
         contextWindow: 200000,
         costPer1kInput: 0.003,
-        costPer1kInput: 0.003,
         costPer1kOutput: 0.015,
     },
     'claude-3-haiku-20240307': {
