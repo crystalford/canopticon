@@ -7,6 +7,7 @@ import TipTapEditor from '@/components/editor/TipTapEditor'
 import { ChevronLeft, Save, Globe, Eraser, Loader2, Sparkles, AlertCircle, CheckCircle, Wand2, Clock, Upload, Trash2, Eye } from 'lucide-react'
 
 interface Article {
+    id: string
     headline: string
     content: string | null
     excerpt: string | null
@@ -16,6 +17,7 @@ interface Article {
     slug: string
     isDraft: boolean
     publishedAt: string | null
+    readingTime?: number
 }
 
 export default function ArticleEditorPage({ params }: { params: { slug: string } }) {
@@ -320,6 +322,30 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                         </button>
                     ) : (
                         <div className="flex gap-2">
+                            <button
+                                onClick={async () => {
+                                    if (!confirm('Send this article to all subscribers via email?')) return
+                                    try {
+                                        const res = await fetch('/api/newsletter/broadcast', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ articleId: article.id })
+                                        })
+                                        const data = await res.json()
+                                        if (res.ok) {
+                                            alert(`Sent to ${data.sent} subscribers`)
+                                        } else {
+                                            alert(`Error: ${data.error}`)
+                                        }
+                                    } catch (e) {
+                                        alert('Failed to broadcast')
+                                    }
+                                }}
+                                className="btn-secondary text-primary-300 hover:text-primary-200 hover:border-primary-500/30"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
+                                Send Email
+                            </button>
                             <button onClick={handleUnpublish} disabled={publishing} className="btn-secondary text-red-300 hover:text-red-200 hover:border-red-500/30">
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 Unpublish

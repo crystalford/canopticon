@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, subscribers } from '@/db'
 import { eq } from 'drizzle-orm'
+import { sendWelcomeEmail } from '@/lib/email'
 
 /**
  * Newsletter Subscription API
@@ -74,6 +75,14 @@ export async function POST(request: NextRequest) {
             .update(subscribers)
             .set({ status: 'subscribed', confirmedAt: new Date() })
             .where(eq(subscribers.email, email.toLowerCase()))
+
+        // Send confirmation email
+        try {
+            await sendWelcomeEmail(email.toLowerCase())
+        } catch (e) {
+            console.error('Error sending welcome email:', e)
+            // Don't fail the request, just log it
+        }
 
         return NextResponse.json({
             success: true,

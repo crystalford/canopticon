@@ -1,0 +1,74 @@
+
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
+
+const FROM_EMAIL = 'Canopticon Intelligence <intelligence@canopticon.com>' // Ideally configured in env
+
+export async function sendWelcomeEmail(email: string) {
+    if (!process.env.RESEND_API_KEY) {
+        console.warn('RESEND_API_KEY missing, skipping email.')
+        return
+    }
+
+    try {
+        await resend.emails.send({
+            from: FROM_EMAIL,
+            to: email,
+            subject: 'Welcome to Canopticon Intelligence',
+            html: `
+                <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+                    <h1 style="color: #0f172a;">Welcome to Canopticon.</h1>
+                    <p>You have successfully subscribed to the intelligence brief.</p>
+                    <p>You will receive high-signal updates on significant political events as they happen.</p>
+                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+                    <p style="font-size: 12px; color: #64748b;">
+                        Canopticon Intelligence
+                    </p>
+                </div>
+            `
+        })
+    } catch (error) {
+        console.error('Failed to send welcome email:', error)
+        throw error
+    }
+}
+
+export async function sendArticleEmail(email: string, article: { headline: string, content: string | null, summary: string }) {
+    if (!process.env.RESEND_API_KEY) return
+
+    // Simple HTML conversion for TipTap JSON if specific renderer needed, 
+    // but for now relying on summary or pre-processed HTML. 
+    // Assuming 'content' might be JSON string, using summary for safety in this MVP 
+    // unless we install a proper converter.
+
+    // Using summary for the email body to ensure reliability for now.
+    const bodyContent = article.summary.replace(/\n/g, '<br/>')
+
+    await resend.emails.send({
+        from: FROM_EMAIL,
+        to: email,
+        subject: article.headline,
+        html: `
+            <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+                <div style="margin-bottom: 24px;">
+                    <span style="font-size: 12px; font-weight: bold; color: #6366f1; text-transform: uppercase; letter-spacing: 1px;">
+                        Intelligence Brief
+                    </span>
+                    <h1 style="margin-top: 8px; font-size: 24px; color: #0f172a;">${article.headline}</h1>
+                    <p style="color: #64748b; font-size: 14px;">
+                        ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
+                </div>
+                
+                <div style="font-size: 16px; color: #334155;">
+                    ${bodyContent}
+                </div>
+
+                <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #e2e8f0; text-align: center;">
+                    <a href="https://canopticon.com" style="color: #6366f1; text-decoration: none; font-size: 14px;">Read more on Canopticon</a>
+                </div>
+            </div>
+        `
+    })
+}
