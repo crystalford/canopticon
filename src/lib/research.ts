@@ -34,8 +34,10 @@ async function searchGeneric(query: string): Promise<string> {
     }
 }
 
+import { extractArticleContent } from './ingestion/manual-worker'
+
 /**
- * reliable free search using Google News RSS
+ * reliable free search using Google News RSS + Deep Content Fetch via Scraper
  */
 async function searchGoogleNewsRSS(query: string): Promise<string> {
     const GOOGLE_NEWS_RSS_BASE = 'https://news.google.com/rss/search?q='
@@ -49,20 +51,44 @@ async function searchGoogleNewsRSS(query: string): Promise<string> {
 
     if (items.length === 0) return `[No news found for: ${query}]`
 
-    const snippets = items.slice(0, 3).map(item => {
+    // Process top 3 items
+    const topItems = items.slice(0, 3).map(item => {
         const title = item.match(/<title>(.*?)<\/title>/)?.[1] || ''
         const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
         const link = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
 
-        // Description often contains HTML, strip it
         let description = item.match(/<description>(.*?)<\/description>/)?.[1] || ''
         description = description.replace(/<[^>]*>/g, '').replace('&nbsp;', ' ')
 
-        return `SOURCE: ${title}
-DATE: ${pubDate}
-LINK: ${link}
-SUMMARY: ${description}`
+        return { title, pubDate, link, description }
     })
 
-    return `--- INTELLIGENCE ON: "${query}" ---\n${snippets.join('\n\n')}`
+    // DEEP DIVE: Fetch full content for the top 2 results
+    const deepDivePromise = topItems.slice(0, 2).map(async (item) => {
+        try {
+            if (!item.link) return null
+            console.log(`[Research] Deep fetching: ${item.link}`)
+            const content = await extractArticleContent(item.link)
+            if (content && content.bodyText.length > 500) {
+                return {
+                    ...item,
+                    fullText: content.bodyText.slice(0, 5000) // 5KB limit per article
+                }
+            }
+        } catch (e) {
+            console.warn(`[Research] Failed to fetch content for ${item.link}`, e)
+        }
+        return item
+    })
+
+    const enrichedItems = await Promise.all(deepDivePromise)
+
+    return `--- INTELLIGENCE ON: "${query}" ---\n` + enrichedItems.map(item => {
+        if (!item) return ''
+        const content = item.fullText
+            ? `\n\n[FULL CONTENT EXTRACTED]:\n${item.fullText}\n`
+            : `\n\n[SNIPPET ONLY]: ${item.description}`
+
+        return `SOURCE: ${item.title}\nDATE: ${item.pubDate}\nLINK: ${item.link}${content}`
+    }).join('\n\n' + '='.repeat(40) + '\n\n')
 }
