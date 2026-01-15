@@ -115,7 +115,7 @@ Write the Deep Dive Report now.`
                 'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-                model: 'claude-3-opus-20240229', // Opus for maximum intelligence/writing capability
+                model: 'claude-3-5-sonnet-20240620', // Upgrade to Sonnet 3.5 for better performance
                 max_tokens: 4000,
                 messages: [{
                     role: 'system',
@@ -127,10 +127,19 @@ Write the Deep Dive Report now.`
             })
         })
 
+        if (!analysisResponse.ok) {
+            const err = await analysisResponse.text()
+            console.error('Anthropic API Error (Step 3):', err)
+            throw new Error(`AI Provider Error: ${analysisResponse.status}`)
+        }
+
         const analysisData = await analysisResponse.json()
         const analysis = analysisData.content?.[0]?.text
 
-        if (!analysis) throw new Error('Failed to generate analysis')
+        if (!analysis) {
+            console.error('Empty Analysis Response:', JSON.stringify(analysisData))
+            throw new Error('AI returned empty analysis')
+        }
 
         return NextResponse.json({
             success: true,
