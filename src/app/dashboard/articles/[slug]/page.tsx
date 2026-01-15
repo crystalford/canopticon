@@ -346,22 +346,51 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                                         accept="image/*"
                                         className="hidden"
                                         id="image-upload"
-                                        onChange={(e) => {
+                                        onChange={async (e) => {
                                             const file = e.target.files?.[0]
                                             if (!file) return
 
-                                            if (file.size > 1024 * 1024) {
-                                                alert('Image too large. Please use an image under 1MB.')
+                                            // Limit input to 10MB to prevent browser crash
+                                            if (file.size > 10 * 1024 * 1024) {
+                                                alert('Image too large. Please use an image under 10MB.')
                                                 return
                                             }
 
-                                            const reader = new FileReader()
-                                            reader.onload = (ev) => {
-                                                if (ev.target?.result) {
-                                                    setFeaturedImageUrl(ev.target.result as string)
+                                            // Client-side compression
+                                            try {
+                                                const img = document.createElement('img')
+                                                const canvas = document.createElement('canvas')
+                                                const ctx = canvas.getContext('2d')
+
+                                                img.src = URL.createObjectURL(file)
+
+                                                await new Promise((resolve) => { img.onload = resolve })
+
+                                                // Resize to max 1280px width
+                                                const MAX_WIDTH = 1280
+                                                let width = img.width
+                                                let height = img.height
+
+                                                if (width > MAX_WIDTH) {
+                                                    height = height * (MAX_WIDTH / width)
+                                                    width = MAX_WIDTH
                                                 }
+
+                                                canvas.width = width
+                                                canvas.height = height
+
+                                                if (ctx) {
+                                                    ctx.drawImage(img, 0, 0, width, height)
+                                                    // Compress to JPEG 80%
+                                                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+                                                    setFeaturedImageUrl(dataUrl)
+                                                }
+
+                                                URL.revokeObjectURL(img.src)
+                                            } catch (err) {
+                                                alert('Failed to process image')
+                                                console.error(err)
                                             }
-                                            reader.readAsDataURL(file)
                                         }}
                                     />
                                     <label
@@ -369,7 +398,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                                         className="w-full btn-secondary text-xs flex items-center justify-center gap-2 cursor-pointer"
                                     >
                                         <Upload className="w-4 h-4" />
-                                        Upload Image (Max 1MB)
+                                        Upload Image (Max 10MB)
                                     </label>
                                 </div>
                             </div>
