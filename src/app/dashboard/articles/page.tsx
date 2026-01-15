@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FileText, Edit, Eye, Filter, Calendar, List, Trash2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { FileText, Edit, Eye, Filter, Calendar, List, Trash2, Plus } from 'lucide-react'
 
 interface Article {
     id: string
@@ -72,6 +73,28 @@ export default function ArticlesPage() {
     }
 
 
+    const [creating, setCreating] = useState(false)
+    const router = useRouter()
+
+    // Create New Article Handler
+    const handleCreate = async () => {
+        setCreating(true)
+        try {
+            const res = await fetch('/api/articles/create', { method: 'POST' })
+            if (res.ok) {
+                const data = await res.json()
+                router.push(`/dashboard/articles/${data.slug}`)
+            } else {
+                alert('Failed to create new draft')
+                setCreating(false)
+            }
+        } catch (error) {
+            console.error(error)
+            alert('Error creating draft')
+            setCreating(false)
+        }
+    }
+
     return (
         <div className="space-y-8 relative">
             {/* Bulk Action Sticky Bar (only visible when items selected) */}
@@ -124,27 +147,44 @@ export default function ArticlesPage() {
                     <p className="text-slate-400 text-sm">Manage and publish synthesized briefs.</p>
                 </div>
 
-                <div className="flex items-center gap-3 bg-black/20 p-1 rounded-lg border border-white/10">
+                <div className="flex items-center gap-3">
                     <button
-                        onClick={() => setShowDrafts(!showDrafts)}
-                        className={`
-                            flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
-                            ${showDrafts
-                                ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30 shadow-[0_0_10px_rgba(14,165,233,0.1)]'
-                                : 'text-slate-500 hover:text-slate-300'
-                            }
-                        `}
+                        onClick={handleCreate}
+                        disabled={creating}
+                        className="btn-primary flex items-center gap-2 px-4 py-2"
                     >
-                        <Filter className="w-3 h-3" />
-                        {showDrafts ? 'Showing Drafts' : 'Published Only'}
+                        {creating ? (
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                            <Plus className="w-4 h-4" />
+                        )}
+                        New Article
                     </button>
-                    <div className="w-px h-4 bg-white/10" />
-                    <button
-                        onClick={handleSelectAll}
-                        className="px-3 text-xs text-slate-500 font-medium hover:text-white transition-colors"
-                    >
-                        {selectedIds.size === articles.length ? 'Deselect All' : 'Select All'}
-                    </button>
+
+                    <div className="w-px h-8 bg-white/10 mx-1" />
+
+                    <div className="flex items-center gap-3 bg-black/20 p-1 rounded-lg border border-white/10">
+                        <button
+                            onClick={() => setShowDrafts(!showDrafts)}
+                            className={`
+                                flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-all
+                                ${showDrafts
+                                    ? 'bg-primary-500/20 text-primary-400 border border-primary-500/30 shadow-[0_0_10px_rgba(14,165,233,0.1)]'
+                                    : 'text-slate-500 hover:text-slate-300'
+                                }
+                            `}
+                        >
+                            <Filter className="w-3 h-3" />
+                            {showDrafts ? 'Sort: Drafts' : 'Sort: Published'}
+                        </button>
+                        <div className="w-px h-4 bg-white/10" />
+                        <button
+                            onClick={handleSelectAll}
+                            className="px-3 text-xs text-slate-500 font-medium hover:text-white transition-colors"
+                        >
+                            {selectedIds.size === articles.length ? 'Deselect All' : 'Select All'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
