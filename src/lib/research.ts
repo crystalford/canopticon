@@ -68,7 +68,20 @@ async function searchGoogleNewsRSS(query: string): Promise<string> {
         try {
             if (!item.link) return null
             console.log(`[Research] Deep fetching: ${item.link}`)
-            const content = await extractArticleContent(item.link)
+
+            // Add 5s timeout to avoid hanging the entire request
+            const timeoutPromise = new Promise<{ bodyText: string } | null>((_, reject) =>
+                setTimeout(() => resolveTimeout(null), 5000)
+            )
+            const resolveTimeout = (val: any) => val // helper
+
+            const contentPromise = extractArticleContent(item.link)
+
+            const content = await Promise.race([
+                contentPromise,
+                new Promise<null>(r => setTimeout(() => r(null), 5000))
+            ])
+
             if (content && content.bodyText.length > 500) {
                 return {
                     ...item,

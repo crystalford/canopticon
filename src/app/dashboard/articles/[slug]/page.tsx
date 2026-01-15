@@ -259,234 +259,238 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                             className="w-full bg-transparent border-none text-3xl font-bold text-white placeholder-slate-600 px-6 py-4 focus:ring-0 focus:outline-none"
                             placeholder="Article Headline..."
                         />
-                        <div className="border-t border-white/5">
+                        <div className="min-h-[500px] mb-8">
                             <TipTapEditor
                                 content={content}
-                                onChange={setContent}
+                                onChange={handleContentChange}
+                                editable={true}
+                            />
+                        </div>
+
+                        {/* AI Forensic Tools Section */}
+                        <div className="mb-10">
+                            <ForensicTool
+                                editorContent={content || ''}
+                                headline={headline}
                             />
                         </div>
                     </div>
-                </div>
 
-                <div className="space-y-6">
-                    {/* Reading Time */}
-                    <div className="glass-panel p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-slate-400">
-                            <Clock className="w-4 h-4" />
-                            <span className="text-sm">Reading Time</span>
-                        </div>
-                        <span className="text-white font-bold">{calculateReadingTime(content)} min</span>
-                    </div>
-
-                    <div className="glass-panel p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                <Globe className="w-4 h-4" />
-                                Metadata & SEO
-                            </h3>
-                            <button
-                                onClick={handleAutoFillMetadata}
-                                className="text-xs text-primary-400 hover:text-primary-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-primary-500/10 transition-colors"
-                                title="Auto-fill from content"
-                            >
-                                <Wand2 className="w-3 h-3" />
-                                Auto-fill
-                            </button>
+                    <div className="space-y-6">
+                        {/* Reading Time */}
+                        <div className="glass-panel p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-slate-400">
+                                <Clock className="w-4 h-4" />
+                                <span className="text-sm">Reading Time</span>
+                            </div>
+                            <span className="text-white font-bold">{calculateReadingTime(content)} min</span>
                         </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-slate-400 text-xs font-medium mb-1.5 block">Excerpt</label>
-                                <textarea
-                                    value={excerpt}
-                                    onChange={(e) => setExcerpt(e.target.value)}
-                                    className="input min-h-[100px] text-sm leading-relaxed bg-black/40"
-                                    placeholder="Brief summary for previews..."
-                                />
+                        <div className="glass-panel p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                    <Globe className="w-4 h-4" />
+                                    Metadata & SEO
+                                </h3>
+                                <button
+                                    onClick={handleAutoFillMetadata}
+                                    className="text-xs text-primary-400 hover:text-primary-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-primary-500/10 transition-colors"
+                                    title="Auto-fill from content"
+                                >
+                                    <Wand2 className="w-3 h-3" />
+                                    Auto-fill
+                                </button>
                             </div>
 
-                            <div>
-                                <label className="text-slate-400 text-xs font-medium mb-1.5 block">
-                                    Meta Description
-                                    <span className={`ml-2 ${metaDescription.length > 160 ? 'text-red-400' : 'text-slate-600'}`}>
-                                        {metaDescription.length}/160
-                                    </span>
-                                </label>
-                                <textarea
-                                    value={metaDescription}
-                                    onChange={(e) => setMetaDescription(e.target.value.slice(0, 170))}
-                                    className="input min-h-[80px] text-sm"
-                                    placeholder="Search engine description..."
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="glass-panel p-6">
-                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <ImageIcon className="w-4 h-4" />
-                            Media
-                        </h3>
-                        <div>
-                            <label className="text-slate-400 text-xs font-medium mb-1.5 block">Featured Image</label>
-
-                            <div className="space-y-3">
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={featuredImageUrl}
-                                        onChange={(e) => setFeaturedImageUrl(e.target.value)}
-                                        className="input text-sm"
-                                        placeholder="https://... or upload image"
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-slate-400 text-xs font-medium mb-1.5 block">Excerpt</label>
+                                    <textarea
+                                        value={excerpt}
+                                        onChange={(e) => setExcerpt(e.target.value)}
+                                        className="input min-h-[100px] text-sm leading-relaxed bg-black/40"
+                                        placeholder="Brief summary for previews..."
                                     />
                                 </div>
 
-                                <div className="relative">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        id="image-upload"
-                                        onChange={async (e) => {
-                                            const file = e.target.files?.[0]
-                                            if (!file) return
-
-                                            // Limit input to 10MB to prevent browser crash
-                                            if (file.size > 10 * 1024 * 1024) {
-                                                alert('Image too large. Please use an image under 10MB.')
-                                                return
-                                            }
-
-                                            // Client-side compression
-                                            try {
-                                                const img = document.createElement('img')
-                                                const canvas = document.createElement('canvas')
-                                                const ctx = canvas.getContext('2d')
-
-                                                img.src = URL.createObjectURL(file)
-
-                                                await new Promise((resolve) => { img.onload = resolve })
-
-                                                // Resize to max 1280px width
-                                                const MAX_WIDTH = 1280
-                                                let width = img.width
-                                                let height = img.height
-
-                                                if (width > MAX_WIDTH) {
-                                                    height = height * (MAX_WIDTH / width)
-                                                    width = MAX_WIDTH
-                                                }
-
-                                                canvas.width = width
-                                                canvas.height = height
-
-                                                if (ctx) {
-                                                    ctx.drawImage(img, 0, 0, width, height)
-                                                    // Compress to JPEG 80%
-                                                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-                                                    setFeaturedImageUrl(dataUrl)
-                                                }
-
-                                                URL.revokeObjectURL(img.src)
-                                            } catch (err) {
-                                                alert('Failed to process image')
-                                                console.error(err)
-                                            }
-                                        }}
-                                    />
-                                    <label
-                                        htmlFor="image-upload"
-                                        className="w-full btn-secondary text-xs flex items-center justify-center gap-2 cursor-pointer"
-                                    >
-                                        <Upload className="w-4 h-4" />
-                                        Upload Image (Max 10MB)
+                                <div>
+                                    <label className="text-slate-400 text-xs font-medium mb-1.5 block">
+                                        Meta Description
+                                        <span className={`ml-2 ${metaDescription.length > 160 ? 'text-red-400' : 'text-slate-600'}`}>
+                                            {metaDescription.length}/160
+                                        </span>
                                     </label>
+                                    <textarea
+                                        value={metaDescription}
+                                        onChange={(e) => setMetaDescription(e.target.value.slice(0, 170))}
+                                        className="input min-h-[80px] text-sm"
+                                        placeholder="Search engine description..."
+                                    />
                                 </div>
                             </div>
+                        </div>
 
-                            {featuredImageUrl && (
-                                <div className="mt-3 relative aspect-video rounded-lg overflow-hidden border border-white/10 group">
-                                    <img src={featuredImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                        <div className="glass-panel p-6">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <ImageIcon className="w-4 h-4" />
+                                Media
+                            </h3>
+                            <div>
+                                <label className="text-slate-400 text-xs font-medium mb-1.5 block">Featured Image</label>
+
+                                <div className="space-y-3">
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={featuredImageUrl}
+                                            onChange={(e) => setFeaturedImageUrl(e.target.value)}
+                                            className="input text-sm"
+                                            placeholder="https://... or upload image"
+                                        />
+                                    </div>
+
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            id="image-upload"
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0]
+                                                if (!file) return
+
+                                                // Limit input to 10MB to prevent browser crash
+                                                if (file.size > 10 * 1024 * 1024) {
+                                                    alert('Image too large. Please use an image under 10MB.')
+                                                    return
+                                                }
+
+                                                // Client-side compression
+                                                try {
+                                                    const img = document.createElement('img')
+                                                    const canvas = document.createElement('canvas')
+                                                    const ctx = canvas.getContext('2d')
+
+                                                    img.src = URL.createObjectURL(file)
+
+                                                    await new Promise((resolve) => { img.onload = resolve })
+
+                                                    // Resize to max 1280px width
+                                                    const MAX_WIDTH = 1280
+                                                    let width = img.width
+                                                    let height = img.height
+
+                                                    if (width > MAX_WIDTH) {
+                                                        height = height * (MAX_WIDTH / width)
+                                                        width = MAX_WIDTH
+                                                    }
+
+                                                    canvas.width = width
+                                                    canvas.height = height
+
+                                                    if (ctx) {
+                                                        ctx.drawImage(img, 0, 0, width, height)
+                                                        // Compress to JPEG 80%
+                                                        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+                                                        setFeaturedImageUrl(dataUrl)
+                                                    }
+
+                                                    URL.revokeObjectURL(img.src)
+                                                } catch (err) {
+                                                    alert('Failed to process image')
+                                                    console.error(err)
+                                                }
+                                            }}
+                                        />
+                                        <label
+                                            htmlFor="image-upload"
+                                            className="w-full btn-secondary text-xs flex items-center justify-center gap-2 cursor-pointer"
+                                        >
+                                            <Upload className="w-4 h-4" />
+                                            Upload Image (Max 10MB)
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {featuredImageUrl && (
+                                    <div className="mt-3 relative aspect-video rounded-lg overflow-hidden border border-white/10 group">
+                                        <img src={featuredImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                        <button
+                                            onClick={() => setFeaturedImageUrl('')}
+                                            className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="glass-panel p-6">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
+                                AI Tools
+                            </h3>
+
+
+                            <div className="mt-6 pt-6 border-t border-white/10">
+                                <button
+                                    onClick={handleGenerateVideoScript}
+                                    disabled={generatingScript}
+                                    className="w-full flex items-center justify-between p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400 group-hover:scale-110 transition-transform">
+                                            <Video className="w-5 h-5" />
+                                        </div>
+                                        <div className="text-left">
+                                            <div className="font-bold text-white">Video Script</div>
+                                            <div className="text-xs text-slate-400">Generate 60s TikTok script</div>
+                                        </div>
+                                    </div>
+                                    {generatingScript ? (
+                                        <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+                                    ) : (
+                                        <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-white transition-colors" />
+                                    )}
+                                </button>
+                            </div>
+
+                            {videoScript && (
+                                <div className="space-y-4 mt-6">
+                                    <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-xs text-green-300 flex items-center gap-2">
+                                        <Video className="w-3 h-3" />
+                                        Script Generated
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="text-xs font-bold text-slate-500">HOOK</div>
+                                        <div className="p-3 rounded-lg bg-black/40 text-sm text-white italic border border-white/5">
+                                            "{videoScript.hook}"
+                                        </div>
+
+                                        <div className="text-xs font-bold text-slate-500">Body</div>
+                                        <div className="p-3 rounded-lg bg-black/40 text-sm text-slate-300 border border-white/5 max-h-[150px] overflow-y-auto whitespace-pre-wrap">
+                                            {videoScript.body}
+                                        </div>
+
+                                        <div className="text-xs font-bold text-slate-500">CTA</div>
+                                        <div className="p-3 rounded-lg bg-black/40 text-sm text-white italic border border-white/5">
+                                            "{videoScript.callToAction}"
+                                        </div>
+                                    </div>
                                     <button
-                                        onClick={() => setFeaturedImageUrl('')}
-                                        className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(JSON.stringify(videoScript, null, 2))
+                                            alert('Script copied to clipboard!')
+                                        }}
+                                        className="w-full btn-secondary text-xs"
                                     >
-                                        <X className="w-4 h-4" />
+                                        Copy Full Script JSON
                                     </button>
                                 </div>
                             )}
                         </div>
                     </div>
-
-                    <div className="glass-panel p-6">
-                        <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
-                            AI Tools
-                        </h3>
-
-                        <ForensicTool
-                            editorContent={content || ''}
-                            headline={headline}
-                        />
-
-                        <div className="mt-6 pt-6 border-t border-white/10">
-                            <button
-                                onClick={handleGenerateVideoScript}
-                                disabled={generatingScript}
-                                className="w-full flex items-center justify-between p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-all group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400 group-hover:scale-110 transition-transform">
-                                        <Video className="w-5 h-5" />
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="font-bold text-white">Video Script</div>
-                                        <div className="text-xs text-slate-400">Generate 60s TikTok script</div>
-                                    </div>
-                                </div>
-                                {generatingScript ? (
-                                    <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
-                                ) : (
-                                    <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-white transition-colors" />
-                                )}
-                            </button>
-                        </div>
-
-                        {videoScript && (
-                            <div className="space-y-4 mt-6">
-                                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-xs text-green-300 flex items-center gap-2">
-                                    <Video className="w-3 h-3" />
-                                    Script Generated
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="text-xs font-bold text-slate-500">HOOK</div>
-                                    <div className="p-3 rounded-lg bg-black/40 text-sm text-white italic border border-white/5">
-                                        "{videoScript.hook}"
-                                    </div>
-
-                                    <div className="text-xs font-bold text-slate-500">Body</div>
-                                    <div className="p-3 rounded-lg bg-black/40 text-sm text-slate-300 border border-white/5 max-h-[150px] overflow-y-auto whitespace-pre-wrap">
-                                        {videoScript.body}
-                                    </div>
-
-                                    <div className="text-xs font-bold text-slate-500">CTA</div>
-                                    <div className="p-3 rounded-lg bg-black/40 text-sm text-white italic border border-white/5">
-                                        "{videoScript.callToAction}"
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(JSON.stringify(videoScript, null, 2))
-                                        alert('Script copied to clipboard!')
-                                    }}
-                                    className="w-full btn-secondary text-xs"
-                                >
-                                    Copy Full Script JSON
-                                </button>
-                            </div>
-                        )}
-                    </div>
                 </div>
             </div>
-        </div>
-    )
+            )
 }
