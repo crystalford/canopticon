@@ -19,6 +19,44 @@ interface Article {
 export default function ArticlesPage() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
     const [actionLoading, setActionLoading] = useState(false)
+    const [articles, setArticles] = useState<Article[]>([])
+    const [loading, setLoading] = useState(true)
+    const [showDrafts, setShowDrafts] = useState(true)
+
+    useEffect(() => {
+        fetchArticles()
+    }, [showDrafts])
+
+    const fetchArticles = async () => {
+        setLoading(true)
+        try {
+            const params = new URLSearchParams()
+            if (showDrafts) params.set('drafts', 'true')
+            const res = await fetch(`/api/articles?${params}`)
+            const data = await res.json()
+            setArticles(data.articles || [])
+        } catch (error) {
+            console.error('Failed to fetch articles:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleDelete = async (slug: string, e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!confirm('Permanently delete this article?')) return
+        try {
+            const res = await fetch(`/api/articles/${slug}`, { method: 'DELETE' })
+            if (res.ok) {
+                fetchArticles()
+            } else {
+                alert('Failed to delete article')
+            }
+        } catch (error) {
+            alert('Error deleting article')
+        }
+    }
 
     // Handle "Select All"
     const handleSelectAll = () => {
