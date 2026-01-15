@@ -67,9 +67,9 @@ export async function PATCH(
 
         console.log('PATCH /api/articles/[slug]:', { slug, body })
 
-        // Sanitize dates - convert Date objects to proper timestamp format
+        // Sanitize dates - need to convert ISO strings to Date objects for database
         const sanitizedBody = { ...body }
-        if (sanitizedBody.publishedAt && typeof sanitizedBody.publishedAt === 'object') {
+        if (sanitizedBody.publishedAt) {
             sanitizedBody.publishedAt = new Date(sanitizedBody.publishedAt)
         }
 
