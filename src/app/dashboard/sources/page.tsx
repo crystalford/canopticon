@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Database, RefreshCw, Power, Trash2 } from 'lucide-react'
 
 interface Source {
     id: string
@@ -55,9 +56,8 @@ export default function SourcesPage() {
             const data = await res.json()
 
             if (res.ok) {
-                setMessage({ type: 'success', text: 'Article ingested successfully! Check the dashboard.' })
+                setMessage({ type: 'success', text: 'Article ingested successfully!' })
                 setManualUrl('')
-                // Refresh sources to see the "Manual Submission" source if it was just created
                 fetchSources()
             } else {
                 setMessage({ type: 'error', text: data.error || 'Failed to ingest article' })
@@ -71,89 +71,26 @@ export default function SourcesPage() {
 
     const disableSource = async (id: string) => {
         try {
-            const res = await fetch(`/api/sources/${id}/disable`, { method: 'POST' })
-            if (res.ok) {
-                fetchSources()
-            }
+            await fetch(`/api/sources/${id}/disable`, { method: 'POST' })
+            fetchSources()
         } catch (error) {
             console.error('Failed to disable source:', error)
         }
     }
 
-    const syncSource = async (source: Source, limit: number) => {
-        // Supported sources for manual sync
-        const isParliament = source.name.includes('Parliament')
-        const isPMO = source.name.includes('PMO')
-
-        if (!isParliament && !isPMO) return
-
-        setMessage({ type: 'success', text: `Syncing ${source.name} (Limit: ${limit})...` })
-        setSubmitting(true)
-
-        try {
-            const endpoint = isPMO ? '/api/ingest/pmo' : '/api/ingest/parliament'
-
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ limit }),
-            })
-            const data = await res.json()
-
-            if (res.ok) {
-                // Determine stats display based on worker response structure
-                const ingested = data.stats?.ingested || 0
-                // PMO worker stats structure might differ slightly? No, I standardized it.
-                // But pmo-worker doesn't return `pipeline` stats yet unless I uncommented `processArticle`.
-                // In pmo-worker I *did* call processArticle.
-                // wait, pmo-worker returns { processed, ingested, skipped, errors }
-                // it does NOT return "pipeline" stats in the return type, but processArticle returns PipelineResult.
-                // pmo-worker just "awaits" processArticle but doesn't aggregate the pipeline stats into the return object yet?
-                // Actually looking at pmo-worker.ts, I just return `stats` object { processed, ingested... }.
-
-                setMessage({
-                    type: 'success',
-                    text: `Sync complete: ${ingested} ingested.`
-                })
-            } else {
-                setMessage({ type: 'error', text: data.error || 'Sync failed' })
-            }
-        } catch (error) {
-            setMessage({ type: 'error', text: 'Sync failed' })
-        } finally {
-            setSubmitting(false)
-        }
-    }
-
     return (
-        <div>
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Sources</h1>
-                    <p className="text-slate-600 dark:text-slate-400 mt-1">Manage ingestion sources</p>
-                </div>
-                <button
-                    onClick={async () => {
-                        if (!confirm('Initialize default sources (Parliament)?')) return
-                        setMessage({ type: 'success', text: 'Initializing...' })
-                        try {
-                            // Triggering the parliament endpoint ensures it exists
-                            await fetch('/api/ingest/parliament', { method: 'POST' })
-                            fetchSources()
-                            setMessage({ type: 'success', text: 'Sources initialized' })
-                        } catch (e) {
-                            setMessage({ type: 'error', text: 'Failed to initialize' })
-                        }
-                    }}
-                    className="btn-secondary text-sm"
-                >
-                    Initialize Defaults
-                </button>
+        <div className="space-y-8">
+            <div className="pb-6 border-b border-white/5">
+                <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Sources</h1>
+                <p className="text-slate-400 text-sm">Manage ingestion sources</p>
             </div>
 
-            {/* Manual Ingestion Form */}
-            <div className="card p-6 mb-8 border-l-4 border-l-primary-500">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Manual Ingestion</h2>
+            {/* Manual Ingestion */}
+            <div className="glass-panel p-6 border-l-2 border-primary-500">
+                <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Database className="w-5 h-5 text-primary-400" />
+                    Manual Ingestion
+                </h2>
                 <form onSubmit={handleManualSubmit} className="flex gap-4">
                     <input
                         type="url"
@@ -173,129 +110,62 @@ export default function SourcesPage() {
                 </form>
                 {message && (
                     <div className={`mt-4 p-3 rounded-lg text-sm ${message.type === 'success'
-                        ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                        : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                        ? 'bg-green-500/10 text-green-300 border border-green-500/20'
+                        : 'bg-red-500/10 text-red-300 border border-red-500/20'
                         }`}>
                         {message.text}
                     </div>
                 )}
             </div>
 
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Configured Sources</h2>
+            {/* Configured Sources */}
+            <div>
+                <h2 className="text-lg font-semibold text-white mb-4">Configured Sources</h2>
 
-            {loading ? (
-                <div className="card p-8 text-center">
-                    <div className="animate-pulse-subtle text-slate-500">Loading sources...</div>
-                </div>
-            ) : sources.length === 0 ? (
-                <div className="card p-8 text-center">
-                    <p className="text-slate-500 dark:text-slate-400">No sources configured</p>
-                    <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
-                        Sources will be added automatically when workers run
-                    </p>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    {sources.map(source => (
-                        <div key={source.id} className="card p-4">
-                            <div className="flex justify-between items-start">
+                {loading ? (
+                    <div className="glass-panel p-8 text-center">
+                        <div className="text-slate-400">Loading sources...</div>
+                    </div>
+                ) : sources.length === 0 ? (
+                    <div className="glass-panel p-8 text-center">
+                        <Database className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                        <p className="text-slate-400">No sources configured</p>
+                        <p className="text-sm text-slate-500 mt-1">
+                            Sources will be added automatically when workers run
+                        </p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {sources.map(source => (
+                            <div key={source.id} className="glass-card p-4 flex items-center justify-between">
                                 <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <h3 className="font-medium text-slate-900 dark:text-white">{source.name}</h3>
+                                    <div className="flex items-center gap-3 mb-1">
+                                        <h3 className="font-medium text-white">{source.name}</h3>
                                         {source.isActive ? (
-                                            <span className="badge status-approved">Active</span>
+                                            <span className="px-2 py-0.5 rounded text-[10px] bg-green-500/10 text-green-400 border border-green-500/20">
+                                                Active
+                                            </span>
                                         ) : (
-                                            <span className="badge status-archived">Disabled</span>
+                                            <span className="px-2 py-0.5 rounded text-[10px] bg-slate-500/10 text-slate-500 border border-slate-500/20">
+                                                Disabled
+                                            </span>
                                         )}
                                     </div>
-                                    <div className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
-                                        <p>Protocol: {source.protocol}</p>
-                                        <p>Endpoint: <code className="text-xs bg-slate-100 dark:bg-slate-700 px-1 rounded">{source.endpoint}</code></p>
-                                        <p>Polling: {source.pollingInterval}</p>
-                                        <p>Reliability: {source.reliabilityWeight}/100</p>
-                                    </div>
+                                    <p className="text-xs text-slate-500 font-mono truncate">
+                                        {source.endpoint}
+                                    </p>
                                 </div>
-                                <div className="ml-4 flex gap-2">
-                                    {(source.name.includes('Parliament') || source.name.includes('PMO')) && (
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                max="100"
-                                                defaultValue="10"
-                                                className="input w-20 py-1 px-2 text-sm"
-                                                id={`limit-${source.id}`}
-                                            />
-                                            <button
-                                                onClick={() => {
-                                                    const limitInput = document.getElementById(`limit-${source.id}`) as HTMLInputElement
-                                                    syncSource(source, parseInt(limitInput.value) || 10)
-                                                }}
-                                                disabled={submitting}
-                                                className="btn-secondary text-sm"
-                                            >
-                                                Sync Now
-                                            </button>
-                                        </div>
-                                    )}
-                                    {source.isActive && (
-                                        <button
-                                            onClick={() => disableSource(source.id)}
-                                            className="btn-danger text-sm"
-                                        >
-                                            Disable
-                                        </button>
-                                    )}
-                                </div>
+                                <button
+                                    onClick={() => disableSource(source.id)}
+                                    className="p-2 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                    title="Disable Source"
+                                >
+                                    <Power className="w-4 h-4" />
+                                </button>
                             </div>
-                            <p className="text-xs text-slate-400 mt-3">
-                                Last updated: {new Date(source.updatedAt).toLocaleString()}
-                            </p>
-                        </div>
-                    ))}
-                </div>
-            )}
-            {/* Danger Zone */}
-            <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-semibold text-red-600 mb-4">Danger Zone</h3>
-                <div className="card p-6 border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h4 className="font-medium text-red-900 dark:text-red-200">Purge All Data</h4>
-                            <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                                Delete all signals, articles, and logs. This cannot be undone.
-                                Use this to reset the system for a fresh ingestion.
-                            </p>
-                        </div>
-                        <button
-                            onClick={async () => {
-                                if (confirm('ARE YOU SURE? This will delete ALL data (signals, articles, clusters).')) {
-                                    if (confirm('Really clean everything?')) {
-                                        setSubmitting(true)
-                                        setMessage({ type: 'success', text: 'Purging data...' })
-                                        try {
-                                            const res = await fetch('/api/admin/purge', { method: 'POST' })
-                                            if (res.ok) {
-                                                setMessage({ type: 'success', text: 'Data purged successfully. You can now re-sync.' })
-                                                fetchSources()
-                                            } else {
-                                                setMessage({ type: 'error', text: 'Purge failed' })
-                                            }
-                                        } catch (e) {
-                                            setMessage({ type: 'error', text: 'Purge failed' })
-                                        } finally {
-                                            setSubmitting(false)
-                                        }
-                                    }
-                                }
-                            }}
-                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
-                            disabled={submitting}
-                        >
-                            {submitting ? 'Purging...' : 'Purge All Data'}
-                        </button>
+                        ))}
                     </div>
-                </div>
+                )}
             </div>
         </div>
     )

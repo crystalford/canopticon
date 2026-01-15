@@ -1,7 +1,7 @@
-
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Key, CheckCircle, XCircle } from 'lucide-react'
 
 export default function SettingsPage() {
     const [provider, setProvider] = useState('openai')
@@ -39,7 +39,7 @@ export default function SettingsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     provider,
-                    openai_key: inputs.openai_key || undefined, // Only send if changed
+                    openai_key: inputs.openai_key || undefined,
                     anthropic_key: inputs.anthropic_key || undefined,
                     grok_key: inputs.grok_key || undefined,
                     gemini_key: inputs.gemini_key || undefined,
@@ -48,8 +48,8 @@ export default function SettingsPage() {
 
             if (res.ok) {
                 setMessage({ type: 'success', text: 'Settings saved successfully' })
-                setInputs({ openai_key: '', anthropic_key: '', grok_key: '', gemini_key: '' }) // Clear inputs
-                fetchSettings() // Refresh status
+                setInputs({ openai_key: '', anthropic_key: '', grok_key: '', gemini_key: '' })
+                fetchSettings()
             } else {
                 setMessage({ type: 'error', text: 'Failed to save settings' })
             }
@@ -60,175 +60,102 @@ export default function SettingsPage() {
         }
     }
 
-    if (loading) return <div className="p-8 text-center text-slate-500">Loading settings...</div>
+    if (loading) return <div className="p-8 text-center text-slate-400">Loading settings...</div>
 
     return (
-        <div className="max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">System Settings</h1>
-            <p className="text-slate-600 dark:text-slate-400 mb-8">Configure AI providers and system parameters.</p>
+        <div className="space-y-8 max-w-4xl">
+            <div className="pb-6 border-b border-white/5">
+                <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">System Settings</h1>
+                <p className="text-slate-400 text-sm">Configure AI providers and system parameters.</p>
+            </div>
 
-            <form onSubmit={handleSave} className="card p-6 space-y-8">
+            <form onSubmit={handleSave} className="space-y-8">
                 {/* Provider Selection */}
-                <div>
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">AI Provider</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <label className={`
-                            cursor-pointer p-4 rounded-lg border-2 transition-all block
-                            ${provider === 'openai'
-                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'}
-                        `}>
-                            <input
-                                type="radio"
-                                name="provider"
-                                value="openai"
-                                checked={provider === 'openai'}
-                                onChange={(e) => setProvider(e.target.value)}
-                                className="sr-only"
-                            />
-                            <div className="font-medium text-slate-900 dark:text-white">OpenAI</div>
-                            <div className="text-sm text-slate-500">GPT-4o, GPT-4o-mini</div>
-                        </label>
-
-                        <label className={`
-                            cursor-pointer p-4 rounded-lg border-2 transition-all block
-                            ${provider === 'anthropic'
-                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'}
-                        `}>
-                            <input
-                                type="radio"
-                                name="provider"
-                                value="anthropic"
-                                checked={provider === 'anthropic'}
-                                onChange={(e) => setProvider(e.target.value)}
-                                className="sr-only"
-                            />
-                            <div className="font-medium text-slate-900 dark:text-white">Anthropic</div>
-                            <div className="text-sm text-slate-500">Claude 3.5 Sonnet</div>
-                        </label>
-
-                        <label className={`
-                            cursor-pointer p-4 rounded-lg border-2 transition-all block
-                            ${provider === 'grok'
-                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'}
-                        `}>
-                            <input
-                                type="radio"
-                                name="provider"
-                                value="grok"
-                                checked={provider === 'grok'}
-                                onChange={(e) => setProvider(e.target.value)}
-                                className="sr-only"
-                            />
-                            <div className="font-medium text-slate-900 dark:text-white">xAI (Grok)</div>
-                            <div className="text-sm text-slate-500">Grok Beta</div>
-                        </label>
-
-                        <label className={`
-                            cursor-pointer p-4 rounded-lg border-2 transition-all block
-                            ${provider === 'gemini'
-                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                                : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'}
-                        `}>
-                            <input
-                                type="radio"
-                                name="provider"
-                                value="gemini"
-                                checked={provider === 'gemini'}
-                                onChange={(e) => setProvider(e.target.value)}
-                                className="sr-only"
-                            />
-                            <div className="font-medium text-slate-900 dark:text-white">Google Gemini</div>
-                            <div className="text-sm text-slate-500">Gemini 2.5 Flash (FREE)</div>
-                        </label>
+                <div className="glass-panel p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">AI Provider</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {[
+                            { value: 'openai', name: 'OpenAI', desc: 'GPT-4o, GPT-4o-mini' },
+                            { value: 'anthropic', name: 'Anthropic', desc: 'Claude 3.5 Sonnet' },
+                            { value: 'grok', name: 'xAI (Grok)', desc: 'Grok Beta' },
+                            { value: 'gemini', name: 'Google Gemini', desc: 'Gemini 2.5 Flash (FREE)' },
+                        ].map(p => (
+                            <label key={p.value} className={`
+                                cursor-pointer p-4 rounded-lg border-2 transition-all block
+                                ${provider === p.value
+                                    ? 'border-primary-500 bg-primary-500/10'
+                                    : 'border-white/10 hover:border-white/20'}
+                            `}>
+                                <input
+                                    type="radio"
+                                    name="provider"
+                                    value={p.value}
+                                    checked={provider === p.value}
+                                    onChange={(e) => setProvider(e.target.value)}
+                                    className="sr-only"
+                                />
+                                <div className="font-medium text-white">{p.name}</div>
+                                <div className="text-sm text-slate-400">{p.desc}</div>
+                            </label>
+                        ))}
                     </div>
                 </div>
 
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-6"></div>
-
                 {/* API Keys */}
-                <div>
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">API Keys</h3>
-                    <p className="text-sm text-slate-500 mb-6">
-                        Enter keys for the providers you wish to use. Keys are encrypted at rest.
-                        Leave blank to keep existing keys.
+                <div className="glass-panel p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <Key className="w-5 h-5 text-primary-400" />
+                        API Keys
+                    </h3>
+                    <p className="text-sm text-slate-400 mb-6">
+                        Enter API keys for the providers you wish to use. Keys are encrypted at rest. Leave blank to keep existing keys.
                     </p>
 
                     <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                OpenAI API Key
-                                {status.openai && <span className="ml-2 text-xs text-green-600 font-normal">✓ Configured</span>}
-                            </label>
-                            <input
-                                type="password"
-                                value={inputs.openai_key}
-                                onChange={(e) => setInputs({ ...inputs, openai_key: e.target.value })}
-                                placeholder={status.openai ? '••••••••••••••••' : 'sk-...'}
-                                className="input w-full max-w-lg"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Anthropic API Key
-                                {status.anthropic && <span className="ml-2 text-xs text-green-600 font-normal">✓ Configured</span>}
-                            </label>
-                            <input
-                                type="password"
-                                value={inputs.anthropic_key}
-                                onChange={(e) => setInputs({ ...inputs, anthropic_key: e.target.value })}
-                                placeholder={status.anthropic ? '••••••••••••••••' : 'sk-ant-...'}
-                                className="input w-full max-w-lg"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Grok (xAI) API Key
-                                {status.grok && <span className="ml-2 text-xs text-green-600 font-normal">✓ Configured</span>}
-                            </label>
-                            <input
-                                type="password"
-                                value={inputs.grok_key}
-                                onChange={(e) => setInputs({ ...inputs, grok_key: e.target.value })}
-                                placeholder={status.grok ? '••••••••••••••••' : 'xai-...'}
-                                className="input w-full max-w-lg"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                                Gemini API Key
-                                {status.gemini && <span className="ml-2 text-xs text-green-600 font-normal">✓ Configured</span>}
-                            </label>
-                            <input
-                                type="password"
-                                value={inputs.gemini_key}
-                                onChange={(e) => setInputs({ ...inputs, gemini_key: e.target.value })}
-                                placeholder={status.gemini ? '••••••••••••••••' : 'AIza...'}
-                                className="input w-full max-w-lg"
-                            />
-                        </div>
+                        {[
+                            { key: 'openai_key', label: 'OpenAI API Key', status: status.openai },
+                            { key: 'anthropic_key', label: 'Anthropic API Key', status: status.anthropic },
+                            { key: 'grok_key', label: 'xAI API Key', status: status.grok },
+                            { key: 'gemini_key', label: 'Gemini API Key', status: status.gemini },
+                        ].map(field => (
+                            <div key={field.key}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="text-sm font-medium text-slate-300">{field.label}</label>
+                                    {field.status ? (
+                                        <span className="flex items-center gap-1 text-xs text-green-400">
+                                            <CheckCircle className="w-3 h-3" /> Configured
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                                            <XCircle className="w-3 h-3" /> Not Set
+                                        </span>
+                                    )}
+                                </div>
+                                <input
+                                    type="password"
+                                    value={inputs[field.key as keyof typeof inputs]}
+                                    onChange={(e) => setInputs({ ...inputs, [field.key]: e.target.value })}
+                                    placeholder="sk-..."
+                                    className="input w-full font-mono text-sm"
+                                />
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                <div className="pt-4 flex items-center gap-4">
-                    <button
-                        type="submit"
-                        disabled={saving}
-                        className="btn-primary px-8"
-                    >
-                        {saving ? 'Saving...' : 'Save Settings'}
-                    </button>
+                {/* Save Button */}
+                <div className="flex items-center justify-between">
                     {message && (
-                        <span className={`text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'
+                        <div className={`px-4 py-2 rounded-lg text-sm ${message.type === 'success'
+                            ? 'bg-green-500/10 text-green-300 border border-green-500/20'
+                            : 'bg-red-500/10 text-red-300 border border-red-500/20'
                             }`}>
                             {message.text}
-                        </span>
+                        </div>
                     )}
+                    <button type="submit" disabled={saving} className="btn-primary ml-auto">
+                        {saving ? 'Saving...' : 'Save Settings'}
+                    </button>
                 </div>
             </form>
         </div>
