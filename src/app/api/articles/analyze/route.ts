@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
         if (analysisRes.error) console.error('[Forensic Debug] Analysis Error:', analysisRes.error)
 
         const rawText = analysisRes.data || ''
-        console.log('[Forensic Debug] Preview:', rawText.substring(0, 100))
+        console.log('[Forensic Debug] Raw Text Length:', rawText.length)
+        console.log('[Forensic Debug] Preview:', rawText.substring(0, 200))
 
         // Extract XML content
         const match = rawText.match(/<report>([\s\S]*)<\/report>/i)
