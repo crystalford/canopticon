@@ -74,10 +74,8 @@ export async function runPMOWorker(sourceId: string, limit: number = 10): Promis
                 stats.ingested++
 
                 // Trigger pipeline immediately for this article?
-                // For manual verification phase, we usually wait, but let's stick to the pattern.
-                // The user's goal is automation, but with manual oversight.
-                // "Fail-open" pipeline creates pending signals.
-                await processArticle(article.id)
+                // DISABLED: We want these to go to the Wire Service Feed for manual review.
+                // await processArticle(article.id)
 
             } catch (error) {
                 stats.errors++
