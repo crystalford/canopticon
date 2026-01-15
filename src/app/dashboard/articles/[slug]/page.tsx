@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TipTapEditor from '@/components/editor/TipTapEditor'
-import { FileText, Eye, Save, Upload, Trash2, ChevronLeft, Globe, Image as ImageIcon, Wand2, Clock, Video } from 'lucide-react'
+import { ChevronLeft, Save, Globe, Eraser, Loader2, Sparkles, AlertCircle, CheckCircle, Wand2, Clock, Video, ImageIcon, Upload, X, Trash2, Eye } from 'lucide-react'
 
 interface Article {
     headline: string
@@ -327,19 +327,62 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                             Media
                         </h3>
                         <div>
-                            <label className="text-slate-400 text-xs font-medium mb-1.5 block">Featured Image URL</label>
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={featuredImageUrl}
-                                    onChange={(e) => setFeaturedImageUrl(e.target.value)}
-                                    className="input text-sm"
-                                    placeholder="https://..."
-                                />
+                            <label className="text-slate-400 text-xs font-medium mb-1.5 block">Featured Image</label>
+
+                            <div className="space-y-3">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={featuredImageUrl}
+                                        onChange={(e) => setFeaturedImageUrl(e.target.value)}
+                                        className="input text-sm"
+                                        placeholder="https://... or upload image"
+                                    />
+                                </div>
+
+                                <div className="relative">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        id="image-upload"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0]
+                                            if (!file) return
+
+                                            if (file.size > 1024 * 1024) {
+                                                alert('Image too large. Please use an image under 1MB.')
+                                                return
+                                            }
+
+                                            const reader = new FileReader()
+                                            reader.onload = (ev) => {
+                                                if (ev.target?.result) {
+                                                    setFeaturedImageUrl(ev.target.result as string)
+                                                }
+                                            }
+                                            reader.readAsDataURL(file)
+                                        }}
+                                    />
+                                    <label
+                                        htmlFor="image-upload"
+                                        className="w-full btn-secondary text-xs flex items-center justify-center gap-2 cursor-pointer"
+                                    >
+                                        <Upload className="w-4 h-4" />
+                                        Upload Image (Max 1MB)
+                                    </label>
+                                </div>
                             </div>
+
                             {featuredImageUrl && (
-                                <div className="mt-3 relative aspect-video rounded-lg overflow-hidden border border-white/10">
+                                <div className="mt-3 relative aspect-video rounded-lg overflow-hidden border border-white/10 group">
                                     <img src={featuredImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                                    <button
+                                        onClick={() => setFeaturedImageUrl('')}
+                                        className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
                                 </div>
                             )}
                         </div>
