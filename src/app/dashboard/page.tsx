@@ -246,21 +246,18 @@ export default function DashboardPage() {
                                 <div className="flex items-center gap-3 md:border-l border-white/5 md:pl-6">
                                     <button
                                         onClick={(e) => handleDeleteStory(index, e)}
-                                        className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                                        className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors z-10 relative"
                                         title="Remove Story"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
-                                    <div className="text-slate-500 group-hover:text-primary-400 transition-colors flex items-center gap-2">
-                                        {publishing === index ? (
-                                            <span className="text-xs">Opening...</span>
-                                        ) : (
-                                            <>
-                                                <span className="text-xs font-medium">Draft Article</span>
-                                                <ArrowRight className="w-4 h-4" />
-                                            </>
-                                        )}
-                                    </div>
+
+                                    {publishing === index && (
+                                        <div className="flex items-center gap-2 text-primary-400 animate-pulse">
+                                            <div className="w-2 h-2 bg-primary-500 rounded-full" />
+                                            <span className="text-xs font-bold uppercase tracking-wider">Opening...</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
