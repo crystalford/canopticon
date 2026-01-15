@@ -33,17 +33,12 @@ interface RssItem {
 /**
  * Check if a date is TODAY (in Eastern Time)
  */
-function isToday(date: Date): boolean {
-    const now = new Date()
-    // Convert to Eastern Time for consistency
-    const eastern = new Date(now.toLocaleString('en-US', { timeZone: 'America/Toronto' }))
-    const itemDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/Toronto' }))
-
-    return (
-        itemDate.getFullYear() === eastern.getFullYear() &&
-        itemDate.getMonth() === eastern.getMonth() &&
-        itemDate.getDate() === eastern.getDate()
-    )
+/**
+ * Check if a date is within the last 24 hours
+ */
+function isRecent(date: Date): boolean {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    return date >= twentyFourHoursAgo
 }
 
 /**
@@ -76,8 +71,8 @@ async function fetchTodaysNews(): Promise<RssItem[]> {
 
                 const pubDate = new Date(pubDateStr)
 
-                // ONLY include items from TODAY
-                if (isToday(pubDate)) {
+                // ONLY include items from the last 24 hours
+                if (isRecent(pubDate)) {
                     allItems.push({ title, pubDate, description })
                 }
             }
