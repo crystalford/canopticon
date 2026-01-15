@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         const prompt = `SOURCE SIGNAL: "${headline}"\n${text}\n\n--- INTELLIGENCE DOSSIER (LIVE SEARCH RESULTS) ---\n${researchResults}\n\n--- INSTRUCTION ---\nWrite the Deep Dive Report now.`
 
         const analysisRes = await callAI<string>({
-            model: 'claude-3-5-sonnet-20240620',
+            model: 'claude-3-haiku-20240307',
             prompt: ANALYST_PERSONA + '\n\nIMPORTANT: Wrap your report in <report> tags.',
             input: { task: prompt },
             outputFormat: 'text'
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         console.log('[Forensic Debug] Analysis Success:', analysisRes.success)
         if (analysisRes.error) console.error('[Forensic Debug] Analysis Error:', analysisRes.error)
 
-        
+
         if (!analysisRes.success) {
             return NextResponse.json({
                 success: true,
@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
                 steps: { queries, researchSize: researchResults.length }
             })
         }
-        
-                const rawText = analysisRes.data || ''
+
+        const rawText = analysisRes.data || ''
         console.log('[Forensic Debug] Raw Text Length:', rawText.length)
         console.log('[Forensic Debug] Preview:', rawText.substring(0, 200))
 
