@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Sparkles, Calendar, ArrowRight, Activity } from 'lucide-react'
+import { Sparkles, Calendar, ArrowRight, Activity, Trash2 } from 'lucide-react'
 
 interface BriefStory {
     headline: string
@@ -80,6 +80,21 @@ export default function DashboardPage() {
         }
     }
 
+    const handleDeleteBrief = async () => {
+        if (!brief || !confirm('Delete entire Daily Brief?')) return
+        try {
+            const res = await fetch(`/api/brief/${brief.id}`, { method: 'DELETE' })
+            if (res.ok) {
+                setBrief(null)
+                alert('Brief deleted')
+            } else {
+                alert('Failed to delete brief')
+            }
+        } catch (e) {
+            alert('Error deleting brief')
+        }
+    }
+
     const getSignificanceBadge = (score: number) => {
         if (score >= 8) return 'bg-red-500/10 text-red-400 border-red-500/20'
         if (score >= 6) return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
@@ -145,56 +160,68 @@ export default function DashboardPage() {
 
             {/* Stories List */}
             {brief && (
-                <div className="grid gap-4">
-                    {brief.stories.map((story, index) => (
-                        <div
-                            key={index}
-                            onClick={() => handlePublishClick(index)}
-                            className="glass-card p-6 flex flex-col md:flex-row gap-6 group cursor-pointer hover:border-primary-500/20 transition-colors"
+                <div>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-white">{brief.stories.length} Stories</h2>
+                        <button
+                            onClick={handleDeleteBrief}
+                            className="text-red-400 hover:text-red-300 text-sm flex items-center gap-2 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors"
                         >
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getSignificanceBadge(story.significance)}`}>
-                                        Impact {story.significance}/10
-                                    </span>
-                                    <span className="text-[10px] text-slate-600 font-mono uppercase">
-                                        #{String(index + 1).padStart(2, '0')}
-                                    </span>
-                                </div>
-
-                                <h3 className="text-lg font-bold text-white mb-2 truncate group-hover:text-primary-400 transition-colors">
-                                    {story.headline}
-                                </h3>
-
-                                <p className="text-sm text-slate-400 line-clamp-2 mb-4 leading-relaxed">
-                                    {story.summary}
-                                </p>
-
-                                {story.keyPlayers && story.keyPlayers.length > 0 && (
-                                    <div className="flex gap-2">
-                                        {story.keyPlayers.slice(0, 3).map((player, i) => (
-                                            <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-white/5 border border-white/10 text-slate-500">
-                                                {player}
-                                            </span>
-                                        ))}
+                            <Trash2 className="w-4 h-4" />
+                            Delete Entire Brief
+                        </button>
+                    </div>
+                    <div className="grid gap-4">
+                        {brief.stories.map((story, index) => (
+                            <div
+                                key={index}
+                                onClick={() => handlePublishClick(index)}
+                                className="glass-card p-6 flex flex-col md:flex-row gap-6 group cursor-pointer hover:border-primary-500/20 transition-colors"
+                            >
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getSignificanceBadge(story.significance)}`}>
+                                            Impact {story.significance}/10
+                                        </span>
+                                        <span className="text-[10px] text-slate-600 font-mono uppercase">
+                                            #{String(index + 1).padStart(2, '0')}
+                                        </span>
                                     </div>
-                                )}
-                            </div>
 
-                            <div className="flex items-center gap-3 md:border-l border-white/5 md:pl-6">
-                                <div className="text-slate-500 group-hover:text-primary-400 transition-colors flex items-center gap-2">
-                                    {publishing === index ? (
-                                        <span className="text-xs">Opening...</span>
-                                    ) : (
-                                        <>
-                                            <span className="text-xs font-medium">Draft Article</span>
-                                            <ArrowRight className="w-4 h-4" />
-                                        </>
+                                    <h3 className="text-lg font-bold text-white mb-2 truncate group-hover:text-primary-400 transition-colors">
+                                        {story.headline}
+                                    </h3>
+
+                                    <p className="text-sm text-slate-400 line-clamp-2 mb-4 leading-relaxed">
+                                        {story.summary}
+                                    </p>
+
+                                    {story.keyPlayers && story.keyPlayers.length > 0 && (
+                                        <div className="flex gap-2">
+                                            {story.keyPlayers.slice(0, 3).map((player, i) => (
+                                                <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-white/5 border border-white/10 text-slate-500">
+                                                    {player}
+                                                </span>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
+
+                                <div className="flex items-center gap-3 md:border-l border-white/5 md:pl-6">
+                                    <div className="text-slate-500 group-hover:text-primary-400 transition-colors flex items-center gap-2">
+                                        {publishing === index ? (
+                                            <span className="text-xs">Opening...</span>
+                                        ) : (
+                                            <>
+                                                <span className="text-xs font-medium">Draft Article</span>
+                                                <ArrowRight className="w-4 h-4" />
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

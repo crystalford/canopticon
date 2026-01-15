@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { FileText, Edit, Eye, Filter, Calendar, List } from 'lucide-react'
+import { FileText, Edit, Eye, Filter, Calendar, List, Trash2 } from 'lucide-react'
 
 interface Article {
     id: string
@@ -36,6 +36,22 @@ export default function ArticlesPage() {
             console.error('Failed to fetch articles:', error)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const handleDelete = async (slug: string, e: React.MouseEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (!confirm('Permanently delete this article?')) return
+        try {
+            const res = await fetch(`/api/articles/${slug}`, { method: 'DELETE' })
+            if (res.ok) {
+                fetchArticles()
+            } else {
+                alert('Failed to delete article')
+            }
+        } catch (error) {
+            alert('Error deleting article')
         }
     }
 
@@ -129,6 +145,13 @@ export default function ArticlesPage() {
                             </div>
 
                             <div className="flex items-center gap-3 md:border-l border-white/5 md:pl-6">
+                                <button
+                                    onClick={(e) => handleDelete(article.slug, e)}
+                                    className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                                    title="Delete Article"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
                                 {!article.isDraft && (
                                     <a
                                         href={`/articles/${article.slug}`}
