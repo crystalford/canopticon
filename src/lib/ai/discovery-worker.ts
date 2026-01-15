@@ -22,25 +22,49 @@ export interface DailyBrief {
 const GOOGLE_NEWS_RSS = 'https://news.google.com/rss/search?q=Canadian+federal+politics+Parliament+Canada+when:1d&hl=en-CA&gl=CA&ceid=CA:en'
 
 /**
- * Get headlines from articles published in the last N days.
+ * Get headlines from articles AND briefs in the last N days.
  * These are stories we've already covered and should NOT generate again.
  */
-async function getRecentPublishedHeadlines(days: number = 14): Promise<string[]> {
-    try {
-        const cutoff = new Date()
-        cutoff.setDate(cutoff.getDate() - days)
+async function getRecentCoveredHeadlines(days: number = 7): Promise<string[]> {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - days)
+    const headlines: string[] = []
 
+    // 1. Get headlines from published articles
+    try {
         const recentArticles = await db
             .select({ headline: articles.headline })
             .from(articles)
             .where(sql`${articles.createdAt} >= ${cutoff}`)
 
-        console.log(`[Brief] Found ${recentArticles.length} published articles from last ${days} days`)
-        return recentArticles.map(a => a.headline)
+        recentArticles.forEach(a => headlines.push(a.headline))
+        console.log(`[Brief] Found ${recentArticles.length} articles from last ${days} days`)
     } catch (e) {
-        console.error('[Brief] Failed to fetch recent published headlines:', e)
-        return []
+        console.error('[Brief] Failed to fetch article headlines:', e)
     }
+
+    // 2. Get headlines from recent briefs (even if not published as articles)
+    try {
+        const recentBriefs = await db
+            .select({ stories: briefs.stories })
+            .from(briefs)
+            .where(sql`${briefs.generatedAt} >= ${cutoff}`)
+
+        recentBriefs.forEach(brief => {
+            const stories = brief.stories as BriefStory[]
+            stories.forEach(story => {
+                if (story.headline && !headlines.includes(story.headline)) {
+                    headlines.push(story.headline)
+                }
+            })
+        })
+        console.log(`[Brief] Found ${recentBriefs.length} briefs from last ${days} days`)
+    } catch (e) {
+        console.error('[Brief] Failed to fetch brief headlines:', e)
+    }
+
+    console.log(`[Brief] Total ${headlines.length} headlines to exclude`)
+    return headlines
 }
 
 interface RssItem {
@@ -140,12 +164,12 @@ ${newsContext}`
 
 export async function generateDailyBrief(): Promise<DailyBrief> {
     try {
-        // 1. Get headlines we've already published (last 14 days)
-        const publishedHeadlines = await getRecentPublishedHeadlines(14)
+        // 1. Get headlines we've already covered (from both articles AND briefs, last 7 days)
+        const coveredHeadlines = await getRecentCoveredHeadlines(7)
 
-        if (publishedHeadlines.length > 0) {
-            console.log(`[Brief] Excluding ${publishedHeadlines.length} already-published stories:`)
-            publishedHeadlines.forEach(h => console.log(`  - ${h}`))
+        if (coveredHeadlines.length > 0) {
+            console.log(`[Brief] Excluding ${coveredHeadlines.length} already-covered stories:`)
+            coveredHeadlines.forEach((h: string) => console.log(`  - ${h}`))
         }
 
         // 2. Fetch real-time news context
@@ -156,7 +180,7 @@ export async function generateDailyBrief(): Promise<DailyBrief> {
         }
 
         // 3. Build prompt with exclusion list
-        const fullPrompt = buildPrompt(context, publishedHeadlines)
+        const fullPrompt = buildPrompt(context, coveredHeadlines)
 
         // Get configured AI provider and key
         const provider = await getSetting(SETTINGS_KEYS.AI_PROVIDER) || 'anthropic'
