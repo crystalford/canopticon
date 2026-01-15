@@ -72,6 +72,18 @@ export async function PATCH(
         if (sanitizedBody.publishedAt) {
             sanitizedBody.publishedAt = new Date(sanitizedBody.publishedAt)
         }
+        if (sanitizedBody.updatedAt) {
+            sanitizedBody.updatedAt = new Date(sanitizedBody.updatedAt)
+        }
+
+        // Parse content JSON if it's a string (for jsonb column)
+        if (sanitizedBody.content && typeof sanitizedBody.content === 'string') {
+            try {
+                sanitizedBody.content = JSON.parse(sanitizedBody.content)
+            } catch (e) {
+                console.warn('Failed to parse content JSON, saving as string:', e)
+            }
+        }
 
         // Update article
         const [updatedArticle] = await db
