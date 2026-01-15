@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TipTapEditor from '@/components/editor/TipTapEditor'
@@ -35,6 +35,21 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     const [publishing, setPublishing] = useState(false)
     const [generatingScript, setGeneratingScript] = useState(false)
     const [videoScript, setVideoScript] = useState<any>(null)
+    const [lastSaved, setLastSaved] = useState<Date | null>(null)
+    const [autoSaving, setAutoSaving] = useState(false)
+    const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+    // Track unsaved changes by comparing current state to loaded article
+    const hasUnsavedChanges = useMemo(() => {
+        if (!article) return false
+        return (
+            headline !== article.headline ||
+            content !== article.content ||
+            excerpt !== (article.excerpt || '') ||
+            metaDescription !== (article.metaDescription || '') ||
+            featuredImageUrl !== (article.featuredImageUrl || '')
+        )
+    }, [headline, content, excerpt, metaDescription, featuredImageUrl, article])
 
     useEffect(() => {
         fetchArticle()
@@ -55,31 +70,79 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
         } catch (err) {
             setError('Failed to load article')
         } finally {
+            setLastSaved(new Date())
             setLoading(false)
         }
     }
 
-    const handleSave = async () => {
+    // Core save function - saves all current content
+    const saveAllContent = useCallback(async (showAlert: boolean = true) => {
+        const readingTime = calculateReadingTime(content)
+        await updateArticle({
+            headline,
+            content,
+            excerpt: excerpt || null,
+            metaDescription: metaDescription || null,
+            featuredImageUrl: featuredImageUrl || null,
+            readingTime,
+            updatedAt: new Date(),
+        })
+        setLastSaved(new Date())
+        if (showAlert) alert('Changes saved')
+    }, [headline, content, excerpt, metaDescription, featuredImageUrl])
+
+    // Update button (formerly "Save Draft")
+    const handleUpdate = async () => {
         setSaving(true)
         try {
-            // Calculate reading time from content
-            const readingTime = calculateReadingTime(content)
-
-            await updateArticle({
-                headline,
-                content,
-                excerpt: excerpt || null,
-                metaDescription: metaDescription || null,
-                featuredImageUrl: featuredImageUrl || null,
-                readingTime,
-            })
-            alert('Draft saved')
+            await saveAllContent(true)
         } catch (err) {
             alert('Failed to save')
         } finally {
             setSaving(false)
         }
     }
+
+    // Autosave: debounced 30 second save after changes
+    useEffect(() => {
+        if (!hasUnsavedChanges || loading) return
+
+        // Clear existing timer
+        if (autoSaveTimerRef.current) {
+            clearTimeout(autoSaveTimerRef.current)
+        }
+
+        // Set new timer for 30 seconds
+        autoSaveTimerRef.current = setTimeout(async () => {
+            setAutoSaving(true)
+            try {
+                await saveAllContent(false)
+                console.log('[Autosave] Saved at', new Date().toISOString())
+            } catch (err) {
+                console.error('[Autosave] Failed:', err)
+            } finally {
+                setAutoSaving(false)
+            }
+        }, 30000)
+
+        return () => {
+            if (autoSaveTimerRef.current) {
+                clearTimeout(autoSaveTimerRef.current)
+            }
+        }
+    }, [hasUnsavedChanges, loading, saveAllContent])
+
+    // Warn before leaving with unsaved changes
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault()
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?'
+            }
+        }
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    }, [hasUnsavedChanges])
 
     // Extract plain text from TipTap JSON content
     const getPlainTextFromContent = (contentJson: string | null): string => {
@@ -144,7 +207,20 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     const handlePublish = async () => {
         setPublishing(true)
         try {
-            await updateArticle({ isDraft: false, publishedAt: new Date() })
+            // CRITICAL: Save ALL content when publishing, not just the flag
+            const readingTime = calculateReadingTime(content)
+            await updateArticle({
+                headline,
+                content,
+                excerpt: excerpt || null,
+                metaDescription: metaDescription || null,
+                featuredImageUrl: featuredImageUrl || null,
+                readingTime,
+                isDraft: false,
+                publishedAt: article?.publishedAt || new Date(), // Keep original date if republishing
+                updatedAt: new Date(),
+            })
+            setLastSaved(new Date())
             alert('Published successfully')
             fetchArticle() // Refresh to show updated status
         } catch (err) {
@@ -209,8 +285,20 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                         <div className="flex items-center gap-2 mb-1">
                             <span className={`w-2 h-2 rounded-full ${article.isDraft ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]' : 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]'}`} />
                             <span className="text-xs font-mono text-slate-400 uppercase tracking-widest">
-                                {article.isDraft ? 'DRAFT STATUS' : 'LIVE'}
+                                {article.isDraft ? 'DRAFT' : 'LIVE'}
                             </span>
+                            {hasUnsavedChanges && (
+                                <span className="text-xs text-amber-400 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                    Unsaved changes
+                                </span>
+                            )}
+                            {autoSaving && (
+                                <span className="text-xs text-slate-500">Saving...</span>
+                            )}
+                            {lastSaved && !hasUnsavedChanges && !autoSaving && (
+                                <span className="text-xs text-slate-600">Saved</span>
+                            )}
                         </div>
                         <h1 className="text-lg font-bold text-white max-w-md truncate">{headline}</h1>
                     </div>
@@ -223,9 +311,9 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
 
                     <div className="w-px h-6 bg-white/10" />
 
-                    <button onClick={handleSave} disabled={saving} className="btn-secondary">
+                    <button onClick={handleUpdate} disabled={saving || !hasUnsavedChanges} className="btn-secondary">
                         <Save className="w-4 h-4 mr-2" />
-                        {saving ? 'Saving...' : 'Save Draft'}
+                        {saving ? 'Saving...' : 'Update'}
                     </button>
 
                     {article.isDraft ? (
