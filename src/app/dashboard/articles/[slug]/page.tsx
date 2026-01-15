@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TipTapEditor from '@/components/editor/TipTapEditor'
 import ForensicTool from '@/components/editor/ForensicTool'
-import { ChevronLeft, Save, Globe, Eraser, Loader2, Sparkles, AlertCircle, CheckCircle, Wand2, Clock, Video, ImageIcon, Upload, X, Trash2, Eye } from 'lucide-react'
+import { ChevronLeft, Save, Globe, Eraser, Loader2, Sparkles, AlertCircle, CheckCircle, Wand2, Clock, Video, ImageIcon, Upload, X, Trash2, Eye, ArrowRight } from 'lucide-react'
 
 interface Article {
     headline: string
