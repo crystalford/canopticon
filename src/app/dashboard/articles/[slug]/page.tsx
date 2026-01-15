@@ -74,9 +74,13 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     // Core save function - saves all current content
     const saveAllContent = useCallback(async (showAlert: boolean = true) => {
         const readingTime = calculateReadingTime(content)
+        const plainText = getPlainTextFromContent(content)
+
         await updateArticle({
             headline,
             content,
+            // Sync summary with content for list view (first 800 chars)
+            summary: plainText.slice(0, 800) || headline,
             excerpt: excerpt || null,
             metaDescription: metaDescription || null,
             readingTime,
@@ -186,9 +190,13 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
         try {
             // CRITICAL: Save ALL content when publishing, not just the flag
             const readingTime = calculateReadingTime(content)
+            const plainText = getPlainTextFromContent(content)
+
             await updateArticle({
                 headline,
                 content,
+                // Sync summary with content
+                summary: plainText.slice(0, 800) || headline,
                 excerpt: excerpt || null,
                 metaDescription: metaDescription || null,
                 readingTime,
