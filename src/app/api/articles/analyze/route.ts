@@ -65,20 +65,31 @@ export async function POST(request: NextRequest) {
         // --- STEP 3: FORENSIC SYNTHESIS ---
         const prompt = `SOURCE SIGNAL: "${headline}"\n${text}\n\n--- INTELLIGENCE DOSSIER (LIVE SEARCH RESULTS) ---\n${researchResults}\n\n--- INSTRUCTION ---\nWrite the Deep Dive Report now.`
 
-        const analysisRes = await callAI<{ report: string }>({
+        const analysisRes = await callAI<string>({
             model: 'claude-3-5-sonnet-20240620',
-            prompt: ANALYST_PERSONA + '\n\nIMPORTANT: Return the report inside a JSON object: { "report": "markdown content here" }',
-            input: { task: prompt }
+            prompt: ANALYST_PERSONA + '\n\nIMPORTANT: Wrap your report in <report> tags.',
+            input: { task: prompt },
+            outputFormat: 'text'
         })
 
-        if (!analysisRes.success || !analysisRes.data || !analysisRes.data.report) {
-            console.error('Analysis Gen Failed:', analysisRes.error)
-            throw new Error('Failed to generate analysis report')
+        console.log('[Forensic Debug] Analysis Success:', analysisRes.success)
+        if (analysisRes.error) console.error('[Forensic Debug] Analysis Error:', analysisRes.error)
+
+        const rawText = analysisRes.data || ''
+        console.log('[Forensic Debug] Preview:', rawText.substring(0, 100))
+
+        // Extract XML content
+        const match = rawText.match(/<report>([\s\S]*)<\/report>/i)
+        const analysis = match ? match[1].trim() : rawText.trim()
+
+        if (!analysis || analysis.length < 50) {
+            console.error('Analysis Extraction Failed. Raw:', rawText)
+            throw new Error('Failed to generate valid analysis report')
         }
 
         return NextResponse.json({
             success: true,
-            analysis: analysisRes.data.report,
+            analysis: analysis,
             steps: {
                 queries,
                 researchSize: researchResults.length
