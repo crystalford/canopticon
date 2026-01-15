@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
 
         // --- STEP 1: QUERY GENERATION ---
         // Ask Claude to generate investigative queries
+        const safeText = String(text || '')
         const queryResponse = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
                     content: INVESTIGATOR_PERSONA
                 }, {
                     role: 'user',
-                    content: `Analyze this text and generate search queries:\nTITLE: ${headline}\nTEXT: ${text.slice(0, 2000)}`
+                    content: `Analyze this text and generate search queries:\nTITLE: ${headline}\nTEXT: ${safeText.slice(0, 2000)}`
                 }]
             })
         })

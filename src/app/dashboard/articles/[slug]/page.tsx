@@ -266,14 +266,14 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                                 onChange={setContent}
                             />
                         </div>
+                    </div>
 
-                        {/* AI Forensic Tools Section */}
-                        <div className="mb-10">
-                            <ForensicTool
-                                editorContent={content || ''}
-                                headline={headline}
-                            />
-                        </div>
+                    {/* AI Forensic Tools Section - Outside the main panel */}
+                    <div className="mb-10">
+                        <ForensicTool
+                            editorContent={content || ''}
+                            headline={headline}
+                        />
                     </div>
                 </div>
 

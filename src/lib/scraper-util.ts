@@ -39,7 +39,8 @@ export async function extractArticleContent(url: string): Promise<{
             .replace(/\s+/g, ' ')
             .trim()
 
-        bodyText = bodyText.slice(0, 10000)
+        // Limit to first 10000 characters for safety
+        bodyText = String(bodyText).slice(0, 10000)
 
         return { title, bodyText }
 
