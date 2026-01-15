@@ -1,4 +1,3 @@
-```typescript
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { db, articles } from '@/db'
@@ -60,9 +59,9 @@ export async function POST(
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
         const articleContent = `
-Title: ${ article.headline }
-Summary: ${ article.summary }
-Topics: ${ article.topics?.join(', ') || 'N/A' }
+Title: ${article.headline}
+Summary: ${article.summary}
+Topics: ${article.topics?.join(', ') || 'N/A'}
 `
 
         const result = await model.generateContent([
@@ -84,43 +83,10 @@ Topics: ${ article.topics?.join(', ') || 'N/A' }
     } catch (error) {
         console.error('Error generating video script:', error)
         return NextResponse.json(
-            { error: `Failed to generate script: ${ error } ` },
+            { error: `Failed to generate script: ${error} ` },
             { status: 500 }
         )
     }
 }
 
-// GET existing scripts for an article
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ slug: string }> }
-) {
-    try {
-        const { slug } = await params
 
-        // Get article
-        const [article] = await db
-            .select({ id: articles.id })
-            .from(articles)
-            .where(eq(articles.slug, slug))
-            .limit(1)
-
-        if (!article) {
-            return NextResponse.json({ error: 'Article not found' }, { status: 404 })
-        }
-
-        // Get video materials
-        const materials = await db
-            .select()
-            .from(videoMaterials)
-            .where(eq(videoMaterials.articleId, article.id))
-
-        return NextResponse.json({ materials })
-    } catch (error) {
-        console.error('Error fetching video materials:', error)
-        return NextResponse.json(
-            { error: 'Failed to fetch video materials' },
-            { status: 500 }
-        )
-    }
-}

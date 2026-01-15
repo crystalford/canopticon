@@ -344,6 +344,65 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                             )}
                         </div>
                     </div>
+
+                    <div className="glass-panel p-6">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Video className="w-4 h-4" />
+                            Content Repurposing
+                        </h3>
+
+                        {!videoScript ? (
+                            <button
+                                onClick={handleGenerateVideoScript}
+                                disabled={generatingScript}
+                                className="w-full btn-secondary flex items-center justify-center gap-2 mb-2"
+                            >
+                                {generatingScript ? (
+                                    <>
+                                        <Wand2 className="w-4 h-4 animate-spin" />
+                                        Generating Script...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Wand2 className="w-4 h-4" />
+                                        Generate Video Script (60s)
+                                    </>
+                                )}
+                            </button>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-xs text-green-300 flex items-center gap-2">
+                                    <Video className="w-3 h-3" />
+                                    Script Generated
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="text-xs font-bold text-slate-500">HOOK</div>
+                                    <div className="p-3 rounded-lg bg-black/40 text-sm text-white italic border border-white/5">
+                                        "{videoScript.hook}"
+                                    </div>
+
+                                    <div className="text-xs font-bold text-slate-500">Body</div>
+                                    <div className="p-3 rounded-lg bg-black/40 text-sm text-slate-300 border border-white/5 max-h-[150px] overflow-y-auto whitespace-pre-wrap">
+                                        {videoScript.body}
+                                    </div>
+
+                                    <div className="text-xs font-bold text-slate-500">CTA</div>
+                                    <div className="p-3 rounded-lg bg-black/40 text-sm text-white italic border border-white/5">
+                                        "{videoScript.callToAction}"
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(JSON.stringify(videoScript, null, 2))
+                                        alert('Script copied to clipboard!')
+                                    }}
+                                    className="w-full btn-secondary text-xs"
+                                >
+                                    Copy Full Script JSON
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
