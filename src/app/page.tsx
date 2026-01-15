@@ -3,6 +3,7 @@ import { db, articles } from '@/db'
 import { eq, desc } from 'drizzle-orm'
 import { NewsletterSection } from '@/components/newsletter'
 import { ArrowRight, Globe, Shield, Activity, Calendar } from 'lucide-react'
+import Logo from '@/components/Logo'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,12 +31,9 @@ export default async function HomePage() {
             {/* Header */}
             <header className="border-b border-white/5 bg-black/20 backdrop-blur-md sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-primary-500/20 flex items-center justify-center border border-primary-500/50 shadow-[0_0_15px_rgba(14,165,233,0.15)]">
-                            <span className="text-primary-400 font-bold text-sm">C</span>
-                        </div>
-                        <span className="font-bold text-xl tracking-tight text-white">CANOPTICON</span>
-                    </div>
+                    <Link href="/">
+                        <Logo />
+                    </Link>
                     <nav className="flex items-center gap-8">
                         <Link href="/dashboard" className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
                             Operator Login
@@ -108,15 +106,6 @@ export default async function HomePage() {
                                             {article.summary}
                                         </p>
 
-                                        {article.topics && (
-                                            <div className="mt-auto flex flex-wrap gap-2">
-                                                {article.topics.slice(0, 3).map(topic => (
-                                                    <span key={topic} className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/5 border border-white/10 text-slate-400 uppercase tracking-wider">
-                                                        {topic}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
                                     </Link>
                                 ))}
                             </div>

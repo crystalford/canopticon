@@ -23,10 +23,10 @@ const config: Config = {
                 },
                 // Brand
                 primary: {
-                    400: '#38bdf8', // Light blue
-                    500: '#0ea5e9', // Sky blue
-                    600: '#0284c7',
-                    glow: 'rgba(14, 165, 233, 0.5)',
+                    400: '#f87171', // Red 400
+                    500: '#ef4444', // Red 500
+                    600: '#dc2626', // Red 600
+                    glow: 'rgba(239, 68, 68, 0.5)',
                 },
                 accent: {
                     red: '#ef4444',

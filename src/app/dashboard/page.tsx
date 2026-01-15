@@ -60,13 +60,25 @@ export default function DashboardPage() {
         if (!brief) return
         setPublishing(storyIndex)
         try {
+            // 1. Create Article Draft
             const res = await fetch('/api/brief/publish', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ briefId: brief.id, storyIndex })
             })
+
             if (res.ok) {
                 const data = await res.json()
+
+                // 2. Remove from Brief (so it doesn't show up again)
+                const updatedStories = brief.stories.filter((_, i) => i !== storyIndex)
+                await fetch(`/api/brief/${brief.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stories: updatedStories })
+                })
+
+                // 3. Navigate to editor
                 window.location.href = `/dashboard/articles/${data.slug}`
             } else {
                 const errorData = await res.json()

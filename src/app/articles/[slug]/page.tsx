@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm'
 import { Metadata } from 'next'
 import { ChevronLeft, Calendar, Clock, Share2 } from 'lucide-react'
 import ArticleContent from '@/components/ArticleContent'
+import Logo from '@/components/Logo'
 
 export const revalidate = 60
 
@@ -46,11 +47,8 @@ export default async function ArticlePage({ params }: { params: { slug: string }
             {/* Header */}
             <header className="border-b border-white/5 bg-black/20 backdrop-blur-md sticky top-0 z-50">
                 <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2 group">
-                        <div className="w-8 h-8 rounded-lg bg-primary-500/20 flex items-center justify-center border border-primary-500/50 shadow-[0_0_15px_rgba(14,165,233,0.15)]">
-                            <span className="text-primary-400 font-bold text-sm">C</span>
-                        </div>
-                        <span className="font-bold text-lg tracking-tight text-white group-hover:text-primary-400 transition-colors">CANOPTICON</span>
+                    <Link href="/">
+                        <Logo className="scale-90" />
                     </Link>
                 </div>
             </header>
@@ -67,6 +65,14 @@ export default async function ArticlePage({ params }: { params: { slug: string }
                             <Clock className="w-4 h-4" />
                             {article.readingTime || 5} min read
                         </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {article.topics?.map((topic: string) => (
+                            <span key={topic} className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary-500/10 text-primary-400 border border-primary-500/20 uppercase tracking-wider shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+                                {topic}
+                            </span>
+                        ))}
                     </div>
 
                     <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight tracking-tight">
