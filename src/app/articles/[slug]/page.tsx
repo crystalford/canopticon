@@ -97,12 +97,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
                     </div>
                 </div>
 
-                {/* Featured Image */}
-                {article.featuredImageUrl && (
-                    <div className="mb-12 rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/50">
-                        <img src={article.featuredImageUrl} alt={article.headline} className="w-full h-auto" />
-                    </div>
-                )}
+
 
                 {/* Main Content */}
                 <div className="min-h-[200px]">
