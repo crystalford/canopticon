@@ -18,6 +18,7 @@ interface Article {
     isDraft: boolean
     publishedAt: string | null
     readingTime?: number
+    topics: string[] | null
 }
 
 export default function ArticleEditorPage({ params }: { params: { slug: string } }) {
@@ -32,9 +33,11 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     const [content, setContent] = useState<string | null>(null)
     const [excerpt, setExcerpt] = useState('')
     const [metaDescription, setMetaDescription] = useState('')
-    const [featuredImageUrl, setFeaturedImageUrl] = useState('')
+    const [topics, setTopics] = useState<string[]>([])
+    const [newTopic, setNewTopic] = useState('')
     const [saving, setSaving] = useState(false)
     const [publishing, setPublishing] = useState(false)
+    const [optimizing, setOptimizing] = useState(false)
     const [lastSaved, setLastSaved] = useState<Date | null>(null)
     const [autoSaving, setAutoSaving] = useState(false)
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -42,14 +45,18 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     // Track unsaved changes by comparing current state to loaded article
     const hasUnsavedChanges = useMemo(() => {
         if (!article) return false
+        // Simple array comparison for topics
+        const topicsChanged = JSON.stringify(topics.sort()) !== JSON.stringify((article.topics || []).sort())
+
         return (
             headline !== article.headline ||
             slug !== article.slug ||
             content !== article.content ||
             excerpt !== (article.excerpt || '') ||
-            metaDescription !== (article.metaDescription || '')
+            metaDescription !== (article.metaDescription || '') ||
+            topicsChanged
         )
-    }, [headline, slug, content, excerpt, metaDescription, article])
+    }, [headline, slug, content, excerpt, metaDescription, topics, article])
 
     useEffect(() => {
         fetchArticle()
@@ -67,6 +74,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
             setContent(a.content)
             setExcerpt(a.excerpt || '')
             setMetaDescription(a.metaDescription || '')
+            setTopics(a.topics || [])
         } catch (err) {
             setError('Failed to load article')
         } finally {
@@ -76,10 +84,14 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     }
 
     // Extract plain text from TipTap JSON content
-    const getPlainTextFromContent = (contentJson: string | null): string => {
-        if (!contentJson) return ''
+    const getPlainTextFromContent = (contentData: string | object | null): string => {
+        if (!contentData) return ''
         try {
-            const parsed = JSON.parse(contentJson)
+            // contentData can be a string (JSON) or an object (if TipTap passed it directly)
+            // But typical state 'content' is stringified JSON from TipTapEditor's onChange
+            // However, verify input type just in case.
+            const parsed = typeof contentData === 'string' ? JSON.parse(contentData) : contentData
+
             const extractText = (node: any): string => {
                 if (node.text) return node.text
                 if (node.content) return node.content.map(extractText).join(' ')
@@ -87,7 +99,8 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
             }
             return extractText(parsed)
         } catch {
-            return ''
+            // Fallback for plain strings or errors
+            return typeof contentData === 'string' ? contentData : ''
         }
     }
 
@@ -114,6 +127,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
             summary: plainText.slice(0, 800) || headline,
             excerpt: excerpt || null,
             metaDescription: metaDescription || null,
+            topics: topics,
             readingTime,
             updatedAt: new Date(),
         })
@@ -127,7 +141,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
 
         setLastSaved(new Date())
         if (showAlert) alert('Changes saved')
-    }, [headline, slug, content, excerpt, metaDescription, article, router])
+    }, [headline, slug, content, excerpt, metaDescription, topics, article, router])
 
     const updateArticle = async (data: any) => {
         const res = await fetch(`/api/articles/${params.slug}`, {
@@ -193,22 +207,39 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
         return () => window.removeEventListener('beforeunload', handleBeforeUnload)
     }, [hasUnsavedChanges])
 
-    // Auto-generate metadata from content
-    const handleAutoFillMetadata = () => {
-        const plainText = getPlainTextFromContent(content)
+    // AI Optimization
+    const handleOptimize = async () => {
+        if (optimizing) return
+        setOptimizing(true)
+        try {
+            const plainText = getPlainTextFromContent(content)
+            if (!plainText || plainText.length < 50) {
+                alert('Please write some content first.')
+                return
+            }
 
-        // Auto-fill excerpt (first ~200 chars of content)
-        if (!excerpt && plainText) {
-            const autoExcerpt = plainText.slice(0, 200).trim()
-            setExcerpt(autoExcerpt + (plainText.length > 200 ? '...' : ''))
-        }
+            const res = await fetch('/api/articles/optimize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ headline, content: plainText })
+            })
 
-        // Auto-fill meta description (from headline + excerpt)
-        if (!metaDescription) {
-            const desc = `${headline}. ${plainText.slice(0, 120)}`.slice(0, 155)
-            setMetaDescription(desc + '...')
+            if (!res.ok) throw new Error('Optimization failed')
+
+            const data = await res.json()
+
+            if (data.topics) setTopics(prev => Array.from(new Set([...prev, ...data.topics])))
+            if (data.excerpt) setExcerpt(data.excerpt)
+            if (data.metaDescription) setMetaDescription(data.metaDescription)
+
+        } catch (err) {
+            console.error(err)
+            alert('Failed to optimize article. Please try again.')
+        } finally {
+            setOptimizing(false)
         }
     }
+
 
     const handlePublish = async () => {
         setPublishing(true)
@@ -225,6 +256,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                 excerpt: excerpt || null,
                 metaDescription: metaDescription || null,
                 readingTime,
+                topics,
                 isDraft: false,
                 publishedAt: article?.publishedAt || new Date(), // Keep original date if republishing
                 updatedAt: new Date(),
@@ -266,6 +298,20 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
         } catch (err) {
             alert('Error deleting article')
         }
+    }
+
+    // Topics Handlers
+    const addTopic = (e: React.FormEvent) => {
+        e.preventDefault()
+        const trimmed = newTopic.trim()
+        if (trimmed && !topics.includes(trimmed)) {
+            setTopics([...topics, trimmed])
+            setNewTopic('')
+        }
+    }
+
+    const removeTopic = (topicToRemove: string) => {
+        setTopics(topics.filter(t => t !== topicToRemove))
     }
 
 
@@ -383,6 +429,37 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
 
                 {/* Sidebar */}
                 <div className="space-y-6">
+
+                    {/* Optimize Panel (Moved to top of sidebar) */}
+                    <div className="glass-panel p-6 border-primary-500/20 bg-primary-500/5">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-xs font-bold text-primary-400 uppercase tracking-widest flex items-center gap-2">
+                                <Sparkles className="w-4 h-4" />
+                                AI Assistant
+                            </h3>
+                        </div>
+                        <p className="text-xs text-slate-400 mb-4">
+                            Auto-generate topics, excerpt, and SEO description from your content.
+                        </p>
+                        <button
+                            onClick={handleOptimize}
+                            disabled={optimizing}
+                            className="w-full btn-secondary bg-primary-500/10 hover:bg-primary-500/20 text-primary-300 border-primary-500/20"
+                        >
+                            {optimizing ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Optimizing...
+                                </>
+                            ) : (
+                                <>
+                                    <Wand2 className="w-4 h-4 mr-2" />
+                                    Magic Optimize
+                                </>
+                            )}
+                        </button>
+                    </div>
+
                     {/* Slug Editor */}
                     <div className="glass-panel p-6">
                         <label className="text-slate-400 text-xs font-medium mb-1.5 block">URL Slug</label>
@@ -395,6 +472,39 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                                 className="bg-transparent border-none text-sm text-white focus:ring-0 focus:outline-none w-full p-0"
                                 placeholder="my-article-slug"
                             />
+                        </div>
+                    </div>
+
+                    {/* Topics Editor - NEW */}
+                    <div className="glass-panel p-6">
+                        <label className="text-slate-400 text-xs font-medium mb-1.5 block">Topics / Tags</label>
+                        <form onSubmit={addTopic} className="flex gap-2 mb-3">
+                            <input
+                                type="text"
+                                value={newTopic}
+                                onChange={(e) => setNewTopic(e.target.value)}
+                                className="input flex-1 min-h-[36px] py-1 text-sm"
+                                placeholder="Add topic..."
+                            />
+                            <button type="submit" disabled={!newTopic.trim()} className="btn-secondary px-3">
+                                +
+                            </button>
+                        </form>
+                        <div className="flex flex-wrap gap-2">
+                            {topics.map(topic => (
+                                <span key={topic} className="px-2 py-1 rounded bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-1 group">
+                                    {topic}
+                                    <button
+                                        onClick={() => removeTopic(topic)}
+                                        className="text-slate-500 hover:text-red-400 transition-colors ml-1"
+                                    >
+                                        &times;
+                                    </button>
+                                </span>
+                            ))}
+                            {topics.length === 0 && (
+                                <span className="text-xs text-slate-600 italic">No topics added.</span>
+                            )}
                         </div>
                     </div>
 
@@ -413,14 +523,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                                 <Globe className="w-4 h-4" />
                                 Metadata & SEO
                             </h3>
-                            <button
-                                onClick={handleAutoFillMetadata}
-                                className="text-xs text-primary-400 hover:text-primary-300 flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-primary-500/10 transition-colors"
-                                title="Auto-fill from content"
-                            >
-                                <Wand2 className="w-3 h-3" />
-                                Auto-fill
-                            </button>
+                            {/* Auto-fill button removed, replaced by Magic Optimize above */}
                         </div>
 
                         <div className="space-y-4">
