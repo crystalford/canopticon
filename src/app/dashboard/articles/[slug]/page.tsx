@@ -85,29 +85,49 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
 
     // Extract plain text from TipTap JSON content
     const getPlainTextFromContent = (contentData: string | object | null): string => {
-        if (!contentData) return ''
+        if (!contentData) {
+            console.log('[ReadingTime] Content is null/empty')
+            return ''
+        }
         try {
             // contentData can be a string (JSON) or an object (if TipTap passed it directly)
-            // But typical state 'content' is stringified JSON from TipTapEditor's onChange
-            // However, verify input type just in case.
-            const parsed = typeof contentData === 'string' ? JSON.parse(contentData) : contentData
+            let parsed: any = contentData
+            if (typeof contentData === 'string') {
+                if (contentData.trim() === '') return ''
+                parsed = JSON.parse(contentData)
+            }
 
             const extractText = (node: any): string => {
+                if (!node) return ''
                 if (node.text) return node.text
-                if (node.content) return node.content.map(extractText).join(' ')
+                if (node.content && Array.isArray(node.content)) {
+                    return node.content.map(extractText).join(' ')
+                }
                 return ''
             }
-            return extractText(parsed)
-        } catch {
-            // Fallback for plain strings or errors
+            const text = extractText(parsed)
+            console.log(`[ReadingTime] Extracted text length: ${text.length}`)
+            return text
+        } catch (e) {
+            console.error('[ReadingTime] Failed to parse content:', e)
+            // Fallback for plain strings if it wasn't JSON
             return typeof contentData === 'string' ? contentData : ''
         }
     }
 
     // Calculate reading time (words / 200)
-    const calculateReadingTime = (contentJson: string | null): number => {
-        const text = getPlainTextFromContent(contentJson)
-        const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length
+    const calculateReadingTime = (contentData: string | object | null): number => {
+        const text = getPlainTextFromContent(contentData)
+        // More robust word counting (handling newlines, multiple spaces)
+        const words = text.trim().split(/[\s\n]+/)
+        const wordCount = words.filter(w => w.length > 0).length
+        console.log(`[ReadingTime] Word count: ${wordCount}`)
+
+        // If we have content but word count is very low (e.g. just brackets), ensure we don't default to 1 blindly if it looks like an error
+        if (wordCount === 0 && contentData) {
+            console.warn('[ReadingTime] Content exists but word count is 0')
+        }
+
         return Math.max(1, Math.ceil(wordCount / 200))
     }
 
