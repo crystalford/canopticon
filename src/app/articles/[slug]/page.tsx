@@ -4,8 +4,10 @@ import { db, articles } from '@/db'
 import { eq } from 'drizzle-orm'
 import { Metadata } from 'next'
 import { ChevronLeft, Calendar, Clock, Share2 } from 'lucide-react'
-import ArticleContent from '@/components/ArticleContent'
 import Logo from '@/components/Logo'
+import dynamic from 'next/dynamic'
+
+const ArticleContent = dynamic(() => import('@/components/ArticleContent'), { ssr: false })
 
 export const revalidate = 60
 
