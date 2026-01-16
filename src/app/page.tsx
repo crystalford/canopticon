@@ -40,13 +40,13 @@ export default async function HomePage() {
                 {/* Hero Manifesto */}
                 <section className="max-w-screen-xl mx-auto mb-32 border-b border-white/10 pb-24">
                     <h1 className="text-6xl md:text-8xl font-bold text-white tracking-tighter mb-10 leading-[0.9]">
-                        UNFILTERED <br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-indigo-400">INTELLIGENCE.</span>
+                        CANOPTICON <br />
+                        <span className="text-white">INVESTIGATES.</span>
                     </h1>
                     <div className="grid md:grid-cols-3 gap-12">
                         <div className="md:col-span-2">
                             <p className="text-2xl text-slate-400 leading-relaxed font-light">
-                                Canopticon synthesizes primary-source data from Hansard, court records, and official releases into high-fidelity political analysis. No opinion. No spin. Just the signal.
+                                An independent check on Canadian power. Canopticon synthesizes primary-source data from Hansard, court records, and official releases into high-fidelity political analysis.
                             </p>
                         </div>
                         <div className="flex flex-col justify-end">
@@ -56,7 +56,7 @@ export default async function HomePage() {
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                 </span>
-                                ONLINE / INGESTING
+                                OPERATIONAL
                             </div>
                         </div>
                     </div>
