@@ -20,14 +20,24 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     const article = await getArticle(params.slug)
     if (!article) return { title: 'Not Found' }
 
-    const ogUrl = new URL(`${process.env.NEXT_PUBLIC_SITE_URL}/api/og`)
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://canopticon.com'
+    const ogUrl = new URL(`${siteUrl}/api/og`)
     ogUrl.searchParams.set('title', article.headline)
-    if (article.publishedAt) {
-        ogUrl.searchParams.set('date', new Date(article.publishedAt).toLocaleDateString())
+
+    // Safely handle date
+    try {
+        if (article.publishedAt) {
+            ogUrl.searchParams.set('date', new Date(article.publishedAt).toLocaleDateString())
+        }
+    } catch (e) {
+        // Ignore date parsing error for OG 
     }
+
     if (article.readingTime) {
         ogUrl.searchParams.set('readTime', article.readingTime.toString())
     }
+
+    const isoDate = article.publishedAt ? new Date(article.publishedAt).toISOString() : undefined
 
     return {
         title: article.headline,
@@ -36,7 +46,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
             title: article.headline,
             description: article.metaDescription || article.summary,
             type: 'article',
-            publishedTime: article.publishedAt ? new Date(article.publishedAt).toISOString() : undefined,
+            publishedTime: isoDate,
             authors: [article.author || 'CANOPTICON'],
             images: [ogUrl.toString()],
         },
@@ -53,6 +63,33 @@ export default async function ArticlePage({ params }: { params: { slug: string }
     const article = await getArticle(params.slug)
     if (!article) notFound()
 
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://canopticon.com'
+    const schemaDatePublished = article.publishedAt ? new Date(article.publishedAt).toISOString() : new Date().toISOString()
+    const schemaDateModified = article.updatedAt ? new Date(article.updatedAt).toISOString() : new Date().toISOString()
+
+    const schemaData = {
+        '@context': 'https://schema.org',
+        '@type': 'NewsArticle',
+        headline: article.headline,
+        description: article.metaDescription || article.summary,
+        image: article.featuredImageUrl ? [article.featuredImageUrl] : [],
+        datePublished: schemaDatePublished,
+        dateModified: schemaDateModified,
+        author: [{
+            '@type': 'Person',
+            name: article.author || 'Canopticon Analyst',
+            url: siteUrl
+        }],
+        publisher: {
+            '@type': 'Organization',
+            name: 'Canopticon',
+            logo: {
+                '@type': 'ImageObject',
+                url: `${siteUrl}/icon`
+            }
+        }
+    }
+
     return (
         <div className="min-h-screen bg-background text-slate-300 selection:bg-primary-500/30">
             {/* Header */}
@@ -68,28 +105,7 @@ export default async function ArticlePage({ params }: { params: { slug: string }
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{
-                    __html: JSON.stringify({
-                        '@context': 'https://schema.org',
-                        '@type': 'NewsArticle',
-                        headline: article.headline,
-                        description: article.metaDescription || article.summary,
-                        image: article.featuredImageUrl ? [article.featuredImageUrl] : [],
-                        datePublished: article.publishedAt ? new Date(article.publishedAt).toISOString() : new Date().toISOString(),
-                        dateModified: article.updatedAt ? new Date(article.updatedAt).toISOString() : new Date().toISOString(),
-                        author: [{
-                            '@type': 'Person',
-                            name: article.author || 'Canopticon Analyst',
-                            url: 'https://canopticon.com'
-                        }],
-                        publisher: {
-                            '@type': 'Organization',
-                            name: 'Canopticon',
-                            logo: {
-                                '@type': 'ImageObject',
-                                url: 'https://canopticon.com/icon' // Assuming you have an icon route or static file
-                            }
-                        }
-                    })
+                    __html: JSON.stringify(schemaData)
                 }}
             />
 

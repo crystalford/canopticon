@@ -248,7 +248,7 @@ export default function ArticlesPage() {
                         <div
                             key={article.id}
                             className={`
-                                relative group block transition-all duration-200 min-w-0
+                                relative group block transition-all duration-200 min-w-0 overflow-hidden
                                 ${selectedIds.has(article.id) ? 'translate-x-2' : ''}
                             `}
                         >
