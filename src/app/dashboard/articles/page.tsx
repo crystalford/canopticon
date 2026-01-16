@@ -277,7 +277,7 @@ export default function ArticlesPage() {
                             <Link
                                 href={`/dashboard/articles/${article.slug}`}
                                 className={`
-                                    glass-card p-6 flex flex-col md:flex-row gap-6 hover:border-primary-500/20 transition-colors
+                                    glass-card p-6 flex flex-col md:flex-row gap-6 hover:border-primary-500/20 transition-colors block w-full overflow-hidden
                                     ${selectedIds.has(article.id) ? 'border-primary-500/40 bg-primary-500/5' : ''}
                                 `}
                             >

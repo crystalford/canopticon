@@ -22,7 +22,14 @@ export default function ArticleContent({ content }: { content: any }) {
                 },
             }),
         ],
-        content: content ? (typeof content === 'string' ? JSON.parse(content) : content) : '',
+        content: content ? (() => {
+            try {
+                return typeof content === 'string' ? JSON.parse(content) : content
+            } catch (e) {
+                console.error('Failed to parse article content:', e)
+                return { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Error loading content.' }] }] }
+            }
+        })() : '',
         editable: false,
         editorProps: {
             attributes: {
