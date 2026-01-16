@@ -248,7 +248,7 @@ export default function ArticlesPage() {
                         <div
                             key={article.id}
                             className={`
-                                relative group block transition-all duration-200
+                                relative group block transition-all duration-200 min-w-0
                                 ${selectedIds.has(article.id) ? 'translate-x-2' : ''}
                             `}
                         >
@@ -277,7 +277,7 @@ export default function ArticlesPage() {
                             <Link
                                 href={`/dashboard/articles/${article.slug}`}
                                 className={`
-                                    glass-card p-6 flex flex-col md:flex-row gap-6 hover:border-primary-500/20 transition-colors block w-full overflow-hidden
+                                    glass-card p-6 flex flex-col md:flex-row gap-6 hover:border-primary-500/20 transition-colors w-full max-w-full
                                     ${selectedIds.has(article.id) ? 'border-primary-500/40 bg-primary-500/5' : ''}
                                 `}
                             >
