@@ -24,6 +24,7 @@ type ViralPost = {
 export default function ViralMonitorPage() {
     const [posts, setPosts] = useState<ViralPost[]>([])
     const [loading, setLoading] = useState(true)
+    const [filter, setFilter] = useState<'all' | 'bluesky' | 'mastodon'>('all')
 
     const fetchFeed = async () => {
         setLoading(true)
@@ -42,6 +43,9 @@ export default function ViralMonitorPage() {
         fetchFeed()
     }, [])
 
+    const filteredPosts = posts.filter(p => filter === 'all' || p.platform === filter)
+
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between pb-6 border-b border-white/5">
@@ -52,18 +56,38 @@ export default function ViralMonitorPage() {
                     </h1>
                     <p className="text-slate-400">Real-time trending narratives from Bluesky and Mastodon (#cdnpoli).</p>
                 </div>
-                <button
-                    onClick={fetchFeed}
-                    disabled={loading}
-                    className="btn-secondary flex items-center gap-2"
-                >
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    Refresh Feed
-                </button>
+
+                <div className="flex items-center gap-4">
+                    {/* Platform Filters */}
+                    <div className="flex bg-white/5 rounded-lg p-1 border border-white/5">
+                        {['all', 'bluesky', 'mastodon'].map((f) => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f as any)}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${filter === f
+                                    ? 'bg-white/10 text-white shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-300'
+                                    }`}
+                            >
+                                {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+
+                    <button
+                        onClick={fetchFeed}
+                        disabled={loading}
+                        className="btn-secondary flex items-center gap-2"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh Feed
+                    </button>
+                </div>
             </div>
 
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {posts.map((post) => (
+                {filteredPosts.map((post) => (
                     <div key={post.uri || Math.random().toString()} className={`glass-panel p-5 flex flex-col h-full group transition-colors ${post.platform === 'mastodon' ? 'hover:border-purple-500/30' : 'hover:border-blue-500/30'}`}>
                         {/* Header */}
                         <div className="flex items-start justify-between mb-4">

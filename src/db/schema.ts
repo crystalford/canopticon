@@ -265,8 +265,24 @@ export const analysisReports = pgTable('analysis_reports', {
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
+/**
+ * Social Accounts (Persistent Storage for Broadcaster)
+ */
+export const socialAccounts = pgTable('social_accounts', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    platform: text('platform').notNull(), // 'bluesky', 'mastodon'
+    handle: text('handle').notNull(), // e.g. @user.bsky.social
+    instanceUrl: text('instance_url'), // Nullable, for Mastodon
+    credentials: jsonb('credentials').notNull(), // { appPassword, accessToken, ... }
+    isActive: boolean('is_active').default(true).notNull(),
+    lastUsedAt: timestamp('last_used_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // ============================================================================
 // RELATIONS
+
 // ============================================================================
 
 export const sourcesRelations = relations(sources, ({ many }) => ({
@@ -395,3 +411,7 @@ export type NewSecondaryArticle = typeof secondaryArticles.$inferInsert
 
 export type AnalysisReport = typeof analysisReports.$inferSelect
 export type NewAnalysisReport = typeof analysisReports.$inferInsert
+
+export type SocialAccount = typeof socialAccounts.$inferSelect
+export type NewSocialAccount = typeof socialAccounts.$inferInsert
+

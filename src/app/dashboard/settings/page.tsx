@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Key, CheckCircle, XCircle } from 'lucide-react'
+import { Key, CheckCircle, XCircle, Share2, Trash2, Plus, AlertCircle } from 'lucide-react'
+
 
 export default function SettingsPage() {
     const [provider, setProvider] = useState('openai')
@@ -11,9 +12,26 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
+    // Social Accounts State
+    const [socialAccounts, setSocialAccounts] = useState<any[]>([])
+    const [addingAccount, setAddingAccount] = useState(false)
+    const [newAccountPlatform, setNewAccountPlatform] = useState('bluesky')
+    const [newAccountCreds, setNewAccountCreds] = useState<any>({})
+
     useEffect(() => {
         fetchSettings()
+        fetchSocialAccounts()
     }, [])
+
+    const fetchSocialAccounts = async () => {
+        try {
+            const res = await fetch('/api/settings/social-accounts')
+            const data = await res.json()
+            setSocialAccounts(Array.isArray(data) ? data : [])
+        } catch (e) {
+            console.error('Failed to load social accounts')
+        }
+    }
 
     const fetchSettings = async () => {
         try {
@@ -27,6 +45,45 @@ export default function SettingsPage() {
             setLoading(false)
         }
     }
+
+    const handleAddAccount = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setAddingAccount(true)
+        try {
+            const res = await fetch('/api/settings/social-accounts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    platform: newAccountPlatform,
+                    credentials: newAccountCreds
+                })
+            })
+            const data = await res.json()
+            if (res.ok) {
+                setMessage({ type: 'success', text: 'Account connected successfully' })
+                setNewAccountCreds({})
+                fetchSocialAccounts()
+            } else {
+                setMessage({ type: 'error', text: data.error || 'Failed to connect account' })
+            }
+        } catch (e) {
+            setMessage({ type: 'error', text: 'Error connecting account' })
+        } finally {
+            setAddingAccount(false)
+        }
+    }
+
+    const handleDeleteAccount = async (id: string) => {
+        if (!confirm('Are you sure you want to disconnect this account?')) return
+        try {
+            await fetch(`/api/settings/social-accounts/${id}`, { method: 'DELETE' })
+            setMessage({ type: 'success', text: 'Account disconnected' })
+            fetchSocialAccounts()
+        } catch (e) {
+            setMessage({ type: 'error', text: 'Failed to disconnect account' })
+        }
+    }
+
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -70,7 +127,120 @@ export default function SettingsPage() {
             </div>
 
             <form onSubmit={handleSave} className="space-y-8">
-                {/* Provider Selection */}
+
+                {/* Social Accounts */}
+                <div className="glass-panel p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <Share2 className="w-5 h-5 text-primary-400" />
+                        Connected Accounts
+                    </h3>
+
+                    {/* List */}
+                    <div className="space-y-3 mb-6">
+                        {socialAccounts.length === 0 && (
+                            <div className="text-sm text-slate-500 italic p-4 border border-dashed border-white/10 rounded-lg text-center">
+                                No social accounts connected. Add one below to enable broadcasting.
+                            </div>
+                        )}
+                        {socialAccounts.map(acc => (
+                            <div key={acc.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-2 h-2 rounded-full ${acc.platform === 'mastodon' ? 'bg-purple-500' : 'bg-blue-500'}`} />
+                                    <div>
+                                        <div className="font-medium text-white text-sm">{acc.handle}</div>
+                                        <div className="text-xs text-slate-500 capitalize">{acc.platform} {acc.instanceUrl ? `(${acc.instanceUrl})` : ''}</div>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => handleDeleteAccount(acc.id)}
+                                    className="p-2 hover:bg-red-500/10 hover:text-red-400 text-slate-500 rounded transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Add New */}
+                    <div className="p-4 bg-white/5 rounded-lg border border-white/5">
+                        <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+                            <Plus className="w-4 h-4" /> Connect New Account
+                        </h4>
+
+                        <div className="flex gap-4 mb-4">
+                            {['bluesky', 'mastodon'].map(p => (
+                                <button
+                                    key={p}
+                                    type="button"
+                                    onClick={() => setNewAccountPlatform(p)}
+                                    className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${newAccountPlatform === p
+                                            ? (p === 'mastodon' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30')
+                                            : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                        }`}
+                                >
+                                    {p === 'bluesky' ? 'Bluesky' : 'Mastodon'}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="space-y-3">
+                            {newAccountPlatform === 'bluesky' ? (
+                                <>
+                                    <input
+                                        type="text"
+                                        placeholder="Handle (e.g. user.bsky.social)"
+                                        value={newAccountCreds.handle || ''}
+                                        onChange={e => setNewAccountCreds({ ...newAccountCreds, handle: e.target.value })}
+                                        className="input w-full text-sm"
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="App Password (not login password)"
+                                        value={newAccountCreds.password || ''}
+                                        onChange={e => setNewAccountCreds({ ...newAccountCreds, password: e.target.value })}
+                                        className="input w-full text-sm"
+                                    />
+                                    <p className="text-xs text-slate-500">
+                                        Use an App Password from Settings {'>'} App Passwords in Bluesky.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <input
+                                        type="text"
+                                        placeholder="Instance URL (e.g. https://mastodon.social)"
+                                        value={newAccountCreds.instanceUrl || ''}
+                                        onChange={e => setNewAccountCreds({ ...newAccountCreds, instanceUrl: e.target.value })}
+                                        className="input w-full text-sm"
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="Access Token"
+                                        value={newAccountCreds.accessToken || ''}
+                                        onChange={e => setNewAccountCreds({ ...newAccountCreds, accessToken: e.target.value })}
+                                        className="input w-full text-sm"
+                                    />
+                                    <p className="text-xs text-slate-500">
+                                        Get an access token from Preferences {'>'} Development in Mastodon.
+                                    </p>
+                                </>
+                            )}
+
+                            <button
+                                type="button"
+                                onClick={handleAddAccount}
+                                disabled={addingAccount}
+                                className="w-full btn-secondary text-xs py-2 mt-2"
+                            >
+                                {addingAccount ? 'Connecting...' : 'Connect Account'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Provider Selection (Existing) */}
+
                 <div className="glass-panel p-6">
                     <h3 className="text-lg font-semibold text-white mb-4">AI Provider</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

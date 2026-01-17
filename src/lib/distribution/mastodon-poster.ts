@@ -40,9 +40,23 @@ export class MastodonPoster {
         return await res.json()
     }
 
+    async verifyCredentials(): Promise<{ id: string; username: string; display_name: string } | null> {
+        try {
+            const res = await fetch(`${this.instanceUrl}/api/v1/accounts/verify_credentials`, {
+                headers: { 'Authorization': `Bearer ${this.accessToken}` }
+            })
+            if (!res.ok) return null
+            return await res.json()
+        } catch (e) {
+            return null
+        }
+    }
+
     /**
      * Posts a threaded conversation
      */
+
+
     async postThread(posts: { text: string }[]): Promise<string> {
         if (posts.length === 0) throw new Error('No posts to send')
 

@@ -29,5 +29,8 @@ export {
     secondarySources,
     secondaryArticles,
     analysisReports,
+    socialAccounts,
+
+
 } from './schema'
 
