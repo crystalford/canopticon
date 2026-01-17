@@ -4,6 +4,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import LinkExtension from '@tiptap/extension-link'
 import ImageExtension from '@tiptap/extension-image'
+import { SimpleIframe } from './editor/extensions/SimpleIframe'
 
 export default function ArticleContent({ content }: { content: any }) {
     const editor = useEditor({
@@ -21,15 +22,22 @@ export default function ArticleContent({ content }: { content: any }) {
                     class: 'max-w-full h-auto rounded-lg border border-white/10 shadow-lg my-8',
                 },
             }),
+            SimpleIframe,
         ],
+
         content: content ? (() => {
-            try {
-                return typeof content === 'string' ? JSON.parse(content) : content
-            } catch (e) {
-                console.error('Failed to parse article content:', e)
-                return { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Error loading content.' }] }] }
+            if (typeof content === 'string') {
+                try {
+                    const json = JSON.parse(content)
+                    if (json && json.type) return json
+                    return content // Assume HTML
+                } catch (e) {
+                    return content // Assume HTML
+                }
             }
+            return content
         })() : '',
+
         editable: false,
         editorProps: {
             attributes: {

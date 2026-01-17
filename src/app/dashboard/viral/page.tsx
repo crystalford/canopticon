@@ -103,17 +103,43 @@ export default function ViralMonitorPage() {
                                 <span>R: {post.metrics.reposts}</span>
                             </div>
 
-                            <a
-                                href={post.platform === 'bluesky'
-                                    ? `https://bsky.app/profile/${post.author.handle}/post/${post.uri.split('/').pop()}`
-                                    : post.uri
-                                }
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
-                            >
-                                Open <ExternalLink className="w-3 h-3" />
-                            </a>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={async (e) => {
+                                        e.preventDefault();
+                                        try {
+                                            const res = await fetch('/api/articles/create-from-viral', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ post })
+                                            })
+                                            const data = await res.json()
+                                            if (data.success) {
+                                                window.open(`/dashboard/articles/${data.articleId}`, '_blank')
+                                            } else {
+                                                alert(data.error || 'Failed to convert')
+                                            }
+                                        } catch (e) {
+                                            alert('Failed to convert story')
+                                        }
+                                    }}
+                                    className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded transition-colors"
+                                >
+                                    Convert to Story
+                                </button>
+                                <a
+                                    href={post.platform === 'bluesky'
+                                        ? `https://bsky.app/profile/${post.author.handle}/post/${post.uri.split('/').pop()}`
+                                        : post.uri
+                                    }
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
+                                >
+                                    Open <ExternalLink className="w-3 h-3" />
+                                </a>
+                            </div>
+
                         </div>
                     </div>
                 ))}

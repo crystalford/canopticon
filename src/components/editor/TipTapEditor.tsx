@@ -8,6 +8,8 @@ import Placeholder from '@tiptap/extension-placeholder'
 import { Bold, Italic, List, ListOrdered, Link as LinkIcon, Image as ImageIcon, Heading2, Quote } from 'lucide-react'
 import AiToolbar from './AiToolbar'
 
+import { SimpleIframe } from './extensions/SimpleIframe'
+
 interface TipTapEditorProps {
     content: string | null
     onChange: (content: string) => void
@@ -33,11 +35,27 @@ export default function TipTapEditor({ content, onChange }: TipTapEditorProps) {
                     class: 'max-w-full h-auto rounded-lg border border-white/10 shadow-lg my-6',
                 },
             }),
+            SimpleIframe,
             Placeholder.configure({
                 placeholder: 'Write your article here...',
             }),
         ],
-        content: content ? (typeof content === 'string' ? JSON.parse(content) : content) : '',
+
+        content: content ? (() => {
+            if (typeof content === 'string') {
+                try {
+                    const json = JSON.parse(content);
+                    // Check if it looks like a valid TipTap JSON (has 'type')
+                    if (json && json.type) return json;
+                    return content; // It was valid JSON but maybe just a string? Unlikely. Return raw if ambiguous.
+                } catch (e) {
+                    // Not JSON, assume HTML string
+                    return content;
+                }
+            }
+            return content;
+        })() : '',
+
         editorProps: {
             attributes: {
                 class: 'prose prose-invert max-w-none focus:outline-none min-h-[500px] p-6 text-slate-300 leading-relaxed prose-headings:text-white prose-headings:font-bold prose-strong:text-white prose-blockquote:border-l-primary-500 prose-blockquote:bg-white/5 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg not-italic',
