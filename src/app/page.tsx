@@ -38,7 +38,7 @@ export default async function HomePage() {
 
             <main className="pt-20">
                 {/* Hero Section */}
-                <section className="relative pt-12 pb-20 md:pt-20 md:pb-24 overflow-hidden border-b border-white/10 mb-24">
+                <section className="relative pt-6 pb-20 md:pt-12 md:pb-24 overflow-hidden border-b border-white/10 mb-24">
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary-900/10 via-background to-background z-0" />
 
                     <div className="container relative z-10 mx-auto px-4 text-center">
