@@ -38,11 +38,11 @@ export default async function HomePage() {
 
             <main className="pt-20">
                 {/* Hero Section */}
-                <section className="relative pt-6 pb-20 md:pt-12 md:pb-24 overflow-hidden border-b border-white/10 mb-24">
+                <section className="relative pt-6 pb-12 md:pt-12 md:pb-16 overflow-hidden border-b border-white/10 mb-12">
                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary-900/10 via-background to-background z-0" />
 
                     <div className="container relative z-10 mx-auto px-4 text-center">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-primary-400 mb-8 animate-fade-in-up">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-mono text-primary-400 mb-6 animate-fade-in-up">
                             <span className="relative flex h-2 w-2">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
@@ -50,12 +50,12 @@ export default async function HomePage() {
                             SYSTEM OPERATIONAL
                         </div>
 
-                        <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-white mb-8 animate-fade-in-up md:leading-[0.9]">
+                        <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-white mb-6 animate-fade-in-up md:leading-[0.9]">
                             UNFILTERED<br />
                             INTELLIGENCE
                         </h1>
 
-                        <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed animate-fade-in-up delay-100">
+                        <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-8 leading-relaxed animate-fade-in-up delay-100">
                             Operational intelligence for the information age. We deploy advanced forensic systems to uncover what matters in Canadian politics.
                         </p>
 
@@ -73,16 +73,16 @@ export default async function HomePage() {
                 <div className="px-6">
                     {/* Featured Dispatch */}
                     {featured && (
-                        <section className="max-w-screen-xl mx-auto mb-32">
-                            <div className="text-xs font-mono text-slate-500 uppercase tracking-widest mb-8 flex items-center gap-2">
+                        <section className="max-w-screen-xl mx-auto mb-20">
+                            <div className="text-xs font-mono text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
                                 <div className="w-1 h-4 bg-primary-500" />
                                 Latest Dispatch
                             </div>
 
                             <Link href={`/articles/${featured.slug}`} className="group block">
-                                <article className="grid lg:grid-cols-2 gap-16 items-start">
+                                <article className="grid lg:grid-cols-2 gap-12 items-start">
                                     <div>
-                                        <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 group-hover:text-primary-400 transition-colors leading-tight">
+                                        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 group-hover:text-primary-400 transition-colors leading-tight">
                                             {featured.headline}
                                         </h2>
                                         <div className="flex items-center gap-4 text-sm text-slate-500 font-mono mb-6">
@@ -92,10 +92,10 @@ export default async function HomePage() {
                                         </div>
                                     </div>
                                     <div>
-                                        <p className="text-xl text-slate-400 leading-relaxed border-l-2 border-white/10 pl-6 group-hover:border-primary-500/50 transition-colors">
+                                        <p className="text-lg text-slate-400 leading-relaxed border-l-2 border-white/10 pl-6 group-hover:border-primary-500/50 transition-colors">
                                             {featured.excerpt || featured.summary || "No excerpt available for this dispatch."}
                                         </p>
-                                        <div className="mt-8 flex items-center text-primary-400 font-bold group-hover:translate-x-2 transition-transform tracking-wide text-sm">
+                                        <div className="mt-6 flex items-center text-primary-400 font-bold group-hover:translate-x-2 transition-transform tracking-wide text-sm">
                                             READ DEEP DIVE <ArrowRight className="w-4 h-4 ml-2" />
                                         </div>
                                     </div>
@@ -107,7 +107,7 @@ export default async function HomePage() {
                     {/* Recent Feed */}
                     {recent.length > 0 && (
                         <section className="max-w-screen-xl mx-auto">
-                            <div className="flex items-center justify-between mb-12 border-t border-white/10 pt-12">
+                            <div className="flex items-center justify-between mb-8 border-t border-white/10 pt-8">
                                 <div className="text-xs font-mono text-slate-500 uppercase tracking-widest">
                                     Recent Intel
                                 </div>
@@ -116,16 +116,16 @@ export default async function HomePage() {
                                 </div>
                             </div>
 
-                            <div className="grid md:grid-cols-3 gap-x-8 gap-y-16">
+                            <div className="grid md:grid-cols-3 gap-x-8 gap-y-12">
                                 {recent.map(article => (
                                     <Link key={article.id} href={`/articles/${article.slug}`} className="group block h-full flex flex-col pt-4 border-t border-white/5 hover:border-primary-500/30 transition-colors">
                                         <div className="text-xs font-mono text-slate-500 mb-4 flex justify-between">
                                             <span>{new Date(article.publishedAt!).toLocaleDateString()}</span>
                                         </div>
-                                        <h3 className="text-2xl font-bold text-white mb-4 group-hover:text-primary-400 transition-colors leading-tight">
+                                        <h3 className="text-xl font-bold text-white mb-3 group-hover:text-primary-400 transition-colors leading-tight">
                                             {article.headline}
                                         </h3>
-                                        <p className="text-slate-400 text-sm leading-relaxed mb-6 line-clamp-3">
+                                        <p className="text-slate-400 text-sm leading-relaxed mb-4 line-clamp-3">
                                             {article.summary}
                                         </p>
                                         <div className="mt-auto text-xs font-bold text-white uppercase tracking-wider group-hover:text-primary-400 transition-colors flex items-center gap-2">
@@ -138,7 +138,7 @@ export default async function HomePage() {
                     )}
 
                     {allArticles.length === 0 && (
-                        <div className="text-center py-32 border-t border-white/10">
+                        <div className="text-center py-20 border-t border-white/10">
                             <div className="text-slate-500 font-mono text-sm">NO INTELLIGENCE PUBLISHED</div>
                         </div>
                     )}
