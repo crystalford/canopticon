@@ -212,6 +212,60 @@ export const briefs = pgTable('briefs', {
 })
 
 // ============================================================================
+// ENGINE B: SECONDARY ENGINE (Phase 2)
+// ============================================================================
+
+/**
+ * Secondary Sources (Opinion, Commentary, Social)
+ * Distinct from primary "sources" to ensure separation of concerns
+ */
+export const secondarySources = pgTable('secondary_sources', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    type: text('type').notNull(), // 'news_opinion', 'social_platform', 'blog'
+    baseUrl: text('base_url').notNull(),
+    reliabilityScore: integer('reliability_score').default(0), // Subjective score for bias weighting
+    biasLean: text('bias_lean'), // 'left', 'right', 'center', 'anti-establishment', etc.
+    scraperConfig: jsonb('scraper_config'), // Config for how to scrape this specific source
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+/**
+ * Secondary Articles / Posts
+ * Content ingested from secondary sources for analysis
+ */
+export const secondaryArticles = pgTable('secondary_articles', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    secondarySourceId: uuid('secondary_source_id').references(() => secondarySources.id),
+    originalUrl: text('original_url').notNull().unique(),
+    title: text('title'),
+    author: text('author'),
+    content: text('content').notNull(),
+    publishedAt: timestamp('published_at'),
+    metadata: jsonb('metadata'), // Social metrics (likes, shares) if available
+    sentimentScore: integer('sentiment_score'), // Raw sentiment if pre-calculated
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+/**
+ * Analysis Reports (Discourse Analysis)
+ * The output of Engine B: Analyzing how a Primary Article is discussed by Secondary Articles
+ */
+export const analysisReports = pgTable('analysis_reports', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    targetArticleId: uuid('target_article_id').references(() => articles.id).notNull(), // The primary article being analyzed
+    status: signalStatusEnum('status').default('pending').notNull(),
+    fallaciesDetected: jsonb('fallacies_detected'), // Array of fallacy objects
+    biasAnalysis: text('bias_analysis'), // Narrative text describing the bias landscape
+    contradictions: jsonb('contradictions'), // Array of factual contradictions found
+    sourcesUsed: jsonb('sources_used'), // Array of secondaryArticle IDs used in this analysis
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+// ============================================================================
 // RELATIONS
 // ============================================================================
 
@@ -278,6 +332,24 @@ export const aiUsageRelations = relations(aiUsage, ({ one }) => ({
     }),
 }))
 
+export const secondarySourcesRelations = relations(secondarySources, ({ many }) => ({
+    articles: many(secondaryArticles),
+}))
+
+export const secondaryArticlesRelations = relations(secondaryArticles, ({ one }) => ({
+    source: one(secondarySources, {
+        fields: [secondaryArticles.secondarySourceId],
+        references: [secondarySources.id],
+    }),
+}))
+
+export const analysisReportsRelations = relations(analysisReports, ({ one }) => ({
+    targetArticle: one(articles, {
+        fields: [analysisReports.targetArticleId],
+        references: [articles.id],
+    }),
+}))
+
 // ============================================================================
 // TYPE EXPORTS
 // ============================================================================
@@ -314,3 +386,12 @@ export type NewSubscriber = typeof subscribers.$inferInsert
 
 export type Brief = typeof briefs.$inferSelect
 export type NewBrief = typeof briefs.$inferInsert
+
+export type SecondarySource = typeof secondarySources.$inferSelect
+export type NewSecondarySource = typeof secondarySources.$inferInsert
+
+export type SecondaryArticle = typeof secondaryArticles.$inferSelect
+export type NewSecondaryArticle = typeof secondaryArticles.$inferInsert
+
+export type AnalysisReport = typeof analysisReports.$inferSelect
+export type NewAnalysisReport = typeof analysisReports.$inferInsert

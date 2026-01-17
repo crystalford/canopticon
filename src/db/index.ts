@@ -26,4 +26,8 @@ export {
     subscribers,
     systemSettings,
     briefs,
+    secondarySources,
+    secondaryArticles,
+    analysisReports,
 } from './schema'
+

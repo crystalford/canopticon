@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, FileText, Settings, Globe, PlusCircle, Newspaper, User, Radio } from 'lucide-react'
+import { LayoutDashboard, FileText, Settings, Globe, PlusCircle, Newspaper, User, Radio, Microscope } from 'lucide-react'
 import Logo from '@/components/Logo'
 
 export default async function DashboardLayout({
@@ -29,6 +29,8 @@ export default async function DashboardLayout({
                     <NavLink href="/dashboard" icon={LayoutDashboard} label="Daily Brief" />
                     <NavLink href="/dashboard/feed" icon={Radio} label="Wire Service" />
                     <NavLink href="/dashboard/articles" icon={FileText} label="Articles" />
+                    <NavLink href="/dashboard/engine-b" icon={Microscope} label="Discourse Analysis" />
+
 
                     <NavSection title="Sources" className="mt-8" />
                     <NavLink href="/dashboard/manual-sources" icon={Newspaper} label="Sources & Status" />

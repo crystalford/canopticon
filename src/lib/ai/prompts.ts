@@ -243,6 +243,95 @@ export interface VideoMaterialsOutput {
 }
 
 // ============================================================================
+// DISCOURSE ANALYSIS (Engine B)
+// ============================================================================
+
+export const FALLACY_DETECTION_V1 = {
+    name: 'FALLACY_DETECTION_V1',
+    prompt: `Analyze the provided text for logical fallacies.
+Identify up to 5 distinct fallacies.
+
+Common fallacies to look for:
+- Ad Hominem (attacking the person)
+- Strawman (misrepresenting an argument)
+- Slippery Slope (unsupported escalation)
+- False Dichotomy (limiting options unfairly)
+- Appeal to Emotion (replacing logic with feeling)
+- Whataboutism (deflecting criticism)
+
+Respond with JSON only.`,
+    inputSchema: {
+        text_content: 'string',
+        context: 'string (optional context about the author/source)',
+    },
+    outputSchema: {
+        fallacies: [
+            {
+                name: 'string',
+                quote: 'string (exact excerpt)',
+                explanation: 'string',
+                severity: 'low|medium|high',
+            }
+        ],
+        fallacy_count: 'integer',
+        overall_rationality_score: '0-100 (100 = perfectly rational)',
+    },
+}
+
+export const BIAS_ANALYSIS_V1 = {
+    name: 'BIAS_ANALYSIS_V1',
+    prompt: `Analyze the text for political or framing bias.
+Determine the directional lean and intensity of the bias.
+
+Bias Directions:
+- Left / Progressive
+- Right / Conservative
+- Establishment / Pro-Status Quo
+- Anti-Establishment / Populist
+- Neutral / Objective
+
+Respond with JSON only.`,
+    inputSchema: {
+        text_content: 'string',
+    },
+    outputSchema: {
+        bias_direction: 'string',
+        bias_intensity: 'low|medium|high|extreme',
+        framing_analysis: 'string (narrative description of how the subject is framed)',
+        loaded_language: 'string[] (list of biased words used)',
+        confidence: '0-100',
+    },
+}
+
+export interface FallacyDetectionInput {
+    text_content: string
+    context?: string
+}
+
+export interface FallacyDetectionOutput {
+    fallacies: {
+        name: string
+        quote: string
+        explanation: string
+        severity: 'low' | 'medium' | 'high'
+    }[]
+    fallacy_count: number
+    overall_rationality_score: number
+}
+
+export interface BiasAnalysisInput {
+    text_content: string
+}
+
+export interface BiasAnalysisOutput {
+    bias_direction: string
+    bias_intensity: 'low' | 'medium' | 'high' | 'extreme'
+    framing_analysis: string
+    loaded_language: string[]
+    confidence: number
+}
+
+// ============================================================================
 // PROMPT REGISTRY
 // ============================================================================
 
@@ -254,6 +343,9 @@ export const PROMPTS = {
     ARTICLE_SUMMARY_V1,
     ARTICLE_TAGS_V1,
     VIDEO_MATERIALS_V1,
+    FALLACY_DETECTION_V1,
+    BIAS_ANALYSIS_V1,
 } as const
+
 
 export type PromptName = keyof typeof PROMPTS
