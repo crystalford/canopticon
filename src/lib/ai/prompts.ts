@@ -332,6 +332,52 @@ export interface BiasAnalysisOutput {
 }
 
 // ============================================================================
+// BROADCASTING (The Broadcaster)
+// ============================================================================
+
+export const BROADCAST_THREAD_V1 = {
+    name: 'BROADCAST_THREAD_V1',
+    prompt: `You are the social media manager for 'Canopticon', a forensic intelligence service.
+Write a 3-part thread to share a new analysis article on Bluesky.
+
+Rules:
+1. Tone: Professional, slightly mysterious, authoritative, "Unfiltered Intelligence".
+2. Constraints: Each post must be under 300 characters.
+3. Structure:
+   - Post 1: The Hook. Catchy headline/angle + URL.
+   - Post 2: The Insight. The core forensic finding or contradiction discovered.
+   - Post 3: The CTA. "Read the full analysis" or "Subscribe for more".
+
+Respond with JSON only.`,
+    inputSchema: {
+        headline: 'string',
+        summary: 'string',
+        url: 'string',
+    },
+    outputSchema: {
+        thread: [
+            {
+                text: 'string',
+                image_prompt: 'string (optional suggestion for image)',
+            }
+        ]
+    },
+}
+
+export interface BroadcastThreadInput {
+    headline: string
+    summary: string
+    url: string
+}
+
+export interface BroadcastThreadOutput {
+    thread: {
+        text: string
+        image_prompt?: string
+    }[]
+}
+
+// ============================================================================
 // PROMPT REGISTRY
 // ============================================================================
 
@@ -345,7 +391,9 @@ export const PROMPTS = {
     VIDEO_MATERIALS_V1,
     FALLACY_DETECTION_V1,
     BIAS_ANALYSIS_V1,
+    BROADCAST_THREAD_V1,
 } as const
 
 
 export type PromptName = keyof typeof PROMPTS
+

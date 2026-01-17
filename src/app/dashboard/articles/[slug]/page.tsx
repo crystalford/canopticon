@@ -335,11 +335,75 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     }
 
 
+    // Broadcast State
+    const [broadcasting, setBroadcasting] = useState(false)
+    const [broadcastDraft, setBroadcastDraft] = useState<any[] | null>(null)
+    const [showBroadcastModal, setShowBroadcastModal] = useState(false)
+    const [bskyCreds, setBskyCreds] = useState({ handle: '', password: '' }) // Temp UI state
+
+    const handleDraftBroadcast = async () => {
+        if (!article) return
+        setBroadcasting(true)
+        setShowBroadcastModal(true)
+        setBroadcastDraft(null)
+
+        try {
+            const res = await fetch('/api/broadcast/draft', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    headline: article.headline,
+                    // Use plain text summary or content
+                    summary: article.excerpt || article.metaDescription || headline,
+                    url: `${window.location.origin}/articles/${article.slug}`
+                })
+            })
+            const data = await res.json()
+            if (!data.thread) throw new Error(data.error || 'Failed to generate draft')
+            setBroadcastDraft(data.thread)
+        } catch (e: any) {
+            alert('Failed to draft broadcast: ' + e.message)
+            setShowBroadcastModal(false)
+        } finally {
+            setBroadcasting(false)
+        }
+    }
+
+    const handleSendBroadcast = async () => {
+        if (!broadcastDraft || !bskyCreds.handle || !bskyCreds.password) {
+            alert('Please provide Bluesky credentials')
+            return
+        }
+
+        setBroadcasting(true)
+        try {
+            const res = await fetch('/api/broadcast/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    thread: broadcastDraft,
+                    credentials: bskyCreds
+                })
+            })
+            const data = await res.json()
+            if (res.ok) {
+                alert('Posted to Bluesky: ' + data.link)
+                setShowBroadcastModal(false)
+            } else {
+                throw new Error(data.error)
+            }
+        } catch (e: any) {
+            alert('Failed to post: ' + e.message)
+        } finally {
+            setBroadcasting(false)
+        }
+    }
+
     if (loading) return <div className="p-12 text-center text-slate-400">Loading editor...</div>
     if (error || !article) return <div className="p-12 text-center text-red-400">Error: {error || 'Article not found'}</div>
 
     return (
-        <div className="max-w-6xl mx-auto pb-20 space-y-8">
+        <div className="max-w-6xl mx-auto pb-20 space-y-8 relative">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 md:static z-20 bg-background/80 backdrop-blur-md pb-4 pt-2 md:py-0 border-b border-white/5 md:border-none">
                 <div className="flex items-center gap-4">
@@ -389,6 +453,15 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                     ) : (
                         <div className="flex gap-2">
                             <button
+                                onClick={handleDraftBroadcast}
+                                className="btn-secondary text-blue-400 hover:text-blue-300 hover:border-blue-500/30"
+                            >
+                                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                </svg>
+                                Broadcast
+                            </button>
+                            <button
                                 onClick={async () => {
                                     if (!confirm('Send this article to all subscribers via email?')) return
                                     try {
@@ -410,7 +483,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                                 className="btn-secondary text-primary-300 hover:text-primary-200 hover:border-primary-500/30"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
-                                Send Email
+                                Email
                             </button>
                             <button onClick={handleUnpublish} disabled={publishing} className="btn-secondary text-red-300 hover:text-red-200 hover:border-red-500/30">
                                 <Trash2 className="w-4 h-4 mr-2" />
@@ -576,6 +649,90 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
 
                 </div>
             </div>
+
+            {/* BROADCAST MODAL */}
+            {showBroadcastModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-[#0A0A0A] border border-white/10 rounded-xl p-6 w-full max-w-2xl shadow-2xl relative">
+                        <button
+                            onClick={() => setShowBroadcastModal(false)}
+                            className="absolute top-4 right-4 text-slate-400 hover:text-white"
+                        >
+                            &times;
+                        </button>
+
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                            <span className="text-blue-400">Bluesky Broadcast</span>
+                            <span className="text-sm font-normal text-slate-500 bg-white/5 px-2 py-0.5 rounded">Setup</span>
+                        </h2>
+
+                        {!broadcastDraft ? (
+                            <div className="py-12 flex flex-col items-center justify-center text-slate-400">
+                                <Loader2 className="w-8 h-8 animate-spin mb-4 text-primary-400" />
+                                <p>Generatng social thread using AI...</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-6">
+                                <div className="space-y-3">
+                                    <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Preview Thread</h3>
+                                    {broadcastDraft.map((post, i) => (
+                                        <div key={i} className="p-4 bg-white/5 rounded-lg border border-white/5">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-slate-800 flex-shrink-0" />
+                                                <div className="space-y-1 w-full">
+                                                    <div className="h-3 w-20 bg-slate-800 rounded" />
+                                                    <p className="text-sm text-slate-200">{post.text}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-lg space-y-3">
+                                    <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest">Connect Account</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs text-slate-500 mb-1 block">Handle (e.g. user.bsky.social)</label>
+                                            <input
+                                                type="text"
+                                                className="input"
+                                                value={bskyCreds.handle}
+                                                onChange={e => setBskyCreds({ ...bskyCreds, handle: e.target.value })}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-500 mb-1 block">App Password</label>
+                                            <input
+                                                type="password"
+                                                className="input"
+                                                value={bskyCreds.password}
+                                                onChange={e => setBskyCreds({ ...bskyCreds, password: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500">Go to Bluesky Settings &gt; Advanced &gt; App Passwords to generate one.</p>
+                                </div>
+
+                                <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                                    <button
+                                        onClick={() => setShowBroadcastModal(false)}
+                                        className="btn-secondary"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleSendBroadcast}
+                                        disabled={broadcasting}
+                                        className="btn-primary bg-blue-600 hover:bg-blue-500 shadow-blue-500/20"
+                                    >
+                                        {broadcasting ? 'Posting...' : 'Post Thread to Bluesky'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
