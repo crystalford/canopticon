@@ -32,6 +32,7 @@ export default function BroadcasterPage() {
 
     // Publishing
     const [creds, setCreds] = useState({ handle: '', password: '' })
+    const [mastoCreds, setMastoCreds] = useState({ instanceUrl: '', accessToken: '' })
     const [isPosting, setIsPosting] = useState(false)
     const [postResult, setPostResult] = useState<{ success: boolean, message: string } | null>(null)
 
@@ -39,8 +40,11 @@ export default function BroadcasterPage() {
     useEffect(() => {
         fetchArticles()
         // Load creds from local storage if available (simulated persistence)
-        const stored = localStorage.getItem('bsky_creds')
-        if (stored) setCreds(JSON.parse(stored))
+        const storedBsky = localStorage.getItem('bsky_creds')
+        if (storedBsky) setCreds(JSON.parse(storedBsky))
+
+        const storedMasto = localStorage.getItem('masto_creds')
+        if (storedMasto) setMastoCreds(JSON.parse(storedMasto))
     }, [])
 
     const fetchArticles = async () => {
@@ -90,8 +94,11 @@ export default function BroadcasterPage() {
     }
 
     const handlePost = async () => {
-        if (!creds.handle || !creds.password) {
-            alert('Please enter Bluesky credentials')
+        const hasBsky = creds.handle && creds.password
+        const hasMasto = mastoCreds.instanceUrl && mastoCreds.accessToken
+
+        if (!hasBsky && !hasMasto) {
+            alert('Please enter credentials for at least one platform (Bluesky or Mastodon)')
             return
         }
         if (draftThread.length === 0) return
@@ -100,7 +107,8 @@ export default function BroadcasterPage() {
         setPostResult(null)
 
         // Save creds for convenience
-        localStorage.setItem('bsky_creds', JSON.stringify(creds))
+        if (hasBsky) localStorage.setItem('bsky_creds', JSON.stringify(creds))
+        if (hasMasto) localStorage.setItem('masto_creds', JSON.stringify(mastoCreds))
 
         try {
             const res = await fetch('/api/broadcast/send', {
@@ -108,13 +116,17 @@ export default function BroadcasterPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     thread: draftThread,
-                    credentials: creds
+                    credentials: hasBsky ? creds : undefined,
+                    mastodonCredentials: hasMasto ? mastoCreds : undefined
                 })
             })
             const data = await res.json()
 
             if (res.ok) {
-                setPostResult({ success: true, message: `Successfully posted! ${data.link}` })
+                let msg = 'Posted successfully!'
+                if (data.results.bluesky.posted) msg += ` Bluesky: OK.`
+                if (data.results.mastodon.posted) msg += ` Mastodon: OK.`
+                setPostResult({ success: true, message: msg })
             } else {
                 setPostResult({ success: false, message: data.error || 'Failed to post' })
             }
@@ -234,7 +246,7 @@ export default function BroadcasterPage() {
                         )}
                     </div>
 
-                    {/* API Credentials */}
+                    {/* API Credentials - BLUESKY */}
                     <div className="glass-panel p-6 space-y-4">
                         <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-blue-500" />
@@ -260,6 +272,37 @@ export default function BroadcasterPage() {
                                     placeholder="xxxx-xxxx-xxxx-xxxx"
                                     value={creds.password}
                                     onChange={e => setCreds({ ...creds, password: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* API Credentials - MASTODON */}
+                    <div className="glass-panel p-6 space-y-4 border-purple-500/10">
+                        <h2 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-purple-500" />
+                            Mastodon Account
+                        </h2>
+
+                        <div className="grid grid-cols-1 gap-4">
+                            <div>
+                                <label className="text-xs text-slate-500 mb-1 block">Instance URL</label>
+                                <input
+                                    type="text"
+                                    className="input text-sm"
+                                    placeholder="https://mastodon.social"
+                                    value={mastoCreds.instanceUrl}
+                                    onChange={e => setMastoCreds({ ...mastoCreds, instanceUrl: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-slate-500 mb-1 block">Access Token</label>
+                                <input
+                                    type="password"
+                                    className="input text-sm"
+                                    placeholder="Your access token"
+                                    value={mastoCreds.accessToken}
+                                    onChange={e => setMastoCreds({ ...mastoCreds, accessToken: e.target.value })}
                                 />
                             </div>
                         </div>

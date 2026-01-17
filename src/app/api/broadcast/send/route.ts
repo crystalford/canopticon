@@ -1,35 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { BlueskyPoster, BroadcastPost } from '@/lib/distribution/bluesky-poster'
+import { MastodonPoster, MastodonCredentials } from '@/lib/distribution/mastodon-poster'
 
 export async function POST(req: NextRequest) {
     try {
-        const { thread, credentials } = await req.json()
+        const { thread, credentials, mastodonCredentials } = await req.json()
 
         if (!thread || !Array.isArray(thread)) {
             return NextResponse.json({ error: 'Invalid thread data' }, { status: 400 })
         }
 
-        if (!credentials || !credentials.handle || !credentials.password) {
-            return NextResponse.json({ error: 'Missing Bluesky credentials' }, { status: 401 })
+        const results: any = {
+            bluesky: { posted: false },
+            mastodon: { posted: false }
         }
 
-        const poster = new BlueskyPoster()
-        await poster.login(credentials)
+        const errors: string[] = []
 
-        // Convert the simple thread format to the poster's format
-        // (If we had image prompts, we would skip them or generate images here, 
-        // but for MVP we assume text only + links)
-        const postsToPublish: BroadcastPost[] = thread.map((p: any) => ({
-            text: p.text
-            // In a full version, we'd attach cards here
-        }))
+        // --- BLUESKY POSTING ---
+        if (credentials && credentials.handle && credentials.password) {
+            try {
+                const poster = new BlueskyPoster()
+                await poster.login(credentials)
 
-        const rootPost = await poster.postThread(postsToPublish)
+                const postsToPublish: BroadcastPost[] = thread.map((p: any) => ({
+                    text: p.text
+                }))
+
+                const rootPost = await poster.postThread(postsToPublish)
+
+                results.bluesky = {
+                    posted: true,
+                    link: `https://bsky.app/profile/${credentials.handle}/post/${rootPost?.uri.split('/').pop()}`
+                }
+            } catch (e: any) {
+                console.error('Bluesky Error:', e)
+                errors.push(`Bluesky: ${e.message}`)
+            }
+        }
+
+        // --- MASTODON POSTING ---
+        if (mastodonCredentials && mastodonCredentials.instanceUrl && mastodonCredentials.accessToken) {
+            try {
+                const poster = new MastodonPoster(mastodonCredentials)
+
+                const postsToPublish = thread.map((p: any) => ({
+                    text: p.text
+                }))
+
+                const rootUrl = await poster.postThread(postsToPublish)
+
+                results.mastodon = {
+                    posted: true,
+                    link: rootUrl
+                }
+            } catch (e: any) {
+                console.error('Mastodon Error:', e)
+                errors.push(`Mastodon: ${e.message}`)
+            }
+        }
+
+        if (errors.length > 0 && !results.bluesky.posted && !results.mastodon.posted) {
+            return NextResponse.json({ error: 'All posts failed', details: errors }, { status: 500 })
+        }
 
         return NextResponse.json({
             success: true,
-            uri: rootPost?.uri,
-            link: `https://bsky.app/profile/${credentials.handle}/post/${rootPost?.uri.split('/').pop()}`
+            results,
+            errors: errors.length > 0 ? errors : undefined
         })
 
     } catch (error: any) {
@@ -40,3 +78,4 @@ export async function POST(req: NextRequest) {
         )
     }
 }
+

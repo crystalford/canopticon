@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
         const result = await callAI<BroadcastThreadOutput>({
             prompt: PROMPTS.BROADCAST_THREAD_V1.prompt,
             input,
-            model: 'gpt-4o' // Use smarter model for creative writing
+            model: 'claude-3-5-sonnet-20240620' // User preferred model
         })
 
         if (!result.success || !result.data) {

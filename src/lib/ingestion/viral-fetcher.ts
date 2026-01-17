@@ -1,15 +1,12 @@
 import { BskyAgent } from '@atproto/api'
 
-// Known Feed URIs
-// This is the official "Discover" feed generator
-const DISCOVER_FEED_URI = 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/with-friends'
-
-// Or "What's Hot" (Classic) - often used for global trending
-const WHATS_HOT_FEED_URI = 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot'
+// Search keywords for Canadian context
+const CANADIAN_QUERY = '("Canada" OR "Trudeau" OR "Poilievre" OR "#cdnpoli" OR "Canadian Politics")'
 
 export type ViralPost = {
+    platform: 'bluesky' | 'mastodon'
     uri: string
-    cid: string
+    cid: string // or id for mastodon
     author: {
         handle: string
         displayName: string
@@ -24,53 +21,77 @@ export type ViralPost = {
     indexedAt: string
 }
 
-export async function fetchViralFeed(limit = 20): Promise<ViralPost[]> {
-    // We can use a public agent without login for some public feeds, 
-    // but often algorithmic feeds require an authenticated user context to personalize.
-    // However, "What's Hot" is often global. 
-    // Let's try to fetch it anonymously first.
-
-    // Note: To fetch a custom feed generator, we usually need the 'app.bsky.feed.getFeed' method.
-    // This often requires authentication.
-
-    const agent = new BskyAgent({ service: 'https://public.api.bsky.app' })
-
+async function fetchMastodonViral(limit = 10): Promise<ViralPost[]> {
     try {
-        // Try fetching without login first. 
-        // If this fails, we might need to ask the user for a "Public Service" login 
-        // or just use the public 'getPostThread' via the other method if we had IDs.
-        // But for *Discovery*, we need the feed.
+        // Fetch from mastodon.social for #cdnpoli
+        const res = await fetch(`https://mastodon.social/api/v1/timelines/tag/cdnpoli?limit=${limit}`)
+        if (!res.ok) throw new Error('Mastodon fetch failed')
+        const data = await res.json()
 
-        // Let's try creating a session-less request.
-        // Usually algorithmic feeds need a user. If this fails, we'll return an empty list 
-        // effectively prompting the UI to ask for credentials.
-
-        const res = await agent.app.bsky.feed.getFeed({
-            feed: WHATS_HOT_FEED_URI,
-            limit: limit
-        })
-
-        if (!res.success) throw new Error('Failed to fetch feed')
-
-        return res.data.feed.map(item => ({
-            uri: item.post.uri,
-            cid: item.post.cid,
+        return data.map((post: any) => ({
+            platform: 'mastodon',
+            uri: post.url,
+            cid: post.id,
             author: {
-                handle: item.post.author.handle,
-                displayName: item.post.author.displayName || item.post.author.handle,
-                avatar: item.post.author.avatar
+                handle: `@${post.account.username}@mastodon.social`,
+                displayName: post.account.display_name,
+                avatar: post.account.avatar
             },
-            content: (item.post.record as any).text || '',
+            content: post.content.replace(/<[^>]*>?/gm, ''), // Strip HTML
             metrics: {
-                likes: item.post.likeCount || 0,
-                reposts: item.post.repostCount || 0,
-                replies: item.post.replyCount || 0
+                likes: post.favourites_count,
+                reposts: post.reblogs_count,
+                replies: post.replies_count
             },
-            indexedAt: (item.post.record as any).createdAt
+            indexedAt: post.created_at
         }))
-
     } catch (e) {
-        console.warn('Viral fetch failed (Auth likely required):', e)
+        console.warn('Mastodon viral fetch failed', e)
         return []
     }
 }
+
+export async function fetchViralFeed(limit = 25): Promise<ViralPost[]> {
+    const agent = new BskyAgent({ service: 'https://public.api.bsky.app' })
+    const posts: ViralPost[] = []
+
+    // 1. Fetch Bluesky
+    try {
+        const res = await agent.app.bsky.feed.searchPosts({
+            q: CANADIAN_QUERY,
+            sort: 'top',
+            limit: limit
+        })
+
+        if (res.success) {
+            posts.push(...res.data.posts.map(post => ({
+                platform: 'bluesky' as const,
+                uri: post.uri,
+                cid: post.cid,
+                author: {
+                    handle: post.author.handle,
+                    displayName: post.author.displayName || post.author.handle,
+                    avatar: post.author.avatar
+                },
+                content: (post.record as any).text || '',
+                metrics: {
+                    likes: post.likeCount || 0,
+                    reposts: post.repostCount || 0,
+                    replies: post.replyCount || 0
+                },
+                indexedAt: (post.record as any).createdAt
+            })))
+        }
+    } catch (e) {
+        console.warn('Bluesky viral fetch failed:', e)
+    }
+
+    // 2. Fetch Mastodon
+    const mastoPosts = await fetchMastodonViral(limit)
+    posts.push(...mastoPosts)
+
+    // 3. Sort merged list by likes (simple heuristic for "viral")
+    return posts.sort((a, b) => b.metrics.likes - a.metrics.likes)
+}
+
+
