@@ -184,6 +184,7 @@ export const subscribers = pgTable('subscribers', {
     email: text('email').notNull().unique(),
     status: subscriberStatusEnum('status').default('pending').notNull(),
     source: text('source'), // homepage, article, subscribe page
+    confirmationToken: text('confirmation_token'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     confirmedAt: timestamp('confirmed_at'),
 })
@@ -278,6 +279,18 @@ export const socialAccounts = pgTable('social_accounts', {
     lastUsedAt: timestamp('last_used_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+/**
+ * Uploaded Videos (Private Library)
+ */
+export const uploadedVideos = pgTable('uploaded_videos', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    filename: text('filename').notNull(), // Actual file on disk (e.g. uuid.mp4)
+    originalName: text('original_name').notNull(), // User's upload name
+    mimeType: text('mime_type').notNull(),
+    size: integer('size').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
 // ============================================================================
@@ -414,4 +427,7 @@ export type NewAnalysisReport = typeof analysisReports.$inferInsert
 
 export type SocialAccount = typeof socialAccounts.$inferSelect
 export type NewSocialAccount = typeof socialAccounts.$inferInsert
+
+export type UploadedVideo = typeof uploadedVideos.$inferSelect
+export type NewUploadedVideo = typeof uploadedVideos.$inferInsert
 

@@ -8,6 +8,7 @@ export const SETTINGS_KEYS = {
     ANTHROPIC_API_KEY: 'anthropic_api_key',
     GROK_API_KEY: 'grok_api_key',
     GEMINI_API_KEY: 'gemini_api_key',
+    VIDEO_WEBHOOK_URL: 'video_webhook_url',
 } as const
 
 export async function getSetting(key: string): Promise<string | null> {

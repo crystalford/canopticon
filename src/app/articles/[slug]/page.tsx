@@ -1,24 +1,42 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { db, articles } from '@/db'
+import { db, articles, videoMaterials, analysisReports } from '@/db'
 import { eq } from 'drizzle-orm'
 import { Metadata } from 'next'
 import { ChevronLeft, Calendar, Clock, Share2 } from 'lucide-react'
 import Logo from '@/components/Logo'
 import dynamic from 'next/dynamic'
+import { ArticleTabs } from '@/components/ArticleTabs'
 
 const ArticleContent = dynamic(() => import('@/components/ArticleContent'), { ssr: false })
 
 export const revalidate = 60
 
-async function getArticle(slug: string) {
-    const result = await db.select().from(articles).where(eq(articles.slug, slug))
-    return result[0]
+async function getArticleData(slug: string) {
+    // 1. Fetch Article
+    const articleResult = await db.select().from(articles).where(eq(articles.slug, slug)).limit(1)
+    const article = articleResult[0]
+
+    if (!article) return null
+
+    // 2. Fetch related data (parallel)
+    const [videoResult, analysisResult] = await Promise.all([
+        db.select().from(videoMaterials).where(eq(videoMaterials.articleId, article.id)).limit(1),
+        db.select().from(analysisReports).where(eq(analysisReports.targetArticleId, article.id)).limit(1)
+    ])
+
+    return {
+        article,
+        videoMaterial: videoResult[0],
+        analysisReport: analysisResult[0]
+    }
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-    const article = await getArticle(params.slug)
-    if (!article) return { title: 'Not Found' }
+    const data = await getArticleData(params.slug)
+    if (!data) return { title: 'Not Found' }
+
+    const { article } = data
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://canopticon.com'
     const ogUrl = new URL(`${siteUrl}/api/og`)
@@ -60,8 +78,10 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function ArticlePage({ params }: { params: { slug: string } }) {
-    const article = await getArticle(params.slug)
-    if (!article) notFound()
+    const data = await getArticleData(params.slug)
+    if (!data) notFound()
+
+    const { article, videoMaterial, analysisReport } = data
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://canopticon.com'
     const schemaDatePublished = article.publishedAt ? new Date(article.publishedAt).toISOString() : new Date().toISOString()
@@ -135,8 +155,6 @@ export default async function ArticlePage({ params }: { params: { slug: string }
                         {article.headline}
                     </h1>
 
-
-
                     {/* Author Block */}
                     <div className="flex items-center gap-3 pt-4 border-t border-white/5">
                         <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 font-bold">
@@ -149,11 +167,11 @@ export default async function ArticlePage({ params }: { params: { slug: string }
                     </div>
                 </div>
 
-
-
-                {/* Main Content */}
+                {/* Main Content with Tabs */}
                 <div className="min-h-[200px]">
-                    <ArticleContent content={article.content} />
+                    <ArticleTabs analysisReport={analysisReport} videoMaterial={videoMaterial}>
+                        <ArticleContent content={article.content} />
+                    </ArticleTabs>
                 </div>
 
                 {/* Footer */}

@@ -7,7 +7,7 @@ import { Key, CheckCircle, XCircle, Share2, Trash2, Plus, AlertCircle } from 'lu
 export default function SettingsPage() {
     const [provider, setProvider] = useState('openai')
     const [status, setStatus] = useState({ openai: false, anthropic: false, grok: false, gemini: false })
-    const [inputs, setInputs] = useState({ openai_key: '', anthropic_key: '', grok_key: '', gemini_key: '' })
+    const [inputs, setInputs] = useState({ openai_key: '', anthropic_key: '', grok_key: '', gemini_key: '', video_webhook_url: '' })
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
@@ -105,7 +105,7 @@ export default function SettingsPage() {
 
             if (res.ok) {
                 setMessage({ type: 'success', text: 'Settings saved successfully' })
-                setInputs({ openai_key: '', anthropic_key: '', grok_key: '', gemini_key: '' })
+                setInputs({ openai_key: '', anthropic_key: '', grok_key: '', gemini_key: '', video_webhook_url: '' })
                 fetchSettings()
             } else {
                 setMessage({ type: 'error', text: 'Failed to save settings' })
@@ -175,8 +175,8 @@ export default function SettingsPage() {
                                     type="button"
                                     onClick={() => setNewAccountPlatform(p)}
                                     className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${newAccountPlatform === p
-                                            ? (p === 'mastodon' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30')
-                                            : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                        ? (p === 'mastodon' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-blue-500/20 text-blue-300 border border-blue-500/30')
+                                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                         }`}
                                 >
                                     {p === 'bluesky' ? 'Bluesky' : 'Mastodon'}
@@ -268,6 +268,33 @@ export default function SettingsPage() {
                                 <div className="text-sm text-slate-400">{p.desc}</div>
                             </label>
                         ))}
+                    </div>
+                </div>
+
+                {/* Integrations */}
+                <div className="glass-panel p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                        <Share2 className="w-5 h-5 text-primary-400" />
+                        Integrations
+                    </h3>
+                    <p className="text-sm text-slate-400 mb-6">
+                        Connect with external automation tools like Make.com or Zapier.
+                    </p>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-sm font-medium text-slate-300 mb-2 block">Video Webhook URL</label>
+                            <input
+                                type="text"
+                                value={inputs.video_webhook_url || ''}
+                                onChange={(e) => setInputs({ ...inputs, video_webhook_url: e.target.value })}
+                                placeholder="https://hook.make.com/..."
+                                className="input w-full text-sm"
+                            />
+                            <p className="text-xs text-slate-500 mt-2">
+                                We will POST the raw video file to this URL when you click "Dispatch" in the Video Library.
+                            </p>
+                        </div>
                     </div>
                 </div>
 

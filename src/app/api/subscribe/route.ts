@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db, subscribers } from '@/db'
 import { eq } from 'drizzle-orm'
-import { sendWelcomeEmail } from '@/lib/email'
+import { sendConfirmationEmail, sendWelcomeEmail } from '@/lib/email'
+import { v4 as uuidv4 } from 'uuid'
 
 /**
  * Newsletter Subscription API
@@ -34,6 +35,8 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        const token = uuidv4()
+
         // Check for existing subscription
         const existing = await db
             .select()
@@ -44,15 +47,43 @@ export async function POST(request: NextRequest) {
         if (existing.length > 0) {
             const subscriber = existing[0]
             if (subscriber.status === 'unsubscribed') {
-                // Re-subscribe
+                // Re-subscribe with new confirmation token
                 await db
                     .update(subscribers)
-                    .set({ status: 'pending', source })
+                    .set({
+                        status: 'pending',
+                        source,
+                        confirmationToken: token,
+                        confirmedAt: null
+                    })
                     .where(eq(subscribers.id, subscriber.id))
+
+                try {
+                    await sendConfirmationEmail(email.toLowerCase(), token)
+                } catch (e) {
+                    console.error('Error sending confirmation email:', e)
+                }
 
                 return NextResponse.json({
                     success: true,
                     message: 'Welcome back! Please check your email to confirm.',
+                })
+            } else if (subscriber.status === 'pending') {
+                // Resend confirmation
+                await db
+                    .update(subscribers)
+                    .set({ confirmationToken: token })
+                    .where(eq(subscribers.id, subscriber.id))
+
+                try {
+                    await sendConfirmationEmail(email.toLowerCase(), token)
+                } catch (e) {
+                    console.error('Error sending confirmation email:', e)
+                }
+
+                return NextResponse.json({
+                    success: true,
+                    message: 'Confirmation email resent. Please check your inbox.',
                 })
             }
 
@@ -67,26 +98,20 @@ export async function POST(request: NextRequest) {
             email: email.toLowerCase(),
             status: 'pending',
             source,
+            confirmationToken: token,
         })
 
-        // TODO: Send confirmation email (double opt-in)
-        // For Phase 1, we'll auto-confirm
-        await db
-            .update(subscribers)
-            .set({ status: 'subscribed', confirmedAt: new Date() })
-            .where(eq(subscribers.email, email.toLowerCase()))
-
-        // Send confirmation email
+        // Send confirmation email (double opt-in)
         try {
-            await sendWelcomeEmail(email.toLowerCase())
+            await sendConfirmationEmail(email.toLowerCase(), token)
         } catch (e) {
-            console.error('Error sending welcome email:', e)
-            // Don't fail the request, just log it
+            console.error('Error sending confirmation email:', e)
+            // Still return success so UI shows message
         }
 
         return NextResponse.json({
             success: true,
-            message: 'Successfully subscribed to updates!',
+            message: 'Please check your email to confirm your subscription.',
         })
 
     } catch (error) {

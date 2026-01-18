@@ -72,3 +72,31 @@ export async function sendArticleEmail(email: string, article: { headline: strin
         `
     })
 }
+
+export async function sendConfirmationEmail(email: string, token: string) {
+    if (!resend) return
+
+    const confirmUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://canopticon.com'}/api/subscribe/confirm?token=${token}`
+
+    await resend.emails.send({
+        from: FROM_EMAIL,
+        to: email,
+        subject: 'Confirm your subscription',
+        html: `
+            <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+                <h1 style="color: #0f172a;">Confirm subscription</h1>
+                <p>Please click the link below to confirm your subscription to the Canopticon Intelligence Brief.</p>
+                <div style="margin: 24px 0;">
+                    <a href="${confirmUrl}" style="background: #0f172a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Confirm Subscription</a>
+                </div>
+                <p style="font-size: 14px; color: #64748b;">
+                    If you didn't request this, you can safely ignore this email.
+                </p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+                <p style="font-size: 12px; color: #64748b;">
+                    Canopticon Intelligence
+                </p>
+            </div>
+        `
+    })
+}
