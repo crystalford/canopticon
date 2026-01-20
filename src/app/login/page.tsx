@@ -26,7 +26,8 @@ export default function LoginPage() {
             if (result?.error) {
                 setError('Invalid credentials')
             } else {
-                router.push('/dashboard')
+                // Force hard navigation to ensure session cookies are propagated
+                window.location.href = '/dashboard'
             }
         } catch {
             setError('An error occurred')

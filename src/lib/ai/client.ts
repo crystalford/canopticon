@@ -140,15 +140,18 @@ export async function callAI<T>(options: CallAIOptions<T>): Promise<{
 }> {
     try {
         const client = await getAIClient()
-        const modelId = options.model || 'gpt-4o-mini'
+        // Determine provider and appropriate default model
+        const provider = await getSetting(SETTINGS_KEYS.AI_PROVIDER) || 'openai'
 
-        // Map model ID to provider-specific string if needed
-        let modelInstance;
-        if (modelId.startsWith('claude')) {
-            modelInstance = client(modelId)
-        } else {
-            modelInstance = client(modelId)
+        // Auto-select model if not specified based on provider
+        if (!options.model) {
+            if (provider === 'anthropic') modelId = 'claude-3-haiku-20240307'
+            else if (provider === 'gemini') modelId = 'gemini-2.5-flash'
+            else if (provider === 'grok') modelId = 'gpt-4o-mini' // transform later if needed
+            else modelId = 'gpt-4o-mini'
         }
+
+        const modelInstance = client(modelId)
 
         const { text, usage } = await import('ai').then(ai => ai.generateText({
             model: modelInstance,

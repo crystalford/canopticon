@@ -289,9 +289,9 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
             if (data.excerpt) setExcerpt(data.excerpt)
             if (data.metaDescription) setMetaDescription(data.metaDescription)
 
-        } catch (err) {
+        } catch (err: any) {
             console.error(err)
-            alert('Failed to optimize article. Please try again.')
+            alert(`Failed to optimize: ${err.message || 'Unknown error'}`)
         } finally {
             setOptimizing(false)
         }
