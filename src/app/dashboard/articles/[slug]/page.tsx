@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TipTapEditor from '@/components/editor/TipTapEditor'
-import { ChevronLeft, Save, Globe, Eraser, Loader2, Sparkles, AlertCircle, CheckCircle, Wand2, Clock, Upload, Trash2, Eye, Send } from 'lucide-react'
+import { ChevronLeft, Save, Globe, Eraser, Loader2, Sparkles, AlertCircle, CheckCircle, Wand2, Clock, Upload, Trash2, Eye, Send, Copy } from 'lucide-react'
+import { DERIVATIVE_CONTENT_TEMPLATE } from '@/lib/templates'
 
 interface Article {
     id: string
@@ -19,6 +20,7 @@ interface Article {
     publishedAt: string | null
     readingTime?: number
     topics: string[] | null
+    derivativeContent?: string | object | null
 }
 
 export default function ArticleEditorPage({ params }: { params: { slug: string } }) {
@@ -43,10 +45,13 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 
     // Distribution Cockpit State
-    const [activeTab, setActiveTab] = useState<'write' | 'distribute'>('write')
+    const [activeTab, setActiveTab] = useState<'write' | 'distribute' | 'derivative'>('write')
     const [socialText, setSocialText] = useState('')
     const [socialAccounts, setSocialAccounts] = useState<any[]>([])
     const [isPostingSocial, setIsPostingSocial] = useState(false)
+
+    // Derivative Content State
+    const [derivativeContent, setDerivativeContent] = useState('')
 
     // Track unsaved changes by comparing current state to loaded article
     const hasUnsavedChanges = useMemo(() => {
@@ -54,15 +59,22 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
         // Simple array comparison for topics
         const topicsChanged = JSON.stringify(topics.sort()) !== JSON.stringify((article.topics || []).sort())
 
+        // Handle derivative content comparison (it might be text or jsonb string in DB)
+        let originalDerivative = ''
+        if (typeof article.derivativeContent === 'string') {
+            originalDerivative = article.derivativeContent
+        }
+
         return (
             headline !== article.headline ||
             slug !== article.slug ||
             content !== article.content ||
             excerpt !== (article.excerpt || '') ||
             metaDescription !== (article.metaDescription || '') ||
-            topicsChanged
+            topicsChanged ||
+            derivativeContent !== originalDerivative
         )
-    }, [headline, slug, content, excerpt, metaDescription, topics, article])
+    }, [headline, slug, content, excerpt, metaDescription, topics, derivativeContent, article])
 
     useEffect(() => {
         fetchArticle()
@@ -81,6 +93,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
             setExcerpt(a.excerpt || '')
             setMetaDescription(a.metaDescription || '')
             setTopics(a.topics || [])
+            setDerivativeContent(typeof a.derivativeContent === 'string' ? a.derivativeContent : '')
 
             // Pre-fill social text
             setSocialText(a.excerpt || a.summary || a.headline + ' ' + `${window.location.origin}/articles/${a.slug}`)
@@ -157,6 +170,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
             excerpt: excerpt || null,
             metaDescription: metaDescription || null,
             topics: topics,
+            derivativeContent: derivativeContent || null, // SAVE DERIVATIVE CONTENT
             readingTime,
             updatedAt: new Date(),
         })
@@ -168,9 +182,23 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
             return
         }
 
+        if (article) {
+            // Update local article state to reflect saved changes (crucial for hasUnsavedChanges to reset)
+            setArticle({
+                ...article,
+                headline,
+                slug: cleanSlug,
+                content,
+                excerpt: excerpt || null,
+                metaDescription: metaDescription || null,
+                topics: topics,
+                derivativeContent: derivativeContent || null,
+            })
+        }
+
         setLastSaved(new Date())
         if (showAlert) alert('Changes saved')
-    }, [headline, slug, content, excerpt, metaDescription, topics, article, router])
+    }, [headline, slug, content, excerpt, metaDescription, topics, derivativeContent, article, router])
 
     const updateArticle = async (data: any) => {
         const res = await fetch(`/api/articles/${params.slug}`, {
@@ -284,6 +312,7 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                 summary: plainText.slice(0, 800) || headline,
                 excerpt: excerpt || null,
                 metaDescription: metaDescription || null,
+                derivativeContent: derivativeContent || null,
                 readingTime,
                 topics,
                 isDraft: false,
@@ -459,6 +488,13 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                                 }`}
                         >
                             WRITE
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('derivative')}
+                            className={`px-3 py-1.5 rounded text-xs font-bold transition-all ${activeTab === 'derivative' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'
+                                }`}
+                        >
+                            DERIVATIVES
                         </button>
                         <button
                             onClick={() => setActiveTab('distribute')}
@@ -643,6 +679,42 @@ export default function ArticleEditorPage({ params }: { params: { slug: string }
                             </div>
                         </div>
 
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'derivative' && (
+                <div className="animate-in fade-in slide-in-from-bottom-4">
+                    <div className="glass-panel p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                                    Derivative Content Strategy
+                                </h2>
+                                <p className="text-sm text-slate-400 mt-1">
+                                    Manage scripts, threads, and alerts derived from this article.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    if (confirm('Overwrite current content with default template?')) {
+                                        setDerivativeContent(DERIVATIVE_CONTENT_TEMPLATE.trim())
+                                    }
+                                }}
+                                className="btn-secondary text-xs"
+                            >
+                                <Copy className="w-4 h-4 mr-2" />
+                                Load Template
+                            </button>
+                        </div>
+
+                        <textarea
+                            className="w-full h-[600px] bg-black/40 border border-white/10 rounded-lg p-6 font-mono text-sm leading-relaxed text-slate-300 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-y"
+                            placeholder="# Derivative Content..."
+                            value={derivativeContent}
+                            onChange={(e) => setDerivativeContent(e.target.value)}
+                        />
                     </div>
                 </div>
             )}

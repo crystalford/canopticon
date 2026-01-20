@@ -65,7 +65,7 @@ export async function PATCH(
         const { slug } = await params
         const body = await request.json()
 
-        console.log('PATCH /api/articles/[slug]:', { slug, body })
+        console.log('PATCH /api/articles/[slug]:', { slug, keys: Object.keys(body) })
 
         // Sanitize dates - need to convert ISO strings to Date objects for database
         const sanitizedBody = { ...body }

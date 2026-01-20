@@ -113,6 +113,7 @@ export const articles = pgTable('articles', {
     content: jsonb('content'), // Rich text content (TipTap JSON format)
     excerpt: text('excerpt'), // SEO excerpt (auto-generated or manual)
     metaDescription: text('meta_description'), // SEO meta description
+    derivativeContent: jsonb('derivative_content'), // Flexible JSON logic for scripts/threads/emails
     featuredImageUrl: text('featured_image_url'), // Featured image URL
     author: text('author').default('CANOPTICON').notNull(),
     readingTime: integer('reading_time'), // Auto-calculated (words / 200)

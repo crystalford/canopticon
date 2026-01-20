@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, FileText, Settings, Globe, PlusCircle, Newspaper, User, Radio, Microscope, Flame, Send, Film } from 'lucide-react'
+import { LayoutDashboard, FileText, Settings, Globe, PlusCircle, Newspaper, User, Radio, Microscope, Flame, Send, Film, Database } from 'lucide-react'
 
 import Logo from '@/components/Logo'
 
@@ -34,6 +34,7 @@ export default async function DashboardLayout({
                     <NavLink href="/dashboard/engine-b" icon={Microscope} label="Discourse Analysis" />
                     <NavLink href="/dashboard/broadcaster" icon={Send} label="The Broadcaster" />
                     <NavLink href="/dashboard/videos" icon={Film} label="Video Library" />
+                    <NavLink href="/dashboard/archive" icon={Database} label="Archive" />
 
 
 
