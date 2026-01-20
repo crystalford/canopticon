@@ -144,7 +144,8 @@ export async function callAI<T>(options: CallAIOptions<T>): Promise<{
         const provider = await getSetting(SETTINGS_KEYS.AI_PROVIDER) || 'openai'
 
         // Auto-select model if not specified based on provider
-        if (!options.model) {
+        let modelId = options.model
+        if (!modelId) {
             if (provider === 'anthropic') modelId = 'claude-3-haiku-20240307'
             else if (provider === 'gemini') modelId = 'gemini-2.5-flash'
             else if (provider === 'grok') modelId = 'gpt-4o-mini' // transform later if needed
