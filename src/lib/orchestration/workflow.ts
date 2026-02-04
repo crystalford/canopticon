@@ -5,6 +5,7 @@ import { processArticle, runSignalAnalysis } from '@/lib/signals/pipeline'
 import { synthesizeArticle, publishArticle } from '@/lib/synthesis'
 import { postToBluesky, postToMastodon } from '@/lib/distribution'
 import { autoApprovePendingSignals, autoPublishDraftArticles } from '@/lib/orchestration/decisions'
+import { recordJobExecution } from '@/lib/orchestration/scheduler'
 
 /**
  * Automation Workflow Orchestrator
@@ -69,28 +70,57 @@ export async function runAutomationCycle(config: Partial<AutomationConfig> = {})
 
   try {
     // PHASE 1: Process unprocessed articles
+    const startTime = Date.now()
     const unprocessedCount = await processUnprocessedArticles(cycleId, finalConfig, stats)
     stats.articlesIngested = unprocessedCount
+    await recordJobExecution('ingestion', 'success', Date.now() - startTime, {
+      articlesProcessed: unprocessedCount,
+    })
 
     // PHASE 2: Auto-approve pending signals based on rules
+    const decisionStart = Date.now()
     const decisionResult = await autoApprovePendingSignals()
     stats.signalsApproved = decisionResult.approved
     stats.signalsProcessed = decisionResult.approved + decisionResult.flagged
     if (decisionResult.errors.length > 0) {
       stats.errors.push(...decisionResult.errors)
     }
+    await recordJobExecution(
+      'signal-processing',
+      decisionResult.errors.length === 0 ? 'success' : 'failure',
+      Date.now() - decisionStart,
+      {
+        signalsApproved: decisionResult.approved,
+        signalsFlagged: decisionResult.flagged,
+        errors: decisionResult.errors.length,
+      }
+    )
 
     // PHASE 3: Synthesize approved signals
+    const synthesisStart = Date.now()
     const synthesizedCount = await synthesizeApprovedSignals(cycleId, finalConfig, stats)
     stats.articlesSynthesized = synthesizedCount
+    await recordJobExecution('synthesis', 'success', Date.now() - synthesisStart, {
+      articlesSynthesized: synthesizedCount,
+    })
 
     // PHASE 4: Auto-publish draft articles based on rules
     if (finalConfig.enableAutoPublish) {
+      const publishStart = Date.now()
       const publishResult = await autoPublishDraftArticles()
       stats.articlesPublished = publishResult.published
       if (publishResult.errors.length > 0) {
         stats.errors.push(...publishResult.errors)
       }
+      await recordJobExecution(
+        'publishing',
+        publishResult.errors.length === 0 ? 'success' : 'failure',
+        Date.now() - publishStart,
+        {
+          articlesPublished: publishResult.published,
+          errors: publishResult.errors.length,
+        }
+      )
     }
 
     // PHASE 5: Distribute to social media

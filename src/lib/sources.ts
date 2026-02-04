@@ -228,6 +228,8 @@ export async function runAllSourceIngestion() {
           return await SOURCE_WORKERS.ingestWebScrape(source.id, source.url, selector)
         } else if (source.type === 'api') {
           return await SOURCE_WORKERS.ingestAPI(source.id, source.url)
+        } else {
+          return { success: false, error: `Unknown source type: ${source.type}` }
         }
       } catch (error) {
         console.error(`[v0] Failed to ingest ${source.id}:`, error)
@@ -236,7 +238,7 @@ export async function runAllSourceIngestion() {
     })
   )
 
-  const successful = results.filter(r => r.success).length
+  const successful = results.filter(r => r && r.success).length
   console.log(`[v0] Source ingestion complete: ${successful}/${sources.length} successful`)
   return results
 }
