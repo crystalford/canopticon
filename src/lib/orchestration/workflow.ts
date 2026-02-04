@@ -163,6 +163,8 @@ async function processUnprocessedArticles(
       .orderBy(rawArticles.createdAt)
       .limit(config.batchSize)
 
+    console.log(`[v0] Phase 1: Processing ${unprocessed.length} unprocessed articles`)
+
     let processed = 0
 
     for (const article of unprocessed) {
@@ -173,60 +175,35 @@ async function processUnprocessedArticles(
           processed++
           stats.signalsProcessed++
 
+          console.log(`[v0] Created signal ${pipelineResult.signalId} for article ${article.id}, running analysis...`)
+
           // NOW run AI analysis to score the signal
           const analysisResult = await runSignalAnalysis(pipelineResult.signalId)
-          if (!analysisResult.success) {
+          if (analysisResult.success) {
+            console.log(`[v0] Analysis complete for signal ${pipelineResult.signalId}`)
+          } else {
             const message = analysisResult.reason || 'Analysis failed'
+            console.error(`[v0] Analysis failed for signal ${pipelineResult.signalId}: ${message}`)
             stats.errors.push(`Failed to analyze signal ${pipelineResult.signalId}: ${message}`)
           }
+        } else {
+          console.warn(`[v0] Pipeline failed for article ${article.id}: ${pipelineResult.reason}`)
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
+        console.error(`[v0] Error processing article ${article.id}:`, error)
         stats.errors.push(`Failed to process article ${article.id}: ${message}`)
       }
     }
 
-    await logWorkflow(cycleId, 'info', `Processed ${processed} unprocessed articles`, {})
+    await logWorkflow(cycleId, 'info', `Processed ${processed} unprocessed articles`, { processed })
+    console.log(`[v0] Phase 1 complete: ${processed} articles processed`)
     return processed
 
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error(`[v0] Phase 1 failed:`, error)
     await logWorkflow(cycleId, 'error', `Phase 1 failed: ${message}`, {})
-    throw error
-  }
-}
-
-/**
- * PHASE 2: Auto-approve pending signals
- */
-async function approveHighScoringSignals(
-  cycleId: string,
-  config: AutomationConfig,
-  stats: WorkflowStats
-): Promise<number> {
-  try {
-    // Get all pending signals (not high-scoring, just pending)
-    const pendingSignals = await db
-      .select()
-      .from(signals)
-      .where(eq(signals.status, 'pending'))
-
-    let approved = 0
-
-    for (const signal of pendingSignals) {
-      // Auto-approve based on orchestration rules
-      // The rules are evaluated in autoApprovePendingSignals()
-      approved++
-      await logWorkflow(cycleId, 'info', `Signal evaluated (score: ${signal.significanceScore})`, {
-        signalId: signal.id,
-      })
-    }
-
-    return approved
-
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    await logWorkflow(cycleId, 'error', `Phase 2 failed: ${message}`, {})
     throw error
   }
 }
@@ -248,10 +225,13 @@ async function synthesizeApprovedSignals(
       .orderBy(signals.createdAt)
       .limit(config.batchSize)
 
+    console.log(`[v0] Phase 3: Found ${approvedSignals.length} approved signals to synthesize`)
+
     let synthesized = 0
 
     for (const signal of approvedSignals) {
       try {
+        console.log(`[v0] Synthesizing article for signal ${signal.id}...`)
         const result = await synthesizeArticle(signal.id)
         if (result.success) {
           synthesized++
@@ -259,90 +239,26 @@ async function synthesizeApprovedSignals(
             signalId: signal.id,
             articleId: result.articleId,
           })
+          console.log(`[v0] Article synthesized: ${result.articleId}`)
         } else {
-          stats.errors.push(`Failed to synthesize signal ${signal.id}: ${result.error}`)
+          const err = result.error || 'Unknown error'
+          console.error(`[v0] Synthesis failed for signal ${signal.id}: ${err}`)
+          stats.errors.push(`Failed to synthesize signal ${signal.id}: ${err}`)
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
+        console.error(`[v0] Synthesis error for signal ${signal.id}:`, error)
         stats.errors.push(`Synthesis error for signal ${signal.id}: ${message}`)
       }
     }
 
+    console.log(`[v0] Phase 3 complete: ${synthesized} articles synthesized`)
     return synthesized
 
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error(`[v0] Phase 3 failed:`, error)
     await logWorkflow(cycleId, 'error', `Phase 3 failed: ${message}`, {})
-    throw error
-  }
-}
-
-/**
- * PHASE 4: Auto-publish draft articles
- */
-async function publishDraftArticles(
-  cycleId: string,
-  config: AutomationConfig,
-  stats: WorkflowStats
-): Promise<number> {
-  try {
-    // Find draft articles with approved signals
-    const drafts = await db
-      .select({ id: articles.id, slug: articles.slug, signalId: articles.signalId })
-      .from(articles)
-      .where(eq(articles.isDraft, true))
-      .orderBy(articles.createdAt)
-      .limit(config.batchSize)
-
-    let published = 0
-
-    for (const draft of drafts) {
-      try {
-        // Verify the signal is approved before publishing
-        if (draft.signalId) {
-          const [signal] = await db
-            .select()
-            .from(signals)
-            .where(eq(signals.id, draft.signalId))
-
-          if (!signal || signal.status !== 'approved') {
-            await logWorkflow(cycleId, 'info', `Article's signal not approved, skipping publish`, {
-              articleId: draft.id,
-              slug: draft.slug,
-            })
-            continue
-          }
-        }
-
-        const result = await publishArticle(draft.id)
-        if (result.success) {
-          published++
-          await logWorkflow(cycleId, 'info', 'Article published', {
-            articleId: draft.id,
-            slug: draft.slug,
-          })
-        } else {
-          stats.errors.push(`Failed to publish ${draft.slug}: ${result.error}`)
-          await logWorkflow(cycleId, 'error', `Publish failed: ${result.error}`, {
-            articleId: draft.id,
-            slug: draft.slug,
-          })
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error'
-        stats.errors.push(`Publish error for ${draft.slug}: ${message}`)
-        await logWorkflow(cycleId, 'error', `Publish error: ${message}`, {
-          articleId: draft.id,
-          slug: draft.slug,
-        })
-      }
-    }
-
-    return published
-
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error'
-    await logWorkflow(cycleId, 'error', `Phase 4 failed: ${message}`, {})
     throw error
   }
 }

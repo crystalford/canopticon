@@ -60,6 +60,15 @@ const DEFAULT_APPROVAL_RULES: ApprovalRule[] = [
       maxAgeMins: 240,
     },
   },
+  {
+    name: 'analyzed-moderate-signals',
+    enabled: true,
+    conditions: {
+      minConfidenceScore: 50,  // Lower threshold for analyzed signals
+      minSignificanceScore: 50,
+      maxAgeMins: 180,
+    },
+  },
 ]
 
 const DEFAULT_PUBLISHING_RULES: PublishingRule[] = [
@@ -123,11 +132,11 @@ export async function autoApprovePendingSignals(): Promise<{
             .where(eq(signals.id, signal.id))
 
           approved++
-          console.log(`[v0] Approved signal ${signal.id}`)
+          console.log(`[v0] ✓ Approved signal ${signal.id} (confidence: ${signal.confidenceScore}, significance: ${signal.significanceScore})`)
         } else {
-          // No rule matched - don't flag automatically
+          // No rule matched - log why
           console.log(
-            `[v0] Signal ${signal.id} did not match any approval rules, staying pending`
+            `[v0] Signal ${signal.id} did not match rules (conf: ${signal.confidenceScore}, sig: ${signal.significanceScore}, type: ${signal.signalType}) - staying pending`
           )
         }
       } catch (error) {
