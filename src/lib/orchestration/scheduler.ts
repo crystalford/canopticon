@@ -1,25 +1,25 @@
 import { Redis } from '@upstash/redis'
 
 // Verify Redis is configured
-if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
   throw new Error(
     'Redis is required for Canopticon automation to work.\n\n' +
+    'The following environment variables are missing:\n' +
+    `  - KV_REST_API_URL: ${process.env.KV_REST_API_URL ? '✓' : '✗'}\n` +
+    `  - KV_REST_API_TOKEN: ${process.env.KV_REST_API_TOKEN ? '✓' : '✗'}\n\n` +
     'Setup Instructions:\n' +
     '1. Go to https://console.upstash.com and create a Redis database\n' +
     '2. Copy the REST URL and REST Token from your database\n' +
     '3. Add these as environment variables in your Vercel project settings:\n' +
-    '   - UPSTASH_REDIS_REST_URL\n' +
-    '   - UPSTASH_REDIS_REST_TOKEN\n' +
-    '4. Redeploy your application\n\n' +
-    'Missing variables:\n' +
-    `  - UPSTASH_REDIS_REST_URL: ${process.env.UPSTASH_REDIS_REST_URL ? '✓' : '✗'}\n` +
-    `  - UPSTASH_REDIS_REST_TOKEN: ${process.env.UPSTASH_REDIS_REST_TOKEN ? '✓' : '✗'}`
+    '   - KV_REST_API_URL (the REST endpoint)\n' +
+    '   - KV_REST_API_TOKEN (the access token)\n' +
+    '4. Redeploy your application'
   )
 }
 
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
 })
 
 export interface SchedulerConfig {
