@@ -35,7 +35,8 @@ export default function DashboardPage() {
     try {
       const res = await fetch('/api/automation/status')
       if (!res.ok) {
-        throw new Error(`API returned ${res.status}`)
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || `API returned ${res.status}`)
       }
       const data = await res.json()
       
@@ -47,8 +48,9 @@ export default function DashboardPage() {
       setStatus(data)
       setError(null)
     } catch (err) {
-      console.error('[v0] Failed to fetch automation status:', err)
-      setError('Failed to fetch status')
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('[v0] Failed to fetch automation status:', message)
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -83,7 +85,32 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-slate-400 font-mono text-sm">Loading...</div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-400 mx-auto mb-4"></div>
+          <p className="text-slate-400 font-mono text-sm">Loading automation status...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center max-w-lg">
+          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-red-300 mb-2">Failed to Load Automation Status</h2>
+          <p className="text-slate-400 text-sm mb-6">{error}</p>
+          <button
+            onClick={() => {
+              setLoading(true)
+              setError(null)
+              fetchAutomationStatus()
+            }}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded font-mono text-sm transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     )
   }

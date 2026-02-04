@@ -21,10 +21,14 @@ import {
 // Get full automation status including state, config, recent executions, and rules
 export async function GET(request: NextRequest) {
   try {
+    console.log('[v0] Fetching automation status...')
+    
     const [state, config] = await Promise.all([
       getAutomationState(),
       getSchedulerConfig(),
     ])
+
+    console.log('[v0] Fetched state and config:', { state, config })
 
     const approvalRules = getApprovalRules()
     const publishingRules = getPublishingRules()
@@ -44,7 +48,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('[v0] Failed to get automation status:', error)
     return NextResponse.json(
-      { error: 'Failed to get automation status' },
+      { error: `Failed to get automation status: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     )
   }
