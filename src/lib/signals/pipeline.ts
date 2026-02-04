@@ -390,7 +390,7 @@ export async function runSignalAnalysis(signalId: string): Promise<PipelineResul
                 confidenceScore: Math.round(classifyResult.data.confidence),
                 significanceScore: Math.round(significanceScore),
                 aiNotes: classifyResult.data.notes,
-                status: 'flagged' // Move to flagged for review after analysis
+                status: 'pending' // Keep as pending for approval rules to evaluate
             })
             .where(eq(signals.id, signalId))
 
