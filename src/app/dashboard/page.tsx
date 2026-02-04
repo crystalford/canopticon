@@ -36,6 +36,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [toggling, setToggling] = useState(false)
+  const [running, setRunning] = useState(false)
 
   useEffect(() => {
     fetchAutomationStatus()
@@ -78,16 +79,49 @@ export default function DashboardPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'setState',
           state: newState,
         }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        setStatus(data)
-      } else {
-        setError('Failed to toggle automation')
+
+      if (!res.ok) {
+        throw new Error('Failed to update automation state')
       }
+
+      await fetchAutomationStatus()
+    } catch (err) {
+      console.error('[v0] Failed to toggle automation:', err)
+    } finally {
+      setToggling(false)
+    }
+  }
+
+  const runAutomationCycle = async () => {
+    setRunning(true)
+    try {
+      const res = await fetch('/api/automation/run', {
+        method: 'POST',
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to run automation cycle')
+      }
+
+      const result = await res.json()
+      console.log('[v0] Automation cycle completed:', result)
+
+      // Refresh status to show new executions
+      setTimeout(() => {
+        fetchAutomationStatus()
+      }, 1000)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('[v0] Failed to run automation cycle:', message)
+      alert(`Error: ${message}`)
+    } finally {
+      setRunning(false)
+    }
+  }
     } catch (err) {
       setError('Error toggling automation')
     } finally {
@@ -148,32 +182,52 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <button
-          onClick={toggleAutomation}
-          disabled={toggling}
-          className={`px-6 py-2.5 rounded-lg font-bold uppercase text-sm tracking-wider transition-all flex items-center gap-2 ${
-            status.state === 'running'
-              ? 'bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30'
-              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30'
-          } disabled:opacity-50`}
-        >
-          {toggling ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              TOGGLING...
-            </>
-          ) : status.state === 'running' ? (
-            <>
-              <Zap className="w-4 h-4" />
-              RUNNING
-            </>
-          ) : (
-            <>
-              <Pause className="w-4 h-4" />
-              PAUSED
-            </>
-          )}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={runAutomationCycle}
+            disabled={running}
+            className="px-4 py-2.5 rounded-lg font-bold uppercase text-sm tracking-wider transition-all flex items-center gap-2 bg-blue-500/20 text-blue-300 border border-blue-500/30 hover:bg-blue-500/30 disabled:opacity-50"
+          >
+            {running ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                RUNNING...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4" />
+                RUN CYCLE
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={toggleAutomation}
+            disabled={toggling}
+            className={`px-6 py-2.5 rounded-lg font-bold uppercase text-sm tracking-wider transition-all flex items-center gap-2 ${
+              status.state === 'running'
+                ? 'bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30'
+                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30'
+            } disabled:opacity-50`}
+          >
+            {toggling ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                TOGGLING...
+              </>
+            ) : status.state === 'running' ? (
+              <>
+                <Zap className="w-4 h-4" />
+                RUNNING
+              </>
+            ) : (
+              <>
+                <Pause className="w-4 h-4" />
+                PAUSED
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Error */}
