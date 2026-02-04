@@ -97,74 +97,40 @@ async function searchGeneric(query: string): Promise<string> {
     }
 }
 
-import { extractArticleContent } from '@/lib/scraper-util'
-
 /**
- * reliable free search using Google News RSS + Deep Content Fetch via Scraper
+ * Reliable free search using Google News RSS
  */
 async function searchGoogleNewsRSS(query: string): Promise<string> {
     const GOOGLE_NEWS_RSS_BASE = 'https://news.google.com/rss/search?q='
     const encodedQuery = encodeURIComponent(query + ' when:7d') // Last 7 days to keep it fresh
 
-    const res = await fetch(`${GOOGLE_NEWS_RSS_BASE}${encodedQuery}&hl=en-CA&gl=CA&ceid=CA:en`)
-    const xml = await res.text()
+    try {
+        const res = await fetch(`${GOOGLE_NEWS_RSS_BASE}${encodedQuery}&hl=en-CA&gl=CA&ceid=CA:en`)
+        const xml = await res.text()
 
-    // Robust Regex Parse
-    const items = xml.match(/<item>[\s\S]*?<\/item>/g) || []
+        // Robust Regex Parse
+        const items = xml.match(/<item>[\s\S]*?<\/item>/g) || []
 
-    if (items.length === 0) return `[No news found for: ${query}]`
+        if (items.length === 0) return `[No news found for: ${query}]`
 
-    // Process top 3 items
-    const topItems = items.slice(0, 3).map(item => {
-        const title = item.match(/<title>(.*?)<\/title>/)?.[1] || ''
-        const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
-        const link = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
+        // Process top 3 items
+        const topItems = items.slice(0, 3).map(item => {
+            const title = item.match(/<title>(.*?)<\/title>/)?.[1] || ''
+            const pubDate = item.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || ''
+            const link = item.match(/<link>(.*?)<\/link>/)?.[1] || ''
 
-        let description = item.match(/<description>(.*?)<\/description>/)?.[1] || ''
-        description = description.replace(/<[^>]*>/g, '').replace('&nbsp;', ' ')
+            let description = item.match(/<description>(.*?)<\/description>/)?.[1] || ''
+            description = description.replace(/<[^>]*>/g, '').replace('&nbsp;', ' ')
 
-        return { title, pubDate, link, description }
-    })
+            return { title, pubDate, link, description }
+        })
 
-    // DEEP DIVE: Fetch full content for the top 2 results
-    const deepDivePromise = topItems.slice(0, 2).map(async (item) => {
-        try {
-            if (!item.link) return null
-            console.log(`[Research] Deep fetching: ${item.link}`)
-
-            // Add 5s timeout to avoid hanging the entire request
-            const timeoutPromise = new Promise<{ bodyText: string } | null>((_, reject) =>
-                setTimeout(() => resolveTimeout(null), 5000)
-            )
-            const resolveTimeout = (val: any) => val // helper
-
-            const contentPromise = extractArticleContent(item.link)
-
-            const content = await Promise.race([
-                contentPromise,
-                new Promise<null>(r => setTimeout(() => r(null), 5000))
-            ])
-
-            if (content && content.bodyText.length > 500) {
-                return {
-                    ...item,
-                    fullText: content.bodyText.slice(0, 5000) // 5KB limit per article
-                }
-            }
-        } catch (e) {
-            console.warn(`[Research] Failed to fetch content for ${item.link}`, e)
-        }
-        return item
-    })
-
-    const enrichedItems = await Promise.all(deepDivePromise)
-
-    return `--- INTELLIGENCE ON: "${query}" ---\n` + enrichedItems.map((item: any) => {
-        if (!item) return ''
-        const content = item.fullText
-            ? `\n\n[FULL CONTENT EXTRACTED]:\n${item.fullText}\n`
-            : `\n\n[SNIPPET ONLY]: ${item.description}`
-
-        return `SOURCE: ${item.title}\nDATE: ${item.pubDate}\nLINK: ${item.link}${content}`
-    }).join('\n\n' + '='.repeat(40) + '\n\n')
+        return `--- INTELLIGENCE ON: "${query}" ---\n` + topItems.map((item: any) => {
+            if (!item) return ''
+            return `SOURCE: ${item.title}\nDATE: ${item.pubDate}\nLINK: ${item.link}\n[SNIPPET]: ${item.description}`
+        }).join('\n\n' + '='.repeat(40) + '\n\n')
+    } catch (error) {
+        console.error(`[Research] Failed RSS search for "${query}":`, error)
+        return `[Error searching for: ${query}]`
+    }
 }
