@@ -12,6 +12,7 @@ import { runAutomationCycle } from '@/lib/orchestration/workflow'
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log('[v0] Automation cycle triggered')
     const { searchParams } = new URL(request.url)
     
     const config = {
@@ -20,7 +21,20 @@ export async function POST(request: NextRequest) {
       batchSize: parseInt(searchParams.get('batchSize') || '10'),
     }
 
+    console.log('[v0] Automation config:', config)
+
     const stats = await runAutomationCycle(config)
+
+    console.log('[v0] Automation cycle complete:', {
+      cycleId: stats.cycleId,
+      articlesIngested: stats.articlesIngested,
+      signalsProcessed: stats.signalsProcessed,
+      signalsApproved: stats.signalsApproved,
+      articlesSynthesized: stats.articlesSynthesized,
+      articlesPublished: stats.articlesPublished,
+      socialPostsCreated: stats.socialPostsCreated,
+      errors: stats.errors.length,
+    })
 
     return NextResponse.json({
       success: true,
@@ -31,6 +45,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('[AUTOMATION API] Error:', message)
+    console.error('[AUTOMATION API] Stack:', error instanceof Error ? error.stack : 'N/A')
     
     return NextResponse.json(
       {

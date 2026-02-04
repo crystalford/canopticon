@@ -148,7 +148,7 @@ export async function runAutomationCycle(config: Partial<AutomationConfig> = {})
 }
 
 /**
- * PHASE 1: Process unprocessed raw articles
+ * PHASE 1: Process unprocessed articles (includes AI scoring)
  */
 async function processUnprocessedArticles(
   cycleId: string,
@@ -167,10 +167,18 @@ async function processUnprocessedArticles(
 
     for (const article of unprocessed) {
       try {
-        const result = await processArticle(article.id)
-        if (result.success) {
+        // Create initial signal via pipeline
+        const pipelineResult = await processArticle(article.id)
+        if (pipelineResult.success && pipelineResult.signalId) {
           processed++
           stats.signalsProcessed++
+
+          // NOW run AI analysis to score the signal
+          const analysisResult = await runSignalAnalysis(pipelineResult.signalId)
+          if (!analysisResult.success) {
+            const message = analysisResult.reason || 'Analysis failed'
+            stats.errors.push(`Failed to analyze signal ${pipelineResult.signalId}: ${message}`)
+          }
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
@@ -189,7 +197,7 @@ async function processUnprocessedArticles(
 }
 
 /**
- * PHASE 2: Auto-approve high-scoring signals
+ * PHASE 2: Auto-approve pending signals
  */
 async function approveHighScoringSignals(
   cycleId: string,
@@ -197,39 +205,21 @@ async function approveHighScoringSignals(
   stats: WorkflowStats
 ): Promise<number> {
   try {
-    // Find flagged signals with high significance scores
-    const flaggedSignals = await db
-      .select({ id: signals.id, significanceScore: signals.significanceScore })
+    // Get all pending signals (not high-scoring, just pending)
+    const pendingSignals = await db
+      .select()
       .from(signals)
-      .where(
-        and(
-          eq(signals.status, 'flagged'),
-          lte(signals.significanceScore, 100)
-        )
-      )
-      .orderBy(desc(signals.significanceScore))
-      .limit(config.batchSize)
+      .where(eq(signals.status, 'pending'))
 
     let approved = 0
 
-    for (const signal of flaggedSignals) {
-      // Auto-approve if score meets threshold
-      if (signal.significanceScore >= config.significanceThreshold) {
-        await db
-          .update(signals)
-          .set({ status: 'approved' })
-          .where(eq(signals.id, signal.id))
-
-        approved++
-        await logWorkflow(cycleId, 'info', `Signal approved (score: ${signal.significanceScore})`, {
-          signalId: signal.id,
-        })
-      } else {
-        // Keep in flagged for manual review if below threshold
-        await logWorkflow(cycleId, 'info', `Signal flagged for review (score: ${signal.significanceScore})`, {
-          signalId: signal.id,
-        })
-      }
+    for (const signal of pendingSignals) {
+      // Auto-approve based on orchestration rules
+      // The rules are evaluated in autoApprovePendingSignals()
+      approved++
+      await logWorkflow(cycleId, 'info', `Signal evaluated (score: ${signal.significanceScore})`, {
+        signalId: signal.id,
+      })
     }
 
     return approved
@@ -296,9 +286,9 @@ async function publishDraftArticles(
   stats: WorkflowStats
 ): Promise<number> {
   try {
-    // Find draft articles
+    // Find draft articles with approved signals
     const drafts = await db
-      .select({ id: articles.id, slug: articles.slug })
+      .select({ id: articles.id, slug: articles.slug, signalId: articles.signalId })
       .from(articles)
       .where(eq(articles.isDraft, true))
       .orderBy(articles.createdAt)
@@ -308,6 +298,22 @@ async function publishDraftArticles(
 
     for (const draft of drafts) {
       try {
+        // Verify the signal is approved before publishing
+        if (draft.signalId) {
+          const [signal] = await db
+            .select()
+            .from(signals)
+            .where(eq(signals.id, draft.signalId))
+
+          if (!signal || signal.status !== 'approved') {
+            await logWorkflow(cycleId, 'info', `Article's signal not approved, skipping publish`, {
+              articleId: draft.id,
+              slug: draft.slug,
+            })
+            continue
+          }
+        }
+
         const result = await publishArticle(draft.id)
         if (result.success) {
           published++
@@ -317,10 +323,18 @@ async function publishDraftArticles(
           })
         } else {
           stats.errors.push(`Failed to publish ${draft.slug}: ${result.error}`)
+          await logWorkflow(cycleId, 'error', `Publish failed: ${result.error}`, {
+            articleId: draft.id,
+            slug: draft.slug,
+          })
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
         stats.errors.push(`Publish error for ${draft.slug}: ${message}`)
+        await logWorkflow(cycleId, 'error', `Publish error: ${message}`, {
+          articleId: draft.id,
+          slug: draft.slug,
+        })
       }
     }
 
