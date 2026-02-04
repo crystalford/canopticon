@@ -122,12 +122,6 @@ export default function DashboardPage() {
       setRunning(false)
     }
   }
-    } catch (err) {
-      setError('Error toggling automation')
-    } finally {
-      setToggling(false)
-    }
-  }
 
   if (loading) {
     return (
