@@ -146,20 +146,31 @@ export interface ArticleHeadlineOutput {
 
 export const ARTICLE_SUMMARY_V1 = {
     name: 'ARTICLE_SUMMARY_V1',
-    prompt: `Write a clear, neutral summary (350-550 words) explaining:
-1. What happened
-2. Why it matters structurally  
-3. Potential implications
+    prompt: `Write a comprehensive, neutral analysis (1500-2500 words) explaining:
+1. What happened - provide complete context and timeline
+2. Who is involved - key players, institutions, stakeholders
+3. Why it matters - structural implications for Canadian politics
+4. Historical context - how this connects to past events or policy
+5. Potential implications - what could happen next, ripple effects
+6. Opposing viewpoints - present multiple perspectives fairly
+7. What to watch - next steps or developments to follow
 
 Requirements:
-- Use factual, non-editorial language
-- Avoid opinion or speculation
-- Structure with clear paragraphs
-- Include relevant context
+- Use factual, non-editorial language backed by details
+- Avoid opinion but provide analysis of significance
+- Structure with clear sections and subheadings
+- Include specific quotes, dates, and facts
+- Explain technical/policy details for general audience
+- Cross-reference related events or legislation
+- Add source citations where relevant
+
+Write for an intelligent general audience interested in Canadian politics.
 
 Respond with JSON only.`,
     inputSchema: {
         primary_text: 'string',
+        related_articles: 'string[] (optional related article texts)',
+        research_context: 'string (optional background research)',
     },
     outputSchema: {
         summary: 'string',
@@ -207,7 +218,147 @@ export interface ArticleTagsOutput {
 }
 
 // ============================================================================
-// VIDEO MATERIALS (Expensive Tier)
+// RESEARCH ANALYSIS (Enrichment)
+// ============================================================================
+
+export const RESEARCH_ANALYSIS_V1 = {
+    name: 'RESEARCH_ANALYSIS_V1',
+    prompt: `Given a political event, identify key research needs and questions.
+
+Output a list of specific research angles that would enrich understanding:
+1. Historical precedents - similar events in past
+2. Policy frameworks - relevant legislation or regulations
+3. Stakeholder impacts - who benefits/loses
+4. Economic implications - fiscal impact or market effects
+5. International context - similar situations elsewhere
+6. Expert perspectives - what analysts/academics say
+7. Public opinion - polling or social sentiment
+8. Next steps - what happens procedurally
+
+Each research angle should be a specific, searchable question.
+
+Respond with JSON only.`,
+    inputSchema: {
+        headline: 'string',
+        summary: 'string',
+    },
+    outputSchema: {
+        research_areas: [
+            {
+                area: 'string (category)',
+                questions: 'string[] (specific research questions)',
+            }
+        ]
+    },
+}
+
+export interface ResearchAnalysisInput {
+    headline: string
+    summary: string
+}
+
+export interface ResearchAnalysisOutput {
+    research_areas: {
+        area: string
+        questions: string[]
+    }[]
+}
+
+// ============================================================================
+// MULTI-SOURCE SYNTHESIS (Enhanced Tier)
+// ============================================================================
+
+export const ARTICLE_SYNTHESIS_V1 = {
+    name: 'ARTICLE_SYNTHESIS_V1',
+    prompt: `You are a political analyst synthesizing multiple source articles into one comprehensive report.
+
+Given:
+- A primary article (main news event)
+- Related articles (additional context, reactions, analysis)
+- Research findings (background, expert views, precedents)
+- Web search results (broader context)
+
+Write a 2000-2500 word comprehensive analysis that:
+
+1. HOOK (150 words)
+   - Open with the most significant angle
+   - Explain why this matters NOW
+   - Set context for why readers should care
+
+2. WHAT HAPPENED (400 words)
+   - Chronological narrative of events
+   - Direct quotes from official sources
+   - Key decisions and statements
+   - Timeline of major developments
+
+3. WHO IS INVOLVED (300 words)
+   - Main actors and their positions
+   - Relevant institutions/departments
+   - Opposition perspectives
+   - Stakeholder impacts
+
+4. STRUCTURAL SIGNIFICANCE (400 words)
+   - How this changes the political landscape
+   - Connection to broader policy trends
+   - Precedents and historical context
+   - Why this is different/important
+
+5. ANALYSIS & IMPLICATIONS (400 words)
+   - Likely consequences
+   - Short-term vs long-term impacts
+   - Political/economic/social effects
+   - Risks and opportunities
+
+6. WHAT'S NEXT (300 words)
+   - Procedural steps ahead
+   - Key dates and deadlines
+   - What to watch for
+   - Potential countermoves or reactions
+
+7. BROADER CONTEXT (250 words)
+   - International parallels
+   - Expert analysis and opinion
+   - Public response and polling
+   - Related policy areas
+
+Requirements:
+- Synthesize ALL source material into ONE coherent narrative
+- Use specific facts, dates, quotes from sources
+- Explain technical details clearly
+- Present multiple perspectives fairly
+- Be authoritative but accessible
+- Use clear section headings
+- Maintain neutral, analytical tone
+- Flag any contradictions between sources
+
+Respond with JSON only.`,
+    inputSchema: {
+        headline: 'string',
+        primary_article: 'string',
+        related_articles: 'string[] (optional)',
+        research_findings: 'string (optional)',
+        web_research: 'string (optional)',
+    },
+    outputSchema: {
+        synthesized_article: 'string (full 2000-2500 word analysis)',
+        sources_used: 'number (count of sources integrated)',
+        key_themes: 'string[] (3-5 main themes)',
+    },
+}
+
+export interface ArticleSynthesisInput {
+    headline: string
+    primary_article: string
+    related_articles?: string[]
+    research_findings?: string
+    web_research?: string
+}
+
+export interface ArticleSynthesisOutput {
+    synthesized_article: string
+    sources_used: number
+    key_themes: string[]
+}
 // ============================================================================
 
 export const VIDEO_MATERIALS_V1 = {
@@ -392,6 +543,8 @@ export const PROMPTS = {
     FALLACY_DETECTION_V1,
     BIAS_ANALYSIS_V1,
     BROADCAST_THREAD_V1,
+    RESEARCH_ANALYSIS_V1,
+    ARTICLE_SYNTHESIS_V1,
 } as const
 
 
