@@ -21,12 +21,13 @@ import {
 // Get full automation status including state, config, recent executions, and rules
 export async function GET(request: NextRequest) {
   try {
-    const [state, config, approvalRules, publishingRules] = await Promise.all([
+    const [state, config] = await Promise.all([
       getAutomationState(),
       getSchedulerConfig(),
-      Promise.resolve(getApprovalRules()),
-      Promise.resolve(getPublishingRules()),
     ])
+
+    const approvalRules = getApprovalRules()
+    const publishingRules = getPublishingRules()
 
     return NextResponse.json(
       {
@@ -81,13 +82,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Return updated status
-    const [newState, newConfig, newApprovalRules, newPublishingRules] =
-      await Promise.all([
-        getAutomationState(),
-        getSchedulerConfig(),
-        Promise.resolve(getApprovalRules()),
-        Promise.resolve(getPublishingRules()),
-      ])
+    const [newState, newConfig] = await Promise.all([
+      getAutomationState(),
+      getSchedulerConfig(),
+    ])
+
+    const newApprovalRules = getApprovalRules()
+    const newPublishingRules = getPublishingRules()
 
     return NextResponse.json(
       {

@@ -34,7 +34,16 @@ export default function DashboardPage() {
   const fetchAutomationStatus = async () => {
     try {
       const res = await fetch('/api/automation/status')
+      if (!res.ok) {
+        throw new Error(`API returned ${res.status}`)
+      }
       const data = await res.json()
+      
+      // Validate response structure
+      if (!data.state || !data.config) {
+        throw new Error('Invalid response structure from API')
+      }
+      
       setStatus(data)
       setError(null)
     } catch (err) {
@@ -139,25 +148,25 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatusCard
           title="Ingestion"
-          interval={status.config.ingestionIntervalMinutes}
+          interval={status.config?.ingestionIntervalMinutes || 15}
           description="Poll sources"
           icon={<RefreshCw className="w-5 h-5" />}
         />
         <StatusCard
           title="Signal Processing"
-          interval={status.config.signalProcessingIntervalMinutes}
+          interval={status.config?.signalProcessingIntervalMinutes || 10}
           description="Auto-approve signals"
           icon={<Zap className="w-5 h-5" />}
         />
         <StatusCard
           title="Synthesis"
-          interval={status.config.synthesisIntervalMinutes}
+          interval={status.config?.synthesisIntervalMinutes || 30}
           description="Generate articles"
           icon={<Activity className="w-5 h-5" />}
         />
         <StatusCard
           title="Publishing"
-          interval={status.config.publishingIntervalMinutes}
+          interval={status.config?.publishingIntervalMinutes || 5}
           description="Auto-publish articles"
           icon={<CheckCircle2 className="w-5 h-5" />}
         />
