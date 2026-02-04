@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { processArticle, runSignalAnalysis } from '@/lib/signals/pipeline'
 import { synthesizeArticle, publishArticle } from '@/lib/synthesis'
 import { postToBluesky, postToMastodon } from '@/lib/distribution'
+import { autoApprovePendingSignals, autoPublishDraftArticles } from '@/lib/orchestration/decisions'
 
 /**
  * Automation Workflow Orchestrator
@@ -71,18 +72,25 @@ export async function runAutomationCycle(config: Partial<AutomationConfig> = {})
     const unprocessedCount = await processUnprocessedArticles(cycleId, finalConfig, stats)
     stats.articlesIngested = unprocessedCount
 
-    // PHASE 2: Analyze and approve flagged signals
-    const approvedCount = await approveHighScoringSignals(cycleId, finalConfig, stats)
-    stats.signalsApproved = approvedCount
+    // PHASE 2: Auto-approve pending signals based on rules
+    const decisionResult = await autoApprovePendingSignals()
+    stats.signalsApproved = decisionResult.approved
+    stats.signalsProcessed = decisionResult.approved + decisionResult.flagged
+    if (decisionResult.errors.length > 0) {
+      stats.errors.push(...decisionResult.errors)
+    }
 
     // PHASE 3: Synthesize approved signals
     const synthesizedCount = await synthesizeApprovedSignals(cycleId, finalConfig, stats)
     stats.articlesSynthesized = synthesizedCount
 
-    // PHASE 4: Auto-publish draft articles
+    // PHASE 4: Auto-publish draft articles based on rules
     if (finalConfig.enableAutoPublish) {
-      const publishedCount = await publishDraftArticles(cycleId, finalConfig, stats)
-      stats.articlesPublished = publishedCount
+      const publishResult = await autoPublishDraftArticles()
+      stats.articlesPublished = publishResult.published
+      if (publishResult.errors.length > 0) {
+        stats.errors.push(...publishResult.errors)
+      }
     }
 
     // PHASE 5: Distribute to social media

@@ -26,23 +26,17 @@ export default async function DashboardLayout({
 
                 {/* Navigation */}
                 <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1">
-                    <NavSection title="Intelligence" />
-                    <NavLink href="/dashboard" icon={LayoutDashboard} label="Daily Brief" />
-                    <NavLink href="/dashboard/viral" icon={Flame} label="Viral Monitor" />
-                    <NavLink href="/dashboard/feed" icon={Radio} label="Wire Service" />
-                    <NavLink href="/dashboard/articles" icon={FileText} label="Articles" />
-                    <NavLink href="/dashboard/engine-b" icon={Microscope} label="Discourse Analysis" />
-                    <NavLink href="/dashboard/broadcaster" icon={Send} label="The Broadcaster" />
-                    <NavLink href="/dashboard/videos" icon={Film} label="Video Library" />
+                    <NavSection title="Automation" />
+                    <NavLink href="/dashboard" icon={LayoutDashboard} label="Control Panel" />
+                    <NavLink href="/dashboard/articles" icon={FileText} label="Published Articles" />
+                    <NavLink href="/dashboard/feed" icon={Radio} label="Raw Feed" />
                     <NavLink href="/dashboard/archive" icon={Database} label="Archive" />
 
+                    <NavSection title="Social Distribution" className="mt-8" />
+                    <NavLink href="/dashboard/broadcaster" icon={Send} label="Broadcaster" />
 
-
-                    <NavSection title="Sources" className="mt-8" />
-                    <NavLink href="/dashboard/manual-sources" icon={Newspaper} label="Sources & Status" />
-
-                    <NavSection title="System" className="mt-8" />
-                    <NavLink href="/dashboard/settings" icon={Settings} label="Settings" />
+                    <NavSection title="Settings" className="mt-8" />
+                    <NavLink href="/dashboard/settings" icon={Settings} label="Configuration" />
                     <NavLink href="/" icon={Globe} label="Public Site" />
                 </nav>
 

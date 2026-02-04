@@ -1,269 +1,270 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Sparkles, Calendar, ArrowRight, Activity, Trash2 } from 'lucide-react'
+import { Activity, Play, Pause, RefreshCw, AlertCircle, CheckCircle2, Clock, Zap } from 'lucide-react'
 
-interface BriefStory {
-    headline: string
-    summary: string
-    keyPlayers: string[]
-    significance: number
-    sourceUrls: string[]
-}
-
-interface DailyBrief {
-    id: string
-    generatedAt: string
-    stories: BriefStory[]
-    status: 'draft' | 'published'
+interface AutomationStatus {
+  state: 'running' | 'paused'
+  config: {
+    ingestionIntervalMinutes: number
+    signalProcessingIntervalMinutes: number
+    synthesisIntervalMinutes: number
+    publishingIntervalMinutes: number
+  }
+  rules: {
+    approval: any[]
+    publishing: any[]
+  }
+  timestamp: number
 }
 
 export default function DashboardPage() {
-    const [brief, setBrief] = useState<DailyBrief | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [generating, setGenerating] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-    const [publishing, setPublishing] = useState<number | null>(null)
+  const [status, setStatus] = useState<AutomationStatus | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [toggling, setToggling] = useState(false)
 
-    useEffect(() => {
-        fetchBrief()
-    }, [])
+  useEffect(() => {
+    fetchAutomationStatus()
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchAutomationStatus, 10000)
+    return () => clearInterval(interval)
+  }, [])
 
-    const fetchBrief = async () => {
-        try {
-            const res = await fetch('/api/brief')
-            const data = await res.json()
-            setBrief(data.brief)
-        } catch (err) {
-            console.error('Failed to fetch brief')
-        } finally {
-            setLoading(false)
-        }
+  const fetchAutomationStatus = async () => {
+    try {
+      const res = await fetch('/api/automation/status')
+      const data = await res.json()
+      setStatus(data)
+      setError(null)
+    } catch (err) {
+      console.error('[v0] Failed to fetch automation status:', err)
+      setError('Failed to fetch status')
+    } finally {
+      setLoading(false)
     }
+  }
 
-    const handleGenerate = async () => {
-        setGenerating(true)
-        setError(null)
-        try {
-            const res = await fetch('/api/brief/generate', { method: 'POST' })
-            const data = await res.json()
-            if (res.ok) setBrief(data.brief)
-            else setError(data.error || 'Failed to generate')
-        } catch (err) {
-            setError('Network error.')
-        } finally {
-            setGenerating(false)
-        }
+  const toggleAutomation = async () => {
+    if (!status) return
+    setToggling(true)
+    try {
+      const newState = status.state === 'running' ? 'paused' : 'running'
+      const res = await fetch('/api/automation/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'setState',
+          state: newState,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setStatus(data)
+      } else {
+        setError('Failed to toggle automation')
+      }
+    } catch (err) {
+      setError('Error toggling automation')
+    } finally {
+      setToggling(false)
     }
+  }
 
-    const handlePublishClick = async (storyIndex: number) => {
-        if (!brief) return
-        setPublishing(storyIndex)
-        try {
-            // 1. Create Article Draft
-            const res = await fetch('/api/brief/publish', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ briefId: brief.id, storyIndex })
-            })
-
-            if (res.ok) {
-                const data = await res.json()
-
-                // 2. Remove from Brief (so it doesn't show up again)
-                const updatedStories = brief.stories.filter((_, i) => i !== storyIndex)
-                await fetch(`/api/brief/${brief.id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ stories: updatedStories })
-                })
-
-                // 3. Navigate to editor
-                window.location.href = `/dashboard/articles/${data.slug}`
-            } else {
-                const errorData = await res.json()
-                alert(`Failed to publish: ${errorData.error || 'Unknown error'}`)
-            }
-        } catch (e) {
-            console.error('Publish error:', e)
-            alert('Error publishing story')
-        } finally {
-            setPublishing(null)
-        }
-    }
-
-    const handleDeleteBrief = async () => {
-        if (!brief || !confirm('Delete entire Daily Brief?')) return
-        try {
-            const res = await fetch(`/api/brief/${brief.id}`, { method: 'DELETE' })
-            if (res.ok) {
-                setBrief(null)
-                alert('Brief deleted')
-            } else {
-                alert('Failed to delete brief')
-            }
-        } catch (e) {
-            alert('Error deleting brief')
-        }
-    }
-
-    const handleDeleteStory = async (storyIndex: number, e: React.MouseEvent) => {
-        e.preventDefault()
-        e.stopPropagation()
-        if (!brief || !confirm('Remove this story from the brief?')) return
-
-        const updatedStories = brief.stories.filter((_, i) => i !== storyIndex)
-
-        // Update brief in database
-        try {
-            const res = await fetch(`/api/brief/${brief.id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ stories: updatedStories })
-            })
-            if (res.ok) {
-                setBrief({ ...brief, stories: updatedStories })
-            } else {
-                alert('Failed to remove story')
-            }
-        } catch (e) {
-            alert('Error removing story')
-        }
-    }
-
-    const getSignificanceBadge = (score: number) => {
-        if (score >= 8) return 'bg-red-500/10 text-red-400 border-red-500/20'
-        if (score >= 6) return 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-        return 'bg-slate-500/10 text-slate-500 border-slate-500/20'
-    }
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="text-slate-400 font-mono text-sm">Loading...</div>
-            </div>
-        )
-    }
-
+  if (loading) {
     return (
-        <div className="space-y-8">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-white/5">
-                <div>
-                    <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Daily Intelligence Brief</h1>
-                    <p className="text-slate-400 text-sm flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        {new Date().toLocaleDateString('en-CA', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </p>
-                </div>
-
-                <button
-                    onClick={handleGenerate}
-                    disabled={generating}
-                    className="btn-primary"
-                >
-                    {generating ? (
-                        <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                            GENERATING...
-                        </>
-                    ) : (
-                        <>
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            GENERATE BRIEF
-                        </>
-                    )}
-                </button>
-            </div>
-
-            {/* Error */}
-            {error && (
-                <div className="glass-panel p-4 border-l-2 border-red-500 text-red-200 bg-red-500/10">
-                    <span className="font-bold">ERROR:</span> {error}
-                </div>
-            )}
-
-            {/* Empty State */}
-            {!brief && !generating && (
-                <div className="glass-panel p-16 text-center">
-                    <Activity className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                    <h2 className="text-xl font-bold text-white mb-2">No Brief Generated</h2>
-                    <p className="text-slate-400 max-w-md mx-auto mb-6">
-                        Click "Generate Brief" to scan Canadian political news and synthesize intelligence.
-                    </p>
-                </div>
-            )}
-
-            {/* Stories List */}
-            {brief && (
-                <div>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-white">{brief.stories.length} Stories</h2>
-                        <button
-                            onClick={handleDeleteBrief}
-                            className="text-red-400 hover:text-red-300 text-sm flex items-center gap-2 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-colors"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                            Delete Entire Brief
-                        </button>
-                    </div>
-                    <div className="grid gap-4">
-                        {brief.stories.map((story, index) => (
-                            <div
-                                key={index}
-                                onClick={() => handlePublishClick(index)}
-                                className="glass-card p-6 flex flex-col md:flex-row gap-6 group cursor-pointer hover:border-primary-500/20 transition-colors"
-                            >
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getSignificanceBadge(story.significance)}`}>
-                                            Impact {story.significance}/10
-                                        </span>
-                                        <span className="text-[10px] text-slate-600 font-mono uppercase">
-                                            #{String(index + 1).padStart(2, '0')}
-                                        </span>
-                                    </div>
-
-                                    <h3 className="text-lg font-bold text-white mb-2 truncate group-hover:text-primary-400 transition-colors">
-                                        {story.headline}
-                                    </h3>
-
-                                    <p className="text-sm text-slate-400 line-clamp-2 mb-4 leading-relaxed">
-                                        {story.summary}
-                                    </p>
-
-                                    {story.keyPlayers && story.keyPlayers.length > 0 && (
-                                        <div className="flex gap-2">
-                                            {story.keyPlayers.slice(0, 3).map((player, i) => (
-                                                <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-white/5 border border-white/10 text-slate-500">
-                                                    {player}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center gap-3 md:border-l border-white/5 md:pl-6">
-                                    <button
-                                        onClick={(e) => handleDeleteStory(index, e)}
-                                        className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors z-10 relative"
-                                        title="Remove Story"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-
-                                    {publishing === index && (
-                                        <div className="flex items-center gap-2 text-primary-400 animate-pulse">
-                                            <div className="w-2 h-2 bg-primary-500 rounded-full" />
-                                            <span className="text-xs font-bold uppercase tracking-wider">Opening...</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-        </div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-slate-400 font-mono text-sm">Loading...</div>
+      </div>
     )
+  }
+
+  if (!status) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-red-400">Failed to load automation status</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-white/5">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Automation Control</h1>
+          <p className="text-slate-400 text-sm flex items-center gap-2">
+            <Activity className="w-4 h-4" />
+            Self-running political signal detection & synthesis
+          </p>
+        </div>
+
+        <button
+          onClick={toggleAutomation}
+          disabled={toggling}
+          className={`px-6 py-2.5 rounded-lg font-bold uppercase text-sm tracking-wider transition-all flex items-center gap-2 ${
+            status.state === 'running'
+              ? 'bg-green-500/20 text-green-300 border border-green-500/30 hover:bg-green-500/30'
+              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30'
+          } disabled:opacity-50`}
+        >
+          {toggling ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              TOGGLING...
+            </>
+          ) : status.state === 'running' ? (
+            <>
+              <Zap className="w-4 h-4" />
+              RUNNING
+            </>
+          ) : (
+            <>
+              <Pause className="w-4 h-4" />
+              PAUSED
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="glass-panel p-4 border-l-2 border-red-500 text-red-200 bg-red-500/10 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Status Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatusCard
+          title="Ingestion"
+          interval={status.config.ingestionIntervalMinutes}
+          description="Poll sources"
+          icon={<RefreshCw className="w-5 h-5" />}
+        />
+        <StatusCard
+          title="Signal Processing"
+          interval={status.config.signalProcessingIntervalMinutes}
+          description="Auto-approve signals"
+          icon={<Zap className="w-5 h-5" />}
+        />
+        <StatusCard
+          title="Synthesis"
+          interval={status.config.synthesisIntervalMinutes}
+          description="Generate articles"
+          icon={<Activity className="w-5 h-5" />}
+        />
+        <StatusCard
+          title="Publishing"
+          interval={status.config.publishingIntervalMinutes}
+          description="Auto-publish articles"
+          icon={<CheckCircle2 className="w-5 h-5" />}
+        />
+      </div>
+
+      {/* Rules Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Approval Rules */}
+        <div className="glass-card p-6">
+          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <Zap className="w-5 h-5 text-yellow-400" />
+            Signal Approval Rules
+          </h2>
+          <div className="space-y-3">
+            {status.rules.approval.map((rule: any, i: number) => (
+              <div key={i} className="p-3 bg-white/5 border border-white/10 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-sm text-slate-300">{rule.name}</span>
+                  <span className={`text-xs px-2 py-1 rounded ${rule.enabled ? 'bg-green-500/20 text-green-300' : 'bg-slate-500/20 text-slate-400'}`}>
+                    {rule.enabled ? 'ENABLED' : 'DISABLED'}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-400 space-y-1">
+                  {rule.conditions.minConfidenceScore && (
+                    <p>Min confidence: {rule.conditions.minConfidenceScore}%</p>
+                  )}
+                  {rule.conditions.minSignificanceScore && (
+                    <p>Min significance: {rule.conditions.minSignificanceScore}%</p>
+                  )}
+                  {rule.conditions.maxAgeMins && (
+                    <p>Max age: {rule.conditions.maxAgeMins} mins</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Publishing Rules */}
+        <div className="glass-card p-6">
+          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-green-400" />
+            Publishing Rules
+          </h2>
+          <div className="space-y-3">
+            {status.rules.publishing.map((rule: any, i: number) => (
+              <div key={i} className="p-3 bg-white/5 border border-white/10 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-mono text-sm text-slate-300">{rule.name}</span>
+                  <span className={`text-xs px-2 py-1 rounded ${rule.enabled ? 'bg-green-500/20 text-green-300' : 'bg-slate-500/20 text-slate-400'}`}>
+                    {rule.enabled ? 'ENABLED' : 'DISABLED'}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-400 space-y-1">
+                  {rule.conditions.minArticleAge && (
+                    <p>Min article age: {rule.conditions.minArticleAge} mins</p>
+                  )}
+                  {rule.conditions.autoDeriveContent && (
+                    <p>Auto-derive content: YES</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Info Box */}
+      <div className="glass-card p-6 bg-blue-500/5 border-l-2 border-blue-500">
+        <h3 className="font-bold text-white mb-2 flex items-center gap-2">
+          <Clock className="w-5 h-5 text-blue-400" />
+          How It Works
+        </h3>
+        <ul className="text-sm text-slate-400 space-y-1 list-disc list-inside">
+          <li>Ingestion: Polls Parliament, PMO, viral sources for new articles</li>
+          <li>Signal Processing: Auto-approves signals matching configured rules</li>
+          <li>Synthesis: Generates articles from approved signals</li>
+          <li>Publishing: Auto-publishes articles and posts to social media</li>
+          <li>All cycles run independently on configurable intervals</li>
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+function StatusCard({
+  title,
+  interval,
+  description,
+  icon,
+}: {
+  title: string
+  interval: number
+  description: string
+  icon: React.ReactNode
+}) {
+  return (
+    <div className="glass-card p-4">
+      <div className="flex items-start justify-between mb-2">
+        <h3 className="font-bold text-white text-sm">{title}</h3>
+        <div className="text-slate-400">{icon}</div>
+      </div>
+      <p className="text-xs text-slate-400 mb-2">{description}</p>
+      <div className="flex items-end gap-2">
+        <span className="text-2xl font-bold text-primary-400">{interval}</span>
+        <span className="text-xs text-slate-500 mb-1">min</span>
+      </div>
+    </div>
+  )
 }
