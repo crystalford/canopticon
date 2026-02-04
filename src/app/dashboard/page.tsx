@@ -1,7 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Activity, Play, Pause, RefreshCw, AlertCircle, CheckCircle2, Clock, Zap } from 'lucide-react'
+import { Activity, Play, Pause, RefreshCw, AlertCircle, CheckCircle2, Clock, Zap, TrendingUp } from 'lucide-react'
+
+interface JobExecution {
+  jobName: string
+  status: 'success' | 'failure'
+  duration: number
+  timestamp: number
+}
 
 interface AutomationStatus {
   state: 'running' | 'paused'
@@ -14,6 +21,12 @@ interface AutomationStatus {
   rules: {
     approval: any[]
     publishing: any[]
+  }
+  executions: {
+    ingestion: JobExecution[]
+    signalProcessing: JobExecution[]
+    synthesis: JobExecution[]
+    publishing: JobExecution[]
   }
   timestamp: number
 }
@@ -261,6 +274,36 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Activity Log */}
+      <div className="glass-card p-6">
+        <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-blue-400" />
+          Recent Activity
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <ExecutionLog
+            title="Ingestion"
+            executions={status.executions?.ingestion || []}
+            icon={<RefreshCw className="w-4 h-4" />}
+          />
+          <ExecutionLog
+            title="Signal Processing"
+            executions={status.executions?.signalProcessing || []}
+            icon={<Zap className="w-4 h-4" />}
+          />
+          <ExecutionLog
+            title="Synthesis"
+            executions={status.executions?.synthesis || []}
+            icon={<Activity className="w-4 h-4" />}
+          />
+          <ExecutionLog
+            title="Publishing"
+            executions={status.executions?.publishing || []}
+            icon={<CheckCircle2 className="w-4 h-4" />}
+          />
+        </div>
+      </div>
+
       {/* Info Box */}
       <div className="glass-card p-6 bg-blue-500/5 border-l-2 border-blue-500">
         <h3 className="font-bold text-white mb-2 flex items-center gap-2">
@@ -301,6 +344,58 @@ function StatusCard({
         <span className="text-2xl font-bold text-primary-400">{interval}</span>
         <span className="text-xs text-slate-500 mb-1">min</span>
       </div>
+    </div>
+  )
+}
+
+function ExecutionLog({
+  title,
+  executions,
+  icon,
+}: {
+  title: string
+  executions: JobExecution[]
+  icon: React.ReactNode
+}) {
+  const recentExecution = executions[0]
+  const successCount = executions.filter((e) => e.status === 'success').length
+
+  return (
+    <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-slate-400">{icon}</span>
+          <span className="font-mono text-sm text-white">{title}</span>
+        </div>
+      </div>
+
+      {executions.length === 0 ? (
+        <div className="text-xs text-slate-500">No executions yet</div>
+      ) : (
+        <>
+          <div className="mb-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs text-slate-400">Latest:</span>
+              <span
+                className={`text-xs px-2 py-1 rounded font-mono ${
+                  recentExecution.status === 'success'
+                    ? 'bg-green-500/20 text-green-300'
+                    : 'bg-red-500/20 text-red-300'
+                }`}
+              >
+                {recentExecution.status.toUpperCase()}
+              </span>
+            </div>
+            <div className="text-xs text-slate-500">
+              {recentExecution.duration}ms • {new Date(recentExecution.timestamp).toLocaleTimeString()}
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-400">
+            Success rate: <span className="text-white font-mono">{successCount}/{executions.length}</span>
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -33,7 +33,15 @@ export async function GET(request: NextRequest) {
     const approvalRules = getApprovalRules()
     const publishingRules = getPublishingRules()
 
-    console.log('[v0] Got rules, attempting to serialize response...')
+    // Get recent job executions
+    const [ingestionHistory, signalProcessingHistory, synthesisHistory, publishingHistory] = await Promise.all([
+      getJobExecutionHistory('ingestion', 5),
+      getJobExecutionHistory('signal-processing', 5),
+      getJobExecutionHistory('synthesis', 5),
+      getJobExecutionHistory('publishing', 5),
+    ])
+
+    console.log('[v0] Got rules and execution history, attempting to serialize response...')
 
     const responseData = {
       state,
@@ -42,10 +50,16 @@ export async function GET(request: NextRequest) {
         approval: approvalRules,
         publishing: publishingRules,
       },
+      executions: {
+        ingestion: ingestionHistory,
+        signalProcessing: signalProcessingHistory,
+        synthesis: synthesisHistory,
+        publishing: publishingHistory,
+      },
       timestamp: Date.now(),
     }
 
-    console.log('[v0] Response data:', JSON.stringify(responseData, null, 2))
+    console.log('[v0] Response data keys:', Object.keys(responseData))
 
     return NextResponse.json(responseData, { status: 200 })
   } catch (error) {
@@ -99,6 +113,14 @@ export async function POST(request: NextRequest) {
     const newApprovalRules = getApprovalRules()
     const newPublishingRules = getPublishingRules()
 
+    // Get recent executions
+    const [newIngestionHistory, newSignalProcessingHistory, newSynthesisHistory, newPublishingHistory] = await Promise.all([
+      getJobExecutionHistory('ingestion', 5),
+      getJobExecutionHistory('signal-processing', 5),
+      getJobExecutionHistory('synthesis', 5),
+      getJobExecutionHistory('publishing', 5),
+    ])
+
     return NextResponse.json(
       {
         state: newState,
@@ -106,6 +128,12 @@ export async function POST(request: NextRequest) {
         rules: {
           approval: newApprovalRules,
           publishing: newPublishingRules,
+        },
+        executions: {
+          ingestion: newIngestionHistory,
+          signalProcessing: newSignalProcessingHistory,
+          synthesis: newSynthesisHistory,
+          publishing: newPublishingHistory,
         },
         message: 'Automation configuration updated',
         timestamp: Date.now(),
