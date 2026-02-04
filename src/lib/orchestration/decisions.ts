@@ -67,7 +67,7 @@ const DEFAULT_PUBLISHING_RULES: PublishingRule[] = [
     name: 'auto-publish-approved-signals',
     enabled: true,
     conditions: {
-      minArticleAge: 5, // Wait 5 minutes after synthesis
+      minArticleAge: 0, // Publish immediately after synthesis (removed 5 min delay)
       requireApprovedSignal: true,
       autoDeriveContent: true,
     },
