@@ -1,19 +1,22 @@
-import { db, articles, signals, videoMaterials, rawArticles, clusters } from '@/db'
-import { eq } from 'drizzle-orm'
+import { db, articles, signals, videoMaterials, rawArticles, clusters, clusterArticles } from '@/db'
+import { eq, and } from 'drizzle-orm'
 import { callAI } from '@/lib/ai'
 import { checkCostLimits, recordAIUsage, recordSuccess, recordFailure } from '@/lib/ai/cost-control'
 import {
     ARTICLE_HEADLINE_V1, ArticleHeadlineInput, ArticleHeadlineOutput,
-    ARTICLE_SUMMARY_V1, ArticleSummaryInput, ArticleSummaryOutput,
+    ARTICLE_SYNTHESIS_V1, ArticleSynthesisInput, ArticleSynthesisOutput,
     ARTICLE_TAGS_V1, ArticleTagsInput, ArticleTagsOutput,
     VIDEO_MATERIALS_V1, VideoMaterialsInput, VideoMaterialsOutput,
 } from '@/lib/ai/prompts'
+import { enrichArticleWithResearch } from '@/lib/research'
 
 /**
- * Article Synthesis Module
+ * Article Synthesis Module V2
  * 
- * Generates articles from approved signals using expensive model tier.
- * Per 04_SIGNAL_PIPELINE: Synthesis occurs only after signal approval.
+ * Generates comprehensive articles from approved signals using:
+ * - Multi-source synthesis (combines all related articles in cluster)
+ * - Research enrichment (web search for context and depth)
+ * - Improved prompts (1500-2500 word articles instead of 200)
  */
 
 interface SynthesisResult {
@@ -35,13 +38,28 @@ function generateSlug(headline: string): string {
 }
 
 /**
- * Get primary article text for a signal
+ * Get all articles in a cluster
  */
-async function getSignalPrimaryText(signalId: string): Promise<string | null> {
-    // Get signal with cluster and primary article
-    const [signalData] = await db
+async function getClusterArticles(clusterId: string): Promise<string[]> {
+    const articles = await db
         .select({
             bodyText: rawArticles.bodyText
+        })
+        .from(clusterArticles)
+        .innerJoin(rawArticles, eq(clusterArticles.rawArticleId, rawArticles.id))
+        .where(eq(clusterArticles.clusterId, clusterId))
+
+    return articles.map(a => a.bodyText).filter(text => text && text.length > 0)
+}
+
+/**
+ * Get primary article text for a signal
+ */
+async function getSignalPrimaryText(signalId: string): Promise<{ text: string; clusterId: string } | null> {
+    const [signalData] = await db
+        .select({
+            bodyText: rawArticles.bodyText,
+            clusterId: signals.clusterId
         })
         .from(signals)
         .innerJoin(clusters, eq(signals.clusterId, clusters.id))
@@ -49,14 +67,22 @@ async function getSignalPrimaryText(signalId: string): Promise<string | null> {
         .where(eq(signals.id, signalId))
         .limit(1)
 
-    return signalData?.bodyText ?? null
+    if (!signalData?.bodyText) return null
+
+    return {
+        text: signalData.bodyText,
+        clusterId: signalData.clusterId
+    }
 }
 
 /**
- * Synthesize an article from an approved signal
+ * Synthesize a comprehensive article from an approved signal
+ * WITH multi-source synthesis and research enrichment
  */
 export async function synthesizeArticle(signalId: string): Promise<SynthesisResult> {
     try {
+        console.log('[v0] Starting article synthesis for signal:', signalId)
+
         // Check signal status
         const [signal] = await db
             .select()
@@ -78,17 +104,24 @@ export async function synthesizeArticle(signalId: string): Promise<SynthesisResu
             return { success: false, error: `Cost limit: ${costCheck.reason}` }
         }
 
-        // Get primary article text
-        const primaryText = await getSignalPrimaryText(signalId)
-        if (!primaryText) {
+        // Get primary article and cluster ID
+        const primaryData = await getSignalPrimaryText(signalId)
+        if (!primaryData) {
             return { success: false, error: 'No primary text found' }
         }
 
-        // Generate headline
+        console.log('[v0] Got primary article, fetching cluster articles')
+
+        // Get all related articles in cluster (multi-source)
+        const relatedArticles = await getClusterArticles(primaryData.clusterId)
+        console.log('[v0] Found related articles:', relatedArticles.length)
+
+        // PHASE 1: Generate headline from primary article
+        console.log('[v0] Generating headline')
         const headlineResult = await callAI<ArticleHeadlineOutput>({
             prompt: ARTICLE_HEADLINE_V1.prompt,
-            input: { primary_text: primaryText } as ArticleHeadlineInput,
-            model: 'gpt-4o',
+            input: { primary_text: primaryData.text } as ArticleHeadlineInput,
+            model: 'gpt-4o-mini',
         })
 
         if (!headlineResult.success || !headlineResult.data) {
@@ -97,10 +130,12 @@ export async function synthesizeArticle(signalId: string): Promise<SynthesisResu
         }
         recordSuccess()
 
+        const headline = headlineResult.data.headline
+
         if (headlineResult.usage) {
             await recordAIUsage({
                 signalId,
-                model: 'gpt-4o',
+                model: 'gpt-4o-mini',
                 promptName: 'ARTICLE_HEADLINE_V1',
                 inputTokens: headlineResult.usage.inputTokens,
                 outputTokens: headlineResult.usage.outputTokens,
@@ -108,35 +143,56 @@ export async function synthesizeArticle(signalId: string): Promise<SynthesisResu
             })
         }
 
-        // Generate summary
-        const summaryResult = await callAI<ArticleSummaryOutput>({
-            prompt: ARTICLE_SUMMARY_V1.prompt,
-            input: { primary_text: primaryText } as ArticleSummaryInput,
-            model: 'gpt-4o',
+        // PHASE 2: Research enrichment (identify gaps and search)
+        console.log('[v0] Starting research enrichment')
+        let researchContext = ''
+        try {
+            researchContext = await enrichArticleWithResearch(headline, primaryData.text.slice(0, 2000))
+            console.log('[v0] Research enrichment complete, length:', researchContext.length)
+        } catch (error) {
+            console.error('[v0] Research enrichment failed:', error)
+            // Continue without enrichment
+        }
+
+        // PHASE 3: Multi-source synthesis with research
+        console.log('[v0] Starting multi-source synthesis')
+        const synthesisResult = await callAI<ArticleSynthesisOutput>({
+            prompt: ARTICLE_SYNTHESIS_V1.prompt,
+            input: {
+                headline,
+                primary_article: primaryData.text,
+                related_articles: relatedArticles.slice(0, 5), // Include up to 5 related articles
+                research_findings: researchContext,
+                web_research: researchContext,
+            } as ArticleSynthesisInput,
+            model: 'gpt-4o', // Use expensive model for comprehensive synthesis
         })
 
-        if (!summaryResult.success || !summaryResult.data) {
+        if (!synthesisResult.success || !synthesisResult.data) {
             recordFailure()
-            return { success: false, error: 'Summary generation failed' }
+            return { success: false, error: 'Synthesis generation failed' }
         }
         recordSuccess()
 
-        if (summaryResult.usage) {
+        console.log('[v0] Synthesis complete, length:', synthesisResult.data.synthesized_article.length)
+
+        if (synthesisResult.usage) {
             await recordAIUsage({
                 signalId,
                 model: 'gpt-4o',
-                promptName: 'ARTICLE_SUMMARY_V1',
-                inputTokens: summaryResult.usage.inputTokens,
-                outputTokens: summaryResult.usage.outputTokens,
-                costUsd: summaryResult.usage.costUsd,
+                promptName: 'ARTICLE_SYNTHESIS_V1',
+                inputTokens: synthesisResult.usage.inputTokens,
+                outputTokens: synthesisResult.usage.outputTokens,
+                costUsd: synthesisResult.usage.costUsd,
             })
         }
 
-        // Generate tags
+        // PHASE 4: Generate tags
+        console.log('[v0] Generating tags and entities')
         const tagsResult = await callAI<ArticleTagsOutput>({
             prompt: ARTICLE_TAGS_V1.prompt,
-            input: { primary_text: primaryText } as ArticleTagsInput,
-            model: 'gpt-4o',
+            input: { primary_text: synthesisResult.data.synthesized_article.slice(0, 5000) } as ArticleTagsInput,
+            model: 'gpt-4o-mini',
         })
 
         let topics: string[] = []
@@ -150,7 +206,7 @@ export async function synthesizeArticle(signalId: string): Promise<SynthesisResu
             if (tagsResult.usage) {
                 await recordAIUsage({
                     signalId,
-                    model: 'gpt-4o',
+                    model: 'gpt-4o-mini',
                     promptName: 'ARTICLE_TAGS_V1',
                     inputTokens: tagsResult.usage.inputTokens,
                     outputTokens: tagsResult.usage.outputTokens,
@@ -159,19 +215,121 @@ export async function synthesizeArticle(signalId: string): Promise<SynthesisResu
             }
         }
 
-        // Create article
-        const slug = generateSlug(headlineResult.data.headline)
+        // Add research themes to topics
+        if (synthesisResult.data.key_themes) {
+            topics = [...new Set([...topics, ...synthesisResult.data.key_themes])]
+        }
+
+        // PHASE 5: Create article
+        console.log('[v0] Creating article record')
+        const slug = generateSlug(headline)
         const [article] = await db.insert(articles).values({
             signalId,
             slug,
-            headline: headlineResult.data.headline,
-            summary: summaryResult.data.summary,
+            headline,
+            summary: synthesisResult.data.synthesized_article, // Full article is the summary now
             topics,
             entities,
             isDraft: true,
         }).returning({ id: articles.id })
 
+        console.log('[v0] Article synthesis complete:', article.id)
         return { success: true, articleId: article.id }
+
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        console.error('[v0] Synthesis error:', message)
+        return { success: false, error: message }
+    }
+}
+
+/**
+ * Publish a draft article
+ */
+export async function publishArticle(articleId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const [article] = await db
+            .select()
+            .from(articles)
+            .where(eq(articles.id, articleId))
+            .limit(1)
+
+        if (!article) {
+            return { success: false, error: 'Article not found' }
+        }
+
+        if (!article.isDraft) {
+            return { success: false, error: 'Article already published' }
+        }
+
+        await db
+            .update(articles)
+            .set({ isDraft: false, publishedAt: new Date() })
+            .where(eq(articles.id, articleId))
+
+        return { success: true }
+
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        return { success: false, error: message }
+    }
+}
+
+/**
+ * Generate video materials for an article
+ */
+export async function generateVideoMaterials(articleId: string): Promise<{
+    success: boolean
+    videoMaterialId?: string
+    error?: string
+}> {
+    try {
+        const [article] = await db
+            .select()
+            .from(articles)
+            .where(eq(articles.id, articleId))
+            .limit(1)
+
+        if (!article) {
+            return { success: false, error: 'Article not found' }
+        }
+
+        // Check cost limits
+        const costCheck = await checkCostLimits()
+        if (!costCheck.allowed) {
+            return { success: false, error: `Cost limit: ${costCheck.reason}` }
+        }
+
+        const result = await callAI<VideoMaterialsOutput>({
+            prompt: VIDEO_MATERIALS_V1.prompt,
+            input: { summary: article.summary.slice(0, 3000) } as VideoMaterialsInput,
+            model: 'gpt-4o-mini',
+        })
+
+        if (!result.success || !result.data) {
+            recordFailure()
+            return { success: false, error: 'Video materials generation failed' }
+        }
+        recordSuccess()
+
+        if (result.usage) {
+            await recordAIUsage({
+                model: 'gpt-4o-mini',
+                promptName: 'VIDEO_MATERIALS_V1',
+                inputTokens: result.usage.inputTokens,
+                outputTokens: result.usage.outputTokens,
+                costUsd: result.usage.costUsd,
+            })
+        }
+
+        const [material] = await db.insert(videoMaterials).values({
+            articleId,
+            script60s: result.data.script_60s,
+            keyQuotes: result.data.key_quotes,
+            angles: result.data.angles,
+        }).returning({ id: videoMaterials.id })
+
+        return { success: true, videoMaterialId: material.id }
 
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
