@@ -98,8 +98,20 @@ export async function getJobExecutionHistory(
   jobName: string,
   limit: number = 20
 ): Promise<any[]> {
-  const results = await redis.lrange(`automation:executions:${jobName}`, 0, limit - 1)
-  return results.map((r) => JSON.parse(r as string))
+  try {
+    const results = await redis.lrange(`automation:executions:${jobName}`, 0, limit - 1)
+    return results.map((r) => {
+      try {
+        return JSON.parse(r as string)
+      } catch (e) {
+        console.error('[v0] Failed to parse execution record:', r, e)
+        return null
+      }
+    }).filter((r) => r !== null)
+  } catch (error) {
+    console.error('[v0] Error fetching execution history from Redis:', error)
+    return []
+  }
 }
 
 /**
@@ -132,12 +144,23 @@ export async function updateSchedulerConfig(config: Partial<SchedulerConfig>): P
  * Get current scheduler configuration
  */
 export async function getSchedulerConfig(): Promise<SchedulerConfig> {
-  const config = await redis.get('automation:config')
-  if (!config) {
+  try {
+    const config = await redis.get('automation:config')
+    if (!config) {
+      console.log('[v0] No config in Redis, initializing with defaults')
+      await redis.set('automation:config', JSON.stringify(DEFAULT_CONFIG))
+      return DEFAULT_CONFIG
+    }
+    
+    const parsed = JSON.parse(config as string)
+    console.log('[v0] Parsed config from Redis:', parsed)
+    return parsed
+  } catch (error) {
+    console.error('[v0] Error parsing scheduler config from Redis:', error)
+    console.log('[v0] Falling back to default config')
     await redis.set('automation:config', JSON.stringify(DEFAULT_CONFIG))
     return DEFAULT_CONFIG
   }
-  return JSON.parse(config as string)
 }
 
 /**
@@ -162,6 +185,18 @@ export async function recordMetric(
  * Get recent metrics
  */
 export async function getRecentMetrics(limit: number = 100): Promise<any[]> {
-  const metrics = await redis.lrange('automation:metrics', 0, limit - 1)
-  return metrics.map((m) => JSON.parse(m as string))
+  try {
+    const metrics = await redis.lrange('automation:metrics', 0, limit - 1)
+    return metrics.map((m) => {
+      try {
+        return JSON.parse(m as string)
+      } catch (e) {
+        console.error('[v0] Failed to parse metric:', m, e)
+        return null
+      }
+    }).filter((m) => m !== null)
+  } catch (error) {
+    console.error('[v0] Error fetching metrics from Redis:', error)
+    return []
+  }
 }

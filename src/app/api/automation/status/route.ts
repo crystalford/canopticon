@@ -33,22 +33,27 @@ export async function GET(request: NextRequest) {
     const approvalRules = getApprovalRules()
     const publishingRules = getPublishingRules()
 
-    return NextResponse.json(
-      {
-        state,
-        config,
-        rules: {
-          approval: approvalRules,
-          publishing: publishingRules,
-        },
-        timestamp: Date.now(),
+    console.log('[v0] Got rules, attempting to serialize response...')
+
+    const responseData = {
+      state,
+      config,
+      rules: {
+        approval: approvalRules,
+        publishing: publishingRules,
       },
-      { status: 200 }
-    )
+      timestamp: Date.now(),
+    }
+
+    console.log('[v0] Response data:', JSON.stringify(responseData, null, 2))
+
+    return NextResponse.json(responseData, { status: 200 })
   } catch (error) {
     console.error('[v0] Failed to get automation status:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('[v0] Error details:', { errorMessage, error })
     return NextResponse.json(
-      { error: `Failed to get automation status: ${error instanceof Error ? error.message : String(error)}` },
+      { error: `Failed to get automation status: ${errorMessage}` },
       { status: 500 }
     )
   }
