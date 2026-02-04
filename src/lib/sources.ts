@@ -238,7 +238,7 @@ export async function runAllSourceIngestion() {
     })
   )
 
-  const successful = results.filter((r): r is { success: boolean; error?: string; articles?: unknown[] } => r !== undefined && r.success).length
+  const successful = results.filter(r => r && r.success).length
   console.log(`[v0] Source ingestion complete: ${successful}/${sources.length} successful`)
   return results
 }
