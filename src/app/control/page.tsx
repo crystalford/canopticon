@@ -1,10 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Loader2, Sparkles, FileText, Eye, CheckCircle } from 'lucide-react'
+import { useState } from 'react'
+import { Loader2, Sparkles, FileText, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface Topic {
   id: string
@@ -22,8 +19,6 @@ interface Article {
   summary: string
   content: string
   isDraft: boolean
-  publishedAt: string | null
-  createdAt: string
 }
 
 export default function ControlPanel() {
@@ -32,39 +27,25 @@ export default function ControlPanel() {
   const [findingTopics, setFindingTopics] = useState(false)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [publishingId, setPublishingId] = useState<string | null>(null)
-
-  // Load existing articles on mount
-  useEffect(() => {
-    loadArticles()
-  }, [])
-
-  const loadArticles = async () => {
-    try {
-      const res = await fetch('/api/dashboard/articles')
-      if (res.ok) {
-        const data = await res.json()
-        setArticles(data)
-      }
-    } catch (error) {
-      console.error('Failed to load articles:', error)
-    }
-  }
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   const findTopics = async () => {
     setFindingTopics(true)
+    setMessage(null)
     try {
       const res = await fetch('/api/topics/find', { method: 'POST' })
       const data = await res.json()
       
       if (data.success) {
         setTopics(data.topics)
-        console.log(`[v0] Found ${data.topics.length} topics`)
+        setMessage({ type: 'success', text: `Found ${data.topics.length} topics` })
       } else {
-        alert(`Error: ${data.error}`)
+        setMessage({ type: 'error', text: data.error || 'Failed to find topics' })
       }
     } catch (error) {
-      console.error('[v0] Failed to find topics:', error)
-      alert('Failed to find topics. Check console for details.')
+      console.error('[v0] Find topics error:', error)
+      setMessage({ type: 'error', text: 'Failed to find topics' })
     } finally {
       setFindingTopics(false)
     }
@@ -72,8 +53,8 @@ export default function ControlPanel() {
 
   const generateArticle = async (topic: Topic) => {
     setGeneratingId(topic.id)
+    setMessage(null)
     try {
-      console.log(`[v0] Generating article for: ${topic.title}`)
       const res = await fetch('/api/topics/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,247 +63,239 @@ export default function ControlPanel() {
       const data = await res.json()
       
       if (data.success) {
-        setArticles([data.article, ...articles])
-        console.log(`[v0] Generated article: ${data.article.title}`)
+        setArticles(prev => [data.article, ...prev])
+        setMessage({ type: 'success', text: 'Article generated successfully!' })
         // Remove topic from list
-        setTopics(topics.filter(t => t.id !== topic.id))
+        setTopics(prev => prev.filter(t => t.id !== topic.id))
       } else {
-        alert(`Error: ${data.error}`)
+        setMessage({ type: 'error', text: data.error || 'Failed to generate article' })
       }
     } catch (error) {
-      console.error('[v0] Failed to generate article:', error)
-      alert('Failed to generate article. Check console for details.')
+      console.error('[v0] Generate article error:', error)
+      setMessage({ type: 'error', text: 'Failed to generate article' })
     } finally {
       setGeneratingId(null)
     }
   }
 
-  const publishArticle = async (articleId: string) => {
-    setPublishingId(articleId)
+  const publishArticle = async (article: Article) => {
+    setPublishingId(article.id)
+    setMessage(null)
     try {
-      console.log(`[v0] Publishing article: ${articleId}`)
       const res = await fetch('/api/articles/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ articleId })
+        body: JSON.stringify({ articleId: article.id })
       })
       const data = await res.json()
       
       if (data.success) {
-        // Update article in list
-        setArticles(articles.map(a => 
-          a.id === articleId 
-            ? { ...a, isDraft: false, publishedAt: new Date().toISOString() }
-            : a
+        setArticles(prev => prev.map(a => 
+          a.id === article.id ? { ...a, isDraft: false } : a
         ))
-        console.log('[v0] Article published successfully')
+        setMessage({ type: 'success', text: 'Article published!' })
+        setSelectedArticle(null)
       } else {
-        alert(`Error: ${data.error}`)
+        setMessage({ type: 'error', text: data.error || 'Failed to publish' })
       }
     } catch (error) {
-      console.error('[v0] Failed to publish article:', error)
-      alert('Failed to publish article. Check console for details.')
+      console.error('[v0] Publish error:', error)
+      setMessage({ type: 'error', text: 'Failed to publish article' })
     } finally {
       setPublishingId(null)
     }
   }
 
-  const draftArticles = articles.filter(a => a.isDraft)
-  const publishedArticles = articles.filter(a => !a.isDraft)
-
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-8 max-w-7xl">
+    <div className="min-h-screen bg-slate-950 text-white p-4 sm:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
         
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight mb-2">Control Panel</h1>
-          <p className="text-muted-foreground">Simple AI-powered article generation</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Control Panel</h1>
+            <p className="text-slate-400 mt-2">AI-powered article generation made simple</p>
+          </div>
         </div>
 
-        {/* Find Topics Section */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Step 1: Find Topics</CardTitle>
-            <CardDescription>AI researches current political topics worth writing about</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button 
-              onClick={findTopics} 
+        {/* Message */}
+        {message && (
+          <div className={`p-4 rounded-lg flex items-center gap-2 ${
+            message.type === 'success' ? 'bg-green-900/30 border border-green-700 text-green-300' :
+            'bg-red-900/30 border border-red-700 text-red-300'
+          }`}>
+            {message.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            {message.text}
+          </div>
+        )}
+
+        {/* Step 1: Find Topics */}
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold">Step 1: Find Topics</h2>
+              <p className="text-slate-400 text-sm mt-1">AI researches current political topics</p>
+            </div>
+            <button
+              onClick={findTopics}
               disabled={findingTopics}
-              size="lg"
-              className="w-full sm:w-auto"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded font-medium flex items-center gap-2 transition-colors"
             >
               {findingTopics ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Researching Topics...
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Researching...
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Find Current Topics
+                  <Sparkles className="w-4 h-4" />
+                  Find Topics
                 </>
               )}
-            </Button>
+            </button>
+          </div>
 
-            {topics.length > 0 && (
-              <div className="mt-6 space-y-4">
-                <p className="text-sm font-medium">Found {topics.length} topics:</p>
-                {topics.map(topic => (
-                  <div key={topic.id} className="border rounded-lg p-4 bg-card">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-lg">{topic.title}</h3>
-                          <Badge variant={
-                            topic.urgency === 'high' ? 'destructive' :
-                            topic.urgency === 'medium' ? 'default' : 'secondary'
-                          }>
-                            {topic.urgency}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">{topic.description}</p>
-                        <p className="text-xs text-muted-foreground italic mb-2">
-                          <span className="font-medium">Angle:</span> {topic.angle}
-                        </p>
-                        <div className="flex gap-1 flex-wrap">
-                          {topic.keywords.map(kw => (
-                            <Badge key={kw} variant="outline" className="text-xs">{kw}</Badge>
-                          ))}
-                        </div>
+          {topics.length > 0 && (
+            <div className="space-y-3 mt-4">
+              {topics.map(topic => (
+                <div key={topic.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <h3 className="font-semibold">{topic.title}</h3>
+                        <span className={`px-2 py-0.5 text-xs rounded font-medium ${
+                          topic.urgency === 'high' ? 'bg-red-600/20 text-red-300' :
+                          topic.urgency === 'medium' ? 'bg-yellow-600/20 text-yellow-300' : 
+                          'bg-slate-600/20 text-slate-300'
+                        }`}>
+                          {topic.urgency}
+                        </span>
                       </div>
-                      <Button
-                        onClick={() => generateArticle(topic)}
-                        disabled={generatingId === topic.id}
+                      <p className="text-sm text-slate-400 mb-2">{topic.description}</p>
+                      <p className="text-xs text-slate-500 italic mb-2">
+                        <span className="font-medium">Angle:</span> {topic.angle}
+                      </p>
+                      <div className="flex gap-1 flex-wrap">
+                        {topic.keywords.map(kw => (
+                          <span key={kw} className="px-2 py-0.5 bg-slate-700 text-slate-300 text-xs rounded">{kw}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => generateArticle(topic)}
+                      disabled={generatingId === topic.id}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded font-medium flex items-center gap-2 transition-colors shrink-0"
+                    >
+                      {generatingId === topic.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Writing...
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="w-4 h-4" />
+                          Generate
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {topics.length === 0 && !findingTopics && (
+            <p className="text-sm text-slate-500 mt-4">No topics yet. Click "Find Topics" to start.</p>
+          )}
+        </div>
+
+        {/* Step 2: Review & Publish */}
+        {articles.length > 0 && (
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
+            <h2 className="text-xl font-bold mb-4">Step 2: Review & Publish</h2>
+            <div className="space-y-3">
+              {articles.filter(a => a.isDraft).map(article => (
+                <div key={article.id} className="bg-slate-800/50 border border-slate-700 rounded-lg p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1">{article.title}</h3>
+                      <p className="text-sm text-slate-400 mb-2">{article.summary}</p>
+                      <p className="text-xs text-slate-500">/{article.slug}</p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        onClick={() => setSelectedArticle(article)}
+                        className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded font-medium text-sm transition-colors"
                       >
-                        {generatingId === topic.id ? (
+                        Preview
+                      </button>
+                      <button
+                        onClick={() => publishArticle(article)}
+                        disabled={publishingId === article.id}
+                        className="px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded font-medium text-sm flex items-center gap-2 transition-colors"
+                      >
+                        {publishingId === article.id ? (
                           <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Generating...
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Publishing...
                           </>
                         ) : (
                           <>
-                            <FileText className="w-4 h-4 mr-2" />
-                            Generate Article
+                            <CheckCircle className="w-4 h-4" />
+                            Publish
                           </>
                         )}
-                      </Button>
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {topics.length === 0 && !findingTopics && (
-              <p className="text-sm text-muted-foreground mt-4">
-                No topics yet. Click the button above to have AI research current political topics.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Draft Articles Section */}
-        {draftArticles.length > 0 && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>Step 2: Review Drafts</CardTitle>
-              <CardDescription>Review AI-generated articles and publish when ready</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {draftArticles.map(article => (
-                  <div key={article.id} className="border rounded-lg p-4 bg-card">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg mb-2">{article.title}</h3>
-                        <p className="text-sm text-muted-foreground mb-2">{article.summary}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Created: {new Date(article.createdAt).toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="flex gap-2 flex-shrink-0">
-                        <Button
-                          variant="outline"
-                          onClick={() => window.open(`/articles/${article.slug}`, '_blank')}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          Preview
-                        </Button>
-                        <Button
-                          onClick={() => publishArticle(article.id)}
-                          disabled={publishingId === article.id}
-                        >
-                          {publishingId === article.id ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Publishing...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="w-4 h-4 mr-2" />
-                              Publish
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
-        {/* Published Articles Section */}
-        {publishedArticles.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Published Articles</CardTitle>
-              <CardDescription>Live on your site</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {publishedArticles.map(article => (
-                  <div key={article.id} className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/20">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-lg">{article.title}</h3>
-                          <Badge className="bg-green-600">Published</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">{article.summary}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Published: {new Date(article.publishedAt!).toLocaleString()}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => window.open(`/articles/${article.slug}`, '_blank')}
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Live
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+        {/* Article Preview Modal */}
+        {selectedArticle && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50" onClick={() => setSelectedArticle(null)}>
+            <div className="bg-slate-900 border border-slate-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+              <div className="flex items-start justify-between mb-4">
+                <h2 className="text-2xl font-bold">{selectedArticle.title}</h2>
+                <button 
+                  onClick={() => setSelectedArticle(null)}
+                  className="text-slate-400 hover:text-white text-2xl"
+                >
+                  ×
+                </button>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Empty State */}
-        {articles.length === 0 && topics.length === 0 && !findingTopics && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <Sparkles className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">Ready to Generate Articles</h3>
-              <p className="text-muted-foreground mb-6">
-                Click "Find Current Topics" to have AI research newsworthy political topics.
-                Then generate full articles with one click.
-              </p>
-            </CardContent>
-          </Card>
+              <p className="text-slate-400 italic mb-4">{selectedArticle.summary}</p>
+              <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
+              <div className="flex gap-3 mt-6 pt-6 border-t border-slate-800">
+                <button
+                  onClick={() => setSelectedArticle(null)}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded font-medium transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => publishArticle(selectedArticle)}
+                  disabled={publishingId === selectedArticle.id}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded font-medium flex items-center gap-2 transition-colors"
+                >
+                  {publishingId === selectedArticle.id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      Publish Article
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
       </div>
