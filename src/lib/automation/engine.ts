@@ -18,7 +18,7 @@ async function log(phase: string, message: string, data?: any) {
   console.log(`[AUTOMATION ${phase}] ${message}`, data || '')
   
   await db.insert(logs).values({
-    workflowId: 'automation',
+    component: 'automation',
     level: 'info',
     message: `[${phase}] ${message}`,
     metadata: data || {}
@@ -29,7 +29,7 @@ async function logError(phase: string, message: string, error: any) {
   console.error(`[AUTOMATION ${phase}] ERROR: ${message}`, error)
   
   await db.insert(logs).values({
-    workflowId: 'automation',
+    component: 'automation',
     level: 'error',
     message: `[${phase}] ${message}`,
     metadata: { error: error.message || String(error) }
