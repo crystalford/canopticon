@@ -29,9 +29,9 @@ export default async function HomePage() {
                     <Link href="/">
                         <Logo />
                     </Link>
-                    <Link href="/dashboard" className="text-xs font-bold text-slate-400 hover:text-white transition-colors tracking-widest uppercase flex items-center gap-2">
+                    <Link href="/control" className="text-xs font-bold text-slate-400 hover:text-white transition-colors tracking-widest uppercase flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        Operator Login
+                        Control Panel
                     </Link>
                 </div>
             </header>

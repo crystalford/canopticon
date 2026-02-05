@@ -1,36 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { publishArticle } from '@/lib/synthesis'
+import { db } from '@/db'
+import { articles } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
-/**
- * POST /api/articles/publish - Publish a draft article
- */
 export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json()
-        const { article_id } = body
-
-        if (!article_id) {
-            return NextResponse.json(
-                { error: 'article_id is required' },
-                { status: 400 }
-            )
-        }
-
-        const result = await publishArticle(article_id)
-
-        if (!result.success) {
-            return NextResponse.json(
-                { error: result.error || 'Publish failed' },
-                { status: 400 }
-            )
-        }
-
-        return NextResponse.json({ success: true })
-    } catch (error) {
-        console.error('Error publishing article:', error)
-        return NextResponse.json(
-            { error: 'Failed to publish article' },
-            { status: 500 }
-        )
+  try {
+    const body = await request.json()
+    const { articleId } = body
+    
+    if (!articleId) {
+      return NextResponse.json(
+        { success: false, error: 'Article ID is required' },
+        { status: 400 }
+      )
     }
+    
+    console.log(`[v0] Publishing article: ${articleId}`)
+    
+    await db
+      .update(articles)
+      .set({
+        isDraft: false,
+        publishedAt: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(articles.id, articleId))
+    
+    console.log(`[v0] Article published successfully`)
+    
+    return NextResponse.json({ 
+      success: true
+    })
+    
+  } catch (error) {
+    console.error('[v0] Failed to publish article:', error)
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      },
+      { status: 500 }
+    )
+  }
 }
