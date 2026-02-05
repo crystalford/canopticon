@@ -54,6 +54,8 @@ export async function processArticle(articleId: string): Promise<PipelineResult>
     const runId = uuidv4()
 
     try {
+        console.log(`[v0] processArticle: Fetching article ${articleId}...`)
+        
         // Fetch the article
         const [article] = await db
             .select()
@@ -62,10 +64,14 @@ export async function processArticle(articleId: string): Promise<PipelineResult>
             .limit(1)
 
         if (!article) {
+            console.error(`[v0] processArticle: Article ${articleId} not found`)
             return { success: false, action: 'error', reason: 'Article not found' }
         }
 
+        console.log(`[v0] processArticle: Found article "${article.title.substring(0, 50)}..."`)
+
         if (article.isProcessed) {
+            console.log(`[v0] processArticle: Article already processed`)
             return { success: true, action: 'skipped', reason: 'Already processed' }
         }
 
@@ -73,10 +79,13 @@ export async function processArticle(articleId: string): Promise<PipelineResult>
 
         // MANUAL MODE: No AI, No Clustering
         // 1. Create a new Cluster for this article
+        console.log(`[v0] processArticle: Creating cluster...`)
         const clusterId = await createCluster(articleId)
+        console.log(`[v0] processArticle: Cluster created: ${clusterId}`)
 
         // 2. Create a default "Pending" signal
         // Default values: Type=shift (neutral), Confidence=0, Significance=0, Status=pending
+        console.log(`[v0] processArticle: Creating signal...`)
         const signalId = await createSignal(
             clusterId,
             'shift',      // default type
@@ -85,17 +94,21 @@ export async function processArticle(articleId: string): Promise<PipelineResult>
             'pending', // status
             '' // notes
         )
+        console.log(`[v0] processArticle: Signal created: ${signalId}`)
 
         // 3. Mark article as processed
+        console.log(`[v0] processArticle: Marking article as processed...`)
         await db
             .update(rawArticles)
             .set({ isProcessed: true })
             .where(eq(rawArticles.id, articleId))
+        console.log(`[v0] processArticle: Article marked as processed`)
 
         return { success: true, signalId, clusterId, action: 'created' }
 
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
+        console.error(`[v0] processArticle: EXCEPTION:`, error)
         await logPipeline(runId, 'error', `Pipeline failed: ${message}`, { articleId })
         return { success: false, action: 'error', reason: message }
     }

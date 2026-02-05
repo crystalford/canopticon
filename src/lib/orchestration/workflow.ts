@@ -169,29 +169,38 @@ async function processUnprocessedArticles(
 
     for (const article of unprocessed) {
       try {
+        console.log(`[v0] Phase 1: Processing article ${article.id}...`)
+        
         // Create initial signal via pipeline
         const pipelineResult = await processArticle(article.id)
+        console.log(`[v0] Pipeline result:`, pipelineResult)
+        
         if (pipelineResult.success && pipelineResult.signalId) {
           processed++
           stats.signalsProcessed++
 
-          console.log(`[v0] Created signal ${pipelineResult.signalId} for article ${article.id}, running analysis...`)
+          console.log(`[v0] ✓ Created signal ${pipelineResult.signalId} for article ${article.id}`)
+          console.log(`[v0] Running AI analysis for signal ${pipelineResult.signalId}...`)
 
           // NOW run AI analysis to score the signal
           const analysisResult = await runSignalAnalysis(pipelineResult.signalId)
+          console.log(`[v0] Analysis result:`, analysisResult)
+          
           if (analysisResult.success) {
-            console.log(`[v0] Analysis complete for signal ${pipelineResult.signalId}`)
+            console.log(`[v0] ✓ Analysis complete for signal ${pipelineResult.signalId}`)
           } else {
             const message = analysisResult.reason || 'Analysis failed'
-            console.error(`[v0] Analysis failed for signal ${pipelineResult.signalId}: ${message}`)
+            console.error(`[v0] ✗ Analysis failed for signal ${pipelineResult.signalId}: ${message}`)
             stats.errors.push(`Failed to analyze signal ${pipelineResult.signalId}: ${message}`)
           }
         } else {
-          console.warn(`[v0] Pipeline failed for article ${article.id}: ${pipelineResult.reason}`)
+          console.error(`[v0] ✗ Pipeline failed for article ${article.id}: ${pipelineResult.reason}`)
+          stats.errors.push(`Pipeline failed for article ${article.id}: ${pipelineResult.reason}`)
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error'
-        console.error(`[v0] Error processing article ${article.id}:`, error)
+        console.error(`[v0] ✗ Exception processing article ${article.id}:`, message)
+        console.error(error)
         stats.errors.push(`Failed to process article ${article.id}: ${message}`)
       }
     }
