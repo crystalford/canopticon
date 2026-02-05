@@ -29,9 +29,9 @@ export default async function HomePage() {
                     <Link href="/">
                         <Logo />
                     </Link>
-                    <Link href="/control" className="text-xs font-bold text-slate-400 hover:text-white transition-colors tracking-widest uppercase flex items-center gap-2">
+                    <Link href="/dashboard/articles" className="text-xs font-bold text-slate-400 hover:text-white transition-colors tracking-widest uppercase flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        Control Panel
+                        Dashboard
                     </Link>
                 </div>
             </header>
