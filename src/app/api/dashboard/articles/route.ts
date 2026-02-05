@@ -8,7 +8,7 @@ export async function GET() {
     const recentArticles = await db
       .select({
         id: articles.id,
-        title: articles.title,
+        title: articles.headline,
         slug: articles.slug,
         isDraft: articles.isDraft,
         createdAt: articles.createdAt

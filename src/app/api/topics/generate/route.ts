@@ -26,13 +26,11 @@ export async function POST(request: NextRequest) {
     
     // Save to database
     const [saved] = await db.insert(articles).values({
-      title: article.title,
+      headline: article.title,
       slug: article.slug,
       summary: article.summary,
       content: article.content,
-      isDraft: true, // Save as draft for review
-      createdAt: new Date(),
-      updatedAt: new Date()
+      isDraft: true,
     }).returning()
     
     console.log(`[v0] Article saved to database: ${saved.id}`)
