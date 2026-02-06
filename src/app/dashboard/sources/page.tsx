@@ -60,7 +60,7 @@ export default function SourcesPage() {
     const [formData, setFormData] = useState({
         name: '',
         type: 'youtube_channel' as const,
-        config: { channel_id: '' },
+        config: { channel_id: '' } as Record<string, any>,
         workflowId: '',
     })
 
@@ -284,7 +284,7 @@ export default function SourcesPage() {
                         setFormData({
                             name: '',
                             type: 'youtube_channel',
-                            config: { channel_id: '' },
+                            config: { channel_id: '' } as Record<string, any>,
                             workflowId: workflows[0]?.id || '',
                         })
                         setShowForm(true)
