@@ -28,6 +28,12 @@ export default function DashboardLayout({
                         >
                             AI Providers
                         </Link>
+                        <Link
+                            href="/dashboard/prompts"
+                            className="hover:text-primary-400 transition-colors"
+                        >
+                            Prompts
+                        </Link>
                     </nav>
                 </div>
             </header>
