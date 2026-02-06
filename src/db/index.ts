@@ -5,8 +5,14 @@ import * as schema from './schema'
 // Create postgres connection
 const connectionString = process.env.DATABASE_URL!
 
-// For query purposes
-const queryClient = postgres(connectionString)
+// Configure postgres-js for serverless environment
+// These settings prevent connection exhaustion in Vercel functions
+const queryClient = postgres(connectionString, {
+    max: 1, // One connection per serverless function instance
+    idle_timeout: 20, // Close idle connections after 20 seconds
+    connect_timeout: 10, // Fail fast if can't connect within 10 seconds
+    prepare: false, // Disable prepared statements (required for connection poolers)
+})
 
 // Create drizzle client
 export const db = drizzle(queryClient, { schema })
