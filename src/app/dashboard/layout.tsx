@@ -1,17 +1,17 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
+// import { redirect } from 'next/navigation'
+// import { getServerSession } from 'next-auth'
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
-    const session = await getServerSession()
-
-    if (!session) {
-        redirect('/login')
-    }
+    // Auth temporarily disabled
+    // const session = await getServerSession()
+    // if (!session) {
+    //     redirect('/login')
+    // }
 
     return (
         <div className="min-h-screen bg-black text-white">
