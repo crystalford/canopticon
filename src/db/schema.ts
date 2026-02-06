@@ -294,6 +294,70 @@ export const uploadedVideos = pgTable('uploaded_videos', {
     createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+/**
+ * AI Providers (BYOK - Bring Your Own Key)
+ * Store API keys and configuration for different AI providers
+ */
+export const aiProviders = pgTable('ai_providers', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(), // "Perplexity", "ChatGPT", "Claude", "Gemini"
+    provider: text('provider').notNull(), // "perplexity", "openai", "anthropic", "google"
+    apiKey: text('api_key').notNull(), // Encrypted API key
+    config: jsonb('config'), // { baseUrl, models, etc }
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+/**
+ * Prompts (Editable in Admin)
+ * All prompts used for discovery, article writing, video generation, etc.
+ */
+export const prompts = pgTable('prompts', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(), // "discovery_v1", "article_writing_v2"
+    description: text('description'), // Human-readable description
+    promptText: text('prompt_text').notNull(), // The actual prompt
+    variables: jsonb('variables'), // ["story", "context"] - variables in prompt
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+/**
+ * Pipeline Configuration
+ * Which AI provider + prompt to use for each task
+ */
+export const pipelineConfig = pgTable('pipeline_config', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    task: text('task').notNull(), // "discovery", "writing", "video"
+    providerId: uuid('provider_id').references(() => aiProviders.id).notNull(),
+    model: text('model').notNull(), // "sonar-pro", "gpt-4o", etc
+    promptId: uuid('prompt_id').references(() => prompts.id).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+/**
+ * Generation Runs (Audit Trail)
+ * Track each article generation with full transparency
+ */
+export const generationRuns = pgTable('generation_runs', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    articleId: uuid('article_id').references(() => articles.id),
+    task: text('task').notNull(), // "discovery", "writing", "video"
+    providerId: uuid('provider_id').references(() => aiProviders.id).notNull(),
+    promptId: uuid('prompt_id').references(() => prompts.id).notNull(),
+    input: jsonb('input'), // What was sent to AI
+    output: jsonb('output'), // What AI returned
+    tokensUsed: integer('tokens_used'),
+    costUsd: text('cost_usd'), // Cost in USD
+    durationMs: integer('duration_ms'), // How long it took
+    status: text('status').notNull(), // "success", "error"
+    errorMessage: text('error_message'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
 // ============================================================================
 // RELATIONS
 
@@ -431,4 +495,16 @@ export type NewSocialAccount = typeof socialAccounts.$inferInsert
 
 export type UploadedVideo = typeof uploadedVideos.$inferSelect
 export type NewUploadedVideo = typeof uploadedVideos.$inferInsert
+
+export type AIProvider = typeof aiProviders.$inferSelect
+export type NewAIProvider = typeof aiProviders.$inferInsert
+
+export type Prompt = typeof prompts.$inferSelect
+export type NewPrompt = typeof prompts.$inferInsert
+
+export type PipelineConfig = typeof pipelineConfig.$inferSelect
+export type NewPipelineConfig = typeof pipelineConfig.$inferInsert
+
+export type GenerationRun = typeof generationRuns.$inferSelect
+export type NewGenerationRun = typeof generationRuns.$inferInsert
 

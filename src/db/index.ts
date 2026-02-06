@@ -30,7 +30,9 @@ export {
     secondaryArticles,
     analysisReports,
     socialAccounts,
-
-
+    aiProviders,
+    prompts,
+    pipelineConfig,
+    generationRuns,
 } from './schema'
 
