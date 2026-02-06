@@ -34,6 +34,12 @@ export default function DashboardLayout({
                         >
                             Prompts
                         </Link>
+                        <Link
+                            href="/dashboard/pipeline"
+                            className="hover:text-primary-400 transition-colors"
+                        >
+                            Pipeline
+                        </Link>
                     </nav>
                 </div>
             </header>
