@@ -29,6 +29,12 @@ export default function DashboardLayout({
                             Articles
                         </Link>
                         <Link
+                            href="/dashboard/sources"
+                            className="hover:text-primary-400 transition-colors"
+                        >
+                            Sources
+                        </Link>
+                        <Link
                             href="/dashboard/workflows"
                             className="hover:text-primary-400 transition-colors"
                         >
