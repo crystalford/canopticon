@@ -23,6 +23,12 @@ export default function DashboardLayout({
                     </Link>
                     <nav className="flex items-center gap-6 text-sm">
                         <Link
+                            href="/dashboard/articles"
+                            className="hover:text-primary-400 transition-colors"
+                        >
+                            Articles
+                        </Link>
+                        <Link
                             href="/dashboard/ai-providers"
                             className="hover:text-primary-400 transition-colors"
                         >
