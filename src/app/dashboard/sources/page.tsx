@@ -57,10 +57,15 @@ export default function SourcesPage() {
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [testingId, setTestingId] = useState<string | null>(null)
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        name: string
+        type: 'youtube_channel' | 'news_search' | 'rss_feed' | 'bluesky_account'
+        config: Record<string, any>
+        workflowId: string
+    }>({
         name: '',
-        type: 'youtube_channel' as const,
-        config: { channel_id: '' } as Record<string, any>,
+        type: 'youtube_channel',
+        config: { channel_id: '' },
         workflowId: '',
     })
 
