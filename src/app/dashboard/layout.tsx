@@ -29,10 +29,10 @@ export default function DashboardLayout({
                             Articles
                         </Link>
                         <Link
-                            href="/dashboard/ai-providers"
+                            href="/dashboard/workflows"
                             className="hover:text-primary-400 transition-colors"
                         >
-                            AI Providers
+                            Workflows
                         </Link>
                         <Link
                             href="/dashboard/prompts"
@@ -41,10 +41,10 @@ export default function DashboardLayout({
                             Prompts
                         </Link>
                         <Link
-                            href="/dashboard/pipeline"
+                            href="/dashboard/ai-services"
                             className="hover:text-primary-400 transition-colors"
                         >
-                            Pipeline
+                            AI Services
                         </Link>
                     </nav>
                 </div>

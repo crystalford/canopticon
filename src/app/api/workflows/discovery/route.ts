@@ -16,7 +16,7 @@ import { AIClient } from '@/lib/ai-client'
  */
 export async function POST() {
     try {
-        // Run the discovery pipeline
+        // Run the discovery workflow
         // The handler receives the configured AI client and prompt
         const result = await pipelineRunner.runPipeline(
             'discovery',
@@ -48,15 +48,15 @@ export async function POST() {
 
         return NextResponse.json({
             success: true,
-            message: 'Discovery pipeline completed',
+            message: 'Discovery workflow completed',
             data: result.output,
             generationRunId: result.generationRunId,
         })
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        console.error('Discovery pipeline error:', message)
+        console.error('Discovery workflow error:', message)
         return NextResponse.json(
-            { error: 'Discovery pipeline failed', details: message },
+            { error: 'Discovery workflow failed', details: message },
             { status: 500 }
         )
     }
