@@ -358,6 +358,24 @@ export const generationRuns = pgTable('generation_runs', {
     createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+/**
+ * Content Sources
+ * Manages different content sources (YouTube channels, news feeds, RSS, Bluesky, etc.)
+ * Linked to workflow configs to define what happens when new content is detected
+ */
+export const contentSources = pgTable('content_sources', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    type: text('type').notNull(), // "youtube_channel", "news_search", "rss_feed", "bluesky_account"
+    name: text('name').notNull(), // "CPAC Official", "Daily Political News"
+    config: jsonb('config').notNull(), // { channel_id, keywords, url, account_handle, etc }
+    workflowId: uuid('workflow_id').references(() => pipelineConfig.id).notNull(),
+    isActive: boolean('is_active').default(true).notNull(),
+    webhookSecret: text('webhook_secret'), // For webhook verification
+    lastTriggeredAt: timestamp('last_triggered_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // ============================================================================
 // RELATIONS
 
@@ -507,4 +525,7 @@ export type NewPipelineConfig = typeof pipelineConfig.$inferInsert
 
 export type GenerationRun = typeof generationRuns.$inferSelect
 export type NewGenerationRun = typeof generationRuns.$inferInsert
+
+export type ContentSource = typeof contentSources.$inferSelect
+export type NewContentSource = typeof contentSources.$inferInsert
 

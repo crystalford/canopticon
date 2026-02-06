@@ -40,5 +40,6 @@ export {
     prompts,
     pipelineConfig,
     generationRuns,
+    contentSources,
 } from './schema'
 
