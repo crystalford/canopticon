@@ -23,28 +23,10 @@ export default async function DashboardLayout({
                     </Link>
                     <nav className="flex items-center gap-6 text-sm">
                         <Link
-                            href="/dashboard/articles"
-                            className="hover:text-primary-400 transition-colors"
-                        >
-                            Articles
-                        </Link>
-                        <Link
                             href="/dashboard/ai-providers"
                             className="hover:text-primary-400 transition-colors"
                         >
                             AI Providers
-                        </Link>
-                        <Link
-                            href="/dashboard/prompts"
-                            className="hover:text-primary-400 transition-colors"
-                        >
-                            Prompts
-                        </Link>
-                        <Link
-                            href="/dashboard/pipeline"
-                            className="hover:text-primary-400 transition-colors"
-                        >
-                            Pipeline
                         </Link>
                     </nav>
                 </div>
