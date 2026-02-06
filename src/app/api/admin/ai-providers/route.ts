@@ -61,9 +61,10 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ provider: newProvider }, { status: 201 })
     } catch (error) {
-        console.error('Error creating AI provider:', error)
+        const message = error instanceof Error ? error.message : String(error)
+        console.error('Error creating AI provider:', message)
         return NextResponse.json(
-            { error: 'Failed to create provider' },
+            { error: 'Failed to create provider', details: message },
             { status: 500 }
         )
     }
