@@ -25,53 +25,87 @@ export async function GET() {
 
 /**
  * POST /api/admin/prompts
- * Create or update prompt
+ * Create new prompt
  */
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
-        const { id, name, description, promptText, variables } = body
+        const { name, description, promptText, variables } = body
 
         if (!name || !promptText) {
             return NextResponse.json(
-                { error: 'Missing required fields' },
+                { error: 'Name and prompt text are required' },
                 { status: 400 }
             )
         }
 
-        // Update existing or create new
-        if (id) {
-            const [updated] = await db
-                .update(prompts)
-                .set({
-                    name,
-                    description,
-                    promptText,
-                    variables,
-                    updatedAt: new Date(),
-                })
-                .where(eq(prompts.id, id))
-                .returning()
+        const [newPrompt] = await db
+            .insert(prompts)
+            .values({
+                name,
+                description: description || null,
+                promptText,
+                variables: variables || [],
+                isActive: true,
+            })
+            .returning()
 
-            return NextResponse.json({ prompt: updated })
-        } else {
-            const [newPrompt] = await db
-                .insert(prompts)
-                .values({
-                    name,
-                    description,
-                    promptText,
-                    variables,
-                    isActive: true,
-                })
-                .returning()
-
-            return NextResponse.json({ prompt: newPrompt }, { status: 201 })
-        }
+        return NextResponse.json({ prompt: newPrompt }, { status: 201 })
     } catch (error) {
-        console.error('Error saving prompt:', error)
+        const message = error instanceof Error ? error.message : String(error)
+        console.error('Error creating prompt:', message)
         return NextResponse.json(
-            { error: 'Failed to save prompt' },
+            { error: 'Failed to create prompt', details: message },
+            { status: 500 }
+        )
+    }
+}
+
+/**
+ * PATCH /api/admin/prompts
+ * Update prompt
+ */
+export async function PATCH(req: NextRequest) {
+    try {
+        const { searchParams } = new URL(req.url)
+        const id = searchParams.get('id')
+
+        if (!id) {
+            return NextResponse.json(
+                { error: 'Prompt ID required' },
+                { status: 400 }
+            )
+        }
+
+        const body = await req.json()
+        const { name, description, promptText, variables, isActive } = body
+
+        const [updatedPrompt] = await db
+            .update(prompts)
+            .set({
+                ...(name !== undefined && { name }),
+                ...(description !== undefined && { description }),
+                ...(promptText !== undefined && { promptText }),
+                ...(variables !== undefined && { variables }),
+                ...(isActive !== undefined && { isActive }),
+                updatedAt: new Date(),
+            })
+            .where(eq(prompts.id, id))
+            .returning()
+
+        if (!updatedPrompt) {
+            return NextResponse.json(
+                { error: 'Prompt not found' },
+                { status: 404 }
+            )
+        }
+
+        return NextResponse.json({ prompt: updatedPrompt })
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error('Error updating prompt:', message)
+        return NextResponse.json(
+            { error: 'Failed to update prompt', details: message },
             { status: 500 }
         )
     }

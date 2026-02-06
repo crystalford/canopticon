@@ -5,7 +5,7 @@ import { createDraftArticle } from '@/lib/pipelines/create-draft-article'
 import { AIClient } from '@/lib/ai-client'
 
 /**
- * POST /api/pipeline/discover
+ * POST /api/pipeline/discovery
  * Trigger the discovery pipeline to find Canadian political stories
  *
  * This endpoint:
