@@ -55,9 +55,10 @@ export default function ArticlesPage() {
 
     /**
      * Load all articles from the database
-     * Shows loading state and error handling
+     * Shows loading state and error handling with detailed messages
      */
     async function loadArticles() {
+        const startTime = Date.now()
         try {
             setLoading(true)
             setError(null)
@@ -67,17 +68,27 @@ export default function ArticlesPage() {
             const res = await fetch('/api/admin/articles')
 
             if (!res.ok) {
-                throw new Error(`Failed to load articles: ${res.status}`)
+                const data = await res.json().catch(() => ({}))
+                throw new Error(
+                    data.details || data.error || `API returned ${res.status}`
+                )
             }
 
             const data = await res.json()
-            setArticles(data.articles || [])
+            const articleList = data.articles || []
+            setArticles(articleList)
 
-            console.log(`[articles] Loaded ${data.articles?.length || 0} articles`)
+            const elapsed = Date.now() - startTime
+            console.log(`[articles] Loaded ${articleList.length} articles in ${elapsed}ms`)
+
+            if (articleList.length === 0) {
+                console.log('[articles] No articles found - run discovery workflow to create some')
+            }
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : String(err)
-            setError(`❌ Error loading articles: ${errorMsg}`)
-            console.error('[articles] Load error:', err)
+            const elapsed = Date.now() - startTime
+            console.error(`[articles] Load failed after ${elapsed}ms:`, err)
+            setError(`Failed to load articles: ${errorMsg}`)
         } finally {
             setLoading(false)
         }
@@ -143,8 +154,15 @@ export default function ArticlesPage() {
 
                 {/* Error message */}
                 {detailError && (
-                    <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded text-red-300 whitespace-pre-wrap">
-                        {detailError}
+                    <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded text-red-300">
+                        <div className="font-bold mb-2">Error loading article:</div>
+                        <div className="text-sm">{detailError}</div>
+                        <button
+                            onClick={() => loadArticleDetail(selectedArticleId!)}
+                            className="mt-3 text-sm text-red-200 hover:text-red-100 underline"
+                        >
+                            Try again
+                        </button>
                     </div>
                 )}
 
@@ -238,18 +256,33 @@ export default function ArticlesPage() {
     return (
         <div className="max-w-4xl">
             {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2">Articles</h1>
-                <p className="text-slate-400">
-                    View all generated articles from pipeline runs. Click on an article to see
-                    full content.
-                </p>
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h1 className="text-3xl font-bold text-white mb-2">Articles</h1>
+                    <p className="text-slate-400">
+                        View all generated articles from pipeline runs. Click on an article to see full content.
+                    </p>
+                </div>
+                <button
+                    onClick={loadArticles}
+                    className="px-4 py-2 bg-slate-700 text-white rounded hover:bg-slate-600 transition-colors font-medium text-sm"
+                    title="Refresh the articles list"
+                >
+                    🔄 Refresh
+                </button>
             </div>
 
             {/* Error message */}
             {error && (
-                <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded text-red-300 whitespace-pre-wrap">
-                    {error}
+                <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded text-red-300">
+                    <div className="font-bold mb-2">Error loading articles:</div>
+                    <div className="text-sm">{error}</div>
+                    <button
+                        onClick={loadArticles}
+                        className="mt-3 text-sm text-red-200 hover:text-red-100 underline"
+                    >
+                        Try again
+                    </button>
                 </div>
             )}
 
