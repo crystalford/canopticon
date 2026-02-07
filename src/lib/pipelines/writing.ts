@@ -67,16 +67,19 @@ export async function writeArticle(
     console.log('[writing] Prompt prepared, calling AI...')
 
     // Call AI to generate article content
-    const response = await client.generateText(writingPrompt, {
-        maxTokens: 2000,
-    })
+    const aiResponse = await client.chat([
+        {
+            role: 'user',
+            content: writingPrompt,
+        },
+    ])
 
-    console.log(`[writing] AI response received (${response.length} characters)`)
+    console.log(`[writing] AI response received (${aiResponse.content.length} characters)`)
 
     // Parse response into article content
     // For now, use the full response as content
     // In future, could parse sections (intro, body, conclusion)
-    const articleContent = response
+    const articleContent = aiResponse.content
 
     console.log(`[writing] Generated article content (${articleContent.length} characters)`)
 

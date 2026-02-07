@@ -3,7 +3,7 @@ import { pipelineRunner } from '@/lib/pipeline-runner'
 import { discoverStories } from '@/lib/pipelines/discovery'
 import { createDraftArticle } from '@/lib/pipelines/create-draft-article'
 import { writeArticle } from '@/lib/pipelines/writing'
-import { db, generationRuns } from '@/db'
+import { db, articles, generationRuns } from '@/db'
 import { eq } from 'drizzle-orm'
 
 /**
