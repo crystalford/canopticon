@@ -104,7 +104,7 @@ export async function runCompositeWorkflow(
                 `[composite]    Article ID: "${articleId}"`
             )
             console.log(
-                `[composite]    Headline: "${result.output.article.headline}"`
+                `[composite]    Headline: "${(result.output as any).article.headline}"`
             )
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
