@@ -35,12 +35,16 @@ export interface AIClientConfig {
 // Timeout for API calls (30 seconds)
 const API_TIMEOUT = 30000
 
+export interface ChatOptions {
+    maxTokens?: number
+}
+
 /**
  * Universal AI client
  *
  * Usage:
  * const client = new AIClient({ provider: 'perplexity', apiKey: '...', model: 'sonar-pro' })
- * const response = await client.chat([{ role: 'user', content: 'Hello' }])
+ * const response = await client.chat([{ role: 'user', content: 'Hello' }], { maxTokens: 4000 })
  */
 export class AIClient {
     constructor(private config: AIClientConfig) {
@@ -50,8 +54,10 @@ export class AIClient {
     /**
      * Send messages to AI and get response
      * Automatically routes to the correct provider
+     * @param messages - Array of messages (system, user, assistant roles)
+     * @param options - Optional settings (maxTokens, etc.)
      */
-    async chat(messages: AIMessage[]): Promise<AIResponse> {
+    async chat(messages: AIMessage[], options?: ChatOptions): Promise<AIResponse> {
         const startTime = Date.now()
         console.log(`[ai-client] Calling ${this.config.provider}...`)
         console.log(`[ai-client]    Messages: ${messages.length}, Model: ${this.config.model}`)
@@ -61,16 +67,16 @@ export class AIClient {
 
             switch (this.config.provider) {
                 case 'perplexity':
-                    response = await this.perplexityChat(messages)
+                    response = await this.perplexityChat(messages, options?.maxTokens)
                     break
                 case 'openai':
-                    response = await this.openaiChat(messages)
+                    response = await this.openaiChat(messages, options?.maxTokens)
                     break
                 case 'anthropic':
-                    response = await this.anthropicChat(messages)
+                    response = await this.anthropicChat(messages, options?.maxTokens)
                     break
                 case 'google':
-                    response = await this.googleChat(messages)
+                    response = await this.googleChat(messages, options?.maxTokens)
                     break
                 default:
                     throw new Error(`Unsupported provider: ${this.config.provider}`)
@@ -91,7 +97,7 @@ export class AIClient {
     /**
      * Perplexity API - Great for web search + AI
      */
-    private async perplexityChat(messages: AIMessage[]): Promise<AIResponse> {
+    private async perplexityChat(messages: AIMessage[], maxTokens: number = 2048): Promise<AIResponse> {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT)
 
@@ -104,6 +110,7 @@ export class AIClient {
                 },
                 body: JSON.stringify({
                     model: this.config.model,
+                    max_tokens: maxTokens,
                     messages: messages.map(m => ({ role: m.role, content: m.content })),
                 }),
                 signal: controller.signal,
@@ -151,7 +158,7 @@ export class AIClient {
     /**
      * OpenAI API - GPT models
      */
-    private async openaiChat(messages: AIMessage[]): Promise<AIResponse> {
+    private async openaiChat(messages: AIMessage[], maxTokens: number = 2048): Promise<AIResponse> {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT)
 
@@ -164,6 +171,7 @@ export class AIClient {
                 },
                 body: JSON.stringify({
                     model: this.config.model,
+                    max_tokens: maxTokens,
                     messages: messages.map(m => ({ role: m.role, content: m.content })),
                 }),
                 signal: controller.signal,
@@ -210,7 +218,7 @@ export class AIClient {
     /**
      * Anthropic API - Claude models
      */
-    private async anthropicChat(messages: AIMessage[]): Promise<AIResponse> {
+    private async anthropicChat(messages: AIMessage[], maxTokens: number = 2048): Promise<AIResponse> {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT)
 
@@ -228,7 +236,7 @@ export class AIClient {
                 },
                 body: JSON.stringify({
                     model: this.config.model,
-                    max_tokens: 4096,
+                    max_tokens: maxTokens,
                     system: systemMessage?.content,
                     messages: userMessages.map(m => ({ role: m.role, content: m.content })),
                 }),
@@ -276,7 +284,7 @@ export class AIClient {
     /**
      * Google API - Gemini models
      */
-    private async googleChat(messages: AIMessage[]): Promise<AIResponse> {
+    private async googleChat(messages: AIMessage[], maxTokens: number = 2048): Promise<AIResponse> {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT)
 
@@ -292,6 +300,9 @@ export class AIClient {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
+                        generationConfig: {
+                            maxOutputTokens: maxTokens,
+                        },
                         contents: [{
                             parts: [{ text: prompt }]
                         }]
