@@ -94,7 +94,7 @@ export async function runCompositeWorkflow(
             }
 
             discoveryResult = result
-            articleId = result.output.article.id
+            articleId = (result.output as any).article.id
             if (result.generationRunId) {
                 generationRunIds.push(result.generationRunId)
             }
@@ -132,7 +132,7 @@ export async function runCompositeWorkflow(
                     console.log('[composite/writing] Generating article content...')
 
                     const article = await writeArticle(client, promptText, {
-                        story: discoveryResult.output.story,
+                        story: (discoveryResult.output as any).story,
                         articleId,
                     })
 
@@ -163,7 +163,7 @@ export async function runCompositeWorkflow(
 
             console.log(`[composite] ✅ Writing complete`)
             console.log(
-                `[composite]    Content length: ${result.output.article.contentLength} characters`
+                `[composite]    Content length: ${(result.output as any).article.contentLength} characters`
             )
         } catch (error) {
             const errorMsg = error instanceof Error ? error.message : String(error)
