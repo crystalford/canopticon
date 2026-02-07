@@ -1,172 +1,54 @@
-import { pgTable, pgEnum, uuid, text, timestamp, boolean, integer, jsonb, interval } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, timestamp, jsonb, integer } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
 // ============================================================================
-// ENUMS (from 02_DATA_SCHEMA)
-// ============================================================================
-
-export const signalTypeEnum = pgEnum('signal_type', [
-    'breaking',
-    'repetition',
-    'contradiction',
-    'shift'
-])
-
-export const signalStatusEnum = pgEnum('signal_status', [
-    'pending',
-    'flagged',
-    'approved',
-    'archived'
-])
-
-export const analysisSeverityEnum = pgEnum('analysis_severity', [
-    'low',
-    'medium',
-    'high'
-])
-
-export const subscriberStatusEnum = pgEnum('subscriber_status', [
-    'pending',
-    'subscribed',
-    'unsubscribed'
-])
-
-// ============================================================================
-// TABLES
+// CANOPTICON v2 - Chat-first CMS
+// 4 tables. That's it.
 // ============================================================================
 
 /**
- * 3.1 sources - Authoritative primary sources
+ * Conversations - Chat sessions with the AI
  */
-export const sources = pgTable('sources', {
+export const conversations = pgTable('conversations', {
     id: uuid('id').primaryKey().defaultRandom(),
-    name: text('name').notNull(),
-    protocol: text('protocol').notNull(), // json, xml, html
-    endpoint: text('endpoint').notNull(),
-    pollingInterval: text('polling_interval').default('1 hour'), // Using text for interval compatibility
-    reliabilityWeight: integer('reliability_weight').default(50).notNull(),
-    isActive: boolean('is_active').default(true).notNull(),
+    title: text('title'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
 /**
- * 3.2 raw_articles - Ingested primary-source documents
+ * Messages - Individual messages within conversations
+ * Stores the full chat history for each conversation
  */
-export const rawArticles = pgTable('raw_articles', {
+export const messages = pgTable('messages', {
     id: uuid('id').primaryKey().defaultRandom(),
-    sourceId: uuid('source_id').references(() => sources.id).notNull(),
-    externalId: text('external_id'),
-    originalUrl: text('original_url').notNull().unique(),
-    title: text('title').notNull(),
-    bodyText: text('body_text').notNull(),
-    publishedAt: timestamp('published_at'),
-    rawPayload: jsonb('raw_payload'),
-    isProcessed: boolean('is_processed').default(false).notNull(),
+    conversationId: uuid('conversation_id').references(() => conversations.id, { onDelete: 'cascade' }).notNull(),
+    role: text('role').notNull(), // 'user' | 'assistant'
+    content: text('content').notNull(),
+    toolInvocations: jsonb('tool_invocations'), // AI SDK tool invocation data
     createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
 /**
- * 3.3 clusters - Groups related raw articles into a single event
- */
-export const clusters = pgTable('clusters', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    primaryArticleId: uuid('primary_article_id').references(() => rawArticles.id).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-/**
- * Junction table for cluster membership
- */
-export const clusterArticles = pgTable('cluster_articles', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    clusterId: uuid('cluster_id').references(() => clusters.id).notNull(),
-    rawArticleId: uuid('raw_article_id').references(() => rawArticles.id).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-/**
- * 3.4 signals - Classified events
- */
-export const signals = pgTable('signals', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    clusterId: uuid('cluster_id').references(() => clusters.id).notNull(),
-    signalType: signalTypeEnum('signal_type').notNull(),
-    confidenceScore: integer('confidence_score').default(0).notNull(),
-    significanceScore: integer('significance_score').default(0).notNull(),
-    status: signalStatusEnum('status').default('pending').notNull(),
-    aiNotes: text('ai_notes'), // Notes from classification
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-/**
- * 3.5 articles - Published synthesized articles
+ * Articles - Published content
+ * Created via chat. Markdown content. That's it.
  */
 export const articles = pgTable('articles', {
     id: uuid('id').primaryKey().defaultRandom(),
-    signalId: uuid('signal_id').references(() => signals.id), // Nullable now
-    briefId: uuid('brief_id').references(() => briefs.id), // Link to source brief
+    title: text('title').notNull(),
     slug: text('slug').notNull().unique(),
-    headline: text('headline').notNull(),
-    summary: text('summary').notNull(), // Plain text summary (from brief or manual)
-    content: jsonb('content'), // Rich text content (TipTap JSON format)
-    excerpt: text('excerpt'), // SEO excerpt (auto-generated or manual)
-    metaDescription: text('meta_description'), // SEO meta description
-    derivativeContent: jsonb('derivative_content'), // Flexible JSON logic for scripts/threads/emails
-    featuredImageUrl: text('featured_image_url'), // Featured image URL
+    content: text('content').notNull(), // Markdown
+    summary: text('summary'),
     author: text('author').default('CANOPTICON').notNull(),
-    readingTime: integer('reading_time'), // Auto-calculated (words / 200)
-    topics: text('topics').array(),
-    entities: text('entities').array(),
-    isDraft: boolean('is_draft').default(true).notNull(),
+    status: text('status').default('published').notNull(), // 'published' | 'draft'
+    conversationId: uuid('conversation_id').references(() => conversations.id),
     publishedAt: timestamp('published_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
 /**
- * 3.6 video_materials - Optional export artifacts
- */
-export const videoMaterials = pgTable('video_materials', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    articleId: uuid('article_id').references(() => articles.id).notNull(),
-    script60s: text('script_60s'),
-    keyQuotes: jsonb('key_quotes'),
-    angles: text('angles').array(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-/**
- * 3.7 logs - Operational logging
- */
-export const logs = pgTable('logs', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    component: text('component').notNull(), // worker, pipeline, ai, etc.
-    runId: uuid('run_id'),
-    level: text('level').default('info').notNull(), // info, warn, error
-    message: text('message').notNull(),
-    metadata: jsonb('metadata'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-/**
- * AI usage tracking for cost control
- */
-export const aiUsage = pgTable('ai_usage', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    signalId: uuid('signal_id').references(() => signals.id),
-    model: text('model').notNull(),
-    promptName: text('prompt_name').notNull(),
-    inputTokens: integer('input_tokens').notNull(),
-    outputTokens: integer('output_tokens').notNull(),
-    costUsd: text('cost_usd').notNull(), // Store as text for precision
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-/**
- * Operators table (from 10_AUTHENTICATION_AND_USERS)
- * Single operator for Phase 1
+ * Operators - Admin auth (single user, env-based)
  */
 export const operators = pgTable('operators', {
     id: uuid('id').primaryKey().defaultRandom(),
@@ -176,289 +58,26 @@ export const operators = pgTable('operators', {
     lastLoginAt: timestamp('last_login_at'),
 })
 
-/**
- * Subscribers table (from 11_NEWSLETTER_AND_PUBLIC_SIGNUP)
- * Newsletter subscriptions only - no user accounts
- */
-export const subscribers = pgTable('subscribers', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    email: text('email').notNull().unique(),
-    status: subscriberStatusEnum('status').default('pending').notNull(),
-    source: text('source'), // homepage, article, subscribe page
-    confirmationToken: text('confirmation_token'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    confirmedAt: timestamp('confirmed_at'),
-})
-
-/**
- * System Settings (Key-Value Store)
- * used for AI API keys, provider selection, global toggles
- */
-export const systemSettings = pgTable('system_settings', {
-    key: text('key').primaryKey(),
-    value: text('value').notNull(),
-    isEncrypted: boolean('is_encrypted').default(false).notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-/**
- * AI Daily Briefs
- * Stores AI-generated daily news briefs with curated stories
- */
-export const briefs = pgTable('briefs', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    generatedAt: timestamp('generated_at').defaultNow().notNull(),
-    stories: jsonb('stories').notNull(), // Array of story objects
-    status: text('status').default('draft').notNull(), // 'draft' | 'published'
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-// ============================================================================
-// ENGINE B: SECONDARY ENGINE (Phase 2)
-// ============================================================================
-
-/**
- * Secondary Sources (Opinion, Commentary, Social)
- * Distinct from primary "sources" to ensure separation of concerns
- */
-export const secondarySources = pgTable('secondary_sources', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    name: text('name').notNull(),
-    type: text('type').notNull(), // 'news_opinion', 'social_platform', 'blog'
-    baseUrl: text('base_url').notNull(),
-    reliabilityScore: integer('reliability_score').default(0), // Subjective score for bias weighting
-    biasLean: text('bias_lean'), // 'left', 'right', 'center', 'anti-establishment', etc.
-    scraperConfig: jsonb('scraper_config'), // Config for how to scrape this specific source
-    isActive: boolean('is_active').default(true).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-/**
- * Secondary Articles / Posts
- * Content ingested from secondary sources for analysis
- */
-export const secondaryArticles = pgTable('secondary_articles', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    secondarySourceId: uuid('secondary_source_id').references(() => secondarySources.id),
-    originalUrl: text('original_url').notNull().unique(),
-    title: text('title'),
-    author: text('author'),
-    content: text('content').notNull(),
-    publishedAt: timestamp('published_at'),
-    metadata: jsonb('metadata'), // Social metrics (likes, shares) if available
-    sentimentScore: integer('sentiment_score'), // Raw sentiment if pre-calculated
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-/**
- * Analysis Reports (Discourse Analysis)
- * The output of Engine B: Analyzing how a Primary Article is discussed by Secondary Articles
- */
-export const analysisReports = pgTable('analysis_reports', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    targetArticleId: uuid('target_article_id').references(() => articles.id).notNull(), // The primary article being analyzed
-    status: signalStatusEnum('status').default('pending').notNull(),
-    fallaciesDetected: jsonb('fallacies_detected'), // Array of fallacy objects
-    biasAnalysis: text('bias_analysis'), // Narrative text describing the bias landscape
-    contradictions: jsonb('contradictions'), // Array of factual contradictions found
-    sourcesUsed: jsonb('sources_used'), // Array of secondaryArticle IDs used in this analysis
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-/**
- * Social Accounts (Persistent Storage for Broadcaster)
- */
-export const socialAccounts = pgTable('social_accounts', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    platform: text('platform').notNull(), // 'bluesky', 'mastodon'
-    handle: text('handle').notNull(), // e.g. @user.bsky.social
-    instanceUrl: text('instance_url'), // Nullable, for Mastodon
-    credentials: jsonb('credentials').notNull(), // { appPassword, accessToken, ... }
-    isActive: boolean('is_active').default(true).notNull(),
-    lastUsedAt: timestamp('last_used_at'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-/**
- * Uploaded Videos (Private Library)
- */
-export const uploadedVideos = pgTable('uploaded_videos', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    filename: text('filename').notNull(), // Actual file on disk (e.g. uuid.mp4)
-    originalName: text('original_name').notNull(), // User's upload name
-    mimeType: text('mime_type').notNull(),
-    size: integer('size').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-/**
- * AI Providers (BYOK - Bring Your Own Key)
- * Store API keys and configuration for different AI providers
- */
-export const aiProviders = pgTable('ai_providers', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    name: text('name').notNull(), // "Perplexity", "ChatGPT", "Claude", "Gemini"
-    provider: text('provider').notNull(), // "perplexity", "openai", "anthropic", "google"
-    apiKey: text('api_key').notNull(), // Encrypted API key
-    config: jsonb('config'), // { baseUrl, models, etc }
-    isActive: boolean('is_active').default(true).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-/**
- * Prompts (Editable in Admin)
- * All prompts used for discovery, article writing, video generation, etc.
- */
-export const prompts = pgTable('prompts', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    name: text('name').notNull(), // "discovery_v1", "article_writing_v2"
-    description: text('description'), // Human-readable description
-    promptText: text('prompt_text').notNull(), // The actual prompt
-    variables: jsonb('variables'), // ["story", "context"] - variables in prompt
-    isActive: boolean('is_active').default(true).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-/**
- * Pipeline Configuration
- * Which AI provider + prompt to use for each task
- */
-export const pipelineConfig = pgTable('pipeline_config', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    task: text('task').notNull(), // "discovery", "writing", "video"
-    providerId: uuid('provider_id').references(() => aiProviders.id).notNull(),
-    model: text('model').notNull(), // "sonar-pro", "gpt-4o", etc
-    promptId: uuid('prompt_id').references(() => prompts.id).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-/**
- * Generation Runs (Audit Trail)
- * Track each article generation with full transparency
- */
-export const generationRuns = pgTable('generation_runs', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    articleId: uuid('article_id').references(() => articles.id),
-    task: text('task').notNull(), // "discovery", "writing", "video"
-    providerId: uuid('provider_id').references(() => aiProviders.id).notNull(),
-    promptId: uuid('prompt_id').references(() => prompts.id).notNull(),
-    input: jsonb('input'), // What was sent to AI
-    output: jsonb('output'), // What AI returned
-    tokensUsed: integer('tokens_used'),
-    costUsd: text('cost_usd'), // Cost in USD
-    durationMs: integer('duration_ms'), // How long it took
-    status: text('status').notNull(), // "success", "error"
-    errorMessage: text('error_message'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-/**
- * Content Sources
- * Manages different content sources (YouTube channels, news feeds, RSS, Bluesky, etc.)
- * Linked to workflow configs to define what happens when new content is detected
- */
-export const contentSources = pgTable('content_sources', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    type: text('type').notNull(), // "youtube_channel", "news_search", "rss_feed", "bluesky_account"
-    name: text('name').notNull(), // "CPAC Official", "Daily Political News"
-    config: jsonb('config').notNull(), // { channel_id, keywords, url, account_handle, etc }
-    workflowId: uuid('workflow_id').references(() => pipelineConfig.id).notNull(),
-    isActive: boolean('is_active').default(true).notNull(),
-    webhookSecret: text('webhook_secret'), // For webhook verification
-    lastTriggeredAt: timestamp('last_triggered_at'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
 // ============================================================================
 // RELATIONS
-
 // ============================================================================
 
-export const sourcesRelations = relations(sources, ({ many }) => ({
-    rawArticles: many(rawArticles),
-}))
-
-export const rawArticlesRelations = relations(rawArticles, ({ one, many }) => ({
-    source: one(sources, {
-        fields: [rawArticles.sourceId],
-        references: [sources.id],
-    }),
-    clusterArticles: many(clusterArticles),
-}))
-
-export const clustersRelations = relations(clusters, ({ one, many }) => ({
-    primaryArticle: one(rawArticles, {
-        fields: [clusters.primaryArticleId],
-        references: [rawArticles.id],
-    }),
-    clusterArticles: many(clusterArticles),
-    signals: many(signals),
-}))
-
-export const clusterArticlesRelations = relations(clusterArticles, ({ one }) => ({
-    cluster: one(clusters, {
-        fields: [clusterArticles.clusterId],
-        references: [clusters.id],
-    }),
-    rawArticle: one(rawArticles, {
-        fields: [clusterArticles.rawArticleId],
-        references: [rawArticles.id],
-    }),
-}))
-
-export const signalsRelations = relations(signals, ({ one, many }) => ({
-    cluster: one(clusters, {
-        fields: [signals.clusterId],
-        references: [clusters.id],
-    }),
+export const conversationsRelations = relations(conversations, ({ many }) => ({
+    messages: many(messages),
     articles: many(articles),
-    aiUsage: many(aiUsage),
 }))
 
-export const articlesRelations = relations(articles, ({ one, many }) => ({
-    signal: one(signals, {
-        fields: [articles.signalId],
-        references: [signals.id],
-    }),
-    videoMaterials: many(videoMaterials),
-}))
-
-export const videoMaterialsRelations = relations(videoMaterials, ({ one }) => ({
-    article: one(articles, {
-        fields: [videoMaterials.articleId],
-        references: [articles.id],
+export const messagesRelations = relations(messages, ({ one }) => ({
+    conversation: one(conversations, {
+        fields: [messages.conversationId],
+        references: [conversations.id],
     }),
 }))
 
-export const aiUsageRelations = relations(aiUsage, ({ one }) => ({
-    signal: one(signals, {
-        fields: [aiUsage.signalId],
-        references: [signals.id],
-    }),
-}))
-
-export const secondarySourcesRelations = relations(secondarySources, ({ many }) => ({
-    articles: many(secondaryArticles),
-}))
-
-export const secondaryArticlesRelations = relations(secondaryArticles, ({ one }) => ({
-    source: one(secondarySources, {
-        fields: [secondaryArticles.secondarySourceId],
-        references: [secondarySources.id],
-    }),
-}))
-
-export const analysisReportsRelations = relations(analysisReports, ({ one }) => ({
-    targetArticle: one(articles, {
-        fields: [analysisReports.targetArticleId],
-        references: [articles.id],
+export const articlesRelations = relations(articles, ({ one }) => ({
+    conversation: one(conversations, {
+        fields: [articles.conversationId],
+        references: [conversations.id],
     }),
 }))
 
@@ -466,66 +85,14 @@ export const analysisReportsRelations = relations(analysisReports, ({ one }) => 
 // TYPE EXPORTS
 // ============================================================================
 
-export type Source = typeof sources.$inferSelect
-export type NewSource = typeof sources.$inferInsert
+export type Conversation = typeof conversations.$inferSelect
+export type NewConversation = typeof conversations.$inferInsert
 
-export type RawArticle = typeof rawArticles.$inferSelect
-export type NewRawArticle = typeof rawArticles.$inferInsert
-
-export type Cluster = typeof clusters.$inferSelect
-export type NewCluster = typeof clusters.$inferInsert
-
-export type Signal = typeof signals.$inferSelect
-export type NewSignal = typeof signals.$inferInsert
+export type Message = typeof messages.$inferSelect
+export type NewMessage = typeof messages.$inferInsert
 
 export type Article = typeof articles.$inferSelect
 export type NewArticle = typeof articles.$inferInsert
 
-export type VideoMaterial = typeof videoMaterials.$inferSelect
-export type NewVideoMaterial = typeof videoMaterials.$inferInsert
-
-export type Log = typeof logs.$inferSelect
-export type NewLog = typeof logs.$inferInsert
-
-export type AIUsage = typeof aiUsage.$inferSelect
-export type NewAIUsage = typeof aiUsage.$inferInsert
-
 export type Operator = typeof operators.$inferSelect
 export type NewOperator = typeof operators.$inferInsert
-
-export type Subscriber = typeof subscribers.$inferSelect
-export type NewSubscriber = typeof subscribers.$inferInsert
-
-export type Brief = typeof briefs.$inferSelect
-export type NewBrief = typeof briefs.$inferInsert
-
-export type SecondarySource = typeof secondarySources.$inferSelect
-export type NewSecondarySource = typeof secondarySources.$inferInsert
-
-export type SecondaryArticle = typeof secondaryArticles.$inferSelect
-export type NewSecondaryArticle = typeof secondaryArticles.$inferInsert
-
-export type AnalysisReport = typeof analysisReports.$inferSelect
-export type NewAnalysisReport = typeof analysisReports.$inferInsert
-
-export type SocialAccount = typeof socialAccounts.$inferSelect
-export type NewSocialAccount = typeof socialAccounts.$inferInsert
-
-export type UploadedVideo = typeof uploadedVideos.$inferSelect
-export type NewUploadedVideo = typeof uploadedVideos.$inferInsert
-
-export type AIProvider = typeof aiProviders.$inferSelect
-export type NewAIProvider = typeof aiProviders.$inferInsert
-
-export type Prompt = typeof prompts.$inferSelect
-export type NewPrompt = typeof prompts.$inferInsert
-
-export type PipelineConfig = typeof pipelineConfig.$inferSelect
-export type NewPipelineConfig = typeof pipelineConfig.$inferInsert
-
-export type GenerationRun = typeof generationRuns.$inferSelect
-export type NewGenerationRun = typeof generationRuns.$inferInsert
-
-export type ContentSource = typeof contentSources.$inferSelect
-export type NewContentSource = typeof contentSources.$inferInsert
-
