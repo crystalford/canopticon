@@ -52,6 +52,13 @@ export default function DashboardLayout({
                         >
                             AI Services
                         </Link>
+                        <Link
+                            href="/dashboard/generation-runs"
+                            className="hover:text-primary-400 transition-colors"
+                            title="Inspect AI generation history"
+                        >
+                            🔍 Runs
+                        </Link>
                     </nav>
                 </div>
             </header>

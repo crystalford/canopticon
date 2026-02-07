@@ -5,6 +5,7 @@ export interface DiscoveredStory {
     summary: string
     topics: string[]
     significance: string
+    rawResponse?: string // Store raw AI response for transparency
 }
 
 /**
@@ -44,6 +45,9 @@ export async function discoverStories(
     // Parse response into structured format
     // The prompt should return clearly delimited sections
     const story = parseStructuredResponse(response.content)
+
+    // Store raw response for transparency
+    story.rawResponse = response.content
 
     console.log(`[discovery] Parsed story: "${story.headline.substring(0, 60)}..."`)
 
