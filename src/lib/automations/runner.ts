@@ -160,19 +160,39 @@ export async function runAutomation(automation: Automation) {
         let articleTitle: string | undefined
         let articleSlug: string | undefined
 
+        console.log(`[runner] ===== EXTRACTING ARTICLE ID =====`)
+        console.log(`[runner] result.toolResults exists:`, !!result.toolResults)
+        console.log(`[runner] result.toolResults length:`, result.toolResults?.length)
+
         // Look through tool results for publish_article call
         if (result.toolResults) {
+            console.log(`[runner] Found ${result.toolResults.length} tool results`)
             for (const toolResult of result.toolResults) {
+                console.log(`[runner] Checking tool: ${toolResult.toolName}`)
                 if (toolResult.toolName === 'publish_article' && toolResult.output) {
+                    console.log(`[runner] Found publish_article tool result`)
+                    console.log(`[runner] toolResult.output:`, JSON.stringify(toolResult.output))
                     const resultData = toolResult.output as any
                     if (resultData.success && resultData.article) {
                         articleId = resultData.article.id
                         articleTitle = resultData.article.title
                         articleSlug = resultData.article.slug
+                        console.log(`[runner] ===== ARTICLE ID EXTRACTED =====`)
+                        console.log(`[runner] Article ID: ${articleId}`)
+                        console.log(`[runner] Article Title: ${articleTitle}`)
+                        console.log(`[runner] Article Slug: ${articleSlug}`)
                         break
+                    } else {
+                        console.log(`[runner] publish_article result missing success or article:`, resultData)
                     }
                 }
             }
+        } else {
+            console.log(`[runner] No toolResults found in AI response`)
+        }
+
+        if (!articleId) {
+            console.log(`[runner] ===== ARTICLE ID NOT FOUND =====`)
         }
 
         // Auto-post to X if enabled and article was created
