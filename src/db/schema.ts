@@ -3,7 +3,7 @@ import { relations } from 'drizzle-orm'
 
 // ============================================================================
 // CANOPTICON v2 - Chat-first CMS
-// 4 tables. That's it.
+// 5 tables. That's it.
 // ============================================================================
 
 /**
@@ -59,6 +59,24 @@ export const operators = pgTable('operators', {
     lastLoginAt: timestamp('last_login_at'),
 })
 
+/**
+ * Automations - Monitors that auto-generate content
+ * YouTube channels, RSS feeds, keyword alerts, scheduled topics
+ */
+export const automations = pgTable('automations', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    type: text('type').notNull(), // 'youtube' | 'rss' | 'keyword' | 'scheduled'
+    config: jsonb('config').notNull().default({}),
+    prompt: text('prompt'), // AI instructions for when triggered
+    enabled: boolean('enabled').default(true).notNull(),
+    autoPublish: boolean('auto_publish').default(false).notNull(),
+    lastRunAt: timestamp('last_run_at'),
+    lastResult: jsonb('last_result'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // ============================================================================
 // RELATIONS
 // ============================================================================
@@ -97,3 +115,6 @@ export type NewArticle = typeof articles.$inferInsert
 
 export type Operator = typeof operators.$inferSelect
 export type NewOperator = typeof operators.$inferInsert
+
+export type Automation = typeof automations.$inferSelect
+export type NewAutomation = typeof automations.$inferInsert

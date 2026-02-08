@@ -79,6 +79,10 @@ function ToolPartDisplay({ part }: { part: ToolPart }) {
         list_articles: 'Listing articles',
         edit_article: 'Editing article',
         unpublish_article: 'Unpublishing article',
+        add_image: 'Finding image',
+        create_monitor: 'Creating monitor',
+        list_monitors: 'Listing monitors',
+        toggle_monitor: 'Toggling monitor',
     }
 
     const label = toolLabels[toolName] || toolName

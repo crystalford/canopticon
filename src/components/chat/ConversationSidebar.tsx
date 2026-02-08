@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Plus, MessageSquare, Trash2, FileText, ExternalLink, Search, Pin, PinOff, Pencil, Check, X } from 'lucide-react'
+import { Plus, MessageSquare, Trash2, FileText, ExternalLink, Search, Pin, PinOff, Pencil, Radio, Play, Pause, RotateCw } from 'lucide-react'
 
 interface Conversation {
     id: string
@@ -21,6 +21,20 @@ interface Article {
     createdAt: string
 }
 
+interface Monitor {
+    id: string
+    name: string
+    type: string
+    enabled: boolean
+    autoPublish: boolean
+    prompt: string | null
+    lastRunAt: string | null
+    lastResult: any
+    createdAt: string
+}
+
+type TabType = 'chats' | 'articles' | 'monitors'
+
 interface ConversationSidebarProps {
     activeConversationId: string | null
     onSelect: (id: string) => void
@@ -34,24 +48,24 @@ export function ConversationSidebar({
     onNewChat,
     refreshKey,
 }: ConversationSidebarProps) {
-    const [tab, setTab] = useState<'chats' | 'articles'>('chats')
+    const [tab, setTab] = useState<TabType>('chats')
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [articles, setArticles] = useState<Article[]>([])
+    const [monitors, setMonitors] = useState<Monitor[]>([])
     const [loading, setLoading] = useState(true)
     const [articlesLoading, setArticlesLoading] = useState(true)
+    const [monitorsLoading, setMonitorsLoading] = useState(true)
     const [search, setSearch] = useState('')
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editTitle, setEditTitle] = useState('')
+    const [runningId, setRunningId] = useState<string | null>(null)
     const editInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
         setLoading(true)
         fetch('/api/conversations')
             .then(res => res.json())
-            .then(data => {
-                setConversations(data)
-                setLoading(false)
-            })
+            .then(data => { setConversations(data); setLoading(false) })
             .catch(() => setLoading(false))
     }, [refreshKey])
 
@@ -59,14 +73,18 @@ export function ConversationSidebar({
         setArticlesLoading(true)
         fetch('/api/articles')
             .then(res => res.json())
-            .then(data => {
-                setArticles(data)
-                setArticlesLoading(false)
-            })
+            .then(data => { setArticles(data); setArticlesLoading(false) })
             .catch(() => setArticlesLoading(false))
     }, [refreshKey])
 
-    // Focus edit input when editing starts
+    useEffect(() => {
+        setMonitorsLoading(true)
+        fetch('/api/automations')
+            .then(res => res.json())
+            .then(data => { setMonitors(data); setMonitorsLoading(false) })
+            .catch(() => setMonitorsLoading(false))
+    }, [refreshKey])
+
     useEffect(() => {
         if (editingId) {
             editInputRef.current?.focus()
@@ -77,20 +95,14 @@ export function ConversationSidebar({
     const handleDelete = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation()
         if (!confirm('Delete this conversation?')) return
-
         await fetch(`/api/conversations/${id}`, { method: 'DELETE' })
         setConversations(prev => prev.filter(c => c.id !== id))
-
-        if (activeConversationId === id) {
-            onNewChat()
-        }
+        if (activeConversationId === id) onNewChat()
     }
 
     const handleTogglePin = async (e: React.MouseEvent, conv: Conversation) => {
         e.stopPropagation()
         const newPinned = !conv.pinned
-
-        // Optimistic update
         setConversations(prev =>
             prev.map(c => c.id === conv.id ? { ...c, pinned: newPinned } : c)
                 .sort((a, b) => {
@@ -98,7 +110,6 @@ export function ConversationSidebar({
                     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
                 })
         )
-
         await fetch(`/api/conversations/${conv.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -115,23 +126,55 @@ export function ConversationSidebar({
     const saveRename = async () => {
         if (!editingId) return
         const trimmed = editTitle.trim()
-
-        // Optimistic update
         setConversations(prev =>
             prev.map(c => c.id === editingId ? { ...c, title: trimmed || 'Untitled' } : c)
         )
-
         await fetch(`/api/conversations/${editingId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: trimmed || 'Untitled' }),
         })
-
         setEditingId(null)
     }
 
-    const cancelRename = () => {
-        setEditingId(null)
+    const handleToggleMonitor = async (e: React.MouseEvent, monitor: Monitor) => {
+        e.stopPropagation()
+        const newEnabled = !monitor.enabled
+        setMonitors(prev =>
+            prev.map(m => m.id === monitor.id ? { ...m, enabled: newEnabled } : m)
+        )
+        await fetch(`/api/automations/${monitor.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: newEnabled }),
+        })
+    }
+
+    const handleRunMonitor = async (e: React.MouseEvent, monitor: Monitor) => {
+        e.stopPropagation()
+        setRunningId(monitor.id)
+        try {
+            const res = await fetch(`/api/automations/${monitor.id}/run`, { method: 'POST' })
+            const result = await res.json()
+            setMonitors(prev =>
+                prev.map(m => m.id === monitor.id ? {
+                    ...m,
+                    lastRunAt: new Date().toISOString(),
+                    lastResult: result,
+                } : m)
+            )
+        } catch (error) {
+            console.error('Failed to run monitor:', error)
+        } finally {
+            setRunningId(null)
+        }
+    }
+
+    const handleDeleteMonitor = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation()
+        if (!confirm('Delete this monitor?')) return
+        await fetch(`/api/automations/${id}`, { method: 'DELETE' })
+        setMonitors(prev => prev.filter(m => m.id !== id))
     }
 
     const formatDate = (dateStr: string) => {
@@ -139,11 +182,24 @@ export function ConversationSidebar({
         const now = new Date()
         const diffMs = now.getTime() - date.getTime()
         const diffHrs = diffMs / (1000 * 60 * 60)
-
         if (diffHrs < 1) return 'Just now'
         if (diffHrs < 24) return `${Math.floor(diffHrs)}h ago`
         if (diffHrs < 48) return 'Yesterday'
         return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+    }
+
+    const typeLabels: Record<string, string> = {
+        youtube: 'YouTube',
+        rss: 'RSS',
+        keyword: 'Keyword',
+        scheduled: 'Scheduled',
+    }
+
+    const typeBadgeColors: Record<string, string> = {
+        youtube: 'bg-red-500/20 text-red-400 border-red-500/30',
+        rss: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+        keyword: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+        scheduled: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
     }
 
     // Filter conversations by search
@@ -184,7 +240,7 @@ export function ConversationSidebar({
                             onChange={(e) => setEditTitle(e.target.value)}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') saveRename()
-                                if (e.key === 'Escape') cancelRename()
+                                if (e.key === 'Escape') setEditingId(null)
                             }}
                             onBlur={saveRename}
                             onClick={(e) => e.stopPropagation()}
@@ -242,26 +298,19 @@ export function ConversationSidebar({
 
             {/* Tab bar */}
             <div className="px-3 pb-2 flex gap-1">
-                <button
-                    onClick={() => setTab('chats')}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                        tab === 'chats'
-                            ? 'bg-white/10 text-white'
-                            : 'text-slate-500 hover:text-slate-300'
-                    }`}
-                >
-                    Chats
-                </button>
-                <button
-                    onClick={() => setTab('articles')}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                        tab === 'articles'
-                            ? 'bg-white/10 text-white'
-                            : 'text-slate-500 hover:text-slate-300'
-                    }`}
-                >
-                    Articles
-                </button>
+                {(['chats', 'articles', 'monitors'] as TabType[]).map(t => (
+                    <button
+                        key={t}
+                        onClick={() => setTab(t)}
+                        className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            tab === t
+                                ? 'bg-white/10 text-white'
+                                : 'text-slate-500 hover:text-slate-300'
+                        }`}
+                    >
+                        {t === 'chats' ? 'Chats' : t === 'articles' ? 'Articles' : 'Monitors'}
+                    </button>
+                ))}
             </div>
 
             {/* Search (chats tab only) */}
@@ -282,7 +331,6 @@ export function ConversationSidebar({
             {/* Content */}
             <div className="flex-1 overflow-y-auto px-2">
                 {tab === 'chats' ? (
-                    /* Chats tab */
                     loading ? (
                         <div className="text-center text-slate-500 text-sm py-4">Loading...</div>
                     ) : filtered.length === 0 ? (
@@ -291,7 +339,6 @@ export function ConversationSidebar({
                         </div>
                     ) : (
                         <div className="space-y-0.5">
-                            {/* Pinned section */}
                             {pinnedConvs.length > 0 && (
                                 <>
                                     <div className="px-3 pt-1 pb-1 text-[10px] font-medium text-slate-500 uppercase tracking-wider">
@@ -305,12 +352,10 @@ export function ConversationSidebar({
                                     )}
                                 </>
                             )}
-                            {/* Regular conversations */}
                             {unpinnedConvs.map(renderConversation)}
                         </div>
                     )
-                ) : (
-                    /* Articles tab */
+                ) : tab === 'articles' ? (
                     articlesLoading ? (
                         <div className="text-center text-slate-500 text-sm py-4">Loading...</div>
                     ) : articles.length === 0 ? (
@@ -343,6 +388,81 @@ export function ConversationSidebar({
                                     </div>
                                     <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </a>
+                            ))}
+                        </div>
+                    )
+                ) : (
+                    /* Monitors tab */
+                    monitorsLoading ? (
+                        <div className="text-center text-slate-500 text-sm py-4">Loading...</div>
+                    ) : monitors.length === 0 ? (
+                        <div className="text-center text-slate-500 text-sm py-8 px-4">
+                            <Radio className="w-6 h-6 mx-auto mb-2 text-slate-600" />
+                            <p>No monitors yet</p>
+                            <p className="text-xs text-slate-600 mt-1">Ask Canopticon to set one up in chat</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-1">
+                            {monitors.map(monitor => (
+                                <div
+                                    key={monitor.id}
+                                    className="group px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/5"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                            monitor.enabled ? 'bg-emerald-400' : 'bg-slate-500'
+                                        }`} />
+                                        <span className="flex-1 min-w-0 truncate text-slate-300">{monitor.name}</span>
+                                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={(e) => handleRunMonitor(e, monitor)}
+                                                disabled={runningId === monitor.id}
+                                                className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-emerald-400 transition-colors disabled:opacity-50"
+                                                title="Run now"
+                                            >
+                                                {runningId === monitor.id ? (
+                                                    <RotateCw className="w-3 h-3 animate-spin" />
+                                                ) : (
+                                                    <Play className="w-3 h-3" />
+                                                )}
+                                            </button>
+                                            <button
+                                                onClick={(e) => handleToggleMonitor(e, monitor)}
+                                                className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-colors"
+                                                title={monitor.enabled ? 'Pause' : 'Enable'}
+                                            >
+                                                {monitor.enabled ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                                            </button>
+                                            <button
+                                                onClick={(e) => handleDeleteMonitor(e, monitor.id)}
+                                                className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-red-400 transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1 ml-3.5">
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                                            typeBadgeColors[monitor.type] || 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                                        }`}>
+                                            {typeLabels[monitor.type] || monitor.type}
+                                        </span>
+                                        {monitor.lastRunAt && (
+                                            <span className="text-[10px] text-slate-500">
+                                                Ran {formatDate(monitor.lastRunAt)}
+                                            </span>
+                                        )}
+                                        {monitor.lastResult?.success === false && (
+                                            <span className="text-[10px] text-red-400">Failed</span>
+                                        )}
+                                    </div>
+                                    {monitor.prompt && (
+                                        <div className="mt-1 ml-3.5 text-[10px] text-slate-600 truncate">
+                                            {monitor.prompt}
+                                        </div>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     )
