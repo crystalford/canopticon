@@ -40,6 +40,7 @@ export const articles = pgTable('articles', {
     slug: text('slug').notNull().unique(),
     content: text('content').notNull(), // Markdown
     summary: text('summary'),
+    tags: text('tags').array().notNull(),
     author: text('author').default('CANOPTICON').notNull(),
     status: text('status').default('published').notNull(), // 'published' | 'draft'
     conversationId: uuid('conversation_id').references(() => conversations.id),

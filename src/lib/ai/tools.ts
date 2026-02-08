@@ -4,6 +4,7 @@ import { db, articles, automations } from '@/db'
 import { eq } from 'drizzle-orm'
 import slugify from 'slugify'
 import { put } from '@vercel/blob'
+import { TwitterApi } from 'twitter-api-v2'
 
 export async function searchPerplexity(query: string): Promise<string> {
     const apiKey = process.env.PERPLEXITY_API_KEY
@@ -145,13 +146,14 @@ export function createTools(conversationId?: string) {
         }),
 
         publish_article: tool({
-            description: 'Publish an article to the website. It goes live immediately. Use this when the user says "publish" or "publish it".',
+            description: 'Publish an article to the website. It goes live immediately. Use this when the user says "publish" or "publish it". Auto-generates tags for SEO and topic linking.',
             inputSchema: z.object({
                 title: z.string().describe('The article headline'),
-                content: z.string().describe('The full article content in markdown'),
+                content: z.string().describe('The full article content in markdown. Do NOT include the title as an H1 heading - it is displayed separately.'),
                 summary: z.string().describe('A 1-2 sentence summary for SEO and previews'),
+                tags: z.array(z.string()).describe('3-8 relevant topic tags for SEO and categorization. Use lowercase, e.g. ["pierre poilievre", "security clearance", "conservative party", "national security"]'),
             }),
-            execute: async ({ title, content, summary }) => {
+            execute: async ({ title, content, summary, tags }) => {
                 try {
                     const slug = makeSlug(title)
                     const now = new Date()
@@ -161,6 +163,7 @@ export function createTools(conversationId?: string) {
                         slug,
                         content,
                         summary,
+                        tags,
                         status: 'published',
                         conversationId: conversationId || null,
                         publishedAt: now,
@@ -173,6 +176,7 @@ export function createTools(conversationId?: string) {
                             title: article.title,
                             slug: article.slug,
                             url: `/articles/${article.slug}`,
+                            tags: article.tags,
                         },
                     }
                 } catch (error) {
@@ -195,6 +199,7 @@ export function createTools(conversationId?: string) {
                         slug: true,
                         summary: true,
                         status: true,
+                        tags: true,
                         publishedAt: true,
                     },
                     orderBy: (articles, { desc }) => [desc(articles.createdAt)],
@@ -206,14 +211,15 @@ export function createTools(conversationId?: string) {
         }),
 
         edit_article: tool({
-            description: 'Edit an existing article. Can update title, content, summary, or status.',
+            description: 'Edit an existing article. Can update title, content, summary, tags, or status.',
             inputSchema: z.object({
                 id: z.string().describe('The article ID to edit'),
                 title: z.string().optional().describe('New title'),
                 content: z.string().optional().describe('New content in markdown'),
                 summary: z.string().optional().describe('New summary'),
+                tags: z.array(z.string()).optional().describe('New tags array'),
             }),
-            execute: async ({ id, title, content, summary }) => {
+            execute: async ({ id, title, content, summary, tags }) => {
                 try {
                     const updates: Record<string, unknown> = { updatedAt: new Date() }
                     if (title) {
@@ -222,6 +228,7 @@ export function createTools(conversationId?: string) {
                     }
                     if (content) updates.content = content
                     if (summary) updates.summary = summary
+                    if (tags) updates.tags = tags
 
                     const [article] = await db.update(articles)
                         .set(updates)
@@ -239,6 +246,7 @@ export function createTools(conversationId?: string) {
                             title: article.title,
                             slug: article.slug,
                             url: `/articles/${article.slug}`,
+                            tags: article.tags,
                         },
                     }
                 } catch (error) {
@@ -268,6 +276,69 @@ export function createTools(conversationId?: string) {
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error)
                     return { success: false, error: `Failed to unpublish: ${message}` }
+                }
+            },
+        }),
+
+        post_to_x: tool({
+            description: 'Post a thread to X (Twitter). Provide an array of tweet texts. Each tweet must be under 280 characters. Use this when the user asks to share or post an article to X/Twitter. Craft an engaging thread that summarizes the article with key takeaways.',
+            inputSchema: z.object({
+                tweets: z.array(z.string()).describe('Array of tweet texts for the thread. Each must be under 280 characters. First tweet should hook the reader, last should link to the article.'),
+            }),
+            execute: async ({ tweets }) => {
+                try {
+                    const apiKey = process.env.TWITTER_API_KEY
+                    const apiSecret = process.env.TWITTER_API_SECRET
+                    const accessToken = process.env.TWITTER_ACCESS_TOKEN
+                    const accessSecret = process.env.TWITTER_ACCESS_SECRET
+
+                    if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+                        return {
+                            success: false,
+                            error: 'X/Twitter API credentials not configured. Need: TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET',
+                        }
+                    }
+
+                    // Validate tweet lengths
+                    const tooLong = tweets.findIndex(t => t.length > 280)
+                    if (tooLong >= 0) {
+                        return {
+                            success: false,
+                            error: `Tweet ${tooLong + 1} is ${tweets[tooLong].length} characters (max 280): "${tweets[tooLong].substring(0, 50)}..."`,
+                        }
+                    }
+
+                    const client = new TwitterApi({
+                        appKey: apiKey,
+                        appSecret: apiSecret,
+                        accessToken,
+                        accessSecret,
+                    })
+
+                    // Post thread
+                    let lastTweetId: string | undefined
+                    const postedTweets: { id: string; text: string }[] = []
+
+                    for (const text of tweets) {
+                        const params: any = { text }
+                        if (lastTweetId) {
+                            params.reply = { in_reply_to_tweet_id: lastTweetId }
+                        }
+
+                        const result = await client.v2.tweet(params)
+                        lastTweetId = result.data.id
+                        postedTweets.push({ id: result.data.id, text })
+                    }
+
+                    return {
+                        success: true,
+                        threadUrl: `https://x.com/i/status/${postedTweets[0].id}`,
+                        tweetCount: postedTweets.length,
+                        message: `Thread posted successfully! ${postedTweets.length} tweets.`,
+                    }
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error)
+                    return { success: false, error: `Failed to post to X: ${message}` }
                 }
             },
         }),
