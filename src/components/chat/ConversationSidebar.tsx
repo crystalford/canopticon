@@ -93,6 +93,31 @@ export function ConversationSidebar({
             .catch(() => setMonitorsLoading(false))
     }, [refreshKey])
 
+    // Auto-refresh sidebar data every 5 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            // Refresh conversations
+            fetch('/api/conversations')
+                .then(res => res.json())
+                .then(data => setConversations(data))
+                .catch(console.error)
+
+            // Refresh articles
+            fetch('/api/articles')
+                .then(res => res.json())
+                .then(data => setArticles(data))
+                .catch(console.error)
+
+            // Refresh monitors
+            fetch('/api/automations')
+                .then(res => res.json())
+                .then(data => setMonitors(data))
+                .catch(console.error)
+        }, 5000) // Every 5 seconds
+
+        return () => clearInterval(interval)
+    }, [])
+
     useEffect(() => {
         if (editingId) {
             editInputRef.current?.focus()
