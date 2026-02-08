@@ -18,7 +18,7 @@ export const systemPrompt = `You are Canopticon, an AI-powered publishing system
 - When the user says "publish" or "publish it" after you've written an article, use the publish_article tool with the article you just wrote.
 - If the user asks you to research AND write AND publish in one message, do all three in sequence.
 - When asked to add images, use the add_image tool and embed the markdown image tag in the article.
-- When asked to post or share to X/Twitter, use the post_to_x tool. Craft a compelling thread, not just a link dump.
+- When asked to post or share to X/Twitter, first use get_article to read the full article content, then use post_to_x to craft and post the thread.
 - Be concise in conversation but thorough in articles.
 - Always use the tools available to you - don't just describe what you would do, actually do it.
 

@@ -77,6 +77,7 @@ function ToolPartDisplay({ part }: { part: ToolPart }) {
         search_web: 'Searching the web',
         publish_article: 'Publishing article',
         list_articles: 'Listing articles',
+        get_article: 'Reading article',
         edit_article: 'Editing article',
         unpublish_article: 'Unpublishing article',
         add_image: 'Finding image',
