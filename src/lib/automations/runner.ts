@@ -163,8 +163,8 @@ export async function runAutomation(automation: Automation) {
         // Look through tool results for publish_article call
         if (result.toolResults) {
             for (const toolResult of result.toolResults) {
-                if (toolResult.toolName === 'publish_article' && toolResult.result) {
-                    const resultData = toolResult.result as any
+                if (toolResult.toolName === 'publish_article' && toolResult.output) {
+                    const resultData = toolResult.output as any
                     if (resultData.success && resultData.article) {
                         articleId = resultData.article.id
                         articleTitle = resultData.article.title
