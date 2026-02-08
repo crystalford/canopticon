@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { db } from '@/db'
 import { articles } from '@/db/schema'
 import { desc, eq } from 'drizzle-orm'
+import { Navigation } from '@/components/Navigation'
+import { Footer } from '@/components/Footer'
+import { NewsletterForm } from '@/components/NewsletterForm'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,56 +70,34 @@ export default async function HomePage({ searchParams }: { searchParams: { tag?:
                 <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-red-900/[0.05] rounded-full blur-[100px]" />
             </div>
 
-            {/* Navigation */}
-            <nav className="relative z-10 border-b border-white/[0.06]">
-                <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-3 group">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/20 group-hover:shadow-red-500/40 transition-shadow">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-white">
-                                <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
-                                <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1" opacity="0.5" />
-                                <circle cx="8" cy="8" r="1" fill="currentColor" />
-                            </svg>
-                        </div>
-                        <span className="text-lg font-bold text-white tracking-[0.2em] uppercase">
-                            Canopticon
-                        </span>
-                    </Link>
-                    <div className="flex items-center gap-6">
-                        <Link href="/" className="text-sm text-slate-400 hover:text-white transition-colors">
-                            Articles
-                        </Link>
-                        <Link
-                            href="/dashboard"
-                            className="text-sm px-4 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-slate-300 hover:bg-white/[0.1] hover:text-white hover:border-white/[0.15] transition-all"
-                        >
-                            Dashboard
-                        </Link>
-                    </div>
-                </div>
-            </nav>
+            <Navigation />
 
             <main className="relative z-10">
                 {/* Hero Section — only when no tag filter */}
                 {!tag && (
                     <section className="relative overflow-hidden">
                         <div className="max-w-6xl mx-auto px-6 pt-20 pb-16">
-                            <div className="max-w-2xl">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium mb-6">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                                    AI-Powered Intelligence
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                                <div>
+                                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium mb-6">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                                        AI-Powered Intelligence
+                                    </div>
+                                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight mb-6">
+                                        Canadian Political
+                                        <br />
+                                        <span className="bg-gradient-to-r from-red-400 via-red-500 to-orange-500 bg-clip-text text-transparent">
+                                            Intelligence
+                                        </span>
+                                    </h1>
+                                    <p className="text-lg text-slate-400 leading-relaxed max-w-lg">
+                                        AI-driven analysis of Parliament, policy, and power.
+                                        Automated monitoring. Investigative depth. Published at machine speed.
+                                    </p>
                                 </div>
-                                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight mb-6">
-                                    Canadian Political
-                                    <br />
-                                    <span className="bg-gradient-to-r from-red-400 via-red-500 to-orange-500 bg-clip-text text-transparent">
-                                        Intelligence
-                                    </span>
-                                </h1>
-                                <p className="text-lg text-slate-400 leading-relaxed max-w-lg">
-                                    AI-driven analysis of Parliament, policy, and power.
-                                    Automated monitoring. Investigative depth. Published at machine speed.
-                                </p>
+                                <div className="lg:pl-8">
+                                    <NewsletterForm />
+                                </div>
                             </div>
                         </div>
                         {/* Decorative line */}
@@ -154,11 +135,10 @@ export default async function HomePage({ searchParams }: { searchParams: { tag?:
                                 <Link
                                     key={t}
                                     href={t === tag ? '/' : `/?tag=${encodeURIComponent(t)}`}
-                                    className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 ${
-                                        t === tag
+                                    className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 ${t === tag
                                             ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg shadow-red-500/10'
                                             : 'bg-white/[0.03] text-slate-500 border-white/[0.06] hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/[0.12]'
-                                    }`}
+                                        }`}
                                 >
                                     {t}
                                     <span className="ml-1.5 text-[10px] opacity-50">{count}</span>
@@ -279,27 +259,7 @@ export default async function HomePage({ searchParams }: { searchParams: { tag?:
                 )}
             </main>
 
-            {/* Footer */}
-            <footer className="relative z-10 border-t border-white/[0.04]">
-                <div className="max-w-6xl mx-auto px-6 py-10">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center">
-                                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" className="text-white">
-                                    <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
-                                    <circle cx="8" cy="8" r="1" fill="currentColor" />
-                                </svg>
-                            </div>
-                            <span className="text-sm font-semibold text-slate-400 tracking-wider uppercase">Canopticon</span>
-                        </div>
-                        <div className="flex items-center gap-6 text-xs text-slate-600">
-                            <span>&copy; {new Date().getFullYear()} Canopticon</span>
-                            <Link href="/terms" className="hover:text-slate-300 transition-colors">Terms</Link>
-                            <Link href="/privacy" className="hover:text-slate-300 transition-colors">Privacy</Link>
-                        </div>
-                    </div>
-                </div>
-            </footer>
+            <Footer />
         </div>
     )
 }

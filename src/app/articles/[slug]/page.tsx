@@ -5,6 +5,8 @@ import { articles } from '@/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
+import { Navigation } from '@/components/Navigation'
+import { Footer } from '@/components/Footer'
 
 export const revalidate = 60
 
@@ -83,36 +85,29 @@ export default async function ArticlePage({ params }: PageProps) {
     const cleanContent = renderYouTubeEmbeds(stripLeadingTitle(article.content))
 
     return (
-        <div className="min-h-screen">
+        <div className="min-h-screen relative">
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
             />
 
-            {/* Header */}
-            <header className="border-b border-white/5">
-                <div className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between">
-                    <Link href="/" className="text-xl font-bold text-white tracking-wider">
-                        CANOPTICON
-                    </Link>
-                    <Link
-                        href="/dashboard"
-                        className="text-sm text-slate-400 hover:text-white transition-colors"
-                    >
-                        Dashboard
-                    </Link>
-                </div>
-            </header>
+            {/* Ambient background effects */}
+            <div className="fixed inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-red-500/[0.07] rounded-full blur-[120px]" />
+                <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-red-900/[0.05] rounded-full blur-[100px]" />
+            </div>
+
+            <Navigation />
 
             {/* Article */}
-            <main className="max-w-3xl mx-auto px-6 py-12">
+            <main className="relative z-10 max-w-4xl mx-auto px-6 py-12">
                 <article>
-                    <header className="mb-8">
-                        <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
+                    <header className="mb-10">
+                        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-5 leading-tight">
                             {article.title}
                         </h1>
                         {article.summary && (
-                            <p className="text-lg text-slate-400 mb-4">{article.summary}</p>
+                            <p className="text-lg text-slate-400 mb-5 leading-relaxed">{article.summary}</p>
                         )}
                         <div className="flex items-center gap-3 text-sm text-slate-500">
                             <span>{article.author}</span>
@@ -129,12 +124,12 @@ export default async function ArticlePage({ params }: PageProps) {
                         </div>
                         {/* Tags */}
                         {article.tags?.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-4">
+                            <div className="flex flex-wrap gap-2 mt-5">
                                 {article.tags.map(tag => (
                                     <Link
                                         key={tag}
-                                        href={`/?tag=${encodeURIComponent(tag)}`}
-                                        className="text-xs px-2.5 py-1 rounded-full bg-primary-500/10 text-primary-400 border border-primary-500/20 hover:bg-primary-500/20 transition-colors"
+                                        href={`/articles?tag=${encodeURIComponent(tag)}`}
+                                        className="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
                                     >
                                         {tag}
                                     </Link>
@@ -150,23 +145,23 @@ export default async function ArticlePage({ params }: PageProps) {
 
                 {/* Related Articles */}
                 {relatedArticles.length > 0 && (
-                    <div className="mt-12 pt-8 border-t border-white/5">
-                        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Related Articles</h3>
-                        <div className="space-y-3">
+                    <div className="mt-16 pt-10 border-t border-white/[0.06]">
+                        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-6">Related Articles</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {relatedArticles.map(related => (
                                 <Link
                                     key={related.id}
                                     href={`/articles/${related.slug}`}
-                                    className="block glass-card p-4 hover:bg-white/5 transition-colors"
+                                    className="block rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 hover:border-white/[0.12] hover:bg-white/[0.04] transition-all duration-300"
                                 >
-                                    <h4 className="text-white font-medium mb-1">{related.title}</h4>
+                                    <h4 className="text-white font-semibold mb-2 leading-snug">{related.title}</h4>
                                     {related.summary && (
-                                        <p className="text-sm text-slate-400 line-clamp-2">{related.summary}</p>
+                                        <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed">{related.summary}</p>
                                     )}
                                     {related.tags?.length > 0 && (
                                         <div className="flex flex-wrap gap-1.5 mt-2">
                                             {related.tags.slice(0, 4).map(tag => (
-                                                <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-slate-500">
+                                                <span key={tag} className="text-xs px-2 py-0.5 rounded bg-white/[0.04] text-slate-600">
                                                     {tag}
                                                 </span>
                                             ))}
@@ -179,15 +174,20 @@ export default async function ArticlePage({ params }: PageProps) {
                 )}
 
                 {/* Back link */}
-                <div className="mt-12 pt-8 border-t border-white/5">
+                <div className="mt-16 pt-10 border-t border-white/[0.06]">
                     <Link
-                        href="/"
-                        className="text-sm text-slate-400 hover:text-white transition-colors"
+                        href="/articles"
+                        className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
                     >
-                        &larr; Back to all articles
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M10 12L6 8l4-4" />
+                        </svg>
+                        Back to all articles
                     </Link>
                 </div>
             </main>
+
+            <Footer />
         </div>
     )
 }
