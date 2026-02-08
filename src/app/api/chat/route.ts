@@ -54,9 +54,20 @@ export async function POST(req: Request) {
 
     const tools = createTools(activeConversationId)
 
+    // Add current date context to system prompt
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('en-CA', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'America/Toronto'
+    })
+    const enhancedSystemPrompt = `CURRENT DATE: ${dateStr}\n\n${systemPrompt}`
+
     const result = streamText({
         model: chatModel,
-        system: systemPrompt,
+        system: enhancedSystemPrompt,
         messages: modelMessages,
         tools,
         stopWhen: stepCountIs(15),
