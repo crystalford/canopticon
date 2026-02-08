@@ -1,9 +1,38 @@
-import { tool, generateText } from 'ai'
+import { tool } from 'ai'
 import { z } from 'zod'
 import { db, articles } from '@/db'
 import { eq } from 'drizzle-orm'
-import { researchModel } from './providers'
 import slugify from 'slugify'
+
+async function searchPerplexity(query: string): Promise<string> {
+    const apiKey = process.env.PERPLEXITY_API_KEY
+    if (!apiKey) throw new Error('PERPLEXITY_API_KEY not set')
+
+    console.log('[search_web] Calling Perplexity API for:', query)
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: 'sonar-pro',
+            messages: [{ role: 'user', content: query }],
+        }),
+    })
+
+    console.log('[search_web] Perplexity status:', response.status)
+
+    if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[search_web] Perplexity error body:', errorText)
+        throw new Error(`Perplexity API error ${response.status}: ${errorText}`)
+    }
+
+    const data = await response.json()
+    return data.choices?.[0]?.message?.content || 'No results found'
+}
 
 function makeSlug(title: string): string {
     return slugify(title, { lower: true, strict: true, trim: true })
@@ -18,18 +47,12 @@ export function createTools(conversationId?: string) {
             }),
             execute: async ({ query }) => {
                 try {
-                    console.log('[search_web] Searching for:', query)
-                    console.log('[search_web] PERPLEXITY_API_KEY set:', !!process.env.PERPLEXITY_API_KEY)
-                    const result = await generateText({
-                        model: researchModel,
-                        messages: [{ role: 'user', content: query }],
-                    })
-                    console.log('[search_web] Success, response length:', result.text.length)
-                    return { success: true, results: result.text }
+                    const results = await searchPerplexity(query)
+                    console.log('[search_web] Success, length:', results.length)
+                    return { success: true, results }
                 } catch (error: any) {
-                    console.error('[search_web] Error:', error?.message, error?.statusCode, error?.url, JSON.stringify(error?.cause || ''))
-                    const message = error instanceof Error ? error.message : String(error)
-                    return { success: false, error: `Search failed: ${message}` }
+                    console.error('[search_web] Error:', error?.message)
+                    return { success: false, error: `Search failed: ${error?.message || String(error)}` }
                 }
             },
         }),
