@@ -3,7 +3,7 @@ import { db, automations } from '@/db'
 import { eq } from 'drizzle-orm'
 import { runAutomation } from '@/lib/automations/runner'
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 export async function POST(
     _req: Request,

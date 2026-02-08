@@ -45,10 +45,10 @@ export async function runAutomation(automation: Automation) {
         const tools = createTools(undefined, { saveDraft: !automation.autoPublish })
         const result = await generateText({
             model: chatModel,
-            system: 'You are Canopticon, an automated publishing system. When given new content and instructions, research further if needed using search_web, write a thorough article, and publish it if instructed. Write like a professional journalist.',
+            system: 'You are Canopticon, an automated publishing system. When given new content and instructions, research the topic if needed (limit to 2 searches max), then write a thorough article, and ALWAYS publish it using the publish_article tool. You MUST call publish_article before finishing. Write like a professional journalist.',
             prompt: fullPrompt,
             tools,
-            stopWhen: stepCountIs(5),
+            stopWhen: stepCountIs(10),
         })
 
         // Update automation record

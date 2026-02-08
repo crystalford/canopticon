@@ -48,7 +48,13 @@ export function ConversationSidebar({
     onNewChat,
     refreshKey,
 }: ConversationSidebarProps) {
-    const [tab, setTab] = useState<TabType>('chats')
+    const [tab, setTab] = useState<TabType>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('sidebar-tab')
+            if (saved === 'chats' || saved === 'articles' || saved === 'monitors') return saved
+        }
+        return 'chats'
+    })
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [articles, setArticles] = useState<Article[]>([])
     const [monitors, setMonitors] = useState<Monitor[]>([])
@@ -301,7 +307,7 @@ export function ConversationSidebar({
                 {(['chats', 'articles', 'monitors'] as TabType[]).map(t => (
                     <button
                         key={t}
-                        onClick={() => setTab(t)}
+                        onClick={() => { setTab(t); localStorage.setItem('sidebar-tab', t) }}
                         className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
                             tab === t
                                 ? 'bg-white/10 text-white'
