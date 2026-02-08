@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { db, articles, automations } from '@/db'
 import { eq } from 'drizzle-orm'
 import slugify from 'slugify'
+import { put } from '@vercel/blob'
 
 export async function searchPerplexity(query: string): Promise<string> {
     const apiKey = process.env.PERPLEXITY_API_KEY
@@ -58,42 +59,44 @@ export function createTools(conversationId?: string) {
         }),
 
         add_image: tool({
-            description: 'Find or generate an image to embed in articles. Use "unsplash" for free stock photos (permanent URLs) or "dalle" for AI-generated custom images (note: DALL-E URLs expire after ~1 hour). Returns markdown to embed in article content.',
+            description: 'Find or generate an image to embed in articles. Use "unsplash" for free stock photos or "dalle" for AI-generated custom images. All images are permanently hosted via Vercel Blob. Returns markdown to embed in article content.',
             inputSchema: z.object({
                 query: z.string().describe('What the image should show - be descriptive'),
                 source: z.enum(['unsplash', 'dalle']).default('unsplash').describe('Image source: "unsplash" for stock photos, "dalle" for AI-generated'),
             }),
             execute: async ({ query, source }) => {
                 try {
+                    let imageBuffer: ArrayBuffer
+                    let filename: string
+                    let contentType: string
+                    let attribution: string | undefined
+
                     if (source === 'unsplash') {
                         const accessKey = process.env.UNSPLASH_ACCESS_KEY
                         if (!accessKey) return { success: false, error: 'UNSPLASH_ACCESS_KEY not configured. Add it to environment variables.' }
 
-                        const res = await fetch(
+                        const searchRes = await fetch(
                             `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=3&orientation=landscape`,
                             { headers: { 'Authorization': `Client-ID ${accessKey}` } }
                         )
-                        if (!res.ok) return { success: false, error: `Unsplash API error: ${res.status}` }
+                        if (!searchRes.ok) return { success: false, error: `Unsplash API error: ${searchRes.status}` }
 
-                        const data = await res.json()
-                        if (!data.results?.length) return { success: false, error: 'No images found for that query' }
+                        const searchData = await searchRes.json()
+                        if (!searchData.results?.length) return { success: false, error: 'No images found for that query' }
 
-                        const photo = data.results[0]
-                        const imageUrl = photo.urls.regular
-                        const attribution = `Photo by [${photo.user.name}](${photo.user.links.html}) on [Unsplash](https://unsplash.com)`
+                        const photo = searchData.results[0]
+                        attribution = `Photo by [${photo.user.name}](${photo.user.links.html}) on [Unsplash](https://unsplash.com)`
 
-                        return {
-                            success: true,
-                            markdown: `![${photo.alt_description || query}](${imageUrl})`,
-                            url: imageUrl,
-                            attribution,
-                            note: 'Include the attribution at the bottom of the article.',
-                        }
+                        // Download the image
+                        const imgRes = await fetch(photo.urls.regular)
+                        imageBuffer = await imgRes.arrayBuffer()
+                        contentType = imgRes.headers.get('content-type') || 'image/jpeg'
+                        filename = `unsplash-${photo.id}.jpg`
                     } else {
                         const apiKey = process.env.OPENAI_API_KEY
                         if (!apiKey) return { success: false, error: 'OPENAI_API_KEY not configured.' }
 
-                        const res = await fetch('https://api.openai.com/v1/images/generations', {
+                        const genRes = await fetch('https://api.openai.com/v1/images/generations', {
                             method: 'POST',
                             headers: {
                                 'Authorization': `Bearer ${apiKey}`,
@@ -107,17 +110,33 @@ export function createTools(conversationId?: string) {
                             }),
                         })
 
-                        const data = await res.json()
-                        if (!data.data?.length) return { success: false, error: data.error?.message || 'Image generation failed' }
+                        const genData = await genRes.json()
+                        if (!genData.data?.length) return { success: false, error: genData.error?.message || 'Image generation failed' }
 
-                        const url = data.data[0].url
-                        return {
-                            success: true,
-                            markdown: `![${query}](${url})`,
-                            url,
-                            note: 'DALL-E image URLs expire after ~1 hour. For permanent images, use Unsplash.',
-                        }
+                        // Download the temporary DALL-E image
+                        const imgRes = await fetch(genData.data[0].url)
+                        imageBuffer = await imgRes.arrayBuffer()
+                        contentType = 'image/png'
+                        filename = `dalle-${Date.now()}.png`
                     }
+
+                    // Upload to Vercel Blob for permanent hosting
+                    const blob = await put(`images/${filename}`, imageBuffer, {
+                        access: 'public',
+                        contentType,
+                    })
+
+                    const result: Record<string, unknown> = {
+                        success: true,
+                        markdown: `![${query}](${blob.url})`,
+                        url: blob.url,
+                    }
+                    if (attribution) {
+                        result.attribution = attribution
+                        result.note = 'Include the attribution at the bottom of the article.'
+                    }
+
+                    return result
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error)
                     return { success: false, error: `Image failed: ${message}` }
