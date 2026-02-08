@@ -156,6 +156,17 @@ export default async function HomePage({ searchParams }: { searchParams: { tag?:
                     </div>
                 )}
             </main>
+
+            {/* Footer */}
+            <footer className="border-t border-white/5 mt-12">
+                <div className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between text-xs text-slate-500">
+                    <span>&copy; {new Date().getFullYear()} Canopticon</span>
+                    <div className="flex gap-4">
+                        <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+                        <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+                    </div>
+                </div>
+            </footer>
         </div>
     )
 }
