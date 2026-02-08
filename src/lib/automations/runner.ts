@@ -2,12 +2,116 @@ import { generateText, stepCountIs } from 'ai'
 import { chatModel } from '@/lib/ai/providers'
 import { createTools } from '@/lib/ai/tools'
 import { searchPerplexity } from '@/lib/ai/tools'
-import { db, automations } from '@/db'
+import { db, automations, articles } from '@/db'
 import { eq } from 'drizzle-orm'
 import RSSParser from 'rss-parser'
 import type { Automation } from '@/db/schema'
+import { TwitterApi } from 'twitter-api-v2'
 
 const parser = new RSSParser()
+
+async function generateAndPostThread(articleId: string, articleTitle: string, articleSlug: string): Promise<string> {
+    console.log(`[generateAndPostThread] Generating thread for article: ${articleTitle}`)
+
+    // Check for X API credentials
+    const apiKey = process.env.TWITTER_API_KEY
+    const apiSecret = process.env.TWITTER_API_SECRET
+    const accessToken = process.env.TWITTER_ACCESS_TOKEN
+    const accessSecret = process.env.TWITTER_ACCESS_SECRET
+
+    if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+        throw new Error('X/Twitter API credentials not configured')
+    }
+
+    // Fetch the article
+    const article = await db.query.articles.findFirst({
+        where: eq(articles.id, articleId),
+    })
+
+    if (!article) {
+        throw new Error('Article not found')
+    }
+
+    // Generate thread using AI
+    const articleUrl = `https://canopticon.com/articles/${articleSlug}`
+    const prompt = `Convert this article into an engaging Twitter thread (5-7 tweets). Each tweet must be under 280 characters.
+
+Article Title: ${articleTitle}
+Article Summary: ${article.summary}
+Article Content (first 2000 chars): ${article.content.substring(0, 2000)}
+
+Instructions:
+- Tweet 1: Hook - grab attention with the key insight
+- Tweets 2-5: Main points from the article, one per tweet
+- Last tweet: "Read the full analysis: ${articleUrl}"
+- Each tweet MUST be under 280 characters
+- Write in a professional, engaging tone
+- Use line breaks for readability
+
+Return ONLY a JSON array of tweet strings, nothing else. Example format:
+["Tweet 1 text here", "Tweet 2 text here", "Tweet 3 text here"]`
+
+    const result = await generateText({
+        model: chatModel,
+        prompt,
+    })
+
+    console.log(`[generateAndPostThread] AI response:`, result.text)
+
+    // Parse the thread from AI response
+    let tweets: string[]
+    try {
+        // Try to extract JSON array from the response
+        const jsonMatch = result.text.match(/\[[\s\S]*\]/)
+        if (!jsonMatch) {
+            throw new Error('No JSON array found in AI response')
+        }
+        tweets = JSON.parse(jsonMatch[0])
+
+        if (!Array.isArray(tweets) || tweets.length === 0) {
+            throw new Error('Invalid thread format')
+        }
+
+        // Validate tweet lengths
+        const tooLong = tweets.findIndex(t => t.length > 280)
+        if (tooLong >= 0) {
+            throw new Error(`Tweet ${tooLong + 1} is too long (${tweets[tooLong].length} chars)`)
+        }
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(`Failed to parse thread: ${message}`)
+    }
+
+    console.log(`[generateAndPostThread] Generated ${tweets.length} tweets`)
+
+    // Post thread to X
+    const client = new TwitterApi({
+        appKey: apiKey,
+        appSecret: apiSecret,
+        accessToken,
+        accessSecret,
+    })
+
+    let lastTweetId: string | undefined
+    const postedTweets: { id: string; text: string }[] = []
+
+    for (const text of tweets) {
+        const params: any = { text }
+        if (lastTweetId) {
+            params.reply = { in_reply_to_tweet_id: lastTweetId }
+        }
+
+        const tweetResult = await client.v2.tweet(params)
+        lastTweetId = tweetResult.data.id
+        postedTweets.push({ id: tweetResult.data.id, text })
+    }
+
+    const threadUrl = `https://x.com/i/status/${postedTweets[0].id}`
+    console.log(`[generateAndPostThread] Thread posted: ${threadUrl}`)
+
+    return threadUrl
+}
+
 
 export async function runAutomation(automation: Automation) {
     console.log(`[runner] Running automation: ${automation.name} (${automation.type})`)
@@ -20,10 +124,10 @@ export async function runAutomation(automation: Automation) {
             const reason = automation.type === 'youtube' && !config.channelId
                 ? 'Missing channelId in config'
                 : automation.type === 'rss' && !config.feedUrl
-                ? 'Missing feedUrl in config'
-                : automation.type === 'keyword' && !(config.keywords as string[])?.length
-                ? 'Missing keywords in config'
-                : 'No new content found'
+                    ? 'Missing feedUrl in config'
+                    : automation.type === 'keyword' && !(config.keywords as string[])?.length
+                        ? 'Missing keywords in config'
+                        : 'No new content found'
             console.log(`[runner] Skipped ${automation.name}: ${reason}`)
             await db.update(automations).set({
                 lastRunAt: new Date(),
@@ -51,6 +155,42 @@ export async function runAutomation(automation: Automation) {
             stopWhen: stepCountIs(10),
         })
 
+        // Extract article ID from tool invocations
+        let articleId: string | undefined
+        let articleTitle: string | undefined
+        let articleSlug: string | undefined
+
+        // Look through tool results for publish_article call
+        if (result.toolResults) {
+            for (const toolResult of result.toolResults) {
+                if (toolResult.toolName === 'publish_article' && toolResult.result) {
+                    const resultData = toolResult.result as any
+                    if (resultData.success && resultData.article) {
+                        articleId = resultData.article.id
+                        articleTitle = resultData.article.title
+                        articleSlug = resultData.article.slug
+                        break
+                    }
+                }
+            }
+        }
+
+        // Auto-post to X if enabled and article was created
+        const config = automation.config as Record<string, unknown>
+        let threadUrl: string | undefined
+
+        if (articleId && articleSlug && config.autoPostToX === true) {
+            console.log(`[runner] Auto-posting to X for article: ${articleTitle}`)
+            try {
+                threadUrl = await generateAndPostThread(articleId, articleTitle!, articleSlug)
+                console.log(`[runner] Thread posted successfully: ${threadUrl}`)
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error)
+                console.error(`[runner] Failed to post to X:`, message)
+                // Don't fail the whole automation if X posting fails
+            }
+        }
+
         // Update automation record
         await db.update(automations).set({
             lastRunAt: new Date(),
@@ -58,12 +198,15 @@ export async function runAutomation(automation: Automation) {
                 success: true,
                 summary: result.text?.substring(0, 300) || 'Article generated',
                 timestamp: new Date().toISOString(),
+                articleId,
+                articleSlug,
+                threadUrl,
             },
             updatedAt: new Date(),
         }).where(eq(automations.id, automation.id))
 
         console.log(`[runner] Completed: ${automation.name}`)
-        return { success: true, text: result.text }
+        return { success: true, text: result.text, articleId, threadUrl }
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         console.error(`[runner] Error for ${automation.name}:`, message)

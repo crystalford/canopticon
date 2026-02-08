@@ -421,7 +421,7 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
         }),
 
         create_monitor: tool({
-            description: 'Create a new content monitor/automation. Types: "youtube" (watch a channel — you can provide a channel name, handle like @cpac, or URL and the system will resolve the channel ID automatically), "rss" (watch a feed), "keyword" (search for topics). The monitor runs automatically and can generate articles.',
+            description: 'Create a new content monitor/automation. Types: "youtube" (watch a channel — you can provide a channel name, handle like @cpac, or URL and the system will resolve the channel ID automatically), "rss" (watch a feed), "keyword" (search for topics). The monitor runs automatically, can generate articles, and optionally auto-post threads to X/Twitter.',
             inputSchema: z.object({
                 name: z.string().describe('A short name for this monitor'),
                 type: z.enum(['youtube', 'rss', 'keyword']).describe('Monitor type'),
@@ -433,6 +433,7 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
                     feedUrl: z.string().optional().describe('RSS feed URL (for rss type)'),
                     feedName: z.string().optional().describe('Feed name (for rss type)'),
                     keywords: z.array(z.string()).optional().describe('Keywords to monitor (for keyword type)'),
+                    autoPostToX: z.boolean().optional().describe('Auto-post generated articles to X/Twitter as a thread (default: false)'),
                 }).describe('Type-specific configuration'),
                 prompt: z.string().describe('Instructions for the AI when new content is found. E.g. "Write a 500-word analysis of this parliamentary committee hearing"'),
                 autoPublish: z.boolean().optional().describe('Auto-publish generated articles (default: false, creates drafts for review)'),
@@ -526,7 +527,7 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
         }),
 
         edit_monitor: tool({
-            description: 'Edit an existing content monitor. You can update its name, prompt, config, or autoPublish setting. Use list_monitors first to get the monitor ID.',
+            description: 'Edit an existing content monitor. You can update its name, prompt, config, autoPublish setting, or autoPostToX setting. Use list_monitors first to get the monitor ID.',
             inputSchema: z.object({
                 id: z.string().describe('The monitor ID to edit'),
                 name: z.string().optional().describe('New name for the monitor'),
@@ -540,6 +541,7 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
                     feedUrl: z.string().optional().describe('RSS feed URL'),
                     feedName: z.string().optional().describe('Feed name'),
                     keywords: z.array(z.string()).optional().describe('Keywords to monitor'),
+                    autoPostToX: z.boolean().optional().describe('Auto-post generated articles to X/Twitter as a thread'),
                 }).optional().describe('Updated config (merged with existing)'),
             }),
             execute: async ({ id, name, prompt, autoPublish, config }) => {
