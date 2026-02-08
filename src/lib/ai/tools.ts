@@ -1,9 +1,39 @@
-import { tool, generateText } from 'ai'
+import { tool } from 'ai'
 import { z } from 'zod'
-import { db, articles } from '@/db'
+import { db, articles, automations } from '@/db'
 import { eq } from 'drizzle-orm'
-import { researchModel } from './providers'
 import slugify from 'slugify'
+import { put } from '@vercel/blob'
+
+export async function searchPerplexity(query: string): Promise<string> {
+    const apiKey = process.env.PERPLEXITY_API_KEY
+    if (!apiKey) throw new Error('PERPLEXITY_API_KEY not set')
+
+    console.log('[search_web] Calling Perplexity API for:', query)
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: 'sonar-pro',
+            messages: [{ role: 'user', content: query }],
+        }),
+    })
+
+    console.log('[search_web] Perplexity status:', response.status)
+
+    if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[search_web] Perplexity error body:', errorText)
+        throw new Error(`Perplexity API error ${response.status}: ${errorText}`)
+    }
+
+    const data = await response.json()
+    return data.choices?.[0]?.message?.content || 'No results found'
+}
 
 function makeSlug(title: string): string {
     return slugify(title, { lower: true, strict: true, trim: true })
@@ -18,14 +48,98 @@ export function createTools(conversationId?: string) {
             }),
             execute: async ({ query }) => {
                 try {
-                    const result = await generateText({
-                        model: researchModel,
-                        prompt: query,
+                    const results = await searchPerplexity(query)
+                    console.log('[search_web] Success, length:', results.length)
+                    return { success: true, results }
+                } catch (error: any) {
+                    console.error('[search_web] Error:', error?.message)
+                    return { success: false, error: `Search failed: ${error?.message || String(error)}` }
+                }
+            },
+        }),
+
+        add_image: tool({
+            description: 'Find or generate an image to embed in articles. Use "unsplash" for free stock photos or "dalle" for AI-generated custom images. All images are permanently hosted via Vercel Blob. Returns markdown to embed in article content.',
+            inputSchema: z.object({
+                query: z.string().describe('What the image should show - be descriptive'),
+                source: z.enum(['unsplash', 'dalle']).default('unsplash').describe('Image source: "unsplash" for stock photos, "dalle" for AI-generated'),
+            }),
+            execute: async ({ query, source }) => {
+                try {
+                    let imageBuffer: ArrayBuffer
+                    let filename: string
+                    let contentType: string
+                    let attribution: string | undefined
+
+                    if (source === 'unsplash') {
+                        const accessKey = process.env.UNSPLASH_ACCESS_KEY
+                        if (!accessKey) return { success: false, error: 'UNSPLASH_ACCESS_KEY not configured. Add it to environment variables.' }
+
+                        const searchRes = await fetch(
+                            `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=3&orientation=landscape`,
+                            { headers: { 'Authorization': `Client-ID ${accessKey}` } }
+                        )
+                        if (!searchRes.ok) return { success: false, error: `Unsplash API error: ${searchRes.status}` }
+
+                        const searchData = await searchRes.json()
+                        if (!searchData.results?.length) return { success: false, error: 'No images found for that query' }
+
+                        const photo = searchData.results[0]
+                        attribution = `Photo by [${photo.user.name}](${photo.user.links.html}) on [Unsplash](https://unsplash.com)`
+
+                        // Download the image
+                        const imgRes = await fetch(photo.urls.regular)
+                        imageBuffer = await imgRes.arrayBuffer()
+                        contentType = imgRes.headers.get('content-type') || 'image/jpeg'
+                        filename = `unsplash-${photo.id}.jpg`
+                    } else {
+                        const apiKey = process.env.OPENAI_API_KEY
+                        if (!apiKey) return { success: false, error: 'OPENAI_API_KEY not configured.' }
+
+                        const genRes = await fetch('https://api.openai.com/v1/images/generations', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${apiKey}`,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                model: 'dall-e-3',
+                                prompt: query,
+                                n: 1,
+                                size: '1792x1024',
+                            }),
+                        })
+
+                        const genData = await genRes.json()
+                        if (!genData.data?.length) return { success: false, error: genData.error?.message || 'Image generation failed' }
+
+                        // Download the temporary DALL-E image
+                        const imgRes = await fetch(genData.data[0].url)
+                        imageBuffer = await imgRes.arrayBuffer()
+                        contentType = 'image/png'
+                        filename = `dalle-${Date.now()}.png`
+                    }
+
+                    // Upload to Vercel Blob for permanent hosting
+                    const blob = await put(`images/${filename}`, imageBuffer, {
+                        access: 'public',
+                        contentType,
                     })
-                    return { success: true, results: result.text }
+
+                    const result: Record<string, unknown> = {
+                        success: true,
+                        markdown: `![${query}](${blob.url})`,
+                        url: blob.url,
+                    }
+                    if (attribution) {
+                        result.attribution = attribution
+                        result.note = 'Include the attribution at the bottom of the article.'
+                    }
+
+                    return result
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error)
-                    return { success: false, error: `Search failed: ${message}` }
+                    return { success: false, error: `Image failed: ${message}` }
                 }
             },
         }),
@@ -154,6 +268,98 @@ export function createTools(conversationId?: string) {
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error)
                     return { success: false, error: `Failed to unpublish: ${message}` }
+                }
+            },
+        }),
+
+        create_monitor: tool({
+            description: 'Create a new content monitor/automation. Types: "youtube" (watch a channel), "rss" (watch a feed), "keyword" (search for topics). The monitor runs automatically and can generate articles.',
+            inputSchema: z.object({
+                name: z.string().describe('A short name for this monitor'),
+                type: z.enum(['youtube', 'rss', 'keyword']).describe('Monitor type'),
+                config: z.object({
+                    channelId: z.string().optional().describe('YouTube channel ID (for youtube type)'),
+                    channelName: z.string().optional().describe('YouTube channel name (for youtube type)'),
+                    feedUrl: z.string().optional().describe('RSS feed URL (for rss type)'),
+                    feedName: z.string().optional().describe('Feed name (for rss type)'),
+                    keywords: z.array(z.string()).optional().describe('Keywords to monitor (for keyword type)'),
+                }).describe('Type-specific configuration'),
+                prompt: z.string().describe('Instructions for the AI when new content is found. E.g. "Write a 500-word analysis of this parliamentary committee hearing"'),
+                autoPublish: z.boolean().optional().default(false).describe('Auto-publish generated articles (default: false, creates drafts for review)'),
+            }),
+            execute: async ({ name, type, config, prompt, autoPublish }) => {
+                try {
+                    const [monitor] = await db.insert(automations).values({
+                        name,
+                        type,
+                        config,
+                        prompt,
+                        autoPublish: autoPublish ?? false,
+                        enabled: true,
+                    }).returning()
+
+                    return {
+                        success: true,
+                        monitor: {
+                            id: monitor.id,
+                            name: monitor.name,
+                            type: monitor.type,
+                            enabled: monitor.enabled,
+                        },
+                    }
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error)
+                    return { success: false, error: `Failed to create monitor: ${message}` }
+                }
+            },
+        }),
+
+        list_monitors: tool({
+            description: 'List all content monitors/automations.',
+            inputSchema: z.object({}),
+            execute: async () => {
+                const results = await db.query.automations.findMany({
+                    orderBy: (automations, { desc }) => [desc(automations.createdAt)],
+                })
+
+                return {
+                    monitors: results.map(m => ({
+                        id: m.id,
+                        name: m.name,
+                        type: m.type,
+                        enabled: m.enabled,
+                        autoPublish: m.autoPublish,
+                        prompt: m.prompt,
+                        lastRunAt: m.lastRunAt,
+                        lastResult: m.lastResult,
+                    })),
+                    count: results.length,
+                }
+            },
+        }),
+
+        toggle_monitor: tool({
+            description: 'Enable or disable a content monitor.',
+            inputSchema: z.object({
+                id: z.string().describe('The monitor ID'),
+                enabled: z.boolean().describe('Whether to enable (true) or disable (false)'),
+            }),
+            execute: async ({ id, enabled }) => {
+                try {
+                    const [monitor] = await db.update(automations)
+                        .set({ enabled, updatedAt: new Date() })
+                        .where(eq(automations.id, id))
+                        .returning()
+
+                    if (!monitor) return { success: false, error: 'Monitor not found' }
+
+                    return {
+                        success: true,
+                        message: `"${monitor.name}" is now ${enabled ? 'enabled' : 'disabled'}.`,
+                    }
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error)
+                    return { success: false, error: `Failed to toggle monitor: ${message}` }
                 }
             },
         }),

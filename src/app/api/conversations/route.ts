@@ -9,10 +9,11 @@ export async function GET() {
         columns: {
             id: true,
             title: true,
+            pinned: true,
             createdAt: true,
             updatedAt: true,
         },
-        orderBy: [desc(conversations.updatedAt)],
+        orderBy: [desc(conversations.pinned), desc(conversations.updatedAt)],
         limit: 50,
     })
 

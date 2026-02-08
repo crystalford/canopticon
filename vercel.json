@@ -3,5 +3,9 @@
   "installCommand": "npm install",
   "env": {
     "npm_config_legacy_peer_deps": "true"
-  }
+  },
+  "crons": [{
+    "path": "/api/cron",
+    "schedule": "0 8 * * *"
+  }]
 }

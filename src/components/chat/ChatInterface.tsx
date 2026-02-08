@@ -2,6 +2,7 @@
 
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
+import type { UIMessage } from 'ai'
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { MessageBubble } from './MessageBubble'
 import { Send, Square } from 'lucide-react'
@@ -10,12 +11,14 @@ interface ChatInterfaceProps {
     conversationId: string | null
     onConversationCreated: (id: string) => void
     onNewChat: () => void
+    initialMessages?: UIMessage[]
 }
 
-export function ChatInterface({ conversationId, onConversationCreated, onNewChat }: ChatInterfaceProps) {
+export function ChatInterface({ conversationId, onConversationCreated, onNewChat, initialMessages }: ChatInterfaceProps) {
     const scrollRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
     const [input, setInput] = useState('')
+    const hasDetectedConversation = useRef(false)
 
     const transport = useMemo(() => new DefaultChatTransport({
         api: '/api/chat',
@@ -24,12 +27,33 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
 
     const { messages, sendMessage, status, stop, setMessages } = useChat({
         transport,
+        messages: initialMessages,
         onError: (error) => {
             console.error('Chat error:', error)
         },
     })
 
     const isLoading = status === 'submitted' || status === 'streaming'
+
+    // Detect new conversation creation - after first exchange completes, fetch the latest conversation
+    useEffect(() => {
+        if (
+            !conversationId &&
+            !hasDetectedConversation.current &&
+            status === 'ready' &&
+            messages.length >= 2
+        ) {
+            hasDetectedConversation.current = true
+            fetch('/api/conversations')
+                .then(res => res.json())
+                .then(convs => {
+                    if (convs.length > 0) {
+                        onConversationCreated(convs[0].id)
+                    }
+                })
+                .catch(console.error)
+        }
+    }, [status, messages.length, conversationId, onConversationCreated])
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
