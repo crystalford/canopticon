@@ -5,6 +5,22 @@ import { desc, eq } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
+function formatDate(date: Date | string) {
+    return new Date(date).toLocaleDateString('en-CA', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    })
+}
+
+function timeAgo(date: Date | string) {
+    const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
+    return formatDate(date)
+}
+
 export default async function HomePage({ searchParams }: { searchParams: { tag?: string } }) {
     const tag = searchParams.tag
 
@@ -40,130 +56,247 @@ export default async function HomePage({ searchParams }: { searchParams: { tag?:
     }
     const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])
 
-    return (
-        <div className="min-h-screen">
-            {/* Header */}
-            <header className="border-b border-white/5">
-                <div className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between">
-                    <Link href="/" className="text-xl font-bold text-white tracking-wider">
-                        CANOPTICON
-                    </Link>
-                    <Link
-                        href="/dashboard"
-                        className="text-sm text-slate-400 hover:text-white transition-colors"
-                    >
-                        Dashboard
-                    </Link>
-                </div>
-            </header>
+    const featured = !tag && publishedArticles.length > 0 ? publishedArticles[0] : null
+    const rest = featured ? publishedArticles.slice(1) : publishedArticles
 
-            {/* Content */}
-            <main className="max-w-4xl mx-auto px-6 py-12">
+    return (
+        <div className="min-h-screen relative">
+            {/* Ambient background effects */}
+            <div className="fixed inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-red-500/[0.07] rounded-full blur-[120px]" />
+                <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-red-900/[0.05] rounded-full blur-[100px]" />
+            </div>
+
+            {/* Navigation */}
+            <nav className="relative z-10 border-b border-white/[0.06]">
+                <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+                    <Link href="/" className="flex items-center gap-3 group">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/20 group-hover:shadow-red-500/40 transition-shadow">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-white">
+                                <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+                                <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+                                <circle cx="8" cy="8" r="1" fill="currentColor" />
+                            </svg>
+                        </div>
+                        <span className="text-lg font-bold text-white tracking-[0.2em] uppercase">
+                            Canopticon
+                        </span>
+                    </Link>
+                    <div className="flex items-center gap-6">
+                        <Link href="/" className="text-sm text-slate-400 hover:text-white transition-colors">
+                            Articles
+                        </Link>
+                        <Link
+                            href="/dashboard"
+                            className="text-sm px-4 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-slate-300 hover:bg-white/[0.1] hover:text-white hover:border-white/[0.15] transition-all"
+                        >
+                            Dashboard
+                        </Link>
+                    </div>
+                </div>
+            </nav>
+
+            <main className="relative z-10">
+                {/* Hero Section — only when no tag filter */}
+                {!tag && (
+                    <section className="relative overflow-hidden">
+                        <div className="max-w-6xl mx-auto px-6 pt-20 pb-16">
+                            <div className="max-w-2xl">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium mb-6">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                                    AI-Powered Intelligence
+                                </div>
+                                <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight mb-6">
+                                    Canadian Political
+                                    <br />
+                                    <span className="bg-gradient-to-r from-red-400 via-red-500 to-orange-500 bg-clip-text text-transparent">
+                                        Intelligence
+                                    </span>
+                                </h1>
+                                <p className="text-lg text-slate-400 leading-relaxed max-w-lg">
+                                    AI-driven analysis of Parliament, policy, and power.
+                                    Automated monitoring. Investigative depth. Published at machine speed.
+                                </p>
+                            </div>
+                        </div>
+                        {/* Decorative line */}
+                        <div className="max-w-6xl mx-auto px-6">
+                            <div className="h-px bg-gradient-to-r from-red-500/40 via-red-500/10 to-transparent" />
+                        </div>
+                    </section>
+                )}
+
+                {/* Tag filter header */}
+                {tag && (
+                    <div className="max-w-6xl mx-auto px-6 pt-12 pb-4">
+                        <div className="flex items-center gap-3">
+                            <Link href="/" className="text-slate-500 hover:text-white transition-colors">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                    <path d="M12 5l-5 5 5 5" />
+                                </svg>
+                            </Link>
+                            <div>
+                                <span className="text-sm text-slate-500">Filtered by</span>
+                                <h2 className="text-2xl font-bold text-white">{tag}</h2>
+                            </div>
+                            <Link href="/" className="ml-auto text-xs text-slate-500 hover:text-red-400 transition-colors px-3 py-1 rounded-lg border border-white/10 hover:border-red-500/30">
+                                Clear filter
+                            </Link>
+                        </div>
+                    </div>
+                )}
+
                 {/* Tag Cloud */}
                 {sortedTags.length > 0 && (
-                    <div className="mb-8">
+                    <div className="max-w-6xl mx-auto px-6 py-8">
                         <div className="flex flex-wrap gap-2">
-                            {tag && (
-                                <Link
-                                    href="/"
-                                    className="text-xs px-2.5 py-1 rounded-full bg-slate-700 text-white border border-slate-600 hover:bg-slate-600 transition-colors"
-                                >
-                                    All articles
-                                </Link>
-                            )}
-                            {sortedTags.map(([t, count]) => (
+                            {sortedTags.slice(0, 20).map(([t, count]) => (
                                 <Link
                                     key={t}
                                     href={t === tag ? '/' : `/?tag=${encodeURIComponent(t)}`}
-                                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                                    className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 ${
                                         t === tag
-                                            ? 'bg-primary-500/20 text-primary-300 border-primary-500/40'
-                                            : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10 hover:text-white'
+                                            ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg shadow-red-500/10'
+                                            : 'bg-white/[0.03] text-slate-500 border-white/[0.06] hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/[0.12]'
                                     }`}
                                 >
-                                    {t} <span className="text-slate-500 ml-0.5">{count}</span>
+                                    {t}
+                                    <span className="ml-1.5 text-[10px] opacity-50">{count}</span>
                                 </Link>
                             ))}
                         </div>
                     </div>
                 )}
 
-                {/* Active filter */}
-                {tag && (
-                    <div className="mb-6 flex items-center gap-2">
-                        <span className="text-sm text-slate-400">Showing articles tagged</span>
-                        <span className="text-sm font-medium text-primary-400">{tag}</span>
-                        <Link href="/" className="text-xs text-slate-500 hover:text-white ml-2">&times; clear</Link>
-                    </div>
-                )}
-
                 {publishedArticles.length === 0 ? (
-                    <div className="text-center py-20">
-                        <h2 className="text-2xl font-bold text-white mb-4">
+                    <div className="max-w-6xl mx-auto px-6 py-20 text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto mb-6">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-600">
+                                <path d="M12 6v12M6 12h12" />
+                            </svg>
+                        </div>
+                        <h2 className="text-2xl font-bold text-white mb-3">
                             {tag ? `No articles tagged "${tag}"` : 'No articles yet'}
                         </h2>
-                        <p className="text-slate-400 mb-6">
-                            {tag ? 'Try a different tag or view all articles.' : 'Go to the dashboard and start publishing.'}
+                        <p className="text-slate-500 mb-8 max-w-md mx-auto">
+                            {tag ? 'Try a different tag or browse all articles.' : 'Intelligence reports will appear here once published.'}
                         </p>
                         <Link href={tag ? '/' : '/dashboard'} className="btn-primary">
-                            {tag ? 'View All' : 'Open Dashboard'}
+                            {tag ? 'View All Articles' : 'Open Dashboard'}
                         </Link>
                     </div>
                 ) : (
-                    <div className="space-y-8">
-                        {publishedArticles.map(article => (
-                            <article key={article.id} className="group">
-                                <Link href={`/articles/${article.slug}`}>
-                                    <div className="glass-card p-6">
-                                        <h2 className="text-xl font-bold text-white group-hover:text-primary-400 transition-colors mb-2">
-                                            {article.title}
-                                        </h2>
-                                        {article.summary && (
-                                            <p className="text-slate-400 mb-3">{article.summary}</p>
-                                        )}
-                                        <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">
-                                            <span>{article.author}</span>
-                                            {article.publishedAt && (
-                                                <>
-                                                    <span>&middot;</span>
-                                                    <time>{new Date(article.publishedAt).toLocaleDateString('en-CA', {
-                                                        year: 'numeric',
-                                                        month: 'long',
-                                                        day: 'numeric',
-                                                    })}</time>
-                                                </>
+                    <div className="max-w-6xl mx-auto px-6 pb-16">
+                        {/* Featured Article */}
+                        {featured && (
+                            <Link href={`/articles/${featured.slug}`} className="block group mb-10">
+                                <article className="relative rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-8 md:p-10 overflow-hidden transition-all duration-300 hover:border-white/[0.12] hover:from-white/[0.06] hover:to-white/[0.02]">
+                                    {/* Glow accent */}
+                                    <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/[0.06] rounded-full blur-[80px] transition-opacity group-hover:opacity-100 opacity-50" />
+
+                                    <div className="relative">
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <span className="text-[10px] font-semibold uppercase tracking-widest text-red-400 bg-red-500/10 px-2.5 py-1 rounded-md border border-red-500/20">
+                                                Latest
+                                            </span>
+                                            {featured.publishedAt && (
+                                                <span className="text-xs text-slate-500">
+                                                    {timeAgo(featured.publishedAt)}
+                                                </span>
                                             )}
                                         </div>
-                                        {article.tags?.length > 0 && (
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {article.tags.slice(0, 5).map((t: string) => (
+                                        <h2 className="text-2xl md:text-3xl font-bold text-white mb-3 group-hover:text-red-50 transition-colors leading-tight">
+                                            {featured.title}
+                                        </h2>
+                                        {featured.summary && (
+                                            <p className="text-slate-400 text-lg leading-relaxed mb-5 max-w-2xl">
+                                                {featured.summary}
+                                            </p>
+                                        )}
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex flex-wrap gap-2">
+                                                {featured.tags?.slice(0, 4).map((t: string) => (
                                                     <span
                                                         key={t}
-                                                        className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-slate-500"
+                                                        className="text-xs px-2 py-0.5 rounded-md bg-white/[0.04] text-slate-500 border border-white/[0.06]"
                                                     >
                                                         {t}
                                                     </span>
                                                 ))}
-                                                {article.tags.length > 5 && (
-                                                    <span className="text-xs text-slate-600">+{article.tags.length - 5}</span>
+                                            </div>
+                                            <span className="text-sm text-slate-500 group-hover:text-red-400 transition-colors flex items-center gap-1.5">
+                                                Read
+                                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="transition-transform group-hover:translate-x-0.5">
+                                                    <path d="M5 3l4 4-4 4" />
+                                                </svg>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </article>
+                            </Link>
+                        )}
+
+                        {/* Article Grid */}
+                        {rest.length > 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {rest.map(article => (
+                                    <Link key={article.id} href={`/articles/${article.slug}`} className="group block">
+                                        <article className="h-full rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-300 hover:border-white/[0.12] hover:bg-white/[0.04] flex flex-col">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                {article.publishedAt && (
+                                                    <time className="text-[11px] text-slate-600">
+                                                        {timeAgo(article.publishedAt)}
+                                                    </time>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
-                                </Link>
-                            </article>
-                        ))}
+                                            <h3 className="text-base font-semibold text-white mb-2 leading-snug group-hover:text-red-50 transition-colors line-clamp-2">
+                                                {article.title}
+                                            </h3>
+                                            {article.summary && (
+                                                <p className="text-sm text-slate-500 mb-4 leading-relaxed line-clamp-3 flex-1">
+                                                    {article.summary}
+                                                </p>
+                                            )}
+                                            <div className="flex flex-wrap gap-1.5 mt-auto pt-3 border-t border-white/[0.04]">
+                                                {article.tags?.slice(0, 3).map((t: string) => (
+                                                    <span
+                                                        key={t}
+                                                        className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-slate-600"
+                                                    >
+                                                        {t}
+                                                    </span>
+                                                ))}
+                                                {article.tags?.length > 3 && (
+                                                    <span className="text-[10px] text-slate-700">+{article.tags.length - 3}</span>
+                                                )}
+                                            </div>
+                                        </article>
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 )}
             </main>
 
             {/* Footer */}
-            <footer className="border-t border-white/5 mt-12">
-                <div className="max-w-4xl mx-auto px-6 py-6 flex items-center justify-between text-xs text-slate-500">
-                    <span>&copy; {new Date().getFullYear()} Canopticon</span>
-                    <div className="flex gap-4">
-                        <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
-                        <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <footer className="relative z-10 border-t border-white/[0.04]">
+                <div className="max-w-6xl mx-auto px-6 py-10">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center">
+                                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" className="text-white">
+                                    <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+                                    <circle cx="8" cy="8" r="1" fill="currentColor" />
+                                </svg>
+                            </div>
+                            <span className="text-sm font-semibold text-slate-400 tracking-wider uppercase">Canopticon</span>
+                        </div>
+                        <div className="flex items-center gap-6 text-xs text-slate-600">
+                            <span>&copy; {new Date().getFullYear()} Canopticon</span>
+                            <Link href="/terms" className="hover:text-slate-300 transition-colors">Terms</Link>
+                            <Link href="/privacy" className="hover:text-slate-300 transition-colors">Privacy</Link>
+                        </div>
                     </div>
                 </div>
             </footer>
