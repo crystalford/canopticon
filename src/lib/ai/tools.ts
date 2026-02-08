@@ -18,12 +18,16 @@ export function createTools(conversationId?: string) {
             }),
             execute: async ({ query }) => {
                 try {
+                    console.log('[search_web] Searching for:', query)
+                    console.log('[search_web] PERPLEXITY_API_KEY set:', !!process.env.PERPLEXITY_API_KEY)
                     const result = await generateText({
                         model: researchModel,
-                        prompt: query,
+                        messages: [{ role: 'user', content: query }],
                     })
+                    console.log('[search_web] Success, response length:', result.text.length)
                     return { success: true, results: result.text }
-                } catch (error) {
+                } catch (error: any) {
+                    console.error('[search_web] Error:', error?.message, error?.statusCode, error?.url, JSON.stringify(error?.cause || ''))
                     const message = error instanceof Error ? error.message : String(error)
                     return { success: false, error: `Search failed: ${message}` }
                 }
