@@ -362,7 +362,7 @@ export function ConversationSidebar({
                         <div className="text-center text-slate-500 text-sm py-4">No articles yet</div>
                     ) : (
                         <div className="space-y-0.5">
-                            {articles.map(article => (
+                            {articles.map(article => article.status === 'published' ? (
                                 <a
                                     key={article.id}
                                     href={`/articles/${article.slug}`}
@@ -374,10 +374,8 @@ export function ConversationSidebar({
                                     <div className="flex-1 min-w-0">
                                         <div className="truncate">{article.title}</div>
                                         <div className="flex items-center gap-2 text-xs text-slate-500">
-                                            <span className={`inline-block w-1.5 h-1.5 rounded-full ${
-                                                article.status === 'published' ? 'bg-emerald-400' : 'bg-slate-500'
-                                            }`} />
-                                            <span>{article.status === 'published' ? 'Published' : 'Draft'}</span>
+                                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                            <span>Published</span>
                                             {article.publishedAt && (
                                                 <>
                                                     <span>&middot;</span>
@@ -388,6 +386,25 @@ export function ConversationSidebar({
                                     </div>
                                     <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </a>
+                            ) : (
+                                <div
+                                    key={article.id}
+                                    className="w-full group flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors text-slate-400 hover:bg-white/5 hover:text-slate-200 cursor-default"
+                                >
+                                    <FileText className="w-3.5 h-3.5 flex-shrink-0 text-amber-500/60" />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="truncate">{article.title}</div>
+                                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                            <span className="text-amber-400/70">Draft</span>
+                                            <span>&middot;</span>
+                                            <span>{formatDate(article.createdAt)}</span>
+                                        </div>
+                                        {article.summary && (
+                                            <div className="mt-1 text-[10px] text-slate-600 line-clamp-2">{article.summary}</div>
+                                        )}
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     )

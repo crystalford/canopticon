@@ -86,7 +86,7 @@ async function resolveYouTubeChannelId(config: Record<string, unknown>): Promise
     return null
 }
 
-export function createTools(conversationId?: string) {
+export function createTools(conversationId?: string, options?: { saveDraft?: boolean }) {
     return {
         search_web: tool({
             description: 'Search the web for current information on any topic. Use this for news, events, facts, research. Returns detailed search results.',
@@ -203,6 +203,7 @@ export function createTools(conversationId?: string) {
                 try {
                     const slug = makeSlug(title)
                     const now = new Date()
+                    const isDraft = options?.saveDraft ?? false
 
                     const [article] = await db.insert(articles).values({
                         title,
@@ -210,9 +211,9 @@ export function createTools(conversationId?: string) {
                         content,
                         summary,
                         tags,
-                        status: 'published',
+                        status: isDraft ? 'draft' : 'published',
                         conversationId: conversationId || null,
-                        publishedAt: now,
+                        publishedAt: isDraft ? null : now,
                     }).returning()
 
                     return {
@@ -221,7 +222,8 @@ export function createTools(conversationId?: string) {
                             id: article.id,
                             title: article.title,
                             slug: article.slug,
-                            url: `/articles/${article.slug}`,
+                            status: article.status,
+                            url: isDraft ? null : `/articles/${article.slug}`,
                             tags: article.tags,
                         },
                     }
