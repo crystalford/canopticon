@@ -106,9 +106,9 @@ export default async function ArticlesPage({ searchParams }: { searchParams: { t
                                 <Link
                                     key={t}
                                     href={t === tag ? '/articles' : `/articles?tag=${encodeURIComponent(t)}`}
-                                    className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 ${t === tag
-                                            ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg shadow-red-500/10'
-                                            : 'bg-white/[0.03] text-slate-500 border-white/[0.06] hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/[0.12]'
+                                    className={`text-xs px-3 py-1.5 rounded-lg border ${t === tag
+                                        ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg shadow-red-500/10'
+                                        : 'bg-white/[0.03] text-slate-500 border-white/[0.06] hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/[0.12]'
                                         }`}
                                 >
                                     {t}
@@ -142,7 +142,7 @@ export default async function ArticlesPage({ searchParams }: { searchParams: { t
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {publishedArticles.map(article => (
                                 <Link key={article.id} href={`/articles/${article.slug}`} className="group block">
-                                    <article className="h-full rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-300 hover:border-white/[0.12] hover:bg-white/[0.04] flex flex-col">
+                                    <article className="h-full rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 hover:border-white/[0.12] hover:bg-white/[0.04] flex flex-col">
                                         <div className="flex items-center gap-2 mb-3">
                                             {article.publishedAt && (
                                                 <time className="text-[11px] text-slate-600">

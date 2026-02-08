@@ -136,8 +136,8 @@ export default async function HomePage({ searchParams }: { searchParams: { tag?:
                                     key={t}
                                     href={t === tag ? '/' : `/?tag=${encodeURIComponent(t)}`}
                                     className={`text-xs px-3 py-1.5 rounded-lg border transition-all duration-200 ${t === tag
-                                            ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg shadow-red-500/10'
-                                            : 'bg-white/[0.03] text-slate-500 border-white/[0.06] hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/[0.12]'
+                                        ? 'bg-red-500/20 text-red-300 border-red-500/40 shadow-lg shadow-red-500/10'
+                                        : 'bg-white/[0.03] text-slate-500 border-white/[0.06] hover:bg-white/[0.06] hover:text-slate-300 hover:border-white/[0.12]'
                                         }`}
                                 >
                                     {t}
@@ -170,7 +170,7 @@ export default async function HomePage({ searchParams }: { searchParams: { tag?:
                         {/* Featured Article */}
                         {featured && (
                             <Link href={`/articles/${featured.slug}`} className="block group mb-10">
-                                <article className="relative rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-8 md:p-10 overflow-hidden transition-all duration-300 hover:border-white/[0.12] hover:from-white/[0.06] hover:to-white/[0.02]">
+                                <article className="relative rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-8 md:p-10 overflow-hidden hover:border-white/[0.12] hover:from-white/[0.06] hover:to-white/[0.02]">
                                     {/* Glow accent */}
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/[0.06] rounded-full blur-[80px] transition-opacity group-hover:opacity-100 opacity-50" />
 
@@ -221,7 +221,7 @@ export default async function HomePage({ searchParams }: { searchParams: { tag?:
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {rest.map(article => (
                                     <Link key={article.id} href={`/articles/${article.slug}`} className="group block">
-                                        <article className="h-full rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all duration-300 hover:border-white/[0.12] hover:bg-white/[0.04] flex flex-col">
+                                        <article className="h-full rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 hover:border-white/[0.12] hover:bg-white/[0.04] flex flex-col">
                                             <div className="flex items-center gap-2 mb-3">
                                                 {article.publishedAt && (
                                                     <time className="text-[11px] text-slate-600">
