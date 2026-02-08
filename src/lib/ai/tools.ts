@@ -62,7 +62,7 @@ export function createTools(conversationId?: string) {
             description: 'Find or generate an image to embed in articles. Use "unsplash" for free stock photos or "dalle" for AI-generated custom images. All images are permanently hosted via Vercel Blob. Returns markdown to embed in article content.',
             inputSchema: z.object({
                 query: z.string().describe('What the image should show - be descriptive'),
-                source: z.enum(['unsplash', 'dalle']).default('unsplash').describe('Image source: "unsplash" for stock photos, "dalle" for AI-generated'),
+                source: z.enum(['unsplash', 'dalle']).describe('Image source: "unsplash" for stock photos, "dalle" for AI-generated'),
             }),
             execute: async ({ query, source }) => {
                 try {
@@ -185,7 +185,7 @@ export function createTools(conversationId?: string) {
         list_articles: tool({
             description: 'List published articles on the site. Use this when the user wants to see what has been published.',
             inputSchema: z.object({
-                limit: z.number().optional().default(20).describe('How many articles to return'),
+                limit: z.number().optional().describe('How many articles to return (default 20)'),
             }),
             execute: async ({ limit }) => {
                 const results = await db.query.articles.findMany({
@@ -285,7 +285,7 @@ export function createTools(conversationId?: string) {
                     keywords: z.array(z.string()).optional().describe('Keywords to monitor (for keyword type)'),
                 }).describe('Type-specific configuration'),
                 prompt: z.string().describe('Instructions for the AI when new content is found. E.g. "Write a 500-word analysis of this parliamentary committee hearing"'),
-                autoPublish: z.boolean().optional().default(false).describe('Auto-publish generated articles (default: false, creates drafts for review)'),
+                autoPublish: z.boolean().optional().describe('Auto-publish generated articles (default: false, creates drafts for review)'),
             }),
             execute: async ({ name, type, config, prompt, autoPublish }) => {
                 try {

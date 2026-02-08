@@ -12,6 +12,10 @@ export default function DashboardPage() {
     const [loadingMessages, setLoadingMessages] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(true)
     const [refreshKey, setRefreshKey] = useState(0)
+    // Separate key for controlling ChatInterface remounts.
+    // Only changes on explicit user actions (new chat, select conversation),
+    // NOT when conversation ID is auto-detected after first exchange.
+    const [chatKey, setChatKey] = useState<string>('new')
 
     // Close sidebar on mobile by default
     useEffect(() => {
@@ -21,10 +25,12 @@ export default function DashboardPage() {
     const handleNewChat = useCallback(() => {
         setConversationId(null)
         setInitialMessages(undefined)
+        setChatKey('new-' + Date.now())
     }, [])
 
     const handleConversationCreated = useCallback((id: string) => {
         setConversationId(id)
+        // DO NOT change chatKey here - the component keeps its messages
         setRefreshKey(prev => prev + 1)
     }, [])
 
@@ -46,9 +52,11 @@ export default function DashboardPage() {
                     parts: [{ type: 'text' as const, text: m.content }],
                 }))
             setInitialMessages(uiMessages)
+            setChatKey(id) // remount with loaded messages
         } catch (error) {
             console.error('Failed to load messages:', error)
             setInitialMessages(undefined)
+            setChatKey(id)
         } finally {
             setLoadingMessages(false)
         }
@@ -105,7 +113,7 @@ export default function DashboardPage() {
                         </div>
                     ) : (
                         <ChatInterface
-                            key={conversationId || 'new'}
+                            key={chatKey}
                             conversationId={conversationId}
                             onConversationCreated={handleConversationCreated}
                             onNewChat={handleNewChat}
