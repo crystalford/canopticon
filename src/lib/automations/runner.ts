@@ -178,15 +178,25 @@ export async function runAutomation(automation: Automation) {
         // Auto-post to X if enabled and article was created
         const config = automation.config as Record<string, unknown>
         let threadUrl: string | undefined
+        let xPostError: string | undefined
 
         if (articleId && articleSlug && config.autoPostToX === true) {
-            console.log(`[runner] Auto-posting to X for article: ${articleTitle}`)
+            console.log(`[runner] ===== AUTO-POST TO X =====`)
+            console.log(`[runner] Article ID: ${articleId}`)
+            console.log(`[runner] Article Title: ${articleTitle}`)
+            console.log(`[runner] Article Slug: ${articleSlug}`)
+            console.log(`[runner] Attempting to generate and post thread...`)
+
             try {
                 threadUrl = await generateAndPostThread(articleId, articleTitle!, articleSlug)
-                console.log(`[runner] Thread posted successfully: ${threadUrl}`)
+                console.log(`[runner] ===== THREAD POSTED SUCCESSFULLY =====`)
+                console.log(`[runner] Thread URL: ${threadUrl}`)
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error)
-                console.error(`[runner] Failed to post to X:`, message)
+                xPostError = message
+                console.error(`[runner] ===== X POSTING FAILED =====`)
+                console.error(`[runner] Error:`, message)
+                console.error(`[runner] Full error:`, error)
                 // Don't fail the whole automation if X posting fails
             }
         }
@@ -201,6 +211,7 @@ export async function runAutomation(automation: Automation) {
                 articleId,
                 articleSlug,
                 threadUrl,
+                xPostError,
             },
             updatedAt: new Date(),
         }).where(eq(automations.id, automation.id))
@@ -266,8 +277,26 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
 
             console.log(`[runner] Fetching RSS feed: ${feedUrl}`)
             try {
-                const feed = await parser.parseURL(feedUrl)
-                console.log(`[runner] Feed returned ${feed.items.length} items`)
+                // First, fetch to check if it's actually an RSS/XML feed
+                const response = await fetch(feedUrl)
+                const contentType = response.headers.get('content-type') || ''
+                const text = await response.text()
+
+                // Check if it's HTML instead of RSS/XML
+                if (contentType.includes('text/html') || text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+                    console.error(`[runner] URL returns HTML, not RSS feed: ${feedUrl}`)
+                    console.error(`[runner] Please check if this is the correct RSS feed URL. Try looking for a link with "RSS", "Atom", or "Feed" on the website.`)
+                    return null
+                }
+
+                // Try to parse with the parser
+                const feed = await parser.parseString(text)
+                console.log(`[runner] Feed returned ${feed.items?.length || 0} items`)
+
+                if (!feed.items || feed.items.length === 0) {
+                    console.log(`[runner] RSS feed has no items`)
+                    return null
+                }
 
                 const newItems = feed.items.filter(item => {
                     const pubDate = item.pubDate ? new Date(item.pubDate) : new Date(0)
@@ -281,7 +310,14 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
                     `Title: ${item.title}\nURL: ${item.link}\nPublished: ${item.pubDate}\nSummary: ${item.contentSnippet || item.content || 'No summary'}`
                 ).join('\n\n---\n\n')
             } catch (error) {
-                console.error(`[runner] RSS feed fetch failed for ${feedUrl}:`, error)
+                const message = error instanceof Error ? error.message : String(error)
+                console.error(`[runner] RSS feed fetch failed for ${feedUrl}:`, message)
+
+                // Provide helpful error message
+                if (message.includes('Attribute without value') || message.includes('Invalid')) {
+                    console.error(`[runner] The feed appears to have malformed XML. Please verify the feed URL is correct.`)
+                }
+
                 return null
             }
         }

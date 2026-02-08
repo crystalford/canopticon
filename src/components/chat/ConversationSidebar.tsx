@@ -245,8 +245,8 @@ export function ConversationSidebar({
                 key={conv.id}
                 onClick={() => !isEditing && onSelect(conv.id)}
                 className={`w-full group flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors cursor-pointer ${isActive
-                        ? 'bg-white/10 text-white'
-                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                    ? 'bg-white/10 text-white'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                     }`}
             >
                 {conv.pinned ? (
@@ -326,8 +326,8 @@ export function ConversationSidebar({
                         key={t}
                         onClick={() => { setTab(t); localStorage.setItem('sidebar-tab', t) }}
                         className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === t
-                                ? 'bg-white/10 text-white'
-                                : 'text-slate-500 hover:text-slate-300'
+                            ? 'bg-white/10 text-white'
+                            : 'text-slate-500 hover:text-slate-300'
                             }`}
                     >
                         {t === 'chats' ? 'Chats' : t === 'articles' ? 'Articles' : 'Monitors'}
@@ -461,8 +461,8 @@ export function ConversationSidebar({
                                                 <button
                                                     onClick={(e) => handleToggleAutoPostToX(e, monitor)}
                                                     className={`p-1 rounded hover:bg-white/10 transition-colors ${monitor.config.autoPostToX
-                                                            ? 'text-blue-400 hover:text-blue-300'
-                                                            : 'text-slate-500 hover:text-slate-400'
+                                                        ? 'text-blue-400 hover:text-blue-300'
+                                                        : 'text-slate-500 hover:text-slate-400'
                                                         }`}
                                                     title={monitor.config.autoPostToX ? 'Disable X auto-posting' : 'Enable X auto-posting'}
                                                 >
@@ -564,6 +564,12 @@ export function ConversationSidebar({
                                                         </a>
                                                     </div>
                                                 )}
+                                                {monitor.config.autoPostToX && monitor.lastResult?.xPostError && (
+                                                    <div>
+                                                        <span className="text-red-500">X post failed: </span>
+                                                        <span className="text-red-400 text-[10px] break-all">{monitor.lastResult.xPostError}</span>
+                                                    </div>
+                                                )}
                                                 {monitor.lastResult && (
                                                     <div>
                                                         <span className="text-slate-500">Last result: </span>
@@ -575,7 +581,8 @@ export function ConversationSidebar({
                                                     </div>
                                                 )}
                                             </div>
-                                        )}
+                                        )
+                                        }
                                         {!isExpanded && monitor.prompt && (
                                             <div className="mt-1 ml-3.5 text-[10px] text-slate-600 truncate">
                                                 {monitor.prompt}
@@ -595,6 +602,6 @@ export function ConversationSidebar({
                     CANOPTICON v2
                 </div>
             </div>
-        </div>
+        </div >
     )
 }
