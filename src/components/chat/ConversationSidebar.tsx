@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Plus, MessageSquare, Trash2, FileText, ExternalLink, Search, Pin, PinOff, Pencil, Radio, Play, Pause, RotateCw } from 'lucide-react'
+import { Plus, MessageSquare, Trash2, FileText, ExternalLink, Search, Pin, PinOff, Pencil, Radio, Play, Pause, RotateCw, Twitter } from 'lucide-react'
 
 interface Conversation {
     id: string
@@ -185,6 +185,22 @@ export function ConversationSidebar({
         setMonitors(prev => prev.filter(m => m.id !== id))
     }
 
+    const handleToggleAutoPostToX = async (e: React.MouseEvent, monitor: Monitor) => {
+        e.stopPropagation()
+        const newValue = !monitor.config.autoPostToX
+        setMonitors(prev =>
+            prev.map(m => m.id === monitor.id ? {
+                ...m,
+                config: { ...m.config, autoPostToX: newValue }
+            } : m)
+        )
+        await fetch(`/api/automations/${monitor.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ config: { ...monitor.config, autoPostToX: newValue } }),
+        })
+    }
+
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr)
         const now = new Date()
@@ -228,11 +244,10 @@ export function ConversationSidebar({
             <div
                 key={conv.id}
                 onClick={() => !isEditing && onSelect(conv.id)}
-                className={`w-full group flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors cursor-pointer ${
-                    isActive
+                className={`w-full group flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors cursor-pointer ${isActive
                         ? 'bg-white/10 text-white'
                         : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-                }`}
+                    }`}
             >
                 {conv.pinned ? (
                     <Pin className="w-3.5 h-3.5 flex-shrink-0 text-primary-400" />
@@ -310,11 +325,10 @@ export function ConversationSidebar({
                     <button
                         key={t}
                         onClick={() => { setTab(t); localStorage.setItem('sidebar-tab', t) }}
-                        className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                            tab === t
+                        className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === t
                                 ? 'bg-white/10 text-white'
                                 : 'text-slate-500 hover:text-slate-300'
-                        }`}
+                            }`}
                     >
                         {t === 'chats' ? 'Chats' : t === 'articles' ? 'Articles' : 'Monitors'}
                     </button>
@@ -432,116 +446,142 @@ export function ConversationSidebar({
                                 const isExpanded = expandedMonitorId === monitor.id
                                 const config = monitor.config || {}
                                 return (
-                                <div
-                                    key={monitor.id}
-                                    className="group px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/5"
-                                >
                                     <div
-                                        className="flex items-center gap-2 cursor-pointer"
-                                        onClick={() => setExpandedMonitorId(isExpanded ? null : monitor.id)}
+                                        key={monitor.id}
+                                        className="group px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/5"
                                     >
-                                        <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                            monitor.enabled ? 'bg-emerald-400' : 'bg-slate-500'
-                                        }`} />
-                                        <span className="flex-1 min-w-0 truncate text-slate-300">{monitor.name}</span>
-                                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={(e) => handleRunMonitor(e, monitor)}
-                                                disabled={runningId === monitor.id}
-                                                className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-emerald-400 transition-colors disabled:opacity-50"
-                                                title="Run now"
-                                            >
-                                                {runningId === monitor.id ? (
-                                                    <RotateCw className="w-3 h-3 animate-spin" />
-                                                ) : (
-                                                    <Play className="w-3 h-3" />
-                                                )}
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleToggleMonitor(e, monitor) }}
-                                                className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-colors"
-                                                title={monitor.enabled ? 'Pause' : 'Enable'}
-                                            >
-                                                {monitor.enabled ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteMonitor(e, monitor.id) }}
-                                                className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-red-400 transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2 mt-1 ml-3.5">
-                                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-                                            typeBadgeColors[monitor.type] || 'bg-slate-500/20 text-slate-400 border-slate-500/30'
-                                        }`}>
-                                            {typeLabels[monitor.type] || monitor.type}
-                                        </span>
-                                        {monitor.lastRunAt && (
-                                            <span className="text-[10px] text-slate-500">
-                                                Ran {formatDate(monitor.lastRunAt)}
-                                            </span>
-                                        )}
-                                        {monitor.lastResult?.success === false && (
-                                            <span className="text-[10px] text-red-400" title={monitor.lastResult?.error}>Failed</span>
-                                        )}
-                                        {monitor.lastResult?.skipped && (
-                                            <span className="text-[10px] text-amber-400" title={monitor.lastResult?.reason}>Skipped</span>
-                                        )}
-                                        {monitor.lastResult?.success === true && (
-                                            <span className="text-[10px] text-emerald-400">OK</span>
-                                        )}
-                                    </div>
-                                    {isExpanded && (
-                                        <div className="mt-2 ml-3.5 space-y-1.5 text-[11px] border-t border-white/5 pt-2">
-                                            {monitor.type === 'youtube' && config.channelId && (
-                                                <div>
-                                                    <span className="text-slate-500">Channel: </span>
-                                                    <span className="text-slate-400">{(config.channelName as string) || (config.channelHandle as string) || (config.channelId as string)}</span>
-                                                </div>
-                                            )}
-                                            {monitor.type === 'rss' && config.feedUrl && (
-                                                <div>
-                                                    <span className="text-slate-500">Feed: </span>
-                                                    <span className="text-slate-400 break-all">{(config.feedName as string) || (config.feedUrl as string)}</span>
-                                                </div>
-                                            )}
-                                            {monitor.type === 'keyword' && (config.keywords as string[])?.length > 0 && (
-                                                <div>
-                                                    <span className="text-slate-500">Keywords: </span>
-                                                    <span className="text-slate-400">{(config.keywords as string[]).join(', ')}</span>
-                                                </div>
-                                            )}
-                                            {monitor.prompt && (
-                                                <div>
-                                                    <span className="text-slate-500">Prompt: </span>
-                                                    <span className="text-slate-400">{monitor.prompt}</span>
-                                                </div>
-                                            )}
-                                            <div>
-                                                <span className="text-slate-500">Auto-publish: </span>
-                                                <span className={monitor.autoPublish ? 'text-emerald-400' : 'text-slate-400'}>{monitor.autoPublish ? 'Yes' : 'No (drafts)'}</span>
+                                        <div
+                                            className="flex items-center gap-2 cursor-pointer"
+                                            onClick={() => setExpandedMonitorId(isExpanded ? null : monitor.id)}
+                                        >
+                                            <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${monitor.enabled ? 'bg-emerald-400' : 'bg-slate-500'
+                                                }`} />
+                                            <span className="flex-1 min-w-0 truncate text-slate-300">{monitor.name}</span>
+                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={(e) => handleToggleAutoPostToX(e, monitor)}
+                                                    className={`p-1 rounded hover:bg-white/10 transition-colors ${monitor.config.autoPostToX
+                                                            ? 'text-blue-400 hover:text-blue-300'
+                                                            : 'text-slate-500 hover:text-slate-400'
+                                                        }`}
+                                                    title={monitor.config.autoPostToX ? 'Disable X auto-posting' : 'Enable X auto-posting'}
+                                                >
+                                                    <Twitter className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => handleRunMonitor(e, monitor)}
+                                                    disabled={runningId === monitor.id}
+                                                    className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-emerald-400 transition-colors disabled:opacity-50"
+                                                    title="Run now"
+                                                >
+                                                    {runningId === monitor.id ? (
+                                                        <RotateCw className="w-3 h-3 animate-spin" />
+                                                    ) : (
+                                                        <Play className="w-3 h-3" />
+                                                    )}
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleToggleMonitor(e, monitor) }}
+                                                    className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-colors"
+                                                    title={monitor.enabled ? 'Pause' : 'Enable'}
+                                                >
+                                                    {monitor.enabled ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteMonitor(e, monitor.id) }}
+                                                    className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-red-400 transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
                                             </div>
-                                            {monitor.lastResult && (
-                                                <div>
-                                                    <span className="text-slate-500">Last result: </span>
-                                                    <span className="text-slate-400">
-                                                        {monitor.lastResult.success === true && (monitor.lastResult.summary || 'Success')}
-                                                        {monitor.lastResult.success === false && (monitor.lastResult.error || 'Error')}
-                                                        {monitor.lastResult.skipped && (monitor.lastResult.reason || 'Skipped')}
-                                                    </span>
-                                                </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-1 ml-3.5">
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${typeBadgeColors[monitor.type] || 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                                                }`}>
+                                                {typeLabels[monitor.type] || monitor.type}
+                                            </span>
+                                            {monitor.lastRunAt && (
+                                                <span className="text-[10px] text-slate-500">
+                                                    Ran {formatDate(monitor.lastRunAt)}
+                                                </span>
+                                            )}
+                                            {monitor.lastResult?.success === false && (
+                                                <span className="text-[10px] text-red-400" title={monitor.lastResult?.error}>Failed</span>
+                                            )}
+                                            {monitor.lastResult?.skipped && (
+                                                <span className="text-[10px] text-amber-400" title={monitor.lastResult?.reason}>Skipped</span>
+                                            )}
+                                            {monitor.lastResult?.success === true && (
+                                                <span className="text-[10px] text-emerald-400">OK</span>
                                             )}
                                         </div>
-                                    )}
-                                    {!isExpanded && monitor.prompt && (
-                                        <div className="mt-1 ml-3.5 text-[10px] text-slate-600 truncate">
-                                            {monitor.prompt}
-                                        </div>
-                                    )}
-                                </div>
+                                        {isExpanded && (
+                                            <div className="mt-2 ml-3.5 space-y-1.5 text-[11px] border-t border-white/5 pt-2">
+                                                {monitor.type === 'youtube' && config.channelId && (
+                                                    <div>
+                                                        <span className="text-slate-500">Channel: </span>
+                                                        <span className="text-slate-400">{(config.channelName as string) || (config.channelHandle as string) || (config.channelId as string)}</span>
+                                                    </div>
+                                                )}
+                                                {monitor.type === 'rss' && config.feedUrl && (
+                                                    <div>
+                                                        <span className="text-slate-500">Feed: </span>
+                                                        <span className="text-slate-400 break-all">{(config.feedName as string) || (config.feedUrl as string)}</span>
+                                                    </div>
+                                                )}
+                                                {monitor.type === 'keyword' && (config.keywords as string[])?.length > 0 && (
+                                                    <div>
+                                                        <span className="text-slate-500">Keywords: </span>
+                                                        <span className="text-slate-400">{(config.keywords as string[]).join(', ')}</span>
+                                                    </div>
+                                                )}
+                                                {monitor.prompt && (
+                                                    <div>
+                                                        <span className="text-slate-500">Prompt: </span>
+                                                        <span className="text-slate-400">{monitor.prompt}</span>
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <span className="text-slate-500">Auto-publish: </span>
+                                                    <span className={monitor.autoPublish ? 'text-emerald-400' : 'text-slate-400'}>{monitor.autoPublish ? 'Yes' : 'No (drafts)'}</span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-slate-500">X auto-post: </span>
+                                                    <span className={monitor.config.autoPostToX ? 'text-blue-400' : 'text-slate-400'}>{monitor.config.autoPostToX ? 'Yes' : 'No'}</span>
+                                                </div>
+                                                {monitor.lastResult?.threadUrl && (
+                                                    <div>
+                                                        <span className="text-slate-500">Thread: </span>
+                                                        <a
+                                                            href={monitor.lastResult.threadUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-blue-400 hover:underline"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            View on X ↗
+                                                        </a>
+                                                    </div>
+                                                )}
+                                                {monitor.lastResult && (
+                                                    <div>
+                                                        <span className="text-slate-500">Last result: </span>
+                                                        <span className="text-slate-400">
+                                                            {monitor.lastResult.success === true && (monitor.lastResult.summary || 'Success')}
+                                                            {monitor.lastResult.success === false && (monitor.lastResult.error || 'Error')}
+                                                            {monitor.lastResult.skipped && (monitor.lastResult.reason || 'Skipped')}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {!isExpanded && monitor.prompt && (
+                                            <div className="mt-1 ml-3.5 text-[10px] text-slate-600 truncate">
+                                                {monitor.prompt}
+                                            </div>
+                                        )}
+                                    </div>
                                 )
                             })}
                         </div>
