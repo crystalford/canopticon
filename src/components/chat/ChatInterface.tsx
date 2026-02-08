@@ -107,82 +107,98 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                                     onClick={(text) => { setInput(text); inputRef.current?.focus() }}
                                 />
                                 <SuggestionCard
+                                    text="Create a YouTube monitor for CPAC that auto-posts to X"
+                                    onClick={(text) => { setInput(text); inputRef.current?.focus() }}
+                                />
+                                <SuggestionCard
+                                    text="Research and write about the federal budget, add images"
+                                    onClick={(text) => { setInput(text); inputRef.current?.focus() }}
+                                />
+                                <SuggestionCard
                                     text="List my published articles"
                                     onClick={(text) => { setInput(text); inputRef.current?.focus() }}
                                 />
                                 <SuggestionCard
-                                    text="Research the latest federal budget announcements"
+                                    text="Set up an RSS monitor for CBC Politics"
                                     onClick={(text) => { setInput(text); inputRef.current?.focus() }}
-                                />
-                            </div>
+                                /></SuggestionCard>
+                            <SuggestionCard
+                                text="Post my latest article to X as a thread"
+                                onClick={(text) => { setInput(text); inputRef.current?.focus() }}
+                            />
+                            <SuggestionCard
+                                text="Show me my draft articles"
+                                onClick={(text) => { setInput(text); inputRef.current?.focus() }}
+                            />
                         </div>
+                    </div>
                     </div>
                 )}
 
-                {!showWelcome && (
-                    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-                        {messages.map((message) => (
-                            <MessageBubble key={message.id} message={message} />
-                        ))}
-                        {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
-                            <div className="flex gap-3">
-                                <div className="w-8 h-8 rounded-full bg-primary-600/20 border border-primary-500/30 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-primary-400 text-xs font-bold">C</span>
-                                </div>
-                                <div className="flex items-center gap-1 pt-2">
-                                    <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                    <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                    <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                                </div>
+            {!showWelcome && (
+                <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+                    {messages.map((message) => (
+                        <MessageBubble key={message.id} message={message} />
+                    ))}
+                    {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
+                        <div className="flex gap-3">
+                            <div className="w-8 h-8 rounded-full bg-primary-600/20 border border-primary-500/30 flex items-center justify-center flex-shrink-0">
+                                <span className="text-primary-400 text-xs font-bold">C</span>
                             </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Input area */}
-            <div className="border-t border-white/5 p-4">
-                <div className="max-w-3xl mx-auto">
-                    <form onSubmit={handleSubmit} className="relative">
-                        <textarea
-                            ref={inputRef}
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="Research a topic, write an article, publish..."
-                            className="input pr-24 resize-none min-h-[52px] max-h-[200px]"
-                            rows={1}
-                            onInput={(e) => {
-                                const target = e.target as HTMLTextAreaElement
-                                target.style.height = 'auto'
-                                target.style.height = Math.min(target.scrollHeight, 200) + 'px'
-                            }}
-                        />
-                        <div className="absolute right-2 bottom-2 flex gap-1">
-                            {isLoading ? (
-                                <button
-                                    type="button"
-                                    onClick={() => stop()}
-                                    className="p-2 rounded-lg bg-white/10 text-slate-300 hover:bg-white/20 transition-colors"
-                                    title="Stop generating"
-                                >
-                                    <Square className="w-4 h-4" />
-                                </button>
-                            ) : (
-                                <button
-                                    type="submit"
-                                    disabled={!input.trim()}
-                                    className="p-2 rounded-lg bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                    title="Send message"
-                                >
-                                    <Send className="w-4 h-4" />
-                                </button>
-                            )}
+                            <div className="flex items-center gap-1 pt-2">
+                                <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                <div className="w-2 h-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </div>
                         </div>
-                    </form>
+                    )}
                 </div>
-            </div>
+            )}
         </div>
+
+            {/* Input area */ }
+    <div className="border-t border-white/5 p-4">
+        <div className="max-w-3xl mx-auto">
+            <form onSubmit={handleSubmit} className="relative">
+                <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Research a topic, write an article, publish..."
+                    className="input pr-24 resize-none min-h-[52px] max-h-[200px]"
+                    rows={1}
+                    onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement
+                        target.style.height = 'auto'
+                        target.style.height = Math.min(target.scrollHeight, 200) + 'px'
+                    }}
+                />
+                <div className="absolute right-2 bottom-2 flex gap-1">
+                    {isLoading ? (
+                        <button
+                            type="button"
+                            onClick={() => stop()}
+                            className="p-2 rounded-lg bg-white/10 text-slate-300 hover:bg-white/20 transition-colors"
+                            title="Stop generating"
+                        >
+                            <Square className="w-4 h-4" />
+                        </button>
+                    ) : (
+                        <button
+                            type="submit"
+                            disabled={!input.trim()}
+                            className="p-2 rounded-lg bg-primary-600 text-white hover:bg-primary-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            title="Send message"
+                        >
+                            <Send className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+            </form>
+        </div>
+    </div>
+        </div >
     )
 }
 
