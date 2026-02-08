@@ -4,6 +4,7 @@ import { db } from '@/db'
 import { articles } from '@/db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import ReactMarkdown from 'react-markdown'
+import rehypeRaw from 'rehype-raw'
 
 export const revalidate = 60
 
@@ -41,6 +42,12 @@ function stripLeadingTitle(content: string): string {
     return content.replace(/^#\s+.+\n+/, '')
 }
 
+function renderYouTubeEmbeds(content: string): string {
+    return content.replace(/<youtube>([\w-]+)<\/youtube>/g, (_match, videoId) =>
+        `<iframe width="100%" height="400" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="border-radius: 8px; margin: 1em 0;"></iframe>`
+    )
+}
+
 export default async function ArticlePage({ params }: PageProps) {
     const article = await db.query.articles.findFirst({
         where: and(eq(articles.slug, params.slug), eq(articles.status, 'published')),
@@ -73,7 +80,7 @@ export default async function ArticlePage({ params }: PageProps) {
         keywords: article.tags?.join(', '),
     }
 
-    const cleanContent = stripLeadingTitle(article.content)
+    const cleanContent = renderYouTubeEmbeds(stripLeadingTitle(article.content))
 
     return (
         <div className="min-h-screen">
@@ -137,7 +144,7 @@ export default async function ArticlePage({ params }: PageProps) {
                     </header>
 
                     <div className="prose prose-invert prose-lg max-w-none">
-                        <ReactMarkdown>{cleanContent}</ReactMarkdown>
+                        <ReactMarkdown rehypePlugins={[rehypeRaw]}>{cleanContent}</ReactMarkdown>
                     </div>
                 </article>
 

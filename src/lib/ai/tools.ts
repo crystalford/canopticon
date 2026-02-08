@@ -524,5 +524,89 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
                 }
             },
         }),
+
+        edit_monitor: tool({
+            description: 'Edit an existing content monitor. You can update its name, prompt, config, or autoPublish setting. Use list_monitors first to get the monitor ID.',
+            inputSchema: z.object({
+                id: z.string().describe('The monitor ID to edit'),
+                name: z.string().optional().describe('New name for the monitor'),
+                prompt: z.string().optional().describe('New AI instructions for when content is found'),
+                autoPublish: z.boolean().optional().describe('Whether to auto-publish or save as draft'),
+                config: z.object({
+                    channelId: z.string().optional().describe('YouTube channel ID'),
+                    channelUrl: z.string().optional().describe('YouTube channel URL'),
+                    channelHandle: z.string().optional().describe('YouTube channel handle like @cpac'),
+                    channelName: z.string().optional().describe('YouTube channel display name'),
+                    feedUrl: z.string().optional().describe('RSS feed URL'),
+                    feedName: z.string().optional().describe('Feed name'),
+                    keywords: z.array(z.string()).optional().describe('Keywords to monitor'),
+                }).optional().describe('Updated config (merged with existing)'),
+            }),
+            execute: async ({ id, name, prompt, autoPublish, config }) => {
+                try {
+                    const existing = await db.query.automations.findFirst({
+                        where: eq(automations.id, id),
+                    })
+                    if (!existing) return { success: false, error: 'Monitor not found' }
+
+                    const updates: Record<string, unknown> = { updatedAt: new Date() }
+                    if (name !== undefined) updates.name = name
+                    if (prompt !== undefined) updates.prompt = prompt
+                    if (autoPublish !== undefined) updates.autoPublish = autoPublish
+                    if (config) {
+                        const existingConfig = (existing.config as Record<string, unknown>) || {}
+                        const mergedConfig = { ...existingConfig, ...config }
+                        // Resolve YouTube channel ID if needed
+                        if (existing.type === 'youtube' && !mergedConfig.channelId && (config.channelUrl || config.channelHandle)) {
+                            const resolved = await resolveYouTubeChannelId(mergedConfig)
+                            if (resolved) mergedConfig.channelId = resolved
+                        }
+                        updates.config = mergedConfig
+                    }
+
+                    const [monitor] = await db.update(automations)
+                        .set(updates)
+                        .where(eq(automations.id, id))
+                        .returning()
+
+                    return {
+                        success: true,
+                        monitor: {
+                            id: monitor.id,
+                            name: monitor.name,
+                            type: monitor.type,
+                            config: monitor.config,
+                            prompt: monitor.prompt,
+                            autoPublish: monitor.autoPublish,
+                            enabled: monitor.enabled,
+                        },
+                    }
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error)
+                    return { success: false, error: `Failed to edit monitor: ${message}` }
+                }
+            },
+        }),
+
+        delete_monitor: tool({
+            description: 'Permanently delete a content monitor. Use list_monitors first to get the monitor ID.',
+            inputSchema: z.object({
+                id: z.string().describe('The monitor ID to delete'),
+            }),
+            execute: async ({ id }) => {
+                try {
+                    const [monitor] = await db.delete(automations)
+                        .where(eq(automations.id, id))
+                        .returning()
+
+                    if (!monitor) return { success: false, error: 'Monitor not found' }
+
+                    return { success: true, message: `"${monitor.name}" has been deleted.` }
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error)
+                    return { success: false, error: `Failed to delete monitor: ${message}` }
+                }
+            },
+        }),
     }
 }

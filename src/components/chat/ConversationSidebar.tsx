@@ -25,6 +25,7 @@ interface Monitor {
     id: string
     name: string
     type: string
+    config: Record<string, unknown>
     enabled: boolean
     autoPublish: boolean
     prompt: string | null
@@ -65,6 +66,7 @@ export function ConversationSidebar({
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editTitle, setEditTitle] = useState('')
     const [runningId, setRunningId] = useState<string | null>(null)
+    const [expandedMonitorId, setExpandedMonitorId] = useState<string | null>(null)
     const editInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -426,12 +428,18 @@ export function ConversationSidebar({
                         </div>
                     ) : (
                         <div className="space-y-1">
-                            {monitors.map(monitor => (
+                            {monitors.map(monitor => {
+                                const isExpanded = expandedMonitorId === monitor.id
+                                const config = monitor.config || {}
+                                return (
                                 <div
                                     key={monitor.id}
                                     className="group px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/5"
                                 >
-                                    <div className="flex items-center gap-2">
+                                    <div
+                                        className="flex items-center gap-2 cursor-pointer"
+                                        onClick={() => setExpandedMonitorId(isExpanded ? null : monitor.id)}
+                                    >
                                         <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                                             monitor.enabled ? 'bg-emerald-400' : 'bg-slate-500'
                                         }`} />
@@ -450,14 +458,14 @@ export function ConversationSidebar({
                                                 )}
                                             </button>
                                             <button
-                                                onClick={(e) => handleToggleMonitor(e, monitor)}
+                                                onClick={(e) => { e.stopPropagation(); handleToggleMonitor(e, monitor) }}
                                                 className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-colors"
                                                 title={monitor.enabled ? 'Pause' : 'Enable'}
                                             >
                                                 {monitor.enabled ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
                                             </button>
                                             <button
-                                                onClick={(e) => handleDeleteMonitor(e, monitor.id)}
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteMonitor(e, monitor.id) }}
                                                 className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-red-400 transition-colors"
                                                 title="Delete"
                                             >
@@ -486,13 +494,56 @@ export function ConversationSidebar({
                                             <span className="text-[10px] text-emerald-400">OK</span>
                                         )}
                                     </div>
-                                    {monitor.prompt && (
+                                    {isExpanded && (
+                                        <div className="mt-2 ml-3.5 space-y-1.5 text-[11px] border-t border-white/5 pt-2">
+                                            {monitor.type === 'youtube' && config.channelId && (
+                                                <div>
+                                                    <span className="text-slate-500">Channel: </span>
+                                                    <span className="text-slate-400">{(config.channelName as string) || (config.channelHandle as string) || (config.channelId as string)}</span>
+                                                </div>
+                                            )}
+                                            {monitor.type === 'rss' && config.feedUrl && (
+                                                <div>
+                                                    <span className="text-slate-500">Feed: </span>
+                                                    <span className="text-slate-400 break-all">{(config.feedName as string) || (config.feedUrl as string)}</span>
+                                                </div>
+                                            )}
+                                            {monitor.type === 'keyword' && (config.keywords as string[])?.length > 0 && (
+                                                <div>
+                                                    <span className="text-slate-500">Keywords: </span>
+                                                    <span className="text-slate-400">{(config.keywords as string[]).join(', ')}</span>
+                                                </div>
+                                            )}
+                                            {monitor.prompt && (
+                                                <div>
+                                                    <span className="text-slate-500">Prompt: </span>
+                                                    <span className="text-slate-400">{monitor.prompt}</span>
+                                                </div>
+                                            )}
+                                            <div>
+                                                <span className="text-slate-500">Auto-publish: </span>
+                                                <span className={monitor.autoPublish ? 'text-emerald-400' : 'text-slate-400'}>{monitor.autoPublish ? 'Yes' : 'No (drafts)'}</span>
+                                            </div>
+                                            {monitor.lastResult && (
+                                                <div>
+                                                    <span className="text-slate-500">Last result: </span>
+                                                    <span className="text-slate-400">
+                                                        {monitor.lastResult.success === true && (monitor.lastResult.summary || 'Success')}
+                                                        {monitor.lastResult.success === false && (monitor.lastResult.error || 'Error')}
+                                                        {monitor.lastResult.skipped && (monitor.lastResult.reason || 'Skipped')}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {!isExpanded && monitor.prompt && (
                                         <div className="mt-1 ml-3.5 text-[10px] text-slate-600 truncate">
                                             {monitor.prompt}
                                         </div>
                                     )}
                                 </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     )
                 )}
