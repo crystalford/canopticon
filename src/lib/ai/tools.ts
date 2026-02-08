@@ -187,7 +187,7 @@ export function createTools(conversationId?: string) {
         }),
 
         list_articles: tool({
-            description: 'List published articles on the site. Use this when the user wants to see what has been published.',
+            description: 'List published articles on the site. Use this when the user wants to see what has been published. Does not include full content - use get_article for that.',
             inputSchema: z.object({
                 limit: z.number().optional().describe('How many articles to return (default 20)'),
             }),
@@ -207,6 +207,35 @@ export function createTools(conversationId?: string) {
                 })
 
                 return { articles: results, count: results.length }
+            },
+        }),
+
+        get_article: tool({
+            description: 'Get a single article with its full content. Use this when you need to read an article to create an X thread, edit it, or reference its content.',
+            inputSchema: z.object({
+                id: z.string().describe('The article ID'),
+            }),
+            execute: async ({ id }) => {
+                const article = await db.query.articles.findFirst({
+                    where: eq(articles.id, id),
+                })
+
+                if (!article) return { success: false, error: 'Article not found' }
+
+                return {
+                    success: true,
+                    article: {
+                        id: article.id,
+                        title: article.title,
+                        slug: article.slug,
+                        content: article.content,
+                        summary: article.summary,
+                        tags: article.tags,
+                        status: article.status,
+                        url: `/articles/${article.slug}`,
+                        publishedAt: article.publishedAt,
+                    },
+                }
             },
         }),
 

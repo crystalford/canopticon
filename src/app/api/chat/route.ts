@@ -4,7 +4,7 @@ import { createTools } from '@/lib/ai/tools'
 import { systemPrompt } from '@/lib/ai/system-prompt'
 import { db, conversations, messages as messagesTable } from '@/db'
 
-export const maxDuration = 60
+export const maxDuration = 120
 
 export async function POST(req: Request) {
     const body = await req.json()
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
         system: systemPrompt,
         messages: modelMessages,
         tools,
-        stopWhen: stepCountIs(5),
+        stopWhen: stepCountIs(15),
         onFinish: async ({ text }) => {
             // Save assistant response to DB
             if (text && activeConversationId) {
