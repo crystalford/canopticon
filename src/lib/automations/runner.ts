@@ -155,6 +155,9 @@ export async function runAutomation(automation: Automation) {
             stopWhen: stepCountIs(10),
         })
 
+        console.log(`[runner] generateText result keys:`, Object.keys(result))
+        console.log(`[runner] result.text:`, result.text?.substring(0, 200))
+
         // Extract article ID from tool invocations
         let articleId: string | undefined
         let articleTitle: string | undefined
