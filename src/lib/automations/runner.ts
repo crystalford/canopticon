@@ -37,13 +37,12 @@ export async function runAutomation(automation: Automation) {
 
         // Build the prompt
         const instructions = automation.prompt || 'Write a news article about this content.'
-        const publishMode = automation.autoPublish
-            ? 'Publish the article using the publish_article tool.'
-            : 'Write the article in full but do NOT publish it. Just present it for review.'
+        const publishMode = 'Publish the article using the publish_article tool.'
+            + (automation.autoPublish ? '' : ' The article will be saved as a draft for review.')
         const fullPrompt = `${instructions}\n\n${publishMode}\n\nNew content detected:\n${triggerData}`
 
         // Generate article using Claude with tools
-        const tools = createTools()
+        const tools = createTools(undefined, { saveDraft: !automation.autoPublish })
         const result = await generateText({
             model: chatModel,
             system: 'You are Canopticon, an automated publishing system. When given new content and instructions, research further if needed using search_web, write a thorough article, and publish it if instructed. Write like a professional journalist.',
