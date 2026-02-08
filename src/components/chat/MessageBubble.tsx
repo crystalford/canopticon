@@ -80,6 +80,7 @@ function ToolPartDisplay({ part }: { part: ToolPart }) {
         edit_article: 'Editing article',
         unpublish_article: 'Unpublishing article',
         add_image: 'Finding image',
+        post_to_x: 'Posting to X',
         create_monitor: 'Creating monitor',
         list_monitors: 'Listing monitors',
         toggle_monitor: 'Toggling monitor',
@@ -111,6 +112,23 @@ function ToolPartDisplay({ part }: { part: ToolPart }) {
                         target="_blank"
                         rel="noopener"
                         className="ml-auto hover:text-emerald-300 transition-colors"
+                    >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                </div>
+            )
+        }
+
+        if (toolName === 'post_to_x' && result?.success) {
+            return (
+                <div className="flex items-center gap-2 text-sm bg-blue-500/10 text-blue-400 rounded-lg px-3 py-2 border border-blue-500/20">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Thread posted to X ({result.tweetCount} tweets)</span>
+                    <a
+                        href={result.threadUrl}
+                        target="_blank"
+                        rel="noopener"
+                        className="ml-auto hover:text-blue-300 transition-colors"
                     >
                         <ExternalLink className="w-3.5 h-3.5" />
                     </a>
