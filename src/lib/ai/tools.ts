@@ -40,6 +40,52 @@ function makeSlug(title: string): string {
     return slugify(title, { lower: true, strict: true, trim: true })
 }
 
+async function resolveYouTubeChannelId(config: Record<string, unknown>): Promise<string | null> {
+    // If a URL is provided, try to extract/resolve from it
+    const url = (config.channelUrl as string) || ''
+    const handle = (config.channelHandle as string) || ''
+
+    // Direct channel ID from URL: youtube.com/channel/UC...
+    const channelMatch = url.match(/youtube\.com\/channel\/(UC[\w-]+)/)
+    if (channelMatch) return channelMatch[1]
+
+    // Handle from URL or config: youtube.com/@handle or just @handle
+    const handleFromUrl = url.match(/youtube\.com\/@([\w.-]+)/)
+    const resolveHandle = handleFromUrl?.[1] || handle.replace(/^@/, '') || null
+
+    if (resolveHandle) {
+        try {
+            // Fetch the channel page and extract the channel ID from meta tags
+            const res = await fetch(`https://www.youtube.com/@${resolveHandle}`, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Canopticon/1.0)' },
+            })
+            if (res.ok) {
+                const html = await res.text()
+                // Look for channel ID in various meta tags / embedded data
+                const idMatch = html.match(/(?:"channelId"|"externalId"|channel_id=|"channelUrl":"https:\/\/www\.youtube\.com\/channel\/)(UC[\w-]+)/)
+                if (idMatch) return idMatch[1]
+            }
+        } catch (error) {
+            console.error('[resolveYouTubeChannelId] Failed to fetch channel page:', error)
+        }
+    }
+
+    // Last resort: try searching with Perplexity
+    const channelName = (config.channelName as string) || ''
+    if (channelName || resolveHandle) {
+        try {
+            const query = `What is the YouTube channel ID (starts with UC) for the channel "${channelName || resolveHandle}"? Just give me the channel ID.`
+            const result = await searchPerplexity(query)
+            const ucMatch = result.match(/(UC[\w-]{20,})/)
+            if (ucMatch) return ucMatch[1]
+        } catch (error) {
+            console.error('[resolveYouTubeChannelId] Perplexity lookup failed:', error)
+        }
+    }
+
+    return null
+}
+
 export function createTools(conversationId?: string) {
     return {
         search_web: tool({
@@ -373,13 +419,15 @@ export function createTools(conversationId?: string) {
         }),
 
         create_monitor: tool({
-            description: 'Create a new content monitor/automation. Types: "youtube" (watch a channel), "rss" (watch a feed), "keyword" (search for topics). The monitor runs automatically and can generate articles.',
+            description: 'Create a new content monitor/automation. Types: "youtube" (watch a channel — you can provide a channel name, handle like @cpac, or URL and the system will resolve the channel ID automatically), "rss" (watch a feed), "keyword" (search for topics). The monitor runs automatically and can generate articles.',
             inputSchema: z.object({
                 name: z.string().describe('A short name for this monitor'),
                 type: z.enum(['youtube', 'rss', 'keyword']).describe('Monitor type'),
                 config: z.object({
-                    channelId: z.string().optional().describe('YouTube channel ID (for youtube type)'),
-                    channelName: z.string().optional().describe('YouTube channel name (for youtube type)'),
+                    channelId: z.string().optional().describe('YouTube channel ID like UC... (for youtube type). If not known, provide channelUrl or channelHandle instead and it will be resolved automatically.'),
+                    channelUrl: z.string().optional().describe('YouTube channel URL like https://www.youtube.com/@cpac or https://www.youtube.com/channel/UC... (for youtube type)'),
+                    channelHandle: z.string().optional().describe('YouTube channel handle like @cpac (for youtube type)'),
+                    channelName: z.string().optional().describe('YouTube channel display name (for youtube type)'),
                     feedUrl: z.string().optional().describe('RSS feed URL (for rss type)'),
                     feedName: z.string().optional().describe('Feed name (for rss type)'),
                     keywords: z.array(z.string()).optional().describe('Keywords to monitor (for keyword type)'),
@@ -389,6 +437,16 @@ export function createTools(conversationId?: string) {
             }),
             execute: async ({ name, type, config, prompt, autoPublish }) => {
                 try {
+                    // For YouTube monitors, resolve channel ID if not provided
+                    if (type === 'youtube' && !config.channelId) {
+                        const resolved = await resolveYouTubeChannelId(config)
+                        if (resolved) {
+                            config.channelId = resolved
+                        } else {
+                            return { success: false, error: 'Could not resolve YouTube channel ID. Please provide the channel URL (e.g. https://www.youtube.com/@cpac) or the channel ID directly (starts with UC...).' }
+                        }
+                    }
+
                     const [monitor] = await db.insert(automations).values({
                         name,
                         type,
@@ -404,6 +462,7 @@ export function createTools(conversationId?: string) {
                             id: monitor.id,
                             name: monitor.name,
                             type: monitor.type,
+                            config: monitor.config,
                             enabled: monitor.enabled,
                         },
                     }

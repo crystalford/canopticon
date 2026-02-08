@@ -454,7 +454,13 @@ export function ConversationSidebar({
                                             </span>
                                         )}
                                         {monitor.lastResult?.success === false && (
-                                            <span className="text-[10px] text-red-400">Failed</span>
+                                            <span className="text-[10px] text-red-400" title={monitor.lastResult?.error}>Failed</span>
+                                        )}
+                                        {monitor.lastResult?.skipped && (
+                                            <span className="text-[10px] text-amber-400" title={monitor.lastResult?.reason}>Skipped</span>
+                                        )}
+                                        {monitor.lastResult?.success === true && (
+                                            <span className="text-[10px] text-emerald-400">OK</span>
                                         )}
                                     </div>
                                     {monitor.prompt && (

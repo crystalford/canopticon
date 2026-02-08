@@ -16,13 +16,21 @@ export async function runAutomation(automation: Automation) {
         // Check for new content based on type
         const triggerData = await checkTrigger(automation)
         if (!triggerData) {
-            console.log(`[runner] No new content for: ${automation.name}`)
+            const config = automation.config as Record<string, unknown>
+            const reason = automation.type === 'youtube' && !config.channelId
+                ? 'Missing channelId in config'
+                : automation.type === 'rss' && !config.feedUrl
+                ? 'Missing feedUrl in config'
+                : automation.type === 'keyword' && !(config.keywords as string[])?.length
+                ? 'Missing keywords in config'
+                : 'No new content found'
+            console.log(`[runner] Skipped ${automation.name}: ${reason}`)
             await db.update(automations).set({
                 lastRunAt: new Date(),
-                lastResult: { skipped: true, reason: 'No new content' },
+                lastResult: { skipped: true, reason },
                 updatedAt: new Date(),
             }).where(eq(automations.id, automation.id))
-            return { skipped: true, reason: 'No new content' }
+            return { skipped: true, reason }
         }
 
         console.log(`[runner] New content found, generating article for: ${automation.name}`)
@@ -74,50 +82,77 @@ export async function runAutomation(automation: Automation) {
 async function checkTrigger(automation: Automation): Promise<string | null> {
     const lastRun = automation.lastRunAt ? new Date(automation.lastRunAt) : new Date(0)
     const config = automation.config as Record<string, unknown>
+    console.log(`[runner] checkTrigger: type=${automation.type}, config=${JSON.stringify(config)}, lastRun=${lastRun.toISOString()}`)
 
     switch (automation.type) {
         case 'youtube': {
             const channelId = config.channelId as string
-            if (!channelId) return null
+            if (!channelId) {
+                console.log(`[runner] YouTube monitor missing channelId in config`)
+                return null
+            }
 
             const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
-            const feed = await parser.parseURL(feedUrl)
+            console.log(`[runner] Fetching YouTube feed: ${feedUrl}`)
+            try {
+                const feed = await parser.parseURL(feedUrl)
+                console.log(`[runner] Feed returned ${feed.items.length} items`)
 
-            const newItems = feed.items.filter(item => {
-                const pubDate = item.pubDate ? new Date(item.pubDate) : new Date(0)
-                return pubDate > lastRun
-            })
+                const newItems = feed.items.filter(item => {
+                    const pubDate = item.pubDate ? new Date(item.pubDate) : new Date(0)
+                    return pubDate > lastRun
+                })
 
-            if (newItems.length === 0) return null
+                console.log(`[runner] ${newItems.length} new items since ${lastRun.toISOString()}`)
+                if (newItems.length === 0) return null
 
-            return newItems.slice(0, 3).map(item =>
-                `Video Title: ${item.title}\nURL: ${item.link}\nPublished: ${item.pubDate}\nDescription: ${item.contentSnippet || item.content || 'No description'}`
-            ).join('\n\n---\n\n')
+                return newItems.slice(0, 3).map(item =>
+                    `Video Title: ${item.title}\nURL: ${item.link}\nPublished: ${item.pubDate}\nDescription: ${item.contentSnippet || item.content || 'No description'}`
+                ).join('\n\n---\n\n')
+            } catch (error) {
+                console.error(`[runner] YouTube feed fetch failed for channelId=${channelId}:`, error)
+                return null
+            }
         }
 
         case 'rss': {
             const feedUrl = config.feedUrl as string
-            if (!feedUrl) return null
+            if (!feedUrl) {
+                console.log(`[runner] RSS monitor missing feedUrl in config`)
+                return null
+            }
 
-            const feed = await parser.parseURL(feedUrl)
+            console.log(`[runner] Fetching RSS feed: ${feedUrl}`)
+            try {
+                const feed = await parser.parseURL(feedUrl)
+                console.log(`[runner] Feed returned ${feed.items.length} items`)
 
-            const newItems = feed.items.filter(item => {
-                const pubDate = item.pubDate ? new Date(item.pubDate) : new Date(0)
-                return pubDate > lastRun
-            })
+                const newItems = feed.items.filter(item => {
+                    const pubDate = item.pubDate ? new Date(item.pubDate) : new Date(0)
+                    return pubDate > lastRun
+                })
 
-            if (newItems.length === 0) return null
+                console.log(`[runner] ${newItems.length} new items since ${lastRun.toISOString()}`)
+                if (newItems.length === 0) return null
 
-            return newItems.slice(0, 5).map(item =>
-                `Title: ${item.title}\nURL: ${item.link}\nPublished: ${item.pubDate}\nSummary: ${item.contentSnippet || item.content || 'No summary'}`
-            ).join('\n\n---\n\n')
+                return newItems.slice(0, 5).map(item =>
+                    `Title: ${item.title}\nURL: ${item.link}\nPublished: ${item.pubDate}\nSummary: ${item.contentSnippet || item.content || 'No summary'}`
+                ).join('\n\n---\n\n')
+            } catch (error) {
+                console.error(`[runner] RSS feed fetch failed for ${feedUrl}:`, error)
+                return null
+            }
         }
 
         case 'keyword': {
             const keywords = config.keywords as string[]
-            if (!keywords?.length) return null
+            if (!keywords?.length) {
+                console.log(`[runner] Keyword monitor missing keywords in config`)
+                return null
+            }
 
             const query = keywords.join(' OR ') + ' latest news Canada'
+            console.log(`[runner] Searching keywords: ${query}`)
             try {
                 const results = await searchPerplexity(query)
                 return `Search results for keywords [${keywords.join(', ')}]:\n\n${results}`
@@ -128,6 +163,7 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
         }
 
         default:
+            console.log(`[runner] Unknown automation type: ${automation.type}`)
             return null
     }
 }
