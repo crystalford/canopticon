@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect } from 'react'
 import { ChatInterface } from '@/components/chat/ChatInterface'
 import { ConversationSidebar } from '@/components/chat/ConversationSidebar'
-import { Menu, X } from 'lucide-react'
+import { SocialMonitorView } from '@/components/social/SocialMonitorView'
+import { Menu, X, MessageSquare, Activity } from 'lucide-react'
 import type { UIMessage } from 'ai'
 
 export default function DashboardPage() {
@@ -17,6 +18,7 @@ export default function DashboardPage() {
     // NOT when conversation ID is auto-detected after first exchange.
     const [chatKey, setChatKey] = useState<string>('new')
     const [urlInitialized, setUrlInitialized] = useState(false)
+    const [view, setView] = useState<'chat' | 'social'>('chat')
 
     // Load conversation from URL on mount
     useEffect(() => {
@@ -24,9 +26,15 @@ export default function DashboardPage() {
 
         const params = new URLSearchParams(window.location.search)
         const convId = params.get('c')
+        const viewParam = params.get('v')
 
-        if (convId) {
-            handleSelectConversation(convId)
+        if (viewParam === 'social') {
+            setView('social')
+        } else {
+            setView('chat')
+            if (convId) {
+                handleSelectConversation(convId)
+            }
         }
         setUrlInitialized(true)
     }, [urlInitialized])
@@ -36,13 +44,19 @@ export default function DashboardPage() {
         if (!urlInitialized) return
 
         const url = new URL(window.location.href)
-        if (conversationId) {
+        if (conversationId && view === 'chat') {
             url.searchParams.set('c', conversationId)
         } else {
             url.searchParams.delete('c')
         }
+
+        if (view === 'social') {
+            url.searchParams.set('v', 'social')
+        } else {
+            url.searchParams.delete('v')
+        }
         window.history.replaceState({}, '', url)
-    }, [conversationId, urlInitialized])
+    }, [conversationId, urlInitialized, view])
 
     // Close sidebar on mobile by default
     useEffect(() => {
@@ -50,6 +64,7 @@ export default function DashboardPage() {
     }, [])
 
     const handleNewChat = useCallback(() => {
+        setView('chat')
         setConversationId(null)
         setInitialMessages(undefined)
         setChatKey('new-' + Date.now())
@@ -65,6 +80,7 @@ export default function DashboardPage() {
         // Close sidebar on mobile
         if (window.innerWidth < 1024) setSidebarOpen(false)
 
+        setView('chat')
         setLoadingMessages(true)
         setConversationId(id)
 
@@ -89,6 +105,18 @@ export default function DashboardPage() {
         }
     }, [])
 
+    const handleSocialEngage = useCallback((tweet: any) => {
+        setView('chat')
+        setConversationId(null)
+        const initialMsg: UIMessage = {
+            id: 'engage-' + tweet.id,
+            role: 'user',
+            parts: [{ type: 'text', text: `I want to reply to this tweet from ${tweet.authorHandle}:\n\n"${tweet.content}"\n\n(URL: ${tweet.url})` }]
+        }
+        setInitialMessages([initialMsg])
+        setChatKey('engage-' + tweet.id)
+    }, [])
+
     return (
         <div className="h-screen flex bg-background">
             {/* Mobile overlay backdrop */}
@@ -105,50 +133,82 @@ export default function DashboardPage() {
                 fixed lg:static inset-y-0 left-0 z-30
                 w-64 flex-shrink-0
                 border-r border-white/5 bg-background-secondary
-                transition-transform duration-200
+                transition-transform duration-300 ease-in-out
                 ${!sidebarOpen ? 'lg:translate-x-0 lg:w-0 lg:border-r-0 lg:overflow-hidden' : ''}
             `}>
                 <ConversationSidebar
-                    activeConversationId={conversationId}
+                    currentId={conversationId}
                     onSelect={handleSelectConversation}
                     onNewChat={handleNewChat}
                     refreshKey={refreshKey}
                 />
             </div>
 
-            {/* Main area */}
-            <div className="flex-1 flex flex-col min-w-0">
-                {/* Top bar */}
-                <div className="h-12 border-b border-white/5 flex items-center px-4 gap-3 flex-shrink-0">
-                    <button
-                        onClick={() => setSidebarOpen(!sidebarOpen)}
-                        className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                    >
-                        {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-                    </button>
-                    <h1 className="text-sm font-semibold text-white tracking-wider">CANOPTICON</h1>
-                </div>
+            {/* Main content area */}
+            <div className="flex-1 flex flex-col relative h-full w-full overflow-hidden">
+                {/* Header / Toggle Bar */}
+                <header className="h-14 border-b border-white/5 flex items-center justify-between px-4 bg-background/50 backdrop-blur-sm z-10 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setSidebarOpen(!sidebarOpen)}
+                            className="p-2 hover:bg-white/5 rounded-lg lg:hidden text-slate-400 hover:text-white"
+                        >
+                            <Menu className="w-5 h-5" />
+                        </button>
 
-                {/* Chat */}
-                <div className="flex-1 min-h-0">
-                    {loadingMessages ? (
-                        <div className="flex items-center justify-center h-full">
-                            <div className="flex items-center gap-2 text-slate-400">
-                                <div className="animate-spin w-4 h-4 border-2 border-slate-500 border-t-primary-400 rounded-full" />
-                                <span>Loading conversation...</span>
-                            </div>
+                        <div className="flex items-center p-1 bg-white/5 rounded-lg border border-white/5">
+                            <button
+                                onClick={() => setView('chat')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'chat'
+                                        ? 'bg-primary text-primary-foreground shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                                    }`}
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                                Chat
+                            </button>
+                            <button
+                                onClick={() => setView('social')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === 'social'
+                                        ? 'bg-blue-600 text-white shadow-sm'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                                    }`}
+                            >
+                                <Activity className="w-4 h-4" />
+                                Social Monitor
+                            </button>
                         </div>
+                    </div>
+                </header>
+
+                <main className="flex-1 relative overflow-hidden">
+                    {view === 'chat' ? (
+                        loadingMessages ? (
+                            <div className="flex items-center justify-center h-full">
+                                <div className="flex items-center gap-2 text-slate-400">
+                                    <div className="animate-spin w-4 h-4 border-2 border-slate-500 border-t-primary-400 rounded-full" />
+                                    <span>Loading conversation...</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <ChatInterface
+                                key={chatKey}
+                                conversationId={conversationId}
+                                onConversationCreated={handleConversationCreated}
+                                onNewChat={handleNewChat}
+                                initialMessages={initialMessages}
+                            />
+                        )
                     ) : (
-                        <ChatInterface
-                            key={chatKey}
+                        key = { chatKey }
                             conversationId={conversationId}
-                            onConversationCreated={handleConversationCreated}
-                            onNewChat={handleNewChat}
-                            initialMessages={initialMessages}
+                    onConversationCreated={handleConversationCreated}
+                    onNewChat={handleNewChat}
+                    initialMessages={initialMessages}
                         />
                     )}
-                </div>
             </div>
         </div>
+        </div >
     )
 }
