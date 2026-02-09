@@ -62,6 +62,8 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
         return () => clearInterval(interval)
     }, [])
 
+    const [addType, setAddType] = useState<'account' | 'keyword'>('account')
+
     const handleAddMonitor = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!newHandle) return
@@ -73,7 +75,7 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     accountHandle: newHandle,
-                    monitorType: 'fallacy_detection', // Default for now
+                    monitorType: addType === 'keyword' ? 'keyword' : 'fallacy_detection',
                     displayName: newHandle
                 })
             })
@@ -140,13 +142,28 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
             <div className="w-[260px] flex flex-col h-full border-r border-white/5 bg-transparent">
                 {/* Header / Add Action */}
                 <div className="p-3">
+                    <div className="flex gap-1 mb-2 bg-white/5 p-0.5 rounded-lg">
+                        <button
+                            onClick={() => setAddType('account')}
+                            className={`flex-1 text-[10px] uppercase font-bold py-1 rounded-md transition-all ${addType === 'account' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            Account
+                        </button>
+                        <button
+                            onClick={() => setAddType('keyword')}
+                            className={`flex-1 text-[10px] uppercase font-bold py-1 rounded-md transition-all ${addType === 'keyword' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            Keyword
+                        </button>
+                    </div>
+
                     <form onSubmit={handleAddMonitor} className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
                         <input
                             type="text"
                             value={newHandle}
                             onChange={e => setNewHandle(e.target.value)}
-                            placeholder="Add twitter handle..."
+                            placeholder={addType === 'account' ? "@handle" : "Topic or #hashtag"}
                             className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-300 placeholder-slate-500 outline-none focus:border-white/20 transition-colors"
                         />
                         <button
@@ -161,7 +178,7 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
 
                 <div className="px-3 pb-2 flex gap-1">
                     <div className="px-3 pt-1 pb-1 text-[10px] font-medium text-slate-500 uppercase tracking-wider">
-                        Monitored Accounts
+                        Monitored Feeds
                     </div>
                 </div>
 
@@ -169,7 +186,11 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
                     {monitors.map(monitor => (
                         <div key={monitor.id} className="w-full group flex items-center justify-between px-3 py-2 rounded-lg text-sm text-left transition-colors text-slate-400 hover:bg-white/5 hover:text-slate-200 cursor-default">
                             <div className="flex items-center gap-2 truncate">
-                                <Twitter className="w-3.5 h-3.5 flex-shrink-0" />
+                                {monitor.monitorType === 'keyword' ? (
+                                    <Search className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
+                                ) : (
+                                    <Twitter className="w-3.5 h-3.5 flex-shrink-0" />
+                                )}
                                 <span className="truncate">{monitor.accountHandle}</span>
                             </div>
                             <button
