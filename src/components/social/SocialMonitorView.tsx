@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, MessageSquare, ExternalLink, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, MessageSquare, ExternalLink, RefreshCw, AlertTriangle, Twitter, Search } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface SocialMonitor {
@@ -36,6 +36,8 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
     const [loading, setLoading] = useState(true)
     const [newHandle, setNewHandle] = useState('')
     const [addingMonitor, setAddingMonitor] = useState(false)
+    const [checking, setChecking] = useState(false)
+    const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set())
 
     const fetchData = async () => {
         setLoading(true)
@@ -78,7 +80,7 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
 
             if (res.ok) {
                 setNewHandle('')
-                fetchData()
+                fetchData() // Refresh list
             }
         } catch (error) {
             console.error('Failed to add monitor:', error)
@@ -87,7 +89,8 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
         }
     }
 
-    const handleDeleteMonitor = async (id: string) => {
+    const handleDeleteMonitor = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
         if (!confirm('Are you sure you want to stop monitoring this account?')) return
         try {
             await fetch(`/api/social-monitors/${id}`, { method: 'DELETE' })
@@ -97,115 +100,195 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
         }
     }
 
+    const handleCheckNow = async () => {
+        setChecking(true)
+        try {
+            const res = await fetch('/api/social-monitors/check', { method: 'POST' })
+            if (!res.ok) throw new Error('Check failed')
+            await fetchData() // Refresh the view
+        } catch (error) {
+            console.error('Failed to checked monitors:', error)
+        } finally {
+            setChecking(false)
+        }
+    }
+
+    const handleAnalyze = async (tweetId: string) => {
+        setAnalyzingIds(prev => {
+            const next = new Set(prev)
+            next.add(tweetId)
+            return next
+        })
+        try {
+            const res = await fetch(`/api/tracked-tweets/${tweetId}/analyze`, { method: 'POST' })
+            if (!res.ok) throw new Error('Analysis failed')
+            await fetchData()
+        } catch (error) {
+            console.error('Failed to analyze tweet:', error)
+        } finally {
+            setAnalyzingIds(prev => {
+                const next = new Set(prev)
+                next.delete(tweetId)
+                return next
+            })
+        }
+    }
+
     return (
-        <div className="flex flex-col h-full bg-background text-foreground">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-background-secondary/50">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    Social Command Center
-                </h2>
-                <button
-                    onClick={fetchData}
-                    className="p-2 hover:bg-white/5 rounded-full transition-colors"
-                >
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                </button>
-            </div>
+        <div className="flex h-full">
+            {/* Sidebar (Matches ConversationSidebar) */}
+            <div className="w-[260px] flex flex-col h-full border-r border-white/5 bg-transparent">
+                {/* Header / Add Action */}
+                <div className="p-3">
+                    <form onSubmit={handleAddMonitor} className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                        <input
+                            type="text"
+                            value={newHandle}
+                            onChange={e => setNewHandle(e.target.value)}
+                            placeholder="Add twitter handle..."
+                            className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-300 placeholder-slate-500 outline-none focus:border-white/20 transition-colors"
+                        />
+                        <button
+                            type="submit"
+                            disabled={addingMonitor || !newHandle}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded text-slate-400 disabled:opacity-50"
+                        >
+                            <Plus className="w-3 h-3" />
+                        </button>
+                    </form>
+                </div>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Monitors Sidebar (Left) */}
-                <div className="w-64 border-r border-border bg-background-secondary/30 flex flex-col">
-                    <div className="p-4 border-b border-border">
-                        <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-3">Monitored Accounts</h3>
-                        <form onSubmit={handleAddMonitor} className="flex gap-2">
-                            <input
-                                type="text"
-                                value={newHandle}
-                                onChange={e => setNewHandle(e.target.value)}
-                                placeholder="@handle"
-                                className="flex-1 bg-background border border-white/10 rounded px-2 py-1 text-sm focus:outline-none focus:border-primary"
-                            />
-                            <button
-                                type="submit"
-                                disabled={addingMonitor || !newHandle}
-                                className="p-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
-                            >
-                                <Plus className="w-4 h-4" />
-                            </button>
-                        </form>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                        {monitors.map(monitor => (
-                            <div key={monitor.id} className="flex items-center justify-between p-2 rounded hover:bg-white/5 group">
-                                <span className="text-sm font-medium truncat">{monitor.accountHandle}</span>
-                                <button
-                                    onClick={() => handleDeleteMonitor(monitor.id)}
-                                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
-                                >
-                                    <Trash2 className="w-3 h-3" />
-                                </button>
-                            </div>
-                        ))}
+                <div className="px-3 pb-2 flex gap-1">
+                    <div className="px-3 pt-1 pb-1 text-[10px] font-medium text-slate-500 uppercase tracking-wider">
+                        Monitored Accounts
                     </div>
                 </div>
 
-                {/* Main Feed (Center) */}
-                <div className="flex-1 overflow-y-auto p-6 bg-background">
-                    <div className="max-w-3xl mx-auto space-y-6">
-                        {tweets.length === 0 ? (
-                            <div className="text-center text-muted-foreground py-20">
-                                <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                                <p>No tweets tracked yet. Add monitored accounts to start ingesting content.</p>
-                                <p className="text-xs mt-2 opacity-60">(New tweets will appear here automatically)</p>
+                <div className="flex-1 overflow-y-auto px-2 space-y-0.5">
+                    {monitors.map(monitor => (
+                        <div key={monitor.id} className="w-full group flex items-center justify-between px-3 py-2 rounded-lg text-sm text-left transition-colors text-slate-400 hover:bg-white/5 hover:text-slate-200 cursor-default">
+                            <div className="flex items-center gap-2 truncate">
+                                <Twitter className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span className="truncate">{monitor.accountHandle}</span>
                             </div>
-                        ) : (
-                            tweets.map(tweet => (
-                                <div key={tweet.id} className="bg-card border border-border rounded-lg p-5 hover:border-white/20 transition-colors shadow-sm">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-xs">
-                                                {tweet.authorHandle[1]}
-                                            </div>
-                                            <div>
-                                                <div className="font-semibold text-sm">{tweet.authorName || tweet.authorHandle}</div>
-                                                <div className="text-xs text-muted-foreground">{tweet.authorHandle} • {formatDistanceToNow(new Date(tweet.createdAt), { addSuffix: true })}</div>
-                                            </div>
-                                        </div>
-                                        <a href={tweet.url} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
-                                            <ExternalLink className="w-4 h-4" />
+                            <button
+                                onClick={(e) => handleDeleteMonitor(monitor.id, e)}
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-white/10 text-slate-500 hover:text-red-400 transition-colors"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                            </button>
+                        </div>
+                    ))}
+                    {monitors.length === 0 && (
+                        <div className="text-center text-slate-500 text-sm py-4">No monitors added</div>
+                    )}
+                </div>
+
+                {/* Action Bar at Bottom of Sidebar */}
+                <div className="p-3 border-t border-white/5">
+                    <button
+                        onClick={handleCheckNow}
+                        disabled={checking}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-colors text-xs font-medium disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} />
+                        {checking ? 'Syncing...' : 'Sync Now'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Main Feed (Matches Chat Interface Area) */}
+            <div className="flex-1 overflow-y-auto bg-transparent">
+                {/* Headerless to match Chat, or minimal header if needed by Dashboard layout? 
+                     Chat interface doesn't have a header in the component itself. 
+                     We'll rely on the Dashboard styling. 
+                 */}
+
+                <div className="max-w-3xl mx-auto p-6 space-y-6">
+                    {/* Title/Header Area in Feed */}
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="p-3 bg-blue-500/10 rounded-xl">
+                            <Twitter className="w-6 h-6 text-blue-400" />
+                        </div>
+                        <div>
+                            <h1 className="text-lg font-semibold text-white">Social Command Center</h1>
+                            <p className="text-sm text-slate-400">Monitor and snipe tracked accounts</p>
+                        </div>
+                    </div>
+
+                    {tweets.length === 0 ? (
+                        <div className="text-center py-20">
+                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/5 mb-4">
+                                <MessageSquare className="w-6 h-6 text-slate-500" />
+                            </div>
+                            <h3 className="text-sm font-medium text-slate-300">No tweets yet</h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                                Add handles on the left and click "Sync Now"
+                            </p>
+                        </div>
+                    ) : (
+                        tweets.map(tweet => (
+                            <div key={tweet.id} className="flex gap-4 group">
+                                {/* Avatar */}
+                                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 border border-slate-600 text-xs font-bold text-slate-300">
+                                    {tweet.authorHandle[1]?.toUpperCase() || 'X'}
+                                </div>
+
+                                {/* Content Bubble */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-sm font-medium text-slate-200">{tweet.authorName || tweet.authorHandle}</span>
+                                        <span className="text-xs text-slate-500">{tweet.authorHandle}</span>
+                                        <span className="text-xs text-slate-600">•</span>
+                                        <span className="text-xs text-slate-500">{formatDistanceToNow(new Date(tweet.createdAt))} ago</span>
+                                        <a href={tweet.url} target="_blank" rel="noopener noreferrer" className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-blue-400">
+                                            <ExternalLink className="w-3.5 h-3.5" />
                                         </a>
                                     </div>
 
-                                    <p className="text-base whitespace-pre-wrap mb-4 leading-relaxed">
+                                    <div className="bg-white/5 border border-white/5 rounded-2xl rounded-tl-none px-4 py-3 mb-2 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
                                         {tweet.content}
-                                    </p>
+                                    </div>
 
-                                    {/* Analysis Badge (Placeholder for Phase 2) */}
-                                    {tweet.fallaciesDetected && tweet.fallaciesDetected.length > 0 && (
-                                        <div className="mb-4 bg-red-500/10 border border-red-500/20 rounded p-3 text-sm">
-                                            <div className="flex items-center gap-2 text-red-400 font-semibold mb-1">
-                                                <AlertTriangle className="w-4 h-4" />
-                                                Fallacy Detected: {tweet.fallaciesDetected[0].type}
+                                    {/* Action Row */}
+                                    <div className="flex gap-2">
+                                        {!tweet.analyzed ? (
+                                            <button
+                                                onClick={() => handleAnalyze(tweet.id)}
+                                                disabled={analyzingIds.has(tweet.id)}
+                                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs font-medium text-slate-400 transition-colors disabled:opacity-50"
+                                            >
+                                                <AlertTriangle className={`w-3.5 h-3.5 ${analyzingIds.has(tweet.id) ? 'animate-pulse' : ''}`} />
+                                                <span>Check Fallacies</span>
+                                            </button>
+                                        ) : tweet.fallaciesDetected && tweet.fallaciesDetected.length > 0 ? (
+                                            <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-xs text-red-200 max-w-lg">
+                                                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-red-400" />
+                                                <div>
+                                                    <span className="font-semibold text-red-400">{tweet.fallaciesDetected[0].type}: </span>
+                                                    {tweet.fallaciesDetected[0].explanation}
+                                                </div>
                                             </div>
-                                            <p className="text-muted-foreground text-xs">{tweet.fallaciesDetected[0].explanation}</p>
-                                        </div>
-                                    )}
+                                        ) : (
+                                            <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-emerald-500/70">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500/50" />
+                                                Clean
+                                            </span>
+                                        )}
 
-                                    <div className="flex items-center justify-end pt-3 border-t border-white/5">
                                         <button
                                             onClick={() => onEngage(tweet)}
-                                            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm"
+                                            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-primary-600/10 hover:bg-primary-600/20 text-primary-400 border border-primary-600/20 rounded-lg text-xs font-medium transition-colors"
                                         >
-                                            <MessageSquare className="w-4 h-4" />
-                                            Engage / Snipe
+                                            <MessageSquare className="w-3.5 h-3.5" />
+                                            <span>Snipe</span>
                                         </button>
                                     </div>
                                 </div>
-                            ))
-                        )}
-                    </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
         </div>
