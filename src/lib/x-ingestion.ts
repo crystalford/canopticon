@@ -12,8 +12,8 @@ export async function ingestTweetsForMonitors(force = false) {
     const client = getXClient()
     const readOnlyClient = client.readOnly
 
-    // 24 hours ago (ISO string for X API)
-    const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    // 30 minutes ago (Viral Scout mode - strict recency)
+    const startTime = new Date(Date.now() - 30 * 60 * 1000).toISOString()
 
     for (const monitor of monitors) {
         // Rate limit / Cost check: skip if checked < 60 mins ago
@@ -29,15 +29,44 @@ export async function ingestTweetsForMonitors(force = false) {
 
             // A) Keyword / Topic Scout (Search API)
             if (monitor.monitorType === 'keyword') {
-                const searchRes = await readOnlyClient.v2.search(monitor.accountHandle, {
-                    max_results: 10,
+                // ... (existing keyword logic) ...
+                let query = monitor.accountHandle
+                if (!query.includes('-is:retweet')) query += ' -is:retweet'
+                if (!query.includes('-is:reply')) query += ' -is:reply'
+
+                const searchRes = await readOnlyClient.v2.search(query, {
+                    max_results: 10, // Limit to save costs
                     "tweet.fields": ["created_at", "text", "author_id", "public_metrics"],
                     start_time: startTime,
                     sort_order: 'recency'
                 })
                 fetchedTweets = searchRes.data.data || []
             }
-            // B) Account Monitor (User Timeline)
+            // B) Trending Scout (Canada Trends)
+            else if (monitor.monitorType === 'trending') {
+                // 1. Fetch Canada Trends (WOEID: 23424775)
+                try {
+                    const trendsResult = await readOnlyClient.v1.trendsByPlace(23424775)
+                    const topTrends = trendsResult[0].trends.slice(0, 3) // Top 3 trends only to save search quota
+
+                    // 2. Scout top tweet for each trend
+                    for (const trend of topTrends) {
+                        const query = `"${trend.name}" -is:retweet -is:reply lang:en`
+                        const searchRes = await readOnlyClient.v2.search(query, {
+                            max_results: 10, // Get a few to pick best? Or just 1? Let's get 5.
+                            "tweet.fields": ["created_at", "text", "author_id", "public_metrics"],
+                            start_time: startTime,
+                            sort_order: 'relevancy' // Use relevancy for trends to get the "definitive" tweet
+                        })
+                        if (searchRes.data.data) {
+                            fetchedTweets.push(...searchRes.data.data)
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch trends:', err)
+                }
+            }
+            // C) Account Monitor (User Timeline)
             else {
                 // Determine since_id from latest tracked tweet to avoid duplicates (if newer than 24h)
                 const latestTweet = await db.query.trackedTweets.findFirst({

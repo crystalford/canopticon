@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, MessageSquare, ExternalLink, RefreshCw, AlertTriangle, Twitter, Search } from 'lucide-react'
+import { Plus, Trash2, MessageSquare, ExternalLink, RefreshCw, AlertTriangle, Twitter, Search, TrendingUp } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface SocialMonitor {
@@ -62,7 +62,7 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
         return () => clearInterval(interval)
     }, [])
 
-    const [addType, setAddType] = useState<'account' | 'keyword'>('account')
+    const [addType, setAddType] = useState<'account' | 'keyword' | 'trending'>('account')
 
     const handleAddMonitor = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -75,7 +75,7 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     accountHandle: newHandle,
-                    monitorType: addType === 'keyword' ? 'keyword' : 'fallacy_detection',
+                    monitorType: addType === 'keyword' ? 'keyword' : addType === 'trending' ? 'trending' : 'fallacy_detection',
                     displayName: newHandle
                 })
             })
@@ -169,6 +169,15 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
                         >
                             Keyword
                         </button>
+                        <button
+                            onClick={() => {
+                                setAddType('trending')
+                                setNewHandle('Canada Trends')
+                            }}
+                            className={`flex-1 text-[10px] uppercase font-bold py-1 rounded-md transition-all ${addType === 'trending' ? 'bg-pink-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                            Trends
+                        </button>
                     </div>
 
                     <form onSubmit={handleAddMonitor} className="relative">
@@ -177,8 +186,9 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
                             type="text"
                             value={newHandle}
                             onChange={e => setNewHandle(e.target.value)}
-                            placeholder={addType === 'account' ? "@handle" : "Topic or #hashtag"}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-300 placeholder-slate-500 outline-none focus:border-white/20 transition-colors"
+                            placeholder={addType === 'account' ? "@handle" : addType === 'keyword' ? "Topic" : "Location"}
+                            disabled={addType === 'trending'}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-300 placeholder-slate-500 outline-none focus:border-white/20 transition-colors disabled:opacity-50"
                         />
                         <button
                             type="submit"
@@ -202,6 +212,8 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
                             <div className="flex items-center gap-2 truncate">
                                 {monitor.monitorType === 'keyword' ? (
                                     <Search className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
+                                ) : monitor.monitorType === 'trending' ? (
+                                    <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 text-pink-400" />
                                 ) : (
                                     <Twitter className="w-3.5 h-3.5 flex-shrink-0" />
                                 )}
