@@ -78,6 +78,56 @@ export const automations = pgTable('automations', {
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
+/**
+ * Social Monitors - Track X (Twitter) accounts for content ingestion
+ * Monitor specific accounts for tweets to analyze/reply to
+ */
+export const socialMonitors = pgTable('social_monitors', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    accountHandle: text('account_handle').notNull(), // e.g., "@CBCNews"
+    accountId: text('account_id'), // X user ID
+    displayName: text('display_name'),
+    enabled: boolean('enabled').default(true).notNull(),
+    monitorType: text('monitor_type').notNull(), // 'fallacy_detection' | 'trending' | 'engagement' | 'custom'
+    config: jsonb('config').notNull().default({
+        autoReply: false,
+        requireApproval: true,
+        maxRepliesPerDay: 10,
+        fallacyTypes: [],
+    }),
+    lastCheckedAt: timestamp('last_checked_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+/**
+ * Tracked Tweets - Tweets from monitored accounts
+ * Stores tweets for analysis, reply drafting, and engagement tracking
+ */
+export const trackedTweets = pgTable('tracked_tweets', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tweetId: text('tweet_id').notNull().unique(),
+    monitorId: uuid('monitor_id').references(() => socialMonitors.id, { onDelete: 'cascade' }).notNull(),
+    authorHandle: text('author_handle').notNull(),
+    authorName: text('author_name'),
+    content: text('content').notNull(),
+    url: text('url').notNull(),
+
+    // Analysis
+    analyzed: boolean('analyzed').default(false).notNull(),
+    fallaciesDetected: jsonb('fallacies_detected'), // Array of {type, explanation, severity}
+
+    // Reply tracking
+    replyStatus: text('reply_status').default('pending').notNull(), // 'pending' | 'approved' | 'posted' | 'skipped'
+    replyDraft: text('reply_draft'),
+    replyTweetId: text('reply_tweet_id'),
+
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    analyzedAt: timestamp('analyzed_at'),
+    repliedAt: timestamp('replied_at'),
+})
+
+
 // ============================================================================
 // RELATIONS
 // ============================================================================
@@ -101,6 +151,17 @@ export const articlesRelations = relations(articles, ({ one }) => ({
     }),
 }))
 
+export const socialMonitorsRelations = relations(socialMonitors, ({ many }) => ({
+    trackedTweets: many(trackedTweets),
+}))
+
+export const trackedTweetsRelations = relations(trackedTweets, ({ one }) => ({
+    monitor: one(socialMonitors, {
+        fields: [trackedTweets.monitorId],
+        references: [socialMonitors.id],
+    }),
+}))
+
 // ============================================================================
 // TYPE EXPORTS
 // ============================================================================
@@ -119,3 +180,9 @@ export type NewOperator = typeof operators.$inferInsert
 
 export type Automation = typeof automations.$inferSelect
 export type NewAutomation = typeof automations.$inferInsert
+
+export type SocialMonitor = typeof socialMonitors.$inferSelect
+export type NewSocialMonitor = typeof socialMonitors.$inferInsert
+
+export type TrackedTweet = typeof trackedTweets.$inferSelect
+export type NewTrackedTweet = typeof trackedTweets.$inferInsert
