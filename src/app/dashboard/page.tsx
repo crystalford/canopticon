@@ -137,7 +137,7 @@ export default function DashboardPage() {
                 ${!sidebarOpen ? 'lg:translate-x-0 lg:w-0 lg:border-r-0 lg:overflow-hidden' : ''}
             `}>
                 <ConversationSidebar
-                    currentId={conversationId}
+                    activeConversationId={conversationId}
                     onSelect={handleSelectConversation}
                     onNewChat={handleNewChat}
                     refreshKey={refreshKey}
@@ -200,15 +200,10 @@ export default function DashboardPage() {
                             />
                         )
                     ) : (
-                        key = { chatKey }
-                            conversationId={conversationId}
-                    onConversationCreated={handleConversationCreated}
-                    onNewChat={handleNewChat}
-                    initialMessages={initialMessages}
-                        />
+                        <SocialMonitorView onEngage={handleSocialEngage} />
                     )}
+                </main>
             </div>
         </div>
-        </div >
     )
 }
