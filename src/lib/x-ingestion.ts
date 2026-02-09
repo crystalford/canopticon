@@ -46,7 +46,13 @@ export async function ingestTweetsForMonitors(force = false) {
             else if (monitor.monitorType === 'trending') {
                 // 1. Fetch Canada Trends (WOEID: 23424775)
                 try {
-                    const trendsResult = await readOnlyClient.v1.trendsByPlace(23424775)
+                    // Use user client (client) instead of readOnlyClient for v1.1 just in case
+                    const trendsResult = await client.v1.trendsByPlace(23424775)
+
+                    if (!trendsResult || !trendsResult[0] || !trendsResult[0].trends) {
+                        throw new Error('No trends data returned from X API')
+                    }
+
                     const topTrends = trendsResult[0].trends.slice(0, 3) // Top 3 trends only to save search quota
 
                     // 2. Scout top tweet for each trend
