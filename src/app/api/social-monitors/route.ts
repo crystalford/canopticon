@@ -24,8 +24,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
-        // Clean handle (ensure @)
-        const handle = accountHandle.startsWith('@') ? accountHandle : `@${accountHandle}`
+        // Clean handle (ensure @ for accounts, raw for keywords)
+        let handle = accountHandle
+        if (monitorType !== 'keyword') {
+            handle = accountHandle.startsWith('@') ? accountHandle : `@${accountHandle}`
+        }
 
         const [monitor] = await db.insert(socialMonitors).values({
             accountHandle: handle,

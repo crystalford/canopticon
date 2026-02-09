@@ -106,10 +106,24 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
         setChecking(true)
         try {
             const res = await fetch('/api/social-monitors/check', { method: 'POST' })
-            if (!res.ok) throw new Error('Check failed')
+            const data = await res.json()
+
+            if (!res.ok) throw new Error(data.error || 'Check failed')
+
+            // Show feedback
+            const newCount = data.results?.reduce((acc: number, r: any) => acc + (r.new || 0), 0)
+            const errors = data.results?.filter((r: any) => r.error).map((r: any) => `${r.handle}: ${r.error}`)
+
+            if (errors && errors.length > 0) {
+                alert(`Sync complete with errors:\n${errors.join('\n')}`)
+            } else {
+                alert(`Sync complete! Found ${newCount} new tweets.`)
+            }
+
             await fetchData() // Refresh the view
         } catch (error) {
             console.error('Failed to checked monitors:', error)
+            alert('Failed to sync. Check console for details.')
         } finally {
             setChecking(false)
         }
