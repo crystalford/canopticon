@@ -34,22 +34,40 @@ async function generateAndPostThread(articleId: string, articleTitle: string, ar
 
     // Generate thread using AI
     const articleUrl = `https://canopticon.com/articles/${articleSlug}`
-    const prompt = `Convert this article into an engaging Twitter thread (5-7 tweets). Each tweet must be under 280 characters.
+
+    // Calculate dynamic thread length based on article word count
+    const wordCount = article.content.split(/\s+/).length
+    let threadLength: string
+    if (wordCount < 500) {
+        threadLength = '3-4'  // Short articles
+    } else if (wordCount < 1500) {
+        threadLength = '5-7'  // Medium articles (most common)
+    } else {
+        threadLength = '7-8'  // Long articles
+    }
+
+    // Reserve space for URL in last tweet (URL + "Read the full analysis: " = ~70 chars)
+    const urlReservedSpace = articleUrl.length + 25
+    const maxLastTweetContentLength = 280 - urlReservedSpace
+
+    const prompt = `Convert this article into an engaging Twitter thread (${threadLength} tweets). Each tweet must be under 280 characters.
 
 Article Title: ${articleTitle}
 Article Summary: ${article.summary}
 Article Content (first 2000 chars): ${article.content.substring(0, 2000)}
 
 Instructions:
-- Tweet 1: Hook - grab attention with the key insight
-- Tweets 2-5: Main points from the article, one per tweet
-- Last tweet: "Read the full analysis: ${articleUrl}"
-- Each tweet MUST be under 280 characters
+- Tweet 1: Hook - grab attention with the key insight  
+- Middle tweets: Main points from the article, one per tweet
+- Last tweet: MUST include this exact text at the end: "Read the full analysis: ${articleUrl}"
+- CRITICAL: The last tweet content BEFORE the URL must be ${maxLastTweetContentLength} characters or less to fit the URL
+- Each tweet MUST be under 280 characters total
 - Write in a professional, engaging tone
 - Use line breaks for readability
+- Do NOT add emojis (they may already be in the content)
 
 Return ONLY a JSON array of tweet strings, nothing else. Example format:
-["Tweet 1 text here", "Tweet 2 text here", "Tweet 3 text here"]`
+["Tweet 1 text here", "Tweet 2 text here", "Final tweet text.\n\nRead the full analysis: ${articleUrl}"]`
 
     const result = await generateText({
         model: chatModel,
