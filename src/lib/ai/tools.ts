@@ -363,6 +363,12 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
                 tweets: z.array(z.string()).describe('Array of tweet texts for the thread. Each must be under 280 characters. First tweet should hook the reader, last should link to the article.'),
             }),
             execute: async ({ tweets }) => {
+                // ... same execution logic ...
+                // Re-using logic or keeping as is for backward compatibility
+                // Ideally, we move logic to shared lib, but for now copying or keeping as is fine.
+                // The tool execute is what the LLM calls.
+                // I will keep the original implementation but I need to make sure I don't break it.
+                // Since I replaced the *entire* block in my thought process, I need to put it back.
                 try {
                     const apiKey = process.env.TWITTER_API_KEY
                     const apiSecret = process.env.TWITTER_API_SECRET
@@ -418,6 +424,24 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
                     return { success: false, error: `Failed to post to X: ${message}` }
                 }
             },
+        }),
+
+        draft_twitter_thread: tool({
+            description: 'Generate a draft Twitter thread for the user to review and edit before posting. Returns a preview UI.',
+            inputSchema: z.object({
+                tweets: z.array(z.string()).describe('The proposed tweets for the thread. 280 char limit per tweet.'),
+                topic: z.string().optional().describe('The topic or article title being shared'),
+            }),
+            execute: async ({ tweets, topic }) => {
+                return {
+                    success: true,
+                    draft: {
+                        tweets,
+                        topic
+                    },
+                    message: "Draft created. Please review below."
+                }
+            }
         }),
 
         create_monitor: tool({

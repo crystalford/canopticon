@@ -3,6 +3,7 @@
 import ReactMarkdown from 'react-markdown'
 import { User, ExternalLink, Check, AlertCircle, Search, FileText, List, Pencil, EyeOff } from 'lucide-react'
 import type { UIMessage } from 'ai'
+import { ThreadPreview } from '../social/ThreadPreview'
 
 export function MessageBubble({ message }: { message: UIMessage }) {
     const isUser = message.role === 'user'
@@ -10,11 +11,10 @@ export function MessageBubble({ message }: { message: UIMessage }) {
     return (
         <div className="flex gap-3">
             {/* Avatar */}
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                isUser
-                    ? 'bg-slate-700 border border-slate-600'
-                    : 'bg-primary-600/20 border border-primary-500/30'
-            }`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser
+                ? 'bg-slate-700 border border-slate-600'
+                : 'bg-primary-600/20 border border-primary-500/30'
+                }`}>
                 {isUser ? (
                     <User className="w-4 h-4 text-slate-300" />
                 ) : (
@@ -82,6 +82,7 @@ function ToolPartDisplay({ part }: { part: ToolPart }) {
         unpublish_article: 'Unpublishing article',
         add_image: 'Finding image',
         post_to_x: 'Posting to X',
+        draft_twitter_thread: 'Drafting Twitter thread',
         create_monitor: 'Creating monitor',
         list_monitors: 'Listing monitors',
         toggle_monitor: 'Toggling monitor',
