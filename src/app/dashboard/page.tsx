@@ -16,6 +16,33 @@ export default function DashboardPage() {
     // Only changes on explicit user actions (new chat, select conversation),
     // NOT when conversation ID is auto-detected after first exchange.
     const [chatKey, setChatKey] = useState<string>('new')
+    const [urlInitialized, setUrlInitialized] = useState(false)
+
+    // Load conversation from URL on mount
+    useEffect(() => {
+        if (urlInitialized) return
+
+        const params = new URLSearchParams(window.location.search)
+        const convId = params.get('c')
+
+        if (convId) {
+            handleSelectConversation(convId)
+        }
+        setUrlInitialized(true)
+    }, [urlInitialized])
+
+    // Update URL when conversation changes
+    useEffect(() => {
+        if (!urlInitialized) return
+
+        const url = new URL(window.location.href)
+        if (conversationId) {
+            url.searchParams.set('c', conversationId)
+        } else {
+            url.searchParams.delete('c')
+        }
+        window.history.replaceState({}, '', url)
+    }, [conversationId, urlInitialized])
 
     // Close sidebar on mobile by default
     useEffect(() => {
