@@ -1,29 +1,35 @@
-'use client'
-
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import type { UIMessage } from 'ai'
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { MessageBubble } from './MessageBubble'
-import { Send, Square } from 'lucide-react'
+import { Send, Square, ChevronDown, UserCog } from 'lucide-react'
+import { PERSONAS, PersonaId } from '@/lib/ai/personas'
 
 interface ChatInterfaceProps {
     conversationId: string | null
     onConversationCreated: (id: string) => void
     onNewChat: () => void
     initialMessages?: UIMessage[]
+    initialPersonaId?: PersonaId
+    initialInput?: string
 }
 
-export function ChatInterface({ conversationId, onConversationCreated, onNewChat, initialMessages }: ChatInterfaceProps) {
+export function ChatInterface({ conversationId, onConversationCreated, onNewChat, initialMessages, initialPersonaId, initialInput }: ChatInterfaceProps) {
     const scrollRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
-    const [input, setInput] = useState('')
+    const [input, setInput] = useState(initialInput || '')
+    const [personaId, setPersonaId] = useState<PersonaId>(initialPersonaId || 'canopticon')
     const hasDetectedConversation = useRef(false)
+    const [showPersonaMenu, setShowPersonaMenu] = useState(false)
 
     const transport = useMemo(() => new DefaultChatTransport({
         api: '/api/chat',
-        body: conversationId ? { conversationId } : undefined,
-    }), [conversationId])
+        body: {
+            conversationId: conversationId || undefined,
+            personaId
+        },
+    }), [conversationId, personaId])
 
     const { messages, sendMessage, status, stop, setMessages } = useChat({
         transport,
@@ -88,6 +94,42 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
 
     return (
         <div className="flex flex-col h-full">
+            {/* Header / Persona Selector */}
+            <div className="h-12 border-b border-white/5 flex items-center justify-between px-4">
+                <div className="relative">
+                    <button
+                        onClick={() => setShowPersonaMenu(!showPersonaMenu)}
+                        className="flex items-center gap-2 text-sm text-slate-300 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/5"
+                    >
+                        <UserCog size={16} />
+                        <span className="font-medium">{PERSONAS[personaId]?.name || 'Canopticon'}</span>
+                        <ChevronDown size={14} className={`transition-transform ${showPersonaMenu ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showPersonaMenu && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setShowPersonaMenu(false)} />
+                            <div className="absolute top-full left-0 mt-1 w-64 bg-zinc-900 border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden py-1">
+                                {(Object.values(PERSONAS) as any[]).map((p) => (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => {
+                                            setPersonaId(p.id as PersonaId)
+                                            setShowPersonaMenu(false)
+                                        }}
+                                        className={`w-full text-left px-4 py-2 text-sm hover:bg-white/10 transition-colors ${personaId === p.id ? 'text-red-400 bg-red-500/5' : 'text-slate-300'
+                                            }`}
+                                    >
+                                        <div className="font-medium">{p.name}</div>
+                                        <div className="text-xs text-slate-500 truncate">{p.description}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+
             {/* Messages area */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto">
                 {showWelcome && (
@@ -165,7 +207,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            placeholder="Research a topic, write an article, publish..."
+                            placeholder={`Message ${PERSONAS[personaId]?.name}...`}
                             className="input pr-24 resize-none min-h-[52px] max-h-[200px]"
                             rows={1}
                             onInput={(e) => {

@@ -1,7 +1,7 @@
 import { db, articles } from '@/db'
 import { desc, eq } from 'drizzle-orm'
 import Link from 'next/link'
-import { Edit, ExternalLink, MoreHorizontal, FileText } from 'lucide-react'
+import { Edit, ExternalLink, MoreHorizontal, FileText, UserCog } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
@@ -55,8 +55,8 @@ export default async function ContentPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${article.status === 'published'
-                                                ? 'bg-green-500/10 border-green-500/20 text-green-400'
-                                                : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
+                                            ? 'bg-green-500/10 border-green-500/20 text-green-400'
+                                            : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
                                             }`}>
                                             {article.status === 'published' ? 'Published' : 'Draft'}
                                         </span>
@@ -84,6 +84,13 @@ export default async function ContentPage() {
                                             >
                                                 <Edit size={16} />
                                             </button>
+                                            <Link
+                                                href={`/chat?mode=editor&review=${article.id}`}
+                                                className="p-2 hover:bg-white/10 rounded-lg text-purple-400 hover:text-purple-300 transition-colors"
+                                                title="Review with Editor"
+                                            >
+                                                <UserCog size={16} />
+                                            </Link>
                                         </div>
                                     </td>
                                 </tr>

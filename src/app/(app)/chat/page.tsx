@@ -14,23 +14,10 @@ export default function ChatPage() {
     const [loadingMessages, setLoadingMessages] = useState(false)
 
     // Separate key for controlling ChatInterface remounts.
-    const [chatKey, setChatKey] = useState<string>('new')
+    const [initialPersonaId, setInitialPersonaId] = useState<any>(undefined)
+    const [initialInput, setInitialInput] = useState<string | undefined>(undefined)
 
-    // Handle URL changes
-    useEffect(() => {
-        const c = searchParams.get('c')
-        if (c) {
-            // If URL has ID and it's different (or we haven't loaded it yet), load it
-            if (c !== conversationId) {
-                handleSelectConversation(c)
-            }
-        } else {
-            // If URL has no ID, ensure we are in "New Chat" mode
-            if (conversationId !== null) {
-                handleNewChat()
-            }
-        }
-    }, [searchParams])
+    const [chatKey, setChatKey] = useState('new') // Key to force ChatInterface remount
 
     const handleNewChat = useCallback(() => {
         setConversationId(null)
@@ -72,6 +59,33 @@ export default function ChatPage() {
         }
     }, [])
 
+    // Handle URL changes
+    useEffect(() => {
+        const c = searchParams.get('c')
+        const mode = searchParams.get('mode')
+        const reviewId = searchParams.get('review')
+
+        if (mode) {
+            setInitialPersonaId(mode)
+        }
+
+        if (reviewId) {
+            setInitialInput(`Please review article #${reviewId} and provide editorial feedback.`)
+        }
+
+        if (c) {
+            // If URL has ID and it's different (or we haven't loaded it yet), load it
+            if (c !== conversationId) {
+                handleSelectConversation(c)
+            }
+        } else {
+            // If URL has no ID, ensure we are in "New Chat" mode
+            if (conversationId !== null) {
+                handleNewChat()
+            }
+        }
+    }, [searchParams, conversationId, handleSelectConversation, handleNewChat])
+
     return (
         <div className="h-full flex flex-col relative">
             {loadingMessages ? (
@@ -88,6 +102,8 @@ export default function ChatPage() {
                     onConversationCreated={handleConversationCreated}
                     onNewChat={() => router.push('/chat')} // User clicking "New Chat" in interface
                     initialMessages={initialMessages}
+                    initialPersonaId={initialPersonaId}
+                    initialInput={initialInput}
                 />
             )}
         </div>

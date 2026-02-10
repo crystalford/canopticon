@@ -2,19 +2,23 @@ import { streamText, convertToModelMessages, stepCountIs, UIMessage } from 'ai'
 import { chatModel } from '@/lib/ai/providers'
 import { createTools } from '@/lib/ai/tools'
 import { systemPrompt } from '@/lib/ai/system-prompt'
+import { getSystemPrompt } from '@/lib/ai/personas'
 import { db, conversations, messages as messagesTable } from '@/db'
 
 export const maxDuration = 120
 
 export async function POST(req: Request) {
     const body = await req.json()
-    const { messages, conversationId } = body as {
+    const { messages, conversationId, personaId } = body as {
         messages: UIMessage[]
         conversationId?: string
+        personaId?: string
     }
 
     // Create or get conversation
     let activeConversationId = conversationId || null
+
+    // ... (rest of conversation creation logic is unchanged)
 
     // Helper to extract text from UIMessage parts
     function getMessageText(msg: UIMessage): string {
@@ -66,7 +70,10 @@ export async function POST(req: Request) {
         timeZoneName: 'short',
         timeZone: 'America/Toronto'
     })
-    const enhancedSystemPrompt = `CURRENT DATE & TIME: ${dateTimeStr}\n\n${systemPrompt}`
+
+    // Select Persona System Prompt
+    const basePrompt = getSystemPrompt(personaId || null)
+    const enhancedSystemPrompt = `CURRENT DATE & TIME: ${dateTimeStr}\n\n${basePrompt}`
 
     const result = streamText({
         model: chatModel,
