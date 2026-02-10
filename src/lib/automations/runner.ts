@@ -173,45 +173,7 @@ export async function processYouTubeVideo(video: { title: string, link: string, 
 
 // ... (imports remain)
 
-export async function processYouTubeVideo(video: { title: string, link: string, pubDate?: string, description: string }, automationConfig: any = {}) {
-    console.log(`[processYouTubeVideo] Processing video: ${video.title}`)
 
-    // 1. Build the prompt
-    const instructions = automationConfig.prompt || 'Write a news article about this content.'
-    const publishMode = 'Publish the article using the publish_article tool.'
-        + (automationConfig.autoPublish ? '' : ' The article will be saved as a draft for review.')
-
-    const triggerData = `Video Title: ${video.title}\nURL: ${video.link}\nPublished: ${video.pubDate}\nDescription: ${video.description}`
-    const fullPrompt = `${instructions}\n\n${publishMode}\n\nNew content detected:\n${triggerData}`
-
-    // 2. Generate article using Claude with tools
-    const tools = createTools(undefined, { saveDraft: !automationConfig.autoPublish })
-    const result = await generateText({
-        model: chatModel,
-        system: 'You are Canopticon, an automated publishing system. When given new content and instructions, research the topic if needed (limit to 2 searches max), then write a thorough article, and ALWAYS publish it using the publish_article tool. You MUST call publish_article before finishing. Write like a professional journalist. For YouTube video content, embed the video in the article using this format: `<youtube>VIDEO_ID</youtube>` (extract the video ID from the URL, e.g. for https://www.youtube.com/watch?v=abc123 use `<youtube>abc123</youtube>`). Place the embed near the top of the article.',
-        prompt: fullPrompt,
-        tools,
-        stopWhen: stepCountIs(10),
-    })
-
-    // 3. Find created article (simplified check)
-    const recentArticle = await db.query.articles.findFirst({
-        where: (articles, { gte }) => gte(articles.createdAt, new Date(Date.now() - 30000)),
-        orderBy: (articles, { desc }) => [desc(articles.createdAt)],
-    })
-
-    if (recentArticle) {
-        console.log(`[processYouTubeVideo] Article created: ${recentArticle.title}`)
-
-        // 4. Auto-post to X
-        if (automationConfig.autoPostToX === true) {
-            await generateAndPostThread(recentArticle.id, recentArticle.title, recentArticle.slug)
-        }
-        return { success: true, articleId: recentArticle.id, summary: result.text }
-    }
-
-    return { success: false, error: "No article created" }
-}
 
 export async function runAutomation(automation: Automation) {
     // ... (existing logic, but call processYouTubeVideo if type is youtube)
