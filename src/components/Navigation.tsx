@@ -21,10 +21,10 @@ export function Navigation() {
                         Articles
                     </Link>
                     <Link
-                        href="/dashboard"
+                        href="/chat"
                         className="text-sm px-4 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-slate-300 hover:bg-white/[0.1] hover:text-white hover:border-white/[0.15]"
                     >
-                        Dashboard
+                        Launch App
                     </Link>
                 </div>
             </div>

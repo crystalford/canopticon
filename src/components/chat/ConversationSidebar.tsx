@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { Plus, MessageSquare, Trash2, FileText, ExternalLink, Search, Pin, PinOff, Pencil, Radio, Play, Pause, RotateCw, Twitter } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { Plus, MessageSquare, Trash2, Pencil, Search, Pin, PinOff, Radio, FileText, LayoutGrid } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
 
 interface Conversation {
     id: string
@@ -11,110 +14,43 @@ interface Conversation {
     updatedAt: string
 }
 
-interface Article {
-    id: string
-    title: string
-    slug: string
-    status: string
-    summary: string | null
-    publishedAt: string | null
-    createdAt: string
-}
+export function ConversationSidebar() {
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
 
-interface Monitor {
-    id: string
-    name: string
-    type: string
-    config: Record<string, unknown>
-    enabled: boolean
-    autoPublish: boolean
-    prompt: string | null
-    lastRunAt: string | null
-    lastResult: any
-    createdAt: string
-}
+    // We determine active conversation from URL ?c=ID
+    // But if we are not on /chat, we might not have one.
+    const activeConversationId = pathname.includes('/chat') ? searchParams.get('c') : null
 
-type TabType = 'chats' | 'articles' | 'monitors'
+    // If we are on /feeds or /articles, highlight those
+    const isFeedsActive = pathname.includes('/feeds')
+    const isArticlesActive = pathname.includes('/articles')
 
-interface ConversationSidebarProps {
-    activeConversationId: string | null
-    onSelect: (id: string) => void
-    onNewChat: () => void
-    refreshKey: number
-}
-
-export function ConversationSidebar({
-    activeConversationId,
-    onSelect,
-    onNewChat,
-    refreshKey,
-}: ConversationSidebarProps) {
-    const [tab, setTab] = useState<TabType>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('sidebar-tab')
-            if (saved === 'chats' || saved === 'articles' || saved === 'monitors') return saved
-        }
-        return 'chats'
-    })
     const [conversations, setConversations] = useState<Conversation[]>([])
-    const [articles, setArticles] = useState<Article[]>([])
-    const [monitors, setMonitors] = useState<Monitor[]>([])
     const [loading, setLoading] = useState(true)
-    const [articlesLoading, setArticlesLoading] = useState(true)
-    const [monitorsLoading, setMonitorsLoading] = useState(true)
     const [search, setSearch] = useState('')
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editTitle, setEditTitle] = useState('')
-    const [runningId, setRunningId] = useState<string | null>(null)
-    const [expandedMonitorId, setExpandedMonitorId] = useState<string | null>(null)
     const editInputRef = useRef<HTMLInputElement>(null)
 
+    // Fetch conversations
     useEffect(() => {
-        setLoading(true)
-        fetch('/api/conversations')
-            .then(res => res.json())
-            .then(data => { setConversations(data); setLoading(false) })
-            .catch(() => setLoading(false))
-    }, [refreshKey])
-
-    useEffect(() => {
-        setArticlesLoading(true)
-        fetch('/api/articles')
-            .then(res => res.json())
-            .then(data => { setArticles(data); setArticlesLoading(false) })
-            .catch(() => setArticlesLoading(false))
-    }, [refreshKey])
-
-    useEffect(() => {
-        setMonitorsLoading(true)
-        fetch('/api/automations')
-            .then(res => res.json())
-            .then(data => { setMonitors(data); setMonitorsLoading(false) })
-            .catch(() => setMonitorsLoading(false))
-    }, [refreshKey])
-
-    // Auto-refresh sidebar data every 5 seconds
-    useEffect(() => {
-        const interval = setInterval(() => {
-            // Refresh conversations
+        const fetchConvs = () => {
             fetch('/api/conversations')
                 .then(res => res.json())
-                .then(data => setConversations(data))
-                .catch(console.error)
+                .then(data => {
+                    setConversations(data)
+                    setLoading(false)
+                })
+                .catch(err => {
+                    console.error(err)
+                    setLoading(false)
+                })
+        }
 
-            // Refresh articles
-            fetch('/api/articles')
-                .then(res => res.json())
-                .then(data => setArticles(data))
-                .catch(console.error)
-
-            // Refresh monitors
-            fetch('/api/automations')
-                .then(res => res.json())
-                .then(data => setMonitors(data))
-                .catch(console.error)
-        }, 5000) // Every 5 seconds
-
+        fetchConvs()
+        const interval = setInterval(fetchConvs, 5000)
         return () => clearInterval(interval)
     }, [])
 
@@ -126,16 +62,25 @@ export function ConversationSidebar({
     }, [editingId])
 
     const handleDelete = async (e: React.MouseEvent, id: string) => {
+        e.preventDefault()
         e.stopPropagation()
         if (!confirm('Delete this conversation?')) return
+
         await fetch(`/api/conversations/${id}`, { method: 'DELETE' })
         setConversations(prev => prev.filter(c => c.id !== id))
-        if (activeConversationId === id) onNewChat()
+
+        // If we deleted the active one, go to new chat
+        if (activeConversationId === id) {
+            router.push('/chat')
+        }
     }
 
     const handleTogglePin = async (e: React.MouseEvent, conv: Conversation) => {
+        e.preventDefault()
         e.stopPropagation()
         const newPinned = !conv.pinned
+
+        // Optimistic update
         setConversations(prev =>
             prev.map(c => c.id === conv.id ? { ...c, pinned: newPinned } : c)
                 .sort((a, b) => {
@@ -143,6 +88,7 @@ export function ConversationSidebar({
                     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
                 })
         )
+
         await fetch(`/api/conversations/${conv.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -151,6 +97,7 @@ export function ConversationSidebar({
     }
 
     const startRename = (e: React.MouseEvent, conv: Conversation) => {
+        e.preventDefault()
         e.stopPropagation()
         setEditingId(conv.id)
         setEditTitle(conv.title || '')
@@ -159,9 +106,11 @@ export function ConversationSidebar({
     const saveRename = async () => {
         if (!editingId) return
         const trimmed = editTitle.trim()
+
         setConversations(prev =>
             prev.map(c => c.id === editingId ? { ...c, title: trimmed || 'Untitled' } : c)
         )
+
         await fetch(`/api/conversations/${editingId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -170,92 +119,23 @@ export function ConversationSidebar({
         setEditingId(null)
     }
 
-    const handleToggleMonitor = async (e: React.MouseEvent, monitor: Monitor) => {
-        e.stopPropagation()
-        const newEnabled = !monitor.enabled
-        setMonitors(prev =>
-            prev.map(m => m.id === monitor.id ? { ...m, enabled: newEnabled } : m)
-        )
-        await fetch(`/api/automations/${monitor.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enabled: newEnabled }),
-        })
-    }
-
-    const handleRunMonitor = async (e: React.MouseEvent, monitor: Monitor) => {
-        e.stopPropagation()
-        setRunningId(monitor.id)
+    const formatDate = (dateStr: string) => {
         try {
-            const res = await fetch(`/api/automations/${monitor.id}/run`, { method: 'POST' })
-            const result = await res.json()
-            setMonitors(prev =>
-                prev.map(m => m.id === monitor.id ? {
-                    ...m,
-                    lastRunAt: new Date().toISOString(),
-                    lastResult: result,
-                } : m)
-            )
-        } catch (error) {
-            console.error('Failed to run monitor:', error)
-        } finally {
-            setRunningId(null)
+            const date = new Date(dateStr)
+            const now = new Date()
+            const diffMs = now.getTime() - date.getTime()
+            const diffHrs = diffMs / (1000 * 60 * 60)
+
+            if (diffHrs < 24) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            if (diffHrs < 48) return 'Yesterday'
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        } catch {
+            return ''
         }
     }
 
-    const handleDeleteMonitor = async (e: React.MouseEvent, id: string) => {
-        e.stopPropagation()
-        if (!confirm('Delete this monitor?')) return
-        await fetch(`/api/automations/${id}`, { method: 'DELETE' })
-        setMonitors(prev => prev.filter(m => m.id !== id))
-    }
-
-    const handleToggleAutoPostToX = async (e: React.MouseEvent, monitor: Monitor) => {
-        e.stopPropagation()
-        const newValue = !monitor.config.autoPostToX
-        setMonitors(prev =>
-            prev.map(m => m.id === monitor.id ? {
-                ...m,
-                config: { ...m.config, autoPostToX: newValue }
-            } : m)
-        )
-        await fetch(`/api/automations/${monitor.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ config: { ...monitor.config, autoPostToX: newValue } }),
-        })
-    }
-
-    const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr)
-        const now = new Date()
-        const diffMs = now.getTime() - date.getTime()
-        const diffHrs = diffMs / (1000 * 60 * 60)
-        if (diffHrs < 1) return 'Just now'
-        if (diffHrs < 24) return `${Math.floor(diffHrs)}h ago`
-        if (diffHrs < 48) return 'Yesterday'
-        return date.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
-    }
-
-    const typeLabels: Record<string, string> = {
-        youtube: 'YouTube',
-        rss: 'RSS',
-        keyword: 'Keyword',
-        scheduled: 'Scheduled',
-    }
-
-    const typeBadgeColors: Record<string, string> = {
-        youtube: 'bg-red-500/20 text-red-400 border-red-500/30',
-        rss: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-        keyword: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-        scheduled: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    }
-
-    // Filter conversations by search
     const filtered = search
-        ? conversations.filter(c =>
-            (c.title || 'Untitled').toLowerCase().includes(search.toLowerCase())
-        )
+        ? conversations.filter(c => (c.title || 'Untitled').toLowerCase().includes(search.toLowerCase()))
         : conversations
 
     const pinnedConvs = filtered.filter(c => c.pinned)
@@ -266,13 +146,16 @@ export function ConversationSidebar({
         const isActive = activeConversationId === conv.id
 
         return (
-            <div
+            <Link
                 key={conv.id}
-                onClick={() => !isEditing && onSelect(conv.id)}
+                href={`/chat?c=${conv.id}`}
                 className={`w-full group flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors cursor-pointer ${isActive
                     ? 'bg-white/10 text-white'
                     : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                     }`}
+                onClick={(e) => {
+                    if (isEditing) e.preventDefault()
+                }}
             >
                 {conv.pinned ? (
                     <Pin className="w-3.5 h-3.5 flex-shrink-0 text-primary-400" />
@@ -281,7 +164,7 @@ export function ConversationSidebar({
                 )}
 
                 {isEditing ? (
-                    <div className="flex-1 min-w-0 flex items-center gap-1">
+                    <div className="flex-1 min-w-0 flex items-center gap-1" onClick={e => e.preventDefault()}>
                         <input
                             ref={editInputRef}
                             value={editTitle}
@@ -292,13 +175,13 @@ export function ConversationSidebar({
                             }}
                             onBlur={saveRename}
                             onClick={(e) => e.stopPropagation()}
-                            className="flex-1 bg-white/10 border border-white/20 rounded px-1.5 py-0.5 text-sm text-white outline-none focus:border-primary-500/50"
+                            className="flex-1 bg-white/10 border border-white/20 rounded px-1.5 py-0.5 text-sm text-white outline-none focus:border-red-500/50"
                         />
                     </div>
                 ) : (
                     <div className="flex-1 min-w-0">
                         <div className="truncate">{conv.title || 'Untitled'}</div>
-                        <div className="text-xs text-slate-500">{formatDate(conv.updatedAt)}</div>
+                        <div className="text-[10px] text-slate-600 truncate">{formatDate(conv.updatedAt)}</div>
                     </div>
                 )}
 
@@ -313,7 +196,7 @@ export function ConversationSidebar({
                         </button>
                         <button
                             onClick={(e) => handleTogglePin(e, conv)}
-                            className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-primary-400 transition-colors"
+                            className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-red-400 transition-colors"
                             title={conv.pinned ? 'Unpin' : 'Pin'}
                         >
                             {conv.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
@@ -327,306 +210,99 @@ export function ConversationSidebar({
                         </button>
                     </div>
                 )}
-            </div>
+            </Link>
         )
     }
 
     return (
-        <div className="flex flex-col h-full">
-            {/* New chat button */}
-            <div className="p-3">
-                <button
-                    onClick={onNewChat}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:text-white transition-colors text-sm"
+        <div className="flex flex-col h-full bg-black/20 border-r border-white/5 w-64 flex-shrink-0">
+            {/* App Nav Section (Top) */}
+            <div className="p-3 space-y-1">
+                <Link
+                    href="/chat"
+                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${!activeConversationId && pathname === '/chat'
+                            ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10'
+                        }`}
                 >
                     <Plus className="w-4 h-4" />
-                    New chat
-                </button>
-            </div>
+                    New Analysis
+                </Link>
 
-            {/* Tab bar */}
-            <div className="px-3 pb-2 flex gap-1">
-                {(['chats', 'articles', 'monitors'] as TabType[]).map(t => (
-                    <button
-                        key={t}
-                        onClick={() => { setTab(t); localStorage.setItem('sidebar-tab', t) }}
-                        className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${tab === t
+                <div className="h-px bg-white/5 my-2 mx-1" />
+
+                <Link
+                    href="/feeds"
+                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isFeedsActive
                             ? 'bg-white/10 text-white'
-                            : 'text-slate-500 hover:text-slate-300'
-                            }`}
-                    >
-                        {t === 'chats' ? 'Chats' : t === 'articles' ? 'Articles' : 'Monitors'}
-                    </button>
-                ))}
+                            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                        }`}
+                >
+                    <Radio className="w-4 h-4" />
+                    Live Feeds
+                </Link>
+
+                <Link
+                    href="/articles"
+                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isArticlesActive
+                            ? 'bg-white/10 text-white'
+                            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                        }`}
+                >
+                    <FileText className="w-4 h-4" /> // Icon changed on purpose from LayoutGrid to FileText
+                    Articles
+                </Link>
             </div>
 
-            {/* Search (chats tab only) */}
-            {tab === 'chats' && (
+            {/* History Section */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div className="px-4 pt-4 pb-2 text-[10px] font-medium text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                    <span>History</span>
+                </div>
+
                 <div className="px-3 pb-2">
                     <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
                         <input
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            placeholder="Search chats..."
+                            placeholder="Search..."
                             className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-300 placeholder-slate-500 outline-none focus:border-white/20 transition-colors"
                         />
                     </div>
                 </div>
-            )}
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto px-2">
-                {tab === 'chats' ? (
-                    loading ? (
+                <div className="flex-1 overflow-y-auto px-2 pb-4">
+                    {loading ? (
                         <div className="text-center text-slate-500 text-sm py-4">Loading...</div>
-                    ) : filtered.length === 0 ? (
-                        <div className="text-center text-slate-500 text-sm py-4">
-                            {search ? 'No matches' : 'No conversations yet'}
-                        </div>
                     ) : (
                         <div className="space-y-0.5">
                             {pinnedConvs.length > 0 && (
                                 <>
-                                    <div className="px-3 pt-1 pb-1 text-[10px] font-medium text-slate-500 uppercase tracking-wider">
-                                        Pinned
-                                    </div>
+                                    <div className="px-3 pt-2 pb-1 text-[10px] font-medium text-slate-600">PINNED</div>
                                     {pinnedConvs.map(renderConversation)}
-                                    {unpinnedConvs.length > 0 && (
-                                        <div className="px-3 pt-3 pb-1 text-[10px] font-medium text-slate-500 uppercase tracking-wider">
-                                            Recent
-                                        </div>
-                                    )}
+                                    <div className="px-3 pt-3 pb-1 text-[10px] font-medium text-slate-600">RECENT</div>
                                 </>
                             )}
+                            {/* Limit unpinned to last 50 to avoid performance issues maybe? No, list all for now */}
                             {unpinnedConvs.map(renderConversation)}
                         </div>
-                    )
-                ) : tab === 'articles' ? (
-                    articlesLoading ? (
-                        <div className="text-center text-slate-500 text-sm py-4">Loading...</div>
-                    ) : articles.length === 0 ? (
-                        <div className="text-center text-slate-500 text-sm py-4">No articles yet</div>
-                    ) : (
-                        <div className="space-y-0.5">
-                            {articles.map(article => article.status === 'published' ? (
-                                <a
-                                    key={article.id}
-                                    href={`/articles/${article.slug}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="w-full group flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors text-slate-400 hover:bg-white/5 hover:text-slate-200"
-                                >
-                                    <FileText className="w-3.5 h-3.5 flex-shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="truncate">{article.title}</div>
-                                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                            <span>Published</span>
-                                            {article.publishedAt && (
-                                                <>
-                                                    <span>&middot;</span>
-                                                    <span>{formatDate(article.publishedAt)}</span>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                </a>
-                            ) : (
-                                <div
-                                    key={article.id}
-                                    className="w-full group flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors text-slate-400 hover:bg-white/5 hover:text-slate-200 cursor-default"
-                                >
-                                    <FileText className="w-3.5 h-3.5 flex-shrink-0 text-amber-500/60" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="truncate">{article.title}</div>
-                                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />
-                                            <span className="text-amber-400/70">Draft</span>
-                                            <span>&middot;</span>
-                                            <span>{formatDate(article.createdAt)}</span>
-                                        </div>
-                                        {article.summary && (
-                                            <div className="mt-1 text-[10px] text-slate-600 line-clamp-2">{article.summary}</div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )
-                ) : (
-                    /* Monitors tab */
-                    monitorsLoading ? (
-                        <div className="text-center text-slate-500 text-sm py-4">Loading...</div>
-                    ) : monitors.length === 0 ? (
-                        <div className="text-center text-slate-500 text-sm py-8 px-4">
-                            <Radio className="w-6 h-6 mx-auto mb-2 text-slate-600" />
-                            <p>No monitors yet</p>
-                            <p className="text-xs text-slate-600 mt-1">Ask Canopticon to set one up in chat</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-1">
-                            {monitors.map(monitor => {
-                                const isExpanded = expandedMonitorId === monitor.id
-                                const config = monitor.config || {}
-                                return (
-                                    <div
-                                        key={monitor.id}
-                                        className="group px-3 py-2 rounded-lg text-sm transition-colors hover:bg-white/5"
-                                    >
-                                        <div
-                                            className="flex items-center gap-2 cursor-pointer"
-                                            onClick={() => setExpandedMonitorId(isExpanded ? null : monitor.id)}
-                                        >
-                                            <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${monitor.enabled ? 'bg-emerald-400' : 'bg-slate-500'
-                                                }`} />
-                                            <span className="flex-1 min-w-0 truncate text-slate-300">{monitor.name}</span>
-                                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button
-                                                    onClick={(e) => handleToggleAutoPostToX(e, monitor)}
-                                                    className={`p-1 rounded hover:bg-white/10 transition-colors ${monitor.config.autoPostToX
-                                                        ? 'text-blue-400 hover:text-blue-300'
-                                                        : 'text-slate-500 hover:text-slate-400'
-                                                        }`}
-                                                    title={monitor.config.autoPostToX ? 'Disable X auto-posting' : 'Enable X auto-posting'}
-                                                >
-                                                    <Twitter className="w-3 h-3" />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => handleRunMonitor(e, monitor)}
-                                                    disabled={runningId === monitor.id}
-                                                    className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-emerald-400 transition-colors disabled:opacity-50"
-                                                    title="Run now"
-                                                >
-                                                    {runningId === monitor.id ? (
-                                                        <RotateCw className="w-3 h-3 animate-spin" />
-                                                    ) : (
-                                                        <Play className="w-3 h-3" />
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleToggleMonitor(e, monitor) }}
-                                                    className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-slate-300 transition-colors"
-                                                    title={monitor.enabled ? 'Pause' : 'Enable'}
-                                                >
-                                                    {monitor.enabled ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                                                </button>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); handleDeleteMonitor(e, monitor.id) }}
-                                                    className="p-1 rounded hover:bg-white/10 text-slate-500 hover:text-red-400 transition-colors"
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 className="w-3 h-3" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 mt-1 ml-3.5">
-                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${typeBadgeColors[monitor.type] || 'bg-slate-500/20 text-slate-400 border-slate-500/30'
-                                                }`}>
-                                                {typeLabels[monitor.type] || monitor.type}
-                                            </span>
-                                            {monitor.lastRunAt && (
-                                                <span className="text-[10px] text-slate-500">
-                                                    Ran {formatDate(monitor.lastRunAt)}
-                                                </span>
-                                            )}
-                                            {monitor.lastResult?.success === false && (
-                                                <span className="text-[10px] text-red-400" title={monitor.lastResult?.error}>Failed</span>
-                                            )}
-                                            {monitor.lastResult?.skipped && (
-                                                <span className="text-[10px] text-amber-400" title={monitor.lastResult?.reason}>Skipped</span>
-                                            )}
-                                            {monitor.lastResult?.success === true && (
-                                                <span className="text-[10px] text-emerald-400">OK</span>
-                                            )}
-                                        </div>
-                                        {isExpanded && (
-                                            <div className="mt-2 ml-3.5 space-y-1.5 text-[11px] border-t border-white/5 pt-2">
-                                                {monitor.type === 'youtube' && config.channelId && (
-                                                    <div>
-                                                        <span className="text-slate-500">Channel: </span>
-                                                        <span className="text-slate-400">{(config.channelName as string) || (config.channelHandle as string) || (config.channelId as string)}</span>
-                                                    </div>
-                                                )}
-                                                {monitor.type === 'rss' && config.feedUrl && (
-                                                    <div>
-                                                        <span className="text-slate-500">Feed: </span>
-                                                        <span className="text-slate-400 break-all">{(config.feedName as string) || (config.feedUrl as string)}</span>
-                                                    </div>
-                                                )}
-                                                {monitor.type === 'keyword' && (config.keywords as string[])?.length > 0 && (
-                                                    <div>
-                                                        <span className="text-slate-500">Keywords: </span>
-                                                        <span className="text-slate-400">{(config.keywords as string[]).join(', ')}</span>
-                                                    </div>
-                                                )}
-                                                {monitor.prompt && (
-                                                    <div>
-                                                        <span className="text-slate-500">Prompt: </span>
-                                                        <span className="text-slate-400">{monitor.prompt}</span>
-                                                    </div>
-                                                )}
-                                                <div>
-                                                    <span className="text-slate-500">Auto-publish: </span>
-                                                    <span className={monitor.autoPublish ? 'text-emerald-400' : 'text-slate-400'}>{monitor.autoPublish ? 'Yes' : 'No (drafts)'}</span>
-                                                </div>
-                                                <div>
-                                                    <span className="text-slate-500">X auto-post: </span>
-                                                    <span className={monitor.config.autoPostToX ? 'text-blue-400' : 'text-slate-400'}>{monitor.config.autoPostToX ? 'Yes' : 'No'}</span>
-                                                </div>
-                                                {monitor.lastResult?.threadUrl && (
-                                                    <div>
-                                                        <span className="text-slate-500">Thread: </span>
-                                                        <a
-                                                            href={monitor.lastResult.threadUrl}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-blue-400 hover:underline"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            View on X ↗
-                                                        </a>
-                                                    </div>
-                                                )}
-                                                {monitor.config.autoPostToX && monitor.lastResult?.xPostError && (
-                                                    <div>
-                                                        <span className="text-red-500">X post failed: </span>
-                                                        <span className="text-red-400 text-[10px] break-all">{monitor.lastResult.xPostError}</span>
-                                                    </div>
-                                                )}
-                                                {monitor.lastResult && (
-                                                    <div>
-                                                        <span className="text-slate-500">Last result: </span>
-                                                        <span className="text-slate-400">
-                                                            {monitor.lastResult.success === true && (monitor.lastResult.summary || 'Success')}
-                                                            {monitor.lastResult.success === false && (monitor.lastResult.error || 'Error')}
-                                                            {monitor.lastResult.skipped && (monitor.lastResult.reason || 'Skipped')}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )
-                                        }
-                                        {!isExpanded && monitor.prompt && (
-                                            <div className="mt-1 ml-3.5 text-[10px] text-slate-600 truncate">
-                                                {monitor.prompt}
-                                            </div>
-                                        )}
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    )
-                )}
-            </div>
-
-            {/* Footer */}
-            <div className="p-3 border-t border-white/5">
-                <div className="text-xs text-slate-600 text-center">
-                    CANOPTICON v2
+                    )}
                 </div>
             </div>
-        </div >
+
+            {/* Footer / User Profile placeholder */}
+            <div className="p-4 border-t border-white/5">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg shadow-red-500/20">
+                        <span className="text-xs font-bold text-white">CP</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-white truncate">Canopticon</div>
+                        <div className="text-xs text-slate-500 truncate">v2.0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     )
 }
