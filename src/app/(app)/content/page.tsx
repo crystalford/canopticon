@@ -3,6 +3,7 @@ import { desc, eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { Edit, ExternalLink, MoreHorizontal, FileText, UserCog } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import { ArticleActions } from '@/components/content/ArticleActions'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,33 +66,11 @@ export default async function ContentPage() {
                                         {formatDistanceToNow(new Date(article.createdAt), { addSuffix: true })}
                                     </td>
                                     <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            {article.status === 'published' && (
-                                                <Link
-                                                    href={`/articles/${article.slug}`}
-                                                    target="_blank"
-                                                    className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"
-                                                    title="View Public Page"
-                                                >
-                                                    <ExternalLink size={16} />
-                                                </Link>
-                                            )}
-                                            {/* Note: Ensure correct edit link/action exists */}
-                                            {/* Currently passing as view only or placeholder edit */}
-                                            <button
-                                                className={`p-2 hover:bg-white/10 rounded-lg transition-colors ${article.status === 'draft' ? 'text-white' : 'text-slate-400 hover:text-white'}`}
-                                                title="Edit (Coming Soon)"
-                                            >
-                                                <Edit size={16} />
-                                            </button>
-                                            <Link
-                                                href={`/chat?mode=editor&review=${article.id}`}
-                                                className="p-2 hover:bg-white/10 rounded-lg text-purple-400 hover:text-purple-300 transition-colors"
-                                                title="Review with Editor"
-                                            >
-                                                <UserCog size={16} />
-                                            </Link>
-                                        </div>
+                                        <ArticleActions
+                                            articleId={article.id}
+                                            slug={article.slug}
+                                            status={article.status as 'draft' | 'published'}
+                                        />
                                     </td>
                                 </tr>
                             ))

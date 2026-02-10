@@ -64,6 +64,7 @@ export default function ChatPage() {
         const c = searchParams.get('c')
         const mode = searchParams.get('mode')
         const reviewId = searchParams.get('review')
+        const editId = searchParams.get('edit')
 
         if (mode) {
             setInitialPersonaId(mode)
@@ -71,6 +72,10 @@ export default function ChatPage() {
 
         if (reviewId) {
             setInitialInput(`Please review article #${reviewId} and provide editorial feedback.`)
+        }
+
+        if (editId) {
+            setInitialInput(`I want to edit article ${editId}. Please read it and help me make changes.`)
         }
 
         if (c) {
