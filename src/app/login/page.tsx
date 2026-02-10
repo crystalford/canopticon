@@ -24,7 +24,7 @@ export default function LoginPage() {
             if (result?.error) {
                 setError('Invalid credentials')
             } else {
-                window.location.href = '/dashboard'
+                window.location.href = '/chat'
             }
         } catch {
             setError('An error occurred')

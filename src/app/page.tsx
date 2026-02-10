@@ -161,8 +161,8 @@ export default async function HomePage({ searchParams }: { searchParams: { tag?:
                         <p className="text-slate-500 mb-8 max-w-md mx-auto">
                             {tag ? 'Try a different tag or browse all articles.' : 'Intelligence reports will appear here once published.'}
                         </p>
-                        <Link href={tag ? '/' : '/dashboard'} className="btn-primary">
-                            {tag ? 'View All Articles' : 'Open Dashboard'}
+                        <Link href={tag ? '/' : '/chat'} className="btn-primary">
+                            {tag ? 'View All Articles' : 'Open App'}
                         </Link>
                     </div>
                 ) : (

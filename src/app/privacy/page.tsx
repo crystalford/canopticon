@@ -16,10 +16,10 @@ export default function PrivacyPage() {
                         CANOPTICON
                     </Link>
                     <Link
-                        href="/dashboard"
+                        href="/chat"
                         className="text-sm text-slate-400 hover:text-white transition-colors"
                     >
-                        Dashboard
+                        Launch App
                     </Link>
                 </div>
             </header>
