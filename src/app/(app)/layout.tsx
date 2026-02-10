@@ -18,7 +18,7 @@ export default async function AppLayout({
     }
 
     return (
-        <div className="flex h-screen w-full bg-[#050505] text-slate-200">
+        <div className="flex h-screen w-full bg-gradient-to-br from-zinc-900 to-black text-slate-200">
             {/* Fixed Sidebar */}
             <ConversationSidebar />
 

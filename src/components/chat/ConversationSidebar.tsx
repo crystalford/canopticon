@@ -221,12 +221,12 @@ export function ConversationSidebar() {
                 <Link
                     href="/chat"
                     className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${!activeConversationId && pathname === '/chat'
-                            ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                            : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10'
+                        ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                        : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10'
                         }`}
                 >
                     <Plus className="w-4 h-4" />
-                    New Analysis
+                    New Chat
                 </Link>
 
                 <div className="h-px bg-white/5 my-2 mx-1" />
@@ -234,8 +234,8 @@ export function ConversationSidebar() {
                 <Link
                     href="/feeds"
                     className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isFeedsActive
-                            ? 'bg-white/10 text-white'
-                            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                        ? 'bg-white/10 text-white'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                         }`}
                 >
                     <Radio className="w-4 h-4" />
@@ -243,13 +243,13 @@ export function ConversationSidebar() {
                 </Link>
 
                 <Link
-                    href="/articles"
-                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isArticlesActive
-                            ? 'bg-white/10 text-white'
-                            : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                    href="/content"
+                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${pathname.includes('/content')
+                        ? 'bg-white/10 text-white'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                         }`}
                 >
-                    <FileText className="w-4 h-4" /> // Icon changed on purpose from LayoutGrid to FileText
+                    <FileText className="w-4 h-4" />
                     Articles
                 </Link>
             </div>

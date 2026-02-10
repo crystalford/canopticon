@@ -73,7 +73,7 @@ export default function ChatPage() {
     }, [])
 
     return (
-        <div className="h-full flex flex-col bg-background relative">
+        <div className="h-full flex flex-col relative">
             {loadingMessages ? (
                 <div className="flex-1 flex items-center justify-center">
                     <div className="flex items-center gap-2 text-slate-400">
