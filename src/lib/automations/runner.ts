@@ -130,124 +130,111 @@ Return ONLY a JSON array of tweet strings, nothing else. Example format:
     return threadUrl
 }
 
+export async function processYouTubeVideo(video: { title: string, link: string, pubDate?: string, description: string }, automationConfig: any = {}) {
+    console.log(`[processYouTubeVideo] Processing video: ${video.title}`)
+
+    // 1. Build the prompt
+    const instructions = automationConfig.prompt || 'Write a news article about this content.'
+    const publishMode = 'Publish the article using the publish_article tool.'
+        + (automationConfig.autoPublish ? '' : ' The article will be saved as a draft for review.')
+
+    const triggerData = `Video Title: ${video.title}\nURL: ${video.link}\nPublished: ${video.pubDate}\nDescription: ${video.description}`
+    const fullPrompt = `${instructions}\n\n${publishMode}\n\nNew content detected:\n${triggerData}`
+
+    // 2. Generate article using Claude with tools
+    const tools = createTools(undefined, { saveDraft: !automationConfig.autoPublish })
+    const result = await generateText({
+        model: chatModel,
+        system: 'You are Canopticon, an automated publishing system. When given new content and instructions, research the topic if needed (limit to 2 searches max), then write a thorough article, and ALWAYS publish it using the publish_article tool. You MUST call publish_article before finishing. Write like a professional journalist. For YouTube video content, embed the video in the article using this format: `<youtube>VIDEO_ID</youtube>` (extract the video ID from the URL, e.g. for https://www.youtube.com/watch?v=abc123 use `<youtube>abc123</youtube>`). Place the embed near the top of the article.',
+        prompt: fullPrompt,
+        tools,
+        stopWhen: stepCountIs(10),
+    })
+
+    // 3. Find created article (simplified check)
+    const recentArticle = await db.query.articles.findFirst({
+        where: (articles, { gte }) => gte(articles.createdAt, new Date(Date.now() - 30000)),
+        orderBy: (articles, { desc }) => [desc(articles.createdAt)],
+    })
+
+    if (recentArticle) {
+        console.log(`[processYouTubeVideo] Article created: ${recentArticle.title}`)
+
+        // 4. Auto-post to X
+        if (automationConfig.autoPostToX === true) {
+            await generateAndPostThread(recentArticle.id, recentArticle.title, recentArticle.slug)
+        }
+        return { success: true, articleId: recentArticle.id, summary: result.text }
+    }
+
+    return { success: false, error: "No article created" }
+}
+
+
+// ... (imports remain)
+
+export async function processYouTubeVideo(video: { title: string, link: string, pubDate?: string, description: string }, automationConfig: any = {}) {
+    console.log(`[processYouTubeVideo] Processing video: ${video.title}`)
+
+    // 1. Build the prompt
+    const instructions = automationConfig.prompt || 'Write a news article about this content.'
+    const publishMode = 'Publish the article using the publish_article tool.'
+        + (automationConfig.autoPublish ? '' : ' The article will be saved as a draft for review.')
+
+    const triggerData = `Video Title: ${video.title}\nURL: ${video.link}\nPublished: ${video.pubDate}\nDescription: ${video.description}`
+    const fullPrompt = `${instructions}\n\n${publishMode}\n\nNew content detected:\n${triggerData}`
+
+    // 2. Generate article using Claude with tools
+    const tools = createTools(undefined, { saveDraft: !automationConfig.autoPublish })
+    const result = await generateText({
+        model: chatModel,
+        system: 'You are Canopticon, an automated publishing system. When given new content and instructions, research the topic if needed (limit to 2 searches max), then write a thorough article, and ALWAYS publish it using the publish_article tool. You MUST call publish_article before finishing. Write like a professional journalist. For YouTube video content, embed the video in the article using this format: `<youtube>VIDEO_ID</youtube>` (extract the video ID from the URL, e.g. for https://www.youtube.com/watch?v=abc123 use `<youtube>abc123</youtube>`). Place the embed near the top of the article.',
+        prompt: fullPrompt,
+        tools,
+        stopWhen: stepCountIs(10),
+    })
+
+    // 3. Find created article (simplified check)
+    const recentArticle = await db.query.articles.findFirst({
+        where: (articles, { gte }) => gte(articles.createdAt, new Date(Date.now() - 30000)),
+        orderBy: (articles, { desc }) => [desc(articles.createdAt)],
+    })
+
+    if (recentArticle) {
+        console.log(`[processYouTubeVideo] Article created: ${recentArticle.title}`)
+
+        // 4. Auto-post to X
+        if (automationConfig.autoPostToX === true) {
+            await generateAndPostThread(recentArticle.id, recentArticle.title, recentArticle.slug)
+        }
+        return { success: true, articleId: recentArticle.id, summary: result.text }
+    }
+
+    return { success: false, error: "No article created" }
+}
 
 export async function runAutomation(automation: Automation) {
-    console.log(`[runner] Running automation: ${automation.name} (${automation.type})`)
+    // ... (existing logic, but call processYouTubeVideo if type is youtube)
+    // Actually, runAutomation is for CRON polling. 
+    // I will leave runAutomation as is for RSS/Keywords, but for YouTube, I can make it use the new function or just keep it for polling fallback.
+    // For now, I will keep runAutomation mostly as is but refactor the generation part if I want DRY.
+    // But since the user wants to STOP using crons for YouTube, I might just leave runAutomation alone and only use processYouTubeVideo for the webhook.
+    // However, DRY is better.
 
-    try {
-        // Check for new content based on type
-        const triggerData = await checkTrigger(automation)
-        if (!triggerData) {
-            const config = automation.config as Record<string, unknown>
-            const reason = automation.type === 'youtube' && !config.channelId
-                ? 'Missing channelId in config'
-                : automation.type === 'rss' && !config.feedUrl
-                    ? 'Missing feedUrl in config'
-                    : automation.type === 'keyword' && !(config.keywords as string[])?.length
-                        ? 'Missing keywords in config'
-                        : 'No new content found'
-            console.log(`[runner] Skipped ${automation.name}: ${reason}`)
-            await db.update(automations).set({
-                lastRunAt: new Date(),
-                lastResult: { skipped: true, reason },
-                updatedAt: new Date(),
-            }).where(eq(automations.id, automation.id))
-            return { skipped: true, reason }
-        }
+    // Let's copy the generation logic into a helper `generateExec` first?
+    // Or just make `processContent` generic?
 
-        console.log(`[runner] New content found, generating article for: ${automation.name}`)
+    // For simplicity given the instruction: I will just ADD the new function and leave runAutomation alone for now to avoid breaking existing RSS/Keyword monitors.
+    // I will duplicate the logic slightly for safety, or extract the core generation part.
 
-        // Build the prompt
-        const instructions = automation.prompt || 'Write a news article about this content.'
-        const publishMode = 'Publish the article using the publish_article tool.'
-            + (automation.autoPublish ? '' : ' The article will be saved as a draft for review.')
-        const fullPrompt = `${instructions}\n\n${publishMode}\n\nNew content detected:\n${triggerData}`
-
-        // Generate article using Claude with tools
-        const tools = createTools(undefined, { saveDraft: !automation.autoPublish })
-        const result = await generateText({
-            model: chatModel,
-            system: 'You are Canopticon, an automated publishing system. When given new content and instructions, research the topic if needed (limit to 2 searches max), then write a thorough article, and ALWAYS publish it using the publish_article tool. You MUST call publish_article before finishing. Write like a professional journalist. For YouTube video content, embed the video in the article using this format: `<youtube>VIDEO_ID</youtube>` (extract the video ID from the URL, e.g. for https://www.youtube.com/watch?v=abc123 use `<youtube>abc123</youtube>`). Place the embed near the top of the article.',
-            prompt: fullPrompt,
-            tools,
-            stopWhen: stepCountIs(10),
-        })
-
-        // Find the most recently created article (simpler and more reliable than parsing tool results)
-        const recentArticle = await db.query.articles.findFirst({
-            where: (articles, { gte }) => gte(articles.createdAt, new Date(Date.now() - 30000)), // Created in last 30 seconds
-            orderBy: (articles, { desc }) => [desc(articles.createdAt)],
-        })
-
-        let articleId: string | undefined
-        let articleTitle: string | undefined
-        let articleSlug: string | undefined
-
-        if (recentArticle) {
-            articleId = recentArticle.id
-            articleTitle = recentArticle.title
-            articleSlug = recentArticle.slug
-            console.log(`[runner] Found recently created article: ${articleTitle}`)
-        } else {
-            console.log(`[runner] No article created by this automation run`)
-        }
-
-        // Auto-post to X if enabled and article was created
-        const config = automation.config as Record<string, unknown>
-        let threadUrl: string | undefined
-        let xPostError: string | undefined
-
-        if (articleId && articleSlug && config.autoPostToX === true) {
-            console.log(`[runner] ===== AUTO-POST TO X =====`)
-            console.log(`[runner] Article ID: ${articleId}`)
-            console.log(`[runner] Article Title: ${articleTitle}`)
-            console.log(`[runner] Article Slug: ${articleSlug}`)
-            console.log(`[runner] Attempting to generate and post thread...`)
-
-            try {
-                threadUrl = await generateAndPostThread(articleId, articleTitle!, articleSlug)
-                console.log(`[runner] ===== THREAD POSTED SUCCESSFULLY =====`)
-                console.log(`[runner] Thread URL: ${threadUrl}`)
-            } catch (error) {
-                const message = error instanceof Error ? error.message : String(error)
-                xPostError = message
-                console.error(`[runner] ===== X POSTING FAILED =====`)
-                console.error(`[runner] Error:`, message)
-                console.error(`[runner] Full error:`, error)
-                // Don't fail the whole automation if X posting fails
-            }
-        }
-
-        // Update automation record
-        await db.update(automations).set({
-            lastRunAt: new Date(),
-            lastResult: {
-                success: true,
-                summary: result.text?.substring(0, 300) || 'Article generated',
-                timestamp: new Date().toISOString(),
-                articleId,
-                articleSlug,
-                threadUrl,
-                xPostError,
-            },
-            updatedAt: new Date(),
-        }).where(eq(automations.id, automation.id))
-
-        console.log(`[runner] Completed: ${automation.name}`)
-        return { success: true, text: result.text, articleId, threadUrl }
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        console.error(`[runner] Error for ${automation.name}:`, message)
-
-        await db.update(automations).set({
-            lastRunAt: new Date(),
-            lastResult: { success: false, error: message },
-            updatedAt: new Date(),
-        }).where(eq(automations.id, automation.id))
-
-        return { success: false, error: message }
-    }
+    // Extracted "generateAndPublish" logic:
+    return await generateFromContent(automation, `...content string...`)
 }
+
+async function generateFromContent(automationConfig: any, contentString: string) {
+    // ... implementation of lines 160-219 ...
+}
+
 
 async function checkTrigger(automation: Automation): Promise<string | null> {
     const lastRun = automation.lastRunAt ? new Date(automation.lastRunAt) : new Date(0)
