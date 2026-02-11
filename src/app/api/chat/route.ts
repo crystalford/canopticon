@@ -1,5 +1,5 @@
 
-import { type CoreMessage, streamText } from 'ai'
+import { streamText } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getSettings } from '@/lib/ai/providers'
@@ -61,5 +61,5 @@ export async function POST(req: Request) {
         messages,
     })
 
-    return result.toDataStreamResponse()
+    return (result as any).toDataStreamResponse()
 }
