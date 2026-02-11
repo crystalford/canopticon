@@ -53,7 +53,10 @@ export function FeedsList() {
     const handleRun = async (id: string) => {
         setRunningId(id)
         try {
-            const res = await fetch(`/api/automations/${id}/run`, { method: 'POST' })
+            const res = await fetch(`/api/automations/${id}/run`, {
+                method: 'POST',
+                body: JSON.stringify({ force: true })
+            })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Failed to run')
             // Refresh to show result

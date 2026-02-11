@@ -19,7 +19,14 @@ export async function POST(
         return NextResponse.json({ error: 'Monitor not found' }, { status: 404 })
     }
 
-    const result = await runAutomation(automation)
+    const { force } = await _req.json().catch(() => ({}))
+
+    const runConfig = {
+        ...automation,
+        lastRunAt: force ? null : automation.lastRunAt
+    }
+
+    const result = await runAutomation(runConfig)
 
     return NextResponse.json(result)
 }
