@@ -88,3 +88,5 @@ export function getSystemPrompt(personaId: string | null): string {
     const id = (personaId || 'canopticon') as PersonaId
     return PERSONAS[id]?.systemPrompt || defaultSystemPrompt
 }
+
+export const personas = Object.values(PERSONAS)
