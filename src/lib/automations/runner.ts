@@ -1,5 +1,5 @@
 import { generateText, stepCountIs } from 'ai'
-import { chatModel } from '@/lib/ai/providers'
+import { getChatModel } from '@/lib/ai/providers'
 import { createTools } from '@/lib/ai/tools'
 import { searchPerplexity } from '@/lib/ai/tools'
 import { db, automations, articles } from '@/db'
@@ -53,6 +53,8 @@ Instructions:
 - Return ONLY a JSON array of tweet strings.
 `
 
+
+    const chatModel = await getChatModel()
     const result = await generateText({
         model: chatModel,
         prompt,
@@ -92,6 +94,7 @@ export async function processYouTubeVideo(video: { title: string, link: string, 
     const fullPrompt = `${instructions}\n\n${publishMode}\n\nNew content detected:\n${triggerData}`
 
     const tools = createTools(undefined, { saveDraft: !automationConfig.autoPublish })
+    const chatModel = await getChatModel()
     const result = await generateText({
         model: chatModel,
         system: 'You are Canopticon, an automated publishing system. Write a thorough article and ALWAYS publish it using the publish_article tool. Embed YouTube videos using <youtube>ID</youtube>.',
@@ -139,6 +142,7 @@ export async function runAutomation(automation: Automation): Promise<{ success: 
 
     try {
         const tools = createTools(undefined, { saveDraft: !automation.autoPublish })
+        const chatModel = await getChatModel()
         await generateText({
             model: chatModel,
             system: 'You are Canopticon, an automated publishing system. Write a thorough article and ALWAYS publish it using the publish_article tool.',

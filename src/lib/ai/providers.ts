@@ -1,17 +1,41 @@
+
 import { anthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
+import { db } from '@/db'
+import { settings } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
-/**
- * Perplexity - for web research
- * Uses OpenAI-compatible API with custom baseURL
- */
-export const perplexity = createOpenAI({
-    apiKey: process.env.PERPLEXITY_API_KEY || '',
-    baseURL: 'https://api.perplexity.ai',
-})
+// Cache settings for a short time to avoid hitting DB on every token? 
+// For now, per-request is safer for "dynamic" feel.
 
-/**
- * Default models
- */
-export const chatModel = anthropic('claude-sonnet-4-20250514')
-export const researchModel = perplexity('sonar-pro')
+export async function getSettings() {
+    try {
+        const all = await db.select().from(settings)
+        const config: Record<string, string> = {}
+        all.forEach(s => config[s.key] = s.value)
+        return config
+    } catch (e) {
+        return {}
+    }
+}
+
+export async function getChatModel() {
+    // Default to strict Anthropic if no overrides
+    // But user might want to switch to OpenAI
+    // For now, let's keep it simple: Use ENV key or DB key
+
+    // Actually, the main chat model is currently HARDCODED to Claude
+    return anthropic('claude-3-5-sonnet-20240620')
+}
+
+export async function getResearchModel() {
+    const config = await getSettings()
+    const apiKey = config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY || ''
+
+    const perplexity = createOpenAI({
+        apiKey,
+        baseURL: 'https://api.perplexity.ai',
+    })
+
+    return perplexity('sonar-pro')
+}

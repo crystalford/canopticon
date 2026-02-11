@@ -1,6 +1,6 @@
 import { generateObject } from 'ai'
 import { z } from 'zod'
-import { chatModel } from '@/lib/ai/providers'
+import { getChatModel } from '@/lib/ai/providers'
 
 const FallacySchema = z.object({
     fallacies: z.array(z.object({
@@ -13,6 +13,7 @@ const FallacySchema = z.object({
 
 export async function detectFallacies(text: string, context = 'Canadian political discourse') {
     try {
+        const chatModel = await getChatModel()
         const { object } = await generateObject({
             model: chatModel, // Helper that returns model instance
             schema: FallacySchema,

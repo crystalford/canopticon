@@ -128,6 +128,34 @@ export const trackedTweets = pgTable('tracked_tweets', {
 })
 
 
+/**
+ * Settings - System configuration
+ * API keys, defaults, feature flags
+ */
+export const settings = pgTable('settings', {
+    key: text('key').primaryKey(),
+    value: text('value').notNull(),
+    isEncrypted: boolean('is_encrypted').default(false).notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+/**
+ * AI Agents - Dynamic Personas
+ * Configurable agents with specific system prompts and models
+ */
+export const agents = pgTable('agents', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    slug: text('slug').notNull().unique(), // e.g., 'skeptic', 'editor'
+    description: text('description'),
+    systemPrompt: text('system_prompt').notNull(),
+    modelProvider: text('model_provider').default('openai').notNull(),
+    modelId: text('model_id'),
+    isActive: boolean('is_active').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 // ============================================================================
 // RELATIONS
 // ============================================================================
@@ -186,3 +214,9 @@ export type NewSocialMonitor = typeof socialMonitors.$inferInsert
 
 export type TrackedTweet = typeof trackedTweets.$inferSelect
 export type NewTrackedTweet = typeof trackedTweets.$inferInsert
+
+export type Setting = typeof settings.$inferSelect
+export type NewSetting = typeof settings.$inferInsert
+
+export type Agent = typeof agents.$inferSelect
+export type NewAgent = typeof agents.$inferInsert

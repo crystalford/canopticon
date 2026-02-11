@@ -1,101 +1,65 @@
-import { streamText, convertToModelMessages, stepCountIs, UIMessage } from 'ai'
-import { chatModel } from '@/lib/ai/providers'
-import { createTools } from '@/lib/ai/tools'
-import { systemPrompt } from '@/lib/ai/system-prompt'
-import { getSystemPrompt } from '@/lib/ai/personas'
-import { db, conversations, messages as messagesTable } from '@/db'
 
-export const maxDuration = 120
+import { type CoreMessage, streamText } from 'ai'
+import { anthropic } from '@ai-sdk/anthropic'
+import { createOpenAI } from '@ai-sdk/openai'
+import { getSettings } from '@/lib/ai/providers'
+import { db } from '@/db'
+import { agents } from '@/db/schema'
+import { eq } from 'drizzle-orm'
+import { personas } from '@/lib/ai/personas' // Fallback
 
 export async function POST(req: Request) {
-    const body = await req.json()
-    const { messages, conversationId, personaId } = body as {
-        messages: UIMessage[]
-        conversationId?: string
-        personaId?: string
-    }
+    const { messages, data }: { messages: CoreMessage[], data?: any } = await req.json()
+    const personaId = data?.personaId || 'canopticon'
 
-    // Create or get conversation
-    let activeConversationId = conversationId || null
+    // 1. Fetch System Settings (Keys)
+    const config = await getSettings()
 
-    // ... (rest of conversation creation logic is unchanged)
+    // 2. Fetch Agent Config
+    let systemPrompt = personas.find(p => p.id === 'canopticon')?.system || ''
+    let modelProvider = 'anthropic' // Default base
+    let modelId = 'claude-3-5-sonnet-20240620'
 
-    // Helper to extract text from UIMessage parts
-    function getMessageText(msg: UIMessage): string {
-        return msg.parts
-            .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-            .map(p => p.text)
-            .join('')
-    }
-
-    if (!activeConversationId) {
-        // Create new conversation - title from first user message
-        const firstUserMsg = messages.find(m => m.role === 'user')
-        const title = firstUserMsg ? getMessageText(firstUserMsg).slice(0, 100) : 'New conversation'
-
-        const [conversation] = await db.insert(conversations).values({
-            title: title || 'New conversation',
-        }).returning()
-
-        activeConversationId = conversation.id
-    }
-
-    // Save the latest user message to DB
-    const lastMessage = messages[messages.length - 1]
-    if (lastMessage?.role === 'user') {
-        const text = getMessageText(lastMessage)
-        if (text) {
-            await db.insert(messagesTable).values({
-                conversationId: activeConversationId,
-                role: 'user',
-                content: text,
-            })
+    try {
+        const [agent] = await db.select().from(agents).where(eq(agents.slug, personaId))
+        if (agent && agent.isActive) {
+            systemPrompt = agent.systemPrompt
+            modelProvider = agent.modelProvider
+            // modelId = agent.modelId // If we implemented specific model selection
+        } else {
+            // Fallback to static
+            const p = personas.find(p => p.id === personaId)
+            if (p) systemPrompt = p.system
         }
+    } catch (e) {
+        // Fallback to static
+        const p = personas.find(p => p.id === personaId)
+        if (p) systemPrompt = p.system
     }
 
-    // Convert UI messages to model messages
-    const modelMessages = await convertToModelMessages(messages)
+    // 3. Select Model Instance
+    let model;
 
-    const tools = createTools(activeConversationId)
+    if (modelProvider === 'openai') {
+        const openai = createOpenAI({ apiKey: config.OPENAI_API_KEY || process.env.OPENAI_API_KEY })
+        model = openai('gpt-4o')
+    } else if (modelProvider === 'perplexity') {
+        const perplexity = createOpenAI({
+            apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
+            baseURL: 'https://api.perplexity.ai'
+        })
+        model = perplexity('sonar-pro')
+    } else {
+        // Anthropic (Default)
+        // Note: Anthropic key also needs checking if we want to be fully dynamic
+        model = anthropic('claude-3-5-sonnet-20240620')
+    }
 
-    // Add current date and time context to system prompt
-    const now = new Date()
-    const dateTimeStr = now.toLocaleString('en-CA', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZoneName: 'short',
-        timeZone: 'America/Toronto'
+    const result = await streamText({
+        model,
+        system: systemPrompt,
+        messages,
     })
 
-    // Select Persona System Prompt
-    const basePrompt = getSystemPrompt(personaId || null)
-    const enhancedSystemPrompt = `CURRENT DATE & TIME: ${dateTimeStr}\n\n${basePrompt}`
-
-    const result = streamText({
-        model: chatModel,
-        system: enhancedSystemPrompt,
-        messages: modelMessages,
-        tools,
-        stopWhen: stepCountIs(15),
-        onFinish: async ({ text }) => {
-            // Save assistant response to DB
-            if (text && activeConversationId) {
-                await db.insert(messagesTable).values({
-                    conversationId: activeConversationId,
-                    role: 'assistant',
-                    content: text,
-                })
-            }
-        },
-    })
-
-    return result.toUIMessageStreamResponse({
-        headers: {
-            'X-Conversation-Id': activeConversationId,
-        },
-    })
+    return result.toDataStreamResponse()
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { Plus, MessageSquare, Trash2, Pencil, Search, Pin, PinOff, Radio, FileText, LayoutGrid } from 'lucide-react'
+import { Plus, MessageSquare, Trash2, Pencil, Search, Pin, PinOff, Radio, FileText, LayoutGrid, Settings } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface Conversation {
@@ -251,6 +251,17 @@ export function ConversationSidebar() {
                 >
                     <FileText className="w-4 h-4" />
                     Articles
+                </Link>
+
+                <Link
+                    href="/settings"
+                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${pathname.includes('/settings')
+                        ? 'bg-white/10 text-white'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                        }`}
+                >
+                    <Settings className="w-4 h-4" />
+                    Settings
                 </Link>
             </div>
 
