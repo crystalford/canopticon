@@ -9,14 +9,14 @@ import { eq } from 'drizzle-orm'
 import { personas } from '@/lib/ai/personas' // Fallback
 
 export async function POST(req: Request) {
-    const { messages, data }: { messages: CoreMessage[], data?: any } = await req.json()
+    const { messages, data }: { messages: any[], data?: any } = await req.json()
     const personaId = data?.personaId || 'canopticon'
 
     // 1. Fetch System Settings (Keys)
     const config = await getSettings()
 
     // 2. Fetch Agent Config
-    let systemPrompt = personas.find(p => p.id === 'canopticon')?.system || ''
+    let systemPrompt = personas.find(p => p.id === 'canopticon')?.systemPrompt || ''
     let modelProvider = 'anthropic' // Default base
     let modelId = 'claude-3-5-sonnet-20240620'
 
@@ -29,12 +29,12 @@ export async function POST(req: Request) {
         } else {
             // Fallback to static
             const p = personas.find(p => p.id === personaId)
-            if (p) systemPrompt = p.system
+            if (p) systemPrompt = p.systemPrompt
         }
     } catch (e) {
         // Fallback to static
         const p = personas.find(p => p.id === personaId)
-        if (p) systemPrompt = p.system
+        if (p) systemPrompt = p.systemPrompt
     }
 
     // 3. Select Model Instance

@@ -16,10 +16,10 @@ export async function GET() {
         // If DB empty, return defaults (but don't save them yet to avoid confusion)
         return NextResponse.json(defaultPersonas.map(p => ({
             id: p.id,
-            name: p.title,
+            name: p.name,
             slug: p.id,
             description: p.description,
-            systemPrompt: p.system,
+            systemPrompt: p.systemPrompt,
             modelProvider: 'openai',
             isActive: true
         })))
@@ -27,10 +27,10 @@ export async function GET() {
         console.warn('Agents table not ready, returning defaults')
         return NextResponse.json(defaultPersonas.map(p => ({
             id: p.id,
-            name: p.title,
+            name: p.name,
             slug: p.id,
             description: p.description,
-            systemPrompt: p.system,
+            systemPrompt: p.systemPrompt,
             modelProvider: 'openai',
             isActive: true
         })))
