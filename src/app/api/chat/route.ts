@@ -46,13 +46,16 @@ export async function POST(req: Request) {
     } else if (modelProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai'
+            baseURL: 'https://api.perplexity.ai/chat/completions' // Correct base URL for OpenAI compat? Or just use default base
         })
-        model = perplexity('sonar-pro')
+        // Perplexity provider usually handles baseURL
+        const perplexityProvider = createOpenAI({ apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY, baseURL: 'https://api.perplexity.ai' })
+        model = perplexityProvider('sonar-pro')
     } else {
-        // Anthropic (Default)
-        // Note: Anthropic key also needs checking if we want to be fully dynamic
-        model = anthropic('claude-3-5-sonnet-20240620')
+        // Fallback / Default
+        // Switching default to OpenAI since Anthropic is erroring for this user
+        const openai = createOpenAI({ apiKey: config.OPENAI_API_KEY || process.env.OPENAI_API_KEY })
+        model = openai('gpt-4o')
     }
 
     const result = await streamText({
