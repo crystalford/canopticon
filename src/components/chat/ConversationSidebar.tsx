@@ -305,23 +305,24 @@ export function ConversationSidebar() {
             {/* Footer / User Profile placeholder */}
             <div className="p-4 border-t border-white/5">
                 <Link href="/" className="flex items-center gap-3 group">
-                    {/* Restored "Eye/Lens" Logo - Small Version */}
+                    {/* Premium Metallic Aperture Logo - Small */}
                     <div className="relative w-8 h-8 flex items-center justify-center">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 group-hover:text-white transition-colors">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="14.31" y1="8" x2="20.05" y2="17.94" />
-                            <line x1="9.69" y1="8" x2="21.17" y2="8" />
-                            <line x1="7.38" y1="12" x2="13.12" y2="2.06" />
-                            <line x1="9.69" y1="16" x2="3.95" y2="6.06" />
-                            <line x1="14.31" y1="16" x2="2.83" y2="16" />
-                            <line x1="16.62" y1="12" x2="10.88" y2="21.94" />
+                        <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
+                            <defs>
+                                <linearGradient id="metal-gradient-sm" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stopColor="#e2e8f0" />
+                                    <stop offset="100%" stopColor="#475569" />
+                                </linearGradient>
+                            </defs>
+                            <circle cx="20" cy="20" r="18" stroke="url(#metal-gradient-sm)" strokeWidth="3" fill="none" opacity="0.9" />
+                            <circle cx="20" cy="20" r="6" stroke="#ef4444" strokeWidth="3" fill="none" />
+                            <circle cx="20" cy="20" r="2" fill="#ef4444" />
                         </svg>
-                        <div className="absolute inset-0 bg-red-500/10 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
 
                     <div className="flex-1 min-w-0">
                         {/* CAN-OPTI-CON Text Style - Small */}
-                        <div className="text-sm font-black tracking-tight uppercase leading-none">
+                        <div className="text-sm font-black tracking-widest uppercase leading-none">
                             <span className="text-white">CAN</span>
                             <span className="text-red-500">OPTI</span>
                             <span className="text-white">CON</span>
