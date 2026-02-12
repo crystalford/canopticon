@@ -188,15 +188,25 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
             const channelId = config.channelId as string
             if (!channelId) return null
             const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
+            console.log(`[checkTrigger] Fetching RSS: ${feedUrl}`)
             try {
                 const feed = await parser.parseURL(feedUrl)
+                console.log(`[checkTrigger] Feeds fetched: ${feed.items.length} items. LastRun: ${lastRun.toISOString()}`)
+
                 const newItems = feed.items.filter(item => {
                     const pubDate = item.pubDate ? new Date(item.pubDate) : new Date(0)
-                    return pubDate > lastRun
+                    const isNew = pubDate > lastRun
+                    // console.log(`- Video: ${item.title} (${pubDate.toISOString()}) > ${lastRun.toISOString()}? ${isNew}`)
+                    return isNew
                 })
+                console.log(`[checkTrigger] Found ${newItems.length} new items.`)
+
                 if (newItems.length === 0) return null
                 return newItems.slice(0, 3).map(item => `Video: ${item.title} (${item.link})`).join('\n')
-            } catch (e) { console.error(e); return null }
+            } catch (e) {
+                console.error('[checkTrigger] RSS Error:', e);
+                return null
+            }
         }
         case 'rss': {
             const feedUrl = config.feedUrl as string
