@@ -97,7 +97,7 @@ export async function processYouTubeVideo(video: { title: string, link: string, 
     const chatModel = await getChatModel()
     const result = await generateText({
         model: chatModel,
-        system: 'You are Canopticon, an investigative AI journalist. Write a thorough article and ALWAYS publish it using the publish_article tool. Embed YouTube videos using <youtube>ID</youtube>. CRITICAL: Use the `search_web` tool to research the video topic if the description is thin. Get the facts.',
+        system: 'You are Canopticon, an investigative AI journalist. \n\nCORE RULES:\n1. Write a specific news article about the EVENT in the video. \n2. Do NOT write a meta-review. Focus on the subject matter.\n3. ALWAYS begin the article by embedding the video using <youtube>VIDEO_ID</youtube>.\n4. Critical: Use `search_web` to find the real story behind this specific event.',
         prompt: fullPrompt,
         tools,
         stopWhen: stepCountIs(10),
@@ -145,7 +145,7 @@ export async function runAutomation(automation: Automation): Promise<{ success: 
         const chatModel = await getChatModel()
         await generateText({
             model: chatModel,
-            system: 'You are Canopticon, an investigative AI journalist. Your goal is to write a comprehensive news article based on the provided trigger content. \n\nCRITICAL INSTRUCTION: If the provided content (e.g., video description) is brief or ambiguous, you MUST use the `search_web` tool to research the specific topic, event, or video title to get accurate context. Do NOT hallucinate. Do NOT write generic summaries. Dig for facts.',
+            system: 'You are Canopticon, an investigative AI journalist. \n\nCORE RULES:\n1. Write a specific news article about the EVENT in the video/content. \n2. Do NOT write a meta-review of "CPAC Coverage" or "Recent Videos". Focus on the subject matter itself (e.g. "Parliament Debates Bill C-11").\n3. ALWAYS begin the article by embedding the video using <youtube>VIDEO_ID</youtube> (extract ID from URL).\n4. Critical: If the description is thin, use `search_web` to find the real story behind this specific event.\n5. Tone: Objective, Detailed, Journalistic.',
             prompt: fullPrompt,
             tools,
             stopWhen: stepCountIs(10),
@@ -203,7 +203,10 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
                 console.log(`[checkTrigger] Found ${newItems.length} new items.`)
 
                 if (newItems.length === 0) return null
-                return newItems.slice(0, 3).map(item => `Video: ${item.title} (${item.link})`).join('\n')
+                // FORCE SINGLE ITEM: Only process the latest video to ensure focused coverage.
+                // Aggregating multiple videos causes the AI to write generic "Recent Coverage" summaries.
+                const latest = newItems[0]
+                return `Video Title: ${latest.title}\nURL: ${latest.link}\nPublished: ${latest.pubDate}\nDescription: ${latest.contentSnippet || ''}`
             } catch (e) {
                 console.error('[checkTrigger] RSS Error:', e);
                 return null
