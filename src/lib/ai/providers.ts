@@ -1,6 +1,6 @@
 
 import { anthropic } from '@ai-sdk/anthropic'
-import { createOpenAI } from '@ai-sdk/openai'
+import { createOpenAI, openai } from '@ai-sdk/openai'
 import { db } from '@/db'
 import { settings } from '@/db/schema'
 import { eq } from 'drizzle-orm'
@@ -20,12 +20,8 @@ export async function getSettings() {
 }
 
 export async function getChatModel() {
-    // Default to strict Anthropic if no overrides
-    // But user might want to switch to OpenAI
-    // For now, let's keep it simple: Use ENV key or DB key
-
-    // Actually, the main chat model is currently HARDCODED to Claude
-    return anthropic('claude-3-5-sonnet-20241022')
+    // Switching to OpenAI GPT-4o as default since Anthropic is returning 404s
+    return openai('gpt-4o')
 }
 
 export async function getResearchModel() {
