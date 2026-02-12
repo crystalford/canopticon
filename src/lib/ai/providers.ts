@@ -25,7 +25,7 @@ export async function getChatModel() {
     // For now, let's keep it simple: Use ENV key or DB key
 
     // Actually, the main chat model is currently HARDCODED to Claude
-    return anthropic('claude-3-5-sonnet-20240620')
+    return anthropic('claude-3-5-sonnet-20241022')
 }
 
 export async function getResearchModel() {
