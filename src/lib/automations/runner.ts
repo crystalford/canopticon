@@ -173,6 +173,7 @@ export async function runAutomation(automation: Automation): Promise<{ success: 
         return { success: false, error: "AI ran but no article was created." }
 
     } catch (error) {
+        console.error('[runAutomation] AI Error:', error)
         const message = error instanceof Error ? error.message : String(error)
         return { success: false, error: message }
     }
