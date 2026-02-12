@@ -97,7 +97,7 @@ export async function processYouTubeVideo(video: { title: string, link: string, 
     const chatModel = await getChatModel()
     const result = await generateText({
         model: chatModel,
-        system: 'You are Canopticon, an automated publishing system. Write a thorough article and ALWAYS publish it using the publish_article tool. Embed YouTube videos using <youtube>ID</youtube>.',
+        system: 'You are Canopticon, an investigative AI journalist. Write a thorough article and ALWAYS publish it using the publish_article tool. Embed YouTube videos using <youtube>ID</youtube>. CRITICAL: Use the `search_web` tool to research the video topic if the description is thin. Get the facts.',
         prompt: fullPrompt,
         tools,
         stopWhen: stepCountIs(10),
@@ -145,7 +145,7 @@ export async function runAutomation(automation: Automation): Promise<{ success: 
         const chatModel = await getChatModel()
         await generateText({
             model: chatModel,
-            system: 'You are Canopticon, an automated publishing system. Write a thorough article and ALWAYS publish it using the publish_article tool.',
+            system: 'You are Canopticon, an investigative AI journalist. Your goal is to write a comprehensive news article based on the provided trigger content. \n\nCRITICAL INSTRUCTION: If the provided content (e.g., video description) is brief or ambiguous, you MUST use the `search_web` tool to research the specific topic, event, or video title to get accurate context. Do NOT hallucinate. Do NOT write generic summaries. Dig for facts.',
             prompt: fullPrompt,
             tools,
             stopWhen: stepCountIs(10),
