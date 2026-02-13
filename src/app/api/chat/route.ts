@@ -50,7 +50,19 @@ export async function POST(req: Request) {
     } else if (modelProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai'
+            baseURL: 'https://api.perplexity.ai/',
+            fetch: async (url, options) => {
+                let finalUrl = url.toString();
+                if (finalUrl.includes('perplexity.ai') && !finalUrl.includes('/chat/completions')) {
+                    console.log('[Perplexity Fix] Redirecting URL:', finalUrl, 'to /chat/completions');
+                    finalUrl = 'https://api.perplexity.ai/chat/completions';
+                }
+                if (finalUrl.endsWith('/responses')) {
+                    console.log('[Perplexity Fix] Fixing /responses URL:', finalUrl);
+                    finalUrl = 'https://api.perplexity.ai/chat/completions';
+                }
+                return fetch(finalUrl, options);
+            }
         })
         model = perplexity('llama-3.1-sonar-large-128k-online')
     } else {

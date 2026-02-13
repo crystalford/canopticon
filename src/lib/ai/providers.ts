@@ -19,12 +19,30 @@ export async function getSettings() {
     }
 }
 
+// Custom fetch to force correct Perplexity URL if SDK messes it up
+const perplexityFetch = async (url: RequestInfo | URL, options?: RequestInit) => {
+    let finalUrl = url.toString();
+    // If SDK is trying to hit /responses or just base URL, force it to /chat/completions
+    if (finalUrl.includes('perplexity.ai') && !finalUrl.includes('/chat/completions')) {
+        console.log('[Perplexity Fix] Redirecting URL:', finalUrl, 'to /chat/completions');
+        finalUrl = 'https://api.perplexity.ai/chat/completions';
+    }
+    // Also fix the weird /responses issue if it persists
+    if (finalUrl.endsWith('/responses')) {
+        console.log('[Perplexity Fix] Fixing /responses URL:', finalUrl);
+        finalUrl = 'https://api.perplexity.ai/chat/completions';
+    }
+
+    return fetch(finalUrl, options);
+}
+
 export async function getChatModel() {
     // Using Perplexity Sonar Pro as default
     const config = await getSettings()
     const perplexity = createOpenAI({
         apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-        baseURL: 'https://api.perplexity.ai'
+        baseURL: 'https://api.perplexity.ai/',
+        fetch: perplexityFetch
     })
     return perplexity('llama-3.1-sonar-large-128k-online')
 }
@@ -35,7 +53,8 @@ export async function getResearchModel() {
 
     const perplexity = createOpenAI({
         apiKey,
-        baseURL: 'https://api.perplexity.ai',
+        baseURL: 'https://api.perplexity.ai/',
+        fetch: perplexityFetch
     })
 
     return perplexity('llama-3.1-sonar-large-128k-online')
@@ -49,7 +68,8 @@ export async function getWritingModel() {
     if (writingProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai'
+            baseURL: 'https://api.perplexity.ai/',
+            fetch: perplexityFetch
         })
         return perplexity('llama-3.1-sonar-large-128k-online')
     } else if (writingProvider === 'anthropic') {
@@ -68,7 +88,8 @@ export async function getFactCheckModel() {
     if (factCheckProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai'
+            baseURL: 'https://api.perplexity.ai/',
+            fetch: perplexityFetch
         })
         return perplexity('llama-3.1-sonar-large-128k-online')
     } else if (factCheckProvider === 'openai') {
