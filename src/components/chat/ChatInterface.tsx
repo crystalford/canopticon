@@ -17,7 +17,6 @@ interface ChatInterfaceProps {
 export function ChatInterface({ conversationId, onConversationCreated, onNewChat, initialMessages, initialPersonaId, initialInput }: ChatInterfaceProps) {
     const scrollRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
-    const [input, setInput] = useState(initialInput || '')
     const [personaId, setPersonaId] = useState<PersonaId>(initialPersonaId || 'canopticon')
     const hasDetectedConversation = useRef(false)
     const [showPersonaMenu, setShowPersonaMenu] = useState(false)
@@ -25,13 +24,14 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     const [selectedModel, setSelectedModel] = useState<'perplexity' | 'openai' | 'anthropic'>('perplexity')
     const [error, setError] = useState<string | null>(null)
 
-    const { messages, append, status, stop, setMessages } = useChat({
+    const { messages, input, handleInputChange, handleSubmit, setInput, status, stop, setMessages } = useChat({
         api: '/api/chat',
         body: {
             conversationId: conversationId || undefined,
             personaId,
             modelProvider: selectedModel
         },
+        initialInput,
         initialMessages,
         onError: (error: Error) => {
             console.error('Chat error:', error)
@@ -73,19 +73,22 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
         inputRef.current?.focus()
     }, [conversationId])
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!input.trim() || isLoading) return
-        append({ role: 'user', content: input })
-        setInput('')
+    const onSubmit = (e: React.FormEvent) => {
+        if (!input.trim() || isLoading) {
+            e.preventDefault()
+            return
+        }
+        handleSubmit(e)
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault()
             if (input.trim() && !isLoading) {
-                append({ role: 'user', content: input })
-                setInput('')
+                // Manually trigger form submission for Enter key
+                e.preventDefault()
+                handleSubmit(e as any)
+            } else {
+                e.preventDefault()
             }
         }
     }
@@ -220,7 +223,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
             {/* Input area */}
             <div className="border-t border-white/5 p-4">
                 <div className="max-w-3xl mx-auto">
-                    <form onSubmit={handleSubmit} className="relative">
+                    <form onSubmit={onSubmit} className="relative">
                         <textarea
                             ref={inputRef}
                             value={input}
