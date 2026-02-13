@@ -11,20 +11,24 @@ import { personas } from '@/lib/ai/personas' // Fallback
 export async function POST(req: Request) {
     const { messages, data }: { messages: any[], data?: any } = await req.json()
     const personaId = data?.personaId || 'canopticon'
+    const requestedModelProvider = data?.modelProvider // From UI selector
 
     // 1. Fetch System Settings (Keys)
     const config = await getSettings()
 
     // 2. Fetch Agent Config
     let systemPrompt = personas.find(p => p.id === 'canopticon')?.systemPrompt || ''
-    let modelProvider = 'perplexity' // Default to Perplexity
+    let modelProvider = requestedModelProvider || 'perplexity' // Use requested model or default to Perplexity
     let modelId = 'sonar-pro'
 
     try {
         const [agent] = await db.select().from(agents).where(eq(agents.slug, personaId))
         if (agent && agent.isActive) {
             systemPrompt = agent.systemPrompt
-            modelProvider = agent.modelProvider
+            // Only override modelProvider if not explicitly requested from UI
+            if (!requestedModelProvider) {
+                modelProvider = agent.modelProvider
+            }
             // modelId = agent.modelId // If we implemented specific model selection
         } else {
             // Fallback to static

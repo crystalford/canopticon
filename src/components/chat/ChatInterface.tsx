@@ -3,7 +3,7 @@ import { DefaultChatTransport } from 'ai'
 import type { UIMessage } from 'ai'
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { MessageBubble } from './MessageBubble'
-import { Send, Square, ChevronDown, UserCog } from 'lucide-react'
+import { Send, Square, ChevronDown, UserCog, Cpu } from 'lucide-react'
 import { PERSONAS, PersonaId } from '@/lib/ai/personas'
 
 interface ChatInterfaceProps {
@@ -22,14 +22,17 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     const [personaId, setPersonaId] = useState<PersonaId>(initialPersonaId || 'canopticon')
     const hasDetectedConversation = useRef(false)
     const [showPersonaMenu, setShowPersonaMenu] = useState(false)
+    const [showModelMenu, setShowModelMenu] = useState(false)
+    const [selectedModel, setSelectedModel] = useState<'perplexity' | 'openai' | 'anthropic'>('perplexity')
 
     const transport = useMemo(() => new DefaultChatTransport({
         api: '/api/chat',
         body: {
             conversationId: conversationId || undefined,
-            personaId
+            personaId,
+            modelProvider: selectedModel
         },
-    }), [conversationId, personaId])
+    }), [conversationId, personaId, selectedModel])
 
     const { messages, sendMessage, status, stop, setMessages } = useChat({
         transport,
@@ -124,6 +127,51 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                                         <div className="text-xs text-slate-500 truncate">{p.description}</div>
                                     </button>
                                 ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Model Selector */}
+                <div className="relative">
+                    <button
+                        onClick={() => setShowModelMenu(!showModelMenu)}
+                        className="flex items-center gap-2 text-sm text-slate-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5 border border-white/10"
+                    >
+                        <Cpu size={14} />
+                        <span className="font-medium text-xs">
+                            {selectedModel === 'perplexity' && 'Perplexity Sonar Pro'}
+                            {selectedModel === 'openai' && 'GPT-4o'}
+                            {selectedModel === 'anthropic' && 'Claude Sonnet'}
+                        </span>
+                        <ChevronDown size={12} className={`transition-transform ${showModelMenu ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {showModelMenu && (
+                        <>
+                            <div className="fixed inset-0 z-10" onClick={() => setShowModelMenu(false)} />
+                            <div className="absolute top-full right-0 mt-1 w-56 bg-zinc-900 border border-white/10 rounded-lg shadow-xl z-20 overflow-hidden py-1">
+                                <button
+                                    onClick={() => { setSelectedModel('perplexity'); setShowModelMenu(false); }}
+                                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/10 transition-colors ${selectedModel === 'perplexity' ? 'text-purple-400 bg-purple-500/5' : 'text-slate-300'}`}
+                                >
+                                    <div className="font-medium">Perplexity Sonar Pro</div>
+                                    <div className="text-xs text-slate-500">Fast, web-connected reasoning</div>
+                                </button>
+                                <button
+                                    onClick={() => { setSelectedModel('openai'); setShowModelMenu(false); }}
+                                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/10 transition-colors ${selectedModel === 'openai' ? 'text-green-400 bg-green-500/5' : 'text-slate-300'}`}
+                                >
+                                    <div className="font-medium">OpenAI GPT-4o</div>
+                                    <div className="text-xs text-slate-500">Advanced reasoning & coding</div>
+                                </button>
+                                <button
+                                    onClick={() => { setSelectedModel('anthropic'); setShowModelMenu(false); }}
+                                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-white/10 transition-colors ${selectedModel === 'anthropic' ? 'text-orange-400 bg-orange-500/5' : 'text-slate-300'}`}
+                                >
+                                    <div className="font-medium">Anthropic Claude Sonnet</div>
+                                    <div className="text-xs text-slate-500">Long context, nuanced analysis</div>
+                                </button>
                             </div>
                         </>
                     )}
@@ -242,7 +290,11 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                     {/* Model Indicator */}
                     <div className="mt-2 text-[10px] text-slate-500 text-center flex items-center justify-center gap-1.5">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                        Powered by <span className="text-slate-400 font-medium">Perplexity Sonar Pro</span>
+                        Powered by <span className="text-slate-400 font-medium">
+                            {selectedModel === 'perplexity' && 'Perplexity Sonar Pro'}
+                            {selectedModel === 'openai' && 'OpenAI GPT-4o'}
+                            {selectedModel === 'anthropic' && 'Anthropic Claude Sonnet'}
+                        </span>
                     </div>
                 </div>
             </div>
