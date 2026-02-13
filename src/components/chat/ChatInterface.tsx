@@ -24,6 +24,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     const [showPersonaMenu, setShowPersonaMenu] = useState(false)
     const [showModelMenu, setShowModelMenu] = useState(false)
     const [selectedModel, setSelectedModel] = useState<'perplexity' | 'openai' | 'anthropic'>('perplexity')
+    const [error, setError] = useState<string | null>(null)
 
     const transport = useMemo(() => new DefaultChatTransport({
         api: '/api/chat',
@@ -39,6 +40,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
         messages: initialMessages,
         onError: (error) => {
             console.error('Chat error:', error)
+            setError(error.message || 'An error occurred. Please try again.')
         },
     })
 
@@ -180,6 +182,25 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
 
             {/* Messages area */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto">
+                {/* Error Banner */}
+                {error && (
+                    <div className="max-w-3xl mx-auto px-6 py-4">
+                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-start gap-3">
+                            <div className="text-red-400 mt-0.5">⚠️</div>
+                            <div className="flex-1">
+                                <div className="text-red-400 font-medium mb-1">Error</div>
+                                <div className="text-sm text-red-300">{error}</div>
+                            </div>
+                            <button
+                                onClick={() => setError(null)}
+                                className="text-red-400 hover:text-red-300 transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {showWelcome && (
                     <div className="flex items-center justify-center h-full">
                         <div className="text-center max-w-lg px-6">
