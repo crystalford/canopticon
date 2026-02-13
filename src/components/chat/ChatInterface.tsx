@@ -1,3 +1,5 @@
+'use client'
+
 import { useChat } from '@ai-sdk/react'
 import type { UIMessage } from 'ai'
 import { useEffect, useRef, useState, useMemo } from 'react'
@@ -17,6 +19,7 @@ interface ChatInterfaceProps {
 export function ChatInterface({ conversationId, onConversationCreated, onNewChat, initialMessages, initialPersonaId, initialInput }: ChatInterfaceProps) {
     const scrollRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
+    const [input, setInput] = useState<string>(initialInput ?? '')
     const [personaId, setPersonaId] = useState<PersonaId>(initialPersonaId || 'canopticon')
     const hasDetectedConversation = useRef(false)
     const [showPersonaMenu, setShowPersonaMenu] = useState(false)
@@ -24,14 +27,13 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     const [selectedModel, setSelectedModel] = useState<'perplexity' | 'openai' | 'anthropic'>('perplexity')
     const [error, setError] = useState<string | null>(null)
 
-    const { messages, input, handleInputChange, handleSubmit, setInput, status, stop, setMessages } = useChat({
+    const { messages, sendMessage, status, stop, setMessages } = useChat({
         api: '/api/chat',
         body: {
             conversationId: conversationId || undefined,
             personaId,
             modelProvider: selectedModel
         },
-        initialInput,
         initialMessages,
         onError: (error: Error) => {
             console.error('Chat error:', error)
@@ -74,11 +76,12 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     }, [conversationId])
 
     const onSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
         if (!input.trim() || isLoading) {
-            e.preventDefault()
             return
         }
-        handleSubmit(e)
+        sendMessage({ role: 'user', content: input })
+        setInput('')
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -86,7 +89,8 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
             if (input.trim() && !isLoading) {
                 // Manually trigger form submission for Enter key
                 e.preventDefault()
-                handleSubmit(e as any)
+                sendMessage({ role: 'user', content: input })
+                setInput('')
             } else {
                 e.preventDefault()
             }
