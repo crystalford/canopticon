@@ -1,9 +1,9 @@
 
 import { anthropic } from '@ai-sdk/anthropic'
 import { createOpenAI, openai } from '@ai-sdk/openai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { db } from '@/db'
 import { settings } from '@/db/schema'
-import { eq } from 'drizzle-orm'
 
 // Cache settings for a short time to avoid hitting DB on every token? 
 // For now, per-request is safer for "dynamic" feel.
@@ -19,32 +19,16 @@ export async function getSettings() {
     }
 }
 
-// Custom fetch to force correct Perplexity URL if SDK messes it up
-const perplexityFetch = async (url: RequestInfo | URL, options?: RequestInit) => {
-    let finalUrl = url.toString();
-    // If SDK is trying to hit /responses or just base URL, force it to /chat/completions
-    if (finalUrl.includes('perplexity.ai') && !finalUrl.includes('/chat/completions')) {
-        console.log('[Perplexity Fix] Redirecting URL:', finalUrl, 'to /chat/completions');
-        finalUrl = 'https://api.perplexity.ai/chat/completions';
-    }
-    // Also fix the weird /responses issue if it persists
-    if (finalUrl.endsWith('/responses')) {
-        console.log('[Perplexity Fix] Fixing /responses URL:', finalUrl);
-        finalUrl = 'https://api.perplexity.ai/chat/completions';
-    }
-
-    return fetch(finalUrl, options);
-}
-
 export async function getChatModel() {
     // Using Perplexity Sonar Pro as default
     const config = await getSettings()
-    const perplexity = createOpenAI({
+
+    const perplexity = createOpenAICompatible({
+        name: 'perplexity',
         apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
         baseURL: 'https://api.perplexity.ai/',
-        compatibility: 'compatible',
-        fetch: perplexityFetch
-    } as any)
+    })
+
     return perplexity('llama-3.1-sonar-large-128k-online')
 }
 
@@ -52,12 +36,11 @@ export async function getResearchModel() {
     const config = await getSettings()
     const apiKey = config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY || ''
 
-    const perplexity = createOpenAI({
+    const perplexity = createOpenAICompatible({
+        name: 'perplexity',
         apiKey,
         baseURL: 'https://api.perplexity.ai/',
-        compatibility: 'compatible',
-        fetch: perplexityFetch
-    } as any)
+    })
 
     return perplexity('llama-3.1-sonar-large-128k-online')
 }
@@ -68,12 +51,11 @@ export async function getWritingModel() {
     const writingProvider = config.DEFAULT_WRITING_MODEL || 'openai' // Default to GPT-4o for writing
 
     if (writingProvider === 'perplexity') {
-        const perplexity = createOpenAI({
+        const perplexity = createOpenAICompatible({
+            name: 'perplexity',
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
             baseURL: 'https://api.perplexity.ai/',
-            compatibility: 'compatible',
-            fetch: perplexityFetch
-        } as any)
+        })
         return perplexity('llama-3.1-sonar-large-128k-online')
     } else if (writingProvider === 'anthropic') {
         return anthropic('claude-3-5-sonnet-20241022')
@@ -89,12 +71,11 @@ export async function getFactCheckModel() {
     const factCheckProvider = config.DEFAULT_FACTCHECK_MODEL || 'anthropic' // Default to Claude for fact-checking
 
     if (factCheckProvider === 'perplexity') {
-        const perplexity = createOpenAI({
+        const perplexity = createOpenAICompatible({
+            name: 'perplexity',
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
             baseURL: 'https://api.perplexity.ai/',
-            compatibility: 'compatible',
-            fetch: perplexityFetch
-        } as any)
+        })
         return perplexity('llama-3.1-sonar-large-128k-online')
     } else if (factCheckProvider === 'openai') {
         return openai('gpt-4o')

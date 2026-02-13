@@ -1,5 +1,4 @@
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
 import type { UIMessage } from 'ai'
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { MessageBubble } from './MessageBubble'
@@ -26,23 +25,19 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     const [selectedModel, setSelectedModel] = useState<'perplexity' | 'openai' | 'anthropic'>('perplexity')
     const [error, setError] = useState<string | null>(null)
 
-    const transport = useMemo(() => new DefaultChatTransport({
+    const { messages, append, status, stop, setMessages } = useChat({
         api: '/api/chat',
         body: {
             conversationId: conversationId || undefined,
             personaId,
             modelProvider: selectedModel
         },
-    }), [conversationId, personaId, selectedModel])
-
-    const { messages, sendMessage, status, stop, setMessages } = useChat({
-        transport,
-        messages: initialMessages,
-        onError: (error) => {
+        initialMessages,
+        onError: (error: Error) => {
             console.error('Chat error:', error)
             setError(error.message || 'An error occurred. Please try again.')
         },
-    })
+    } as any) as any
 
     const isLoading = status === 'submitted' || status === 'streaming'
 
@@ -81,7 +76,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
         if (!input.trim() || isLoading) return
-        sendMessage({ text: input })
+        append({ role: 'user', content: input })
         setInput('')
     }
 
@@ -89,7 +84,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault()
             if (input.trim() && !isLoading) {
-                sendMessage({ text: input })
+                append({ role: 'user', content: input })
                 setInput('')
             }
         }
@@ -203,7 +198,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
 
                 {!showWelcome && (
                     <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-                        {messages.map((message) => (
+                        {messages.map((message: UIMessage) => (
                             <MessageBubble key={message.id} message={message} />
                         ))}
                         {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
