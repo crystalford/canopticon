@@ -17,8 +17,8 @@ export async function POST(req: Request) {
 
     // 2. Fetch Agent Config
     let systemPrompt = personas.find(p => p.id === 'canopticon')?.systemPrompt || ''
-    let modelProvider = 'anthropic' // Default base
-    let modelId = 'claude-3-5-sonnet-20240620'
+    let modelProvider = 'perplexity' // Default to Perplexity
+    let modelId = 'sonar-pro'
 
     try {
         const [agent] = await db.select().from(agents).where(eq(agents.slug, personaId))

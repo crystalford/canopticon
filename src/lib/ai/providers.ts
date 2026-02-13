@@ -20,8 +20,13 @@ export async function getSettings() {
 }
 
 export async function getChatModel() {
-    // Switching to OpenAI GPT-4o as default since Anthropic is returning 404s
-    return openai('gpt-4o')
+    // Using Perplexity Sonar Pro as default
+    const config = await getSettings()
+    const perplexity = createOpenAI({
+        apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
+        baseURL: 'https://api.perplexity.ai'
+    })
+    return perplexity('sonar-pro')
 }
 
 export async function getResearchModel() {
