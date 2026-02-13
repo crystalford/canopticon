@@ -59,10 +59,25 @@ export async function POST(req: Request) {
         model = openai('gpt-4o')
     }
 
+    // Transform messages from parts format to content format
+    const transformedMessages = messages.map((msg: any) => {
+        if (msg.parts) {
+            // Convert parts array to content string
+            const content = msg.parts
+                .map((part: any) => part.type === 'text' ? part.text : '')
+                .join('')
+            return {
+                role: msg.role,
+                content
+            }
+        }
+        return msg
+    })
+
     const result = await streamText({
         model,
         system: systemPrompt,
-        messages,
+        messages: transformedMessages,
     })
 
     return result.toTextStreamResponse()
