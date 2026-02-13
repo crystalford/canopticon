@@ -238,6 +238,12 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                             )}
                         </div>
                     </form>
+
+                    {/* Model Indicator */}
+                    <div className="mt-2 text-[10px] text-slate-500 text-center flex items-center justify-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                        Powered by <span className="text-slate-400 font-medium">Perplexity Sonar Pro</span>
+                    </div>
                 </div>
             </div>
         </div>

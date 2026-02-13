@@ -188,6 +188,7 @@ export function FeedsList() {
                                             {auto.lastResult.success ? 'Success' : 'Error'}
                                         </span>
                                     )}
+                                    <span className="text-[10px] text-slate-600">Model: Perplexity</span>
                                 </div>
                                 {auto.type === 'youtube' && (
                                     <button
