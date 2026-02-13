@@ -51,6 +51,7 @@ export async function POST(req: Request) {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
             baseURL: 'https://api.perplexity.ai/',
+            compatibility: 'compatible',
             fetch: async (url, options) => {
                 let finalUrl = url.toString();
                 if (finalUrl.includes('perplexity.ai') && !finalUrl.includes('/chat/completions')) {
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
                 }
                 return fetch(finalUrl, options);
             }
-        })
+        } as any)
         model = perplexity('llama-3.1-sonar-large-128k-online')
     } else {
         // Fallback / Default to OpenAI

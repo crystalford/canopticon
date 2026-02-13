@@ -42,8 +42,9 @@ export async function getChatModel() {
     const perplexity = createOpenAI({
         apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
         baseURL: 'https://api.perplexity.ai/',
+        compatibility: 'compatible',
         fetch: perplexityFetch
-    })
+    } as any)
     return perplexity('llama-3.1-sonar-large-128k-online')
 }
 
@@ -54,8 +55,9 @@ export async function getResearchModel() {
     const perplexity = createOpenAI({
         apiKey,
         baseURL: 'https://api.perplexity.ai/',
+        compatibility: 'compatible',
         fetch: perplexityFetch
-    })
+    } as any)
 
     return perplexity('llama-3.1-sonar-large-128k-online')
 }
@@ -69,8 +71,9 @@ export async function getWritingModel() {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
             baseURL: 'https://api.perplexity.ai/',
+            compatibility: 'compatible',
             fetch: perplexityFetch
-        })
+        } as any)
         return perplexity('llama-3.1-sonar-large-128k-online')
     } else if (writingProvider === 'anthropic') {
         return anthropic('claude-3-5-sonnet-20241022')
@@ -89,8 +92,9 @@ export async function getFactCheckModel() {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
             baseURL: 'https://api.perplexity.ai/',
+            compatibility: 'compatible',
             fetch: perplexityFetch
-        })
+        } as any)
         return perplexity('llama-3.1-sonar-large-128k-online')
     } else if (factCheckProvider === 'openai') {
         return openai('gpt-4o')
