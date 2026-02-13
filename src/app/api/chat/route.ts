@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     } else if (modelProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai'
+            baseURL: 'https://api.perplexity.ai/chat/completions'
         })
         model = perplexity('sonar-pro')
     } else {

@@ -24,7 +24,7 @@ export async function getChatModel() {
     const config = await getSettings()
     const perplexity = createOpenAI({
         apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-        baseURL: 'https://api.perplexity.ai'
+        baseURL: 'https://api.perplexity.ai/chat/completions'
     })
     return perplexity('sonar-pro')
 }
@@ -35,7 +35,7 @@ export async function getResearchModel() {
 
     const perplexity = createOpenAI({
         apiKey,
-        baseURL: 'https://api.perplexity.ai',
+        baseURL: 'https://api.perplexity.ai/chat/completions',
     })
 
     return perplexity('sonar-pro')
@@ -49,7 +49,7 @@ export async function getWritingModel() {
     if (writingProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai'
+            baseURL: 'https://api.perplexity.ai/chat/completions'
         })
         return perplexity('sonar-pro')
     } else if (writingProvider === 'anthropic') {
@@ -68,7 +68,7 @@ export async function getFactCheckModel() {
     if (factCheckProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai'
+            baseURL: 'https://api.perplexity.ai/chat/completions'
         })
         return perplexity('sonar-pro')
     } else if (factCheckProvider === 'openai') {
