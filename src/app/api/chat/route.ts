@@ -46,14 +46,11 @@ export async function POST(req: Request) {
     } else if (modelProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai/chat/completions' // Correct base URL for OpenAI compat? Or just use default base
+            baseURL: 'https://api.perplexity.ai'
         })
-        // Perplexity provider usually handles baseURL
-        const perplexityProvider = createOpenAI({ apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY, baseURL: 'https://api.perplexity.ai' })
-        model = perplexityProvider('sonar-pro')
+        model = perplexity('sonar-pro')
     } else {
-        // Fallback / Default
-        // Switching default to OpenAI since Anthropic is erroring for this user
+        // Fallback / Default to OpenAI
         const openai = createOpenAI({ apiKey: config.OPENAI_API_KEY || process.env.OPENAI_API_KEY })
         model = openai('gpt-4o')
     }
