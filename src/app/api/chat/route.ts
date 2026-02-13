@@ -52,7 +52,7 @@ export async function POST(req: Request) {
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
             baseURL: 'https://api.perplexity.ai/',
             compatibility: 'compatible',
-            fetch: async (url, options) => {
+            fetch: async (url: RequestInfo | URL, options?: RequestInit) => {
                 let finalUrl = url.toString();
                 if (finalUrl.includes('perplexity.ai') && !finalUrl.includes('/chat/completions')) {
                     console.log('[Perplexity Fix] Redirecting URL:', finalUrl, 'to /chat/completions');
