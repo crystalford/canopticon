@@ -100,7 +100,37 @@ export default function SettingsPage() {
                             <option value="openai">OpenAI GPT-4o</option>
                             <option value="anthropic">Anthropic Claude</option>
                         </select>
-                        <p className="text-xs text-slate-500 mt-1">Used for all automations and default chat behavior</p>
+                        <p className="text-xs text-slate-500 mt-1">Used for chat and general AI tasks</p>
+                    </div>
+
+                    {/* Writing Model */}
+                    <div className="pb-4 border-b border-white/10">
+                        <label className="block text-xs font-medium text-slate-400 uppercase mb-2">Writing Model</label>
+                        <select
+                            value={settings.DEFAULT_WRITING_MODEL || 'openai'}
+                            onChange={e => setSettings({ ...settings, DEFAULT_WRITING_MODEL: e.target.value })}
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500/50 appearance-none cursor-pointer"
+                        >
+                            <option value="openai">OpenAI GPT-4o (Recommended)</option>
+                            <option value="perplexity">Perplexity Sonar Pro</option>
+                            <option value="anthropic">Anthropic Claude</option>
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1">Used for generating articles and content</p>
+                    </div>
+
+                    {/* Fact-Check Model */}
+                    <div className="pb-4 border-b border-white/10">
+                        <label className="block text-xs font-medium text-slate-400 uppercase mb-2">Fact-Check Model</label>
+                        <select
+                            value={settings.DEFAULT_FACTCHECK_MODEL || 'anthropic'}
+                            onChange={e => setSettings({ ...settings, DEFAULT_FACTCHECK_MODEL: e.target.value })}
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white outline-none focus:border-purple-500/50 appearance-none cursor-pointer"
+                        >
+                            <option value="anthropic">Anthropic Claude (Recommended)</option>
+                            <option value="openai">OpenAI GPT-4o</option>
+                            <option value="perplexity">Perplexity Sonar Pro</option>
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1">Used for verifying claims and detecting fallacies</p>
                     </div>
 
                     <div>

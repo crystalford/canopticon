@@ -40,3 +40,41 @@ export async function getResearchModel() {
 
     return perplexity('sonar-pro')
 }
+
+export async function getWritingModel() {
+    // Get user's preferred writing model from settings
+    const config = await getSettings()
+    const writingProvider = config.DEFAULT_WRITING_MODEL || 'openai' // Default to GPT-4o for writing
+
+    if (writingProvider === 'perplexity') {
+        const perplexity = createOpenAI({
+            apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
+            baseURL: 'https://api.perplexity.ai'
+        })
+        return perplexity('sonar-pro')
+    } else if (writingProvider === 'anthropic') {
+        return anthropic('claude-3-5-sonnet-20241022')
+    } else {
+        // OpenAI (default)
+        return openai('gpt-4o')
+    }
+}
+
+export async function getFactCheckModel() {
+    // Get user's preferred fact-check model from settings
+    const config = await getSettings()
+    const factCheckProvider = config.DEFAULT_FACTCHECK_MODEL || 'anthropic' // Default to Claude for fact-checking
+
+    if (factCheckProvider === 'perplexity') {
+        const perplexity = createOpenAI({
+            apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
+            baseURL: 'https://api.perplexity.ai'
+        })
+        return perplexity('sonar-pro')
+    } else if (factCheckProvider === 'openai') {
+        return openai('gpt-4o')
+    } else {
+        // Anthropic (default)
+        return anthropic('claude-3-5-sonnet-20241022')
+    }
+}

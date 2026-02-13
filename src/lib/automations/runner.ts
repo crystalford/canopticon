@@ -1,5 +1,5 @@
 import { generateText, stepCountIs } from 'ai'
-import { getChatModel } from '@/lib/ai/providers'
+import { getChatModel, getWritingModel } from '@/lib/ai/providers'
 import { createTools } from '@/lib/ai/tools'
 import { searchPerplexity } from '@/lib/ai/tools'
 import { db, automations, articles } from '@/db'
@@ -142,9 +142,13 @@ export async function runAutomation(automation: Automation): Promise<{ success: 
 
     try {
         const tools = createTools(undefined, { saveDraft: !automation.autoPublish })
-        const chatModel = await getChatModel()
+
+        // Use dedicated writing model for article generation
+        const writingModel = await getWritingModel()
+        console.log('[runAutomation] Using writing model for article generation')
+
         await generateText({
-            model: chatModel,
+            model: writingModel,
             system: 'You are Canopticon, an investigative AI journalist. \n\nCORE RULES:\n1. Write a specific news article about the EVENT in the video/content. \n2. Do NOT write a meta-review of "CPAC Coverage" or "Recent Videos". Focus on the subject matter itself (e.g. "Parliament Debates Bill C-11").\n3. ALWAYS begin the article by embedding the video using <youtube>VIDEO_ID</youtube> (extract ID from URL).\n4. Critical: If the description is thin, use `search_web` to find the real story behind this specific event.\n5. Tone: Objective, Detailed, Journalistic.',
             prompt: fullPrompt,
             tools,
