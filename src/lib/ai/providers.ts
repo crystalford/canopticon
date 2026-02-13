@@ -24,9 +24,9 @@ export async function getChatModel() {
     const config = await getSettings()
     const perplexity = createOpenAI({
         apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-        baseURL: 'https://api.perplexity.ai/chat/completions'
+        baseURL: 'https://api.perplexity.ai'
     })
-    return perplexity('sonar-pro')
+    return perplexity('llama-3.1-sonar-large-128k-online')
 }
 
 export async function getResearchModel() {
@@ -35,10 +35,10 @@ export async function getResearchModel() {
 
     const perplexity = createOpenAI({
         apiKey,
-        baseURL: 'https://api.perplexity.ai/chat/completions',
+        baseURL: 'https://api.perplexity.ai',
     })
 
-    return perplexity('sonar-pro')
+    return perplexity('llama-3.1-sonar-large-128k-online')
 }
 
 export async function getWritingModel() {
@@ -49,9 +49,9 @@ export async function getWritingModel() {
     if (writingProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai/chat/completions'
+            baseURL: 'https://api.perplexity.ai'
         })
-        return perplexity('sonar-pro')
+        return perplexity('llama-3.1-sonar-large-128k-online')
     } else if (writingProvider === 'anthropic') {
         return anthropic('claude-3-5-sonnet-20241022')
     } else {
@@ -68,9 +68,9 @@ export async function getFactCheckModel() {
     if (factCheckProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai/chat/completions'
+            baseURL: 'https://api.perplexity.ai'
         })
-        return perplexity('sonar-pro')
+        return perplexity('llama-3.1-sonar-large-128k-online')
     } else if (factCheckProvider === 'openai') {
         return openai('gpt-4o')
     } else {

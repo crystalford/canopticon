@@ -50,9 +50,9 @@ export async function POST(req: Request) {
     } else if (modelProvider === 'perplexity') {
         const perplexity = createOpenAI({
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai/chat/completions'
+            baseURL: 'https://api.perplexity.ai'
         })
-        model = perplexity('sonar-pro')
+        model = perplexity('llama-3.1-sonar-large-128k-online')
     } else {
         // Fallback / Default to OpenAI
         const openai = createOpenAI({ apiKey: config.OPENAI_API_KEY || process.env.OPENAI_API_KEY })
