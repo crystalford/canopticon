@@ -50,7 +50,7 @@ export async function POST(req: Request) {
             apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
             baseURL: 'https://api.perplexity.ai/',
         })
-        model = perplexity('llama-3.1-sonar-large-128k-online')
+        model = perplexity('sonar-pro')
     } else if (modelProvider === 'anthropic') {
         // Using direct Anthropic provider
         // Note: Anthropic provider usually needs ANTHROPIC_API_KEY env var or passed explicitly
