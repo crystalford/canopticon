@@ -108,6 +108,28 @@ export async function POST(req: Request) {
         if (modelProvider === 'perplexity') {
             const apiKey = config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY
             console.log('[API] Perplexity Key present:', !!apiKey)
+            if (apiKey) console.log('[API] Key starts with:', apiKey.substring(0, 4))
+
+            // MANUAL DEBUG FETCH
+            try {
+                console.log('[API] Testing Perplexity connection manually...')
+                const debugRes = await fetch('https://api.perplexity.ai/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'sonar',
+                        messages: [{ role: 'user', content: 'ping' }]
+                    })
+                })
+                console.log('[API] Manual fetch status:', debugRes.status)
+                const debugText = await debugRes.text()
+                console.log('[API] Manual fetch response:', debugText.substring(0, 200))
+            } catch (debugErr) {
+                console.error('[API] Manual fetch failed:', debugErr)
+            }
 
             // Revert to createOpenAICompatible - createOpenAI was hitting wrong endpoint (/responses or /v1)
             const perplexity = createOpenAICompatible({
