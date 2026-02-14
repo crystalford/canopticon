@@ -1,91 +1,127 @@
 
 import { streamText } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
-import { createOpenAI, openai } from '@ai-sdk/openai'
+import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { getSettings } from '@/lib/ai/providers'
 import { db } from '@/db'
 import { agents } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { personas } from '@/lib/ai/personas' // Fallback
+import { personas } from '@/lib/ai/personas'
+
+// Convert UIMessage (parts-based) or legacy message to simple {role, content}
+function normalizeMessages(rawMessages: any[]): { role: 'user' | 'assistant'; content: string }[] {
+    if (!Array.isArray(rawMessages)) return []
+
+    const normalized: { role: 'user' | 'assistant'; content: string }[] = []
+
+    for (const msg of rawMessages) {
+        // Skip system messages (system prompt is handled separately)
+        if (msg.role === 'system') continue
+        // Only keep user and assistant
+        if (msg.role !== 'user' && msg.role !== 'assistant') continue
+
+        // Extract text content from parts (UIMessage v3 format) or content (legacy)
+        let content = ''
+        if (msg.parts && Array.isArray(msg.parts)) {
+            content = msg.parts
+                .filter((p: any) => p.type === 'text')
+                .map((p: any) => p.text || '')
+                .join('\n')
+                .trim()
+        } else if (typeof msg.content === 'string') {
+            content = msg.content.trim()
+        }
+
+        if (!content) continue
+
+        // Enforce alternating roles: merge consecutive same-role messages
+        const last = normalized[normalized.length - 1]
+        if (last && last.role === msg.role) {
+            last.content += '\n' + content
+        } else {
+            normalized.push({ role: msg.role, content })
+        }
+    }
+
+    return normalized
+}
 
 export async function POST(req: Request) {
-    // 1. Parse Input
-    const body = await req.json()
-    const { messages } = body
-    const personaId = body.personaId || 'canopticon'
-    const requestedModelProvider = body.modelProvider // From UI selector
-
-    // 2. Fetch Configuration
-    const config = await getSettings()
-
-    // 3. Determine System Prompt & Model Provider
-    let systemPrompt = personas.find(p => p.id === 'canopticon')?.systemPrompt || ''
-    let modelProvider = requestedModelProvider || 'perplexity' // Use requested model or default to Perplexity
-
     try {
-        const [agent] = await db.select().from(agents).where(eq(agents.slug, personaId))
-        if (agent && agent.isActive) {
-            systemPrompt = agent.systemPrompt
-            // Only override modelProvider if not explicitly requested from UI
-            if (!requestedModelProvider) {
-                modelProvider = agent.modelProvider
+        // 1. Parse Input
+        const body = await req.json()
+        const rawMessages = body.messages
+        const personaId = body.personaId || 'canopticon'
+        const requestedModelProvider = body.modelProvider
+
+        // 2. Normalize messages to simple {role, content} with alternating roles
+        const messages = normalizeMessages(rawMessages)
+
+        if (messages.length === 0) {
+            return new Response(JSON.stringify({ error: 'No valid messages provided' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        }
+
+        // 3. Fetch Configuration
+        const config = await getSettings()
+
+        // 4. Determine System Prompt & Model Provider
+        let systemPrompt = personas.find(p => p.id === 'canopticon')?.systemPrompt || ''
+        let modelProvider = requestedModelProvider || 'perplexity'
+
+        try {
+            const [agent] = await db.select().from(agents).where(eq(agents.slug, personaId))
+            if (agent && agent.isActive) {
+                systemPrompt = agent.systemPrompt
+                if (!requestedModelProvider) {
+                    modelProvider = agent.modelProvider
+                }
+            } else {
+                const p = personas.find(p => p.id === personaId)
+                if (p) systemPrompt = p.systemPrompt
             }
-        } else {
-            // Fallback to static
+        } catch (e) {
             const p = personas.find(p => p.id === personaId)
             if (p) systemPrompt = p.systemPrompt
         }
-    } catch (e) {
-        // Fallback to static
-        const p = personas.find(p => p.id === personaId)
-        if (p) systemPrompt = p.systemPrompt
-    }
 
-    // 4. Instantiate Correct Model Provider
-    let model;
+        // 5. Instantiate Model
+        let model;
 
-    if (modelProvider === 'perplexity') {
-        const perplexity = createOpenAICompatible({
-            name: 'perplexity',
-            apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai/',
+        if (modelProvider === 'perplexity') {
+            const perplexity = createOpenAICompatible({
+                name: 'perplexity',
+                apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
+                baseURL: 'https://api.perplexity.ai/',
+            })
+            model = perplexity('sonar-pro')
+        } else if (modelProvider === 'anthropic') {
+            model = anthropic('claude-3-5-sonnet-20241022')
+        } else {
+            const openai = createOpenAI({
+                apiKey: config.OPENAI_API_KEY || process.env.OPENAI_API_KEY
+            })
+            model = openai('gpt-4o')
+        }
+
+        // 6. Stream Response
+        const result = await streamText({
+            model,
+            system: systemPrompt,
+            messages,
         })
-        model = perplexity('sonar-pro')
-    } else if (modelProvider === 'anthropic') {
-        // Using direct Anthropic provider
-        // Note: Anthropic provider usually needs ANTHROPIC_API_KEY env var or passed explicitly
-        // If config.ANTHROPIC_API_KEY is available, we should use it? 
-        // For now assuming env var or default config pattern.
-        // But wait, the previous code used `anthropic` import which usually uses process.env.ANTHROPIC_API_KEY
-        // Let's assume standard behavior.
-        model = anthropic('claude-3-5-sonnet-20241022')
-    } else {
-        // OpenAI (default)
-        // Ensure compatibility mode if needed, but standard OpenAI should be fine with standard SDK
-        // We use createOpenAI just to be safe with keys if config provides them
-        const openai = createOpenAI({
-            apiKey: config.OPENAI_API_KEY || process.env.OPENAI_API_KEY
+
+        return result.toTextStreamResponse()
+
+    } catch (error: any) {
+        console.error('Chat API error:', error)
+        const message = error?.message || error?.data?.error?.message || 'An unexpected error occurred'
+        return new Response(JSON.stringify({ error: message }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
         })
-        model = openai('gpt-4o')
     }
-
-    // 5. Stream Response
-    // We use convertToCoreMessages to ensure the messages are in the format expected by the Vercel AI SDK core
-    // This handles the conversion from UI messages to Core messages automatically
-
-    // NOTE: The frontend (useChat) sends UIMessages. 
-    // streamText handles them, but sometimes 'convertToCoreMessages' is safer to drop extra UI fields.
-    // However, streamText accepts 'messages' directly. 
-    // To be safe and clean, we pass them as is, because useChat + streamText is the standard path.
-    // The issue before was 'DefaultChatTransport' sending weird stuff.
-    // With standard useChat, 'messages' is correct.
-
-    const result = await streamText({
-        model,
-        system: systemPrompt,
-        messages, // Pass directly, assuming standard useChat
-    })
-
-    return result.toTextStreamResponse()
 }
