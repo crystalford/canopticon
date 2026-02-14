@@ -27,7 +27,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     const [selectedModel, setSelectedModel] = useState<'perplexity' | 'openai' | 'anthropic'>('perplexity')
     const [error, setError] = useState<string | null>(null)
 
-    const { messages, sendMessage, status, stop, setMessages } = useChat({
+    const { messages = [], sendMessage, status, stop, setMessages } = useChat({
         api: '/api/chat',
         body: {
             conversationId: conversationId || undefined,
