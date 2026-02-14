@@ -7,6 +7,8 @@ import { ThreadPreview } from '../social/ThreadPreview'
 
 export function MessageBubble({ message }: { message: UIMessage }) {
     const isUser = message.role === 'user'
+    const msg = message as any
+    const parts = msg.parts || (msg.content ? [{ type: 'text', text: msg.content }] : [])
 
     return (
         <div className="flex gap-3">
