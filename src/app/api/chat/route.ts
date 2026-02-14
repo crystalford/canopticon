@@ -11,9 +11,10 @@ import { personas } from '@/lib/ai/personas' // Fallback
 
 export async function POST(req: Request) {
     // 1. Parse Input
-    const { messages, data }: { messages: any[], data?: any } = await req.json()
-    const personaId = data?.personaId || 'canopticon'
-    const requestedModelProvider = data?.modelProvider // From UI selector
+    const body = await req.json()
+    const { messages } = body
+    const personaId = body.personaId || 'canopticon'
+    const requestedModelProvider = body.modelProvider // From UI selector
 
     // 2. Fetch Configuration
     const config = await getSettings()
