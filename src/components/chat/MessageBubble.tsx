@@ -32,7 +32,7 @@ export function MessageBubble({ message }: { message: UIMessage }) {
 
                 {/* Render message parts */}
                 <div className="space-y-2">
-                    {message.parts.map((part, index) => {
+                    {parts.map((part: any, index: number) => {
                         // Text parts
                         if (part.type === 'text') {
                             if (!part.text) return null
