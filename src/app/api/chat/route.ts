@@ -106,17 +106,24 @@ export async function POST(req: Request) {
         let model;
 
         if (modelProvider === 'perplexity') {
-            const perplexity = createOpenAICompatible({
+            const apiKey = config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY
+            console.log('[API] Perplexity Key present:', !!apiKey)
+
+            // Use createOpenAI for better compatibility with Perplexity
+            const perplexity = createOpenAI({
                 name: 'perplexity',
-                apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-                baseURL: 'https://api.perplexity.ai/',
+                apiKey: apiKey,
+                baseURL: 'https://api.perplexity.ai', // No trailing slash
             })
             model = perplexity('sonar-pro')
         } else if (modelProvider === 'anthropic') {
             model = anthropic('claude-3-5-sonnet-20241022')
         } else {
+            const apiKey = config.OPENAI_API_KEY || process.env.OPENAI_API_KEY
+            console.log('[API] OpenAI Key present:', !!apiKey)
+
             const openai = createOpenAI({
-                apiKey: config.OPENAI_API_KEY || process.env.OPENAI_API_KEY
+                apiKey: apiKey
             })
             model = openai('gpt-4o')
         }
