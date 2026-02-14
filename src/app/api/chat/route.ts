@@ -109,13 +109,14 @@ export async function POST(req: Request) {
             const apiKey = config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY
             console.log('[API] Perplexity Key present:', !!apiKey)
 
-            // Use createOpenAI for better compatibility with Perplexity
-            const perplexity = createOpenAI({
+            // Revert to createOpenAICompatible - createOpenAI was hitting wrong endpoint (/responses or /v1)
+            const perplexity = createOpenAICompatible({
                 name: 'perplexity',
                 apiKey: apiKey,
-                baseURL: 'https://api.perplexity.ai', // No trailing slash
+                baseURL: 'https://api.perplexity.ai/',
             })
-            model = perplexity('sonar-pro')
+            // Switch to 'sonar' (lighter) to verify flow, preventing 'sonar-pro' timeouts if any
+            model = perplexity('sonar')
         } else if (modelProvider === 'anthropic') {
             model = anthropic('claude-3-5-sonnet-20241022')
         } else {
