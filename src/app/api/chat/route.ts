@@ -49,16 +49,26 @@ function normalizeMessages(rawMessages: any[]): { role: 'user' | 'assistant'; co
 
 export async function POST(req: Request) {
     try {
+        console.log('[API] Chat request received')
+
         // 1. Parse Input
         const body = await req.json()
         const rawMessages = body.messages
         const personaId = body.personaId || 'canopticon'
         const requestedModelProvider = body.modelProvider
 
+        console.log(`[API] Params: personaId=${personaId}, provider=${requestedModelProvider}, rawMessages=${rawMessages?.length}`)
+
         // 2. Normalize messages to simple {role, content} with alternating roles
         const messages = normalizeMessages(rawMessages)
+        console.log(`[API] Normalized messages: ${messages.length}`)
+        if (messages.length > 0) {
+            console.log(`[API] First message role: ${messages[0].role}`)
+            console.log(`[API] Last message role: ${messages[messages.length - 1].role}`)
+        }
 
         if (messages.length === 0) {
+            console.error('[API] Error: No valid messages provided after normalization')
             return new Response(JSON.stringify({ error: 'No valid messages provided' }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json' },
@@ -67,6 +77,7 @@ export async function POST(req: Request) {
 
         // 3. Fetch Configuration
         const config = await getSettings()
+        console.log('[API] Settings loaded')
 
         // 4. Determine System Prompt & Model Provider
         let systemPrompt = personas.find(p => p.id === 'canopticon')?.systemPrompt || ''
@@ -84,9 +95,12 @@ export async function POST(req: Request) {
                 if (p) systemPrompt = p.systemPrompt
             }
         } catch (e) {
+            console.error('[API] Error fetching agent/persona:', e)
             const p = personas.find(p => p.id === personaId)
             if (p) systemPrompt = p.systemPrompt
         }
+
+        console.log(`[API] Using provider: ${modelProvider}`)
 
         // 5. Instantiate Model
         let model;
@@ -107,6 +121,8 @@ export async function POST(req: Request) {
             model = openai('gpt-4o')
         }
 
+        console.log('[API] Model instantiated, starting stream...')
+
         // 6. Stream Response
         const result = await streamText({
             model,
@@ -114,10 +130,15 @@ export async function POST(req: Request) {
             messages,
         })
 
+        console.log('[API] Stream created successfully')
+
         return result.toTextStreamResponse()
 
     } catch (error: any) {
-        console.error('Chat API error:', error)
+        console.error('[API] Chat API Fatal Error:', error)
+        // Log the full error object structure if possible
+        if (error.responseBody) console.error('[API] Error Response Body:', error.responseBody)
+
         const message = error?.message || error?.data?.error?.message || 'An unexpected error occurred'
         return new Response(JSON.stringify({ error: message }), {
             status: 500,

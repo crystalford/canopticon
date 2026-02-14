@@ -35,8 +35,14 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
             modelProvider: selectedModel
         },
         initialMessages,
+        onResponse: (response: any) => {
+            console.log('[Chat] Response received', response.status, response.statusText)
+        },
+        onFinish: (message: any) => {
+            console.log('[Chat] Stream finished', message)
+        },
         onError: (error: Error) => {
-            console.error('Chat error:', error)
+            console.error('[Chat] Chat error:', error)
             setError(error.message || 'An error occurred. Please try again.')
         },
     } as any) as any
@@ -80,7 +86,8 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
         if (!input.trim() || isLoading) {
             return
         }
-        sendMessage({ role: 'user', content: input })
+        console.log('[Chat] Sending message:', input)
+        sendMessage({ role: 'user', content: input }).catch((e: any) => console.error('[Chat] sendMessage failed:', e))
         setInput('')
     }
 
@@ -89,7 +96,8 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
             if (input.trim() && !isLoading) {
                 // Manually trigger form submission for Enter key
                 e.preventDefault()
-                sendMessage({ role: 'user', content: input })
+                console.log('[Chat] Sending message (Enter):', input)
+                sendMessage({ role: 'user', content: input }).catch((e: any) => console.error('[Chat] sendMessage failed:', e))
                 setInput('')
             } else {
                 e.preventDefault()
