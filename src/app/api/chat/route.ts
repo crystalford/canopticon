@@ -43,7 +43,7 @@ const PROVIDERS = {
     },
     anthropic: {
         url: 'https://api.anthropic.com/v1/messages',
-        defaultModel: 'claude-3-5-sonnet-20241022',
+        defaultModel: 'claude-sonnet-4-20250514',
         keyName: 'ANTHROPIC_API_KEY',
         buildHeaders: (apiKey: string) => ({
             'x-api-key': apiKey,

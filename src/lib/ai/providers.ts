@@ -58,7 +58,7 @@ export async function getWritingModel() {
         })
         return perplexity('sonar-pro')
     } else if (writingProvider === 'anthropic') {
-        return anthropic('claude-3-5-sonnet-20241022')
+        return anthropic('claude-sonnet-4-20250514')
     } else {
         // OpenAI (default)
         return openai('gpt-4o')
@@ -81,6 +81,6 @@ export async function getFactCheckModel() {
         return openai('gpt-4o')
     } else {
         // Anthropic (default)
-        return anthropic('claude-3-5-sonnet-20241022')
+        return anthropic('claude-sonnet-4-20250514')
     }
 }
