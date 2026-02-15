@@ -20,7 +20,6 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     const inputRef = useRef<HTMLTextAreaElement>(null)
     const [input, setInput] = useState<string>(initialInput ?? '')
     const [personaId, setPersonaId] = useState<PersonaId>(initialPersonaId || 'canopticon')
-    const hasDetectedConversation = useRef(false)
     const [showPersonaMenu, setShowPersonaMenu] = useState(false)
     const [showModelMenu, setShowModelMenu] = useState(false)
     const [selectedModel, setSelectedModel] = useState<'perplexity' | 'openai' | 'anthropic'>('perplexity')
@@ -38,21 +37,14 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
 
         setError(null)
 
-        // Add user message to state
+        // Add user message to state (no assistant placeholder — avoids double indicator)
         const userMessage: UIMessage = {
             id: generateId(),
             role: 'user',
             parts: [{ type: 'text', text: content }],
         }
 
-        // Create placeholder assistant message
-        const assistantMessage: UIMessage = {
-            id: generateId(),
-            role: 'assistant',
-            parts: [{ type: 'text', text: '' }],
-        }
-
-        setMessages(prev => [...prev, userMessage, assistantMessage])
+        setMessages(prev => [...prev, userMessage])
         setIsLoading(true)
 
         // Build the messages array for the API
@@ -63,6 +55,10 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                 content: textPart?.text || '',
             }
         })
+
+        const assistantId = generateId()
+        let fullText = ''
+        let assistantAdded = false
 
         try {
             const controller = new AbortController()
@@ -91,7 +87,6 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
             // Read the stream
             const reader = res.body.getReader()
             const decoder = new TextDecoder()
-            let fullText = ''
 
             while (true) {
                 const { done, value } = await reader.read()
@@ -100,18 +95,51 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                 const chunk = decoder.decode(value, { stream: true })
                 fullText += chunk
 
-                // Update the assistant message with accumulated text
-                setMessages(prev => {
-                    const updated = [...prev]
-                    const lastMsg = updated[updated.length - 1]
-                    if (lastMsg && lastMsg.role === 'assistant') {
-                        updated[updated.length - 1] = {
-                            ...lastMsg,
-                            parts: [{ type: 'text', text: fullText }],
+                if (!assistantAdded) {
+                    // First chunk: add the assistant message
+                    assistantAdded = true
+                    setMessages(prev => [...prev, {
+                        id: assistantId,
+                        role: 'assistant' as const,
+                        parts: [{ type: 'text' as const, text: fullText }],
+                    }])
+                } else {
+                    // Subsequent chunks: update the assistant message
+                    setMessages(prev => {
+                        const updated = [...prev]
+                        const lastMsg = updated[updated.length - 1]
+                        if (lastMsg && lastMsg.role === 'assistant') {
+                            updated[updated.length - 1] = {
+                                ...lastMsg,
+                                parts: [{ type: 'text' as const, text: fullText }],
+                            }
                         }
+                        return updated
+                    })
+                }
+            }
+
+            // Stream complete — save to DB if this is a new conversation
+            if (!conversationId && fullText) {
+                try {
+                    const conv = await fetch('/api/conversations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: content.substring(0, 80),
+                            messages: [
+                                { role: 'user', content },
+                                { role: 'assistant', content: fullText },
+                            ],
+                        }),
+                    }).then(r => r.json())
+
+                    if (conv?.id) {
+                        onConversationCreated(conv.id)
                     }
-                    return updated
-                })
+                } catch (saveErr) {
+                    console.error('[Chat] Failed to save conversation:', saveErr)
+                }
             }
 
         } catch (err: any) {
@@ -120,44 +148,16 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
             } else {
                 console.error('[Chat] Error:', err)
                 setError(err.message || 'An error occurred. Please try again.')
-                // Remove the empty assistant message on error
-                setMessages(prev => {
-                    const last = prev[prev.length - 1]
-                    if (last?.role === 'assistant' && !(last.parts?.find((p: any) => p.type === 'text') as any)?.text) {
-                        return prev.slice(0, -1)
-                    }
-                    return prev
-                })
             }
         } finally {
             setIsLoading(false)
             abortControllerRef.current = null
         }
-    }, [isLoading, messages, personaId, selectedModel])
+    }, [isLoading, messages, personaId, selectedModel, conversationId, onConversationCreated])
 
     const stopGeneration = useCallback(() => {
         abortControllerRef.current?.abort()
     }, [])
-
-    // Detect new conversation creation
-    useEffect(() => {
-        if (
-            !conversationId &&
-            !hasDetectedConversation.current &&
-            !isLoading &&
-            messages.length >= 2
-        ) {
-            hasDetectedConversation.current = true
-            fetch('/api/conversations')
-                .then(res => res.json())
-                .then(convs => {
-                    if (convs.length > 0) {
-                        onConversationCreated(convs[0].id)
-                    }
-                })
-                .catch(console.error)
-        }
-    }, [isLoading, messages.length, conversationId, onConversationCreated])
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
@@ -303,7 +303,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                         {messages.map((message: UIMessage) => (
                             <MessageBubble key={message.id} message={message} />
                         ))}
-                        {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && !(messages[messages.length - 1]?.parts?.find((p: any) => p.type === 'text') as any)?.text && (
+                        {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
                             <div className="flex gap-3">
                                 <div className="w-8 h-8 rounded-full bg-primary-600/20 border border-primary-500/30 flex items-center justify-center flex-shrink-0">
                                     <span className="text-primary-400 text-xs font-bold">C</span>
