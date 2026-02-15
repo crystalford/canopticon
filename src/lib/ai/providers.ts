@@ -19,68 +19,26 @@ export async function getSettings() {
     }
 }
 
-export async function getChatModel() {
-    // Using Perplexity Sonar Pro as default
+export async function getModel(provider: 'openai' | 'anthropic' | 'perplexity' = 'perplexity', modelId?: string) {
     const config = await getSettings()
 
-    const perplexity = createOpenAICompatible({
-        name: 'perplexity',
-        apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-        baseURL: 'https://api.perplexity.ai/',
-    })
+    if (provider === 'perplexity') {
+        const perplexity = createOpenAICompatible({
+            name: 'perplexity',
+            apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
+            baseURL: 'https://api.perplexity.ai/',
+        })
+        return perplexity(modelId || 'sonar-pro')
+    }
 
-    return perplexity('sonar-pro')
-}
+    if (provider === 'anthropic') {
+        return anthropic(modelId || 'claude-sonnet-4-20250514')
+    }
 
-export async function getResearchModel() {
-    const config = await getSettings()
-    const apiKey = config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY || ''
-
-    const perplexity = createOpenAICompatible({
-        name: 'perplexity',
+    // Default to OpenAI
+    const apiKey = config.OPENAI_API_KEY || process.env.OPENAI_API_KEY
+    const openaiProvider = createOpenAI({
         apiKey,
-        baseURL: 'https://api.perplexity.ai/',
     })
-
-    return perplexity('sonar-pro')
-}
-
-export async function getWritingModel() {
-    // Get user's preferred writing model from settings
-    const config = await getSettings()
-    const writingProvider = config.DEFAULT_WRITING_MODEL || 'openai' // Default to GPT-4o for writing
-
-    if (writingProvider === 'perplexity') {
-        const perplexity = createOpenAICompatible({
-            name: 'perplexity',
-            apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai/',
-        })
-        return perplexity('sonar-pro')
-    } else if (writingProvider === 'anthropic') {
-        return anthropic('claude-sonnet-4-20250514')
-    } else {
-        // OpenAI (default)
-        return openai('gpt-4o')
-    }
-}
-
-export async function getFactCheckModel() {
-    // Get user's preferred fact-check model from settings
-    const config = await getSettings()
-    const factCheckProvider = config.DEFAULT_FACTCHECK_MODEL || 'anthropic' // Default to Claude for fact-checking
-
-    if (factCheckProvider === 'perplexity') {
-        const perplexity = createOpenAICompatible({
-            name: 'perplexity',
-            apiKey: config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY,
-            baseURL: 'https://api.perplexity.ai/',
-        })
-        return perplexity('sonar-pro')
-    } else if (factCheckProvider === 'openai') {
-        return openai('gpt-4o')
-    } else {
-        // Anthropic (default)
-        return anthropic('claude-sonnet-4-20250514')
-    }
+    return openaiProvider(modelId || 'gpt-4o')
 }

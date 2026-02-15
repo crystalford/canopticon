@@ -1,5 +1,5 @@
 import { generateText, stepCountIs } from 'ai'
-import { getChatModel, getWritingModel } from '@/lib/ai/providers'
+import { getModel } from '@/lib/ai/providers'
 import { createTools } from '@/lib/ai/tools'
 import { searchPerplexity } from '@/lib/ai/tools'
 import { db, automations, articles } from '@/db'
@@ -54,7 +54,7 @@ Instructions:
 `
 
 
-    const chatModel = await getChatModel()
+    const chatModel = await getModel('perplexity', 'sonar-pro')
     const result = await generateText({
         model: chatModel,
         prompt,
@@ -94,7 +94,7 @@ export async function processYouTubeVideo(video: { title: string, link: string, 
     const fullPrompt = `${instructions}\n\n${publishMode}\n\nNew content detected:\n${triggerData}`
 
     const tools = createTools(undefined, { saveDraft: !automationConfig.autoPublish })
-    const chatModel = await getChatModel()
+    const chatModel = await getModel('perplexity', 'sonar-pro')
     const result = await generateText({
         model: chatModel,
         system: 'You are Canopticon, an investigative AI journalist. \n\nCORE RULES:\n1. Write a specific news article about the EVENT in the video. \n2. Do NOT write a meta-review. Focus on the subject matter.\n3. ALWAYS begin the article by embedding the video using <youtube>VIDEO_ID</youtube>.\n4. Critical: Use `search_web` to find the real story behind this specific event.',
@@ -144,7 +144,7 @@ export async function runAutomation(automation: Automation): Promise<{ success: 
         const tools = createTools(undefined, { saveDraft: !automation.autoPublish })
 
         // Use dedicated writing model for article generation
-        const writingModel = await getWritingModel()
+        const writingModel = await getModel('openai', 'gpt-4o')
         console.log('[runAutomation] Using writing model for article generation')
 
         await generateText({
