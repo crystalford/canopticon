@@ -1,8 +1,7 @@
 'use client'
 
-import { useChat } from '@ai-sdk/react'
 import type { UIMessage } from 'ai'
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { MessageBubble } from './MessageBubble'
 import { Send, Square, ChevronDown, UserCog, Cpu } from 'lucide-react'
 import { PERSONAS, PersonaId } from '@/lib/ai/personas'
@@ -26,35 +25,126 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     const [showModelMenu, setShowModelMenu] = useState(false)
     const [selectedModel, setSelectedModel] = useState<'perplexity' | 'openai' | 'anthropic'>('perplexity')
     const [error, setError] = useState<string | null>(null)
+    const [messages, setMessages] = useState<UIMessage[]>(initialMessages || [])
+    const [isLoading, setIsLoading] = useState(false)
+    const abortControllerRef = useRef<AbortController | null>(null)
 
-    const { messages = [], sendMessage, status, stop, setMessages } = useChat({
-        api: '/api/chat',
-        body: {
-            conversationId: conversationId || undefined,
-            personaId,
-            modelProvider: selectedModel
-        },
-        initialMessages,
-        onResponse: (response: any) => {
-            console.log('[Chat] Response received', response.status, response.statusText)
-        },
-        onFinish: (message: any) => {
-            console.log('[Chat] Stream finished', message)
-        },
-        onError: (error: Error) => {
-            console.error('[Chat] Chat error:', error)
-            setError(error.message || 'An error occurred. Please try again.')
-        },
-    } as any) as any
+    // Generate a unique ID
+    const generateId = () => Math.random().toString(36).substring(2, 15)
 
-    const isLoading = status === 'submitted' || status === 'streaming'
+    // Send a message and stream the response
+    const sendMessage = useCallback(async (content: string) => {
+        if (!content.trim() || isLoading) return
 
-    // Detect new conversation creation - after first exchange completes, fetch the latest conversation
+        setError(null)
+
+        // Add user message to state
+        const userMessage: UIMessage = {
+            id: generateId(),
+            role: 'user',
+            parts: [{ type: 'text', text: content }],
+        }
+
+        // Create placeholder assistant message
+        const assistantMessage: UIMessage = {
+            id: generateId(),
+            role: 'assistant',
+            parts: [{ type: 'text', text: '' }],
+        }
+
+        setMessages(prev => [...prev, userMessage, assistantMessage])
+        setIsLoading(true)
+
+        // Build the messages array for the API
+        const apiMessages = [...messages, userMessage].map(m => {
+            const textPart = m.parts?.find((p: any) => p.type === 'text') as any
+            return {
+                role: m.role,
+                content: textPart?.text || '',
+            }
+        })
+
+        try {
+            const controller = new AbortController()
+            abortControllerRef.current = controller
+
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: apiMessages,
+                    personaId,
+                    modelProvider: selectedModel,
+                }),
+                signal: controller.signal,
+            })
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+                throw new Error(errorData.error || `Request failed with status ${res.status}`)
+            }
+
+            if (!res.body) {
+                throw new Error('No response body')
+            }
+
+            // Read the stream
+            const reader = res.body.getReader()
+            const decoder = new TextDecoder()
+            let fullText = ''
+
+            while (true) {
+                const { done, value } = await reader.read()
+                if (done) break
+
+                const chunk = decoder.decode(value, { stream: true })
+                fullText += chunk
+
+                // Update the assistant message with accumulated text
+                setMessages(prev => {
+                    const updated = [...prev]
+                    const lastMsg = updated[updated.length - 1]
+                    if (lastMsg && lastMsg.role === 'assistant') {
+                        updated[updated.length - 1] = {
+                            ...lastMsg,
+                            parts: [{ type: 'text', text: fullText }],
+                        }
+                    }
+                    return updated
+                })
+            }
+
+        } catch (err: any) {
+            if (err.name === 'AbortError') {
+                // User stopped generation — keep what we have
+            } else {
+                console.error('[Chat] Error:', err)
+                setError(err.message || 'An error occurred. Please try again.')
+                // Remove the empty assistant message on error
+                setMessages(prev => {
+                    const last = prev[prev.length - 1]
+                    if (last?.role === 'assistant' && !(last.parts?.find((p: any) => p.type === 'text') as any)?.text) {
+                        return prev.slice(0, -1)
+                    }
+                    return prev
+                })
+            }
+        } finally {
+            setIsLoading(false)
+            abortControllerRef.current = null
+        }
+    }, [isLoading, messages, personaId, selectedModel])
+
+    const stopGeneration = useCallback(() => {
+        abortControllerRef.current?.abort()
+    }, [])
+
+    // Detect new conversation creation
     useEffect(() => {
         if (
             !conversationId &&
             !hasDetectedConversation.current &&
-            status === 'ready' &&
+            !isLoading &&
             messages.length >= 2
         ) {
             hasDetectedConversation.current = true
@@ -67,7 +157,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                 })
                 .catch(console.error)
         }
-    }, [status, messages.length, conversationId, onConversationCreated])
+    }, [isLoading, messages.length, conversationId, onConversationCreated])
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
@@ -83,22 +173,19 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
 
     const onSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (!input.trim() || isLoading) {
-            return
-        }
-        console.log('[Chat] Sending message:', input)
-        sendMessage({ role: 'user', content: input }).catch((e: any) => console.error('[Chat] sendMessage failed:', e))
+        if (!input.trim() || isLoading) return
+        const text = input
         setInput('')
+        sendMessage(text)
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             if (input.trim() && !isLoading) {
-                // Manually trigger form submission for Enter key
                 e.preventDefault()
-                console.log('[Chat] Sending message (Enter):', input)
-                sendMessage({ role: 'user', content: input }).catch((e: any) => console.error('[Chat] sendMessage failed:', e))
+                const text = input
                 setInput('')
+                sendMessage(text)
             } else {
                 e.preventDefault()
             }
@@ -216,7 +303,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                         {messages.map((message: UIMessage) => (
                             <MessageBubble key={message.id} message={message} />
                         ))}
-                        {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
+                        {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && !(messages[messages.length - 1]?.parts?.find((p: any) => p.type === 'text') as any)?.text && (
                             <div className="flex gap-3">
                                 <div className="w-8 h-8 rounded-full bg-primary-600/20 border border-primary-500/30 flex items-center justify-center flex-shrink-0">
                                     <span className="text-primary-400 text-xs font-bold">C</span>
@@ -304,7 +391,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                             {isLoading ? (
                                 <button
                                     type="button"
-                                    onClick={() => stop()}
+                                    onClick={stopGeneration}
                                     className="p-2.5 rounded-lg bg-white/10 text-slate-300 hover:bg-white/20 transition-colors flex items-center justify-center"
                                     title="Stop generating"
                                 >

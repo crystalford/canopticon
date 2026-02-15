@@ -1,27 +1,74 @@
 
-import { streamText } from 'ai'
-import { anthropic } from '@ai-sdk/anthropic'
-import { createOpenAI } from '@ai-sdk/openai'
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { getSettings } from '@/lib/ai/providers'
 import { db } from '@/db'
 import { agents } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { personas } from '@/lib/ai/personas'
 
+// Provider configurations
+const PROVIDERS = {
+    perplexity: {
+        url: 'https://api.perplexity.ai/chat/completions',
+        defaultModel: 'sonar-pro',
+        keyName: 'PERPLEXITY_API_KEY',
+        buildHeaders: (apiKey: string) => ({
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        }),
+        buildBody: (model: string, messages: any[], systemPrompt: string) => ({
+            model,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                ...messages,
+            ],
+            stream: true,
+        }),
+    },
+    openai: {
+        url: 'https://api.openai.com/v1/chat/completions',
+        defaultModel: 'gpt-4o',
+        keyName: 'OPENAI_API_KEY',
+        buildHeaders: (apiKey: string) => ({
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        }),
+        buildBody: (model: string, messages: any[], systemPrompt: string) => ({
+            model,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                ...messages,
+            ],
+            stream: true,
+        }),
+    },
+    anthropic: {
+        url: 'https://api.anthropic.com/v1/messages',
+        defaultModel: 'claude-3-5-sonnet-20241022',
+        keyName: 'ANTHROPIC_API_KEY',
+        buildHeaders: (apiKey: string) => ({
+            'x-api-key': apiKey,
+            'Content-Type': 'application/json',
+            'anthropic-version': '2023-06-01',
+        }),
+        buildBody: (model: string, messages: any[], systemPrompt: string) => ({
+            model,
+            system: systemPrompt,
+            messages,
+            max_tokens: 4096,
+            stream: true,
+        }),
+    },
+}
+
 // Convert UIMessage (parts-based) or legacy message to simple {role, content}
 function normalizeMessages(rawMessages: any[]): { role: 'user' | 'assistant'; content: string }[] {
     if (!Array.isArray(rawMessages)) return []
-
     const normalized: { role: 'user' | 'assistant'; content: string }[] = []
 
     for (const msg of rawMessages) {
-        // Skip system messages (system prompt is handled separately)
         if (msg.role === 'system') continue
-        // Only keep user and assistant
         if (msg.role !== 'user' && msg.role !== 'assistant') continue
 
-        // Extract text content from parts (UIMessage v3 format) or content (legacy)
         let content = ''
         if (msg.parts && Array.isArray(msg.parts)) {
             content = msg.parts
@@ -35,7 +82,6 @@ function normalizeMessages(rawMessages: any[]): { role: 'user' | 'assistant'; co
 
         if (!content) continue
 
-        // Enforce alternating roles: merge consecutive same-role messages
         const last = normalized[normalized.length - 1]
         if (last && last.role === msg.role) {
             last.content += '\n' + content
@@ -47,41 +93,117 @@ function normalizeMessages(rawMessages: any[]): { role: 'user' | 'assistant'; co
     return normalized
 }
 
+// Parse SSE from OpenAI-compatible providers (Perplexity, OpenAI)
+// and transform into a simple text stream
+function createOpenAITextStream(providerStream: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+    const encoder = new TextEncoder()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    return new ReadableStream({
+        async start(controller) {
+            const reader = providerStream.getReader()
+            try {
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+
+                    buffer += decoder.decode(value, { stream: true })
+                    const lines = buffer.split('\n')
+                    buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        const trimmed = line.trim()
+                        if (!trimmed || !trimmed.startsWith('data: ')) continue
+                        const data = trimmed.slice(6)
+                        if (data === '[DONE]') continue
+
+                        try {
+                            const parsed = JSON.parse(data)
+                            const content = parsed.choices?.[0]?.delta?.content
+                            if (content) {
+                                controller.enqueue(encoder.encode(content))
+                            }
+                        } catch {
+                            // Skip malformed JSON
+                        }
+                    }
+                }
+            } catch (err) {
+                controller.error(err)
+            } finally {
+                controller.close()
+            }
+        },
+    })
+}
+
+// Parse SSE from Anthropic and transform into a simple text stream
+function createAnthropicTextStream(providerStream: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+    const encoder = new TextEncoder()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    return new ReadableStream({
+        async start(controller) {
+            const reader = providerStream.getReader()
+            try {
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+
+                    buffer += decoder.decode(value, { stream: true })
+                    const lines = buffer.split('\n')
+                    buffer = lines.pop() || ''
+
+                    for (const line of lines) {
+                        const trimmed = line.trim()
+                        if (!trimmed || !trimmed.startsWith('data: ')) continue
+                        const data = trimmed.slice(6)
+
+                        try {
+                            const parsed = JSON.parse(data)
+                            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+                                controller.enqueue(encoder.encode(parsed.delta.text))
+                            }
+                        } catch {
+                            // Skip malformed JSON
+                        }
+                    }
+                }
+            } catch (err) {
+                controller.error(err)
+            } finally {
+                controller.close()
+            }
+        },
+    })
+}
+
 export async function POST(req: Request) {
     try {
-        console.log('[API] Chat request received')
-
         // 1. Parse Input
         const body = await req.json()
         const rawMessages = body.messages
         const personaId = body.personaId || 'canopticon'
         const requestedModelProvider = body.modelProvider
 
-        console.log(`[API] Params: personaId=${personaId}, provider=${requestedModelProvider}, rawMessages=${rawMessages?.length}`)
-
-        // 2. Normalize messages to simple {role, content} with alternating roles
+        // 2. Normalize messages
         const messages = normalizeMessages(rawMessages)
-        console.log(`[API] Normalized messages: ${messages.length}`)
-        if (messages.length > 0) {
-            console.log(`[API] First message role: ${messages[0].role}`)
-            console.log(`[API] Last message role: ${messages[messages.length - 1].role}`)
-        }
 
         if (messages.length === 0) {
-            console.error('[API] Error: No valid messages provided after normalization')
             return new Response(JSON.stringify({ error: 'No valid messages provided' }), {
                 status: 400,
                 headers: { 'Content-Type': 'application/json' },
             })
         }
 
-        // 3. Fetch Configuration
+        // 3. Fetch Configuration (BYOK keys from DB)
         const config = await getSettings()
-        console.log('[API] Settings loaded')
 
         // 4. Determine System Prompt & Model Provider
         let systemPrompt = personas.find(p => p.id === 'canopticon')?.systemPrompt || ''
-        let modelProvider = requestedModelProvider || 'perplexity'
+        let modelProvider = requestedModelProvider || config.DEFAULT_MODEL_PROVIDER || 'perplexity'
 
         try {
             const [agent] = await db.select().from(agents).where(eq(agents.slug, personaId))
@@ -94,83 +216,62 @@ export async function POST(req: Request) {
                 const p = personas.find(p => p.id === personaId)
                 if (p) systemPrompt = p.systemPrompt
             }
-        } catch (e) {
-            console.error('[API] Error fetching agent/persona:', e)
+        } catch {
+            // agents table may not exist yet — fall back to static personas
             const p = personas.find(p => p.id === personaId)
             if (p) systemPrompt = p.systemPrompt
         }
 
-        console.log(`[API] Using provider: ${modelProvider}`)
+        // 5. Get Provider Config
+        const providerKey = modelProvider as keyof typeof PROVIDERS
+        const provider = PROVIDERS[providerKey] || PROVIDERS.perplexity
 
-        // 5. Instantiate Model
-        let model;
-
-        if (modelProvider === 'perplexity') {
-            const apiKey = config.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY
-            console.log('[API] Perplexity Key present:', !!apiKey)
-            if (apiKey) console.log('[API] Key starts with:', apiKey.substring(0, 4))
-
-            // MANUAL DEBUG FETCH
-            try {
-                console.log('[API] Testing Perplexity connection manually...')
-                const debugRes = await fetch('https://api.perplexity.ai/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        model: 'sonar',
-                        messages: [{ role: 'user', content: 'ping' }]
-                    })
-                })
-                console.log('[API] Manual fetch status:', debugRes.status)
-                const debugText = await debugRes.text()
-                console.log('[API] Manual fetch response:', debugText.substring(0, 200))
-            } catch (debugErr) {
-                console.error('[API] Manual fetch failed:', debugErr)
-            }
-
-            // Revert to createOpenAICompatible - createOpenAI was hitting wrong endpoint (/responses or /v1)
-            const perplexity = createOpenAICompatible({
-                name: 'perplexity',
-                apiKey: apiKey,
-                baseURL: 'https://api.perplexity.ai/',
+        const apiKey = config[provider.keyName] || process.env[provider.keyName]
+        if (!apiKey) {
+            return new Response(JSON.stringify({ error: `No API key configured for ${modelProvider}. Add it in Settings.` }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' },
             })
-            // Switch to 'sonar' (lighter) to verify flow, preventing 'sonar-pro' timeouts if any
-            model = perplexity('sonar')
-        } else if (modelProvider === 'anthropic') {
-            model = anthropic('claude-3-5-sonnet-20241022')
-        } else {
-            const apiKey = config.OPENAI_API_KEY || process.env.OPENAI_API_KEY
-            console.log('[API] OpenAI Key present:', !!apiKey)
-
-            const openai = createOpenAI({
-                apiKey: apiKey
-            })
-            model = openai('gpt-4o')
         }
 
-        console.log('[API] Model instantiated, starting stream...')
-
-        // 6. Stream Response
-        const result = await streamText({
-            model,
-            system: systemPrompt,
-            messages,
+        // 6. Direct fetch to provider API
+        const providerResponse = await fetch(provider.url, {
+            method: 'POST',
+            headers: provider.buildHeaders(apiKey),
+            body: JSON.stringify(provider.buildBody(provider.defaultModel, messages, systemPrompt)),
         })
 
-        console.log('[API] Stream created successfully')
+        if (!providerResponse.ok) {
+            const errorText = await providerResponse.text()
+            console.error(`[API] Provider ${modelProvider} returned ${providerResponse.status}:`, errorText)
+            return new Response(JSON.stringify({ error: `${modelProvider} API error: ${providerResponse.status}` }), {
+                status: 502,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        }
 
-        return result.toTextStreamResponse()
+        if (!providerResponse.body) {
+            return new Response(JSON.stringify({ error: 'No response body from provider' }), {
+                status: 502,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        }
+
+        // 7. Transform provider SSE into plain text stream
+        const textStream = providerKey === 'anthropic'
+            ? createAnthropicTextStream(providerResponse.body)
+            : createOpenAITextStream(providerResponse.body)
+
+        return new Response(textStream, {
+            headers: {
+                'Content-Type': 'text/plain; charset=utf-8',
+                'Transfer-Encoding': 'chunked',
+            },
+        })
 
     } catch (error: any) {
         console.error('[API] Chat API Fatal Error:', error)
-        // Log the full error object structure if possible
-        if (error.responseBody) console.error('[API] Error Response Body:', error.responseBody)
-
-        const message = error?.message || error?.data?.error?.message || 'An unexpected error occurred'
-        return new Response(JSON.stringify({ error: message }), {
+        return new Response(JSON.stringify({ error: error?.message || 'An unexpected error occurred' }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' },
         })
