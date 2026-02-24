@@ -1,5 +1,7 @@
 import { FeedsList } from '@/components/automations/FeedsList'
 
+export const dynamic = 'force-dynamic'
+
 export default function FeedsPage() {
     return (
         <div className="max-w-5xl mx-auto py-12 px-6">

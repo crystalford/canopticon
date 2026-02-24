@@ -82,6 +82,7 @@ function PipelineFlow({ automation }: { automation: Automation }) {
 export function FeedsList() {
     const [automations, setAutomations] = useState<Automation[]>([])
     const [loading, setLoading] = useState(true)
+    const [fetchError, setFetchError] = useState<string | null>(null)
     const [runningId, setRunningId] = useState<string | null>(null)
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [runResults, setRunResults] = useState<Record<string, RunResult>>({})
@@ -91,9 +92,13 @@ export function FeedsList() {
     const fetchAutomations = useCallback(async () => {
         try {
             const res = await fetch('/api/automations')
-            if (res.ok) setAutomations(await res.json())
-        } catch (e) {
+            if (!res.ok) throw new Error(`API ${res.status}`)
+            const data = await res.json()
+            setAutomations(data)
+            setFetchError(null)
+        } catch (e: any) {
             console.error('Failed to fetch automations', e)
+            setFetchError(e?.message || 'Failed to load pipelines')
         } finally {
             setLoading(false)
         }
@@ -168,6 +173,15 @@ export function FeedsList() {
                 {[1, 2].map(i => (
                     <div key={i} className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 h-28 animate-pulse" />
                 ))}
+            </div>
+        )
+    }
+
+    if (fetchError && automations.length === 0) {
+        return (
+            <div className="flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                <span className="text-sm text-red-400">Failed to load pipelines: {fetchError}</span>
+                <button onClick={fetchAutomations} className="text-xs text-red-300 underline">Retry</button>
             </div>
         )
     }

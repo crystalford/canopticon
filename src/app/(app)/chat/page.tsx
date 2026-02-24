@@ -12,14 +12,12 @@ export default function ChatPage() {
     const [conversationId, setConversationId] = useState<string | null>(null)
     const [initialMessages, setInitialMessages] = useState<UIMessage[] | undefined>(undefined)
     const [loadingMessages, setLoadingMessages] = useState(false)
-    // Track conversation IDs created locally to avoid spurious reloads when router.replace fires
-    const justCreatedRef = useRef<string | null>(null)
+    // Tracks IDs we've already loaded via handleSelectConversation to avoid double-loading
+    const loadedIdsRef = useRef<Set<string>>(new Set())
 
-    // Separate key for controlling ChatInterface remounts.
     const [initialPersonaId, setInitialPersonaId] = useState<any>(undefined)
     const [initialInput, setInitialInput] = useState<string | undefined>(undefined)
-
-    const [chatKey, setChatKey] = useState('new') // Key to force ChatInterface remount
+    const [chatKey, setChatKey] = useState('new')
 
     const handleNewChat = useCallback(() => {
         setConversationId(null)
@@ -27,16 +25,21 @@ export default function ChatPage() {
         setChatKey('new-' + Date.now())
     }, [])
 
+    // Called by ChatInterface the instant a new conversation row is created.
+    // We update the URL silently (no router event) so the searchParams effect
+    // does NOT fire and reset the page.
     const handleConversationCreated = useCallback((id: string) => {
-        // Mark as just-created to prevent useEffect from reloading messages from DB
-        justCreatedRef.current = id
         setConversationId(id)
-        router.replace(`?c=${id}`)
-    }, [router])
+        loadedIdsRef.current.add(id) // mark as "in memory", don't reload from DB
+        // Use native history API to avoid triggering Next.js router / searchParams effect
+        window.history.replaceState(null, '', `?c=${id}`)
+    }, [])
 
     const handleSelectConversation = useCallback(async (id: string) => {
+        if (loadedIdsRef.current.has(id)) return // already loaded in memory
         setLoadingMessages(true)
         setConversationId(id)
+        loadedIdsRef.current.add(id)
 
         try {
             const res = await fetch(`/api/conversations/${id}/messages`)
@@ -51,7 +54,7 @@ export default function ChatPage() {
                     parts: [{ type: 'text' as const, text: m.content }],
                 }))
             setInitialMessages(uiMessages)
-            setChatKey(id) // remount with loaded messages
+            setChatKey(id)
         } catch (error) {
             console.error('Failed to load messages:', error)
             setInitialMessages(undefined)
@@ -61,47 +64,32 @@ export default function ChatPage() {
         }
     }, [])
 
-    // Handle URL changes
+    // Only runs on actual URL changes (sidebar navigation, direct links, etc.)
     useEffect(() => {
         const c = searchParams.get('c')
         const mode = searchParams.get('mode')
         const reviewId = searchParams.get('review')
         const editId = searchParams.get('edit')
-
-        if (mode) {
-            setInitialPersonaId(mode)
-        }
-
-        if (reviewId) {
-            setInitialInput(`Please review article #${reviewId} and provide editorial feedback.`)
-        }
-
-        if (editId) {
-            setInitialInput(`I want to edit article ${editId}. Please read it and help me make changes.`)
-        }
-
         const inputParam = searchParams.get('initialInput')
-        if (inputParam) {
-            setInitialInput(decodeURIComponent(inputParam))
-        }
+
+        if (mode) setInitialPersonaId(mode)
+        if (reviewId) setInitialInput(`Please review article #${reviewId} and provide editorial feedback.`)
+        if (editId) setInitialInput(`I want to edit article ${editId}. Please read it and help me make changes.`)
+        if (inputParam) setInitialInput(decodeURIComponent(inputParam))
 
         if (c) {
-            // If this ID was just created by us, skip the reload — we have messages in memory
-            if (justCreatedRef.current === c) {
-                justCreatedRef.current = null
-                return
-            }
-            // If URL has ID and it's different (or we haven't loaded it yet), load it
-            if (c !== conversationId) {
-                handleSelectConversation(c)
-            }
+            handleSelectConversation(c)
         } else {
-            // If URL has no ID, ensure we are in "New Chat" mode
+            // No ?c= param — only reset if we're not already in a fresh state
             if (conversationId !== null) {
                 handleNewChat()
             }
         }
-    }, [searchParams, conversationId, handleSelectConversation, handleNewChat])
+        // Intentionally only react to searchParams changes driven by the router
+        // (sidebar clicks, direct links). handleConversationCreated uses
+        // window.history.replaceState so it does NOT trigger this effect.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams])
 
     return (
         <div className="h-full flex flex-col relative">
@@ -117,7 +105,10 @@ export default function ChatPage() {
                     key={chatKey}
                     conversationId={conversationId}
                     onConversationCreated={handleConversationCreated}
-                    onNewChat={() => router.push('/chat')} // User clicking "New Chat" in interface
+                    onNewChat={() => {
+                        window.history.replaceState(null, '', '/chat')
+                        handleNewChat()
+                    }}
                     initialMessages={initialMessages}
                     initialPersonaId={initialPersonaId}
                     initialInput={initialInput}
