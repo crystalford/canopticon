@@ -305,18 +305,18 @@ export function ConversationSidebar() {
             {/* Footer / User Profile placeholder */}
             <div className="p-4 border-t border-white/5">
                 <Link href="/" className="flex items-center gap-3 group">
-                    {/* Premium Metallic Aperture Logo - Small */}
-                    <div className="relative w-8 h-8 flex items-center justify-center">
-                        <svg width="32" height="32" viewBox="0 0 40 40" fill="none">
+                    {/* Canopticon Eye Mark - Small */}
+                    <div className="relative w-6 h-6 flex items-center justify-center">
+                        <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
                             <defs>
-                                <linearGradient id="metal-gradient-sm" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-                                    <stop offset="0%" stopColor="#e2e8f0" />
-                                    <stop offset="100%" stopColor="#475569" />
+                                <linearGradient id="sb-ring" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                                    <stop offset="0%" stopColor="#cbd5e1" />
+                                    <stop offset="100%" stopColor="#64748b" />
                                 </linearGradient>
                             </defs>
-                            <circle cx="20" cy="20" r="18" stroke="url(#metal-gradient-sm)" strokeWidth="3" fill="none" opacity="0.9" />
-                            <circle cx="20" cy="20" r="6" stroke="#ef4444" strokeWidth="3" fill="none" />
-                            <circle cx="20" cy="20" r="2" fill="#ef4444" />
+                            <circle cx="14" cy="14" r="12.5" stroke="url(#sb-ring)" strokeWidth="1.5" fill="none" />
+                            <circle cx="14" cy="14" r="5.5" stroke="#ef4444" strokeWidth="1.2" fill="none" opacity="0.7" />
+                            <circle cx="14" cy="14" r="2.5" fill="#ef4444" />
                         </svg>
                     </div>
 

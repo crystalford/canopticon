@@ -26,12 +26,12 @@ export default function Icon() {
                     viewBox="0 0 32 32"
                     fill="none"
                 >
-                    {/* Metallic Ring */}
-                    <circle cx="16" cy="16" r="14" stroke="#94a3b8" strokeWidth="2" />
-
-                    {/* Red Eye Glow */}
-                    <circle cx="16" cy="16" r="6" stroke="#ef4444" strokeWidth="2" />
-                    <circle cx="16" cy="16" r="3" fill="#ef4444" />
+                    {/* Outer Ring */}
+                    <circle cx="16" cy="16" r="13" stroke="#94a3b8" strokeWidth="1.5" fill="none" />
+                    {/* Iris */}
+                    <circle cx="16" cy="16" r="5" stroke="#ef4444" strokeWidth="1.5" fill="none" />
+                    {/* Pupil */}
+                    <circle cx="16" cy="16" r="2.5" fill="#ef4444" />
                 </svg>
             </div>
         ),
