@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
     Trash2, CheckCircle, AlertTriangle, RefreshCw, Play, ChevronDown, ChevronUp,
-    Plus, Zap, Calendar, ArrowRight, ExternalLink, Loader2, Settings
+    Plus, Zap, Calendar, ArrowRight, ExternalLink, Loader2, Settings, X
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useRouter } from 'next/navigation'
@@ -33,7 +33,6 @@ interface RunResult {
     xPostError?: string
 }
 
-// Resolve display name for a model ID
 function modelLabel(provider?: string, modelId?: string): string {
     if (!provider && !modelId) return 'Default'
     const p = provider || ''
@@ -44,7 +43,6 @@ function modelLabel(provider?: string, modelId?: string): string {
     return `${p}/${m}`
 }
 
-// Pipeline stages badge row
 function PipelineFlow({ automation }: { automation: Automation }) {
     const { type, autoPublish, config } = automation
     const researchLabel = modelLabel(config.researchProvider || 'perplexity', config.researchModel || 'sonar-pro')
@@ -79,10 +77,185 @@ function PipelineFlow({ automation }: { automation: Automation }) {
     )
 }
 
+// ── New Pipeline Form ───────────────────────────────────────────────────────
+const DEFAULT_YOUTUBE_PROMPT = `Write a sharp 600-800 word news article based on this video. Focus on key speakers, debates, policy implications, and direct quotes. Structure with a headline, summary paragraph, and 2-3 analysis sections. Tags should reflect the specific topic.`
+
+interface NewPipelineFormProps {
+    onCreated: () => void
+    onCancel: () => void
+}
+
+function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
+    const [type, setType] = useState<'youtube' | 'rss' | 'keyword'>('youtube')
+    const [name, setName] = useState('')
+    const [channelId, setChannelId] = useState('')
+    const [feedUrl, setFeedUrl] = useState('')
+    const [keywords, setKeywords] = useState('')
+    const [prompt, setPrompt] = useState(DEFAULT_YOUTUBE_PROMPT)
+    const [autoPublish, setAutoPublish] = useState(false)
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setError(null)
+
+        if (!name.trim()) { setError('Name is required'); return }
+
+        let config: Record<string, unknown> = {}
+        if (type === 'youtube') {
+            const cid = channelId.trim()
+            if (!cid) { setError('Channel ID is required (starts with UC...)'); return }
+            config = { channelId: cid }
+        } else if (type === 'rss') {
+            if (!feedUrl.trim()) { setError('Feed URL is required'); return }
+            config = { feedUrl: feedUrl.trim() }
+        } else {
+            const kws = keywords.split(',').map(k => k.trim()).filter(Boolean)
+            if (!kws.length) { setError('At least one keyword is required'); return }
+            config = { keywords: kws }
+        }
+
+        setSaving(true)
+        try {
+            const res = await fetch('/api/automations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name.trim(), type, config, prompt: prompt.trim(), autoPublish }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+            onCreated()
+        } catch (e: any) {
+            setError(e.message || 'Failed to create pipeline')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="bg-white/[0.03] border border-white/10 rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-white">New Pipeline</h3>
+                <button type="button" onClick={onCancel} className="p-1 text-slate-500 hover:text-white transition-colors">
+                    <X size={16} />
+                </button>
+            </div>
+
+            {/* Type */}
+            <div className="flex gap-2">
+                {(['youtube', 'rss', 'keyword'] as const).map(t => (
+                    <button
+                        key={t}
+                        type="button"
+                        onClick={() => setType(t)}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-medium border transition-colors ${type === t
+                            ? 'bg-red-600 border-red-500 text-white'
+                            : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'}`}
+                    >
+                        {t === 'youtube' ? '⚡ YouTube' : t === 'rss' ? '📡 RSS Feed' : '🔍 Keyword'}
+                    </button>
+                ))}
+            </div>
+
+            {/* Name */}
+            <div>
+                <label className="text-xs text-slate-500 mb-1 block">Pipeline Name</label>
+                <input
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder={type === 'youtube' ? 'e.g. CPAC Monitor' : type === 'rss' ? 'e.g. Globe & Mail Feed' : 'e.g. Tariff Monitor'}
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-white/20"
+                />
+            </div>
+
+            {/* Source config */}
+            {type === 'youtube' && (
+                <div>
+                    <label className="text-xs text-slate-500 mb-1 block">YouTube Channel ID</label>
+                    <input
+                        value={channelId}
+                        onChange={e => setChannelId(e.target.value)}
+                        placeholder="UCxxxxxxxxxxxxxxxxxxxxxxxx"
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-white/20"
+                    />
+                    <p className="text-[10px] text-slate-600 mt-1">
+                        CPAC Canada: <button type="button" onClick={() => { setChannelId('UCFZSV_So_OaXgXVzgu58tJQ'); setName(name || 'CPAC Monitor') }} className="text-red-400 underline">UCFZSV_So_OaXgXVzgu58tJQ</button>
+                        {' · '}Find yours: go to channel page → View Source → search "channelId"
+                    </p>
+                </div>
+            )}
+            {type === 'rss' && (
+                <div>
+                    <label className="text-xs text-slate-500 mb-1 block">RSS Feed URL</label>
+                    <input
+                        value={feedUrl}
+                        onChange={e => setFeedUrl(e.target.value)}
+                        placeholder="https://example.com/rss"
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-white/20"
+                    />
+                </div>
+            )}
+            {type === 'keyword' && (
+                <div>
+                    <label className="text-xs text-slate-500 mb-1 block">Keywords (comma-separated)</label>
+                    <input
+                        value={keywords}
+                        onChange={e => setKeywords(e.target.value)}
+                        placeholder="tariffs, CUSMA, trade war"
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-white/20"
+                    />
+                </div>
+            )}
+
+            {/* Prompt */}
+            <div>
+                <label className="text-xs text-slate-500 mb-1 block">AI Instructions</label>
+                <textarea
+                    value={prompt}
+                    onChange={e => setPrompt(e.target.value)}
+                    rows={4}
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono placeholder-slate-600 focus:outline-none focus:border-white/20 resize-y"
+                />
+            </div>
+
+            {/* Options */}
+            <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                    type="checkbox"
+                    checked={autoPublish}
+                    onChange={e => setAutoPublish(e.target.checked)}
+                    className="accent-red-500"
+                />
+                <span className="text-sm text-slate-300">Auto-publish articles</span>
+                <span className="text-xs text-slate-500">(unchecked = save as draft for review)</span>
+            </label>
+
+            {error && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
+
+            <div className="flex gap-2 pt-1">
+                <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                    {saving ? 'Creating…' : 'Create Pipeline'}
+                </button>
+                <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg border border-white/10 text-slate-400 hover:text-white text-sm transition-colors">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    )
+}
+
+// ── Main FeedsList ──────────────────────────────────────────────────────────
 export function FeedsList() {
     const [automations, setAutomations] = useState<Automation[]>([])
     const [loading, setLoading] = useState(true)
     const [fetchError, setFetchError] = useState<string | null>(null)
+    const [showNewForm, setShowNewForm] = useState(false)
     const [runningId, setRunningId] = useState<string | null>(null)
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [runResults, setRunResults] = useState<Record<string, RunResult>>({})
@@ -127,7 +300,6 @@ export function FeedsList() {
             })
             const data = await res.json()
 
-            // If we got an articleId, fetch the article summary for the preview
             let articleTitle: string | undefined
             let articleSummary: string | undefined
             if (data.articleId) {
@@ -143,8 +315,8 @@ export function FeedsList() {
 
             setRunResults(prev => ({ ...prev, [auto.id]: { ...data, articleTitle, articleSummary } }))
             await fetchAutomations()
-        } catch (err: any) {
-            setRunResults(prev => ({ ...prev, [auto.id]: { success: false, error: err.message } }))
+        } catch (e: any) {
+            setRunResults(prev => ({ ...prev, [auto.id]: { success: false, error: e.message } }))
         } finally {
             setRunningId(null)
         }
@@ -179,9 +351,11 @@ export function FeedsList() {
 
     if (fetchError && automations.length === 0) {
         return (
-            <div className="flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded-xl p-4">
-                <span className="text-sm text-red-400">Failed to load pipelines: {fetchError}</span>
-                <button onClick={fetchAutomations} className="text-xs text-red-300 underline">Retry</button>
+            <div className="space-y-4">
+                <div className="flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                    <span className="text-sm text-red-400">Failed to load pipelines: {fetchError}</span>
+                    <button onClick={fetchAutomations} className="text-xs text-red-300 underline">Retry</button>
+                </div>
             </div>
         )
     }
@@ -251,74 +425,77 @@ export function FeedsList() {
                         </div>
                     </div>
 
-                    {/* Status bar */}
-                    <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center justify-between text-[11px] text-slate-600">
-                        <div className="flex items-center gap-3">
-                            <span>Last run: {auto.lastRunAt ? formatDistanceToNow(new Date(auto.lastRunAt), { addSuffix: true }) : 'Never'}</span>
-                            {!result && auto.lastResult && (
-                                <span className={`flex items-center gap-1 ${auto.lastResult.success && !auto.lastResult.skipped ? 'text-green-500' : auto.lastResult.skipped ? 'text-slate-500' : 'text-red-500'}`}>
-                                    {auto.lastResult.success && !auto.lastResult.skipped ? <CheckCircle size={11} /> : auto.lastResult.skipped ? null : <AlertTriangle size={11} />}
-                                    {auto.lastResult.skipped ? 'No new content' : auto.lastResult.success ? 'Success' : 'Failed'}
-                                </span>
-                            )}
-                        </div>
+                    {/* Status row */}
+                    <div className="flex items-center gap-3 mt-2 flex-wrap">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${auto.enabled ? 'text-green-400 bg-green-500/10' : 'text-slate-500 bg-white/5'}`}>
+                            {auto.enabled ? 'Active' : 'Paused'}
+                        </span>
+                        {auto.lastRunAt && (
+                            <span className="text-[10px] text-slate-600">
+                                Last run: {formatDistanceToNow(new Date(auto.lastRunAt), { addSuffix: true })}
+                            </span>
+                        )}
+                        {auto.lastResult?.success === false && auto.lastResult?.error && (
+                            <span className="text-[10px] text-red-400 flex items-center gap-0.5">
+                                <AlertTriangle size={10} /> {auto.lastResult.error.substring(0, 60)}
+                            </span>
+                        )}
 
-                        {/* Webhook activation for YouTube */}
+                        {/* YouTube: Webhook button */}
                         {auto.type === 'youtube' && (
                             <button
                                 onClick={() => handleActivateWebhook(auto)}
                                 disabled={whStatus === 'activating'}
-                                className={`flex items-center gap-1 transition-colors ${whStatus === 'active'
-                                    ? 'text-green-400 cursor-default'
+                                className={`text-[10px] px-2 py-0.5 rounded border transition-colors ml-auto ${whStatus === 'active'
+                                    ? 'text-green-400 border-green-500/30 cursor-default'
                                     : whStatus === 'error'
-                                        ? 'text-red-400'
+                                        ? 'text-red-400 border-red-500/30 hover:bg-red-500/10'
                                         : whStatus === 'activating'
-                                            ? 'text-slate-500'
-                                            : 'text-slate-500 hover:text-red-400'
-                                    }`}
+                                            ? 'text-slate-500 border-white/10 cursor-wait'
+                                            : 'text-slate-400 border-white/10 hover:text-white hover:border-white/20'}`}
                             >
-                                {whStatus === 'activating' && <Loader2 size={10} className="animate-spin" />}
-                                {whStatus === 'active' ? '✓ Webhook active' : whStatus === 'error' ? '✗ Activation failed' : '⚡ Activate webhook'}
+                                {whStatus === 'activating' ? '⟳ Activating…'
+                                    : whStatus === 'active' ? '✓ Webhook Active'
+                                        : whStatus === 'error' ? '✗ Retry Webhook'
+                                            : '⚡ Activate Webhook'}
                             </button>
                         )}
                     </div>
-
-                    {/* Run result — shown after clicking Test Run */}
-                    {result && (
-                        <div className={`mt-2 rounded-lg px-3 py-2 text-xs ${result.success ? 'bg-green-500/10 border border-green-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
-                            {result.skipped ? (
-                                <span className="text-slate-400">No new content found (ran anyway — no new articles created)</span>
-                            ) : result.success ? (
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                        <span className="text-green-400 flex items-center gap-1 font-medium">
-                                            <CheckCircle size={12} /> Article generated
-                                        </span>
-                                        {result.articleId && (
-                                            <a href="/content" className="text-green-300 hover:text-green-200 flex items-center gap-1 underline underline-offset-2">
-                                                <ExternalLink size={11} /> View in Articles
-                                            </a>
-                                        )}
-                                        {result.threadUrl && (
-                                            <a href={result.threadUrl} target="_blank" rel="noreferrer" className="text-slate-300 hover:text-white flex items-center gap-1 underline underline-offset-2">
-                                                <ExternalLink size={11} /> View X Thread
-                                            </a>
-                                        )}
-                                        {result.xPostError && <span className="text-yellow-400">⚠ X post failed: {result.xPostError}</span>}
-                                    </div>
-                                    {result.articleTitle && (
-                                        <div className="text-slate-300 font-medium mt-1">{result.articleTitle}</div>
-                                    )}
-                                    {result.articleSummary && (
-                                        <div className="text-slate-500 leading-relaxed line-clamp-2">{result.articleSummary}</div>
-                                    )}
-                                </div>
-                            ) : (
-                                <span className="text-red-400">✗ {result.error || 'Run failed'}</span>
-                            )}
-                        </div>
-                    )}
                 </div>
+
+                {/* Run result preview */}
+                {result && (
+                    <div className={`px-4 py-2 text-xs border-t ${result.success ? 'border-green-500/20 bg-green-500/5' : 'border-red-500/20 bg-red-500/5'}`}>
+                        {result.success ? (
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <span className="text-green-400 flex items-center gap-1">
+                                        <CheckCircle size={11} /> Done
+                                    </span>
+                                    {result.articleId && (
+                                        <a href="/content" className="text-green-300 hover:text-white flex items-center gap-1 underline underline-offset-2">
+                                            <ExternalLink size={11} /> View Article
+                                        </a>
+                                    )}
+                                    {result.threadUrl && (
+                                        <a href={result.threadUrl} target="_blank" rel="noreferrer" className="text-slate-300 hover:text-white flex items-center gap-1 underline underline-offset-2">
+                                            <ExternalLink size={11} /> View X Thread
+                                        </a>
+                                    )}
+                                    {result.xPostError && <span className="text-yellow-400">⚠ X post failed: {result.xPostError}</span>}
+                                </div>
+                                {result.articleTitle && (
+                                    <div className="text-slate-300 font-medium mt-1">{result.articleTitle}</div>
+                                )}
+                                {result.articleSummary && (
+                                    <div className="text-slate-500 leading-relaxed line-clamp-2">{result.articleSummary}</div>
+                                )}
+                            </div>
+                        ) : (
+                            <span className="text-red-400">✗ {result.error || 'Run failed'}</span>
+                        )}
+                    </div>
+                )}
 
                 {/* Expanded details */}
                 {isExpanded && (
@@ -336,10 +513,10 @@ export function FeedsList() {
                         {auto.type === 'youtube' && (
                             <div className="text-[11px] text-slate-500 bg-black/20 rounded p-2.5 space-y-1">
                                 <div className="text-slate-400 font-medium">How YouTube pipelines work</div>
-                                <div>1. Click <strong className="text-slate-300">⚡ Activate webhook</strong> once per channel — YouTube will push a notification the instant a new video goes live</div>
+                                <div>1. Click <strong className="text-slate-300">⚡ Activate webhook</strong> once — YouTube pushes a notification the instant a new video goes live</div>
                                 <div>2. The webhook fires → research + article generation runs automatically</div>
-                                <div>3. If webhook expires (~10 days), the hourly cron job polls as a backup</div>
-                                <div>4. <strong className="text-slate-300">Test Run</strong> always grabs the most recent video regardless of timing — use this to test</div>
+                                <div>3. If webhook expires (~10 days), the daily cron auto-renews it</div>
+                                <div>4. <strong className="text-slate-300">Test Run</strong> always grabs the most recent video — use this to test immediately</div>
                             </div>
                         )}
                     </div>
@@ -348,39 +525,37 @@ export function FeedsList() {
         )
     }
 
-    const isEmpty = automations.length === 0
-
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => router.push('/chat?initialInput=Create a new pipeline for me')}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors"
-                    >
-                        <Plus size={15} /> New Pipeline
-                    </button>
-                </div>
+                <button
+                    onClick={() => setShowNewForm(f => !f)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors"
+                >
+                    {showNewForm ? <X size={15} /> : <Plus size={15} />}
+                    {showNewForm ? 'Cancel' : 'New Pipeline'}
+                </button>
                 <button onClick={fetchAutomations} className="p-2 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white transition-colors" title="Refresh">
                     <RefreshCw size={15} />
                 </button>
             </div>
 
-            {isEmpty ? (
+            {/* Inline creation form */}
+            {showNewForm && (
+                <NewPipelineForm
+                    onCreated={() => { setShowNewForm(false); fetchAutomations() }}
+                    onCancel={() => setShowNewForm(false)}
+                />
+            )}
+
+            {automations.length === 0 && !showNewForm ? (
                 <div className="text-center py-16 rounded-xl border border-dashed border-white/10 text-slate-500">
                     <p className="text-base mb-2">No pipelines yet</p>
-                    <p className="text-sm mb-5">Tell the AI what you want to monitor and it will set one up.</p>
-                    <button
-                        onClick={() => router.push('/chat?initialInput=Create a new pipeline for me')}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors text-sm"
-                    >
-                        <Plus size={15} /> Create Pipeline via Chat
-                    </button>
+                    <p className="text-sm mb-5">Click <strong className="text-white">New Pipeline</strong> above to create one directly, or ask the AI in chat.</p>
                 </div>
             ) : (
                 <>
-                    {/* Event Pipelines — YouTube */}
                     {eventPipelines.length > 0 && (
                         <section>
                             <div className="flex items-center gap-2 mb-3">
@@ -392,7 +567,6 @@ export function FeedsList() {
                         </section>
                     )}
 
-                    {/* Scheduled Pipelines — RSS, keyword */}
                     {scheduledPipelines.length > 0 && (
                         <section>
                             <div className="flex items-center gap-2 mb-3">

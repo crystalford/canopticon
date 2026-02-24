@@ -61,10 +61,13 @@ export async function POST(req: Request) {
         // Create tools, passing the conversationId for article linking
         const tools = createTools(conversationId || undefined)
 
+        // Always append tool-error relay rule so the model tells the user when things fail
+        const toolErrorRule = `\n\nCRITICAL RULE: If any tool call returns { success: false } or an error field, you MUST immediately tell the user exactly what the error message says. Never say a tool succeeded when it returned an error. Never say "created" or "done" if success is false.`
+
         // Stream the response
         const result = streamText({
             model,
-            system: systemPrompt,
+            system: systemPrompt + toolErrorRule,
             messages: normalizedMessages as any,
             tools,
             stopWhen: stepCountIs(10),

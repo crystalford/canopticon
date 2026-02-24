@@ -459,7 +459,7 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
                     keywords: z.array(z.string()).optional().describe('Keywords to monitor (for keyword type)'),
                     autoPostToX: z.boolean().optional().describe('Auto-post generated articles to X/Twitter as a thread (default: false)'),
                 }).describe('Type-specific configuration'),
-                prompt: z.string().describe('Instructions for the AI when new content is found. E.g. "Write a 500-word analysis of this parliamentary committee hearing"'),
+                prompt: z.string().describe('Instructions for the AI when new content is found.'),
                 autoPublish: z.boolean().optional().describe('Auto-publish generated articles (default: false, creates drafts for review)'),
             }),
             execute: async ({ name, type, config, prompt, autoPublish }) => {
@@ -474,28 +474,35 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
                         }
                     }
 
-                    const [monitor] = await db.insert(automations).values({
-                        name,
-                        type,
-                        config,
-                        prompt,
-                        autoPublish: autoPublish ?? false,
-                        enabled: true,
-                    }).returning()
+                    // Build absolute URL — needed for server-side fetch in Vercel edge/serverless
+                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+                        || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+
+                    const res = await fetch(`${baseUrl}/api/automations`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, type, config, prompt, autoPublish: autoPublish ?? false }),
+                    })
+                    const data = await res.json()
+
+                    if (!res.ok) {
+                        return { success: false, error: `Failed to create pipeline: ${data.error || res.status}` }
+                    }
 
                     return {
                         success: true,
                         monitor: {
-                            id: monitor.id,
-                            name: monitor.name,
-                            type: monitor.type,
-                            config: monitor.config,
-                            enabled: monitor.enabled,
+                            id: data.id,
+                            name: data.name,
+                            type: data.type,
+                            config: data.config,
+                            enabled: data.enabled,
                         },
+                        message: `Pipeline "${data.name}" created successfully! You can see it on the Pipelines page. Click "⚡ Activate Webhook" on the card to start receiving new video notifications, or use "Test Run" to process the most recent video right now.`,
                     }
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error)
-                    return { success: false, error: `Failed to create monitor: ${message}` }
+                    return { success: false, error: `Failed to create pipeline: ${message}` }
                 }
             },
         }),
