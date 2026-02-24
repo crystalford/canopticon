@@ -28,7 +28,8 @@ export async function POST(req: Request) {
 
         // Determine system prompt and model provider
         let systemPrompt = personas.find(p => p.id === 'canopticon')?.systemPrompt || ''
-        let modelProvider = requestedModelProvider || config.DEFAULT_MODEL_PROVIDER || 'perplexity'
+        // Default to openai — Perplexity Sonar does not reliably execute tool calls
+        let modelProvider = requestedModelProvider || config.DEFAULT_MODEL_PROVIDER || 'openai'
 
         try {
             const [agent] = await db.select().from(agents).where(eq(agents.slug, personaId))

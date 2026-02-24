@@ -22,7 +22,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
     const [personaId, setPersonaId] = useState<PersonaId>(initialPersonaId || 'canopticon')
     const [showPersonaMenu, setShowPersonaMenu] = useState(false)
     const [showModelMenu, setShowModelMenu] = useState(false)
-    const [selectedModel, setSelectedModel] = useState<'perplexity' | 'openai' | 'anthropic'>('perplexity')
+    const [selectedModel, setSelectedModel] = useState<'perplexity' | 'openai' | 'anthropic'>('openai')
     const [error, setError] = useState<string | null>(null)
     const [messages, setMessages] = useState<UIMessage[]>(initialMessages || [])
     const [isLoading, setIsLoading] = useState(false)
