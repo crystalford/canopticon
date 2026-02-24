@@ -10,8 +10,12 @@ import { TwitterApi } from 'twitter-api-v2'
 
 const parser = new RSSParser()
 
-// --- Default model config ---
-// These can be overridden per-automation via config.researchModel / config.writingModel
+// Output modes:
+// 'article_and_x' - write full article + post X thread (default)
+// 'article_only'  - write article, no X
+// 'draft'         - write article, save as draft
+// 'x_only'        - skip AI entirely, just post a link tweet when new content drops
+
 const DEFAULT_RESEARCH_PROVIDER = 'perplexity'
 const DEFAULT_RESEARCH_MODEL = 'sonar-pro'
 const DEFAULT_WRITING_PROVIDER = 'openai'
@@ -27,7 +31,30 @@ CORE RULES:
 5. Tone: Objective, Detailed, Journalistic.
 6. ALWAYS use the publish_article tool to save the article when done.`
 
-// --- Helper: post X/Twitter thread ---
+// --- Helper: post X/Twitter link (x_only mode — no AI, just a link post) ---
+async function postXLink(
+    title: string,
+    link: string,
+    description?: string
+): Promise<string> {
+    const apiKey = process.env.TWITTER_API_KEY
+    const apiSecret = process.env.TWITTER_API_SECRET
+    const accessToken = process.env.TWITTER_ACCESS_TOKEN
+    const accessSecret = process.env.TWITTER_ACCESS_SECRET
+
+    if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+        throw new Error('X/Twitter API credentials not configured')
+    }
+
+    const snippet = description?.substring(0, 200)?.trim()
+    const text = `🆕 ${title}\n\n${snippet ? snippet + '\n\n' : ''}${link}`
+
+    const client = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken, accessSecret })
+    const result = await client.v2.tweet({ text })
+    return `https://x.com/i/status/${result.data.id}`
+}
+
+// --- Helper: post X/Twitter thread (article_and_x mode) ---
 async function generateAndPostThread(
     articleId: string,
     articleTitle: string,
@@ -44,9 +71,7 @@ async function generateAndPostThread(
         throw new Error('X/Twitter API credentials not configured')
     }
 
-    const article = await db.query.articles.findFirst({
-        where: eq(articles.id, articleId),
-    })
+    const article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
     if (!article) throw new Error('Article not found')
 
     const articleUrl = `https://canopticon.com/articles/${articleSlug}`
@@ -97,28 +122,30 @@ Instructions:
     return `https://x.com/i/status/${postedTweets[0].id}`
 }
 
-// --- Core article generation (used by all pipeline types) ---
+// --- Core article generation ---
 async function generateArticle(
     triggerContent: string,
-    automationConfig: any
+    automation: Automation
 ): Promise<{ success: boolean; articleId?: string; error?: string }> {
+    const config = automation.config as Record<string, unknown>
+    const outputMode = (config.outputMode as string) || 'article_and_x'
+    const saveDraft = outputMode === 'draft'
 
-    const instructions = automationConfig.prompt || 'Write a news article about this content.'
-    const publishMode = automationConfig.autoPublish
-        ? 'Publish the article using the publish_article tool.'
-        : 'Save the article as a draft using the publish_article tool with status=draft.'
+    const instructions = automation.prompt || 'Write a news article about this content.'
+    const publishMode = saveDraft
+        ? 'Save the article as a draft using the publish_article tool with status=draft.'
+        : 'Publish the article using the publish_article tool.'
 
     const fullPrompt = `${instructions}\n\n${publishMode}\n\nNew content detected:\n${triggerContent}`
 
-    const tools = createTools(undefined, { saveDraft: !automationConfig.autoPublish })
+    const tools = createTools(undefined, { saveDraft })
 
-    // Use config-specified models, falling back to defaults
-    const researchProvider = automationConfig.config?.researchProvider || DEFAULT_RESEARCH_PROVIDER
-    const researchModelId = automationConfig.config?.researchModel || DEFAULT_RESEARCH_MODEL
-    const writingProvider = automationConfig.config?.writingProvider || DEFAULT_WRITING_PROVIDER
-    const writingModelId = automationConfig.config?.writingModel || DEFAULT_WRITING_MODEL
+    const researchProvider = ((config.researchProvider as string) || DEFAULT_RESEARCH_PROVIDER) as 'openai' | 'perplexity' | 'anthropic'
+    const researchModelId = (config.researchModel as string) || DEFAULT_RESEARCH_MODEL
+    const writingProvider = ((config.writingProvider as string) || DEFAULT_WRITING_PROVIDER) as 'openai' | 'perplexity' | 'anthropic'
+    const writingModelId = (config.writingModel as string) || DEFAULT_WRITING_MODEL
 
-    console.log(`[generateArticle] Research: ${researchProvider}/${researchModelId} | Writing: ${writingProvider}/${writingModelId}`)
+    console.log(`[generateArticle] Mode: ${outputMode} | Research: ${researchProvider}/${researchModelId} | Writing: ${writingProvider}/${writingModelId}`)
 
     const writingModel = await getModel(writingProvider, writingModelId)
 
@@ -132,11 +159,15 @@ async function generateArticle(
 
     // Find article created in last 60 seconds
     const recentArticle = await db.query.articles.findFirst({
-        where: (articles, { gte }) => gte(articles.createdAt, new Date(Date.now() - 60000)),
-        orderBy: (articles, { desc }) => [desc(articles.createdAt)],
+        where: (t, { gte }) => gte(t.createdAt, new Date(Date.now() - 60000)),
+        orderBy: (t, { desc }) => [desc(t.createdAt)],
     })
 
     if (recentArticle) {
+        // Link article to this pipeline
+        await db.update(articles)
+            .set({ automationId: automation.id })
+            .where(eq(articles.id, recentArticle.id))
         return { success: true, articleId: recentArticle.id }
     }
 
@@ -155,8 +186,10 @@ export async function runAutomation(automation: Automation): Promise<{
 }> {
     console.log(`[runAutomation] Pipeline: ${automation.name} (${automation.type})`)
 
-    const triggerContent = await checkTrigger(automation)
     const config = automation.config as Record<string, unknown>
+    const outputMode = (config.outputMode as string) || 'article_and_x'
+
+    const triggerContent = await checkTrigger(automation)
 
     if (!triggerContent) {
         const result = { success: true, skipped: true, reason: 'No new content found' }
@@ -167,10 +200,33 @@ export async function runAutomation(automation: Automation): Promise<{
     }
 
     try {
-        const { success, articleId, error } = await generateArticle(triggerContent, {
-            ...automation,
-            config, // pass full config for model overrides
-        })
+        // x_only mode: skip AI, just post a link
+        if (outputMode === 'x_only') {
+            // Extract title and link from trigger content
+            const titleMatch = triggerContent.match(/Video Title: (.+)/)
+            const linkMatch = triggerContent.match(/URL: (.+)/)
+            const descMatch = triggerContent.match(/Description: ([\s\S]+)/)
+            const title = titleMatch?.[1] || 'New Content'
+            const link = linkMatch?.[1] || ''
+            const desc = descMatch?.[1]?.substring(0, 200)
+
+            let threadUrl: string | undefined
+            let xPostError: string | undefined
+            try {
+                threadUrl = await postXLink(title, link, desc)
+            } catch (e: any) {
+                xPostError = e.message
+            }
+
+            const result = { success: !xPostError, threadUrl, xPostError, error: xPostError }
+            await db.update(automations)
+                .set({ lastRunAt: new Date(), lastResult: result })
+                .where(eq(automations.id, automation.id))
+            return result
+        }
+
+        // All other modes: generate article
+        const { success, articleId, error } = await generateArticle(triggerContent, automation)
 
         if (!success) {
             const result = { success: false, error: error || 'Unknown error' }
@@ -180,15 +236,12 @@ export async function runAutomation(automation: Automation): Promise<{
             return result
         }
 
-        // Get article details for X posting
-        const article = articleId ? await db.query.articles.findFirst({
-            where: eq(articles.id, articleId),
-        }) : null
+        const article = articleId ? await db.query.articles.findFirst({ where: eq(articles.id, articleId) }) : null
 
         let threadUrl: string | undefined
         let xPostError: string | undefined
 
-        if (config.autoPostToX === true && article) {
+        if (outputMode === 'article_and_x' && article) {
             try {
                 threadUrl = await generateAndPostThread(article.id, article.title, article.slug)
             } catch (e: any) {
@@ -214,36 +267,57 @@ export async function runAutomation(automation: Automation): Promise<{
     }
 }
 
-// --- Webhook handler (YouTube push notifications) ---
+// --- Webhook handler (YouTube push notification) ---
 export async function processYouTubeVideo(
     video: { title: string; link: string; pubDate?: string; description: string },
-    automationConfig: any = {}
+    automation: Automation
 ) {
     console.log(`[processYouTubeVideo] Processing video: ${video.title}`)
 
+    const config = automation.config as Record<string, unknown>
+    const outputMode = (config.outputMode as string) || 'article_and_x'
+
     const triggerData = `Video Title: ${video.title}\nURL: ${video.link}\nPublished: ${video.pubDate}\nDescription: ${video.description}`
 
-    const { success, articleId, error } = await generateArticle(triggerData, automationConfig)
-
-    if (!success) return { success: false, error }
-
-    const article = articleId ? await db.query.articles.findFirst({
-        where: eq(articles.id, articleId),
-    }) : null
-
-    if (article && automationConfig.autoPostToX === true) {
+    if (outputMode === 'x_only') {
+        let threadUrl: string | undefined
+        let xPostError: string | undefined
         try {
-            const threadUrl = await generateAndPostThread(article.id, article.title, article.slug)
-            return { success: true, articleId, threadUrl }
-        } catch (err: any) {
-            return { success: true, articleId, xPostError: err.message }
+            threadUrl = await postXLink(video.title, video.link, video.description)
+        } catch (e: any) {
+            xPostError = e.message
+        }
+        const result = { success: !xPostError, threadUrl, xPostError }
+        await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
+        return result
+    }
+
+    const { success, articleId, error } = await generateArticle(triggerData, automation)
+    if (!success) {
+        const result = { success: false, error }
+        await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
+        return result
+    }
+
+    const article = articleId ? await db.query.articles.findFirst({ where: eq(articles.id, articleId) }) : null
+
+    let threadUrl: string | undefined
+    let xPostError: string | undefined
+
+    if (outputMode === 'article_and_x' && article) {
+        try {
+            threadUrl = await generateAndPostThread(article.id, article.title, article.slug)
+        } catch (e: any) {
+            xPostError = e.message
         }
     }
 
-    return { success: true, articleId }
+    const result = { success: true, articleId, threadUrl, xPostError }
+    await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
+    return result
 }
 
-// --- Trigger checker (cron/manual polling) ---
+// --- Trigger checker (cron/polling fallback) ---
 async function checkTrigger(automation: Automation): Promise<string | null> {
     const lastRun = automation.lastRunAt ? new Date(automation.lastRunAt) : new Date(0)
     const config = automation.config as Record<string, unknown>
@@ -253,16 +327,13 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
             const channelId = config.channelId as string
             if (!channelId) return null
             const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
-            console.log(`[checkTrigger] Fetching RSS: ${feedUrl}`)
             try {
                 const feed = await parser.parseURL(feedUrl)
                 const newItems = feed.items.filter(item => {
                     const pubDate = item.pubDate ? new Date(item.pubDate) : new Date(0)
                     return pubDate > lastRun
                 })
-                console.log(`[checkTrigger] ${newItems.length} new videos since ${lastRun.toISOString()}`)
                 if (newItems.length === 0) return null
-                // Only process the latest video — aggregating multiple causes generic summaries
                 const latest = newItems[0]
                 return `Video Title: ${latest.title}\nURL: ${latest.link}\nPublished: ${latest.pubDate}\nDescription: ${latest.contentSnippet || ''}`
             } catch (e) {
@@ -292,8 +363,7 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
             const keywords = config.keywords as string[]
             if (!keywords?.length) return null
             try {
-                const query = keywords.join(' OR ') + ' latest news'
-                return await searchPerplexity(query)
+                return await searchPerplexity(keywords.join(' OR ') + ' latest news')
             } catch (e) {
                 console.error('[checkTrigger] Keyword Error:', e)
                 return null

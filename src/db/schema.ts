@@ -44,6 +44,7 @@ export const articles = pgTable('articles', {
     author: text('author').default('CANOPTICON').notNull(),
     status: text('status').default('published').notNull(), // 'published' | 'draft'
     conversationId: uuid('conversation_id').references(() => conversations.id),
+    automationId: uuid('automation_id').references(() => automations.id, { onDelete: 'set null' }),
     publishedAt: timestamp('published_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -67,8 +68,11 @@ export const operators = pgTable('operators', {
 export const automations = pgTable('automations', {
     id: uuid('id').primaryKey().defaultRandom(),
     name: text('name').notNull(),
-    type: text('type').notNull(), // 'youtube' | 'rss' | 'keyword' | 'scheduled'
+    type: text('type').notNull(), // 'youtube' | 'rss' | 'keyword'
     config: jsonb('config').notNull().default({}),
+    // config fields: channelId, feedUrl, keywords, outputMode, researchModel, writingModel,
+    //                autoPostToX, webhookActive, researchProvider, writingProvider
+    // outputMode: 'article_and_x' | 'article_only' | 'draft' | 'x_only'
     prompt: text('prompt'), // AI instructions for when triggered
     enabled: boolean('enabled').default(true).notNull(),
     autoPublish: boolean('auto_publish').default(false).notNull(),
@@ -177,6 +181,14 @@ export const articlesRelations = relations(articles, ({ one }) => ({
         fields: [articles.conversationId],
         references: [conversations.id],
     }),
+    automation: one(automations, {
+        fields: [articles.automationId],
+        references: [automations.id],
+    }),
+}))
+
+export const automationsRelations = relations(automations, ({ many }) => ({
+    articles: many(articles),
 }))
 
 export const socialMonitorsRelations = relations(socialMonitors, ({ many }) => ({

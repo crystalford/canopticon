@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { articles } from '@/db/schema'
-import { desc } from 'drizzle-orm'
+import { desc, eq, and } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(req: Request) {
+    const { searchParams } = new URL(req.url)
+    const automationId = searchParams.get('automationId')
+
     const results = await db.query.articles.findMany({
         columns: {
             id: true,
@@ -13,9 +16,11 @@ export async function GET() {
             slug: true,
             status: true,
             summary: true,
+            automationId: true,
             publishedAt: true,
             createdAt: true,
         },
+        where: automationId ? eq(articles.automationId, automationId) : undefined,
         orderBy: [desc(articles.createdAt)],
         limit: 100,
     })

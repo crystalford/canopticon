@@ -4,8 +4,14 @@
   "env": {
     "npm_config_legacy_peer_deps": "true"
   },
-  "crons": [{
-    "path": "/api/cron",
-    "schedule": "0 8 * * *"
-  }]
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/webhook-renew",
+      "schedule": "0 9 * * *"
+    }
+  ]
 }

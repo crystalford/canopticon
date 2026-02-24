@@ -2,32 +2,51 @@ import { NextResponse } from 'next/server'
 import { db, automations } from '@/db'
 import { eq } from 'drizzle-orm'
 
+export async function GET(
+    _req: Request,
+    { params }: { params: { id: string } }
+) {
+    try {
+        const automation = await db.query.automations.findFirst({
+            where: eq(automations.id, params.id),
+        })
+        if (!automation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+        return NextResponse.json(automation)
+    } catch {
+        return NextResponse.json({ error: 'Failed' }, { status: 500 })
+    }
+}
+
 export async function PATCH(
     req: Request,
     { params }: { params: { id: string } }
 ) {
-    const { id } = params
-    const body = await req.json()
-    const updates: Record<string, unknown> = { updatedAt: new Date() }
-
-    if (body.enabled !== undefined) updates.enabled = body.enabled
-    if (body.name !== undefined) updates.name = body.name
-    if (body.prompt !== undefined) updates.prompt = body.prompt
-    if (body.config !== undefined) updates.config = body.config
-    if (body.autoPublish !== undefined) updates.autoPublish = body.autoPublish
-
-    await db.update(automations).set(updates).where(eq(automations.id, id))
-
-    return NextResponse.json({ success: true })
+    try {
+        const body = await req.json()
+        const allowed = ['name', 'prompt', 'enabled', 'autoPublish', 'config']
+        const updates: any = {}
+        for (const key of allowed) {
+            if (key in body) updates[key] = body[key]
+        }
+        if (Object.keys(updates).length === 0) {
+            return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
+        }
+        updates.updatedAt = new Date()
+        const [updated] = await db.update(automations).set(updates).where(eq(automations.id, params.id)).returning()
+        return NextResponse.json(updated)
+    } catch {
+        return NextResponse.json({ error: 'Failed' }, { status: 500 })
+    }
 }
 
 export async function DELETE(
     _req: Request,
     { params }: { params: { id: string } }
 ) {
-    const { id } = params
-
-    await db.delete(automations).where(eq(automations.id, id))
-
-    return NextResponse.json({ success: true })
+    try {
+        await db.delete(automations).where(eq(automations.id, params.id))
+        return NextResponse.json({ success: true })
+    } catch {
+        return NextResponse.json({ error: 'Failed' }, { status: 500 })
+    }
 }

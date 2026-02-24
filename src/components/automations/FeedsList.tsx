@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
     Trash2, CheckCircle, AlertTriangle, RefreshCw, Play, ChevronDown, ChevronUp,
-    Plus, Zap, Calendar, ArrowRight, ExternalLink, Loader2
+    Plus, Zap, Calendar, ArrowRight, ExternalLink, Loader2, Settings
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface Automation {
     id: string
@@ -214,9 +215,18 @@ export function FeedsList() {
                             <button
                                 onClick={() => setExpandedId(isExpanded ? null : auto.id)}
                                 className="p-1.5 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white transition-colors"
+                                title="Expand details"
                             >
                                 {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                             </button>
+
+                            <Link
+                                href={`/feeds/${auto.id}`}
+                                className="p-1.5 hover:bg-white/10 rounded-lg text-slate-500 hover:text-slate-200 transition-colors"
+                                title="Pipeline details & settings"
+                            >
+                                <Settings size={14} />
+                            </Link>
 
                             <button
                                 onClick={() => handleDelete(auto.id)}
