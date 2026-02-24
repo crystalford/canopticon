@@ -37,7 +37,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
 
         setError(null)
 
-        // Add user message to state (no assistant placeholder — avoids double indicator)
+        // Add user message to state immediately for UI responsiveness
         const userMessage: UIMessage = {
             id: generateId(),
             role: 'user',
@@ -56,6 +56,25 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
             }
         })
 
+        // For new conversations, create the conversation row FIRST so the
+        // server can save messages in onFinish with a valid conversationId.
+        let activeConversationId = conversationId
+        if (!activeConversationId) {
+            try {
+                const conv = await fetch('/api/conversations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: content.substring(0, 80) }),
+                }).then(r => r.json())
+                if (conv?.id) {
+                    activeConversationId = conv.id
+                    onConversationCreated(conv.id)
+                }
+            } catch (err) {
+                console.error('[Chat] Failed to create conversation row:', err)
+            }
+        }
+
         const assistantId = generateId()
         let fullText = ''
         let assistantAdded = false
@@ -71,6 +90,7 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                     messages: apiMessages,
                     personaId,
                     modelProvider: selectedModel,
+                    conversationId: activeConversationId || undefined,
                 }),
                 signal: controller.signal,
             })
@@ -116,29 +136,6 @@ export function ChatInterface({ conversationId, onConversationCreated, onNewChat
                         }
                         return updated
                     })
-                }
-            }
-
-            // Stream complete — save to DB if this is a new conversation
-            if (!conversationId && fullText) {
-                try {
-                    const conv = await fetch('/api/conversations', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            title: content.substring(0, 80),
-                            messages: [
-                                { role: 'user', content },
-                                { role: 'assistant', content: fullText },
-                            ],
-                        }),
-                    }).then(r => r.json())
-
-                    if (conv?.id) {
-                        onConversationCreated(conv.id)
-                    }
-                } catch (saveErr) {
-                    console.error('[Chat] Failed to save conversation:', saveErr)
                 }
             }
 

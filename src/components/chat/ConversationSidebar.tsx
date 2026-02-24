@@ -23,9 +23,9 @@ export function ConversationSidebar() {
     // But if we are not on /chat, we might not have one.
     const activeConversationId = pathname.includes('/chat') ? searchParams.get('c') : null
 
-    // If we are on /feeds or /articles, highlight those
+    // If we are on /feeds, /content, or /settings, highlight those
     const isFeedsActive = pathname.includes('/feeds')
-    const isArticlesActive = pathname.includes('/articles')
+    const isArticlesActive = pathname.includes('/content')
 
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [loading, setLoading] = useState(true)
@@ -239,12 +239,12 @@ export function ConversationSidebar() {
                         }`}
                 >
                     <Radio className="w-4 h-4" />
-                    Live Feeds
+                    Pipelines
                 </Link>
 
                 <Link
                     href="/content"
-                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${pathname.includes('/content')
+                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isArticlesActive
                         ? 'bg-white/10 text-white'
                         : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                         }`}

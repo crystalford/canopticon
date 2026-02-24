@@ -82,13 +82,13 @@ export async function POST(req: Request) {
             return new NextResponse('OK', { status: 200 })
         }
 
-        // Process the video
+        // Process the video using full automation config
         await processYouTubeVideo({
             title: videoTitle || 'Untitled Video',
             link: videoLink || '',
             pubDate: item.pubDate,
             description: item.contentSnippet || item.content || ''
-        }, automation.config)
+        }, automation)  // Pass full automation row, not just automation.config
 
         return new NextResponse('Processed', { status: 200 })
 

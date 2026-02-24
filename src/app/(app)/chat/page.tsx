@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { ChatInterface } from '@/components/chat/ChatInterface'
 import type { UIMessage } from 'ai'
@@ -12,6 +12,8 @@ export default function ChatPage() {
     const [conversationId, setConversationId] = useState<string | null>(null)
     const [initialMessages, setInitialMessages] = useState<UIMessage[] | undefined>(undefined)
     const [loadingMessages, setLoadingMessages] = useState(false)
+    // Track conversation IDs created locally to avoid spurious reloads when router.replace fires
+    const justCreatedRef = useRef<string | null>(null)
 
     // Separate key for controlling ChatInterface remounts.
     const [initialPersonaId, setInitialPersonaId] = useState<any>(undefined)
@@ -26,8 +28,8 @@ export default function ChatPage() {
     }, [])
 
     const handleConversationCreated = useCallback((id: string) => {
-        // When a new chat is created by the interface, update the URL
-        // The URL update will trigger the useEffect, but we can also set state directly for speed
+        // Mark as just-created to prevent useEffect from reloading messages from DB
+        justCreatedRef.current = id
         setConversationId(id)
         router.replace(`?c=${id}`)
     }, [router])
@@ -78,7 +80,17 @@ export default function ChatPage() {
             setInitialInput(`I want to edit article ${editId}. Please read it and help me make changes.`)
         }
 
+        const inputParam = searchParams.get('initialInput')
+        if (inputParam) {
+            setInitialInput(decodeURIComponent(inputParam))
+        }
+
         if (c) {
+            // If this ID was just created by us, skip the reload — we have messages in memory
+            if (justCreatedRef.current === c) {
+                justCreatedRef.current = null
+                return
+            }
             // If URL has ID and it's different (or we haven't loaded it yet), load it
             if (c !== conversationId) {
                 handleSelectConversation(c)
