@@ -3,19 +3,30 @@ import { getModel } from '@/lib/ai/providers'
 import { createTools } from '@/lib/ai/tools'
 import { searchPerplexity } from '@/lib/ai/tools'
 import { db, automations, articles } from '@/db'
+import { settings as settingsTable } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import RSSParser from 'rss-parser'
 import type { Automation } from '@/db/schema'
 import { TwitterApi } from 'twitter-api-v2'
 import { fetchTranscript } from './transcript'
 
+// Resolve a credential: DB settings table first (editable via UI), then env var
+async function getCredential(key: string): Promise<string | undefined> {
+    try {
+        const row = await db.query.settings.findFirst({ where: eq(settingsTable.key, key) })
+        if (row?.value) return row.value
+    } catch { /* settings table not ready */ }
+    return process.env[key]
+}
+
 const parser = new RSSParser()
 
 // Output modes:
-// 'article_and_x' - write full article + post X thread (default)
-// 'article_only'  - write article, no X
-// 'draft'         - write article, save as draft
-// 'x_only'        - skip AI entirely, just post a link tweet when new content drops
+// 'article_and_x'      - write full article + post X thread (default)
+// 'article_and_x_post' - write full article + post ONE high-impact X tweet
+// 'article_only'       - write article, no X
+// 'draft'              - write article, save as draft
+// 'x_only'             - skip AI entirely, just post a link tweet when new content drops
 
 const DEFAULT_RESEARCH_PROVIDER = 'perplexity'
 const DEFAULT_RESEARCH_MODEL = 'sonar-pro'
@@ -37,7 +48,13 @@ HEADLINE RULES (critical):
 - Write a specific, journalistic headline that captures the most newsworthy moment, debate, or revelation from the actual content.
 - Good: "Liberals Defend Carbon Tax as Conservatives Demand Emergency Debate" or "NATO Partners Reject Ukraine Ceasefire Terms at Brussels Summit"
 - Bad: "Question Period – February 24, 2026" or "CPAC Live: House of Commons"
-- The headline should tell someone who knows nothing about it what actually happened.`
+- The headline should tell someone who knows nothing about it what actually happened.
+
+IMAGE RULES (critical):
+- If you generate or embed any images, they must be PHOTOJOURNALISTIC style.
+- NEVER embed text, words, letters, captions, headlines, or watermarks into the image itself. AI image generators corrupt text — do not include any.
+- Good prompt: "A wide shot of the Canadian House of Commons chamber during a heated debate, photojournalistic, natural lighting, no text"
+- Bad prompt: anything with overlay text, banners, titles, or subtitles in the image.`
 
 // --- Helper: post X/Twitter link (x_only mode — no AI, just a link post) ---
 async function postXLink(
@@ -45,10 +62,10 @@ async function postXLink(
     link: string,
     description?: string
 ): Promise<string> {
-    const apiKey = process.env.TWITTER_API_KEY
-    const apiSecret = process.env.TWITTER_API_SECRET
-    const accessToken = process.env.TWITTER_ACCESS_TOKEN
-    const accessSecret = process.env.TWITTER_ACCESS_SECRET
+    const apiKey = await getCredential('TWITTER_API_KEY')
+    const apiSecret = await getCredential('TWITTER_API_SECRET')
+    const accessToken = await getCredential('TWITTER_ACCESS_TOKEN')
+    const accessSecret = await getCredential('TWITTER_ACCESS_SECRET')
 
     if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
         throw new Error('X/Twitter API credentials not configured')
@@ -72,10 +89,10 @@ async function generateAndPostThread(
 ): Promise<string> {
     console.log(`[generateAndPostThread] Generating thread for: ${articleTitle}`)
 
-    const apiKey = process.env.TWITTER_API_KEY
-    const apiSecret = process.env.TWITTER_API_SECRET
-    const accessToken = process.env.TWITTER_ACCESS_TOKEN
-    const accessSecret = process.env.TWITTER_ACCESS_SECRET
+    const apiKey = await getCredential('TWITTER_API_KEY')
+    const apiSecret = await getCredential('TWITTER_API_SECRET')
+    const accessToken = await getCredential('TWITTER_ACCESS_TOKEN')
+    const accessSecret = await getCredential('TWITTER_ACCESS_SECRET')
 
     if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
         throw new Error('X/Twitter API credentials not configured')
@@ -172,6 +189,76 @@ Extract ${numTweets} tweets. Return ONLY a JSON array.`
     }
 
     return `https://x.com/i/status/${postedTweets[0].id}`
+}
+
+// --- Helper: post ONE high-impact X post (article_and_x_post mode) ---
+async function generateAndPostSingle(
+    articleId: string,
+    articleTitle: string,
+    articleSlug: string,
+    sourceUrl?: string,
+    xThreadPrompt?: string
+): Promise<string> {
+    console.log(`[generateAndPostSingle] Generating single post for: ${articleTitle}`)
+
+    const apiKey = await getCredential('TWITTER_API_KEY')
+    const apiSecret = await getCredential('TWITTER_API_SECRET')
+    const accessToken = await getCredential('TWITTER_ACCESS_TOKEN')
+    const accessSecret = await getCredential('TWITTER_ACCESS_SECRET')
+
+    if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+        throw new Error('X/Twitter API credentials not configured')
+    }
+
+    const article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
+    if (!article) throw new Error('Article not found')
+
+    const linkUrl = sourceUrl || `https://canopticon.com/articles/${articleSlug}`
+    const lastTweetCta = sourceUrl ? 'Watch:' : 'Read:'
+
+    const defaultInstructions = xThreadPrompt || `You are a political media strategist. Extract the SINGLE most newsworthy, surprising, or quotable moment from this article. Write ONE tweet about it.
+
+Format:
+Line 1: The moment — lead with a direct quote or the most surprising fact.
+Line 2: One sentence of context.
+Line 3: End with "${lastTweetCta} ${linkUrl}"
+
+Under 280 characters total. No hashtags. Return ONLY the tweet text, no JSON.`
+
+    const prompt = `${defaultInstructions}
+
+Article Title: ${articleTitle}
+Article Content: ${article.content.substring(0, 3000)}`
+
+    const chatModel = await getModel(DEFAULT_WRITING_PROVIDER, DEFAULT_WRITING_MODEL)
+    const result = await generateText({ model: chatModel, prompt })
+    const tweetText = result.text.trim().replace(/^["']|["']$/g, '')
+
+    const client = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken, accessSecret })
+
+    const params: any = { text: tweetText }
+
+    // Attach YouTube thumbnail if available
+    if (sourceUrl) {
+        try {
+            const { extractVideoId } = await import('./transcript')
+            const videoId = extractVideoId(sourceUrl)
+            if (videoId) {
+                const thumbUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+                const thumbRes = await fetch(thumbUrl)
+                if (thumbRes.ok) {
+                    const buffer = Buffer.from(await thumbRes.arrayBuffer())
+                    const mediaId = await client.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' })
+                    params.media = { media_ids: [mediaId] }
+                }
+            }
+        } catch (e) {
+            console.warn('[generateAndPostSingle] Thumbnail upload failed (non-fatal):', e)
+        }
+    }
+
+    const tweetResult = await client.v2.tweet(params)
+    return `https://x.com/i/status/${tweetResult.data.id}`
 }
 
 // --- Core article generation ---
@@ -327,6 +414,18 @@ export async function runAutomation(automation: Automation): Promise<{
             }
         }
 
+        if (outputMode === 'article_and_x_post' && article) {
+            try {
+                const videoUrlMatch = triggerContent.match(/URL: (.+)/)
+                const videoUrl = automation.type === 'youtube' ? videoUrlMatch?.[1]?.trim() : undefined
+                const xThreadPrompt = (config.xThreadPrompt as string) || undefined
+                threadUrl = await generateAndPostSingle(article.id, article.title, article.slug, videoUrl, xThreadPrompt)
+            } catch (e: any) {
+                xPostError = e.message
+                console.error('[runAutomation] X single post failed:', e)
+            }
+        }
+
         const result = { success: true, articleId, threadUrl, xPostError }
         await db.update(automations)
             .set({ lastRunAt: new Date(), lastResult: result })
@@ -390,6 +489,15 @@ export async function processYouTubeVideo(
         try {
             const xThreadPrompt = (config.xThreadPrompt as string) || undefined
             threadUrl = await generateAndPostThread(article.id, article.title, article.slug, video.link, xThreadPrompt)
+        } catch (e: any) {
+            xPostError = e.message
+        }
+    }
+
+    if (outputMode === 'article_and_x_post' && article) {
+        try {
+            const xThreadPrompt = (config.xThreadPrompt as string) || undefined
+            threadUrl = await generateAndPostSingle(article.id, article.title, article.slug, video.link, xThreadPrompt)
         } catch (e: any) {
             xPostError = e.message
         }

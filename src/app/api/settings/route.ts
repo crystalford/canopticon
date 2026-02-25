@@ -15,9 +15,11 @@ export async function GET() {
 
         // Return masked version for UI
         const safeConfig = { ...config }
-        // Mask keys if they exist
-        if (safeConfig.OPENAI_API_KEY) safeConfig.OPENAI_API_KEY = '********'
-        if (safeConfig.PERPLEXITY_API_KEY) safeConfig.PERPLEXITY_API_KEY = '********'
+        // Mask sensitive keys if they exist
+        const maskKeys = ['OPENAI_API_KEY', 'PERPLEXITY_API_KEY', 'TWITTER_API_KEY', 'TWITTER_API_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_SECRET']
+        for (const k of maskKeys) {
+            if (safeConfig[k]) safeConfig[k] = '********'
+        }
 
         return NextResponse.json(safeConfig)
     } catch (error) {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, Plus, Trash2, Key, Bot, Cpu, Edit2, Check, X } from 'lucide-react'
+import { Save, Plus, Trash2, Key, Bot, Cpu, Edit2, Check, X, Twitter } from 'lucide-react'
 
 export default function SettingsPage() {
     const [settings, setSettings] = useState<Record<string, string>>({})
@@ -125,7 +125,48 @@ export default function SettingsPage() {
                 </form>
             </section>
 
-            {/* Agents Section */}
+            {/* X / Twitter Credentials */}
+            <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-sky-500/10 rounded-lg text-sky-400">
+                        <Twitter size={20} />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-semibold text-white">X / Twitter Credentials</h2>
+                        <p className="text-sm text-slate-400">Used for auto-posting threads. Stored securely in the database — overrides any environment variables.</p>
+                    </div>
+                </div>
+                <form onSubmit={saveSettings} className="space-y-4 max-w-xl">
+                    {([
+                        { key: 'TWITTER_API_KEY', label: 'API Key (Consumer Key)' },
+                        { key: 'TWITTER_API_SECRET', label: 'API Secret (Consumer Secret)' },
+                        { key: 'TWITTER_ACCESS_TOKEN', label: 'Access Token' },
+                        { key: 'TWITTER_ACCESS_SECRET', label: 'Access Token Secret' },
+                    ] as { key: string; label: string }[]).map(({ key, label }) => (
+                        <div key={key}>
+                            <label className="block text-xs font-medium text-slate-400 uppercase mb-1">{label}</label>
+                            <input
+                                type="password"
+                                value={settings[key] || ''}
+                                onChange={e => setSettings({ ...settings, [key]: e.target.value })}
+                                placeholder="••••••••"
+                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:border-sky-500/50 outline-none transition-colors"
+                            />
+                        </div>
+                    ))}
+                    <div className="pt-2">
+                        <button
+                            type="submit"
+                            disabled={saving}
+                            className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                        >
+                            <Save size={16} />
+                            {saving ? 'Saving...' : 'Save X Credentials'}
+                        </button>
+                    </div>
+                </form>
+            </section>
+
             <section>
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">

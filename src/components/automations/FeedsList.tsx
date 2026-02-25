@@ -93,6 +93,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
     const [keywords, setKeywords] = useState('')
     const [prompt, setPrompt] = useState(DEFAULT_YOUTUBE_PROMPT)
     const [xThreadPrompt, setXThreadPrompt] = useState('')
+    const [outputMode, setOutputMode] = useState('article_and_x')
     const [autoPublish, setAutoPublish] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -117,6 +118,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
             config = { keywords: kws }
         }
         if (xThreadPrompt.trim()) config.xThreadPrompt = xThreadPrompt.trim()
+        config.outputMode = outputMode
 
         setSaving(true)
         try {
@@ -234,6 +236,32 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                     placeholder={`e.g. Write a sharp, fact-driven thread quoting speakers directly. No hype.`}
                     className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono placeholder-slate-600 focus:outline-none focus:border-white/20 resize-y"
                 />
+            </div>
+
+            {/* Output Mode */}
+            <div>
+                <label className="text-xs text-slate-500 mb-1.5 block">Output Mode</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                    {([
+                        { value: 'article_and_x', label: '𝕏 Thread', desc: 'Article + multi-tweet thread' },
+                        { value: 'article_and_x_post', label: '𝕏 Post', desc: 'Article + one high-impact tweet' },
+                        { value: 'article_only', label: 'Article Only', desc: 'Publish, no X posting' },
+                        { value: 'draft', label: 'Draft', desc: 'Save as draft for review' },
+                    ] as { value: string; label: string; desc: string }[]).map(m => (
+                        <button
+                            key={m.value}
+                            type="button"
+                            onClick={() => setOutputMode(m.value)}
+                            className={`text-left px-2.5 py-2 rounded-lg border text-xs transition-colors ${outputMode === m.value
+                                    ? 'bg-red-600/20 border-red-500/50 text-white'
+                                    : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'
+                                }`}
+                        >
+                            <div className="font-medium">{m.label}</div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">{m.desc}</div>
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Options */}
