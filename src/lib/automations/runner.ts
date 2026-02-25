@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm'
 import RSSParser from 'rss-parser'
 import type { Automation } from '@/db/schema'
 import { TwitterApi } from 'twitter-api-v2'
+import { fetchTranscript } from './transcript'
 
 const parser = new RSSParser()
 
@@ -210,6 +211,27 @@ export async function runAutomation(automation: Automation): Promise<{
         return result
     }
 
+    // Duplicate guard: if we already have an article for this exact video URL, skip
+    if (automation.type === 'youtube') {
+        const urlMatch = triggerContent.match(/^URL: (.+)/m)
+        const videoUrl = urlMatch?.[1]?.trim()
+        if (videoUrl) {
+            const existing = await db.query.articles.findFirst({
+                where: (t, { and, eq: eqFn, like }) => and(
+                    eqFn(t.automationId, automation.id),
+                    like(t.content, `%${videoUrl}%`)
+                ),
+            })
+            if (existing) {
+                const result = { success: true, skipped: true, reason: `Already covered: ${videoUrl}` }
+                await db.update(automations)
+                    .set({ lastRunAt: new Date(), lastResult: result })
+                    .where(eq(automations.id, automation.id))
+                return result
+            }
+        }
+    }
+
     try {
         // x_only mode: skip AI, just post a link
         if (outputMode === 'x_only') {
@@ -291,7 +313,12 @@ export async function processYouTubeVideo(
     const config = automation.config as Record<string, unknown>
     const outputMode = (config.outputMode as string) || 'article_and_x'
 
-    const triggerData = `Video Title: ${video.title}\nURL: ${video.link}\nPublished: ${video.pubDate}\nDescription: ${video.description}`
+    const transcript = await fetchTranscript(video.link)
+    const transcriptSection = transcript
+        ? `\nTranscript (${transcript.split(/\s+/).length} words):\n${transcript}`
+        : '\n[No transcript available — use search_web to find coverage of this video]'
+
+    const triggerData = `Video Title: ${video.title}\nURL: ${video.link}\nPublished: ${video.pubDate}\nDescription: ${video.description}${transcriptSection}`
 
     if (outputMode === 'x_only') {
         let threadUrl: string | undefined
@@ -320,7 +347,7 @@ export async function processYouTubeVideo(
 
     if (outputMode === 'article_and_x' && article) {
         try {
-            threadUrl = await generateAndPostThread(article.id, article.title, article.slug)
+            threadUrl = await generateAndPostThread(article.id, article.title, article.slug, video.link)
         } catch (e: any) {
             xPostError = e.message
         }
@@ -349,7 +376,15 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
                 })
                 if (newItems.length === 0) return null
                 const latest = newItems[0]
-                return `Video Title: ${latest.title}\nURL: ${latest.link}\nPublished: ${latest.pubDate}\nDescription: ${latest.contentSnippet || ''}`
+                const videoUrl = latest.link || ''
+
+                // Fetch transcript — gives the AI the actual spoken words
+                const transcript = await fetchTranscript(videoUrl)
+                const transcriptSection = transcript
+                    ? `\nTranscript (${transcript.split(/\s+/).length} words):\n${transcript}`
+                    : '\n[No transcript available — use search_web to find coverage of this video]'
+
+                return `Video Title: ${latest.title}\nURL: ${videoUrl}\nPublished: ${latest.pubDate}\nDescription: ${latest.contentSnippet || ''}${transcriptSection}`
             } catch (e) {
                 console.error('[checkTrigger] RSS Error:', e)
                 return null

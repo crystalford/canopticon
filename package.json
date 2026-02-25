@@ -50,6 +50,7 @@
     "tailwind-merge": "^2.6.0",
     "twitter-api-v2": "^1.29.0",
     "uuid": "^11.0.5",
+    "youtube-transcript": "^1.2.1",
     "zod": "^4.3.5"
   },
   "devDependencies": {
