@@ -4,6 +4,8 @@ import { fetchTranscriptWithTimestamps, extractVideoId } from '@/lib/automations
 import { db, videoClips } from '@/db'
 import { eq } from 'drizzle-orm'
 
+import { ApifyClient } from 'apify-client'
+
 // Extract video title using a lightweight embed fetch
 async function fetchVideoTitle(url: string): Promise<string> {
     try {
@@ -22,9 +24,9 @@ export async function processVideoClip(clipId: string, url: string) {
     console.log(`[processVideoClip] Starting job ${clipId} for ${url}`)
 
     try {
-        const serverUrl = process.env.CLIP_SERVER_URL
-        if (!serverUrl) {
-            throw new Error('CLIP_SERVER_URL is not configured in .env -> See clip-server/README.md')
+        const token = process.env.APIFY_API_TOKEN
+        if (!token) {
+            throw new Error('APIFY_API_TOKEN is not configured in .env')
         }
 
         // 1. Get title and transcript
@@ -75,33 +77,37 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
             .set({ videoTitle: title, startSeconds: start, endSeconds: end, clipRationale: rationale })
             .where(eq(videoClips.id, clipId))
 
-        // 4. Call local clip-server
-        console.log(`[processVideoClip] Requesting extraction from local clip server...`)
-        const res = await fetch(`${serverUrl.replace(/\/$/, '')}/clip`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(process.env.CLIP_SERVER_SECRET ? { 'x-api-key': process.env.CLIP_SERVER_SECRET } : {}),
-            },
-            body: JSON.stringify({ url, start_seconds: start, end_seconds: end }),
-            // Give it 2.5 minutes total to process
-            signal: AbortSignal.timeout(150_000),
+        // 4. Call Apify yt-dlp Actor
+        console.log(`[processVideoClip] Requesting extraction from Apify (nexgendata/yt-dlp-video-tools)...`)
+
+        const client = new ApifyClient({ token });
+        const run = await client.actor("nexgendata/yt-dlp-video-tools").call({
+            downloadUrl: url,
+            downloadSections: `*${start}-${end}`,
+            format: "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]"
         })
 
-        if (!res.ok) {
-            const errBody = await res.text()
-            throw new Error(`Clip server failed (${res.status}): ${errBody}`)
+        if (run.status !== 'SUCCEEDED') {
+            throw new Error(`Apify Actor failed with status: ${run.status}`)
         }
 
-        const data = await res.json()
-        if (!data.clipUrl) throw new Error('Clip server returned success but no clipUrl')
+        // 5. Extract MP4 link from Apify Key-Value Store
+        const kvStore = client.keyValueStore(run.defaultKeyValueStoreId)
+        const keys = (await kvStore.listKeys()).items
+
+        if (keys.length === 0) {
+            throw new Error('Apify Actor returned success but no MP4 was saved to the Key-Value store.')
+        }
+
+        // The exact file URL from Apify
+        const apifyClipUrl = `https://api.apify.com/v2/key-value-stores/${run.defaultKeyValueStoreId}/records/${keys[0].key}`
 
         // 5. Save success to DB
-        console.log(`[processVideoClip] ✓ Success! Clip URL: ${data.clipUrl}`)
+        console.log(`[processVideoClip] ✓ Success! Clip URL: ${apifyClipUrl}`)
         const [updated] = await db.update(videoClips)
             .set({
                 status: 'done',
-                clipUrl: data.clipUrl,
+                clipUrl: apifyClipUrl,
                 processedAt: new Date()
             })
             .where(eq(videoClips.id, clipId))

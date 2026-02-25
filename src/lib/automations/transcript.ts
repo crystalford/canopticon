@@ -78,46 +78,55 @@ export async function fetchTranscript(videoUrl: string): Promise<string | null> 
  * Example line: "[4:32] The Prime Minister then said something remarkable"
  * Caps at ~5000 words to leave room in the Claude context alongside the article prompt.
  */
+import { ApifyClient } from 'apify-client'
+
 export async function fetchTranscriptWithTimestamps(videoUrl: string): Promise<string | null> {
     const videoId = extractVideoId(videoUrl)
     if (!videoId) return null
 
     try {
-        const serverUrl = process.env.CLIP_SERVER_URL
-        if (!serverUrl) {
-            console.warn('[fetchTranscriptWithTimestamps] CLIP_SERVER_URL not configured. Cannot bypass YouTube blocks.')
+        const token = process.env.APIFY_API_TOKEN
+        if (!token) {
+            console.warn('[fetchTranscriptWithTimestamps] APIFY_API_TOKEN not configured.')
             return null
         }
 
-        console.log(`[fetchTranscriptWithTimestamps] Proxying request through clip-server for ${videoId}...`)
+        console.log(`[fetchTranscriptWithTimestamps] Proxying request through Apify for ${videoId}...`)
 
-        const res = await fetch(`${serverUrl.replace(/\/$/, '')}/transcript`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...(process.env.CLIP_SERVER_SECRET ? { 'x-api-key': process.env.CLIP_SERVER_SECRET } : {}),
-            },
-            body: JSON.stringify({ url: videoUrl }),
-            // Give it 30s to download and parse JSON
-            signal: AbortSignal.timeout(30_000),
-        })
+        const client = new ApifyClient({ token });
+        const run = await client.actor("leandrocb88/youtube-video-transcript-scraper").call({
+            startUrls: [{ url: videoUrl }]
+        });
+        const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
-        if (!res.ok) {
-            const errBody = await res.text()
-            console.warn(`[fetchTranscriptWithTimestamps] Clip server failed (${res.status}): ${errBody}`)
+        if (!items || items.length === 0 || !items[0].transcript) {
+            console.warn('[fetchTranscriptWithTimestamps] Apify returned success but no transcript')
             return null
         }
 
-        const data = await res.json()
-        if (!data.transcript) {
-            console.warn('[fetchTranscriptWithTimestamps] Clip server returned success but no transcript')
-            return null
+        // Format Apify JSON into [M:SS] Text
+        const segments = items[0].transcript as Array<{ start: number, text: string }>;
+
+        const formatTime = (seconds: number) => {
+            const m = Math.floor(seconds / 60)
+            const s = Math.floor(seconds % 60)
+            return `[${m}:${s.toString().padStart(2, '0')}]`
         }
 
-        return data.transcript
+        const formattedText = segments
+            .map(s => `${formatTime(s.start)} ${s.text.trim()}`)
+            .join('\n')
+
+        // Cap at ~5000 words (~30k chars) to leave room in Claude context
+        const words = formattedText.split(/\s+/)
+        const capped = words.slice(0, 5000).join(' ')
+        const wasCapped = words.length > 5000
+
+        console.log(`[fetchTranscriptWithTimestamps] ${videoId}: processed${wasCapped ? ' (capped at 5000 words)' : ''}`)
+        return capped
 
     } catch (e: any) {
-        console.warn(`[fetchTranscriptWithTimestamps] Proxy fetch failed for ${videoId}:`, e.message)
+        console.warn(`[fetchTranscriptWithTimestamps] Apify fetch failed for ${videoId}:`, e.message)
         return null
     }
 }

@@ -30,6 +30,7 @@
     "@vercel/blob": "^2.2.0",
     "@vercel/og": "^0.8.6",
     "ai": "^6.0.33",
+    "apify-client": "^2.22.2",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
