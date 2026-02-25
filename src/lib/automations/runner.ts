@@ -86,27 +86,36 @@ async function generateAndPostThread(
 
     const linkUrl = sourceUrl || `https://canopticon.com/articles/${articleSlug}`
     const wordCount = article.content.split(/\s+/).length
-    const threadLength = wordCount < 500 ? '3-4' : wordCount < 1500 ? '4-6' : '6-8'
+    const numTweets = wordCount < 500 ? 3 : wordCount < 1500 ? 4 : 5
     const lastTweetCta = sourceUrl ? 'Watch:' : 'Full analysis:'
 
-    const defaultThreadInstructions = `Write an analytical Twitter/X thread based on this article. Be specific and substantive — actual facts, quotes, and insights from the content. Avoid hype, listicles, and generic political commentary. Sound like a sharp journalist, not a Twitter influencer.`
+    const defaultThreadInstructions = `You are a political media strategist writing high-engagement X/Twitter posts. Your job is to EXTRACT the most newsworthy, surprising, or quotable moments from this content and write one tweet per moment. Each tweet must work as a completely standalone post — someone who sees only that tweet should get full value from it.
+
+EXTRACTION RULES:
+- Scan for: direct quotes from politicians/officials, surprising statistics or reversals, conflict between parties, specific policy positions, anything that would make someone say "wait, what?"
+- Each tweet = ONE extracted moment. Not a summary. Not a transition. One specific thing.
+
+TWEET FORMAT (each tweet):
+Line 1: The moment itself — lead with the most surprising/provocative element. If it's a quote, use quotation marks and name the speaker.
+Line 2 (optional): One sentence of context that makes it land harder.
+Line 3: End with EITHER a sharp question that invites a reply ("What does this mean for X?") OR a provocative statement that makes people want to share it.
+
+RULES:
+- Every tweet must be able to stand alone — no "continued from above" references
+- Be specific: names, numbers, policy names, dates — not vague generalities
+- Last tweet ends with "${lastTweetCta} ${linkUrl}"
+- Under 280 characters each
+- No hashtags
+- Return ONLY a valid JSON array of strings`
 
     const threadInstructions = xThreadPrompt || defaultThreadInstructions
 
     const prompt = `${threadInstructions}
 
 Article Title: ${articleTitle}
-Article Content (first 3000 chars): ${article.content.substring(0, 3000)}
+Article Content: ${article.content.substring(0, 4000)}
 
-Format rules:
-- ${threadLength} tweets total
-- Tweet 1: One-sentence hook — the most newsworthy or surprising fact from the content
-- Middle tweets: Specific points, direct quotes from speakers if available, concrete details
-- Last tweet: End with "${lastTweetCta} ${linkUrl}"
-- Every tweet under 280 characters
-- No hashtags unless they're genuinely relevant
-- Do NOT include tweet numbers, character counts, or annotations
-- Return ONLY a valid JSON array of strings. Example: ["Tweet 1", "Tweet 2"]`
+Extract ${numTweets} tweets. Return ONLY a JSON array.`
 
     const chatModel = await getModel(DEFAULT_WRITING_PROVIDER, DEFAULT_WRITING_MODEL)
     const result = await generateText({ model: chatModel, prompt })
@@ -117,7 +126,6 @@ Format rules:
         if (!jsonMatch) throw new Error('No JSON array found')
         tweets = JSON.parse(jsonMatch[0])
         if (!Array.isArray(tweets)) throw new Error('Invalid format')
-        // Strip any character-count annotations the model might have added e.g. "(139 chars before URL)"
         tweets = tweets.map((t: string) =>
             t.replace(/\s*\(\d+\s+chars?[^)]*\)/gi, '').trim()
         )
@@ -126,15 +134,41 @@ Format rules:
     }
 
     const client = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken, accessSecret })
+
+    // Attach YouTube thumbnail to first tweet for visual impact
+    let firstTweetMediaId: string | undefined
+    if (sourceUrl) {
+        try {
+            const { extractVideoId } = await import('./transcript')
+            const videoId = extractVideoId(sourceUrl)
+            if (videoId) {
+                const thumbUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+                const thumbRes = await fetch(thumbUrl)
+                if (thumbRes.ok) {
+                    const buffer = Buffer.from(await thumbRes.arrayBuffer())
+                    const mediaId = await client.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' })
+                    firstTweetMediaId = mediaId
+                    console.log(`[generateAndPostThread] Uploaded thumbnail for ${videoId}`)
+                }
+            }
+        } catch (e) {
+            console.warn('[generateAndPostThread] Thumbnail upload failed (non-fatal):', e)
+        }
+    }
+
     let lastTweetId: string | undefined
     const postedTweets: { id: string; text: string }[] = []
 
-    for (const text of tweets) {
+    for (let i = 0; i < tweets.length; i++) {
+        const text = tweets[i]
         const params: any = { text }
         if (lastTweetId) params.reply = { in_reply_to_tweet_id: lastTweetId }
+        if (i === 0 && firstTweetMediaId) params.media = { media_ids: [firstTweetMediaId] }
         const tweetResult = await client.v2.tweet(params)
         lastTweetId = tweetResult.data.id
         postedTweets.push({ id: tweetResult.data.id, text })
+        // Small delay to avoid rate limit burst
+        if (i < tweets.length - 1) await new Promise(r => setTimeout(r, 500))
     }
 
     return `https://x.com/i/status/${postedTweets[0].id}`
