@@ -80,21 +80,21 @@ async function generateAndPostThread(
     const urlReservedSpace = articleUrl.length + 25
     const maxLastTweetContentLength = 280 - urlReservedSpace
 
-    const prompt = `Convert this article into an engaging Twitter thread (${threadLength} tweets). Each tweet must be under 280 characters.
+    const prompt = `Convert this article into an engaging Twitter/X thread (${threadLength} tweets).
 
 Article Title: ${articleTitle}
 Article Summary: ${article.summary}
 Article Content (first 2000 chars): ${article.content.substring(0, 2000)}
 
-Instructions:
+Rules:
 - Tweet 1: Hook — grab attention with the key insight
-- Middle tweets: Main points, one per tweet
-- Last tweet: MUST include this exact text at the end: "Read the full analysis: ${articleUrl}"
-- CRITICAL: Last tweet content BEFORE the URL must be ${maxLastTweetContentLength} characters or less
-- Each tweet MUST be under 280 characters total
-- Return ONLY a JSON array of tweet strings.`
+- Middle tweets: One key point per tweet, punchy and specific
+- Last tweet: End with "Read the full analysis: ${articleUrl}" — keep the text BEFORE the URL short (under 100 chars)
+- Every tweet must be under 280 characters total
+- Do NOT include tweet numbers, character counts, annotations, or any metadata — just the tweet text
+- Return ONLY a valid JSON array of strings, nothing else. Example: ["Tweet 1 text", "Tweet 2 text"]`
 
-    const chatModel = await getModel(DEFAULT_RESEARCH_PROVIDER, DEFAULT_RESEARCH_MODEL)
+    const chatModel = await getModel(DEFAULT_WRITING_PROVIDER, DEFAULT_WRITING_MODEL)
     const result = await generateText({ model: chatModel, prompt })
 
     let tweets: string[]
@@ -103,6 +103,10 @@ Instructions:
         if (!jsonMatch) throw new Error('No JSON array found')
         tweets = JSON.parse(jsonMatch[0])
         if (!Array.isArray(tweets)) throw new Error('Invalid format')
+        // Strip any character-count annotations the model might have added e.g. "(139 chars before URL)"
+        tweets = tweets.map((t: string) =>
+            t.replace(/\s*\(\d+\s+chars?[^)]*\)/gi, '').trim()
+        )
     } catch (error) {
         throw new Error(`Failed to parse thread: ${error}`)
     }
