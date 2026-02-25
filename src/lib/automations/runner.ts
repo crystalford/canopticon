@@ -67,7 +67,8 @@ async function generateAndPostThread(
     articleId: string,
     articleTitle: string,
     articleSlug: string,
-    sourceUrl?: string  // If provided, last tweet links here instead of the article
+    sourceUrl?: string,       // If provided, last tweet links here instead of the article
+    xThreadPrompt?: string    // Custom instructions for the thread (from config.xThreadPrompt)
 ): Promise<string> {
     console.log(`[generateAndPostThread] Generating thread for: ${articleTitle}`)
 
@@ -85,22 +86,27 @@ async function generateAndPostThread(
 
     const linkUrl = sourceUrl || `https://canopticon.com/articles/${articleSlug}`
     const wordCount = article.content.split(/\s+/).length
-    const threadLength = wordCount < 500 ? '3-4' : wordCount < 1500 ? '5-7' : '7-8'
-    const lastTweetCta = sourceUrl ? 'Watch the video:' : 'Read the full analysis:'
+    const threadLength = wordCount < 500 ? '3-4' : wordCount < 1500 ? '4-6' : '6-8'
+    const lastTweetCta = sourceUrl ? 'Watch:' : 'Full analysis:'
 
-    const prompt = `Convert this article into an engaging Twitter/X thread (${threadLength} tweets).
+    const defaultThreadInstructions = `Write an analytical Twitter/X thread based on this article. Be specific and substantive — actual facts, quotes, and insights from the content. Avoid hype, listicles, and generic political commentary. Sound like a sharp journalist, not a Twitter influencer.`
+
+    const threadInstructions = xThreadPrompt || defaultThreadInstructions
+
+    const prompt = `${threadInstructions}
 
 Article Title: ${articleTitle}
-Article Summary: ${article.summary}
-Article Content (first 2000 chars): ${article.content.substring(0, 2000)}
+Article Content (first 3000 chars): ${article.content.substring(0, 3000)}
 
-Rules:
-- Tweet 1: Hook — grab attention with the key insight
-- Middle tweets: One key point per tweet, punchy and specific
-- Last tweet: End with "${lastTweetCta} ${linkUrl}" — keep the text BEFORE the URL short (under 80 chars)
-- Every tweet must be under 280 characters total
-- Do NOT include tweet numbers, character counts, annotations, or any metadata — just the tweet text
-- Return ONLY a valid JSON array of strings, nothing else. Example: ["Tweet 1 text", "Tweet 2 text"]`
+Format rules:
+- ${threadLength} tweets total
+- Tweet 1: One-sentence hook — the most newsworthy or surprising fact from the content
+- Middle tweets: Specific points, direct quotes from speakers if available, concrete details
+- Last tweet: End with "${lastTweetCta} ${linkUrl}"
+- Every tweet under 280 characters
+- No hashtags unless they're genuinely relevant
+- Do NOT include tweet numbers, character counts, or annotations
+- Return ONLY a valid JSON array of strings. Example: ["Tweet 1", "Tweet 2"]`
 
     const chatModel = await getModel(DEFAULT_WRITING_PROVIDER, DEFAULT_WRITING_MODEL)
     const result = await generateText({ model: chatModel, prompt })
@@ -279,7 +285,8 @@ export async function runAutomation(automation: Automation): Promise<{
                 // For YouTube pipelines, link to the source video instead of the article
                 const videoUrlMatch = triggerContent.match(/URL: (.+)/)
                 const videoUrl = automation.type === 'youtube' ? videoUrlMatch?.[1]?.trim() : undefined
-                threadUrl = await generateAndPostThread(article.id, article.title, article.slug, videoUrl)
+                const xThreadPrompt = (config.xThreadPrompt as string) || undefined
+                threadUrl = await generateAndPostThread(article.id, article.title, article.slug, videoUrl, xThreadPrompt)
             } catch (e: any) {
                 xPostError = e.message
                 console.error('[runAutomation] X post failed:', e)
@@ -347,7 +354,8 @@ export async function processYouTubeVideo(
 
     if (outputMode === 'article_and_x' && article) {
         try {
-            threadUrl = await generateAndPostThread(article.id, article.title, article.slug, video.link)
+            const xThreadPrompt = (config.xThreadPrompt as string) || undefined
+            threadUrl = await generateAndPostThread(article.id, article.title, article.slug, video.link, xThreadPrompt)
         } catch (e: any) {
             xPostError = e.message
         }

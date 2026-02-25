@@ -92,6 +92,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
     const [feedUrl, setFeedUrl] = useState('')
     const [keywords, setKeywords] = useState('')
     const [prompt, setPrompt] = useState(DEFAULT_YOUTUBE_PROMPT)
+    const [xThreadPrompt, setXThreadPrompt] = useState('')
     const [autoPublish, setAutoPublish] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -115,6 +116,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
             if (!kws.length) { setError('At least one keyword is required'); return }
             config = { keywords: kws }
         }
+        if (xThreadPrompt.trim()) config.xThreadPrompt = xThreadPrompt.trim()
 
         setSaving(true)
         try {
@@ -219,6 +221,21 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                 />
             </div>
 
+            {/* X Thread Prompt */}
+            <div>
+                <label className="text-xs text-slate-500 mb-1 flex items-center gap-1.5 block">
+                    𝕏 Thread Instructions
+                    <span className="text-slate-600">(optional — leave blank for defaults)</span>
+                </label>
+                <textarea
+                    value={xThreadPrompt}
+                    onChange={e => setXThreadPrompt(e.target.value)}
+                    rows={3}
+                    placeholder={`e.g. Write a sharp, fact-driven thread quoting speakers directly. No hype.`}
+                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono placeholder-slate-600 focus:outline-none focus:border-white/20 resize-y"
+                />
+            </div>
+
             {/* Options */}
             <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -247,6 +264,86 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                 </button>
             </div>
         </form>
+    )
+}
+
+// ── Inline prompt editor (used in expanded card view) ───────────────────────
+function PromptEditor({
+    automationId, label, field, value, placeholder, onSaved
+}: {
+    automationId: string
+    label: string
+    field: 'prompt' | 'xThreadPrompt'
+    value: string
+    placeholder?: string
+    onSaved: () => void
+}) {
+    const [editing, setEditing] = useState(false)
+    const [draft, setDraft] = useState(value)
+    const [saving, setSaving] = useState(false)
+    const [saved, setSaved] = useState(false)
+
+    const handleSave = async () => {
+        setSaving(true)
+        try {
+            const body = field === 'prompt'
+                ? { prompt: draft }
+                : { config: { xThreadPrompt: draft } }  // backend PATCH merges config
+            const res = await fetch(`/api/automations/${automationId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            if (!res.ok) throw new Error('Save failed')
+            setSaved(true)
+            setEditing(false)
+            onSaved()
+            setTimeout(() => setSaved(false), 2000)
+        } catch {
+            // keep editing open on failure
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-1">
+                <div className="text-[10px] font-semibold text-slate-500 uppercase">{label}</div>
+                {!editing && (
+                    <button onClick={() => { setDraft(value); setEditing(true) }}
+                        className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors">
+                        Edit
+                    </button>
+                )}
+                {saved && <span className="text-[10px] text-green-400">Saved ✓</span>}
+            </div>
+            {editing ? (
+                <div className="space-y-1.5">
+                    <textarea
+                        value={draft}
+                        onChange={e => setDraft(e.target.value)}
+                        rows={5}
+                        className="w-full bg-black/30 border border-white/20 rounded p-2.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-white/30 resize-y"
+                        autoFocus
+                    />
+                    <div className="flex gap-2">
+                        <button onClick={handleSave} disabled={saving}
+                            className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-xs text-white transition-colors disabled:opacity-50">
+                            {saving ? 'Saving…' : 'Save'}
+                        </button>
+                        <button onClick={() => setEditing(false)}
+                            className="px-2.5 py-1 rounded text-xs text-slate-500 hover:text-white transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="bg-black/30 rounded p-2.5 text-xs text-slate-400 font-mono whitespace-pre-wrap min-h-[2.5rem]">
+                    {value || <span className="text-slate-600 italic">{placeholder?.split('\n')[0]}</span>}
+                </div>
+            )}
+        </div>
     )
 }
 
@@ -499,13 +596,23 @@ export function FeedsList() {
 
                 {/* Expanded details */}
                 {isExpanded && (
-                    <div className="bg-black/20 border-t border-white/[0.05] p-4 space-y-3">
-                        {auto.prompt && (
-                            <div>
-                                <div className="text-[10px] font-semibold text-slate-500 uppercase mb-1">AI Instructions</div>
-                                <div className="bg-black/30 rounded p-2.5 text-xs text-slate-300 font-mono whitespace-pre-wrap">{auto.prompt}</div>
-                            </div>
-                        )}
+                    <div className="bg-black/20 border-t border-white/[0.05] p-4 space-y-4">
+                        <PromptEditor
+                            automationId={auto.id}
+                            label="AI Instructions"
+                            field="prompt"
+                            value={auto.prompt}
+                            placeholder="Describe what the AI should write about each video…"
+                            onSaved={fetchAutomations}
+                        />
+                        <PromptEditor
+                            automationId={auto.id}
+                            label="𝕏 Thread Instructions"
+                            field="xThreadPrompt"
+                            value={auto.config?.xThreadPrompt || ''}
+                            placeholder={`Leave blank to use the default:\n"Write an analytical Twitter/X thread. Be specific and substantive — actual facts, quotes, and insights. Sound like a sharp journalist, not a Twitter influencer."`}
+                            onSaved={fetchAutomations}
+                        />
                         <div>
                             <div className="text-[10px] font-semibold text-slate-500 uppercase mb-1">Last Run Result</div>
                             <pre className="bg-black/30 rounded p-2.5 text-[11px] text-slate-500 overflow-x-auto">{JSON.stringify(auto.lastResult || {}, null, 2)}</pre>

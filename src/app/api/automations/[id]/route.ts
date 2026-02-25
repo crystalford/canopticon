@@ -31,6 +31,15 @@ export async function PATCH(
         if (Object.keys(updates).length === 0) {
             return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
         }
+
+        // Merge config instead of overwriting — so saving xThreadPrompt doesn't wipe channelId
+        if (updates.config) {
+            const existing = await db.query.automations.findFirst({ where: eq(automations.id, params.id) })
+            if (existing) {
+                updates.config = { ...(existing.config as object || {}), ...updates.config }
+            }
+        }
+
         updates.updatedAt = new Date()
         const [updated] = await db.update(automations).set(updates).where(eq(automations.id, params.id)).returning()
         return NextResponse.json(updated)
