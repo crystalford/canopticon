@@ -98,7 +98,7 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
                 start_seconds: start,
                 end_seconds: end
             }),
-            signal: AbortSignal.timeout(300000) // Give EC2 5 full minutes to download, ffmpeg-trim, and upload back to S3/Cloudfront
+            signal: AbortSignal.timeout(600000) // Give EC2 10 full minutes for long video processing
         })
 
         if (!runRes.ok) {
