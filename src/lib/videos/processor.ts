@@ -84,7 +84,7 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                downloadUrl: url,
+                urls: [url],
                 downloadSections: `*${start}-${end}`,
                 format: "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]"
             }),
