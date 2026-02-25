@@ -77,63 +77,42 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
             .set({ videoTitle: title, startSeconds: start, endSeconds: end, clipRationale: rationale })
             .where(eq(videoClips.id, clipId))
 
-        // 4. Call Apify yt-dlp Actor
-        console.log(`[processVideoClip] Requesting extraction from Apify REST API (nexgendata/yt-dlp-video-tools)...`)
+        // 4. Call the Dedicated EC2 Clip Server
+        const clipServerUrl = process.env.CLIP_SERVER_URL
+        const clipServerSecret = process.env.CLIP_SERVER_SECRET
 
-        const runRes = await fetch(`https://api.apify.com/v2/acts/nexgendata~yt-dlp-video-tools/runs?token=${token}&waitForFinish=120`, {
+        if (!clipServerUrl || !clipServerSecret) {
+            throw new Error('CLIP_SERVER_URL and CLIP_SERVER_SECRET must be configured in Vercel to bypass YouTube bot detection.')
+        }
+
+        console.log(`[processVideoClip] Requesting extraction from dedicated EC2 Clip Server: ${clipServerUrl}/clip...`)
+
+        const runRes = await fetch(`${clipServerUrl}/clip`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${clipServerSecret}`
+            },
             body: JSON.stringify({
-                urls: [url],
-                downloadSections: `*${start}-${end}`,
-                format: "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
-                proxyConfiguration: {
-                    useApifyProxy: true
-                }
+                url: url,
+                start: start,
+                end: end
             }),
-            signal: AbortSignal.timeout(130000)
+            signal: AbortSignal.timeout(130000) // Give EC2 time to download and upload back to S3/Cloudfront
         })
 
         if (!runRes.ok) {
             const errText = await runRes.text()
-            throw new Error(`Apify Run failed (${runRes.status}): ${errText}`)
+            throw new Error(`EC2 Clip Server failed (${runRes.status}): ${errText}`)
         }
 
         const runData = await runRes.json()
-        const run = runData.data
 
-        if (run.status !== 'SUCCEEDED') {
-            throw new Error(`Apify Actor failed with status: ${run.status}`)
+        if (!runData.videoUrl) {
+            throw new Error('EC2 Clip Server returned success but no videoUrl was found.')
         }
 
-        // 5. Extract MP4 link from Apify Dataset
-        const dsRes = await fetch(`https://api.apify.com/v2/datasets/${run.defaultDatasetId}/items?token=${token}`)
-        if (!dsRes.ok) {
-            const errText = await dsRes.text()
-            throw new Error(`Failed to fetch Dataset items: ${errText}`)
-        }
-
-        const dsItems = await dsRes.json()
-
-        if (!dsItems || dsItems.length === 0) {
-            throw new Error('Apify Actor completed but returned an empty dataset.')
-        }
-
-        const item = dsItems[0]
-
-        // If yt-dlp failed internally (e.g. YouTube bot detection block), it puts the error in the dataset.
-        if (item.status === 'error' && item.error) {
-            // Clean up the terminal color codes that yt-dlp spits out
-            const cleanError = item.error.replace(/\u001b\[0;31mERROR:\u001b\[0m /g, '')
-            throw new Error(`YouTube Blocked Download: ${cleanError}`)
-        }
-
-        if (!item.downloadUrl) {
-            throw new Error('Apify Actor completed successfully but no downloadUrl was found.')
-        }
-
-        // The exact file URL from Apify
-        const apifyClipUrl = item.downloadUrl
+        const apifyClipUrl = runData.videoUrl
 
         // 5. Save success to DB
         console.log(`[processVideoClip] ✓ Success! Clip URL: ${apifyClipUrl}`)
