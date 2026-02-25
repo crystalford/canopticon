@@ -78,8 +78,6 @@ export async function fetchTranscript(videoUrl: string): Promise<string | null> 
  * Example line: "[4:32] The Prime Minister then said something remarkable"
  * Caps at ~5000 words to leave room in the Claude context alongside the article prompt.
  */
-import { ApifyClient } from 'apify-client'
-
 export async function fetchTranscriptWithTimestamps(videoUrl: string): Promise<string | null> {
     const videoId = extractVideoId(videoUrl)
     if (!videoId) return null
@@ -90,13 +88,22 @@ export async function fetchTranscriptWithTimestamps(videoUrl: string): Promise<s
             throw new Error('APIFY_API_TOKEN is not configured in Vercel Environment Variables. Please add it in project settings.')
         }
 
-        console.log(`[fetchTranscriptWithTimestamps] Proxying request through Apify for ${videoId}...`)
+        console.log(`[fetchTranscriptWithTimestamps] Proxying request through Apify REST API for ${videoId}...`)
 
-        const client = new ApifyClient({ token });
-        const run = await client.actor("leandrocb88/youtube-video-transcript-scraper").call({
-            startUrls: [{ url: videoUrl }]
+        const res = await fetch(`https://api.apify.com/v2/acts/leandrocb88~youtube-video-transcript-scraper/run-sync-get-dataset-items?token=${token}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ startUrls: [{ url: videoUrl }] }),
+            // Give the Vercel edge/serverless function enough time to wait
+            signal: AbortSignal.timeout(60000)
         });
-        const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+        if (!res.ok) {
+            const errBody = await res.text()
+            throw new Error(`Apify returned ${res.status}: ${errBody}`)
+        }
+
+        const items = await res.json()
 
         if (!items || items.length === 0 || !items[0].transcript) {
             throw new Error('Apify returned success but no transcript data was found. Captions may be disabled on this video.')

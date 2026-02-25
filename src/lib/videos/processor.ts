@@ -4,7 +4,7 @@ import { fetchTranscriptWithTimestamps, extractVideoId } from '@/lib/automations
 import { db, videoClips } from '@/db'
 import { eq } from 'drizzle-orm'
 
-import { ApifyClient } from 'apify-client'
+
 
 // Extract video title using a lightweight embed fetch
 async function fetchVideoTitle(url: string): Promise<string> {
@@ -78,24 +78,42 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
             .where(eq(videoClips.id, clipId))
 
         // 4. Call Apify yt-dlp Actor
-        console.log(`[processVideoClip] Requesting extraction from Apify (nexgendata/yt-dlp-video-tools)...`)
+        console.log(`[processVideoClip] Requesting extraction from Apify REST API (nexgendata/yt-dlp-video-tools)...`)
 
-        const client = new ApifyClient({ token });
-        const run = await client.actor("nexgendata/yt-dlp-video-tools").call({
-            downloadUrl: url,
-            downloadSections: `*${start}-${end}`,
-            format: "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]"
+        const runRes = await fetch(`https://api.apify.com/v2/acts/nexgendata~yt-dlp-video-tools/runs?token=${token}&waitForFinish=120`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                downloadUrl: url,
+                downloadSections: `*${start}-${end}`,
+                format: "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]"
+            }),
+            signal: AbortSignal.timeout(130000)
         })
+
+        if (!runRes.ok) {
+            const errText = await runRes.text()
+            throw new Error(`Apify Run failed (${runRes.status}): ${errText}`)
+        }
+
+        const runData = await runRes.json()
+        const run = runData.data
 
         if (run.status !== 'SUCCEEDED') {
             throw new Error(`Apify Actor failed with status: ${run.status}`)
         }
 
         // 5. Extract MP4 link from Apify Key-Value Store
-        const kvStore = client.keyValueStore(run.defaultKeyValueStoreId)
-        const keys = (await kvStore.listKeys()).items
+        const kvRes = await fetch(`https://api.apify.com/v2/key-value-stores/${run.defaultKeyValueStoreId}/keys?token=${token}`)
+        if (!kvRes.ok) {
+            const errText = await kvRes.text()
+            throw new Error(`Failed to fetch Key-Value store keys: ${errText}`)
+        }
 
-        if (keys.length === 0) {
+        const kvData = await kvRes.json()
+        const keys = kvData.data.items
+
+        if (!keys || keys.length === 0) {
             throw new Error('Apify Actor returned success but no MP4 was saved to the Key-Value store.')
         }
 
