@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { processVideoClip } from '@/lib/videos/processor'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 300 // Allow up to 5 minutes on Vercel Pro (or 60s on Hobby)
 
 export async function POST(
     req: Request,
