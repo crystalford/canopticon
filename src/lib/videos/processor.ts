@@ -113,12 +113,16 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
         const kvData = await kvRes.json()
         const keys = kvData.data.items
 
-        if (!keys || keys.length === 0) {
-            throw new Error('Apify Actor returned success but no MP4 was saved to the Key-Value store.')
+        // The default KVS always contains an 'INPUT' key with the job payload.
+        // We want the actual video file which is the other key (typically named with an ID or .mp4)
+        const mp4Key = keys.find((k: any) => k.key !== 'INPUT')?.key
+
+        if (!mp4Key) {
+            throw new Error('Apify Actor completed but no output file (other than INPUT) was found in the Key-Value store.')
         }
 
         // The exact file URL from Apify
-        const apifyClipUrl = `https://api.apify.com/v2/key-value-stores/${run.defaultKeyValueStoreId}/records/${keys[0].key}`
+        const apifyClipUrl = `https://api.apify.com/v2/key-value-stores/${run.defaultKeyValueStoreId}/records/${mp4Key}`
 
         // 5. Save success to DB
         console.log(`[processVideoClip] ✓ Success! Clip URL: ${apifyClipUrl}`)
