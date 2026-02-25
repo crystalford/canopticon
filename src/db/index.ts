@@ -13,4 +13,4 @@ const queryClient = postgres(connectionString, {
 
 export const db = drizzle(queryClient, { schema })
 
-export { conversations, messages, articles, operators, automations } from './schema'
+export { conversations, messages, articles, operators, automations, videoClips } from './schema'

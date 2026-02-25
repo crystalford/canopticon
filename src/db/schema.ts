@@ -160,6 +160,34 @@ export const agents = pgTable('agents', {
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
+/**
+ * Video Clips - AI-selected clips from YouTube videos
+ * Completely separate from the article/automation pipeline.
+ * Flow: queued → processing → done | failed
+ */
+export const videoClips = pgTable('video_clips', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // Source
+    youtubeUrl: text('youtube_url').notNull(),
+    videoTitle: text('video_title'),
+    channelName: text('channel_name'),
+    // AI-selected clip window
+    startSeconds: integer('start_seconds'),
+    endSeconds: integer('end_seconds'),
+    clipRationale: text('clip_rationale'),  // Why Claude picked this moment
+    // Output
+    clipUrl: text('clip_url'),              // MP4 URL (Vercel Blob or local)
+    status: text('status').default('queued').notNull(), // 'queued' | 'processing' | 'done' | 'failed'
+    errorMessage: text('error_message'),
+    // Social posting
+    xPostId: text('x_post_id'),            // Tweet ID if posted to X
+    xPostedAt: timestamp('x_posted_at'),
+    tiktokPostId: text('tiktok_post_id'),
+    // Metadata
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    processedAt: timestamp('processed_at'),
+})
+
 // ============================================================================
 // RELATIONS
 // ============================================================================
@@ -232,3 +260,7 @@ export type NewSetting = typeof settings.$inferInsert
 
 export type Agent = typeof agents.$inferSelect
 export type NewAgent = typeof agents.$inferInsert
+
+export type VideoClip = typeof videoClips.$inferSelect
+export type NewVideoClip = typeof videoClips.$inferInsert
+

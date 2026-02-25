@@ -71,3 +71,48 @@ export async function fetchTranscript(videoUrl: string): Promise<string | null> 
         return null
     }
 }
+
+/**
+ * Fetch a timestamped transcript for clip identification.
+ * Returns segments prefixed with [M:SS] so Claude can identify exact timestamps.
+ * Example line: "[4:32] The Prime Minister then said something remarkable"
+ * Caps at ~5000 words to leave room in the Claude context alongside the article prompt.
+ */
+export async function fetchTranscriptWithTimestamps(videoUrl: string): Promise<string | null> {
+    const videoId = extractVideoId(videoUrl)
+    if (!videoId) return null
+
+    try {
+        let segments
+        try {
+            segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' })
+        } catch {
+            segments = await YoutubeTranscript.fetchTranscript(videoId)
+        }
+
+        if (!segments || segments.length === 0) return null
+
+        // Format each segment as [M:SS] text
+        // offset is in seconds (fractional) from the youtube-transcript package
+        const lines = segments.map(s => {
+            const totalSecs = Math.floor(s.offset)
+            const mins = Math.floor(totalSecs / 60)
+            const secs = totalSecs % 60
+            const timestamp = `[${mins}:${secs.toString().padStart(2, '0')}]`
+            return `${timestamp} ${s.text.trim()}`
+        })
+
+        const allText = lines.join('\n')
+
+        // Cap at ~5000 words
+        const words = allText.split(/\s+/)
+        const capped = words.slice(0, 5000).join(' ')
+
+        console.log(`[fetchTranscriptWithTimestamps] ${videoId}: ${segments.length} segments`)
+        return capped
+
+    } catch (e: any) {
+        console.warn(`[fetchTranscriptWithTimestamps] No transcript for ${videoId}:`, e.message)
+        return null
+    }
+}

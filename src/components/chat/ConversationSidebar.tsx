@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { Plus, MessageSquare, Trash2, Pencil, Search, Pin, PinOff, Radio, FileText, LayoutGrid, Settings } from 'lucide-react'
+import { Plus, MessageSquare, Trash2, Pencil, Search, Pin, PinOff, Radio, FileText, LayoutGrid, Settings, Video } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface Conversation {
@@ -26,6 +26,7 @@ export function ConversationSidebar() {
     // If we are on /feeds, /content, or /settings, highlight those
     const isFeedsActive = pathname.includes('/feeds')
     const isArticlesActive = pathname.includes('/content')
+    const isVideosActive = pathname.includes('/videos')
 
     const [conversations, setConversations] = useState<Conversation[]>([])
     const [loading, setLoading] = useState(true)
@@ -251,6 +252,17 @@ export function ConversationSidebar() {
                 >
                     <FileText className="w-4 h-4" />
                     Articles
+                </Link>
+
+                <Link
+                    href="/videos"
+                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isVideosActive
+                        ? 'bg-white/10 text-white'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                        }`}
+                >
+                    <Video className="w-4 h-4" />
+                    Videos
                 </Link>
 
                 <Link

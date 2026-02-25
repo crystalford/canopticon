@@ -22,7 +22,6 @@ async function getCredential(key: string): Promise<string | undefined> {
 const parser = new RSSParser()
 
 // Output modes:
-// 'article_and_x'      - write full article + post X thread (default)
 // 'article_and_x_post' - write full article + post ONE high-impact X tweet
 // 'article_only'       - write article, no X
 // 'draft'              - write article, save as draft
