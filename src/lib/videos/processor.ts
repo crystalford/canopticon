@@ -34,7 +34,7 @@ export async function processVideoClip(clipId: string, url: string) {
         const transcript = await fetchTranscriptWithTimestamps(url)
 
         if (!transcript) {
-            throw new Error('Could not fetch transcript for this video. Captions may be disabled.')
+            throw new Error('Invalid YouTube URL or transcript could not be generated.')
         }
 
         // 2. Ask Claude to identify the best clip

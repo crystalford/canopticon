@@ -87,8 +87,7 @@ export async function fetchTranscriptWithTimestamps(videoUrl: string): Promise<s
     try {
         const token = process.env.APIFY_API_TOKEN
         if (!token) {
-            console.warn('[fetchTranscriptWithTimestamps] APIFY_API_TOKEN not configured.')
-            return null
+            throw new Error('APIFY_API_TOKEN is not configured in Vercel Environment Variables. Please add it in project settings.')
         }
 
         console.log(`[fetchTranscriptWithTimestamps] Proxying request through Apify for ${videoId}...`)
@@ -100,8 +99,7 @@ export async function fetchTranscriptWithTimestamps(videoUrl: string): Promise<s
         const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
         if (!items || items.length === 0 || !items[0].transcript) {
-            console.warn('[fetchTranscriptWithTimestamps] Apify returned success but no transcript')
-            return null
+            throw new Error('Apify returned success but no transcript data was found. Captions may be disabled on this video.')
         }
 
         // Format Apify JSON into [M:SS] Text
@@ -126,7 +124,7 @@ export async function fetchTranscriptWithTimestamps(videoUrl: string): Promise<s
         return capped
 
     } catch (e: any) {
-        console.warn(`[fetchTranscriptWithTimestamps] Apify fetch failed for ${videoId}:`, e.message)
-        return null
+        console.error(`[fetchTranscriptWithTimestamps] Apify fetch failed for ${videoId}:`, e.message)
+        throw new Error(`Apify Transcript API Error: ${e.message}`)
     }
 }
