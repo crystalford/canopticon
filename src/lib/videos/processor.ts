@@ -103,26 +103,21 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
             throw new Error(`Apify Actor failed with status: ${run.status}`)
         }
 
-        // 5. Extract MP4 link from Apify Key-Value Store
-        const kvRes = await fetch(`https://api.apify.com/v2/key-value-stores/${run.defaultKeyValueStoreId}/keys?token=${token}`)
-        if (!kvRes.ok) {
-            const errText = await kvRes.text()
-            throw new Error(`Failed to fetch Key-Value store keys: ${errText}`)
+        // 5. Extract MP4 link from Apify Dataset
+        const dsRes = await fetch(`https://api.apify.com/v2/datasets/${run.defaultDatasetId}/items?token=${token}`)
+        if (!dsRes.ok) {
+            const errText = await dsRes.text()
+            throw new Error(`Failed to fetch Dataset items: ${errText}`)
         }
 
-        const kvData = await kvRes.json()
-        const keys = kvData.data.items
+        const dsItems = await dsRes.json()
 
-        // The default KVS always contains an 'INPUT' key with the job payload.
-        // We want the actual video file which is the other key (typically named with an ID or .mp4)
-        const mp4Key = keys.find((k: any) => k.key !== 'INPUT')?.key
-
-        if (!mp4Key) {
-            throw new Error('Apify Actor completed but no output file (other than INPUT) was found in the Key-Value store.')
+        if (!dsItems || dsItems.length === 0 || !dsItems[0].downloadUrl) {
+            throw new Error('Apify Actor completed but no downloadUrl was found in the dataset.')
         }
 
         // The exact file URL from Apify
-        const apifyClipUrl = `https://api.apify.com/v2/key-value-stores/${run.defaultKeyValueStoreId}/records/${mp4Key}`
+        const apifyClipUrl = dsItems[0].downloadUrl
 
         // 5. Save success to DB
         console.log(`[processVideoClip] ✓ Success! Clip URL: ${apifyClipUrl}`)
