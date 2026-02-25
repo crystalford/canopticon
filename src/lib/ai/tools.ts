@@ -474,6 +474,24 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
                         }
                     }
 
+                    // Idempotency: check if a pipeline already exists with the same type + key config
+                    const existing = await db.query.automations.findMany()
+                    const duplicate = existing.find(a => {
+                        if (a.type !== type) return false
+                        const c = a.config as Record<string, unknown>
+                        if (type === 'youtube') return c.channelId === config.channelId
+                        if (type === 'rss') return c.feedUrl === config.feedUrl
+                        if (type === 'keyword') return JSON.stringify(c.keywords) === JSON.stringify(config.keywords)
+                        return false
+                    })
+                    if (duplicate) {
+                        return {
+                            success: true,
+                            monitor: { id: duplicate.id, name: duplicate.name, type: duplicate.type, config: duplicate.config, enabled: duplicate.enabled },
+                            message: `A pipeline for this ${type} source already exists: "${duplicate.name}". No duplicate was created.`,
+                        }
+                    }
+
                     // Build absolute URL — needed for server-side fetch in Vercel edge/serverless
                     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
                         || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
