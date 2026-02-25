@@ -58,7 +58,8 @@ async function postXLink(
 async function generateAndPostThread(
     articleId: string,
     articleTitle: string,
-    articleSlug: string
+    articleSlug: string,
+    sourceUrl?: string  // If provided, last tweet links here instead of the article
 ): Promise<string> {
     console.log(`[generateAndPostThread] Generating thread for: ${articleTitle}`)
 
@@ -74,11 +75,10 @@ async function generateAndPostThread(
     const article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
     if (!article) throw new Error('Article not found')
 
-    const articleUrl = `https://canopticon.com/articles/${articleSlug}`
+    const linkUrl = sourceUrl || `https://canopticon.com/articles/${articleSlug}`
     const wordCount = article.content.split(/\s+/).length
     const threadLength = wordCount < 500 ? '3-4' : wordCount < 1500 ? '5-7' : '7-8'
-    const urlReservedSpace = articleUrl.length + 25
-    const maxLastTweetContentLength = 280 - urlReservedSpace
+    const lastTweetCta = sourceUrl ? 'Watch the video:' : 'Read the full analysis:'
 
     const prompt = `Convert this article into an engaging Twitter/X thread (${threadLength} tweets).
 
@@ -89,7 +89,7 @@ Article Content (first 2000 chars): ${article.content.substring(0, 2000)}
 Rules:
 - Tweet 1: Hook — grab attention with the key insight
 - Middle tweets: One key point per tweet, punchy and specific
-- Last tweet: End with "Read the full analysis: ${articleUrl}" — keep the text BEFORE the URL short (under 100 chars)
+- Last tweet: End with "${lastTweetCta} ${linkUrl}" — keep the text BEFORE the URL short (under 80 chars)
 - Every tweet must be under 280 characters total
 - Do NOT include tweet numbers, character counts, annotations, or any metadata — just the tweet text
 - Return ONLY a valid JSON array of strings, nothing else. Example: ["Tweet 1 text", "Tweet 2 text"]`
@@ -247,7 +247,10 @@ export async function runAutomation(automation: Automation): Promise<{
 
         if (outputMode === 'article_and_x' && article) {
             try {
-                threadUrl = await generateAndPostThread(article.id, article.title, article.slug)
+                // For YouTube pipelines, link to the source video instead of the article
+                const videoUrlMatch = triggerContent.match(/URL: (.+)/)
+                const videoUrl = automation.type === 'youtube' ? videoUrlMatch?.[1]?.trim() : undefined
+                threadUrl = await generateAndPostThread(article.id, article.title, article.slug, videoUrl)
             } catch (e: any) {
                 xPostError = e.message
                 console.error('[runAutomation] X post failed:', e)
