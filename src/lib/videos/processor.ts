@@ -86,7 +86,10 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
             body: JSON.stringify({
                 urls: [url],
                 downloadSections: `*${start}-${end}`,
-                format: "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]"
+                format: "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]",
+                proxyConfiguration: {
+                    useApifyProxy: true
+                }
             }),
             signal: AbortSignal.timeout(130000)
         })
@@ -112,12 +115,25 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
 
         const dsItems = await dsRes.json()
 
-        if (!dsItems || dsItems.length === 0 || !dsItems[0].downloadUrl) {
-            throw new Error('Apify Actor completed but no downloadUrl was found in the dataset.')
+        if (!dsItems || dsItems.length === 0) {
+            throw new Error('Apify Actor completed but returned an empty dataset.')
+        }
+
+        const item = dsItems[0]
+
+        // If yt-dlp failed internally (e.g. YouTube bot detection block), it puts the error in the dataset.
+        if (item.status === 'error' && item.error) {
+            // Clean up the terminal color codes that yt-dlp spits out
+            const cleanError = item.error.replace(/\u001b\[0;31mERROR:\u001b\[0m /g, '')
+            throw new Error(`YouTube Blocked Download: ${cleanError}`)
+        }
+
+        if (!item.downloadUrl) {
+            throw new Error('Apify Actor completed successfully but no downloadUrl was found.')
         }
 
         // The exact file URL from Apify
-        const apifyClipUrl = dsItems[0].downloadUrl
+        const apifyClipUrl = item.downloadUrl
 
         // 5. Save success to DB
         console.log(`[processVideoClip] ✓ Success! Clip URL: ${apifyClipUrl}`)
