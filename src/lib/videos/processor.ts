@@ -95,8 +95,8 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
             },
             body: JSON.stringify({
                 url: url,
-                start: start,
-                end: end
+                start_seconds: start,
+                end_seconds: end
             }),
             signal: AbortSignal.timeout(130000) // Give EC2 time to download and upload back to S3/Cloudfront
         })
