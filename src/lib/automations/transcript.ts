@@ -83,36 +83,41 @@ export async function fetchTranscriptWithTimestamps(videoUrl: string): Promise<s
     if (!videoId) return null
 
     try {
-        let segments
-        try {
-            segments = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' })
-        } catch {
-            segments = await YoutubeTranscript.fetchTranscript(videoId)
+        const serverUrl = process.env.CLIP_SERVER_URL
+        if (!serverUrl) {
+            console.warn('[fetchTranscriptWithTimestamps] CLIP_SERVER_URL not configured. Cannot bypass YouTube blocks.')
+            return null
         }
 
-        if (!segments || segments.length === 0) return null
+        console.log(`[fetchTranscriptWithTimestamps] Proxying request through clip-server for ${videoId}...`)
 
-        // Format each segment as [M:SS] text
-        // offset is in seconds (fractional) from the youtube-transcript package
-        const lines = segments.map(s => {
-            const totalSecs = Math.floor(s.offset)
-            const mins = Math.floor(totalSecs / 60)
-            const secs = totalSecs % 60
-            const timestamp = `[${mins}:${secs.toString().padStart(2, '0')}]`
-            return `${timestamp} ${s.text.trim()}`
+        const res = await fetch(`${serverUrl.replace(/\/$/, '')}/transcript`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(process.env.CLIP_SERVER_SECRET ? { 'x-api-key': process.env.CLIP_SERVER_SECRET } : {}),
+            },
+            body: JSON.stringify({ url: videoUrl }),
+            // Give it 30s to download and parse JSON
+            signal: AbortSignal.timeout(30_000),
         })
 
-        const allText = lines.join('\n')
+        if (!res.ok) {
+            const errBody = await res.text()
+            console.warn(`[fetchTranscriptWithTimestamps] Clip server failed (${res.status}): ${errBody}`)
+            return null
+        }
 
-        // Cap at ~5000 words
-        const words = allText.split(/\s+/)
-        const capped = words.slice(0, 5000).join(' ')
+        const data = await res.json()
+        if (!data.transcript) {
+            console.warn('[fetchTranscriptWithTimestamps] Clip server returned success but no transcript')
+            return null
+        }
 
-        console.log(`[fetchTranscriptWithTimestamps] ${videoId}: ${segments.length} segments`)
-        return capped
+        return data.transcript
 
     } catch (e: any) {
-        console.warn(`[fetchTranscriptWithTimestamps] No transcript for ${videoId}:`, e.message)
+        console.warn(`[fetchTranscriptWithTimestamps] Proxy fetch failed for ${videoId}:`, e.message)
         return null
     }
 }

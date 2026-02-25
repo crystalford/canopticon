@@ -9,6 +9,9 @@
  *   npx tsx scripts/migrate.ts
  */
 import postgres from 'postgres'
+import { config } from 'dotenv'
+
+config({ path: '.env' })
 
 const url = process.env.DATABASE_URL
 if (!url) {
