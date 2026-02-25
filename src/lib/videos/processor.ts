@@ -91,7 +91,7 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${clipServerSecret}`
+                'x-api-key': clipServerSecret
             },
             body: JSON.stringify({
                 url: url,
