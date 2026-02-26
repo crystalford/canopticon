@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { db, automations } from '@/db'
 import { eq } from 'drizzle-orm'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET(
-    _req: Request,
+    req: Request,
     { params }: { params: { id: string } }
 ) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     try {
         const automation = await db.query.automations.findFirst({
             where: eq(automations.id, params.id),
@@ -21,6 +25,9 @@ export async function PATCH(
     req: Request,
     { params }: { params: { id: string } }
 ) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     try {
         const body = await req.json()
         const allowed = ['name', 'prompt', 'enabled', 'autoPublish', 'config']
@@ -49,9 +56,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-    _req: Request,
+    req: Request,
     { params }: { params: { id: string } }
 ) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     try {
         await db.delete(automations).where(eq(automations.id, params.id))
         return NextResponse.json({ success: true })

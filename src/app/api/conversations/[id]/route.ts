@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { db, conversations } from '@/db'
 import { eq } from 'drizzle-orm'
+import { requireAuth } from '@/lib/auth'
 
 export async function PATCH(
     req: Request,
     { params }: { params: { id: string } }
 ) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     const { id } = params
     const body = await req.json()
     const updates: Record<string, unknown> = { updatedAt: new Date() }
@@ -19,9 +23,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-    _req: Request,
+    req: Request,
     { params }: { params: { id: string } }
 ) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     const { id } = params
 
     // Messages cascade-delete via FK constraint

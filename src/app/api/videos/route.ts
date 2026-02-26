@@ -17,7 +17,11 @@ export async function GET(req: Request) {
         })
         return NextResponse.json(results)
     } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 })
+        console.error('[/api/videos GET] Error:', e)
+        return NextResponse.json({
+            error: e.message,
+            details: e.stack
+        }, { status: 500 })
     }
 }
 
@@ -33,6 +37,10 @@ export async function POST(req: Request) {
 
         return NextResponse.json(clip, { status: 201 })
     } catch (e: any) {
-        return NextResponse.json({ error: e.message }, { status: 500 })
+        console.error('[/api/videos POST] Error:', e)
+        return NextResponse.json({
+            error: e.message,
+            details: e.stack
+        }, { status: 500 })
     }
 }

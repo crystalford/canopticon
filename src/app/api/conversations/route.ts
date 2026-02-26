@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
 import { db, conversations, messages } from '@/db'
 import { desc } from 'drizzle-orm'
+import { requireAuth } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(req: Request) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     const results = await db.query.conversations.findMany({
         columns: {
             id: true,
@@ -21,6 +25,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     try {
         const body = await req.json()
         const title = body.title || 'New Conversation'

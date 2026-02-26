@@ -2,10 +2,14 @@ import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { articles } from '@/db/schema'
 import { desc, eq, and } from 'drizzle-orm'
+import { requireAuth } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     const { searchParams } = new URL(req.url)
     const automationId = searchParams.get('automationId')
 

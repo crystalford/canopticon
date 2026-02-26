@@ -160,6 +160,17 @@ function ToolPartDisplay({ part }: { part: ToolPart }) {
             )
         }
 
+        if (toolName === 'draft_twitter_thread' && result?.tweets) {
+            return (
+                <div className="mt-2">
+                    <ThreadPreview
+                        initialTweets={result.tweets}
+                        topic={result.topic}
+                    />
+                </div>
+            )
+        }
+
         if (result?.error || result?.success === false) {
             return (
                 <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 rounded-lg px-3 py-2 border border-red-500/20">

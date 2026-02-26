@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { db, articles } from '@/db'
 import { eq } from 'drizzle-orm'
+import { requireAuth } from '@/lib/auth'
 
 export async function GET(
-    _req: Request,
+    req: Request,
     { params }: { params: { id: string } }
 ) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     const { id } = params
     try {
         const article = await db.query.articles.findFirst({ where: eq(articles.id, id) })
@@ -17,9 +21,12 @@ export async function GET(
 }
 
 export async function DELETE(
-    _req: Request,
+    req: Request,
     { params }: { params: { id: string } }
 ) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     const { id } = params
 
     try {

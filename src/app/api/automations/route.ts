@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
 import { db, automations } from '@/db'
 import { desc } from 'drizzle-orm'
+import { requireAuth } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(req: Request) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     const results = await db.query.automations.findMany({
         orderBy: [desc(automations.createdAt)],
     })
@@ -12,6 +16,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+    const authError = await requireAuth(req)
+    if (authError) return authError
+
     try {
         const { name, type, config, prompt, autoPublish, enabled } = await req.json()
         if (!name || !type || !config) {
