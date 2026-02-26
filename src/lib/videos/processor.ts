@@ -77,42 +77,41 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
             .set({ videoTitle: title, startSeconds: start, endSeconds: end, clipRationale: rationale })
             .where(eq(videoClips.id, clipId))
 
-        // 4. Call the Dedicated EC2 Clip Server
-        const clipServerUrl = process.env.CLIP_SERVER_URL
-        const clipServerSecret = process.env.CLIP_SERVER_SECRET
-
-        if (!clipServerUrl || !clipServerSecret) {
-            throw new Error('CLIP_SERVER_URL and CLIP_SERVER_SECRET must be configured in Vercel to bypass YouTube bot detection.')
+        // 4. Call Fractal AI Clipper on Apify
+        const apifyToken = process.env.APIFY_API_TOKEN
+        if (!apifyToken) {
+            throw new Error('APIFY_API_TOKEN is not configured in Vercel.')
         }
 
-        console.log(`[processVideoClip] Requesting extraction from dedicated EC2 Clip Server: ${clipServerUrl}/clip...`)
+        console.log(`[processVideoClip] Requesting segment from Fractal AI on Apify: ${start}s-${end}s...`)
 
-        const runRes = await fetch(`${clipServerUrl}/clip`, {
+        const runRes = await fetch(`https://api.apify.com/v2/acts/fractalai~youtube-video-clipper/run-sync-get-dataset-items?token=${apifyToken}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': clipServerSecret
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 url: url,
-                start_seconds: start,
-                end_seconds: end
+                clips: [{
+                    start: start,
+                    end: end,
+                    label: "Canopticon-Clip"
+                }],
+                quality: "720p",
+                download_timeout: 120
             }),
-            signal: AbortSignal.timeout(600000) // Give EC2 10 full minutes for long video processing
-        })
+            signal: AbortSignal.timeout(300000) // 5 minute timeout
+        });
 
         if (!runRes.ok) {
             const errText = await runRes.text()
-            throw new Error(`EC2 Clip Server failed (${runRes.status}): ${errText}`)
+            throw new Error(`Fractal AI on Apify failed (${runRes.status}): ${errText}`)
         }
 
-        const runData = await runRes.json()
+        const items = await runRes.json()
+        const apifyClipUrl = items && items.length > 0 ? items[0].videoUrl : null
 
-        if (!runData.videoUrl) {
-            throw new Error('EC2 Clip Server returned success but no videoUrl was found.')
+        if (!apifyClipUrl) {
+            throw new Error('Fractal AI returned success but no video clip URL was found in dataset.')
         }
-
-        const apifyClipUrl = runData.videoUrl
 
         // 5. Save success to DB
         console.log(`[processVideoClip] ✓ Success! Clip URL: ${apifyClipUrl}`)
