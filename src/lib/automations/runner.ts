@@ -21,15 +21,21 @@ async function getCredential(key: string): Promise<string | undefined> {
     return process.env[key]
 }
 
-// Detect if content is in English (returns true if English, false otherwise)
-function isEnglish(text: string): boolean {
-    if (!text || text.length < 50) return true // If text is too short, assume it's OK
+// Detect if content is in English (requires transcript, no fallback)
+// Returns true if English, false if not English
+// Throws error if transcript is missing (we don't want to guess)
+function isEnglish(transcript: string | null): boolean {
+    if (!transcript || transcript.length < 50) {
+        throw new Error('No transcript available for language detection')
+    }
     try {
-        const language = detect(text)
+        const language = detect(transcript)
         // language is a string like 'eng', 'fra', etc.
-        return language === 'eng'
-    } catch {
-        return true // If detection fails, assume English
+        const isEnglishLang = language === 'eng'
+        console.log(`[isEnglish] Detected language: ${language} (English: ${isEnglishLang})`)
+        return isEnglishLang
+    } catch (e) {
+        throw new Error(`Language detection failed: ${e.message}`)
     }
 }
 
@@ -611,30 +617,38 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
                 })
                 if (newItems.length === 0) return null
 
-                // Find first English video (skip non-English ones)
+                // Find first English video (must have transcript, skip non-English)
                 let latest = null
                 for (const item of newItems) {
                     const videoUrl = item.link || ''
                     const transcript = await fetchTranscript(videoUrl)
 
-                    // Check if video is in English (use transcript if available, otherwise title + description)
-                    const contentToCheck = transcript || (item.title || '') + ' ' + (item.contentSnippet || '')
-                    if (isEnglish(contentToCheck)) {
-                        latest = { item, videoUrl, transcript }
-                        break
-                    } else {
-                        console.log(`[checkTrigger] Skipping non-English video: ${item.title}`)
+                    // REQUIRE transcript for language detection (no fallback to title)
+                    if (!transcript) {
+                        console.log(`[checkTrigger] Skipping "${item.title}" — no transcript available`)
+                        continue
+                    }
+
+                    // Check if video is in English (will throw if transcript is missing)
+                    try {
+                        if (isEnglish(transcript)) {
+                            latest = { item, videoUrl, transcript }
+                            break
+                        } else {
+                            console.log(`[checkTrigger] Skipping non-English video: ${item.title}`)
+                        }
+                    } catch (langError: any) {
+                        console.log(`[checkTrigger] Language detection failed for "${item.title}": ${langError.message}`)
                     }
                 }
 
                 if (!latest) {
-                    console.log('[checkTrigger] No English videos found in latest items')
+                    console.log('[checkTrigger] No English videos with transcripts found in latest items')
                     return null
                 }
 
-                const transcriptSection = latest.transcript
-                    ? `\nTranscript (${latest.transcript.split(/\s+/).length} words):\n${latest.transcript}`
-                    : '\n[No transcript available — use search_web to find coverage of this video]'
+                const transcriptWordCount = latest.transcript.split(/\s+/).length
+                const transcriptSection = `\nTranscript (${transcriptWordCount} words):\n${latest.transcript}`
 
                 return `Video Title: ${latest.item.title}\nURL: ${latest.videoUrl}\nPublished: ${latest.item.pubDate}\nDescription: ${latest.item.contentSnippet || ''}${transcriptSection}`
             } catch (e) {
