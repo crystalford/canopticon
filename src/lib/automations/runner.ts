@@ -3,7 +3,7 @@ import { getModel } from '@/lib/ai/providers'
 import { createTools } from '@/lib/ai/tools'
 import { searchPerplexity } from '@/lib/ai/tools'
 import { db, automations, articles, videoClips } from '@/db'
-import { processVideoClip } from '@/lib/videos/processor'
+import { processVideoClip, triggerClippingJob } from '@/lib/videos/processor'
 import { settings as settingsTable } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import RSSParser from 'rss-parser'
@@ -80,7 +80,7 @@ async function postXLink(
 }
 
 // --- Helper: post X/Twitter thread (article_and_x mode) ---
-async function generateAndPostThread(
+export async function generateAndPostThread(
     articleId: string,
     articleTitle: string,
     articleSlug: string,
@@ -207,7 +207,7 @@ Extract ${numTweets} tweets. Return ONLY a JSON array.`
 }
 
 // --- Helper: post ONE high-impact X post (article_and_x_post mode) ---
-async function generateAndPostSingle(
+export async function generateAndPostSingle(
     articleId: string,
     articleTitle: string,
     articleSlug: string,
@@ -483,86 +483,100 @@ export async function processYouTubeVideo(
 ) {
     console.log(`[processYouTubeVideo] Processing video: ${video.title}`)
 
-    const config = automation.config as Record<string, unknown>
-    const outputMode = (config.outputMode as string) || 'article_and_x'
+    try {
+        const config = automation.config as Record<string, unknown>
+        const outputMode = (config.outputMode as string) || 'article_and_x'
 
-    // 1. Trigger automated clipping if needed for social
-    let videoClipUrl: string | undefined
-    const videoClippingEnabled = config.videoClippingEnabled === true
-    if (videoClippingEnabled && (outputMode === 'article_and_x' || outputMode === 'article_and_x_post')) {
-        try {
-            console.log(`[processYouTubeVideo] Triggering automated clipping for: ${video.title}`)
-            const [clipRecord] = await db.insert(videoClips).values({
-                youtubeUrl: video.link,
-                videoTitle: video.title,
-                status: 'queued'
-            }).returning()
+        // 1. Fetch transcript (fast, ~10-20s)
+        const transcript = await fetchTranscript(video.link)
+        const transcriptSection = transcript
+            ? `\nTranscript (${transcript.split(/\s+/).length} words):\n${transcript}`
+            : '\n[No transcript available — use search_web to find coverage of this video]'
 
-            if (clipRecord) {
-                const result = await processVideoClip(clipRecord.id, video.link)
-                if (result.success && result.clip.clipUrl) {
-                    videoClipUrl = result.clip.clipUrl
-                    console.log(`[processYouTubeVideo] Automated clip ready: ${videoClipUrl}`)
-                }
+        const triggerData = `Video Title: ${video.title}\nURL: ${video.link}\nPublished: ${video.pubDate}\nDescription: ${video.description}${transcriptSection}`
+
+        // 2. Handle x_only mode (immediate link post, no AI)
+        if (outputMode === 'x_only') {
+            let threadUrl: string | undefined
+            let xPostError: string | undefined
+            try {
+                threadUrl = await postXLink(video.title, video.link, video.description)
+            } catch (e: any) {
+                xPostError = e.message
             }
-        } catch (e: any) {
-            console.warn(`[processYouTubeVideo] Automated clipping failed (non-fatal): ${e.message}`)
+            const result = { success: !xPostError, threadUrl, xPostError }
+            await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
+            return result
         }
-    }
 
-    const transcript = await fetchTranscript(video.link)
-    const transcriptSection = transcript
-        ? `\nTranscript (${transcript.split(/\s+/).length} words):\n${transcript}`
-        : '\n[No transcript available — use search_web to find coverage of this video]'
+        // 3. Generate Article (AI involved, ~30-40s)
+        console.log(`[processYouTubeVideo] Writing article for: ${video.title}`)
+        const { success, articleId, error } = await generateArticle(triggerData, automation)
 
-    const triggerData = `Video Title: ${video.title}\nURL: ${video.link}\nPublished: ${video.pubDate}\nDescription: ${video.description}${transcriptSection}`
+        if (!success || !articleId) {
+            const result = { success: false, error: error || 'Failed to generate article' }
+            await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
+            return result
+        }
+        const article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
 
-    if (outputMode === 'x_only') {
+        // 4. Trigger automated clipping ASYNC if enabled
+        const videoClippingEnabled = config.videoClippingEnabled === true
+        if (videoClippingEnabled && article && (outputMode === 'article_and_x' || outputMode === 'article_and_x_post')) {
+            try {
+                console.log(`[processYouTubeVideo] Triggering async clipping for: ${video.title}`)
+                const [clipRecord] = await db.insert(videoClips).values({
+                    youtubeUrl: video.link,
+                    videoTitle: video.title,
+                    status: 'queued'
+                }).returning()
+
+                if (clipRecord) {
+                    // Start clipping in background. Webhook will handle the X post when done.
+                    triggerClippingJob(clipRecord.id, video.link, article.id, automation.id)
+                        .catch(e => console.error(`[processYouTubeVideo] Background clipping trigger failed:`, e.message))
+
+                    const result = { success: true, articleId: article.id, status: 'clipping_in_progress' }
+                    await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
+                    return result
+                }
+            } catch (e: any) {
+                console.warn(`[processYouTubeVideo] Automated clipping trigger failed (non-fatal): ${e.message}`)
+            }
+        }
+
+        // 5. Fallback Social Posting (if no clipping enabled or if it's article_only)
         let threadUrl: string | undefined
         let xPostError: string | undefined
-        try {
-            threadUrl = await postXLink(video.title, video.link, video.description)
-        } catch (e: any) {
-            xPostError = e.message
+
+        if (outputMode === 'article_and_x' && article) {
+            try {
+                const xThreadPrompt = (config.xThreadPrompt as string) || undefined
+                threadUrl = await generateAndPostThread(article.id, article.title, article.slug, video.link, xThreadPrompt)
+            } catch (e: any) {
+                xPostError = e.message
+            }
         }
-        const result = { success: !xPostError, threadUrl, xPostError }
+
+        if (outputMode === 'article_and_x_post' && article) {
+            try {
+                const xThreadPrompt = (config.xThreadPrompt as string) || undefined
+                threadUrl = await generateAndPostSingle(article.id, article.title, article.slug, video.link, xThreadPrompt)
+            } catch (e: any) {
+                xPostError = e.message
+            }
+        }
+
+        const result = { success: true, articleId: article.id, threadUrl, xPostError }
+        await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
+        return result
+
+    } catch (error: any) {
+        console.error('[processYouTubeVideo] Fatal Error:', error)
+        const result = { success: false, error: error.message }
         await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
         return result
     }
-
-    const { success, articleId, error } = await generateArticle(triggerData, automation)
-    if (!success) {
-        const result = { success: false, error }
-        await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
-        return result
-    }
-
-    const article = articleId ? await db.query.articles.findFirst({ where: eq(articles.id, articleId) }) : null
-
-    let threadUrl: string | undefined
-    let xPostError: string | undefined
-
-    if (outputMode === 'article_and_x' && article) {
-        try {
-            const xThreadPrompt = (config.xThreadPrompt as string) || undefined
-            threadUrl = await generateAndPostThread(article.id, article.title, article.slug, video.link, xThreadPrompt, videoClipUrl)
-        } catch (e: any) {
-            xPostError = e.message
-        }
-    }
-
-    if (outputMode === 'article_and_x_post' && article) {
-        try {
-            const xThreadPrompt = (config.xThreadPrompt as string) || undefined
-            threadUrl = await generateAndPostSingle(article.id, article.title, article.slug, video.link, xThreadPrompt, videoClipUrl)
-        } catch (e: any) {
-            xPostError = e.message
-        }
-    }
-
-    const result = { success: true, articleId, threadUrl, xPostError }
-    await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
-    return result
 }
 
 // --- Trigger checker (cron/polling fallback) ---

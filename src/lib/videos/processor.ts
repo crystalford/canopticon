@@ -127,7 +127,6 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
         }
 
         // 5. Save success to DB
-        console.log(`[processVideoClip] ✓ Success! Clip URL: ${apifyClipUrl}`)
         const [updated] = await db.update(videoClips)
             .set({
                 status: 'done',
@@ -144,6 +143,72 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
         await db.update(videoClips)
             .set({ status: 'failed', errorMessage: e.message })
             .where(eq(videoClips.id, clipId))
+        throw e
+    }
+}
+
+const toHHMMSS = (secs: number) => {
+    const h = Math.floor(secs / 3600).toString().padStart(2, '0')
+    const m = Math.floor((secs % 3600) / 60).toString().padStart(2, '0')
+    const s = (secs % 60).toString().padStart(2, '0')
+    return `${h}:${m}:${s}`
+}
+
+export async function triggerClippingJob(clipId: string, url: string, articleId?: string, automationId?: string) {
+    console.log(`[triggerClippingJob] Queuing job ${clipId} for ${url}`)
+
+    try {
+        const token = process.env.APIFY_API_TOKEN
+        if (!token) throw new Error('APIFY_API_TOKEN is missing')
+
+        // 1. Identify clip window (Reuse logic or call Claude)
+        // For speed in the main thread, we still do Claude here (~5-10s)
+        const title = await fetchVideoTitle(url)
+        const transcript = await fetchTranscriptWithTimestamps(url)
+        if (!transcript) throw new Error('Could not get transcript')
+
+        const model = await getModel('openai', 'gpt-4o')
+        const aiPrompt = `Read the transcript and find the best 30-90s viral hook. Return ONLY JSON: {"start_seconds": <number>, "end_seconds": <number>, "rationale": "..."}\n\nTranscript:\n${transcript}`
+        const result = await generateText({ model, prompt: aiPrompt })
+        const jsonMatch = result.text.match(/\{[\s\S]*?\}/)
+        if (!jsonMatch) throw new Error('AI failed JSON')
+        const { start_seconds: start, end_seconds: end, rationale } = JSON.parse(jsonMatch[0])
+
+        await db.update(videoClips)
+            .set({ videoTitle: title, startSeconds: start, endSeconds: end, clipRationale: rationale, status: 'processing' })
+            .where(eq(videoClips.id, clipId))
+
+        // 2. Start Apify run ASYNC with Webhook
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
+        const webhookUrl = `${baseUrl}/api/webhooks/apify?clipId=${clipId}${articleId ? `&articleId=${articleId}` : ''}${automationId ? `&automationId=${automationId}` : ''}`
+
+        console.log(`[triggerClippingJob] Webhook configured: ${webhookUrl}`)
+
+        const apifyRes = await fetch(`https://api.apify.com/v2/acts/fractalai~youtube-video-clipper/runs?token=${token}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                videoUrl: url,
+                clips: [{ start: toHHMMSS(start), end: toHHMMSS(end), name: "Canopticon-Clip" }],
+                quality: "720p",
+                webhooks: [
+                    {
+                        eventTypes: ["ACTOR.RUN.SUCCEEDED", "ACTOR.RUN.FAILED"],
+                        requestUrl: webhookUrl
+                    }
+                ]
+            })
+        })
+
+        if (!apifyRes.ok) throw new Error(`Apify Run failed: ${await apifyRes.text()}`)
+        const runData = await apifyRes.json()
+
+        console.log(`[triggerClippingJob] ✓ Queued run ${runData.data.id}`)
+        return { success: true, runId: runData.data.id }
+
+    } catch (e: any) {
+        console.error('[triggerClippingJob] Failed:', e.message)
+        await db.update(videoClips).set({ status: 'failed', errorMessage: e.message }).where(eq(videoClips.id, clipId))
         throw e
     }
 }

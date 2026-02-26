@@ -52,10 +52,11 @@ interface RunResult {
 }
 
 const OUTPUT_MODES = [
-    { value: 'article_and_x', label: 'Article + X Thread', desc: 'Write full article, then post X thread with link' },
+    { value: 'article_and_x', label: 'Article + 𝕏 Thread', desc: 'Write full article, then post X thread with link' },
+    { value: 'article_and_x_post', label: 'Article + 𝕏 Post', desc: 'Write full article, then post ONE tweet with link' },
     { value: 'article_only', label: 'Article Only', desc: 'Write and publish article, no X post' },
     { value: 'draft', label: 'Draft for Review', desc: 'Write article, save as draft — you approve before publish' },
-    { value: 'x_only', label: 'X Post Only', desc: 'No AI, no article — just auto-post the video link to X instantly' },
+    { value: 'x_only', label: '𝕏 Post Only', desc: 'No AI, no article — just auto-post the video link to X instantly' },
 ]
 
 const MODEL_OPTIONS = [
