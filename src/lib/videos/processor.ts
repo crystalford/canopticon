@@ -85,20 +85,27 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
 
         console.log(`[processVideoClip] Requesting segment from Fractal AI on Apify: ${start}s-${end}s...`)
 
+        // Helper to convert seconds to HH:MM:SS
+        const toHHMMSS = (secs: number) => {
+            const h = Math.floor(secs / 3600).toString().padStart(2, '0')
+            const m = Math.floor((secs % 3600) / 60).toString().padStart(2, '0')
+            const s = (secs % 60).toString().padStart(2, '0')
+            return `${h}:${m}:${s}`
+        }
+
         const runRes = await fetch(`https://api.apify.com/v2/acts/fractalai~youtube-video-clipper/run-sync-get-dataset-items?token=${apifyToken}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                url: url,
+                videoUrl: url,
                 clips: [{
-                    start: start,
-                    end: end,
-                    label: "Canopticon-Clip"
+                    start: toHHMMSS(start),
+                    end: toHHMMSS(end),
+                    name: "Canopticon-Clip"
                 }],
-                quality: "720p",
-                download_timeout: 120
+                quality: "720p"
             }),
-            signal: AbortSignal.timeout(300000) // 5 minute timeout
+            signal: AbortSignal.timeout(300000)
         });
 
         if (!runRes.ok) {
@@ -107,7 +114,7 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
         }
 
         const items = await runRes.json()
-        const apifyClipUrl = items && items.length > 0 ? items[0].videoUrl : null
+        const apifyClipUrl = items && items.length > 0 ? items[0].url : null
 
         if (!apifyClipUrl) {
             throw new Error('Fractal AI returned success but no video clip URL was found in dataset.')
