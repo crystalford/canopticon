@@ -143,40 +143,41 @@ export async function postToX({
 
     if (xFormat === 'post') {
         // Single tweet
-        const ctaLine = linkUrl ? `\nEnd with: ${linkUrl}` : ''
-        const defaultPrompt = `You are a political media strategist. Extract the SINGLE most newsworthy, surprising, or quotable moment from this content. Write ONE punchy tweet.
+        const linkLine = linkUrl ? `\n\nAppend the URL on its own line at the end: ${linkUrl}` : ''
+        const defaultPrompt = `You are a Canadian political journalist writing from your personal account. Write one tweet about this story.
 
-Format:
-Line 1: The moment — lead with a direct quote or the most surprising fact.
-Line 2: One sentence of context.${ctaLine}
-
-Under 280 characters total. No hashtags. Return ONLY the tweet text, no quotes or JSON.`
+Rules — read carefully:
+- Write like a real person, not a content marketer
+- Lead with the most important fact or direct quote. If quoting, use quotation marks and name the speaker
+- Be specific: names, numbers, dates, bills — not vague generalities
+- No emojis. No hashtags. No exclamation marks
+- No promotional language: no "don't miss", "check out", "let's dive in", "breaking", "must-read", "fascinating"
+- No format gimmicks: no "Thread:", no numbered lines, no bullet points
+- One clean statement or question. Under 270 characters (excluding the URL)
+- Return ONLY the tweet text${linkLine}`
 
         const prompt = `${xThreadPrompt || defaultPrompt}\n\nTitle: ${title}\n\nContent:\n${content.substring(0, 3000)}`
         const result = await generateText({ model: chatModel, prompt })
         tweets = [result.text.trim().replace(/^["']|["']$/g, '')]
     } else {
         // Thread
-        const ctaLine = linkUrl
-            ? `Last tweet ends with "Watch: ${linkUrl}"`
-            : 'Last tweet ends with a sharp question or provocative statement'
+        const linkLine = linkUrl ? `The last tweet in the array should end with the URL on its own line: ${linkUrl}` : 'The last tweet can end with a direct question or a plain statement of consequence'
 
-        const defaultPrompt = `You are a political media strategist writing high-engagement X/Twitter posts. Extract the most newsworthy, surprising, or quotable moments. Each tweet must work as a completely standalone post.
+        const defaultPrompt = `You are a Canadian political journalist writing a thread from your personal account. Write ${xTweetCount} tweets about this story.
 
-TWEET FORMAT:
-Line 1: The moment — lead with the most surprising/provocative element. If it's a quote, use quotation marks and name the speaker.
-Line 2: One sentence of context.
-Line 3: A sharp question or provocative statement.
+Rules — read carefully:
+- Write like a real person, not a content marketer
+- Each tweet is a standalone observation — no "1/", "2/", numbering, or "continued" references
+- Lead with facts and direct quotes. If quoting, use quotation marks and name the speaker
+- Be specific: names, numbers, dates, bills, riding names — not vague generalities
+- No emojis. No hashtags. No exclamation marks
+- No promotional language: no "don't miss", "check out", "let's dive in", "breaking", "thread", "must-read"
+- No format gimmicks. No bullet points. No "Here's what happened:"
+- Under 270 characters each (excluding any URL)
+- ${linkLine}
+- Return ONLY a valid JSON array of strings, one string per tweet`
 
-RULES:
-- Each tweet stands alone — no "continued from above" references
-- Be specific: names, numbers, policy names, dates — not vague generalities
-- ${ctaLine}
-- Under 280 characters each
-- No hashtags
-- Return ONLY a valid JSON array of strings`
-
-        const prompt = `${xThreadPrompt || defaultPrompt}\n\nTitle: ${title}\n\nContent:\n${content.substring(0, 4000)}\n\nExtract ${xTweetCount} tweets. Return ONLY a JSON array.`
+        const prompt = `${xThreadPrompt || defaultPrompt}\n\nTitle: ${title}\n\nContent:\n${content.substring(0, 4000)}\n\nReturn ONLY a JSON array of ${xTweetCount} tweet strings.`
         const result = await generateText({ model: chatModel, prompt })
 
         const jsonMatch = result.text.match(/\[[\s\S]*\]/)
