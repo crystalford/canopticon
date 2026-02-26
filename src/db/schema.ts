@@ -183,10 +183,19 @@ export const videoClips = pgTable('video_clips', {
     xPostId: text('x_post_id'),            // Tweet ID if posted to X
     xPostedAt: timestamp('x_posted_at'),
     tiktokPostId: text('tiktok_post_id'),
+    // Links
+    automationId: uuid('automation_id').references(() => automations.id, { onDelete: 'set null' }),
     // Metadata
     createdAt: timestamp('created_at').defaultNow().notNull(),
     processedAt: timestamp('processed_at'),
 })
+
+export const videoClipsRelations = relations(videoClips, ({ one }) => ({
+    automation: one(automations, {
+        fields: [videoClips.automationId],
+        references: [automations.id],
+    }),
+}))
 
 // ============================================================================
 // RELATIONS

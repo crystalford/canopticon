@@ -22,6 +22,16 @@ interface Automation {
     createdAt: string
 }
 
+interface VideoClip {
+    id: string
+    videoTitle: string | null
+    youtubeUrl: string
+    clipUrl: string | null
+    status: string
+    clipRationale: string | null
+    createdAt: string
+}
+
 interface Video {
     videoId: string
     title: string
@@ -78,6 +88,7 @@ export default function PipelineDetailPage() {
     const [saving, setSaving] = useState(false)
     const [runningVideoId, setRunningVideoId] = useState<string | null>(null)
     const [videoRunResults, setVideoRunResults] = useState<Record<string, RunResult>>({})
+    const [clips, setClips] = useState<VideoClip[]>([])
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
 
     // Editable fields
@@ -109,6 +120,11 @@ export default function PipelineDetailPage() {
         if (res.ok) setArticles(await res.json())
     }, [id])
 
+    const fetchClips = useCallback(async () => {
+        const res = await fetch(`/api/videos?automationId=${id}`)
+        if (res.ok) setClips(await res.json())
+    }, [id])
+
     const fetchVideos = useCallback(async () => {
         if (!auto || auto.type !== 'youtube') return
         setVideosLoading(true)
@@ -124,7 +140,7 @@ export default function PipelineDetailPage() {
     }, [auto, id])
 
     useEffect(() => { fetchAuto() }, [fetchAuto])
-    useEffect(() => { if (auto) { fetchArticles(); fetchVideos() } }, [auto, fetchArticles, fetchVideos])
+    useEffect(() => { if (auto) { fetchArticles(); fetchVideos(); fetchClips() } }, [auto, fetchArticles, fetchVideos, fetchClips])
 
     const handleSave = async () => {
         if (!auto) return
@@ -465,6 +481,61 @@ export default function PipelineDetailPage() {
                                     </div>
                                 )
                             })}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Video Clips Produced (YouTube only) */}
+            {isYouTube && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-semibold text-white">Video Clips Gallery</h3>
+                        <Link href="/videos" className="text-[10px] text-slate-500 hover:text-white uppercase tracking-wider font-bold">View Global Library</Link>
+                    </div>
+                    {clips.length === 0 ? (
+                        <p className="text-sm text-slate-500">No clips generated yet by this pipeline.</p>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {clips.map(clip => (
+                                <div key={clip.id} className="group relative bg-black/40 border border-white/[0.05] rounded-xl overflow-hidden hover:border-red-500/30 transition-all">
+                                    <div className="p-3">
+                                        <div className="text-sm text-white font-bold truncate mb-1" title={clip.videoTitle || undefined}>
+                                            {clip.videoTitle || 'Pending extraction...'}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[10px] text-slate-500 mb-3">
+                                            <span>{formatDistanceToNow(new Date(clip.createdAt), { addSuffix: true })}</span>
+                                            {clip.status === 'done' ? (
+                                                <span className="text-green-400 font-bold uppercase tracking-widest">Done</span>
+                                            ) : clip.status === 'failed' ? (
+                                                <span className="text-red-400 font-bold uppercase tracking-widest">Failed</span>
+                                            ) : (
+                                                <span className="text-blue-400 animate-pulse font-bold uppercase tracking-widest">{clip.status}...</span>
+                                            )}
+                                        </div>
+                                        {clip.clipUrl && (
+                                            <div className="flex gap-2">
+                                                <a
+                                                    href={clip.clipUrl}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all border border-white/10"
+                                                >
+                                                    <Play size={12} className="fill-current" />
+                                                    Preview
+                                                </a>
+                                                <a
+                                                    href={clip.clipUrl}
+                                                    download
+                                                    className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-xs transition-all border border-white/10"
+                                                >
+                                                    <RefreshCw size={12} />
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>

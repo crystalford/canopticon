@@ -55,13 +55,13 @@ function PipelineFlow({ automation }: { automation: Automation }) {
             : type === 'rss'
                 ? { label: '📡 RSS Feed', color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' }
                 : { label: '🔍 Keyword Search', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+        ...(config.videoClippingEnabled ? [{ label: '🎬 Video Clip', color: 'text-red-400 bg-red-500/10 border-red-500/20' }] : []),
         { label: `${researchLabel}: Research`, color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
         { label: `${writingLabel}: Write`, color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' },
         autoPublish
             ? { label: '✓ Auto-Publish', color: 'text-green-400 bg-green-500/10 border-green-500/20' }
             : { label: '📋 Save as Draft', color: 'text-slate-400 bg-slate-500/10 border-slate-500/20' },
-        ...(config.videoClippingEnabled ? [{ label: '🎬 Video Clip', color: 'text-red-400 bg-red-500/10 border-red-500/20' }] : []),
-        ...(postToX ? [{ label: '𝕏 Thread', color: 'text-slate-300 bg-slate-500/10 border-slate-500/20' }] : []),
+        ...(postToX ? [{ label: '𝕏 Post', color: 'text-slate-300 bg-slate-500/10 border-slate-500/20' }] : []),
     ]
 
     return (
@@ -87,6 +87,7 @@ interface NewPipelineFormProps {
 }
 
 function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
+    const [step, setStep] = useState(1)
     const [type, setType] = useState<'youtube' | 'rss' | 'keyword'>('youtube')
     const [name, setName] = useState('')
     const [channelId, setChannelId] = useState('')
@@ -140,15 +141,8 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
         }
     }
 
-    return (
-        <form onSubmit={handleSubmit} className="bg-white/[0.03] border border-white/10 rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-white">New Pipeline</h3>
-                <button type="button" onClick={onCancel} className="p-1 text-slate-500 hover:text-white transition-colors">
-                    <X size={16} />
-                </button>
-            </div>
-
+    const renderStepSource = () => (
+        <div className="space-y-4">
             {/* Type */}
             <div className="flex gap-2">
                 {(['youtube', 'rss', 'keyword'] as const).map(t => (
@@ -214,101 +208,213 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                     />
                 </div>
             )}
+        </div>
+    )
 
-            {/* Prompt */}
+    const renderStepClips = () => (
+        <div className="space-y-4 py-2">
+            <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center text-red-500">
+                            <Zap size={18} />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-semibold text-white">Automated Video Clipping</h4>
+                            <p className="text-[10px] text-slate-500">Use AI to find viral hooks and generate short clips.</p>
+                        </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={videoClippingEnabled}
+                            onChange={e => setVideoClippingEnabled(e.target.checked)}
+                        />
+                        <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-400 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600 peer-checked:after:bg-white peer-checked:after:border-white"></div>
+                    </label>
+                </div>
+                {videoClippingEnabled && (
+                    <div className="mt-4 p-3 rounded-lg bg-black/40 border border-white/5 space-y-2">
+                        <div className="flex items-start gap-2">
+                            <CheckCircle size={12} className="text-green-500 mt-0.5" />
+                            <p className="text-[10px] text-slate-400">AI automatically scans transcripts for high-impact moments.</p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                            <CheckCircle size={12} className="text-green-500 mt-0.5" />
+                            <p className="text-[10px] text-slate-400">Generates 30-90s clips ready for social sharing.</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+            {type !== 'youtube' && (
+                <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                    <p className="text-[10px] text-blue-400/80 italic">Video clipping is currently only available for YouTube sources. This step will be skipped.</p>
+                </div>
+            )}
+        </div>
+    )
+
+    const renderStepSocial = () => (
+        <div className="space-y-4">
+            <label className="text-xs text-slate-500 mb-1.5 block">Output Mode & Social Destinations</label>
+            <div className="grid grid-cols-2 gap-2">
+                {([
+                    { value: 'article_and_x', label: '𝕏 Thread', desc: 'Article + video clip thread' },
+                    { value: 'article_and_x_post', label: '𝕏 Post', desc: 'Article + video clip tweet' },
+                    { value: 'article_only', label: 'Article Only', desc: 'Publish, no X posting' },
+                    { value: 'draft', label: 'Draft', desc: 'Save as draft for review' },
+                ] as { value: string; label: string; desc: string }[]).map(m => (
+                    <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => setOutputMode(m.value)}
+                        className={`text-left px-3 py-2.5 rounded-xl border transition-colors ${outputMode === m.value
+                            ? 'bg-red-600/15 border-red-500/50 text-white'
+                            : 'bg-white/[0.02] border-white/10 text-slate-400 hover:text-white hover:border-white/20'
+                            }`}
+                    >
+                        <div className="font-semibold text-xs">{m.label}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">{m.desc}</div>
+                    </button>
+                ))}
+            </div>
+
+            {/* X Thread Prompt (Only if thread/post active) */}
+            {(outputMode === 'article_and_x' || outputMode === 'article_and_x_post') && (
+                <div className="mt-4 pt-4 border-t border-white/5">
+                    <label className="text-xs text-slate-500 mb-1.5 flex items-center gap-1.5 block">
+                        𝕏 Post Style Instructions
+                        <span className="text-slate-600">(optional)</span>
+                    </label>
+                    <textarea
+                        value={xThreadPrompt}
+                        onChange={e => setXThreadPrompt(e.target.value)}
+                        rows={3}
+                        placeholder={`e.g. Write a sharp, fact-driven post quoting speakers directly. No hype.`}
+                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono placeholder-slate-600 focus:outline-none focus:border-white/20 resize-y"
+                    />
+                </div>
+            )}
+        </div>
+    )
+
+    const renderStepArticle = () => (
+        <div className="space-y-4">
             <div>
-                <label className="text-xs text-slate-500 mb-1 block">AI Instructions</label>
+                <label className="text-xs text-slate-500 mb-1.5 block">AI Writing Instructions</label>
                 <textarea
                     value={prompt}
                     onChange={e => setPrompt(e.target.value)}
-                    rows={4}
+                    rows={6}
                     className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono placeholder-slate-600 focus:outline-none focus:border-white/20 resize-y"
                 />
             </div>
 
-            {/* X Thread Prompt */}
-            <div>
-                <label className="text-xs text-slate-500 mb-1 flex items-center gap-1.5 block">
-                    𝕏 Thread Instructions
-                    <span className="text-slate-600">(optional — leave blank for defaults)</span>
+            <div className="flex items-center gap-2 pt-2">
+                <input
+                    id="auto-pub"
+                    type="checkbox"
+                    checked={autoPublish}
+                    onChange={e => setAutoPublish(e.target.checked)}
+                    className="accent-red-500 w-4 h-4"
+                />
+                <label htmlFor="auto-pub" className="text-sm text-slate-300 cursor-pointer">
+                    Auto-publish articles <span className="text-xs text-slate-500 ml-1">(bypasses draft state)</span>
                 </label>
-                <textarea
-                    value={xThreadPrompt}
-                    onChange={e => setXThreadPrompt(e.target.value)}
-                    rows={3}
-                    placeholder={`e.g. Write a sharp, fact-driven thread quoting speakers directly. No hype.`}
-                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono placeholder-slate-600 focus:outline-none focus:border-white/20 resize-y"
-                />
             </div>
+        </div>
+    )
 
-            {/* Output Mode */}
-            <div>
-                <label className="text-xs text-slate-500 mb-1.5 block">Output Mode</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                    {([
-                        { value: 'article_and_x', label: '𝕏 Thread', desc: 'Article + video clip thread' },
-                        { value: 'article_and_x_post', label: '𝕏 Post', desc: 'Article + video clip tweet' },
-                        { value: 'article_only', label: 'Article Only', desc: 'Publish, no X posting' },
-                        { value: 'draft', label: 'Draft', desc: 'Save as draft for review' },
-                    ] as { value: string; label: string; desc: string }[]).map(m => (
-                        <button
-                            key={m.value}
-                            type="button"
-                            onClick={() => setOutputMode(m.value)}
-                            className={`text-left px-2.5 py-2 rounded-lg border text-xs transition-colors ${outputMode === m.value
-                                ? 'bg-red-600/20 border-red-500/50 text-white'
-                                : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'
-                                }`}
-                        >
-                            <div className="font-medium">{m.label}</div>
-                            <div className="text-[10px] text-slate-500 mt-0.5">{m.desc}</div>
-                        </button>
-                    ))}
+    const nextStep = () => {
+        if (step === 1) {
+            if (!name.trim()) { setError('Name is required'); return }
+            if (type === 'youtube' && !channelId.trim()) { setError('Channel ID is required'); return }
+            if (type === 'rss' && !feedUrl.trim()) { setError('Feed URL is required'); return }
+            if (type === 'keyword' && !keywords.trim()) { setError('Keywords are required'); return }
+        }
+        setError(null)
+        setStep(Math.min(4, step + 1))
+    }
+
+    const prevStep = () => {
+        setError(null)
+        setStep(Math.max(1, step - 1))
+    }
+
+    return (
+        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+            {/* Wizard Header */}
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center text-xs">{step}</span>
+                        {step === 1 ? 'Configure Source' : step === 2 ? 'Video Clipping' : step === 3 ? 'Social Destinations' : 'AI Instructions'}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">Step {step} of 4</p>
                 </div>
+                <button type="button" onClick={onCancel} className="p-1.5 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white transition-colors">
+                    <X size={20} />
+                </button>
             </div>
 
-            {/* Options */}
-            <div className="space-y-2">
-                {type === 'youtube' && (
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={videoClippingEnabled}
-                            onChange={e => setVideoClippingEnabled(e.target.checked)}
-                            className="accent-red-500"
-                        />
-                        <span className="text-sm text-slate-300">Automated Video Clipping</span>
-                        <span className="text-xs text-slate-500">(triggers Fractal AI to find a viral hook)</span>
-                    </label>
+            {/* Progress Bar */}
+            <div className="h-1 bg-white/5 rounded-full mb-8 relative">
+                <div
+                    className="absolute inset-y-0 left-0 bg-red-600 rounded-full transition-all duration-300 ease-in-out"
+                    style={{ width: `${(step / 4) * 100}%` }}
+                />
+            </div>
+
+            {/* Error Message */}
+            {error && (
+                <div className="mb-6 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+                    <AlertTriangle size={14} />
+                    {error}
+                </div>
+            )}
+
+            {/* Step Content */}
+            <div className="min-h-[280px]">
+                {step === 1 && renderStepSource()}
+                {step === 2 && renderStepClips()}
+                {step === 3 && renderStepSocial()}
+                {step === 4 && renderStepArticle()}
+            </div>
+
+            {/* Navigation Footer */}
+            <div className="flex gap-3 pt-8 border-t border-white/5 mt-6">
+                {step > 1 && (
+                    <button
+                        type="button"
+                        onClick={prevStep}
+                        className="px-6 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:border-white/20 text-sm font-medium transition-colors"
+                    >
+                        Back
+                    </button>
                 )}
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                        type="checkbox"
-                        checked={autoPublish}
-                        onChange={e => setAutoPublish(e.target.checked)}
-                        className="accent-red-500"
-                    />
-                    <span className="text-sm text-slate-300">Auto-publish articles</span>
-                    <span className="text-xs text-slate-500">(unchecked = save as draft for review)</span>
-                </label>
-            </div>
 
-            {error && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
-
-            <div className="flex gap-2 pt-1">
-                <button
-                    type="submit"
-                    disabled={saving}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                    {saving ? 'Creating…' : 'Create Pipeline'}
-                </button>
-                <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg border border-white/10 text-slate-400 hover:text-white text-sm transition-colors">
-                    Cancel
-                </button>
+                {step < 4 ? (
+                    <button
+                        type="button"
+                        onClick={nextStep}
+                        className="flex-1 px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium transition-all"
+                    >
+                        Continue
+                    </button>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={handleSubmit}
+                        disabled={saving}
+                        className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition-all shadow-lg shadow-red-600/20 disabled:opacity-50"
+                    >
+                        {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                        {saving ? 'Creating Pipeline...' : 'Finish & Create Pipeline'}
+                    </button>
+                )}
             </div>
-        </form>
+        </div>
     )
 }
 

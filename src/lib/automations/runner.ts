@@ -528,15 +528,16 @@ export async function processYouTubeVideo(
                 const [clipRecord] = await db.insert(videoClips).values({
                     youtubeUrl: video.link,
                     videoTitle: video.title,
-                    status: 'queued'
+                    status: 'queued',
+                    automationId: automation.id
                 }).returning()
 
                 if (clipRecord) {
                     // Start clipping in background. Webhook will handle the X post when done.
-                    triggerClippingJob(clipRecord.id, video.link, article.id, automation.id)
+                    triggerClippingJob(clipRecord.id, video.link, articleId, automation.id)
                         .catch(e => console.error(`[processYouTubeVideo] Background clipping trigger failed:`, e.message))
 
-                    const result = { success: true, articleId: article.id, status: 'clipping_in_progress' }
+                    const result = { success: true, articleId, status: 'clipping_in_progress' }
                     await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
                     return result
                 }
@@ -567,7 +568,7 @@ export async function processYouTubeVideo(
             }
         }
 
-        const result = { success: true, articleId: article.id, threadUrl, xPostError }
+        const result = { success: true, articleId, threadUrl, xPostError }
         await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
         return result
 

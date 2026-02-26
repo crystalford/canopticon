@@ -5,9 +5,13 @@ import { desc } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
+        const { searchParams } = new URL(req.url)
+        const automationId = searchParams.get('automationId')
+
         const results = await db.query.videoClips.findMany({
+            where: automationId ? (t, { eq }) => eq(t.automationId, automationId) : undefined,
             orderBy: [desc(videoClips.createdAt)],
             limit: 50
         })

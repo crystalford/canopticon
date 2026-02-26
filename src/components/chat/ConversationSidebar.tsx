@@ -255,17 +255,6 @@ export function ConversationSidebar() {
                 </Link>
 
                 <Link
-                    href="/videos"
-                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isVideosActive
-                        ? 'bg-white/10 text-white'
-                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-                        }`}
-                >
-                    <Video className="w-4 h-4" />
-                    Videos
-                </Link>
-
-                <Link
                     href="/settings"
                     className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${pathname.includes('/settings')
                         ? 'bg-white/10 text-white'
