@@ -10,6 +10,7 @@ import RSSParser from 'rss-parser'
 import type { Automation } from '@/db/schema'
 import { TwitterApi } from 'twitter-api-v2'
 import { fetchTranscript } from './transcript'
+import { detect } from 'franc'
 
 // Resolve a credential: DB settings table first (editable via UI), then env var
 async function getCredential(key: string): Promise<string | undefined> {
@@ -18,6 +19,18 @@ async function getCredential(key: string): Promise<string | undefined> {
         if (row?.value) return row.value
     } catch { /* settings table not ready */ }
     return process.env[key]
+}
+
+// Detect if content is in English (returns true if English, false otherwise)
+function isEnglish(text: string): boolean {
+    if (!text || text.length < 50) return true // If text is too short, assume it's OK
+    try {
+        const language = detect(text)
+        // language is a string like 'eng', 'fra', etc.
+        return language === 'eng'
+    } catch {
+        return true // If detection fails, assume English
+    }
 }
 
 const parser = new RSSParser()
@@ -597,16 +610,33 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
                     return pubDate > lastRun
                 })
                 if (newItems.length === 0) return null
-                const latest = newItems[0]
-                const videoUrl = latest.link || ''
 
-                // Fetch transcript — gives the AI the actual spoken words
-                const transcript = await fetchTranscript(videoUrl)
-                const transcriptSection = transcript
-                    ? `\nTranscript (${transcript.split(/\s+/).length} words):\n${transcript}`
+                // Find first English video (skip non-English ones)
+                let latest = null
+                for (const item of newItems) {
+                    const videoUrl = item.link || ''
+                    const transcript = await fetchTranscript(videoUrl)
+
+                    // Check if video is in English (use transcript if available, otherwise title + description)
+                    const contentToCheck = transcript || (item.title || '') + ' ' + (item.contentSnippet || '')
+                    if (isEnglish(contentToCheck)) {
+                        latest = { item, videoUrl, transcript }
+                        break
+                    } else {
+                        console.log(`[checkTrigger] Skipping non-English video: ${item.title}`)
+                    }
+                }
+
+                if (!latest) {
+                    console.log('[checkTrigger] No English videos found in latest items')
+                    return null
+                }
+
+                const transcriptSection = latest.transcript
+                    ? `\nTranscript (${latest.transcript.split(/\s+/).length} words):\n${latest.transcript}`
                     : '\n[No transcript available — use search_web to find coverage of this video]'
 
-                return `Video Title: ${latest.title}\nURL: ${videoUrl}\nPublished: ${latest.pubDate}\nDescription: ${latest.contentSnippet || ''}${transcriptSection}`
+                return `Video Title: ${latest.item.title}\nURL: ${latest.videoUrl}\nPublished: ${latest.item.pubDate}\nDescription: ${latest.item.contentSnippet || ''}${transcriptSection}`
             } catch (e) {
                 console.error('[checkTrigger] RSS Error:', e)
                 return null
