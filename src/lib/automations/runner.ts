@@ -38,10 +38,8 @@ function isEnglish(transcript: string | null): boolean {
 
 const parser = new RSSParser()
 
-const DEFAULT_RESEARCH_PROVIDER = 'perplexity'
-const DEFAULT_RESEARCH_MODEL = 'sonar-pro'
-const DEFAULT_WRITING_PROVIDER = 'openai'
-const DEFAULT_WRITING_MODEL = 'gpt-4o'
+const DEFAULT_WRITING_PROVIDER = 'anthropic'
+const DEFAULT_WRITING_MODEL = 'claude-3-5-sonnet-20241022'
 
 const JOURNALIST_SYSTEM_PROMPT = `You are Canopticon, an investigative AI journalist.
 
@@ -303,12 +301,10 @@ async function generateArticle(
 
     const tools = createTools(undefined, { saveDraft })
 
-    const researchProvider = ((config.researchProvider as string) || DEFAULT_RESEARCH_PROVIDER) as 'openai' | 'perplexity' | 'anthropic'
-    const researchModelId = (config.researchModel as string) || DEFAULT_RESEARCH_MODEL
     const writingProvider = ((config.writingProvider as string) || DEFAULT_WRITING_PROVIDER) as 'openai' | 'perplexity' | 'anthropic'
     const writingModelId = (config.writingModel as string) || DEFAULT_WRITING_MODEL
 
-    console.log(`[generateArticle] draft=${saveDraft} | Research: ${researchProvider}/${researchModelId} | Writing: ${writingProvider}/${writingModelId}`)
+    console.log(`[generateArticle] draft=${saveDraft} | Writing: ${writingProvider}/${writingModelId}`)
 
     const writingModel = await getModel(writingProvider, writingModelId)
 

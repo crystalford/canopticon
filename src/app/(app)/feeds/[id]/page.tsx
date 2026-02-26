@@ -61,11 +61,11 @@ interface RunResult {
     error?: string
 }
 
-const MODEL_OPTIONS = [
-    { provider: 'perplexity', model: 'sonar-pro', label: 'Perplexity Sonar Pro (research/news)' },
-    { provider: 'openai', model: 'gpt-4o', label: 'OpenAI GPT-4o (writing)' },
-    { provider: 'openai', model: 'gpt-4o-mini', label: 'OpenAI GPT-4o Mini (fast/cheap)' },
-    { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', label: 'Anthropic Claude Sonnet (deep analysis)' },
+// Perplexity is used automatically for web search — only tool-capable models here
+const WRITING_MODEL_OPTIONS = [
+    { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', label: 'Claude Sonnet (recommended)' },
+    { provider: 'openai', model: 'gpt-4o', label: 'OpenAI GPT-4o' },
+    { provider: 'openai', model: 'gpt-4o-mini', label: 'OpenAI GPT-4o Mini (fast)' },
 ]
 
 // Derive individual output flags from config (supports both new flags + legacy outputMode)
@@ -123,10 +123,8 @@ export default function PipelineDetailPage() {
 
     // Editable fields
     const [prompt, setPrompt] = useState('')
-    const [researchProvider, setResearchProvider] = useState('perplexity')
-    const [researchModel, setResearchModel] = useState('sonar-pro')
-    const [writingProvider, setWritingProvider] = useState('openai')
-    const [writingModel, setWritingModel] = useState('gpt-4o')
+    const [writingProvider, setWritingProvider] = useState('anthropic')
+    const [writingModel, setWritingModel] = useState('claude-3-5-sonnet-20241022')
 
     // Output flags
     const [writeArticle, setWriteArticle] = useState(true)
@@ -143,10 +141,8 @@ export default function PipelineDetailPage() {
         const data: Automation = await res.json()
         setAuto(data)
         setPrompt(data.prompt || '')
-        setResearchProvider(data.config.researchProvider || 'perplexity')
-        setResearchModel(data.config.researchModel || 'sonar-pro')
-        setWritingProvider(data.config.writingProvider || 'openai')
-        setWritingModel(data.config.writingModel || 'gpt-4o')
+        setWritingProvider(data.config.writingProvider || 'anthropic')
+        setWritingModel(data.config.writingModel || 'claude-3-5-sonnet-20241022')
         const flags = deriveFlags(data.config)
         setWriteArticle(flags.writeArticle)
         setArticleDraft(flags.articleDraft)
@@ -206,8 +202,6 @@ export default function PipelineDetailPage() {
                         includeArticleLink,
                         writingProvider,
                         writingModel,
-                        researchProvider,
-                        researchModel,
                     }
                 })
             })
@@ -295,8 +289,7 @@ export default function PipelineDetailPage() {
         xFormat !== savedFlags.xFormat ||
         xTweetCount !== savedFlags.xTweetCount ||
         includeArticleLink !== savedFlags.includeArticleLink ||
-        researchModel !== (config.researchModel || 'sonar-pro') ||
-        writingModel !== (config.writingModel || 'gpt-4o')
+        writingModel !== (config.writingModel || 'claude-3-5-sonnet-20241022')
 
     return (
         <div className="max-w-4xl mx-auto py-10 px-6 space-y-8">
@@ -452,42 +445,22 @@ export default function PipelineDetailPage() {
 
                 {/* AI Models */}
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
-                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">AI Models</h3>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="text-xs text-slate-500 mb-1.5 block">Research Model</label>
-                            <select
-                                value={`${researchProvider}/${researchModel}`}
-                                onChange={e => {
-                                    const [p, m] = e.target.value.split('/')
-                                    setResearchProvider(p)
-                                    setResearchModel(m)
-                                }}
-                                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-white/20"
-                            >
-                                {MODEL_OPTIONS.map(o => (
-                                    <option key={`${o.provider}/${o.model}`} value={`${o.provider}/${o.model}`}>{o.label}</option>
-                                ))}
-                            </select>
-                            <p className="text-[10px] text-slate-600 mt-1">Used for web research before writing</p>
-                        </div>
-                        <div>
-                            <label className="text-xs text-slate-500 mb-1.5 block">Writing Model</label>
-                            <select
-                                value={`${writingProvider}/${writingModel}`}
-                                onChange={e => {
-                                    const [p, m] = e.target.value.split('/')
-                                    setWritingProvider(p)
-                                    setWritingModel(m)
-                                }}
-                                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-white/20"
-                            >
-                                {MODEL_OPTIONS.map(o => (
-                                    <option key={`${o.provider}/${o.model}`} value={`${o.provider}/${o.model}`}>{o.label}</option>
-                                ))}
-                            </select>
-                            <p className="text-[10px] text-slate-600 mt-1">Writes the final article</p>
-                        </div>
+                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">AI Model</h3>
+                    <div>
+                        <select
+                            value={`${writingProvider}/${writingModel}`}
+                            onChange={e => {
+                                const [p, m] = e.target.value.split('/')
+                                setWritingProvider(p)
+                                setWritingModel(m)
+                            }}
+                            className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-white/20"
+                        >
+                            {WRITING_MODEL_OPTIONS.map(o => (
+                                <option key={`${o.provider}/${o.model}`} value={`${o.provider}/${o.model}`}>{o.label}</option>
+                            ))}
+                        </select>
+                        <p className="text-[10px] text-slate-600 mt-1.5">Writes articles and publishes. Perplexity web search runs automatically.</p>
                     </div>
                 </div>
             </div>
