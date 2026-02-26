@@ -86,6 +86,7 @@ export default function PipelineDetailPage() {
     const [researchModel, setResearchModel] = useState('sonar-pro')
     const [writingProvider, setWritingProvider] = useState('openai')
     const [writingModel, setWritingModel] = useState('gpt-4o')
+    const [videoClippingEnabled, setVideoClippingEnabled] = useState(false)
 
     const fetchAuto = useCallback(async () => {
         const res = await fetch(`/api/automations/${id}`)
@@ -98,6 +99,7 @@ export default function PipelineDetailPage() {
         setResearchModel(data.config.researchModel || 'sonar-pro')
         setWritingProvider(data.config.writingProvider || 'openai')
         setWritingModel(data.config.writingModel || 'gpt-4o')
+        setVideoClippingEnabled(data.config.videoClippingEnabled || false)
         setLoading(false)
     }, [id, router])
 
@@ -135,10 +137,9 @@ export default function PipelineDetailPage() {
                     config: {
                         ...auto.config,
                         outputMode,
-                        researchProvider,
-                        researchModel,
                         writingProvider,
                         writingModel,
+                        videoClippingEnabled,
                     }
                 })
             })
@@ -220,7 +221,8 @@ export default function PipelineDetailPage() {
     const hasUnsavedChanges = prompt !== (auto.prompt || '') ||
         outputMode !== (config.outputMode || 'article_and_x') ||
         researchModel !== (config.researchModel || 'sonar-pro') ||
-        writingModel !== (config.writingModel || 'gpt-4o')
+        writingModel !== (config.writingModel || 'gpt-4o') ||
+        videoClippingEnabled !== (config.videoClippingEnabled || false)
 
     return (
         <div className="max-w-4xl mx-auto py-10 px-6 space-y-8">
@@ -335,6 +337,35 @@ export default function PipelineDetailPage() {
                     )}
                 </div>
             </div>
+
+            {/* Video Clips Config (YouTube only) */}
+            {isYouTube && (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-3">
+                        <div>
+                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Video Clips</h3>
+                            <p className="text-[10px] text-slate-600 mt-0.5">Automated "Video-First" content generation settings.</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={videoClippingEnabled}
+                                onChange={e => setVideoClippingEnabled(e.target.checked)}
+                                className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                            <span className="ml-3 text-sm font-medium text-slate-300">{videoClippingEnabled ? 'Enabled' : 'Disabled'}</span>
+                        </label>
+                    </div>
+                    {videoClippingEnabled && (
+                        <div className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
+                            <p className="text-xs text-red-300 leading-relaxed">
+                                <strong>Active:</strong> The system will automatically use Fractal AI to identify the viral hook of any new video. This clip will be attached to Threads and single Posts.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* AI Instructions */}
             <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">

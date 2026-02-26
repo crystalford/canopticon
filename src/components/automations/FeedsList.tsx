@@ -60,6 +60,7 @@ function PipelineFlow({ automation }: { automation: Automation }) {
         autoPublish
             ? { label: '✓ Auto-Publish', color: 'text-green-400 bg-green-500/10 border-green-500/20' }
             : { label: '📋 Save as Draft', color: 'text-slate-400 bg-slate-500/10 border-slate-500/20' },
+        ...(config.videoClippingEnabled ? [{ label: '🎬 Video Clip', color: 'text-red-400 bg-red-500/10 border-red-500/20' }] : []),
         ...(postToX ? [{ label: '𝕏 Thread', color: 'text-slate-300 bg-slate-500/10 border-slate-500/20' }] : []),
     ]
 
@@ -94,6 +95,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
     const [prompt, setPrompt] = useState(DEFAULT_YOUTUBE_PROMPT)
     const [xThreadPrompt, setXThreadPrompt] = useState('')
     const [outputMode, setOutputMode] = useState('article_and_x')
+    const [videoClippingEnabled, setVideoClippingEnabled] = useState(true)
     const [autoPublish, setAutoPublish] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -119,6 +121,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
         }
         if (xThreadPrompt.trim()) config.xThreadPrompt = xThreadPrompt.trim()
         config.outputMode = outputMode
+        config.videoClippingEnabled = type === 'youtube' ? videoClippingEnabled : false
 
         setSaving(true)
         try {
@@ -243,8 +246,8 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                 <label className="text-xs text-slate-500 mb-1.5 block">Output Mode</label>
                 <div className="grid grid-cols-2 gap-1.5">
                     {([
-                        { value: 'article_and_x', label: '𝕏 Thread', desc: 'Article + multi-tweet thread' },
-                        { value: 'article_and_x_post', label: '𝕏 Post', desc: 'Article + one high-impact tweet' },
+                        { value: 'article_and_x', label: '𝕏 Thread', desc: 'Article + video clip thread' },
+                        { value: 'article_and_x_post', label: '𝕏 Post', desc: 'Article + video clip tweet' },
                         { value: 'article_only', label: 'Article Only', desc: 'Publish, no X posting' },
                         { value: 'draft', label: 'Draft', desc: 'Save as draft for review' },
                     ] as { value: string; label: string; desc: string }[]).map(m => (
@@ -253,8 +256,8 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                             type="button"
                             onClick={() => setOutputMode(m.value)}
                             className={`text-left px-2.5 py-2 rounded-lg border text-xs transition-colors ${outputMode === m.value
-                                    ? 'bg-red-600/20 border-red-500/50 text-white'
-                                    : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'
+                                ? 'bg-red-600/20 border-red-500/50 text-white'
+                                : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'
                                 }`}
                         >
                             <div className="font-medium">{m.label}</div>
@@ -265,16 +268,30 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
             </div>
 
             {/* Options */}
-            <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                    type="checkbox"
-                    checked={autoPublish}
-                    onChange={e => setAutoPublish(e.target.checked)}
-                    className="accent-red-500"
-                />
-                <span className="text-sm text-slate-300">Auto-publish articles</span>
-                <span className="text-xs text-slate-500">(unchecked = save as draft for review)</span>
-            </label>
+            <div className="space-y-2">
+                {type === 'youtube' && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={videoClippingEnabled}
+                            onChange={e => setVideoClippingEnabled(e.target.checked)}
+                            className="accent-red-500"
+                        />
+                        <span className="text-sm text-slate-300">Automated Video Clipping</span>
+                        <span className="text-xs text-slate-500">(triggers Fractal AI to find a viral hook)</span>
+                    </label>
+                )}
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={autoPublish}
+                        onChange={e => setAutoPublish(e.target.checked)}
+                        className="accent-red-500"
+                    />
+                    <span className="text-sm text-slate-300">Auto-publish articles</span>
+                    <span className="text-xs text-slate-500">(unchecked = save as draft for review)</span>
+                </label>
+            </div>
 
             {error && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
 

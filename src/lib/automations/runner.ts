@@ -488,7 +488,8 @@ export async function processYouTubeVideo(
 
     // 1. Trigger automated clipping if needed for social
     let videoClipUrl: string | undefined
-    if (outputMode === 'article_and_x' || outputMode === 'article_and_x_post') {
+    const videoClippingEnabled = config.videoClippingEnabled === true
+    if (videoClippingEnabled && (outputMode === 'article_and_x' || outputMode === 'article_and_x_post')) {
         try {
             console.log(`[processYouTubeVideo] Triggering automated clipping for: ${video.title}`)
             const [clipRecord] = await db.insert(videoClips).values({
