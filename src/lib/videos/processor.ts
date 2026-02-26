@@ -40,9 +40,15 @@ export async function processVideoClip(clipId: string, url: string) {
         // 2. Ask Claude to identify the best clip
         console.log(`[processVideoClip] Asking Claude to identify best moment in "${title}"...`)
         const model = await getModel('openai', 'gpt-4o') // or anthropic claude-3-5-sonnet
-        const aiPrompt = `You are a social media manager for a political news channel.
-Read the following transcript and find the SINGLE most compelling 30-90 second moment to clip for X (Twitter) and TikTok.
-Look for a hot take, key revelation, dramatic exchange, surprising fact, or highly quotable statement.
+        const aiPrompt = `You are a social media strategist for a high-impact political news channel.
+Read the timestamped transcript and find the SINGLE most compelling 30-90 second moment for X (Twitter) and TikTok.
+Focus on "The Hook": a shocking revelation, a heated debate, or a viral-ready soundbite.
+
+AUDIBLE PRECISION RULES (CRITICAL):
+1. NO SILENCE: Do NOT start the clip during intro music, 5 seconds of silence, or generic "Hello" intros.
+2. THE START: Identify the exact timestamp where the primary person starts speaking their MOST MEANINGFUL sentence.
+3. THE END: End naturally after a complete thought, within the 30-90s limit.
+4. If a video has a 10-second intro of music/graphics, your "start_seconds" MUST be at 10 or later.
 
 Video: "${title}"
 URL: ${url}
@@ -54,7 +60,7 @@ Return ONLY valid JSON with no markdown wrapping and no other text:
 {
   "start_seconds": <number>,
   "end_seconds": <number>,
-  "rationale": "<brief 1-sentence explanation of why this is the best moment>"
+  "rationale": "<brief 1-sentence explanation of why this hook works>"
 }`
 
         const result = await generateText({ model, prompt: aiPrompt })

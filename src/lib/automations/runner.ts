@@ -2,7 +2,8 @@ import { generateText, stepCountIs } from 'ai'
 import { getModel } from '@/lib/ai/providers'
 import { createTools } from '@/lib/ai/tools'
 import { searchPerplexity } from '@/lib/ai/tools'
-import { db, automations, articles } from '@/db'
+import { db, automations, articles, videoClips } from '@/db'
+import { processVideoClip } from '@/lib/videos/processor'
 import { settings as settingsTable } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import RSSParser from 'rss-parser'
@@ -84,9 +85,10 @@ async function generateAndPostThread(
     articleTitle: string,
     articleSlug: string,
     sourceUrl?: string,       // If provided, last tweet links here instead of the article
-    xThreadPrompt?: string    // Custom instructions for the thread (from config.xThreadPrompt)
+    xThreadPrompt?: string,    // Custom instructions for the thread (from config.xThreadPrompt)
+    videoClipUrl?: string
 ): Promise<string> {
-    console.log(`[generateAndPostThread] Generating thread for: ${articleTitle}`)
+    console.log(`[generateAndPostThread] Generating thread for: ${articleTitle} (Video: ${videoClipUrl ? 'YES' : 'NO'})`)
 
     const apiKey = await getCredential('TWITTER_API_KEY')
     const apiSecret = await getCredential('TWITTER_API_SECRET')
@@ -151,9 +153,24 @@ Extract ${numTweets} tweets. Return ONLY a JSON array.`
 
     const client = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken, accessSecret })
 
-    // Attach YouTube thumbnail to first tweet for visual impact
+    // Attach Video or Thumbnail to first tweet
     let firstTweetMediaId: string | undefined
-    if (sourceUrl) {
+
+    if (videoClipUrl) {
+        try {
+            console.log(`[generateAndPostThread] Uploading video for first tweet from: ${videoClipUrl}`)
+            const videoRes = await fetch(videoClipUrl)
+            if (videoRes.ok) {
+                const buffer = Buffer.from(await videoRes.arrayBuffer())
+                const mediaId = await client.v1.uploadMedia(buffer, { mimeType: 'video/mp4' })
+                firstTweetMediaId = mediaId
+            }
+        } catch (e) {
+            console.warn('[generateAndPostThread] Video upload failed, falling back to thumbnail:', e)
+        }
+    }
+
+    if (!firstTweetMediaId && sourceUrl) {
         try {
             const { extractVideoId } = await import('./transcript')
             const videoId = extractVideoId(sourceUrl)
@@ -164,7 +181,6 @@ Extract ${numTweets} tweets. Return ONLY a JSON array.`
                     const buffer = Buffer.from(await thumbRes.arrayBuffer())
                     const mediaId = await client.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' })
                     firstTweetMediaId = mediaId
-                    console.log(`[generateAndPostThread] Uploaded thumbnail for ${videoId}`)
                 }
             }
         } catch (e) {
@@ -196,9 +212,10 @@ async function generateAndPostSingle(
     articleTitle: string,
     articleSlug: string,
     sourceUrl?: string,
-    xThreadPrompt?: string
+    xThreadPrompt?: string,
+    videoClipUrl?: string
 ): Promise<string> {
-    console.log(`[generateAndPostSingle] Generating single post for: ${articleTitle}`)
+    console.log(`[generateAndPostSingle] Generating single post for: ${articleTitle} (Video: ${videoClipUrl ? 'YES' : 'NO'})`)
 
     const apiKey = await getCredential('TWITTER_API_KEY')
     const apiSecret = await getCredential('TWITTER_API_SECRET')
@@ -237,8 +254,25 @@ Article Content: ${article.content.substring(0, 3000)}`
 
     const params: any = { text: tweetText }
 
-    // Attach YouTube thumbnail if available
-    if (sourceUrl) {
+    // 1. Try to attach the Video Clip if provided
+    if (videoClipUrl) {
+        try {
+            console.log(`[generateAndPostSingle] Attempting video upload from: ${videoClipUrl}`)
+            const videoRes = await fetch(videoClipUrl)
+            if (videoRes.ok) {
+                const buffer = Buffer.from(await videoRes.arrayBuffer())
+                // Video upload to X can take time, use v1 for media upload
+                const mediaId = await client.v1.uploadMedia(buffer, { mimeType: 'video/mp4' })
+                params.media = { media_ids: [mediaId] }
+                console.log(`[generateAndPostSingle] Video uploaded successfully: ${mediaId}`)
+            }
+        } catch (e) {
+            console.warn('[generateAndPostSingle] Video upload failed, falling back to thumbnail:', e)
+        }
+    }
+
+    // 2. Fallback to YouTube thumbnail if no video attached
+    if (!params.media && sourceUrl) {
         try {
             const { extractVideoId } = await import('./transcript')
             const videoId = extractVideoId(sourceUrl)
@@ -452,6 +486,29 @@ export async function processYouTubeVideo(
     const config = automation.config as Record<string, unknown>
     const outputMode = (config.outputMode as string) || 'article_and_x'
 
+    // 1. Trigger automated clipping if needed for social
+    let videoClipUrl: string | undefined
+    if (outputMode === 'article_and_x' || outputMode === 'article_and_x_post') {
+        try {
+            console.log(`[processYouTubeVideo] Triggering automated clipping for: ${video.title}`)
+            const [clipRecord] = await db.insert(videoClips).values({
+                youtubeUrl: video.link,
+                videoTitle: video.title,
+                status: 'queued'
+            }).returning()
+
+            if (clipRecord) {
+                const result = await processVideoClip(clipRecord.id, video.link)
+                if (result.success && result.clip.clipUrl) {
+                    videoClipUrl = result.clip.clipUrl
+                    console.log(`[processYouTubeVideo] Automated clip ready: ${videoClipUrl}`)
+                }
+            }
+        } catch (e: any) {
+            console.warn(`[processYouTubeVideo] Automated clipping failed (non-fatal): ${e.message}`)
+        }
+    }
+
     const transcript = await fetchTranscript(video.link)
     const transcriptSection = transcript
         ? `\nTranscript (${transcript.split(/\s+/).length} words):\n${transcript}`
@@ -487,7 +544,7 @@ export async function processYouTubeVideo(
     if (outputMode === 'article_and_x' && article) {
         try {
             const xThreadPrompt = (config.xThreadPrompt as string) || undefined
-            threadUrl = await generateAndPostThread(article.id, article.title, article.slug, video.link, xThreadPrompt)
+            threadUrl = await generateAndPostThread(article.id, article.title, article.slug, video.link, xThreadPrompt, videoClipUrl)
         } catch (e: any) {
             xPostError = e.message
         }
@@ -496,7 +553,7 @@ export async function processYouTubeVideo(
     if (outputMode === 'article_and_x_post' && article) {
         try {
             const xThreadPrompt = (config.xThreadPrompt as string) || undefined
-            threadUrl = await generateAndPostSingle(article.id, article.title, article.slug, video.link, xThreadPrompt)
+            threadUrl = await generateAndPostSingle(article.id, article.title, article.slug, video.link, xThreadPrompt, videoClipUrl)
         } catch (e: any) {
             xPostError = e.message
         }
