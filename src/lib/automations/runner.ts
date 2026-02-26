@@ -22,30 +22,21 @@ async function getCredential(key: string): Promise<string | undefined> {
 }
 
 // Detect if content is in English (requires transcript, no fallback)
-// Returns true if English, false if not English
-// Throws error if transcript is missing (we don't want to guess)
 function isEnglish(transcript: string | null): boolean {
     if (!transcript || transcript.length < 50) {
         throw new Error('No transcript available for language detection')
     }
     try {
         const language = franc(transcript)
-        // language is a string like 'eng', 'fra', etc.
         const isEnglishLang = language === 'eng'
         console.log(`[isEnglish] Detected language: ${language} (English: ${isEnglishLang})`)
         return isEnglishLang
-    } catch (e) {
+    } catch (e: any) {
         throw new Error(`Language detection failed: ${e.message}`)
     }
 }
 
 const parser = new RSSParser()
-
-// Output modes:
-// 'article_and_x_post' - write full article + post ONE high-impact X tweet
-// 'article_only'       - write article, no X
-// 'draft'              - write article, save as draft
-// 'x_only'             - skip AI entirely, just post a link tweet when new content drops
 
 const DEFAULT_RESEARCH_PROVIDER = 'perplexity'
 const DEFAULT_RESEARCH_MODEL = 'sonar-pro'
@@ -75,40 +66,67 @@ IMAGE RULES (critical):
 - Good prompt: "A wide shot of the Canadian House of Commons chamber during a heated debate, photojournalistic, natural lighting, no text"
 - Bad prompt: anything with overlay text, banners, titles, or subtitles in the image.`
 
-// --- Helper: post X/Twitter link (x_only mode — no AI, just a link post) ---
-async function postXLink(
-    title: string,
-    link: string,
-    description?: string
-): Promise<string> {
-    const apiKey = await getCredential('TWITTER_API_KEY')
-    const apiSecret = await getCredential('TWITTER_API_SECRET')
-    const accessToken = await getCredential('TWITTER_ACCESS_TOKEN')
-    const accessSecret = await getCredential('TWITTER_ACCESS_SECRET')
+// ── Output Flags ─────────────────────────────────────────────────────────────
+// Individual output toggles. Replaces the old single 'outputMode' string.
 
-    if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
-        throw new Error('X/Twitter API credentials not configured')
-    }
-
-    const snippet = description?.substring(0, 200)?.trim()
-    const text = `🆕 ${title}\n\n${snippet ? snippet + '\n\n' : ''}${link}`
-
-    const client = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken, accessSecret })
-    const result = await client.v2.tweet({ text })
-    return `https://x.com/i/status/${result.data.id}`
+export interface OutputFlags {
+    writeArticle: boolean       // write and publish an article
+    articleDraft: boolean       // save as draft instead of publishing (only if writeArticle)
+    clipVideo: boolean          // clip the video via Apify (YouTube only, async)
+    postX: boolean              // post to X/Twitter
+    xFormat: 'thread' | 'post' // thread = multi-tweet, post = single tweet
+    xTweetCount: number         // number of tweets in a thread (3–5)
+    includeArticleLink: boolean // link to article URL in X post (vs YouTube URL)
 }
 
-// --- Helper: post X/Twitter thread (article_and_x mode) ---
-export async function generateAndPostThread(
-    articleId: string,
-    articleTitle: string,
-    articleSlug: string,
-    sourceUrl?: string,       // If provided, last tweet links here instead of the article
-    xThreadPrompt?: string,    // Custom instructions for the thread (from config.xThreadPrompt)
-    videoClipUrl?: string
-): Promise<string> {
-    console.log(`[generateAndPostThread] Generating thread for: ${articleTitle} (Video: ${videoClipUrl ? 'YES' : 'NO'})`)
+// Derive flags from config — supports both new individual flags and legacy outputMode string
+export function getOutputFlags(config: Record<string, unknown>): OutputFlags {
+    // New-style: individual flags (writeArticle or postX present)
+    if ('writeArticle' in config || 'postX' in config) {
+        return {
+            writeArticle: (config.writeArticle as boolean) ?? true,
+            articleDraft: (config.articleDraft as boolean) ?? false,
+            clipVideo: (config.clipVideo as boolean) ?? false,
+            postX: (config.postX as boolean) ?? false,
+            xFormat: (config.xFormat as 'thread' | 'post') ?? 'thread',
+            xTweetCount: Math.max(3, Math.min(5, (config.xTweetCount as number) ?? 4)),
+            includeArticleLink: (config.includeArticleLink as boolean) ?? false,
+        }
+    }
+    // Legacy: derive from old outputMode string
+    const mode = (config.outputMode as string) || 'article_and_x'
+    return {
+        writeArticle: mode !== 'x_only',
+        articleDraft: mode === 'draft',
+        clipVideo: (config.videoClippingEnabled as boolean) ?? false,
+        postX: ['article_and_x', 'article_and_x_post', 'x_only'].includes(mode),
+        xFormat: mode === 'article_and_x_post' ? 'post' : 'thread',
+        xTweetCount: 4,
+        includeArticleLink: false,
+    }
+}
 
+// ── Unified X/Twitter Posting ─────────────────────────────────────────────────
+
+export async function postToX({
+    content,
+    title,
+    linkUrl,
+    xFormat,
+    xTweetCount,
+    xThreadPrompt,
+    videoClipUrl,
+    videoSourceUrl,
+}: {
+    content: string           // article body or transcript to write tweets from
+    title: string
+    linkUrl?: string          // link for CTA in last tweet (undefined = no link)
+    xFormat: 'thread' | 'post'
+    xTweetCount: number
+    xThreadPrompt?: string    // custom tone/style instructions
+    videoClipUrl?: string     // native MP4 to upload to first tweet
+    videoSourceUrl?: string   // YouTube URL for thumbnail fallback
+}): Promise<string> {
     const apiKey = await getCredential('TWITTER_API_KEY')
     const apiSecret = await getCredential('TWITTER_API_SECRET')
     const accessToken = await getCredential('TWITTER_ACCESS_TOKEN')
@@ -118,81 +136,78 @@ export async function generateAndPostThread(
         throw new Error('X/Twitter API credentials not configured')
     }
 
-    const article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
-    if (!article) throw new Error('Article not found')
+    const client = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken, accessSecret })
+    const chatModel = await getModel(DEFAULT_WRITING_PROVIDER, DEFAULT_WRITING_MODEL)
 
-    const linkUrl = sourceUrl || `https://canopticon.com/articles/${articleSlug}`
-    const wordCount = article.content.split(/\s+/).length
-    const numTweets = wordCount < 500 ? 3 : wordCount < 1500 ? 4 : 5
-    const lastTweetCta = sourceUrl ? 'Watch:' : 'Full analysis:'
+    let tweets: string[]
 
-    const defaultThreadInstructions = `You are a political media strategist writing high-engagement X/Twitter posts. Your job is to EXTRACT the most newsworthy, surprising, or quotable moments from this content and write one tweet per moment. Each tweet must work as a completely standalone post — someone who sees only that tweet should get full value from it.
+    if (xFormat === 'post') {
+        // Single tweet
+        const ctaLine = linkUrl ? `\nEnd with: ${linkUrl}` : ''
+        const defaultPrompt = `You are a political media strategist. Extract the SINGLE most newsworthy, surprising, or quotable moment from this content. Write ONE punchy tweet.
 
-EXTRACTION RULES:
-- Scan for: direct quotes from politicians/officials, surprising statistics or reversals, conflict between parties, specific policy positions, anything that would make someone say "wait, what?"
-- Each tweet = ONE extracted moment. Not a summary. Not a transition. One specific thing.
+Format:
+Line 1: The moment — lead with a direct quote or the most surprising fact.
+Line 2: One sentence of context.${ctaLine}
 
-TWEET FORMAT (each tweet):
-Line 1: The moment itself — lead with the most surprising/provocative element. If it's a quote, use quotation marks and name the speaker.
-Line 2 (optional): One sentence of context that makes it land harder.
-Line 3: End with EITHER a sharp question that invites a reply ("What does this mean for X?") OR a provocative statement that makes people want to share it.
+Under 280 characters total. No hashtags. Return ONLY the tweet text, no quotes or JSON.`
+
+        const prompt = `${xThreadPrompt || defaultPrompt}\n\nTitle: ${title}\n\nContent:\n${content.substring(0, 3000)}`
+        const result = await generateText({ model: chatModel, prompt })
+        tweets = [result.text.trim().replace(/^["']|["']$/g, '')]
+    } else {
+        // Thread
+        const ctaLine = linkUrl
+            ? `Last tweet ends with "Watch: ${linkUrl}"`
+            : 'Last tweet ends with a sharp question or provocative statement'
+
+        const defaultPrompt = `You are a political media strategist writing high-engagement X/Twitter posts. Extract the most newsworthy, surprising, or quotable moments. Each tweet must work as a completely standalone post.
+
+TWEET FORMAT:
+Line 1: The moment — lead with the most surprising/provocative element. If it's a quote, use quotation marks and name the speaker.
+Line 2: One sentence of context.
+Line 3: A sharp question or provocative statement.
 
 RULES:
-- Every tweet must be able to stand alone — no "continued from above" references
+- Each tweet stands alone — no "continued from above" references
 - Be specific: names, numbers, policy names, dates — not vague generalities
-- Last tweet ends with "${lastTweetCta} ${linkUrl}"
+- ${ctaLine}
 - Under 280 characters each
 - No hashtags
 - Return ONLY a valid JSON array of strings`
 
-    const threadInstructions = xThreadPrompt || defaultThreadInstructions
+        const prompt = `${xThreadPrompt || defaultPrompt}\n\nTitle: ${title}\n\nContent:\n${content.substring(0, 4000)}\n\nExtract ${xTweetCount} tweets. Return ONLY a JSON array.`
+        const result = await generateText({ model: chatModel, prompt })
 
-    const prompt = `${threadInstructions}
-
-Article Title: ${articleTitle}
-Article Content: ${article.content.substring(0, 4000)}
-
-Extract ${numTweets} tweets. Return ONLY a JSON array.`
-
-    const chatModel = await getModel(DEFAULT_WRITING_PROVIDER, DEFAULT_WRITING_MODEL)
-    const result = await generateText({ model: chatModel, prompt })
-
-    let tweets: string[]
-    try {
         const jsonMatch = result.text.match(/\[[\s\S]*\]/)
-        if (!jsonMatch) throw new Error('No JSON array found')
+        if (!jsonMatch) throw new Error('AI failed to generate a tweet array')
         tweets = JSON.parse(jsonMatch[0])
-        if (!Array.isArray(tweets)) throw new Error('Invalid format')
-        tweets = tweets.map((t: string) =>
-            t.replace(/\s*\(\d+\s+chars?[^)]*\)/gi, '').trim()
-        )
-    } catch (error) {
-        throw new Error(`Failed to parse thread: ${error}`)
+        if (!Array.isArray(tweets)) throw new Error('Invalid tweet format returned by AI')
+        tweets = tweets.map((t: string) => t.replace(/\s*\(\d+\s+chars?[^)]*\)/gi, '').trim())
     }
 
-    const client = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken, accessSecret })
-
-    // Attach Video or Thumbnail to first tweet
+    // Upload native video clip or fall back to YouTube thumbnail for first tweet
     let firstTweetMediaId: string | undefined
 
     if (videoClipUrl) {
         try {
-            console.log(`[generateAndPostThread] Uploading video for first tweet from: ${videoClipUrl}`)
+            console.log(`[postToX] Uploading native video clip: ${videoClipUrl}`)
             const videoRes = await fetch(videoClipUrl)
             if (videoRes.ok) {
                 const buffer = Buffer.from(await videoRes.arrayBuffer())
                 const mediaId = await client.v1.uploadMedia(buffer, { mimeType: 'video/mp4' })
                 firstTweetMediaId = mediaId
+                console.log(`[postToX] Native video uploaded: ${mediaId}`)
             }
         } catch (e) {
-            console.warn('[generateAndPostThread] Video upload failed, falling back to thumbnail:', e)
+            console.warn('[postToX] Video upload failed, falling back to thumbnail:', e)
         }
     }
 
-    if (!firstTweetMediaId && sourceUrl) {
+    if (!firstTweetMediaId && videoSourceUrl) {
         try {
             const { extractVideoId } = await import('./transcript')
-            const videoId = extractVideoId(sourceUrl)
+            const videoId = extractVideoId(videoSourceUrl)
             if (videoId) {
                 const thumbUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
                 const thumbRes = await fetch(thumbUrl)
@@ -203,29 +218,50 @@ Extract ${numTweets} tweets. Return ONLY a JSON array.`
                 }
             }
         } catch (e) {
-            console.warn('[generateAndPostThread] Thumbnail upload failed (non-fatal):', e)
+            console.warn('[postToX] Thumbnail upload failed (non-fatal):', e)
         }
     }
 
+    // Post tweets
     let lastTweetId: string | undefined
     const postedTweets: { id: string; text: string }[] = []
 
     for (let i = 0; i < tweets.length; i++) {
-        const text = tweets[i]
-        const params: any = { text }
+        const params: any = { text: tweets[i] }
         if (lastTweetId) params.reply = { in_reply_to_tweet_id: lastTweetId }
         if (i === 0 && firstTweetMediaId) params.media = { media_ids: [firstTweetMediaId] }
         const tweetResult = await client.v2.tweet(params)
         lastTweetId = tweetResult.data.id
-        postedTweets.push({ id: tweetResult.data.id, text })
-        // Small delay to avoid rate limit burst
+        postedTweets.push({ id: tweetResult.data.id, text: tweets[i] })
         if (i < tweets.length - 1) await new Promise(r => setTimeout(r, 500))
     }
 
     return `https://x.com/i/status/${postedTweets[0].id}`
 }
 
-// --- Helper: post ONE high-impact X post (article_and_x_post mode) ---
+// Backward-compat wrappers used by the Apify webhook
+export async function generateAndPostThread(
+    articleId: string,
+    articleTitle: string,
+    articleSlug: string,
+    sourceUrl?: string,
+    xThreadPrompt?: string,
+    videoClipUrl?: string
+): Promise<string> {
+    const article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
+    if (!article) throw new Error('Article not found')
+    return postToX({
+        content: article.content,
+        title: articleTitle,
+        linkUrl: sourceUrl,
+        xFormat: 'thread',
+        xTweetCount: 4,
+        xThreadPrompt,
+        videoClipUrl,
+        videoSourceUrl: sourceUrl,
+    })
+}
+
 export async function generateAndPostSingle(
     articleId: string,
     articleTitle: string,
@@ -234,93 +270,28 @@ export async function generateAndPostSingle(
     xThreadPrompt?: string,
     videoClipUrl?: string
 ): Promise<string> {
-    console.log(`[generateAndPostSingle] Generating single post for: ${articleTitle} (Video: ${videoClipUrl ? 'YES' : 'NO'})`)
-
-    const apiKey = await getCredential('TWITTER_API_KEY')
-    const apiSecret = await getCredential('TWITTER_API_SECRET')
-    const accessToken = await getCredential('TWITTER_ACCESS_TOKEN')
-    const accessSecret = await getCredential('TWITTER_ACCESS_SECRET')
-
-    if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
-        throw new Error('X/Twitter API credentials not configured')
-    }
-
     const article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
     if (!article) throw new Error('Article not found')
-
-    const linkUrl = sourceUrl || `https://canopticon.com/articles/${articleSlug}`
-    const lastTweetCta = sourceUrl ? 'Watch:' : 'Read:'
-
-    const defaultInstructions = xThreadPrompt || `You are a political media strategist. Extract the SINGLE most newsworthy, surprising, or quotable moment from this article. Write ONE tweet about it.
-
-Format:
-Line 1: The moment — lead with a direct quote or the most surprising fact.
-Line 2: One sentence of context.
-Line 3: End with "${lastTweetCta} ${linkUrl}"
-
-Under 280 characters total. No hashtags. Return ONLY the tweet text, no JSON.`
-
-    const prompt = `${defaultInstructions}
-
-Article Title: ${articleTitle}
-Article Content: ${article.content.substring(0, 3000)}`
-
-    const chatModel = await getModel(DEFAULT_WRITING_PROVIDER, DEFAULT_WRITING_MODEL)
-    const result = await generateText({ model: chatModel, prompt })
-    const tweetText = result.text.trim().replace(/^["']|["']$/g, '')
-
-    const client = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken, accessSecret })
-
-    const params: any = { text: tweetText }
-
-    // 1. Try to attach the Video Clip if provided
-    if (videoClipUrl) {
-        try {
-            console.log(`[generateAndPostSingle] Attempting video upload from: ${videoClipUrl}`)
-            const videoRes = await fetch(videoClipUrl)
-            if (videoRes.ok) {
-                const buffer = Buffer.from(await videoRes.arrayBuffer())
-                // Video upload to X can take time, use v1 for media upload
-                const mediaId = await client.v1.uploadMedia(buffer, { mimeType: 'video/mp4' })
-                params.media = { media_ids: [mediaId] }
-                console.log(`[generateAndPostSingle] Video uploaded successfully: ${mediaId}`)
-            }
-        } catch (e) {
-            console.warn('[generateAndPostSingle] Video upload failed, falling back to thumbnail:', e)
-        }
-    }
-
-    // 2. Fallback to YouTube thumbnail if no video attached
-    if (!params.media && sourceUrl) {
-        try {
-            const { extractVideoId } = await import('./transcript')
-            const videoId = extractVideoId(sourceUrl)
-            if (videoId) {
-                const thumbUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
-                const thumbRes = await fetch(thumbUrl)
-                if (thumbRes.ok) {
-                    const buffer = Buffer.from(await thumbRes.arrayBuffer())
-                    const mediaId = await client.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' })
-                    params.media = { media_ids: [mediaId] }
-                }
-            }
-        } catch (e) {
-            console.warn('[generateAndPostSingle] Thumbnail upload failed (non-fatal):', e)
-        }
-    }
-
-    const tweetResult = await client.v2.tweet(params)
-    return `https://x.com/i/status/${tweetResult.data.id}`
+    return postToX({
+        content: article.content,
+        title: articleTitle,
+        linkUrl: sourceUrl,
+        xFormat: 'post',
+        xTweetCount: 1,
+        xThreadPrompt,
+        videoClipUrl,
+        videoSourceUrl: sourceUrl,
+    })
 }
 
-// --- Core article generation ---
+// ── Article Generation ────────────────────────────────────────────────────────
+
 async function generateArticle(
     triggerContent: string,
-    automation: Automation
+    automation: Automation,
+    saveDraft: boolean = false
 ): Promise<{ success: boolean; articleId?: string; error?: string }> {
     const config = automation.config as Record<string, unknown>
-    const outputMode = (config.outputMode as string) || 'article_and_x'
-    const saveDraft = outputMode === 'draft'
 
     const instructions = automation.prompt || 'Write a news article about this content.'
     const publishMode = saveDraft
@@ -336,7 +307,7 @@ async function generateArticle(
     const writingProvider = ((config.writingProvider as string) || DEFAULT_WRITING_PROVIDER) as 'openai' | 'perplexity' | 'anthropic'
     const writingModelId = (config.writingModel as string) || DEFAULT_WRITING_MODEL
 
-    console.log(`[generateArticle] Mode: ${outputMode} | Research: ${researchProvider}/${researchModelId} | Writing: ${writingProvider}/${writingModelId}`)
+    console.log(`[generateArticle] draft=${saveDraft} | Research: ${researchProvider}/${researchModelId} | Writing: ${writingProvider}/${writingModelId}`)
 
     const writingModel = await getModel(writingProvider, writingModelId)
 
@@ -355,7 +326,6 @@ async function generateArticle(
     })
 
     if (recentArticle) {
-        // Link article to this pipeline
         await db.update(articles)
             .set({ automationId: automation.id })
             .where(eq(articles.id, recentArticle.id))
@@ -365,7 +335,8 @@ async function generateArticle(
     return { success: false, error: 'AI ran but no article was created.' }
 }
 
-// --- Main Runner (called by cron + manual run) ---
+// ── Main Runner (cron + manual run) ──────────────────────────────────────────
+
 export async function runAutomation(automation: Automation): Promise<{
     success: boolean
     error?: string
@@ -378,19 +349,17 @@ export async function runAutomation(automation: Automation): Promise<{
     console.log(`[runAutomation] Pipeline: ${automation.name} (${automation.type})`)
 
     const config = automation.config as Record<string, unknown>
-    const outputMode = (config.outputMode as string) || 'article_and_x'
+    const flags = getOutputFlags(config)
 
     const triggerContent = await checkTrigger(automation)
 
     if (!triggerContent) {
         const result = { success: true, skipped: true, reason: 'No new content found' }
-        await db.update(automations)
-            .set({ lastRunAt: new Date(), lastResult: result })
-            .where(eq(automations.id, automation.id))
+        await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
         return result
     }
 
-    // Duplicate guard: if we already have an article for this exact video URL, skip
+    // Duplicate guard: skip if we already have an article for this exact video URL
     if (automation.type === 'youtube') {
         const urlMatch = triggerContent.match(/^URL: (.+)/m)
         const videoUrl = urlMatch?.[1]?.trim()
@@ -403,99 +372,75 @@ export async function runAutomation(automation: Automation): Promise<{
             })
             if (existing) {
                 const result = { success: true, skipped: true, reason: `Already covered: ${videoUrl}` }
-                await db.update(automations)
-                    .set({ lastRunAt: new Date(), lastResult: result })
-                    .where(eq(automations.id, automation.id))
+                await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
                 return result
             }
         }
     }
 
     try {
-        // x_only mode: skip AI, just post a link
-        if (outputMode === 'x_only') {
-            // Extract title and link from trigger content
-            const titleMatch = triggerContent.match(/Video Title: (.+)/)
-            const linkMatch = triggerContent.match(/URL: (.+)/)
-            const descMatch = triggerContent.match(/Description: ([\s\S]+)/)
-            const title = titleMatch?.[1] || 'New Content'
-            const link = linkMatch?.[1] || ''
-            const desc = descMatch?.[1]?.substring(0, 200)
+        // Extract video URL for linking/thumbnail (YouTube only)
+        const videoUrlMatch = triggerContent.match(/URL: (.+)/m)
+        const videoUrl = automation.type === 'youtube' ? videoUrlMatch?.[1]?.trim() : undefined
 
-            let threadUrl: string | undefined
-            let xPostError: string | undefined
-            try {
-                threadUrl = await postXLink(title, link, desc)
-            } catch (e: any) {
-                xPostError = e.message
+        // Step 1: Write article (if enabled)
+        let articleId: string | undefined
+        let article: { id: string; title: string; slug: string; content: string } | null | undefined = null
+
+        if (flags.writeArticle) {
+            const { success, articleId: aid, error } = await generateArticle(triggerContent, automation, flags.articleDraft)
+            if (!success) {
+                const result = { success: false, error: error || 'Unknown error' }
+                await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
+                return result
             }
-
-            const result = { success: !xPostError, threadUrl, xPostError, error: xPostError }
-            await db.update(automations)
-                .set({ lastRunAt: new Date(), lastResult: result })
-                .where(eq(automations.id, automation.id))
-            return result
+            articleId = aid
+            if (articleId) article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
         }
 
-        // All other modes: generate article
-        const { success, articleId, error } = await generateArticle(triggerContent, automation)
-
-        if (!success) {
-            const result = { success: false, error: error || 'Unknown error' }
-            await db.update(automations)
-                .set({ lastRunAt: new Date(), lastResult: result })
-                .where(eq(automations.id, automation.id))
-            return result
-        }
-
-        const article = articleId ? await db.query.articles.findFirst({ where: eq(articles.id, articleId) }) : null
-
+        // Step 2: Post to X (if enabled)
+        // Note: clipping is only triggered in processYouTubeVideo (YouTube webhook path)
         let threadUrl: string | undefined
         let xPostError: string | undefined
 
-        if (outputMode === 'article_and_x' && article) {
+        if (flags.postX) {
             try {
-                // For YouTube pipelines, link to the source video instead of the article
-                const videoUrlMatch = triggerContent.match(/URL: (.+)/)
-                const videoUrl = automation.type === 'youtube' ? videoUrlMatch?.[1]?.trim() : undefined
-                const xThreadPrompt = (config.xThreadPrompt as string) || undefined
-                threadUrl = await generateAndPostThread(article.id, article.title, article.slug, videoUrl, xThreadPrompt)
+                const content = article?.content || triggerContent
+                const title = article?.title || (triggerContent.match(/Video Title: (.+)/)?.[1]?.trim() ?? 'New Content')
+                const linkUrl = (flags.includeArticleLink && article)
+                    ? `https://canopticon.com/articles/${article.slug}`
+                    : videoUrl
+
+                threadUrl = await postToX({
+                    content,
+                    title,
+                    linkUrl,
+                    xFormat: flags.xFormat,
+                    xTweetCount: flags.xTweetCount,
+                    xThreadPrompt: config.xThreadPrompt as string | undefined,
+                    videoSourceUrl: videoUrl,
+                })
             } catch (e: any) {
                 xPostError = e.message
                 console.error('[runAutomation] X post failed:', e)
             }
         }
 
-        if (outputMode === 'article_and_x_post' && article) {
-            try {
-                const videoUrlMatch = triggerContent.match(/URL: (.+)/)
-                const videoUrl = automation.type === 'youtube' ? videoUrlMatch?.[1]?.trim() : undefined
-                const xThreadPrompt = (config.xThreadPrompt as string) || undefined
-                threadUrl = await generateAndPostSingle(article.id, article.title, article.slug, videoUrl, xThreadPrompt)
-            } catch (e: any) {
-                xPostError = e.message
-                console.error('[runAutomation] X single post failed:', e)
-            }
-        }
-
-        const result = { success: true, articleId, threadUrl, xPostError }
-        await db.update(automations)
-            .set({ lastRunAt: new Date(), lastResult: result })
-            .where(eq(automations.id, automation.id))
+        const result = { success: true, articleId, threadUrl, xPostError, error: xPostError }
+        await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
         return result
 
     } catch (error) {
         console.error('[runAutomation] Error:', error)
         const message = error instanceof Error ? error.message : String(error)
         const result = { success: false, error: message }
-        await db.update(automations)
-            .set({ lastRunAt: new Date(), lastResult: result })
-            .where(eq(automations.id, automation.id))
+        await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
         return result
     }
 }
 
-// --- Webhook handler (YouTube push notification) ---
+// ── YouTube Video Processor (called from YouTube webhook) ─────────────────────
+
 export async function processYouTubeVideo(
     video: { title: string; link: string; pubDate?: string; description: string },
     automation: Automation
@@ -504,9 +449,9 @@ export async function processYouTubeVideo(
 
     try {
         const config = automation.config as Record<string, unknown>
-        const outputMode = (config.outputMode as string) || 'article_and_x'
+        const flags = getOutputFlags(config)
 
-        // 1. Fetch transcript (fast, ~10-20s)
+        // 1. Fetch transcript
         const transcript = await fetchTranscript(video.link)
         const transcriptSection = transcript
             ? `\nTranscript (${transcript.split(/\s+/).length} words):\n${transcript}`
@@ -514,36 +459,27 @@ export async function processYouTubeVideo(
 
         const triggerData = `Video Title: ${video.title}\nURL: ${video.link}\nPublished: ${video.pubDate}\nDescription: ${video.description}${transcriptSection}`
 
-        // 2. Handle x_only mode (immediate link post, no AI)
-        if (outputMode === 'x_only') {
-            let threadUrl: string | undefined
-            let xPostError: string | undefined
-            try {
-                threadUrl = await postXLink(video.title, video.link, video.description)
-            } catch (e: any) {
-                xPostError = e.message
+        // 2. Write article (if enabled)
+        let articleId: string | undefined
+        let article: { id: string; title: string; slug: string; content: string } | null | undefined = null
+
+        if (flags.writeArticle) {
+            console.log(`[processYouTubeVideo] Writing article for: ${video.title}`)
+            const { success, articleId: aid, error } = await generateArticle(triggerData, automation, flags.articleDraft)
+
+            if (!success || !aid) {
+                const result = { success: false, error: error || 'Failed to generate article' }
+                await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
+                return result
             }
-            const result = { success: !xPostError, threadUrl, xPostError, error: xPostError }
-            await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
-            return result
+            articleId = aid
+            article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
         }
 
-        // 3. Generate Article (AI involved, ~30-40s)
-        console.log(`[processYouTubeVideo] Writing article for: ${video.title}`)
-        const { success, articleId, error } = await generateArticle(triggerData, automation)
-
-        if (!success || !articleId) {
-            const result = { success: false, error: error || 'Failed to generate article' }
-            await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
-            return result
-        }
-        const article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
-
-        // 4. Trigger automated clipping ASYNC if enabled
-        const videoClippingEnabled = config.videoClippingEnabled === true
-        if (videoClippingEnabled && article && (outputMode === 'article_and_x' || outputMode === 'article_and_x_post')) {
+        // 3. Clip video async (if enabled) — webhook handles X posting when clip is ready
+        if (flags.clipVideo) {
             try {
-                console.log(`[processYouTubeVideo] Triggering async clipping for: ${video.title}`)
+                console.log(`[processYouTubeVideo] Triggering async clip for: ${video.title}`)
                 const [clipRecord] = await db.insert(videoClips).values({
                     youtubeUrl: video.link,
                     videoTitle: video.title,
@@ -552,42 +488,46 @@ export async function processYouTubeVideo(
                 }).returning()
 
                 if (clipRecord) {
-                    // Start clipping in background. Webhook will handle the X post when done.
                     triggerClippingJob(clipRecord.id, video.link, articleId, automation.id)
-                        .catch(e => console.error(`[processYouTubeVideo] Background clipping trigger failed:`, e.message))
+                        .catch(e => console.error(`[processYouTubeVideo] Clip trigger failed:`, e.message))
 
                     const result = { success: true, articleId, status: 'clipping_in_progress' }
                     await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
                     return result
                 }
             } catch (e: any) {
-                console.warn(`[processYouTubeVideo] Automated clipping trigger failed (non-fatal): ${e.message}`)
+                console.warn(`[processYouTubeVideo] Clip trigger failed (non-fatal): ${e.message}`)
             }
         }
 
-        // 5. Fallback Social Posting (if no clipping enabled or if it's article_only)
+        // 4. Post to X immediately (if postX, no clip queued)
         let threadUrl: string | undefined
         let xPostError: string | undefined
 
-        if (outputMode === 'article_and_x' && article) {
+        if (flags.postX) {
             try {
-                const xThreadPrompt = (config.xThreadPrompt as string) || undefined
-                threadUrl = await generateAndPostThread(article.id, article.title, article.slug, video.link, xThreadPrompt)
+                const content = article?.content || transcript || triggerData
+                const title = article?.title || video.title
+                const linkUrl = (flags.includeArticleLink && article)
+                    ? `https://canopticon.com/articles/${article.slug}`
+                    : video.link
+
+                threadUrl = await postToX({
+                    content,
+                    title,
+                    linkUrl,
+                    xFormat: flags.xFormat,
+                    xTweetCount: flags.xTweetCount,
+                    xThreadPrompt: config.xThreadPrompt as string | undefined,
+                    videoSourceUrl: video.link,
+                })
             } catch (e: any) {
                 xPostError = e.message
+                console.error('[processYouTubeVideo] X post failed:', e)
             }
         }
 
-        if (outputMode === 'article_and_x_post' && article) {
-            try {
-                const xThreadPrompt = (config.xThreadPrompt as string) || undefined
-                threadUrl = await generateAndPostSingle(article.id, article.title, article.slug, video.link, xThreadPrompt)
-            } catch (e: any) {
-                xPostError = e.message
-            }
-        }
-
-        const result = { success: true, articleId, threadUrl, xPostError }
+        const result = { success: true, articleId, threadUrl, xPostError, error: xPostError }
         await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
         return result
 
@@ -599,7 +539,8 @@ export async function processYouTubeVideo(
     }
 }
 
-// --- Trigger checker (cron/polling fallback) ---
+// ── Trigger Checker (cron / polling) ─────────────────────────────────────────
+
 async function checkTrigger(automation: Automation): Promise<string | null> {
     const lastRun = automation.lastRunAt ? new Date(automation.lastRunAt) : new Date(0)
     const config = automation.config as Record<string, unknown>
@@ -623,13 +564,11 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
                     const videoUrl = item.link || ''
                     const transcript = await fetchTranscript(videoUrl)
 
-                    // REQUIRE transcript for language detection (no fallback to title)
                     if (!transcript) {
                         console.log(`[checkTrigger] Skipping "${item.title}" — no transcript available`)
                         continue
                     }
 
-                    // Check if video is in English (will throw if transcript is missing)
                     try {
                         if (isEnglish(transcript)) {
                             latest = { item, videoUrl, transcript }
@@ -643,13 +582,11 @@ async function checkTrigger(automation: Automation): Promise<string | null> {
                 }
 
                 if (!latest) {
-                    console.log('[checkTrigger] No English videos with transcripts found in latest items')
+                    console.log('[checkTrigger] No English videos with transcripts found')
                     return null
                 }
 
-                const transcriptWordCount = latest.transcript.split(/\s+/).length
-                const transcriptSection = `\nTranscript (${transcriptWordCount} words):\n${latest.transcript}`
-
+                const transcriptSection = `\nTranscript (${latest.transcript.split(/\s+/).length} words):\n${latest.transcript}`
                 return `Video Title: ${latest.item.title}\nURL: ${latest.videoUrl}\nPublished: ${latest.item.pubDate}\nDescription: ${latest.item.contentSnippet || ''}${transcriptSection}`
             } catch (e) {
                 console.error('[checkTrigger] RSS Error:', e)

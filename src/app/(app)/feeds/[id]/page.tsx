@@ -61,20 +61,50 @@ interface RunResult {
     error?: string
 }
 
-const OUTPUT_MODES = [
-    { value: 'article_and_x', label: 'Article + 𝕏 Thread', desc: 'Write full article, then post X thread with link' },
-    { value: 'article_and_x_post', label: 'Article + 𝕏 Post', desc: 'Write full article, then post ONE tweet with link' },
-    { value: 'article_only', label: 'Article Only', desc: 'Write and publish article, no X post' },
-    { value: 'draft', label: 'Draft for Review', desc: 'Write article, save as draft — you approve before publish' },
-    { value: 'x_only', label: '𝕏 Post Only', desc: 'No AI, no article — just auto-post the video link to X instantly' },
-]
-
 const MODEL_OPTIONS = [
     { provider: 'perplexity', model: 'sonar-pro', label: 'Perplexity Sonar Pro (research/news)' },
     { provider: 'openai', model: 'gpt-4o', label: 'OpenAI GPT-4o (writing)' },
     { provider: 'openai', model: 'gpt-4o-mini', label: 'OpenAI GPT-4o Mini (fast/cheap)' },
     { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', label: 'Anthropic Claude Sonnet (deep analysis)' },
 ]
+
+// Derive individual output flags from config (supports both new flags + legacy outputMode)
+function deriveFlags(config: any) {
+    if ('writeArticle' in config || 'postX' in config) {
+        return {
+            writeArticle: config.writeArticle ?? true,
+            articleDraft: config.articleDraft ?? false,
+            clipVideo: config.clipVideo ?? false,
+            postX: config.postX ?? false,
+            xFormat: config.xFormat ?? 'thread',
+            xTweetCount: config.xTweetCount ?? 4,
+            includeArticleLink: config.includeArticleLink ?? false,
+        }
+    }
+    // Legacy outputMode
+    const mode = config.outputMode || 'article_and_x'
+    return {
+        writeArticle: mode !== 'x_only',
+        articleDraft: mode === 'draft',
+        clipVideo: config.videoClippingEnabled ?? false,
+        postX: ['article_and_x', 'article_and_x_post', 'x_only'].includes(mode),
+        xFormat: mode === 'article_and_x_post' ? 'post' : 'thread',
+        xTweetCount: 4,
+        includeArticleLink: false,
+    }
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+    return (
+        <button
+            type="button"
+            onClick={() => onChange(!checked)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${checked ? 'bg-red-600' : 'bg-white/10'}`}
+        >
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+    )
+}
 
 export default function PipelineDetailPage() {
     const { id } = useParams<{ id: string }>()
@@ -93,12 +123,19 @@ export default function PipelineDetailPage() {
 
     // Editable fields
     const [prompt, setPrompt] = useState('')
-    const [outputMode, setOutputMode] = useState('article_and_x')
     const [researchProvider, setResearchProvider] = useState('perplexity')
     const [researchModel, setResearchModel] = useState('sonar-pro')
     const [writingProvider, setWritingProvider] = useState('openai')
     const [writingModel, setWritingModel] = useState('gpt-4o')
-    const [videoClippingEnabled, setVideoClippingEnabled] = useState(false)
+
+    // Output flags
+    const [writeArticle, setWriteArticle] = useState(true)
+    const [articleDraft, setArticleDraft] = useState(false)
+    const [clipVideo, setClipVideo] = useState(false)
+    const [postX, setPostX] = useState(false)
+    const [xFormat, setXFormat] = useState<'thread' | 'post'>('thread')
+    const [xTweetCount, setXTweetCount] = useState(4)
+    const [includeArticleLink, setIncludeArticleLink] = useState(false)
 
     const fetchAuto = useCallback(async () => {
         const res = await fetch(`/api/automations/${id}`)
@@ -106,12 +143,18 @@ export default function PipelineDetailPage() {
         const data: Automation = await res.json()
         setAuto(data)
         setPrompt(data.prompt || '')
-        setOutputMode(data.config.outputMode || 'article_and_x')
         setResearchProvider(data.config.researchProvider || 'perplexity')
         setResearchModel(data.config.researchModel || 'sonar-pro')
         setWritingProvider(data.config.writingProvider || 'openai')
         setWritingModel(data.config.writingModel || 'gpt-4o')
-        setVideoClippingEnabled(data.config.videoClippingEnabled || false)
+        const flags = deriveFlags(data.config)
+        setWriteArticle(flags.writeArticle)
+        setArticleDraft(flags.articleDraft)
+        setClipVideo(flags.clipVideo)
+        setPostX(flags.postX)
+        setXFormat(flags.xFormat as 'thread' | 'post')
+        setXTweetCount(flags.xTweetCount)
+        setIncludeArticleLink(flags.includeArticleLink)
         setLoading(false)
     }, [id, router])
 
@@ -153,10 +196,18 @@ export default function PipelineDetailPage() {
                     prompt,
                     config: {
                         ...auto.config,
-                        outputMode,
+                        // New output flags (replaces outputMode + videoClippingEnabled)
+                        writeArticle,
+                        articleDraft,
+                        clipVideo,
+                        postX,
+                        xFormat,
+                        xTweetCount,
+                        includeArticleLink,
                         writingProvider,
                         writingModel,
-                        videoClippingEnabled,
+                        researchProvider,
+                        researchModel,
                     }
                 })
             })
@@ -198,7 +249,6 @@ export default function PipelineDetailPage() {
             })
             const data = await res.json()
 
-            // Fetch article preview if we got one
             let articleTitle: string | undefined
             let articleSummary: string | undefined
             if (data.articleId) {
@@ -234,12 +284,19 @@ export default function PipelineDetailPage() {
 
     const config = auto.config as Record<string, any>
     const isYouTube = auto.type === 'youtube'
-    const currentMode = OUTPUT_MODES.find(m => m.value === outputMode)
-    const hasUnsavedChanges = prompt !== (auto.prompt || '') ||
-        outputMode !== (config.outputMode || 'article_and_x') ||
+
+    const savedFlags = deriveFlags(config)
+    const hasUnsavedChanges =
+        prompt !== (auto.prompt || '') ||
+        writeArticle !== savedFlags.writeArticle ||
+        articleDraft !== savedFlags.articleDraft ||
+        clipVideo !== savedFlags.clipVideo ||
+        postX !== savedFlags.postX ||
+        xFormat !== savedFlags.xFormat ||
+        xTweetCount !== savedFlags.xTweetCount ||
+        includeArticleLink !== savedFlags.includeArticleLink ||
         researchModel !== (config.researchModel || 'sonar-pro') ||
-        writingModel !== (config.writingModel || 'gpt-4o') ||
-        videoClippingEnabled !== (config.videoClippingEnabled || false)
+        writingModel !== (config.writingModel || 'gpt-4o')
 
     return (
         <div className="max-w-4xl mx-auto py-10 px-6 space-y-8">
@@ -284,105 +341,156 @@ export default function PipelineDetailPage() {
 
             {/* Config Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Output Mode */}
+
+                {/* Outputs */}
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
-                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Output Mode</h3>
-                    <div className="space-y-2">
-                        {OUTPUT_MODES.map(mode => (
-                            <label key={mode.value} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${outputMode === mode.value ? 'border-red-500/40 bg-red-500/10' : 'border-white/[0.06] hover:border-white/10'}`}>
-                                <input
-                                    type="radio"
-                                    name="outputMode"
-                                    value={mode.value}
-                                    checked={outputMode === mode.value}
-                                    onChange={() => setOutputMode(mode.value)}
-                                    className="mt-0.5 accent-red-500"
-                                />
-                                <div>
-                                    <div className={`text-sm font-medium ${outputMode === mode.value ? 'text-white' : 'text-slate-300'}`}>{mode.label}</div>
-                                    <div className="text-xs text-slate-500 mt-0.5">{mode.desc}</div>
+                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Outputs</h3>
+                    <div className="space-y-3">
+
+                        {/* Article */}
+                        <div className={`rounded-xl border p-4 transition-colors ${writeArticle ? 'border-white/15 bg-white/[0.02]' : 'border-white/[0.06]'}`}>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-base">📄</span>
+                                    <div>
+                                        <div className="text-sm font-medium text-white">Article</div>
+                                        <div className="text-[11px] text-slate-500">Write and publish a full article</div>
+                                    </div>
                                 </div>
-                            </label>
-                        ))}
+                                <Toggle checked={writeArticle} onChange={setWriteArticle} />
+                            </div>
+                            {writeArticle && (
+                                <div className="mt-3 pt-3 border-t border-white/[0.06] flex gap-5">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" checked={!articleDraft} onChange={() => setArticleDraft(false)} className="accent-red-500" />
+                                        <span className="text-xs text-slate-300">Auto-publish</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" checked={articleDraft} onChange={() => setArticleDraft(true)} className="accent-red-500" />
+                                        <span className="text-xs text-slate-300">Save as draft</span>
+                                    </label>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Video Clip (YouTube only) */}
+                        {isYouTube && (
+                            <div className={`rounded-xl border p-4 transition-colors ${clipVideo ? 'border-white/15 bg-white/[0.02]' : 'border-white/[0.06]'}`}>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-base">🎬</span>
+                                        <div>
+                                            <div className="text-sm font-medium text-white">Video Clip</div>
+                                            <div className="text-[11px] text-slate-500">AI finds the best 30-90s hook, clips via Apify</div>
+                                        </div>
+                                    </div>
+                                    <Toggle checked={clipVideo} onChange={setClipVideo} />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Post to X */}
+                        <div className={`rounded-xl border p-4 transition-colors ${postX ? 'border-white/15 bg-white/[0.02]' : 'border-white/[0.06]'}`}>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm font-bold text-slate-200 w-5 text-center">𝕏</span>
+                                    <div>
+                                        <div className="text-sm font-medium text-white">Post to X</div>
+                                        <div className="text-[11px] text-slate-500">
+                                            {clipVideo ? 'Native clip attached to first tweet' : 'YouTube thumbnail attached'}
+                                        </div>
+                                    </div>
+                                </div>
+                                <Toggle checked={postX} onChange={setPostX} />
+                            </div>
+                            {postX && (
+                                <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-3">
+                                    <div className="flex gap-5">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" checked={xFormat === 'thread'} onChange={() => setXFormat('thread')} className="accent-red-500" />
+                                            <span className="text-xs text-slate-300">Thread</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" checked={xFormat === 'post'} onChange={() => setXFormat('post')} className="accent-red-500" />
+                                            <span className="text-xs text-slate-300">Single post</span>
+                                        </label>
+                                    </div>
+                                    {xFormat === 'thread' && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] text-slate-500 mr-1">Tweets:</span>
+                                            {[3, 4, 5].map(n => (
+                                                <button
+                                                    key={n}
+                                                    type="button"
+                                                    onClick={() => setXTweetCount(n)}
+                                                    className={`w-7 h-7 rounded-lg text-xs font-bold border transition-colors ${xTweetCount === n ? 'bg-red-600 border-red-500 text-white' : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'}`}
+                                                >
+                                                    {n}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {writeArticle && (
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={includeArticleLink}
+                                                onChange={e => setIncludeArticleLink(e.target.checked)}
+                                                className="accent-red-500 w-3.5 h-3.5"
+                                            />
+                                            <span className="text-xs text-slate-400">
+                                                Include article link <span className="text-slate-600">(default: links to YouTube)</span>
+                                            </span>
+                                        </label>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
                     </div>
                 </div>
 
                 {/* AI Models */}
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
-                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">AI Models</h3>
-                    {outputMode === 'x_only' ? (
-                        <div className="text-sm text-slate-500 italic p-3 bg-black/20 rounded-lg">
-                            X-only mode uses no AI — posts happen instantly with no model cost.
+                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">AI Models</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-xs text-slate-500 mb-1.5 block">Research Model</label>
+                            <select
+                                value={`${researchProvider}/${researchModel}`}
+                                onChange={e => {
+                                    const [p, m] = e.target.value.split('/')
+                                    setResearchProvider(p)
+                                    setResearchModel(m)
+                                }}
+                                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-white/20"
+                            >
+                                {MODEL_OPTIONS.map(o => (
+                                    <option key={`${o.provider}/${o.model}`} value={`${o.provider}/${o.model}`}>{o.label}</option>
+                                ))}
+                            </select>
+                            <p className="text-[10px] text-slate-600 mt-1">Used for web research before writing</p>
                         </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-xs text-slate-500 mb-1.5 block">Research Model</label>
-                                <select
-                                    value={`${researchProvider}/${researchModel}`}
-                                    onChange={e => {
-                                        const [p, m] = e.target.value.split('/')
-                                        setResearchProvider(p)
-                                        setResearchModel(m)
-                                    }}
-                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-white/20"
-                                >
-                                    {MODEL_OPTIONS.map(o => (
-                                        <option key={`${o.provider}/${o.model}`} value={`${o.provider}/${o.model}`}>{o.label}</option>
-                                    ))}
-                                </select>
-                                <p className="text-[10px] text-slate-600 mt-1">Used for web research before writing</p>
-                            </div>
-                            <div>
-                                <label className="text-xs text-slate-500 mb-1.5 block">Writing Model</label>
-                                <select
-                                    value={`${writingProvider}/${writingModel}`}
-                                    onChange={e => {
-                                        const [p, m] = e.target.value.split('/')
-                                        setWritingProvider(p)
-                                        setWritingModel(m)
-                                    }}
-                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-white/20"
-                                >
-                                    {MODEL_OPTIONS.map(o => (
-                                        <option key={`${o.provider}/${o.model}`} value={`${o.provider}/${o.model}`}>{o.label}</option>
-                                    ))}
-                                </select>
-                                <p className="text-[10px] text-slate-600 mt-1">Writes the final article</p>
-                            </div>
+                        <div>
+                            <label className="text-xs text-slate-500 mb-1.5 block">Writing Model</label>
+                            <select
+                                value={`${writingProvider}/${writingModel}`}
+                                onChange={e => {
+                                    const [p, m] = e.target.value.split('/')
+                                    setWritingProvider(p)
+                                    setWritingModel(m)
+                                }}
+                                className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-white/20"
+                            >
+                                {MODEL_OPTIONS.map(o => (
+                                    <option key={`${o.provider}/${o.model}`} value={`${o.provider}/${o.model}`}>{o.label}</option>
+                                ))}
+                            </select>
+                            <p className="text-[10px] text-slate-600 mt-1">Writes the final article</p>
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
-
-            {/* Video Clips Config (YouTube only) */}
-            {isYouTube && (
-                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
-                    <div className="flex items-center justify-between mb-3">
-                        <div>
-                            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Video Clips</h3>
-                            <p className="text-[10px] text-slate-600 mt-0.5">Automated "Video-First" content generation settings.</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={videoClippingEnabled}
-                                onChange={e => setVideoClippingEnabled(e.target.checked)}
-                                className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-                            <span className="ml-3 text-sm font-medium text-slate-300">{videoClippingEnabled ? 'Enabled' : 'Disabled'}</span>
-                        </label>
-                    </div>
-                    {videoClippingEnabled && (
-                        <div className="p-3 bg-red-500/5 border border-red-500/10 rounded-lg">
-                            <p className="text-xs text-red-300 leading-relaxed">
-                                <strong>Active:</strong> The system will automatically use Fractal AI to identify the viral hook of any new video. This clip will be attached to Threads and single Posts.
-                            </p>
-                        </div>
-                    )}
-                </div>
-            )}
 
             {/* AI Instructions */}
             <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
@@ -394,7 +502,7 @@ export default function PipelineDetailPage() {
                     placeholder="e.g. Write a sharp, critical news article focused on the political implications. Highlight any contradictions with previous statements. Use plain language, no jargon."
                     className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-white/20 resize-y"
                 />
-                <p className="text-[10px] text-slate-600 mt-1.5">This prompt guides how the AI writes content for this specific pipeline. Each pipeline can have a completely different tone and focus.</p>
+                <p className="text-[10px] text-slate-600 mt-1.5">Guides how the AI writes content for this pipeline. Each pipeline can have a completely different tone and focus.</p>
             </div>
 
             {/* YouTube: Recent Videos (Retroactive Runner) */}
@@ -465,7 +573,7 @@ export default function PipelineDetailPage() {
                                                             )}
                                                             {result.threadUrl && (
                                                                 <a href={result.threadUrl} target="_blank" rel="noreferrer" className="text-slate-300 underline underline-offset-2 flex items-center gap-1">
-                                                                    <ExternalLink size={10} /> X Thread
+                                                                    <ExternalLink size={10} /> X Post
                                                                 </a>
                                                             )}
                                                         </div>
@@ -486,7 +594,7 @@ export default function PipelineDetailPage() {
                 </div>
             )}
 
-            {/* Video Clips Produced (YouTube only) */}
+            {/* Video Clips Gallery (YouTube only) */}
             {isYouTube && (
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
                     <div className="flex items-center justify-between mb-4">
@@ -523,13 +631,6 @@ export default function PipelineDetailPage() {
                                                 >
                                                     <Play size={12} className="fill-current" />
                                                     Preview
-                                                </a>
-                                                <a
-                                                    href={clip.clipUrl}
-                                                    download
-                                                    className="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-xs transition-all border border-white/10"
-                                                >
-                                                    <RefreshCw size={12} />
                                                 </a>
                                             </div>
                                         )}

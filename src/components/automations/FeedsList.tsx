@@ -44,10 +44,16 @@ function modelLabel(provider?: string, modelId?: string): string {
 }
 
 function PipelineFlow({ automation }: { automation: Automation }) {
-    const { type, autoPublish, config } = automation
-    const researchLabel = modelLabel(config.researchProvider || 'perplexity', config.researchModel || 'sonar-pro')
+    const { type, config } = automation
     const writingLabel = modelLabel(config.writingProvider || 'openai', config.writingModel || 'gpt-4o')
-    const postToX = config.autoPostToX
+
+    // Derive flags (supports both new and legacy config)
+    const hasNewFlags = 'writeArticle' in config || 'postX' in config
+    const writeArticle = hasNewFlags ? (config.writeArticle ?? true) : config.outputMode !== 'x_only'
+    const articleDraft = hasNewFlags ? (config.articleDraft ?? false) : config.outputMode === 'draft'
+    const clipVideo = hasNewFlags ? (config.clipVideo ?? false) : (config.videoClippingEnabled ?? false)
+    const postX = hasNewFlags ? (config.postX ?? false) : ['article_and_x', 'article_and_x_post', 'x_only'].includes(config.outputMode)
+    const xFormat = hasNewFlags ? (config.xFormat ?? 'thread') : (config.outputMode === 'article_and_x_post' ? 'post' : 'thread')
 
     const stages: { label: string; color: string }[] = [
         type === 'youtube'
@@ -55,13 +61,13 @@ function PipelineFlow({ automation }: { automation: Automation }) {
             : type === 'rss'
                 ? { label: '📡 RSS Feed', color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' }
                 : { label: '🔍 Keyword Search', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-        ...(config.videoClippingEnabled ? [{ label: '🎬 Video Clip', color: 'text-red-400 bg-red-500/10 border-red-500/20' }] : []),
-        { label: `${researchLabel}: Research`, color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
+        ...(clipVideo ? [{ label: '🎬 Clip', color: 'text-red-400 bg-red-500/10 border-red-500/20' }] : []),
         { label: `${writingLabel}: Write`, color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' },
-        autoPublish
-            ? { label: '✓ Auto-Publish', color: 'text-green-400 bg-green-500/10 border-green-500/20' }
-            : { label: '📋 Save as Draft', color: 'text-slate-400 bg-slate-500/10 border-slate-500/20' },
-        ...(postToX ? [{ label: '𝕏 Post', color: 'text-slate-300 bg-slate-500/10 border-slate-500/20' }] : []),
+        ...(writeArticle ? [articleDraft
+            ? { label: '📋 Draft', color: 'text-slate-400 bg-slate-500/10 border-slate-500/20' }
+            : { label: '✓ Article', color: 'text-green-400 bg-green-500/10 border-green-500/20' }
+        ] : []),
+        ...(postX ? [{ label: xFormat === 'thread' ? '𝕏 Thread' : '𝕏 Post', color: 'text-slate-300 bg-slate-500/10 border-slate-500/20' }] : []),
     ]
 
     return (
@@ -94,10 +100,16 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
     const [feedUrl, setFeedUrl] = useState('')
     const [keywords, setKeywords] = useState('')
     const [prompt, setPrompt] = useState(DEFAULT_YOUTUBE_PROMPT)
-    const [xThreadPrompt, setXThreadPrompt] = useState('')
-    const [outputMode, setOutputMode] = useState('article_and_x')
-    const [videoClippingEnabled, setVideoClippingEnabled] = useState(true)
-    const [autoPublish, setAutoPublish] = useState(false)
+
+    // Output flags
+    const [writeArticle, setWriteArticle] = useState(true)
+    const [articleDraft, setArticleDraft] = useState(false)
+    const [clipVideo, setClipVideo] = useState(false)
+    const [postX, setPostX] = useState(false)
+    const [xFormat, setXFormat] = useState<'thread' | 'post'>('thread')
+    const [xTweetCount, setXTweetCount] = useState(4)
+    const [includeArticleLink, setIncludeArticleLink] = useState(false)
+
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -120,16 +132,20 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
             if (!kws.length) { setError('At least one keyword is required'); return }
             config = { keywords: kws }
         }
-        if (xThreadPrompt.trim()) config.xThreadPrompt = xThreadPrompt.trim()
-        config.outputMode = outputMode
-        config.videoClippingEnabled = type === 'youtube' ? videoClippingEnabled : false
+        config.writeArticle = writeArticle
+        config.articleDraft = articleDraft
+        config.clipVideo = type === 'youtube' ? clipVideo : false
+        config.postX = postX
+        config.xFormat = xFormat
+        config.xTweetCount = xTweetCount
+        config.includeArticleLink = includeArticleLink
 
         setSaving(true)
         try {
             const res = await fetch('/api/automations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name.trim(), type, config, prompt: prompt.trim(), autoPublish }),
+                body: JSON.stringify({ name: name.trim(), type, config, prompt: prompt.trim(), autoPublish: !articleDraft }),
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
@@ -211,91 +227,119 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
         </div>
     )
 
-    const renderStepClips = () => (
-        <div className="space-y-4 py-2">
-            <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center text-red-500">
-                            <Zap size={18} />
-                        </div>
+    function WizardToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+        return (
+            <button
+                type="button"
+                onClick={() => onChange(!checked)}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${checked ? 'bg-red-600' : 'bg-white/10'}`}
+            >
+                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${checked ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </button>
+        )
+    }
+
+    const renderStepOutputs = () => (
+        <div className="space-y-3">
+            {/* Article */}
+            <div className={`rounded-xl border p-4 transition-colors ${writeArticle ? 'border-white/15 bg-white/[0.02]' : 'border-white/[0.06]'}`}>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-base">📄</span>
                         <div>
-                            <h4 className="text-sm font-semibold text-white">Automated Video Clipping</h4>
-                            <p className="text-[10px] text-slate-500">Use AI to find viral hooks and generate short clips.</p>
+                            <div className="text-sm font-medium text-white">Article</div>
+                            <div className="text-[10px] text-slate-500">Write and publish a full article</div>
                         </div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={videoClippingEnabled}
-                            onChange={e => setVideoClippingEnabled(e.target.checked)}
-                        />
-                        <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-slate-400 after:border-slate-400 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600 peer-checked:after:bg-white peer-checked:after:border-white"></div>
-                    </label>
+                    <WizardToggle checked={writeArticle} onChange={setWriteArticle} />
                 </div>
-                {videoClippingEnabled && (
-                    <div className="mt-4 p-3 rounded-lg bg-black/40 border border-white/5 space-y-2">
-                        <div className="flex items-start gap-2">
-                            <CheckCircle size={12} className="text-green-500 mt-0.5" />
-                            <p className="text-[10px] text-slate-400">AI automatically scans transcripts for high-impact moments.</p>
-                        </div>
-                        <div className="flex items-start gap-2">
-                            <CheckCircle size={12} className="text-green-500 mt-0.5" />
-                            <p className="text-[10px] text-slate-400">Generates 30-90s clips ready for social sharing.</p>
-                        </div>
+                {writeArticle && (
+                    <div className="mt-3 pt-3 border-t border-white/[0.06] flex gap-5">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" checked={!articleDraft} onChange={() => setArticleDraft(false)} className="accent-red-500" />
+                            <span className="text-xs text-slate-300">Auto-publish</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" checked={articleDraft} onChange={() => setArticleDraft(true)} className="accent-red-500" />
+                            <span className="text-xs text-slate-300">Save as draft</span>
+                        </label>
                     </div>
                 )}
             </div>
-            {type !== 'youtube' && (
-                <div className="p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
-                    <p className="text-[10px] text-blue-400/80 italic">Video clipping is currently only available for YouTube sources. This step will be skipped.</p>
+
+            {/* Video Clip (YouTube only) */}
+            {type === 'youtube' && (
+                <div className={`rounded-xl border p-4 transition-colors ${clipVideo ? 'border-white/15 bg-white/[0.02]' : 'border-white/[0.06]'}`}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="text-base">🎬</span>
+                            <div>
+                                <div className="text-sm font-medium text-white">Video Clip</div>
+                                <div className="text-[10px] text-slate-500">AI finds the best 30-90s hook, clips via Apify</div>
+                            </div>
+                        </div>
+                        <WizardToggle checked={clipVideo} onChange={setClipVideo} />
+                    </div>
                 </div>
             )}
-        </div>
-    )
 
-    const renderStepSocial = () => (
-        <div className="space-y-4">
-            <label className="text-xs text-slate-500 mb-1.5 block">Output Mode & Social Destinations</label>
-            <div className="grid grid-cols-2 gap-2">
-                {([
-                    { value: 'article_and_x', label: '𝕏 Thread', desc: 'Article + video clip thread' },
-                    { value: 'article_and_x_post', label: '𝕏 Post', desc: 'Article + video clip tweet' },
-                    { value: 'article_only', label: 'Article Only', desc: 'Publish, no X posting' },
-                    { value: 'draft', label: 'Draft', desc: 'Save as draft for review' },
-                ] as { value: string; label: string; desc: string }[]).map(m => (
-                    <button
-                        key={m.value}
-                        type="button"
-                        onClick={() => setOutputMode(m.value)}
-                        className={`text-left px-3 py-2.5 rounded-xl border transition-colors ${outputMode === m.value
-                            ? 'bg-red-600/15 border-red-500/50 text-white'
-                            : 'bg-white/[0.02] border-white/10 text-slate-400 hover:text-white hover:border-white/20'
-                            }`}
-                    >
-                        <div className="font-semibold text-xs">{m.label}</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">{m.desc}</div>
-                    </button>
-                ))}
+            {/* Post to X */}
+            <div className={`rounded-xl border p-4 transition-colors ${postX ? 'border-white/15 bg-white/[0.02]' : 'border-white/[0.06]'}`}>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-slate-200 w-5 text-center">𝕏</span>
+                        <div>
+                            <div className="text-sm font-medium text-white">Post to X</div>
+                            <div className="text-[10px] text-slate-500">
+                                {clipVideo ? 'Native clip attached to first tweet' : 'YouTube thumbnail attached'}
+                            </div>
+                        </div>
+                    </div>
+                    <WizardToggle checked={postX} onChange={setPostX} />
+                </div>
+                {postX && (
+                    <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-3">
+                        <div className="flex gap-5">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" checked={xFormat === 'thread'} onChange={() => setXFormat('thread')} className="accent-red-500" />
+                                <span className="text-xs text-slate-300">Thread</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" checked={xFormat === 'post'} onChange={() => setXFormat('post')} className="accent-red-500" />
+                                <span className="text-xs text-slate-300">Single post</span>
+                            </label>
+                        </div>
+                        {xFormat === 'thread' && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-slate-500 mr-1">Tweets:</span>
+                                {[3, 4, 5].map(n => (
+                                    <button
+                                        key={n}
+                                        type="button"
+                                        onClick={() => setXTweetCount(n)}
+                                        className={`w-7 h-7 rounded-lg text-xs font-bold border transition-colors ${xTweetCount === n ? 'bg-red-600 border-red-500 text-white' : 'border-white/10 text-slate-400 hover:text-white hover:border-white/20'}`}
+                                    >
+                                        {n}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {writeArticle && (
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={includeArticleLink}
+                                    onChange={e => setIncludeArticleLink(e.target.checked)}
+                                    className="accent-red-500 w-3.5 h-3.5"
+                                />
+                                <span className="text-xs text-slate-400">
+                                    Include article link <span className="text-slate-600">(default: links to YouTube)</span>
+                                </span>
+                            </label>
+                        )}
+                    </div>
+                )}
             </div>
-
-            {/* X Thread Prompt (Only if thread/post active) */}
-            {(outputMode === 'article_and_x' || outputMode === 'article_and_x_post') && (
-                <div className="mt-4 pt-4 border-t border-white/5">
-                    <label className="text-xs text-slate-500 mb-1.5 flex items-center gap-1.5 block">
-                        𝕏 Post Style Instructions
-                        <span className="text-slate-600">(optional)</span>
-                    </label>
-                    <textarea
-                        value={xThreadPrompt}
-                        onChange={e => setXThreadPrompt(e.target.value)}
-                        rows={3}
-                        placeholder={`e.g. Write a sharp, fact-driven post quoting speakers directly. No hype.`}
-                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 font-mono placeholder-slate-600 focus:outline-none focus:border-white/20 resize-y"
-                    />
-                </div>
-            )}
         </div>
     )
 
@@ -311,18 +355,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                 />
             </div>
 
-            <div className="flex items-center gap-2 pt-2">
-                <input
-                    id="auto-pub"
-                    type="checkbox"
-                    checked={autoPublish}
-                    onChange={e => setAutoPublish(e.target.checked)}
-                    className="accent-red-500 w-4 h-4"
-                />
-                <label htmlFor="auto-pub" className="text-sm text-slate-300 cursor-pointer">
-                    Auto-publish articles <span className="text-xs text-slate-500 ml-1">(bypasses draft state)</span>
-                </label>
-            </div>
+            <p className="text-[10px] text-slate-600 mt-1">Publish/draft setting is configured in Step 2.</p>
         </div>
     )
 
@@ -334,7 +367,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
             if (type === 'keyword' && !keywords.trim()) { setError('Keywords are required'); return }
         }
         setError(null)
-        setStep(Math.min(4, step + 1))
+        setStep(Math.min(3, step + 1))
     }
 
     const prevStep = () => {
@@ -349,9 +382,9 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                 <div>
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
                         <span className="w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center text-xs">{step}</span>
-                        {step === 1 ? 'Configure Source' : step === 2 ? 'Video Clipping' : step === 3 ? 'Social Destinations' : 'AI Instructions'}
+                        {step === 1 ? 'Configure Source' : step === 2 ? 'Outputs' : 'AI Instructions'}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-1">Step {step} of 4</p>
+                    <p className="text-xs text-slate-500 mt-1">Step {step} of 3</p>
                 </div>
                 <button type="button" onClick={onCancel} className="p-1.5 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white transition-colors">
                     <X size={20} />
@@ -362,7 +395,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
             <div className="h-1 bg-white/5 rounded-full mb-8 relative">
                 <div
                     className="absolute inset-y-0 left-0 bg-red-600 rounded-full transition-all duration-300 ease-in-out"
-                    style={{ width: `${(step / 4) * 100}%` }}
+                    style={{ width: `${(step / 3) * 100}%` }}
                 />
             </div>
 
@@ -377,9 +410,8 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
             {/* Step Content */}
             <div className="min-h-[280px]">
                 {step === 1 && renderStepSource()}
-                {step === 2 && renderStepClips()}
-                {step === 3 && renderStepSocial()}
-                {step === 4 && renderStepArticle()}
+                {step === 2 && renderStepOutputs()}
+                {step === 3 && renderStepArticle()}
             </div>
 
             {/* Navigation Footer */}
@@ -394,7 +426,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                     </button>
                 )}
 
-                {step < 4 ? (
+                {step < 3 ? (
                     <button
                         type="button"
                         onClick={nextStep}
