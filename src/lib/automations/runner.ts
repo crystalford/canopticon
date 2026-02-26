@@ -410,7 +410,7 @@ export async function runAutomation(automation: Automation): Promise<{
                 const title = article?.title || (triggerContent.match(/Video Title: (.+)/)?.[1]?.trim() ?? 'New Content')
                 const linkUrl = (flags.includeArticleLink && article)
                     ? `https://canopticon.com/articles/${article.slug}`
-                    : videoUrl
+                    : undefined
 
                 threadUrl = await postToX({
                     content,
@@ -511,7 +511,7 @@ export async function processYouTubeVideo(
                 const title = article?.title || video.title
                 const linkUrl = (flags.includeArticleLink && article)
                     ? `https://canopticon.com/articles/${article.slug}`
-                    : video.link
+                    : undefined
 
                 threadUrl = await postToX({
                     content,

@@ -72,12 +72,12 @@ export async function POST(req: Request) {
                     title = article.title
                     linkUrl = flags.includeArticleLink
                         ? `https://canopticon.com/articles/${article.slug}`
-                        : sourceUrl
+                        : undefined
                 } else {
-                    // No article — use video title, link to YouTube
-                    content = `Video: ${updatedClip.videoTitle || 'New Video'}\nURL: ${sourceUrl}`
+                    // No article — use video title, no external link (native video is the content)
+                    content = `Video: ${updatedClip.videoTitle || 'New Video'}`
                     title = updatedClip.videoTitle || 'New Video'
-                    linkUrl = sourceUrl
+                    linkUrl = undefined
                 }
 
                 const xPostUrl = await postToX({
