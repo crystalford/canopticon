@@ -34,11 +34,12 @@ export async function POST(req: Request) {
         const updates: Promise<any>[] = []
 
         for (const [key, value] of Object.entries(body)) {
-            if (typeof value === 'string') {
+            // Skip masked placeholder values — never overwrite real DB values with '********'
+            if (typeof value === 'string' && value !== '********' && value.trim() !== '') {
                 updates.push(
                     db.insert(settings)
-                        .values({ key, value })
-                        .onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: new Date() } })
+                        .values({ key, value: value.trim() })
+                        .onConflictDoUpdate({ target: settings.key, set: { value: value.trim(), updatedAt: new Date() } })
                 )
             }
         }

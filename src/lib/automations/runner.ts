@@ -10,7 +10,7 @@ import RSSParser from 'rss-parser'
 import type { Automation } from '@/db/schema'
 import { TwitterApi } from 'twitter-api-v2'
 import { fetchTranscript } from './transcript'
-import { detect } from 'franc'
+import { franc } from 'franc'
 
 // Resolve a credential: DB settings table first (editable via UI), then env var
 async function getCredential(key: string): Promise<string | undefined> {
@@ -29,7 +29,7 @@ function isEnglish(transcript: string | null): boolean {
         throw new Error('No transcript available for language detection')
     }
     try {
-        const language = detect(transcript)
+        const language = franc(transcript)
         // language is a string like 'eng', 'fra', etc.
         const isEnglishLang = language === 'eng'
         console.log(`[isEnglish] Detected language: ${language} (English: ${isEnglishLang})`)
@@ -523,7 +523,7 @@ export async function processYouTubeVideo(
             } catch (e: any) {
                 xPostError = e.message
             }
-            const result = { success: !xPostError, threadUrl, xPostError }
+            const result = { success: !xPostError, threadUrl, xPostError, error: xPostError }
             await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
             return result
         }
