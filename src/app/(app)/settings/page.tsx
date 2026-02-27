@@ -172,7 +172,7 @@ export default function SettingsPage() {
                             <input
                                 type="password"
                                 value={settings[key] || ''}
-                                onChange={e => setSettings({ ...settings, [key]: e.target.value })}
+                                onChange={e => { const v = e.target.value; setSettings(prev => ({ ...prev, [key]: v })) }}
                                 placeholder={savedKeys.has(key) ? '(leave blank to keep current)' : placeholder}
                                 className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:border-purple-500/50 outline-none transition-colors"
                             />
@@ -243,7 +243,7 @@ export default function SettingsPage() {
                             <input
                                 type="password"
                                 value={settings[key] || ''}
-                                onChange={e => setSettings({ ...settings, [key]: e.target.value })}
+                                onChange={e => { const v = e.target.value; setSettings(prev => ({ ...prev, [key]: v })) }}
                                 placeholder={savedKeys.has(key) ? '(leave blank to keep current)' : 'Paste key here...'}
                                 className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:border-sky-500/50 outline-none transition-colors"
                             />
