@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { db, automations } from '@/db'
 import { eq } from 'drizzle-orm'
-import { processYouTubeVideo } from '@/lib/automations/runner'
+import { runAutomationWithContent } from '@/lib/automations/runner'
+import { fetchTranscript } from '@/lib/automations/transcript'
 
 export const maxDuration = 120
 
@@ -22,7 +23,10 @@ export async function POST(
         })
         if (!automation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-        const result = await processYouTubeVideo({ title, link, pubDate, description: description || '' }, automation)
+        const transcript = await fetchTranscript(link)
+        const transcriptSection = transcript ? `\nTranscript:\n${transcript}` : ''
+        const triggerContent = `Video Title: ${title}\nURL: ${link}\nPublished: ${pubDate || ''}\nDescription: ${description || ''}${transcriptSection}`
+        const result = await runAutomationWithContent(automation, triggerContent)
         return NextResponse.json(result)
     } catch (e: any) {
         console.error('[run-video] Error:', e)

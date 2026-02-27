@@ -2,8 +2,7 @@ import { generateText, stepCountIs } from 'ai'
 import { getModel } from '@/lib/ai/providers'
 import { createTools } from '@/lib/ai/tools'
 import { searchPerplexity } from '@/lib/ai/tools'
-import { db, automations, articles, videoClips } from '@/db'
-import { processVideoClip, triggerClippingJob } from '@/lib/videos/processor'
+import { db, automations, articles } from '@/db'
 import { settings as settingsTable } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import RSSParser from 'rss-parser'
@@ -69,34 +68,29 @@ IMAGE RULES (critical):
 
 export interface OutputFlags {
     writeArticle: boolean       // write and publish an article
-    articleDraft: boolean       // save as draft instead of publishing (only if writeArticle)
-    clipVideo: boolean          // clip the video via Apify (YouTube only, async)
+    articleDraft: boolean       // save as draft instead of publishing
     postX: boolean              // post to X/Twitter
-    xFormat: 'thread' | 'post' // thread = multi-tweet, post = single tweet
-    xTweetCount: number         // number of tweets in a thread (3–5)
-    includeArticleLink: boolean // link to article URL in X post (vs YouTube URL)
+    xFormat: 'thread' | 'post'
+    xTweetCount: number         // 3–5
+    includeArticleLink: boolean // include canopticon.com article link in X post
 }
 
-// Derive flags from config — supports both new individual flags and legacy outputMode string
 export function getOutputFlags(config: Record<string, unknown>): OutputFlags {
-    // New-style: individual flags (writeArticle or postX present)
     if ('writeArticle' in config || 'postX' in config) {
         return {
             writeArticle: (config.writeArticle as boolean) ?? true,
             articleDraft: (config.articleDraft as boolean) ?? false,
-            clipVideo: (config.clipVideo as boolean) ?? false,
             postX: (config.postX as boolean) ?? false,
             xFormat: (config.xFormat as 'thread' | 'post') ?? 'thread',
             xTweetCount: Math.max(3, Math.min(5, (config.xTweetCount as number) ?? 4)),
             includeArticleLink: (config.includeArticleLink as boolean) ?? false,
         }
     }
-    // Legacy: derive from old outputMode string
+    // Legacy outputMode
     const mode = (config.outputMode as string) || 'article_and_x'
     return {
         writeArticle: mode !== 'x_only',
         articleDraft: mode === 'draft',
-        clipVideo: (config.videoClippingEnabled as boolean) ?? false,
         postX: ['article_and_x', 'article_and_x_post', 'x_only'].includes(mode),
         xFormat: mode === 'article_and_x_post' ? 'post' : 'thread',
         xTweetCount: 4,
@@ -291,48 +285,92 @@ async function generateArticle(
     saveDraft: boolean = false
 ): Promise<{ success: boolean; articleId?: string; error?: string }> {
     const config = automation.config as Record<string, unknown>
-
-    const instructions = automation.prompt || 'Write a news article about this content.'
-    const publishMode = saveDraft
-        ? 'Save the article as a draft using the publish_article tool with status=draft.'
-        : 'Publish the article using the publish_article tool.'
-
-    const fullPrompt = `${instructions}\n\n${publishMode}\n\nNew content detected:\n${triggerContent}`
-
-    const tools = createTools(undefined, { saveDraft })
-
     const writingProvider = ((config.writingProvider as string) || DEFAULT_WRITING_PROVIDER) as 'openai' | 'perplexity' | 'anthropic'
     const writingModelId = (config.writingModel as string) || DEFAULT_WRITING_MODEL
-
-    console.log(`[generateArticle] draft=${saveDraft} | Writing: ${writingProvider}/${writingModelId}`)
-
     const writingModel = await getModel(writingProvider, writingModelId)
 
-    await generateText({
+    console.log(`[generateArticle] draft=${saveDraft} | ${writingProvider}/${writingModelId}`)
+
+    const instructions = automation.prompt || 'Write a news article about this content.'
+
+    // Step 1: Research — search_web only, no publish tool
+    const { search_web } = createTools()
+    const researchResult = await generateText({
+        model: writingModel,
+        prompt: `Research this topic. Do 2-3 targeted web searches to find context, background, and related coverage. Summarize your findings.\n\nTopic:\n${triggerContent}`,
+        tools: { search_web },
+        stopWhen: stepCountIs(5),
+    })
+
+    // Step 2: Write — no tools, pure generation
+    const { text: markdown } = await generateText({
         model: writingModel,
         system: JOURNALIST_SYSTEM_PROMPT,
-        prompt: fullPrompt,
-        tools,
-        stopWhen: stepCountIs(10),
+        prompt: `${instructions}\n\nWrite a complete news article in markdown. First line must be # Title.\n\nSource content:\n${triggerContent}\n\nResearch:\n${researchResult.text}`,
     })
 
-    // Find article created in last 60 seconds
-    const recentArticle = await db.query.articles.findFirst({
-        where: (t, { gte }) => gte(t.createdAt, new Date(Date.now() - 60000)),
-        orderBy: (t, { desc }) => [desc(t.createdAt)],
-    })
+    // Step 3: Save directly — no AI tool call required
+    const titleMatch = markdown.match(/^#\s+(.+)/m)
+    const rawTitle = titleMatch?.[1]?.trim() || `${automation.name} — ${new Date().toLocaleDateString('en-CA')}`
+    const content = markdown.replace(/^#\s+[^\n]+\n?/, '').trim()
+    const summary = content.split('\n\n').find(p => p.trim().length > 60)?.trim() ?? ''
+    const baseSlug = rawTitle.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .substring(0, 80)
+        .replace(/-+$/, '')
+    const slug = `${baseSlug}-${Date.now()}`
 
-    if (recentArticle) {
-        await db.update(articles)
-            .set({ automationId: automation.id })
-            .where(eq(articles.id, recentArticle.id))
-        return { success: true, articleId: recentArticle.id }
-    }
+    const [article] = await db.insert(articles).values({
+        title: rawTitle,
+        slug,
+        content,
+        summary,
+        tags: [],
+        status: saveDraft ? 'draft' : 'published',
+        automationId: automation.id,
+        publishedAt: saveDraft ? null : new Date(),
+    }).returning()
 
-    return { success: false, error: 'AI ran but no article was created.' }
+    console.log(`[generateArticle] ✓ Saved: "${rawTitle}"`)
+    return { success: true, articleId: article.id }
 }
 
 // ── Main Runner (cron + manual run) ──────────────────────────────────────────
+
+// Run the article pipeline with a pre-built trigger string (skips RSS fetch)
+export async function runAutomationWithContent(
+    automation: Automation,
+    triggerContent: string
+): Promise<{ success: boolean; articleId?: string; threadUrl?: string; xPostError?: string; error?: string }> {
+    const config = automation.config as Record<string, unknown>
+    const flags = getOutputFlags(config)
+    try {
+        let articleId: string | undefined
+        let article: any = null
+        if (flags.writeArticle) {
+            const { success, articleId: aid, error } = await generateArticle(triggerContent, automation, flags.articleDraft)
+            if (!success) return { success: false, error }
+            articleId = aid
+            if (articleId) article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
+        }
+        let threadUrl: string | undefined
+        let xPostError: string | undefined
+        if (flags.postX) {
+            try {
+                const content = article?.content || triggerContent
+                const title = article?.title || 'New Content'
+                const linkUrl = (flags.includeArticleLink && article) ? `https://canopticon.com/articles/${article.slug}` : undefined
+                threadUrl = await postToX({ content, title, linkUrl, xFormat: flags.xFormat, xTweetCount: flags.xTweetCount })
+            } catch (e: any) { xPostError = e.message }
+        }
+        const result = { success: true, articleId, threadUrl, xPostError }
+        await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
+        return result
+    } catch (e: any) {
+        return { success: false, error: e.message }
+    }
+}
 
 export async function runAutomation(automation: Automation): Promise<{
     success: boolean
@@ -431,106 +469,6 @@ export async function runAutomation(automation: Automation): Promise<{
         console.error('[runAutomation] Error:', error)
         const message = error instanceof Error ? error.message : String(error)
         const result = { success: false, error: message }
-        await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
-        return result
-    }
-}
-
-// ── YouTube Video Processor (called from YouTube webhook) ─────────────────────
-
-export async function processYouTubeVideo(
-    video: { title: string; link: string; pubDate?: string; description: string },
-    automation: Automation
-) {
-    console.log(`[processYouTubeVideo] Processing video: ${video.title}`)
-
-    try {
-        const config = automation.config as Record<string, unknown>
-        const flags = getOutputFlags(config)
-
-        // 1. Fetch transcript
-        const transcript = await fetchTranscript(video.link)
-        const transcriptSection = transcript
-            ? `\nTranscript (${transcript.split(/\s+/).length} words):\n${transcript}`
-            : '\n[No transcript available — use search_web to find coverage of this video]'
-
-        const triggerData = `Video Title: ${video.title}\nURL: ${video.link}\nPublished: ${video.pubDate}\nDescription: ${video.description}${transcriptSection}`
-
-        // 2. Write article (if enabled)
-        let articleId: string | undefined
-        let article: { id: string; title: string; slug: string; content: string } | null | undefined = null
-
-        if (flags.writeArticle) {
-            console.log(`[processYouTubeVideo] Writing article for: ${video.title}`)
-            const { success, articleId: aid, error } = await generateArticle(triggerData, automation, flags.articleDraft)
-
-            if (!success || !aid) {
-                const result = { success: false, error: error || 'Failed to generate article' }
-                await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
-                return result
-            }
-            articleId = aid
-            article = await db.query.articles.findFirst({ where: eq(articles.id, articleId) })
-        }
-
-        // 3. Clip video async (if enabled) — webhook handles X posting when clip is ready
-        if (flags.clipVideo) {
-            try {
-                console.log(`[processYouTubeVideo] Triggering async clip for: ${video.title}`)
-                const [clipRecord] = await db.insert(videoClips).values({
-                    youtubeUrl: video.link,
-                    videoTitle: video.title,
-                    status: 'queued',
-                    automationId: automation.id
-                }).returning()
-
-                if (clipRecord) {
-                    triggerClippingJob(clipRecord.id, video.link, articleId, automation.id)
-                        .catch(e => console.error(`[processYouTubeVideo] Clip trigger failed:`, e.message))
-
-                    const result = { success: true, articleId, status: 'clipping_in_progress' }
-                    await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
-                    return result
-                }
-            } catch (e: any) {
-                console.warn(`[processYouTubeVideo] Clip trigger failed (non-fatal): ${e.message}`)
-            }
-        }
-
-        // 4. Post to X immediately (if postX, no clip queued)
-        let threadUrl: string | undefined
-        let xPostError: string | undefined
-
-        if (flags.postX) {
-            try {
-                const content = article?.content || transcript || triggerData
-                const title = article?.title || video.title
-                const linkUrl = (flags.includeArticleLink && article)
-                    ? `https://canopticon.com/articles/${article.slug}`
-                    : undefined
-
-                threadUrl = await postToX({
-                    content,
-                    title,
-                    linkUrl,
-                    xFormat: flags.xFormat,
-                    xTweetCount: flags.xTweetCount,
-                    xThreadPrompt: config.xThreadPrompt as string | undefined,
-                    videoSourceUrl: video.link,
-                })
-            } catch (e: any) {
-                xPostError = e.message
-                console.error('[processYouTubeVideo] X post failed:', e)
-            }
-        }
-
-        const result = { success: true, articleId, threadUrl, xPostError, error: xPostError }
-        await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
-        return result
-
-    } catch (error: any) {
-        console.error('[processYouTubeVideo] Fatal Error:', error)
-        const result = { success: false, error: error.message }
         await db.update(automations).set({ lastRunAt: new Date(), lastResult: result }).where(eq(automations.id, automation.id))
         return result
     }

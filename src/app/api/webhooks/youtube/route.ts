@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { processYouTubeVideo } from '@/lib/automations/runner'
+import { runAutomationWithContent } from '@/lib/automations/runner'
+import { queueVideoClip } from '@/lib/videos/pipeline'
+import { fetchTranscript } from '@/lib/automations/transcript'
 import { db, automations } from '@/db'
 import { eq, sql } from 'drizzle-orm'
 import RSSParser from 'rss-parser'
@@ -73,8 +75,9 @@ export async function POST(req: Request) {
         // Find automation for this channel
         // We store config as jsonb, so we need to query inside it.
         // PostGres JSON query: config->>'channelId' = channelId
+        // Match either article pipeline (youtube) or video monitor
         const automation = await db.query.automations.findFirst({
-            where: sql`config->>'channelId' = ${channelId} AND type = 'youtube' AND enabled = true`
+            where: sql`config->>'channelId' = ${channelId} AND type IN ('youtube', 'video_monitor') AND enabled = true`
         })
 
         if (!automation) {
@@ -82,13 +85,19 @@ export async function POST(req: Request) {
             return new NextResponse('OK', { status: 200 })
         }
 
-        // Process the video using full automation config
-        await processYouTubeVideo({
-            title: videoTitle || 'Untitled Video',
-            link: videoLink || '',
-            pubDate: item.pubDate,
-            description: item.contentSnippet || item.content || ''
-        }, automation)  // Pass full automation row, not just automation.config
+        const title = videoTitle || 'Untitled Video'
+        const link = videoLink || ''
+
+        if (automation.type === 'video_monitor') {
+            // Video pipeline: queue for clipping
+            await queueVideoClip(link, title, automation.id)
+        } else {
+            // Article pipeline: build trigger content and run
+            const transcript = await fetchTranscript(link)
+            const transcriptSection = transcript ? `\nTranscript:\n${transcript}` : ''
+            const triggerContent = `Video Title: ${title}\nURL: ${link}\nPublished: ${item.pubDate || ''}\nDescription: ${item.contentSnippet || ''}${transcriptSection}`
+            await runAutomationWithContent(automation, triggerContent)
+        }
 
         return new NextResponse('Processed', { status: 200 })
 
