@@ -119,6 +119,11 @@ export default function VideosPage() {
         }
     }
 
+    const deleteClip = async (id: string) => {
+        await fetch(`/api/videos/${id}`, { method: 'DELETE' })
+        fetchAll()
+    }
+
     const clipVideo = async () => {
         if (!clipUrl.trim()) return
         setClipping(true)
@@ -271,20 +276,24 @@ export default function VideosPage() {
                 ) : (
                     <div className="space-y-2">
                         {clips.map(clip => (
-                            <div key={clip.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 flex items-center gap-3">
-                                <div className="flex items-center gap-1.5 flex-shrink-0 w-24">
+                            <div key={clip.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 flex items-start gap-3">
+                                <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-0.5">
                                     {STATUS_ICON[clip.status] ?? STATUS_ICON.queued}
                                     <span className="text-xs text-slate-500">{STATUS_LABEL[clip.status] ?? clip.status}</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-white truncate">{clip.videoTitle || clip.youtubeUrl}</p>
-                                    {clip.clipRationale && <p className="text-xs text-slate-500 mt-0.5 truncate">{clip.clipRationale}</p>}
+                                    <p className="text-sm text-white truncate">
+                                        {clip.videoTitle && clip.videoTitle !== 'Loading...' ? clip.videoTitle : clip.youtubeUrl}
+                                    </p>
+                                    {clip.clipRationale && <p className="text-xs text-slate-500 mt-0.5">{clip.clipRationale}</p>}
                                     {clip.startSeconds != null && clip.endSeconds != null && (
                                         <p className="text-xs text-slate-600">{clip.startSeconds}s → {clip.endSeconds}s · {clip.endSeconds - clip.startSeconds}s</p>
                                     )}
-                                    {clip.errorMessage && <p className="text-xs text-red-400 mt-0.5 truncate">{clip.errorMessage}</p>}
+                                    {clip.errorMessage && (
+                                        <p className="text-xs text-red-400 mt-1 break-words">{clip.errorMessage}</p>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="flex items-center gap-2 flex-shrink-0 pt-0.5">
                                     {clip.xPostedAt && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">𝕏 Posted</span>}
                                     {clip.clipUrl && (
                                         <a href={clip.clipUrl} target="_blank" rel="noopener noreferrer"
@@ -292,9 +301,13 @@ export default function VideosPage() {
                                             <ExternalLink size={13} />
                                         </a>
                                     )}
-                                    <span className="text-xs text-slate-600 w-20 text-right">
+                                    <span className="text-xs text-slate-600 w-16 text-right">
                                         {formatDistanceToNow(new Date(clip.createdAt), { addSuffix: true })}
                                     </span>
+                                    <button onClick={() => deleteClip(clip.id)}
+                                        className="p-1.5 text-slate-600 hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors" title="Delete clip">
+                                        <Trash2 size={13} />
+                                    </button>
                                 </div>
                             </div>
                         ))}
