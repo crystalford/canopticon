@@ -3,15 +3,26 @@
 import { useState, useEffect } from 'react'
 import { Save, Plus, Key, Bot, Cpu, Edit2, Check, X, Twitter, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 
+const X_KEY_FIELDS = ['TWITTER_API_KEY', 'TWITTER_API_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_SECRET'] as const
+type XKeyField = typeof X_KEY_FIELDS[number]
+
 export default function SettingsPage() {
     const [settings, setSettings] = useState<Record<string, string>>({})
+    // X keys are completely isolated — fetchData never touches these
+    const [xKeys, setXKeys] = useState<Record<XKeyField, string>>({
+        TWITTER_API_KEY: '',
+        TWITTER_API_SECRET: '',
+        TWITTER_ACCESS_TOKEN: '',
+        TWITTER_ACCESS_SECRET: '',
+    })
     const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set())
     const [agents, setAgents] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [savingLlm, setSavingLlm] = useState(false)
     const [savingX, setSavingX] = useState(false)
     const [llmStatus, setLlmStatus] = useState<'idle' | 'saved' | 'error'>('idle')
-    const [xStatus, setXStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+    const [xStatus, setXStatus] = useState<'idle' | 'saved' | 'error' | 'empty'>('idle')
+    const [xError, setXError] = useState('')
     const [testingX, setTestingX] = useState(false)
     const [xTestResult, setXTestResult] = useState<{ ok: boolean; message: string } | null>(null)
     const [editingAgent, setEditingAgent] = useState<any | null>(null)
@@ -22,23 +33,29 @@ export default function SettingsPage() {
     const fetchData = async () => {
         setLoading(true)
         try {
-            const [s, a] = await Promise.all([
-                fetch('/api/settings').then(res => res.json()),
-                fetch('/api/agents').then(res => res.json())
+            const [sRes, aRes] = await Promise.all([
+                fetch('/api/settings'),
+                fetch('/api/agents')
             ])
-            // Track which keys have saved values (masked = saved in DB)
-            const saved = new Set<string>()
-            for (const [k, v] of Object.entries(s as Record<string, string>)) {
-                if (v === '********') saved.add(k)
+            // Only update settings state if the response is valid JSON success
+            if (sRes.ok) {
+                const s = await sRes.json() as Record<string, string>
+                // Track which keys have saved values (masked = saved in DB)
+                const saved = new Set<string>()
+                for (const [k, v] of Object.entries(s)) {
+                    if (v === '********') saved.add(k)
+                }
+                setSavedKeys(saved)
+                // Only store non-X, non-masked settings in shared state
+                const cleanSettings: Record<string, string> = {}
+                for (const [k, v] of Object.entries(s)) {
+                    if (!X_KEY_FIELDS.includes(k as XKeyField)) {
+                        cleanSettings[k] = v === '********' ? '' : v
+                    }
+                }
+                setSettings(cleanSettings)
             }
-            setSavedKeys(saved)
-            // Don't put masked values into the form — clear them so user types fresh
-            const cleanSettings: Record<string, string> = {}
-            for (const [k, v] of Object.entries(s as Record<string, string>)) {
-                cleanSettings[k] = v === '********' ? '' : v as string
-            }
-            setSettings(cleanSettings)
-            setAgents(a)
+            if (aRes.ok) setAgents(await aRes.json())
         } catch (error) {
             console.error('Failed to load settings', error)
         } finally {
@@ -55,6 +72,12 @@ export default function SettingsPage() {
             if (settings.OPENAI_API_KEY?.trim()) payload.OPENAI_API_KEY = settings.OPENAI_API_KEY.trim()
             if (settings.PERPLEXITY_API_KEY?.trim()) payload.PERPLEXITY_API_KEY = settings.PERPLEXITY_API_KEY.trim()
 
+            if (Object.keys(payload).length === 0) {
+                setLlmStatus('error')
+                setSavingLlm(false)
+                return
+            }
+
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -63,7 +86,7 @@ export default function SettingsPage() {
             if (!res.ok) throw new Error('Save failed')
             setLlmStatus('saved')
             await fetchData()
-            setTimeout(() => setLlmStatus('idle'), 3000)
+            setTimeout(() => setLlmStatus('idle'), 4000)
         } catch {
             setLlmStatus('error')
         } finally {
@@ -75,16 +98,24 @@ export default function SettingsPage() {
         e.preventDefault()
         setSavingX(true)
         setXStatus('idle')
+        setXError('')
         setXTestResult(null)
         try {
+            // Read exclusively from isolated xKeys state — never from shared settings
             const payload: Record<string, string> = {}
-            if (settings.TWITTER_API_KEY?.trim()) payload.TWITTER_API_KEY = settings.TWITTER_API_KEY.trim()
-            if (settings.TWITTER_API_SECRET?.trim()) payload.TWITTER_API_SECRET = settings.TWITTER_API_SECRET.trim()
-            if (settings.TWITTER_ACCESS_TOKEN?.trim()) payload.TWITTER_ACCESS_TOKEN = settings.TWITTER_ACCESS_TOKEN.trim()
-            if (settings.TWITTER_ACCESS_SECRET?.trim()) payload.TWITTER_ACCESS_SECRET = settings.TWITTER_ACCESS_SECRET.trim()
+            for (const key of X_KEY_FIELDS) {
+                if (xKeys[key]?.trim()) payload[key] = xKeys[key].trim()
+            }
 
             if (Object.keys(payload).length === 0) {
-                setXStatus('error')
+                // All keys already saved and user hasn't typed new values
+                const allSaved = X_KEY_FIELDS.every(k => savedKeys.has(k))
+                if (allSaved) {
+                    setXError('All keys are already saved in the database. To update a key, type the new value in its field.')
+                } else {
+                    setXError('Enter at least one key to save.')
+                }
+                setXStatus('empty')
                 setSavingX(false)
                 return
             }
@@ -94,11 +125,17 @@ export default function SettingsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             })
-            if (!res.ok) throw new Error('Save failed')
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                throw new Error(data.error || `Server error (${res.status})`)
+            }
+            // Clear the typed values and refresh saved key indicators
+            setXKeys({ TWITTER_API_KEY: '', TWITTER_API_SECRET: '', TWITTER_ACCESS_TOKEN: '', TWITTER_ACCESS_SECRET: '' })
             setXStatus('saved')
             await fetchData()
-            setTimeout(() => setXStatus('idle'), 3000)
-        } catch {
+            setTimeout(() => setXStatus('idle'), 4000)
+        } catch (err: any) {
+            setXError(err.message || 'Save failed. Check the browser console for details.')
             setXStatus('error')
         } finally {
             setSavingX(false)
@@ -227,39 +264,47 @@ export default function SettingsPage() {
 
                 <form onSubmit={saveXKeys} className="space-y-4 max-w-xl">
                     {([
-                        { key: 'TWITTER_API_KEY', label: 'API Key (Consumer Key)' },
-                        { key: 'TWITTER_API_SECRET', label: 'API Secret (Consumer Secret)' },
-                        { key: 'TWITTER_ACCESS_TOKEN', label: 'Access Token' },
-                        { key: 'TWITTER_ACCESS_SECRET', label: 'Access Token Secret' },
-                    ] as { key: string; label: string }[]).map(({ key, label }) => (
+                        { key: 'TWITTER_API_KEY' as XKeyField, label: 'API Key (Consumer Key)' },
+                        { key: 'TWITTER_API_SECRET' as XKeyField, label: 'API Secret (Consumer Secret)' },
+                        { key: 'TWITTER_ACCESS_TOKEN' as XKeyField, label: 'Access Token' },
+                        { key: 'TWITTER_ACCESS_SECRET' as XKeyField, label: 'Access Token Secret' },
+                    ]).map(({ key, label }) => (
                         <div key={key}>
                             <div className="flex items-center justify-between mb-1">
                                 <label className="text-xs font-medium text-slate-400 uppercase">{label}</label>
                                 {savedKeys.has(key)
-                                    ? <span className="text-[10px] text-green-400 flex items-center gap-1"><CheckCircle size={10} /> Saved</span>
+                                    ? <span className="text-[10px] text-green-400 flex items-center gap-1"><CheckCircle size={10} /> Saved in DB</span>
                                     : <span className="text-[10px] text-amber-400">Not saved</span>
                                 }
                             </div>
                             <input
-                                type="password"
-                                value={settings[key] || ''}
-                                onChange={e => { const v = e.target.value; setSettings(prev => ({ ...prev, [key]: v })) }}
-                                placeholder={savedKeys.has(key) ? '(leave blank to keep current)' : 'Paste key here...'}
-                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:border-sky-500/50 outline-none transition-colors"
+                                type="text"
+                                autoComplete="off"
+                                value={xKeys[key]}
+                                onChange={e => { const v = e.target.value; setXKeys(prev => ({ ...prev, [key]: v })) }}
+                                placeholder={savedKeys.has(key) ? 'Leave blank to keep current — type to update' : 'Paste key here...'}
+                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:border-sky-500/50 outline-none transition-colors font-mono text-sm"
                             />
                         </div>
                     ))}
-                    <div className="pt-2 flex items-center gap-3">
-                        <button
-                            type="submit"
-                            disabled={savingX}
-                            className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                        >
-                            {savingX ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                            {savingX ? 'Saving...' : 'Save X Credentials'}
-                        </button>
-                        {xStatus === 'saved' && <span className="text-green-400 text-sm flex items-center gap-1"><Check size={14} /> Saved</span>}
-                        {xStatus === 'error' && <span className="text-red-400 text-sm flex items-center gap-1"><AlertCircle size={14} /> Nothing to save — enter at least one key</span>}
+                    <div className="pt-2 flex flex-col gap-2">
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="submit"
+                                disabled={savingX}
+                                className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                            >
+                                {savingX ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                {savingX ? 'Saving...' : 'Save X Credentials'}
+                            </button>
+                            {xStatus === 'saved' && <span className="text-green-400 text-sm flex items-center gap-1"><Check size={14} /> Saved successfully</span>}
+                        </div>
+                        {(xStatus === 'error' || xStatus === 'empty') && xError && (
+                            <div className="flex items-start gap-2 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                                <span>{xError}</span>
+                            </div>
+                        )}
                     </div>
                 </form>
             </section>
