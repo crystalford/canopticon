@@ -13,11 +13,15 @@ export async function POST(req: Request) {
 
     try {
         const payload = await req.json()
-        console.log(`[webhook/transcript] Clip ${clipId} — status: ${payload.status}`)
+        // Apify platform webhook sends { eventType, resource: { status, defaultDatasetId } }
+        const eventType = payload.eventType || ''
+        const status = payload.resource?.status || payload.status || ''
+        console.log(`[webhook/transcript] Clip ${clipId} — eventType: ${eventType}, status: ${status}`)
 
-        if (payload.status !== 'SUCCEEDED') {
+        const succeeded = eventType === 'ACTOR.RUN.SUCCEEDED' || status === 'SUCCEEDED'
+        if (!succeeded) {
             await db.update(videoClips)
-                .set({ status: 'failed', errorMessage: `Transcript run ${payload.status}` })
+                .set({ status: 'failed', errorMessage: `Transcript run failed (${eventType || status})` })
                 .where(eq(videoClips.id, clipId))
             return NextResponse.json({ ok: true })
         }

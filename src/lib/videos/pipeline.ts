@@ -114,17 +114,21 @@ export async function queueVideoClip(
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
         const webhookUrl = `${baseUrl}/api/webhooks/transcript?clipId=${clip.id}`
 
-        const res = await fetch(`https://api.apify.com/v2/acts/leandrocb88~youtube-video-transcript-scraper/runs?token=${token}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                startUrls: [{ url: youtubeUrl }],
-                webhooks: [{
-                    eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
-                    requestUrl: webhookUrl,
-                }],
-            }),
-        })
+        // Platform-level webhook must be passed as a base64 URL param, NOT in the body
+        // (body goes to the actor as input — the transcript actor doesn't process a webhooks field)
+        const webhooksParam = Buffer.from(JSON.stringify([{
+            eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
+            requestUrl: webhookUrl,
+        }])).toString('base64')
+
+        const res = await fetch(
+            `https://api.apify.com/v2/acts/leandrocb88~youtube-video-transcript-scraper/runs?token=${token}&webhooks=${encodeURIComponent(webhooksParam)}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ startUrls: [{ url: youtubeUrl }] }),
+            }
+        )
         if (!res.ok) throw new Error(`Apify transcript start failed: ${await res.text()}`)
         const run = await res.json()
         console.log(`[queueVideoClip] ✓ Transcript run ${run.data?.id} started`)
