@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, Clock, ExternalLink } from 'lucide-react'
+import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, Clock, ExternalLink, Send } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface VideoMonitor {
@@ -119,9 +119,27 @@ export default function VideosPage() {
         }
     }
 
+    const [postingX, setPostingX] = useState<string | null>(null)
+    const [postXError, setPostXError] = useState<Record<string, string>>({})
+
     const deleteClip = async (id: string) => {
         await fetch(`/api/videos/${id}`, { method: 'DELETE' })
         fetchAll()
+    }
+
+    const postClipToX = async (id: string) => {
+        setPostingX(id)
+        setPostXError(prev => ({ ...prev, [id]: '' }))
+        try {
+            const res = await fetch(`/api/videos/${id}/post-x`, { method: 'POST' })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to post')
+            fetchAll()
+        } catch (e: any) {
+            setPostXError(prev => ({ ...prev, [id]: e.message }))
+        } finally {
+            setPostingX(null)
+        }
     }
 
     const clipVideo = async () => {
@@ -293,21 +311,34 @@ export default function VideosPage() {
                                         <p className="text-xs text-red-400 mt-1 break-words">{clip.errorMessage}</p>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2 flex-shrink-0 pt-0.5">
-                                    {clip.xPostedAt && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">𝕏 Posted</span>}
-                                    {clip.clipUrl && (
-                                        <a href={clip.clipUrl} target="_blank" rel="noopener noreferrer"
-                                            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors" title="View clip">
-                                            <ExternalLink size={13} />
-                                        </a>
-                                    )}
-                                    <span className="text-xs text-slate-600 w-16 text-right">
+                                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                                    <div className="flex items-center gap-1">
+                                        {clip.status === 'done' && !clip.xPostedAt && (
+                                            <button onClick={() => postClipToX(clip.id)} disabled={postingX === clip.id}
+                                                className="flex items-center gap-1 px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-400 rounded-lg text-xs transition-colors disabled:opacity-50"
+                                                title="Post to X">
+                                                {postingX === clip.id ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
+                                                Post to 𝕏
+                                            </button>
+                                        )}
+                                        {clip.xPostedAt && <span className="text-[10px] bg-sky-500/10 border border-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">𝕏 Posted</span>}
+                                        {clip.clipUrl && (
+                                            <a href={clip.clipUrl} target="_blank" rel="noopener noreferrer"
+                                                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors" title="View clip">
+                                                <ExternalLink size={13} />
+                                            </a>
+                                        )}
+                                        <button onClick={() => deleteClip(clip.id)}
+                                            className="p-1.5 text-slate-600 hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors" title="Delete">
+                                            <Trash2 size={13} />
+                                        </button>
+                                    </div>
+                                    <span className="text-xs text-slate-600">
                                         {formatDistanceToNow(new Date(clip.createdAt), { addSuffix: true })}
                                     </span>
-                                    <button onClick={() => deleteClip(clip.id)}
-                                        className="p-1.5 text-slate-600 hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors" title="Delete clip">
-                                        <Trash2 size={13} />
-                                    </button>
+                                    {postXError[clip.id] && (
+                                        <p className="text-[10px] text-red-400 max-w-[180px] text-right">{postXError[clip.id]}</p>
+                                    )}
                                 </div>
                             </div>
                         ))}
