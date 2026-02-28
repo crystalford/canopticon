@@ -24,7 +24,7 @@ async function selectClipWindow(
     title: string,
     transcript: string
 ): Promise<{ start: number; end: number; rationale: string }> {
-    const model = await getModel('anthropic', 'claude-3-5-sonnet-20241022')
+    const model = await getModel('anthropic', 'claude-sonnet-4-20250514')
     const prompt = `You are a social media strategist. Find the SINGLE most compelling 30-90 second moment from this video for X/TikTok.
 
 RULES:
