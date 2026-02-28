@@ -106,7 +106,7 @@ export async function queueVideoClip(
     // Process synchronously — errors surface properly, status updates to 'failed' if anything goes wrong
     try {
         const transcript = await fetchTranscriptWithTimestamps(youtubeUrl)
-        if (!transcript) throw new Error('No transcript available')
+        if (!transcript) throw new Error('No captions available on this video — YouTube auto-captions may be disabled')
 
         const { start, end, rationale } = await selectClipWindow(youtubeUrl, videoTitle, transcript)
         console.log(`[queueVideoClip] AI selected ${start}s→${end}s: ${rationale}`)
