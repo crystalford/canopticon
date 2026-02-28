@@ -215,9 +215,6 @@ async function generateClipArticle(clip: {
     automationId: string | null
 }): Promise<string | null> {
     try {
-        const videoIdMatch = clip.youtubeUrl.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
-        const videoId = videoIdMatch?.[1]
-
         const model = await getModel('anthropic', 'claude-sonnet-4-20250514')
         const prompt = `You are a political editor. Write a short news post (2-4 sentences) giving just enough context for this video clip.
 
@@ -241,12 +238,13 @@ Rules:
             : clip.videoTitle || 'New Clip'
 
         const quoteBlock = clip.keyQuote
-            ? `> "${clip.keyQuote}"\n> — **${clip.channelName || clip.videoTitle || 'Source'}** · [Watch video](${clip.youtubeUrl})\n\n`
+            ? `> "${clip.keyQuote}"\n> — **${clip.channelName || clip.videoTitle || 'Source'}** · [Watch full video](${clip.youtubeUrl})\n\n`
             : ''
 
-        const youtubeEmbed = videoId ? `<youtube>${videoId}</youtube>\n\n` : ''
+        // Embed the actual clip (MP4), not the full YouTube video
+        const clipEmbed = `<video controls style="width:100%;border-radius:8px;margin:1em 0;max-height:480px" src="${clip.clipUrl}"></video>\n\n`
 
-        const content = `${youtubeEmbed}${quoteBlock}${context}\n\n*Source: [${clip.videoTitle || clip.youtubeUrl}](${clip.youtubeUrl})*`
+        const content = `${clipEmbed}${quoteBlock}${context}\n\n*Source: [${clip.videoTitle || clip.youtubeUrl}](${clip.youtubeUrl})*`
 
         const baseSlug = title.toLowerCase()
             .replace(/[^a-z0-9\s-]/g, '')
