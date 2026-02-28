@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, Clock, ExternalLink, Send } from 'lucide-react'
+import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, Clock, ExternalLink, Send, FileText } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface VideoMonitor {
@@ -14,6 +14,9 @@ interface VideoMonitor {
         channelId: string
         channelHandle?: string
         postX?: boolean
+        postBluesky?: boolean
+        postTiktok?: boolean
+        postThreads?: boolean
     }
     createdAt: string
 }
@@ -24,11 +27,16 @@ interface VideoClip {
     youtubeUrl: string
     clipUrl: string | null
     clipRationale: string | null
+    keyQuote: string | null
     startSeconds: number | null
     endSeconds: number | null
     status: string
     errorMessage: string | null
     xPostedAt: string | null
+    blueskyPostedAt: string | null
+    tiktokPostedAt: string | null
+    threadsPostedAt: string | null
+    articleId: string | null
     createdAt: string
 }
 
@@ -46,6 +54,8 @@ const STATUS_LABEL: Record<string, string> = {
     failed: 'Failed',
 }
 
+type PostingPlatform = 'x' | 'bluesky' | 'tiktok' | 'threads'
+
 export default function VideosPage() {
     const [monitors, setMonitors] = useState<VideoMonitor[]>([])
     const [clips, setClips] = useState<VideoClip[]>([])
@@ -54,8 +64,13 @@ export default function VideosPage() {
     const [clipUrl, setClipUrl] = useState('')
     const [clipping, setClipping] = useState(false)
     const [running, setRunning] = useState<string | null>(null)
-    const [form, setForm] = useState({ name: '', channelId: '', channelHandle: '', postX: true })
+    const [form, setForm] = useState({
+        name: '', channelId: '', channelHandle: '',
+        postX: true, postBluesky: false, postTiktok: false, postThreads: false,
+    })
     const [adding, setAdding] = useState(false)
+    const [posting, setPosting] = useState<{ id: string; platform: PostingPlatform } | null>(null)
+    const [postErrors, setPostErrors] = useState<Record<string, string>>({})
 
     const fetchAll = useCallback(async () => {
         const [mRes, cRes] = await Promise.all([
@@ -69,7 +84,6 @@ export default function VideosPage() {
 
     useEffect(() => { fetchAll() }, [fetchAll])
 
-    // Poll while clips are in-flight
     useEffect(() => {
         const hasActive = clips.some(c => c.status === 'queued' || c.status === 'processing')
         if (!hasActive) return
@@ -111,7 +125,7 @@ export default function VideosPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(form),
             })
-            setForm({ name: '', channelId: '', channelHandle: '', postX: true })
+            setForm({ name: '', channelId: '', channelHandle: '', postX: true, postBluesky: false, postTiktok: false, postThreads: false })
             setShowAdd(false)
             fetchAll()
         } finally {
@@ -119,26 +133,27 @@ export default function VideosPage() {
         }
     }
 
-    const [postingX, setPostingX] = useState<string | null>(null)
-    const [postXError, setPostXError] = useState<Record<string, string>>({})
-
     const deleteClip = async (id: string) => {
         await fetch(`/api/videos/${id}`, { method: 'DELETE' })
         fetchAll()
     }
 
-    const postClipToX = async (id: string) => {
-        setPostingX(id)
-        setPostXError(prev => ({ ...prev, [id]: '' }))
+    const postClip = async (id: string, platform: PostingPlatform) => {
+        setPosting({ id, platform })
+        setPostErrors(prev => ({ ...prev, [`${id}-${platform}`]: '' }))
         try {
-            const res = await fetch(`/api/videos/${id}/post-x`, { method: 'POST' })
+            const endpoint = platform === 'x' ? 'post-x'
+                : platform === 'bluesky' ? 'post-bluesky'
+                : platform === 'tiktok' ? 'post-tiktok'
+                : 'post-threads'
+            const res = await fetch(`/api/videos/${id}/${endpoint}`, { method: 'POST' })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Failed to post')
             fetchAll()
         } catch (e: any) {
-            setPostXError(prev => ({ ...prev, [id]: e.message }))
+            setPostErrors(prev => ({ ...prev, [`${id}-${platform}`]: e.message }))
         } finally {
-            setPostingX(null)
+            setPosting(null)
         }
     }
 
@@ -157,6 +172,15 @@ export default function VideosPage() {
         }
     }
 
+    const Toggle = ({ value, onChange, label }: { value: boolean; onChange: () => void; label: string }) => (
+        <label className="flex items-center gap-2 cursor-pointer" onClick={onChange}>
+            <div className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${value ? 'bg-red-500' : 'bg-white/10'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${value ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </div>
+            <span className="text-xs text-slate-400">{label}</span>
+        </label>
+    )
+
     if (loading) return (
         <div className="max-w-4xl mx-auto py-12 px-6 animate-pulse space-y-4">
             <div className="h-8 bg-white/5 rounded w-48" />
@@ -171,7 +195,7 @@ export default function VideosPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Videos</h1>
-                    <p className="text-sm text-slate-500 mt-1">Monitor channels · AI clips the hook · Posts to X natively.</p>
+                    <p className="text-sm text-slate-500 mt-1">Monitor channels · AI clips the hook · Posts to all platforms.</p>
                 </div>
                 <button
                     onClick={() => setShowAdd(!showAdd)}
@@ -202,13 +226,14 @@ export default function VideosPage() {
                             <input value={form.channelHandle} onChange={e => setForm(f => ({ ...f, channelHandle: e.target.value }))}
                                 placeholder="@cpac" className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-white/20" />
                         </div>
-                        <div className="flex items-end pb-2">
-                            <label className="flex items-center gap-2 cursor-pointer" onClick={() => setForm(f => ({ ...f, postX: !f.postX }))}>
-                                <div className={`w-10 h-6 rounded-full relative cursor-pointer transition-colors ${form.postX ? 'bg-red-500' : 'bg-white/10'}`}>
-                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${form.postX ? 'translate-x-5' : 'translate-x-1'}`} />
-                                </div>
-                                <span className="text-sm text-slate-300">Auto-post to X</span>
-                            </label>
+                    </div>
+                    <div>
+                        <p className="text-xs text-slate-500 mb-2">Auto-post clips to:</p>
+                        <div className="flex flex-wrap gap-4">
+                            <Toggle value={form.postX} onChange={() => setForm(f => ({ ...f, postX: !f.postX }))} label="𝕏 (Twitter)" />
+                            <Toggle value={form.postBluesky} onChange={() => setForm(f => ({ ...f, postBluesky: !f.postBluesky }))} label="Bluesky" />
+                            <Toggle value={form.postTiktok} onChange={() => setForm(f => ({ ...f, postTiktok: !f.postTiktok }))} label="TikTok" />
+                            <Toggle value={form.postThreads} onChange={() => setForm(f => ({ ...f, postThreads: !f.postThreads }))} label="Threads" />
                         </div>
                     </div>
                     <div className="flex gap-2">
@@ -240,10 +265,13 @@ export default function VideosPage() {
                                     <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${m.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                         <span className="text-sm font-medium text-white">{m.name}</span>
                                         {m.config.channelHandle && <span className="text-xs text-slate-500">{m.config.channelHandle}</span>}
-                                        {m.config.postX && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Posts to X</span>}
+                                        {m.config.postX && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">𝕏</span>}
+                                        {m.config.postBluesky && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Bluesky</span>}
+                                        {m.config.postTiktok && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">TikTok</span>}
+                                        {m.config.postThreads && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Threads</span>}
                                     </div>
                                     <p className="text-xs text-slate-600 mt-0.5">
                                         {m.lastRunAt ? `Last run ${formatDistanceToNow(new Date(m.lastRunAt), { addSuffix: true })}` : 'Never run'}
@@ -292,36 +320,27 @@ export default function VideosPage() {
                         <p className="text-slate-500 text-sm">No clips yet.</p>
                     </div>
                 ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {clips.map(clip => (
-                            <div key={clip.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 flex items-start gap-3">
-                                <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-0.5">
-                                    {STATUS_ICON[clip.status] ?? STATUS_ICON.queued}
-                                    <span className="text-xs text-slate-500">{STATUS_LABEL[clip.status] ?? clip.status}</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm text-white truncate">
-                                        {clip.videoTitle && clip.videoTitle !== 'Loading...' ? clip.videoTitle : clip.youtubeUrl}
-                                    </p>
-                                    {clip.clipRationale && <p className="text-xs text-slate-500 mt-0.5">{clip.clipRationale}</p>}
-                                    {clip.startSeconds != null && clip.endSeconds != null && (
-                                        <p className="text-xs text-slate-600">{clip.startSeconds}s → {clip.endSeconds}s · {clip.endSeconds - clip.startSeconds}s</p>
-                                    )}
-                                    {clip.errorMessage && (
-                                        <p className="text-xs text-red-400 mt-1 break-words">{clip.errorMessage}</p>
-                                    )}
-                                </div>
-                                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                                    <div className="flex items-center gap-1">
-                                        {clip.status === 'done' && !clip.xPostedAt && (
-                                            <button onClick={() => postClipToX(clip.id)} disabled={postingX === clip.id}
-                                                className="flex items-center gap-1 px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-400 rounded-lg text-xs transition-colors disabled:opacity-50"
-                                                title="Post to X">
-                                                {postingX === clip.id ? <Loader2 size={11} className="animate-spin" /> : <Send size={11} />}
-                                                Post to 𝕏
-                                            </button>
+                            <div key={clip.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 space-y-2">
+                                {/* Top row: status + title + actions */}
+                                <div className="flex items-start gap-3">
+                                    <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-0.5">
+                                        {STATUS_ICON[clip.status] ?? STATUS_ICON.queued}
+                                        <span className="text-xs text-slate-500">{STATUS_LABEL[clip.status] ?? clip.status}</span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm text-white truncate">
+                                            {clip.videoTitle && clip.videoTitle !== 'Loading...' ? clip.videoTitle : clip.youtubeUrl}
+                                        </p>
+                                        {clip.startSeconds != null && clip.endSeconds != null && (
+                                            <p className="text-xs text-slate-600">{clip.startSeconds}s → {clip.endSeconds}s · {clip.endSeconds - clip.startSeconds}s</p>
                                         )}
-                                        {clip.xPostedAt && <span className="text-[10px] bg-sky-500/10 border border-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">𝕏 Posted</span>}
+                                        {clip.errorMessage && (
+                                            <p className="text-xs text-red-400 mt-1 break-words">{clip.errorMessage}</p>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-1 flex-shrink-0">
                                         {clip.clipUrl && (
                                             <a href={clip.clipUrl} target="_blank" rel="noopener noreferrer"
                                                 className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors" title="View clip">
@@ -333,13 +352,107 @@ export default function VideosPage() {
                                             <Trash2 size={13} />
                                         </button>
                                     </div>
-                                    <span className="text-xs text-slate-600">
-                                        {formatDistanceToNow(new Date(clip.createdAt), { addSuffix: true })}
-                                    </span>
-                                    {postXError[clip.id] && (
-                                        <p className="text-[10px] text-red-400 max-w-[180px] text-right">{postXError[clip.id]}</p>
-                                    )}
                                 </div>
+
+                                {/* Key quote */}
+                                {clip.keyQuote && (
+                                    <p className="text-xs text-amber-300/80 italic pl-24 leading-relaxed">
+                                        &ldquo;{clip.keyQuote}&rdquo;
+                                    </p>
+                                )}
+
+                                {/* Rationale */}
+                                {clip.clipRationale && !clip.keyQuote && (
+                                    <p className="text-xs text-slate-500 pl-24">{clip.clipRationale}</p>
+                                )}
+
+                                {/* Platform buttons + badges */}
+                                {clip.status === 'done' && (
+                                    <div className="pl-24 flex flex-wrap items-center gap-1.5">
+                                        {/* Article link */}
+                                        {clip.articleId && (
+                                            <a href={`/content`}
+                                                className="flex items-center gap-1 px-2 py-1 bg-green-500/10 border border-green-500/20 text-green-400 rounded-lg text-xs">
+                                                <FileText size={10} />
+                                                Article
+                                            </a>
+                                        )}
+
+                                        {/* X */}
+                                        {!clip.xPostedAt ? (
+                                            <button onClick={() => postClip(clip.id, 'x')}
+                                                disabled={posting?.id === clip.id && posting.platform === 'x'}
+                                                className="flex items-center gap-1 px-2 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 text-sky-400 rounded-lg text-xs transition-colors disabled:opacity-50"
+                                                title={postErrors[`${clip.id}-x`] || 'Post to X'}>
+                                                {posting?.id === clip.id && posting.platform === 'x' ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                                                𝕏
+                                            </button>
+                                        ) : (
+                                            <span className="text-[10px] bg-sky-500/10 border border-sky-500/20 text-sky-400 px-1.5 py-0.5 rounded">𝕏 ✓</span>
+                                        )}
+
+                                        {/* Bluesky */}
+                                        {!clip.blueskyPostedAt ? (
+                                            <button onClick={() => postClip(clip.id, 'bluesky')}
+                                                disabled={posting?.id === clip.id && posting.platform === 'bluesky'}
+                                                className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 rounded-lg text-xs transition-colors disabled:opacity-50"
+                                                title={postErrors[`${clip.id}-bluesky`] || 'Post to Bluesky'}>
+                                                {posting?.id === clip.id && posting.platform === 'bluesky' ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                                                Bluesky
+                                            </button>
+                                        ) : (
+                                            <span className="text-[10px] bg-blue-500/10 border border-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">Bluesky ✓</span>
+                                        )}
+
+                                        {/* TikTok */}
+                                        {!clip.tiktokPostedAt ? (
+                                            <button onClick={() => postClip(clip.id, 'tiktok')}
+                                                disabled={posting?.id === clip.id && posting.platform === 'tiktok'}
+                                                className="flex items-center gap-1 px-2 py-1 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/20 text-pink-400 rounded-lg text-xs transition-colors disabled:opacity-50"
+                                                title={postErrors[`${clip.id}-tiktok`] || 'Post to TikTok'}>
+                                                {posting?.id === clip.id && posting.platform === 'tiktok' ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                                                TikTok
+                                            </button>
+                                        ) : (
+                                            <span className="text-[10px] bg-pink-500/10 border border-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded">TikTok ✓</span>
+                                        )}
+
+                                        {/* Threads */}
+                                        {!clip.threadsPostedAt ? (
+                                            <button onClick={() => postClip(clip.id, 'threads')}
+                                                disabled={posting?.id === clip.id && posting.platform === 'threads'}
+                                                className="flex items-center gap-1 px-2 py-1 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 text-purple-400 rounded-lg text-xs transition-colors disabled:opacity-50"
+                                                title={postErrors[`${clip.id}-threads`] || 'Post to Threads'}>
+                                                {posting?.id === clip.id && posting.platform === 'threads' ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
+                                                Threads
+                                            </button>
+                                        ) : (
+                                            <span className="text-[10px] bg-purple-500/10 border border-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded">Threads ✓</span>
+                                        )}
+
+                                        <span className="text-xs text-slate-600 ml-auto">
+                                            {formatDistanceToNow(new Date(clip.createdAt), { addSuffix: true })}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* Error messages per platform */}
+                                {(['x', 'bluesky', 'tiktok', 'threads'] as PostingPlatform[]).map(p => (
+                                    postErrors[`${clip.id}-${p}`] ? (
+                                        <p key={p} className="text-[10px] text-red-400 pl-24 break-words">
+                                            {p}: {postErrors[`${clip.id}-${p}`]}
+                                        </p>
+                                    ) : null
+                                ))}
+
+                                {/* Timestamp for non-done clips */}
+                                {clip.status !== 'done' && (
+                                    <div className="pl-24">
+                                        <span className="text-xs text-slate-600">
+                                            {formatDistanceToNow(new Date(clip.createdAt), { addSuffix: true })}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

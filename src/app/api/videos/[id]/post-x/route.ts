@@ -24,7 +24,7 @@ export async function POST(
         })
 
         await db.update(videoClips)
-            .set({ xPostedAt: new Date(), xPostId: result?.id || null })
+            .set({ xPostedAt: new Date(), xPostId: result || null })
             .where(eq(videoClips.id, params.id))
 
         return NextResponse.json({ success: true })

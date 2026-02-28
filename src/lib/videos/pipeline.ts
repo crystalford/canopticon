@@ -1,6 +1,7 @@
 import { generateText } from 'ai'
 import { getModel } from '@/lib/ai/providers'
 import { db, videoClips, automations } from '@/db'
+import { articles } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { put } from '@vercel/blob'
 import { postToX } from '@/lib/automations/runner'
@@ -22,14 +23,22 @@ async function selectClipWindow(
     url: string,
     title: string,
     transcript: string
-): Promise<{ start: number; end: number; rationale: string }> {
+): Promise<{ start: number; end: number; rationale: string; keyQuote: string }> {
     const model = await getModel('anthropic', 'claude-sonnet-4-20250514')
-    const prompt = `You are a social media strategist. Find the SINGLE most compelling 30-90 second moment from this video for X/TikTok.
+    const prompt = `You are a viral political media editor. Find the SINGLE most compelling 60-120 second window from this video for social media.
+
+WHAT MAKES A GREAT CLIP:
+- A politician making a specific, quotable claim, admission, or attack
+- A heated exchange where someone is cornered or contradicted
+- A shocking statistic or revelation stated plainly
+- A moment of visible frustration, passion, or contradiction
+- Complete thought arc: setup → point → conclusion (no dangling mid-sentence)
 
 RULES:
-- NO silence, intros, or music. Start where substantive speech begins.
-- Lead with the hook: surprising fact, heated debate, or quotable soundbite.
-- End naturally after a complete thought within the 30-90s limit.
+- Skip intros, B-roll, music, applause. Start at the first substantive word.
+- The clip must be 60-120 seconds. Do not go under 60s.
+- End on a natural sentence break — never cut mid-sentence.
+- key_quote: the single most quotable sentence or phrase from within the clip window. Exact words only, no paraphrase.
 
 Video: "${title}"
 URL: ${url}
@@ -38,7 +47,7 @@ Timestamped transcript:
 ${transcript}
 
 Return ONLY valid JSON, no markdown:
-{"start_seconds": <number>, "end_seconds": <number>, "rationale": "<one sentence>"}`
+{"start_seconds": <number>, "end_seconds": <number>, "rationale": "<one sentence why this is the best hook>", "key_quote": "<exact verbatim quote from the clip>"}`
 
     const result = await generateText({ model, prompt })
     const match = result.text.match(/\{[\s\S]*?\}/)
@@ -47,7 +56,12 @@ Return ONLY valid JSON, no markdown:
     if (typeof parsed.start_seconds !== 'number' || typeof parsed.end_seconds !== 'number') {
         throw new Error('AI returned invalid timestamp format')
     }
-    return { start: parsed.start_seconds, end: parsed.end_seconds, rationale: parsed.rationale }
+    return {
+        start: parsed.start_seconds,
+        end: parsed.end_seconds,
+        rationale: parsed.rationale || '',
+        keyQuote: parsed.key_quote || '',
+    }
 }
 
 async function triggerApify(
@@ -169,11 +183,11 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
         const transcript = segments.map(s => `${formatTime(s.start)} ${s.text.trim()}`).join('\n')
 
         // Claude picks best clip window
-        const { start, end, rationale } = await selectClipWindow(clip.youtubeUrl, clip.videoTitle || '', transcript)
+        const { start, end, rationale, keyQuote } = await selectClipWindow(clip.youtubeUrl, clip.videoTitle || '', transcript)
         console.log(`[onTranscriptReady] AI selected ${start}s→${end}s: ${rationale}`)
 
         await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, status: 'processing' })
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, status: 'processing' })
             .where(eq(videoClips.id, clipId))
 
         await triggerApify(clipId, clip.youtubeUrl, start, end, clip.automationId ?? undefined)
@@ -187,8 +201,82 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
 }
 
 /**
+ * Generate a short site article/post from a clip.
+ * Returns the article id on success.
+ */
+async function generateClipArticle(clip: {
+    id: string
+    videoTitle: string | null
+    youtubeUrl: string
+    channelName: string | null
+    keyQuote: string | null
+    clipRationale: string | null
+    clipUrl: string
+    automationId: string | null
+}): Promise<string | null> {
+    try {
+        const videoIdMatch = clip.youtubeUrl.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+        const videoId = videoIdMatch?.[1]
+
+        const model = await getModel('anthropic', 'claude-sonnet-4-20250514')
+        const prompt = `You are a political editor. Write a short news post (2-4 sentences) giving just enough context for this video clip.
+
+Video: "${clip.videoTitle || 'Unknown'}"
+Channel: ${clip.channelName || 'Unknown'}
+Key Quote: "${clip.keyQuote || ''}"
+Context: ${clip.clipRationale || ''}
+
+Rules:
+- Open with the most newsworthy thing that was said
+- Be specific: name the speaker, the topic, the stakes
+- Don't start with "In a", "During a", or "A clip"
+- 2-4 sentences only
+- Return ONLY the paragraph, no title`
+
+        const result = await generateText({ model, prompt })
+        const context = result.text.trim()
+
+        const title = clip.keyQuote
+            ? `"${clip.keyQuote.substring(0, 80)}${clip.keyQuote.length > 80 ? '...' : ''}"`
+            : clip.videoTitle || 'New Clip'
+
+        const quoteBlock = clip.keyQuote
+            ? `> "${clip.keyQuote}"\n> — **${clip.channelName || clip.videoTitle || 'Source'}** · [Watch video](${clip.youtubeUrl})\n\n`
+            : ''
+
+        const youtubeEmbed = videoId ? `<youtube>${videoId}</youtube>\n\n` : ''
+
+        const content = `${youtubeEmbed}${quoteBlock}${context}\n\n*Source: [${clip.videoTitle || clip.youtubeUrl}](${clip.youtubeUrl})*`
+
+        const baseSlug = title.toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .substring(0, 80)
+            .replace(/-+$/, '')
+        const slug = `${baseSlug}-${Date.now()}`
+
+        const [article] = await db.insert(articles).values({
+            title,
+            slug,
+            content,
+            summary: context.substring(0, 200),
+            tags: ['video-clip'],
+            status: 'published',
+            automationId: clip.automationId ?? null,
+            publishedAt: new Date(),
+        }).returning()
+
+        console.log(`[onClipReady] ✓ Article generated: ${article.id}`)
+        return article.id
+    } catch (e: any) {
+        console.error(`[onClipReady] Article generation failed: ${e.message}`)
+        return null
+    }
+}
+
+/**
  * Called by the Apify webhook when a video clip is ready.
- * Downloads from Apify, uploads to Vercel Blob (permanent), posts to X.
+ * Downloads from Apify, uploads to Vercel Blob, generates article, posts to platforms.
  */
 export async function onClipReady(clipId: string, apifyClipUrl: string): Promise<void> {
     console.log(`[onClipReady] Clip ${clipId} ready`)
@@ -211,32 +299,103 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
 
         if (!clip) throw new Error('Clip record not found')
 
-        if (clip.automationId) {
-            const automation = await db.query.automations.findFirst({
-                where: eq(automations.id, clip.automationId)
-            })
-            if (automation) {
-                const config = automation.config as Record<string, any>
-                if (config.postX) {
-                    try {
-                        await postToX({
-                            content: clip.clipRationale || clip.videoTitle || 'New video',
-                            title: clip.videoTitle || 'New Video',
-                            xFormat: 'post',
-                            xTweetCount: 1,
-                            videoClipUrl: blob.url,
-                            videoSourceUrl: clip.youtubeUrl,
-                        })
-                        console.log(`[onClipReady] ✓ Posted to X`)
-                    } catch (e: any) {
-                        console.error(`[onClipReady] X post failed: ${e.message}`)
-                        await db.update(videoClips)
-                            .set({ errorMessage: `Clip saved but X post failed: ${e.message}` })
-                            .where(eq(videoClips.id, clipId))
-                    }
-                }
+        // Auto-generate site article for every clip
+        const articleId = await generateClipArticle({
+            id: clip.id,
+            videoTitle: clip.videoTitle,
+            youtubeUrl: clip.youtubeUrl,
+            channelName: clip.channelName,
+            keyQuote: clip.keyQuote,
+            clipRationale: clip.clipRationale,
+            clipUrl: blob.url,
+            automationId: clip.automationId,
+        })
+        if (articleId) {
+            await db.update(videoClips).set({ articleId }).where(eq(videoClips.id, clipId))
+        }
+
+        // Platform auto-posting (only for clips tied to a monitor with the flag enabled)
+        if (!clip.automationId) return
+        const automation = await db.query.automations.findFirst({
+            where: eq(automations.id, clip.automationId)
+        })
+        if (!automation) return
+
+        const config = automation.config as Record<string, any>
+        const videoBuffer = Buffer.from(buffer)
+
+        // Post to X
+        if (config.postX) {
+            try {
+                const xRes = await postToX({
+                    content: clip.clipRationale || clip.videoTitle || 'New video',
+                    title: clip.videoTitle || 'New Video',
+                    xFormat: config.xFormat ?? 'post',
+                    xTweetCount: config.xTweetCount ?? 1,
+                    videoClipUrl: blob.url,
+                    videoSourceUrl: clip.youtubeUrl,
+                })
+                await db.update(videoClips).set({ xPostedAt: new Date(), xPostId: xRes || null }).where(eq(videoClips.id, clipId))
+                console.log(`[onClipReady] ✓ Posted to X`)
+            } catch (e: any) {
+                console.error(`[onClipReady] X post failed: ${e.message}`)
+                await db.update(videoClips)
+                    .set({ errorMessage: `Clip saved but X post failed: ${e.message}` })
+                    .where(eq(videoClips.id, clipId))
             }
         }
+
+        // Post to Bluesky
+        if (config.postBluesky) {
+            try {
+                const { postToBluesky } = await import('@/lib/social/bluesky')
+                const text = clip.keyQuote
+                    ? `"${clip.keyQuote}" — ${clip.videoTitle || ''}\n\n${clip.youtubeUrl}`
+                    : `${clip.clipRationale || clip.videoTitle || 'New clip'}\n\n${clip.youtubeUrl}`
+                const bskyUri = await postToBluesky({ text, videoBuffer })
+                await db.update(videoClips)
+                    .set({ blueskyPostId: bskyUri, blueskyPostedAt: new Date() })
+                    .where(eq(videoClips.id, clipId))
+                console.log(`[onClipReady] ✓ Posted to Bluesky`)
+            } catch (e: any) {
+                console.error(`[onClipReady] Bluesky post failed: ${e.message}`)
+            }
+        }
+
+        // Post to Threads
+        if (config.postThreads) {
+            try {
+                const { postToThreads } = await import('@/lib/social/threads')
+                const text = clip.keyQuote
+                    ? `"${clip.keyQuote}" — ${clip.videoTitle || ''}\n\n${clip.youtubeUrl}`
+                    : `${clip.clipRationale || clip.videoTitle || 'New clip'}\n\n${clip.youtubeUrl}`
+                const threadsId = await postToThreads({ text, videoBuffer })
+                await db.update(videoClips)
+                    .set({ threadsPostId: threadsId, threadsPostedAt: new Date() })
+                    .where(eq(videoClips.id, clipId))
+                console.log(`[onClipReady] ✓ Posted to Threads`)
+            } catch (e: any) {
+                console.error(`[onClipReady] Threads post failed: ${e.message}`)
+            }
+        }
+
+        // Post to TikTok
+        if (config.postTiktok) {
+            try {
+                const { postToTiktok } = await import('@/lib/social/tiktok')
+                const tiktokId = await postToTiktok({
+                    title: clip.videoTitle || clip.clipRationale || 'New clip',
+                    videoBuffer,
+                })
+                await db.update(videoClips)
+                    .set({ tiktokPostId: tiktokId, tiktokPostedAt: new Date() })
+                    .where(eq(videoClips.id, clipId))
+                console.log(`[onClipReady] ✓ Posted to TikTok`)
+            } catch (e: any) {
+                console.error(`[onClipReady] TikTok post failed: ${e.message}`)
+            }
+        }
+
     } catch (e: any) {
         console.error(`[onClipReady] Failed: ${e.message}`)
         await db.update(videoClips)

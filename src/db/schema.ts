@@ -179,10 +179,19 @@ export const videoClips = pgTable('video_clips', {
     clipUrl: text('clip_url'),              // MP4 URL (Vercel Blob or local)
     status: text('status').default('queued').notNull(), // 'queued' | 'processing' | 'done' | 'failed'
     errorMessage: text('error_message'),
+    // AI-extracted key quote from this clip window
+    keyQuote: text('key_quote'),
     // Social posting
-    xPostId: text('x_post_id'),            // Tweet ID if posted to X
+    xPostId: text('x_post_id'),
     xPostedAt: timestamp('x_posted_at'),
     tiktokPostId: text('tiktok_post_id'),
+    tiktokPostedAt: timestamp('tiktok_posted_at'),
+    blueskyPostId: text('bluesky_post_id'),
+    blueskyPostedAt: timestamp('bluesky_posted_at'),
+    threadsPostId: text('threads_post_id'),
+    threadsPostedAt: timestamp('threads_posted_at'),
+    // Generated article
+    articleId: uuid('article_id').references(() => articles.id, { onDelete: 'set null' }),
     // Links
     automationId: uuid('automation_id').references(() => automations.id, { onDelete: 'set null' }),
     // Metadata
