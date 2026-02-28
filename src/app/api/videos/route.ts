@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db'
 import { videoClips } from '@/db/schema'
-import { desc } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,18 +10,17 @@ export async function GET(req: Request) {
         const { searchParams } = new URL(req.url)
         const automationId = searchParams.get('automationId')
 
-        const results = await db.query.videoClips.findMany({
-            where: automationId ? (t, { eq }) => eq(t.automationId, automationId) : undefined,
-            orderBy: [desc(videoClips.createdAt)],
-            limit: 50
-        })
+        const results = await db
+            .select()
+            .from(videoClips)
+            .where(automationId ? eq(videoClips.automationId, automationId) : undefined)
+            .orderBy(desc(videoClips.createdAt))
+            .limit(50)
+
         return NextResponse.json(results)
     } catch (e: any) {
-        console.error('[/api/videos GET] Error:', e)
-        return NextResponse.json({
-            error: e.message,
-            details: e.stack
-        }, { status: 500 })
+        console.error('[/api/videos GET] Error:', e.message)
+        return NextResponse.json({ error: e.message }, { status: 500 })
     }
 }
 

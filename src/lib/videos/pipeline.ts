@@ -103,27 +103,25 @@ export async function queueVideoClip(
 
     console.log(`[queueVideoClip] Created clip ${clip.id} for "${videoTitle}"`)
 
-    // Run async — don't await so the caller returns immediately
-    ;(async () => {
-        try {
-            const transcript = await fetchTranscriptWithTimestamps(youtubeUrl)
-            if (!transcript) throw new Error('No transcript available')
+    // Process synchronously — errors surface properly, status updates to 'failed' if anything goes wrong
+    try {
+        const transcript = await fetchTranscriptWithTimestamps(youtubeUrl)
+        if (!transcript) throw new Error('No transcript available')
 
-            const { start, end, rationale } = await selectClipWindow(youtubeUrl, videoTitle, transcript)
-            console.log(`[queueVideoClip] AI selected ${start}s→${end}s: ${rationale}`)
+        const { start, end, rationale } = await selectClipWindow(youtubeUrl, videoTitle, transcript)
+        console.log(`[queueVideoClip] AI selected ${start}s→${end}s: ${rationale}`)
 
-            await db.update(videoClips)
-                .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, status: 'processing' })
-                .where(eq(videoClips.id, clip.id))
+        await db.update(videoClips)
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, status: 'processing' })
+            .where(eq(videoClips.id, clip.id))
 
-            await triggerApify(clip.id, youtubeUrl, start, end, automationId)
-        } catch (e: any) {
-            console.error(`[queueVideoClip] Failed for ${clip.id}:`, e.message)
-            await db.update(videoClips)
-                .set({ status: 'failed', errorMessage: e.message })
-                .where(eq(videoClips.id, clip.id))
-        }
-    })()
+        await triggerApify(clip.id, youtubeUrl, start, end, automationId)
+    } catch (e: any) {
+        console.error(`[queueVideoClip] Failed for ${clip.id}:`, e.message)
+        await db.update(videoClips)
+            .set({ status: 'failed', errorMessage: e.message })
+            .where(eq(videoClips.id, clip.id))
+    }
 
     return clip.id
 }
