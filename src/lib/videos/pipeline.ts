@@ -63,19 +63,24 @@ async function triggerApify(
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
     const webhookUrl = `${baseUrl}/api/webhooks/apify?clipId=${clipId}${automationId ? `&automationId=${automationId}` : ''}`
 
-    const res = await fetch(`https://api.apify.com/v2/acts/fractalai~youtube-video-clipper/runs?token=${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            videoUrl: youtubeUrl,
-            clips: [{ start: toHHMMSS(start), end: toHHMMSS(end), name: 'Canopticon-Clip' }],
-            quality: '720p',
-            webhooks: [{
-                eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
-                requestUrl: webhookUrl
-            }],
-        }),
-    })
+    // Platform-level webhook via base64 URL param (same pattern as transcript actor)
+    const webhooksParam = Buffer.from(JSON.stringify([{
+        eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
+        requestUrl: webhookUrl,
+    }])).toString('base64')
+
+    const res = await fetch(
+        `https://api.apify.com/v2/acts/fractalai~youtube-video-clipper/runs?token=${token}&webhooks=${encodeURIComponent(webhooksParam)}`,
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                videoUrl: youtubeUrl,
+                clips: [{ start: toHHMMSS(start), end: toHHMMSS(end), name: 'Canopticon-Clip' }],
+                quality: '720p',
+            }),
+        }
+    )
     if (!res.ok) throw new Error(`Apify clipper failed: ${await res.text()}`)
     const data = await res.json()
     console.log(`[triggerApify] ✓ Queued run ${data.data?.id}`)
