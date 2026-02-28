@@ -1,6 +1,5 @@
 import { generateText } from 'ai'
 import { getModel } from '@/lib/ai/providers'
-import { fetchTranscriptWithTimestamps } from '@/lib/automations/transcript'
 import { db, videoClips, automations } from '@/db'
 import { eq } from 'drizzle-orm'
 import { put } from '@vercel/blob'
@@ -77,7 +76,7 @@ async function triggerApify(
             }],
         }),
     })
-    if (!res.ok) throw new Error(`Apify run failed: ${await res.text()}`)
+    if (!res.ok) throw new Error(`Apify clipper failed: ${await res.text()}`)
     const data = await res.json()
     console.log(`[triggerApify] ✓ Queued run ${data.data?.id}`)
 }
@@ -85,39 +84,52 @@ async function triggerApify(
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Queue a video for AI clipping. Creates a DB record, selects the best
- * moment with Claude, then fires off an async Apify job. Webhook calls
- * onClipReady() when done.
+ * Queue a video for AI clipping.
+ * Creates a DB record, then starts an Apify transcript actor ASYNC.
+ * The transcript webhook (/api/webhooks/transcript) handles the rest.
  */
 export async function queueVideoClip(
     youtubeUrl: string,
-    videoTitle: string,
+    videoTitle?: string,
     automationId?: string
 ): Promise<string> {
     const [clip] = await db.insert(videoClips).values({
         youtubeUrl,
-        videoTitle,
+        videoTitle: videoTitle && videoTitle !== 'Loading...' ? videoTitle : null,
         status: 'queued',
         automationId: automationId ?? null,
     }).returning()
 
-    console.log(`[queueVideoClip] Created clip ${clip.id} for "${videoTitle}"`)
+    console.log(`[queueVideoClip] Created clip ${clip.id}`)
 
-    // Process synchronously — errors surface properly, status updates to 'failed' if anything goes wrong
-    try {
-        const transcript = await fetchTranscriptWithTimestamps(youtubeUrl)
-        if (!transcript) throw new Error('No captions available on this video — YouTube auto-captions may be disabled')
-
-        const { start, end, rationale } = await selectClipWindow(youtubeUrl, videoTitle, transcript)
-        console.log(`[queueVideoClip] AI selected ${start}s→${end}s: ${rationale}`)
-
+    const token = process.env.APIFY_API_TOKEN
+    if (!token) {
         await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, status: 'processing' })
+            .set({ status: 'failed', errorMessage: 'APIFY_API_TOKEN not configured' })
             .where(eq(videoClips.id, clip.id))
+        return clip.id
+    }
 
-        await triggerApify(clip.id, youtubeUrl, start, end, automationId)
+    try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
+        const webhookUrl = `${baseUrl}/api/webhooks/transcript?clipId=${clip.id}`
+
+        const res = await fetch(`https://api.apify.com/v2/acts/leandrocb88~youtube-video-transcript-scraper/runs?token=${token}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                startUrls: [{ url: youtubeUrl }],
+                webhooks: [{
+                    eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
+                    requestUrl: webhookUrl,
+                }],
+            }),
+        })
+        if (!res.ok) throw new Error(`Apify transcript start failed: ${await res.text()}`)
+        const run = await res.json()
+        console.log(`[queueVideoClip] ✓ Transcript run ${run.data?.id} started`)
     } catch (e: any) {
-        console.error(`[queueVideoClip] Failed for ${clip.id}:`, e.message)
+        console.error(`[queueVideoClip] Failed to start transcript for ${clip.id}:`, e.message)
         await db.update(videoClips)
             .set({ status: 'failed', errorMessage: e.message })
             .where(eq(videoClips.id, clip.id))
@@ -127,26 +139,62 @@ export async function queueVideoClip(
 }
 
 /**
- * Called by the Apify webhook when a clip is ready.
+ * Called by /api/webhooks/transcript when Apify transcript run completes.
+ * Parses transcript, runs Claude to pick clip window, triggers video clipper.
+ */
+export async function onTranscriptReady(clipId: string, transcriptItems: any[]): Promise<void> {
+    try {
+        const [clip] = await db.select().from(videoClips).where(eq(videoClips.id, clipId)).limit(1)
+        if (!clip) throw new Error('Clip record not found')
+
+        if (!transcriptItems || transcriptItems.length === 0 || !transcriptItems[0].transcript) {
+            throw new Error('No transcript returned — captions may be disabled on this video')
+        }
+
+        const segments = transcriptItems[0].transcript as Array<{ start: number; text: string }>
+        const formatTime = (s: number) => {
+            const m = Math.floor(s / 60)
+            const sec = Math.floor(s % 60)
+            return `[${m}:${sec.toString().padStart(2, '0')}]`
+        }
+        const transcript = segments.map(s => `${formatTime(s.start)} ${s.text.trim()}`).join('\n')
+
+        // Claude picks best clip window
+        const { start, end, rationale } = await selectClipWindow(clip.youtubeUrl, clip.videoTitle || '', transcript)
+        console.log(`[onTranscriptReady] AI selected ${start}s→${end}s: ${rationale}`)
+
+        await db.update(videoClips)
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, status: 'processing' })
+            .where(eq(videoClips.id, clipId))
+
+        await triggerApify(clipId, clip.youtubeUrl, start, end, clip.automationId ?? undefined)
+
+    } catch (e: any) {
+        console.error(`[onTranscriptReady] Failed for ${clipId}:`, e.message)
+        await db.update(videoClips)
+            .set({ status: 'failed', errorMessage: e.message })
+            .where(eq(videoClips.id, clipId))
+    }
+}
+
+/**
+ * Called by the Apify webhook when a video clip is ready.
  * Downloads from Apify, uploads to Vercel Blob (permanent), posts to X.
  */
 export async function onClipReady(clipId: string, apifyClipUrl: string): Promise<void> {
     console.log(`[onClipReady] Clip ${clipId} ready`)
 
     try {
-        // Download from Apify
         const videoRes = await fetch(apifyClipUrl)
         if (!videoRes.ok) throw new Error(`Failed to fetch clip: ${videoRes.status}`)
         const buffer = await videoRes.arrayBuffer()
 
-        // Upload to Vercel Blob (permanent storage)
         const blob = await put(`clips/${clipId}.mp4`, buffer, {
             access: 'public',
             contentType: 'video/mp4',
         })
         console.log(`[onClipReady] ✓ Uploaded to Blob: ${blob.url}`)
 
-        // Save Blob URL to DB
         const [clip] = await db.update(videoClips)
             .set({ clipUrl: blob.url, status: 'done', processedAt: new Date() })
             .where(eq(videoClips.id, clipId))
@@ -154,7 +202,6 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
 
         if (!clip) throw new Error('Clip record not found')
 
-        // Post to X if monitor has postX enabled
         if (clip.automationId) {
             const automation = await db.query.automations.findFirst({
                 where: eq(automations.id, clip.automationId)
@@ -225,7 +272,7 @@ export async function runVideoMonitor(automation: Automation): Promise<{
         for (const item of newVideos.slice(0, 3)) {
             const url = item.link || ''
             if (!url) continue
-            queueVideoClip(url, item.title || 'Untitled', automation.id)
+            queueVideoClip(url, item.title || undefined, automation.id)
                 .catch(e => console.error(`[runVideoMonitor] Queue failed for ${url}:`, e.message))
             clipsQueued++
         }

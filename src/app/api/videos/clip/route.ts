@@ -9,7 +9,7 @@ export async function POST(req: Request) {
         const { youtubeUrl } = await req.json()
         if (!youtubeUrl) return NextResponse.json({ error: 'youtubeUrl required' }, { status: 400 })
 
-        const clipId = await queueVideoClip(youtubeUrl, 'Loading...')
+        const clipId = await queueVideoClip(youtubeUrl)
         return NextResponse.json({ clipId }, { status: 201 })
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 })
