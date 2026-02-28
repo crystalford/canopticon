@@ -1,4 +1,5 @@
-import { BskyAgent, RichText } from '@atproto/api'
+import { AtpAgent, RichText } from '@atproto/api'
+import { getCredential } from './credentials'
 
 export async function postToBluesky({
     text,
@@ -7,13 +8,13 @@ export async function postToBluesky({
     text: string
     videoBuffer?: Buffer
 }): Promise<string> {
-    const handle = process.env.BLUESKY_HANDLE
-    const password = process.env.BLUESKY_APP_PASSWORD
+    const handle = await getCredential('BLUESKY_HANDLE')
+    const password = await getCredential('BLUESKY_APP_PASSWORD')
     if (!handle || !password) {
-        throw new Error('Bluesky credentials not configured (BLUESKY_HANDLE + BLUESKY_APP_PASSWORD)')
+        throw new Error('Bluesky credentials not configured — add BLUESKY_HANDLE and BLUESKY_APP_PASSWORD in Settings')
     }
 
-    const agent = new BskyAgent({ service: 'https://bsky.social' })
+    const agent = new AtpAgent({ service: 'https://bsky.social' })
     await agent.login({ identifier: handle, password })
 
     const rt = new RichText({ text })

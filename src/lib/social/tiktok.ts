@@ -1,6 +1,8 @@
+import { getCredential } from './credentials'
+
 /**
  * TikTok Content Posting API
- * Requires: TIKTOK_CLIENT_KEY + TIKTOK_CLIENT_SECRET + TIKTOK_ACCESS_TOKEN
+ * Requires: TIKTOK_ACCESS_TOKEN — add in Settings or as env var.
  * Apply for access at: https://developers.tiktok.com/
  */
 export async function postToTiktok({
@@ -10,9 +12,9 @@ export async function postToTiktok({
     title: string
     videoBuffer: Buffer
 }): Promise<string> {
-    const accessToken = process.env.TIKTOK_ACCESS_TOKEN
+    const accessToken = await getCredential('TIKTOK_ACCESS_TOKEN')
     if (!accessToken) {
-        throw new Error('TikTok not configured (TIKTOK_ACCESS_TOKEN required). Apply at developers.tiktok.com')
+        throw new Error('TikTok not configured — add TIKTOK_ACCESS_TOKEN in Settings. Apply at developers.tiktok.com')
     }
 
     // TikTok Content Posting API — Phase 1: Initialize upload

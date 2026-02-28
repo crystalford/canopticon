@@ -1,19 +1,19 @@
+import { getCredential } from './credentials'
+
 /**
  * Meta Threads API
- * Requires: THREADS_ACCESS_TOKEN + THREADS_USER_ID
+ * Requires: THREADS_ACCESS_TOKEN + THREADS_USER_ID — add in Settings or as env vars.
  * Apply at: https://developers.facebook.com/docs/threads
  */
 export async function postToThreads({
     text,
-    videoBuffer,
 }: {
     text: string
-    videoBuffer?: Buffer
 }): Promise<string> {
-    const accessToken = process.env.THREADS_ACCESS_TOKEN
-    const userId = process.env.THREADS_USER_ID
+    const accessToken = await getCredential('THREADS_ACCESS_TOKEN')
+    const userId = await getCredential('THREADS_USER_ID')
     if (!accessToken || !userId) {
-        throw new Error('Threads not configured (THREADS_ACCESS_TOKEN + THREADS_USER_ID required)')
+        throw new Error('Threads not configured — add THREADS_ACCESS_TOKEN and THREADS_USER_ID in Settings')
     }
 
     // Step 1: Create media container

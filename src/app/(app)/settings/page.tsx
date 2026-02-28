@@ -1,10 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Save, Plus, Key, Bot, Cpu, Edit2, Check, X, Twitter, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { Save, Plus, Key, Bot, Cpu, Edit2, Check, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 
 const X_KEY_FIELDS = ['TWITTER_API_KEY', 'TWITTER_API_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_SECRET'] as const
 type XKeyField = typeof X_KEY_FIELDS[number]
+
+const BLUESKY_FIELDS = ['BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD'] as const
+const TIKTOK_FIELDS = ['TIKTOK_ACCESS_TOKEN'] as const
+const THREADS_FIELDS = ['THREADS_ACCESS_TOKEN', 'THREADS_USER_ID'] as const
+type SocialField = typeof BLUESKY_FIELDS[number] | typeof TIKTOK_FIELDS[number] | typeof THREADS_FIELDS[number]
 
 export default function SettingsPage() {
     const [settings, setSettings] = useState<Record<string, string>>({})
@@ -20,6 +25,14 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true)
     const [savingLlm, setSavingLlm] = useState(false)
     const [savingX, setSavingX] = useState(false)
+    const [socialKeys, setSocialKeys] = useState<Record<SocialField, string>>({
+        BLUESKY_HANDLE: '', BLUESKY_APP_PASSWORD: '',
+        TIKTOK_ACCESS_TOKEN: '',
+        THREADS_ACCESS_TOKEN: '', THREADS_USER_ID: '',
+    })
+    const [savingSocial, setSavingSocial] = useState<Record<string, boolean>>({})
+    const [socialStatus, setSocialStatus] = useState<Record<string, 'idle' | 'saved' | 'error'>>({})
+    const [socialError, setSocialError] = useState<Record<string, string>>({})
     const [llmStatus, setLlmStatus] = useState<'idle' | 'saved' | 'error'>('idle')
     const [xStatus, setXStatus] = useState<'idle' | 'saved' | 'error' | 'empty'>('idle')
     const [xError, setXError] = useState('')
@@ -142,6 +155,43 @@ export default function SettingsPage() {
         }
     }
 
+    const saveSocialSection = async (platform: string, fields: readonly SocialField[]) => {
+        setSavingSocial(prev => ({ ...prev, [platform]: true }))
+        setSocialStatus(prev => ({ ...prev, [platform]: 'idle' }))
+        setSocialError(prev => ({ ...prev, [platform]: '' }))
+        try {
+            const payload: Record<string, string> = {}
+            for (const key of fields) {
+                if (socialKeys[key]?.trim()) payload[key] = socialKeys[key].trim()
+            }
+            if (Object.keys(payload).length === 0) {
+                setSocialError(prev => ({ ...prev, [platform]: 'Enter at least one value to save.' }))
+                setSocialStatus(prev => ({ ...prev, [platform]: 'error' }))
+                return
+            }
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                throw new Error(data.error || `Server error (${res.status})`)
+            }
+            const cleared = { ...socialKeys }
+            for (const key of fields) cleared[key] = ''
+            setSocialKeys(cleared)
+            setSocialStatus(prev => ({ ...prev, [platform]: 'saved' }))
+            await fetchData()
+            setTimeout(() => setSocialStatus(prev => ({ ...prev, [platform]: 'idle' })), 4000)
+        } catch (err: any) {
+            setSocialError(prev => ({ ...prev, [platform]: err.message || 'Save failed' }))
+            setSocialStatus(prev => ({ ...prev, [platform]: 'error' }))
+        } finally {
+            setSavingSocial(prev => ({ ...prev, [platform]: false }))
+        }
+    }
+
     const testXCredentials = async () => {
         setTestingX(true)
         setXTestResult(null)
@@ -234,7 +284,7 @@ export default function SettingsPage() {
             <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 bg-sky-500/10 rounded-lg text-sky-400"><Twitter size={20} /></div>
+                        <div className="p-2 bg-sky-500/10 rounded-lg text-sky-400 text-base font-bold w-9 h-9 flex items-center justify-center">𝕏</div>
                         <div>
                             <div className="flex items-center gap-2">
                                 <h2 className="text-lg font-semibold text-white">X / Twitter Credentials</h2>
@@ -307,6 +357,142 @@ export default function SettingsPage() {
                         )}
                     </div>
                 </form>
+            </section>
+
+            {/* Bluesky Credentials */}
+            <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400 text-base font-bold w-9 h-9 flex items-center justify-center">B</div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-lg font-semibold text-white">Bluesky Credentials</h2>
+                            {BLUESKY_FIELDS.every(k => savedKeys.has(k)) && (
+                                <span className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-full px-2 py-0.5">Saved</span>
+                            )}
+                        </div>
+                        <p className="text-sm text-slate-400">Your handle (e.g. you.bsky.social) + an App Password from Bluesky Settings.</p>
+                    </div>
+                </div>
+                <div className="space-y-3 max-w-xl">
+                    {([
+                        { key: 'BLUESKY_HANDLE' as SocialField, label: 'Handle', placeholder: 'you.bsky.social', secret: false },
+                        { key: 'BLUESKY_APP_PASSWORD' as SocialField, label: 'App Password', placeholder: 'xxxx-xxxx-xxxx-xxxx', secret: true },
+                    ]).map(({ key, label, placeholder, secret }) => (
+                        <div key={key}>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-400 uppercase">{label}</label>
+                                {savedKeys.has(key)
+                                    ? <span className="text-[10px] text-green-400 flex items-center gap-1"><CheckCircle size={10} /> Saved in DB</span>
+                                    : <span className="text-[10px] text-amber-400">Not saved</span>}
+                            </div>
+                            <input type={secret ? 'password' : 'text'} autoComplete="off"
+                                value={socialKeys[key]}
+                                onChange={e => { const v = e.target.value; setSocialKeys(prev => ({ ...prev, [key]: v })) }}
+                                placeholder={savedKeys.has(key) ? 'Leave blank to keep current' : placeholder}
+                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:border-blue-500/50 outline-none transition-colors font-mono text-sm" />
+                        </div>
+                    ))}
+                    <div className="pt-1 flex items-center gap-3">
+                        <button onClick={() => saveSocialSection('bluesky', BLUESKY_FIELDS)} disabled={!!savingSocial['bluesky']}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50">
+                            {savingSocial['bluesky'] ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                            {savingSocial['bluesky'] ? 'Saving...' : 'Save Bluesky'}
+                        </button>
+                        {socialStatus['bluesky'] === 'saved' && <span className="text-green-400 text-sm flex items-center gap-1"><Check size={14} /> Saved</span>}
+                        {socialStatus['bluesky'] === 'error' && socialError['bluesky'] && (
+                            <span className="text-red-400 text-sm flex items-center gap-1"><AlertCircle size={14} /> {socialError['bluesky']}</span>
+                        )}
+                    </div>
+                </div>
+            </section>
+
+            {/* TikTok Credentials */}
+            <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-pink-500/10 rounded-lg text-pink-400 text-xs font-bold w-9 h-9 flex items-center justify-center">TT</div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-lg font-semibold text-white">TikTok Credentials</h2>
+                            {TIKTOK_FIELDS.every(k => savedKeys.has(k)) && (
+                                <span className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-full px-2 py-0.5">Saved</span>
+                            )}
+                        </div>
+                        <p className="text-sm text-slate-400">Access token from <a href="https://developers.tiktok.com" target="_blank" rel="noopener noreferrer" className="text-pink-400 hover:underline">TikTok for Developers</a>. Requires approved app.</p>
+                    </div>
+                </div>
+                <div className="space-y-3 max-w-xl">
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-medium text-slate-400 uppercase">Access Token</label>
+                            {savedKeys.has('TIKTOK_ACCESS_TOKEN')
+                                ? <span className="text-[10px] text-green-400 flex items-center gap-1"><CheckCircle size={10} /> Saved in DB</span>
+                                : <span className="text-[10px] text-amber-400">Not saved</span>}
+                        </div>
+                        <input type="password" autoComplete="off"
+                            value={socialKeys['TIKTOK_ACCESS_TOKEN']}
+                            onChange={e => { const v = e.target.value; setSocialKeys(prev => ({ ...prev, TIKTOK_ACCESS_TOKEN: v })) }}
+                            placeholder={savedKeys.has('TIKTOK_ACCESS_TOKEN') ? 'Leave blank to keep current' : 'Paste access token...'}
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:border-pink-500/50 outline-none transition-colors font-mono text-sm" />
+                    </div>
+                    <div className="pt-1 flex items-center gap-3">
+                        <button onClick={() => saveSocialSection('tiktok', TIKTOK_FIELDS)} disabled={!!savingSocial['tiktok']}
+                            className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50">
+                            {savingSocial['tiktok'] ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                            {savingSocial['tiktok'] ? 'Saving...' : 'Save TikTok'}
+                        </button>
+                        {socialStatus['tiktok'] === 'saved' && <span className="text-green-400 text-sm flex items-center gap-1"><Check size={14} /> Saved</span>}
+                        {socialStatus['tiktok'] === 'error' && socialError['tiktok'] && (
+                            <span className="text-red-400 text-sm flex items-center gap-1"><AlertCircle size={14} /> {socialError['tiktok']}</span>
+                        )}
+                    </div>
+                </div>
+            </section>
+
+            {/* Threads Credentials */}
+            <section className="bg-white/5 border border-white/10 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2 bg-purple-500/10 rounded-lg text-purple-400 text-xs font-bold w-9 h-9 flex items-center justify-center">@</div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-lg font-semibold text-white">Threads Credentials</h2>
+                            {THREADS_FIELDS.every(k => savedKeys.has(k)) && (
+                                <span className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-full px-2 py-0.5">Saved</span>
+                            )}
+                        </div>
+                        <p className="text-sm text-slate-400">Access token + User ID from <a href="https://developers.facebook.com/docs/threads" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">Meta Threads API</a>.</p>
+                    </div>
+                </div>
+                <div className="space-y-3 max-w-xl">
+                    {([
+                        { key: 'THREADS_ACCESS_TOKEN' as SocialField, label: 'Access Token', placeholder: 'Paste access token...' },
+                        { key: 'THREADS_USER_ID' as SocialField, label: 'User ID', placeholder: 'Your numeric Threads user ID' },
+                    ]).map(({ key, label, placeholder }) => (
+                        <div key={key}>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-medium text-slate-400 uppercase">{label}</label>
+                                {savedKeys.has(key)
+                                    ? <span className="text-[10px] text-green-400 flex items-center gap-1"><CheckCircle size={10} /> Saved in DB</span>
+                                    : <span className="text-[10px] text-amber-400">Not saved</span>}
+                            </div>
+                            <input type="password" autoComplete="off"
+                                value={socialKeys[key]}
+                                onChange={e => { const v = e.target.value; setSocialKeys(prev => ({ ...prev, [key]: v })) }}
+                                placeholder={savedKeys.has(key) ? 'Leave blank to keep current' : placeholder}
+                                className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-slate-600 focus:border-purple-500/50 outline-none transition-colors font-mono text-sm" />
+                        </div>
+                    ))}
+                    <div className="pt-1 flex items-center gap-3">
+                        <button onClick={() => saveSocialSection('threads', THREADS_FIELDS)} disabled={!!savingSocial['threads']}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium transition-colors disabled:opacity-50">
+                            {savingSocial['threads'] ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                            {savingSocial['threads'] ? 'Saving...' : 'Save Threads'}
+                        </button>
+                        {socialStatus['threads'] === 'saved' && <span className="text-green-400 text-sm flex items-center gap-1"><Check size={14} /> Saved</span>}
+                        {socialStatus['threads'] === 'error' && socialError['threads'] && (
+                            <span className="text-red-400 text-sm flex items-center gap-1"><AlertCircle size={14} /> {socialError['threads']}</span>
+                        )}
+                    </div>
+                </div>
             </section>
 
             {/* Agents */}

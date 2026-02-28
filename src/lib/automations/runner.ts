@@ -38,7 +38,7 @@ function isEnglish(transcript: string | null): boolean {
 const parser = new RSSParser()
 
 const DEFAULT_WRITING_PROVIDER = 'anthropic'
-const DEFAULT_WRITING_MODEL = 'claude-3-5-sonnet-20241022'
+const DEFAULT_WRITING_MODEL = 'claude-sonnet-4-20250514'
 
 const JOURNALIST_SYSTEM_PROMPT = `You are Canopticon, an investigative AI journalist.
 

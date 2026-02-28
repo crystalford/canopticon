@@ -117,7 +117,7 @@ export async function queueVideoClip(
         videoTitle: videoTitle && videoTitle !== 'Loading...' ? videoTitle : null,
         status: 'queued',
         automationId: automationId ?? null,
-    }).returning()
+    }).returning({ id: videoClips.id })
 
     console.log(`[queueVideoClip] Created clip ${clip.id}`)
 
@@ -367,7 +367,7 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                 const text = clip.keyQuote
                     ? `"${clip.keyQuote}" — ${clip.videoTitle || ''}\n\n${clip.youtubeUrl}`
                     : `${clip.clipRationale || clip.videoTitle || 'New clip'}\n\n${clip.youtubeUrl}`
-                const threadsId = await postToThreads({ text, videoBuffer })
+                const threadsId = await postToThreads({ text })
                 await db.update(videoClips)
                     .set({ threadsPostId: threadsId, threadsPostedAt: new Date() })
                     .where(eq(videoClips.id, clipId))
