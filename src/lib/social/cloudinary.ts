@@ -14,8 +14,9 @@ export async function transcodeForTwitter(buffer: Buffer, logPrefix = '[cloudina
         return buffer
     }
 
-    // Twitter requires: H.264 baseline, AAC audio, yuv420p, faststart (moov atom first)
-    const eager = 'vc_h264:baseline:3.1,ac_aac,f_mp4,fl_faststart'
+    // Twitter requires: H.264 baseline, AAC audio, MP4 container
+    // Cloudinary MP4 delivery is already moov-first (faststart) — fl_faststart is not a valid Cloudinary flag
+    const eager = 'vc_h264:baseline:3.1,ac_aac,f_mp4'
     const timestamp = Math.floor(Date.now() / 1000)
     const signature = crypto.createHash('sha1')
         .update(`eager=${eager}&timestamp=${timestamp}${apiSecret}`)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, Clock, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import { format } from 'date-fns'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -46,17 +46,21 @@ interface VideoClip {
 }
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
-    queued: <Clock size={14} className="text-slate-400" />,
+    queued: <Loader2 size={14} className="text-slate-400 animate-spin" />,
     processing: <Loader2 size={14} className="text-blue-400 animate-spin" />,
     done: <CheckCircle size={14} className="text-green-400" />,
     failed: <AlertTriangle size={14} className="text-red-400" />,
 }
 
-const STATUS_LABEL: Record<string, string> = {
-    queued: 'Queued',
-    processing: 'Processing',
-    done: 'Ready',
-    failed: 'Failed',
+function statusLabel(clip: VideoClip): string {
+    if (clip.status === 'queued') return 'Fetching transcript...'
+    if (clip.status === 'processing') {
+        if (clip.startSeconds != null) return 'Cutting video clip...'
+        return 'Analyzing transcript...'
+    }
+    if (clip.status === 'done') return 'Ready'
+    if (clip.status === 'failed') return 'Failed'
+    return clip.status
 }
 
 type PostingPlatform = 'x' | 'bluesky' | 'tiktok' | 'threads'
@@ -98,7 +102,7 @@ export default function VideosPage() {
     useEffect(() => {
         const hasActive = clips.some(c => c.status === 'queued' || c.status === 'processing')
         if (!hasActive) return
-        const t = setInterval(fetchAll, 8000)
+        const t = setInterval(fetchAll, 5000)
         return () => clearInterval(t)
     }, [clips, fetchAll])
 
@@ -384,6 +388,11 @@ export default function VideosPage() {
                                                     <RefreshCw size={12} />
                                                 </button>
                                             </div>
+                                            {clippingVideo && (
+                                                <p className="text-xs text-blue-400/80 px-4 pb-2">
+                                                    Fetching transcript + analyzing with AI — this takes ~30s...
+                                                </p>
+                                            )}
                                             {monitorVideosLoading[m.id] ? (
                                                 <div className="space-y-2 px-4 pb-4">
                                                     {[1, 2, 3].map(i => <div key={i} className="h-14 bg-white/5 rounded-lg animate-pulse" />)}
@@ -479,7 +488,7 @@ export default function VideosPage() {
                                 <div className="flex items-start gap-3">
                                     <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-0.5">
                                         {STATUS_ICON[clip.status] ?? STATUS_ICON.queued}
-                                        <span className="text-xs text-slate-500">{STATUS_LABEL[clip.status] ?? clip.status}</span>
+                                        <span className="text-xs text-slate-500">{statusLabel(clip)}</span>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-white truncate">
@@ -506,16 +515,24 @@ export default function VideosPage() {
                                     </div>
                                 </div>
 
-                                {/* Key quote */}
+                                {/* Rationale — always shown when available */}
+                                {clip.clipRationale && (
+                                    <p className="text-xs text-slate-400 pl-24 leading-relaxed">{clip.clipRationale}</p>
+                                )}
+
+                                {/* Key quote — shown for any status */}
                                 {clip.keyQuote && (
                                     <p className="text-xs text-amber-300/80 italic pl-24 leading-relaxed">
                                         &ldquo;{clip.keyQuote}&rdquo;
+                                        {clip.speakerName && <span className="not-italic text-slate-500"> — {clip.speakerName}</span>}
                                     </p>
                                 )}
 
-                                {/* Rationale */}
-                                {clip.clipRationale && !clip.keyQuote && (
-                                    <p className="text-xs text-slate-500 pl-24">{clip.clipRationale}</p>
+                                {/* Tweet draft preview for in-progress clips */}
+                                {clip.tweetDraft && clip.status !== 'done' && (
+                                    <p className="text-[11px] text-slate-600 pl-24 leading-relaxed">
+                                        Draft: {clip.tweetDraft}
+                                    </p>
                                 )}
 
                                 {/* Platform buttons + badges */}
@@ -588,14 +605,17 @@ export default function VideosPage() {
                                     </div>
                                 )}
 
-                                {/* Error messages per platform */}
-                                {(['x', 'bluesky', 'tiktok', 'threads'] as PostingPlatform[]).map(p => (
+                                {/* Post errors — shown prominently below the buttons */}
+                                {(['x', 'bluesky', 'tiktok', 'threads'] as PostingPlatform[]).map(p =>
                                     postErrors[`${clip.id}-${p}`] ? (
-                                        <p key={p} className="text-[10px] text-red-400 pl-24 break-words">
-                                            {p}: {postErrors[`${clip.id}-${p}`]}
-                                        </p>
+                                        <div key={p} className="pl-24 flex items-start gap-1.5">
+                                            <AlertTriangle size={11} className="text-red-400 mt-0.5 flex-shrink-0" />
+                                            <p className="text-[11px] text-red-400 break-words leading-snug">
+                                                {p.toUpperCase()} post failed: {postErrors[`${clip.id}-${p}`]}
+                                            </p>
+                                        </div>
                                     ) : null
-                                ))}
+                                )}
 
                                 {/* Timestamp for non-done clips */}
                                 {clip.status !== 'done' && (
