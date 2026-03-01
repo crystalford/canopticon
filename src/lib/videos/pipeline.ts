@@ -15,34 +15,83 @@ const parser = new RSSParser()
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Fetch YouTube video description by scraping the page.
- * Tries og:description and JSON-LD schema — no API key required.
+ * Fetch video metadata (description + channelName) from the YouTube page.
+ * Parses JSON-LD schema — no API key required.
  */
-async function fetchYoutubeDescription(youtubeUrl: string): Promise<string> {
+async function fetchVideoMetadata(youtubeUrl: string): Promise<{ description: string; channelName: string }> {
     try {
         const res = await fetch(youtubeUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
         })
-        if (!res.ok) return ''
+        if (!res.ok) return { description: '', channelName: '' }
         const html = await res.text()
 
-        // Try JSON-LD schema first — usually has the full description
+        let description = ''
+        let channelName = ''
+
         const ldMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)
         if (ldMatch) {
             try {
                 const ld = JSON.parse(ldMatch[1])
-                if (ld.description) return ld.description
-            } catch { /* ignore parse errors */ }
+                if (ld.description) description = ld.description
+                if (ld.author?.name) channelName = ld.author.name
+            } catch { /* ignore */ }
         }
 
-        // Fallback: og:description meta tag (~160 chars)
-        const ogMatch = html.match(/<meta\s+(?:property="og:description"|name="description")\s+content="([^"]+)"/)
-        if (ogMatch) return ogMatch[1].replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+        if (!description) {
+            const ogMatch = html.match(/<meta\s+(?:property="og:description"|name="description")\s+content="([^"]+)"/)
+            if (ogMatch) description = ogMatch[1].replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+        }
 
-        return ''
+        return { description, channelName }
     } catch {
-        return ''
+        return { description: '', channelName: '' }
     }
+}
+
+/**
+ * Fetch captions directly from YouTube's caption API.
+ * Returns timestamped transcript segments. No Apify dependency.
+ */
+async function fetchYouTubeTranscript(youtubeUrl: string): Promise<Array<{ start: number; text: string }>> {
+    const videoId = youtubeUrl.match(/[?&]v=([^&]+)/)?.[1]
+    if (!videoId) throw new Error('Invalid YouTube URL — could not extract video ID')
+
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    })
+    if (!pageRes.ok) throw new Error(`YouTube page fetch failed: ${pageRes.status}`)
+    const html = await pageRes.text()
+
+    const captionMatch = html.match(/"captionTracks":\[(\{.*?\}(?:,\{.*?\})*)\]/)
+    if (!captionMatch) throw new Error('No caption tracks found — captions may be disabled on this video')
+
+    let tracks: any[]
+    try {
+        tracks = JSON.parse(`[${captionMatch[1]}]`)
+    } catch {
+        throw new Error('Failed to parse caption track data')
+    }
+
+    // Prefer auto-generated English, then manual English, then first available
+    const track = tracks.find((t: any) => t.vssId?.startsWith('a.en'))
+        || tracks.find((t: any) => t.languageCode === 'en')
+        || tracks[0]
+
+    if (!track?.baseUrl) throw new Error('No usable caption track URL found')
+
+    const captionUrl = track.baseUrl.replace(/\\u0026/g, '&') + '&fmt=json3'
+    const captionRes = await fetch(captionUrl)
+    if (!captionRes.ok) throw new Error(`Caption fetch failed: ${captionRes.status}`)
+
+    const data = await captionRes.json()
+    return (data.events || [])
+        .filter((e: any) => e.segs && e.tStartMs !== undefined)
+        .map((e: any) => ({
+            start: e.tStartMs / 1000,
+            text: e.segs.map((s: any) => s.utf8 || '').join('').replace(/\n/g, ' ').trim(),
+        }))
+        .filter((s: any) => s.text)
 }
 
 /**
@@ -62,6 +111,12 @@ async function lookupSpeaker(keyQuote: string, videoTitle: string, channelName: 
         console.warn(`[lookupSpeaker] Web search failed: ${e.message}`)
         return ''
     }
+}
+
+const formatTime = (s: number) => {
+    const m = Math.floor(s / 60)
+    const sec = Math.floor(s % 60)
+    return `[${m}:${sec.toString().padStart(2, '0')}]`
 }
 
 const toHHMMSS = (secs: number) => {
@@ -168,25 +223,27 @@ async function triggerApify(
 
 /**
  * Queue a video for AI clipping.
- * Creates a DB record, then starts an Apify transcript actor ASYNC.
- * The transcript webhook (/api/webhooks/transcript) handles the rest.
+ * Fetches YouTube captions directly (no Apify transcript actor),
+ * runs Claude to pick the best clip window, then triggers the Apify video clipper.
+ * The clipper webhook (/api/webhooks/apify) handles the rest.
  */
 export async function queueVideoClip(
     youtubeUrl: string,
     videoTitle?: string,
     automationId?: string
 ): Promise<string> {
+    const title = videoTitle && videoTitle !== 'Loading...' ? videoTitle : ''
+
     const [clip] = await db.insert(videoClips).values({
         youtubeUrl,
-        videoTitle: videoTitle && videoTitle !== 'Loading...' ? videoTitle : null,
+        videoTitle: title || null,
         status: 'queued',
         automationId: automationId ?? null,
     }).returning({ id: videoClips.id })
 
     console.log(`[queueVideoClip] Created clip ${clip.id}`)
 
-    const token = process.env.APIFY_API_TOKEN
-    if (!token) {
+    if (!process.env.APIFY_API_TOKEN) {
         await db.update(videoClips)
             .set({ status: 'failed', errorMessage: 'APIFY_API_TOKEN not configured' })
             .where(eq(videoClips.id, clip.id))
@@ -194,29 +251,50 @@ export async function queueVideoClip(
     }
 
     try {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
-        const webhookUrl = `${baseUrl}/api/webhooks/transcript?clipId=${clip.id}`
+        // Fetch captions + metadata in parallel (no Apify dependency for transcripts)
+        console.log(`[queueVideoClip] Fetching transcript + metadata for ${clip.id}...`)
+        const [segments, { description, channelName }] = await Promise.all([
+            fetchYouTubeTranscript(youtubeUrl),
+            fetchVideoMetadata(youtubeUrl),
+        ])
 
-        // Platform-level webhook must be passed as a base64 URL param, NOT in the body
-        // (body goes to the actor as input — the transcript actor doesn't process a webhooks field)
-        const webhooksParam = Buffer.from(JSON.stringify([{
-            eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
-            requestUrl: webhookUrl,
-        }])).toString('base64')
+        if (segments.length === 0) throw new Error('No transcript segments returned — captions may be disabled on this video')
+        console.log(`[queueVideoClip] ✓ ${segments.length} transcript segments, channel: ${channelName}`)
 
-        const res = await fetch(
-            `https://api.apify.com/v2/acts/leandrocb88~youtube-video-transcript-scraper/runs?token=${token}&webhooks=${encodeURIComponent(webhooksParam)}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ startUrls: [{ url: youtubeUrl }] }),
-            }
-        )
-        if (!res.ok) throw new Error(`Apify transcript start failed: ${await res.text()}`)
-        const run = await res.json()
-        console.log(`[queueVideoClip] ✓ Transcript run ${run.data?.id} started`)
+        // Store metadata
+        await db.update(videoClips)
+            .set({ videoTitle: title || null, channelName: channelName || null })
+            .where(eq(videoClips.id, clip.id))
+
+        // Build timestamped transcript for Claude
+        const transcript = segments.map(s => `${formatTime(s.start)} ${s.text}`).join('\n')
+
+        // Claude picks best clip window
+        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft } =
+            await selectClipWindow(youtubeUrl, title, transcript, description)
+        console.log(`[queueVideoClip] AI selected ${start}s→${end}s: ${rationale}`)
+
+        // Speaker lookup via web search if not identified from title/transcript
+        let speakerName = speakerFromClip
+        if (!speakerName && keyQuote) {
+            console.log(`[queueVideoClip] Speaker unknown — trying web lookup...`)
+            speakerName = await lookupSpeaker(keyQuote, title, channelName)
+            if (speakerName) console.log(`[queueVideoClip] Speaker identified: ${speakerName}`)
+        }
+
+        // Extract verbatim clip segment for article generation
+        const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
+        const transcriptSegment = clipSegments.map(s => s.text).join(' ')
+
+        await db.update(videoClips)
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft, transcriptSegment, status: 'processing' })
+            .where(eq(videoClips.id, clip.id))
+
+        // Trigger Apify video clipper — webhook at /api/webhooks/apify handles completion
+        await triggerApify(clip.id, youtubeUrl, start, end, automationId)
+
     } catch (e: any) {
-        console.error(`[queueVideoClip] Failed to start transcript for ${clip.id}:`, e.message)
+        console.error(`[queueVideoClip] Failed for ${clip.id}:`, e.message)
         await db.update(videoClips)
             .set({ status: 'failed', errorMessage: e.message })
             .where(eq(videoClips.id, clip.id))
@@ -243,25 +321,17 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
         console.log(`[onTranscriptReady] Dataset item keys: ${Object.keys(item).join(', ')}`)
 
         const segments = item.transcript as Array<{ start: number; text: string }>
-        const formatTime = (s: number) => {
-            const m = Math.floor(s / 60)
-            const sec = Math.floor(s % 60)
-            return `[${m}:${sec.toString().padStart(2, '0')}]`
-        }
         const transcript = segments.map(s => `${formatTime(s.start)} ${s.text.trim()}`).join('\n')
 
         // Pull metadata from Apify response
         const videoTitle = clip.videoTitle || item.title || item.videoTitle || ''
         const channelName = item.channelName || item.author || clip.channelName || ''
 
-        // Get description: try Apify output first, then fetch from YouTube directly
+        // Get description from Apify output or YouTube page
         let videoDescription = item.description || item.videoDescription || item.about || ''
         if (!videoDescription) {
-            console.log(`[onTranscriptReady] No description from Apify — fetching from YouTube...`)
-            videoDescription = await fetchYoutubeDescription(clip.youtubeUrl)
-            if (videoDescription) console.log(`[onTranscriptReady] Fetched YouTube description (${videoDescription.length} chars)`)
-        } else {
-            console.log(`[onTranscriptReady] Description from Apify (${videoDescription.length} chars)`)
+            const meta = await fetchVideoMetadata(clip.youtubeUrl)
+            videoDescription = meta.description
         }
 
         // Store title/channel if not already set
@@ -606,11 +676,10 @@ export async function runVideoMonitor(automation: Automation): Promise<{
         }
 
         let clipsQueued = 0
-        for (const item of newVideos.slice(0, 3)) {
+        for (const item of newVideos.slice(0, 2)) {
             const url = item.link || ''
             if (!url) continue
-            queueVideoClip(url, item.title || undefined, automation.id)
-                .catch(e => console.error(`[runVideoMonitor] Queue failed for ${url}:`, e.message))
+            await queueVideoClip(url, item.title || undefined, automation.id)
             clipsQueued++
         }
 
