@@ -4,9 +4,10 @@ import { eq } from 'drizzle-orm'
 import { postToBluesky } from '@/lib/social/bluesky'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 120
 
 export async function POST(
-    req: Request,
+    _req: Request,
     { params }: { params: { id: string } }
 ) {
     try {
@@ -14,16 +15,14 @@ export async function POST(
         if (!clip) return NextResponse.json({ error: 'Clip not found' }, { status: 404 })
         if (!clip.clipUrl) return NextResponse.json({ error: 'Clip has no URL yet' }, { status: 400 })
 
-        const text = clip.keyQuote
-            ? `"${clip.keyQuote}" — ${clip.videoTitle || ''}\n\n${clip.youtubeUrl}`
-            : `${clip.clipRationale || clip.videoTitle || 'New clip'}\n\n${clip.youtubeUrl}`
+        const text = clip.tweetDraft || (clip.keyQuote
+            ? `"${clip.keyQuote}"\n\n— ${clip.channelName || clip.videoTitle || 'Source'}`
+            : clip.videoTitle || 'New clip')
 
-        // Fetch video bytes for native upload
-        let videoBuffer: Buffer | undefined
-        try {
-            const videoRes = await fetch(clip.clipUrl)
-            if (videoRes.ok) videoBuffer = Buffer.from(await videoRes.arrayBuffer())
-        } catch { /* fall through to text-only */ }
+        const videoRes = await fetch(clip.clipUrl)
+        if (!videoRes.ok) throw new Error(`Failed to fetch clip: ${videoRes.status}`)
+        const videoBuffer = Buffer.from(await videoRes.arrayBuffer())
+        console.log(`[post-bluesky] Clip: ${(videoBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`)
 
         const uri = await postToBluesky({ text, videoBuffer })
 
@@ -33,6 +32,7 @@ export async function POST(
 
         return NextResponse.json({ success: true, uri })
     } catch (e: any) {
+        console.error('[post-bluesky] Failed:', e.message)
         return NextResponse.json({ error: e.message }, { status: 500 })
     }
 }

@@ -477,9 +477,9 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
         if (config.postBluesky) {
             try {
                 const { postToBluesky } = await import('@/lib/social/bluesky')
-                const text = clip.keyQuote
-                    ? `"${clip.keyQuote}" — ${clip.videoTitle || ''}\n\n${clip.youtubeUrl}`
-                    : `${clip.clipRationale || clip.videoTitle || 'New clip'}\n\n${clip.youtubeUrl}`
+                const text = clip.tweetDraft || (clip.keyQuote
+                    ? `"${clip.keyQuote}"\n\n— ${clip.channelName || clip.videoTitle || 'Source'}`
+                    : clip.videoTitle || 'New clip')
                 const bskyUri = await postToBluesky({ text, videoBuffer })
                 await db.update(videoClips)
                     .set({ blueskyPostId: bskyUri, blueskyPostedAt: new Date() })
