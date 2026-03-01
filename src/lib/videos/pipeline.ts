@@ -43,8 +43,8 @@ RULES:
 - message: 2-3 sentences in plain English summarizing WHAT the clip is arguing/claiming and WHY it matters politically. This is not a quote — explain the substance of what is being said and what makes it significant. Include any key statistics or data points mentioned.
 - key_quote: the SINGLE most quotable clean sentence from the clip. Exact transcript words only, but remove filler words (um, uh, like, you know). No surrounding quotes in the string.
 - extended_quote: 2-4 consecutive sentences from the clip that include the key_quote moment. Remove filler words (um, uh, like, you know) while preserving exact meaning and structure. No surrounding quotes in the string.
-- speaker_name: the full name of the person saying the key_quote. Extract from: (1) the video title — e.g. "Pierre Poilievre responds to..." → "Pierre Poilievre"; (2) explicit name introductions in the transcript — e.g. "I'm joined by Mark Carney" → "Mark Carney". Do NOT guess or infer from political content alone. Use null if you cannot confirm the name from the title or transcript text itself.
-- tweet_draft: the most engaging tweet for this clip. Use verbatim transcript words when they are clean and punchy. If the message is more shareable than any single verbatim line, write a tight paraphrase that captures it. Format: if speaker is known → 'Full Name: "quote or paraphrase"'. If unknown → '"quote or paraphrase" — [key stat or context]'. Under 240 chars.
+- speaker_name: the full name of the person saying the key_quote. Use these sources in order: (1) the video title — e.g. "Pierre Poilievre responds to..." → "Pierre Poilievre"; (2) explicit name introductions in the transcript — e.g. "I'm joined by Mark Carney" → "Mark Carney"; (3) the video description if it lists specific speakers; (4) if the speaker's role, party, and quote content together make identification highly confident, you may name them. If any reasonable doubt remains, use null.
+- tweet_draft: the most engaging tweet for this clip. Use verbatim transcript words when they are clean and punchy. If the message is more shareable as a paraphrase, write one. Format: if speaker is known → 'Full Name: "quote or paraphrase"'. If unknown → '"quote or paraphrase" — [key stat or context]'. STRICT RULES: no emojis, no em dashes (—), no all-caps words, write like a human not a press release. Under 240 chars.
 
 Video: "${title}"
 URL: ${url}${description ? `\nDescription: ${description.substring(0, 500)}` : ''}
@@ -306,7 +306,7 @@ Return ONLY valid JSON, no markdown:
             title,
             slug,
             content,
-            summary: context.substring(0, 300),
+            summary: context,
             tags: ['video-clip'],
             status: 'published',
             automationId: clip.automationId ?? null,
