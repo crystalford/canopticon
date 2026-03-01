@@ -28,6 +28,9 @@ interface VideoClip {
     clipUrl: string | null
     clipRationale: string | null
     keyQuote: string | null
+    extendedQuote: string | null
+    speakerName: string | null
+    tweetDraft: string | null
     startSeconds: number | null
     endSeconds: number | null
     status: string

@@ -4,7 +4,8 @@ import { db, videoClips, automations } from '@/db'
 import { articles } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { put } from '@vercel/blob'
-import { postToX } from '@/lib/automations/runner'
+import { TwitterApi } from 'twitter-api-v2'
+import { getCredential } from '@/lib/social/credentials'
 import RSSParser from 'rss-parser'
 import type { Automation } from '@/db/schema'
 
@@ -22,8 +23,9 @@ const toHHMMSS = (secs: number) => {
 async function selectClipWindow(
     url: string,
     title: string,
-    transcript: string
-): Promise<{ start: number; end: number; rationale: string; keyQuote: string }> {
+    transcript: string,
+    description = ''
+): Promise<{ start: number; end: number; rationale: string; keyQuote: string; extendedQuote: string; speakerName: string; tweetDraft: string }> {
     const model = await getModel('anthropic', 'claude-sonnet-4-20250514')
     const prompt = `You are a viral political media editor. Find the SINGLE most compelling 60-120 second window from this video for social media.
 
@@ -38,19 +40,22 @@ RULES:
 - Skip intros, B-roll, music, applause. Start at the first substantive word.
 - The clip must be 60-120 seconds. Do not go under 60s.
 - End on a natural sentence break — never cut mid-sentence.
-- key_quote: the single most quotable sentence or phrase from within the clip window. Exact words only, no paraphrase.
+- key_quote: the SINGLE most quotable sentence from the clip. Exact transcript words only. No surrounding quotes in the string.
+- extended_quote: 2-4 consecutive verbatim sentences from the transcript that include and surround the key_quote moment. This is the full pull-quote for the article — give enough context to understand the claim. Exact transcript words only. No surrounding quotes in the string.
+- speaker_name: the full name of the person saying the key_quote. Extract from: (1) the video title — e.g. "Pierre Poilievre responds to..." → "Pierre Poilievre"; (2) explicit name introductions in the transcript — e.g. "I'm joined by Mark Carney" → "Mark Carney". Do NOT guess or infer from political content alone. Use null if you cannot confirm the name from the title or transcript text itself.
+- tweet_draft: tweet text using ONLY exact verbatim words from the transcript — no paraphrasing, no summarizing, no external facts. Format: if speaker is known → 'Full Name: "key_quote"'. If unknown → '"key_quote" — Channel'. Under 240 chars.
 
 Video: "${title}"
-URL: ${url}
+URL: ${url}${description ? `\nDescription: ${description.substring(0, 500)}` : ''}
 
 Timestamped transcript:
 ${transcript}
 
 Return ONLY valid JSON, no markdown:
-{"start_seconds": <number>, "end_seconds": <number>, "rationale": "<one sentence why this is the best hook>", "key_quote": "<exact verbatim quote from the clip>"}`
+{"start_seconds": <number>, "end_seconds": <number>, "rationale": "<one sentence why>", "key_quote": "<single sentence, no surrounding quotes>", "extended_quote": "<2-4 sentences, no surrounding quotes>", "speaker_name": "<full name or null>", "tweet_draft": "<tweet text>"}`
 
     const result = await generateText({ model, prompt })
-    const match = result.text.match(/\{[\s\S]*?\}/)
+    const match = result.text.match(/\{[\s\S]*\}/)
     if (!match) throw new Error('AI failed to return clip timestamps')
     const parsed = JSON.parse(match[0])
     if (typeof parsed.start_seconds !== 'number' || typeof parsed.end_seconds !== 'number') {
@@ -60,7 +65,10 @@ Return ONLY valid JSON, no markdown:
         start: parsed.start_seconds,
         end: parsed.end_seconds,
         rationale: parsed.rationale || '',
-        keyQuote: parsed.key_quote || '',
+        keyQuote: (parsed.key_quote || '').replace(/^["']|["']$/g, ''),
+        extendedQuote: (parsed.extended_quote || parsed.key_quote || '').replace(/^["']|["']$/g, ''),
+        speakerName: parsed.speaker_name || '',
+        tweetDraft: parsed.tweet_draft || '',
     }
 }
 
@@ -92,6 +100,10 @@ async function triggerApify(
                 videoUrl: youtubeUrl,
                 clips: [{ start: toHHMMSS(start), end: toHHMMSS(end), name: 'Canopticon-Clip' }],
                 quality: '720p',
+                // Request H.264/AAC MP4 — required for Twitter upload (browser playback accepts WebM, Twitter doesn't)
+                videoCodec: 'h264',
+                audioCodec: 'aac',
+                outputFormat: 'mp4',
             }),
         }
     )
@@ -174,7 +186,11 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
             throw new Error('No transcript returned — captions may be disabled on this video')
         }
 
-        const segments = transcriptItems[0].transcript as Array<{ start: number; text: string }>
+        const item = transcriptItems[0]
+        // Log available fields so we can see what the Apify actor returns (check Vercel logs)
+        console.log(`[onTranscriptReady] Dataset item keys: ${Object.keys(item).join(', ')}`)
+
+        const segments = item.transcript as Array<{ start: number; text: string }>
         const formatTime = (s: number) => {
             const m = Math.floor(s / 60)
             const sec = Math.floor(s % 60)
@@ -182,12 +198,25 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
         }
         const transcript = segments.map(s => `${formatTime(s.start)} ${s.text.trim()}`).join('\n')
 
+        // Pull any metadata the Apify actor provides — description is the most useful for speaker ID
+        const videoTitle = clip.videoTitle || item.title || item.videoTitle || ''
+        const videoDescription = item.description || item.videoDescription || item.about || ''
+        if (videoDescription) console.log(`[onTranscriptReady] Description available (${videoDescription.length} chars)`)
+
+        // Store title/channel if not already set
+        const metaUpdates: Record<string, string> = {}
+        if (!clip.videoTitle && item.title) metaUpdates.videoTitle = item.title
+        if (!clip.channelName && (item.channelName || item.author)) metaUpdates.channelName = item.channelName || item.author
+        if (Object.keys(metaUpdates).length) {
+            await db.update(videoClips).set(metaUpdates).where(eq(videoClips.id, clipId))
+        }
+
         // Claude picks best clip window
-        const { start, end, rationale, keyQuote } = await selectClipWindow(clip.youtubeUrl, clip.videoTitle || '', transcript)
+        const { start, end, rationale, keyQuote, extendedQuote, speakerName, tweetDraft } = await selectClipWindow(clip.youtubeUrl, videoTitle, transcript, videoDescription)
         console.log(`[onTranscriptReady] AI selected ${start}s→${end}s: ${rationale}`)
 
         await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, status: 'processing' })
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft, status: 'processing' })
             .where(eq(videoClips.id, clipId))
 
         await triggerApify(clipId, clip.youtubeUrl, start, end, clip.automationId ?? undefined)
@@ -210,35 +239,46 @@ async function generateClipArticle(clip: {
     youtubeUrl: string
     channelName: string | null
     keyQuote: string | null
-    clipRationale: string | null
+    extendedQuote: string | null
+    speakerName: string | null
     clipUrl: string
     automationId: string | null
 }): Promise<string | null> {
     try {
         const model = await getModel('anthropic', 'claude-sonnet-4-20250514')
-        const prompt = `You are a political editor. Write a short news post (2-4 sentences) giving just enough context for this video clip.
+        const speaker = clip.speakerName || clip.channelName || 'A speaker'
+        const verbatimContent = clip.extendedQuote || clip.keyQuote || ''
 
-Video: "${clip.videoTitle || 'Unknown'}"
-Channel: ${clip.channelName || 'Unknown'}
-Key Quote: "${clip.keyQuote || ''}"
-Context: ${clip.clipRationale || ''}
+        const prompt = `You are a political editor. Write 1-2 sentences introducing this video clip.
+
+Speaker: ${speaker}
+Source: ${clip.channelName || clip.videoTitle || 'Unknown'}
+Verbatim transcript excerpt: "${verbatimContent}"
 
 Rules:
-- Open with the most newsworthy thing that was said
-- Be specific: name the speaker, the topic, the stakes
-- Don't start with "In a", "During a", or "A clip"
-- 2-4 sentences only
-- Return ONLY the paragraph, no title`
+- Reference ONLY claims explicitly stated in the transcript excerpt above — no additional facts or context beyond what is written there
+- State who is speaking and what they are claiming
+- Do not start with "In a", "During a", or "A clip"
+- 1-2 sentences only
+- Return ONLY the text, no title`
 
         const result = await generateText({ model, prompt })
         const context = result.text.trim()
 
-        const title = clip.keyQuote
-            ? `"${clip.keyQuote.substring(0, 80)}${clip.keyQuote.length > 80 ? '...' : ''}"`
-            : clip.videoTitle || 'New Clip'
+        // Title: use keyQuote, truncate at word boundary
+        const rawTitle = clip.keyQuote || clip.videoTitle || 'New Clip'
+        const truncated = rawTitle.length > 90
+            ? rawTitle.substring(0, 90).replace(/\s+\S*$/, '') + '...'
+            : rawTitle
+        const title = clip.keyQuote ? `"${truncated}"` : truncated
 
-        const quoteBlock = clip.keyQuote
-            ? `> "${clip.keyQuote}"\n> — **${clip.channelName || clip.videoTitle || 'Source'}** · [Watch full video](${clip.youtubeUrl})\n\n`
+        // Blockquote: use extended quote for richer article display
+        const displayQuote = clip.extendedQuote || clip.keyQuote || ''
+        const attribution = clip.speakerName
+            ? `**${clip.speakerName}** via ${clip.channelName || clip.videoTitle || 'Source'}`
+            : `**${clip.channelName || clip.videoTitle || 'Source'}**`
+        const quoteBlock = displayQuote
+            ? `> ${displayQuote}\n> — ${attribution} · [Watch full video](${clip.youtubeUrl})\n\n`
             : ''
 
         // Embed the actual clip (MP4), not the full YouTube video
@@ -304,7 +344,8 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
             youtubeUrl: clip.youtubeUrl,
             channelName: clip.channelName,
             keyQuote: clip.keyQuote,
-            clipRationale: clip.clipRationale,
+            extendedQuote: clip.extendedQuote,
+            speakerName: clip.speakerName,
             clipUrl: blob.url,
             automationId: clip.automationId,
         })
@@ -322,18 +363,29 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
         const config = automation.config as Record<string, any>
         const videoBuffer = Buffer.from(buffer)
 
-        // Post to X
+        // Post to X — use keyQuote verbatim, no AI generation
         if (config.postX) {
             try {
-                const xRes = await postToX({
-                    content: clip.clipRationale || clip.videoTitle || 'New video',
-                    title: clip.videoTitle || 'New Video',
-                    xFormat: config.xFormat ?? 'post',
-                    xTweetCount: config.xTweetCount ?? 1,
-                    videoClipUrl: blob.url,
-                    videoSourceUrl: clip.youtubeUrl,
-                })
-                await db.update(videoClips).set({ xPostedAt: new Date(), xPostId: xRes || null }).where(eq(videoClips.id, clipId))
+                const apiKey = await getCredential('TWITTER_API_KEY')
+                const apiSecret = await getCredential('TWITTER_API_SECRET')
+                const xAccessToken = await getCredential('TWITTER_ACCESS_TOKEN')
+                const xAccessSecret = await getCredential('TWITTER_ACCESS_SECRET')
+                if (!apiKey || !apiSecret || !xAccessToken || !xAccessSecret) throw new Error('X credentials not configured')
+
+                const xClient = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken: xAccessToken, accessSecret: xAccessSecret })
+                const tweetText = clip.tweetDraft || (clip.keyQuote
+                    ? `"${clip.keyQuote}"\n\n— ${clip.channelName || clip.videoTitle || 'Source'}`
+                    : clip.videoTitle || 'New clip')
+
+                let xMediaId: string | undefined
+                try {
+                    xMediaId = await xClient.v1.uploadMedia(videoBuffer, { mimeType: 'video/mp4' })
+                } catch (e) {
+                    console.warn('[onClipReady] X video upload failed:', e)
+                }
+
+                const xTweet = await xClient.v2.tweet(tweetText, xMediaId ? { media: { media_ids: [xMediaId] } } : {})
+                await db.update(videoClips).set({ xPostedAt: new Date(), xPostId: xTweet.data.id }).where(eq(videoClips.id, clipId))
                 console.log(`[onClipReady] ✓ Posted to X`)
             } catch (e: any) {
                 console.error(`[onClipReady] X post failed: ${e.message}`)

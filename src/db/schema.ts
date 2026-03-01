@@ -180,7 +180,10 @@ export const videoClips = pgTable('video_clips', {
     status: text('status').default('queued').notNull(), // 'queued' | 'processing' | 'done' | 'failed'
     errorMessage: text('error_message'),
     // AI-extracted key quote from this clip window
-    keyQuote: text('key_quote'),
+    keyQuote: text('key_quote'),            // Short single sentence — for tweet
+    extendedQuote: text('extended_quote'),  // 2-4 verbatim sentences — for article blockquote
+    speakerName: text('speaker_name'),      // Person speaking the key quote (if identifiable)
+    tweetDraft: text('tweet_draft'),        // Claude's suggested tweet text (verbatim words only)
     // Social posting
     xPostId: text('x_post_id'),
     xPostedAt: timestamp('x_posted_at'),
