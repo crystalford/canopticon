@@ -447,6 +447,12 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
 
         if (!clip) throw new Error('Clip record not found')
 
+        // Fetch automation config upfront (needed for clipArticle + platform flags)
+        const automation = clip.automationId
+            ? await db.query.automations.findFirst({ where: eq(automations.id, clip.automationId) })
+            : null
+        const config = (automation?.config ?? {}) as Record<string, any>
+
         // Auto-generate site article (unless clipArticle is explicitly disabled)
         let articleId: string | null = null
         if (config.clipArticle !== false) {
@@ -471,13 +477,7 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
         }
 
         // Platform auto-posting (only for clips tied to a monitor with the flag enabled)
-        if (!clip.automationId) return
-        const automation = await db.query.automations.findFirst({
-            where: eq(automations.id, clip.automationId)
-        })
-        if (!automation) return
-
-        const config = automation.config as Record<string, any>
+        if (!clip.automationId || !automation) return
         const videoBuffer = Buffer.from(buffer)
 
         // Post to X — use keyQuote verbatim, no AI generation
