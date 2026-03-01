@@ -3,57 +3,10 @@ import { db, videoClips } from '@/db'
 import { eq } from 'drizzle-orm'
 import { TwitterApi } from 'twitter-api-v2'
 import { getCredential } from '@/lib/social/credentials'
-import crypto from 'crypto'
+import { transcodeForTwitter } from '@/lib/social/cloudinary'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
-
-/**
- * Transcode video to Twitter-compatible format (H.264 + AAC + faststart MP4)
- * using Cloudinary's free tier. If Cloudinary env vars are not set, returns
- * the original buffer unchanged (upload will succeed if Apify already output H.264).
- */
-async function transcodeForTwitter(buffer: Buffer): Promise<Buffer> {
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME
-    const apiKey = process.env.CLOUDINARY_API_KEY
-    const apiSecret = process.env.CLOUDINARY_API_SECRET
-    if (!cloudName || !apiKey || !apiSecret) {
-        console.log('[post-x] Cloudinary not configured — uploading raw video as-is (add CLOUDINARY_* env vars if Twitter rejects it)')
-        return buffer
-    }
-
-    // Twitter requires: H.264 baseline, AAC audio, yuv420p, faststart (moov atom first)
-    const eager = 'vc_h264:baseline:3.1,ac_aac,f_mp4,fl_faststart'
-    const timestamp = Math.floor(Date.now() / 1000)
-    const signature = crypto.createHash('sha1')
-        .update(`eager=${eager}&timestamp=${timestamp}${apiSecret}`)
-        .digest('hex')
-
-    const form = new FormData()
-    form.append('file', new Blob([new Uint8Array(buffer)], { type: 'video/mp4' }))
-    form.append('api_key', apiKey)
-    form.append('timestamp', String(timestamp))
-    form.append('signature', signature)
-    form.append('eager', eager)
-    form.append('eager_async', 'false') // wait for transform before returning
-
-    console.log(`[post-x] Uploading ${(buffer.byteLength / 1024 / 1024).toFixed(1)}MB to Cloudinary for transcoding...`)
-    const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/video/upload`, {
-        method: 'POST',
-        body: form,
-    })
-    if (!uploadRes.ok) throw new Error(`Cloudinary upload failed: ${await uploadRes.text()}`)
-
-    const data = await uploadRes.json()
-    const transformedUrl = data.eager?.[0]?.secure_url
-    if (!transformedUrl) throw new Error(`Cloudinary transformation failed: ${JSON.stringify(data)}`)
-
-    console.log(`[post-x] Cloudinary transcoded: ${transformedUrl}`)
-    const transcoded = await fetch(transformedUrl)
-    if (!transcoded.ok) throw new Error('Failed to download transcoded video from Cloudinary')
-
-    return Buffer.from(await transcoded.arrayBuffer())
-}
 
 export async function POST(
     _req: Request,
@@ -87,7 +40,7 @@ export async function POST(
         console.log(`[post-x] Raw clip: ${(rawBuffer.byteLength / 1024 / 1024).toFixed(1)}MB, content-type: ${contentType}`)
 
         // Transcode to Twitter-compatible format via Cloudinary (if configured), else try raw
-        const twitterBuffer = await transcodeForTwitter(rawBuffer)
+        const twitterBuffer = await transcodeForTwitter(rawBuffer, '[post-x]')
         console.log(`[post-x] Uploading to Twitter: ${(twitterBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`)
 
         // Upload to Twitter

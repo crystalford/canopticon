@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm'
 import { put } from '@vercel/blob'
 import { TwitterApi } from 'twitter-api-v2'
 import { getCredential } from '@/lib/social/credentials'
+import { transcodeForTwitter } from '@/lib/social/cloudinary'
 import RSSParser from 'rss-parser'
 import type { Automation } from '@/db/schema'
 
@@ -496,7 +497,8 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
 
                 let xMediaId: string | undefined
                 try {
-                    xMediaId = await xClient.v1.uploadMedia(videoBuffer, { mimeType: 'video/mp4' })
+                    const twitterBuffer = await transcodeForTwitter(videoBuffer, '[onClipReady/X]')
+                    xMediaId = await xClient.v1.uploadMedia(twitterBuffer, { mimeType: 'video/mp4' })
                 } catch (e) {
                     console.warn('[onClipReady] X video upload failed:', e)
                 }
