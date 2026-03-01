@@ -183,7 +183,8 @@ export const videoClips = pgTable('video_clips', {
     keyQuote: text('key_quote'),            // Short single sentence — for tweet
     extendedQuote: text('extended_quote'),  // 2-4 verbatim sentences — for article blockquote
     speakerName: text('speaker_name'),      // Person speaking the key quote (if identifiable)
-    tweetDraft: text('tweet_draft'),        // Claude's suggested tweet text (verbatim words only)
+    tweetDraft: text('tweet_draft'),        // Claude's suggested tweet text
+    transcriptSegment: text('transcript_segment'), // Full verbatim text of the selected clip window
     // Social posting
     xPostId: text('x_post_id'),
     xPostedAt: timestamp('x_posted_at'),

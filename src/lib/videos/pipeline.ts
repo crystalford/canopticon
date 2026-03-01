@@ -284,8 +284,12 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
             else console.log(`[onTranscriptReady] Speaker could not be identified`)
         }
 
+        // Extract the verbatim text of the selected clip window (for article generation)
+        const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
+        const transcriptSegment = clipSegments.map(s => s.text.trim()).join(' ')
+
         await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft, status: 'processing' })
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft, transcriptSegment, status: 'processing' })
             .where(eq(videoClips.id, clipId))
 
         await triggerApify(clipId, clip.youtubeUrl, start, end, clip.automationId ?? undefined)
@@ -311,57 +315,83 @@ async function generateClipArticle(clip: {
     extendedQuote: string | null
     speakerName: string | null
     clipRationale: string | null
+    transcriptSegment: string | null
     clipUrl: string
     automationId: string | null
 }): Promise<string | null> {
     try {
         const model = await getModel('anthropic', 'claude-sonnet-4-20250514')
-        const speaker = clip.speakerName || 'A speaker'
         const source = clip.channelName || clip.videoTitle || 'Unknown'
+        const transcript = clip.transcriptSegment || clip.extendedQuote || clip.keyQuote || ''
 
-        const prompt = `You are a political editor for a Canadian political intelligence site. Write a short article brief for this video clip.
+        const prompt = `You are a senior editor at a Canadian political intelligence publication. Write a substantive article from this video clip transcript.
 
-Speaker: ${speaker}
-Source: ${source}
-What the clip is about: ${clip.clipRationale || '(no summary available)'}
-Verbatim transcript excerpt: "${clip.extendedQuote || clip.keyQuote || ''}"
+Source video: "${clip.videoTitle || source}"
+Channel: ${source}
+Primary speaker identified: ${clip.speakerName || 'unknown — identify from transcript'}
+What the clip is about: ${clip.clipRationale || ''}
 
-Write:
-1. title: A compelling article title. Use the verbatim key quote in quotes if it is punchy and self-explanatory. Otherwise write a plain headline that captures the main claim or revelation. Keep it under 90 characters.
-2. intro: 2-3 sentences introducing this clip for a Canadian political audience. Cover who is speaking, what they are claiming, and any key data points or context from the "what the clip is about" field above. Use plain direct journalism language. Do not start with "In a", "During a", or "A clip". Reference ONLY claims from the provided context — no external facts.
+VERBATIM CLIP TRANSCRIPT:
+${transcript}
 
-Return ONLY valid JSON, no markdown:
-{"title": "...", "intro": "..."}`
+---
+
+Write a full article. Rules:
+- Use ONLY what is in the transcript above — no external facts, no assumptions
+- Identify each speaker accurately from how they introduce themselves in the transcript (NOT from the video title alone)
+- If multiple people speak, cover all of them
+- Extract all specific data points (dollar figures, percentages, timelines, program names, institution names)
+- Write like a Canadian political journalist, not a press release
+- Do not start sentences with "In a..." or "During a..."
+
+Return ONLY valid JSON, no markdown fences:
+{
+  "title": "Compelling headline under 90 chars — plain statement, not a quote",
+  "lede": "1-2 sentence news lede: who did/said what and why it matters",
+  "body": "3-4 paragraphs of substantive reporting. Cover the key claims, data points, and significance. Use the transcript to quote accurately.",
+  "tags": ["array", "of", "flat", "tags — person names (firstname-lastname), org names, topics, locations. Include video-clip."]
+}`
 
         const result = await generateText({ model, prompt })
         const match = result.text.match(/\{[\s\S]*\}/)
+
         let title: string
-        let context: string
+        let lede: string
+        let body: string
+        let tags: string[] = ['video-clip']
+
         if (match) {
-            const parsed = JSON.parse(match[0])
-            title = parsed.title || `"${clip.keyQuote || clip.videoTitle || 'New Clip'}"`
-            context = parsed.intro || result.text.trim()
+            try {
+                const parsed = JSON.parse(match[0])
+                title = parsed.title || clip.videoTitle || 'New Clip'
+                lede = parsed.lede || ''
+                body = parsed.body || ''
+                if (Array.isArray(parsed.tags)) tags = parsed.tags
+            } catch {
+                // JSON parse failed — use raw text as body
+                title = clip.videoTitle || 'New Clip'
+                lede = ''
+                body = result.text.trim()
+            }
         } else {
-            // fallback if Claude doesn't return JSON
-            context = result.text.trim()
-            const rawTitle = clip.keyQuote || clip.videoTitle || 'New Clip'
-            const truncated = rawTitle.length > 90 ? rawTitle.substring(0, 90).replace(/\s+\S*$/, '') + '...' : rawTitle
-            title = clip.keyQuote ? `"${truncated}"` : truncated
+            title = clip.videoTitle || 'New Clip'
+            lede = ''
+            body = result.text.trim()
         }
 
-        // Blockquote: use extended quote for richer article display
+        // Blockquote: pull quote from the clip
         const displayQuote = clip.extendedQuote || clip.keyQuote || ''
         const attribution = clip.speakerName
-            ? `**${clip.speakerName}** via ${clip.channelName || clip.videoTitle || 'Source'}`
-            : `**${clip.channelName || clip.videoTitle || 'Source'}**`
+            ? `**${clip.speakerName}** · [Watch full video](${clip.youtubeUrl})`
+            : `**${source}** · [Watch full video](${clip.youtubeUrl})`
         const quoteBlock = displayQuote
-            ? `> ${displayQuote}\n> — ${attribution} · [Watch full video](${clip.youtubeUrl})\n\n`
+            ? `> ${displayQuote}\n> — ${attribution}\n\n`
             : ''
 
-        // Embed the actual clip (MP4), not the full YouTube video
+        // Article layout: embed → pull quote → lede → body → source
         const clipEmbed = `<video controls style="width:100%;border-radius:8px;margin:1em 0;max-height:480px" src="${clip.clipUrl}"></video>\n\n`
-
-        const content = `${clipEmbed}${quoteBlock}${context}\n\n*Source: [${clip.videoTitle || clip.youtubeUrl}](${clip.youtubeUrl})*`
+        const ledeFormatted = lede ? `**${lede}**\n\n` : ''
+        const content = `${clipEmbed}${quoteBlock}${ledeFormatted}${body}\n\n*Source: [${clip.videoTitle || clip.youtubeUrl}](${clip.youtubeUrl})*`
 
         const baseSlug = title.toLowerCase()
             .replace(/[^a-z0-9\s-]/g, '')
@@ -370,18 +400,21 @@ Return ONLY valid JSON, no markdown:
             .replace(/-+$/, '')
         const slug = `${baseSlug}-${Date.now()}`
 
+        // Ensure video-clip tag always present
+        if (!tags.includes('video-clip')) tags.unshift('video-clip')
+
         const [article] = await db.insert(articles).values({
             title,
             slug,
             content,
-            summary: context,
-            tags: ['video-clip'],
+            summary: lede || body.split('\n')[0] || '',
+            tags,
             status: 'published',
             automationId: clip.automationId ?? null,
             publishedAt: new Date(),
         }).returning()
 
-        console.log(`[onClipReady] ✓ Article generated: ${article.id}`)
+        console.log(`[onClipReady] ✓ Article generated: ${article.id} — tags: ${tags.join(', ')}`)
         return article.id
     } catch (e: any) {
         console.error(`[onClipReady] Article generation failed: ${e.message}`)
@@ -424,6 +457,7 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
             extendedQuote: clip.extendedQuote,
             speakerName: clip.speakerName,
             clipRationale: clip.clipRationale,
+            transcriptSegment: clip.transcriptSegment,
             clipUrl: blob.url,
             automationId: clip.automationId,
         })
