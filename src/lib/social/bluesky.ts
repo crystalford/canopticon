@@ -20,7 +20,7 @@ async function uploadVideoToBluesky(agent: AtpAgent, videoBuffer: Buffer): Promi
                     'Authorization': `Bearer ${session.accessJwt}`,
                     'Content-Type': 'video/mp4',
                 },
-                body: videoBuffer,
+                body: new Uint8Array(videoBuffer),
             }
         )
         if (!uploadRes.ok) throw new Error(`Video service upload failed: ${await uploadRes.text()}`)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, Clock, ExternalLink, Send, FileText } from 'lucide-react'
+import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, Clock, ExternalLink, Send, FileText, Settings, Save } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface VideoMonitor {
@@ -13,6 +13,7 @@ interface VideoMonitor {
     config: {
         channelId: string
         channelHandle?: string
+        clipArticle?: boolean
         postX?: boolean
         postBluesky?: boolean
         postTiktok?: boolean
@@ -69,11 +70,14 @@ export default function VideosPage() {
     const [running, setRunning] = useState<string | null>(null)
     const [form, setForm] = useState({
         name: '', channelId: '', channelHandle: '',
-        postX: true, postBluesky: false, postTiktok: false, postThreads: false,
+        clipArticle: true, postX: true, postBluesky: false, postTiktok: false, postThreads: false,
     })
     const [adding, setAdding] = useState(false)
     const [posting, setPosting] = useState<{ id: string; platform: PostingPlatform } | null>(null)
     const [postErrors, setPostErrors] = useState<Record<string, string>>({})
+    const [editingId, setEditingId] = useState<string | null>(null)
+    const [editConfig, setEditConfig] = useState<{ clipArticle: boolean; postX: boolean; postBluesky: boolean; postTiktok: boolean; postThreads: boolean } | null>(null)
+    const [saving, setSaving] = useState(false)
 
     const fetchAll = useCallback(async () => {
         const [mRes, cRes] = await Promise.all([
@@ -109,6 +113,34 @@ export default function VideosPage() {
         fetchAll()
     }
 
+    const startEdit = (m: VideoMonitor) => {
+        setEditingId(m.id)
+        setEditConfig({
+            clipArticle: m.config.clipArticle ?? true,
+            postX: m.config.postX ?? true,
+            postBluesky: m.config.postBluesky ?? false,
+            postTiktok: m.config.postTiktok ?? false,
+            postThreads: m.config.postThreads ?? false,
+        })
+    }
+
+    const saveMonitorConfig = async (m: VideoMonitor) => {
+        if (!editConfig) return
+        setSaving(true)
+        try {
+            await fetch(`/api/video-monitors/${m.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ config: { ...m.config, ...editConfig } }),
+            })
+            setEditingId(null)
+            setEditConfig(null)
+            fetchAll()
+        } finally {
+            setSaving(false)
+        }
+    }
+
     const runMonitor = async (id: string) => {
         setRunning(id)
         try {
@@ -126,9 +158,9 @@ export default function VideosPage() {
             await fetch('/api/video-monitors', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form),
+                body: JSON.stringify({ ...form }),
             })
-            setForm({ name: '', channelId: '', channelHandle: '', postX: true, postBluesky: false, postTiktok: false, postThreads: false })
+            setForm({ name: '', channelId: '', channelHandle: '', clipArticle: true, postX: true, postBluesky: false, postTiktok: false, postThreads: false })
             setShowAdd(false)
             fetchAll()
         } finally {
@@ -230,13 +262,21 @@ export default function VideosPage() {
                                 placeholder="@cpac" className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-white/20" />
                         </div>
                     </div>
-                    <div>
-                        <p className="text-xs text-slate-500 mb-2">Auto-post clips to:</p>
-                        <div className="flex flex-wrap gap-4">
-                            <Toggle value={form.postX} onChange={() => setForm(f => ({ ...f, postX: !f.postX }))} label="𝕏 (Twitter)" />
-                            <Toggle value={form.postBluesky} onChange={() => setForm(f => ({ ...f, postBluesky: !f.postBluesky }))} label="Bluesky" />
-                            <Toggle value={form.postTiktok} onChange={() => setForm(f => ({ ...f, postTiktok: !f.postTiktok }))} label="TikTok" />
-                            <Toggle value={form.postThreads} onChange={() => setForm(f => ({ ...f, postThreads: !f.postThreads }))} label="Threads" />
+                    <div className="space-y-3">
+                        <div>
+                            <p className="text-xs text-slate-500 mb-2">Generate for each clip:</p>
+                            <div className="flex flex-wrap gap-4">
+                                <Toggle value={form.clipArticle} onChange={() => setForm(f => ({ ...f, clipArticle: !f.clipArticle }))} label="Article" />
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-xs text-slate-500 mb-2">Auto-post clips to:</p>
+                            <div className="flex flex-wrap gap-4">
+                                <Toggle value={form.postX} onChange={() => setForm(f => ({ ...f, postX: !f.postX }))} label="𝕏 (Twitter)" />
+                                <Toggle value={form.postBluesky} onChange={() => setForm(f => ({ ...f, postBluesky: !f.postBluesky }))} label="Bluesky" />
+                                <Toggle value={form.postTiktok} onChange={() => setForm(f => ({ ...f, postTiktok: !f.postTiktok }))} label="TikTok" />
+                                <Toggle value={form.postThreads} onChange={() => setForm(f => ({ ...f, postThreads: !f.postThreads }))} label="Threads" />
+                            </div>
                         </div>
                     </div>
                     <div className="flex gap-2">
@@ -261,39 +301,73 @@ export default function VideosPage() {
                     </div>
                 ) : (
                     <div className="space-y-2">
-                        {monitors.map(m => (
-                            <div key={m.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 flex items-center gap-3">
-                                <div onClick={() => toggleMonitor(m)}
-                                    className={`w-9 h-5 rounded-full relative cursor-pointer flex-shrink-0 transition-colors ${m.enabled ? 'bg-red-500' : 'bg-white/10'}`}>
-                                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${m.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-medium text-white">{m.name}</span>
-                                        {m.config.channelHandle && <span className="text-xs text-slate-500">{m.config.channelHandle}</span>}
-                                        {m.config.postX && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">𝕏</span>}
-                                        {m.config.postBluesky && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Bluesky</span>}
-                                        {m.config.postTiktok && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">TikTok</span>}
-                                        {m.config.postThreads && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Threads</span>}
+                        {monitors.map(m => {
+                            const isEditing = editingId === m.id
+                            return (
+                                <div key={m.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl overflow-hidden">
+                                    {/* Header row */}
+                                    <div className="px-4 py-3 flex items-center gap-3">
+                                        <div onClick={() => toggleMonitor(m)}
+                                            className={`w-9 h-5 rounded-full relative cursor-pointer flex-shrink-0 transition-colors ${m.enabled ? 'bg-red-500' : 'bg-white/10'}`}>
+                                            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${m.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-sm font-medium text-white">{m.name}</span>
+                                                {m.config.channelHandle && <span className="text-xs text-slate-500">{m.config.channelHandle}</span>}
+                                                {(m.config.clipArticle ?? true) && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Article</span>}
+                                                {m.config.postX && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">𝕏</span>}
+                                                {m.config.postBluesky && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Bluesky</span>}
+                                                {m.config.postTiktok && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">TikTok</span>}
+                                                {m.config.postThreads && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Threads</span>}
+                                            </div>
+                                            <p className="text-xs text-slate-600 mt-0.5">
+                                                {m.lastRunAt ? `Last run ${formatDistanceToNow(new Date(m.lastRunAt), { addSuffix: true })}` : 'Never run'}
+                                                {m.lastResult?.clipsQueued != null && ` · ${m.lastResult.clipsQueued} clips queued`}
+                                                {m.lastResult?.error && ` · ${m.lastResult.error}`}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                            <button onClick={() => runMonitor(m.id)} disabled={running === m.id}
+                                                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors" title="Run now">
+                                                {running === m.id ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                                            </button>
+                                            <button onClick={() => isEditing ? (setEditingId(null), setEditConfig(null)) : startEdit(m)}
+                                                className={`p-1.5 rounded-lg hover:bg-white/5 transition-colors ${isEditing ? 'text-white' : 'text-slate-500 hover:text-white'}`} title="Settings">
+                                                <Settings size={14} />
+                                            </button>
+                                            <button onClick={() => deleteMonitor(m.id)}
+                                                className="p-1.5 text-slate-600 hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors" title="Delete">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
                                     </div>
-                                    <p className="text-xs text-slate-600 mt-0.5">
-                                        {m.lastRunAt ? `Last run ${formatDistanceToNow(new Date(m.lastRunAt), { addSuffix: true })}` : 'Never run'}
-                                        {m.lastResult?.clipsQueued != null && ` · ${m.lastResult.clipsQueued} clips queued`}
-                                        {m.lastResult?.error && ` · ${m.lastResult.error}`}
-                                    </p>
+                                    {/* Edit panel */}
+                                    {isEditing && editConfig && (
+                                        <div className="px-4 pb-4 pt-1 border-t border-white/[0.06] space-y-3">
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-2">Generate for each clip:</p>
+                                                <Toggle value={editConfig.clipArticle} onChange={() => setEditConfig(c => c && ({ ...c, clipArticle: !c.clipArticle }))} label="Article" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-2">Auto-post clips to:</p>
+                                                <div className="flex flex-wrap gap-4">
+                                                    <Toggle value={editConfig.postX} onChange={() => setEditConfig(c => c && ({ ...c, postX: !c.postX }))} label="𝕏 (Twitter)" />
+                                                    <Toggle value={editConfig.postBluesky} onChange={() => setEditConfig(c => c && ({ ...c, postBluesky: !c.postBluesky }))} label="Bluesky" />
+                                                    <Toggle value={editConfig.postTiktok} onChange={() => setEditConfig(c => c && ({ ...c, postTiktok: !c.postTiktok }))} label="TikTok" />
+                                                    <Toggle value={editConfig.postThreads} onChange={() => setEditConfig(c => c && ({ ...c, postThreads: !c.postThreads }))} label="Threads" />
+                                                </div>
+                                            </div>
+                                            <button onClick={() => saveMonitorConfig(m)} disabled={saving}
+                                                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors">
+                                                {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                                                Save
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                    <button onClick={() => runMonitor(m.id)} disabled={running === m.id}
-                                        className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors" title="Run now">
-                                        {running === m.id ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
-                                    </button>
-                                    <button onClick={() => deleteMonitor(m.id)}
-                                        className="p-1.5 text-slate-600 hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors" title="Delete">
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )}
             </div>

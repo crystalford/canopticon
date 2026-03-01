@@ -79,6 +79,10 @@ function deriveFlags(config: any) {
             xFormat: config.xFormat ?? 'thread',
             xTweetCount: config.xTweetCount ?? 4,
             includeArticleLink: config.includeArticleLink ?? false,
+            clipArticle: config.clipArticle ?? true,
+            clipPostBluesky: config.postBluesky ?? false,
+            clipPostThreads: config.postThreads ?? false,
+            clipPostTiktok: config.postTiktok ?? false,
         }
     }
     // Legacy outputMode
@@ -91,6 +95,10 @@ function deriveFlags(config: any) {
         xFormat: mode === 'article_and_x_post' ? 'post' : 'thread',
         xTweetCount: 4,
         includeArticleLink: false,
+        clipArticle: true,
+        clipPostBluesky: false,
+        clipPostThreads: false,
+        clipPostTiktok: false,
     }
 }
 

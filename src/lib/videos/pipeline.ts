@@ -447,20 +447,25 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
 
         if (!clip) throw new Error('Clip record not found')
 
-        // Auto-generate site article for every clip
-        const articleId = await generateClipArticle({
-            id: clip.id,
-            videoTitle: clip.videoTitle,
-            youtubeUrl: clip.youtubeUrl,
-            channelName: clip.channelName,
-            keyQuote: clip.keyQuote,
-            extendedQuote: clip.extendedQuote,
-            speakerName: clip.speakerName,
-            clipRationale: clip.clipRationale,
-            transcriptSegment: clip.transcriptSegment,
-            clipUrl: blob.url,
-            automationId: clip.automationId,
-        })
+        // Auto-generate site article (unless clipArticle is explicitly disabled)
+        let articleId: string | null = null
+        if (config.clipArticle !== false) {
+            articleId = await generateClipArticle({
+                id: clip.id,
+                videoTitle: clip.videoTitle,
+                youtubeUrl: clip.youtubeUrl,
+                channelName: clip.channelName,
+                keyQuote: clip.keyQuote,
+                extendedQuote: clip.extendedQuote,
+                speakerName: clip.speakerName,
+                clipRationale: clip.clipRationale,
+                transcriptSegment: clip.transcriptSegment,
+                clipUrl: blob.url,
+                automationId: clip.automationId,
+            })
+        } else {
+            console.log(`[onClipReady] Skipping article generation (clipArticle disabled)`)
+        }
         if (articleId) {
             await db.update(videoClips).set({ articleId }).where(eq(videoClips.id, clipId))
         }
