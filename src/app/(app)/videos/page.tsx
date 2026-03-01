@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, Clock, ExternalLink, Send, FileText, Settings, Save } from 'lucide-react'
+import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, Clock, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { format } from 'date-fns'
 import { formatDistanceToNow } from 'date-fns'
 
 interface VideoMonitor {
@@ -67,7 +68,6 @@ export default function VideosPage() {
     const [showAdd, setShowAdd] = useState(false)
     const [clipUrl, setClipUrl] = useState('')
     const [clipping, setClipping] = useState(false)
-    const [running, setRunning] = useState<string | null>(null)
     const [form, setForm] = useState({
         name: '', channelId: '', channelHandle: '',
         clipArticle: true, postX: true, postBluesky: false, postTiktok: false, postThreads: false,
@@ -78,6 +78,10 @@ export default function VideosPage() {
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editConfig, setEditConfig] = useState<{ clipArticle: boolean; postX: boolean; postBluesky: boolean; postTiktok: boolean; postThreads: boolean } | null>(null)
     const [saving, setSaving] = useState(false)
+    const [videosOpenId, setVideosOpenId] = useState<string | null>(null)
+    const [monitorVideos, setMonitorVideos] = useState<Record<string, any[]>>({})
+    const [monitorVideosLoading, setMonitorVideosLoading] = useState<Record<string, boolean>>({})
+    const [clippingVideo, setClippingVideo] = useState<string | null>(null)
 
     const fetchAll = useCallback(async () => {
         const [mRes, cRes] = await Promise.all([
@@ -113,6 +117,36 @@ export default function VideosPage() {
         fetchAll()
     }
 
+    const toggleVideos = async (id: string) => {
+        if (videosOpenId === id) { setVideosOpenId(null); return }
+        setVideosOpenId(id)
+        if (monitorVideos[id]) return // already loaded
+        setMonitorVideosLoading(prev => ({ ...prev, [id]: true }))
+        try {
+            const res = await fetch(`/api/video-monitors/${id}/videos`)
+            if (res.ok) {
+                const data = await res.json()
+                setMonitorVideos(prev => ({ ...prev, [id]: data.videos || [] }))
+            }
+        } finally {
+            setMonitorVideosLoading(prev => ({ ...prev, [id]: false }))
+        }
+    }
+
+    const clipSingleVideo = async (monitorId: string, video: { link: string; title: string }) => {
+        setClippingVideo(video.link)
+        try {
+            await fetch(`/api/video-monitors/${monitorId}/clip-video`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ youtubeUrl: video.link, title: video.title }),
+            })
+            fetchAll()
+        } finally {
+            setClippingVideo(null)
+        }
+    }
+
     const startEdit = (m: VideoMonitor) => {
         setEditingId(m.id)
         setEditConfig({
@@ -141,15 +175,7 @@ export default function VideosPage() {
         }
     }
 
-    const runMonitor = async (id: string) => {
-        setRunning(id)
-        try {
-            await fetch(`/api/video-monitors/${id}/run`, { method: 'POST' })
-            fetchAll()
-        } finally {
-            setRunning(null)
-        }
-    }
+
 
     const addMonitor = async () => {
         if (!form.name || !form.channelId) return
@@ -328,9 +354,9 @@ export default function VideosPage() {
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-1 flex-shrink-0">
-                                            <button onClick={() => runMonitor(m.id)} disabled={running === m.id}
-                                                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors" title="Run now">
-                                                {running === m.id ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                                            <button onClick={() => toggleVideos(m.id)}
+                                                className={`p-1.5 rounded-lg hover:bg-white/5 transition-colors ${videosOpenId === m.id ? 'text-white' : 'text-slate-400 hover:text-white'}`} title="Browse videos">
+                                                {videosOpenId === m.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                                             </button>
                                             <button onClick={() => isEditing ? (setEditingId(null), setEditConfig(null)) : startEdit(m)}
                                                 className={`p-1.5 rounded-lg hover:bg-white/5 transition-colors ${isEditing ? 'text-white' : 'text-slate-500 hover:text-white'}`} title="Settings">
@@ -342,6 +368,55 @@ export default function VideosPage() {
                                             </button>
                                         </div>
                                     </div>
+                                    {/* Video list panel */}
+                                    {videosOpenId === m.id && (
+                                        <div className="border-t border-white/[0.06]">
+                                            <div className="flex items-center justify-between px-4 py-2">
+                                                <span className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Recent Videos</span>
+                                                <button onClick={() => {
+                                                    setMonitorVideos(prev => { const n = { ...prev }; delete n[m.id]; return n })
+                                                    setMonitorVideosLoading(prev => ({ ...prev, [m.id]: true }))
+                                                    fetch(`/api/video-monitors/${m.id}/videos`).then(r => r.ok ? r.json() : null).then(d => {
+                                                        if (d) setMonitorVideos(prev => ({ ...prev, [m.id]: d.videos || [] }))
+                                                        setMonitorVideosLoading(prev => ({ ...prev, [m.id]: false }))
+                                                    })
+                                                }} className="p-1 text-slate-600 hover:text-white transition-colors" title="Refresh">
+                                                    <RefreshCw size={12} />
+                                                </button>
+                                            </div>
+                                            {monitorVideosLoading[m.id] ? (
+                                                <div className="space-y-2 px-4 pb-4">
+                                                    {[1, 2, 3].map(i => <div key={i} className="h-14 bg-white/5 rounded-lg animate-pulse" />)}
+                                                </div>
+                                            ) : (monitorVideos[m.id] || []).length === 0 ? (
+                                                <p className="text-sm text-slate-500 px-4 pb-4">No videos found.</p>
+                                            ) : (
+                                                <div className="space-y-1 px-4 pb-4">
+                                                    {(monitorVideos[m.id] || []).map((video: any) => (
+                                                        <div key={video.videoId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                                                            {video.thumbnail && (
+                                                                <img src={video.thumbnail} alt="" className="w-20 h-12 object-cover rounded shrink-0 bg-black/20" />
+                                                            )}
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-xs text-slate-200 font-medium line-clamp-2 leading-snug">{video.title}</p>
+                                                                <p className="text-[10px] text-slate-600 mt-0.5">
+                                                                    {video.pubDate ? format(new Date(video.pubDate), 'MMM d, yyyy') : ''}
+                                                                </p>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => clipSingleVideo(m.id, video)}
+                                                                disabled={clippingVideo === video.link}
+                                                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium shrink-0 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 disabled:opacity-50 transition-colors"
+                                                            >
+                                                                {clippingVideo === video.link ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} className="fill-current" />}
+                                                                Clip
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                     {/* Edit panel */}
                                     {isEditing && editConfig && (
                                         <div className="px-4 pb-4 pt-1 border-t border-white/[0.06] space-y-3">
