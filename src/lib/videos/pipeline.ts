@@ -13,6 +13,56 @@ const parser = new RSSParser()
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/**
+ * Fetch YouTube video description by scraping the page.
+ * Tries og:description and JSON-LD schema — no API key required.
+ */
+async function fetchYoutubeDescription(youtubeUrl: string): Promise<string> {
+    try {
+        const res = await fetch(youtubeUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        })
+        if (!res.ok) return ''
+        const html = await res.text()
+
+        // Try JSON-LD schema first — usually has the full description
+        const ldMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)
+        if (ldMatch) {
+            try {
+                const ld = JSON.parse(ldMatch[1])
+                if (ld.description) return ld.description
+            } catch { /* ignore parse errors */ }
+        }
+
+        // Fallback: og:description meta tag (~160 chars)
+        const ogMatch = html.match(/<meta\s+(?:property="og:description"|name="description")\s+content="([^"]+)"/)
+        if (ogMatch) return ogMatch[1].replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+
+        return ''
+    } catch {
+        return ''
+    }
+}
+
+/**
+ * Use Perplexity to identify a speaker when title/transcript/description don't name them.
+ */
+async function lookupSpeaker(keyQuote: string, videoTitle: string, channelName: string): Promise<string> {
+    try {
+        const model = await getModel('perplexity', 'sonar-pro')
+        const query = `Who said this quote in a Canadian Parliament, news conference, or media context? Quote: "${keyQuote.substring(0, 120)}" — Video title: "${videoTitle}", Channel: "${channelName}". Reply with ONLY the full name of the speaker (first and last name), or the word "unknown" if you cannot determine it with confidence.`
+        const result = await generateText({ model, prompt: query })
+        const name = result.text.trim().replace(/^["']|["']$/g, '').split('\n')[0].trim()
+        if (!name || name.toLowerCase() === 'unknown' || name.length > 60 || name.includes(' ')) {
+            return name.toLowerCase() === 'unknown' ? '' : name
+        }
+        return ''
+    } catch (e: any) {
+        console.warn(`[lookupSpeaker] Web search failed: ${e.message}`)
+        return ''
+    }
+}
+
 const toHHMMSS = (secs: number) => {
     const h = Math.floor(secs / 3600).toString().padStart(2, '0')
     const m = Math.floor((secs % 3600) / 60).toString().padStart(2, '0')
@@ -47,7 +97,7 @@ RULES:
 - tweet_draft: the most engaging tweet for this clip. Use verbatim transcript words when they are clean and punchy. If the message is more shareable as a paraphrase, write one. Format: if speaker is known → 'Full Name: "quote or paraphrase"'. If unknown → '"quote or paraphrase" — [key stat or context]'. STRICT RULES: no emojis, no em dashes (—), no all-caps words, write like a human not a press release. Under 240 chars.
 
 Video: "${title}"
-URL: ${url}${description ? `\nDescription: ${description.substring(0, 500)}` : ''}
+URL: ${url}${description ? `\nDescription: ${description.substring(0, 1000)}` : ''}
 
 Timestamped transcript:
 ${transcript}
@@ -199,22 +249,40 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
         }
         const transcript = segments.map(s => `${formatTime(s.start)} ${s.text.trim()}`).join('\n')
 
-        // Pull any metadata the Apify actor provides — description is the most useful for speaker ID
+        // Pull metadata from Apify response
         const videoTitle = clip.videoTitle || item.title || item.videoTitle || ''
-        const videoDescription = item.description || item.videoDescription || item.about || ''
-        if (videoDescription) console.log(`[onTranscriptReady] Description available (${videoDescription.length} chars)`)
+        const channelName = item.channelName || item.author || clip.channelName || ''
+
+        // Get description: try Apify output first, then fetch from YouTube directly
+        let videoDescription = item.description || item.videoDescription || item.about || ''
+        if (!videoDescription) {
+            console.log(`[onTranscriptReady] No description from Apify — fetching from YouTube...`)
+            videoDescription = await fetchYoutubeDescription(clip.youtubeUrl)
+            if (videoDescription) console.log(`[onTranscriptReady] Fetched YouTube description (${videoDescription.length} chars)`)
+        } else {
+            console.log(`[onTranscriptReady] Description from Apify (${videoDescription.length} chars)`)
+        }
 
         // Store title/channel if not already set
         const metaUpdates: Record<string, string> = {}
-        if (!clip.videoTitle && item.title) metaUpdates.videoTitle = item.title
-        if (!clip.channelName && (item.channelName || item.author)) metaUpdates.channelName = item.channelName || item.author
+        if (!clip.videoTitle && videoTitle) metaUpdates.videoTitle = videoTitle
+        if (!clip.channelName && channelName) metaUpdates.channelName = channelName
         if (Object.keys(metaUpdates).length) {
             await db.update(videoClips).set(metaUpdates).where(eq(videoClips.id, clipId))
         }
 
-        // Claude picks best clip window
-        const { start, end, rationale, keyQuote, extendedQuote, speakerName, tweetDraft } = await selectClipWindow(clip.youtubeUrl, videoTitle, transcript, videoDescription)
+        // Claude picks best clip window (gets full description for speaker ID)
+        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft } = await selectClipWindow(clip.youtubeUrl, videoTitle, transcript, videoDescription)
         console.log(`[onTranscriptReady] AI selected ${start}s→${end}s: ${rationale}`)
+
+        // If speaker not identified from title/transcript/description, try a web search
+        let speakerName = speakerFromClip
+        if (!speakerName && keyQuote) {
+            console.log(`[onTranscriptReady] Speaker unknown — trying web search lookup...`)
+            speakerName = await lookupSpeaker(keyQuote, videoTitle, channelName)
+            if (speakerName) console.log(`[onTranscriptReady] Speaker identified via web search: ${speakerName}`)
+            else console.log(`[onTranscriptReady] Speaker could not be identified`)
+        }
 
         await db.update(videoClips)
             .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft, status: 'processing' })
