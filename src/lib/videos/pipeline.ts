@@ -40,10 +40,11 @@ RULES:
 - Skip intros, B-roll, music, applause. Start at the first substantive word.
 - The clip must be 60-120 seconds. Do not go under 60s.
 - End on a natural sentence break — never cut mid-sentence.
-- key_quote: the SINGLE most quotable sentence from the clip. Exact transcript words only. No surrounding quotes in the string.
-- extended_quote: 2-4 consecutive verbatim sentences from the transcript that include and surround the key_quote moment. This is the full pull-quote for the article — give enough context to understand the claim. Exact transcript words only. No surrounding quotes in the string.
+- message: 2-3 sentences in plain English summarizing WHAT the clip is arguing/claiming and WHY it matters politically. This is not a quote — explain the substance of what is being said and what makes it significant. Include any key statistics or data points mentioned.
+- key_quote: the SINGLE most quotable clean sentence from the clip. Exact transcript words only, but remove filler words (um, uh, like, you know). No surrounding quotes in the string.
+- extended_quote: 2-4 consecutive sentences from the clip that include the key_quote moment. Remove filler words (um, uh, like, you know) while preserving exact meaning and structure. No surrounding quotes in the string.
 - speaker_name: the full name of the person saying the key_quote. Extract from: (1) the video title — e.g. "Pierre Poilievre responds to..." → "Pierre Poilievre"; (2) explicit name introductions in the transcript — e.g. "I'm joined by Mark Carney" → "Mark Carney". Do NOT guess or infer from political content alone. Use null if you cannot confirm the name from the title or transcript text itself.
-- tweet_draft: tweet text using ONLY exact verbatim words from the transcript — no paraphrasing, no summarizing, no external facts. Format: if speaker is known → 'Full Name: "key_quote"'. If unknown → '"key_quote" — Channel'. Under 240 chars.
+- tweet_draft: the most engaging tweet for this clip. Use verbatim transcript words when they are clean and punchy. If the message is more shareable than any single verbatim line, write a tight paraphrase that captures it. Format: if speaker is known → 'Full Name: "quote or paraphrase"'. If unknown → '"quote or paraphrase" — [key stat or context]'. Under 240 chars.
 
 Video: "${title}"
 URL: ${url}${description ? `\nDescription: ${description.substring(0, 500)}` : ''}
@@ -52,7 +53,7 @@ Timestamped transcript:
 ${transcript}
 
 Return ONLY valid JSON, no markdown:
-{"start_seconds": <number>, "end_seconds": <number>, "rationale": "<one sentence why>", "key_quote": "<single sentence, no surrounding quotes>", "extended_quote": "<2-4 sentences, no surrounding quotes>", "speaker_name": "<full name or null>", "tweet_draft": "<tweet text>"}`
+{"start_seconds": <number>, "end_seconds": <number>, "message": "<what the clip is saying and why it matters>", "key_quote": "<clean single sentence, no filler words, no surrounding quotes>", "extended_quote": "<2-4 clean sentences, no filler words, no surrounding quotes>", "speaker_name": "<full name or null>", "tweet_draft": "<tweet text>"}`
 
     const result = await generateText({ model, prompt })
     const match = result.text.match(/\{[\s\S]*\}/)
@@ -64,7 +65,7 @@ Return ONLY valid JSON, no markdown:
     return {
         start: parsed.start_seconds,
         end: parsed.end_seconds,
-        rationale: parsed.rationale || '',
+        rationale: parsed.message || parsed.rationale || '',
         keyQuote: (parsed.key_quote || '').replace(/^["']|["']$/g, ''),
         extendedQuote: (parsed.extended_quote || parsed.key_quote || '').replace(/^["']|["']$/g, ''),
         speakerName: parsed.speaker_name || '',
@@ -241,36 +242,44 @@ async function generateClipArticle(clip: {
     keyQuote: string | null
     extendedQuote: string | null
     speakerName: string | null
+    clipRationale: string | null
     clipUrl: string
     automationId: string | null
 }): Promise<string | null> {
     try {
         const model = await getModel('anthropic', 'claude-sonnet-4-20250514')
-        const speaker = clip.speakerName || clip.channelName || 'A speaker'
-        const verbatimContent = clip.extendedQuote || clip.keyQuote || ''
+        const speaker = clip.speakerName || 'A speaker'
+        const source = clip.channelName || clip.videoTitle || 'Unknown'
 
-        const prompt = `You are a political editor. Write 1-2 sentences introducing this video clip.
+        const prompt = `You are a political editor for a Canadian political intelligence site. Write a short article brief for this video clip.
 
 Speaker: ${speaker}
-Source: ${clip.channelName || clip.videoTitle || 'Unknown'}
-Verbatim transcript excerpt: "${verbatimContent}"
+Source: ${source}
+What the clip is about: ${clip.clipRationale || '(no summary available)'}
+Verbatim transcript excerpt: "${clip.extendedQuote || clip.keyQuote || ''}"
 
-Rules:
-- Reference ONLY claims explicitly stated in the transcript excerpt above — no additional facts or context beyond what is written there
-- State who is speaking and what they are claiming
-- Do not start with "In a", "During a", or "A clip"
-- 1-2 sentences only
-- Return ONLY the text, no title`
+Write:
+1. title: A compelling article title. Use the verbatim key quote in quotes if it is punchy and self-explanatory. Otherwise write a plain headline that captures the main claim or revelation. Keep it under 90 characters.
+2. intro: 2-3 sentences introducing this clip for a Canadian political audience. Cover who is speaking, what they are claiming, and any key data points or context from the "what the clip is about" field above. Use plain direct journalism language. Do not start with "In a", "During a", or "A clip". Reference ONLY claims from the provided context — no external facts.
+
+Return ONLY valid JSON, no markdown:
+{"title": "...", "intro": "..."}`
 
         const result = await generateText({ model, prompt })
-        const context = result.text.trim()
-
-        // Title: use keyQuote, truncate at word boundary
-        const rawTitle = clip.keyQuote || clip.videoTitle || 'New Clip'
-        const truncated = rawTitle.length > 90
-            ? rawTitle.substring(0, 90).replace(/\s+\S*$/, '') + '...'
-            : rawTitle
-        const title = clip.keyQuote ? `"${truncated}"` : truncated
+        const match = result.text.match(/\{[\s\S]*\}/)
+        let title: string
+        let context: string
+        if (match) {
+            const parsed = JSON.parse(match[0])
+            title = parsed.title || `"${clip.keyQuote || clip.videoTitle || 'New Clip'}"`
+            context = parsed.intro || result.text.trim()
+        } else {
+            // fallback if Claude doesn't return JSON
+            context = result.text.trim()
+            const rawTitle = clip.keyQuote || clip.videoTitle || 'New Clip'
+            const truncated = rawTitle.length > 90 ? rawTitle.substring(0, 90).replace(/\s+\S*$/, '') + '...' : rawTitle
+            title = clip.keyQuote ? `"${truncated}"` : truncated
+        }
 
         // Blockquote: use extended quote for richer article display
         const displayQuote = clip.extendedQuote || clip.keyQuote || ''
@@ -297,7 +306,7 @@ Rules:
             title,
             slug,
             content,
-            summary: context.substring(0, 200),
+            summary: context.substring(0, 300),
             tags: ['video-clip'],
             status: 'published',
             automationId: clip.automationId ?? null,
@@ -346,6 +355,7 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
             keyQuote: clip.keyQuote,
             extendedQuote: clip.extendedQuote,
             speakerName: clip.speakerName,
+            clipRationale: clip.clipRationale,
             clipUrl: blob.url,
             automationId: clip.automationId,
         })
