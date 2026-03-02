@@ -1,7 +1,7 @@
 import { generateText } from 'ai'
 import { getModel } from '@/lib/ai/providers'
 import { db, videoClips, automations } from '@/db'
-import { eq } from 'drizzle-orm'
+import { eq, and, ne } from 'drizzle-orm'
 import { put } from '@vercel/blob'
 import { TwitterApi } from 'twitter-api-v2'
 import { getCredential } from '@/lib/social/credentials'
@@ -223,7 +223,10 @@ RULES:
 - key_quote: the SINGLE most quotable clean sentence from the clip. Exact transcript words only, but remove filler words (um, uh, like, you know). No surrounding quotes in the string.
 - extended_quote: 2-4 consecutive sentences from the clip that include the key_quote moment. Remove filler words (um, uh, like, you know) while preserving exact meaning and structure. No surrounding quotes in the string.
 - speaker_name: the full name of the person saying the key_quote. Use these sources in order: (1) the video title — e.g. "Pierre Poilievre responds to..." → "Pierre Poilievre"; (2) explicit name introductions in the transcript — e.g. "I'm joined by Mark Carney" → "Mark Carney"; (3) the video description if it lists specific speakers; (4) if the speaker's role, party, and quote content together make identification highly confident, you may name them. If any reasonable doubt remains, use null.
-- tweet_draft: the most engaging tweet for this clip. Use verbatim transcript words when they are clean and punchy. If the message is more shareable as a paraphrase, write one. Format: if speaker is known → 'Full Name: "quote or paraphrase"'. If unknown → '"quote or paraphrase" — [key stat or context]'. STRICT RULES: no emojis, no em dashes (—), no all-caps words, write like a human not a press release. Under 240 chars.
+- tweet_draft: two-line tweet separated by a blank line.
+  Line 1 (context): one plain sentence — WHO is speaking, in WHAT setting or event, and the KEY TOPIC. Must give enough context that someone scrolling can understand what this is about without watching. Example: "Natural Resources Minister Tim Hodgson at a Toronto mining conference on Canada's critical minerals strategy." Do NOT use the quote here.
+  Line 2 (quote): if speaker known → 'Full Name: "clean verbatim quote"'. If speaker unknown → '"clean verbatim quote"'. Use the single most punchy line.
+  STRICT RULES: no emojis, no em dashes (—), no all-caps words, write like a human not a press release. Under 280 chars total.
 
 Video: "${title}"
 URL: ${url}${description ? `\nDescription: ${description.substring(0, 1000)}` : ''}
@@ -513,12 +516,17 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
         })
         console.log(`[onClipReady] ✓ Uploaded to Blob: ${blob.url}`)
 
+        // Atomic idempotency: only update if status is NOT already 'done'.
+        // Apify can fire SUCCEEDED webhooks more than once — this prevents double-posting.
         const [clip] = await db.update(videoClips)
             .set({ clipUrl: blob.url, status: 'done', processedAt: new Date() })
-            .where(eq(videoClips.id, clipId))
+            .where(and(eq(videoClips.id, clipId), ne(videoClips.status, 'done')))
             .returning()
 
-        if (!clip) throw new Error('Clip record not found')
+        if (!clip) {
+            console.log(`[onClipReady] Clip ${clipId} already processed — ignoring duplicate webhook`)
+            return
+        }
 
         // Fetch automation config for platform posting flags
         const automation = clip.automationId
