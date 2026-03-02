@@ -53,10 +53,10 @@ export async function POST(
             .set({ xPostedAt: new Date(), xPostId: tweet.data.id })
             .where(eq(videoClips.id, params.id))
 
-        // Thread reply: source video embed + channel credit
+        // Thread reply: source label first, then URL (X embeds the video below)
         try {
             const sourceName = clip.channelName || clip.videoTitle || 'Source'
-            const sourceReply = `${clip.youtubeUrl}\n\nSource: ${sourceName}`
+            const sourceReply = `Source: ${sourceName}\n\n${clip.youtubeUrl}`
             await client.v2.tweet(sourceReply, { reply: { in_reply_to_tweet_id: tweet.data.id } })
             console.log(`[post-x] ✓ Posted source thread reply`)
         } catch (e: any) {

@@ -37,6 +37,16 @@ async function fetchVideoMetadata(youtubeUrl: string): Promise<{ description: st
             } catch { /* ignore */ }
         }
 
+        // Fallback: ytInitialData / ytInitialPlayerResponse — more reliable on Vercel IPs
+        if (!channelName) {
+            const ownerMatch = html.match(/"ownerChannelName"\s*:\s*"([^"]+)"/)
+            if (ownerMatch) channelName = ownerMatch[1].replace(/\\u0026/g, '&').replace(/\\u0027/g, "'")
+        }
+        if (!channelName) {
+            const authorMatch = html.match(/"videoDetails"[\s\S]{0,300}"author"\s*:\s*"([^"]+)"/)
+            if (authorMatch) channelName = authorMatch[1].replace(/\\u0026/g, '&')
+        }
+
         if (!description) {
             const ogMatch = html.match(/<meta\s+(?:property="og:description"|name="description")\s+content="([^"]+)"/)
             if (ogMatch) description = ogMatch[1].replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&')
@@ -166,12 +176,12 @@ async function fetchTranscript(youtubeUrl: string): Promise<Array<{ start: numbe
 async function lookupSpeaker(keyQuote: string, videoTitle: string, channelName: string): Promise<string> {
     try {
         const model = await getModel('perplexity', 'sonar-pro')
-        const query = `Who said this quote in a Canadian Parliament, news conference, or media context? Quote: "${keyQuote.substring(0, 120)}" — Video title: "${videoTitle}", Channel: "${channelName}". Reply with ONLY the full name of the speaker (first and last name), or the word "unknown" if you cannot determine it with confidence.`
+        const query = `Who is speaking in this Canadian political video? Channel: "${channelName}", Title: "${videoTitle}", Quote: "${keyQuote.substring(0, 120)}". If this is a known YouTube channel or media personality, name the host. Reply with ONLY the speaker's first and last name (e.g. "David Menzies"), or the single word "unknown" if you cannot identify them with confidence.`
         const result = await generateText({ model, prompt: query })
         const name = result.text.trim().replace(/^["']|["']$/g, '').split('\n')[0].trim()
-        if (!name || name.toLowerCase() === 'unknown' || name.length > 60 || name.includes(' ')) {
-            return name.toLowerCase() === 'unknown' ? '' : name
-        }
+        // Accept names that look like "First Last" (contain a space, not too long, not unknown)
+        if (!name || name.toLowerCase() === 'unknown' || name.length > 60) return ''
+        if (name.includes(' ')) return name
         return ''
     } catch (e: any) {
         console.warn(`[lookupSpeaker] Web search failed: ${e.message}`)
@@ -362,6 +372,11 @@ export async function queueVideoClip(
             speakerName = await lookupSpeaker(keyQuote, title, channelName)
             if (speakerName) console.log(`[queueVideoClip] Speaker identified: ${speakerName}`)
         }
+        // Fall back to channel name so the tweet isn't left unattributed
+        if (!speakerName && channelName) {
+            speakerName = channelName
+            console.log(`[queueVideoClip] No individual speaker found — using channel name: ${channelName}`)
+        }
 
         // Extract verbatim clip segment
         const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
@@ -483,6 +498,11 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
             if (speakerName) console.log(`[onTranscriptReady] Speaker identified via web search: ${speakerName}`)
             else console.log(`[onTranscriptReady] Speaker could not be identified`)
         }
+        // Fall back to channel name so the tweet isn't left unattributed
+        if (!speakerName && channelName) {
+            speakerName = channelName
+            console.log(`[onTranscriptReady] No individual speaker found — using channel name: ${channelName}`)
+        }
 
         // Extract the verbatim text of the selected clip window
         const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
@@ -570,10 +590,10 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                 await db.update(videoClips).set({ xPostedAt: new Date(), xPostId: xTweet.data.id }).where(eq(videoClips.id, clipId))
                 console.log(`[onClipReady] ✓ Posted to X`)
 
-                // Thread reply: source video embed + channel credit
+                // Thread reply: source label first, then URL (X embeds the video below)
                 try {
                     const sourceName = clip.channelName || clip.videoTitle || 'Source'
-                    const sourceReply = `${clip.youtubeUrl}\n\nSource: ${sourceName}`
+                    const sourceReply = `Source: ${sourceName}\n\n${clip.youtubeUrl}`
                     await xClient.v2.tweet(sourceReply, { reply: { in_reply_to_tweet_id: xTweet.data.id } })
                     console.log(`[onClipReady] ✓ Posted source thread reply`)
                 } catch (e: any) {
