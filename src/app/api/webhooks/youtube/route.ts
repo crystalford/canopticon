@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { runAutomationWithContent } from '@/lib/automations/runner'
-import { queueVideoClip } from '@/lib/videos/pipeline'
+import { startAsyncClipProcessing } from '@/lib/videos/pipeline'
 import { fetchTranscript } from '@/lib/automations/transcript'
 import { db, automations } from '@/db'
 import { eq, sql } from 'drizzle-orm'
@@ -89,8 +89,8 @@ export async function POST(req: Request) {
         const link = videoLink || ''
 
         if (automation.type === 'video_monitor') {
-            // Video pipeline: queue for clipping
-            await queueVideoClip(link, title, automation.id)
+            // Video pipeline: async path so webhook responds fast (no 90s polling block)
+            await startAsyncClipProcessing(link, title, automation.id)
         } else {
             // Article pipeline: build trigger content and run
             const transcript = await fetchTranscript(link)

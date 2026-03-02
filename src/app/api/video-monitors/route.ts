@@ -45,6 +45,26 @@ export async function POST(req: Request) {
             prompt: null,
         }).returning()
 
+        // Subscribe to YouTube PubSubHubbub — real-time push when new videos are published
+        // (async verify so it doesn't block the response; YouTube will GET our callback to verify)
+        try {
+            const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'https://canopticon.com').replace(/\/$/, '')
+            const form = new URLSearchParams()
+            form.append('hub.callback', `${baseUrl}/api/webhooks/youtube`)
+            form.append('hub.topic', `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`)
+            form.append('hub.mode', 'subscribe')
+            form.append('hub.verify', 'async')
+            form.append('hub.lease_seconds', '864000')
+            const subRes = await fetch('https://pubsubhubbub.appspot.com/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: form,
+            })
+            console.log(`[video-monitors] PubSubHubbub subscription for ${channelId}: HTTP ${subRes.status}`)
+        } catch (e: any) {
+            console.warn(`[video-monitors] PubSubHubbub subscribe failed (non-fatal): ${e.message}`)
+        }
+
         return NextResponse.json(monitor, { status: 201 })
     } catch (e: any) {
         return NextResponse.json({ error: e.message }, { status: 500 })
