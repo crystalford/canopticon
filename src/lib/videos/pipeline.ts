@@ -569,6 +569,16 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                 const xTweet = await xClient.v2.tweet(tweetText, xMediaId ? { media: { media_ids: [xMediaId] } } : {})
                 await db.update(videoClips).set({ xPostedAt: new Date(), xPostId: xTweet.data.id }).where(eq(videoClips.id, clipId))
                 console.log(`[onClipReady] ✓ Posted to X`)
+
+                // Thread reply: source video embed + channel credit
+                try {
+                    const sourceName = clip.channelName || clip.videoTitle || 'Source'
+                    const sourceReply = `${clip.youtubeUrl}\n\nSource: ${sourceName}`
+                    await xClient.v2.tweet(sourceReply, { reply: { in_reply_to_tweet_id: xTweet.data.id } })
+                    console.log(`[onClipReady] ✓ Posted source thread reply`)
+                } catch (e: any) {
+                    console.warn(`[onClipReady] Thread reply failed (main tweet succeeded): ${e.message}`)
+                }
             } catch (e: any) {
                 console.error(`[onClipReady] X post failed: ${e.message}`)
                 await db.update(videoClips)

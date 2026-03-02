@@ -53,6 +53,16 @@ export async function POST(
             .set({ xPostedAt: new Date(), xPostId: tweet.data.id })
             .where(eq(videoClips.id, params.id))
 
+        // Thread reply: source video embed + channel credit
+        try {
+            const sourceName = clip.channelName || clip.videoTitle || 'Source'
+            const sourceReply = `${clip.youtubeUrl}\n\nSource: ${sourceName}`
+            await client.v2.tweet(sourceReply, { reply: { in_reply_to_tweet_id: tweet.data.id } })
+            console.log(`[post-x] ✓ Posted source thread reply`)
+        } catch (e: any) {
+            console.warn(`[post-x] Thread reply failed (main tweet succeeded): ${e.message}`)
+        }
+
         return NextResponse.json({ success: true, tweetId: tweet.data.id })
     } catch (e: any) {
         console.error('[post-x] Failed:', e.message)
