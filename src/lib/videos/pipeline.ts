@@ -597,7 +597,7 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
 
                 // Thread reply: source label first, then URL (X embeds the video below)
                 try {
-                    const sourceName = clip.channelName || clip.videoTitle || 'Source'
+                    const sourceName = clip.channelName || clip.speakerName || clip.videoTitle || 'Source'
                     const sourceReply = `Source: ${sourceName}\n\n${clip.youtubeUrl}`
                     await xClient.v2.tweet(sourceReply, { reply: { in_reply_to_tweet_id: xTweet.data.id } })
                     console.log(`[onClipReady] ✓ Posted source thread reply`)

@@ -16,6 +16,7 @@ export async function POST(
         const [clip] = await db.select().from(videoClips).where(eq(videoClips.id, params.id)).limit(1)
         if (!clip) return NextResponse.json({ error: 'Clip not found' }, { status: 404 })
         if (!clip.clipUrl) return NextResponse.json({ error: 'Clip has no URL yet' }, { status: 400 })
+        if (clip.xPostId) return NextResponse.json({ error: 'Already posted to X', tweetId: clip.xPostId }, { status: 409 })
 
         const apiKey = await getCredential('TWITTER_API_KEY')
         const apiSecret = await getCredential('TWITTER_API_SECRET')
@@ -55,7 +56,7 @@ export async function POST(
 
         // Thread reply: source label first, then URL (X embeds the video below)
         try {
-            const sourceName = clip.channelName || clip.videoTitle || 'Source'
+            const sourceName = clip.channelName || clip.speakerName || clip.videoTitle || 'Source'
             const sourceReply = `Source: ${sourceName}\n\n${clip.youtubeUrl}`
             await client.v2.tweet(sourceReply, { reply: { in_reply_to_tweet_id: tweet.data.id } })
             console.log(`[post-x] ✓ Posted source thread reply`)
