@@ -14,6 +14,7 @@ interface VideoMonitor {
     config: {
         channelId: string
         channelHandle?: string
+        contentFilter?: string
         clipArticle?: boolean
         postX?: boolean
         postBluesky?: boolean
@@ -73,14 +74,14 @@ export default function VideosPage() {
     const [clipUrl, setClipUrl] = useState('')
     const [clipping, setClipping] = useState(false)
     const [form, setForm] = useState({
-        name: '', channelId: '', channelHandle: '',
+        name: '', channelId: '', channelHandle: '', contentFilter: '',
         clipArticle: true, postX: true, postBluesky: false, postTiktok: false, postThreads: false,
     })
     const [adding, setAdding] = useState(false)
     const [posting, setPosting] = useState<{ id: string; platform: PostingPlatform } | null>(null)
     const [postErrors, setPostErrors] = useState<Record<string, string>>({})
     const [editingId, setEditingId] = useState<string | null>(null)
-    const [editConfig, setEditConfig] = useState<{ clipArticle: boolean; postX: boolean; postBluesky: boolean; postTiktok: boolean; postThreads: boolean } | null>(null)
+    const [editConfig, setEditConfig] = useState<{ contentFilter: string; clipArticle: boolean; postX: boolean; postBluesky: boolean; postTiktok: boolean; postThreads: boolean } | null>(null)
     const [saving, setSaving] = useState(false)
     const [videosOpenId, setVideosOpenId] = useState<string | null>(null)
     const [monitorVideos, setMonitorVideos] = useState<Record<string, any[]>>({})
@@ -175,6 +176,7 @@ export default function VideosPage() {
     const startEdit = (m: VideoMonitor) => {
         setEditingId(m.id)
         setEditConfig({
+            contentFilter: m.config.contentFilter ?? '',
             clipArticle: m.config.clipArticle ?? true,
             postX: m.config.postX ?? true,
             postBluesky: m.config.postBluesky ?? false,
@@ -211,7 +213,7 @@ export default function VideosPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...form }),
             })
-            setForm({ name: '', channelId: '', channelHandle: '', clipArticle: true, postX: true, postBluesky: false, postTiktok: false, postThreads: false })
+            setForm({ name: '', channelId: '', channelHandle: '', contentFilter: '', clipArticle: true, postX: true, postBluesky: false, postTiktok: false, postThreads: false })
             setShowAdd(false)
             fetchAll()
         } finally {
@@ -312,6 +314,12 @@ export default function VideosPage() {
                             <input value={form.channelHandle} onChange={e => setForm(f => ({ ...f, channelHandle: e.target.value }))}
                                 placeholder="@cpac" className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-white/20" />
                         </div>
+                        <div className="col-span-2">
+                            <label className="text-xs text-slate-500 mb-1 block">Content filter (optional)</label>
+                            <input value={form.contentFilter} onChange={e => setForm(f => ({ ...f, contentFilter: e.target.value }))}
+                                placeholder="e.g. Canadian politics only, Mark Carney only, federal budget" className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-white/20" />
+                            <p className="text-[10px] text-slate-600 mt-1">Only clip videos whose title matches this topic. Leave blank to clip everything.</p>
+                        </div>
                     </div>
                     <div className="space-y-3">
                         <div>
@@ -371,6 +379,7 @@ export default function VideosPage() {
                                                 {m.config.postBluesky && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Bluesky</span>}
                                                 {m.config.postTiktok && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">TikTok</span>}
                                                 {m.config.postThreads && <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded">Threads</span>}
+                                                {m.config.contentFilter && <span className="text-[10px] bg-amber-900/40 text-amber-400/80 border border-amber-500/20 px-1.5 py-0.5 rounded" title={m.config.contentFilter}>Filter: {m.config.contentFilter.length > 24 ? m.config.contentFilter.slice(0, 24) + '…' : m.config.contentFilter}</span>}
                                             </div>
                                             <p className="text-xs text-slate-600 mt-0.5">
                                                 {m.lastRunAt ? `Last run ${formatDistanceToNow(new Date(m.lastRunAt), { addSuffix: true })}` : 'Never run'}
@@ -455,6 +464,13 @@ export default function VideosPage() {
                                     {/* Edit panel */}
                                     {isEditing && editConfig && (
                                         <div className="px-4 pb-4 pt-1 border-t border-white/[0.06] space-y-3">
+                                            <div>
+                                                <label className="text-xs text-slate-500 mb-1 block">Content filter (optional)</label>
+                                                <input value={editConfig.contentFilter} onChange={e => setEditConfig(c => c && ({ ...c, contentFilter: e.target.value }))}
+                                                    placeholder="e.g. Canadian politics only, Mark Carney only"
+                                                    className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-white/20" />
+                                                <p className="text-[10px] text-slate-600 mt-1">Only clip videos whose title matches this topic. Leave blank to clip everything.</p>
+                                            </div>
                                             <div>
                                                 <p className="text-xs text-slate-500 mb-2">Generate for each clip:</p>
                                                 <Toggle value={editConfig.clipArticle} onChange={() => setEditConfig(c => c && ({ ...c, clipArticle: !c.clipArticle }))} label="Article" />

@@ -19,7 +19,7 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const body = await req.json()
-        const { name, channelId, channelHandle, channelName, clipArticle, postX, xFormat, xTweetCount, postBluesky, postTiktok, postThreads } = body
+        const { name, channelId, channelHandle, channelName, contentFilter, clipArticle, postX, xFormat, xTweetCount, postBluesky, postTiktok, postThreads } = body
 
         if (!name || !channelId) {
             return NextResponse.json({ error: 'name and channelId are required' }, { status: 400 })
@@ -38,6 +38,7 @@ export async function POST(req: Request) {
                 xFormat: xFormat ?? 'post',
                 xTweetCount: xTweetCount ?? 1,
                 clipArticle: clipArticle ?? true,
+                contentFilter: contentFilter || '',
                 postBluesky: postBluesky ?? false,
                 postTiktok: postTiktok ?? false,
                 postThreads: postThreads ?? false,
