@@ -273,6 +273,12 @@ Return ONLY valid JSON, no markdown:
     if (typeof parsed.start_seconds !== 'number' || typeof parsed.end_seconds !== 'number') {
         throw new Error('AI returned invalid timestamp format')
     }
+    if (parsed.end_seconds <= parsed.start_seconds) {
+        throw new Error(`AI returned inverted timestamps: start=${parsed.start_seconds}s end=${parsed.end_seconds}s`)
+    }
+    if (parsed.end_seconds - parsed.start_seconds < 30) {
+        throw new Error(`AI returned clip too short: ${parsed.end_seconds - parsed.start_seconds}s (minimum 30s)`)
+    }
     return {
         start: parsed.start_seconds,
         end: parsed.end_seconds,
@@ -293,6 +299,8 @@ async function triggerApify(
 ): Promise<void> {
     const token = process.env.APIFY_API_TOKEN
     if (!token) throw new Error('APIFY_API_TOKEN not configured')
+    if (end <= start) throw new Error(`Invalid clip window: start ${toHHMMSS(start)} end ${toHHMMSS(end)} — end must be after start`)
+    if (end - start < 30) throw new Error(`Clip window too short (${Math.round(end - start)}s) — Apify requires at least 30s`)
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
     const webhookUrl = `${baseUrl}/api/webhooks/apify?clipId=${clipId}${automationId ? `&automationId=${automationId}` : ''}`
