@@ -196,7 +196,12 @@ async function lookupSpeaker(keyQuote: string, videoTitle: string, channelName: 
  */
 function withSpeaker(tweetDraft: string, speakerName: string | null | undefined): string {
     if (!speakerName || !tweetDraft) return tweetDraft
-    if (tweetDraft.toLowerCase().includes(speakerName.toLowerCase())) return tweetDraft
+    const lower = tweetDraft.toLowerCase()
+    if (lower.includes(speakerName.toLowerCase())) return tweetDraft
+    // Partial first-name match — prevents double-name when AI misspells the last name
+    // (e.g. "Frank Vaugh" in tweet but speakerName is "Frank Vaughan")
+    const firstName = speakerName.split(' ')[0].toLowerCase()
+    if (firstName.length >= 4 && lower.includes(firstName)) return tweetDraft
     const result = `${speakerName}: ${tweetDraft}`
     return result.length <= 240 ? result : result.substring(0, 237) + '...'
 }
@@ -239,8 +244,8 @@ RULES:
 - extended_quote: 2-4 consecutive sentences from the clip that include the key_quote moment. Remove filler words (um, uh, like, you know) while preserving exact meaning and structure. No surrounding quotes in the string.
 - speaker_name: the full name of the person saying the key_quote. Use these sources in order: (1) the video title — e.g. "Pierre Poilievre responds to..." → "Pierre Poilievre"; (2) explicit name introductions in the transcript — e.g. "I'm joined by Mark Carney" → "Mark Carney"; (3) the video description if it lists specific speakers; (4) if the speaker's role, party, and quote content together make identification highly confident, you may name them. If any reasonable doubt remains, use null.
 - tweet_draft: two-line tweet separated by a blank line.
-  Line 1 (context): one plain sentence — WHO is speaking, in WHAT setting or event, and the KEY TOPIC. Must give enough context that someone scrolling can understand what this is about without watching. Example: "Natural Resources Minister Tim Hodgson at a Toronto mining conference on Canada's critical minerals strategy." Do NOT use the quote here.
-  Line 2 (quote): if speaker known → 'Full Name: "clean verbatim quote"'. If speaker unknown → '"clean verbatim quote"'. Use the single most punchy line.
+  Line 1 (context): Start with the speaker's first and last name (if known), then the setting/event and key topic in one plain sentence. No job-title labels ("political commentator", "MP", "journalist", "critic", etc.) — just their name and what/where. Examples: "Frank Vaughan on the US-Iran conflict, arguing the West made a massive strategic blunder." or "Mark Carney at a press conference defending his Brookfield tenure." If speaker is unknown, describe the setting and topic only — no name.
+  Line 2 (quote): the verbatim quote in double quotes ONLY — no speaker name prefix, no attribution tag. Example: '"Picture Catholics but far more fundamentalist and you killed their pope."'
   STRICT RULES: no emojis, no em dashes (—), no all-caps words, write like a human not a press release. Under 280 chars total.
 
 Video: "${title}"
