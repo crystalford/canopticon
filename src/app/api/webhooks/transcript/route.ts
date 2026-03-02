@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { onTranscriptReady } from '@/lib/videos/pipeline'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 120
 
 export async function POST(req: Request) {
     const { searchParams } = new URL(req.url)
@@ -30,10 +30,20 @@ export async function POST(req: Request) {
         if (!datasetId) throw new Error('No datasetId in transcript webhook payload')
 
         const token = process.env.APIFY_API_TOKEN
-        const res = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}`)
-        if (!res.ok) throw new Error(`Failed to fetch transcript dataset: ${res.status}`)
 
-        const items = await res.json()
+        // Apify may fire the webhook before dataset items are fully committed — retry if empty
+        let items: any[] = []
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            if (attempt > 1) {
+                console.log(`[webhook/transcript] Dataset empty on attempt ${attempt - 1}, waiting 5s...`)
+                await new Promise(r => setTimeout(r, 5000))
+            }
+            const res = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}`)
+            if (!res.ok) throw new Error(`Failed to fetch transcript dataset: ${res.status}`)
+            items = await res.json()
+            if (items?.length && items[0]?.transcript?.length) break
+        }
+
         await onTranscriptReady(clipId, items)
 
         return NextResponse.json({ success: true })
