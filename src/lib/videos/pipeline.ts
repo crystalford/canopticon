@@ -18,44 +18,53 @@ const parser = new RSSParser()
  * Parses JSON-LD schema — no API key required.
  */
 async function fetchVideoMetadata(youtubeUrl: string): Promise<{ description: string; channelName: string }> {
+    let description = ''
+    let channelName = ''
+
+    // oEmbed: most reliable channel name source — public endpoint, works from cloud IPs, no API key
+    try {
+        const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(youtubeUrl)}&format=json`)
+        if (oembedRes.ok) {
+            const oembed = await oembedRes.json()
+            if (oembed.author_name) channelName = oembed.author_name
+        }
+    } catch { /* ignore */ }
+
+    // HTML fetch for description (oEmbed doesn't include it)
     try {
         const res = await fetch(youtubeUrl, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
         })
-        if (!res.ok) return { description: '', channelName: '' }
-        const html = await res.text()
+        if (res.ok) {
+            const html = await res.text()
 
-        let description = ''
-        let channelName = ''
+            const ldMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)
+            if (ldMatch) {
+                try {
+                    const ld = JSON.parse(ldMatch[1])
+                    if (ld.description) description = ld.description
+                    if (!channelName && ld.author?.name) channelName = ld.author.name
+                } catch { /* ignore */ }
+            }
 
-        const ldMatch = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)
-        if (ldMatch) {
-            try {
-                const ld = JSON.parse(ldMatch[1])
-                if (ld.description) description = ld.description
-                if (ld.author?.name) channelName = ld.author.name
-            } catch { /* ignore */ }
+            // ytInitialData fallbacks for channelName if oEmbed and JSON-LD both failed
+            if (!channelName) {
+                const ownerMatch = html.match(/"ownerChannelName"\s*:\s*"([^"]+)"/)
+                if (ownerMatch) channelName = ownerMatch[1].replace(/\\u0026/g, '&').replace(/\\u0027/g, "'")
+            }
+            if (!channelName) {
+                const authorMatch = html.match(/"videoDetails"[\s\S]{0,300}"author"\s*:\s*"([^"]+)"/)
+                if (authorMatch) channelName = authorMatch[1].replace(/\\u0026/g, '&')
+            }
+
+            if (!description) {
+                const ogMatch = html.match(/<meta\s+(?:property="og:description"|name="description")\s+content="([^"]+)"/)
+                if (ogMatch) description = ogMatch[1].replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&')
+            }
         }
+    } catch { /* ignore */ }
 
-        // Fallback: ytInitialData / ytInitialPlayerResponse — more reliable on Vercel IPs
-        if (!channelName) {
-            const ownerMatch = html.match(/"ownerChannelName"\s*:\s*"([^"]+)"/)
-            if (ownerMatch) channelName = ownerMatch[1].replace(/\\u0026/g, '&').replace(/\\u0027/g, "'")
-        }
-        if (!channelName) {
-            const authorMatch = html.match(/"videoDetails"[\s\S]{0,300}"author"\s*:\s*"([^"]+)"/)
-            if (authorMatch) channelName = authorMatch[1].replace(/\\u0026/g, '&')
-        }
-
-        if (!description) {
-            const ogMatch = html.match(/<meta\s+(?:property="og:description"|name="description")\s+content="([^"]+)"/)
-            if (ogMatch) description = ogMatch[1].replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&')
-        }
-
-        return { description, channelName }
-    } catch {
-        return { description: '', channelName: '' }
-    }
+    return { description, channelName }
 }
 
 /**
@@ -597,8 +606,8 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
 
                 // Thread reply: source label first, then URL (X embeds the video below)
                 try {
-                    const sourceName = clip.channelName || clip.speakerName || clip.videoTitle || 'Source'
-                    const sourceReply = `Source: ${sourceName}\n\n${clip.youtubeUrl}`
+                    const sourceName = clip.channelName || clip.speakerName || ''
+                    const sourceReply = sourceName ? `Source: ${sourceName}\n\n${clip.youtubeUrl}` : clip.youtubeUrl
                     await xClient.v2.tweet(sourceReply, { reply: { in_reply_to_tweet_id: xTweet.data.id } })
                     console.log(`[onClipReady] ✓ Posted source thread reply`)
                 } catch (e: any) {
