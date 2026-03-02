@@ -86,6 +86,8 @@ export default function VideosPage() {
     const [monitorVideos, setMonitorVideos] = useState<Record<string, any[]>>({})
     const [monitorVideosLoading, setMonitorVideosLoading] = useState<Record<string, boolean>>({})
     const [clippingVideo, setClippingVideo] = useState<string | null>(null)
+    const [runningMonitorId, setRunningMonitorId] = useState<string | null>(null)
+    const [runResults, setRunResults] = useState<Record<string, string>>({})
 
     const fetchAll = useCallback(async () => {
         const [mRes, cRes] = await Promise.all([
@@ -134,6 +136,25 @@ export default function VideosPage() {
             }
         } finally {
             setMonitorVideosLoading(prev => ({ ...prev, [id]: false }))
+        }
+    }
+
+    const runMonitor = async (m: VideoMonitor) => {
+        setRunningMonitorId(m.id)
+        setRunResults(prev => ({ ...prev, [m.id]: '' }))
+        try {
+            const res = await fetch(`/api/video-monitors/${m.id}/run?force=true`, { method: 'POST' })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed')
+            const msg = data.skipped
+                ? (data.reason || 'No new videos')
+                : `${data.clipsQueued ?? 0} clip${data.clipsQueued === 1 ? '' : 's'} queued`
+            setRunResults(prev => ({ ...prev, [m.id]: msg }))
+            fetchAll()
+        } catch (e: any) {
+            setRunResults(prev => ({ ...prev, [m.id]: `Error: ${e.message}` }))
+        } finally {
+            setRunningMonitorId(null)
         }
     }
 
@@ -355,9 +376,14 @@ export default function VideosPage() {
                                                 {m.lastRunAt ? `Last run ${formatDistanceToNow(new Date(m.lastRunAt), { addSuffix: true })}` : 'Never run'}
                                                 {m.lastResult?.clipsQueued != null && ` · ${m.lastResult.clipsQueued} clips queued`}
                                                 {m.lastResult?.error && ` · ${m.lastResult.error}`}
+                                                {runResults[m.id] && <span className="text-green-400/70 ml-1">→ {runResults[m.id]}</span>}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-1 flex-shrink-0">
+                                            <button onClick={() => runMonitor(m)} disabled={runningMonitorId === m.id}
+                                                className="p-1.5 text-slate-500 hover:text-green-400 disabled:opacity-40 rounded-lg hover:bg-white/5 transition-colors" title="Run now (latest video)">
+                                                {runningMonitorId === m.id ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
+                                            </button>
                                             <button onClick={() => toggleVideos(m.id)}
                                                 className={`p-1.5 rounded-lg hover:bg-white/5 transition-colors ${videosOpenId === m.id ? 'text-white' : 'text-slate-400 hover:text-white'}`} title="Browse videos">
                                                 {videosOpenId === m.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}

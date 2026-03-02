@@ -81,8 +81,7 @@ async function fetchYouTubeTranscriptDirect(youtubeUrl: string): Promise<Array<{
 
     const track = tracks.find((t: any) => t.vssId?.startsWith('a.en'))
         || tracks.find((t: any) => t.languageCode === 'en')
-        || tracks[0]
-    if (!track?.baseUrl) throw new Error('No usable caption track URL found')
+    if (!track?.baseUrl) throw new Error('No English captions found — video may be in another language')
 
     const captionRes = await fetch(track.baseUrl + '&fmt=json3')
     if (!captionRes.ok) throw new Error(`Caption fetch failed: ${captionRes.status}`)
@@ -173,6 +172,18 @@ async function lookupSpeaker(keyQuote: string, videoTitle: string, channelName: 
         console.warn(`[lookupSpeaker] Web search failed: ${e.message}`)
         return ''
     }
+}
+
+/**
+ * Ensure the speaker name appears at the front of the tweet draft.
+ * If Claude identified the speaker in the draft already, leave it alone.
+ * If found via lookup, prepend "Name: " and trim to 240 chars.
+ */
+function withSpeaker(tweetDraft: string, speakerName: string | null | undefined): string {
+    if (!speakerName || !tweetDraft) return tweetDraft
+    if (tweetDraft.toLowerCase().includes(speakerName.toLowerCase())) return tweetDraft
+    const result = `${speakerName}: ${tweetDraft}`
+    return result.length <= 240 ? result : result.substring(0, 237) + '...'
 }
 
 const formatTime = (s: number) => {
@@ -344,12 +355,13 @@ export async function queueVideoClip(
             if (speakerName) console.log(`[queueVideoClip] Speaker identified: ${speakerName}`)
         }
 
-        // Extract verbatim clip segment for article generation
+        // Extract verbatim clip segment
         const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
         const transcriptSegment = clipSegments.map(s => s.text).join(' ')
+        const finalTweetDraft = withSpeaker(tweetDraft, speakerName)
 
         await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft, transcriptSegment, status: 'processing' })
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft: finalTweetDraft, transcriptSegment, status: 'processing' })
             .where(eq(videoClips.id, clip.id))
 
         // Trigger Apify video clipper — webhook at /api/webhooks/apify handles completion
@@ -464,12 +476,13 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
             else console.log(`[onTranscriptReady] Speaker could not be identified`)
         }
 
-        // Extract the verbatim text of the selected clip window (for article generation)
+        // Extract the verbatim text of the selected clip window
         const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
         const transcriptSegment = clipSegments.map(s => s.text.trim()).join(' ')
+        const finalTweetDraft = withSpeaker(tweetDraft, speakerName)
 
         await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft, transcriptSegment, status: 'processing' })
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft: finalTweetDraft, transcriptSegment, status: 'processing' })
             .where(eq(videoClips.id, clipId))
 
         await triggerApify(clipId, clip.youtubeUrl, start, end, clip.automationId ?? undefined)
@@ -527,9 +540,10 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                 if (!apiKey || !apiSecret || !xAccessToken || !xAccessSecret) throw new Error('X credentials not configured')
 
                 const xClient = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken: xAccessToken, accessSecret: xAccessSecret })
-                const tweetText = clip.tweetDraft || (clip.keyQuote
+                const rawTweet = clip.tweetDraft || (clip.keyQuote
                     ? `"${clip.keyQuote}"\n\n— ${clip.channelName || clip.videoTitle || 'Source'}`
                     : clip.videoTitle || 'New clip')
+                const tweetText = withSpeaker(rawTweet, clip.speakerName)
 
                 let xMediaId: string | undefined
                 try {
@@ -609,14 +623,23 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
     }
 }
 
+const FRENCH_TITLE_PATTERNS = ['en français', 'en francais', '(fr)', 'allocution', 'conférence de presse']
+
+function isFrenchTitle(title: string): boolean {
+    const t = title.toLowerCase()
+    return FRENCH_TITLE_PATTERNS.some(p => t.includes(p))
+}
+
 /**
  * Run a video monitor — check YouTube RSS for new videos and queue clips.
+ * Pass force=true to process the latest video regardless of lastRunAt (for manual testing).
  */
-export async function runVideoMonitor(automation: Automation): Promise<{
+export async function runVideoMonitor(automation: Automation, { force = false }: { force?: boolean } = {}): Promise<{
     success: boolean
     skipped?: boolean
     reason?: string
     clipsQueued?: number
+    skippedFrench?: number
     error?: string
 }> {
     const config = automation.config as Record<string, any>
@@ -628,13 +651,28 @@ export async function runVideoMonitor(automation: Automation): Promise<{
 
     try {
         const feed = await parser.parseURL(feedUrl)
-        const newVideos = feed.items.filter(item => {
-            const pub = item.pubDate ? new Date(item.pubDate) : new Date(0)
-            return pub > lastRun
+
+        let candidates = force
+            ? feed.items.slice(0, 1) // force mode: just the latest video
+            : feed.items.filter(item => {
+                const pub = item.pubDate ? new Date(item.pubDate) : new Date(0)
+                return pub > lastRun
+            })
+
+        // Skip French/non-English videos
+        let skippedFrench = 0
+        const englishVideos = candidates.filter(item => {
+            if (item.title && isFrenchTitle(item.title)) {
+                console.log(`[runVideoMonitor] Skipping French video: ${item.title}`)
+                skippedFrench++
+                return false
+            }
+            return true
         })
 
-        if (newVideos.length === 0) {
-            const result = { success: true, skipped: true, reason: 'No new videos' }
+        if (englishVideos.length === 0) {
+            const reason = skippedFrench > 0 ? 'Only French videos found — skipped' : 'No new videos'
+            const result = { success: true, skipped: true, reason, skippedFrench }
             await db.update(automations)
                 .set({ lastRunAt: new Date(), lastResult: result })
                 .where(eq(automations.id, automation.id))
@@ -642,7 +680,7 @@ export async function runVideoMonitor(automation: Automation): Promise<{
         }
 
         let clipsQueued = 0
-        for (const item of newVideos.slice(0, 2)) {
+        for (const item of englishVideos.slice(0, 2)) {
             const url = item.link || ''
             if (!url) continue
             // Use async path — cron doesn't need to block on 90s transcript polling
