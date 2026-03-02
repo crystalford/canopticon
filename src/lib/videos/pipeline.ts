@@ -689,6 +689,33 @@ function isFrenchTitle(title: string): boolean {
 }
 
 /**
+ * Filter RSS feed items against a plain-English content filter using Claude Haiku.
+ * All titles are checked in a single batched call (cheap + fast).
+ * Fails open — if the AI call errors, all items are returned.
+ */
+async function filterByContent<T extends { title?: string }>(items: T[], contentFilter: string): Promise<T[]> {
+    if (!items.length) return items
+    try {
+        const model = await getModel('anthropic', 'claude-haiku-4-5-20251001')
+        const titles = items.map((item, i) => `${i + 1}. ${item.title || '(no title)'}`).join('\n')
+        const result = await generateText({
+            model,
+            prompt: `You are filtering YouTube videos for a political media monitor.\nFilter: "${contentFilter}"\n\nWhich of these video titles are relevant to the filter? Reply ONLY with the matching numbers, comma-separated (e.g. "1, 3"). If none match, reply "none".\n\n${titles}`,
+        })
+        const text = result.text.trim().toLowerCase()
+        console.log(`[filterByContent] Filter "${contentFilter}" → AI response: "${text}"`)
+        if (!text || text === 'none') return []
+        const matchingIndices = new Set((text.match(/\d+/g) || []).map(n => parseInt(n) - 1))
+        const filtered = items.filter((_, i) => matchingIndices.has(i))
+        console.log(`[filterByContent] ${filtered.length}/${items.length} items passed filter`)
+        return filtered
+    } catch (e: any) {
+        console.warn(`[filterByContent] AI check failed: ${e.message} — proceeding without filter`)
+        return items
+    }
+}
+
+/**
  * Run a video monitor — check YouTube RSS for new videos and queue clips.
  * Pass force=true to process the latest video regardless of lastRunAt (for manual testing).
  */
@@ -731,7 +758,7 @@ export async function runVideoMonitor(automation: Automation, { force = false }:
 
         // Skip French/non-English videos
         let skippedFrench = 0
-        const englishVideos = candidates.filter(item => {
+        let englishVideos = candidates.filter(item => {
             if (item.title && isFrenchTitle(item.title)) {
                 console.log(`[runVideoMonitor] Skipping French video: ${item.title}`)
                 skippedFrench++
@@ -740,8 +767,15 @@ export async function runVideoMonitor(automation: Automation, { force = false }:
             return true
         })
 
+        // Content filter — only clip videos matching the configured topic
+        const contentFilter = config.contentFilter as string | undefined
+        if (contentFilter && englishVideos.length > 0) {
+            console.log(`[runVideoMonitor] Applying content filter: "${contentFilter}"`)
+            englishVideos = await filterByContent(englishVideos, contentFilter)
+        }
+
         if (englishVideos.length === 0) {
-            const reason = skippedFrench > 0 ? 'Only French videos found — skipped' : 'No new videos'
+            const reason = skippedFrench > 0 ? 'Only French videos found — skipped' : (contentFilter ? `No videos matched filter: "${contentFilter}"` : 'No new videos')
             const result = { success: true, skipped: true, reason, skippedFrench }
             await db.update(automations)
                 .set({ lastRunAt: new Date(), lastResult: result })

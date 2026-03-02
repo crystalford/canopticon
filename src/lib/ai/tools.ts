@@ -445,7 +445,7 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
         }),
 
         create_monitor: tool({
-            description: 'Create a new content monitor/automation. Types: "youtube" (watch a channel — you can provide a channel name, handle like @cpac, or URL and the system will resolve the channel ID automatically), "rss" (watch a feed), "keyword" (search for topics). The monitor runs automatically, can generate articles, and optionally auto-post threads to X/Twitter.',
+            description: 'Create a new content monitor/automation. Types: "youtube" (watch a channel — you can provide a channel name, handle like @cpac, or URL and the system will resolve the channel ID automatically), "rss" (watch a feed), "keyword" (search for topics). The monitor runs automatically, can generate articles, and optionally auto-post threads to X/Twitter. Supports contentFilter to only clip videos matching a specific topic (e.g. "Canadian politics only" or "videos about Mark Carney").',
             inputSchema: z.object({
                 name: z.string().describe('A short name for this monitor'),
                 type: z.enum(['youtube', 'rss', 'keyword']).describe('Monitor type'),
@@ -458,6 +458,7 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
                     feedName: z.string().optional().describe('Feed name (for rss type)'),
                     keywords: z.array(z.string()).optional().describe('Keywords to monitor (for keyword type)'),
                     autoPostToX: z.boolean().optional().describe('Auto-post generated articles to X/Twitter as a thread (default: false)'),
+                    contentFilter: z.string().optional().describe('Only clip/process videos matching this topic. E.g. "Canadian politics only", "videos about Mark Carney", "federal budget and economy". Leave empty to process all videos from the channel.'),
                 }).describe('Type-specific configuration'),
                 prompt: z.string().describe('Instructions for the AI when new content is found.'),
                 autoPublish: z.boolean().optional().describe('Auto-publish generated articles (default: false, creates drafts for review)'),
@@ -591,6 +592,7 @@ export function createTools(conversationId?: string, options?: { saveDraft?: boo
                     feedName: z.string().optional().describe('Feed name'),
                     keywords: z.array(z.string()).optional().describe('Keywords to monitor'),
                     autoPostToX: z.boolean().optional().describe('Auto-post generated articles to X/Twitter as a thread'),
+                    contentFilter: z.string().optional().describe('Only clip/process videos matching this topic. E.g. "Canadian politics only", "videos about Mark Carney". Set to empty string to remove an existing filter.'),
                 }).optional().describe('Updated config (merged with existing)'),
             }),
             execute: async ({ id, name, prompt, autoPublish, config }) => {
