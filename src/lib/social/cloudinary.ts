@@ -19,7 +19,7 @@ export async function transcodeForTwitter(buffer: Buffer, logPrefix = '[cloudina
     const eager = 'vc_h264:baseline:3.1,ac_aac,f_mp4'
     const timestamp = Math.floor(Date.now() / 1000)
     const signature = crypto.createHash('sha1')
-        .update(`eager=${eager}&timestamp=${timestamp}${apiSecret}`)
+        .update(`eager=${eager}&eager_async=false&timestamp=${timestamp}${apiSecret}`)
         .digest('hex')
 
     const form = new FormData()
