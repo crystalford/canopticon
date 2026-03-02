@@ -66,6 +66,11 @@ async function fetchYouTubeTranscriptDirect(youtubeUrl: string): Promise<Array<{
     if (!pageRes.ok) throw new Error(`YouTube page fetch failed: ${pageRes.status}`)
     const html = await pageRes.text()
 
+    // Detect live broadcasts early — captions won't be available until YouTube processes them (24+ hours)
+    if (html.includes('"isLiveBroadcast":true') || html.includes('"isLive":true')) {
+        throw new Error('Live broadcast — captions are not available yet. Try again after the stream ends (usually 24+ hours).')
+    }
+
     // Bracket counting — more robust than regex for nested JSON objects
     const idx = html.indexOf('"captionTracks":[')
     if (idx === -1) throw new Error('No captionTracks found in page (may be blocked or missing captions)')
@@ -660,12 +665,24 @@ export async function runVideoMonitor(automation: Automation, { force = false }:
     try {
         const feed = await parser.parseURL(feedUrl)
 
+        const now = new Date()
+
         let candidates = force
             ? feed.items.slice(0, 1) // force mode: just the latest video
             : feed.items.filter(item => {
                 const pub = item.pubDate ? new Date(item.pubDate) : new Date(0)
                 return pub > lastRun
             })
+
+        // Skip scheduled/future streams (pubDate in the future)
+        candidates = candidates.filter(item => {
+            const pub = item.pubDate ? new Date(item.pubDate) : new Date(0)
+            if (pub > now) {
+                console.log(`[runVideoMonitor] Skipping future/scheduled video: ${item.title}`)
+                return false
+            }
+            return true
+        })
 
         // Skip French/non-English videos
         let skippedFrench = 0

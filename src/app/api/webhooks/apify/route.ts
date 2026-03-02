@@ -38,9 +38,19 @@ export async function POST(req: Request) {
         const res = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}`)
         if (!res.ok) throw new Error(`Failed to fetch dataset ${datasetId}: ${res.status}`)
 
-        const items = await res.json()
-        const clipUrl = items?.[0]?.url
-        if (!clipUrl) throw new Error(`No clip URL in dataset. Items: ${JSON.stringify(items).slice(0, 200)}`)
+        let items = await res.json()
+
+        // Apify may populate the clip URL slightly after the run succeeds — retry once if null
+        const extractUrl = (item: any) => item?.url || item?.clipUrl || item?.videoUrl || item?.outputUrl || null
+        if (items?.length && !extractUrl(items[0])) {
+            console.log(`[webhook/apify] Clip URL null on first fetch, waiting 5s and retrying...`)
+            await new Promise(r => setTimeout(r, 5000))
+            const res2 = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${apifyToken}`)
+            if (res2.ok) items = await res2.json()
+        }
+
+        const clipUrl = items?.length ? extractUrl(items[0]) : null
+        if (!clipUrl) throw new Error(`No clip URL in dataset — Apify clipper may have failed to download this video (geo-restricted or unavailable). Item: ${JSON.stringify(items?.[0]).slice(0, 200)}`)
 
         await onClipReady(clipId, clipUrl)
         return NextResponse.json({ success: true })
