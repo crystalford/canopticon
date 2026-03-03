@@ -33,6 +33,12 @@ export async function GET(req: Request) {
 
         try {
             const res = await fetch(`${baseUrl}/api/webhooks/youtube/subscribe?channelId=${channelId}`)
+            if (res.ok) {
+                // Store renewal timestamp so the UI can show "expires in X days"
+                await db.update(automations)
+                    .set({ config: { ...config, lastSubscribedAt: new Date().toISOString() } })
+                    .where(eq(automations.id, auto.id))
+            }
             results.push({
                 id: auto.id,
                 name: auto.name,

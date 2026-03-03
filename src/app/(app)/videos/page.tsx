@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp, Wifi } from 'lucide-react'
 import { format } from 'date-fns'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -15,6 +15,7 @@ interface VideoMonitor {
         channelId: string
         channelHandle?: string
         contentFilter?: string
+        lastSubscribedAt?: string
         clipArticle?: boolean
         postX?: boolean
         postBluesky?: boolean
@@ -89,6 +90,8 @@ export default function VideosPage() {
     const [clippingVideo, setClippingVideo] = useState<string | null>(null)
     const [runningMonitorId, setRunningMonitorId] = useState<string | null>(null)
     const [runResults, setRunResults] = useState<Record<string, string>>({})
+    const [subscribingId, setSubscribingId] = useState<string | null>(null)
+    const [subscribeErrors, setSubscribeErrors] = useState<Record<string, string>>({})
 
     const fetchAll = useCallback(async () => {
         const [mRes, cRes] = await Promise.all([
@@ -156,6 +159,27 @@ export default function VideosPage() {
             setRunResults(prev => ({ ...prev, [m.id]: `Error: ${e.message}` }))
         } finally {
             setRunningMonitorId(null)
+        }
+    }
+
+    const subscribeMonitor = async (m: VideoMonitor) => {
+        setSubscribingId(m.id)
+        setSubscribeErrors(prev => ({ ...prev, [m.id]: '' }))
+        try {
+            const res = await fetch(`/api/webhooks/youtube/subscribe?channelId=${m.config.channelId}`)
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || data.details || 'Subscribe failed')
+            // Store timestamp in config so it persists
+            await fetch(`/api/video-monitors/${m.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ config: { ...m.config, lastSubscribedAt: new Date().toISOString() } }),
+            })
+            fetchAll()
+        } catch (e: any) {
+            setSubscribeErrors(prev => ({ ...prev, [m.id]: e.message }))
+        } finally {
+            setSubscribingId(null)
         }
     }
 
@@ -386,9 +410,23 @@ export default function VideosPage() {
                                                 {m.lastResult?.clipsQueued != null && ` · ${m.lastResult.clipsQueued} clips queued`}
                                                 {m.lastResult?.error && ` · ${m.lastResult.error}`}
                                                 {runResults[m.id] && <span className="text-green-400/70 ml-1">→ {runResults[m.id]}</span>}
+                                                {(() => {
+                                                    const sub = m.config.lastSubscribedAt
+                                                    if (!sub) return <span className="text-amber-500/70 ml-1">· Push not subscribed</span>
+                                                    const daysAgo = (Date.now() - new Date(sub).getTime()) / 86400000
+                                                    const daysLeft = Math.max(0, 10 - daysAgo)
+                                                    const color = daysLeft < 2 ? 'text-red-400/70' : 'text-green-400/50'
+                                                    return <span className={`${color} ml-1`}>· Push active · expires in {daysLeft < 1 ? '<1' : Math.floor(daysLeft)}d</span>
+                                                })()}
+                                                {subscribeErrors[m.id] && <span className="text-red-400/70 ml-1">· Subscribe failed: {subscribeErrors[m.id]}</span>}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-1 flex-shrink-0">
+                                            <button onClick={() => subscribeMonitor(m)} disabled={subscribingId === m.id}
+                                                className="p-1.5 text-slate-500 hover:text-green-400 disabled:opacity-40 rounded-lg hover:bg-white/5 transition-colors"
+                                                title={m.config.lastSubscribedAt ? `Push subscribed · auto-renews daily. Click to renew now.` : 'Subscribe to push notifications (new video → instant clip)'}>
+                                                {subscribingId === m.id ? <Loader2 size={14} className="animate-spin" /> : <Wifi size={14} />}
+                                            </button>
                                             <button onClick={() => runMonitor(m)} disabled={runningMonitorId === m.id}
                                                 className="p-1.5 text-slate-500 hover:text-green-400 disabled:opacity-40 rounded-lg hover:bg-white/5 transition-colors" title="Run now (latest video)">
                                                 {runningMonitorId === m.id ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
