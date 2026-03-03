@@ -25,18 +25,11 @@ export function buildTweetThread(params: {
 
     const tweets: string[] = []
 
-    // Tweet 1: punchy RT hook (with video)
-    if (rtHook?.trim()) {
-        tweets.push(`\u201c${cap(rtHook, 276)}\u201d`)
-    }
-
-    // Tweet 2: source + YouTube link
-    const sourceParts: string[] = []
-    if (channelName) sourceParts.push(`Clip Source: ${channelName}`)
-    if (youtubeUrl) sourceParts.push(youtubeUrl)
-    if (sourceParts.length > 0) {
-        tweets.push(sourceParts.join('\n\n'))
-    }
+    // Single tweet: quoted rt hook + clip source
+    const parts: string[] = []
+    if (rtHook?.trim()) parts.push(`\u201c${cap(rtHook, 230)}\u201d`)
+    if (channelName) parts.push(`Clip Source: ${channelName}`)
+    if (parts.length > 0) tweets.push(parts.join('\n\n'))
 
     return tweets
 }
