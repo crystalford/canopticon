@@ -17,17 +17,25 @@ function cap(text: string, limit = 278): string {
 
 export function buildTweetThread(params: {
     rtHook?: string | null
+    extendedQuote?: string | null
     channelName?: string | null
     youtubeUrl?: string | null
 }): string[] {
-    const { rtHook, channelName, youtubeUrl } = params
+    const { rtHook, extendedQuote, channelName, youtubeUrl } = params
 
     const tweets: string[] = []
 
+    // Tweet 1: punchy RT hook (with video)
     if (rtHook?.trim()) {
         tweets.push(`\u201c${cap(rtHook, 276)}\u201d`)
     }
 
+    // Tweet 2: extended verbatim quote for context (if available)
+    if (extendedQuote?.trim()) {
+        tweets.push(`\u201c${cap(extendedQuote, 276)}\u201d`)
+    }
+
+    // Final tweet: source + YouTube link
     const sourceParts: string[] = []
     if (channelName) sourceParts.push(`Clip Source: ${channelName}`)
     if (youtubeUrl) sourceParts.push(youtubeUrl)
