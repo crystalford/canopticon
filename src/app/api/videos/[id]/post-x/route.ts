@@ -32,9 +32,7 @@ export async function POST(
 
         const thread = buildTweetThread({
             rtHook: clip.keyQuote,
-            contextBlock: clip.tweetDraft,
-            forensicLayer: clip.forensicLayer,
-            speakerName: clip.speakerName,
+            extendedQuote: clip.extendedQuote,
             channelName: clip.channelName,
         })
 
@@ -51,14 +49,14 @@ export async function POST(
         const mediaId = await client.v1.uploadMedia(twitterBuffer, { mimeType: 'video/mp4' })
         console.log(`[post-x] Twitter media uploaded: ${mediaId}`)
 
-        // Tweet 1: RT hook (with video)
+        // Tweet 1: Verbatim RT hook (with video)
         const tweet = await client.v2.tweet(thread[0], { media: { media_ids: [mediaId] } })
         await db.update(videoClips)
             .set({ xPostedAt: new Date(), xPostId: tweet.data.id })
             .where(eq(videoClips.id, params.id))
         console.log(`[post-x] ✓ Tweet 1 posted (${thread.length}-tweet thread)`)
 
-        // Remaining thread tweets
+        // Remaining thread tweets (tweet 2: extended quote + Clip Source)
         let replyToId = tweet.data.id
         for (const replyText of thread.slice(1)) {
             try {
@@ -67,16 +65,6 @@ export async function POST(
                 console.log(`[post-x] ✓ Thread reply posted`)
             } catch (e: any) {
                 console.warn(`[post-x] Thread reply failed (main tweet succeeded): ${e.message}`)
-            }
-        }
-
-        // YouTube URL as reply after thread — not in thread (avoids link penalty)
-        if (clip.youtubeUrl) {
-            try {
-                await client.v2.tweet(clip.youtubeUrl, { reply: { in_reply_to_tweet_id: replyToId } })
-                console.log(`[post-x] ✓ URL reply posted`)
-            } catch (e: any) {
-                console.warn(`[post-x] URL reply failed: ${e.message}`)
             }
         }
 
