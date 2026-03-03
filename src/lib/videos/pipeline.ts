@@ -218,7 +218,7 @@ async function selectClipWindow(
     title: string,
     transcript: string,
     description = ''
-): Promise<{ start: number; end: number; rationale: string; keyQuote: string; extendedQuote: string; speakerName: string }> {
+): Promise<{ start: number; end: number; rationale: string; keyQuote: string; extendedQuote: string; speakerName: string; tweetDraft: string }> {
     const model = await getModel('anthropic', 'claude-sonnet-4-20250514')
     const prompt = `You are a viral political media editor for CANOPTICON, a Canadian political intelligence account. Find the SINGLE most compelling 60-120 second window from this video for social media.
 
@@ -240,6 +240,7 @@ CONTENT FIELDS — all quotes must be VERBATIM from the transcript (clean up fil
 - rt_hook: The single most RT-worthy verbatim sentence. Must stand alone — a stranger with no context should understand it and want to share it. Punchy, declarative. Under 230 chars. No emojis, no em dashes, no all-caps.
 - extended_quote: 2-4 verbatim consecutive sentences from the clip that give context to the rt_hook. This should be a DIFFERENT or BROADER passage than rt_hook — the surrounding argument, not just a repeat. Remove filler only. No surrounding quotes.
 - speaker_name: full name of the person speaking. Sources: (1) video title e.g. "Pierre Poilievre responds to..." → "Pierre Poilievre"; (2) explicit name in transcript; (3) video description. If any doubt, use null.
+- context_note: 1-2 sentences explaining what this clip is about and why it matters. Write like a person texting a friend, not a journalist. Plain language, no jargon, no "this is significant", no em dashes. Under 220 chars.
 
 Video: "${title}"
 URL: ${url}${description ? `\nDescription: ${description.substring(0, 1000)}` : ''}
@@ -248,7 +249,7 @@ Timestamped transcript:
 ${transcript}
 
 Return ONLY valid JSON, no markdown:
-{"start_seconds": <number>, "end_seconds": <number>, "message": "<rationale>", "key_quote": "<verbatim sentence, no surrounding quotes>", "rt_hook": "<most RT-able verbatim sentence, under 230 chars>", "extended_quote": "<2-4 verbatim sentences adding context, no surrounding quotes>", "speaker_name": "<full name or null>"}`
+{"start_seconds": <number>, "end_seconds": <number>, "message": "<rationale>", "key_quote": "<verbatim sentence, no surrounding quotes>", "rt_hook": "<most RT-able verbatim sentence, under 230 chars>", "extended_quote": "<2-4 verbatim sentences adding context, no surrounding quotes>", "speaker_name": "<full name or null>", "context_note": "<1-2 casual sentences, plain English, under 220 chars>"}`
 
     const result = await generateText({ model, prompt })
     const match = result.text.match(/\{[\s\S]*\}/)
@@ -270,6 +271,7 @@ Return ONLY valid JSON, no markdown:
         keyQuote: (parsed.rt_hook || parsed.key_quote || '').replace(/^["']|["']$/g, ''),
         extendedQuote: (parsed.extended_quote || parsed.key_quote || '').replace(/^["']|["']$/g, ''),
         speakerName: parsed.speaker_name || '',
+        tweetDraft: parsed.context_note || '',
     }
 }
 
@@ -376,7 +378,7 @@ export async function queueVideoClip(
         const transcript = segments.map(s => `${formatTime(s.start)} ${s.text}`).join('\n')
 
         // Claude picks best clip window
-        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip } =
+        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft } =
             await selectClipWindow(youtubeUrl, title, transcript, description)
         console.log(`[queueVideoClip] AI selected ${start}s→${end}s: ${rationale}`)
 
@@ -398,7 +400,7 @@ export async function queueVideoClip(
         const transcriptSegment = clipSegments.map(s => s.text).join(' ')
 
         await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, transcriptSegment, status: 'processing' })
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, tweetDraft, speakerName, transcriptSegment, status: 'processing' })
             .where(eq(videoClips.id, clip.id))
 
         // Trigger Apify video clipper — webhook at /api/webhooks/apify handles completion
@@ -511,7 +513,7 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
         }
 
         // Claude picks best clip window (gets full description for speaker ID)
-        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip } = await selectClipWindow(clip.youtubeUrl, videoTitle, transcript, videoDescription)
+        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft } = await selectClipWindow(clip.youtubeUrl, videoTitle, transcript, videoDescription)
         console.log(`[onTranscriptReady] AI selected ${start}s→${end}s: ${rationale}`)
 
         // If speaker not identified from title/transcript/description, try a web search
@@ -533,7 +535,7 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
         const transcriptSegment = clipSegments.map(s => s.text.trim()).join(' ')
 
         await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, transcriptSegment, status: 'processing' })
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, tweetDraft, speakerName, transcriptSegment, status: 'processing' })
             .where(eq(videoClips.id, clipId))
 
         await triggerApify(clipId, clip.youtubeUrl, start, end, clip.automationId ?? undefined)
@@ -598,7 +600,7 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                 const xClient = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken: xAccessToken, accessSecret: xAccessSecret })
                 const thread = buildTweetThread({
                     rtHook: clip.keyQuote,
-                    extendedQuote: clip.extendedQuote,
+                    contextNote: clip.tweetDraft,
                     channelName: clip.channelName,
                     youtubeUrl: clip.youtubeUrl,
                 })

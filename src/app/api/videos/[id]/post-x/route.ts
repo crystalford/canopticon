@@ -32,7 +32,7 @@ export async function POST(
 
         const thread = buildTweetThread({
             rtHook: clip.keyQuote,
-            extendedQuote: clip.extendedQuote,
+            contextNote: clip.tweetDraft,
             channelName: clip.channelName,
             youtubeUrl: clip.youtubeUrl,
         })
