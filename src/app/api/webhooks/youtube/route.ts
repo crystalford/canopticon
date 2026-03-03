@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { runAutomationWithContent } from '@/lib/automations/runner'
-import { startAsyncClipProcessing, filterByContent, isLiveTitle } from '@/lib/videos/pipeline'
+import { processVideoForMonitor } from '@/lib/videos/pipeline'
 import { fetchTranscript } from '@/lib/automations/transcript'
 import { db, automations } from '@/db'
 import { eq, sql } from 'drizzle-orm'
@@ -89,31 +89,15 @@ export async function POST(req: Request) {
         const link = videoLink || ''
 
         if (automation.type === 'video_monitor') {
-            // Skip live streams — no transcript available and no finite clip window
-            if (isLiveTitle(title)) {
-                console.log(`[webhook/youtube] Skipping live stream: "${title}"`)
-                return new NextResponse('Skipped live', { status: 200 })
-            }
-
-            const config = automation.config as Record<string, any>
-            const contentFilter = config.contentFilter as string | undefined
-
-            // Apply content filter if configured — skip unrelated videos
-            if (contentFilter) {
-                const matched = await filterByContent([{ title }], contentFilter)
-                if (!matched.length) {
-                    console.log(`[webhook/youtube] Skipping "${title}" — doesn't match filter: "${contentFilter}"`)
-                    await db.update(automations)
-                        .set({ lastRunAt: new Date(), lastResult: { success: true, skipped: true, reason: `Filtered out: "${title}"` } })
-                        .where(eq(automations.id, automation.id))
-                    return new NextResponse('Filtered', { status: 200 })
-                }
-            }
-
-            // Video pipeline: async path so webhook responds fast
-            await startAsyncClipProcessing(link, title, automation.id)
+            const result = await processVideoForMonitor(automation, title, link)
+            console.log(`[webhook/youtube] processVideoForMonitor: queued=${result.queued}${result.reason ? ` reason="${result.reason}"` : ''}`)
             await db.update(automations)
-                .set({ lastRunAt: new Date(), lastResult: { success: true, clipsQueued: 1, trigger: 'push', videoTitle: title } })
+                .set({
+                    lastRunAt: new Date(),
+                    lastResult: result.queued
+                        ? { success: true, clipsQueued: 1, trigger: 'push', videoTitle: title }
+                        : { success: true, skipped: true, reason: result.reason },
+                })
                 .where(eq(automations.id, automation.id))
         } else {
             // Article pipeline: build trigger content and run

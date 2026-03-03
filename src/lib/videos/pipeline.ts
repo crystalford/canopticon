@@ -755,6 +755,32 @@ export async function filterByContent<T extends { title?: string }>(items: T[], 
  * Run a video monitor — check YouTube RSS for new videos and queue clips.
  * Pass force=true to process the latest video regardless of lastRunAt (for manual testing).
  */
+/**
+ * Single entry point for deciding whether to process a video for a monitor.
+ * Applies ALL filters (live stream, French, content filter) and queues the clip if it passes.
+ * Used by both the YouTube push webhook and the RSS polling path — add new rules here only.
+ */
+export async function processVideoForMonitor(
+    automation: Automation,
+    title: string,
+    url: string
+): Promise<{ queued: boolean; reason?: string }> {
+    if (!url) return { queued: false, reason: 'No URL' }
+
+    if (isLiveTitle(title)) return { queued: false, reason: `Live stream skipped: "${title}"` }
+    if (isFrenchTitle(title)) return { queued: false, reason: `French video skipped: "${title}"` }
+
+    const config = automation.config as Record<string, any>
+    const contentFilter = config.contentFilter as string | undefined
+    if (contentFilter) {
+        const matched = await filterByContent([{ title }], contentFilter)
+        if (!matched.length) return { queued: false, reason: `Filtered out: "${title}"` }
+    }
+
+    await startAsyncClipProcessing(url, title, automation.id)
+    return { queued: true }
+}
+
 export async function runVideoMonitor(automation: Automation, { force = false }: { force?: boolean } = {}): Promise<{
     success: boolean
     skipped?: boolean
@@ -792,31 +818,8 @@ export async function runVideoMonitor(automation: Automation, { force = false }:
             return true
         })
 
-        // Skip live streams and French videos
-        let skippedFrench = 0
-        let englishVideos = candidates.filter(item => {
-            if (item.title && isLiveTitle(item.title)) {
-                console.log(`[runVideoMonitor] Skipping live stream: ${item.title}`)
-                return false
-            }
-            if (item.title && isFrenchTitle(item.title)) {
-                console.log(`[runVideoMonitor] Skipping French video: ${item.title}`)
-                skippedFrench++
-                return false
-            }
-            return true
-        })
-
-        // Content filter — only clip videos matching the configured topic
-        const contentFilter = config.contentFilter as string | undefined
-        if (contentFilter && englishVideos.length > 0) {
-            console.log(`[runVideoMonitor] Applying content filter: "${contentFilter}"`)
-            englishVideos = await filterByContent(englishVideos, contentFilter)
-        }
-
-        if (englishVideos.length === 0) {
-            const reason = skippedFrench > 0 ? 'Only French videos found — skipped' : (contentFilter ? `No videos matched filter: "${contentFilter}"` : 'No new videos')
-            const result = { success: true, skipped: true, reason, skippedFrench }
+        if (candidates.length === 0) {
+            const result = { success: true, skipped: true, reason: 'No new videos' }
             await db.update(automations)
                 .set({ lastRunAt: new Date(), lastResult: result })
                 .where(eq(automations.id, automation.id))
@@ -824,12 +827,13 @@ export async function runVideoMonitor(automation: Automation, { force = false }:
         }
 
         let clipsQueued = 0
-        for (const item of englishVideos.slice(0, 2)) {
-            const url = item.link || ''
-            if (!url) continue
-            // Use async path — cron doesn't need to block on 90s transcript polling
-            await startAsyncClipProcessing(url, item.title || undefined, automation.id)
-            clipsQueued++
+        for (const item of candidates.slice(0, 2)) {
+            const result = await processVideoForMonitor(automation, item.title || '', item.link || '')
+            if (result.queued) {
+                clipsQueued++
+            } else {
+                console.log(`[runVideoMonitor] ${result.reason}`)
+            }
         }
 
         const result = { success: true, clipsQueued }
