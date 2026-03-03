@@ -30,9 +30,10 @@ export function buildTweetThread(params: {
         tweets.push(`\u201c${cap(rtHook, 276)}\u201d`)
     }
 
-    // Tweet 2: extended verbatim quote for context (if available)
-    if (extendedQuote?.trim()) {
-        tweets.push(`\u201c${cap(extendedQuote, 276)}\u201d`)
+    // Tweet 2: extended verbatim quote — only if it fits without truncation
+    const eq = extendedQuote?.trim()
+    if (eq && eq.length <= 274) {
+        tweets.push(`\u201c${eq}\u201d`)
     }
 
     // Final tweet: source + YouTube link
