@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, automations } from '@/db'
 import { eq } from 'drizzle-orm'
 import { runAutomation } from '@/lib/automations/runner'
+import { runVideoMonitor } from '@/lib/videos/pipeline'
 
 export const maxDuration = 60
 
@@ -26,7 +27,13 @@ export async function GET(req: Request) {
 
     for (const automation of enabledAutomations) {
         try {
-            const result = await runAutomation(automation)
+            let result
+            if (automation.type === 'video_monitor') {
+                // Video monitors use their own pipeline, not the article runner
+                result = await runVideoMonitor(automation, { force: false })
+            } else {
+                result = await runAutomation(automation)
+            }
             results.push({ id: automation.id, name: automation.name, ...result })
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error)

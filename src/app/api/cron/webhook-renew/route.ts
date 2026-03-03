@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
     const youtubeAutomations = await db.query.automations.findMany({
         where: and(
-            eq(automations.type, 'youtube'),
+            sql`type IN ('youtube', 'video_monitor')`,
             eq(automations.enabled, true)
         ),
     })
