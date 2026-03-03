@@ -598,8 +598,8 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                 const xClient = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken: xAccessToken, accessSecret: xAccessSecret })
                 const thread = buildTweetThread({
                     rtHook: clip.keyQuote,
-                    extendedQuote: clip.extendedQuote,
                     channelName: clip.channelName,
+                    youtubeUrl: clip.youtubeUrl,
                 })
 
                 let xMediaId: string | undefined
