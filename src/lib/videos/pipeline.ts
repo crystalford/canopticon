@@ -6,6 +6,7 @@ import { put } from '@vercel/blob'
 import { TwitterApi } from 'twitter-api-v2'
 import { getCredential } from '@/lib/social/credentials'
 import { transcodeForTwitter } from '@/lib/social/cloudinary'
+import { buildTweetThread } from '@/lib/social/twitter'
 import RSSParser from 'rss-parser'
 import type { Automation } from '@/db/schema'
 
@@ -211,8 +212,12 @@ function withSpeaker(tweetDraft: string, speakerName: string | null | undefined)
     // (e.g. "Frank Vaugh" in tweet but speakerName is "Frank Vaughan")
     const firstName = speakerName.split(' ')[0].toLowerCase()
     if (firstName.length >= 4 && lower.includes(firstName)) return tweetDraft
-    const result = `${speakerName}: ${tweetDraft}`
-    return result.length <= 240 ? result : result.substring(0, 237) + '...'
+    // Prepend "Name: " to the context line only (line 1 before the blank line)
+    const nl = tweetDraft.indexOf('\n\n')
+    if (nl !== -1) {
+        return `${speakerName}: ${tweetDraft.slice(0, nl)}${tweetDraft.slice(nl)}`
+    }
+    return `${speakerName}: ${tweetDraft}`
 }
 
 const formatTime = (s: number) => {
@@ -252,10 +257,10 @@ RULES:
 - key_quote: the SINGLE most quotable clean sentence from the clip. Exact transcript words only, but remove filler words (um, uh, like, you know). No surrounding quotes in the string.
 - extended_quote: 2-4 consecutive sentences from the clip that include the key_quote moment. Remove filler words (um, uh, like, you know) while preserving exact meaning and structure. No surrounding quotes in the string.
 - speaker_name: the full name of the person saying the key_quote. Use these sources in order: (1) the video title — e.g. "Pierre Poilievre responds to..." → "Pierre Poilievre"; (2) explicit name introductions in the transcript — e.g. "I'm joined by Mark Carney" → "Mark Carney"; (3) the video description if it lists specific speakers; (4) if the speaker's role, party, and quote content together make identification highly confident, you may name them. If any reasonable doubt remains, use null.
-- tweet_draft: two-line tweet separated by a blank line.
-  Line 1 (context): Start with the speaker's first and last name (if known), then the setting/event and key topic in one plain sentence. No job-title labels ("political commentator", "MP", "journalist", "critic", etc.) — just their name and what/where. Examples: "Frank Vaughan on the US-Iran conflict, arguing the West made a massive strategic blunder." or "Mark Carney at a press conference defending his Brookfield tenure." If speaker is unknown, describe the setting and topic only — no name.
-  Line 2 (quote): the verbatim quote in double quotes ONLY — no speaker name prefix, no attribution tag. Example: '"Picture Catholics but far more fundamentalist and you killed their pope."'
-  STRICT RULES: no emojis, no em dashes (—), no all-caps words, write like a human not a press release. Under 280 chars total.
+- tweet_draft: two-line draft separated by a blank line.
+  Line 1 (context): One plain sentence about what is being said and where. RULES: (1) If you know the speaker's full name, start with it — e.g. "Kate Harrison on Poilievre's push to delay the election." (2) If you do NOT know the speaker's name, do NOT describe their role either — no "political analyst", "commentator", "MP", "pundit", "expert", "journalist", "critic", "strategist", "panelist", "guest". Instead, describe the topic and context directly — e.g. "On CBC's Power & Politics: why Canada shouldn't call an election before the CUSMA review." or "At the Liberal press conference: the case for keeping the carbon tax." Never label who they are, only what is being said. Line 1 must be under 140 chars.
+  Line 2 (quote): the verbatim quote in double quotes ONLY — use the full extended_quote, do not truncate it. No speaker name prefix, no attribution tag.
+  STRICT RULES: no emojis, no em dashes (—), no all-caps words, write like a human not a press release.
 
 Video: "${title}"
 URL: ${url}${description ? `\nDescription: ${description.substring(0, 1000)}` : ''}
@@ -595,10 +600,14 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                 if (!apiKey || !apiSecret || !xAccessToken || !xAccessSecret) throw new Error('X credentials not configured')
 
                 const xClient = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken: xAccessToken, accessSecret: xAccessSecret })
-                const rawTweet = clip.tweetDraft || (clip.keyQuote
-                    ? `"${clip.keyQuote}"\n\n— ${clip.channelName || clip.videoTitle || 'Source'}`
-                    : clip.videoTitle || 'New clip')
-                const tweetText = withSpeaker(rawTweet, clip.speakerName)
+                const thread = buildTweetThread({
+                    tweetDraft: clip.tweetDraft,
+                    extendedQuote: clip.extendedQuote,
+                    keyQuote: clip.keyQuote,
+                    speakerName: clip.speakerName,
+                    channelName: clip.channelName,
+                    youtubeUrl: clip.youtubeUrl,
+                })
 
                 let xMediaId: string | undefined
                 try {
@@ -608,19 +617,20 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                     console.warn('[onClipReady] X video upload failed:', e)
                 }
 
-                const xTweet = await xClient.v2.tweet(tweetText, xMediaId ? { media: { media_ids: [xMediaId] } } : {})
+                // Tweet 1: context + teaser (with video)
+                const xTweet = await xClient.v2.tweet(thread[0], xMediaId ? { media: { media_ids: [xMediaId] } } : {})
                 await db.update(videoClips).set({ xPostedAt: new Date(), xPostId: xTweet.data.id }).where(eq(videoClips.id, clipId))
-                console.log(`[onClipReady] ✓ Posted to X`)
+                console.log(`[onClipReady] ✓ Posted to X (${thread.length}-tweet thread)`)
 
-                // Thread reply: source label first, then URL (X embeds the video below)
-                try {
-                    const sourceReply = clip.channelName
-                        ? `Source: ${clip.channelName}\n\n${clip.youtubeUrl}`
-                        : clip.youtubeUrl
-                    await xClient.v2.tweet(sourceReply, { reply: { in_reply_to_tweet_id: xTweet.data.id } })
-                    console.log(`[onClipReady] ✓ Posted source thread reply`)
-                } catch (e: any) {
-                    console.warn(`[onClipReady] Thread reply failed (main tweet succeeded): ${e.message}`)
+                // Remaining tweets: full quote + source
+                let replyToId = xTweet.data.id
+                for (const replyText of thread.slice(1)) {
+                    try {
+                        const reply = await xClient.v2.tweet(replyText, { reply: { in_reply_to_tweet_id: replyToId } })
+                        replyToId = reply.data.id
+                    } catch (e: any) {
+                        console.warn(`[onClipReady] Thread reply failed: ${e.message}`)
+                    }
                 }
             } catch (e: any) {
                 console.error(`[onClipReady] X post failed: ${e.message}`)

@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { TwitterApi } from 'twitter-api-v2'
 import { getCredential } from '@/lib/social/credentials'
 import { transcodeForTwitter } from '@/lib/social/cloudinary'
+import { buildTweetThread } from '@/lib/social/twitter'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -29,40 +30,45 @@ export async function POST(
 
         const client = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken, accessSecret })
 
-        const tweetText = clip.tweetDraft || (clip.keyQuote
-            ? `"${clip.keyQuote}"\n\n— ${clip.channelName || clip.videoTitle || 'Source'}`
-            : clip.videoTitle || 'New clip')
+        const thread = buildTweetThread({
+            tweetDraft: clip.tweetDraft,
+            extendedQuote: clip.extendedQuote,
+            keyQuote: clip.keyQuote,
+            speakerName: clip.speakerName,
+            channelName: clip.channelName,
+            youtubeUrl: clip.youtubeUrl,
+        })
 
-        // Fetch the raw clip
+        // Fetch and transcode the clip
         const videoRes = await fetch(clip.clipUrl)
         if (!videoRes.ok) throw new Error(`Failed to fetch clip from storage: ${videoRes.status}`)
         const contentType = videoRes.headers.get('content-type') || 'unknown'
         const rawBuffer = Buffer.from(await videoRes.arrayBuffer())
         console.log(`[post-x] Raw clip: ${(rawBuffer.byteLength / 1024 / 1024).toFixed(1)}MB, content-type: ${contentType}`)
 
-        // Transcode to Twitter-compatible format via Cloudinary (if configured), else try raw
         const twitterBuffer = await transcodeForTwitter(rawBuffer, '[post-x]')
         console.log(`[post-x] Uploading to Twitter: ${(twitterBuffer.byteLength / 1024 / 1024).toFixed(1)}MB`)
 
-        // Upload to Twitter
         const mediaId = await client.v1.uploadMedia(twitterBuffer, { mimeType: 'video/mp4' })
         console.log(`[post-x] Twitter media uploaded: ${mediaId}`)
 
-        const tweet = await client.v2.tweet(tweetText, { media: { media_ids: [mediaId] } })
-
+        // Tweet 1: context + teaser (with video)
+        const tweet = await client.v2.tweet(thread[0], { media: { media_ids: [mediaId] } })
         await db.update(videoClips)
             .set({ xPostedAt: new Date(), xPostId: tweet.data.id })
             .where(eq(videoClips.id, params.id))
+        console.log(`[post-x] ✓ Tweet 1 posted (${thread.length}-tweet thread)`)
 
-        // Thread reply: source label first, then URL (X embeds the video below)
-        try {
-            const sourceReply = clip.channelName
-                ? `Source: ${clip.channelName}\n\n${clip.youtubeUrl}`
-                : clip.youtubeUrl
-            await client.v2.tweet(sourceReply, { reply: { in_reply_to_tweet_id: tweet.data.id } })
-            console.log(`[post-x] ✓ Posted source thread reply`)
-        } catch (e: any) {
-            console.warn(`[post-x] Thread reply failed (main tweet succeeded): ${e.message}`)
+        // Remaining tweets: full quote + source
+        let replyToId = tweet.data.id
+        for (const replyText of thread.slice(1)) {
+            try {
+                const reply = await client.v2.tweet(replyText, { reply: { in_reply_to_tweet_id: replyToId } })
+                replyToId = reply.data.id
+                console.log(`[post-x] ✓ Thread reply posted`)
+            } catch (e: any) {
+                console.warn(`[post-x] Thread reply failed (main tweet succeeded): ${e.message}`)
+            }
         }
 
         return NextResponse.json({ success: true, tweetId: tweet.data.id })
