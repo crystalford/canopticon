@@ -482,8 +482,14 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
         const [clip] = await db.select().from(videoClips).where(eq(videoClips.id, clipId)).limit(1)
         if (!clip) throw new Error('Clip record not found')
 
-        if (!transcriptItems || transcriptItems.length === 0 || !transcriptItems[0].transcript) {
-            throw new Error('No transcript returned — captions may be disabled on this video')
+        const transcriptData = transcriptItems?.[0]?.transcript
+        if (!transcriptData || (Array.isArray(transcriptData) && transcriptData.length === 0)) {
+            // Captions not ready yet — put back to queued so the cron retries
+            console.log(`[onTranscriptReady] Clip ${clipId} — no transcript in dataset, re-queuing for cron retry`)
+            await db.update(videoClips)
+                .set({ status: 'queued', errorMessage: 'Captions not ready yet — will retry automatically' })
+                .where(eq(videoClips.id, clipId))
+            return
         }
 
         const item = transcriptItems[0]
