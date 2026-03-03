@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp, Wifi } from 'lucide-react'
+import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp, Wifi, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -47,18 +47,20 @@ interface VideoClip {
     createdAt: string
 }
 
-const STATUS_ICON: Record<string, React.ReactNode> = {
-    queued: <Loader2 size={14} className="text-slate-400 animate-spin" />,
-    processing: <Loader2 size={14} className="text-blue-400 animate-spin" />,
-    done: <CheckCircle size={14} className="text-green-400" />,
-    failed: <AlertTriangle size={14} className="text-red-400" />,
+function statusIcon(clip: VideoClip): React.ReactNode {
+    if (clip.status === 'queued' && clip.errorMessage) return <Clock size={14} className="text-amber-400" />
+    if (clip.status === 'queued') return <Loader2 size={14} className="text-slate-400 animate-spin" />
+    if (clip.status === 'processing') return <Loader2 size={14} className="text-blue-400 animate-spin" />
+    if (clip.status === 'done') return <CheckCircle size={14} className="text-green-400" />
+    return <AlertTriangle size={14} className="text-red-400" />
 }
 
 function statusLabel(clip: VideoClip): string {
-    if (clip.status === 'queued') return 'Fetching transcript...'
+    if (clip.status === 'queued' && clip.errorMessage) return 'Pending retry'
+    if (clip.status === 'queued') return 'Queued'
     if (clip.status === 'processing') {
-        if (clip.startSeconds != null) return 'Cutting video clip...'
-        return 'Analyzing transcript...'
+        if (clip.startSeconds != null) return 'Cutting clip...'
+        return 'Analyzing...'
     }
     if (clip.status === 'done') return 'Ready'
     if (clip.status === 'failed') return 'Failed'
@@ -567,7 +569,7 @@ export default function VideosPage() {
                                 {/* Top row: status + title + actions */}
                                 <div className="flex items-start gap-3">
                                     <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-0.5">
-                                        {STATUS_ICON[clip.status] ?? STATUS_ICON.queued}
+                                        {statusIcon(clip)}
                                         <span className="text-xs text-slate-500">{statusLabel(clip)}</span>
                                     </div>
                                     <div className="flex-1 min-w-0">
@@ -578,7 +580,7 @@ export default function VideosPage() {
                                             <p className="text-xs text-slate-600">{clip.startSeconds}s → {clip.endSeconds}s · {clip.endSeconds - clip.startSeconds}s</p>
                                         )}
                                         {clip.errorMessage && (
-                                            <p className="text-xs text-red-400 mt-1 break-words">{clip.errorMessage}</p>
+                                            <p className={`text-xs mt-1 break-words ${clip.status === 'queued' ? 'text-amber-400/70' : 'text-red-400'}`}>{clip.errorMessage}</p>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-1 flex-shrink-0">
