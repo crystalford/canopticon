@@ -88,6 +88,17 @@ export async function POST(req: Request) {
         const title = videoTitle || 'Untitled Video'
         const link = videoLink || ''
 
+        // Skip stale videos — YouTube re-fires push notifications on subscription renewal
+        const pubDate = item.pubDate || item.isoDate
+        if (pubDate) {
+            const ageMs = Date.now() - new Date(pubDate).getTime()
+            const ageHours = ageMs / (1000 * 60 * 60)
+            if (ageHours > 18) {
+                console.log(`[webhook/youtube] Skipping stale video (${ageHours.toFixed(1)}h old): ${title}`)
+                return new NextResponse('OK', { status: 200 })
+            }
+        }
+
         if (automation.type === 'video_monitor') {
             const result = await processVideoForMonitor(automation, title, link)
             console.log(`[webhook/youtube] processVideoForMonitor: queued=${result.queued}${result.reason ? ` reason="${result.reason}"` : ''}`)
