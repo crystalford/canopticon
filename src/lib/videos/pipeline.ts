@@ -1,7 +1,7 @@
 import { generateText } from 'ai'
 import { getModel } from '@/lib/ai/providers'
 import { db, videoClips, automations } from '@/db'
-import { eq, and, ne } from 'drizzle-orm'
+import { eq, and, ne, gte } from 'drizzle-orm'
 import { put } from '@vercel/blob'
 import { TwitterApi } from 'twitter-api-v2'
 import { getCredential } from '@/lib/social/credentials'
@@ -352,6 +352,16 @@ export async function queueVideoClip(
 ): Promise<string> {
     const title = videoTitle && videoTitle !== 'Loading...' ? videoTitle : ''
 
+    // Dedup: skip if a clip for this URL was already created in the last 24 hours
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const existing = await db.query.videoClips.findFirst({
+        where: and(eq(videoClips.youtubeUrl, youtubeUrl), gte(videoClips.createdAt, cutoff)),
+    })
+    if (existing) {
+        console.log(`[queueVideoClip] Duplicate detected for ${youtubeUrl} — returning existing clip ${existing.id}`)
+        return existing.id
+    }
+
     const [clip] = await db.insert(videoClips).values({
         youtubeUrl,
         videoTitle: title || null,
@@ -439,6 +449,17 @@ export async function startAsyncClipProcessing(
     automationId?: string
 ): Promise<string> {
     const title = videoTitle && videoTitle !== 'Loading...' ? videoTitle : ''
+
+    // Dedup: skip if a clip for this URL was already created in the last 24 hours
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const existing = await db.query.videoClips.findFirst({
+        where: and(eq(videoClips.youtubeUrl, youtubeUrl), gte(videoClips.createdAt, cutoff)),
+    })
+    if (existing) {
+        console.log(`[startAsyncClipProcessing] Duplicate detected for ${youtubeUrl} — returning existing clip ${existing.id}`)
+        return existing.id
+    }
+
     const [clip] = await db.insert(videoClips).values({
         youtubeUrl,
         videoTitle: title || null,
