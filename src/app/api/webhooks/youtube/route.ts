@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { runAutomationWithContent } from '@/lib/automations/runner'
-import { startAsyncClipProcessing, filterByContent } from '@/lib/videos/pipeline'
+import { startAsyncClipProcessing, filterByContent, isLiveTitle } from '@/lib/videos/pipeline'
 import { fetchTranscript } from '@/lib/automations/transcript'
 import { db, automations } from '@/db'
 import { eq, sql } from 'drizzle-orm'
@@ -89,6 +89,12 @@ export async function POST(req: Request) {
         const link = videoLink || ''
 
         if (automation.type === 'video_monitor') {
+            // Skip live streams — no transcript available and no finite clip window
+            if (isLiveTitle(title)) {
+                console.log(`[webhook/youtube] Skipping live stream: "${title}"`)
+                return new NextResponse('Skipped live', { status: 200 })
+            }
+
             const config = automation.config as Record<string, any>
             const contentFilter = config.contentFilter as string | undefined
 

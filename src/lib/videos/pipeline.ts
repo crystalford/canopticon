@@ -716,6 +716,14 @@ function isFrenchTitle(title: string): boolean {
     return FRENCH_TITLE_PATTERNS.some(p => t.includes(p))
 }
 
+// Matches YouTube's standard live broadcast title convention ("LIVE:", "🔴 LIVE", etc.)
+// Also catches rolling live streams like "CBC News Live" suffix
+const LIVE_TITLE_PATTERNS = [/^live:/i, /^🔴/, /\blive stream\b/i, /\blive coverage\b/i, /news live$/i, /^watch live\b/i]
+
+export function isLiveTitle(title: string): boolean {
+    return LIVE_TITLE_PATTERNS.some(p => p.test(title))
+}
+
 /**
  * Filter RSS feed items against a plain-English content filter using Claude Haiku.
  * All titles are checked in a single batched call (cheap + fast).
@@ -784,9 +792,13 @@ export async function runVideoMonitor(automation: Automation, { force = false }:
             return true
         })
 
-        // Skip French/non-English videos
+        // Skip live streams and French videos
         let skippedFrench = 0
         let englishVideos = candidates.filter(item => {
+            if (item.title && isLiveTitle(item.title)) {
+                console.log(`[runVideoMonitor] Skipping live stream: ${item.title}`)
+                return false
+            }
             if (item.title && isFrenchTitle(item.title)) {
                 console.log(`[runVideoMonitor] Skipping French video: ${item.title}`)
                 skippedFrench++
