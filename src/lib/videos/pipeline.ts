@@ -415,10 +415,33 @@ export async function queueVideoClip(
 }
 
 /**
+ * Start the Apify transcript actor for a clip that already exists in the DB.
+ * Exported so the /api/cron/clips hopper can call it directly.
+ */
+export async function startApifyTranscript(clipId: string, youtubeUrl: string): Promise<void> {
+    const token = process.env.APIFY_API_TOKEN
+    if (!token) throw new Error('APIFY_API_TOKEN not configured')
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
+    const webhookUrl = `${baseUrl}/api/webhooks/transcript?clipId=${clipId}`
+    const webhooksParam = Buffer.from(JSON.stringify([{
+        eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
+        requestUrl: webhookUrl,
+    }])).toString('base64')
+    const res = await fetch(
+        `https://api.apify.com/v2/acts/leandrocb88~youtube-video-transcript-scraper/runs?token=${token}&webhooks=${encodeURIComponent(webhooksParam)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startUrls: [{ url: youtubeUrl }] }) }
+    )
+    if (!res.ok) throw new Error(`Apify transcript start failed: ${await res.text()}`)
+    const run = await res.json()
+    console.log(`[startApifyTranscript] ✓ Run ${run.data?.id} started for clip ${clipId}`)
+}
+
+/**
  * ASYNC path — for YouTube PubSubHubbub webhook and automated monitor runs.
- * Creates the DB record and fires the Apify transcript actor with a webhook callback.
- * Returns immediately (~1s). The transcript webhook handles the rest of the pipeline.
- * Use queueVideoClip() instead when you have time to wait (manual clips).
+ * Creates the DB record as 'queued' and returns immediately.
+ * The /api/cron/clips hopper picks it up after a delay (giving YouTube time to generate captions).
+ * Use queueVideoClip() instead when you have time to wait (manual clips via URL paste).
  */
 export async function startAsyncClipProcessing(
     youtubeUrl: string,
@@ -443,32 +466,8 @@ export async function startAsyncClipProcessing(
         status: 'queued',
         automationId: automationId ?? null,
     }).returning({ id: videoClips.id })
-    console.log(`[startAsyncClipProcessing] Created clip ${clip.id}`)
+    console.log(`[startAsyncClipProcessing] Queued clip ${clip.id} — transcript will be fetched by cron in ~20 min`)
 
-    const token = process.env.APIFY_API_TOKEN
-    if (!token) {
-        await db.update(videoClips).set({ status: 'failed', errorMessage: 'APIFY_API_TOKEN not configured' }).where(eq(videoClips.id, clip.id))
-        return clip.id
-    }
-
-    try {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
-        const webhookUrl = `${baseUrl}/api/webhooks/transcript?clipId=${clip.id}`
-        const webhooksParam = Buffer.from(JSON.stringify([{
-            eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
-            requestUrl: webhookUrl,
-        }])).toString('base64')
-        const res = await fetch(
-            `https://api.apify.com/v2/acts/leandrocb88~youtube-video-transcript-scraper/runs?token=${token}&webhooks=${encodeURIComponent(webhooksParam)}`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startUrls: [{ url: youtubeUrl }] }) }
-        )
-        if (!res.ok) throw new Error(`Apify transcript start failed: ${await res.text()}`)
-        const run = await res.json()
-        console.log(`[startAsyncClipProcessing] ✓ Transcript run ${run.data?.id} started`)
-    } catch (e: any) {
-        console.error(`[startAsyncClipProcessing] Failed to start transcript for ${clip.id}:`, e.message)
-        await db.update(videoClips).set({ status: 'failed', errorMessage: e.message }).where(eq(videoClips.id, clip.id))
-    }
     return clip.id
 }
 

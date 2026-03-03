@@ -6,29 +6,6 @@ import { onTranscriptReady } from '@/lib/videos/pipeline'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
 
-// If a clip is younger than this and captions fail, re-queue instead of failing.
-const RETRY_WINDOW_MS = 3 * 60 * 60 * 1000 // 3 hours
-
-async function retriggerTranscript(clipId: string, youtubeUrl: string, clipAgeMinutes: number): Promise<void> {
-    const token = process.env.APIFY_API_TOKEN
-    if (!token) throw new Error('APIFY_API_TOKEN not configured')
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
-    const webhookUrl = `${baseUrl}/api/webhooks/transcript?clipId=${clipId}`
-    const webhooksParam = Buffer.from(JSON.stringify([{
-        eventTypes: ['ACTOR.RUN.SUCCEEDED', 'ACTOR.RUN.FAILED'],
-        requestUrl: webhookUrl,
-    }])).toString('base64')
-    const res = await fetch(
-        `https://api.apify.com/v2/acts/leandrocb88~youtube-video-transcript-scraper/runs?token=${token}&webhooks=${encodeURIComponent(webhooksParam)}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ startUrls: [{ url: youtubeUrl }] }) }
-    )
-    if (!res.ok) throw new Error(`Apify retrigger failed: ${await res.text()}`)
-    console.log(`[webhook/transcript] Clip ${clipId} re-queued (${clipAgeMinutes}min old — captions not ready yet)`)
-    await db.update(videoClips)
-        .set({ status: 'queued', errorMessage: `Captions not ready yet — retrying automatically (${clipAgeMinutes}min old)` })
-        .where(eq(videoClips.id, clipId))
-}
-
 export async function POST(req: Request) {
     const { searchParams } = new URL(req.url)
     const clipId = searchParams.get('clipId')
@@ -43,16 +20,10 @@ export async function POST(req: Request) {
         const succeeded = eventType === 'ACTOR.RUN.SUCCEEDED' || status === 'SUCCEEDED'
 
         if (!succeeded) {
-            // Apify actor itself failed — check clip age before giving up
-            const [clip] = await db.select().from(videoClips).where(eq(videoClips.id, clipId)).limit(1)
-            const clipAgeMs = clip ? Date.now() - new Date(clip.createdAt).getTime() : Infinity
-            const clipAgeMinutes = Math.floor(clipAgeMs / 60000)
-            if (clip && clipAgeMs < RETRY_WINDOW_MS) {
-                await retriggerTranscript(clipId, clip.youtubeUrl, clipAgeMinutes)
-                return NextResponse.json({ ok: true, retrying: true })
-            }
+            // Apify actor itself failed — put back to queued so the cron retries
+            console.log(`[webhook/transcript] Clip ${clipId} — actor failed, re-queuing for cron retry`)
             await db.update(videoClips)
-                .set({ status: 'failed', errorMessage: `Transcript run failed (${eventType || status})` })
+                .set({ status: 'queued', errorMessage: 'Transcript attempt failed — will retry automatically' })
                 .where(eq(videoClips.id, clipId))
             return NextResponse.json({ ok: true })
         }
@@ -75,16 +46,13 @@ export async function POST(req: Request) {
             if (items?.length && items[0]?.transcript?.length) break
         }
 
-        // Still no transcript after retries — check clip age
+        // Still no transcript — captions not ready yet, put back to queued for cron retry
         if (!items?.length || !items[0]?.transcript?.length) {
-            const [clip] = await db.select().from(videoClips).where(eq(videoClips.id, clipId)).limit(1)
-            const clipAgeMs = clip ? Date.now() - new Date(clip.createdAt).getTime() : Infinity
-            const clipAgeMinutes = Math.floor(clipAgeMs / 60000)
-            if (clip && clipAgeMs < RETRY_WINDOW_MS) {
-                await retriggerTranscript(clipId, clip.youtubeUrl, clipAgeMinutes)
-                return NextResponse.json({ ok: true, retrying: true })
-            }
-            throw new Error('No transcript returned — captions may be disabled on this video')
+            console.log(`[webhook/transcript] Clip ${clipId} — no transcript yet, re-queuing for cron retry`)
+            await db.update(videoClips)
+                .set({ status: 'queued', errorMessage: 'Captions not ready yet — will retry automatically' })
+                .where(eq(videoClips.id, clipId))
+            return NextResponse.json({ ok: true })
         }
 
         await onTranscriptReady(clipId, items)
