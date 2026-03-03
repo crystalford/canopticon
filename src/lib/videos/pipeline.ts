@@ -349,70 +349,7 @@ export async function queueVideoClip(
         automationId: automationId ?? null,
     }).returning({ id: videoClips.id })
 
-    console.log(`[queueVideoClip] Created clip ${clip.id}`)
-
-    if (!process.env.APIFY_API_TOKEN) {
-        await db.update(videoClips)
-            .set({ status: 'failed', errorMessage: 'APIFY_API_TOKEN not configured' })
-            .where(eq(videoClips.id, clip.id))
-        return clip.id
-    }
-
-    try {
-        // Fetch transcript (direct YouTube → Apify polling fallback) + metadata in parallel
-        console.log(`[queueVideoClip] Fetching transcript + metadata for ${clip.id}...`)
-        const [segments, { description, channelName }] = await Promise.all([
-            fetchTranscript(youtubeUrl),
-            fetchVideoMetadata(youtubeUrl),
-        ])
-
-        if (segments.length === 0) throw new Error('No transcript segments returned — captions may be disabled on this video')
-        console.log(`[queueVideoClip] ✓ ${segments.length} transcript segments, channel: ${channelName}`)
-
-        // Store metadata
-        await db.update(videoClips)
-            .set({ videoTitle: title || null, channelName: channelName || null })
-            .where(eq(videoClips.id, clip.id))
-
-        // Build timestamped transcript for Claude
-        const transcript = segments.map(s => `${formatTime(s.start)} ${s.text}`).join('\n')
-
-        // Claude picks best clip window
-        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft } =
-            await selectClipWindow(youtubeUrl, title, transcript, description)
-        console.log(`[queueVideoClip] AI selected ${start}s→${end}s: ${rationale}`)
-
-        // Speaker lookup via web search if not identified from title/transcript
-        let speakerName = speakerFromClip
-        if (!speakerName && keyQuote) {
-            console.log(`[queueVideoClip] Speaker unknown — trying web lookup...`)
-            speakerName = await lookupSpeaker(keyQuote, title, channelName)
-            if (speakerName) console.log(`[queueVideoClip] Speaker identified: ${speakerName}`)
-        }
-        // Fall back to channel name so the tweet isn't left unattributed
-        if (!speakerName && channelName) {
-            speakerName = channelName
-            console.log(`[queueVideoClip] No individual speaker found — using channel name: ${channelName}`)
-        }
-
-        // Extract verbatim clip segment
-        const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
-        const transcriptSegment = clipSegments.map(s => s.text).join(' ')
-
-        await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, tweetDraft, speakerName, transcriptSegment, status: 'processing' })
-            .where(eq(videoClips.id, clip.id))
-
-        // Trigger Apify video clipper — webhook at /api/webhooks/apify handles completion
-        await triggerApify(clip.id, youtubeUrl, start, end, automationId)
-
-    } catch (e: any) {
-        console.error(`[queueVideoClip] Failed for ${clip.id}:`, e.message)
-        await db.update(videoClips)
-            .set({ status: 'failed', errorMessage: e.message })
-            .where(eq(videoClips.id, clip.id))
-    }
-
+    console.log(`[queueVideoClip] Queued clip ${clip.id} — hopper will process in ~20 min`)
     return clip.id
 }
 
