@@ -349,7 +349,53 @@ export async function queueVideoClip(
         automationId: automationId ?? null,
     }).returning({ id: videoClips.id })
 
-    console.log(`[queueVideoClip] Queued clip ${clip.id} — hopper will process in ~20 min`)
+    console.log(`[queueVideoClip] Created clip ${clip.id}, attempting transcript immediately...`)
+
+    if (!process.env.APIFY_API_TOKEN) {
+        await db.update(videoClips)
+            .set({ status: 'failed', errorMessage: 'APIFY_API_TOKEN not configured' })
+            .where(eq(videoClips.id, clip.id))
+        return clip.id
+    }
+
+    try {
+        const [segments, { description, channelName }] = await Promise.all([
+            fetchTranscript(youtubeUrl),
+            fetchVideoMetadata(youtubeUrl),
+        ])
+
+        if (segments.length === 0) throw new Error('No transcript yet')
+
+        console.log(`[queueVideoClip] ✓ ${segments.length} transcript segments`)
+        await db.update(videoClips)
+            .set({ videoTitle: title || null, channelName: channelName || null })
+            .where(eq(videoClips.id, clip.id))
+
+        const transcript = segments.map(s => `${formatTime(s.start)} ${s.text}`).join('\n')
+        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft } =
+            await selectClipWindow(youtubeUrl, title, transcript, description)
+
+        let speakerName = speakerFromClip
+        if (!speakerName && keyQuote) speakerName = await lookupSpeaker(keyQuote, title, channelName)
+        if (!speakerName && channelName) speakerName = channelName
+
+        const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
+        const transcriptSegment = clipSegments.map(s => s.text).join(' ')
+
+        await db.update(videoClips)
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, tweetDraft, speakerName, transcriptSegment, status: 'processing' })
+            .where(eq(videoClips.id, clip.id))
+
+        await triggerApify(clip.id, youtubeUrl, start, end, automationId)
+
+    } catch (e: any) {
+        // Transcript not available yet — re-queue for hopper to retry rather than permanently failing
+        console.warn(`[queueVideoClip] Transcript unavailable for ${clip.id}, re-queuing for hopper: ${e.message}`)
+        await db.update(videoClips)
+            .set({ status: 'queued', errorMessage: 'Captions not ready yet — will retry automatically' })
+            .where(eq(videoClips.id, clip.id))
+    }
+
     return clip.id
 }
 
