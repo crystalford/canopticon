@@ -1,10 +1,9 @@
 /**
  * Build an X/Twitter thread for a video clip.
  *
- * Thread structure (2-3 tweets):
+ * Thread structure (2 tweets):
  *   Tweet 1 (video): Most RT-able verbatim quote in curly quotes
- *   Tweet 2 (opt):   Casual plain-English context note (if AI generated one ≤276 chars)
- *   Tweet 3:         "Clip Source: Channel\n\n[youtubeUrl]"
+ *   Tweet 2:         "Clip Source: Channel\n\n[youtubeUrl]"
  */
 
 function cap(text: string, limit = 278): string {
@@ -22,7 +21,7 @@ export function buildTweetThread(params: {
     channelName?: string | null
     youtubeUrl?: string | null
 }): string[] {
-    const { rtHook, contextNote, channelName, youtubeUrl } = params
+    const { rtHook, channelName, youtubeUrl } = params
 
     const tweets: string[] = []
 
@@ -31,13 +30,7 @@ export function buildTweetThread(params: {
         tweets.push(`\u201c${cap(rtHook, 276)}\u201d`)
     }
 
-    // Tweet 2: casual context note — only if present and fits without truncation
-    const note = contextNote?.trim()
-    if (note && note.length <= 276) {
-        tweets.push(note)
-    }
-
-    // Final tweet: source + YouTube link
+    // Tweet 2: source + YouTube link
     const sourceParts: string[] = []
     if (channelName) sourceParts.push(`Clip Source: ${channelName}`)
     if (youtubeUrl) sourceParts.push(youtubeUrl)
