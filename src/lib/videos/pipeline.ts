@@ -199,26 +199,6 @@ async function lookupSpeaker(keyQuote: string, videoTitle: string, channelName: 
     }
 }
 
-/**
- * Ensure the speaker name appears at the front of the tweet draft.
- * If Claude identified the speaker in the draft already, leave it alone.
- * If found via lookup, prepend "Name: " and trim to 240 chars.
- */
-function withSpeaker(tweetDraft: string, speakerName: string | null | undefined): string {
-    if (!speakerName || !tweetDraft) return tweetDraft
-    const lower = tweetDraft.toLowerCase()
-    if (lower.includes(speakerName.toLowerCase())) return tweetDraft
-    // Partial first-name match — prevents double-name when AI misspells the last name
-    // (e.g. "Frank Vaugh" in tweet but speakerName is "Frank Vaughan")
-    const firstName = speakerName.split(' ')[0].toLowerCase()
-    if (firstName.length >= 4 && lower.includes(firstName)) return tweetDraft
-    // Prepend "Name: " to the context line only (line 1 before the blank line)
-    const nl = tweetDraft.indexOf('\n\n')
-    if (nl !== -1) {
-        return `${speakerName}: ${tweetDraft.slice(0, nl)}${tweetDraft.slice(nl)}`
-    }
-    return `${speakerName}: ${tweetDraft}`
-}
 
 const formatTime = (s: number) => {
     const m = Math.floor(s / 60)
@@ -238,9 +218,9 @@ async function selectClipWindow(
     title: string,
     transcript: string,
     description = ''
-): Promise<{ start: number; end: number; rationale: string; keyQuote: string; extendedQuote: string; speakerName: string; tweetDraft: string }> {
+): Promise<{ start: number; end: number; rationale: string; keyQuote: string; extendedQuote: string; speakerName: string; tweetDraft: string; forensicLayer: string }> {
     const model = await getModel('anthropic', 'claude-sonnet-4-20250514')
-    const prompt = `You are a viral political media editor. Find the SINGLE most compelling 60-120 second window from this video for social media.
+    const prompt = `You are a viral political media editor for CANOPTICON, a Canadian political intelligence account. Find the SINGLE most compelling 60-120 second window from this video for social media.
 
 WHAT MAKES A GREAT CLIP:
 - A politician making a specific, quotable claim, admission, or attack
@@ -249,18 +229,19 @@ WHAT MAKES A GREAT CLIP:
 - A moment of visible frustration, passion, or contradiction
 - Complete thought arc: setup → point → conclusion (no dangling mid-sentence)
 
-RULES:
+CLIP SELECTION RULES:
 - Skip intros, B-roll, music, applause. Start at the first substantive word.
 - The clip must be 60-120 seconds. Do not go under 60s.
 - End on a natural sentence break — never cut mid-sentence.
-- message: 2-3 sentences in plain English summarizing WHAT the clip is arguing/claiming and WHY it matters politically. This is not a quote — explain the substance of what is being said and what makes it significant. Include any key statistics or data points mentioned.
-- key_quote: the SINGLE most quotable clean sentence from the clip. Exact transcript words only, but remove filler words (um, uh, like, you know). No surrounding quotes in the string.
-- extended_quote: 2-4 consecutive sentences from the clip that include the key_quote moment. Remove filler words (um, uh, like, you know) while preserving exact meaning and structure. No surrounding quotes in the string.
-- speaker_name: the full name of the person saying the key_quote. Use these sources in order: (1) the video title — e.g. "Pierre Poilievre responds to..." → "Pierre Poilievre"; (2) explicit name introductions in the transcript — e.g. "I'm joined by Mark Carney" → "Mark Carney"; (3) the video description if it lists specific speakers; (4) if the speaker's role, party, and quote content together make identification highly confident, you may name them. If any reasonable doubt remains, use null.
-- tweet_draft: two-line draft separated by a blank line.
-  Line 1 (context): One plain sentence about what is being said and where. RULES: (1) If you know the speaker's full name, start with it — e.g. "Kate Harrison on Poilievre's push to delay the election." (2) If you do NOT know the speaker's name, do NOT describe their role either — no "political analyst", "commentator", "MP", "pundit", "expert", "journalist", "critic", "strategist", "panelist", "guest". Instead, describe the topic and context directly — e.g. "On CBC's Power & Politics: why Canada shouldn't call an election before the CUSMA review." or "At the Liberal press conference: the case for keeping the carbon tax." Never label who they are, only what is being said. Line 1 must be under 140 chars.
-  Line 2 (quote): the verbatim quote in double quotes ONLY — use the full extended_quote, do not truncate it. No speaker name prefix, no attribution tag.
-  STRICT RULES: no emojis, no em dashes (—), no all-caps words, write like a human not a press release.
+
+CONTENT FIELDS (for the Twitter thread — each must be a plain string, no extra quotes wrapping the value):
+- message: 2-3 sentences summarizing what the clip argues and why it matters politically. Include key statistics if mentioned.
+- key_quote: the SINGLE most quotable clean sentence from the clip. Exact words, remove filler (um, uh, like, you know). No surrounding quotes.
+- extended_quote: 2-4 consecutive sentences including the key_quote moment. Remove filler words, preserve exact meaning. No surrounding quotes.
+- speaker_name: full name of the person speaking. Sources in order: (1) video title e.g. "Pierre Poilievre responds to..." → "Pierre Poilievre"; (2) explicit name introductions in transcript; (3) video description; (4) high-confidence inference from role+party+content. If any doubt remains, use null.
+- rt_hook: The single most RT-worthy sentence from the clip. Must stand completely alone — a stranger with no context should understand it and want to share it immediately. Punchy, declarative, no setup required. Under 230 chars. No emojis, no em dashes, no all-caps.
+- context_block: 2-3 sentences. Who is speaking and where, what specific claim or argument they made, why it matters for Canadian politics right now. If speaker name is known, open with it (e.g. "Pierre Poilievre, speaking at a Conservative caucus meeting, argued that..."). If speaker is unknown, describe the topic directly — NEVER use role labels like "political analyst", "commentator", "MP", "pundit", "expert", "journalist", "critic", "strategist". Under 270 chars. No emojis, no em dashes, no all-caps.
+- forensic_layer: 2-3 sentences of CANOPTICON analysis — what is NOT being said, contradictions, policy implications, what context the viewer needs. Write like a sharp political analyst. Set to null if there is genuinely nothing substantive to add beyond the clip itself. Under 270 chars. No emojis, no em dashes, no all-caps.
 
 Video: "${title}"
 URL: ${url}${description ? `\nDescription: ${description.substring(0, 1000)}` : ''}
@@ -269,7 +250,7 @@ Timestamped transcript:
 ${transcript}
 
 Return ONLY valid JSON, no markdown:
-{"start_seconds": <number>, "end_seconds": <number>, "message": "<what the clip is saying and why it matters>", "key_quote": "<clean single sentence, no filler words, no surrounding quotes>", "extended_quote": "<2-4 clean sentences, no filler words, no surrounding quotes>", "speaker_name": "<full name or null>", "tweet_draft": "<tweet text>"}`
+{"start_seconds": <number>, "end_seconds": <number>, "message": "<rationale>", "key_quote": "<single clean sentence, no surrounding quotes>", "extended_quote": "<2-4 clean sentences, no surrounding quotes>", "speaker_name": "<full name or null>", "rt_hook": "<single most RT-able sentence, under 230 chars>", "context_block": "<2-3 sentences: who, what, why it matters, under 270 chars>", "forensic_layer": "<2-3 analytical sentences or null>"}`
 
     const result = await generateText({ model, prompt })
     const match = result.text.match(/\{[\s\S]*\}/)
@@ -288,10 +269,11 @@ Return ONLY valid JSON, no markdown:
         start: parsed.start_seconds,
         end: parsed.end_seconds,
         rationale: parsed.message || parsed.rationale || '',
-        keyQuote: (parsed.key_quote || '').replace(/^["']|["']$/g, ''),
+        keyQuote: (parsed.rt_hook || parsed.key_quote || '').replace(/^["']|["']$/g, ''),
         extendedQuote: (parsed.extended_quote || parsed.key_quote || '').replace(/^["']|["']$/g, ''),
         speakerName: parsed.speaker_name || '',
-        tweetDraft: parsed.tweet_draft || '',
+        tweetDraft: parsed.context_block || '',
+        forensicLayer: parsed.forensic_layer || '',
     }
 }
 
@@ -398,7 +380,7 @@ export async function queueVideoClip(
         const transcript = segments.map(s => `${formatTime(s.start)} ${s.text}`).join('\n')
 
         // Claude picks best clip window
-        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft } =
+        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft, forensicLayer } =
             await selectClipWindow(youtubeUrl, title, transcript, description)
         console.log(`[queueVideoClip] AI selected ${start}s→${end}s: ${rationale}`)
 
@@ -418,10 +400,9 @@ export async function queueVideoClip(
         // Extract verbatim clip segment
         const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
         const transcriptSegment = clipSegments.map(s => s.text).join(' ')
-        const finalTweetDraft = withSpeaker(tweetDraft, speakerName)
 
         await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft: finalTweetDraft, transcriptSegment, status: 'processing' })
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft, forensicLayer, transcriptSegment, status: 'processing' })
             .where(eq(videoClips.id, clip.id))
 
         // Trigger Apify video clipper — webhook at /api/webhooks/apify handles completion
@@ -535,7 +516,7 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
         }
 
         // Claude picks best clip window (gets full description for speaker ID)
-        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft } = await selectClipWindow(clip.youtubeUrl, videoTitle, transcript, videoDescription)
+        const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft, forensicLayer } = await selectClipWindow(clip.youtubeUrl, videoTitle, transcript, videoDescription)
         console.log(`[onTranscriptReady] AI selected ${start}s→${end}s: ${rationale}`)
 
         // If speaker not identified from title/transcript/description, try a web search
@@ -555,10 +536,9 @@ export async function onTranscriptReady(clipId: string, transcriptItems: any[]):
         // Extract the verbatim text of the selected clip window
         const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
         const transcriptSegment = clipSegments.map(s => s.text.trim()).join(' ')
-        const finalTweetDraft = withSpeaker(tweetDraft, speakerName)
 
         await db.update(videoClips)
-            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft: finalTweetDraft, transcriptSegment, status: 'processing' })
+            .set({ startSeconds: start, endSeconds: end, clipRationale: rationale, keyQuote, extendedQuote, speakerName, tweetDraft, forensicLayer, transcriptSegment, status: 'processing' })
             .where(eq(videoClips.id, clipId))
 
         await triggerApify(clipId, clip.youtubeUrl, start, end, clip.automationId ?? undefined)
@@ -622,12 +602,11 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
 
                 const xClient = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken: xAccessToken, accessSecret: xAccessSecret })
                 const thread = buildTweetThread({
-                    tweetDraft: clip.tweetDraft,
-                    extendedQuote: clip.extendedQuote,
-                    keyQuote: clip.keyQuote,
+                    rtHook: clip.keyQuote,
+                    contextBlock: clip.tweetDraft,
+                    forensicLayer: clip.forensicLayer,
                     speakerName: clip.speakerName,
                     channelName: clip.channelName,
-                    youtubeUrl: clip.youtubeUrl,
                 })
 
                 let xMediaId: string | undefined
@@ -638,12 +617,12 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                     console.warn('[onClipReady] X video upload failed:', e)
                 }
 
-                // Tweet 1: context + teaser (with video)
+                // Tweet 1: RT hook (with video)
                 const xTweet = await xClient.v2.tweet(thread[0], xMediaId ? { media: { media_ids: [xMediaId] } } : {})
                 await db.update(videoClips).set({ xPostedAt: new Date(), xPostId: xTweet.data.id }).where(eq(videoClips.id, clipId))
                 console.log(`[onClipReady] ✓ Posted to X (${thread.length}-tweet thread)`)
 
-                // Remaining tweets: full quote + source
+                // Remaining thread tweets
                 let replyToId = xTweet.data.id
                 for (const replyText of thread.slice(1)) {
                     try {
@@ -651,6 +630,16 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                         replyToId = reply.data.id
                     } catch (e: any) {
                         console.warn(`[onClipReady] Thread reply failed: ${e.message}`)
+                    }
+                }
+
+                // YouTube URL as reply after thread — not in thread (avoids link penalty)
+                if (clip.youtubeUrl) {
+                    try {
+                        await xClient.v2.tweet(clip.youtubeUrl, { reply: { in_reply_to_tweet_id: replyToId } })
+                        console.log(`[onClipReady] ✓ URL reply posted`)
+                    } catch (e: any) {
+                        console.warn(`[onClipReady] URL reply failed: ${e.message}`)
                     }
                 }
             } catch (e: any) {
@@ -732,7 +721,7 @@ function isFrenchTitle(title: string): boolean {
  * All titles are checked in a single batched call (cheap + fast).
  * Fails open — if the AI call errors, all items are returned.
  */
-async function filterByContent<T extends { title?: string }>(items: T[], contentFilter: string): Promise<T[]> {
+export async function filterByContent<T extends { title?: string }>(items: T[], contentFilter: string): Promise<T[]> {
     if (!items.length) return items
     try {
         const model = await getModel('anthropic', 'claude-haiku-4-5-20251001')

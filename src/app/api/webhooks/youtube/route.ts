@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { runAutomationWithContent } from '@/lib/automations/runner'
-import { startAsyncClipProcessing } from '@/lib/videos/pipeline'
+import { startAsyncClipProcessing, filterByContent } from '@/lib/videos/pipeline'
 import { fetchTranscript } from '@/lib/automations/transcript'
 import { db, automations } from '@/db'
 import { eq, sql } from 'drizzle-orm'
@@ -89,8 +89,26 @@ export async function POST(req: Request) {
         const link = videoLink || ''
 
         if (automation.type === 'video_monitor') {
-            // Video pipeline: async path so webhook responds fast (no 90s polling block)
+            const config = automation.config as Record<string, any>
+            const contentFilter = config.contentFilter as string | undefined
+
+            // Apply content filter if configured — skip unrelated videos
+            if (contentFilter) {
+                const matched = await filterByContent([{ title }], contentFilter)
+                if (!matched.length) {
+                    console.log(`[webhook/youtube] Skipping "${title}" — doesn't match filter: "${contentFilter}"`)
+                    await db.update(automations)
+                        .set({ lastRunAt: new Date(), lastResult: { success: true, skipped: true, reason: `Filtered out: "${title}"` } })
+                        .where(eq(automations.id, automation.id))
+                    return new NextResponse('Filtered', { status: 200 })
+                }
+            }
+
+            // Video pipeline: async path so webhook responds fast
             await startAsyncClipProcessing(link, title, automation.id)
+            await db.update(automations)
+                .set({ lastRunAt: new Date(), lastResult: { success: true, clipsQueued: 1, trigger: 'push', videoTitle: title } })
+                .where(eq(automations.id, automation.id))
         } else {
             // Article pipeline: build trigger content and run
             const transcript = await fetchTranscript(link)

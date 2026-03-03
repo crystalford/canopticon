@@ -1,78 +1,48 @@
 /**
  * Build an X/Twitter thread for a video clip.
  *
- * Thread structure:
- *   Tweet 1 (has video): context line + quote teaser (first sentence + "...")
- *   Tweet 2:             full extended quote in double quotes
- *   Tweet 3:             Source: ChannelName\n\nYouTubeURL
+ * Thread structure (4 tweets, optimised for X engagement algorithm):
+ *   Tweet 1 (video attached): RT hook — the single most shareable sentence
+ *   Tweet 2:                  Context block — who, what, why it matters
+ *   Tweet 3:                  Forensic layer — CANOPTICON analysis (skipped if null/empty)
+ *   Tweet 4:                  "Clip Source: Channel · Speaker" — text only, no link
  *
- * If the full quote fits with the context in 260 chars: 2-tweet thread (skip teaser, combine).
+ * YouTube URL is NOT in the thread (link penalty). Callers post it as a
+ * reply to the last thread tweet after the thread is live.
+ *
+ * Character handling: each field is capped at 278 chars with word-boundary
+ * truncation (never mid-word) and a trailing ellipsis if cut.
  */
+
+/** Truncate at the last word boundary within `limit` chars, append ellipsis if cut. */
+function cap(text: string, limit = 278): string {
+    const t = text.trim()
+    if (t.length <= limit) return t
+    const cut = t.lastIndexOf(' ', limit - 1)
+    return cut > limit * 0.6
+        ? t.substring(0, cut) + '\u2026'
+        : t.substring(0, limit - 1) + '\u2026'
+}
+
 export function buildTweetThread(params: {
-    tweetDraft?: string | null       // "context line\n\nquote" from AI
-    extendedQuote?: string | null    // 2-4 sentence quote from AI
-    keyQuote?: string | null         // single best sentence
+    rtHook?: string | null         // stored in keyQuote field — single most RT-able sentence
+    contextBlock?: string | null   // stored in tweetDraft field — who, stakes, why it matters
+    forensicLayer?: string | null  // stored in forensicLayer field — CANOPTICON analytical layer
     speakerName?: string | null
     channelName?: string | null
-    youtubeUrl?: string | null
 }): string[] {
-    const { tweetDraft, extendedQuote, keyQuote, speakerName, channelName, youtubeUrl } = params
+    const { rtHook, contextBlock, forensicLayer, speakerName, channelName } = params
 
-    const source = channelName
-        ? `Source: ${channelName}\n\n${youtubeUrl || ''}`
-        : (youtubeUrl || null)
+    const tweet1 = rtHook?.trim() ? cap(rtHook) : null
+    const tweet2 = contextBlock?.trim() ? cap(contextBlock) : null
+    const tweet3 = forensicLayer?.trim() ? cap(forensicLayer) : null
 
-    // Full quote for tweet 2 — prefer extendedQuote (richer), fallback to keyQuote
-    const fullQuoteText = extendedQuote || keyQuote || null
-    const quoteTweet = fullQuoteText ? `"${fullQuoteText}"` : null
+    // Attribution: "Clip Source: Channel · Speaker"
+    // Avoid duplication if speakerName === channelName (fallback case in pipeline)
+    const parts: string[] = []
+    if (channelName) parts.push(channelName)
+    if (speakerName && speakerName !== channelName) parts.push(speakerName)
+    const tweet4 = parts.length > 0 ? `Clip Source: ${parts.join(' \u00b7 ')}` : null
 
-    // Context line: line 1 of tweetDraft (before the blank line separator)
-    let contextLine: string
-    if (tweetDraft) {
-        const nl = tweetDraft.indexOf('\n\n')
-        contextLine = nl !== -1 ? tweetDraft.slice(0, nl) : tweetDraft
-    } else if (speakerName) {
-        contextLine = speakerName
-    } else {
-        contextLine = 'New clip'
-    }
-
-    // Can the full context + quote fit in tweet 1? (2-tweet thread)
-    if (quoteTweet && contextLine.length + 2 + quoteTweet.length <= 260) {
-        return [
-            `${contextLine}\n\n${quoteTweet}`,
-            source,
-        ].filter(Boolean) as string[]
-    }
-
-    // Build tweet 1: context + teaser quote
-    let tweet1: string
-    if (fullQuoteText && contextLine.length < 235) {
-        const budget = 255 - contextLine.length - 2  // chars available after context + \n\n
-        const content = fullQuoteText
-
-        // Try to cut at first sentence boundary within budget
-        let cutAt = Math.min(budget - 4, content.length)  // -4 for closing "..."
-        const sentMatch = content.substring(0, cutAt).match(/^[\s\S]+?[.!?](?:\s|$)/)
-        if (sentMatch && sentMatch[0].length > 20) {
-            cutAt = sentMatch[0].trimEnd().length
-        } else {
-            // Fall back to last word boundary
-            const lastSpace = content.substring(0, cutAt).lastIndexOf(' ')
-            if (lastSpace > 20) cutAt = lastSpace
-        }
-
-        const teaser = `"${content.substring(0, cutAt).trim()}..."`
-        tweet1 = `${contextLine}\n\n${teaser}`
-    } else {
-        // Context line alone if quote won't fit or context too long
-        tweet1 = contextLine
-    }
-
-    // Tweet 2: full quote, hard cap at 280
-    const tweet2 = quoteTweet
-        ? (quoteTweet.length <= 280 ? quoteTweet : `"${fullQuoteText!.substring(0, 276)}..."`)
-        : null
-
-    return [tweet1, tweet2, source].filter(Boolean) as string[]
+    return [tweet1, tweet2, tweet3, tweet4].filter(Boolean) as string[]
 }
