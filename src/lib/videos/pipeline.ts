@@ -722,8 +722,8 @@ export async function filterByContent<T extends { title?: string }>(items: T[], 
         console.log(`[filterByContent] ${filtered.length}/${items.length} items passed filter`)
         return filtered
     } catch (e: any) {
-        console.warn(`[filterByContent] AI check failed: ${e.message} — proceeding without filter`)
-        return items
+        console.warn(`[filterByContent] AI check failed, rejecting all items to be safe: ${e.message}`)
+        return []
     }
 }
 

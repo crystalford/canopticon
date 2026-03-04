@@ -28,6 +28,8 @@ interface VideoMonitor {
 interface VideoClip {
     id: string
     videoTitle: string | null
+    channelName: string | null
+    automationId: string | null
     youtubeUrl: string
     clipUrl: string | null
     clipRationale: string | null
@@ -576,6 +578,11 @@ export default function VideosPage() {
                                         <p className="text-sm text-white truncate">
                                             {clip.videoTitle && clip.videoTitle !== 'Loading...' ? clip.videoTitle : clip.youtubeUrl}
                                         </p>
+                                        {(clip.channelName || clip.automationId) && (
+                                            <p className="text-xs text-slate-500 truncate">
+                                                {clip.channelName || monitors.find(m => m.id === clip.automationId)?.name || ''}
+                                            </p>
+                                        )}
                                         {clip.startSeconds != null && clip.endSeconds != null && (
                                             <p className="text-xs text-slate-600">{clip.startSeconds}s → {clip.endSeconds}s · {clip.endSeconds - clip.startSeconds}s</p>
                                         )}
