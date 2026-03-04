@@ -666,7 +666,7 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                 const { postToTiktok } = await import('@/lib/social/tiktok')
                 const tiktokId = await postToTiktok({
                     title: clip.videoTitle || clip.clipRationale || 'New clip',
-                    videoBuffer,
+                    videoUrl: blob.url,
                 })
                 await db.update(videoClips)
                     .set({ tiktokPostId: tiktokId, tiktokPostedAt: new Date() })

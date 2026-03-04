@@ -14,13 +14,9 @@ export async function POST(
         if (!clip) return NextResponse.json({ error: 'Clip not found' }, { status: 404 })
         if (!clip.clipUrl) return NextResponse.json({ error: 'Clip has no URL yet' }, { status: 400 })
 
-        const videoRes = await fetch(clip.clipUrl)
-        if (!videoRes.ok) throw new Error(`Failed to fetch clip: ${videoRes.status}`)
-        const videoBuffer = Buffer.from(await videoRes.arrayBuffer())
-
         const tiktokId = await postToTiktok({
             title: clip.videoTitle || clip.clipRationale || 'New clip',
-            videoBuffer,
+            videoUrl: clip.clipUrl,
         })
 
         await db.update(videoClips)

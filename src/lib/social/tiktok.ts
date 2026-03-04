@@ -1,66 +1,40 @@
 import { getCredential } from './credentials'
 
 /**
- * TikTok Content Posting API
- * Requires: TIKTOK_ACCESS_TOKEN — add in Settings or as env var.
- * Apply for access at: https://developers.tiktok.com/
+ * Post a video clip to TikTok via Ayrshare.
+ * Ayrshare handles TikTok auth without requiring a TikTok developer account.
+ * Setup: sign up at ayrshare.com, connect TikTok, add AYRSHARE_API_KEY to env/Settings.
  */
 export async function postToTiktok({
     title,
-    videoBuffer,
+    videoUrl,
 }: {
     title: string
-    videoBuffer: Buffer
+    videoUrl: string
 }): Promise<string> {
-    const accessToken = await getCredential('TIKTOK_ACCESS_TOKEN')
-    if (!accessToken) {
-        throw new Error('TikTok not configured — add TIKTOK_ACCESS_TOKEN in Settings. Apply at developers.tiktok.com')
+    const apiKey = await getCredential('AYRSHARE_API_KEY')
+    if (!apiKey) {
+        throw new Error('TikTok not configured — add AYRSHARE_API_KEY in Settings (sign up at ayrshare.com, connect your TikTok account)')
     }
 
-    // TikTok Content Posting API — Phase 1: Initialize upload
-    const initRes = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
+    const res = await fetch('https://app.ayrshare.com/api/post', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json; charset=UTF-8',
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            post_info: {
-                title: title.substring(0, 150),
-                privacy_level: 'PUBLIC_TO_EVERYONE',
-                disable_duet: false,
-                disable_comment: false,
-                disable_stitch: false,
-            },
-            source_info: {
-                source: 'FILE_UPLOAD',
-                video_size: videoBuffer.byteLength,
-                chunk_size: videoBuffer.byteLength,
-                total_chunk_count: 1,
-            },
+            post: title.substring(0, 2200),
+            platforms: ['tiktok'],
+            mediaUrls: [videoUrl],
         }),
     })
 
-    if (!initRes.ok) {
-        const err = await initRes.text()
-        throw new Error(`TikTok upload init failed: ${err}`)
-    }
+    if (!res.ok) throw new Error(`Ayrshare TikTok post failed: ${await res.text()}`)
+    const data = await res.json()
+    if (data.status === 'error') throw new Error(`Ayrshare error: ${data.message}`)
 
-    const { data } = await initRes.json()
-    const uploadUrl = data.upload_url
-    const publishId = data.publish_id
-
-    // Phase 2: Upload video bytes
-    const uploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'video/mp4',
-            'Content-Range': `bytes 0-${videoBuffer.byteLength - 1}/${videoBuffer.byteLength}`,
-        },
-        body: new Uint8Array(videoBuffer),
-    })
-    if (!uploadRes.ok) throw new Error(`TikTok video upload failed: ${uploadRes.status}`)
-
-    console.log(`[postToTiktok] Published with id: ${publishId}`)
-    return publishId
+    const postId = data.postIds?.find((p: any) => p.platform === 'tiktok')?.id || data.id || 'posted'
+    console.log(`[postToTiktok] ✓ Posted via Ayrshare: ${postId}`)
+    return postId
 }
