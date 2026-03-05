@@ -21,15 +21,12 @@ export function buildTweetThread(params: {
     channelName?: string | null
     youtubeUrl?: string | null
 }): string[] {
-    const { rtHook, channelName, youtubeUrl } = params
+    const { rtHook, contextNote } = params
 
-    const tweets: string[] = []
-
-    // Single tweet: quoted rt hook + clip source
+    // Single tweet: context note (if any) + verbatim quote
     const parts: string[] = []
-    if (rtHook?.trim()) parts.push(`\u201c${cap(rtHook, 230)}\u201d`)
-    if (channelName) parts.push(`Clip Source: ${channelName}`)
-    if (parts.length > 0) tweets.push(parts.join('\n\n'))
+    if (contextNote?.trim()) parts.push(cap(contextNote, 120))
+    if (rtHook?.trim()) parts.push(`\u201c${cap(rtHook, 150)}\u201d`)
 
-    return tweets
+    return parts.length > 0 ? [parts.join('\n\n')] : []
 }
