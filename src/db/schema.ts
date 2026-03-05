@@ -168,7 +168,7 @@ export const agents = pgTable('agents', {
 export const videoClips = pgTable('video_clips', {
     id: uuid('id').primaryKey().defaultRandom(),
     // Source
-    youtubeUrl: text('youtube_url').notNull(),
+    youtubeUrl: text('youtube_url').notNull().unique(),
     videoTitle: text('video_title'),
     channelName: text('channel_name'),
     // AI-selected clip window
@@ -199,6 +199,9 @@ export const videoClips = pgTable('video_clips', {
     articleId: uuid('article_id').references(() => articles.id, { onDelete: 'set null' }),
     // Links
     automationId: uuid('automation_id').references(() => automations.id, { onDelete: 'set null' }),
+    // Retry tracking (hopper)
+    retryCount: integer('retry_count').default(0).notNull(),
+    nextRetryAt: timestamp('next_retry_at'),
     // Metadata
     createdAt: timestamp('created_at').defaultNow().notNull(),
     processedAt: timestamp('processed_at'),

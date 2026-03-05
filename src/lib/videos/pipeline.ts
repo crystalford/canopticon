@@ -1,7 +1,7 @@
 import { generateText } from 'ai'
 import { getModel } from '@/lib/ai/providers'
 import { db, videoClips, automations } from '@/db'
-import { eq, and, ne, gte } from 'drizzle-orm'
+import { eq, and, ne } from 'drizzle-orm'
 import { put } from '@vercel/blob'
 import { TwitterApi } from 'twitter-api-v2'
 import { getCredential } from '@/lib/social/credentials'
@@ -332,22 +332,26 @@ export async function queueVideoClip(
 ): Promise<string> {
     const title = videoTitle && videoTitle !== 'Loading...' ? videoTitle : ''
 
-    // Dedup: skip if a clip for this URL was already created in the last 24 hours
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    const existing = await db.query.videoClips.findFirst({
-        where: and(eq(videoClips.youtubeUrl, youtubeUrl), gte(videoClips.createdAt, cutoff)),
-    })
-    if (existing) {
-        console.log(`[queueVideoClip] Duplicate detected for ${youtubeUrl} — returning existing clip ${existing.id}`)
+    // Atomic dedup via DB unique constraint — prevents duplicate inserts under concurrent load
+    const rows = await db.insert(videoClips)
+        .values({
+            youtubeUrl,
+            videoTitle: title || null,
+            status: 'queued',
+            automationId: automationId ?? null,
+        })
+        .onConflictDoNothing()
+        .returning({ id: videoClips.id })
+
+    if (rows.length === 0) {
+        // Duplicate blocked by DB — return existing clip
+        const existing = await db.query.videoClips.findFirst({ where: eq(videoClips.youtubeUrl, youtubeUrl) })
+        if (!existing) throw new Error('Dedup conflict but no existing clip found')
+        console.log(`[queueVideoClip] Duplicate blocked by DB for ${youtubeUrl} — returning existing clip ${existing.id}`)
         return existing.id
     }
 
-    const [clip] = await db.insert(videoClips).values({
-        youtubeUrl,
-        videoTitle: title || null,
-        status: 'queued',
-        automationId: automationId ?? null,
-    }).returning({ id: videoClips.id })
+    const clip = rows[0]
 
     console.log(`[queueVideoClip] Created clip ${clip.id}, attempting transcript immediately...`)
 
@@ -400,6 +404,57 @@ export async function queueVideoClip(
 }
 
 /**
+ * Process an existing 'queued' clip: fetch transcript, pick clip window, trigger Apify video clipper.
+ * Called by the /api/cron/clips hopper on each retry attempt.
+ * Throws on any failure so the hopper can track retry count and schedule the next attempt.
+ */
+export async function processQueuedClip(
+    clipId: string,
+    youtubeUrl: string,
+    videoTitle?: string | null,
+): Promise<void> {
+    if (!process.env.APIFY_API_TOKEN) throw new Error('APIFY_API_TOKEN not configured')
+
+    const [segments, { description, channelName }] = await Promise.all([
+        fetchTranscript(youtubeUrl),
+        fetchVideoMetadata(youtubeUrl),
+    ])
+
+    if (segments.length === 0) throw new Error('Transcript empty — captions not ready yet')
+
+    const title = videoTitle || ''
+    console.log(`[processQueuedClip] ✓ ${segments.length} transcript segments for clip ${clipId}`)
+
+    await db.update(videoClips)
+        .set({ channelName: channelName || null, videoTitle: title || null })
+        .where(eq(videoClips.id, clipId))
+
+    const transcript = segments.map(s => `${formatTime(s.start)} ${s.text}`).join('\n')
+    const { start, end, rationale, keyQuote, extendedQuote, speakerName: speakerFromClip, tweetDraft } =
+        await selectClipWindow(youtubeUrl, title, transcript, description)
+
+    let speakerName = speakerFromClip
+    if (!speakerName && keyQuote) speakerName = await lookupSpeaker(keyQuote, title, channelName)
+    if (!speakerName && channelName) speakerName = channelName
+
+    const clipSegments = segments.filter(s => s.start >= start - 2 && s.start <= end + 2)
+    const transcriptSegment = clipSegments.map(s => s.text).join(' ')
+
+    const [row] = await db.select({ automationId: videoClips.automationId })
+        .from(videoClips).where(eq(videoClips.id, clipId)).limit(1)
+
+    await db.update(videoClips)
+        .set({
+            startSeconds: start, endSeconds: end, clipRationale: rationale,
+            keyQuote, extendedQuote, tweetDraft, speakerName, transcriptSegment,
+            status: 'processing', errorMessage: null, nextRetryAt: null,
+        })
+        .where(eq(videoClips.id, clipId))
+
+    await triggerApify(clipId, youtubeUrl, start, end, row?.automationId ?? undefined)
+}
+
+/**
  * Start the Apify transcript actor for a clip that already exists in the DB.
  * Exported so the /api/cron/clips hopper can call it directly.
  */
@@ -435,25 +490,29 @@ export async function startAsyncClipProcessing(
 ): Promise<string> {
     const title = videoTitle && videoTitle !== 'Loading...' ? videoTitle : ''
 
-    // Dedup: skip if a clip for this URL was already created in the last 24 hours
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    const existing = await db.query.videoClips.findFirst({
-        where: and(eq(videoClips.youtubeUrl, youtubeUrl), gte(videoClips.createdAt, cutoff)),
-    })
-    if (existing) {
-        console.log(`[startAsyncClipProcessing] Duplicate detected for ${youtubeUrl} — returning existing clip ${existing.id}`)
-        return existing.id
+    // Atomic dedup via DB unique constraint on youtubeUrl.
+    // onConflictDoNothing() means concurrent webhook calls are silently dropped at DB level —
+    // no race condition possible regardless of how many Vercel instances fire simultaneously.
+    const rows = await db.insert(videoClips)
+        .values({
+            youtubeUrl,
+            videoTitle: title || null,
+            status: 'queued',
+            automationId: automationId ?? null,
+        })
+        .onConflictDoNothing()
+        .returning({ id: videoClips.id })
+
+    if (rows.length > 0) {
+        console.log(`[startAsyncClipProcessing] Queued clip ${rows[0].id} — transcript will be fetched by cron in ~20 min`)
+        return rows[0].id
     }
 
-    const [clip] = await db.insert(videoClips).values({
-        youtubeUrl,
-        videoTitle: title || null,
-        status: 'queued',
-        automationId: automationId ?? null,
-    }).returning({ id: videoClips.id })
-    console.log(`[startAsyncClipProcessing] Queued clip ${clip.id} — transcript will be fetched by cron in ~20 min`)
-
-    return clip.id
+    // Conflict — DB rejected the insert because this URL already has a clip
+    const existing = await db.query.videoClips.findFirst({ where: eq(videoClips.youtubeUrl, youtubeUrl) })
+    if (!existing) throw new Error('Dedup conflict but no existing clip found')
+    console.log(`[startAsyncClipProcessing] Duplicate blocked by DB for ${youtubeUrl} — existing clip ${existing.id}`)
+    return existing.id
 }
 
 /**

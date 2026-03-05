@@ -41,6 +41,8 @@ interface VideoClip {
     endSeconds: number | null
     status: string
     errorMessage: string | null
+    retryCount: number
+    nextRetryAt: string | null
     xPostedAt: string | null
     blueskyPostedAt: string | null
     tiktokPostedAt: string | null
@@ -49,17 +51,35 @@ interface VideoClip {
     createdAt: string
 }
 
+function hopperState(clip: VideoClip): 'waiting' | 'retrying' | 'scheduled' {
+    if (clip.status !== 'queued') return 'waiting'
+    if (!clip.nextRetryAt) return 'waiting'
+    const msUntil = new Date(clip.nextRetryAt).getTime() - Date.now()
+    return msUntil <= 0 ? 'retrying' : 'scheduled'
+}
+
 function statusIcon(clip: VideoClip): React.ReactNode {
-    if (clip.status === 'queued' && clip.errorMessage) return <Clock size={14} className="text-amber-400" />
-    if (clip.status === 'queued') return <Loader2 size={14} className="text-slate-400 animate-spin" />
+    if (clip.status === 'queued') {
+        const state = hopperState(clip)
+        if (state === 'scheduled') return <Clock size={14} className="text-amber-400" />
+        if (state === 'retrying') return <Loader2 size={14} className="text-amber-400 animate-spin" />
+        return <Loader2 size={14} className="text-slate-400 animate-spin" />
+    }
     if (clip.status === 'processing') return <Loader2 size={14} className="text-blue-400 animate-spin" />
     if (clip.status === 'done') return <CheckCircle size={14} className="text-green-400" />
     return <AlertTriangle size={14} className="text-red-400" />
 }
 
 function statusLabel(clip: VideoClip): string {
-    if (clip.status === 'queued' && clip.errorMessage) return 'Pending retry'
-    if (clip.status === 'queued') return 'Queued'
+    if (clip.status === 'queued') {
+        const state = hopperState(clip)
+        if (state === 'retrying') return `Retrying (${clip.retryCount + 1}/5)`
+        if (state === 'scheduled') {
+            const minLeft = Math.ceil((new Date(clip.nextRetryAt!).getTime() - Date.now()) / 60000)
+            return `Retry ${clip.retryCount + 1}/5 in ${minLeft}m`
+        }
+        return 'Queued'
+    }
     if (clip.status === 'processing') {
         if (clip.startSeconds != null) return 'Cutting clip...'
         return 'Analyzing...'
@@ -570,9 +590,14 @@ export default function VideosPage() {
                             <div key={clip.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 space-y-2">
                                 {/* Top row: status + title + actions */}
                                 <div className="flex items-start gap-3">
-                                    <div className="flex items-center gap-1.5 flex-shrink-0 w-24 pt-0.5">
+                                    <div className="flex items-center gap-1.5 flex-shrink-0 w-28 pt-0.5">
                                         {statusIcon(clip)}
-                                        <span className="text-xs text-slate-500">{statusLabel(clip)}</span>
+                                        <span className={`text-xs ${
+                                            clip.status === 'queued' && hopperState(clip) !== 'waiting' ? 'text-amber-400' :
+                                            clip.status === 'failed' ? 'text-red-400' :
+                                            clip.status === 'done' ? 'text-green-400' :
+                                            'text-slate-500'
+                                        }`}>{statusLabel(clip)}</span>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-white truncate">
@@ -586,8 +611,19 @@ export default function VideosPage() {
                                         {clip.startSeconds != null && clip.endSeconds != null && (
                                             <p className="text-xs text-slate-600">{clip.startSeconds}s → {clip.endSeconds}s · {clip.endSeconds - clip.startSeconds}s</p>
                                         )}
+                                        {/* Retry progress bar */}
+                                        {clip.status === 'queued' && clip.retryCount > 0 && (
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <div className="flex gap-0.5">
+                                                    {[0,1,2,3,4].map(i => (
+                                                        <div key={i} className={`w-3 h-1.5 rounded-sm ${i < clip.retryCount ? 'bg-amber-500/60' : 'bg-white/10'}`} />
+                                                    ))}
+                                                </div>
+                                                <span className="text-[10px] text-slate-600">{clip.retryCount} of 5 attempts used</span>
+                                            </div>
+                                        )}
                                         {clip.errorMessage && (
-                                            <p className={`text-xs mt-1 break-words ${clip.status === 'queued' ? 'text-amber-400/70' : 'text-red-400'}`}>{clip.errorMessage}</p>
+                                            <p className={`text-xs mt-1 break-words ${clip.status === 'queued' ? 'text-amber-400/60' : 'text-red-400/80'}`}>{clip.errorMessage}</p>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-1 flex-shrink-0">

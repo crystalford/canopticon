@@ -1,16 +1,23 @@
 import { NextResponse } from 'next/server'
 import { db, videoClips } from '@/db'
-import { and, eq, isNull, lte, lt, gte } from 'drizzle-orm'
-import { startApifyTranscript } from '@/lib/videos/pipeline'
+import { and, eq, isNull, isNotNull, lte, lt, or, gte } from 'drizzle-orm'
+import { processQueuedClip } from '@/lib/videos/pipeline'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300
 
-// Clips younger than this are not attempted yet — give YouTube time to generate captions
-const MIN_AGE_MS = 20 * 60 * 1000       // 20 minutes
+// How long before the first attempt (give YouTube time to process captions)
+const FIRST_ATTEMPT_DELAY_MS = 20 * 60 * 1000  // 20 min
 
-// Clips older than this are permanently marked failed — captions won't appear now
-const MAX_AGE_MS = 5 * 60 * 60 * 1000  // 5 hours
+// Retry delays after each failure (exponential-ish backoff)
+const RETRY_DELAYS_MS = [
+    40 * 60 * 1000,   // retry 1 → try again in 40 min
+    60 * 60 * 1000,   // retry 2 → try again in 60 min
+    90 * 60 * 1000,   // retry 3 → try again in 90 min
+    120 * 60 * 1000,  // retry 4 → try again in 2h
+]
+
+const MAX_RETRIES = RETRY_DELAYS_MS.length + 1  // 5 total attempts
 
 export async function GET(req: Request) {
     const authHeader = req.headers.get('authorization')
@@ -19,56 +26,86 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const now = Date.now()
-    const minAge = new Date(now - MIN_AGE_MS)   // older than 20 min — ready to try
-    const maxAge = new Date(now - MAX_AGE_MS)   // older than 5h — give up
+    const now = new Date()
+    const firstAttemptCutoff = new Date(Date.now() - FIRST_ATTEMPT_DELAY_MS)
 
-    // Mark permanently expired clips as failed
-    const expiredResult = await db.update(videoClips)
-        .set({ status: 'failed', errorMessage: 'Captions unavailable after 5 hours — likely disabled on this video' })
+    // Mark clips that have exhausted all retries as permanently failed
+    const exhausted = await db.update(videoClips)
+        .set({ status: 'failed', errorMessage: 'No captions available after all retry attempts (5 tries over ~5 hours)' })
         .where(and(
             eq(videoClips.status, 'queued'),
             isNull(videoClips.startSeconds),
-            lt(videoClips.createdAt, maxAge),
+            gte(videoClips.retryCount, MAX_RETRIES),
         ))
         .returning({ id: videoClips.id })
 
-    if (expiredResult.length > 0) {
-        console.log(`[cron/clips] Expired ${expiredResult.length} clips (>5h, no transcript)`)
+    if (exhausted.length > 0) {
+        console.log(`[cron/clips] Permanently failed ${exhausted.length} exhausted clips`)
     }
 
-    // Find clips ready for their transcript attempt (20min–5h old, still queued, no clip window yet)
+    // Find clips ready for their next attempt:
+    //   - Never tried: queued + no startSeconds + created at least 20min ago + nextRetryAt IS NULL
+    //   - Retrying: queued + no startSeconds + nextRetryAt <= now
     const pending = await db.select({
         id: videoClips.id,
         youtubeUrl: videoClips.youtubeUrl,
         videoTitle: videoClips.videoTitle,
+        retryCount: videoClips.retryCount,
         createdAt: videoClips.createdAt,
     }).from(videoClips).where(and(
         eq(videoClips.status, 'queued'),
         isNull(videoClips.startSeconds),
-        lte(videoClips.createdAt, minAge),
-        gte(videoClips.createdAt, maxAge),
-    )).limit(10)
+        lt(videoClips.retryCount, MAX_RETRIES),
+        or(
+            and(isNull(videoClips.nextRetryAt), lte(videoClips.createdAt, firstAttemptCutoff)),
+            and(isNotNull(videoClips.nextRetryAt), lte(videoClips.nextRetryAt, now)),
+        ),
+    )).limit(3)
 
-    console.log(`[cron/clips] ${pending.length} clips pending transcript`)
+    console.log(`[cron/clips] ${pending.length} clips ready for processing`)
 
-    const results: { id: string; ok: boolean; error?: string }[] = []
+    const results: { id: string; ok: boolean; retryCount: number; nextRetryAt?: string; error?: string }[] = []
 
     for (const clip of pending) {
-        const ageMin = Math.floor((now - new Date(clip.createdAt).getTime()) / 60000)
+        const attempt = clip.retryCount + 1
+        const ageMin = Math.floor((now.getTime() - new Date(clip.createdAt).getTime()) / 60000)
+        console.log(`[cron/clips] Attempt ${attempt}/${MAX_RETRIES} for clip ${clip.id} (${ageMin}min old): ${clip.videoTitle || clip.youtubeUrl}`)
+
         try {
-            await startApifyTranscript(clip.id, clip.youtubeUrl)
-            console.log(`[cron/clips] ✓ Started transcript for ${clip.id} (${ageMin}min old): ${clip.videoTitle}`)
-            results.push({ id: clip.id, ok: true })
+            await processQueuedClip(clip.id, clip.youtubeUrl, clip.videoTitle)
+            console.log(`[cron/clips] ✓ Clip ${clip.id} processed successfully`)
+            results.push({ id: clip.id, ok: true, retryCount: attempt })
         } catch (e: any) {
-            console.error(`[cron/clips] ✗ Failed to start transcript for ${clip.id}: ${e.message}`)
-            results.push({ id: clip.id, ok: false, error: e.message })
+            const newRetryCount = attempt
+            const nextDelay = RETRY_DELAYS_MS[newRetryCount - 1]  // undefined if exhausted
+            const nextRetryAt = nextDelay ? new Date(Date.now() + nextDelay) : null
+
+            await db.update(videoClips)
+                .set({
+                    retryCount: newRetryCount,
+                    nextRetryAt,
+                    errorMessage: `Attempt ${attempt}: ${e.message}`,
+                    // If no more retries, mark failed immediately
+                    ...(newRetryCount >= MAX_RETRIES
+                        ? { status: 'failed', errorMessage: `Failed after ${MAX_RETRIES} attempts. Last error: ${e.message}` }
+                        : {}),
+                })
+                .where(eq(videoClips.id, clip.id))
+
+            console.error(`[cron/clips] ✗ Clip ${clip.id} attempt ${attempt} failed: ${e.message}${nextRetryAt ? ` — next retry at ${nextRetryAt.toISOString()}` : ' — giving up'}`)
+            results.push({
+                id: clip.id,
+                ok: false,
+                retryCount: newRetryCount,
+                nextRetryAt: nextRetryAt?.toISOString(),
+                error: e.message,
+            })
         }
     }
 
     return NextResponse.json({
         processed: results.length,
-        expired: expiredResult.length,
+        exhausted: exhausted.length,
         results,
     })
 }
