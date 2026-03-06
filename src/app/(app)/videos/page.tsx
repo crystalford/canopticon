@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp, Wifi, Clock } from 'lucide-react'
+import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp, Wifi, Clock, Download } from 'lucide-react'
 import { format } from 'date-fns'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -105,6 +105,7 @@ export default function VideosPage() {
     const [adding, setAdding] = useState(false)
     const [posting, setPosting] = useState<{ id: string; platform: PostingPlatform } | null>(null)
     const [postErrors, setPostErrors] = useState<Record<string, string>>({})
+    const [tiktokDownloaded, setTiktokDownloaded] = useState<Record<string, boolean>>({})
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editConfig, setEditConfig] = useState<{ contentFilter: string; clipArticle: boolean; postX: boolean; postBluesky: boolean; postTiktok: boolean; postThreads: boolean } | null>(null)
     const [saving, setSaving] = useState(false)
@@ -698,15 +699,22 @@ export default function VideosPage() {
                                             <span className="text-[10px] bg-blue-500/10 border border-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded">Bluesky ✓</span>
                                         )}
 
-                                        {/* TikTok */}
+                                        {/* TikTok — download MP4 for manual upload */}
                                         {!clip.tiktokPostedAt ? (
-                                            <button onClick={() => postClip(clip.id, 'tiktok')}
-                                                disabled={posting?.id === clip.id && posting.platform === 'tiktok'}
-                                                className="flex items-center gap-1 px-2 py-1 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/20 text-pink-400 rounded-lg text-xs transition-colors disabled:opacity-50"
-                                                title={postErrors[`${clip.id}-tiktok`] || 'Post to TikTok'}>
-                                                {posting?.id === clip.id && posting.platform === 'tiktok' ? <Loader2 size={10} className="animate-spin" /> : <Send size={10} />}
-                                                TikTok
-                                            </button>
+                                            <div className="flex flex-col gap-0.5">
+                                                <a
+                                                    href={clip.clipUrl!}
+                                                    download={`${clip.videoTitle || 'clip'}.mp4`}
+                                                    onClick={() => setTiktokDownloaded(prev => ({ ...prev, [clip.id]: true }))}
+                                                    className="flex items-center gap-1 px-2 py-1 bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/20 text-pink-400 rounded-lg text-xs transition-colors"
+                                                >
+                                                    <Download size={10} />
+                                                    {tiktokDownloaded[clip.id] ? 'Downloaded ✓' : 'TikTok'}
+                                                </a>
+                                                {tiktokDownloaded[clip.id] && (
+                                                    <span className="text-[9px] text-slate-500 leading-tight pl-0.5">Open TikTok to upload</span>
+                                                )}
+                                            </div>
                                         ) : (
                                             <span className="text-[10px] bg-pink-500/10 border border-pink-500/20 text-pink-400 px-1.5 py-0.5 rounded">TikTok ✓</span>
                                         )}
