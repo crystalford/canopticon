@@ -164,20 +164,16 @@ async function fetchTranscriptViaApify(youtubeUrl: string): Promise<Array<{ star
 }
 
 /**
- * Fetch transcript — tries direct YouTube first (fast), falls back to Apify polling (reliable).
+ * Fetch transcript — direct YouTube fetch only (free). No Apify fallback.
+ * If captions aren't ready yet, throws so the hopper can retry later at no cost.
  */
 async function fetchTranscript(youtubeUrl: string): Promise<Array<{ start: number; text: string }>> {
-    try {
-        const segments = await fetchYouTubeTranscriptDirect(youtubeUrl)
-        if (segments.length > 0) {
-            console.log(`[fetchTranscript] ✓ Direct: ${segments.length} segments`)
-            return segments
-        }
-        console.warn('[fetchTranscript] Direct fetch returned 0 segments — falling back to Apify')
-    } catch (e: any) {
-        console.warn(`[fetchTranscript] Direct fetch failed: ${e.message} — falling back to Apify`)
+    const segments = await fetchYouTubeTranscriptDirect(youtubeUrl)
+    if (segments.length === 0) {
+        throw new Error('No transcript yet — captions not ready (will retry automatically)')
     }
-    return fetchTranscriptViaApify(youtubeUrl)
+    console.log(`[fetchTranscript] ✓ Direct: ${segments.length} segments`)
+    return segments
 }
 
 /**
@@ -751,12 +747,61 @@ function isFrenchTitle(title: string): boolean {
     return FRENCH_TITLE_PATTERNS.some(p => t.includes(p))
 }
 
-// Matches YouTube's standard live broadcast title convention ("LIVE:", "🔴 LIVE", etc.)
-// Also catches rolling live streams like "CBC News Live" suffix
-const LIVE_TITLE_PATTERNS = [/^live:/i, /^🔴/, /\blive stream\b/i, /\blive coverage\b/i, /news live$/i, /^watch live\b/i]
+// Matches live broadcasts, rolling streams, and conference filler content unlikely to be a viral clip.
+// Includes CPAC-style patterns: "Day 1", "Full Session", "Panel:", "Opening Ceremony", etc.
+const LIVE_TITLE_PATTERNS = [
+    /^live:/i,
+    /^🔴/,
+    /\blive stream\b/i,
+    /\blive coverage\b/i,
+    /news live$/i,
+    /^watch live\b/i,
+    /\bfull session\b/i,
+    /\bopening ceremony\b/i,
+    /\bclosing ceremony\b/i,
+    /\bday \d+\b/i,          // "Day 1", "Day 2", etc.
+    /^panel:/i,              // "Panel: Housing Policy..."
+    /\bfull panel\b/i,
+    /\bmorning session\b/i,
+    /\bafternoon session\b/i,
+    /\bkeynote address\b/i,
+    /\bwelcome remarks\b/i,
+    /\bawards ceremony\b/i,
+    /\bgala dinner\b/i,
+]
 
 export function isLiveTitle(title: string): boolean {
     return LIVE_TITLE_PATTERNS.some(p => p.test(title))
+}
+
+/**
+ * Score a video title for viral/shareability potential using Claude Haiku (~$0.001).
+ * Returns true only if the title strongly suggests a newsworthy, shareable moment.
+ * Called before queuing — saves the entire downstream Apify clipper run for duds.
+ */
+async function isBanger(title: string): Promise<boolean> {
+    try {
+        const model = await getModel('anthropic', 'claude-haiku-4-5-20251001')
+        const result = await generateText({
+            model,
+            prompt: `You are a viral political video editor. Rate this YouTube video title for its likelihood of containing a shareable, high-impact political moment.
+
+SCORE 8-10 (queue it): Named major political figure (PM, party leader, cabinet minister, recognizable politician) making a specific claim, accusation, admission, or heated exchange. Breaking news. Scandal. Policy showdown. A moment that makes someone say "did they really just say that?".
+
+SCORE 1-5 (skip it): Generic panel discussions, conference sessions, routine press briefings with no named figure, weekly recaps, introductory remarks, award ceremonies, background explainers, "what is X" educational videos.
+
+Title: "${title}"
+
+Reply with ONLY a single integer from 1-10. Nothing else.`,
+        })
+        const score = parseInt(result.text.trim())
+        console.log(`[isBanger] "${title.slice(0, 60)}" → score ${score}/10`)
+        return score >= 7
+    } catch (e: any) {
+        // Fail open — if AI is unavailable, don't block the clip
+        console.warn(`[isBanger] Score check failed: ${e.message} — allowing clip through`)
+        return true
+    }
 }
 
 /**
@@ -802,15 +847,19 @@ export async function processVideoForMonitor(
 ): Promise<{ queued: boolean; reason?: string }> {
     if (!url) return { queued: false, reason: 'No URL' }
 
-    if (isLiveTitle(title)) return { queued: false, reason: `Live stream skipped: "${title}"` }
+    if (isLiveTitle(title)) return { queued: false, reason: `Live stream / conference filler skipped: "${title}"` }
     if (isFrenchTitle(title)) return { queued: false, reason: `French video skipped: "${title}"` }
 
     const config = automation.config as Record<string, any>
     const contentFilter = config.contentFilter as string | undefined
     if (contentFilter) {
         const matched = await filterByContent([{ title }], contentFilter)
-        if (!matched.length) return { queued: false, reason: `Filtered out: "${title}"` }
+        if (!matched.length) return { queued: false, reason: `Content filter mismatch: "${title}"` }
     }
+
+    // Banger check — score the title for virality before spending on the clipper
+    const banger = await isBanger(title)
+    if (!banger) return { queued: false, reason: `Low virality score — skipped: "${title}"` }
 
     await startAsyncClipProcessing(url, title, automation.id)
     return { queued: true }

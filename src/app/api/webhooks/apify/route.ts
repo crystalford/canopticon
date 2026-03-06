@@ -10,10 +10,8 @@ export const maxDuration = 60
 const CLIPPER_RETRY_DELAYS_MS = [
     10 * 60 * 1000,  // retry 1 → 10 min
     20 * 60 * 1000,  // retry 2 → 20 min
-    40 * 60 * 1000,  // retry 3 → 40 min
-    60 * 60 * 1000,  // retry 4 → 60 min
 ]
-const MAX_CLIPPER_RETRIES = CLIPPER_RETRY_DELAYS_MS.length + 1 // 5 total attempts
+const MAX_CLIPPER_RETRIES = CLIPPER_RETRY_DELAYS_MS.length + 1 // 3 total attempts
 
 export async function POST(req: Request) {
     const { searchParams } = new URL(req.url)
