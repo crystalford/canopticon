@@ -6,6 +6,15 @@ import { onClipReady } from '@/lib/videos/pipeline'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
+// Retry backoff for Apify video clipper failures (progressive, in ms)
+const CLIPPER_RETRY_DELAYS_MS = [
+    10 * 60 * 1000,  // retry 1 → 10 min
+    20 * 60 * 1000,  // retry 2 → 20 min
+    40 * 60 * 1000,  // retry 3 → 40 min
+    60 * 60 * 1000,  // retry 4 → 60 min
+]
+const MAX_CLIPPER_RETRIES = CLIPPER_RETRY_DELAYS_MS.length + 1 // 5 total attempts
+
 export async function POST(req: Request) {
     const { searchParams } = new URL(req.url)
     const clipId = searchParams.get('clipId')
@@ -22,10 +31,42 @@ export async function POST(req: Request) {
         console.log(`[webhook/apify] Clip ${clipId} — eventType: ${eventType}, status: ${status}`)
 
         const succeeded = eventType === 'ACTOR.RUN.SUCCEEDED' || status === 'SUCCEEDED'
+
         if (!succeeded) {
-            await db.update(videoClips)
-                .set({ status: 'failed', errorMessage: `Clipper run failed (${eventType || status})` })
+            // Clipper actor failed — retry with backoff instead of permanently failing
+            const [clip] = await db.select({ retryCount: videoClips.retryCount })
+                .from(videoClips)
                 .where(eq(videoClips.id, clipId))
+                .limit(1)
+
+            const currentRetries = clip?.retryCount ?? 0
+            const nextRetryCount = currentRetries + 1
+
+            if (nextRetryCount >= MAX_CLIPPER_RETRIES) {
+                // Exhausted all retries — permanently fail
+                console.log(`[webhook/apify] Clip ${clipId} clipper permanently failed after ${nextRetryCount} attempts`)
+                await db.update(videoClips)
+                    .set({
+                        status: 'failed',
+                        errorMessage: `Video clipper failed after ${MAX_CLIPPER_RETRIES} attempts (${eventType || status})`,
+                        retryCount: nextRetryCount,
+                    })
+                    .where(eq(videoClips.id, clipId))
+            } else {
+                // Re-queue for hopper to retry the clipping step
+                const delay = CLIPPER_RETRY_DELAYS_MS[currentRetries] ?? CLIPPER_RETRY_DELAYS_MS[CLIPPER_RETRY_DELAYS_MS.length - 1]
+                const nextRetryAt = new Date(Date.now() + delay)
+                console.log(`[webhook/apify] Clip ${clipId} clipper failed (attempt ${nextRetryCount}/${MAX_CLIPPER_RETRIES}) — requeueing for ${delay / 60000}min`)
+                await db.update(videoClips)
+                    .set({
+                        status: 'queued',
+                        errorMessage: `Clipper attempt ${nextRetryCount}/${MAX_CLIPPER_RETRIES} failed (${eventType || status}) — retrying`,
+                        retryCount: nextRetryCount,
+                        nextRetryAt,
+                    })
+                    .where(eq(videoClips.id, clipId))
+            }
+
             return NextResponse.json({ ok: true })
         }
 

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp, Wifi, Clock, Download } from 'lucide-react'
+import { Plus, Play, Trash2, Loader2, Video, Radio, CheckCircle, AlertTriangle, ExternalLink, Send, FileText, Settings, Save, RefreshCw, ChevronDown, ChevronUp, Wifi, Clock, Download, RotateCcw } from 'lucide-react'
 import { format } from 'date-fns'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, formatDistance } from 'date-fns'
 
 interface VideoMonitor {
     id: string
@@ -51,11 +51,19 @@ interface VideoClip {
     createdAt: string
 }
 
+// Distinguish what stage of queueing a clip is at
 function hopperState(clip: VideoClip): 'waiting' | 'retrying' | 'scheduled' {
     if (clip.status !== 'queued') return 'waiting'
     if (!clip.nextRetryAt) return 'waiting'
     const msUntil = new Date(clip.nextRetryAt).getTime() - Date.now()
     return msUntil <= 0 ? 'retrying' : 'scheduled'
+}
+
+// Which pipeline stage is active
+function clipStage(clip: VideoClip): 'transcript' | 'clipper' | 'done' {
+    if (clip.startSeconds != null && clip.clipUrl == null) return 'clipper'
+    if (clip.startSeconds != null && clip.clipUrl != null) return 'done'
+    return 'transcript'
 }
 
 function statusIcon(clip: VideoClip): React.ReactNode {
@@ -73,11 +81,14 @@ function statusIcon(clip: VideoClip): React.ReactNode {
 function statusLabel(clip: VideoClip): string {
     if (clip.status === 'queued') {
         const state = hopperState(clip)
-        if (state === 'retrying') return `Retrying (${clip.retryCount + 1}/5)`
+        const stage = clipStage(clip)
+        const stageLabel = stage === 'clipper' ? 'Clipper' : 'Transcript'
+        if (state === 'retrying') return `${stageLabel} retry ${clip.retryCount}/5`
         if (state === 'scheduled') {
             const minLeft = Math.ceil((new Date(clip.nextRetryAt!).getTime() - Date.now()) / 60000)
-            return `Retry ${clip.retryCount + 1}/5 in ${minLeft}m`
+            return `${stageLabel} retry in ${minLeft}m`
         }
+        if (!clip.nextRetryAt && clip.retryCount === 0) return 'Queued — waiting for captions...'
         return 'Queued'
     }
     if (clip.status === 'processing') {
@@ -87,6 +98,24 @@ function statusLabel(clip: VideoClip): string {
     if (clip.status === 'done') return 'Ready'
     if (clip.status === 'failed') return 'Failed'
     return clip.status
+}
+
+// Return a short, human-readable error string (strip internal prefixes)
+function friendlyError(msg: string | null): string {
+    if (!msg) return 'Unknown error'
+    // Strip "Attempt N: " or "Clipper attempt N/M failed (X) — " prefixes
+    const cleaned = msg
+        .replace(/^Attempt \d+: /, '')
+        .replace(/^Clipper attempt \d+\/\d+ failed \([^)]+\) — /, '')
+    // Categorize common known errors
+    if (cleaned.includes('No captionTracks') || cleaned.includes('captionTracks')) return 'No transcript returned — captions may be disabled on this video'
+    if (cleaned.includes('Captions not ready') || cleaned.includes('captions not ready')) return cleaned
+    if (cleaned.includes('ACTOR.RUN.FAILED') || cleaned.includes('Clipper run failed')) return 'Clipper run failed (ACTOR.RUN.FAILED)'
+    if (cleaned.includes('No clip URL') || cleaned.includes('geo-restricted')) return 'Video may be geo-restricted or unavailable for clipping'
+    if (cleaned.includes('too short')) return cleaned
+    if (cleaned.includes('Live broadcast')) return 'Live broadcast — captions not ready yet'
+    // Truncate anything very long
+    return cleaned.length > 120 ? cleaned.slice(0, 120) + '…' : cleaned
 }
 
 type PostingPlatform = 'x' | 'bluesky' | 'tiktok' | 'threads'
@@ -117,6 +146,7 @@ export default function VideosPage() {
     const [runResults, setRunResults] = useState<Record<string, string>>({})
     const [subscribingId, setSubscribingId] = useState<string | null>(null)
     const [subscribeErrors, setSubscribeErrors] = useState<Record<string, string>>({})
+    const [retrying, setRetrying] = useState<string | null>(null)
 
     const fetchAll = useCallback(async () => {
         const [mRes, cRes] = await Promise.all([
@@ -275,14 +305,24 @@ export default function VideosPage() {
         fetchAll()
     }
 
+    const retryClip = async (id: string) => {
+        setRetrying(id)
+        try {
+            await fetch(`/api/videos/${id}/retry`, { method: 'POST' })
+            fetchAll()
+        } finally {
+            setRetrying(null)
+        }
+    }
+
     const postClip = async (id: string, platform: PostingPlatform) => {
         setPosting({ id, platform })
         setPostErrors(prev => ({ ...prev, [`${id}-${platform}`]: '' }))
         try {
             const endpoint = platform === 'x' ? 'post-x'
                 : platform === 'bluesky' ? 'post-bluesky'
-                : platform === 'tiktok' ? 'post-tiktok'
-                : 'post-threads'
+                    : platform === 'tiktok' ? 'post-tiktok'
+                        : 'post-threads'
             const res = await fetch(`/api/videos/${id}/${endpoint}`, { method: 'POST' })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Failed to post')
@@ -593,12 +633,11 @@ export default function VideosPage() {
                                 <div className="flex items-start gap-3">
                                     <div className="flex items-center gap-1.5 flex-shrink-0 w-28 pt-0.5">
                                         {statusIcon(clip)}
-                                        <span className={`text-xs ${
-                                            clip.status === 'queued' && hopperState(clip) !== 'waiting' ? 'text-amber-400' :
-                                            clip.status === 'failed' ? 'text-red-400' :
-                                            clip.status === 'done' ? 'text-green-400' :
-                                            'text-slate-500'
-                                        }`}>{statusLabel(clip)}</span>
+                                        <span className={`text-xs ${clip.status === 'queued' && hopperState(clip) !== 'waiting' ? 'text-amber-400' :
+                                                clip.status === 'failed' ? 'text-red-400' :
+                                                    clip.status === 'done' ? 'text-green-400' :
+                                                        'text-slate-500'
+                                            }`}>{statusLabel(clip)}</span>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-white truncate">
@@ -616,7 +655,7 @@ export default function VideosPage() {
                                         {clip.status === 'queued' && clip.retryCount > 0 && (
                                             <div className="flex items-center gap-2 mt-1">
                                                 <div className="flex gap-0.5">
-                                                    {[0,1,2,3,4].map(i => (
+                                                    {[0, 1, 2, 3, 4].map(i => (
                                                         <div key={i} className={`w-3 h-1.5 rounded-sm ${i < clip.retryCount ? 'bg-amber-500/60' : 'bg-white/10'}`} />
                                                     ))}
                                                 </div>
@@ -624,7 +663,15 @@ export default function VideosPage() {
                                             </div>
                                         )}
                                         {clip.errorMessage && (
-                                            <p className={`text-xs mt-1 break-words ${clip.status === 'queued' ? 'text-amber-400/60' : 'text-red-400/80'}`}>{clip.errorMessage}</p>
+                                            <p className={`text-xs mt-1 break-words ${clip.status === 'queued' ? 'text-amber-400/60' : 'text-red-400/80'}`}>
+                                                {friendlyError(clip.errorMessage)}
+                                            </p>
+                                        )}
+                                        {/* Next retry countdown */}
+                                        {clip.status === 'queued' && clip.nextRetryAt && hopperState(clip) === 'scheduled' && (
+                                            <p className="text-[10px] text-slate-600 mt-0.5">
+                                                Next attempt {formatDistance(new Date(clip.nextRetryAt), new Date(), { addSuffix: true })}
+                                            </p>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-1 flex-shrink-0">
@@ -633,6 +680,17 @@ export default function VideosPage() {
                                                 className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors" title="View clip">
                                                 <ExternalLink size={13} />
                                             </a>
+                                        )}
+                                        {/* Retry button — shown for failed clips or stuck queued clips */}
+                                        {(clip.status === 'failed' || (clip.status === 'queued' && clip.retryCount > 0)) && (
+                                            <button
+                                                onClick={() => retryClip(clip.id)}
+                                                disabled={retrying === clip.id}
+                                                className="p-1.5 text-slate-500 hover:text-amber-400 disabled:opacity-40 rounded-lg hover:bg-white/5 transition-colors"
+                                                title="Retry now — resets to fresh attempt"
+                                            >
+                                                {retrying === clip.id ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                                            </button>
                                         )}
                                         <button onClick={() => deleteClip(clip.id)}
                                             className="p-1.5 text-slate-600 hover:text-red-400 rounded-lg hover:bg-white/5 transition-colors" title="Delete">

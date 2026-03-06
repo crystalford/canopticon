@@ -275,7 +275,7 @@ Return ONLY valid JSON, no markdown:
     }
 }
 
-async function triggerApify(
+export async function triggerApify(
     clipId: string,
     youtubeUrl: string,
     start: number,
