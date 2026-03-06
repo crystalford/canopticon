@@ -164,16 +164,31 @@ async function fetchTranscriptViaApify(youtubeUrl: string): Promise<Array<{ star
 }
 
 /**
- * Fetch transcript — direct YouTube fetch only (free). No Apify fallback.
- * If captions aren't ready yet, throws so the hopper can retry later at no cost.
+ * Fetch transcript — tries direct YouTube fetch first (free).
+ * Falls back to Apify only if allowApifyFallback=true (passed for attempt 3+ only).
+ * This limits Apify usage to at most 1-2 paid runs per video instead of one per retry.
  */
-async function fetchTranscript(youtubeUrl: string): Promise<Array<{ start: number; text: string }>> {
-    const segments = await fetchYouTubeTranscriptDirect(youtubeUrl)
-    if (segments.length === 0) {
+async function fetchTranscript(
+    youtubeUrl: string,
+    allowApifyFallback = false
+): Promise<Array<{ start: number; text: string }>> {
+    try {
+        const segments = await fetchYouTubeTranscriptDirect(youtubeUrl)
+        if (segments.length > 0) {
+            console.log(`[fetchTranscript] ✓ Direct: ${segments.length} segments`)
+            return segments
+        }
+        console.warn('[fetchTranscript] Direct fetch returned 0 segments')
+    } catch (e: any) {
+        console.warn(`[fetchTranscript] Direct fetch failed: ${e.message}`)
+    }
+
+    if (!allowApifyFallback) {
         throw new Error('No transcript yet — captions not ready (will retry automatically)')
     }
-    console.log(`[fetchTranscript] ✓ Direct: ${segments.length} segments`)
-    return segments
+
+    console.log('[fetchTranscript] Falling back to Apify transcript actor...')
+    return fetchTranscriptViaApify(youtubeUrl)
 }
 
 /**
@@ -401,18 +416,25 @@ export async function queueVideoClip(
 
 /**
  * Process an existing 'queued' clip: fetch transcript, pick clip window, trigger Apify video clipper.
- * Called by the /api/cron/clips hopper on each retry attempt.
- * Throws on any failure so the hopper can track retry count and schedule the next attempt.
+ * Called by /api/cron/clips on each retry attempt.
+ * retryCount is used to decide whether to allow the Apify transcript fallback:
+ *   - Attempts 0-1: direct fetch only (free)
+ *   - Attempt 2+: allow Apify fallback (residential proxy, bypasses Vercel IP blocks)
  */
 export async function processQueuedClip(
     clipId: string,
     youtubeUrl: string,
     videoTitle?: string | null,
+    retryCount = 0,
 ): Promise<void> {
     if (!process.env.APIFY_API_TOKEN) throw new Error('APIFY_API_TOKEN not configured')
 
+    // Gate Apify transcript fallback to attempt 3+ only (retryCount is 0-indexed)
+    const allowApifyFallback = retryCount >= 2
+    console.log(`[processQueuedClip] Attempt ${retryCount + 1}, Apify fallback: ${allowApifyFallback}`)
+
     const [segments, { description, channelName }] = await Promise.all([
-        fetchTranscript(youtubeUrl),
+        fetchTranscript(youtubeUrl, allowApifyFallback),
         fetchVideoMetadata(youtubeUrl),
     ])
 

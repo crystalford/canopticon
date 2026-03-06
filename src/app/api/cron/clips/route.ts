@@ -114,7 +114,7 @@ export async function GET(req: Request) {
         console.log(`[cron/clips] Transcript attempt ${attempt}/${MAX_RETRIES} for clip ${clip.id} (${ageMin}min old): ${clip.videoTitle || clip.youtubeUrl}`)
 
         try {
-            await processQueuedClip(clip.id, clip.youtubeUrl, clip.videoTitle)
+            await processQueuedClip(clip.id, clip.youtubeUrl, clip.videoTitle, clip.retryCount)
             console.log(`[cron/clips] ✓ Clip ${clip.id} transcript+AI done`)
             results.push({ id: clip.id, stage: 'transcript', ok: true, retryCount: attempt })
         } catch (e: any) {
