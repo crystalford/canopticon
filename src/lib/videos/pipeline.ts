@@ -666,6 +666,7 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                 const xClient = new TwitterApi({ appKey: apiKey, appSecret: apiSecret, accessToken: xAccessToken, accessSecret: xAccessSecret })
                 const thread = buildTweetThread({
                     rtHook: clip.keyQuote,
+                    extendedQuote: clip.extendedQuote,
                     contextNote: clip.tweetDraft,
                     channelName: clip.channelName,
                     youtubeUrl: clip.youtubeUrl,
@@ -679,21 +680,10 @@ export async function onClipReady(clipId: string, apifyClipUrl: string): Promise
                     console.warn('[onClipReady] X video upload failed:', e)
                 }
 
-                // Tweet 1: RT hook (with video)
+                // Single post with video
                 const xTweet = await xClient.v2.tweet(thread[0], xMediaId ? { media: { media_ids: [xMediaId] } } : {})
                 await db.update(videoClips).set({ xPostedAt: new Date(), xPostId: xTweet.data.id }).where(eq(videoClips.id, clipId))
-                console.log(`[onClipReady] ✓ Posted to X (${thread.length}-tweet thread)`)
-
-                // Remaining thread tweets
-                let replyToId = xTweet.data.id
-                for (const replyText of thread.slice(1)) {
-                    try {
-                        const reply = await xClient.v2.tweet(replyText, { reply: { in_reply_to_tweet_id: replyToId } })
-                        replyToId = reply.data.id
-                    } catch (e: any) {
-                        console.warn(`[onClipReady] Thread reply failed: ${e.message}`)
-                    }
-                }
+                console.log(`[onClipReady] ✓ Posted to X`)
 
             } catch (e: any) {
                 console.error(`[onClipReady] X post failed: ${e.message}`)
