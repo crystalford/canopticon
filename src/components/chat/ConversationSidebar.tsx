@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { Plus, MessageSquare, Trash2, Pencil, Search, Pin, PinOff, Radio, FileText, LayoutGrid, Settings, Video } from 'lucide-react'
+import { Plus, MessageSquare, Trash2, Pencil, Search, Pin, PinOff, FileText, LayoutGrid, Settings, Video, Newspaper } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface Conversation {
@@ -23,7 +23,6 @@ export function ConversationSidebar() {
     // But if we are not on /chat, we might not have one.
     const activeConversationId = pathname.includes('/chat') ? searchParams.get('c') : null
 
-    // If we are on /feeds, /content, or /settings, highlight those
     const isFeedsActive = pathname.includes('/feeds')
     const isArticlesActive = pathname.includes('/content')
     const isVideosActive = pathname.includes('/videos')
@@ -239,19 +238,8 @@ export function ConversationSidebar() {
                         : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
                         }`}
                 >
-                    <Radio className="w-4 h-4" />
-                    Pipelines
-                </Link>
-
-                <Link
-                    href="/videos"
-                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isVideosActive
-                        ? 'bg-white/10 text-white'
-                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-                        }`}
-                >
-                    <Video className="w-4 h-4" />
-                    Videos
+                    <Newspaper className="w-4 h-4" />
+                    Article Pipelines
                 </Link>
 
                 <Link
@@ -263,6 +251,17 @@ export function ConversationSidebar() {
                 >
                     <FileText className="w-4 h-4" />
                     Articles
+                </Link>
+
+                <Link
+                    href="/videos"
+                    className={`nav-item w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${isVideosActive
+                        ? 'bg-white/10 text-white'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                        }`}
+                >
+                    <Video className="w-4 h-4" />
+                    Videos
                 </Link>
 
                 <Link

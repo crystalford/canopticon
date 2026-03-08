@@ -61,7 +61,6 @@ function PipelineFlow({ automation }: { automation: Automation }) {
             : type === 'rss'
                 ? { label: '📡 RSS Feed', color: 'text-orange-400 bg-orange-500/10 border-orange-500/20' }
                 : { label: '🔍 Keyword Search', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-        ...(clipVideo ? [{ label: '🎬 Clip', color: 'text-red-400 bg-red-500/10 border-red-500/20' }] : []),
         { label: `${writingLabel}: Write`, color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' },
         ...(writeArticle ? [articleDraft
             ? { label: '📋 Draft', color: 'text-slate-400 bg-slate-500/10 border-slate-500/20' }
@@ -104,7 +103,6 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
     // Output flags
     const [writeArticle, setWriteArticle] = useState(true)
     const [articleDraft, setArticleDraft] = useState(false)
-    const [clipVideo, setClipVideo] = useState(false)
     const [postX, setPostX] = useState(false)
     const [xFormat, setXFormat] = useState<'thread' | 'post'>('thread')
     const [xTweetCount, setXTweetCount] = useState(4)
@@ -134,7 +132,6 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
         }
         config.writeArticle = writeArticle
         config.articleDraft = articleDraft
-        config.clipVideo = type === 'youtube' ? clipVideo : false
         config.postX = postX
         config.xFormat = xFormat
         config.xTweetCount = xTweetCount
@@ -267,22 +264,6 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                 )}
             </div>
 
-            {/* Video Clip (YouTube only) */}
-            {type === 'youtube' && (
-                <div className={`rounded-xl border p-4 transition-colors ${clipVideo ? 'border-white/15 bg-white/[0.02]' : 'border-white/[0.06]'}`}>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <span className="text-base">🎬</span>
-                            <div>
-                                <div className="text-sm font-medium text-white">Video Clip</div>
-                                <div className="text-[10px] text-slate-500">AI finds the best 30-90s hook, clips via Apify</div>
-                            </div>
-                        </div>
-                        <WizardToggle checked={clipVideo} onChange={setClipVideo} />
-                    </div>
-                </div>
-            )}
-
             {/* Post to X */}
             <div className={`rounded-xl border p-4 transition-colors ${postX ? 'border-white/15 bg-white/[0.02]' : 'border-white/[0.06]'}`}>
                 <div className="flex items-center justify-between">
@@ -290,9 +271,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                         <span className="text-sm font-bold text-slate-200 w-5 text-center">𝕏</span>
                         <div>
                             <div className="text-sm font-medium text-white">Post to X</div>
-                            <div className="text-[10px] text-slate-500">
-                                {clipVideo ? 'Native clip attached to first tweet' : 'YouTube thumbnail attached'}
-                            </div>
+                            <div className="text-[10px] text-slate-500">AI-generated or stock image attached</div>
                         </div>
                     </div>
                     <WizardToggle checked={postX} onChange={setPostX} />
@@ -442,7 +421,7 @@ function NewPipelineForm({ onCreated, onCancel }: NewPipelineFormProps) {
                         className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition-all shadow-lg shadow-red-600/20 disabled:opacity-50"
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-                        {saving ? 'Creating Pipeline...' : 'Finish & Create Pipeline'}
+                        {saving ? 'Creating…' : 'Create Pipeline'}
                     </button>
                 )}
             </div>
@@ -759,7 +738,7 @@ export function FeedsList() {
                                     )}
                                     {result.threadUrl && (
                                         <a href={result.threadUrl} target="_blank" rel="noreferrer" className="text-slate-300 hover:text-white flex items-center gap-1 underline underline-offset-2">
-                                            <ExternalLink size={11} /> View X Thread
+                                            <ExternalLink size={11} /> View on X
                                         </a>
                                     )}
                                     {result.xPostError && <span className="text-yellow-400">⚠ X post failed: {result.xPostError}</span>}

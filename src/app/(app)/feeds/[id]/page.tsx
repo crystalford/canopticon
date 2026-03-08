@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-    ArrowLeft, Play, Zap, Calendar, CheckCircle, AlertTriangle,
-    ExternalLink, Loader2, Save, RefreshCw, Power, ChevronRight
+    ArrowLeft, ExternalLink, Loader2, Save, Power
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import Link from 'next/link'
@@ -22,25 +21,6 @@ interface Automation {
     createdAt: string
 }
 
-interface VideoClip {
-    id: string
-    videoTitle: string | null
-    youtubeUrl: string
-    clipUrl: string | null
-    status: string
-    clipRationale: string | null
-    createdAt: string
-}
-
-interface Video {
-    videoId: string
-    title: string
-    link: string
-    pubDate: string
-    description: string
-    thumbnail: string | null
-}
-
 interface Article {
     id: string
     title: string
@@ -48,17 +28,6 @@ interface Article {
     status: string
     summary: string | null
     createdAt: string
-}
-
-interface RunResult {
-    success: boolean
-    skipped?: boolean
-    articleId?: string
-    articleTitle?: string
-    articleSummary?: string
-    threadUrl?: string
-    xPostError?: string
-    error?: string
 }
 
 // Perplexity is used automatically for web search — only tool-capable models here
@@ -74,15 +43,10 @@ function deriveFlags(config: any) {
         return {
             writeArticle: config.writeArticle ?? true,
             articleDraft: config.articleDraft ?? false,
-            clipVideo: config.clipVideo ?? false,
             postX: config.postX ?? false,
             xFormat: config.xFormat ?? 'thread',
             xTweetCount: config.xTweetCount ?? 4,
             includeArticleLink: config.includeArticleLink ?? false,
-            clipArticle: config.clipArticle ?? true,
-            clipPostBluesky: config.postBluesky ?? false,
-            clipPostThreads: config.postThreads ?? false,
-            clipPostTiktok: config.postTiktok ?? false,
         }
     }
     // Legacy outputMode
@@ -90,15 +54,10 @@ function deriveFlags(config: any) {
     return {
         writeArticle: mode !== 'x_only',
         articleDraft: mode === 'draft',
-        clipVideo: config.videoClippingEnabled ?? false,
         postX: ['article_and_x', 'article_and_x_post', 'x_only'].includes(mode),
         xFormat: mode === 'article_and_x_post' ? 'post' : 'thread',
         xTweetCount: 4,
         includeArticleLink: false,
-        clipArticle: true,
-        clipPostBluesky: false,
-        clipPostThreads: false,
-        clipPostTiktok: false,
     }
 }
 
@@ -119,14 +78,9 @@ export default function PipelineDetailPage() {
     const router = useRouter()
 
     const [auto, setAuto] = useState<Automation | null>(null)
-    const [videos, setVideos] = useState<Video[]>([])
     const [articles, setArticles] = useState<Article[]>([])
     const [loading, setLoading] = useState(true)
-    const [videosLoading, setVideosLoading] = useState(false)
     const [saving, setSaving] = useState(false)
-    const [runningVideoId, setRunningVideoId] = useState<string | null>(null)
-    const [videoRunResults, setVideoRunResults] = useState<Record<string, RunResult>>({})
-    const [clips, setClips] = useState<VideoClip[]>([])
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
 
     // Editable fields
@@ -137,7 +91,6 @@ export default function PipelineDetailPage() {
     // Output flags
     const [writeArticle, setWriteArticle] = useState(true)
     const [articleDraft, setArticleDraft] = useState(false)
-    const [clipVideo, setClipVideo] = useState(false)
     const [postX, setPostX] = useState(false)
     const [xFormat, setXFormat] = useState<'thread' | 'post'>('thread')
     const [xTweetCount, setXTweetCount] = useState(4)
@@ -154,7 +107,6 @@ export default function PipelineDetailPage() {
         const flags = deriveFlags(data.config)
         setWriteArticle(flags.writeArticle)
         setArticleDraft(flags.articleDraft)
-        setClipVideo(flags.clipVideo)
         setPostX(flags.postX)
         setXFormat(flags.xFormat as 'thread' | 'post')
         setXTweetCount(flags.xTweetCount)
@@ -167,27 +119,8 @@ export default function PipelineDetailPage() {
         if (res.ok) setArticles(await res.json())
     }, [id])
 
-    const fetchClips = useCallback(async () => {
-        const res = await fetch(`/api/videos?automationId=${id}`)
-        if (res.ok) setClips(await res.json())
-    }, [id])
-
-    const fetchVideos = useCallback(async () => {
-        if (!auto || auto.type !== 'youtube') return
-        setVideosLoading(true)
-        try {
-            const res = await fetch(`/api/automations/${id}/videos`)
-            if (res.ok) {
-                const data = await res.json()
-                setVideos(data.videos || [])
-            }
-        } finally {
-            setVideosLoading(false)
-        }
-    }, [auto, id])
-
     useEffect(() => { fetchAuto() }, [fetchAuto])
-    useEffect(() => { if (auto) { fetchArticles(); fetchVideos(); fetchClips() } }, [auto, fetchArticles, fetchVideos, fetchClips])
+    useEffect(() => { if (auto) { fetchArticles() } }, [auto, fetchArticles])
 
     const handleSave = async () => {
         if (!auto) return
@@ -200,10 +133,8 @@ export default function PipelineDetailPage() {
                     prompt,
                     config: {
                         ...auto.config,
-                        // New output flags (replaces outputMode + videoClippingEnabled)
                         writeArticle,
                         articleDraft,
-                        clipVideo,
                         postX,
                         xFormat,
                         xTweetCount,
@@ -235,42 +166,6 @@ export default function PipelineDetailPage() {
         await fetchAuto()
     }
 
-    const handleRunVideo = async (video: Video) => {
-        setRunningVideoId(video.videoId)
-        setVideoRunResults(prev => { const n = { ...prev }; delete n[video.videoId]; return n })
-        try {
-            const res = await fetch(`/api/automations/${id}/run-video`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: video.title,
-                    link: video.link,
-                    pubDate: video.pubDate,
-                    description: video.description,
-                })
-            })
-            const data = await res.json()
-
-            let articleTitle: string | undefined
-            let articleSummary: string | undefined
-            if (data.articleId) {
-                const artRes = await fetch(`/api/articles/${data.articleId}`)
-                if (artRes.ok) {
-                    const art = await artRes.json()
-                    articleTitle = art.title
-                    articleSummary = art.summary?.substring(0, 200)
-                }
-            }
-
-            setVideoRunResults(prev => ({ ...prev, [video.videoId]: { ...data, articleTitle, articleSummary } }))
-            await fetchArticles()
-        } catch (e: any) {
-            setVideoRunResults(prev => ({ ...prev, [video.videoId]: { success: false, error: e.message } }))
-        } finally {
-            setRunningVideoId(null)
-        }
-    }
-
     if (loading) {
         return (
             <div className="max-w-4xl mx-auto py-12 px-6">
@@ -292,7 +187,6 @@ export default function PipelineDetailPage() {
         prompt !== (auto.prompt || '') ||
         writeArticle !== savedFlags.writeArticle ||
         articleDraft !== savedFlags.articleDraft ||
-        clipVideo !== savedFlags.clipVideo ||
         postX !== savedFlags.postX ||
         xFormat !== savedFlags.xFormat ||
         xTweetCount !== savedFlags.xTweetCount ||
@@ -305,7 +199,7 @@ export default function PipelineDetailPage() {
             <div className="flex items-start justify-between">
                 <div>
                     <Link href="/feeds" className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-sm mb-3 transition-colors">
-                        <ArrowLeft size={14} /> Back to Pipelines
+                        <ArrowLeft size={14} /> Back to Article Pipelines
                     </Link>
                     <div className="flex items-center gap-3">
                         <h1 className="text-2xl font-bold text-white">{auto.name}</h1>
@@ -374,22 +268,6 @@ export default function PipelineDetailPage() {
                             )}
                         </div>
 
-                        {/* Video Clip (YouTube only) */}
-                        {isYouTube && (
-                            <div className={`rounded-xl border p-4 transition-colors ${clipVideo ? 'border-white/15 bg-white/[0.02]' : 'border-white/[0.06]'}`}>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-base">🎬</span>
-                                        <div>
-                                            <div className="text-sm font-medium text-white">Video Clip</div>
-                                            <div className="text-[11px] text-slate-500">AI finds the best 30-90s hook, clips via Apify</div>
-                                        </div>
-                                    </div>
-                                    <Toggle checked={clipVideo} onChange={setClipVideo} />
-                                </div>
-                            </div>
-                        )}
-
                         {/* Post to X */}
                         <div className={`rounded-xl border p-4 transition-colors ${postX ? 'border-white/15 bg-white/[0.02]' : 'border-white/[0.06]'}`}>
                             <div className="flex items-center justify-between">
@@ -397,9 +275,7 @@ export default function PipelineDetailPage() {
                                     <span className="text-sm font-bold text-slate-200 w-5 text-center">𝕏</span>
                                     <div>
                                         <div className="text-sm font-medium text-white">Post to X</div>
-                                        <div className="text-[11px] text-slate-500">
-                                            {clipVideo ? 'Native clip attached to first tweet' : 'YouTube thumbnail attached'}
-                                        </div>
+                                        <div className="text-[11px] text-slate-500">AI-generated or stock image attached</div>
                                     </div>
                                 </div>
                                 <Toggle checked={postX} onChange={setPostX} />
@@ -451,7 +327,7 @@ export default function PipelineDetailPage() {
                     </div>
                 </div>
 
-                {/* AI Models */}
+                {/* AI Model */}
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
                     <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">AI Model</h3>
                     <div>
@@ -486,148 +362,11 @@ export default function PipelineDetailPage() {
                 <p className="text-[10px] text-slate-600 mt-1.5">Guides how the AI writes content for this pipeline. Each pipeline can have a completely different tone and focus.</p>
             </div>
 
-            {/* YouTube: Recent Videos (Retroactive Runner) */}
-            {isYouTube && (
-                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h3 className="text-sm font-semibold text-white">Recent Videos — Run on Any</h3>
-                            <p className="text-xs text-slate-500 mt-0.5">Don't wait for a new video. Click ▶ on any past video to run the pipeline on it right now.</p>
-                        </div>
-                        <button onClick={fetchVideos} className="p-1.5 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white transition-colors">
-                            <RefreshCw size={14} className={videosLoading ? 'animate-spin' : ''} />
-                        </button>
-                    </div>
-
-                    {videosLoading && videos.length === 0 ? (
-                        <div className="space-y-2">
-                            {[1, 2, 3].map(i => <div key={i} className="h-16 bg-white/5 rounded-lg animate-pulse" />)}
-                        </div>
-                    ) : videos.length === 0 ? (
-                        <p className="text-sm text-slate-500">No videos found — check that the channel ID is correct.</p>
-                    ) : (
-                        <div className="space-y-2">
-                            {videos.map(video => {
-                                const result = videoRunResults[video.videoId]
-                                const isRunning = runningVideoId === video.videoId
-                                return (
-                                    <div key={video.videoId} className="border border-white/[0.06] rounded-lg overflow-hidden">
-                                        <div className="flex items-start gap-3 p-3">
-                                            {video.thumbnail && (
-                                                <img
-                                                    src={video.thumbnail}
-                                                    alt={video.title || ''}
-                                                    className="w-24 h-14 object-cover rounded shrink-0 bg-black/20"
-                                                />
-                                            )}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-sm text-slate-200 font-medium line-clamp-2 leading-snug">{video.title}</div>
-                                                <div className="text-xs text-slate-600 mt-0.5">
-                                                    {video.pubDate ? format(new Date(video.pubDate), 'MMM d, yyyy') : ''}
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => handleRunVideo(video)}
-                                                disabled={isRunning || !!runningVideoId}
-                                                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium shrink-0 transition-colors ${isRunning
-                                                    ? 'bg-white/5 text-slate-500 cursor-wait'
-                                                    : runningVideoId
-                                                        ? 'bg-white/5 text-slate-600 cursor-not-allowed'
-                                                        : 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20'}`}
-                                            >
-                                                {isRunning ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} className="fill-current" />}
-                                                {isRunning ? 'Running…' : 'Run'}
-                                            </button>
-                                        </div>
-                                        {result && (
-                                            <div className={`px-3 py-2 text-xs border-t ${result.success ? 'border-green-500/20 bg-green-500/5' : 'border-red-500/20 bg-red-500/5'}`}>
-                                                {result.success ? (
-                                                    <div className="space-y-1">
-                                                        <div className="flex items-center gap-3 flex-wrap">
-                                                            <span className="text-green-400 flex items-center gap-1">
-                                                                <CheckCircle size={11} /> Done
-                                                            </span>
-                                                            {result.articleId && (
-                                                                <a href="/content" className="text-green-300 underline underline-offset-2 flex items-center gap-1">
-                                                                    <ExternalLink size={10} /> View Article
-                                                                </a>
-                                                            )}
-                                                            {result.threadUrl && (
-                                                                <a href={result.threadUrl} target="_blank" rel="noreferrer" className="text-slate-300 underline underline-offset-2 flex items-center gap-1">
-                                                                    <ExternalLink size={10} /> X Post
-                                                                </a>
-                                                            )}
-                                                        </div>
-                                                        {result.articleTitle && <div className="text-slate-300 font-medium">{result.articleTitle}</div>}
-                                                        {result.articleSummary && <div className="text-slate-500 line-clamp-2">{result.articleSummary}</div>}
-                                                        {result.xPostError && <div className="text-yellow-400">⚠ X post failed: {result.xPostError}</div>}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-red-400">✗ {result.error}</span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Video Clips Gallery (YouTube only) */}
-            {isYouTube && (
-                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-white">Video Clips Gallery</h3>
-                        <Link href="/videos" className="text-[10px] text-slate-500 hover:text-white uppercase tracking-wider font-bold">View Global Library</Link>
-                    </div>
-                    {clips.length === 0 ? (
-                        <p className="text-sm text-slate-500">No clips generated yet by this pipeline.</p>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {clips.map(clip => (
-                                <div key={clip.id} className="group relative bg-black/40 border border-white/[0.05] rounded-xl overflow-hidden hover:border-red-500/30 transition-all">
-                                    <div className="p-3">
-                                        <div className="text-sm text-white font-bold truncate mb-1" title={clip.videoTitle || undefined}>
-                                            {clip.videoTitle || 'Pending extraction...'}
-                                        </div>
-                                        <div className="flex items-center gap-2 text-[10px] text-slate-500 mb-3">
-                                            <span>{formatDistanceToNow(new Date(clip.createdAt), { addSuffix: true })}</span>
-                                            {clip.status === 'done' ? (
-                                                <span className="text-green-400 font-bold uppercase tracking-widest">Done</span>
-                                            ) : clip.status === 'failed' ? (
-                                                <span className="text-red-400 font-bold uppercase tracking-widest">Failed</span>
-                                            ) : (
-                                                <span className="text-blue-400 animate-pulse font-bold uppercase tracking-widest">{clip.status}...</span>
-                                            )}
-                                        </div>
-                                        {clip.clipUrl && (
-                                            <div className="flex gap-2">
-                                                <a
-                                                    href={clip.clipUrl}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all border border-white/10"
-                                                >
-                                                    <Play size={12} className="fill-current" />
-                                                    Preview
-                                                </a>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-
             {/* Articles Produced */}
             <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-5">
                 <h3 className="text-sm font-semibold text-white mb-4">Articles Produced by This Pipeline</h3>
                 {articles.length === 0 ? (
-                    <p className="text-sm text-slate-500">No articles yet — run a test above to generate the first one.</p>
+                    <p className="text-sm text-slate-500">No articles yet — run a test from the Article Pipelines page to generate the first one.</p>
                 ) : (
                     <div className="space-y-2">
                         {articles.map(article => (
@@ -657,9 +396,9 @@ export default function PipelineDetailPage() {
 
             {/* Last Run Info */}
             <div className="text-xs text-slate-600 pb-4">
-                Pipeline created {formatDistanceToNow(new Date(auto.createdAt), { addSuffix: true })} ·
-                Last run: {auto.lastRunAt ? formatDistanceToNow(new Date(auto.lastRunAt), { addSuffix: true }) : 'never'} ·
-                {auto.lastResult?.success && !auto.lastResult?.skipped ? ' Last run succeeded' : auto.lastResult?.error ? ` Last error: ${auto.lastResult.error}` : ''}
+                Pipeline created {formatDistanceToNow(new Date(auto.createdAt), { addSuffix: true })} ·{' '}
+                Last run: {auto.lastRunAt ? formatDistanceToNow(new Date(auto.lastRunAt), { addSuffix: true }) : 'never'}
+                {auto.lastResult?.success && !auto.lastResult?.skipped ? ' · Last run succeeded' : auto.lastResult?.error ? ` · Last error: ${auto.lastResult.error}` : ''}
             </div>
         </div>
     )
