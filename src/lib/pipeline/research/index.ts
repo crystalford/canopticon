@@ -76,8 +76,8 @@ export class InvestigationPipeline {
   private static async stepResearch(id: string, seedPrompt: string) {
     await this.updateStatus(id, 'researching');
 
-    // In a full implementation, we'd use Tavily or direct Google Search API integration here.
-    // We provide the system prompt indicating it can access knowledge from training up to real-time.
+    // In a real implementation with internet access, we would give the model tools (Tavily/Google Search) here.
+    // For now, we simulate deep research generation.
     const { object } = await generateObject({
       model: getAnthropicModel('claude-3-5-sonnet-latest'),
       schema: z.object({
@@ -86,8 +86,8 @@ export class InvestigationPipeline {
         historicalContext: z.string().describe("Background information needed to understand the topic."),
         divergentPerspectives: z.array(z.string()).describe("How different sides view the issue."),
       }),
-      system: "You are Canopticon's Lead Researcher. You are unbiased, meticulous, and objective. You act as a deep research probe. Use your extensive knowledge to break down the provided topic into a structured research dossier, extracting deep historical and factual context without editorial spin. You are investigating deeply into the subject matter.",
-      prompt: `Deep Probe Target / Seed: ${seedPrompt}\n\nPerform a comprehensive investigation and generate the research dossier. Focus on verifiable facts and state the context neutrally.`,
+      system: "You are Canopticon's Lead Researcher. You are unbiased, meticulous, and objective. Break down the provided topic into a structured research dossier. Do not editorialize.",
+      prompt: `Topic / Seed: ${seedPrompt}\nGenerate a comprehensive research dossier.`,
     });
 
     await this.updateStatus(id, 'cross_checking', { researchData: object });
