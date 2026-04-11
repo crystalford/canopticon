@@ -2,257 +2,152 @@ import { pgTable, uuid, text, timestamp, jsonb, integer, boolean } from 'drizzle
 import { relations } from 'drizzle-orm'
 
 // ============================================================================
-// CANOPTICON v2 - Chat-first CMS
-// 5 tables. That's it.
+// CANOPTICON v3 - Investigative Journalism & Video CMS
+// Clean Slate Schema
 // ============================================================================
 
 /**
- * Conversations - Chat sessions with the AI
+ * Investigations - The core unit of work for the multi-phase AI journalist.
+ * Tracks a topic from initial seed through research, fact-checking, and drafting.
  */
-export const conversations = pgTable('conversations', {
+export const investigations = pgTable('investigations', {
     id: uuid('id').primaryKey().defaultRandom(),
-    title: text('title'),
-    pinned: boolean('pinned').default(false).notNull(),
+    title: text('title').notNull(),
+    seedPrompt: text('seed_prompt').notNull(),
+    triggerSource: text('trigger_source').notNull(), // 'webhook', 'manual', 'monitor'
+
+    // Multi-phase state tracking
+    status: text('status').default('pending').notNull(),
+    // 'pending', 'researching', 'cross_checking', 'writing', 'fact_checking', 'completed', 'failed'
+
+    // Intermediate outputs
+    researchData: jsonb('research_data'),
+    crossCheckNotes: jsonb('cross_check_notes'),
+    draftContent: text('draft_content'),
+    fallacyReport: jsonb('fallacy_report'),
+
+    errorMessage: text('error_message'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
 /**
- * Messages - Individual messages within conversations
- * Stores the full chat history for each conversation
- */
-export const messages = pgTable('messages', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    conversationId: uuid('conversation_id').references(() => conversations.id, { onDelete: 'cascade' }).notNull(),
-    role: text('role').notNull(), // 'user' | 'assistant'
-    content: text('content').notNull(),
-    toolInvocations: jsonb('tool_invocations'), // AI SDK tool invocation data
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-})
-
-/**
- * Articles - Published content
- * Created via chat. Markdown content. That's it.
+ * Articles - The final polished output of an Investigation, for the public CMS.
  */
 export const articles = pgTable('articles', {
     id: uuid('id').primaryKey().defaultRandom(),
+    investigationId: uuid('investigation_id').references(() => investigations.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     slug: text('slug').notNull().unique(),
     content: text('content').notNull(), // Markdown
     summary: text('summary'),
-    tags: text('tags').array().notNull(),
-    author: text('author').default('CANOPTICON').notNull(),
-    status: text('status').default('published').notNull(), // 'published' | 'draft'
-    conversationId: uuid('conversation_id').references(() => conversations.id),
-    automationId: uuid('automation_id').references(() => automations.id, { onDelete: 'set null' }),
+
+    // CMS status
+    status: text('status').default('draft').notNull(), // 'draft', 'pending_approval', 'published'
+
     publishedAt: timestamp('published_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
 /**
- * Operators - Admin auth (single user, env-based)
+ * SocialPosts - Extracted sharp posts for X (Twitter)
  */
-export const operators = pgTable('operators', {
+export const socialPosts = pgTable('social_posts', {
     id: uuid('id').primaryKey().defaultRandom(),
-    email: text('email').notNull().unique(),
-    passwordHash: text('password_hash').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    lastLoginAt: timestamp('last_login_at'),
-})
-
-/**
- * Automations - Monitors that auto-generate content
- * YouTube channels, RSS feeds, keyword alerts, scheduled topics
- */
-export const automations = pgTable('automations', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    name: text('name').notNull(),
-    type: text('type').notNull(), // 'youtube' | 'rss' | 'keyword'
-    config: jsonb('config').notNull().default({}),
-    // config fields: channelId, feedUrl, keywords, outputMode, researchModel, writingModel,
-    //                autoPostToX, webhookActive, researchProvider, writingProvider
-    // outputMode: 'article_and_x' | 'article_only' | 'draft' | 'x_only'
-    prompt: text('prompt'), // AI instructions for when triggered
-    enabled: boolean('enabled').default(true).notNull(),
-    autoPublish: boolean('auto_publish').default(false).notNull(),
-    lastRunAt: timestamp('last_run_at'),
-    lastResult: jsonb('last_result'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-/**
- * Social Monitors - Track X (Twitter) accounts for content ingestion
- * Monitor specific accounts for tweets to analyze/reply to
- */
-export const socialMonitors = pgTable('social_monitors', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    accountHandle: text('account_handle').notNull(), // e.g., "@CBCNews"
-    accountId: text('account_id'), // X user ID
-    displayName: text('display_name'),
-    enabled: boolean('enabled').default(true).notNull(),
-    monitorType: text('monitor_type').notNull(), // 'fallacy_detection' | 'trending' | 'engagement' | 'custom'
-    config: jsonb('config').notNull().default({
-        autoReply: false,
-        requireApproval: true,
-        maxRepliesPerDay: 10,
-        fallacyTypes: [],
-    }),
-    lastCheckedAt: timestamp('last_checked_at'),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-})
-
-/**
- * Tracked Tweets - Tweets from monitored accounts
- * Stores tweets for analysis, reply drafting, and engagement tracking
- */
-export const trackedTweets = pgTable('tracked_tweets', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    tweetId: text('tweet_id').notNull().unique(),
-    monitorId: uuid('monitor_id').references(() => socialMonitors.id, { onDelete: 'cascade' }).notNull(),
-    authorHandle: text('author_handle').notNull(),
-    authorName: text('author_name'),
+    articleId: uuid('article_id').references(() => articles.id, { onDelete: 'cascade' }),
     content: text('content').notNull(),
-    url: text('url').notNull(),
-
-    // Analysis
-    analyzed: boolean('analyzed').default(false).notNull(),
-    fallaciesDetected: jsonb('fallacies_detected'), // Array of {type, explanation, severity}
-
-    // Reply tracking
-    replyStatus: text('reply_status').default('pending').notNull(), // 'pending' | 'approved' | 'posted' | 'skipped'
-    replyDraft: text('reply_draft'),
-    replyTweetId: text('reply_tweet_id'),
-
+    status: text('status').default('draft').notNull(), // 'draft', 'approved', 'posted', 'failed'
+    xPostId: text('x_post_id'),
+    postedAt: timestamp('posted_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-    analyzedAt: timestamp('analyzed_at'),
-    repliedAt: timestamp('replied_at'),
-})
-
-
-/**
- * Settings - System configuration
- * API keys, defaults, feature flags
- */
-export const settings = pgTable('settings', {
-    key: text('key').primaryKey(),
-    value: text('value').notNull(),
-    isEncrypted: boolean('is_encrypted').default(false).notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
 /**
- * AI Agents - Dynamic Personas
- * Configurable agents with specific system prompts and models
+ * VideoSources - Tracks YouTube videos/channels ingested for analysis
  */
-export const agents = pgTable('agents', {
+export const videoSources = pgTable('video_sources', {
     id: uuid('id').primaryKey().defaultRandom(),
-    name: text('name').notNull(),
-    slug: text('slug').notNull().unique(), // e.g., 'skeptic', 'editor'
-    description: text('description'),
-    systemPrompt: text('system_prompt').notNull(),
-    modelProvider: text('model_provider').default('openai').notNull(),
-    modelId: text('model_id'),
-    isActive: boolean('is_active').default(true).notNull(),
+    url: text('url').notNull().unique(),
+    title: text('title'),
+    channelName: text('channel_name'),
+    status: text('status').default('pending_transcript').notNull(),
+    // 'pending_transcript', 'analyzing', 'completed', 'failed'
+    transcript: text('transcript'),
+    errorMessage: text('error_message'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
 /**
- * Video Clips - AI-selected clips from YouTube videos
- * Completely separate from the article/automation pipeline.
- * Flow: queued → processing → done | failed
+ * VideoClips - AI-proposed segments from a VideoSource.
+ * Must pass through approval gates (or budget checks) before hitting Apify.
  */
 export const videoClips = pgTable('video_clips', {
     id: uuid('id').primaryKey().defaultRandom(),
-    // Source
-    youtubeUrl: text('youtube_url').notNull().unique(),
-    videoTitle: text('video_title'),
-    channelName: text('channel_name'),
-    // AI-selected clip window
-    startSeconds: integer('start_seconds'),
-    endSeconds: integer('end_seconds'),
-    clipRationale: text('clip_rationale'),  // Why Claude picked this moment
-    // Output
-    clipUrl: text('clip_url'),              // MP4 URL (Vercel Blob or local)
-    status: text('status').default('queued').notNull(), // 'queued' | 'processing' | 'done' | 'failed'
-    errorMessage: text('error_message'),
-    // AI-extracted key quote from this clip window
-    keyQuote: text('key_quote'),            // Short single sentence — for tweet
-    extendedQuote: text('extended_quote'),  // 2-4 verbatim sentences — for article blockquote
-    speakerName: text('speaker_name'),      // Person speaking the key quote (if identifiable)
-    tweetDraft: text('tweet_draft'),        // Context block for tweet 2 (who, stakes, why it matters)
-    forensicLayer: text('forensic_layer'), // CANOPTICON analytical layer — implications, what's not being said
-    transcriptSegment: text('transcript_segment'), // Full verbatim text of the selected clip window
-    // Social posting
-    xPostId: text('x_post_id'),
-    xPostedAt: timestamp('x_posted_at'),
-    tiktokPostId: text('tiktok_post_id'),
-    tiktokPostedAt: timestamp('tiktok_posted_at'),
-    blueskyPostId: text('bluesky_post_id'),
-    blueskyPostedAt: timestamp('bluesky_posted_at'),
-    threadsPostId: text('threads_post_id'),
-    threadsPostedAt: timestamp('threads_posted_at'),
-    // Generated article
-    articleId: uuid('article_id').references(() => articles.id, { onDelete: 'set null' }),
-    // Links
-    automationId: uuid('automation_id').references(() => automations.id, { onDelete: 'set null' }),
-    // Retry tracking (hopper)
-    retryCount: integer('retry_count').default(0).notNull(),
-    nextRetryAt: timestamp('next_retry_at'),
-    // Metadata
+    videoSourceId: uuid('video_source_id').references(() => videoSources.id, { onDelete: 'cascade' }).notNull(),
+
+    // Proposed segment
+    startSeconds: integer('start_seconds').notNull(),
+    endSeconds: integer('end_seconds').notNull(),
+    rationale: text('rationale'),
+    keyQuote: text('key_quote'),
+
+    // Control Flow & Cost Management
+    status: text('status').default('proposed').notNull(),
+    // 'proposed', 'approved', 'processing_apify', 'completed', 'rejected', 'failed'
+
+    apifyJobId: text('apify_job_id'),
+    clipUrl: text('clip_url'), // Final MP4 URL
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
-    processedAt: timestamp('processed_at'),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
-export const videoClipsRelations = relations(videoClips, ({ one }) => ({
-    automation: one(automations, {
-        fields: [videoClips.automationId],
-        references: [automations.id],
-    }),
-}))
+/**
+ * Settings - System Configuration, Cost Controls, and Feature Flags
+ */
+export const settings = pgTable('settings', {
+    key: text('key').primaryKey(),
+    value: text('value').notNull(), // Stored as JSON string or plain text
+    description: text('description'),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
 
 // ============================================================================
 // RELATIONS
 // ============================================================================
 
-export const conversationsRelations = relations(conversations, ({ many }) => ({
-    messages: many(messages),
-    articles: many(articles),
-}))
-
-export const messagesRelations = relations(messages, ({ one }) => ({
-    conversation: one(conversations, {
-        fields: [messages.conversationId],
-        references: [conversations.id],
+export const investigationsRelations = relations(investigations, ({ one }) => ({
+    article: one(articles, {
+        fields: [investigations.id],
+        references: [articles.investigationId],
     }),
 }))
 
-export const articlesRelations = relations(articles, ({ one }) => ({
-    conversation: one(conversations, {
-        fields: [articles.conversationId],
-        references: [conversations.id],
+export const articlesRelations = relations(articles, ({ one, many }) => ({
+    investigation: one(investigations, {
+        fields: [articles.investigationId],
+        references: [investigations.id],
     }),
-    automation: one(automations, {
-        fields: [articles.automationId],
-        references: [automations.id],
+    socialPosts: many(socialPosts),
+}))
+
+export const socialPostsRelations = relations(socialPosts, ({ one }) => ({
+    article: one(articles, {
+        fields: [socialPosts.articleId],
+        references: [articles.id],
     }),
 }))
 
-export const automationsRelations = relations(automations, ({ many }) => ({
-    articles: many(articles),
+export const videoSourcesRelations = relations(videoSources, ({ many }) => ({
+    clips: many(videoClips),
 }))
 
-export const socialMonitorsRelations = relations(socialMonitors, ({ many }) => ({
-    trackedTweets: many(trackedTweets),
-}))
-
-export const trackedTweetsRelations = relations(trackedTweets, ({ one }) => ({
-    monitor: one(socialMonitors, {
-        fields: [trackedTweets.monitorId],
-        references: [socialMonitors.id],
+export const videoClipsRelations = relations(videoClips, ({ one }) => ({
+    source: one(videoSources, {
+        fields: [videoClips.videoSourceId],
+        references: [videoSources.id],
     }),
 }))
 
@@ -260,33 +155,20 @@ export const trackedTweetsRelations = relations(trackedTweets, ({ one }) => ({
 // TYPE EXPORTS
 // ============================================================================
 
-export type Conversation = typeof conversations.$inferSelect
-export type NewConversation = typeof conversations.$inferInsert
-
-export type Message = typeof messages.$inferSelect
-export type NewMessage = typeof messages.$inferInsert
+export type Investigation = typeof investigations.$inferSelect
+export type NewInvestigation = typeof investigations.$inferInsert
 
 export type Article = typeof articles.$inferSelect
 export type NewArticle = typeof articles.$inferInsert
 
-export type Operator = typeof operators.$inferSelect
-export type NewOperator = typeof operators.$inferInsert
+export type SocialPost = typeof socialPosts.$inferSelect
+export type NewSocialPost = typeof socialPosts.$inferInsert
 
-export type Automation = typeof automations.$inferSelect
-export type NewAutomation = typeof automations.$inferInsert
-
-export type SocialMonitor = typeof socialMonitors.$inferSelect
-export type NewSocialMonitor = typeof socialMonitors.$inferInsert
-
-export type TrackedTweet = typeof trackedTweets.$inferSelect
-export type NewTrackedTweet = typeof trackedTweets.$inferInsert
-
-export type Setting = typeof settings.$inferSelect
-export type NewSetting = typeof settings.$inferInsert
-
-export type Agent = typeof agents.$inferSelect
-export type NewAgent = typeof agents.$inferInsert
+export type VideoSource = typeof videoSources.$inferSelect
+export type NewVideoSource = typeof videoSources.$inferInsert
 
 export type VideoClip = typeof videoClips.$inferSelect
 export type NewVideoClip = typeof videoClips.$inferInsert
 
+export type Setting = typeof settings.$inferSelect
+export type NewSetting = typeof settings.$inferInsert
