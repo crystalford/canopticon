@@ -1,314 +1,273 @@
-# Canopticon
+# CANOPTICON v2 — Canadian Political Intelligence Platform
 
-## Project Overview
-- **What**: Chat-first CMS for Canadian political intelligence
-- **Domain**: canopticon.com | **Twitter**: @canoptics
-- **GitHub**: crystalford/canopticon
-- **Stack**: Next.js 14, TypeScript, Tailwind CSS, PostgreSQL (Drizzle ORM)
-- **AI**: Vercel AI SDK v6, Anthropic Claude, Perplexity (web search), DALL-E 3 (images)
-- **Host**: Vercel (auto-deploys from branch pushes)
-- **DB**: PostgreSQL on Supabase
-- **Package Manager**: pnpm
+## CRITICAL: Read This First
+This is NOT a CMS. It is a **persistent knowledge graph** that maps how power operates in Canada.
+- Entities (people, orgs, corps, parties) + relationships + claims + evidence
+- Dual-axis epistemic model: Confidence (evidence quality) vs Resonance (belief spread) — ALWAYS separate
+- NATO Admiralty source reliability (A–F tiers)
+- Knowledge gaps escalate over time (inverse decay — louder when unanswered longer)
+- Convergence events: multiple independent sources pointing at same connection
+- Conspiracy pathology screening (6 indicators) on all structural claims
 
-## Dev Environment - IMPORTANT
-- User may work in Claude Code Web OR a local IDE
-- All testing/deployment is LIVE on Vercel — push to branch, Vercel builds, test on preview URL
-- No local PostgreSQL — DB is remote (Supabase)
-- Build errors show up on Vercel or via `pnpm run build`
-- `pnpm run dev` works locally if you have `.env` with DATABASE_URL set
+**Previous v1 (Jules's CMS build) was wiped. Do not reference it.**
 
-## User Preferences
-- SIMPLICITY above all. Previous 4+ iterations failed due to over-engineering.
-- Don't add features/config/automation unless asked
-- Dark glass theme (slate-950 bg, red accents, glass panels) is the brand
-- Chat-first philosophy: create/command through chat, browse/inspect through sidebar
-- No form-based editing — everything managed via AI chat tools
+---
 
-## Architecture (v3 — Video-First)
+## Current Build State (as of last session)
 
-### Database (10 tables — Supabase PostgreSQL)
+### COMMITTED & PUSHED to `claude/canopticon-v2-build-b6tFc`:
+- `package.json` — v2.0.0, correct deps (Supabase, Neo4j, Next.js 14, NO Drizzle, NO NextAuth, NO Vercel AI SDK)
+- `tailwind.config.ts` — v2 design system (void black, amber, brand red, Syne/JetBrains/Baskerville)
+- `next.config.js` — minimal
+- `tsconfig.json` — clean, @/* paths
+- `vercel.json` — 4 crons
+- `.env.example` — all vars
+- `supabase/` — directory exists, **EMPTY**
+- **NO `src/` directory exists yet**
 
-**Core chat & content:**
-- **conversations**: id, title, pinned, createdAt, updatedAt
-- **messages**: id, conversationId, role, content, toolInvocations (jsonb), createdAt
-- **articles**: id, title, slug (unique), content (markdown), summary, tags (TEXT[]), status ('published'|'draft'), conversationId, automationId, publishedAt, createdAt, updatedAt
-- **operators**: id, email, passwordHash, createdAt, lastLoginAt
+### NOT YET BUILT (build these in order, one file per turn):
+1. `supabase/schema.sql`
+2. `neo4j/setup.cypher`
+3. `src/lib/supabase/client.ts`
+4. `src/lib/supabase/server.ts`
+5. `src/lib/neo4j/client.ts`
+6. `src/types/database.ts`
+7. `src/middleware.ts`
+8. `src/app/globals.css`
+9. `src/app/layout.tsx`
+10. `src/app/page.tsx` (placeholder only — public site is Phase 2)
+11. `src/app/login/page.tsx`
+12. `src/app/login/actions.ts`
+13. `src/components/admin/Sidebar.tsx`
+14. `src/components/admin/TopBar.tsx`
+15. `src/app/admin/layout.tsx`
+16. `src/app/admin/page.tsx` (redirect to /admin/intelligence)
+17. `src/app/admin/system/page.tsx`
+18. `src/app/admin/entities/page.tsx`
+19. `src/app/admin/entities/new/page.tsx`
+20. `src/app/admin/entities/[id]/page.tsx`
+21. Placeholder pages: intelligence, intake, sessions, hypotheses, contradictions, vlogs, articles, library
+22. `src/app/api/entities/route.ts`
+23. `src/app/api/health/route.ts`
+24. `pnpm install && pnpm build` — fix errors, commit, push
 
-**Automation & monitoring:**
-- **automations**: id, name, type ('youtube'|'rss'|'keyword'), config (jsonb), prompt, enabled, autoPublish, lastRunAt, lastResult (jsonb), createdAt, updatedAt
-- **socialMonitors**: id, accountHandle, accountId, displayName, enabled, monitorType, config (jsonb), lastCheckedAt, createdAt, updatedAt
-- **trackedTweets**: id, tweetId, monitorId, authorHandle, authorName, content, analyzed, fallaciesDetected (jsonb), replyStatus, replyDraft, replyTweetId, createdAt, analyzedAt, repliedAt
-- **videoClips**: id, youtubeUrl, videoTitle, channelName, startSeconds, endSeconds, clipRationale, clipUrl, status, errorMessage, xPostId, xPostedAt, tiktokPostId, automationId, createdAt, processedAt
+**RULE: Write one file → commit → write next file. No planning text.**
+
+---
+
+## Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 14 App Router (server components default) |
+| Language | TypeScript |
+| Database | Supabase (PostgreSQL + pgvector) |
+| Graph DB | Neo4j AuraDB Free |
+| Auth | Supabase Auth via `@supabase/ssr` (3 tiers: admin/supporter/public) |
+| AI | Anthropic Claude directly (claude-sonnet-4-6 for intelligence, haiku for classification) |
+| Hosting | Vercel |
+| Package manager | pnpm |
+
+**NOT used:** Drizzle ORM, NextAuth, Vercel AI SDK, bcryptjs, Prisma
+
+---
+
+## Architecture
+
+### Auth Tiers (Supabase Auth + RLS)
+- **admin** — full access, entity creation, claim verification, agent control
+- **supporter** — paid tier, can read full graph, submit intake
+- **public** — read-only published summaries only
+
+All tables have RLS enabled. Admin = `auth.users` with `profiles.tier = 'admin'`.
+
+### Database Schema (30 tables — Supabase PostgreSQL)
+
+**Extensions required:** `uuid-ossp`, `vector` (pgvector for claims.embedding)
+
+**Entities & Relationships:**
+- `entities` — id (uuid), entity_id (text, shared namespace with Neo4j), name, type (enum), subtype, description, confidence_score (0-1), resonance_score (0-1), status, metadata (jsonb), created_at, updated_at
+- `entity_types` enum: person, organization, corporation, government_body, political_party, media_outlet, policy, event, place, concept
+- `relationships` — id, from_entity_id, to_entity_id, relationship_type, confidence (0-1), evidence_ids (uuid[]), start_date, end_date, is_current (bool), metadata (jsonb), created_at
+- `tags` — id, name, slug, color, created_at
+- `entity_tags` — entity_id, tag_id (junction)
+
+**Claims & Evidence:**
+- `claims` — id, content (text), claim_type, confidence (0-1), resonance (0-1), embedding (vector(1536)), source_ids (uuid[]), entity_ids (uuid[]), status (unverified/verified/disputed/retracted), verified_at, created_at, updated_at
+- `sources` — id, url, title, author, published_at, reliability_tier (char(1) — A/B/C/D/E/F), content_hash, scraped_at, metadata (jsonb)
+- `evidence` — id, claim_id, source_id, excerpt (text), relevance_score (0-1), added_at
+
+**Intelligence Layer:**
+- `knowledge_gaps` — id, gap_type, description, entity_ids (uuid[]), urgency_score (0-1), created_at, last_escalated_at, resolved_at, is_resolved (bool)
+- `hypotheses` — id, title, description, confidence (0-1), supporting_claim_ids (uuid[]), contradicting_claim_ids (uuid[]), status (open/confirmed/refuted), created_at, updated_at
+- `convergence_events` — id, claim_ids (uuid[]), source_ids (uuid[]), detected_at, significance_score (0-1), reviewed (bool), notes
+- `contradictions` — id, claim_a_id, claim_b_id, severity (low/medium/high/critical), detected_at, resolved_at, resolution_notes
+- `conspiracy_flags` — id, claim_id, indicators (jsonb — 6 screened indicators), score (0-1), flagged_at, reviewed
+
+**Content:**
+- `articles` — id, title, slug (unique), content (markdown), summary, entity_ids (uuid[]), status (draft/published), published_at, created_at, updated_at
+- `vlogs` — id, title, script (text), youtube_url, status, entity_ids (uuid[]), published_at, created_at
+- `video_clips` — id, vlog_id, start_seconds, end_seconds, clip_url, status, created_at
+
+**Operations:**
+- `intake_queue` — id, raw_content, source_url, submitted_by (uuid), status (pending/processing/done/rejected), processed_at, extracted_entities (jsonb), extracted_claims (jsonb), created_at
+- `sessions` — id, title, description, entity_ids (uuid[]), status (active/archived), created_at, updated_at
+- `session_messages` — id, session_id, role (user/assistant), content, tool_calls (jsonb), created_at
 
 **System:**
-- **settings**: key, value, isEncrypted, updatedAt
-- **agents**: id, name, slug, description, systemPrompt, modelProvider, modelId, isActive, createdAt, updatedAt
+- `system_prompts` — key (text PK), content (text), updated_at
+- `agents` — id, name, slug, type, model_id, system_prompt_key, is_active (bool), config (jsonb), created_at, updated_at
+- `profiles` — id (refs auth.users), tier (admin/supporter/public), display_name, created_at, updated_at
+- `api_keys` — id, name, key_hash, created_by, created_at, last_used_at, is_active
+- `audit_log` — id, actor_id, action, table_name, record_id, before (jsonb), after (jsonb), created_at
 
-### Pages (Route Groups)
+**Seed data required in schema.sql:**
+```sql
+INSERT INTO system_prompts (key, content, updated_at) VALUES
+('intelligence_agent', '...', now()),
+('intake_classifier', '...', now()),
+('gap_escalator', '...', now()),
+('health_narrator', '...', now());
+```
 
-**Public pages:**
-- `/` — Public homepage: hero section, featured article, article grid, tag cloud with filtering via `?tag=`
-- `/articles/[slug]` — Article page with SEO meta, related articles, JSON-LD, YouTube embeds, video clip embeds
-- `/login` — NextAuth credentials login
-- `/privacy` — Privacy Policy
-- `/terms` — Terms of Service
+### Neo4j Graph (AuraDB Free)
 
-**Protected pages (requires auth, in `(app)` route group):**
-- `/(app)/chat` — Main chat interface + sidebar (Chats, Articles, Monitors, Videos, Settings tabs)
-- `/(app)/content` — Articles library (published + drafts)
-- `/(app)/feeds` — Pipeline management dashboard (list view)
-- `/(app)/feeds/[id]` — Pipeline detail page (config, recent videos, generated articles, video clips gallery)
-- `/(app)/social` — X account monitoring and Twitter analytics
-- `/(app)/videos` — Global video clips library
-- `/(app)/settings` — System settings and agent configuration
+Node types: Entity, Claim, Source, KnowledgeGap, Hypothesis
+Relationship types: RELATES_TO, FUNDS, CONTROLS, EMPLOYS, MEMBER_OF, SUPPORTS, OPPOSES, CONTRADICTS, SUPPORTS_CLAIM, EVIDENCED_BY
 
-### AI Tools (13 tools in src/lib/ai/tools.ts)
-| Tool | What it does |
-|------|-------------|
-| search_web | Search via Perplexity sonar-pro |
-| add_image | Unsplash or DALL-E image → Vercel Blob |
-| publish_article | Publish with title, content, summary, tags (supports draft mode) |
-| get_article | Read full article content by ID |
-| list_articles | List articles (metadata only) |
-| edit_article | Update title, content, summary, tags |
-| unpublish_article | Set article to draft |
-| post_to_x | Post thread to X/Twitter |
-| create_monitor | Create YouTube/RSS/keyword monitor (auto-resolves YouTube channel IDs) |
-| list_monitors | List all monitors with config/prompt/lastResult |
-| toggle_monitor | Enable/disable a monitor |
-| edit_monitor | Update monitor name, prompt, config, autoPublish |
-| delete_monitor | Permanently delete a monitor |
+All nodes carry entity_id (shared namespace with Supabase UUID).
 
-### Key Files
+### Cron Jobs (vercel.json)
+- `/api/cron/news-agent` — `0 6 * * *` — scans intake queue, classifies, extracts
+- `/api/cron/gap-escalator` — `0 2 * * *` — escalates urgency on unanswered gaps
+- `/api/cron/health-snapshot` — `0 0 * * *` — graph health metrics
+- `/api/cron/neo4j-keepalive` — `0 12 */24 * *` — prevents AuraDB free tier sleep
 
-**Pages & Routes:**
-- `src/app/page.tsx` — Public homepage (hero, featured article, grid, tag cloud)
-- `src/app/layout.tsx` — Root layout with SEO metadata
-- `src/app/articles/[slug]/page.tsx` — Article page with YouTube/video embeds, ISR revalidate 60
-- `src/app/(app)/chat/page.tsx` — Main chat interface (protected)
-- `src/app/(app)/content/page.tsx` — Articles library
-- `src/app/(app)/feeds/page.tsx` — Pipelines list
-- `src/app/(app)/feeds/[id]/page.tsx` — Pipeline detail & video management
-- `src/app/(app)/social/page.tsx` — Twitter monitor & analytics
-- `src/app/(app)/videos/page.tsx` — Video clips gallery
+---
 
-**API Routes:**
-- `src/app/api/chat/route.ts` — Chat streaming, Claude + 13 tools, stepCountIs(10), maxDuration 60
-- `src/app/api/automations/[id]/run/route.ts` — Manual automation trigger, maxDuration 120
-- `src/app/api/automations/[id]/run-video/route.ts` — Single video processing
-- `src/app/api/automations/[id]/videos/route.ts` — Fetch YouTube channel videos
-- `src/app/api/cron/route.ts` — Daily automation runner, maxDuration 60
-- `src/app/api/videos/route.ts` — List/create video clips
-- `src/app/api/webhooks/apify/route.ts` — Webhook for video clip completion
-- `src/app/api/articles/*` — Article CRUD routes
-- `src/app/api/conversations/*` — Conversation CRUD routes
-- `src/app/api/social-monitors/*` — Social monitor management
+## Design System
 
-**AI & Automation:**
-- `src/lib/ai/tools.ts` — 13+ AI tools (search, articles, monitors, images, X posting, etc.)
-- `src/lib/ai/system-prompt.ts` — Default chat system prompt
-- `src/lib/ai/personas.ts` — 4 built-in personas (Canopticon, Social Neutral, Skeptic, Editor)
-- `src/lib/ai/providers.ts` — Model configuration (Perplexity, OpenAI, Anthropic)
-- `src/lib/automations/runner.ts` — Automation engine: checkTrigger → generateArticle → post
-- `src/lib/videos/processor.ts` — Video clipping job management
+### Colors
+```
+void: #080a0f       (bg-void — page background)
+base: #0d1117       (bg-base — card backgrounds)
+raised: #161b22     (bg-raised — elevated panels)
+overlay: #1c2128    (bg-overlay — modals, dropdowns)
 
-**Components:**
-- `src/components/chat/ChatInterface.tsx` — Chat streaming + persona selection
-- `src/components/chat/MessageBubble.tsx` — Message rendering (text + tool calls)
-- `src/components/chat/ConversationSidebar.tsx` — 5-tab sidebar navigation
+signal: #e8a020     (amber — primary accent, active states, CTA)
+confirmed: #3dd68c  (green — verified claims, confirmed status)
+hypothesis: #4da6ff (blue — unconfirmed, speculative)
+disputed: #ff4d4d   (red — contested, contradictions)
+brand: #e63946      (brand red — logo, headers)
 
-**Database & Config:**
-- `src/db/schema.ts` — All 10 tables + relations + type exports
-- `src/db/index.ts` — Drizzle PostgreSQL client
-- `drizzle.config.ts` — Drizzle config pointing to DATABASE_URL
-- `vercel.json` — Vercel deploy config + cron jobs (daily 8 AM UTC, webhook renew 9 AM UTC)
-- `tailwind.config.ts` — Dark theme (slate-950), red accents, glass effects, Inter + JetBrains Mono
+text-primary: #e6edf3
+text-secondary: #8b949e
+text-muted: #484f58
+border: #30363d
+```
 
-## How Things Work
+### Fonts (load via Google Fonts in layout.tsx)
+- `font-display` → Syne (headings, UI labels)
+- `font-mono` → JetBrains Mono (data, IDs, scores)
+- `font-body` → Libre Baskerville (prose, article content)
 
-### Chat Flow
-1. User sends message in `/(app)/chat` → POST `/api/chat` with conversationId + messages
-2. `streamText()` with selected model + 13 tools, stepCountIs(10)
-3. AI can search web, publish/edit articles, manage monitors, post to X, add images
-4. Messages saved to DB on stream finish via `onFinish` callback
-5. Conversation auto-created if new (uses chatKey state to prevent remounting)
-6. Supports multi-persona chat via agents table (or static personas as fallback)
-7. Supports provider switching: Anthropic (Claude), OpenAI (GPT-4o), Perplexity (Sonar Pro)
+### Key UI Patterns
+- Glass panels: `bg-raised/80 backdrop-blur-sm border border-border`
+- Signal badge: `bg-signal/10 text-signal border border-signal/30 font-mono text-xs`
+- Confidence bar: narrow horizontal bar, color shifts confirmed→hypothesis→disputed by value
+- Scan-line animation: CSS keyframe `scan` 8s linear infinite on hero sections
+- No rounded-full buttons — use rounded-sm or rounded
 
-### Pipeline (Automation) Flow
-1. User creates pipeline in `/feeds` via chat: "monitor CPAC YouTube channel"
-2. AI calls `create_monitor` tool → creates record in `automations` table
-3. Tool auto-resolves YouTube channel ID from handle/URL/name
-4. Pipeline configured with: type, outputMode, prompt, research/writing models, videoClipping setting
-5. Triggered by: daily cron (8 AM UTC) OR manual play button in feeds detail page
-6. Runner flow:
-   - `checkTrigger()` — Fetch YouTube RSS or keyword search results
-   - `generateArticle()` — Claude writes article (generateText, stepCountIs(10), 2 searches max)
-   - Post to X (if outputMode = 'article_and_x' or 'article_and_x_post')
-   - Video clipping (if enabled) — async job to extract viral hooks via Fractal AI
-7. outputMode controls behavior: article_and_x | article_and_x_post | article_only | draft | x_only
-8. lastResult stored in DB, visible in pipeline detail page
+---
 
-### Video Clipping (Video-First Pipeline)
-- YouTube videos trigger async clipping job via `triggerClippingJob()` if enabled
-- Calls external CLIP_SERVER_URL with video details
-- Webhook at `/api/webhooks/apify/route.ts` receives clip completion
-- Clips stored in `videoClips` table with status: queued → processing → done/failed
-- Clips gallery visible in pipeline detail page (`/(app)/feeds/[id]`)
-- Clips can be posted to X alongside article
+## Admin Shell Structure
 
-### Social Monitoring (X/Twitter)
-- `socialMonitors` table tracks multiple X accounts
-- `trackedTweets` stores analyzed tweets with fallacy detection
-- Runs on cron, looks for mentions/replies
-- Can generate fallacy analysis and draft responses
-- Separate UI at `/(app)/social`
+```
+/admin
+  /intelligence   — Main graph dashboard (entity network, recent convergences)
+  /entities       — Entity list, search, filter by type
+  /entities/new   — Create entity form
+  /entities/[id]  — Entity detail (claims, relationships, gaps, timeline)
+  /intake         — Intake queue management
+  /sessions       — AI intelligence sessions
+  /hypotheses     — Open hypotheses tracker
+  /contradictions — Contradiction resolution queue
+  /vlogs          — Video documentary management
+  /articles       — Published articles
+  /library        — Sources & evidence library
+  /system         — System panel (graph health, agent status, system prompts, architecture)
+```
 
-### Sidebar Navigation
-- **Chats tab**: Conversations (pin, rename, delete); persists active conversation to URL
-- **Articles tab**: Published articles link to public page; drafts show status badge
-- **Monitors tab**: Pipelines list with quick play/pause/delete
-- **Videos tab**: Global clips gallery; filterable by pipeline
-- **Settings tab**: Agent config and system settings
-- Active tab persists to localStorage
+### Sidebar (collapsible, lucide-react icons)
+Active state: amber left border + bg-raised. Collapsed: icons only.
+Sections: INTELLIGENCE (intelligence, entities, hypotheses, contradictions), OPERATIONS (intake, sessions), CONTENT (vlogs, articles, library), SYSTEM (system).
 
-## Critical AI SDK v6 Gotchas
-- **Do NOT use `.default()` on Zod schemas in tool inputSchema** — causes silent tool registration failures
-- `useChat` uses `messages` prop (not `initialMessages`) for initial state
-- `stopWhen: stepCountIs(N)` controls max tool rounds (NOT `maxSteps`)
-- Tool `parameters` → `inputSchema`
-- `toDataStreamResponse()` → `toUIMessageStreamResponse()`
-- Messages are UIMessage with `.parts` array, not `.content` string
-- Use `convertToModelMessages()` to convert UI messages for the model
-- `createTools()` accepts optional `(conversationId?, { saveDraft? })` params
+### TopBar
+- Left: CANOPTICON wordmark (font-display, text-brand)
+- Center: live clock (font-mono, updates every second)
+- Right: graph health counter (entity count, relationship count, open gaps) — fetched from /api/health
 
-## Critical Bug Fixes (Don't Regress These)
+### System Panel (/admin/system)
+4 sections:
+1. **Graph Health** — entity/relationship/claim/source counts, gap count, last snapshot time
+2. **Agent Status** — list of agents with is_active toggle, last run, model
+3. **System Prompts** — editable textarea for each prompt key (saves via API)
+4. **Architecture** — SVG diagram of data flow (static, embedded inline)
 
-**Chat & Streaming:**
-- **Chat remounting**: `chatKey` state separate from `conversationId` prevents UI remount when conversation auto-creates
-- **Tool registration**: No `.default()` on Zod schemas in tools — causes silent failures
-- **Step count**: Chat uses `stepCountIs(10)` (was 15, reduced for efficiency); Automations use `stepCountIs(10)` (was 5, too low)
+---
 
-**Article Generation:**
-- **Duplicate titles**: `stripLeadingTitle()` removes H1 from markdown + system prompt tells AI not to include it
-- **Draft handling**: Runner always calls `publish_article` with `saveDraft: true` to save drafts with status='draft'
-- **Title generation**: AI generates fresh title via `stripLeadingTitle()` to avoid H1 duplication in content
+## Key Implementation Notes
 
-**Automation & Monitors:**
-- **YouTube channel resolution**: `create_monitor` auto-resolves channel IDs from handles/URLs/names via Perplexity fallback
-- **Video clipping async**: Clipping job triggered async to avoid blocking automation flow (504 timeout fix)
-- **Output mode config**: Stored in automations.config.outputMode (not a separate field)
+### Supabase Auth (server.ts)
+Use `@supabase/ssr` with `createServerClient` and cookie handlers. Admin check:
+```ts
+const { data: profile } = await supabase.from('profiles').select('tier').eq('id', user.id).single()
+if (profile?.tier !== 'admin') redirect('/login')
+```
 
-**UI & Navigation:**
-- **Active conversation URL**: Uses `?c=ID` query param (not route state) to preserve across refreshes
-- **Sidebar tabs**: Store active tab in localStorage, survive page reloads
-- **Error reporting**: System prompt includes toolErrorRule to force AI to report tool errors verbosely
+### Neo4j Client (client.ts)
+Singleton pattern — one driver instance reused across requests:
+```ts
+let driver: Driver | null = null
+export function getNeo4jDriver() {
+  if (!driver) driver = neo4j.driver(NEO4J_URI, neo4j.auth.basic(NEO4J_USERNAME, NEO4J_PASSWORD))
+  return driver
+}
+```
 
-## Known Limitations
+### middleware.ts
+- Refresh Supabase session on every request (required for SSR)
+- Redirect `/admin/*` to `/login` if no active session
+- No other middleware needed in Phase 1
 
-**Current Issues:**
-- API routes `/api/articles/*`, `/api/automations/*`, `/api/conversations/*` **lack auth middleware** — should check OPERATOR session
-- No rate limiting on API endpoints (anyone with URL can fetch/modify data if they guess IDs)
-- `/api/videos?automationId=` endpoint returns 500 with minimal error details (improved error logging added)
-- `draft_twitter_thread` tool has no UI visualization in MessageBubble component
-
-**Architecture Limitations:**
-- Single operator only — no multi-user support
-- Cron secret is optional in code (should be enforced)
-- Image APIs (Unsplash, DALL-E) fail silently if keys not set
-- Sidebar polls `/api/conversations` every 5 seconds (could use WebSocket)
-- No pagination on article/video listing endpoints (limit 50)
-
-**Feature Gaps:**
-- Video clipping requires external CLIP_SERVER (Fractal AI) — fails if service unavailable
-- RSS and Keyword monitor triggers haven't been tested as thoroughly as YouTube
-- Draft articles (status='draft') return 404 on public page (should render for authenticated users)
-- Bluesky posting (`@atproto/api`) is a dependency but not implemented
-- Twitter thread formatting could be more sophisticated
-- Transcript fetching in runner is optional and fails silently if module missing
-
-## Priority Improvements (In Order)
-
-**P0 — Security & Stability:**
-1. Add auth middleware to API routes (`/api/articles/*`, `/api/automations/*`, `/api/conversations/*`)
-2. Improve error reporting on `/api/videos` and other endpoints
-3. Add validation on tool invocations (prevent XSS, SQL injection in article content)
-
-**P1 — Bug Fixes:**
-1. Render draft articles on public page for authenticated users (currently 404s)
-2. Add UI for `draft_twitter_thread` tool output in MessageBubble
-3. Test and fix RSS/Keyword monitor triggers (YouTube works, others untested)
-4. Investigate video clipping failures (CLIP_SERVER_URL dependency)
-
-**P2 — Performance & UX:**
-1. Add WebSocket support to sidebar (replace 5s polling)
-2. Implement pagination on article/video listing (`limit: 50` → `limit: 20, offset: 0`)
-3. Add caching headers to API responses (Cache-Control, ETag)
-4. Add error boundaries to React components
-
-**P3 — Features:**
-1. Implement Bluesky posting (@atproto/api is ready)
-2. Improve X thread formatting (automatic line breaks, emoji handling)
-3. Add telemetry/monitoring for automation runs (track success rates, duration, costs)
-4. Monitor run results should link directly to generated articles
+---
 
 ## Environment Variables
 
-**Database:**
 ```
-DATABASE_URL                # Supabase PostgreSQL connection string
-```
-
-**Auth:**
-```
-NEXTAUTH_SECRET             # Random secret for session encryption
-NEXTAUTH_URL                # App URL (https://canopticon.com or preview URL)
-OPERATOR_EMAIL              # Single operator login email
-OPERATOR_PASSWORD           # Single operator login password (hashed in DB)
-```
-
-**AI Models:**
-```
-ANTHROPIC_API_KEY           # Claude API (default chat model)
-PERPLEXITY_API_KEY          # Perplexity sonar-pro (web search in automations)
-OPENAI_API_KEY              # OpenAI GPT-4o (writing model for automations, DALL-E images)
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+NEO4J_URI
+NEO4J_USERNAME
+NEO4J_PASSWORD
+ANTHROPIC_API_KEY
+PERPLEXITY_API_KEY
+TWITTER_API_KEY / TWITTER_API_SECRET / TWITTER_BEARER_TOKEN / TWITTER_ACCESS_TOKEN / TWITTER_ACCESS_SECRET
+R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET_NAME / R2_PUBLIC_URL
+FAL_API_KEY
+RESEND_API_KEY
+DIGEST_FROM_EMAIL / DIGEST_TO_EMAIL
+CRON_SECRET
 ```
 
-**Images & Media:**
-```
-UNSPLASH_ACCESS_KEY         # Unsplash stock photos (optional)
-BLOB_READ_WRITE_TOKEN       # Vercel Blob storage for images
-```
+---
 
-**X/Twitter (posting & monitoring):**
-```
-TWITTER_API_KEY             # X API v2 key
-TWITTER_API_SECRET          # X API v2 secret
-TWITTER_BEARER_TOKEN        # X API v2 bearer token
-TWITTER_ACCESS_TOKEN        # X OAuth access token (if using user context)
-TWITTER_ACCESS_SECRET       # X OAuth access secret (if using user context)
-TWITTER_CLIENT_ID           # X OAuth client ID (if using OAuth flow)
-TWITTER_CLIENT_SECRET       # X OAuth client secret (if using OAuth flow)
-```
+## Git
 
-**Video Clipping (Fractal AI):**
-```
-CLIP_SERVER_URL             # External video clipping service URL (e.g., Fractal AI)
-CLIP_SERVER_SECRET          # Bearer token for clip server webhook calls
-```
+- **Branch:** `claude/canopticon-v2-build-b6tFc`
+- **Push:** `git push -u origin claude/canopticon-v2-build-b6tFc`
+- Commit after every file. Push at end of session or when build passes.
 
-**System:**
-```
-CRON_SECRET                 # Bearer token for /api/cron (recommended for production)
-```
-
-## Scripts
-```bash
-pnpm dev                    # Local dev server
-pnpm build                  # Production build (use to verify before push)
-pnpm start                  # Run production build locally
-pnpm lint                   # ESLint
-pnpm run db:generate        # Generate Drizzle migrations
-pnpm run db:push            # Push schema to database
-pnpm run db:studio          # Drizzle Studio GUI
-```
+## Package Manager
+pnpm only. `pnpm install` before `pnpm build`.
