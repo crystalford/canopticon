@@ -13,6 +13,22 @@ This is NOT a CMS. It is a **persistent knowledge graph** that maps how power op
 
 ---
 
+## EXECUTION RULES — Read Before Every Session
+
+Previous sessions failed due to **stream idle timeout**: large context caused the model to spend too long planning before generating any output, killing the stream before a single file was written.
+
+**To prevent this:**
+1. **Do NOT write any planning text.** When the user says "go", immediately call the Write tool for file #1 in the build order. No preamble, no summary, no "here's what I'll do."
+2. **One file per turn.** Write the file → commit it → stop. Wait for user to say "continue" or "next."
+3. **No multi-file turns.** Even if files are small, write one at a time.
+4. **Commits keep work safe.** If the session times out mid-build, committed files survive.
+5. **Never re-read spec docs.** All architecture is in this CLAUDE.md. Do not ask the user to paste anything.
+6. **Skip the explanation.** Don't explain what the file does after writing it. One sentence max.
+
+**Start signal:** When user says "go", write `supabase/schema.sql` immediately. Nothing before the Write tool call.
+
+---
+
 ## Current Build State (as of last session)
 
 ### COMMITTED & PUSHED to `claude/canopticon-v2-build-b6tFc`:
