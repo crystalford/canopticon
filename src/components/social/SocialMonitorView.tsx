@@ -247,9 +247,9 @@ export function SocialMonitorView({ onEngage }: SocialMonitorViewProps) {
 
             {/* Main Feed (Matches Chat Interface Area) */}
             <div className="flex-1 overflow-y-auto bg-transparent">
-                {/* Headerless to match Chat, or minimal header if needed by Dashboard layout? 
-                     Chat interface doesn't have a header in the component itself. 
-                     We'll rely on the Dashboard styling. 
+                {/* Headerless to match Chat, or minimal header if needed by Dashboard layout?
+                     Chat interface doesn't have a header in the component itself.
+                     We'll rely on the Dashboard styling.
                  */}
 
                 <div className="max-w-3xl mx-auto p-6 space-y-6">

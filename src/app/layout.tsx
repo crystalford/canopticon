@@ -1,5 +1,9 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { Inter } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
     title: {
@@ -29,7 +33,7 @@ export default function RootLayout({
     children: React.ReactNode
 }) {
     return (
-        <html lang="en" className="h-full dark">
+        <html lang="en" className={cn("h-full dark", "font-sans", inter.variable)}>
             <head>
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
