@@ -1,22 +1,4 @@
 {
   "buildCommand": "pnpm build",
-  "installCommand": "pnpm install",
-  "crons": [
-    {
-      "path": "/api/cron/news-agent",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/gap-escalator",
-      "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/health-snapshot",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/neo4j-keepalive",
-      "schedule": "0 12 */24 * *"
-    }
-  ]
+  "installCommand": "pnpm install"
 }
