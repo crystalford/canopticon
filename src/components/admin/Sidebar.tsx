@@ -17,6 +17,8 @@ import {
   Settings,
   Search,
   Telescope,
+  Rss,
+  Sparkles,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -44,9 +46,11 @@ const nav = [
   {
     section: 'CONTENT',
     items: [
+      { label: 'Stories', href: '/admin/stories', icon: Sparkles },
       { label: 'Vlogs', href: '/admin/vlogs', icon: Video },
       { label: 'Articles', href: '/admin/articles', icon: FileText },
       { label: 'Library', href: '/admin/library', icon: Library },
+      { label: 'Channels', href: '/admin/channels', icon: Rss },
     ],
   },
   {
