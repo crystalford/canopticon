@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { EntityType } from '@/types/database'
+import { syncEntityToGraph } from '@/lib/neo4j/sync'
+import type { Entity, EntityType } from '@/types/database'
 
 export async function GET(request: NextRequest) {
   const supabase = createClient()
@@ -50,10 +51,13 @@ export async function POST(request: NextRequest) {
       confidence_score: confidence_score ?? 0.5,
       resonance_score: resonance_score ?? 0.0,
     })
-    .select('id')
+    .select('*')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Sync to Neo4j (non-blocking — don't fail the request if graph is down)
+  syncEntityToGraph(data as Entity).catch(console.error)
 
   return NextResponse.json({ id: data.id }, { status: 201 })
 }
