@@ -79,8 +79,18 @@ export async function POST(request: NextRequest) {
     last_video_at: new Date().toISOString(),
   }).eq('id', channel.id)
 
-  // Increment videos_ingested with a raw SQL expression
-  await supabase.rpc('increment_channel_videos' as never, { p_channel_id: channel.id }).catch(() => null)
+  // Increment videos_ingested — fire and forget, no RPC required
+  void supabase.from('watched_channels')
+    .select('videos_ingested')
+    .eq('id', channel.id)
+    .single()
+    .then(({ data }) => {
+      if (data) {
+        void supabase.from('watched_channels')
+          .update({ videos_ingested: (data.videos_ingested as number) + 1 })
+          .eq('id', channel.id)
+      }
+    })
 
   return new NextResponse('OK', { status: 200 })
 }
