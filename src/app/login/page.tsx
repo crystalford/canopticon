@@ -1,10 +1,23 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useFormState, useFormStatus } from 'react-dom'
 import { login } from './actions'
 
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {pending ? 'Authenticating...' : 'Access Intelligence Shell'}
+    </button>
+  )
+}
+
 export default function LoginPage() {
-  const [error, formAction, pending] = useActionState(login, null)
+  const [error, formAction] = useFormState(login, null)
 
   return (
     <main className="min-h-screen bg-void flex items-center justify-center p-4">
@@ -52,13 +65,7 @@ export default function LoginPage() {
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={pending}
-            className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {pending ? 'Authenticating...' : 'Access Intelligence Shell'}
-          </button>
+          <SubmitButton />
         </form>
 
         <p className="font-mono text-text-muted text-xs text-center">
