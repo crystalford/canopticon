@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { generateEmbedding } from '@/lib/embeddings'
 
 export async function GET(request: NextRequest) {
   const supabase = createClient()
@@ -9,11 +10,30 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const entityId = searchParams.get('entity_id')
   const status = searchParams.get('status')
+  const q = searchParams.get('q')
+  const semantic = searchParams.get('semantic') === 'true'
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200)
 
-  let query = supabase.from('claims').select('*').order('created_at', { ascending: false }).limit(limit)
+  // Semantic search: generate embedding and use pgvector cosine similarity
+  if (semantic && q) {
+    const embedding = await generateEmbedding(q)
+    if (embedding) {
+      const { data, error } = await supabase.rpc('search_claims_semantic', {
+        query_embedding: embedding,
+        match_count: limit,
+        filter_entity_id: entityId ?? null,
+        filter_status: status ?? null,
+      })
+      if (!error) return NextResponse.json(data ?? [])
+      // Fall through to keyword search if RPC fails (function may not exist yet)
+    }
+  }
+
+  // Keyword search or plain list
+  let query = supabase.from('claims').select('id, content, confidence, resonance, status, entity_ids, created_at').order('created_at', { ascending: false }).limit(limit)
   if (entityId) query = query.contains('entity_ids', [entityId])
   if (status) query = query.eq('status', status)
+  if (q) query = query.ilike('content', `%${q}%`)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -32,6 +52,9 @@ export async function POST(request: NextRequest) {
   const { content, claim_type, confidence, resonance, entity_ids, source_ids } = body
   if (!content) return NextResponse.json({ error: 'content is required' }, { status: 400 })
 
+  // Generate embedding for new claims
+  const embedding = await generateEmbedding(content)
+
   const { data, error } = await supabase
     .from('claims')
     .insert({
@@ -41,6 +64,7 @@ export async function POST(request: NextRequest) {
       resonance: resonance ?? 0.0,
       entity_ids: entity_ids ?? [],
       source_ids: source_ids ?? [],
+      embedding: embedding ?? null,
     })
     .select('id')
     .single()

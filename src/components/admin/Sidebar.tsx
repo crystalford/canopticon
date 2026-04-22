@@ -15,6 +15,7 @@ import {
   FileText,
   Library,
   Settings,
+  Search,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -49,6 +50,7 @@ const nav = [
   {
     section: 'SYSTEM',
     items: [
+      { label: 'Search', href: '/admin/search', icon: Search },
       { label: 'System', href: '/admin/system', icon: Settings },
     ],
   },
