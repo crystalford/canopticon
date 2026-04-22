@@ -112,7 +112,7 @@ export default async function SystemPage() {
         </div>
         <div className="space-y-2">
           {JOBS.map((job) => (
-            <JobRunner key={job.key} {...job} />
+            <JobRunner key={job.key} label={job.label} description={job.description} endpoint={job.endpoint} />
           ))}
         </div>
       </section>
