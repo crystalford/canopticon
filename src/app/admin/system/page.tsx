@@ -40,6 +40,12 @@ async function getSystemData() {
 
 const JOBS = [
   {
+    key: 'research-agent',
+    label: 'Research Agent',
+    description: 'Run active research queries through Claude web search → intake queue.',
+    endpoint: '/api/research-agent',
+  },
+  {
     key: 'intake-classifier',
     label: 'Intake Classifier',
     description: 'Process pending intake queue items through AI classifier.',

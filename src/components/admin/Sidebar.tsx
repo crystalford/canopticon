@@ -16,6 +16,7 @@ import {
   Library,
   Settings,
   Search,
+  Telescope,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -35,6 +36,7 @@ const nav = [
   {
     section: 'OPERATIONS',
     items: [
+      { label: 'Research', href: '/admin/research', icon: Telescope },
       { label: 'Intake', href: '/admin/intake', icon: Inbox },
       { label: 'Sessions', href: '/admin/sessions', icon: MessageSquare },
     ],
