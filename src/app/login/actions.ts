@@ -1,0 +1,28 @@
+'use server'
+
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+
+export async function login(
+  _prevState: string | null,
+  formData: FormData
+): Promise<string | null> {
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+
+  const supabase = createClient()
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+
+  if (error) {
+    return 'Invalid credentials.'
+  }
+
+  redirect('/admin/intelligence')
+}
+
+export async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  redirect('/login')
+}
