@@ -31,41 +31,19 @@ Previous sessions failed due to **stream idle timeout**: large context caused th
 
 ## Current Build State (as of last session)
 
-### COMMITTED & PUSHED to `claude/canopticon-v2-build-b6tFc`:
-- `package.json` — v2.0.0, correct deps (Supabase, Neo4j, Next.js 14, NO Drizzle, NO NextAuth, NO Vercel AI SDK)
-- `tailwind.config.ts` — v2 design system (void black, amber, brand red, Syne/JetBrains/Baskerville)
-- `next.config.js` — minimal
-- `tsconfig.json` — clean, @/* paths
-- `vercel.json` — 4 crons
-- `.env.example` — all vars
-- `supabase/` — directory exists, **EMPTY**
-- **NO `src/` directory exists yet**
+### FULLY BUILT & PUSHED to `claude/canopticon-v2-build-b6tFc`:
+All 37 routes built and passing `pnpm build`. Core admin shell complete.
+See git log for full file list. No cron schedules — all jobs are manual triggers.
 
-### NOT YET BUILT (build these in order, one file per turn):
-1. `supabase/schema.sql`
-2. `neo4j/setup.cypher`
-3. `src/lib/supabase/client.ts`
-4. `src/lib/supabase/server.ts`
-5. `src/lib/neo4j/client.ts`
-6. `src/types/database.ts`
-7. `src/middleware.ts`
-8. `src/app/globals.css`
-9. `src/app/layout.tsx`
-10. `src/app/page.tsx` (placeholder only — public site is Phase 2)
-11. `src/app/login/page.tsx`
-12. `src/app/login/actions.ts`
-13. `src/components/admin/Sidebar.tsx`
-14. `src/components/admin/TopBar.tsx`
-15. `src/app/admin/layout.tsx`
-16. `src/app/admin/page.tsx` (redirect to /admin/intelligence)
-17. `src/app/admin/system/page.tsx`
-18. `src/app/admin/entities/page.tsx`
-19. `src/app/admin/entities/new/page.tsx`
-20. `src/app/admin/entities/[id]/page.tsx`
-21. Placeholder pages: intelligence, intake, sessions, hypotheses, contradictions, vlogs, articles, library
-22. `src/app/api/entities/route.ts`
-23. `src/app/api/health/route.ts`
-24. `pnpm install && pnpm build` — fix errors, commit, push
+### PHASE 6+ — Intellectual Output Engine (not yet built):
+See "Intellectual Output Framework" section below for full spec.
+- `supabase/migrations/001_argument_maps.sql` — argument_maps table + article_type column
+- `/admin/argument-maps` — list, create, detail pages
+- `/api/argument-maps` — CRUD
+- Five Whys protocol agent
+- Solution inventory builder
+- Prediction tracking dashboard
+- Thesis generation pipeline
 
 **RULE: Write one file → commit → write next file. No planning text.**
 
@@ -287,3 +265,117 @@ CRON_SECRET
 
 ## Package Manager
 pnpm only. `pnpm install` before `pnpm build`.
+
+---
+
+## Intellectual Output Framework
+
+This framework governs how CANOPTICON generates, tracks, and validates structured arguments — not just raw intelligence.
+
+### Core Principles
+- **Root Striking**: Every analysis must operate on 3 levels: Symptom → Mechanism → Structural cause
+- **Separation of Confidence and Resonance**: Never conflate evidence quality with belief spread
+- **Argument Trees**: Claims nest in 6-layer trees. Every layer must be independently evidenced
+- **Five Whys Protocol**: Automated causal chain drilling. Stop when you hit a structural condition or circular reference
+- **Solution Inventory**: For every problem identified, enumerate solutions across 3 axes: Reform / Resistance / Exit
+- **Banked Predictions**: All forward-looking claims get a probability, a resolution date, and a Brier score on close
+
+### Database Table: `argument_maps`
+```sql
+CREATE TABLE argument_maps (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title text NOT NULL,
+  article_type text NOT NULL DEFAULT 'analysis',
+  -- article_type values: analysis | five_whys | solution_inventory | prediction | thesis
+  argument_tree jsonb NOT NULL DEFAULT '{}',
+  -- Nested: { claim, confidence, evidence_ids[], children[] }
+  dominant_frames jsonb NOT NULL DEFAULT '[]',
+  -- Array of { frame_name, description, who_benefits }
+  solution_inventory jsonb NOT NULL DEFAULT '{}',
+  -- { reform: [], resistance: [], exit: [] }
+  banked_predictions jsonb NOT NULL DEFAULT '[]',
+  -- Array of { claim, probability, resolution_date, resolved, outcome, brier_score }
+  five_whys jsonb NOT NULL DEFAULT '[]',
+  -- Array of { question, answer, level (1-5) }
+  entity_ids uuid[] NOT NULL DEFAULT '{}',
+  claim_ids uuid[] NOT NULL DEFAULT '{}',
+  status text NOT NULL DEFAULT 'draft',
+  -- draft | published | archived
+  published_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+Also add `article_type` column to `articles` table:
+```sql
+ALTER TABLE articles ADD COLUMN article_type text NOT NULL DEFAULT 'analysis';
+```
+
+### TypeScript Interface
+```ts
+export interface ArgumentMap {
+  id: string
+  title: string
+  article_type: 'analysis' | 'five_whys' | 'solution_inventory' | 'prediction' | 'thesis'
+  argument_tree: ArgumentNode
+  dominant_frames: DominantFrame[]
+  solution_inventory: SolutionInventory
+  banked_predictions: BankedPrediction[]
+  five_whys: FiveWhysEntry[]
+  entity_ids: string[]
+  claim_ids: string[]
+  status: 'draft' | 'published' | 'archived'
+  published_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ArgumentNode {
+  claim: string
+  confidence: number
+  evidence_ids?: string[]
+  children?: ArgumentNode[]
+}
+
+export interface DominantFrame {
+  frame_name: string
+  description: string
+  who_benefits: string
+}
+
+export interface SolutionInventory {
+  reform: string[]
+  resistance: string[]
+  exit: string[]
+}
+
+export interface BankedPrediction {
+  claim: string
+  probability: number
+  resolution_date: string
+  resolved: boolean
+  outcome?: string
+  brier_score?: number
+}
+
+export interface FiveWhysEntry {
+  question: string
+  answer: string
+  level: number
+}
+```
+
+### Admin Routes
+- `/admin/argument-maps` — list all argument maps with status badges
+- `/admin/argument-maps/new` — full creation form
+- `/admin/argument-maps/[id]` — detail view with editor
+
+### Sidebar Placement
+Under INTELLIGENCE section, add "Argument Maps" with GitBranch icon between Hypotheses and Contradictions.
+
+### API Routes
+- `GET /api/argument-maps` — list, filter by status/type
+- `POST /api/argument-maps` — create
+- `PATCH /api/argument-maps/[id]` — update
+- `DELETE /api/argument-maps/[id]` — delete
