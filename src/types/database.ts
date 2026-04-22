@@ -266,6 +266,60 @@ export interface AuditLogEntry {
   created_at: string
 }
 
+export type ArgumentMapStatus = 'draft' | 'published' | 'archived'
+export type ArgumentMapType = 'analysis' | 'five_whys' | 'solution_inventory' | 'prediction' | 'thesis'
+
+export interface ArgumentNode {
+  claim: string
+  confidence: number
+  evidence_ids?: string[]
+  children?: ArgumentNode[]
+}
+
+export interface DominantFrame {
+  frame_name: string
+  description: string
+  who_benefits: string
+}
+
+export interface SolutionInventory {
+  reform: string[]
+  resistance: string[]
+  exit: string[]
+}
+
+export interface BankedPrediction {
+  claim: string
+  probability: number
+  resolution_date: string
+  resolved: boolean
+  outcome?: string
+  brier_score?: number
+}
+
+export interface FiveWhysEntry {
+  question: string
+  answer: string
+  level: number
+}
+
+export interface ArgumentMap {
+  id: string
+  title: string
+  article_type: ArgumentMapType
+  argument_tree: ArgumentNode
+  dominant_frames: DominantFrame[]
+  solution_inventory: SolutionInventory
+  banked_predictions: BankedPrediction[]
+  five_whys: FiveWhysEntry[]
+  entity_ids: string[]
+  claim_ids: string[]
+  status: ArgumentMapStatus
+  published_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 // API response shapes
 export interface GraphHealth {
   entities: number
