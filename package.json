@@ -16,6 +16,7 @@
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.4",
     "clsx": "^2.1.1",
+    "cytoscape": "^3.33.2",
     "lucide-react": "^0.475.0",
     "neo4j-driver": "^5.28.1",
     "next": "14.2.21",
@@ -25,6 +26,7 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
+    "@types/cytoscape": "^3.31.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

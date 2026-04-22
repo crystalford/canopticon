@@ -142,6 +142,24 @@ Only include claims that are factually specific and verifiable.`,
           if (created) {
             entityIdMap[e.name] = created.id
             syncEntityToGraph(created).catch(console.error)
+
+            // New entity detected — auto-queue a background research query
+            // so the next research agent run builds out their full profile
+            const existingQuery = await supabase
+              .from('research_queries')
+              .select('id')
+              .eq('entity_id', created.id)
+              .limit(1)
+              .single()
+
+            if (!existingQuery.data) {
+              await supabase.from('research_queries').insert({
+                query_text: `Background profile on ${e.name}: institutional roles, funding relationships, political connections, career history, and any significant actions or controversies in Canadian politics.`,
+                category: 'entity_monitor',
+                entity_id: created.id,
+                is_active: true,
+              })
+            }
           }
         }
       }

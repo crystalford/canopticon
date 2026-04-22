@@ -40,9 +40,16 @@ export default async function IntelligencePage() {
 
   return (
     <div className="space-y-8 max-w-6xl">
-      <div>
-        <h1 className="font-display text-xl font-bold text-text-primary">Intelligence</h1>
-        <p className="font-mono text-xs text-text-muted mt-1">Knowledge graph overview — entities, gaps, hypotheses.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="font-display text-xl font-bold text-text-primary">Intelligence</h1>
+          <p className="font-mono text-xs text-text-muted mt-1">Knowledge graph overview — entities, gaps, hypotheses.</p>
+        </div>
+        <Link href="/admin/intelligence/graph"
+          className="font-mono text-xs px-3 py-2 rounded-sm border border-signal/30 text-signal hover:bg-signal/10 transition-colors flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="3" cy="7" r="2" stroke="currentColor" strokeWidth="1.2"/><circle cx="11" cy="3" r="2" stroke="currentColor" strokeWidth="1.2"/><circle cx="11" cy="11" r="2" stroke="currentColor" strokeWidth="1.2"/><line x1="5" y1="6.2" x2="9" y2="3.8" stroke="currentColor" strokeWidth="1"/><line x1="5" y1="7.8" x2="9" y2="10.2" stroke="currentColor" strokeWidth="1"/></svg>
+          Open Graph
+        </Link>
       </div>
 
       {/* Summary counters */}
