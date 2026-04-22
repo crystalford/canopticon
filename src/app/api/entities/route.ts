@@ -13,6 +13,17 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') as EntityType | null
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 200)
 
+  // Full-text search via tsvector when query provided
+  if (q) {
+    const { data, error } = await supabase.rpc('search_entities_fts', {
+      query_text: q,
+      match_count: limit,
+      filter_type: type ?? null,
+    })
+    if (!error) return NextResponse.json(data ?? [])
+    // Fall through if FTS function not yet installed
+  }
+
   let query = supabase.from('entities').select('*').order('name').limit(limit)
   if (q) query = query.ilike('name', `%${q}%`)
   if (type) query = query.eq('type', type)

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { syncEntityToGraph, syncRelationshipToGraph } from '@/lib/neo4j/sync'
-import { generateEmbedding } from '@/lib/embeddings'
 import Anthropic from '@anthropic-ai/sdk'
 
 export const maxDuration = 120
@@ -156,8 +155,7 @@ Only include claims that are factually specific and verifiable.`,
           .map((n: string) => entityIdMap[n])
           .filter(Boolean) as string[]
 
-        const embedding = await generateEmbedding(c.content)
-
+        // search_vector maintained automatically by claims_search_trigger
         const { data: claim } = await supabase
           .from('claims')
           .insert({
@@ -168,7 +166,6 @@ Only include claims that are factually specific and verifiable.`,
             entity_ids: entityIds,
             source_ids: [],
             status: 'unverified',
-            embedding: embedding ?? null,
           })
           .select('id')
           .single()
