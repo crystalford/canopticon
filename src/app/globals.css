@@ -1,0 +1,158 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --void: #080a0f;
+    --base: #0d1117;
+    --raised: #161b22;
+    --overlay: #1c2128;
+    --signal: #e8a020;
+    --confirmed: #3dd68c;
+    --hypothesis: #4da6ff;
+    --disputed: #ff4d4d;
+    --brand: #e63946;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #484f58;
+    --border: #30363d;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    background-color: var(--void);
+    color: var(--text-primary);
+  }
+
+  body {
+    background-color: var(--void);
+    color: var(--text-primary);
+    font-family: var(--font-display), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: rgba(232, 160, 32, 0.3);
+    color: var(--text-primary);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--base);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-raised/80 backdrop-blur-sm border border-border;
+  }
+
+  .signal-badge {
+    @apply bg-signal/10 text-signal border border-signal/30 font-mono text-xs px-2 py-0.5 rounded-sm;
+  }
+
+  .confirmed-badge {
+    @apply bg-confirmed/10 text-confirmed border border-confirmed/30 font-mono text-xs px-2 py-0.5 rounded-sm;
+  }
+
+  .hypothesis-badge {
+    @apply bg-hypothesis/10 text-hypothesis border border-hypothesis/30 font-mono text-xs px-2 py-0.5 rounded-sm;
+  }
+
+  .disputed-badge {
+    @apply bg-disputed/10 text-disputed border border-disputed/30 font-mono text-xs px-2 py-0.5 rounded-sm;
+  }
+
+  .btn-primary {
+    @apply bg-signal text-void font-display font-semibold text-sm px-4 py-2 rounded-sm hover:bg-signal/90 transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-raised border border-border text-text-primary font-display text-sm px-4 py-2 rounded-sm hover:bg-overlay transition-colors;
+  }
+
+  .btn-ghost {
+    @apply text-text-secondary font-display text-sm px-4 py-2 rounded-sm hover:bg-raised hover:text-text-primary transition-colors;
+  }
+
+  .input-field {
+    @apply bg-base border border-border text-text-primary font-mono text-sm px-3 py-2 rounded-sm
+           placeholder:text-text-muted focus:outline-none focus:border-signal/50 focus:ring-1 focus:ring-signal/20
+           transition-colors w-full;
+  }
+
+  .confidence-bar {
+    @apply h-1 rounded-full overflow-hidden bg-overlay;
+  }
+}
+
+@layer utilities {
+  .text-gradient-brand {
+    background: linear-gradient(135deg, var(--brand), var(--signal));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .border-signal-glow {
+    box-shadow: 0 0 0 1px rgba(232, 160, 32, 0.3), 0 0 8px rgba(232, 160, 32, 0.1);
+  }
+}
+
+/* Scan-line animation for hero sections */
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.scan-line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(232, 160, 32, 0.08),
+    transparent
+  );
+  animation: scan 8s linear infinite;
+  pointer-events: none;
+}
+
+/* Pulse amber for active/live indicators */
+@keyframes pulse-amber {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.pulse-amber {
+  animation: pulse-amber 2s ease-in-out infinite;
+}
+
+/* Tick for clock updates */
+@keyframes tick {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+.tick {
+  animation: tick 1s ease-in-out infinite;
+}
