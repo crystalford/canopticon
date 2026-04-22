@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import type { Agent, SystemPrompt } from '@/types/database'
 import SystemPromptsEditor from './SystemPromptsEditor'
 import AgentToggles from './AgentToggles'
+import JobRunner from './JobRunner'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,6 +38,33 @@ async function getSystemData() {
   }
 }
 
+const JOBS = [
+  {
+    key: 'intake-classifier',
+    label: 'Intake Classifier',
+    description: 'Process pending intake queue items through AI classifier.',
+    endpoint: '/api/cron/news-agent',
+  },
+  {
+    key: 'gap-escalator',
+    label: 'Gap Escalator',
+    description: 'Increase urgency on unanswered knowledge gaps.',
+    endpoint: '/api/cron/gap-escalator',
+  },
+  {
+    key: 'health-snapshot',
+    label: 'Health Snapshot',
+    description: 'Record current graph health metrics.',
+    endpoint: '/api/cron/health-snapshot',
+  },
+  {
+    key: 'neo4j-keepalive',
+    label: 'Neo4j Keepalive',
+    description: 'Ping AuraDB to prevent free-tier hibernation.',
+    endpoint: '/api/cron/neo4j-keepalive',
+  },
+]
+
 export default async function SystemPage() {
   const { health, agents, prompts } = await getSystemData()
 
@@ -54,7 +82,7 @@ export default async function SystemPage() {
     <div className="space-y-8 max-w-5xl">
       <div>
         <h1 className="font-display text-xl font-bold text-text-primary">System</h1>
-        <p className="font-mono text-xs text-text-muted mt-1">Graph health, agents, prompts, architecture.</p>
+        <p className="font-mono text-xs text-text-muted mt-1">Graph health, jobs, agents, prompts, architecture.</p>
       </div>
 
       {/* Graph Health */}
@@ -70,6 +98,21 @@ export default async function SystemPage() {
               </div>
               <div className="font-mono text-xs text-text-muted mt-1">{label}</div>
             </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Manual Jobs */}
+      <section className="glass-panel p-6 space-y-4">
+        <div>
+          <h2 className="font-display text-sm font-semibold text-text-secondary tracking-wider uppercase">
+            Background Jobs
+          </h2>
+          <p className="font-mono text-xs text-text-muted mt-1">All jobs are manual — run on demand, no hidden automation.</p>
+        </div>
+        <div className="space-y-2">
+          {JOBS.map((job) => (
+            <JobRunner key={job.key} {...job} />
           ))}
         </div>
       </section>
@@ -97,52 +140,31 @@ export default async function SystemPage() {
         </h2>
         <div className="overflow-x-auto">
           <svg viewBox="0 0 800 300" className="w-full max-w-3xl font-mono text-[11px]" fill="none">
-            {/* Intake */}
             <rect x="20" y="110" width="120" height="50" rx="2" fill="#161b22" stroke="#30363d"/>
             <text x="80" y="130" textAnchor="middle" fill="#8b949e">Intake Queue</text>
             <text x="80" y="148" textAnchor="middle" fill="#484f58">pending/processing</text>
-
-            {/* Arrow */}
             <path d="M140 135 L180 135" stroke="#30363d" strokeWidth="1" markerEnd="url(#arrow)"/>
-
-            {/* Classifier */}
             <rect x="180" y="110" width="120" height="50" rx="2" fill="#161b22" stroke="#e8a020" strokeOpacity="0.4"/>
             <text x="240" y="130" textAnchor="middle" fill="#e8a020">Classifier</text>
             <text x="240" y="148" textAnchor="middle" fill="#484f58">haiku-4-5</text>
-
-            {/* Arrow */}
             <path d="M300 135 L340 135" stroke="#30363d" strokeWidth="1" markerEnd="url(#arrow)"/>
-
-            {/* Supabase */}
             <rect x="340" y="80" width="140" height="110" rx="2" fill="#161b22" stroke="#3dd68c" strokeOpacity="0.4"/>
             <text x="410" y="105" textAnchor="middle" fill="#3dd68c">Supabase</text>
             <text x="410" y="123" textAnchor="middle" fill="#484f58">entities</text>
             <text x="410" y="139" textAnchor="middle" fill="#484f58">claims + evidence</text>
             <text x="410" y="155" textAnchor="middle" fill="#484f58">pgvector embeddings</text>
             <text x="410" y="171" textAnchor="middle" fill="#484f58">auth + RLS</text>
-
-            {/* Arrow to Neo4j */}
             <path d="M480 135 L520 135" stroke="#30363d" strokeWidth="1" markerEnd="url(#arrow)"/>
-
-            {/* Neo4j */}
             <rect x="520" y="90" width="120" height="70" rx="2" fill="#161b22" stroke="#4da6ff" strokeOpacity="0.4"/>
             <text x="580" y="115" textAnchor="middle" fill="#4da6ff">Neo4j</text>
             <text x="580" y="133" textAnchor="middle" fill="#484f58">graph traversal</text>
             <text x="580" y="149" textAnchor="middle" fill="#484f58">multi-hop paths</text>
-
-            {/* Arrow to Intelligence */}
             <path d="M640 135 L680 135" stroke="#30363d" strokeWidth="1" markerEnd="url(#arrow)"/>
-
-            {/* Intelligence Agent */}
             <rect x="680" y="100" width="100" height="60" rx="2" fill="#161b22" stroke="#e8a020" strokeOpacity="0.4"/>
             <text x="730" y="124" textAnchor="middle" fill="#e8a020">Intelligence</text>
             <text x="730" y="142" textAnchor="middle" fill="#484f58">sonnet-4-6</text>
-
-            {/* Cron labels */}
-            <text x="240" y="185" textAnchor="middle" fill="#484f58">↑ cron 06:00</text>
+            <text x="240" y="185" textAnchor="middle" fill="#484f58">↑ manual trigger</text>
             <text x="730" y="185" textAnchor="middle" fill="#484f58">↑ on demand</text>
-
-            {/* Arrow marker */}
             <defs>
               <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
                 <path d="M0,0 L0,6 L6,3 z" fill="#30363d"/>
