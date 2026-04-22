@@ -32,10 +32,10 @@ export async function GET(request: NextRequest) {
   for (const q of queries) {
     try {
       // Claude with web search — no Perplexity needed
-      const response = await client.messages.create({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response = await (client.messages.create as any)({
         model: 'claude-sonnet-4-6',
         max_tokens: 4096,
-        // @ts-expect-error — web_search is a beta tool, types lag behind
         betas: ['web-search-2025-03-05'],
         tools: [{ type: 'web_search_20250305', name: 'web_search' }],
         system: `You are a Canadian political intelligence researcher. Search the web for current, factual information about Canadian politics, power structures, and policy. Focus on: named actors and their institutional roles, funding relationships, lobbying activity, policy influence, and structural power dynamics. Return a detailed synthesis with specific claims, named entities, and source references. Be precise and factual.`,
@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
       })
 
       // Extract final text from response (after any web search tool calls)
-      const finalText = response.content
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const finalText = ((response as any).content as Anthropic.ContentBlock[])
         .filter((b) => b.type === 'text')
         .map((b) => (b as Anthropic.TextBlock).text)
         .join('\n')
