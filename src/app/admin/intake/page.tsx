@@ -63,18 +63,17 @@ export default async function IntakePage() {
               <IntakeActions itemId={item.id} status={item.status} />
             </div>
 
-            {/* Extracted results */}
-            {item.status === 'done' && item.extracted_entities && (
+            {item.status === 'done' && Boolean(item.extracted_entities) && (
               <div className="border-t border-border pt-3 space-y-2">
                 <p className="font-mono text-xs text-signal">Extracted Entities</p>
                 <pre className="font-mono text-xs text-text-muted bg-void p-2 rounded-sm overflow-x-auto">
-                  {JSON.stringify(item.extracted_entities, null, 2)}
+                  {JSON.stringify(item.extracted_entities as object, null, 2)}
                 </pre>
-                {item.extracted_claims && (
+                {Boolean(item.extracted_claims) && (
                   <>
                     <p className="font-mono text-xs text-signal">Extracted Claims</p>
                     <pre className="font-mono text-xs text-text-muted bg-void p-2 rounded-sm overflow-x-auto">
-                      {JSON.stringify(item.extracted_claims, null, 2)}
+                      {JSON.stringify(item.extracted_claims as object, null, 2)}
                     </pre>
                   </>
                 )}
