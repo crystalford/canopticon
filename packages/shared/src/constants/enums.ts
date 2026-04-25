@@ -44,7 +44,7 @@ export type EntityType = (typeof ENTITY_TYPES)[number];
 export const CLAIM_LAYERS = ["factual", "framing", "architectural", "distributive"] as const;
 export type ClaimLayer = (typeof CLAIM_LAYERS)[number];
 
-export const THESIS_STATUSES = ["draft", "active", "archived"] as const;
+export const THESIS_STATUSES = ["declared", "active", "archived"] as const;
 export type ThesisStatus = (typeof THESIS_STATUSES)[number];
 
 export const SOURCE_TYPES = [

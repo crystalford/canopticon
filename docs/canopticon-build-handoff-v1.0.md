@@ -344,7 +344,7 @@ The minimum table set that supports the Sprint 1 verb.
   - public.workflow_runs (from workflows-v1.0.md Section 0.3)
 ```
 
-**Sprint 1 tables (18 total):**
+**Sprint 1 tables (19 total):**
 1. users
 2. cost_ledger
 3. cost_whitelists
@@ -363,10 +363,11 @@ The minimum table set that supports the Sprint 1 verb.
 16. thesis_watch_sets
 17. thesis_concept_spine
 18. thesis_inbox
+19. questions  (acceptance criterion #7 — Interrogator writes here)
 
 Plus runtime tables: role_definitions, role_invocations, orchestrator_events, cascade_runs, workflow_runs.
 
-That's 23 tables total when including runtime. The 18 in the spec count substrate only.
+That's 24 tables total when including runtime. The 19 in the spec count substrate only. Migration 0014_questions.sql lands the `questions` table; question→claim and question→question edge tables (schema-v1.0 §12.2, §12.3) are deferred to v1.1.
 
 ---
 

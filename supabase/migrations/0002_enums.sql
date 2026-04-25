@@ -41,7 +41,7 @@ CREATE TYPE entity_type AS ENUM (
 
 CREATE TYPE claim_layer AS ENUM ('factual', 'framing', 'architectural', 'distributive');
 
-CREATE TYPE thesis_status AS ENUM ('draft', 'active', 'archived');
+CREATE TYPE thesis_status AS ENUM ('declared', 'active', 'archived');
 
 CREATE TYPE source_type AS ENUM (
   'hansard',
