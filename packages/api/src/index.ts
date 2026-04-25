@@ -1,14 +1,11 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { AuthContext } from "./auth/middleware.ts";
 import type { Env } from "./env.ts";
 import { ApiError } from "./lib/errors.ts";
+import sourcesRoutes from "./routes/sources.ts";
 
-type App = {
-  Bindings: Env;
-  Variables: {
-    trace_id: string;
-  };
-};
+type App = AuthContext;
 
 const app = new Hono<App>();
 
@@ -50,6 +47,7 @@ app.get("/health", (c) => c.json({ ok: true }));
 // Versioned API surface — routes will be mounted here as they come online.
 // See packages/api/src/routes/ for implementations.
 const v1 = new Hono<App>();
+v1.route("/sources", sourcesRoutes);
 app.route("/v1", v1);
 
 export default {

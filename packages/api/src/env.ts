@@ -7,7 +7,11 @@
 export interface Env {
   // Supabase
   SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
+
+  // Supabase JWT secret (HS256 signing key). Set via wrangler secret put.
+  SUPABASE_JWT_SECRET: string;
 
   // Anthropic
   ANTHROPIC_API_KEY: string;

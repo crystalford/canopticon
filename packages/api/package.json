@@ -14,7 +14,8 @@
   "dependencies": {
     "@canopticon/shared": "workspace:*",
     "@supabase/supabase-js": "^2.45.4",
-    "hono": "^4.6.10"
+    "hono": "^4.6.10",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241112.0",
