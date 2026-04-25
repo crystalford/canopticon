@@ -1972,22 +1972,21 @@ When this document is split into individual SKILL.md files for the build, the la
     schema.json
 ```
 
-Each SKILL.md includes a frontmatter block:
+Each SKILL.md includes a frontmatter block. The `name` field is the canonical role identifier — it must match `role_definitions.name` in Postgres exactly, which is snake_case. Directory names use kebab-case (`/skills/ingestion-critic/`) for filesystem readability; the snake_case `name` is what the orchestrator uses to look up the role.
 
 ```yaml
 ---
-name: ingestion-critic
-version: 1.0
+name: ingestion_critic
+version: "1.0"
 model: claude-opus-4-7
 features:
   citations_api: false
   structured_output: true
   cross_model: false
-hash: <auto-computed>
 ---
 ```
 
-The `hash` updates on any change to the SKILL.md content; the orchestrator stores this hash in `role_definitions.skill_md_hash` and re-runs roles when the hash changes if appropriate.
+The hash is computed at load time (SHA-256 of the prompt body, lowercase hex) and stored in `role_definitions.skill_md_hash`. It is not written into the frontmatter — the frontmatter is hand-edited; the hash is derived. The orchestrator compares the loader-computed hash against the row in `role_definitions` and updates the row when the hash changes.
 
 ---
 
