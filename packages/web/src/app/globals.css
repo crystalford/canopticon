@@ -2,34 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design tokens — pulled directly from canopticon-prototype-v92.html.
+ * Names use semantic categories (bg / text / amber / signal / sage / blue
+ * / tan / good) and intensity suffixes (dim / bright / faint / glow).
+ *
+ * If you find yourself reaching for a hex value that isn't here, add a
+ * token first — don't inline it. Tailwind's color map (tailwind.config.ts)
+ * references these CSS vars so utility classes stay in lock-step.
+ */
 :root {
-  --color-ink: #0a0a0b;
-  --color-ink-deeper: #050506;
-  --color-ink-dim: #16161a;
-  --color-cream: #f5e9d3;
-  --color-cream-dim: #d6cab2;
-  --color-cream-faint: #85785f;
-  --color-amber: #e8a838;
-  --color-amber-deep: #b87f1c;
-  --color-amber-dim: #7d5612;
-  --color-signal-red: #c44545;
-  --color-signal-sage: #8aa67a;
-  --color-signal-blue: #5a82a8;
-  --color-signal-tan: #c9a97a;
+  /* Backgrounds (cool dark navy, not pure black). */
+  --color-bg: #0f1218;
+  --color-bg-deeper: #0a0c11;
+  --color-bg-elevated: #161a22;
+  --color-bg-subtle: #1c2029;
+  --color-bg-card: #13161d;
+
+  /* Borders. */
+  --color-border: #242934;
+  --color-border-soft: #1b1f28;
+  --color-border-bright: #323845;
+
+  /* Text + cream family. */
+  --color-text: #ede9de;
+  --color-text-dim: #8a857a;
+  --color-text-faint: #4f4b42;
+  --color-cream: #ede9de;
+  --color-cream-dim: #7a766c;
+  --color-cream-bright: #f5f1e6;
+  --color-cream-glow: rgba(237, 233, 222, 0.22);
+
+  /* Signal red — alarm, contradictions, denials. */
+  --color-signal: #d14156;
+  --color-signal-dim: #8a2433;
+  --color-signal-glow: rgba(209, 65, 86, 0.28);
+
+  /* Amber — primary action, headlines, current state. */
+  --color-amber: #d4a24a;
+  --color-amber-dim: #8a6520;
+  --color-amber-bright: #e5b55b;
+  --color-amber-glow: rgba(212, 162, 74, 0.3);
+
+  /* Sage — confirmation, sources registered, "good". */
+  --color-sage: #94b280;
+  --color-sage-dim: #5a7349;
+  --color-sage-glow: rgba(148, 178, 128, 0.2);
+  --color-good: #7a9c55;
+
+  /* Muted blue — info, secondary refs, links. */
+  --color-blue: #8fa3c4;
+  --color-blue-dim: #4c617e;
+  --color-blue-glow: rgba(143, 163, 196, 0.22);
+
+  /* Tan — deferred, neutral-warm. */
+  --color-tan: #d0a279;
+  --color-tan-dim: #7a5d3f;
 }
 
 html,
 body {
-  background-color: var(--color-ink);
-  color: var(--color-cream);
+  background-color: var(--color-bg);
+  color: var(--color-text);
   font-family: var(--font-serif), Georgia, serif;
 }
 
+/* No rounded corners — drophead aesthetic. */
 * {
   border-radius: 0 !important;
 }
 
 ::selection {
   background: var(--color-amber);
-  color: var(--color-ink);
+  color: var(--color-bg);
 }

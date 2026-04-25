@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, FieldError, Input, Label } from "@/components/primitives";
 import { browserClient } from "@/lib/supabase";
 import { useState } from "react";
 
@@ -31,45 +32,45 @@ export default function SignInPage() {
   return (
     <main className="min-h-screen px-8 py-16 max-w-md mx-auto">
       <h1 className="font-serif text-3xl text-amber mb-2">Sign in</h1>
-      <p className="text-cream-faint font-mono text-xs uppercase tracking-widest mb-12">
+      <p className="text-text-faint font-mono text-xs uppercase tracking-widest mb-12">
         CANOPTICON operator console
       </p>
 
       {status === "sent" ? (
-        <div className="text-cream leading-relaxed">
+        <div className="text-text leading-relaxed">
           <p className="mb-4">
             Magic link sent to <span className="text-amber">{email}</span>.
           </p>
-          <p className="text-cream-dim text-sm">
+          <p className="text-text-dim text-sm">
             Open the link from this device. The session will land on the home page.
           </p>
         </div>
       ) : (
         <form onSubmit={onSubmit} className="space-y-6">
-          <label className="block">
-            <span className="block text-cream-dim font-mono text-xs uppercase tracking-widest mb-2">
-              email
-            </span>
-            <input
+          <div>
+            <Label htmlFor="email">email</Label>
+            <Input
+              id="email"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-ink-dim text-cream border border-amber-dim px-3 py-2 font-serif focus:border-amber focus:outline-none"
               placeholder="you@example.com"
               disabled={status === "sending"}
             />
-          </label>
+          </div>
 
-          <button
+          <Button
             type="submit"
+            tone="primary"
+            size="lg"
+            fullWidth
             disabled={status === "sending" || !email}
-            className="w-full bg-amber-deep text-ink font-mono text-sm uppercase tracking-widest py-3 hover:bg-amber disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {status === "sending" ? "sending..." : "send magic link"}
-          </button>
+          </Button>
 
-          {errorMessage && <p className="text-signal-red font-mono text-xs">{errorMessage}</p>}
+          <FieldError message={errorMessage} />
         </form>
       )}
     </main>

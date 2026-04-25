@@ -2,6 +2,7 @@
 
 import { ResearchEventFeed } from "@/components/operator/research-event-feed";
 import { type ResearchRunSummary, TopicForm } from "@/components/operator/topic-form";
+import { Badge, Card, ScreenHeader } from "@/components/primitives";
 import { useOrchestratorEvents } from "@/hooks/use-orchestrator-events";
 import { apiGet } from "@/lib/api-client";
 import { useEffect, useState } from "react";
@@ -51,8 +52,6 @@ export default function ResearchPage() {
     };
   }, []);
 
-  // When the agent finishes (research.completed | research.failed), refresh
-  // the recent-runs list so the latest run appears with its final tallies.
   useEffect(() => {
     const last = events[events.length - 1];
     if (!last) return;
@@ -67,33 +66,30 @@ export default function ResearchPage() {
   return (
     <div className="px-6 py-8 max-w-5xl mx-auto grid gap-8 lg:grid-cols-[2fr_3fr]">
       <section>
-        <h1 className="font-serif text-2xl text-amber mb-1">Research</h1>
-        <p className="text-cream-faint font-mono text-xs uppercase tracking-widest mb-6">
-          AI-driven graph growth
-        </p>
+        <ScreenHeader title="Research" subtitle="AI-driven graph growth" />
         <TopicForm onSubmitted={(run) => setLatestRun(run)} />
 
         {latestRun && (
-          <div className="mt-6 border border-amber-dim p-4 text-cream">
+          <Card tone="amber" className="mt-6 text-text">
             <p className="font-mono text-xs uppercase tracking-widest text-amber mb-2">
               run completed
             </p>
             <p className="leading-relaxed">{latestRun.done_summary ?? "no summary"}</p>
-            <p className="text-cream-faint font-mono text-xs mt-3">
+            <p className="text-text-faint font-mono text-xs mt-3">
               {latestRun.iterations} iter · {latestRun.sources_registered} sources ·{" "}
               {latestRun.total_cost_cents}¢
             </p>
-          </div>
+          </Card>
         )}
 
         <RecentRunsList runs={recentRuns} loadError={loadError} />
       </section>
 
-      <section className="border-l border-ink-dim lg:pl-8">
-        <div className="flex items-baseline justify-between mb-4">
+      <section className="border-l border-border-soft lg:pl-8">
+        <header className="flex items-baseline justify-between mb-4">
           <h2 className="font-serif text-xl text-cream">Live</h2>
           <StreamStatus status={status} message={errorMessage} />
-        </div>
+        </header>
         <ResearchEventFeed
           events={events}
           emptyMessage="connect a research run to populate this feed"
@@ -112,37 +108,35 @@ function RecentRunsList({
 }) {
   if (loadError) {
     return (
-      <p className="mt-8 text-signal-red font-mono text-xs">
-        could not load recent runs: {loadError}
-      </p>
+      <p className="mt-8 text-signal font-mono text-xs">could not load recent runs: {loadError}</p>
     );
   }
   if (runs.length === 0) {
     return (
-      <p className="mt-8 text-cream-faint font-mono text-xs uppercase tracking-widest">
+      <p className="mt-8 text-text-faint font-mono text-xs uppercase tracking-widest">
         no runs yet
       </p>
     );
   }
   return (
     <div className="mt-8">
-      <h3 className="font-mono text-xs uppercase tracking-widest text-cream-dim mb-3">
+      <h3 className="font-mono text-xs uppercase tracking-widest text-text-dim mb-3">
         recent runs
       </h3>
       <ol className="space-y-3">
         {runs.map((run) => (
-          <li key={run.id} className="border-b border-ink-dim pb-3">
+          <li key={run.id} className="border-b border-border-soft pb-3">
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-cream font-serif">{run.topic}</span>
               <RunStatusBadge status={run.status} />
             </div>
-            <p className="text-cream-faint font-mono text-xs mt-1">
+            <p className="text-text-faint font-mono text-xs mt-1">
               {run.iterations} iter · {run.sources_registered} sources · {run.total_cost_cents}¢ /{" "}
               {run.budget_cents}¢
               <span className="ml-2">{new Date(run.started_at).toLocaleString()}</span>
             </p>
             {run.output_summary && (
-              <p className="text-cream-dim text-sm mt-2 leading-relaxed">{run.output_summary}</p>
+              <p className="text-text-dim text-sm mt-2 leading-relaxed">{run.output_summary}</p>
             )}
           </li>
         ))}
@@ -152,15 +146,15 @@ function RecentRunsList({
 }
 
 function RunStatusBadge({ status }: { status: string }) {
-  const color =
+  const tone =
     status === "completed"
-      ? "text-signal-sage"
+      ? "sage"
       : status === "failed"
-        ? "text-signal-red"
+        ? "signal"
         : status === "running"
-          ? "text-amber"
-          : "text-cream-faint";
-  return <span className={`font-mono text-xs uppercase tracking-widest ${color}`}>{status}</span>;
+          ? "amber"
+          : "neutral";
+  return <Badge tone={tone}>{status}</Badge>;
 }
 
 function StreamStatus({
@@ -172,17 +166,17 @@ function StreamStatus({
 }) {
   const dotColor =
     status === "open"
-      ? "bg-signal-sage"
+      ? "bg-sage"
       : status === "connecting"
         ? "bg-amber"
         : status === "error"
-          ? "bg-signal-red"
-          : "bg-cream-faint";
+          ? "bg-signal"
+          : "bg-text-faint";
   return (
-    <span className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-cream-faint">
+    <span className="flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-text-faint">
       <span className={`w-2 h-2 rounded-full ${dotColor}`} aria-hidden />
       {status}
-      {message && <span className="ml-2 text-signal-red normal-case">{message}</span>}
+      {message && <span className="ml-2 text-signal normal-case">{message}</span>}
     </span>
   );
 }

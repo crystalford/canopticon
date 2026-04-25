@@ -21,7 +21,7 @@ export function ResearchEventFeed({
 }) {
   if (events.length === 0) {
     return (
-      <p className="text-cream-faint font-mono text-xs uppercase tracking-widest">{emptyMessage}</p>
+      <p className="text-text-faint font-mono text-xs uppercase tracking-widest">{emptyMessage}</p>
     );
   }
 
@@ -31,12 +31,12 @@ export function ResearchEventFeed({
         .slice()
         .reverse()
         .map((event) => (
-          <li key={event.id} className="border-l-2 border-amber-dim pl-3 py-1 text-cream-dim">
+          <li key={event.id} className="border-l-2 border-amber-dim pl-3 py-1 text-text-dim">
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-amber uppercase tracking-widest">
                 {RESEARCH_EVENT_LABELS[event.event_type] ?? event.event_type}
               </span>
-              <time className="text-cream-faint shrink-0">
+              <time className="text-text-faint shrink-0">
                 {new Date(event.created_at).toLocaleTimeString()}
               </time>
             </div>
@@ -50,26 +50,25 @@ export function ResearchEventFeed({
 function EventDetails({ event }: { event: OrchestratorEvent }) {
   if (event.event_type === "research.started") {
     return (
-      <p className="text-cream mt-1">
+      <p className="text-text mt-1">
         topic: <span className="text-amber">{String(event.payload.topic ?? "?")}</span>
       </p>
     );
   }
   if (event.event_type === "research.tool_called") {
     return (
-      <p className="text-cream mt-1">
+      <p className="text-text mt-1">
         <span className="text-amber">{String(event.payload.tool ?? "?")}</span>
         {event.payload.iteration ? (
-          <span className="text-cream-faint"> · iter {String(event.payload.iteration)}</span>
+          <span className="text-text-faint"> · iter {String(event.payload.iteration)}</span>
         ) : null}
       </p>
     );
   }
   if (event.event_type === "research.source_registered") {
     return (
-      <p className="text-cream mt-1">
-        source{" "}
-        <span className="text-signal-sage">{String(event.entity_id ?? "?").slice(0, 8)}</span>{" "}
+      <p className="text-text mt-1">
+        source <span className="text-sage">{String(event.entity_id ?? "?").slice(0, 8)}</span>{" "}
         registered
       </p>
     );
@@ -78,18 +77,18 @@ function EventDetails({ event }: { event: OrchestratorEvent }) {
     const cost = event.payload.turn_cost_cents;
     const total = event.payload.total_cost_cents;
     return (
-      <p className="text-cream-dim mt-1">
+      <p className="text-text-dim mt-1">
         {String(event.payload.tool_count ?? 0)} tool calls · turn{" "}
-        <span className="text-cream">{cost ? `${String(cost)}¢` : "—"}</span> · total{" "}
+        <span className="text-text">{cost ? `${String(cost)}¢` : "—"}</span> · total{" "}
         <span className="text-amber">{total ? `${String(total)}¢` : "—"}</span>
       </p>
     );
   }
   if (event.event_type === "research.completed" || event.event_type === "research.failed") {
     return (
-      <p className="text-cream mt-1">
+      <p className="text-text mt-1">
         {String(event.payload.summary ?? "")}
-        <span className="text-cream-faint">
+        <span className="text-text-faint">
           {" · "}
           {String(event.payload.sources_registered ?? 0)} sources ·{" "}
           {String(event.payload.total_cost_cents ?? 0)}¢

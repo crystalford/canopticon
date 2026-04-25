@@ -1,3 +1,4 @@
+import { CostApprovalModal } from "@/components/operator/cost-approval-modal";
 import { type ServerCookieStore, serverClient } from "@/lib/supabase";
 import { cookies } from "next/headers";
 import Link from "next/link";
@@ -14,26 +15,29 @@ export default async function OperatorLayout({ children }: { children: React.Rea
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b border-ink-dim px-6 py-3 flex items-center justify-between">
+      <header className="border-b border-border-soft px-6 py-3 flex items-center justify-between">
         <div className="flex items-baseline gap-6">
-          <Link href="/research" className="font-serif text-xl text-amber hover:text-cream">
+          <Link href="/research" className="font-serif text-xl text-amber hover:text-cream-bright">
             CANOPTICON
           </Link>
-          <nav className="flex gap-4 text-cream-dim font-mono text-xs uppercase tracking-widest">
-            <Link href="/research" className="hover:text-amber">
-              research
-            </Link>
-            <Link href="/sources" className="hover:text-amber">
-              sources
-            </Link>
-            <Link href="/system" className="hover:text-amber">
-              system
-            </Link>
+          <nav className="flex gap-4 text-text-dim font-mono text-xs uppercase tracking-widest">
+            <NavLink href="/research" label="research" />
+            <NavLink href="/sources" label="sources" />
+            <NavLink href="/system" label="system" />
           </nav>
         </div>
-        <div className="text-cream-faint font-mono text-xs">{email}</div>
+        <div className="text-text-faint font-mono text-xs">{email}</div>
       </header>
       <main className="flex-1">{children}</main>
+      <CostApprovalModal />
     </div>
+  );
+}
+
+function NavLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="hover:text-amber">
+      {label}
+    </Link>
   );
 }

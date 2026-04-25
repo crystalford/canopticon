@@ -1,5 +1,6 @@
 "use client";
 
+import { Button, FieldError, Input, Label, Textarea } from "@/components/primitives";
 import { ApiError, apiPost } from "@/lib/api-client";
 import { useState } from "react";
 
@@ -43,47 +44,39 @@ export function TopicForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <label className="block">
-        <span className="block text-cream-dim font-mono text-xs uppercase tracking-widest mb-2">
-          research topic
-        </span>
-        <textarea
+      <div>
+        <Label htmlFor="topic">research topic</Label>
+        <Textarea
+          id="topic"
           required
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           rows={3}
-          className="w-full bg-ink-dim text-cream border border-amber-dim px-3 py-2 font-serif text-base focus:border-amber focus:outline-none resize-none"
           placeholder="e.g., Brookfield's reorganization history under Mark Carney's chairmanship, 2014–2020"
           disabled={submitting}
         />
-      </label>
+      </div>
 
       <div className="flex items-end gap-4">
-        <label className="flex-1">
-          <span className="block text-cream-dim font-mono text-xs uppercase tracking-widest mb-2">
-            budget (cents)
-          </span>
-          <input
+        <div className="flex-1">
+          <Label htmlFor="budget">budget (cents)</Label>
+          <Input
+            id="budget"
             type="number"
             min={1}
             max={10000}
             step={50}
             value={budget}
             onChange={(e) => setBudget(Number(e.target.value))}
-            className="w-full bg-ink-dim text-cream border border-amber-dim px-3 py-2 font-mono text-sm focus:border-amber focus:outline-none"
             disabled={submitting}
           />
-        </label>
-        <button
-          type="submit"
-          disabled={submitting || topic.trim().length < 3}
-          className="bg-amber-deep text-ink font-mono text-sm uppercase tracking-widest px-6 py-2 hover:bg-amber disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        </div>
+        <Button type="submit" tone="primary" disabled={submitting || topic.trim().length < 3}>
           {submitting ? "running..." : "research"}
-        </button>
+        </Button>
       </div>
 
-      {errorMessage && <p className="text-signal-red font-mono text-xs">{errorMessage}</p>}
+      <FieldError message={errorMessage} />
     </form>
   );
 }

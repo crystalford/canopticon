@@ -1,35 +1,59 @@
 import type { Config } from "tailwindcss";
 
-// Design tokens trace the v9.2 operator prototype: dark amber-on-black with
-// signal accents (red/sage/blue/tan) and cream highlights. The exact hex
-// values come from docs/canopticon-prototype-v92.html and are mirrored here
-// so Tailwind utilities and raw CSS reach them by the same names.
+// Token names map to CSS variables in src/app/globals.css. Keep this map
+// in lock-step with that file — when you add a new token, add it both
+// places. Utility classes use `var(--color-foo)` so the actual color
+// values live in one place.
+const colorVar = (name: string) => `var(--color-${name})`;
 
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        ink: {
-          DEFAULT: "#0a0a0b",
-          deeper: "#050506",
-          dim: "#16161a",
+        bg: {
+          DEFAULT: colorVar("bg"),
+          deeper: colorVar("bg-deeper"),
+          elevated: colorVar("bg-elevated"),
+          subtle: colorVar("bg-subtle"),
+          card: colorVar("bg-card"),
+        },
+        border: {
+          DEFAULT: colorVar("border"),
+          soft: colorVar("border-soft"),
+          bright: colorVar("border-bright"),
+        },
+        text: {
+          DEFAULT: colorVar("text"),
+          dim: colorVar("text-dim"),
+          faint: colorVar("text-faint"),
         },
         cream: {
-          DEFAULT: "#f5e9d3",
-          dim: "#d6cab2",
-          faint: "#85785f",
-        },
-        amber: {
-          DEFAULT: "#e8a838",
-          deep: "#b87f1c",
-          dim: "#7d5612",
+          DEFAULT: colorVar("cream"),
+          dim: colorVar("cream-dim"),
+          bright: colorVar("cream-bright"),
         },
         signal: {
-          red: "#c44545",
-          sage: "#8aa67a",
-          blue: "#5a82a8",
-          tan: "#c9a97a",
+          DEFAULT: colorVar("signal"),
+          dim: colorVar("signal-dim"),
+        },
+        amber: {
+          DEFAULT: colorVar("amber"),
+          dim: colorVar("amber-dim"),
+          bright: colorVar("amber-bright"),
+        },
+        sage: {
+          DEFAULT: colorVar("sage"),
+          dim: colorVar("sage-dim"),
+        },
+        good: colorVar("good"),
+        blue: {
+          DEFAULT: colorVar("blue"),
+          dim: colorVar("blue-dim"),
+        },
+        tan: {
+          DEFAULT: colorVar("tan"),
+          dim: colorVar("tan-dim"),
         },
       },
       fontFamily: {
@@ -38,6 +62,9 @@ const config: Config = {
       },
       borderRadius: {
         none: "0",
+      },
+      letterSpacing: {
+        widest: "0.14em",
       },
     },
   },

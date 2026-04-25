@@ -21,6 +21,7 @@ renumbered. Add follow-up migrations instead.
 | `0013_workflow_runs.sql` | `workflow_runs` (+ RLS) |
 | `0014_questions.sql` | `questions` (+ RLS, triggers) |
 | `0015_research_runs.sql` | `research_runs` (AI research missions; + RLS, triggers) |
+| `0016_cost_approvals.sql` | `cost_approvals` (operator-approval-required paid ops; + RLS) |
 
 After each migration adds public.* tables, the RLS test matrix in
 `canopticon-schema-v1.0.md` §21 must be extended in the same PR. CI will
