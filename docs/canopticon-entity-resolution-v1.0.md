@@ -64,7 +64,7 @@ Every entity mention found during claim extraction lands in `entity_mentions` wi
 - `source_id` — where the mention was found
 - `entity_type_hint` — the extractor's best guess (person | org | institution | etc.)
 
-Sprint 1 ships this stage. Resolution stages can run in deferred mode, leaving mentions unresolved until the operator triggers resolution. The substrate is queryable even with unresolved mentions; entity pages just don't surface them yet.
+Stage 1 (capture) is the always-on baseline. The downstream resolution stages can run in deferred mode, leaving mentions unresolved until the operator triggers resolution. The substrate is queryable even with unresolved mentions; entity pages just don't surface them yet.
 
 ### Stage 2: Block (cheap, broad)
 
@@ -72,12 +72,12 @@ Reduce the candidate space before any expensive matching.
 
 The blocking function takes a new mention and returns a candidate set of existing entities to compare against. It uses:
 
-**For Sprint 1 (cheap, no LLM):**
+**Cheap, no-LLM blocking (default):**
 - `pg_trgm` trigram similarity on `entities.canonical_name` and `entities.aliases[]` against the mention text. Threshold: similarity > 0.3 — generous, designed for recall.
 - Exact-match on aliases (case-insensitive).
 - Type-bucketing: only compare against entities of compatible `entity_type` (person mentions don't match against legislation).
 
-**For v1.1 (semantic):**
+**Semantic blocking (when pgvector embeddings are populated):**
 - pgvector embedding similarity against pre-computed entity embeddings (top-K=5).
 - Stored as a column on `entities`: `embedding vector(1536)` populated from `canonical_name + aliases + description`.
 - Refreshed when an entity is updated.
@@ -291,7 +291,7 @@ CREATE TABLE public.entity_resolution_queue (
 CREATE INDEX idx_entity_resolution_queue_pending ON public.entity_resolution_queue (user_id, surfaced_at) WHERE status = 'pending';
 ```
 
-Plus one column on existing `entities` (Sprint 1 ships without it; v1.1 adds):
+Plus one column on existing `entities` (added when stage C activates):
 
 ```sql
 ALTER TABLE public.entities ADD COLUMN embedding vector(1536);
@@ -314,8 +314,8 @@ Find candidate existing claims that might be duplicates of the new claim. Filter
 
 - Same `layer` (factual claims don't dedup against framing claims)
 - Shared entities: `claim_entities` overlap of ≥ 1 entity
-- For Sprint 1: `pg_trgm` similarity on `claim_text` against existing claims, threshold 0.4
-- For v1.1: pgvector cosine similarity on claim embeddings, top-K=5
+- Default: `pg_trgm` similarity on `claim_text` against existing claims, threshold 0.4
+- Once embeddings populate: pgvector cosine similarity on claim embeddings, top-K=5
 
 Output: zero to ~10 candidate claims.
 
@@ -468,25 +468,27 @@ This becomes part of the operator's daily flow: alongside approving sources, the
 
 ---
 
-## 7. PHASED ROLLOUT
+## 7. STAGED ACTIVATION
 
-### Sprint 1 (the minimum)
+The resolver activates in three stages. Each is optional and independently useful — a build can sit at stage one indefinitely if the operator prefers manual merging. Promotion happens when accuracy and operator-load tradeoffs justify it, not on a calendar.
 
-- Schema: `entity_mentions` ships with `entity_id` nullable. No resolution runs yet.
-- All new mentions land unresolved. Entity pages show only mentions explicitly tied to entities (which, in practice, means manually tied).
-- Claim deduplication: not active. Every extracted claim is its own claim row. Operator can manually merge later.
-- Sprint 1 ships *correct* but *unresolved* substrate. Resolution waits for Sprint 2.
+### Stage A — capture only (default)
 
-### Sprint 2 (cheap resolution)
+- Schema: `entity_mentions` ships with `entity_id` nullable. No resolution runs.
+- All new mentions land unresolved. Entity pages show only mentions explicitly tied to entities (in practice, means manually tied).
+- Claim deduplication: not active. Every extracted claim is its own claim row. Operator can manually merge.
+- Substrate is *correct* but *unresolved*.
+
+### Stage B — cheap resolution (pg_trgm + LLM matching)
 
 - Add `entity_resolution_log`, `entity_merge_history`, `entity_resolution_queue` tables.
 - Stage 2 blocking: pg_trgm only.
 - Stage 3 matcher: `entity_resolver` role with the prompt above.
 - Stage 4 decision matrix as specified.
-- Operator review surface in Sources screen.
-- Same for claim deduplication.
+- Operator review surface in the Sources screen.
+- Same approach for claim deduplication.
 
-### Sprint 3 (semantic resolution)
+### Stage C — semantic resolution (pgvector)
 
 - Add pgvector embeddings on entities and claims.
 - Background job to populate embeddings on existing rows.
@@ -494,7 +496,7 @@ This becomes part of the operator's daily flow: alongside approving sources, the
 - Top-K=5 retrieval (per Reveriano 2025 finding that K=10 yields marginal gains).
 - Performance becomes the focus: bulk-resolution sweep on accumulated unresolved mentions.
 
-### v1.1 and beyond
+### Beyond
 
 - Cross-source consistency check: an entity's claims and relations should be internally consistent. Flag entities whose recent claims contradict known earlier claims.
 - Cross-model verification on high-stakes merges (linchpin entities, public-facing entities).
@@ -509,15 +511,15 @@ Based on 2025 benchmarks (Amazon-Google: ~80% accuracy with GPT-4.1 or Llama-4-m
 
 - CANOPTICON's stricter conservatism (default to UNCERTAIN, requiring two convergent signals for MATCH)
 - The operator-review safety net (low-confidence cases never auto-merge)
-- The phased rollout (semantic similarity not until Sprint 3)
+- The staged activation (semantic blocking only at stage C)
 
-**Realistic Sprint 2 targets:**
+**Stage B targets (pg_trgm + LLM matching):**
 
 - ~85–90% precision on auto-merges (very few false positives)
 - ~50–60% recall on auto-merges (significant fraction surface to operator review)
 - ~30% of mentions resolve cleanly via auto-merge; 60% surface to operator; 10% become new entities
 
-**Realistic Sprint 3 targets (with semantic blocking):**
+**Stage C targets (with semantic blocking):**
 
 - ~90% precision on auto-merges
 - ~70% recall on auto-merges
@@ -544,7 +546,7 @@ CANOPTICON uses option 1 — the role is a first-class entity. Mentions of "the 
 
 **Misspellings.** Stage 2 trigram similarity catches reasonable misspellings. For aggressive misspellings (e.g., transcription errors), operator review remains the safety net.
 
-**Foreign-language renderings.** "Banque du Canada" vs "Bank of Canada." For Sprint 2, these are aliased manually. v1.1+: an LLM-assisted alias generator runs on entities to suggest known foreign-language renderings.
+**Foreign-language renderings.** "Banque du Canada" vs "Bank of Canada." Default: aliased manually by the operator. Future: an LLM-assisted alias generator runs on entities to suggest known foreign-language renderings.
 
 **Merging mistakes.** When operator notices a wrong merge later, they trigger a split via the entity page. `entity_merge_history` records the split; affected claims and mentions move; `entity_relations` are recomputed.
 
@@ -603,7 +605,7 @@ STEP 5 — Extract claims from approved sources
     STEP 5h — Emit claim.created event
 ```
 
-Sprint 1 skips 5c and 5d entirely (entities resolve nullable, claims dedup later). Sprint 2 activates them.
+Stage A (capture only) skips 5c and 5d entirely (entities resolve nullable, claims dedup later). Stage B activates them.
 
 ---
 
@@ -637,11 +639,11 @@ This is acceptable. Cost gates remain in place; the operator can disable resolut
 
 **The shape of the design:** four-stage pipeline (capture → block → match → decide), structured-output LLM matchers, conservative auto-merge thresholds, mandatory operator review queue for low-confidence cases, complete provenance via append-only logs, reversible merges via split history.
 
-**Sprint 1:** capture only. Mentions and claims accumulate unresolved. Substrate is correct but unmerged.
+**Stage A:** capture only. Mentions and claims accumulate unresolved. Substrate is correct but unmerged.
 
-**Sprint 2:** activate cheap resolution (pg_trgm blocking + LLM matching). Operator review surface live. Most mentions auto-resolve or queue.
+**Stage B:** activate cheap resolution (pg_trgm blocking + LLM matching). Operator review surface live. Most mentions auto-resolve or queue.
 
-**Sprint 3:** semantic resolution (pgvector). Higher recall, fewer operator-review surfaces.
+**Stage C:** semantic resolution (pgvector). Higher recall, fewer operator-review surfaces.
 
 **Beyond:** cross-model verification on high-stakes merges, periodic re-resolution sweeps when prompts change, active learning from operator decisions, multilingual support.
 

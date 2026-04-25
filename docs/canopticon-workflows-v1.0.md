@@ -100,7 +100,7 @@ The system's primary daily workflow. Runs unattended from cron or on-demand from
 
 - **Cron:** Cloudflare Workers cron at `0 11 * * *` UTC (07:00 ET) when DST in effect; `0 12 * * *` UTC (07:00 EST) when not. Configurable per user via `users.cascade_cron_expr`.
 - **Manual:** Operator presses "Run Cascade" on the Live screen.
-- **Event-driven (Sprint 2):** A high-priority event (e.g., HOT convergence detected) can fire a partial cascade.
+- **Event-driven (later):** A high-priority event (e.g., HOT convergence detected) can fire a partial cascade.
 
 ### Steps
 
@@ -681,7 +681,7 @@ The operator's System screen shows:
 - Cost rollups by operation type
 - Open errors needing operator attention
 
-This is enough observability for Sprint 1. Future: per-step timing histograms, per-role token usage, etc.
+This is enough observability for the active build. Future: per-step timing histograms, per-role token usage, etc.
 
 ---
 
@@ -689,12 +689,12 @@ This is enough observability for Sprint 1. Future: per-step timing histograms, p
 
 **Deferred to v1.1:**
 
-- Concurrent cascade runs. Currently a user has at most one cascade running at a time; concurrent runs would require lock management on substrate writes. Single-cascade is sufficient for Sprint 1.
+- Concurrent cascade runs. A user has at most one cascade running at a time; concurrent runs would require lock management on substrate writes. Single-cascade is sufficient for current loads.
 - Workflow composition language. Workflows are imperative TypeScript today. A future declarative format (YAML or DSL) could let operators tune cascade behavior without code changes.
 - Failure escalation. When a role consistently fails on a class of input, surface to operator as "this source type keeps failing the Critic — adjust the Critic prompt?" Currently the operator has to notice patterns manually.
 
-**Sprint 1 minimum workflows:**
+**Active workflows:**
 
-`morning_cascade` (basic version), `ingestion_only` (deferred-mode), `watch_set_update`. The publish-prep, contradiction-resolution, and prediction-resolution workflows activate when the corresponding substrate features come online (publishing, contradictions in real volume, prediction ledger). Error recovery is built into Sprint 1 because failures will happen and the operator needs a path forward.
+`morning_cascade` (running), `ingestion_only` (deferred-mode), `watch_set_update`. The publish-prep, contradiction-resolution, and prediction-resolution workflows activate when the corresponding substrate features come online (publishing, contradictions in real volume, prediction ledger). Error recovery is wired in from the start because failures will happen and the operator needs a path forward.
 
 The seven workflows specified here are the operator's complete operational surface. Beyond these, every other operator action (writing a thesis, drafting an article, declaring a prediction) is direct CRUD on substrate, not a workflow.

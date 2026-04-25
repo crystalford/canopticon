@@ -6,7 +6,7 @@ The eleven analytical roles are: Ingestion Critic, Verifier, Interrogator, Red T
 
 **Format.** Each role follows the same eight-section structure: Trigger, Reads from substrate, Writes to substrate, Model, API features, Prompt template, Output schema, Notes. This consistency lets Claude Code generate the SKILL.md filesystem layout mechanically from this document.
 
-**Scope.** Sprint 1 implements three roles (Ingestion Critic, Verifier, Interrogator) end-to-end. The remaining eight are specified completely so they can be implemented in subsequent sprints without re-design.
+**Scope.** This document specifies all twelve skills. The Ingestion Critic, Verifier, Interrogator, and claim_extraction utility ship in the active build path; the remaining eight roles are specified to the same level of detail so they can be wired in without re-design when their corresponding workflows come online.
 
 **Versioning.** Each role has a `skill_md_hash` column in `role_definitions`. When a prompt template changes, the hash changes, and the orchestrator knows to re-invoke for affected substrate.
 
@@ -98,7 +98,7 @@ Fires automatically on `source.created` event for any source with `ingestion_sta
 
 - The source row (full body, metadata)
 - All active theses' watch-sets and concept spines (for compatibility check)
-- Existing claims potentially in conflict (semantic-similarity match against source body — Phase 2; for Sprint 1, exact-text-match)
+- Existing claims potentially in conflict (semantic-similarity match against source body when pgvector is wired; exact-text-match until then)
 - The user's `cost_whitelists` (to determine if downstream paid operations would prompt or auto-run)
 
 ### Writes to substrate
@@ -399,7 +399,7 @@ If they disagree by two or more steps → status is `contested`, the claim is su
 ### Notes
 
 - The Verifier is the most expensive role per invocation. Cost discipline matters.
-- For Sprint 1, cross-model verification runs only on claims explicitly flagged by the operator as high-stakes. Default behavior is single-model with Citations API.
+- Cross-model verification runs only on claims explicitly flagged as high-stakes (publication-bound, linchpin, or operator-marked). Default behavior is single-model with Citations API.
 - Citations API and Structured Outputs cannot be combined in a single call. The Verifier makes two calls per claim: (1) Citations call to ground, (2) Structured Outputs call to extract status from the grounding output.
 
 ---
@@ -541,11 +541,11 @@ Emit JSON conforming to the InterrogatorOutput schema.
 - The `evidence_targets` array suggests where the operator might look to answer the question (e.g., "SEDAR+ filings 2017-2019", "Hansard Standing Committee on Finance June 2014").
 - The Interrogator does not answer its own questions. Answers come from new sources or operator research.
 
-### Sprint 1 round-trip contract
+### Round-trip contract
 
 The output schema above is intentionally narrow for v1.0 — every emitted field round-trips into the substrate without loss. See schema-v1.0 §12.4 for the field-by-field mapping into the `questions` table (`text`, `expected_information_gain`, `rationale`, `evidence_targets[]`).
 
-Fields that would require true-graph storage — discriminates-between-claims, tests-warrant-of-claim, depends-on-question — are deferred to v1.1 of both this skill and the schema, where they land in `question_claims` and `question_dependencies` edge tables (schema-v1.0 §12.2, §12.3). Sprint 1's Question Graph is a tree via `parent_question_id`; promoting it to a graph is a Sprint 2+ task with co-changes on both sides of this contract.
+Fields that would require true-graph storage — discriminates-between-claims, tests-warrant-of-claim, depends-on-question — are deferred to v1.1 of both this skill and the schema, where they land in `question_claims` and `question_dependencies` edge tables (schema-v1.0 §12.2, §12.3). Until then the Question Graph is a tree via `parent_question_id`; promoting it to a true graph is a coordinated change on both sides of this contract.
 
 ---
 
@@ -1301,8 +1301,7 @@ Emit JSON conforming to the CalibrationOutput schema.
 
 ### Notes
 
-- For Sprint 1, predictions are resolved manually by the operator. Calibration as a
-  role activates in Sprint 2 once enough predictions exist to make automation worthwhile.
+- Predictions are resolved manually by the operator until enough have accumulated to make automated calibration worthwhile. The Calibration role's automation activates at that point; the prompt and schema here are stable.
 - Calibration disagreements between automated and operator resolution are logged but
   the operator's decision wins.
 
@@ -1726,7 +1725,7 @@ Cascade workflow STEP 5, after a source's `ingestion_state` transitions to `appr
 - Returns a structured array of claim candidates. The orchestrator (not the skill) then writes:
   - `claims` rows
   - `claim_versions` rows (initial version, `is_current = TRUE`)
-  - `claim_entities` rows with `entity_id = NULL` until entity resolution runs (Sprint 2+)
+  - `claim_entities` rows with `entity_id = NULL` until entity resolution runs (see canopticon-entity-resolution-v1.0.md for the resolution pipeline)
   - `claim_sources` rows linking each claim to the originating source with `supports = TRUE`
 - Emits `claim.extracted` events per candidate (one event per claim written)
 
@@ -1734,7 +1733,7 @@ The skill itself produces no substrate writes — it returns a candidate array. 
 
 ### Model
 
-`claude-opus-4-7`. Claim extraction touches the Toulmin layer assignment and Admiralty inheritance; both are quality-sensitive. Haiku is acceptable for routine secondary-source fragments once a calibration baseline exists, but Sprint 1 standardizes on Opus.
+`claude-opus-4-7`. Claim extraction touches the Toulmin layer assignment and Admiralty inheritance; both are quality-sensitive. Haiku is acceptable for routine secondary-source fragments once a calibration baseline exists, but the default is Opus.
 
 ### API features
 
@@ -1792,7 +1791,8 @@ For each candidate claim:
 4. Identify the qualifier: any IPCC-style likelihood or temporal scope?
 
 5. Identify the entities involved with their surface mentions (we'll resolve
-   them later — entity_id stays NULL until Sprint 2's resolver runs).
+   them later — entity_id stays NULL until the resolver runs; see
+   canopticon-entity-resolution-v1.0.md).
 
 6. Propose the layer: factual / framing / architectural / distributive.
 
@@ -1998,17 +1998,17 @@ The hash is computed at load time (SHA-256 of the prompt body, lowercase hex) an
 - Per-thesis prompt customization. Currently roles use the same prompt template across all theses. Future: thesis-specific overrides for vantage selection, depth tuning, etc.
 - Role chains as named workflows. Currently the orchestrator wires roles together imperatively. Future: declarative workflow definitions (e.g., `cascade.yaml`).
 
-**Sprint 1 minimum skills:**
+**Active vs. dormant roles.**
 
-Four skills ship in Sprint 1: three analytical roles plus the claim_extraction utility.
+The cascade and the AI research loop exercise four skills today:
 
 - `ingestion_critic` — gates incoming sources
 - `claim_extraction` — converts approved sources into claim candidates (utility, §12)
 - `verifier` — grounds claims via Citations API
 - `interrogator` — generates verification questions
 
-These four plus the orchestrator and the Sprint 1 schema produce a working end-to-end pipeline: source ingests → Critic gates → operator approves → claim_extraction emits candidates → claims write → Verifier grounds → Interrogator generates questions → Live feed populates.
+Together with the orchestrator and the substrate-minimum schema (schema-v1.0 §20), they produce a working end-to-end pipeline: source ingests → Critic gates → operator approves → claim_extraction emits candidates → claims write → Verifier grounds → Interrogator generates questions → operator surface populates.
 
-`tier_projector` is required for any thesis that goes public, so it activates whenever the first thesis is set `is_public = TRUE`.
+`tier_projector` activates whenever the first thesis is set `is_public = TRUE`.
 
-The remaining roles (`red_team`, `steelman`, `premortem`, `gap_surfacer`, `calibration`, `assumption_auditor`, `indicator_validator`) come online in Sprints 2+. Specs are complete here so they can be added without re-design.
+The remaining roles (`red_team`, `steelman`, `premortem`, `gap_surfacer`, `calibration`, `assumption_auditor`, `indicator_validator`) sit dormant — their `role_definitions.is_active` defaults to `FALSE` until the corresponding workflow comes online. Specs are complete here so they can be wired in without re-design.

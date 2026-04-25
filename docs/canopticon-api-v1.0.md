@@ -1337,23 +1337,30 @@ Deprecation notices are sent via `Sunset` and `Deprecation` headers per RFC 8594
 - Conditional requests (`If-None-Match`, ETag) — added when caching becomes a concern
 - API key auth (only JWT auth in v1; API keys for programmatic use deferred)
 
-**Sprint 1 minimum endpoints:**
-
-The endpoints required to make the operator app functional end-to-end:
+**Endpoints that make the cascade and the AI research loop work end-to-end:**
 
 ```
 Auth:        /v1/auth/me (GET, PATCH)
-Sources:     GET /v1/sources, GET /v1/sources/:id, POST /v1/sources, POST /v1/sources/upload, GET /v1/sources/:id/critic-report, POST /v1/sources/:id/{approve,defer,reject}
+Sources:     GET /v1/sources, GET /v1/sources/:id, POST /v1/sources,
+             POST /v1/sources/upload, GET /v1/sources/:id/critic-report,
+             POST /v1/sources/:id/{approve,defer,reject}
 Claims:      GET /v1/claims, GET /v1/claims/:id, POST /v1/claims/:id/verify
 Entities:    GET /v1/entities, GET /v1/entities/:id, POST /v1/entities
-Theses:      GET /v1/theses, GET /v1/theses/:id, POST /v1/theses, POST /v1/theses/:id/versions, GET/POST /v1/theses/:id/claims, GET /v1/theses/:id/inbox, POST /v1/theses/:id/inbox/:inbox_id/act
-Cascade:     POST /v1/cascade/run, GET /v1/cascade/runs, GET /v1/cascade/runs/:id
+Theses:      GET /v1/theses, GET /v1/theses/:id, POST /v1/theses,
+             POST /v1/theses/:id/versions,
+             GET/POST /v1/theses/:id/claims,
+             GET /v1/theses/:id/inbox,
+             POST /v1/theses/:id/inbox/:inbox_id/act
+Research:    POST /v1/research, GET /v1/research/runs,
+             GET /v1/research/runs/:id (the AI research loop entry point)
+Cascade:     POST /v1/cascade/run, GET /v1/cascade/runs,
+             GET /v1/cascade/runs/:id
 SSE stream:  GET /v1/orchestrator/events
 Cost:        GET /v1/costs/summary, POST /v1/orchestrator/approve-cost
-Search:      GET /v1/search (basic version)
+Search:      GET /v1/search
 Webhooks:    /webhooks/youtube/pubsub
 ```
 
-That's ~30 endpoints. Everything else (predictions, contradictions, articles, assumptions, indicators, questions, role invocations, entity resolution queue, full export) ships in Sprints 2+ as the corresponding substrate features come online.
+Everything else (predictions, contradictions, articles, assumptions, indicators, full role-invocation surfacing, entity-resolution queue, full export) is added when the corresponding substrate features come online.
 
-The full surface is ~80 endpoints. None of it is exotic; it's all CRUD-plus-orchestration on the schema we already specified. Claude Code can implement Sprint 1's 30 endpoints and the 18-table schema in a single sustained build session.
+The full surface is ~80 endpoints. None of it is exotic; it's CRUD-plus-orchestration on the schema documented in `canopticon-schema-v1.0.md`.

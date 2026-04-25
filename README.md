@@ -39,14 +39,20 @@ pnpm test                             # runs vitest across packages
 External services that need wiring before anything runs end-to-end:
 
 - **Supabase project** — for Postgres, auth, realtime. `supabase link` against the project and `supabase db reset` to apply migrations.
-- **Anthropic API key** — for the four Sprint-1 skills (Ingestion Critic, Verifier, Interrogator, claim_extraction). Goes into the Worker as a secret via `wrangler secret put ANTHROPIC_API_KEY`.
+- **Anthropic API key** — for the analytical skills (Ingestion Critic, Verifier, Interrogator, claim_extraction) and for the AI research loop's tool-use agent. Goes into the Worker as a secret via `wrangler secret put ANTHROPIC_API_KEY`.
 - **Cloudflare account** — for the Worker, R2 source storage, and Durable Objects. `wrangler login` then `wrangler deploy` from `packages/api/`.
 
 The local-dev path that exercises everything without external deploys: `supabase start` (runs Postgres locally on port 54322), `pnpm --filter @canopticon/api dev` (Wrangler dev server), `pnpm --filter @canopticon/web dev` (Next.js on :3000).
 
-## What ships in Sprint 1
+## How CANOPTICON ingests
 
-The minimum slice that makes the system real: Hansard ingestion → Critic gate → operator approval → claim_extraction → claim writes → Verifier grounding → Interrogator question generation → Live feed item. Acceptance criteria are in `docs/canopticon-build-handoff-v1.0.md` §12.
+Three modes, sharing the same substrate and analytical roles:
+
+1. **AI research (primary).** Operator says "research X"; the system runs Claude with web search + fetch + substrate-write tools, and the graph fills in real time. Entry point: `POST /v1/research`.
+2. **Curated webhooks (secondary).** YouTube channels the operator follows emit webhooks on new uploads; the handler pulls the transcript and runs the cascade. Other webhook sources plug into the same shape.
+3. **Optional feed pulls (off by default).** Hansard via openparliament.ca, RSS, etc. Code lives in `packages/api/src/cron/` but cron triggers are commented out in `wrangler.toml`. Operators who want a continuous feed enable it explicitly.
+
+All three converge at the Ingestion Critic gate. No source bypasses grading.
 
 ## Discipline
 

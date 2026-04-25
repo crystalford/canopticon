@@ -12,13 +12,13 @@ Format: one entry per major version, oldest at the bottom. Each entry has *what 
 
 - ~~Entity resolution approach~~ — **specified** in `canopticon-entity-resolution-v1.0.md`. Promote to master synthesis on next minor.
 - ~~Claim deduplication and versioning approach~~ — **specified** in `canopticon-entity-resolution-v1.0.md` (claim deduplication pipeline) and `canopticon-schema-v1.0.md` §6.2 (versioning via `claim_versions`). Promote to master synthesis on next minor.
-- Convergence scoring formula. Master synthesis references a "0.75 threshold" for cross-claim convergence without specifying the underlying scoring function. Needs a formal definition before any public-thesis convergence indicator goes live. Sprint 2 work.
+- Convergence scoring formula. Master synthesis references a "0.75 threshold" for cross-claim convergence without specifying the underlying scoring function. Needs a formal definition before any public-thesis convergence indicator goes live.
 - ~~Cascade workflow exact sequence~~ — **specified** in `canopticon-workflows-v1.0.md` (Morning Cascade, 15 steps). Promote to master synthesis on next minor.
 - ~~Gap Surfacer seven-stage sweep~~ — **specified** in `canopticon-skills-v1.0.md` §7 ("Seven-stage sweep"). Stale entry; remove on v1.5.2 publication.
-- Verifier conflict resolution (cross-model disagreement handling). `canopticon-skills-v1.0.md` §2 specifies the policy ("auto-merge at ≥0.85 agreement, surface to operator below"); §14 specifies the orchestrator code path. The remaining gap is the operator UI for resolving major disagreement when surfaced. Sprint 2 work, alongside the first public thesis.
-- Brier calibration workflow (resolution mechanism not specified). `canopticon-skills-v1.0.md` §8 specifies the Calibration role's prompt; the resolution mechanism (operator marks a prediction resolved → calibration recomputes) is sketched in `canopticon-workflows-v1.0.md` (Prediction Resolution workflow) but the math (Platt scaling cadence, ECE binning) is not yet locked. Sprint 3 work, post-first-resolved-prediction.
+- Verifier conflict resolution (cross-model disagreement handling). `canopticon-skills-v1.0.md` §2 specifies the policy ("auto-merge at ≥0.85 agreement, surface to operator below"); §14 specifies the orchestrator code path. The remaining gap is the operator UI for resolving major disagreement when surfaced. Activates alongside the first public thesis.
+- Brier calibration workflow (resolution mechanism not specified). `canopticon-skills-v1.0.md` §8 specifies the Calibration role's prompt; the resolution mechanism (operator marks a prediction resolved → calibration recomputes) is sketched in `canopticon-workflows-v1.0.md` (Prediction Resolution workflow) but the math (Platt scaling cadence, ECE binning) is not yet locked. Activates after the first resolved prediction.
 
-**What this list now means.** Strikethrough items are no longer pending — they were pending when v1.5.1 shipped and have since been resolved by the schema, skills, workflows, or entity-resolution documents. They remain in the list only so future readers can trace the resolution path. The three live pending items (convergence scoring, Verifier conflict UI, Brier calibration math) are scoped to specific future sprints with specific blocking conditions; none block Sprint 1.
+**What this list now means.** Strikethrough items are no longer pending — they were pending when v1.5.1 shipped and have since been resolved by the schema, skills, workflows, or entity-resolution documents. They remain in the list only so future readers can trace the resolution path. The three live pending items (convergence scoring, Verifier conflict UI, Brier calibration math) each have a specific activation condition; none block any current work.
 
 **Discipline.** When a pending item is resolved by a downstream document, this list is updated in the same PR that adds the spec. The list is a leading indicator of what isn't yet decided, not a graveyard of historical questions.
 
@@ -63,7 +63,7 @@ Format: one entry per major version, oldest at the bottom. Each entry has *what 
 - Postgres schema (must accommodate role-prompt invocations, structured-output writes, citation provenance)
 - Skills package (must conform to Claude Skills SKILL.md format)
 - API surface (must expose orchestrator events)
-- Build handoff (Sprint 1 must implement Critic gate, structured-output writes, and operator approval flow)
+- Build handoff (must implement Critic gate, structured-output writes, and operator approval flow before any cascade goes live)
 
 ---
 

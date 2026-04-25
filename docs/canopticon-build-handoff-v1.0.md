@@ -1,30 +1,8 @@
-# CANOPTICON Build Handoff Package v1.0
+# CANOPTICON Build Reference
 
-**Purpose.** This is the document Claude Code executes from. It assembles the Sprint 1 scope into a single buildable plan: repo structure, environment setup, the exact subset of schema/skills/workflows/API to implement, the order to build them in, the acceptance criteria for "Sprint 1 done."
+**What this doc is.** A reference index for the codebase. It points at where things live, what depends on what, and the invariants the system maintains. It does not prescribe a build order — every developer (human or agent) reading the bundle picks the path that fits the work they're doing.
 
-**Audience.** Claude Code (or any developer agent) starting from zero. Assumes access to the eight reference documents (master synthesis v1.5.1, methodology canon, UI spec, public site spec, glossary, changelog, schema v1.0, skills v1.0, workflows v1.0, entity resolution v1.0, API v1.0).
-
-**Sprint 1 verb.** *Hansard ingests → Critic gates → operator approves via Sources screen → claims write → Verifier grounds → Interrogator generates questions → cascade produces a Live feed item.* If that end-to-end flow works on a real Hansard publication, Sprint 1 is done.
-
-**Out of scope for this doc.** Sprint 2+ work (entity resolution, claim deduplication, articles, predictions, contradictions, public site cache, the public site itself, all roles other than the three Sprint 1 minimums). Those have their own designs already; they ship in subsequent sprints.
-
----
-
-## 0. PRINCIPLES FOR THE BUILD
-
-**Vertical first.** Build the full ingestion → cascade → Live feed slice end-to-end before adding breadth. Resist the temptation to build all the schema tables before any UI. A working slice with three tables beats a half-built schema with no UI.
-
-**Real data, real source.** Use a real Hansard publication (openparliament.ca has a public API) as the Sprint 1 demo source. Synthetic test data hides integration issues. Real Hansard is structured, A-grade, and free.
-
-**No silent spending.** The cost gate is wired before any paid API call. There are no "we'll add the gate later" code paths. The very first time the system calls Anthropic, it goes through `approvePaidOperation()`.
-
-**RLS from row one.** Every table ships with Row-Level Security policies enabled. Don't write any test code that bypasses RLS by using the service-role key for routine operations.
-
-**Idempotency from row one.** Workflow steps log to `workflow_runs.steps_completed` before AND after work. Re-running a cascade hits the cache.
-
-**Operator-first UI.** The mobile-first v9.2 prototype is the design contract. The frontend implements those screens against real endpoints. No placeholder UI; if it can't be built against real data, the design needs adjusting first.
-
-**Skills as files, not strings.** The three Sprint 1 role prompts live in `/skills/{role}/SKILL.md` as actual files in the repo. The orchestrator reads them at startup. This way prompt iteration doesn't require redeploys.
+**Audience.** Claude Code, future contributors, future-you in six months trying to remember why something is the way it is.
 
 ---
 
@@ -36,884 +14,363 @@ Frontend (operator app)
   TypeScript strict
   React 19
   Tailwind CSS (utility-only, no Tailwind UI components)
-  Custom CSS for design tokens (matches v9.2 prototype)
-  Supabase JS client (for auth + realtime)
+  Custom CSS for design tokens
+  Supabase JS client (auth + realtime)
   Hosted on Vercel
 
 Backend
   Cloudflare Workers (TypeScript)
   Hono router
-  Durable Objects for orchestrator state
+  Durable Objects for any orchestrator state that outlives a single request
   Cloudflare Queues for async webhook processing
   Cloudflare R2 for source-body storage
-  Cloudflare Cron Triggers for scheduled cascades + cron pulls
+  Cloudflare Cron Triggers for any scheduled work (off by default — see §6)
 
 Database / Auth
   Supabase (Postgres 15, GoTrue auth, Realtime)
   Schema migrations via Supabase CLI
 
 External
-  Anthropic API (claude-opus-4-7) — primary model
-  openparliament.ca API — Hansard source (Sprint 1 only)
-  AssemblyAI — Path B transcription (not used in Sprint 1)
-  GPT-5 / Gemini — cross-model verification (deferred until Sprint 2;
-    see §5 below and master synthesis §5.0 — infrastructure ships in
-    Sprint 1, invocation activates when the first thesis goes public)
+  Anthropic API (claude-opus-4-7) — primary model and the one that drives
+    the AI research loop. Tool use (web_search, web_fetch) is the primary
+    ingestion path; see §6.
+  AssemblyAI / gpt-4o-mini-transcribe — Path B transcription for YouTube
+    audio when no captions are available.
+  GPT-5 / Gemini — secondary verification for publication-bound claims.
+    Infrastructure is wired; invocation gated on `is_public = TRUE` theses.
+  Optional source feeds (Hansard, RSS, etc.) — disabled by default.
 
 Tooling
   pnpm workspaces (monorepo)
   TypeScript 5.5+
-  Biome for lint/format (not ESLint/Prettier — single tool, faster)
+  Biome for lint/format (single tool, fast)
   Vitest for unit tests
-  Playwright for end-to-end on the cascade flow
+  Playwright for end-to-end flows
 ```
 
 ---
 
-## 2. REPO STRUCTURE
+## 2. REPO LAYOUT
 
-A pnpm monorepo with three packages: `web` (frontend), `api` (Cloudflare Worker), `shared` (types + skills).
+A pnpm monorepo with three packages — `web`, `api`, `shared` — plus the
+Supabase project at the root.
 
 ```
 canopticon/
-├── README.md                          # this doc, condensed
-├── package.json                       # workspace root
+├── README.md                           # entry point for new readers
+├── package.json                        # workspace root
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json
 ├── biome.json
-├── .env.example                       # env var template
-├── .gitignore
+├── .env.example                        # env var template
 │
-├── docs/                              # the eight reference docs live here
-│   ├── master-synthesis-v1.5.1.md
-│   ├── methodology-canon.md
-│   ├── ui-spec-v1.0.md
-│   ├── public-site-spec-v1.0.md
-│   ├── glossary.md
-│   ├── changelog.md
-│   ├── schema-v1.0.md
-│   ├── skills-v1.0.md
-│   ├── workflows-v1.0.md
-│   ├── entity-resolution-v1.0.md
-│   ├── api-v1.0.md
-│   └── build-handoff-v1.0.md          # this doc
+├── docs/                               # the reference bundle (this folder)
+│   ├── canopticon-master-synthesis-v1.5.1.md
+│   ├── canopticon-methodology-canon.md
+│   ├── canopticon-ui-spec-v1.0.md
+│   ├── canopticon-public-site-spec-v1.0.md
+│   ├── canopticon-glossary.md
+│   ├── canopticon-changelog.md
+│   ├── canopticon-schema-v1.0.md
+│   ├── canopticon-skills-v1.0.md
+│   ├── canopticon-workflows-v1.0.md
+│   ├── canopticon-entity-resolution-v1.0.md
+│   ├── canopticon-api-v1.0.md
+│   └── canopticon-build-handoff-v1.0.md   # this doc
 │
 ├── packages/
-│   ├── shared/                        # types + skills, consumed by web & api
+│   ├── shared/                         # types + constants + Skill loader + SKILL.md files
 │   │   ├── package.json
-│   │   ├── tsconfig.json
 │   │   ├── src/
 │   │   │   ├── types/
-│   │   │   │   ├── database.ts        # generated from Supabase schema
-│   │   │   │   ├── api.ts             # generated from openapi.yaml
-│   │   │   │   └── events.ts          # orchestrator event types
-│   │   │   └── constants/
-│   │   │       └── enums.ts           # mirrors Postgres enums
+│   │   │   │   ├── database.ts         # generated from Supabase schema
+│   │   │   │   ├── api.ts              # generated from openapi.yaml
+│   │   │   │   └── events.ts           # orchestrator event-type unions
+│   │   │   ├── constants/
+│   │   │   │   └── enums.ts            # mirrors Postgres enums
+│   │   │   └── skills/loader/          # SKILL.md parser + hasher
 │   │   └── skills/
-│   │       ├── ingestion-critic/
-│   │       │   ├── SKILL.md
-│   │       │   ├── schema.json
-│   │       │   └── examples/
-│   │       ├── verifier/
-│   │       │   ├── SKILL.md
-│   │       │   └── (no schema — uses Citations API)
-│   │       └── interrogator/
-│   │           ├── SKILL.md
-│   │           └── schema.json
+│   │       ├── ingestion-critic/{SKILL.md, schema.json, examples/}
+│   │       ├── verifier/{SKILL.md, schema.json}
+│   │       ├── interrogator/{SKILL.md, schema.json}
+│   │       └── claim-extraction/{SKILL.md, schema.json}
 │   │
-│   ├── api/                           # Cloudflare Worker
+│   ├── api/                            # Cloudflare Worker
 │   │   ├── package.json
-│   │   ├── wrangler.toml              # CF Worker config
-│   │   ├── tsconfig.json
+│   │   ├── wrangler.toml
 │   │   ├── src/
-│   │   │   ├── index.ts               # Worker entry point + Hono routes
-│   │   │   ├── auth/
-│   │   │   │   └── jwt.ts             # Supabase JWT validation
+│   │   │   ├── index.ts                # Worker entry + Hono routes
+│   │   │   ├── auth/{jwt.ts, middleware.ts}
 │   │   │   ├── routes/
 │   │   │   │   ├── sources.ts
-│   │   │   │   ├── claims.ts
-│   │   │   │   ├── entities.ts
-│   │   │   │   ├── theses.ts
 │   │   │   │   ├── cascade.ts
-│   │   │   │   ├── orchestrator.ts    # SSE stream + cost approval
-│   │   │   │   ├── search.ts
-│   │   │   │   └── webhooks/
-│   │   │   │       └── youtube.ts     # Sprint 1: stub only; Hansard cron is below
+│   │   │   │   ├── research.ts         # AI research loop (primary path)
+│   │   │   │   ├── orchestrator.ts     # SSE + cost approval
+│   │   │   │   ├── webhooks/youtube.ts # YouTube channel webhooks
+│   │   │   │   └── ...
 │   │   │   ├── orchestrator/
-│   │   │   │   ├── cost_gate.ts       # approvePaidOperation()
-│   │   │   │   ├── cascade.ts         # the morning cascade workflow
-│   │   │   │   ├── ingestion.ts       # ingestion-only workflow
-│   │   │   │   ├── role_runner.ts     # invokes a role with substrate snapshot
-│   │   │   │   └── events.ts          # event-emitter
-│   │   │   ├── cron/
-│   │   │   │   └── hansard.ts         # 6h pull from openparliament.ca
+│   │   │   │   ├── cost_gate.ts
+│   │   │   │   ├── role_runner.ts      # the only Anthropic call site
+│   │   │   │   ├── cascade.ts          # role-step orchestration
+│   │   │   │   ├── research.ts         # research-agent loop
+│   │   │   │   └── events.ts
+│   │   │   ├── cron/                   # off by default
+│   │   │   │   └── hansard.ts
 │   │   │   ├── lib/
-│   │   │   │   ├── supabase.ts        # service-role client for backend ops
-│   │   │   │   ├── anthropic.ts       # Anthropic API wrapper
-│   │   │   │   ├── r2.ts              # R2 storage helpers
-│   │   │   │   └── errors.ts          # standard error builder
+│   │   │   │   ├── anthropic.ts        # the only Anthropic client
+│   │   │   │   ├── supabase.ts         # service-role + user-scoped clients
+│   │   │   │   ├── openparliament.ts
+│   │   │   │   └── errors.ts
 │   │   │   └── durable_objects/
-│   │   │       └── cascade_run.ts     # orchestrator state per cascade
-│   │   ├── tests/
-│   │   │   ├── unit/
-│   │   │   └── integration/
-│   │   └── README.md
+│   │   │       └── ...                 # state for long-running cascades / research
+│   │   └── tests/
 │   │
-│   └── web/                           # Next.js operator app
+│   └── web/                            # Next.js operator app
 │       ├── package.json
 │       ├── next.config.ts
-│       ├── tsconfig.json
 │       ├── tailwind.config.ts
-│       ├── public/
-│       │   ├── favicon.ico
-│       │   └── grain.svg              # the texture overlay
 │       ├── src/
-│       │   ├── app/
-│       │   │   ├── layout.tsx
-│       │   │   ├── globals.css        # design tokens from v9.2
-│       │   │   ├── (auth)/
-│       │   │   │   ├── sign-in/page.tsx
-│       │   │   │   └── auth-callback/route.ts
-│       │   │   ├── (operator)/
-│       │   │   │   ├── layout.tsx     # shell with bottom nav
-│       │   │   │   ├── live/page.tsx
-│       │   │   │   ├── graph/page.tsx
-│       │   │   │   ├── studio/page.tsx
-│       │   │   │   ├── library/page.tsx
-│       │   │   │   ├── sources/page.tsx
-│       │   │   │   └── system/page.tsx
-│       │   │   └── api/
-│       │   │       └── auth/[...slug]/route.ts
-│       │   ├── components/
-│       │   │   ├── nav/
-│       │   │   ├── feed/
-│       │   │   ├── source/
-│       │   │   ├── claim/
-│       │   │   ├── thesis/
-│       │   │   ├── modals/
-│       │   │   │   ├── cost-approval.tsx
-│       │   │   │   └── confirm.tsx
-│       │   │   └── primitives/        # buttons, badges, chips
-│       │   ├── lib/
-│       │   │   ├── api-client.ts      # generated from openapi.yaml
-│       │   │   ├── supabase.ts        # browser client
-│       │   │   ├── realtime.ts        # subscription helpers
-│       │   │   └── utils.ts
-│       │   └── styles/
-│       │       └── tokens.css         # color, type, spacing tokens
+│       │   ├── app/                    # App Router screens
+│       │   ├── components/             # primitives + composed components
+│       │   ├── lib/{api-client,supabase,realtime,utils}.ts
+│       │   └── styles/tokens.css
 │       └── tests/
 │
-├── supabase/                          # Supabase project config & migrations
+├── supabase/
 │   ├── config.toml
-│   ├── migrations/
-│   │   ├── 0001_extensions.sql
-│   │   ├── 0002_enums.sql
-│   │   ├── 0003_users.sql
-│   │   ├── 0004_cost_ledger.sql
-│   │   ├── 0005_sources.sql
-│   │   ├── 0006_entities.sql
-│   │   ├── 0007_claims.sql
-│   │   ├── 0008_theses.sql
-│   │   ├── 0009_role_runtime.sql      # role_definitions, role_invocations, orchestrator_events, cascade_runs
-│   │   ├── 0010_rls_policies.sql
-│   │   ├── 0011_triggers.sql
-│   │   ├── 0012_seed_role_definitions.sql
-│   │   └── 0013_workflow_runs.sql
-│   └── seed/
-│       └── dev_seed.sql               # optional dev seed: a sample Hansard source, a sample thesis
+│   ├── migrations/                     # 0001-0014; numbered in apply order
+│   ├── seed/dev_seed.sql
+│   └── tests/rls/                      # alice/bob/anon RLS test matrix
 │
 └── scripts/
-    ├── generate-types.ts              # supabase gen types -> shared/types/database.ts
-    ├── generate-api-types.ts          # openapi-typescript -> shared/types/api.ts
-    └── deploy.sh                      # push web to Vercel + worker via wrangler
+    ├── sync-skills.ts                  # SKILL.md → role_definitions
+    ├── generate-types.ts               # Supabase types
+    ├── generate-api-types.ts           # openapi-typescript
+    └── deploy.sh
 ```
 
 ---
 
-## 3. ENVIRONMENT VARIABLES
+## 3. ENVIRONMENT
 
-`.env.example`:
+`.env.example` documents every variable. Worker secrets are set with
+`wrangler secret put`; frontend secrets go in the Vercel project settings;
+local dev uses `.env.local`.
+
+The variables that matter:
 
 ```bash
-# Supabase (both frontend and backend use these)
-NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=ey...
-SUPABASE_SERVICE_ROLE_KEY=ey...                 # backend only, never exposed to frontend
+# Supabase (frontend + backend)
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=                # backend only, never exposed
+SUPABASE_JWT_SECRET=                      # backend only, for JWT verification
 
 # Anthropic (backend only)
-ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_API_KEY=
 
 # Cloudflare (deploy time)
-CLOUDFLARE_ACCOUNT_ID=...
-CLOUDFLARE_API_TOKEN=...
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_API_TOKEN=
 
 # Frontend
-NEXT_PUBLIC_API_BASE_URL=https://api.canopticon.com
-NEXT_PUBLIC_SITE_URL=https://app.canopticon.com  # operator app domain
+NEXT_PUBLIC_API_BASE_URL=
+NEXT_PUBLIC_SITE_URL=
 
 # Backend
-API_BASE_URL=https://api.canopticon.com
 R2_BUCKET_NAME=canopticon-sources
-R2_ACCOUNT_ID=...
-R2_ACCESS_KEY_ID=...
-R2_SECRET_ACCESS_KEY=...
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
 
-# openparliament.ca (Sprint 1 source)
-OPENPARLIAMENT_API_KEY=...                       # if needed; their API is largely open
-
-# Misc
-NODE_ENV=development
-LOG_LEVEL=info
+# Optional source feeds — only needed if you enable them
+OPENPARLIAMENT_USER_AGENT=
+OPERATOR_USER_ID=
 ```
-
-Worker secrets are set via `wrangler secret put <name>`. Frontend secrets go in Vercel project settings. Local development uses `.env.local`.
 
 ---
 
-## 4. SPRINT 1 SCHEMA — THE 18 TABLES
+## 4. THE INVARIANTS
 
-The minimum table set that supports the Sprint 1 verb.
+These are the system's load-bearing rules. Code that violates any of them
+is broken even if its tests pass.
 
-**Migration order** (from schema-v1.0.md Section 18, abbreviated):
+**No silent spending.** Every paid operation flows through
+`approvePaidOperation()` before the API call is made.
+`packages/api/src/orchestrator/cost_gate.ts` is the single chokepoint;
+`packages/api/src/lib/anthropic.ts` is the single Anthropic client; the
+role runner is the single composer. There is no other path to a paid
+external API call.
 
-```
-0001_extensions.sql
-  - uuid-ossp, pgcrypto, pg_trgm, btree_gin
-  - (defer pgvector to Sprint 3)
+**RLS is the access boundary.** Every `public.*` table has Row-Level
+Security enabled with explicit policies. The user-scoped Supabase client
+in `lib/supabase.ts` attaches the user's JWT so policies see
+`auth.uid()` correctly. The service-role client bypasses RLS and is used
+only for backend bookkeeping (cost ledger writes, role invocation
+audit, scheduled work that has no user JWT). The matrix in
+`supabase/tests/rls/` proves alice/bob/anon isolation in CI; that gate
+is non-negotiable before any deploy that touches policies.
 
-0002_enums.sql
-  - admiralty_grade, verification_status, ipcc_likelihood
-  - entity_type, claim_layer, thesis_status
-  - source_type, ingestion_mode, ingestion_state
-  - role_name, cost_operation_type
-  - watch_pin_type, question_status
-  (the enums needed by Sprint 1 tables; defer the rest)
+**Provenance over assertion.** Every claim has at least one source.
+Every source has an Admiralty grade. Every role invocation logs its
+inputs and outputs to `role_invocations`. The audit trail is enough to
+reconstruct any piece of substrate from primary documents.
 
-0003_users.sql
-  - public.users (mirrors auth.users)
+**Skills as files.** Role prompts live in
+`packages/shared/skills/<name>/SKILL.md`. The
+`scripts/sync-skills.ts` script reads each file, hashes the prompt body,
+and updates `role_definitions.prompt_template` and
+`role_definitions.skill_md_hash`. Iterating on a prompt is editing a
+file and re-running sync — no migration, no redeploy.
 
-0004_cost_ledger.sql
-  - public.cost_ledger
-  - public.cost_whitelists
+**Calibrated language over rhetorical certainty.** IPCC qualifiers in
+every published BLUF (`virtually_certain`, `extremely_likely`, ... ,
+`exceptionally_unlikely`). Default to the weaker option when uncertain.
 
-0005_sources.sql
-  - public.sources
-  - public.ingestion_critic_reports
-  - public.ingestion_actions
+**Contradictions preserved over contradictions resolved.** Cross-claim
+contradictions live in their own registry (added when the contradiction
+substrate comes online) and are surfaced to the operator. Forced consensus
+is not a goal.
 
-0006_entities.sql
-  - public.entities
-  - public.entity_mentions      (entity_id NULLABLE; resolution deferred)
-
-0007_claims.sql
-  - public.claims
-  - public.claim_versions
-  - public.claim_entities
-  - public.claim_sources
-  (defer claim_relations, entity_relations to Sprint 2)
-
-0008_theses.sql
-  - public.theses
-  - public.thesis_versions
-  - public.thesis_claims
-  - public.thesis_watch_sets
-  - public.thesis_concept_spine
-  - public.thesis_inbox
-
-0009_role_runtime.sql
-  - public.role_definitions
-  - public.role_invocations
-  - public.orchestrator_events
-  - public.cascade_runs
-
-0010_rls_policies.sql
-  - RLS enabled on every public.* table
-  - Per-table policies: owner_all + (where applicable) public_read for is_public rows
-
-0011_triggers.sql
-  - set_updated_at trigger on every table with updated_at
-  - enforce_single_current_claim_version on claim_versions
-  - enforce_single_current_thesis_version on thesis_versions
-  - emit_orchestrator_event on insert/update of substrate tables
-
-0012_seed_role_definitions.sql
-  - INSERT default rows for the 3 Sprint 1 roles (ingestion_critic, verifier, interrogator)
-  - prompt_template = '<see SKILL.md>' placeholder; the runtime reads from the file
-
-0013_workflow_runs.sql
-  - public.workflow_runs (from workflows-v1.0.md Section 0.3)
-```
-
-**Sprint 1 tables (19 total):**
-1. users
-2. cost_ledger
-3. cost_whitelists
-4. sources
-5. ingestion_critic_reports
-6. ingestion_actions
-7. entities
-8. entity_mentions
-9. claims
-10. claim_versions
-11. claim_entities
-12. claim_sources
-13. theses
-14. thesis_versions
-15. thesis_claims
-16. thesis_watch_sets
-17. thesis_concept_spine
-18. thesis_inbox
-19. questions  (acceptance criterion #7 — Interrogator writes here)
-
-Plus runtime tables: role_definitions, role_invocations, orchestrator_events, cascade_runs, workflow_runs.
-
-That's 24 tables total when including runtime. The 19 in the spec count substrate only. Migration 0014_questions.sql lands the `questions` table; question→claim and question→question edge tables (schema-v1.0 §12.2, §12.3) are deferred to v1.1.
+**Idempotency at every workflow step.** Workflow runs write
+`workflow_runs.steps_completed` before *and* after each step. Replays
+read the checkpoint and skip done steps.
 
 ---
 
-## 5. SPRINT 1 ROLES — THE THREE SKILLS
+## 5. INGESTION POSTURE
 
-Four SKILL.md files in `packages/shared/skills/` — three analytical roles (Ingestion Critic, Verifier, Interrogator) plus the claim_extraction utility skill. Full prompt content from skills-v1.0.md sections 1, 2, 3, and 12.
+CANOPTICON ingests in three modes. They share the same substrate and
+flow through the same Critic → claim_extraction → Verifier → Interrogator
+analytical roles. They differ only in how sources arrive.
 
-**Cross-model verification posture for Sprint 1.** The Verifier ships with Citations-API grounding only. The cross-model code path (skills-v1.0 §14) is wired so the orchestrator can invoke a secondary model (GPT-5 or Gemini) when `role.cross_model_enabled` is true, but Sprint 1 ships with `cross_model_enabled = FALSE` on all roles. The flag flips to TRUE in Sprint 2 the moment the first thesis is set `is_public = TRUE` — see master synthesis §5.0 for the principle and skills-v1.0 §14 for the orchestrator code. Do not delete or stub the cross-model branch; the infrastructure must be present even though no Sprint 1 invocation reaches it.
+**Operator-driven AI research (primary).** The operator says "research
+X" and the system runs Claude with web search, URL fetch, and substrate-
+write tools. The agent finds sources, registers them (each one through
+the Critic), extracts claims, and routes them to active theses. The
+operator watches via SSE and can interrupt or redirect.
+`POST /v1/research` is the entry point. This is the path operators
+spend most of their time on.
 
-```
-packages/shared/skills/
-├── ingestion-critic/
-│   ├── SKILL.md           # frontmatter + full prompt from Section 1 of skills doc
-│   ├── schema.json        # IngestionCriticReport JSON Schema
-│   └── examples/          # (empty for Sprint 1; populated as runs accumulate)
-├── verifier/
-│   ├── SKILL.md           # full prompt from Section 2
-│   └── schema.json        # post-citations extraction schema
-├── interrogator/
-│   ├── SKILL.md           # full prompt from Section 3
-│   └── schema.json        # InterrogatorOutput schema
-└── claim-extraction/
-    ├── SKILL.md           # full prompt from Section 12 (utility skill)
-    └── schema.json        # ClaimExtractionOutput schema
-```
+**Curated webhooks (secondary).** Specific YouTube channels the
+operator follows (declared via the Channel Watchlist surface) emit
+webhooks on new uploads. The handler pulls the transcript via Path A
+(free `youtube-transcript-api`) or Path B (paid AssemblyAI /
+gpt-4o-mini-transcribe), creates a `sources` row, and runs the cascade.
+Other webhook providers (e.g., specific Substacks the operator follows)
+plug into the same shape.
 
-**SKILL.md frontmatter format:**
+**Optional feed pulls (off by default).** Hansard via openparliament.ca,
+RSS, etc. The code lives in `packages/api/src/cron/` but the cron
+triggers in `wrangler.toml` are commented out. Operators who want a
+continuous low-priority feed can enable them; the default install is
+research-and-webhooks-only.
 
-```yaml
----
-name: ingestion-critic
-version: 1.0
-model: claude-opus-4-7
-features:
-  citations_api: false
-  structured_output: true
-  cross_model: false
----
-```
-
-The orchestrator reads SKILL.md at runtime, computes a SHA-256 hash of the prompt body, compares to `role_definitions.skill_md_hash`, updates if changed, then invokes.
+All three modes converge at the Ingestion Critic gate. No source bypasses
+grading. No claim writes to the substrate without provenance and an
+Admiralty grade.
 
 ---
 
-## 6. SPRINT 1 WORKFLOWS — THE THREE
+## 6. WHERE TO LOOK FOR WHAT
 
-From workflows-v1.0.md:
+When in doubt about a design decision, the corresponding reference doc
+has the answer:
 
-1. **morning_cascade** — full cascade with steps 1, 2, 3, 4, 5 (without 5c/5d entity-and-claim-resolution; those come in Sprint 2), 6, 7, 8, 13, 14, 15. Skip steps 9 (Gap Surfacer), 10 (Calibration — no predictions yet), 11 (Tier Projector — no public theses yet), 12 (Assumption Auditor — weekly only, won't fire in first week of operation).
-
-2. **ingestion_only** — webhook/cron arrival creates a `sources` row with `ingestion_state = 'pending_critic'` and emits `source.created`. Defers further work to next cascade.
-
-3. **watch_set_update** — operator pins/unpins entities; backfill runs.
-
-The publish-prep, contradiction-resolution, and prediction-resolution workflows ship in Sprint 2+ when their corresponding substrate features come online.
-
----
-
-## 7. SPRINT 1 API ENDPOINTS — THE ~30
-
-From api-v1.0.md Section 21:
-
-```
-Auth
-  GET  /v1/auth/me
-  PATCH /v1/auth/me
-
-Sources
-  GET  /v1/sources
-  GET  /v1/sources/:id
-  POST /v1/sources                    # operator URL or text upload
-  POST /v1/sources/upload              # multipart file upload to R2
-  GET  /v1/sources/:id/critic-report
-  POST /v1/sources/:id/approve
-  POST /v1/sources/:id/defer
-  POST /v1/sources/:id/reject
-
-Claims
-  GET  /v1/claims
-  GET  /v1/claims/:id
-  POST /v1/claims/:id/verify
-
-Entities
-  GET  /v1/entities
-  GET  /v1/entities/:id
-  POST /v1/entities                    # operator-authored entity (rare in Sprint 1)
-
-Theses
-  GET  /v1/theses
-  GET  /v1/theses/:id
-  POST /v1/theses                      # declare new thesis
-  POST /v1/theses/:id/versions         # update with new version
-  GET  /v1/theses/:id/claims
-  POST /v1/theses/:id/claims           # integrate claim into layer
-  GET  /v1/theses/:id/inbox
-  POST /v1/theses/:id/inbox/:inbox_id/act
-
-Cascade
-  POST /v1/cascade/run
-  GET  /v1/cascade/runs
-  GET  /v1/cascade/runs/:id
-
-Orchestrator (SSE + cost approval)
-  GET  /v1/orchestrator/events         # SSE stream
-  POST /v1/orchestrator/approve-cost   # operator approves a pending cost gate
-
-Cost
-  GET  /v1/costs/summary
-
-Search
-  GET  /v1/search                      # pg_trgm-based; wires up the Library screen
-
-Webhooks (inbound from cron worker; not external in Sprint 1)
-  POST /v1/internal/cron/hansard
-```
-
-That's ~30 endpoints. Full request/response shapes per api-v1.0.md.
+| Question | Doc |
+|---|---|
+| What does this table do? Which constraint guards it? | `canopticon-schema-v1.0.md` |
+| How does this role behave? What's its prompt? Schema? | `canopticon-skills-v1.0.md` |
+| What's the workflow sequence? When does the cascade fire? | `canopticon-workflows-v1.0.md` |
+| How are mentions resolved to canonical entities? | `canopticon-entity-resolution-v1.0.md` |
+| What does this endpoint return? | `canopticon-api-v1.0.md` |
+| What does this term mean? | `canopticon-glossary.md` |
+| Why was this decided? | `canopticon-changelog.md` |
+| How does the operator UI work? | `canopticon-ui-spec-v1.0.md` and the v9.2 prototype HTML |
+| What's the public face? | `canopticon-public-site-spec-v1.0.md` and the v1 public prototype |
+| What's the architectural posture? Constitutional principles? | `canopticon-master-synthesis-v1.5.1.md` |
+| Which methodology lives where in the system? | `canopticon-methodology-canon.md` ("How the canon is integrated") |
 
 ---
 
-## 8. SPRINT 1 UI — THE SIX SCREENS
+## 7. KNOWN RISKS
 
-The mobile-first v9.2 prototype is the design contract. Every screen is implemented as a Next.js App Router page under `(operator)/`:
+**Anthropic rate limits.** A long research-agent run can fire many API
+calls in a short window. Default tier may bottleneck. Mitigations: the
+cost gate is the natural throttle (it pauses when the per-op cap is hit
+and prompts the operator); the role runner queues with backoff; budget
+for tier upgrade.
 
-1. **Live (`/live`)** — feed assembled from cascade outputs. Reads from `GET /v1/orchestrator/events` (SSE), `GET /v1/sources?ingestion_state=...`, `GET /v1/claims?since=...`, `GET /v1/cascade/runs/latest`. Run Cascade button posts to `/v1/cascade/run`.
+**Cost-gate UX.** Every paid op prompts unless whitelisted. Without
+sensible whitelist defaults, the operator approves every Anthropic call
+during heavy research. Ship with a default whitelist that auto-approves
+small operations (Critic, claim_extraction, Verifier on grade-A sources)
+under a per-op cap; cross-model and large-context calls always prompt.
 
-2. **Graph (`/graph`)** — for Sprint 1, this shows a simple force-directed graph of entities and their claim-relations. Uses Cytoscape.js or a similar library. The sophisticated graph UX comes in Phase E (post-Sprint-1 graph research). For now: 11-50 nodes is fine; nothing fancy.
+**SSE on mobile.** SSE connections drop on mobile network changes. The
+client reconnects with `Last-Event-ID` and replays missed events.
 
-3. **Studio (`/studio`)** — Sprint 1 shows the thesis-in-progress view (BLUF, layers, claims). Production tab for video/article workflows is stubbed. Rec-mode is stubbed.
+**RLS overhead at scale.** RLS adds query overhead. Fine at current
+volumes; future optimization is materialized views for hot read paths
+(see `canopticon-schema-v1.0.md` §16).
 
-4. **Library (`/library`)** — search and browse across substrate. Wires up `/v1/search`. Read-only in Sprint 1.
+**Public-site RLS misconfiguration.** The public API is PostgREST
+against the anon key. A single misconfigured policy leaks private theses.
+The deny-by-default test matrix in `supabase/tests/rls/` is the gate;
+it must be green before any deploy that touches RLS, and CI fails
+otherwise.
 
-5. **Sources (`/sources`)** — the queue. Pending approvals, recently-ingested, source detail with Critic report. The most-used screen during Sprint 1.
+**Idempotency under partial failure.** A cascade or research run that
+fails mid-step must resume cleanly. Every step writes its
+`steps_completed` checkpoint before and after; resume reads the
+checkpoint and skips completed steps.
 
-6. **System (`/system`)** — health, costs, role activity, recent cascade runs. Reads from `/v1/costs/summary`, `/v1/cascade/runs`, etc.
-
-**Implementation notes:**
-
-- Server components by default; client components only where interactivity demands them (forms, modals, the SSE event listener, the bottom nav highlight)
-- Mobile-first responsive — design works at 375px width minimum, scales up
-- Color tokens in `globals.css` from v9.2 (the cream/amber/red/sage/blue/tan palette, dark backgrounds)
-- EB Garamond for serifs, JetBrains Mono for mono — both via `next/font` with display: swap
-
----
-
-## 9. SPRINT 1 ORCHESTRATOR — THE WIRING
-
-The orchestrator is plain TypeScript on Cloudflare Workers, not an agent framework. Two pieces:
-
-**Stateless Worker** (`packages/api/src/orchestrator/`):
-- `cost_gate.ts` — exports `approvePaidOperation(user, op_type, estimate_cents)` returning `{approved: boolean, reason: string, approval_id?: uuid}`. Reads `cost_ledger` and `cost_whitelists`. Inserts a pending row in a `cost_approvals` table (or uses Durable Object state) when operator decision is required.
-- `role_runner.ts` — exports `invokeRole(role_name, snapshot, options)`. Reads SKILL.md, builds prompt, calls Anthropic, validates structured output, persists `role_invocations` row, charges `cost_ledger`.
-- `events.ts` — emits to `orchestrator_events` table. Subscribers (the SSE endpoint) tail this table.
-- `ingestion.ts` — implements the ingestion-only workflow.
-
-**Durable Object** (`packages/api/src/durable_objects/cascade_run.ts`):
-- One DO per cascade run. State: `cascade_runs.id`, `steps_completed`, `current_step`, `error_state`.
-- Methods: `start()`, `step(name, fn)`, `cancel()`, `resume(from_step)`.
-- Persists state to `cascade_runs` table at each step boundary.
-
-**Trigger paths:**
-
-- Cron at 11:00 UTC daily → fetches openparliament.ca latest Hansard → ingestion workflow → emits `source.created`. (Sprint 1: only Hansard source; YouTube and others come in Sprint 2.)
-- Operator `POST /v1/cascade/run` → instantiates a CascadeRun DO → runs through steps → returns `cascade_run_id`.
-- The CascadeRun DO writes substrate, emits events, and returns when done.
+**Webhook signature verification.** Inbound webhooks (YouTube, future
+RSS) must verify HMAC signatures or token claims before any side effect.
+Unsigned webhook payloads are rejected.
 
 ---
 
-## 10. SPRINT 1 BUILD ORDER (PHASES, NOT DAYS)
-
-**A note on time.** Earlier drafts of this section attached calendar days to each phase ("Day 0", "Day 1", "Days 2-4"). That was aspirational, not honest. A focused solo developer building Cloudflare Workers + Supabase + Durable Objects + Anthropic + RLS audit + Hansard adapter + six UI screens against real production endpoints is looking at three to five weeks, not seven days, and longer if any one of those integrations bites unexpectedly. Calendar pressure invites shortcuts; this section now talks about phases with definitions-of-done instead.
-
-The order matters. Each phase has a definition-of-done that must hold before the next phase begins. Don't start the next phase to "get unblocked" — phase ordering encodes correctness dependencies, not arbitrary preference. If a phase is taking longer than expected, the answer is to scope it down, not to start the next phase in parallel.
-
-### 10.1 Phase 0 — Foundation
-
-**Tasks:**
-
-```
-[ ] pnpm workspace initialized
-[ ] Three packages scaffolded (shared, api, web)
-[ ] Biome configured, TypeScript strict, basic CI
-[ ] Supabase project created (dev environment)
-[ ] Anthropic API key in vault
-[ ] Cloudflare Workers project initialized via wrangler
-[ ] Environment variables wired
-[ ] Repo pushed to GitHub
-```
-
-**Definition-of-done:**
-
-- A trivial Worker (`/health` returning `{ok:true}`) deploys to a *.workers.dev URL via `wrangler deploy` from CI.
-- A trivial Next.js page (`/`) deploys to a Vercel preview URL on every PR.
-- Both deploys succeed in CI without secrets being printed to logs.
-- Anyone with repo access can clone, `pnpm install`, and run `pnpm typecheck` clean across all three packages.
-
-### 10.2 Phase 1 — Database
-
-**Tasks:**
-
-```
-[ ] Migration 0001 — extensions
-[ ] Migration 0002 — enums (Sprint 1 subset)
-[ ] Migration 0003 — users (mirroring auth.users)
-[ ] Migration 0004 — cost_ledger, cost_whitelists
-[ ] Migration 0005 — sources, ingestion_critic_reports, ingestion_actions
-[ ] Migration 0006 — entities, entity_mentions
-[ ] Migration 0007 — claims, claim_versions, claim_entities, claim_sources
-[ ] Migration 0008 — theses, thesis_versions, thesis_claims, thesis_watch_sets, thesis_concept_spine, thesis_inbox
-[ ] Migration 0009 — role_definitions, role_invocations, orchestrator_events, cascade_runs
-[ ] Migration 0010 — RLS policies on every table
-[ ] Migration 0011 — triggers
-[ ] Migration 0012 — seed role_definitions
-[ ] Migration 0013 — workflow_runs
-[ ] supabase gen types typescript → packages/shared/src/types/database.ts
-[ ] RLS test matrix (schema-v1.0 §21) implemented under supabase/tests/rls/
-```
-
-**Definition-of-done:**
-
-- Every migration applies cleanly to a fresh Supabase project from `supabase db reset`.
-- The RLS test matrix (schema-v1.0 §21) is green: alice/bob/anon principals exercise every Sprint 1 table with the matrix's expected ✓/✗ outcomes. CI gate is wired and a test failure aborts the build.
-- `packages/shared/src/types/database.ts` regenerates without diff after a clean migration apply.
-- A real test user (created via Supabase auth signup) can read their own substrate rows and cannot read another test user's rows. Confirmed by SQL assertion, not vibes.
-
-### 10.3 Phase 2 — Skills
-
-**Tasks:**
-
-```
-[ ] packages/shared/skills/ingestion-critic/SKILL.md (full prompt + frontmatter)
-[ ] packages/shared/skills/ingestion-critic/schema.json (IngestionCriticReport)
-[ ] packages/shared/skills/verifier/SKILL.md (full prompt + frontmatter)
-[ ] packages/shared/skills/verifier/schema.json (post-citations extraction)
-[ ] packages/shared/skills/interrogator/SKILL.md (full prompt + frontmatter)
-[ ] packages/shared/skills/interrogator/schema.json (InterrogatorOutput)
-[ ] packages/shared/skills/claim-extraction/SKILL.md (full prompt + frontmatter; skills-v1.0 §12)
-[ ] packages/shared/skills/claim-extraction/schema.json (ClaimExtractionOutput)
-[ ] Loader function: read SKILL.md, parse frontmatter, hash body, return PreparedSkill
-```
-
-**Definition-of-done:**
-
-- All four SKILL.md files load via the loader function and produce a `PreparedSkill` with non-empty prompt body and stable SHA-256 hash.
-- A unit test invokes the loader on each skill, asserts the frontmatter parses and the hash is deterministic across runs.
-- The four corresponding rows in `role_definitions` are seeded via migration 0012; their `skill_md_hash` columns match what the loader computes at runtime (no drift).
-
-### 10.4 Phase 3 — Backend Core
-
-**Tasks:**
-
-```
-Foundation
-[ ] Hono router setup with auth middleware
-[ ] Supabase service-role client
-[ ] Anthropic API wrapper with cost-gate hook
-[ ] Standard error builder, JSON envelope
-
-Auth
-[ ] GET /v1/auth/me, PATCH /v1/auth/me
-
-Sources endpoints
-[ ] GET /v1/sources (with filters, pagination)
-[ ] GET /v1/sources/:id
-[ ] POST /v1/sources (URL or text upload; writes to R2 if large)
-[ ] POST /v1/sources/upload (multipart)
-[ ] GET /v1/sources/:id/critic-report
-[ ] POST /v1/sources/:id/approve
-[ ] POST /v1/sources/:id/defer
-[ ] POST /v1/sources/:id/reject
-
-Claims endpoints
-[ ] GET /v1/claims, GET /v1/claims/:id
-[ ] POST /v1/claims/:id/verify (cost-gated, invokes Verifier)
-
-Entities endpoints
-[ ] GET /v1/entities, GET /v1/entities/:id
-[ ] POST /v1/entities (manual)
-
-Theses endpoints
-[ ] GET /v1/theses, GET /v1/theses/:id
-[ ] POST /v1/theses (declare)
-[ ] POST /v1/theses/:id/versions (update)
-[ ] GET /v1/theses/:id/claims
-[ ] POST /v1/theses/:id/claims (integrate)
-[ ] GET /v1/theses/:id/inbox
-[ ] POST /v1/theses/:id/inbox/:inbox_id/act
-
-Cost & search
-[ ] GET /v1/costs/summary
-[ ] GET /v1/search (pg_trgm)
-```
-
-**Definition-of-done:**
-
-- All listed endpoints return correct shapes per api-v1.0.md, validated by an OpenAPI-driven contract test that fails CI on schema drift.
-- A request with no JWT against any authenticated endpoint returns 401 (not 500, not "leaked row").
-- A request with alice's JWT to read bob's data returns 404 (RLS-filtered, indistinguishable from "doesn't exist").
-- The cost-gate hook intercepts every Anthropic call. A test that mocks Anthropic and stubs `approvePaidOperation` to deny verifies that no API call is issued when the gate denies.
-
-### 10.5 Phase 4 — Orchestrator and Cascade
-
-**Tasks:**
-
-```
-Orchestrator
-[ ] GET /v1/orchestrator/events (SSE — tails orchestrator_events table)
-[ ] POST /v1/orchestrator/approve-cost
-
-Cascade
-[ ] CascadeRun Durable Object
-[ ] POST /v1/cascade/run
-[ ] GET /v1/cascade/runs, /:id
-
-Cron
-[ ] Hansard cron handler (POST /v1/internal/cron/hansard)
-[ ] Wired to scheduled trigger every 6h
-
-Orchestrator workflow code
-[ ] cost_gate.ts (the chokepoint)
-[ ] role_runner.ts (invokes a skill against a snapshot)
-[ ] cascade.ts (the morning cascade workflow)
-[ ] ingestion.ts (the ingestion-only workflow)
-[ ] events.ts (emit + subscribe)
-
-End-to-end tests (integration)
-[ ] Test: ingest a real Hansard fragment → Critic runs → operator approves → claims write
-[ ] Test: cascade run end-to-end produces Live feed items
-[ ] Test: cascade idempotency — re-running with no new sources produces zero new claims/questions/events
-```
-
-**Definition-of-done:**
-
-- A scripted run-through (under `scripts/e2e-cascade.ts`) ingests a real Hansard fragment, calls the Critic, simulates operator approval, runs claim extraction, runs the Verifier, runs the Interrogator, and lands the expected substrate rows. Run twice in a row, the second run produces zero new substrate rows (idempotency proven, not asserted).
-- The cron handler succeeds against the real openparliament.ca API at least once; failure modes (API unreachable, malformed response) raise structured errors and don't corrupt the source row.
-- Every paid Anthropic call in the e2e run charges `cost_ledger` with a row whose `cents` matches Anthropic's billing within rounding.
-
-### 10.6 Phase 5 — Frontend
-
-**Tasks:**
-
-```
-Foundation
-[ ] Next.js project initialized in packages/web
-[ ] Supabase client (browser) configured
-[ ] Auth flow: sign-in, sign-up, callback
-[ ] App Router shell with bottom nav
-[ ] Design tokens in globals.css (matches v9.2)
-[ ] Font loading (EB Garamond, JetBrains Mono)
-[ ] Realtime subscription helpers
-
-Generated types
-[ ] openapi-typescript on api-v1.0.md → shared/types/api.ts
-[ ] Wrap fetch with typed client in lib/api-client.ts
-
-Screens
-[ ] /live — feed with SSE subscription, Run Cascade button
-[ ] /sources — pending queue, source detail, Critic report viewer, approve/defer/reject buttons
-[ ] /system — health, cost summary, recent cascade runs
-[ ] /library — search across substrate
-[ ] /studio — thesis detail view
-[ ] /graph — simple force-directed (Cytoscape)
-
-Modals & primitives
-[ ] CostApprovalModal — opens on cost.operation_proposed event, posts to approve-cost
-[ ] ConfirmModal — generic confirm
-[ ] FeedItem, SourceCard, ClaimCard, ThesisCard primitives
-[ ] All buttons, badges, chips matching v9.2 styling
-
-End-to-end tests
-[ ] Playwright: sign in → trigger cascade → see new claim appear in Live feed
-```
-
-**Definition-of-done:**
-
-- A Playwright test covering sign-in → trigger cascade → see new claim in Live feed passes against a deployed preview environment.
-- All six screens render without console errors at 375px and 1280px widths.
-- A cost.operation_proposed event triggers the CostApprovalModal; declining the modal causes the underlying operation to abort cleanly (no orphan rows, no half-charged ledger).
-
-### 10.7 Phase 6 — Acceptance
-
-**Tasks:**
-
-```
-[ ] Walk the 12 acceptance criteria in §12 against a deployed dev environment
-[ ] Document any failures; fix or scope down before declaring Sprint 1 done
-[ ] Operator demo: ingest yesterday's Hansard end-to-end with no developer hand-holding
-```
-
-**Definition-of-done:**
-
-- Every one of the 12 acceptance criteria in §12 passes on a real Hansard publication ingested through the production-shaped path (cron → Critic → operator approves → cascade → Live feed).
-- The RLS test matrix runs green against the production Supabase project as a smoke test before any public deploy.
-- Cost ledger for the demo run reconciles to within 5% of Anthropic's actual billing for the day.
-
-If all of the above hold, Sprint 1 is done. Otherwise it isn't, regardless of how many tasks have green checkboxes.
-
----
-
-## 11. CLAIM EXTRACTION (utility skill — reference only)
-
-The cascade workflow's STEP 5 calls the `claim_extraction` skill. As of skills-v1.0 (this revision), it is the twelfth skill in the skills package — a utility skill (not an analytical role) defined in **skills-v1.0.md §12**. The full prompt template, output schema, and idempotency rules live there.
-
-For Sprint 1: implement it as a fourth SKILL.md alongside Ingestion Critic, Verifier, and Interrogator. Add a fourth row to the `role_definitions` seed (`name = 'claim_extraction'`, `kind = 'utility'`). Cascade STEP 5 invokes it via the standard `role_runner.invokeRole()` path.
-
-**Why it's listed here at all.** Earlier revisions of this handoff (pre-skills-v1.0) treated claim_extraction as a "gap" because it wasn't in the original 11-role enumeration. It is no longer a gap; it is part of the skills package. This section remains as a pointer for builders who reach §10's Day-7 demo step ("Claim extraction skill runs") and want to know where the spec lives.
-
----
-
-## 12. ACCEPTANCE CRITERIA
-
-Sprint 1 is "done" when all of the following work end-to-end against a real Hansard publication:
-
-1. **Authentication.** Operator signs in via email/password (or magic link), gets a Supabase JWT, calls authenticated API endpoints successfully.
-
-2. **Hansard ingestion.** Cron runs every 6h, pulls latest Hansard from openparliament.ca, creates a `sources` row with `ingestion_state='pending_critic'`. The source body is stored in R2 (or inline if small).
-
-3. **Critic review.** The Ingestion Critic runs against the Hansard source, produces an `ingestion_critic_reports` row with proposed grade A, no contradictions, and a recommendation. The cost is logged in `cost_ledger`.
-
-4. **Operator approval.** The operator opens the Sources screen, sees the pending Hansard source with the Critic's report, taps approve. The action is logged in `ingestion_actions`; source state becomes `approved`.
-
-5. **Claim extraction.** The cascade STEP 5 runs, claim_extraction skill produces 3-7 atomic claims, each written to `claims`, `claim_versions`, `claim_entities` (with unresolved entity_id NULL), and `claim_sources` referencing the Hansard source.
-
-6. **Verification.** The Verifier runs on each grade-A claim using Citations API. Each claim's `verification_status` updates to `grounded` or `partial`. Citations are logged.
-
-7. **Question generation.** The Interrogator runs against any active thesis with new claim integrations, produces 3-7 questions in the `questions` table.
-
-8. **Live feed.** The operator's Live screen shows: source ingested, claims written (with grades, verification status), questions generated, cascade run completed.
-
-9. **Cost discipline.** Every paid Anthropic API call passed through `approvePaidOperation()`. The cost ledger reflects accurate cents charged. The System screen shows total spent this month, ceiling, and remaining budget.
-
-10. **Cascade replay.** Operator hits "Run Cascade" again with no new sources; cascade runs idempotently and produces no duplicate claims, questions, or events.
-
-11. **RLS isolation.** A second test user account cannot see the first user's substrate. Confirmed via attempted reads with the second user's JWT.
-
-12. **Realtime.** While the cascade is running, the Live screen updates in realtime (SSE) showing each role invocation completing.
-
-If all 12 criteria pass on a real Hansard publication, Sprint 1 is done. The substrate is alive, the operator has a working interface, the cost discipline is enforced, and the foundation for Sprints 2+ is solid.
-
----
-
-## 13. WHAT SHIPS IN SPRINT 2
-
-(Not part of this handoff — for context only.)
-
-- Entity resolution pipeline (uses entity-resolution-v1.0.md)
-- Claim deduplication
-- The remaining substrate tables (claim_relations, entity_relations, predictions, contradictions, articles, assumptions, indicators, books)
-- Red Team, Steelman, Premortem, Gap Surfacer, Calibration, Tier Projector, Assumption Auditor, Indicator Validator roles
-- Publish-prep, contradiction-resolution, prediction-resolution, watch-set-update workflows (the last is a candidate for Sprint 1 if time permits)
-- More source adapters (YouTube webhook, X stream, news RSS)
-- Public site cache materializations
-- The public site itself (separate Next.js app)
-
-Sprint 2 doesn't start until Sprint 1 acceptance criteria pass.
-
----
-
-## 14. KNOWN RISKS
-
-**Anthropic API rate limits.** A morning cascade with 10 sources can fire 30+ API calls in a few minutes. Default tier rate limits may bottleneck. Mitigation: queue role invocations with backoff; budget for tier upgrade.
-
-**Cost gate UX.** Every paid op prompts the operator unless whitelisted. In Sprint 1 testing, this could mean approving every Anthropic call. Mitigation: ship with sensible whitelist defaults — Critic, Verifier, Interrogator on small-cost runs auto-approve via per-op cap; cross-model and large-context calls always prompt.
-
-**SSE connection stability on mobile.** SSE connections drop on mobile network changes. Mitigation: client reconnects with `Last-Event-ID` and replays missed events.
-
-**RLS performance with large substrates.** RLS adds query overhead. For Sprint 1's data volumes (hundreds of rows per user), this is fine. Future: materialized views for hot read paths.
-
-**Hansard parser fragility.** openparliament.ca's API may change format. Mitigation: a thin adapter layer; fall back to operator manual upload if API is unreachable.
-
-**Idempotency in face of partial failures.** A cascade that fails mid-step must resume cleanly. Mitigation: every step writes its `steps_completed` checkpoint before AND after; resume reads checkpoint and skips completed steps.
-
----
-
-## 15. DEPLOYMENT
+## 8. DEPLOYMENT
 
 **Frontend (web):**
 - Vercel project linked to GitHub
 - Auto-deploy on push to main
 - Preview deploys on every PR
-- Custom domain: app.canopticon.com
+- Custom domain: `app.canopticon.com`
 
 **Backend (api):**
 - Cloudflare Workers via wrangler
 - `wrangler deploy` from CI on push to main
-- Custom domain: api.canopticon.com
-- Cron triggers configured in wrangler.toml
+- Custom domain: `api.canopticon.com`
+- Cron triggers in `wrangler.toml` (off by default)
 
 **Database (supabase):**
-- Production project for prod
-- Dev project for development
+- Production project for prod, dev project for development
 - Migrations applied via Supabase CLI in CI
 - Backups daily via Supabase's automated backup
 
 **Storage (R2):**
-- Bucket: canopticon-sources
+- Bucket: `canopticon-sources`
 - Lifecycle: keep indefinitely (sources are append-only; deletion is rare)
 
 **Monitoring:**
 - Sentry for both frontend and backend
 - Cloudflare Workers built-in analytics
 - Supabase logs for database queries
-- A simple `/health` endpoint on the API for uptime monitoring
+- A `/health` endpoint on the API for uptime monitoring
 
 ---
 
-## 16. THE STARTING COMMAND
+## 9. NOTES TO THE BUILDER
 
-When Claude Code begins, the first commands:
+The other reference docs are the spec; this one is the index. When in
+doubt about a design decision, the answer is in the corresponding
+reference doc — see §6.
 
-```bash
-# Clone the repo template (or initialize from scratch)
-gh repo create canopticon --private --clone
-cd canopticon
+Ambiguities surface to the operator before guessing. The discipline of
+not-guessing is the discipline of building correctly.
 
-# Copy the eight reference docs into ./docs/
-# (Manual step — operator drops them in)
-
-# Initialize the workspace
-pnpm init -y
-echo "packages:\n  - 'packages/*'" > pnpm-workspace.yaml
-
-# Set up base TypeScript and Biome
-# ... etc, per Section 2 above
-
-# Then proceed through Section 10's build order, day by day, item by item
-```
-
----
-
-## 17. NOTES TO THE BUILDER
-
-The eight reference documents are the spec. This handoff document is the index. When in doubt about a design decision, the corresponding reference doc has the answer:
-
-- *What does this table do?* → schema-v1.0.md
-- *How does this role behave?* → skills-v1.0.md
-- *What's the workflow sequence?* → workflows-v1.0.md
-- *How do I resolve entities?* → entity-resolution-v1.0.md
-- *What's this endpoint return?* → api-v1.0.md
-- *What does this term mean?* → glossary.md
-- *Why was this decided?* → changelog.md
-- *What does the UI look like?* → ui-spec-v1.0.md and the v9.2 prototype HTML
-- *What's the public face?* → public-site-spec-v1.0.md
-
-Anything ambiguous after reading the relevant doc gets surfaced to the operator before guessing. The discipline of not-guessing is the discipline of building correctly.
-
-Don't add features not in this doc. Don't refactor preemptively. Sprint 1 is the foundation; everything later builds on it. Get the foundation right.
-
-When Sprint 1's acceptance criteria pass on a real Hansard publication, take a breath, demo it, and only then move to Sprint 2.
+The substrate doesn't care which source comes first. The operator picks.
+The architecture supports any starting point. Don't manufacture demos
+that lock the system into one.

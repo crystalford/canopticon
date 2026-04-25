@@ -31,7 +31,7 @@ This schema covers the full v1.5.1 substrate. It is the contract Claude Code bui
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";        -- fuzzy text matching for entity resolution
-CREATE EXTENSION IF NOT EXISTS "vector";         -- pgvector for semantic similarity (Phase 2)
+CREATE EXTENSION IF NOT EXISTS "vector";         -- pgvector for semantic similarity (used when entity-resolution semantic stage activates)
 CREATE EXTENSION IF NOT EXISTS "btree_gin";      -- composite indexes including jsonb
 ```
 
@@ -1113,10 +1113,10 @@ CREATE INDEX idx_questions_eig ON public.questions (user_id, expected_informatio
 
 ### 12.2 `question_claims` (v1.1 — deferred)
 
-A question may discriminate between two competing claims, target a single claim's warrant, or test a claim's evidence base. This is a many-to-many relation that the single-FK `parent_question_id` cannot model. Sprint 1 records discrimination targets only as freeform strings inside `questions.evidence_targets`; v1.1 promotes them to first-class edges.
+A question may discriminate between two competing claims, target a single claim's warrant, or test a claim's evidence base. This is a many-to-many relation that the single-FK `parent_question_id` cannot model. v1.0 records discrimination targets only as freeform strings inside `questions.evidence_targets`; v1.1 promotes them to first-class edges.
 
 ```sql
--- v1.1 — DO NOT CREATE IN SPRINT 1
+-- v1.1 — not yet created in this schema
 CREATE TYPE question_claim_relation AS ENUM (
   'discriminates',   -- answer would distinguish this claim from a competitor
   'tests_warrant',   -- answer would back or undermine the claim's warrant
@@ -1139,7 +1139,7 @@ CREATE TABLE public.question_claims (
 Some questions presuppose answers to other questions ("if Q1 resolves to X, then Q2 becomes relevant"). The single-parent `parent_question_id` cannot model the case where a question depends on multiple priors. v1.1 promotes question dependencies to a many-to-many edge table.
 
 ```sql
--- v1.1 — DO NOT CREATE IN SPRINT 1
+-- v1.1 — not yet created in this schema
 CREATE TABLE public.question_dependencies (
   question_id     UUID NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
   depends_on_question_id UUID NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
@@ -1150,18 +1150,18 @@ CREATE TABLE public.question_dependencies (
 );
 ```
 
-### 12.4 Sprint 1 round-trip contract
+### 12.4 Round-trip contract
 
-The Interrogator output schema in skills-v1.0 §3 is constrained for Sprint 1 to fields that the `questions` table can store losslessly:
+The Interrogator output schema in skills-v1.0 §3 is constrained in v1.0 to fields the `questions` table can store losslessly:
 
 | Interrogator output field | `questions` column | Notes |
 |---|---|---|
 | `text` | `text` | direct |
 | `expected_information_gain` | `expected_information_gain` | direct |
-| `rationale` | `rationale` | direct (added to the schema in this revision) |
-| `evidence_targets[]` | `evidence_targets` (JSONB array) | direct (added in this revision) |
+| `rationale` | `rationale` | direct |
+| `evidence_targets[]` | `evidence_targets` (JSONB array) | direct |
 
-The Interrogator does **not** emit `discriminates_between_claim_ids`, `tests_warrant_of_claim_id`, or dependency links in v1.0. Those output fields are added to the Interrogator schema in v1.1 alongside the `question_claims` and `question_dependencies` edge tables. Until then, Sprint 1's "Question Graph" is a tree (via `parent_question_id`) with stringly-typed evidence hints, not a true graph. This is an explicit, scoped deferral — not a gap.
+The Interrogator does **not** emit `discriminates_between_claim_ids`, `tests_warrant_of_claim_id`, or dependency links in v1.0. Those output fields land in v1.1 alongside the `question_claims` and `question_dependencies` edge tables (§12.2, §12.3). Until then, the Question Graph is a tree (via `parent_question_id`) with stringly-typed evidence hints, not a true graph. Explicit, scoped deferral — not a gap.
 
 ---
 
@@ -1419,7 +1419,7 @@ Migrations run in this order on a fresh database:
 
 ## 19. SEED DATA
 
-Sprint 1 seed for the user's default role definitions, default cost whitelists (none initially — every paid op prompts), and default thesis tier templates.
+Default seed for a new user: their role definitions (one row per skill, prompt body synced from `packages/shared/skills/<name>/SKILL.md`), default cost whitelists (none initially — every paid op prompts), and default thesis tier templates.
 
 ```sql
 INSERT INTO public.role_definitions (user_id, name, prompt_template, default_model, uses_citations_api, uses_structured_output, output_schema)
@@ -1444,11 +1444,11 @@ Full seed values are in the skills package (next document).
 - Per-thesis `versions_diff` materialized view for the public-site version-history surface. Add when thesis pages go public.
 - Audit table for substrate deletes (currently we cascade-delete; for some users we may want soft-delete with audit). Add if compliance ever requires it.
 
-**Sprint 1 minimum tables (smallest set that lets the workflow work end-to-end):**
+**Substrate-minimum tables (the set that makes the cascade and the AI research loop work end-to-end):**
 
-`users`, `cost_ledger`, `sources`, `ingestion_critic_reports`, `ingestion_actions`, `entities`, `entity_mentions`, `claims`, `claim_versions`, `claim_entities`, `claim_sources`, `theses`, `thesis_versions`, `thesis_claims`, `role_definitions`, `role_invocations`, `orchestrator_events`, `cascade_runs`.
+`users`, `cost_ledger`, `sources`, `ingestion_critic_reports`, `ingestion_actions`, `entities`, `entity_mentions`, `claims`, `claim_versions`, `claim_entities`, `claim_sources`, `theses`, `thesis_versions`, `thesis_claims`, `role_definitions`, `role_invocations`, `orchestrator_events`, `cascade_runs`, `questions`, `workflow_runs`.
 
-Articles, predictions, contradictions, assumptions, indicators, books — added in Sprints 2 and beyond.
+Articles, predictions, contradictions, assumptions, indicators, books — added when their corresponding analytical roles or surfaces come online.
 
 Publication caches — added when the public site begins rendering.
 
@@ -1456,9 +1456,9 @@ Publication caches — added when the public site begins rendering.
 
 ## 21. RLS TEST MATRIX
 
-Every Sprint 1 table ships with Row-Level Security enabled and per-table policies (see §15). RLS is not "verify it works" infrastructure — it is **deny-by-default proof** infrastructure. A misconfigured policy on a forensic intelligence platform leaks private theses, in-progress investigations, and entity mentions whose existence is itself sensitive. The cost of a leak is career-ending; the cost of a thorough test matrix is a few hundred lines of SQL.
+Every public.* table ships with Row-Level Security enabled and per-table policies (see §15). RLS is not "verify it works" infrastructure — it is **deny-by-default proof** infrastructure. A misconfigured policy on a forensic intelligence platform leaks private theses, in-progress investigations, and entity mentions whose existence is itself sensitive. The cost of a leak is career-ending; the cost of a thorough test matrix is a few hundred lines of SQL.
 
-This section specifies the test matrix that must be in CI green before any deploy that touches RLS policies. The matrix runs as part of the schema migration test suite and additionally as a public-deploy gate (Phase 7 acceptance).
+This section specifies the test matrix that must be CI-green before any deploy that touches RLS policies. The matrix runs as part of the schema migration test suite and again as a smoke test against the production project before the public API endpoint accepts traffic.
 
 ### 21.1 Test principals
 
@@ -1468,9 +1468,9 @@ The matrix uses three principals:
 - **`bob`** — authenticated user, owner of *no* fixture rows; used to prove cross-user isolation
 - **`anon`** — unauthenticated request using Supabase's anon key; used to prove public-read scope
 
-For each Sprint 1 table, the matrix specifies what each principal **must** see, what each principal **must not** see, and what each principal **must** be able to write. A test is a single SQL assertion executed under the principal's JWT (or no JWT for `anon`).
+For each table, the matrix specifies what each principal **must** see, what each principal **must not** see, and what each principal **must** be able to write. A test is a single SQL assertion executed under the principal's JWT (or no JWT for `anon`).
 
-### 21.2 Per-table matrix (Sprint 1 tables)
+### 21.2 Per-table matrix
 
 Notation: ✓ = must succeed, ✗ = must fail (RLS denies the row), N/A = not applicable to this table.
 
@@ -1545,4 +1545,4 @@ The gate is non-negotiable. RLS is the *only* thing standing between a Postgres 
 
 ### 21.5 Adding a table to the matrix
 
-When Sprint 2+ adds a table (predictions, contradictions, articles, etc.), the matrix must be extended *in the same PR* that creates the table. A table is not "in the schema" until its row in this matrix is written and green. This is enforced by a CI check that compares `\dt` output against the matrix table list and fails if any public.* table is missing from the matrix.
+When new tables come online (predictions, contradictions, articles, etc.), the matrix must be extended *in the same PR* that creates the table. A table is not "in the schema" until its row in this matrix is written and green. This is enforced by a CI check that compares `\dt` output against the matrix table list and fails if any public.* table is missing from the matrix.
