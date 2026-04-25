@@ -5,6 +5,7 @@ import { runHansardCron } from "./cron/hansard.ts";
 import type { Env } from "./env.ts";
 import { ApiError } from "./lib/errors.ts";
 import cascadeRoutes from "./routes/cascade.ts";
+import researchRoutes from "./routes/research.ts";
 import sourcesRoutes from "./routes/sources.ts";
 
 type App = AuthContext;
@@ -51,6 +52,7 @@ app.get("/health", (c) => c.json({ ok: true }));
 const v1 = new Hono<App>();
 v1.route("/sources", sourcesRoutes);
 v1.route("/cascade", cascadeRoutes);
+v1.route("/research", researchRoutes);
 app.route("/v1", v1);
 
 export default {

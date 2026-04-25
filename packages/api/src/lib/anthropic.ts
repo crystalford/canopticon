@@ -26,11 +26,39 @@ export interface AnthropicMessage {
 
 export type AnthropicContentBlock =
   | { type: "text"; text: string }
-  | { type: "document"; source: AnthropicDocumentSource; citations?: { enabled: boolean } };
+  | { type: "document"; source: AnthropicDocumentSource; citations?: { enabled: boolean } }
+  | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
+  | {
+      type: "tool_result";
+      tool_use_id: string;
+      content: string | Array<{ type: "text"; text: string }>;
+      is_error?: boolean;
+    };
 
 export type AnthropicDocumentSource =
   | { type: "text"; media_type: "text/plain"; data: string }
   | { type: "base64"; media_type: "application/pdf"; data: string };
+
+/** Tool definition for the agent loop. Either a custom tool with a JSON-schema
+    input or one of Anthropic's server-managed tools (web_search, web_fetch). */
+export type AnthropicToolDefinition =
+  | {
+      /** Custom client-side tool. The Worker executes it and posts the result back. */
+      name: string;
+      description: string;
+      input_schema: Record<string, unknown>;
+    }
+  | {
+      /** Server-managed tool. Anthropic executes it and returns the result inline. */
+      type: "web_search_20250305";
+      name: "web_search";
+      max_uses?: number;
+    }
+  | {
+      type: "web_fetch_20250819";
+      name: "web_fetch";
+      max_uses?: number;
+    };
 
 export interface AnthropicCallInput {
   model: string;
@@ -41,11 +69,23 @@ export interface AnthropicCallInput {
   response_schema?: Record<string, unknown> | undefined;
   /** When true, the response may include citation blocks. Mutually exclusive with response_schema. */
   citations?: boolean | undefined;
+  /** Tool definitions for the agent loop. */
+  tools?: AnthropicToolDefinition[] | undefined;
   /** Stop sequences. */
   stop_sequences?: string[] | undefined;
   /** Temperature; defaults to 0 for analytical roles. */
   temperature?: number | undefined;
 }
+
+/** Reasons the model stopped generating. `tool_use` means the agent loop
+    needs to execute the tool calls and re-invoke. */
+export type AnthropicStopReason =
+  | "end_turn"
+  | "max_tokens"
+  | "stop_sequence"
+  | "tool_use"
+  | "pause_turn"
+  | "refusal";
 
 export interface AnthropicCallOutput {
   /** Concatenated text content from the response. */
@@ -54,6 +94,12 @@ export interface AnthropicCallOutput {
   structured: unknown | null;
   /** Citations array (Citations API) if citations:true was set; otherwise []. */
   citations: AnthropicCitation[];
+  /** All content blocks the model emitted, including tool_use blocks. */
+  content: AnthropicContentBlock[];
+  /** tool_use blocks extracted from content, for the agent loop's convenience. */
+  tool_uses: Array<{ id: string; name: string; input: Record<string, unknown> }>;
+  /** Why the model stopped. */
+  stop_reason: AnthropicStopReason;
   /** Token usage as reported by the API. */
   usage: { input_tokens: number; output_tokens: number };
   /** Model the response actually came from (echoed by Anthropic). */
@@ -117,6 +163,7 @@ export class AnthropicClient {
     };
     if (input.system) body.system = input.system;
     if (input.stop_sequences) body.stop_sequences = input.stop_sequences;
+    if (input.tools && input.tools.length > 0) body.tools = input.tools;
     if (input.response_schema) {
       // Anthropic's structured-output mode (beta as of November 2025).
       body.response_format = {
@@ -156,20 +203,38 @@ function parseResponse(
   expectStructured: boolean,
   expectCitations: boolean,
 ): AnthropicCallOutput {
-  const content = (raw.content ?? []) as Array<Record<string, unknown>>;
+  const rawContent = (raw.content ?? []) as Array<Record<string, unknown>>;
 
   const textPieces: string[] = [];
   const citations: AnthropicCitation[] = [];
+  const tool_uses: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
+  const content: AnthropicContentBlock[] = [];
 
-  for (const block of content) {
+  for (const block of rawContent) {
     if (block.type === "text" && typeof block.text === "string") {
       textPieces.push(block.text);
+      content.push({ type: "text", text: block.text });
       if (Array.isArray(block.citations)) {
         for (const c of block.citations) {
           citations.push(c as AnthropicCitation);
         }
       }
+    } else if (
+      block.type === "tool_use" &&
+      typeof block.id === "string" &&
+      typeof block.name === "string"
+    ) {
+      const toolUse = {
+        id: block.id,
+        name: block.name,
+        input: (block.input ?? {}) as Record<string, unknown>,
+      };
+      tool_uses.push(toolUse);
+      content.push({ type: "tool_use", ...toolUse });
     }
+    // server-managed tool results (web_search_tool_result, web_fetch_tool_result)
+    // are passed through opaquely — Anthropic injects them into subsequent
+    // requests itself; we don't need to mirror them client-side.
   }
 
   const text = textPieces.join("");
@@ -196,17 +261,20 @@ function parseResponse(
     }
   }
 
-  if (expectCitations && citations.length === 0) {
-    // Not an error — the model may legitimately have no citations. The
-    // caller decides whether absence is a failure.
-  }
+  // Citations API — model may legitimately have no citations; caller decides
+  // whether absence is a failure.
+  void expectCitations;
 
   const usageRaw = (raw.usage ?? {}) as { input_tokens?: number; output_tokens?: number };
+  const stop_reason = (raw.stop_reason as AnthropicStopReason) ?? "end_turn";
 
   return {
     text,
     structured,
     citations,
+    content,
+    tool_uses,
+    stop_reason,
     usage: {
       input_tokens: usageRaw.input_tokens ?? 0,
       output_tokens: usageRaw.output_tokens ?? 0,
