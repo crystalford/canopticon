@@ -23,6 +23,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AnthropicClient } from "../lib/anthropic.ts";
+import { runInterrogator } from "./interrogator.ts";
 import { type InvokeRoleContext, invokeRole } from "./role_runner.ts";
 
 export interface CascadeRunInput {
@@ -39,6 +40,7 @@ export interface CascadeRunResult {
   critic_reports_written: number;
   claims_extracted: number;
   claims_verified: number;
+  questions_generated: number;
   cost_cents: number;
   errors: Array<{ ref: string; step: string; message: string }>;
 }
@@ -70,6 +72,7 @@ export async function runCascade(
     critic_reports_written: 0,
     claims_extracted: 0,
     claims_verified: 0,
+    questions_generated: 0,
     cost_cents: 0,
     errors: [],
   };
@@ -78,12 +81,14 @@ export async function runCascade(
     await stepCritic(ctx, input, cascadeRunId, limit, result);
     await stepClaimExtraction(ctx, input, cascadeRunId, limit, result);
     await stepVerifier(ctx, input, cascadeRunId, limit, result);
+    await stepInterrogator(ctx, input, cascadeRunId, result);
 
     if (result.errors.length > 0) {
       const anyProgress =
         result.critic_reports_written > 0 ||
         result.claims_extracted > 0 ||
-        result.claims_verified > 0;
+        result.claims_verified > 0 ||
+        result.questions_generated > 0;
       result.status = anyProgress ? "partial" : "failed";
     }
   } catch (err) {
@@ -475,6 +480,59 @@ async function stepVerifier(
   }
 }
 
+// --- Step D: Interrogator --------------------------------------------------
+
+async function stepInterrogator(
+  ctx: CascadeContext,
+  input: CascadeRunInput,
+  cascadeRunId: string,
+  result: CascadeRunResult,
+): Promise<void> {
+  // For each active thesis, fire the Interrogator if it has integrated
+  // claims and either no last interrogation or new claims integrated since
+  // the last one. Cheap heuristic: fire once per cascade per thesis. If
+  // there are no claims, runInterrogator returns 'skipped' — no cost.
+  const { data: theses, error } = await ctx.service
+    .from("theses")
+    .select("id")
+    .eq("user_id", input.user_id)
+    .neq("status", "archived");
+  if (error) {
+    result.errors.push({ ref: "(interrogator)", step: "interrogator", message: error.message });
+    return;
+  }
+
+  for (const t of theses ?? []) {
+    const thesisId = (t as { id: string }).id;
+    try {
+      const r = await runInterrogator(
+        { service: ctx.service, anthropic: ctx.anthropic },
+        {
+          user_id: input.user_id,
+          thesis_id: thesisId,
+          triggered_by: `cascade:${cascadeRunId}`,
+        },
+      );
+      if (r.status === "completed") {
+        result.questions_generated += r.questions_written;
+      } else if (r.status === "denied") {
+        result.errors.push({
+          ref: thesisId,
+          step: "interrogator",
+          message: `cost gate denied: ${r.decision.message}`,
+        });
+      }
+      // 'skipped' is silent — most theses won't have claims yet.
+    } catch (err) {
+      result.errors.push({
+        ref: thesisId,
+        step: "interrogator",
+        message: (err as Error).message,
+      });
+    }
+  }
+}
+
 // --- queries --------------------------------------------------------------
 
 async function fetchPendingSources(
@@ -575,8 +633,8 @@ async function closeCascadeRun(
       status: result.status,
       sources_ingested: result.sources_considered,
       claims_written: result.claims_extracted,
-      questions_generated: 0, // Interrogator lands here when wired.
-      contradictions_detected: 0,
+      questions_generated: result.questions_generated,
+      contradictions_detected: 0, // Red Team lands here on publication-gate.
       total_cost_cents: result.cost_cents,
       error_summary: result.errors.length > 0 ? JSON.stringify(result.errors) : null,
     })

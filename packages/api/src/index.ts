@@ -10,6 +10,7 @@ import orchestratorRoutes from "./routes/orchestrator.ts";
 import researchRoutes from "./routes/research.ts";
 import sourcesRoutes from "./routes/sources.ts";
 import systemRoutes from "./routes/system.ts";
+import thesesRoutes from "./routes/theses.ts";
 
 type App = AuthContext;
 
@@ -55,6 +56,7 @@ app.get("/health", (c) => c.json({ ok: true }));
 const v1 = new Hono<App>();
 v1.route("/sources", sourcesRoutes);
 v1.route("/claims", claimsRoutes);
+v1.route("/theses", thesesRoutes);
 v1.route("/cascade", cascadeRoutes);
 v1.route("/research", researchRoutes);
 v1.route("/orchestrator", orchestratorRoutes);

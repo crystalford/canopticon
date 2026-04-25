@@ -22,6 +22,7 @@ renumbered. Add follow-up migrations instead.
 | `0014_questions.sql` | `questions` (+ RLS, triggers) |
 | `0015_research_runs.sql` | `research_runs` (AI research missions; + RLS, triggers) |
 | `0016_cost_approvals.sql` | `cost_approvals` (operator-approval-required paid ops; + RLS) |
+| `0017_remaining_substrate.sql` | `assumptions`, `assumption_supporting_claims`, `indicators`, `indicator_observations`, `contradictions`, `predictions`, `articles`, `article_versions`, `article_claims`, `article_corrections`, `books` |
 
 After each migration adds public.* tables, the RLS test matrix in
 `canopticon-schema-v1.0.md` §21 must be extended in the same PR. CI will
