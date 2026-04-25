@@ -49,6 +49,12 @@ export interface InvokeRoleInput {
   documents?: Array<{ title: string; text: string }>;
   /** Optional: max_tokens override. Defaults to 4096. */
   max_tokens?: number;
+  /** Optional: a previously-issued cost_approvals.proposal_id to consume.
+      Pass this on retry after the operator approves a paused operation. */
+  proposal_id?: string;
+  /** Optional: free-form context written to cost_approvals.context when the
+      gate creates a pending approval. Surfaced to the operator in the modal. */
+  approval_context?: Record<string, unknown>;
 }
 
 export type InvokeRoleResult =
@@ -113,9 +119,15 @@ export async function invokeRole(
     provider: "anthropic",
     model_or_sku: role.default_model,
     related_source_id: input.related_source_id,
+    proposal_id: input.proposal_id,
     metadata: {
       role_name: input.role_name,
       triggered_by: input.triggered_by,
+    },
+    approval_context: {
+      role_name: input.role_name,
+      triggered_by: input.triggered_by,
+      ...(input.approval_context ?? {}),
     },
   });
 

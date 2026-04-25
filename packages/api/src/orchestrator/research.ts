@@ -26,6 +26,7 @@ import {
   actualCostCents,
   estimateCostCents,
 } from "../lib/anthropic.ts";
+import { runCascade } from "./cascade.ts";
 import { type CostGateContext, approvePaidOperation, chargeLedger } from "./cost_gate.ts";
 import { emitEvent } from "./events.ts";
 import {
@@ -306,6 +307,36 @@ export async function runResearch(
       summary: result.done_summary,
     },
   });
+
+  // If the research run succeeded and registered sources, kick off a cascade
+  // so the Critic grades each source and the operator sees Critic-graded
+  // entries on /sources without an explicit "Run Cascade" click. Inline so
+  // it shares this Worker request; for long cascades this would move to a
+  // Durable Object — see canopticon-build-handoff-v1.0.md §1.
+  //
+  // Cost discipline still applies: each Critic invocation goes through the
+  // gate. Operators who want auto-approval should add a cost_whitelists row
+  // for anthropic_call with a per_op_max_cents that fits the Critic's
+  // typical envelope (~3¢ per source). Otherwise the modal pops once per
+  // source — annoying but explicit, by design.
+  if (result.status !== "failed" && result.sources_registered > 0) {
+    try {
+      await runCascade(ctx, {
+        user_id: input.user_id,
+        triggered_by: "operator_manual",
+        // Don't cap; let the cascade pick up everything pending. If a
+        // research run registered 12 sources it should grade 12 sources.
+      });
+    } catch (err) {
+      // Cascade failure shouldn't fail the research result — the sources
+      // are already in pending_critic state, the operator can run a
+      // manual cascade later. Log and continue.
+      console.warn("post-research cascade failed", {
+        research_run_id,
+        message: (err as Error).message,
+      });
+    }
+  }
 
   return result;
 }
