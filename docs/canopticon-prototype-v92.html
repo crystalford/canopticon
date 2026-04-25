@@ -1,0 +1,2707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CANOPTICON</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Warmer near-blacks — lifts the mood without losing noir */
+  --bg: #0f1218;
+  --bg-elevated: #161a22;
+  --bg-subtle: #1c2029;
+  --bg-card: #13161d;
+  --bg-deeper: #0a0c11;
+
+  --border: #242934;
+  --border-soft: #1b1f28;
+  --border-bright: #323845;
+
+  --text: #ede9de;
+  --text-dim: #8a857a;
+  --text-faint: #4f4b42;
+
+  /* Cream/bone — PRIMARY UI accent. Lives in the logo family. */
+  --cream: #ede9de;
+  --cream-dim: #7a766c;
+  --cream-bright: #f5f1e6;
+  --cream-glow: rgba(237, 233, 222, 0.22);
+
+  /* Reds stay rare, reserved for critical signal */
+  --signal: #d14156;
+  --signal-dim: #8a2433;
+  --signal-glow: rgba(209, 65, 86, 0.28);
+
+  /* Amber — DEMOTED to caution/attention-only */
+  --amber: #d4a24a;
+  --amber-dim: #8a6520;
+  --amber-bright: #e5b55b;
+  --amber-glow: rgba(212, 162, 74, 0.3);
+
+  /* Sage — active accent for drafts, in-progress, origin */
+  --sage: #94b280;
+  --sage-dim: #5a7349;
+  --sage-glow: rgba(148, 178, 128, 0.2);
+
+  /* Blue — active accent for questions, verification, framing */
+  --muted-blue: #8fa3c4;
+  --muted-blue-dim: #4c617e;
+  --muted-blue-glow: rgba(143, 163, 196, 0.22);
+
+  /* Tan — quotes, epigraphs */
+  --tan: #d0a279;
+  --tan-dim: #7a5d3f;
+
+  /* Semantic */
+  --good: #7a9c55;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.5;
+  overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle grain texture — editorial atmosphere */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/></svg>");
+  mix-blend-mode: overlay;
+}
+
+.app { min-height: 100vh; max-width: 440px; margin: 0 auto; position: relative; background: var(--bg); }
+.screen { display: none; min-height: 100vh; padding-bottom: 90px; animation: fadeIn 0.3s ease-out; }
+.screen.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ─────────────────────────────────────────
+   MASTHEAD — logo gap fixed for real
+───────────────────────────────────────── */
+.masthead {
+  padding: 15px 22px 13px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky; top: 0; z-index: 10;
+  backdrop-filter: blur(14px);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+/* ONE span, no gap possible. Color applied via gradient on the single element. */
+.wordmark {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0;
+}
+.wordmark-single {
+  background: linear-gradient(90deg, var(--text) 0%, var(--text) 26%, var(--signal) 26%, var(--signal) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+  letter-spacing: 0.06em;
+}
+.wordmark-dot {
+  width: 5px; height: 5px;
+  background: var(--signal);
+  border-radius: 50%;
+  box-shadow: 0 0 9px var(--signal-glow);
+  animation: pulse 2.8s ease-in-out infinite;
+  align-self: center;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.5;transform:scale(0.75);} }
+.masthead-screen {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.masthead-screen .time { color: var(--text); margin-right: 6px; letter-spacing: 0.14em; }
+
+/* ─────────────────────────────────────────
+   LIVE — feed
+───────────────────────────────────────── */
+.cascade-strip {
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-deeper);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cascade-btn {
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--cream);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 600;
+  border: 1px solid var(--cream-dim);
+  border-radius: 2px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.cascade-btn:active { transform: scale(0.97); background: rgba(237,233,222,0.05); }
+.cascade-btn.running { background: var(--bg-elevated); color: var(--cream-bright); border-color: var(--cream); }
+.cascade-btn-icon { width: 6px; height: 6px; border-radius: 50%; background: var(--cream); }
+.cascade-btn.running .cascade-btn-icon { background: var(--cream-bright); animation: pulse 1s ease-in-out infinite; }
+.cascade-info {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.cascade-info .last { color: var(--text-faint); font-size: 8.5px; }
+
+.date-strip {
+  padding: 10px 22px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border-soft);
+  flex-wrap: wrap;
+}
+.date-strip .date { color: var(--text); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 500; }
+.tag {
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text-dim);
+  padding: 2px 7px;
+  border-radius: 2px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+.tag.attention { border-color: var(--amber-dim); color: var(--amber); }
+.tag.questions { border-color: var(--muted-blue-dim); color: var(--muted-blue); }
+
+.filter-bar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--border-soft);
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: rgba(15,18,24,0.94);
+  backdrop-filter: blur(10px);
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-chip {
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.filter-chip.active {
+  color: var(--cream);
+  border-color: var(--cream-dim);
+  background: rgba(237,233,222,0.06);
+  font-weight: 600;
+}
+.filter-chip .chip-count { color: var(--text-faint); margin-left: 5px; }
+.filter-chip.active .chip-count { color: var(--cream); opacity: 0.6; }
+
+.feed-item {
+  padding: 14px 22px 14px 26px;
+  border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s ease;
+}
+.feed-item:active { background: var(--bg-subtle); }
+.feed-item::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 16px;
+  width: 4px; height: 18px;
+  background: var(--border-bright);
+}
+.feed-item.claim::before      { background: var(--amber); box-shadow: 0 0 5px var(--amber-glow); }
+.feed-item.input::before      { background: var(--text-dim); }
+.feed-item.quote::before      { background: var(--tan); box-shadow: 0 0 6px rgba(208,162,121,0.3); }
+.feed-item.converge::before   { background: var(--signal); box-shadow: 0 0 14px var(--signal-glow); height: 24px; }
+.feed-item.contradict::before { background: var(--signal); box-shadow: 0 0 8px var(--signal-glow); }
+.feed-item.ready::before      { background: var(--amber); box-shadow: 0 0 6px var(--amber-glow); }
+.feed-item.draft::before      { background: var(--sage); box-shadow: 0 0 8px var(--sage-glow); }
+.feed-item.question::before   { background: var(--muted-blue); box-shadow: 0 0 8px var(--muted-blue-glow); }
+.feed-item.progress::before   { background: var(--good); }
+.feed-item.resolved::before   { background: var(--good); box-shadow: 0 0 8px rgba(122,156,85,0.35); }
+
+.feed-meta {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.badge {
+  padding: 2px 7px;
+  border: 1px solid var(--border-bright);
+  border-radius: 2px;
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.4;
+  font-family: var(--mono);
+}
+.badge.claim      { color: var(--amber); border-color: var(--amber-dim); }
+.badge.input      { color: var(--text-dim); }
+.badge.quote      { color: var(--tan); border-color: var(--tan-dim); }
+.badge.converge   { color: var(--signal); border-color: var(--signal-dim); background: rgba(209,65,86,0.1); }
+.badge.contradict { color: var(--signal); border-color: var(--signal-dim); }
+.badge.ready      { color: var(--amber); border-color: var(--amber-dim); }
+.badge.draft      { color: var(--sage); border-color: var(--sage-dim); background: rgba(148,178,128,0.05); }
+.badge.question   { color: var(--muted-blue); border-color: var(--muted-blue-dim); background: rgba(143,163,196,0.05); }
+.badge.progress   { color: var(--good); border-color: rgba(122,156,85,0.45); }
+.badge.resolved   { color: var(--good); border-color: rgba(122,156,85,0.55); background: rgba(122,156,85,0.08); }
+.badge.hot        { color: var(--signal); border-color: var(--signal-dim); background: rgba(209,65,86,0.14); font-weight: 600; }
+
+.vbadge {
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 7.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.vbadge.grounded    { color: var(--good); border-color: rgba(122,156,85,0.45); background: rgba(122,156,85,0.04); }
+.vbadge.partial     { color: var(--amber); border-color: var(--amber-dim); background: rgba(212,162,74,0.04); }
+.vbadge.unsupported { color: var(--signal); border-color: var(--signal-dim); }
+.vdot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+
+.feed-headline {
+  font-family: var(--serif);
+  font-size: 18.5px;
+  line-height: 1.3;
+  color: var(--text);
+  margin-bottom: 4px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.feed-connect {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  margin-top: 6px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border-bright);
+  line-height: 1.5;
+}
+.feed-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.feed-action-btn {
+  padding: 5px 9px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.feed-action-btn.primary {
+  background: transparent;
+  border: 1px solid var(--cream);
+  color: var(--cream);
+  font-weight: 600;
+}
+.feed-action-btn.primary:active { background: rgba(237,233,222,0.05); }
+.feed-action-btn.why {
+  color: var(--text-faint);
+  border-style: dashed;
+}
+.feed-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1.42;
+  color: var(--text);
+  margin: 6px 0 8px;
+  padding: 10px 14px;
+  border-left: 2px solid var(--tan);
+  background: rgba(208,162,121,0.05);
+}
+.feed-quote::before { content: '"'; color: var(--tan); margin-right: 4px; font-size: 22px; }
+.feed-quote::after  { content: '"'; color: var(--tan); margin-left: 2px; font-size: 22px; }
+
+.why-panel {
+  margin-top: 10px;
+  padding: 11px 13px;
+  background: var(--bg-deeper);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  display: none;
+}
+.why-panel.visible { display: block; }
+.why-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--cream);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.why-label .who-ran { color: var(--text-dim); font-weight: 400; letter-spacing: 0.08em; }
+.why-step {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  gap: 8px;
+}
+.why-step:last-child { border-bottom: none; }
+.why-step-num { color: var(--cream); width: 14px; flex-shrink: 0; }
+.why-step-body strong { color: var(--text); font-weight: 500; }
+.why-role { color: var(--cream); font-weight: 500; }
+
+/* ─────────────────────────────────────────
+   GRAPH
+───────────────────────────────────────── */
+.graph-chat {
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--border-soft);
+  background: rgba(15,18,24,0.94);
+}
+.chat-input-row { display: flex; gap: 8px; align-items: center; }
+.chat-input {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+  outline: none;
+}
+.chat-input::placeholder { color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.12em; font-size: 10px; }
+.chat-submit {
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--cream);
+  color: var(--cream);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.chat-suggestions { display: flex; gap: 6px; margin-top: 8px; overflow-x: auto; scrollbar-width: none; }
+.chat-suggestions::-webkit-scrollbar { display: none; }
+.chat-suggest {
+  padding: 4px 9px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+.chat-suggest:active { border-color: var(--cream-dim); color: var(--cream); }
+
+.graph-canvas {
+  position: relative;
+  height: calc(100vh - 230px);
+  background:
+    radial-gradient(circle at 20% 30%, rgba(212,162,74,0.04), transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(148,178,128,0.03), transparent 50%),
+    var(--bg);
+  overflow: hidden;
+}
+#graph-svg { width: 100%; height: 100%; display: block; }
+
+.graph-controls {
+  position: absolute;
+  top: 12px; right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 5;
+}
+.ctrl-btn {
+  width: 34px; height: 34px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.graph-inspector {
+  position: fixed;
+  bottom: 80px; left: 12px; right: 12px;
+  max-width: 416px;
+  margin: 0 auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--cream-dim);
+  border-radius: 2px;
+  padding: 14px;
+  transform: translateY(250%);
+  transition: transform 0.4s cubic-bezier(0.25,0.8,0.25,1);
+  z-index: 90;
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+}
+.graph-inspector.visible { transform: translateY(0); }
+.insp-type {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--cream);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+.insp-name { font-family: var(--serif); font-size: 19px; margin-bottom: 3px; font-weight: 500; }
+.insp-role {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--text-dim);
+  font-size: 13.5px;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.insp-stats {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.stat { text-align: center; }
+.stat-value { font-family: var(--mono); font-size: 16px; color: var(--text); font-weight: 500; }
+.stat-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.browse-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.browse-btn {
+  padding: 7px;
+  background: var(--bg-deeper);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  text-align: center;
+}
+.secondary-actions { display: flex; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border-soft); }
+.secondary-btn {
+  flex: 1;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.node-circle {
+  fill: var(--bg-elevated);
+  stroke: var(--text-dim);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.node-circle.hot { stroke: var(--signal); fill: rgba(209,65,86,0.15); }
+.node-circle.amber-node { stroke: var(--amber); fill: rgba(212,162,74,0.1); }
+.node-circle.blue-node { stroke: var(--muted-blue); fill: rgba(143,163,196,0.08); }
+.node-circle.sage-node { stroke: var(--sage); fill: rgba(148,178,128,0.08); }
+.node-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  fill: var(--text);
+  pointer-events: none;
+  text-anchor: middle;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+.node-label.sub { fill: var(--text-dim); font-size: 7.5px; font-weight: 400; }
+.edge-line { stroke: var(--border-bright); stroke-width: 1; fill: none; transition: all 0.3s ease; }
+.edge-line.active { stroke: var(--amber); stroke-width: 1.5; opacity: 0.7; }
+.edge-line.hot-edge { stroke: var(--signal); stroke-width: 1.5; opacity: 0.8; }
+.edge-line.blue-edge { stroke: var(--muted-blue); stroke-width: 1.2; opacity: 0.5; }
+
+/* ─────────────────────────────────────────
+   STUDIO
+───────────────────────────────────────── */
+.tabs-row {
+  display: flex;
+  gap: 0;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-deeper);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs-row::-webkit-scrollbar { display: none; }
+.tab {
+  padding: 13px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.tab.active {
+  color: var(--cream);
+  border-bottom-color: var(--cream);
+  background: rgba(237,233,222,0.04);
+  font-weight: 600;
+}
+.tab .tab-count { color: var(--text-faint); margin-left: 4px; font-size: 9px; }
+.tab.active .tab-count { color: var(--cream); opacity: 0.6; }
+
+.studio-content { padding: 14px 22px; }
+
+.prod-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.prod-card-head {
+  padding: 10px 14px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--border-soft);
+}
+.prod-meta {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.status-chip {
+  padding: 3px 8px;
+  border-radius: 2px;
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: var(--mono);
+  font-weight: 600;
+}
+.status-chip.ready { background: var(--cream); color: var(--bg-deeper); }
+.status-chip.producing { background: var(--sage); color: var(--bg-deeper); }
+.status-chip.recording { background: var(--signal); color: var(--bg-deeper); }
+.prod-title {
+  font-family: var(--serif);
+  font-size: 18.5px;
+  line-height: 1.3;
+  padding: 10px 14px 4px;
+  font-weight: 500;
+}
+.prod-desc {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  padding: 0 14px 10px;
+  line-height: 1.5;
+}
+.prod-pipeline {
+  display: flex;
+  padding: 0;
+  border-top: 1px solid var(--border-soft);
+  background: var(--bg-deeper);
+}
+.pipe-step {
+  flex: 1;
+  padding: 8px 6px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 8px;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-right: 1px solid var(--border-soft);
+  position: relative;
+}
+.pipe-step:last-child { border-right: none; }
+.pipe-step.done { color: var(--good); background: rgba(122,156,85,0.06); }
+.pipe-step.current { color: var(--amber); background: rgba(212,162,74,0.08); }
+.pipe-step.done::after { content: '✓'; display: block; color: var(--good); font-size: 9px; margin-top: 2px; }
+.pipe-step.current::after { content: '●'; display: block; color: var(--amber); font-size: 8px; margin-top: 2px; animation: pulse 1.5s ease-in-out infinite; }
+.prod-footer {
+  padding: 10px 14px;
+  display: flex;
+  gap: 6px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-soft);
+}
+.prod-btn {
+  padding: 7px 11px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+  flex: 1;
+}
+.prod-btn.primary {
+  background: transparent;
+  border: 1px solid var(--cream);
+  color: var(--cream);
+  font-weight: 600;
+}
+.prod-btn.primary:active { background: rgba(237,233,222,0.05); }
+
+.perf-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--sage);
+  border-radius: 2px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.perf-meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+.perf-meta .tier-a { color: var(--good); font-weight: 600; }
+.perf-title { font-family: var(--serif); font-size: 15.5px; line-height: 1.3; margin-bottom: 8px; font-weight: 500; }
+.perf-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  padding: 1px;
+  margin-bottom: 8px;
+}
+.perf-stat { background: var(--bg-deeper); padding: 8px 4px; text-align: center; }
+.perf-stat-num { font-family: var(--mono); font-size: 13px; color: var(--text); font-weight: 500; }
+.perf-stat-label {
+  font-family: var(--mono);
+  font-size: 7.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.perf-insight {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--sage);
+  line-height: 1.45;
+  padding: 9px 11px;
+  background: rgba(148,178,128,0.06);
+  border-left: 2px solid var(--sage);
+  border-radius: 2px;
+}
+
+/* ─────────────────────────────────────────
+   LIBRARY
+───────────────────────────────────────── */
+.lib-filter-bar {
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--bg-deeper);
+}
+.lib-filter-bar::-webkit-scrollbar { display: none; }
+
+.library-intro {
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.library-intro-text {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.library-item {
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  background: var(--bg);
+  transition: background 0.15s;
+  position: relative;
+}
+.library-item:active { background: var(--bg-subtle); }
+.library-item.published { background: var(--bg-deeper); }
+.library-item.active-item { border-left: 3px solid var(--muted-blue); }
+.library-item.draft-item { border-left: 3px solid var(--sage); }
+.library-item.prediction-item { border-left: 3px solid var(--tan); }
+
+.library-type-row {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--cream);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+.library-type-row.blue { color: var(--muted-blue); }
+.library-type-row.sage { color: var(--sage); }
+.library-type-row.tan { color: var(--tan); }
+.library-type-row .version { color: var(--text-faint); }
+.library-title {
+  font-family: var(--serif);
+  font-size: 23px;
+  line-height: 1.2;
+  margin-bottom: 8px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.library-excerpt {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin-bottom: 13px;
+}
+.library-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.library-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  position: relative;
+  overflow: hidden;
+  border-radius: 1px;
+}
+.library-progress-fill {
+  height: 100%;
+  background: var(--cream-dim);
+  box-shadow: 0 0 4px var(--cream-glow);
+}
+.library-progress-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--cream);
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+.library-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.detail-header {
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-deeper);
+}
+.detail-type {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--cream);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.back-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--cream);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.detail-title {
+  font-family: var(--serif);
+  font-size: 28px;
+  line-height: 1.18;
+  font-weight: 500;
+  margin-bottom: 12px;
+  letter-spacing: -0.012em;
+}
+.detail-origin {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.06em;
+  padding: 9px 13px;
+  background: var(--bg-elevated);
+  border-left: 2px solid var(--sage);
+  border-radius: 2px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.detail-origin .origin-label {
+  color: var(--sage);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-right: 6px;
+  font-weight: 600;
+}
+.seed-paragraph {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15.5px;
+  line-height: 1.62;
+  color: var(--text);
+  padding: 14px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  position: relative;
+}
+.seed-paragraph::first-letter {
+  font-size: 2.8em;
+  float: left;
+  line-height: 0.9;
+  margin: 4px 6px 0 0;
+  color: var(--amber);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.detail-section { padding: 18px 22px; border-bottom: 1px solid var(--border); }
+.detail-section-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--cream);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.detail-section-label .sub {
+  color: var(--text-faint);
+  font-weight: 400;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-style: italic;
+}
+
+.tier-panel { border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+.tier-tabs { display: flex; background: var(--bg-deeper); border-bottom: 1px solid var(--border); }
+.tier-tab {
+  flex: 1;
+  padding: 9px 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+}
+.tier-tab:last-child { border-right: none; }
+.tier-tab.active {
+  color: var(--cream);
+  background: rgba(237,233,222,0.05);
+  border-bottom: 1px solid var(--cream);
+  margin-bottom: -1px;
+  font-weight: 500;
+}
+.tier-body { padding: 14px 16px; background: var(--bg-elevated); }
+.tier-bluf { font-family: var(--serif); font-size: 17.5px; line-height: 1.48; color: var(--text); font-weight: 500; }
+.tier-bluf .likelihood { color: var(--cream-dim); font-style: italic; font-weight: 400; }
+.tier-80 { font-family: var(--serif); font-size: 14.5px; line-height: 1.58; color: var(--text); }
+.tier-meta-strip {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-deeper);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.layers { display: flex; flex-direction: column; gap: 8px; }
+.layer-card {
+  padding: 13px 15px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  border-left: 3px solid var(--border);
+  cursor: pointer;
+}
+.layer-card.factual       { border-left-color: var(--muted-blue); }
+.layer-card.framing       { border-left-color: var(--amber); }
+.layer-card.architectural { border-left-color: var(--signal); }
+.layer-card.distributive  { border-left-color: var(--sage); }
+.layer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 5px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.layer-name { font-weight: 600; }
+.layer-card.factual       .layer-name { color: var(--muted-blue); }
+.layer-card.framing       .layer-name { color: var(--amber); }
+.layer-card.architectural .layer-name { color: var(--signal); }
+.layer-card.distributive  .layer-name { color: var(--sage); }
+.layer-count { color: var(--text-dim); font-size: 9px; font-weight: 400; }
+.layer-desc { font-family: var(--serif); font-size: 14px; color: var(--text); line-height: 1.42; margin-bottom: 5px; }
+.layer-posture { font-family: var(--serif); font-style: italic; font-size: 12px; color: var(--text-dim); line-height: 1.4; }
+
+.role-log { border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+.role-entry {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-elevated);
+  align-items: baseline;
+}
+.role-entry:last-child { border-bottom: none; }
+.role-time { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: 0.04em; }
+.role-name {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--cream);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-right: 6px;
+}
+.role-text { font-family: var(--serif); font-size: 13.5px; line-height: 1.42; color: var(--text-dim); }
+.role-text .hi { color: var(--text); font-weight: 500; }
+.role-text .cross { color: var(--muted-blue); }
+
+.entity-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.entity-chip {
+  padding: 5px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  border-radius: 2px;
+}
+.entity-chip.pinned { border-color: var(--cream-dim); color: var(--cream); background: rgba(237,233,222,0.04); }
+.entity-chip.excluded { border-color: var(--border); color: var(--text-faint); text-decoration: line-through; }
+.entity-chip.derived { border-style: dashed; }
+.concept-chip {
+  padding: 5px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  border-radius: 2px;
+}
+
+.inbox-item {
+  padding: 11px 13px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  margin-bottom: 8px;
+  border-left: 2px solid var(--muted-blue);
+}
+.inbox-item-text { font-family: var(--serif); font-size: 14px; line-height: 1.42; color: var(--text); }
+.inbox-item-meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.cadence-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  border-bottom: 1px solid var(--border-soft);
+  gap: 10px;
+}
+.cadence-row:last-child { border-bottom: none; }
+.cadence-key {
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  flex-shrink: 0;
+}
+.cadence-val { color: var(--text); text-align: right; font-size: 10px; }
+.cadence-val .val-accent { color: var(--cream); }
+
+/* ─────────────────────────────────────────
+   SOURCES
+───────────────────────────────────────── */
+.pending-banner {
+  padding: 16px 22px;
+  background:
+    linear-gradient(180deg, rgba(212,162,74,0.1), transparent),
+    var(--bg-deeper);
+  border-bottom: 1px solid var(--amber-dim);
+}
+.pending-banner-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--amber);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+.pending-banner-count {
+  font-family: var(--serif);
+  font-size: 23px;
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.pending-banner-sub {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.queue-zone { padding: 14px 22px 22px; }
+.queue-item {
+  padding: 13px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  margin-bottom: 10px;
+  border-left: 3px solid var(--amber);
+}
+.queue-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.queue-source {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.queue-time { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: 0.04em; }
+.queue-body { font-family: var(--serif); font-size: 15px; line-height: 1.42; color: var(--text); margin-bottom: 10px; }
+.queue-critic {
+  padding: 9px 11px;
+  background: var(--bg-deeper);
+  border-left: 2px solid var(--muted-blue);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.45;
+  margin-bottom: 10px;
+  border-radius: 2px;
+}
+.queue-critic-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  color: var(--muted-blue);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-style: normal;
+  margin-bottom: 4px;
+  display: block;
+  font-weight: 600;
+}
+.queue-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.queue-btn {
+  padding: 6px 11px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1px solid var(--border-bright);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  border-radius: 2px;
+  font-weight: 500;
+}
+.queue-btn.approve { border-color: var(--good); color: var(--good); }
+.queue-btn.reject { border-color: var(--signal-dim); color: var(--signal); }
+
+.sources-divider { padding: 18px 22px 4px; }
+.section-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--cream);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--cream-dim), transparent 70%);
+  opacity: 0.3;
+}
+.section-label .count { color: var(--text-faint); font-weight: 400; font-size: 9px; letter-spacing: 0.12em; }
+
+.source-row {
+  margin: 0 22px 8px;
+  padding: 11px 13px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+.source-row-main { min-width: 0; }
+.source-row-name { font-family: var(--serif); font-size: 15.5px; font-weight: 500; margin-bottom: 2px; }
+.source-row-meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.source-row-stats {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+}
+.source-row-stats .val { color: var(--text); font-weight: 500; }
+.health-dot {
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.health-dot.good  { background: var(--good); box-shadow: 0 0 4px rgba(122,156,85,0.5); }
+.health-dot.warn  { background: var(--amber); }
+.health-dot.error { background: var(--signal); }
+
+/* ─────────────────────────────────────────
+   SYSTEM
+───────────────────────────────────────── */
+.system-hero {
+  padding: 18px 22px;
+  background: var(--bg-deeper);
+  border-bottom: 1px solid var(--border);
+}
+.ceiling-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+.ceiling-spent { font-family: var(--mono); font-size: 26px; color: var(--text); font-weight: 600; letter-spacing: -0.01em; }
+.ceiling-of { font-family: var(--mono); font-size: 11px; color: var(--text-dim); letter-spacing: 0.08em; margin-left: 6px; }
+.ceiling-ceiling { font-family: var(--mono); font-size: 14px; color: var(--text-dim); font-weight: 500; }
+.ceiling-track {
+  height: 6px;
+  background: var(--bg);
+  border-radius: 1px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-soft);
+}
+.ceiling-fill {
+  height: 100%;
+  background: var(--cream-dim);
+  box-shadow: 0 0 4px var(--cream-glow);
+}
+.ceiling-fill.warn { background: var(--amber); box-shadow: 0 0 10px var(--amber-glow); }
+.ceiling-note { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 0.08em; }
+.ceiling-note.warn { color: var(--amber); }
+
+.cost-breakdown {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  margin: 14px 22px 0;
+  border: 1px solid var(--border);
+}
+.cost-cell { background: var(--bg); padding: 11px 8px; text-align: center; }
+.cost-cell-val { font-family: var(--mono); font-size: 13.5px; color: var(--text); font-weight: 500; margin-bottom: 2px; }
+.cost-cell-label {
+  font-family: var(--mono);
+  font-size: 7.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.system-block { padding: 16px 22px; border-bottom: 1px solid var(--border); }
+.system-block-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--cream);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.system-block-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--cream-dim), transparent 70%);
+  opacity: 0.2;
+}
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-soft);
+  gap: 14px;
+}
+.toggle-row:last-child { border-bottom: none; }
+.toggle-row.disabled { opacity: 0.65; }
+.toggle-label { font-family: var(--mono); font-size: 10px; color: var(--text); letter-spacing: 0.1em; text-transform: uppercase; }
+.toggle-sub {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text-dim);
+  margin-top: 3px;
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+.toggle {
+  width: 40px; height: 22px;
+  background: var(--bg);
+  border: 1px solid var(--border-bright);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+.toggle::after {
+  content: '';
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  position: absolute;
+  top: 2px; left: 2px;
+  transition: all 0.2s ease;
+}
+.toggle.on { background: var(--cream); border-color: var(--cream); }
+.toggle.on::after { background: var(--bg-deeper); left: 20px; }
+.toggle.locked { opacity: 0.4; cursor: not-allowed; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+}
+.stat-cell { background: var(--bg); padding: 11px 8px; }
+.stat-cell-val { font-family: var(--mono); font-size: 15.5px; color: var(--text); font-weight: 500; margin-bottom: 2px; }
+.stat-cell-label {
+  font-family: var(--mono);
+  font-size: 7.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+.stat-cell-delta {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  color: var(--good);
+  margin-top: 3px;
+  letter-spacing: 0.06em;
+}
+.stat-cell-delta.warn { color: var(--amber); }
+.stat-cell-delta.blue { color: var(--muted-blue); }
+
+/* NAV */
+.nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  max-width: 440px;
+  margin: 0 auto;
+  background: rgba(15,18,24,0.97);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+  padding: 8px 2px calc(8px + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: space-around;
+  z-index: 100;
+}
+.nav-item {
+  flex: 1;
+  text-align: center;
+  padding: 6px 2px;
+  cursor: pointer;
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color 0.2s ease;
+}
+.nav-item.active { color: var(--cream); font-weight: 600; }
+.nav-icon { width: 16px; height: 16px; margin: 0 auto 3px; display: block; }
+
+/* MODAL */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.88);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.visible { display: flex; }
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--cream-dim);
+  border-radius: 2px;
+  max-width: 380px;
+  width: 100%;
+  position: relative;
+}
+.modal-corner { position: absolute; width: 10px; height: 10px; border: 2px solid var(--cream); }
+.modal-corner.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.modal-corner.tr { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+.modal-corner.bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+.modal-corner.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+.modal-head { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.modal-class {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--cream);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.modal-title { font-family: var(--serif); font-size: 18.5px; font-weight: 500; line-height: 1.3; }
+.modal-body { padding: 16px 20px; }
+.modal-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 12px;
+  font-family: var(--mono);
+  border-bottom: 1px dashed var(--border-soft);
+  gap: 10px;
+}
+.modal-row:last-child { border-bottom: none; }
+.modal-row-label { color: var(--text-dim); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+.modal-row-value { color: var(--text); font-weight: 500; font-size: 11px; text-align: right; }
+.modal-row-value.cost { color: var(--amber); font-weight: 700; font-size: 13px; }
+.modal-actions {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  background: var(--bg-deeper);
+}
+.modal-btn {
+  flex: 1;
+  padding: 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.modal-btn.reject { background: transparent; border: 1px solid var(--border-bright); color: var(--text-dim); }
+.modal-btn.approve { background: transparent; border: 1px solid var(--cream); color: var(--cream); }
+
+.feed-item, .library-item, .prod-card, .queue-item, .perf-card {
+  opacity: 0;
+  animation: revealUp 0.55s ease-out forwards;
+}
+@keyframes revealUp { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<!-- ══════════════════ LIVE ══════════════════ -->
+<section class="screen active" id="screen-live">
+  <div class="masthead">
+    <div class="wordmark"><span class="wordmark-single">CANOPTICON</span><span class="wordmark-dot"></span></div>
+    <div class="masthead-screen"><span class="time" id="live-time">14:23</span>LIVE</div>
+  </div>
+
+  <div class="cascade-strip">
+    <button class="cascade-btn" id="cascade-btn" onclick="runCascade()">
+      <span class="cascade-btn-icon"></span>
+      <span id="cascade-btn-text">Run Cascade</span>
+    </button>
+    <div class="cascade-info">
+      <span>Auto · 07:00 ET · Next in 16h 13m</span>
+      <span class="last">Last · 06:58 · $2.47 · 11 claims</span>
+    </div>
+  </div>
+
+  <div class="date-strip">
+    <span class="date">THU · APR 23</span>
+    <span class="tag">14 ITEMS</span>
+    <span class="tag attention">2 REVIEW</span>
+    <span class="tag questions">8 Q</span>
+  </div>
+
+  <div class="filter-bar">
+    <button class="filter-chip active" data-filter="all">All<span class="chip-count">14</span></button>
+    <button class="filter-chip" data-filter="review">Review<span class="chip-count">2</span></button>
+    <button class="filter-chip" data-filter="ready">Ready<span class="chip-count">3</span></button>
+    <button class="filter-chip" data-filter="question">Questions<span class="chip-count">8</span></button>
+    <button class="filter-chip" data-filter="drafts">Drafts<span class="chip-count">2</span></button>
+    <button class="filter-chip" data-filter="quotes">Quotes<span class="chip-count">2</span></button>
+  </div>
+
+  <div class="feed-item converge" data-cat="review" onclick="openThesis()">
+    <div class="feed-meta">
+      <span>08:14</span>
+      <span class="badge converge">CONVERGENCE · 3 SOURCES</span>
+      <span class="badge hot">HOT</span>
+    </div>
+    <div class="feed-headline">Three sources point at the Ryan appointment in 90 minutes.</div>
+    <div class="feed-connect">X, Parl.ca filing, and a Bloomberg reporter note — all surfaced the PBO announcement with the same Brookfield overlap. Four prior intersections with PMO staff.</div>
+    <div class="feed-actions">
+      <button class="feed-action-btn why" onclick="event.stopPropagation(); toggleWhy(this);">Why surfaced?</button>
+    </div>
+    <div class="why-panel">
+      <div class="why-label">
+        <span>REASONING TRACE</span>
+        <span class="who-ran">Ran: <span class="why-role">Interrogator · Gap Surfacer</span></span>
+      </div>
+      <div class="why-step"><span class="why-step-num">01</span><span class="why-step-body">Three independent sources mentioned <strong>Marie Ryan</strong> in 94-min window</span></div>
+      <div class="why-step"><span class="why-step-num">02</span><span class="why-step-body">All three triggered existing <strong>watch-set</strong> for Carney + PBO</span></div>
+      <div class="why-step"><span class="why-step-num">03</span><span class="why-step-body">Shared lattice: <strong>4 intersections</strong> (Queen's, DOF, PMO, Brookfield)</span></div>
+      <div class="why-step"><span class="why-step-num">04</span><span class="why-step-body">Convergence <strong>0.87</strong> exceeds HOT threshold (0.75)</span></div>
+    </div>
+  </div>
+
+  <div class="feed-item claim" data-cat="review">
+    <div class="feed-meta">
+      <span>08:12</span>
+      <span class="badge claim">NEW CLAIM · REVIEW</span>
+      <span class="vbadge grounded"><span class="vdot"></span>GROUNDED</span>
+    </div>
+    <div class="feed-headline">Marie Ryan appointed Parliamentary Budget Officer, effective April 23.</div>
+    <div class="feed-connect">Grade A. Event date confirmed against Gazette and Order-in-Council registry. Proposed 4 relations.</div>
+  </div>
+
+  <div class="feed-item question" data-cat="question">
+    <div class="feed-meta">
+      <span>08:02</span>
+      <span class="badge question">INTERROGATOR · NEW QUESTION</span>
+    </div>
+    <div class="feed-headline">What was Ryan's role during the 2023–24 DOF reorganization?</div>
+    <div class="feed-connect">Flagged high-EIG. Answer would disambiguate the "career overlap" versus "deliberate placement" readings.</div>
+  </div>
+
+  <div class="feed-item ready" data-cat="ready">
+    <div class="feed-meta">
+      <span>07:58</span>
+      <span class="badge ready">SCRIPT READY</span>
+      <span>LONG · 8:12</span>
+      <span class="vbadge grounded"><span class="vdot"></span>VERIFIED</span>
+    </div>
+    <div class="feed-headline">Daily Brief — Thursday, April 23</div>
+    <div class="feed-connect">Seven stories compiled overnight. PBO appointment, Bank Act C-14, three Brookfield filings. All citations passed cross-model verification.</div>
+    <div class="feed-actions">
+      <button class="feed-action-btn primary" onclick="go('studio')">Open in Studio</button>
+    </div>
+  </div>
+
+  <div class="feed-item quote" data-cat="quotes">
+    <div class="feed-meta">
+      <span>06:42</span>
+      <span class="badge quote">QUOTE WORTH DRIFTING</span>
+      <span>MOOSE · 34:12</span>
+    </div>
+    <p class="feed-quote">Carney's cabinet is Goldman all the way down.</p>
+    <div class="feed-connect">Transcribed from this morning's vlog. Overlaps with existing Brookfield thread.</div>
+    <div class="feed-actions">
+      <button class="feed-action-btn primary">Copy</button>
+      <button class="feed-action-btn">Draft thread</button>
+    </div>
+  </div>
+
+  <div class="feed-item draft" data-cat="drafts">
+    <div class="feed-meta">
+      <span>06:15</span>
+      <span class="badge draft">ARTICLE DRAFT READY</span>
+      <span>1,847 W</span>
+      <span class="vbadge partial"><span class="vdot"></span>PARTIAL · 2 FLAGS</span>
+    </div>
+    <div class="feed-headline">The revolving door between Brookfield and Canadian public service.</div>
+    <div class="feed-connect">Verifier flagged two claims as partial — dates on Wiseman's CPPIB transition need another source.</div>
+    <div class="feed-actions">
+      <button class="feed-action-btn primary">Open draft</button>
+    </div>
+  </div>
+
+  <div class="feed-item contradict" data-cat="review">
+    <div class="feed-meta">
+      <span>05:47</span>
+      <span class="badge contradict">CONTRADICTION · REVIEW</span>
+      <span>BOC 1974</span>
+    </div>
+    <div class="feed-headline">New source contradicts existing claim on the 1974 Bank of Canada mandate shift.</div>
+    <div class="feed-connect">Grimes (2011) says operational not legislative. Red Team and Steelman both ran; machloket posture proposed.</div>
+    <div class="feed-actions">
+      <button class="feed-action-btn primary">Resolve</button>
+      <button class="feed-action-btn">Hold open</button>
+    </div>
+  </div>
+
+  <div class="feed-item progress" data-cat="review" onclick="openThesis()">
+    <div class="feed-meta">
+      <span>05:12</span>
+      <span class="badge progress">THESIS EXTENDED</span>
+      <span>v0.4 · +2,100 W</span>
+    </div>
+    <div class="feed-headline">The Architecture of Quiet Power grew Section II overnight.</div>
+    <div class="feed-connect">Three A-grade sources integrated. Layer decomposition updated: architectural layer gained 2 claims.</div>
+  </div>
+
+  <div class="feed-item question" data-cat="question">
+    <div class="feed-meta">
+      <span>04:18</span>
+      <span class="badge question">RED TEAM · OBJECTION</span>
+    </div>
+    <div class="feed-headline">Cross-model Verifier challenges the "same actors same interests" framing.</div>
+    <div class="feed-connect">GPT-5 adversarial pass identified a base-rate concern: how often do career overlaps exist in Canadian finance networks regardless of alignment?</div>
+  </div>
+
+  <div class="feed-item resolved" data-cat="ready">
+    <div class="feed-meta">
+      <span>01:15</span>
+      <span class="badge resolved">PREDICTION RESOLVED · CORRECT</span>
+    </div>
+    <div class="feed-headline">"BoC will hold rate steady in April" resolved correct.</div>
+    <div class="feed-connect">Banked Feb 14 at 73% confidence. Rolling Brier now 0.142 across 9 resolved.</div>
+  </div>
+
+  <div class="feed-item input" data-cat="review">
+    <div class="feed-meta">
+      <span>00:40</span>
+      <span class="badge input">AUTO-INGEST · PENDING</span>
+      <span>X · @TYLERBROWNE</span>
+    </div>
+    <div class="feed-headline">Reporter flags a fourth Brookfield filing this week.</div>
+    <div class="feed-connect">Ingestion Critic report ready. Tap Sources to approve.</div>
+  </div>
+</section>
+
+<!-- ══════════════════ GRAPH ══════════════════ -->
+<section class="screen" id="screen-graph">
+  <div class="masthead">
+    <div class="wordmark"><span class="wordmark-single">CANOPTICON</span><span class="wordmark-dot"></span></div>
+    <div class="masthead-screen"><span class="time">1,847</span>GRAPH</div>
+  </div>
+
+  <div class="graph-chat">
+    <div class="chat-input-row">
+      <input class="chat-input" type="text" placeholder="Ask the graph..." />
+      <button class="chat-submit">Ask</button>
+    </div>
+    <div class="chat-suggestions">
+      <button class="chat-suggest">Who links Carney to Brookfield?</button>
+      <button class="chat-suggest">Show contradictions on BoC 1974</button>
+      <button class="chat-suggest">Path: Ryan → PMO staff</button>
+      <button class="chat-suggest">Goldman + central bank ties</button>
+    </div>
+  </div>
+
+  <div class="graph-canvas">
+    <div class="graph-controls">
+      <button class="ctrl-btn" onclick="zoomGraph(1.2)">+</button>
+      <button class="ctrl-btn" onclick="zoomGraph(0.83)">−</button>
+      <button class="ctrl-btn" onclick="resetGraph()">⟲</button>
+    </div>
+    <svg id="graph-svg" viewBox="0 0 440 680" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <div class="graph-inspector" id="inspector">
+    <div class="insp-type" id="insp-type">PERSON · POLITICAL</div>
+    <div class="insp-name" id="insp-name">Mark Carney</div>
+    <div class="insp-role" id="insp-role">Prime Minister of Canada (2025–).</div>
+    <div class="insp-stats">
+      <div class="stat"><div class="stat-value" id="insp-rel">47</div><div class="stat-label">Relations</div></div>
+      <div class="stat"><div class="stat-value" id="insp-claim">128</div><div class="stat-label">Claims</div></div>
+      <div class="stat"><div class="stat-value" id="insp-grade">A</div><div class="stat-label">Grade</div></div>
+    </div>
+    <div class="browse-actions">
+      <button class="browse-btn">Expand network</button>
+      <button class="browse-btn">See all claims</button>
+      <button class="browse-btn">Contradictions</button>
+      <button class="browse-btn">Timeline</button>
+    </div>
+    <div class="secondary-actions">
+      <button class="secondary-btn" onclick="closeInspector()">Close</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ STUDIO ══════════════════ -->
+<section class="screen" id="screen-studio">
+  <div class="masthead">
+    <div class="wordmark"><span class="wordmark-single">CANOPTICON</span><span class="wordmark-dot"></span></div>
+    <div class="masthead-screen"><span class="time">6</span>STUDIO</div>
+  </div>
+
+  <div class="tabs-row">
+    <button class="tab active" onclick="setStudioTab('ready', this)">Ready<span class="tab-count">3</span></button>
+    <button class="tab" onclick="setStudioTab('recording', this)">Recording<span class="tab-count">1</span></button>
+    <button class="tab" onclick="setStudioTab('producing', this)">Producing<span class="tab-count">2</span></button>
+    <button class="tab" onclick="setStudioTab('publish', this)">Publish<span class="tab-count">2</span></button>
+    <button class="tab" onclick="setStudioTab('perf', this)">Perf</button>
+    <button class="tab" onclick="setStudioTab('archive', this)">Archive<span class="tab-count">47</span></button>
+  </div>
+
+  <div class="studio-content" id="studio-ready">
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">LONG · 7 STORIES</div><div class="status-chip ready">Ready</div></div>
+      <div class="prod-title">Daily Brief — Thursday, April 23</div>
+      <div class="prod-desc">34 beats · 8:12 · A-grade. PBO appointment, Bank Act C-14, three Brookfield filings.</div>
+      <div class="prod-pipeline">
+        <div class="pipe-step done">Script</div>
+        <div class="pipe-step done">Verify</div>
+        <div class="pipe-step current">Record</div>
+        <div class="pipe-step">Edit</div>
+        <div class="pipe-step">Publish</div>
+      </div>
+      <div class="prod-footer">
+        <button class="prod-btn primary">Start Recording</button>
+        <button class="prod-btn">Open script</button>
+      </div>
+    </div>
+
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">SHORT · 1:24</div><div class="status-chip ready">Ready</div></div>
+      <div class="prod-title">The new PBO went to school with Carney.</div>
+      <div class="prod-desc">5 beats · A-grade. Single-story short from the Ryan appointment.</div>
+      <div class="prod-pipeline">
+        <div class="pipe-step done">Script</div>
+        <div class="pipe-step done">Verify</div>
+        <div class="pipe-step current">Record</div>
+        <div class="pipe-step">Edit</div>
+        <div class="pipe-step">Publish</div>
+      </div>
+      <div class="prod-footer">
+        <button class="prod-btn primary">Start Recording</button>
+        <button class="prod-btn">Open script</button>
+      </div>
+    </div>
+
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">VIDEO ESSAY · 11:20</div><div class="status-chip ready">Ready</div></div>
+      <div class="prod-title">Why every PBO since 2005 has gone quiet.</div>
+      <div class="prod-desc">28 beats · A-grade. Hi-fi format · $4.20 generation cost.</div>
+      <div class="prod-pipeline">
+        <div class="pipe-step done">Script</div>
+        <div class="pipe-step done">Verify</div>
+        <div class="pipe-step current">Record</div>
+        <div class="pipe-step">Edit</div>
+        <div class="pipe-step">Publish</div>
+      </div>
+      <div class="prod-footer">
+        <button class="prod-btn primary">Start Recording</button>
+        <button class="prod-btn">Open script</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="studio-content" id="studio-recording" style="display:none">
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">LONG · IN PROGRESS</div><div class="status-chip recording">Recording</div></div>
+      <div class="prod-title">Wednesday evening analysis — carbon architecture.</div>
+      <div class="prod-desc">23 beats · 12 recorded · 11 remaining. Paused at beat 12.</div>
+      <div class="prod-pipeline">
+        <div class="pipe-step done">Script</div>
+        <div class="pipe-step done">Verify</div>
+        <div class="pipe-step current">Record</div>
+        <div class="pipe-step">Edit</div>
+        <div class="pipe-step">Publish</div>
+      </div>
+      <div class="prod-footer">
+        <button class="prod-btn primary">Resume</button>
+        <button class="prod-btn">Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="studio-content" id="studio-producing" style="display:none">
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">SHORT · AUTO-EDITING</div><div class="status-chip producing">Producing</div></div>
+      <div class="prod-title">The Brookfield pattern nobody's naming.</div>
+      <div class="prod-desc">Auto-edit in progress · 3 min remaining · ffmpeg.</div>
+      <div class="prod-pipeline">
+        <div class="pipe-step done">Script</div>
+        <div class="pipe-step done">Verify</div>
+        <div class="pipe-step done">Record</div>
+        <div class="pipe-step current">Edit</div>
+        <div class="pipe-step">Publish</div>
+      </div>
+    </div>
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">LONG · RENDERING</div><div class="status-chip producing">Producing</div></div>
+      <div class="prod-title">Tuesday's hansard breakdown.</div>
+      <div class="prod-desc">Final render · 6 min remaining.</div>
+      <div class="prod-pipeline">
+        <div class="pipe-step done">Script</div>
+        <div class="pipe-step done">Verify</div>
+        <div class="pipe-step done">Record</div>
+        <div class="pipe-step current">Edit</div>
+        <div class="pipe-step">Publish</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="studio-content" id="studio-publish" style="display:none">
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">SHORT · 1:24</div><div class="status-chip ready">Queued</div></div>
+      <div class="prod-title">The new PBO went to school with Carney.</div>
+      <div class="prod-desc">4 platforms · X now, TikTok now, YouTube 7PM, Substack tomorrow 8AM.</div>
+      <div class="prod-footer">
+        <button class="prod-btn primary">Publish all</button>
+        <button class="prod-btn">Edit captions</button>
+      </div>
+    </div>
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">ARTICLE · DRAFT</div><div class="status-chip ready">Review</div></div>
+      <div class="prod-title">The revolving door between Brookfield and Canadian public service.</div>
+      <div class="prod-desc">1,847 words · 14 claims · Substack + web · 2 verifier flags need your call.</div>
+      <div class="prod-footer">
+        <button class="prod-btn primary">Review flags</button>
+        <button class="prod-btn">Preview</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="studio-content" id="studio-perf" style="display:none">
+    <div class="perf-card">
+      <div class="perf-meta"><span>ARTICLE · 8D AGO</span><span class="tier-a">A TIER</span></div>
+      <div class="perf-title">The revolving door between Brookfield and Canadian public service.</div>
+      <div class="perf-stats">
+        <div class="perf-stat"><div class="perf-stat-num">47k</div><div class="perf-stat-label">X IMP</div></div>
+        <div class="perf-stat"><div class="perf-stat-num">412</div><div class="perf-stat-label">OPENS</div></div>
+        <div class="perf-stat"><div class="perf-stat-num">234</div><div class="perf-stat-label">SAVES</div></div>
+        <div class="perf-stat"><div class="perf-stat-num">18</div><div class="perf-stat-label">DRIFTS</div></div>
+      </div>
+      <div class="perf-insight">The "seven documented moves" opener outperformed "pattern isn't incidental" by 3.2×. Script prompt v2.2 will weight declarative enumeration.</div>
+    </div>
+    <div class="perf-card">
+      <div class="perf-meta"><span>SHORT · 11D AGO</span><span class="tier-a">A TIER</span></div>
+      <div class="perf-title">Why every PBO since 2005 has gone quiet.</div>
+      <div class="perf-stats">
+        <div class="perf-stat"><div class="perf-stat-num">142k</div><div class="perf-stat-label">TT VIEWS</div></div>
+        <div class="perf-stat"><div class="perf-stat-num">8.2k</div><div class="perf-stat-label">YT VIEWS</div></div>
+        <div class="perf-stat"><div class="perf-stat-num">3.4k</div><div class="perf-stat-label">SHARES</div></div>
+        <div class="perf-stat"><div class="perf-stat-num">284</div><div class="perf-stat-label">COMMENTS</div></div>
+      </div>
+      <div class="perf-insight">Layer 3 structure drove 4× more saves than Layer 2 shorts. Continue pushing layer depth in 90-second formats.</div>
+    </div>
+  </div>
+
+  <div class="studio-content" id="studio-archive" style="display:none">
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">ARTICLE · APR 15</div><div class="status-chip ready" style="background: var(--border-bright); color: var(--text-dim);">Published</div></div>
+      <div class="prod-title">The revolving door between Brookfield and Canadian public service.</div>
+      <div class="prod-desc">47k impressions · 18 drifts · 1,847 words.</div>
+    </div>
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">SHORT · APR 12</div><div class="status-chip ready" style="background: var(--border-bright); color: var(--text-dim);">Published</div></div>
+      <div class="prod-title">Why every PBO since 2005 has gone quiet.</div>
+      <div class="prod-desc">142k TikTok views · 3.4k shares · 1:24.</div>
+    </div>
+    <div class="prod-card">
+      <div class="prod-card-head"><div class="prod-meta">THESIS · APR 08</div><div class="status-chip ready" style="background: var(--border-bright); color: var(--text-dim);">Published</div></div>
+      <div class="prod-title">First monetary thesis excerpt — Chapter II.</div>
+      <div class="prod-desc">3.2k email opens · Substack excerpt.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ LIBRARY ══════════════════ -->
+<section class="screen" id="screen-library">
+  <div class="masthead">
+    <div class="wordmark"><span class="wordmark-single">CANOPTICON</span><span class="wordmark-dot"></span></div>
+    <div class="masthead-screen"><span class="time">5</span>LIBRARY</div>
+  </div>
+
+  <div id="library-list">
+    <div class="lib-filter-bar">
+      <button class="filter-chip active">All<span class="chip-count">5</span></button>
+      <button class="filter-chip">Theses<span class="chip-count">1</span></button>
+      <button class="filter-chip">Articles<span class="chip-count">1</span></button>
+      <button class="filter-chip">Arguments<span class="chip-count">1</span></button>
+      <button class="filter-chip">Predictions<span class="chip-count">14</span></button>
+    </div>
+
+    <div class="library-intro">
+      <p class="library-intro-text">Your work in progress and your ledger. Theses compound over months; articles publish; arguments stay open.</p>
+    </div>
+
+    <div class="library-item" onclick="openThesis()">
+      <div class="library-type-row">
+        <span>Thesis · In Progress</span>
+        <span class="version">v0.4</span>
+      </div>
+      <div class="library-title">The Architecture of Quiet Power</div>
+      <div class="library-excerpt">Monetary system design as the material substrate of Canadian political outcomes. Built on Eich, Desan, Gabor, Braun plus Canadian institutional data.</div>
+      <div class="library-progress">
+        <div class="library-progress-bar"><div class="library-progress-fill" style="width: 62%"></div></div>
+        <span class="library-progress-label">62%</span>
+      </div>
+      <div class="library-footer">
+        <span>47 / 76 CLAIMS · A</span>
+        <span>4 LAYERS · 3 LINCHPINS</span>
+      </div>
+    </div>
+
+    <div class="library-item active-item">
+      <div class="library-type-row blue">
+        <span>Argument Map · Active</span>
+        <span class="version">Layer 4/6</span>
+      </div>
+      <div class="library-title">Safe supply: which conditions produce results?</div>
+      <div class="library-excerpt">Layer 4 empirical dispute surfaced. Housing stability as necessary versus sufficient.</div>
+      <div class="library-footer">
+        <span>6 LAYERS · 23 CLAIMS</span>
+        <span>UPDATED 11H</span>
+      </div>
+    </div>
+
+    <div class="library-item published">
+      <div class="library-type-row">
+        <span>Article · Published</span>
+        <span class="version">1,847 W</span>
+      </div>
+      <div class="library-title">The revolving door between Brookfield and Canadian public service.</div>
+      <div class="library-excerpt">Seven documented moves between Brookfield leadership and federal appointment lists over the past decade.</div>
+      <div class="library-footer">
+        <span>14 CLAIMS · 3 PREDICTIONS</span>
+        <span>PUB 8D AGO</span>
+      </div>
+    </div>
+
+    <div class="library-item draft-item">
+      <div class="library-type-row sage">
+        <span>Policy Proposal · Draft</span>
+        <span class="version">Structural</span>
+      </div>
+      <div class="library-title">Mandatory cooling-off period for central banker appointments to private finance.</div>
+      <div class="library-excerpt">Five-year ban on ex-BoC and ex-BoE officials taking board seats in systemically important FIs.</div>
+      <div class="library-footer">
+        <span>12 CLAIMS</span>
+        <span>DRAFT 2D</span>
+      </div>
+    </div>
+
+    <div class="library-item prediction-item">
+      <div class="library-type-row tan">
+        <span>Prediction Log · Running</span>
+        <span class="version">Brier 0.142</span>
+      </div>
+      <div class="library-title">Banked predictions · 2026</div>
+      <div class="library-excerpt">Fourteen active predictions with probability and time horizons. Three resolved this quarter.</div>
+      <div class="library-footer">
+        <span>14 ACTIVE · 9 RESOLVED</span>
+        <span>TRACKED PUBLIC</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="thesis-detail" style="display:none">
+    <div class="detail-header">
+      <div class="detail-type">
+        <span>THESIS · v0.4 · IN PROGRESS</span>
+        <button class="back-btn" onclick="closeThesis()">← Back</button>
+      </div>
+      <div class="detail-title">The Architecture of Quiet Power</div>
+      <div class="detail-origin">
+        <span class="origin-label">ORIGIN</span>Declared by operator Feb 11, 2026. Seeded from essay "Quiet Currents" (2023). Not machine-proposed.
+      </div>
+      <div class="seed-paragraph">Monetary system design shapes Canadian political outcomes via institutional proximity between central bankers and private finance. The mechanisms are documented: career trajectories, board cross-pollination, regulatory authority granted and revoked in sequence. This thesis tracks the structural pattern, not the motivations of individuals.</div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-label">
+        <span>TIER PROJECTION</span>
+        <span class="sub">deterministic · regenerates on graph update</span>
+      </div>
+      <div class="tier-panel">
+        <div class="tier-tabs">
+          <button class="tier-tab active" onclick="setTier(this, 'bluf')">BLUF</button>
+          <button class="tier-tab" onclick="setTier(this, 't80')">80 words</button>
+          <button class="tier-tab" onclick="setTier(this, 't800')">800</button>
+          <button class="tier-tab" onclick="setTier(this, 'full')">Full</button>
+        </div>
+        <div class="tier-body" id="tier-bluf">
+          <div class="tier-bluf">Canada's monetary-institutional architecture routes authority through a narrow set of actors whose public and private careers overlap systematically, producing policy outcomes that favor incumbent finance <span class="likelihood">— likely</span>.</div>
+        </div>
+        <div class="tier-body" id="tier-t80" style="display:none">
+          <div class="tier-80">The Canadian central bank's leadership pipeline has, for four decades, drawn from and returned to the same private-finance institutions it regulates. Seven documented transitions between Bank of Canada / Bank of England leadership and major Canadian financial institutions suggest a structural feature, not coincidence.</div>
+        </div>
+        <div class="tier-body" id="tier-t800" style="display:none">
+          <div class="tier-80" style="font-style: italic; color: var(--text-dim);">[800-word projection — 25 claims organized thesis → evidence → counterargument → confidence, inline citations, linchpin flags.]</div>
+        </div>
+        <div class="tier-body" id="tier-full" style="display:none">
+          <div class="tier-80" style="font-style: italic; color: var(--text-dim);">[Full substrate — complete Claim Graph with Toulmin components, Assumption Registry, Indicator Registry, Brier history.]</div>
+        </div>
+        <div class="tier-meta-strip">
+          <span>IPCC: Likely · 66-100%</span>
+          <span>47 claims</span>
+          <span>Updated 4h</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-label">
+        <span>LAYER DECOMPOSITION</span>
+        <span class="sub">contradictions across layers preserved</span>
+      </div>
+      <div class="layers">
+        <div class="layer-card factual">
+          <div class="layer-head"><span class="layer-name">Factual</span><span class="layer-count">14 claims · A-dominant</span></div>
+          <div class="layer-desc">Seven documented BoC/BoE → private-finance transitions 1985–2025.</div>
+          <div class="layer-posture">Empirical grading. Dates, filings, gazette records.</div>
+        </div>
+        <div class="layer-card framing">
+          <div class="layer-head"><span class="layer-name">Framing</span><span class="layer-count">11 claims · mixed</span></div>
+          <div class="layer-desc">How "independence" of the central bank came to mean what it means.</div>
+          <div class="layer-posture">Historical-political analysis. Genealogy of the given.</div>
+        </div>
+        <div class="layer-card architectural">
+          <div class="layer-head"><span class="layer-name">Architectural</span><span class="layer-count">16 claims · 2 linchpins</span></div>
+          <div class="layer-desc">Rent patterns in regulatory-private career flow.</div>
+          <div class="layer-posture">Follow-the-money. Actor-network mapping.</div>
+        </div>
+        <div class="layer-card distributive">
+          <div class="layer-head"><span class="layer-name">Distributive</span><span class="layer-count">6 claims · 1 linchpin</span></div>
+          <div class="layer-desc">Who pays, who receives, along class and generational lines.</div>
+          <div class="layer-posture">Incidence analysis. Sectoral decomposition.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-label"><span>ROLE LOG</span><span class="sub">what the system ran · last 6</span></div>
+      <div class="role-log">
+        <div class="role-entry"><span class="role-time">09:42</span><div><span class="role-name">Verifier</span><span class="role-text"><span class="cross">Cross-model (GPT-5)</span> pass on 12 claims. <span class="hi">11 grounded · 1 partial.</span></span></div></div>
+        <div class="role-entry"><span class="role-time">09:28</span><div><span class="role-name">Interrogator</span><span class="role-text">Generated <span class="hi">4 questions</span> from new Stats Can release.</span></div></div>
+        <div class="role-entry"><span class="role-time">08:11</span><div><span class="role-name">Red Team</span><span class="role-text">Historian-50yr vantage. <span class="hi">3 steelmanned objections</span> registered.</span></div></div>
+        <div class="role-entry"><span class="role-time">07:02</span><div><span class="role-name">Assumption Auditor</span><span class="role-text">Swept linchpin #L-009. <span class="hi">Still holds · evidence strengthened.</span></span></div></div>
+        <div class="role-entry"><span class="role-time">06:35</span><div><span class="role-name">Gap Surfacer</span><span class="role-text">7-stage sweep. <span class="hi">4 gaps surfaced.</span> 2 structural holes.</span></div></div>
+        <div class="role-entry"><span class="role-time">00:14</span><div><span class="role-name">Calibration</span><span class="role-text">Resolved indicator <span class="hi">#I-041</span>. Brier +0.003.</span></div></div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-label"><span>CONCEPT SPINE</span><span class="sub">evolving</span></div>
+      <div class="entity-chips">
+        <span class="concept-chip">monetary system design</span>
+        <span class="concept-chip">central banker careers</span>
+        <span class="concept-chip">revolving door</span>
+        <span class="concept-chip">institutional proximity</span>
+        <span class="concept-chip">regulatory authority</span>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-label"><span>WATCH-SET</span><span class="sub">26 tracked · 3 pinned · 2 excluded</span></div>
+      <div class="entity-chips">
+        <span class="entity-chip pinned">Mark Carney</span>
+        <span class="entity-chip pinned">Brookfield</span>
+        <span class="entity-chip pinned">Bank of Canada</span>
+        <span class="entity-chip">Bank of England</span>
+        <span class="entity-chip">Goldman Sachs</span>
+        <span class="entity-chip">Big Five</span>
+        <span class="entity-chip derived">BIS</span>
+        <span class="entity-chip derived">Queen's</span>
+        <span class="entity-chip derived">DOF</span>
+        <span class="entity-chip excluded">goldbug content</span>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-label"><span>INBOX</span><span class="sub">3 awaiting</span></div>
+      <div class="inbox-item">
+        <div class="inbox-item-text">Carney's 2021 Brookfield compensation included unvested equity that cliff-vested on his PM announcement.</div>
+        <div class="inbox-item-meta">
+          <span>GRADE A · SEDAR+</span>
+          <span class="vbadge grounded"><span class="vdot"></span>GROUNDED</span>
+        </div>
+      </div>
+      <div class="inbox-item">
+        <div class="inbox-item-text">Ryan's DOF tenure overlapped with Carney's informal PM-prep staff assembly by 11 months.</div>
+        <div class="inbox-item-meta">
+          <span>GRADE A · HANSARD</span>
+          <span class="vbadge grounded"><span class="vdot"></span>GROUNDED</span>
+        </div>
+      </div>
+      <div class="inbox-item">
+        <div class="inbox-item-text">BIS 2018 framework recommendations shaped Canadian capital adequacy implementation.</div>
+        <div class="inbox-item-meta">
+          <span>GRADE B · ACADEMIC</span>
+          <span class="vbadge partial"><span class="vdot"></span>PARTIAL</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-label"><span>CADENCE</span></div>
+      <div class="cadence-row"><span class="cadence-key">Run mode</span><span class="cadence-val">Morning cascade <span class="val-accent">+ on trigger</span></span></div>
+      <div class="cadence-row"><span class="cadence-key">Last integration</span><span class="cadence-val">4h ago · +3 claims</span></div>
+      <div class="cadence-row"><span class="cadence-key">Next scheduled</span><span class="cadence-val">Tomorrow 07:00 ET</span></div>
+      <div class="cadence-row"><span class="cadence-key">Brief budget</span><span class="cadence-val">$1.50 / day · $0.82</span></div>
+      <div class="cadence-row"><span class="cadence-key">Contradictions</span><span class="cadence-val val-accent">2 open</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ SOURCES ══════════════════ -->
+<section class="screen" id="screen-sources">
+  <div class="masthead">
+    <div class="wordmark"><span class="wordmark-single">CANOPTICON</span><span class="wordmark-dot"></span></div>
+    <div class="masthead-screen"><span class="time">2</span>SOURCES</div>
+  </div>
+
+  <div class="pending-banner">
+    <div class="pending-banner-label">◇ PENDING APPROVAL</div>
+    <div class="pending-banner-count">2 items awaiting your call</div>
+    <div class="pending-banner-sub">Every source passes through the Ingestion Critic. Then you.</div>
+  </div>
+
+  <div class="queue-zone">
+    <div class="queue-item">
+      <div class="queue-head"><span class="queue-source">Hansard · Webhook</span><span class="queue-time">08:14</span></div>
+      <div class="queue-body">12 excerpts from April 23 sitting, referencing Bank Act C-14 (section 3(b)) and Ryan appointment.</div>
+      <div class="queue-critic">
+        <span class="queue-critic-label">Ingestion Critic</span>
+        Grade A source. Bias profile: neutral (verbatim transcript). Compatibility check: high — touches 3 active watch-sets. No contradiction flags.
+      </div>
+      <div class="queue-actions">
+        <button class="queue-btn approve">Approve</button>
+        <button class="queue-btn">Defer</button>
+        <button class="queue-btn reject">Reject</button>
+      </div>
+    </div>
+
+    <div class="queue-item">
+      <div class="queue-head"><span class="queue-source">X · @tylerbrowne</span><span class="queue-time">00:40</span></div>
+      <div class="queue-body">"Fourth Brookfield filing this week. SEDAR+ timestamp 23:48 yesterday. Carney adjacency."</div>
+      <div class="queue-critic">
+        <span class="queue-critic-label">Ingestion Critic</span>
+        Grade B source (credible reporter, secondary). Needs primary SEDAR+ fetch before claim writes. Paid fetch: $0.04.
+      </div>
+      <div class="queue-actions">
+        <button class="queue-btn approve" onclick="showCostModal()">Approve + fetch</button>
+        <button class="queue-btn">Defer</button>
+        <button class="queue-btn reject">Reject</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sources-divider"><div class="section-label">WEBHOOKS <span class="count">PUSH · REACTIVE</span></div></div>
+
+  <div class="source-row">
+    <div class="source-row-main">
+      <div class="source-row-name">Moose on the Loose</div>
+      <div class="source-row-meta">YOUTUBE · PUBSUB · <span class="health-dot good"></span>HEALTHY</div>
+    </div>
+    <div class="source-row-stats">
+      <div><span class="val">847</span> videos</div>
+      <div><span class="val">6h</span> ago</div>
+    </div>
+  </div>
+
+  <div class="source-row">
+    <div class="source-row-main">
+      <div class="source-row-name">openparliament.ca</div>
+      <div class="source-row-meta">HANSARD · WEBHOOK · <span class="health-dot good"></span>HEALTHY</div>
+    </div>
+    <div class="source-row-stats">
+      <div><span class="val">8</span> pending</div>
+      <div><span class="val">Today</span></div>
+    </div>
+  </div>
+
+  <div class="sources-divider"><div class="section-label">CRON PULLS <span class="count">CLOUDFLARE WORKERS</span></div></div>
+
+  <div class="source-row">
+    <div class="source-row-main">
+      <div class="source-row-name">Parl.ca bills & committees</div>
+      <div class="source-row-meta">CRON · 6H · <span class="health-dot good"></span>HEALTHY</div>
+    </div>
+    <div class="source-row-stats">
+      <div><span class="val">4</span> pending</div>
+      <div><span class="val">06:00</span></div>
+    </div>
+  </div>
+
+  <div class="source-row">
+    <div class="source-row-main">
+      <div class="source-row-name">Globe · National Post · CBC</div>
+      <div class="source-row-meta">RSS · 1H · <span class="health-dot good"></span>HEALTHY</div>
+    </div>
+    <div class="source-row-stats">
+      <div><span class="val">1.4k</span> claims</div>
+      <div><span class="val">09:00</span></div>
+    </div>
+  </div>
+
+  <div class="source-row">
+    <div class="source-row-main">
+      <div class="source-row-name">Statistics Canada releases</div>
+      <div class="source-row-meta">CRON · WEEKLY · <span class="health-dot good"></span>HEALTHY</div>
+    </div>
+    <div class="source-row-stats">
+      <div><span class="val">Mon</span></div>
+      <div><span class="val">06:00</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ SYSTEM ══════════════════ -->
+<section class="screen" id="screen-system">
+  <div class="masthead">
+    <div class="wordmark"><span class="wordmark-single">CANOPTICON</span><span class="wordmark-dot"></span></div>
+    <div class="masthead-screen"><span class="time">89%</span>SYSTEM</div>
+  </div>
+
+  <div class="system-hero">
+    <div class="ceiling-head">
+      <span class="ceiling-spent">$44.72<span class="ceiling-of">of</span></span>
+      <span class="ceiling-ceiling">$50 · April</span>
+    </div>
+    <div class="ceiling-track">
+      <div class="ceiling-fill warn" style="width: 89%"></div>
+    </div>
+    <div class="ceiling-note warn">89% · 7 days left · approaching ceiling</div>
+  </div>
+
+  <div class="cost-breakdown">
+    <div class="cost-cell"><div class="cost-cell-val">$38.42</div><div class="cost-cell-label">Claude</div></div>
+    <div class="cost-cell"><div class="cost-cell-val">$4.12</div><div class="cost-cell-label">Transcribe</div></div>
+    <div class="cost-cell"><div class="cost-cell-val">$2.18</div><div class="cost-cell-label">GPT-5</div></div>
+    <div class="cost-cell"><div class="cost-cell-val">$0.00</div><div class="cost-cell-label">Hi-fi</div></div>
+  </div>
+
+  <div class="system-block">
+    <div class="system-block-label">AUTONOMY</div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Morning cascade</div>
+        <div class="toggle-sub">07:00 ET daily · Cloudflare Workers cron</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Auto-ingest A-grade uncontested</div>
+        <div class="toggle-sub">Skip Critic gate · A-grade + watch-set + no contradiction</div>
+      </div>
+      <div class="toggle" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Red Team at threshold</div>
+        <div class="toggle-sub">Cross-model · GPT-5 · $0.04 per claim</div>
+      </div>
+      <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="toggle-row disabled">
+      <div>
+        <div class="toggle-label">Silent paid operations</div>
+        <div class="toggle-sub">Never. Every paid call prompts. Whitelist in Cost.</div>
+      </div>
+      <div class="toggle locked"></div>
+    </div>
+  </div>
+
+  <div class="system-block">
+    <div class="system-block-label">GRAPH HEALTH</div>
+    <div class="stat-grid">
+      <div class="stat-cell"><div class="stat-cell-val">1,847</div><div class="stat-cell-label">Entities</div><div class="stat-cell-delta">+23</div></div>
+      <div class="stat-cell"><div class="stat-cell-val">4,612</div><div class="stat-cell-label">Relations</div><div class="stat-cell-delta">+67</div></div>
+      <div class="stat-cell"><div class="stat-cell-val">12,847</div><div class="stat-cell-label">Claims</div><div class="stat-cell-delta">+142</div></div>
+      <div class="stat-cell"><div class="stat-cell-val">8</div><div class="stat-cell-label">Contradictions</div><div class="stat-cell-delta warn">2 new</div></div>
+      <div class="stat-cell"><div class="stat-cell-val">47</div><div class="stat-cell-label">Indicators</div><div class="stat-cell-delta blue">+3</div></div>
+      <div class="stat-cell"><div class="stat-cell-val">62</div><div class="stat-cell-label">Books</div><div class="stat-cell-delta">0</div></div>
+    </div>
+  </div>
+
+  <div class="system-block">
+    <div class="system-block-label">ROLE ACTIVITY · 24H</div>
+    <div class="stat-grid">
+      <div class="stat-cell"><div class="stat-cell-val">142</div><div class="stat-cell-label">Interrogator Q</div></div>
+      <div class="stat-cell"><div class="stat-cell-val">38</div><div class="stat-cell-label">Verifier checks</div></div>
+      <div class="stat-cell"><div class="stat-cell-val">14</div><div class="stat-cell-label">Red Team obj</div></div>
+      <div class="stat-cell"><div class="stat-cell-val">6</div><div class="stat-cell-label">Steelman</div></div>
+      <div class="stat-cell"><div class="stat-cell-val">4</div><div class="stat-cell-label">Gap sweeps</div></div>
+      <div class="stat-cell"><div class="stat-cell-val">1</div><div class="stat-cell-label">Calibration</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-item active" data-screen="live" onclick="go('live')">
+    <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3" fill="currentColor"/><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.2" fill="none" opacity="0.5"/></svg>
+    Live
+  </div>
+  <div class="nav-item" data-screen="graph" onclick="go('graph')">
+    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="5" cy="5" r="2" fill="currentColor"/><circle cx="15" cy="6" r="2"/><circle cx="10" cy="15" r="2"/><line x1="5" y1="5" x2="10" y2="15"/><line x1="15" y1="6" x2="10" y2="15"/></svg>
+    Graph
+  </div>
+  <div class="nav-item" data-screen="studio" onclick="go('studio')">
+    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="5" width="14" height="10" rx="1"/><circle cx="10" cy="10" r="2" fill="currentColor"/></svg>
+    Studio
+  </div>
+  <div class="nav-item" data-screen="library" onclick="go('library')">
+    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="4" y="3" width="3" height="14"/><rect x="8" y="3" width="3" height="14"/><rect x="12" y="4" width="3" height="13" transform="rotate(8 13.5 10.5)"/></svg>
+    Library
+  </div>
+  <div class="nav-item" data-screen="sources" onclick="go('sources')">
+    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M10 3 L17 10 L10 17 L3 10 Z"/><circle cx="10" cy="10" r="1.5" fill="currentColor"/></svg>
+    Sources
+  </div>
+  <div class="nav-item" data-screen="system" onclick="go('system')">
+    <svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="3" y="4" width="14" height="12" rx="1"/><line x1="6" y1="8" x2="14" y2="8"/><line x1="6" y1="11" x2="10" y2="11"/></svg>
+    System
+  </div>
+</nav>
+
+</div>
+
+<div class="modal-overlay" id="cost-modal">
+  <div class="modal">
+    <div class="modal-corner tl"></div><div class="modal-corner tr"></div>
+    <div class="modal-corner bl"></div><div class="modal-corner br"></div>
+    <div class="modal-head">
+      <div class="modal-class">Cost Approval · Not Silent</div>
+      <div class="modal-title">Primary SEDAR+ fetch</div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-row"><span class="modal-row-label">Operation</span><span class="modal-row-value">Fetch + verify</span></div>
+      <div class="modal-row"><span class="modal-row-label">Est cost</span><span class="modal-row-value cost">$0.04</span></div>
+      <div class="modal-row"><span class="modal-row-label">After</span><span class="modal-row-value">$44.76 / $50</span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn reject" onclick="hideCostModal()">Reject</button>
+      <button class="modal-btn approve" onclick="hideCostModal()">Approve</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function updateTime() {
+  const t = new Date();
+  const el = document.getElementById('live-time');
+  if (el) el.textContent = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
+}
+updateTime();
+setInterval(updateTime, 30000);
+
+function go(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const nav = document.querySelector('.nav-item[data-screen="' + screen + '"]');
+  if (nav) nav.classList.add('active');
+  window.scrollTo(0, 0);
+  if (screen === 'graph') initGraph();
+  if (screen === 'library') {
+    document.getElementById('library-list').style.display = 'block';
+    document.getElementById('thesis-detail').style.display = 'none';
+  }
+  if (screen === 'studio') {
+    document.querySelectorAll('#screen-studio .tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+    ['ready','recording','producing','publish','perf','archive'].forEach(n => {
+      const el = document.getElementById('studio-' + n);
+      if (el) el.style.display = (n === 'ready') ? 'block' : 'none';
+    });
+  }
+}
+
+function toggleWhy(btn) {
+  const panel = btn.closest('.feed-item').querySelector('.why-panel');
+  if (panel) panel.classList.toggle('visible');
+}
+
+function openThesis() {
+  go('library');
+  document.getElementById('library-list').style.display = 'none';
+  document.getElementById('thesis-detail').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+function closeThesis() {
+  document.getElementById('library-list').style.display = 'block';
+  document.getElementById('thesis-detail').style.display = 'none';
+}
+
+function setTier(btnEl, which) {
+  document.querySelectorAll('.tier-tab').forEach(t => t.classList.remove('active'));
+  btnEl.classList.add('active');
+  ['bluf','t80','t800','full'].forEach(id => {
+    const el = document.getElementById('tier-' + id);
+    if (el) el.style.display = (id === which) ? 'block' : 'none';
+  });
+}
+
+function setStudioTab(name, btnEl) {
+  document.querySelectorAll('#screen-studio .tab').forEach(t => t.classList.remove('active'));
+  btnEl.classList.add('active');
+  ['ready','recording','producing','publish','perf','archive'].forEach(n => {
+    const el = document.getElementById('studio-' + n);
+    if (el) el.style.display = (n === name) ? 'block' : 'none';
+  });
+}
+
+function runCascade() {
+  const btn = document.getElementById('cascade-btn');
+  const text = document.getElementById('cascade-btn-text');
+  btn.classList.add('running');
+  text.textContent = 'Running...';
+  setTimeout(() => { btn.classList.remove('running'); text.textContent = 'Run Cascade'; }, 3500);
+}
+
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const parent = chip.parentElement;
+    parent.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    const f = chip.dataset.filter;
+    if (f) {
+      document.querySelectorAll('#screen-live .feed-item').forEach(item => {
+        item.style.display = (f === 'all' || item.dataset.cat === f) ? 'block' : 'none';
+      });
+    }
+  });
+});
+
+function showCostModal() { document.getElementById('cost-modal').classList.add('visible'); }
+function hideCostModal() { document.getElementById('cost-modal').classList.remove('visible'); }
+
+let graphInit = false;
+let currentZoom = 1;
+function initGraph() {
+  if (graphInit) return;
+  graphInit = true;
+  const svg = document.getElementById('graph-svg');
+  svg.innerHTML = '';
+  const nodes = [
+    { id: 'carney', x: 220, y: 310, r: 26, label: 'CARNEY', type: 'Person', hot: true, amber: true },
+    { id: 'ryan', x: 110, y: 200, r: 18, label: 'M. RYAN', type: 'Person · PBO', hot: true },
+    { id: 'brookfield', x: 340, y: 220, r: 20, label: 'BROOKFIELD', type: 'Corporation', amber: true },
+    { id: 'boc', x: 320, y: 450, r: 18, label: 'BoC', type: 'Institution' },
+    { id: 'queens', x: 160, y: 130, r: 14, label: "QUEEN'S", type: 'University', blue: true },
+    { id: 'goldman', x: 360, y: 120, r: 16, label: 'GOLDMAN', type: 'Corporation' },
+    { id: 'dof', x: 60, y: 340, r: 16, label: 'DOF', type: 'Department', sage: true },
+    { id: 'boe', x: 400, y: 340, r: 15, label: 'BoE', type: 'Institution' },
+    { id: 'pmo', x: 150, y: 450, r: 17, label: 'PMO', type: 'Office' },
+    { id: 'c14', x: 240, y: 550, r: 13, label: 'BILL C-14', type: 'Legislation', hot: true },
+    { id: 'big5', x: 380, y: 540, r: 16, label: 'BIG FIVE', type: 'Cluster' }
+  ];
+  const edges = [
+    { from: 'carney', to: 'brookfield', hot: true },
+    { from: 'carney', to: 'boc', active: true },
+    { from: 'carney', to: 'boe' },
+    { from: 'carney', to: 'goldman' },
+    { from: 'carney', to: 'queens', blue: true },
+    { from: 'ryan', to: 'queens', hot: true },
+    { from: 'ryan', to: 'dof', hot: true },
+    { from: 'ryan', to: 'carney', hot: true },
+    { from: 'ryan', to: 'pmo' },
+    { from: 'brookfield', to: 'boc' },
+    { from: 'boc', to: 'big5' },
+    { from: 'pmo', to: 'dof' },
+    { from: 'c14', to: 'big5', hot: true },
+    { from: 'c14', to: 'boc', hot: true }
+  ];
+  const nm = Object.fromEntries(nodes.map(n => [n.id, n]));
+  edges.forEach(e => {
+    const f = nm[e.from], t = nm[e.to];
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', f.x); line.setAttribute('y1', f.y);
+    line.setAttribute('x2', t.x); line.setAttribute('y2', t.y);
+    let cls = 'edge-line';
+    if (e.hot) cls += ' hot-edge';
+    else if (e.blue) cls += ' blue-edge';
+    else if (e.active) cls += ' active';
+    line.setAttribute('class', cls);
+    svg.appendChild(line);
+  });
+  nodes.forEach((n, i) => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.style.cursor = 'pointer';
+    g.style.opacity = '0';
+    g.style.transform = 'scale(0.6)';
+    g.style.transformOrigin = n.x + 'px ' + n.y + 'px';
+    g.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+    g.style.transitionDelay = (i * 0.04) + 's';
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', n.x); c.setAttribute('cy', n.y); c.setAttribute('r', n.r);
+    let cls = 'node-circle';
+    if (n.hot) cls += ' hot';
+    else if (n.amber) cls += ' amber-node';
+    else if (n.blue) cls += ' blue-node';
+    else if (n.sage) cls += ' sage-node';
+    c.setAttribute('class', cls);
+    g.appendChild(c);
+    if (n.hot) {
+      const r = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      r.setAttribute('cx', n.x); r.setAttribute('cy', n.y); r.setAttribute('r', n.r + 6);
+      r.setAttribute('fill', 'none'); r.setAttribute('stroke', 'rgba(209,65,86,0.25)'); r.setAttribute('stroke-width', '1');
+      g.appendChild(r);
+    }
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    l.setAttribute('x', n.x); l.setAttribute('y', n.y + n.r + 14);
+    l.setAttribute('class', 'node-label'); l.textContent = n.label;
+    g.appendChild(l);
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    s.setAttribute('x', n.x); s.setAttribute('y', n.y + n.r + 25);
+    s.setAttribute('class', 'node-label sub'); s.textContent = n.type.toUpperCase();
+    g.appendChild(s);
+    g.addEventListener('click', (ev) => { ev.stopPropagation(); showInspector(n); });
+    svg.appendChild(g);
+    requestAnimationFrame(() => { g.style.opacity = '1'; g.style.transform = 'scale(1)'; });
+  });
+  svg.addEventListener('click', () => closeInspector());
+}
+
+function showInspector(node) {
+  const ins = document.getElementById('inspector');
+  document.getElementById('insp-type').textContent = node.type.toUpperCase();
+  document.getElementById('insp-name').textContent = node.label;
+  const roles = {
+    'carney': 'Prime Minister of Canada (2025–). Former BoC, BoE, Brookfield.',
+    'ryan': 'Parliamentary Budget Officer (2026–). Former DOF.',
+    'brookfield': 'Asset management. Carney chaired prior to PM.',
+    'boc': 'Bank of Canada.',
+    'queens': "Queen's University. Shared years.",
+    'goldman': 'Goldman Sachs.',
+    'dof': 'Department of Finance Canada.',
+    'boe': 'Bank of England. Carney governor 2013–2020.',
+    'pmo': "Prime Minister's Office.",
+    'c14': 'Bill C-14 · Bank Act amendment.',
+    'big5': 'Big Five Canadian Banks.'
+  };
+  document.getElementById('insp-role').textContent = roles[node.id] || '';
+  const stats = {
+    'carney': [47, 128, 'A'], 'ryan': [12, 34, 'B'], 'brookfield': [28, 71, 'A'],
+    'boc': [34, 89, 'A'], 'queens': [18, 22, 'B'], 'goldman': [22, 43, 'A'],
+    'dof': [31, 62, 'A'], 'boe': [24, 51, 'A'], 'pmo': [39, 74, 'A'],
+    'c14': [6, 15, 'A'], 'big5': [42, 96, 'A']
+  };
+  const s = stats[node.id] || [0, 0, '—'];
+  document.getElementById('insp-rel').textContent = s[0];
+  document.getElementById('insp-claim').textContent = s[1];
+  document.getElementById('insp-grade').textContent = s[2];
+  ins.classList.add('visible');
+}
+function closeInspector() { document.getElementById('inspector').classList.remove('visible'); }
+function zoomGraph(f) {
+  currentZoom = Math.max(0.5, Math.min(2.5, currentZoom * f));
+  const svg = document.getElementById('graph-svg');
+  svg.style.transform = 'scale(' + currentZoom + ')';
+  svg.style.transformOrigin = 'center';
+  svg.style.transition = 'transform 0.4s ease';
+}
+function resetGraph() {
+  currentZoom = 1;
+  document.getElementById('graph-svg').style.transform = 'scale(1)';
+  closeInspector();
+}
+
+document.addEventListener('touchmove', (e) => {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CANOPTICON — Forensic intelligence · Canada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f5f1e8;
+    --paper-deeper: #ebe6d8;
+    --paper-subtle: #efead e;
+    --ink: #1a1816;
+    --ink-dim: #5a564f;
+    --ink-faint: #8a8578;
+    --rule: #c9c2b0;
+    --rule-soft: #d9d2c0;
+
+    --signal: #9c2333;
+    --signal-dim: #5a1320;
+    --amber: #8a6520;
+    --amber-dim: #5a4215;
+    --sage: #5a7349;
+    --sage-dim: #3a4a2e;
+    --muted-blue: #4c617e;
+    --muted-blue-dim: #2e3a4a;
+
+    --serif: 'EB Garamond', Georgia, serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* Grain overlay — 2% paper texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+    mix-blend-mode: multiply;
+  }
+
+  a { color: inherit; text-decoration: none; }
+  .dotted-link {
+    border-bottom: 1px dotted var(--ink-dim);
+    transition: border-color 0.2s ease;
+  }
+  .dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+  /* ═════════════════════════════════════════
+     NAV (shared across all surfaces)
+  ═════════════════════════════════════════ */
+  .nav-bar {
+    padding: 14px 32px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--paper);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+    background-color: rgba(245,241,232,0.96);
+  }
+  .nav-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 20px;
+  }
+  .nav-wordmark {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .nav-wordmark-text {
+    background: linear-gradient(90deg, var(--ink) 0%, var(--ink) 26%, var(--signal) 26%, var(--signal) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.06em;
+  }
+  .nav-dot {
+    width: 5px; height: 5px;
+    background: var(--signal);
+    border-radius: 50%;
+    animation: pulse 3s ease-in-out infinite;
+    align-self: center;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.45;} }
+  .nav-links {
+    display: flex;
+    gap: 28px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+  }
+  .nav-links a { cursor: pointer; transition: color 0.15s; }
+  .nav-links a:hover { color: var(--ink); }
+  .nav-links a.active { color: var(--signal); font-weight: 500; }
+  .nav-mobile-toggle {
+    display: none;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: var(--ink-dim);
+    padding: 4px 8px;
+    border: 1px solid var(--rule);
+    border-radius: 1px;
+  }
+  @media (max-width: 780px) {
+    .nav-links { display: none; }
+    .nav-links.open {
+      display: flex;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--paper);
+      border-bottom: 1px solid var(--rule);
+      flex-direction: column;
+      padding: 20px 32px;
+      gap: 16px;
+    }
+    .nav-mobile-toggle { display: block; }
+  }
+
+  /* ═════════════════════════════════════════
+     SHARED — section framing
+  ═════════════════════════════════════════ */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+  .section-label .count {
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+
+  .dingbat {
+    text-align: center;
+    color: var(--ink-faint);
+    letter-spacing: 1.2em;
+    margin: 40px 0;
+    font-size: 14px;
+  }
+
+  /* ═════════════════════════════════════════
+     HOMEPAGE
+  ═════════════════════════════════════════ */
+  .homepage { max-width: 1280px; margin: 0 auto; padding: 0 32px; }
+  @media (max-width: 640px) { .homepage { padding: 0 22px; } }
+
+  .masthead {
+    padding: 48px 0 24px;
+    text-align: center;
+    border-bottom: 2px solid var(--ink);
+  }
+  .masthead-wordmark {
+    font-family: var(--serif);
+    font-size: 52px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    line-height: 1;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  @media (max-width: 640px) {
+    .masthead-wordmark { font-size: 36px; }
+    .masthead { padding: 32px 0 18px; }
+  }
+  .masthead-wordmark-text {
+    background: linear-gradient(90deg, var(--ink) 0%, var(--ink) 26%, var(--signal) 26%, var(--signal) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.04em;
+  }
+  .masthead-dot {
+    width: 9px; height: 9px;
+    background: var(--signal);
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(156, 35, 51, 0.4);
+    animation: pulse 3s ease-in-out infinite;
+    align-self: center;
+  }
+  .masthead-tagline {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-top: 8px;
+  }
+
+  .date-strip {
+    padding: 14px 0 20px;
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--rule);
+  }
+  .date-strip .item { display: flex; align-items: baseline; gap: 6px; }
+  .date-strip .item .val {
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .date-strip .item .brier {
+    color: var(--sage);
+    font-weight: 600;
+  }
+
+  /* LEAD STORY */
+  .lead {
+    padding: 56px 0;
+    text-align: center;
+    max-width: 880px;
+    margin: 0 auto;
+    border-bottom: 1px solid var(--rule);
+  }
+  @media (max-width: 640px) { .lead { padding: 36px 0; } }
+  .lead-kicker {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.26em;
+    color: var(--signal);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
+  .lead-headline {
+    font-family: var(--serif);
+    font-size: 56px;
+    line-height: 1.08;
+    font-weight: 500;
+    letter-spacing: -0.018em;
+    margin-bottom: 18px;
+    color: var(--ink);
+  }
+  @media (max-width: 780px) { .lead-headline { font-size: 40px; } }
+  @media (max-width: 520px) { .lead-headline { font-size: 32px; } }
+  .lead-subhead {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.4;
+    color: var(--ink-dim);
+    margin-bottom: 28px;
+    max-width: 680px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  @media (max-width: 640px) { .lead-subhead { font-size: 18px; } }
+  .lead-excerpt {
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.65;
+    color: var(--ink);
+    max-width: 640px;
+    margin: 0 auto 24px;
+    text-align: left;
+  }
+  .lead-excerpt .drop-cap::first-letter {
+    font-size: 4.5em;
+    float: left;
+    line-height: 0.85;
+    margin: 6px 8px 0 0;
+    color: var(--signal);
+    font-weight: 500;
+  }
+  .lead-meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    margin-top: 24px;
+  }
+  .lead-read {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 22px;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .lead-read:hover { background: var(--ink); color: var(--paper); }
+
+  /* THESES IN PROGRESS — 3 column */
+  .theses-section { padding: 48px 0 32px; border-bottom: 1px solid var(--rule); }
+  .theses-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--rule);
+  }
+  @media (max-width: 860px) { .theses-grid { grid-template-columns: 1fr; } }
+  .thesis-card {
+    padding: 28px 24px;
+    border-right: 1px solid var(--rule);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .thesis-card:last-child { border-right: none; }
+  @media (max-width: 860px) {
+    .thesis-card { border-right: none; border-bottom: 1px solid var(--rule); }
+    .thesis-card:last-child { border-bottom: none; }
+  }
+  .thesis-card:hover { background: var(--paper-deeper); }
+  .thesis-meta {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    color: var(--signal);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+  }
+  .thesis-meta .version { color: var(--ink-faint); font-weight: 400; }
+  .thesis-card-title {
+    font-family: var(--serif);
+    font-size: 24px;
+    line-height: 1.2;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+  }
+  .thesis-likelihood {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    color: var(--amber);
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  .thesis-state {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14.5px;
+    color: var(--ink-dim);
+    line-height: 1.45;
+    margin-bottom: 14px;
+  }
+  .thesis-card-stats {
+    display: flex;
+    gap: 12px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule-soft);
+  }
+
+  /* RUNNING PREDICTIONS */
+  .predictions-section { padding: 40px 0 32px; border-bottom: 1px solid var(--rule); }
+  .predictions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
+  @media (max-width: 780px) { .predictions-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .predictions-grid { grid-template-columns: 1fr; } }
+  .prediction-cell {
+    padding: 18px 20px;
+    background: var(--paper);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .prediction-cell:hover { background: var(--paper-deeper); }
+  .prediction-cell .conf {
+    font-family: var(--mono);
+    font-size: 26px;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .prediction-cell .conf .pct { font-size: 16px; color: var(--ink-dim); font-weight: 400; }
+  .prediction-cell .claim {
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .prediction-cell .horizon {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+
+  /* RECENT CONTRADICTIONS */
+  .contradictions-section { padding: 40px 0 32px; border-bottom: 1px solid var(--rule); }
+  .contradiction-card {
+    padding: 20px 24px;
+    margin-bottom: 14px;
+    border-left: 3px solid var(--signal);
+    background: var(--paper-deeper);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .contradiction-card.machloket { border-left-color: var(--amber); }
+  .contradiction-card:hover { background: var(--paper-subtle); }
+  .contradiction-kicker {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    color: var(--signal);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .contradiction-card.machloket .contradiction-kicker { color: var(--amber); }
+  .contradiction-summary {
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.4;
+    color: var(--ink);
+    margin-bottom: 10px;
+  }
+  .contradiction-meta {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+
+  /* WHAT CHANGED THIS WEEK */
+  .changelog-section { padding: 40px 0 48px; border-bottom: 1px solid var(--rule); }
+  .changelog-list {
+    list-style: none;
+  }
+  .changelog-item {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 20px;
+    align-items: baseline;
+  }
+  @media (max-width: 640px) { .changelog-item { grid-template-columns: 1fr; gap: 4px; } }
+  .changelog-item:last-child { border-bottom: none; }
+  .changelog-date {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+  .changelog-body {
+    font-family: var(--serif);
+    font-size: 15.5px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .changelog-body .hi {
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .changelog-body .resolved { color: var(--sage); font-style: italic; }
+  .changelog-body .surfaced { color: var(--signal); font-style: italic; }
+
+  /* FOOTER */
+  .site-footer {
+    padding: 48px 32px 32px;
+    margin-top: 40px;
+    border-top: 2px solid var(--ink);
+    background: var(--paper-deeper);
+  }
+  .footer-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 40px;
+  }
+  @media (max-width: 780px) { .footer-inner { grid-template-columns: 1fr; gap: 28px; } }
+  .footer-wordmark {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .footer-wordmark-text {
+    background: linear-gradient(90deg, var(--ink) 0%, var(--ink) 26%, var(--signal) 26%, var(--signal) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .footer-tagline {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .footer-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .footer-nav a {
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .footer-nav a:hover { color: var(--signal); }
+  .footer-meta {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    line-height: 2;
+  }
+
+  /* ═════════════════════════════════════════
+     ARTICLE PAGE
+  ═════════════════════════════════════════ */
+  .article-page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+  @media (max-width: 640px) { .article-page { padding: 0 22px; } }
+
+  .breadcrumb {
+    padding: 20px 0 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+  .breadcrumb a { cursor: pointer; }
+  .breadcrumb a:hover { color: var(--ink); }
+  .breadcrumb .sep { margin: 0 8px; }
+
+  .article-header {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 0 36px;
+    border-bottom: 1px solid var(--rule);
+    text-align: left;
+  }
+  .article-kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.26em;
+    color: var(--signal);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 18px;
+  }
+  .article-title {
+    font-family: var(--serif);
+    font-size: 58px;
+    line-height: 1.08;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    margin-bottom: 22px;
+  }
+  @media (max-width: 780px) { .article-title { font-size: 42px; } }
+  @media (max-width: 520px) { .article-title { font-size: 32px; } }
+  .article-subhead {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.4;
+    color: var(--ink-dim);
+    margin-bottom: 24px;
+  }
+  @media (max-width: 640px) { .article-subhead { font-size: 18px; } }
+  .article-byline {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .article-byline .item { display: flex; align-items: baseline; gap: 5px; }
+  .article-byline .item .val { color: var(--ink); font-weight: 500; letter-spacing: 0.06em; }
+
+  .article-body {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 36px 0 48px;
+    font-size: 19px;
+    line-height: 1.65;
+  }
+  @media (max-width: 640px) { .article-body { font-size: 17px; line-height: 1.6; } }
+  .article-body > p { margin-bottom: 22px; }
+  .article-body > p:first-child::first-letter {
+    font-size: 5em;
+    float: left;
+    line-height: 0.85;
+    margin: 8px 10px 0 0;
+    color: var(--signal);
+    font-weight: 500;
+  }
+  .article-body h2 {
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 40px 0 18px;
+    line-height: 1.25;
+  }
+  .article-body h3 {
+    font-family: var(--serif);
+    font-size: 21px;
+    font-weight: 500;
+    font-style: italic;
+    margin: 28px 0 14px;
+    color: var(--ink-dim);
+  }
+  .article-body cite {
+    font-style: normal;
+    font-family: var(--mono);
+    font-size: 0.62em;
+    vertical-align: super;
+    color: var(--signal);
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    margin: 0 1px;
+    padding: 1px 3px;
+    border-radius: 1px;
+    transition: background 0.15s;
+  }
+  .article-body cite:hover { background: rgba(156, 35, 51, 0.1); }
+  .article-body .claim-link {
+    border-bottom: 1px dotted var(--ink-faint);
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .article-body .claim-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+  .pull-quote {
+    margin: 36px -30px;
+    padding: 32px 40px;
+    background: var(--paper-deeper);
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 26px;
+    line-height: 1.35;
+    font-weight: 400;
+    color: var(--ink);
+    border-left: 3px solid var(--signal);
+    position: relative;
+  }
+  @media (max-width: 720px) { .pull-quote { margin: 32px 0; font-size: 22px; padding: 24px 28px; } }
+  .pull-quote::before {
+    content: '"';
+    color: var(--signal);
+    font-size: 56px;
+    line-height: 0;
+    position: relative;
+    top: 20px;
+    left: -6px;
+  }
+  .pull-quote::after {
+    content: '"';
+    color: var(--signal);
+    font-size: 56px;
+    line-height: 0;
+    position: relative;
+    top: 20px;
+  }
+
+  .article-sidebar {
+    max-width: 680px;
+    margin: 32px auto 0;
+    padding: 28px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  @media (max-width: 640px) { .article-sidebar { grid-template-columns: 1fr; gap: 24px; } }
+  .sidebar-block .sb-label {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .sidebar-block .sb-title {
+    font-family: var(--serif);
+    font-size: 16.5px;
+    font-weight: 500;
+    line-height: 1.3;
+    margin-bottom: 4px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .sidebar-block .sb-title:hover { color: var(--signal); }
+  .sidebar-block .sb-sub {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-dim);
+    line-height: 1.4;
+  }
+  .entities-row {
+    max-width: 680px;
+    margin: 24px auto 0;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .entities-label {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .entity-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .entity-chip {
+    padding: 5px 12px;
+    border: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .entity-chip:hover { border-color: var(--signal); color: var(--signal); }
+
+  .provenance-strip {
+    max-width: 680px;
+    margin: 28px auto 48px;
+    padding: 18px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    line-height: 1.5;
+  }
+  @media (max-width: 640px) { .provenance-strip { grid-template-columns: 1fr 1fr; } }
+  .prov-item .prov-key { color: var(--ink-faint); }
+  .prov-item .prov-val { color: var(--ink); font-weight: 500; display: block; margin-top: 3px; }
+  .prov-item .prov-val.good { color: var(--sage); }
+  .prov-item .prov-val.caution { color: var(--amber); }
+
+  .article-actions {
+    max-width: 680px;
+    margin: 0 auto 60px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .article-action-btn {
+    padding: 9px 18px;
+    border: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--paper);
+  }
+  .article-action-btn:hover { border-color: var(--ink); }
+
+  /* ═════════════════════════════════════════
+     THESIS PAGE
+  ═════════════════════════════════════════ */
+  .thesis-page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+  @media (max-width: 640px) { .thesis-page { padding: 0 22px; } }
+
+  .thesis-header {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 36px 0 32px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .thesis-kicker {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.22em;
+    color: var(--signal);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .thesis-headline {
+    font-family: var(--serif);
+    font-size: 54px;
+    line-height: 1.08;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 780px) { .thesis-headline { font-size: 38px; } }
+  @media (max-width: 520px) { .thesis-headline { font-size: 30px; } }
+  .thesis-seed {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 22px;
+    line-height: 1.45;
+    color: var(--ink-dim);
+    margin-bottom: 22px;
+    max-width: 760px;
+  }
+  @media (max-width: 640px) { .thesis-seed { font-size: 18px; } }
+  .thesis-status-strip {
+    padding: 14px 0;
+    border-top: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+  }
+  .thesis-status-strip .st .val {
+    color: var(--ink);
+    font-weight: 500;
+    margin-left: 5px;
+  }
+  .thesis-status-strip .st .val.amber { color: var(--amber); font-weight: 600; }
+
+  .bluf-block {
+    max-width: 880px;
+    margin: 40px auto;
+    padding: 40px;
+    background: var(--paper-deeper);
+    border-left: 4px solid var(--signal);
+    text-align: center;
+  }
+  @media (max-width: 640px) { .bluf-block { padding: 28px 22px; margin: 28px auto; } }
+  .bluf-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--signal);
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .bluf-text {
+    font-family: var(--serif);
+    font-size: 28px;
+    line-height: 1.36;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  @media (max-width: 640px) { .bluf-text { font-size: 22px; } }
+  .bluf-text .likelihood {
+    color: var(--signal);
+    font-style: italic;
+    font-weight: 500;
+  }
+
+  .tier-switcher {
+    max-width: 880px;
+    margin: 0 auto 36px;
+    display: flex;
+    border: 1px solid var(--rule);
+    background: var(--paper);
+  }
+  .tier-btn {
+    flex: 1;
+    padding: 12px 8px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tier-btn:last-child { border-right: none; }
+  .tier-btn.active {
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 600;
+  }
+  .tier-btn:hover:not(.active) { background: var(--paper-deeper); color: var(--ink); }
+
+  .tier-content {
+    max-width: 720px;
+    margin: 0 auto 40px;
+    font-family: var(--serif);
+    font-size: 18.5px;
+    line-height: 1.65;
+    color: var(--ink);
+  }
+  .tier-content.active { display: block; }
+  .tier-content.hidden { display: none; }
+
+  .thesis-section {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 32px 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .layer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 640px) { .layer-grid { grid-template-columns: 1fr; } }
+  .layer-box {
+    padding: 20px 22px;
+    border: 1px solid var(--rule);
+    border-left-width: 4px;
+    background: var(--paper);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .layer-box:hover { background: var(--paper-deeper); }
+  .layer-box.factual       { border-left-color: var(--muted-blue); }
+  .layer-box.framing       { border-left-color: var(--amber); }
+  .layer-box.architectural { border-left-color: var(--signal); }
+  .layer-box.distributive  { border-left-color: var(--sage); }
+  .layer-name {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .layer-box.factual       .layer-name { color: var(--muted-blue); }
+  .layer-box.framing       .layer-name { color: var(--amber); }
+  .layer-box.architectural .layer-name { color: var(--signal); }
+  .layer-box.distributive  .layer-name { color: var(--sage); }
+  .layer-count {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    color: var(--ink-faint);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .layer-desc {
+    font-family: var(--serif);
+    font-size: 15.5px;
+    line-height: 1.45;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+  .layer-posture {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-dim);
+    line-height: 1.4;
+  }
+
+  .assumption-list, .question-list {
+    list-style: none;
+  }
+  .assumption-item, .question-item {
+    padding: 16px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    align-items: baseline;
+  }
+  .assumption-item:last-child, .question-item:last-child { border-bottom: none; }
+  .assumption-marker {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--sage);
+    text-transform: uppercase;
+    font-weight: 600;
+    min-width: 80px;
+  }
+  .assumption-marker.linchpin { color: var(--signal); }
+  .assumption-marker.weakening { color: var(--amber); }
+  .assumption-text {
+    font-family: var(--serif);
+    font-size: 15.5px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .assumption-status {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .question-item {
+    grid-template-columns: 1fr auto;
+  }
+  .question-text {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 16px;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .question-eig {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    color: var(--muted-blue);
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .version-history {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 32px 0 48px;
+    border-top: 1px solid var(--rule);
+    border-bottom: 2px solid var(--ink);
+  }
+  .version-row {
+    padding: 12px 0;
+    display: grid;
+    grid-template-columns: 100px 80px 1fr;
+    gap: 18px;
+    font-family: var(--mono);
+    font-size: 11px;
+    border-bottom: 1px solid var(--rule-soft);
+    align-items: baseline;
+  }
+  @media (max-width: 640px) { .version-row { grid-template-columns: 70px 60px 1fr; gap: 10px; font-size: 10px; } }
+  .version-row:last-child { border-bottom: none; }
+  .version-row .v { color: var(--signal); font-weight: 600; letter-spacing: 0.1em; }
+  .version-row .d { color: var(--ink-faint); letter-spacing: 0.08em; }
+  .version-row .diff {
+    font-family: var(--serif);
+    font-size: 14px;
+    font-style: italic;
+    color: var(--ink-dim);
+    letter-spacing: 0;
+  }
+
+  /* PAGE SWITCHER (dev tool) */
+  .dev-switcher {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 12px 16px;
+    border-radius: 2px;
+    z-index: 1000;
+    display: flex;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .dev-switcher button {
+    background: transparent;
+    border: 1px solid rgba(245,241,232,0.3);
+    color: var(--paper);
+    padding: 6px 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+  .dev-switcher button.active {
+    background: var(--paper);
+    color: var(--ink);
+    border-color: var(--paper);
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+  .fade-in {
+    animation: fadeUp 0.6s ease-out;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═════════════════ NAV (SHARED) ═════════════════ -->
+<nav class="nav-bar">
+  <div class="nav-inner">
+    <div class="nav-wordmark" onclick="showPage('home')">
+      <span class="nav-wordmark-text">CANOPTICON</span>
+      <span class="nav-dot"></span>
+    </div>
+    <div class="nav-links" id="nav-links">
+      <a onclick="showPage('home')">Home</a>
+      <a onclick="showPage('article')">Articles</a>
+      <a onclick="showPage('thesis')">Theses</a>
+      <a>Predictions</a>
+      <a>Contradictions</a>
+      <a>Methodology</a>
+      <a>About</a>
+    </div>
+    <div class="nav-mobile-toggle" onclick="document.getElementById('nav-links').classList.toggle('open')">Menu</div>
+  </div>
+</nav>
+
+<!-- ═════════════════ HOMEPAGE ═════════════════ -->
+<div class="page active" id="page-home">
+  <main class="homepage fade-in">
+
+    <section class="masthead">
+      <h1 class="masthead-wordmark">
+        <span class="masthead-wordmark-text">CANOPTICON</span>
+        <span class="masthead-dot"></span>
+      </h1>
+      <div class="masthead-tagline">Forensic intelligence · Canada</div>
+    </section>
+
+    <div class="date-strip">
+      <div class="item"><span>Thursday</span><span class="val">April 23, 2026</span></div>
+      <div class="item"><span>Live theses</span><span class="val">5</span></div>
+      <div class="item"><span>Running predictions</span><span class="val">14</span></div>
+      <div class="item"><span>Rolling Brier</span><span class="val brier">0.142</span></div>
+    </div>
+
+    <article class="lead">
+      <div class="lead-kicker">Lead · Published this morning</div>
+      <h2 class="lead-headline">The revolving door between Brookfield and Canadian public service.</h2>
+      <p class="lead-subhead">Seven documented moves between Brookfield leadership and federal appointment lists over the past decade. The pattern isn't incidental.</p>
+      <div class="lead-excerpt">
+        <p class="drop-cap">Over the past decade, seven current or former Brookfield executives have taken federal appointments in Canada, at departments directly or indirectly responsible for the regulation of systemic finance. Three of them returned to Brookfield or an adjacent firm within eighteen months of leaving public office. Two of the remaining four sit on advisory boards whose recommendations shaped the statutes those appointments were made to administer.</p>
+      </div>
+      <div class="lead-read" onclick="showPage('article')">Read full article</div>
+      <div class="lead-meta">8-minute read · 14 claims · 3 predictions · A-grade verified</div>
+    </article>
+
+    <section class="theses-section">
+      <div class="section-label">Theses in progress <span class="count">5 active</span></div>
+      <div class="theses-grid">
+        <div class="thesis-card" onclick="showPage('thesis')">
+          <div class="thesis-meta"><span>Thesis</span><span class="version">v0.4</span></div>
+          <h3 class="thesis-card-title">The Architecture of Quiet Power</h3>
+          <div class="thesis-likelihood">IPCC: Likely · 66–100%</div>
+          <p class="thesis-state">Canada's monetary-institutional architecture routes authority through a narrow set of actors whose public and private careers overlap systematically.</p>
+          <div class="thesis-card-stats">
+            <span>47 / 76 claims</span>
+            <span>·</span>
+            <span>4 layers</span>
+            <span>·</span>
+            <span>3 linchpins</span>
+          </div>
+        </div>
+        <div class="thesis-card">
+          <div class="thesis-meta"><span>Argument Map</span><span class="version">Layer 4/6</span></div>
+          <h3 class="thesis-card-title">Safe supply: which conditions produce results?</h3>
+          <div class="thesis-likelihood" style="color:var(--muted-blue)">Empirical dispute surfaced</div>
+          <p class="thesis-state">Layer 4 empirical dispute: housing stability as necessary versus sufficient. Opens on whether the question is well-posed.</p>
+          <div class="thesis-card-stats">
+            <span>23 claims</span>
+            <span>·</span>
+            <span>6 layers</span>
+            <span>·</span>
+            <span>Updated 11h</span>
+          </div>
+        </div>
+        <div class="thesis-card">
+          <div class="thesis-meta"><span>Policy Proposal</span><span class="version">Draft</span></div>
+          <h3 class="thesis-card-title">Cooling-off period for central banker appointments to private finance.</h3>
+          <div class="thesis-likelihood" style="color:var(--sage)">Structural — 5-year ban proposed</div>
+          <p class="thesis-state">Five-year ban on ex-BoC and ex-BoE officials taking board seats in systemically important financial institutions.</p>
+          <div class="thesis-card-stats">
+            <span>12 claims</span>
+            <span>·</span>
+            <span>Draft 2d</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="predictions-section">
+      <div class="section-label">Running predictions <span class="count">14 active · public ledger</span></div>
+      <div class="predictions-grid">
+        <div class="prediction-cell">
+          <div class="conf">73<span class="pct">%</span></div>
+          <div class="claim">BoC will hold rate steady through Q2 2026.</div>
+          <div class="horizon">Resolves · Jun 30 2026</div>
+        </div>
+        <div class="prediction-cell">
+          <div class="conf">58<span class="pct">%</span></div>
+          <div class="claim">At least one PBO recommendation will cite Brookfield filings before year-end.</div>
+          <div class="horizon">Resolves · Dec 31 2026</div>
+        </div>
+        <div class="prediction-cell">
+          <div class="conf">82<span class="pct">%</span></div>
+          <div class="claim">Bill C-14 passes third reading in its current form.</div>
+          <div class="horizon">Resolves · Q3 2026</div>
+        </div>
+        <div class="prediction-cell">
+          <div class="conf">41<span class="pct">%</span></div>
+          <div class="claim">A Big Five CEO will rotate to public-sector appointment within 18 months.</div>
+          <div class="horizon">Resolves · Oct 2027</div>
+        </div>
+        <div class="prediction-cell">
+          <div class="conf">64<span class="pct">%</span></div>
+          <div class="claim">Safe-supply policy review concludes without expanding eligibility.</div>
+          <div class="horizon">Resolves · Sep 2026</div>
+        </div>
+        <div class="prediction-cell">
+          <div class="conf">29<span class="pct">%</span></div>
+          <div class="claim">Carbon budget revision proposed before next federal election.</div>
+          <div class="horizon">Resolves · Q1 2027</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="contradictions-section">
+      <div class="section-label">Currently tracked <span class="count">2 open · 1 machloket</span></div>
+      <div class="contradiction-card">
+        <div class="contradiction-kicker">◇ Open contradiction</div>
+        <div class="contradiction-summary">New source contradicts existing claim on the 1974 Bank of Canada mandate shift. Grimes (2011) says operational not legislative.</div>
+        <div class="contradiction-meta">BoC 1974 · Red Team + Steelman both ran · Machloket posture proposed</div>
+      </div>
+      <div class="contradiction-card machloket">
+        <div class="contradiction-kicker">◇ Machloket · preserved</div>
+        <div class="contradiction-summary">Whether central bank "independence" is a protection against political pressure or a specific form of political arrangement. Both positions are load-bearing in different theses.</div>
+        <div class="contradiction-meta">Central bank independence · Preserved since Feb 2026 · 3 theses affected</div>
+      </div>
+    </section>
+
+    <section class="changelog-section">
+      <div class="section-label">What changed this week <span class="count">Apr 17–23</span></div>
+      <ul class="changelog-list">
+        <li class="changelog-item">
+          <div class="changelog-date">Thu 08:14</div>
+          <div class="changelog-body">Three sources converged on <span class="hi">Ryan appointment</span>. <span class="surfaced">Hot signal</span> fired on Architecture of Quiet Power thesis.</div>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-date">Thu 01:15</div>
+          <div class="changelog-body">Prediction "BoC will hold rate steady in April" <span class="resolved">resolved correct</span>. Rolling Brier improved to 0.142.</div>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-date">Wed 16:22</div>
+          <div class="changelog-body">Thesis <span class="hi">The Architecture of Quiet Power</span> extended to v0.4. Architectural layer gained 2 claims.</div>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-date">Wed 09:04</div>
+          <div class="changelog-body">New contradiction <span class="surfaced">surfaced</span>: BoC 1974 mandate shift. Grimes (2011) disputes legislative framing.</div>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-date">Mon 11:30</div>
+          <div class="changelog-body">Policy proposal draft published: <span class="hi">Cooling-off period for central banker appointments</span>. 12 claims.</div>
+        </li>
+        <li class="changelog-item">
+          <div class="changelog-date">Sun 18:45</div>
+          <div class="changelog-body">Linchpin #L-009 swept by Assumption Auditor. <span class="resolved">Still holds</span>, evidence strengthened.</div>
+        </li>
+      </ul>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <div class="footer-wordmark">
+          <span class="footer-wordmark-text">CANOPTICON</span>
+        </div>
+        <div class="footer-tagline">Forensic intelligence · Canada</div>
+      </div>
+      <nav class="footer-nav">
+        <a>Articles</a>
+        <a>Theses</a>
+        <a>Predictions</a>
+        <a>Contradictions</a>
+        <a>Methodology</a>
+        <a>Glossary</a>
+        <a>Corrections</a>
+        <a>About</a>
+        <a>Subscribe</a>
+        <a>RSS</a>
+      </nav>
+      <div class="footer-meta">
+        canopticon.com<br>
+        © 2026<br>
+        No advertising<br>
+        No sponsorship<br>
+        No paywall
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ═════════════════ ARTICLE ═════════════════ -->
+<div class="page" id="page-article">
+  <div class="article-page fade-in">
+
+    <div class="breadcrumb">
+      <a onclick="showPage('home')">Home</a>
+      <span class="sep">›</span>
+      <a>Articles</a>
+      <span class="sep">›</span>
+      <span>The Brookfield pattern</span>
+    </div>
+
+    <header class="article-header">
+      <div class="article-kicker">Article · Structural</div>
+      <h1 class="article-title">The revolving door between Brookfield and Canadian public service.</h1>
+      <p class="article-subhead">Seven documented moves between Brookfield leadership and federal appointment lists over the past decade. The pattern isn't incidental.</p>
+      <div class="article-byline">
+        <div class="item"><span>Published</span><span class="val">Apr 15, 2026</span></div>
+        <div class="item"><span>Updated</span><span class="val">Apr 23, 2026</span></div>
+        <div class="item"><span>Read</span><span class="val">8 min</span></div>
+        <div class="item"><span>Version</span><span class="val">1.2</span></div>
+      </div>
+    </header>
+
+    <article class="article-body">
+      <p>Over the past decade, seven current or former Brookfield executives have taken federal appointments in Canada, at departments directly or indirectly responsible for the regulation of systemic finance<cite>[1]</cite>. Three of them returned to Brookfield or an adjacent firm within eighteen months of leaving public office<cite>[2]</cite>. Two of the remaining four sit on advisory boards whose recommendations shaped the statutes those appointments were made to administer<cite>[3]</cite>. The reverse flow is also present: at least four individuals moved from the Department of Finance or the Bank of Canada to Brookfield or its adjacent asset-management firms during the same period<cite>[4]</cite>.</p>
+
+      <p>The <span class="claim-link">individual career transitions are public record</span>, each documented in the Canada Gazette, Order-in-Council registry, or SEDAR+. What has not previously been assembled is the pattern — the timing of transitions, the overlap in policy jurisdiction, the durability of professional relationships that span the public/private boundary.</p>
+
+      <h2>The documented moves</h2>
+
+      <p>Transition #1: 2015. A Brookfield senior managing partner is appointed to an advisory committee on financial stability. The committee's work product is cited in the 2017 amendments to the Bank Act<cite>[5]</cite>. The appointee returns to Brookfield in 2018.</p>
+
+      <p>Transition #2: 2017. A different Brookfield executive takes a senior role at the Department of Finance on the files covering private capital and infrastructure. The role is vacated in 2019 for a return to the private sector at a Brookfield-adjacent firm<cite>[6]</cite>.</p>
+
+      <blockquote class="pull-quote">
+        Documented career pathways between a single private-finance firm and the federal department charged with regulating it are not, in isolation, scandal. What is unusual is the frequency, the directionality, and the narrowness of the aperture.
+      </blockquote>
+
+      <p>The remaining five transitions follow similar shapes: an appointment is made; the appointee's work touches files where the parent firm has material interest; the appointee returns to the private sector within a defined window. Each move, considered alone, is defensible. Taken together, they describe an institutional topology.</p>
+
+      <h2>The Toulmin structure of the claim</h2>
+
+      <p>The argument this article makes is not that any individual transition was improper. It is that <span class="claim-link">the statistical frequency of such transitions, taken with the narrowness of the firms involved and the specificity of the policy files touched, produces a structural pattern</span> — one that, on its face, raises questions the current disclosure regime is not designed to address<cite>[7]</cite>.</p>
+
+      <p>The warrant linking the data to this claim is structural: the conduct of impartial regulation requires that regulators have no financial stake, material or relational, in the entities they regulate. When the pool of credible candidates for regulatory roles is narrow, and when that pool overlaps extensively with the regulated entities' leadership, the warrant fails as a matter of architecture, not of individual ethics.</p>
+
+      <h3>What the current disclosure regime captures, and what it does not</h3>
+
+      <p>Canadian conflict-of-interest law requires disclosure of financial holdings, board memberships, and contractual relationships at the time of appointment. It does not require disclosure of likely next destinations, of informal relationships, or of the structural positioning of a given appointment within a firm's career pipeline<cite>[8]</cite>. These omissions are not oversights — they reflect a theory of conflict as individual misconduct rather than institutional architecture.</p>
+
+      <h2>What this article does not claim</h2>
+
+      <p>This article does not claim that any named individual acted improperly. It does not claim that Brookfield exerted improper influence on any specific policy outcome. It does not claim that Canadian finance policy has been captured by a single firm. It claims only that the documented topology of career transitions between Brookfield and the Canadian public service describes a pattern at odds with the premises of independent regulatory oversight, and that a pattern at odds with those premises warrants public scrutiny and procedural redress.</p>
+
+    </article>
+
+    <div class="entities-row">
+      <div class="entities-label">Entities · 8 involved</div>
+      <div class="entity-chips">
+        <span class="entity-chip">Brookfield</span>
+        <span class="entity-chip">Mark Carney</span>
+        <span class="entity-chip">Bank of Canada</span>
+        <span class="entity-chip">Department of Finance</span>
+        <span class="entity-chip">Bank Act C-14</span>
+        <span class="entity-chip">CPPIB</span>
+        <span class="entity-chip">OSFI</span>
+        <span class="entity-chip">Order-in-Council</span>
+      </div>
+    </div>
+
+    <aside class="article-sidebar">
+      <div class="sidebar-block">
+        <div class="sb-label">Related thesis</div>
+        <div class="sb-title" onclick="showPage('thesis')">The Architecture of Quiet Power</div>
+        <div class="sb-sub">This article is drawn from the Architectural layer of an in-progress thesis on monetary-institutional design.</div>
+      </div>
+      <div class="sidebar-block">
+        <div class="sb-label">Related predictions</div>
+        <div class="sb-title">41% — Big Five CEO rotates to public appointment within 18 months.</div>
+        <div class="sb-sub">Banked Feb 2026. Resolves October 2027.</div>
+      </div>
+    </aside>
+
+    <div class="provenance-strip">
+      <div class="prov-item">
+        <span class="prov-key">Sources</span>
+        <span class="prov-val">14 total</span>
+      </div>
+      <div class="prov-item">
+        <span class="prov-key">Grade distribution</span>
+        <span class="prov-val">9 A · 4 B · 1 C</span>
+      </div>
+      <div class="prov-item">
+        <span class="prov-key">Verification</span>
+        <span class="prov-val caution">Partial · 2 flags</span>
+      </div>
+      <div class="prov-item">
+        <span class="prov-key">Corrections</span>
+        <span class="prov-val good">None</span>
+      </div>
+    </div>
+
+    <div class="article-actions">
+      <button class="article-action-btn">Share</button>
+      <button class="article-action-btn">Reader mode</button>
+      <button class="article-action-btn">Cite this article</button>
+      <button class="article-action-btn">Report correction</button>
+    </div>
+
+    <div class="dingbat">· · ·</div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <div class="footer-wordmark">
+          <span class="footer-wordmark-text">CANOPTICON</span>
+        </div>
+        <div class="footer-tagline">Forensic intelligence · Canada</div>
+      </div>
+      <nav class="footer-nav">
+        <a onclick="showPage('home')">Home</a>
+        <a>Articles</a>
+        <a onclick="showPage('thesis')">Theses</a>
+        <a>Predictions</a>
+        <a>Methodology</a>
+        <a>Glossary</a>
+        <a>Corrections</a>
+        <a>About</a>
+        <a>Subscribe</a>
+        <a>RSS</a>
+      </nav>
+      <div class="footer-meta">
+        canopticon.com<br>
+        © 2026<br>
+        No advertising<br>
+        No sponsorship<br>
+        No paywall
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ═════════════════ THESIS ═════════════════ -->
+<div class="page" id="page-thesis">
+  <div class="thesis-page fade-in">
+
+    <div class="breadcrumb">
+      <a onclick="showPage('home')">Home</a>
+      <span class="sep">›</span>
+      <a>Theses</a>
+      <span class="sep">›</span>
+      <span>The Architecture of Quiet Power</span>
+    </div>
+
+    <header class="thesis-header">
+      <div class="thesis-kicker">Thesis · In Progress · v0.4</div>
+      <h1 class="thesis-headline">The Architecture of Quiet Power</h1>
+      <p class="thesis-seed">Monetary system design shapes Canadian political outcomes via institutional proximity between central bankers and private finance. The mechanisms are documented: career trajectories, board cross-pollination, regulatory authority granted and revoked in sequence. This thesis tracks the structural pattern, not the motivations of individuals.</p>
+      <div class="thesis-status-strip">
+        <div class="st"><span>Declared</span><span class="val">Feb 11, 2026</span></div>
+        <div class="st"><span>Last updated</span><span class="val">4h ago</span></div>
+        <div class="st"><span>Claims integrated</span><span class="val">47 / 76</span></div>
+        <div class="st"><span>IPCC likelihood</span><span class="val amber">Likely · 66–100%</span></div>
+        <div class="st"><span>Linchpins</span><span class="val amber">3</span></div>
+      </div>
+    </header>
+
+    <div class="bluf-block">
+      <div class="bluf-label">◆ Bottom line up front</div>
+      <p class="bluf-text">
+        Canada's monetary-institutional architecture routes authority through a narrow set of actors whose public and private careers overlap systematically, producing policy outcomes that favor incumbent finance <span class="likelihood">— likely</span>.
+      </p>
+    </div>
+
+    <div class="tier-switcher">
+      <button class="tier-btn active" onclick="setTier(this, 'bluf')">BLUF</button>
+      <button class="tier-btn" onclick="setTier(this, 't80')">80 words</button>
+      <button class="tier-btn" onclick="setTier(this, 't800')">800 words</button>
+      <button class="tier-btn" onclick="setTier(this, 'full')">Full substrate</button>
+    </div>
+
+    <div class="tier-content active" id="tier-bluf">
+      <p><em>The above is the BLUF. Switch tier to expand at longer lengths.</em></p>
+    </div>
+    <div class="tier-content hidden" id="tier-t80">
+      <p>The Canadian central bank's leadership pipeline has, for four decades, drawn from and returned to the same private-finance institutions it regulates. Seven documented transitions between Bank of Canada / Bank of England leadership and major Canadian financial institutions suggest a structural feature, not coincidence. Policy outcomes — particularly 1974 mandate interpretation, post-2008 regulatory implementation, and current transition-finance architecture — consistently track incumbent-finance interests. Rate of overlap exceeds base rate for comparable economies.</p>
+    </div>
+    <div class="tier-content hidden" id="tier-t800">
+      <p style="font-style: italic; color: var(--ink-dim); text-align: center; padding: 40px 0;">[800-word projection — 25 claims organized thesis → evidence → counterargument → confidence, inline citations, linchpin flags. Regenerates when underlying Claim Graph updates.]</p>
+    </div>
+    <div class="tier-content hidden" id="tier-full">
+      <p style="font-style: italic; color: var(--ink-dim); text-align: center; padding: 40px 0;">[Full substrate — complete Claim Graph with Toulmin components, Assumption Registry, Indicator Registry, Brier history. Inspectable, drillable, exportable.]</p>
+    </div>
+
+    <section class="thesis-section">
+      <div class="section-label">Layer decomposition <span class="count">4 layers · contradictions preserved</span></div>
+      <div class="layer-grid">
+        <div class="layer-box factual">
+          <div class="layer-name">Factual</div>
+          <div class="layer-count">14 claims · A-dominant</div>
+          <p class="layer-desc">Seven documented BoC/BoE → private-finance transitions 1985–2025.</p>
+          <p class="layer-posture">Empirical grading. Dates, filings, gazette records. Admiralty A–B.</p>
+        </div>
+        <div class="layer-box framing">
+          <div class="layer-name">Framing</div>
+          <div class="layer-count">11 claims · mixed</div>
+          <p class="layer-desc">How "independence" of the central bank came to mean what it means.</p>
+          <p class="layer-posture">Historical-political analysis. Genealogy of the given.</p>
+        </div>
+        <div class="layer-box architectural">
+          <div class="layer-name">Architectural</div>
+          <div class="layer-count">16 claims · 2 linchpins</div>
+          <p class="layer-desc">Rent patterns in regulatory-private career flow.</p>
+          <p class="layer-posture">Follow-the-money. Actor-network mapping. Institutional-capture diagnosis.</p>
+        </div>
+        <div class="layer-box distributive">
+          <div class="layer-name">Distributive</div>
+          <div class="layer-count">6 claims · 1 linchpin</div>
+          <p class="layer-desc">Who pays, who receives, along class and generational lines.</p>
+          <p class="layer-posture">Incidence analysis. Sectoral and generational decomposition.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="thesis-section">
+      <div class="section-label">Assumptions & linchpins <span class="count">8 tracked · 3 linchpins</span></div>
+      <ul class="assumption-list">
+        <li class="assumption-item">
+          <span class="assumption-marker linchpin">◆ Linchpin</span>
+          <span class="assumption-text">The pool of qualified central-banker candidates in Canada is structurally narrow enough that overlap with regulated firms is not incidental but constitutive.</span>
+          <span class="assumption-status">Holding · A-grade evidence</span>
+        </li>
+        <li class="assumption-item">
+          <span class="assumption-marker linchpin">◆ Linchpin</span>
+          <span class="assumption-text">Documented career transitions predict unobserved patterns (informal relationships, future moves).</span>
+          <span class="assumption-status">Holding · statistical</span>
+        </li>
+        <li class="assumption-item">
+          <span class="assumption-marker linchpin">◆ Linchpin</span>
+          <span class="assumption-text">Institutional capture operates at the level of architecture, not individual conduct.</span>
+          <span class="assumption-status">Holding · theoretical</span>
+        </li>
+        <li class="assumption-item">
+          <span class="assumption-marker">◇ Assumption</span>
+          <span class="assumption-text">The 1974 Bank of Canada mandate shift was legislative rather than operational.</span>
+          <span class="assumption-status weakening">Weakening · Grimes 2011 dispute</span>
+        </li>
+        <li class="assumption-item">
+          <span class="assumption-marker">◇ Assumption</span>
+          <span class="assumption-text">Comparable economies (UK, Australia, Sweden) exhibit lower base rates of overlap.</span>
+          <span class="assumption-status">Holding · comparative data pending</span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="thesis-section">
+      <div class="section-label">Open questions <span class="count">4 high-EIG</span></div>
+      <ul class="question-list">
+        <li class="question-item">
+          <span class="question-text">What was Ryan's role during the 2023–24 DOF reorganization, and which files did she handle?</span>
+          <span class="question-eig">EIG · High</span>
+        </li>
+        <li class="question-item">
+          <span class="question-text">How often do career overlaps of this kind exist in Canadian finance networks regardless of ideological alignment? (Red Team base-rate concern.)</span>
+          <span class="question-eig">EIG · High</span>
+        </li>
+        <li class="question-item">
+          <span class="question-text">What is the comparable base rate in UK, Australia, and Sweden for BoE / RBA / Riksbank leadership moving to or from major domestic banks?</span>
+          <span class="question-eig">EIG · Medium</span>
+        </li>
+        <li class="question-item">
+          <span class="question-text">Do BIS 2018 framework recommendations explain Canadian capital adequacy outcomes independently of domestic career topology?</span>
+          <span class="question-eig">EIG · Medium</span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="version-history">
+      <div class="section-label">Version history <span class="count">4 versions · declared Feb 2026</span></div>
+      <div class="version-row">
+        <span class="v">v0.4</span>
+        <span class="d">Apr 23 2026</span>
+        <span class="diff">+3 claims in Architectural layer · 1 linchpin reinforced · 2 contradictions integrated.</span>
+      </div>
+      <div class="version-row">
+        <span class="v">v0.3</span>
+        <span class="d">Apr 08 2026</span>
+        <span class="diff">+8 claims across layers · Brookfield thread merged in from external article · 1 new linchpin declared.</span>
+      </div>
+      <div class="version-row">
+        <span class="v">v0.2</span>
+        <span class="d">Mar 19 2026</span>
+        <span class="diff">Concept spine stabilized · Watch-set declared · 14 claims integrated from Eich, Desan, Gabor.</span>
+      </div>
+      <div class="version-row">
+        <span class="v">v0.1</span>
+        <span class="d">Feb 11 2026</span>
+        <span class="diff">Seed declared. Origin: "Quiet Currents" essay (2023). 5 claims imported.</span>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <div class="footer-wordmark">
+          <span class="footer-wordmark-text">CANOPTICON</span>
+        </div>
+        <div class="footer-tagline">Forensic intelligence · Canada</div>
+      </div>
+      <nav class="footer-nav">
+        <a onclick="showPage('home')">Home</a>
+        <a onclick="showPage('article')">Articles</a>
+        <a>Theses</a>
+        <a>Predictions</a>
+        <a>Methodology</a>
+        <a>Glossary</a>
+        <a>Corrections</a>
+        <a>About</a>
+        <a>Subscribe</a>
+        <a>RSS</a>
+      </nav>
+      <div class="footer-meta">
+        canopticon.com<br>
+        © 2026<br>
+        No advertising<br>
+        No sponsorship<br>
+        No paywall
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- DEV SWITCHER -->
+<div class="dev-switcher">
+  <button class="active" onclick="showPage('home')">Home</button>
+  <button onclick="showPage('article')">Article</button>
+  <button onclick="showPage('thesis')">Thesis</button>
+</div>
+
+<script>
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.dev-switcher button').forEach((b, i) => {
+    const map = ['home', 'article', 'thesis'];
+    b.classList.toggle('active', map[i] === name);
+  });
+  window.scrollTo(0, 0);
+  document.getElementById('nav-links').classList.remove('open');
+}
+
+function setTier(btn, which) {
+  document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.tier-content').forEach(c => c.classList.add('hidden'));
+  const target = document.getElementById('tier-' + which);
+  if (target) target.classList.remove('hidden');
+}
+</script>
+
+</body>
+</html>
