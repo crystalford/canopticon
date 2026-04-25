@@ -1,15 +1,13 @@
 // Sources routes — see canopticon-api-v1.0.md §4.
 //
-// Sprint 1 implements:
 //   GET  /v1/sources                      list with filters + pagination
 //   GET  /v1/sources/:id                  single source detail
 //   POST /v1/sources                      operator URL or text upload
 //   GET  /v1/sources/:id/critic-report    Critic's most recent report
-//   POST /v1/sources/:id/approve          operator approval
-//   POST /v1/sources/:id/defer            operator deferral
-//   POST /v1/sources/:id/reject           operator rejection
+//   POST /v1/sources/:id/{approve,defer,reject}
 //
-// File upload (POST /v1/sources/upload) ships in a follow-up; needs R2.
+// Multipart upload (POST /v1/sources/upload) lands when the R2 binding
+// is wired in.
 //
 // Every route runs through requireAuth(); inserts/updates use the
 // user-scoped Supabase client so RLS enforces ownership at the DB layer

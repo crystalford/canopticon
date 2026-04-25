@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { AuthContext } from "./auth/middleware.ts";
+import { runHansardCron } from "./cron/hansard.ts";
 import type { Env } from "./env.ts";
 import { ApiError } from "./lib/errors.ts";
+import cascadeRoutes from "./routes/cascade.ts";
 import sourcesRoutes from "./routes/sources.ts";
 
 type App = AuthContext;
@@ -48,12 +50,23 @@ app.get("/health", (c) => c.json({ ok: true }));
 // See packages/api/src/routes/ for implementations.
 const v1 = new Hono<App>();
 v1.route("/sources", sourcesRoutes);
+v1.route("/cascade", cascadeRoutes);
 app.route("/v1", v1);
 
 export default {
   fetch: app.fetch,
-  // Cron handler is wired in src/cron/hansard.ts and re-exported once the
-  // openparliament adapter exists. For now, the cron trigger in
-  // wrangler.toml has no scheduled() handler — Wrangler will warn until we
-  // add it.
+  async scheduled(event, env, ctx) {
+    // Cron triggers — wrangler.toml schedules at "0 */6 * * *" (every 6h).
+    // The handler dispatches by cron expression so future cron jobs share
+    // this entry point. waitUntil keeps the handler alive past the
+    // function return so the work actually runs.
+    if (event.cron === "0 */6 * * *") {
+      ctx.waitUntil(
+        (async () => {
+          const result = await runHansardCron(env);
+          console.log("hansard cron result", JSON.stringify(result));
+        })(),
+      );
+    }
+  },
 } satisfies ExportedHandler<Env>;

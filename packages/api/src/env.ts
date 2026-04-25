@@ -19,6 +19,11 @@ export interface Env {
   // openparliament.ca
   OPENPARLIAMENT_USER_AGENT: string;
 
+  // The user_id the cron handler writes Hansard sources for. Single-tenant
+  // for Sprint 1 — multi-tenant cron is a Sprint 2 problem (we'd iterate
+  // over all users with auto-ingest enabled).
+  OPERATOR_USER_ID: string;
+
   // Misc
   LOG_LEVEL: string;
 
