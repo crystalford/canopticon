@@ -699,6 +699,47 @@ These belong in the Books-as-Graph-Citizens registry as methodology canon:
 
 ---
 
+## How the canon is integrated
+
+A fair critique of any framework library is: where does it actually live in the system? An "available canon" that no role consults and no schema field encodes is a reading list, not architecture. This section maps the top-12 first-class integrations to the specific skill, schema, or workflow surface where each one is actually wired in. Three integration depths:
+
+- **Wired (W)** — encoded as a schema field, role prompt, or workflow step. The framework is invoked every time the relevant substrate state changes; an operator who uses CANOPTICON normally is using the framework whether they name it or not.
+- **Implicit (I)** — present in the system's structure but not named as such. The framework's discipline shapes a construct (a role, a layer, a registry) without appearing as a hardcoded prompt or column. Operators with canon literacy will recognize it; operators without will get the benefit indirectly.
+- **Discretionary (D)** — available to the operator at the prompt-iteration layer or as a vantage selector, but not wired into any default cascade. The role exists; the operator opts in by selecting a vantage or hand-editing a Skill prompt.
+
+### Top 12 mapping
+
+| # | Framework | Depth | Where it lives |
+|---|---|---|---|
+| 1 | **Admiralty grading** | W | `sources.admiralty_grade`, `claim_sources.admiralty_grade`, Ingestion Critic prompt (skills-v1.0 §1) and shared rubric (§0.3). Every source enters with a letter grade; every claim inherits or specializes it. |
+| 2 | **Toulmin argument structure** | W | `claim_versions` JSONB fields `data`, `claim_text`, `warrant`, `qualifier`, `rebuttal`. The claim_extraction utility (skills-v1.0 §12) populates them at extraction; the Tier Projector renders them at publication; Red Team attacks the warrant specifically. |
+| 3 | **IPCC calibrated language** | W | Shared vocabulary in skills-v1.0 §0.4 (used by Tier Projector, Calibration, Premortem, Interrogator). Mandatory in BLUF generation (Tier Projector §9). Every published thesis ends with an IPCC qualifier; "the weaker option if uncertain" is a hard rule. |
+| 4 | **Van Evera tests** (hoop, smoking-gun, doubly-decisive, straw-in-the-wind) | I | Built into the Verifier and Red Team prompts as evidence-strength language ("would observation X eliminate this claim?" is a hoop test; "would observation X uniquely confirm?" is smoking-gun). Not surfaced as a typed field on claims; an operator who wants explicit Van Evera tagging adds it as a custom claim metadata field. |
+| 5 | **Brier scoring** | W | `predictions.brier_contribution`, `mv_brier_rolling` materialized view, Calibration role (skills-v1.0 §8). Every resolved prediction contributes to the operator's rolling Brier; the Brier ledger is a public credibility surface. |
+| 6 | **Cynefin** (clear / complicated / complex / chaotic / disorder) | D | Not currently a typed field on theses. The operator selects a Cynefin domain implicitly when choosing methodology — a "complex" thesis gets more Gap Surfacer cycles and looser IPCC qualifiers; a "complicated" thesis gets stronger Verifier emphasis. v1.1 candidate: a `cynefin_domain` enum on `theses` with role-prompt branching. |
+| 7 | **Lakatos progressive/degenerating** | I | Shows up in two places: the Gap Surfacer's seven-stage sweep (skills-v1.0 §7) explicitly searches for "missing counter-evidence" and "missing disconfirming indicators" — Lakatosian degenerative-shift signals. Red Team's methodological-skeptic vantage names it directly. Not yet a typed posture on theses; v1.1 candidate. |
+| 8 | **Peirce abduction** | I | The claim_extraction skill (skills-v1.0 §12) extracts warrants conservatively and leaves them null when the source doesn't make them explicit — that's an implicit acknowledgment that most political claims are abductive, not deductive. The Interrogator's job is to surface the alternative-explanation questions that abductions invite. Not yet a typed inference field; v1.1 candidate (claim metadata: `inference_type` enum). |
+| 9 | **Meadows leverage points** | D | Available for operator use when analyzing intervention claims; not currently a typed field. v1.1 candidate: a `leverage_point_rank` (1–12) field on `claims` of layer = 'distributive' or 'architectural', with a Red Team vantage that flags clusters of low-leverage proposals as itself a finding. |
+| 10 | **de Bono Six Hats** | D | Not currently wired. The closest analog is the Red Team's rotating vantages (ideological-opponent, foreign-interference-adversary, critic-journalist, regulatory-agency-adversary, historian-in-fifty-years), which is closer to Boyd's adversary-modeling than to de Bono's parallel modes. v2 candidate: a thesis-level "six-hat sweep" workflow that runs six structured passes and holds them as parallel contributions. |
+| 11 | **McLuhan probe methodology** | I | The layered-topic template (factual / framing / architectural / distributive) is McLuhan's probe methodology made operational — the framing layer in particular is McLuhan's "the medium is the message" applied to political-economic analysis. Every contested topic decomposes into the four layers; the framing layer asks how the topic is being shaped before asking what the facts are. Not named as McLuhan in any prompt; the discipline is structural. |
+| 12 | **Popper falsifiability** | W | Every thesis has a "what would change my mind" answer (theses table, falsification-criteria field). The Premortem role (skills-v1.0 §6) operationalizes Popper at the prediction level — the prompt explicitly stipulates that the prediction turned out to be wrong and asks what was missed. The Verifier's "find errors" framing is Popperian by construction. |
+
+### Reading the table
+
+Five of twelve are wired (Admiralty, Toulmin, IPCC, Brier, Popper) — these are the load-bearing methodology constraints. An operator cannot run CANOPTICON without invoking them; they are baked into schema columns and required prompt fields.
+
+Four are implicit (Van Evera, Lakatos, Peirce, McLuhan) — these shape the system's structure without appearing as named function calls. The risk is that operators without canon literacy benefit from the discipline silently and lose it the moment they fork the prompts. The mitigation is documentation; this section is part of that.
+
+Three are discretionary (Cynefin, Meadows, de Bono) — these are the v1.1 candidates. They are listed in the canon so operators can reach for them, but no default cascade invokes them. Promoting any of these to "wired" requires schema and prompt co-changes, and those changes need a worked example before being committed.
+
+### The integration discipline
+
+Adding a framework to the canon is cheap. Promoting a framework from canon to wired is expensive — it requires a schema field, a role prompt update, RLS test matrix entries, and a worked example. The promotion bar is: *the framework's discipline produces a different cascade outcome than not having it*. Frameworks that don't change outcomes stay in the canon as reference vocabulary.
+
+The failure mode this section guards against is the inverse one: claiming a framework is "integrated" when it appears in a docstring but never in a prompt. If a framework name is in the canon's top-12 list and not in this mapping table, it is not yet integrated. That's a documentation bug.
+
+---
+
 ## Closing note on operationalization
 
 The most important thing this canon contributes isn't any single framework — it's the meta-principle that **CANOPTICON should not be methodologically monistic**. Different questions call for different methods. The methodology substrate should be a library, not a doctrine.

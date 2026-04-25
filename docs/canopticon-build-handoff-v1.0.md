@@ -56,7 +56,9 @@ External
   Anthropic API (claude-opus-4-7) — primary model
   openparliament.ca API — Hansard source (Sprint 1 only)
   AssemblyAI — Path B transcription (not used in Sprint 1)
-  GPT-5 / Gemini — cross-model verification (deferred)
+  GPT-5 / Gemini — cross-model verification (deferred until Sprint 2;
+    see §5 below and master synthesis §5.0 — infrastructure ships in
+    Sprint 1, invocation activates when the first thesis goes public)
 
 Tooling
   pnpm workspaces (monorepo)
@@ -370,7 +372,9 @@ That's 23 tables total when including runtime. The 18 in the spec count substrat
 
 ## 5. SPRINT 1 ROLES — THE THREE SKILLS
 
-Three SKILL.md files in `packages/shared/skills/`. Full prompt content from skills-v1.0.md sections 1, 2, 3.
+Four SKILL.md files in `packages/shared/skills/` — three analytical roles (Ingestion Critic, Verifier, Interrogator) plus the claim_extraction utility skill. Full prompt content from skills-v1.0.md sections 1, 2, 3, and 12.
+
+**Cross-model verification posture for Sprint 1.** The Verifier ships with Citations-API grounding only. The cross-model code path (skills-v1.0 §14) is wired so the orchestrator can invoke a secondary model (GPT-5 or Gemini) when `role.cross_model_enabled` is true, but Sprint 1 ships with `cross_model_enabled = FALSE` on all roles. The flag flips to TRUE in Sprint 2 the moment the first thesis is set `is_public = TRUE` — see master synthesis §5.0 for the principle and skills-v1.0 §14 for the orchestrator code. Do not delete or stub the cross-model branch; the infrastructure must be present even though no Sprint 1 invocation reaches it.
 
 ```
 packages/shared/skills/
@@ -381,9 +385,12 @@ packages/shared/skills/
 ├── verifier/
 │   ├── SKILL.md           # full prompt from Section 2
 │   └── schema.json        # post-citations extraction schema
-└── interrogator/
-    ├── SKILL.md           # full prompt from Section 3
-    └── schema.json        # InterrogatorOutput schema
+├── interrogator/
+│   ├── SKILL.md           # full prompt from Section 3
+│   └── schema.json        # InterrogatorOutput schema
+└── claim-extraction/
+    ├── SKILL.md           # full prompt from Section 12 (utility skill)
+    └── schema.json        # ClaimExtractionOutput schema
 ```
 
 **SKILL.md frontmatter format:**
@@ -528,11 +535,15 @@ The orchestrator is plain TypeScript on Cloudflare Workers, not an agent framewo
 
 ---
 
-## 10. SPRINT 1 BUILD ORDER
+## 10. SPRINT 1 BUILD ORDER (PHASES, NOT DAYS)
 
-The order to actually do the work. Each step is checkable; nothing later depends on later items.
+**A note on time.** Earlier drafts of this section attached calendar days to each phase ("Day 0", "Day 1", "Days 2-4"). That was aspirational, not honest. A focused solo developer building Cloudflare Workers + Supabase + Durable Objects + Anthropic + RLS audit + Hansard adapter + six UI screens against real production endpoints is looking at three to five weeks, not seven days, and longer if any one of those integrations bites unexpectedly. Calendar pressure invites shortcuts; this section now talks about phases with definitions-of-done instead.
 
-### 10.1 Foundation (Day 0)
+The order matters. Each phase has a definition-of-done that must hold before the next phase begins. Don't start the next phase to "get unblocked" — phase ordering encodes correctness dependencies, not arbitrary preference. If a phase is taking longer than expected, the answer is to scope it down, not to start the next phase in parallel.
+
+### 10.1 Phase 0 — Foundation
+
+**Tasks:**
 
 ```
 [ ] pnpm workspace initialized
@@ -545,7 +556,16 @@ The order to actually do the work. Each step is checkable; nothing later depends
 [ ] Repo pushed to GitHub
 ```
 
-### 10.2 Database (Day 1)
+**Definition-of-done:**
+
+- A trivial Worker (`/health` returning `{ok:true}`) deploys to a *.workers.dev URL via `wrangler deploy` from CI.
+- A trivial Next.js page (`/`) deploys to a Vercel preview URL on every PR.
+- Both deploys succeed in CI without secrets being printed to logs.
+- Anyone with repo access can clone, `pnpm install`, and run `pnpm typecheck` clean across all three packages.
+
+### 10.2 Phase 1 — Database
+
+**Tasks:**
 
 ```
 [ ] Migration 0001 — extensions
@@ -562,10 +582,19 @@ The order to actually do the work. Each step is checkable; nothing later depends
 [ ] Migration 0012 — seed role_definitions
 [ ] Migration 0013 — workflow_runs
 [ ] supabase gen types typescript → packages/shared/src/types/database.ts
-[ ] Smoke test: insert a user (via auth signup), confirm cascade-allowed RLS
+[ ] RLS test matrix (schema-v1.0 §21) implemented under supabase/tests/rls/
 ```
 
-### 10.3 Skills (Day 1.5)
+**Definition-of-done:**
+
+- Every migration applies cleanly to a fresh Supabase project from `supabase db reset`.
+- The RLS test matrix (schema-v1.0 §21) is green: alice/bob/anon principals exercise every Sprint 1 table with the matrix's expected ✓/✗ outcomes. CI gate is wired and a test failure aborts the build.
+- `packages/shared/src/types/database.ts` regenerates without diff after a clean migration apply.
+- A real test user (created via Supabase auth signup) can read their own substrate rows and cannot read another test user's rows. Confirmed by SQL assertion, not vibes.
+
+### 10.3 Phase 2 — Skills
+
+**Tasks:**
 
 ```
 [ ] packages/shared/skills/ingestion-critic/SKILL.md (full prompt + frontmatter)
@@ -574,10 +603,20 @@ The order to actually do the work. Each step is checkable; nothing later depends
 [ ] packages/shared/skills/verifier/schema.json (post-citations extraction)
 [ ] packages/shared/skills/interrogator/SKILL.md (full prompt + frontmatter)
 [ ] packages/shared/skills/interrogator/schema.json (InterrogatorOutput)
+[ ] packages/shared/skills/claim-extraction/SKILL.md (full prompt + frontmatter; skills-v1.0 §12)
+[ ] packages/shared/skills/claim-extraction/schema.json (ClaimExtractionOutput)
 [ ] Loader function: read SKILL.md, parse frontmatter, hash body, return PreparedSkill
 ```
 
-### 10.4 Backend (Days 2-4)
+**Definition-of-done:**
+
+- All four SKILL.md files load via the loader function and produce a `PreparedSkill` with non-empty prompt body and stable SHA-256 hash.
+- A unit test invokes the loader on each skill, asserts the frontmatter parses and the hash is deterministic across runs.
+- The four corresponding rows in `role_definitions` are seeded via migration 0012; their `skill_md_hash` columns match what the loader computes at runtime (no drift).
+
+### 10.4 Phase 3 — Backend Core
+
+**Tasks:**
 
 ```
 Foundation
@@ -619,7 +658,20 @@ Theses endpoints
 Cost & search
 [ ] GET /v1/costs/summary
 [ ] GET /v1/search (pg_trgm)
+```
 
+**Definition-of-done:**
+
+- All listed endpoints return correct shapes per api-v1.0.md, validated by an OpenAPI-driven contract test that fails CI on schema drift.
+- A request with no JWT against any authenticated endpoint returns 401 (not 500, not "leaked row").
+- A request with alice's JWT to read bob's data returns 404 (RLS-filtered, indistinguishable from "doesn't exist").
+- The cost-gate hook intercepts every Anthropic call. A test that mocks Anthropic and stubs `approvePaidOperation` to deny verifies that no API call is issued when the gate denies.
+
+### 10.5 Phase 4 — Orchestrator and Cascade
+
+**Tasks:**
+
+```
 Orchestrator
 [ ] GET /v1/orchestrator/events (SSE — tails orchestrator_events table)
 [ ] POST /v1/orchestrator/approve-cost
@@ -643,9 +695,18 @@ Orchestrator workflow code
 End-to-end tests (integration)
 [ ] Test: ingest a real Hansard fragment → Critic runs → operator approves → claims write
 [ ] Test: cascade run end-to-end produces Live feed items
+[ ] Test: cascade idempotency — re-running with no new sources produces zero new claims/questions/events
 ```
 
-### 10.5 Frontend (Days 4-6)
+**Definition-of-done:**
+
+- A scripted run-through (under `scripts/e2e-cascade.ts`) ingests a real Hansard fragment, calls the Critic, simulates operator approval, runs claim extraction, runs the Verifier, runs the Interrogator, and lands the expected substrate rows. Run twice in a row, the second run produces zero new substrate rows (idempotency proven, not asserted).
+- The cron handler succeeds against the real openparliament.ca API at least once; failure modes (API unreachable, malformed response) raise structured errors and don't corrupt the source row.
+- Every paid Anthropic call in the e2e run charges `cost_ledger` with a row whose `cents` matches Anthropic's billing within rounding.
+
+### 10.6 Phase 5 — Frontend
+
+**Tasks:**
 
 ```
 Foundation
@@ -679,156 +740,39 @@ End-to-end tests
 [ ] Playwright: sign in → trigger cascade → see new claim appear in Live feed
 ```
 
-### 10.6 Demo (Day 7)
+**Definition-of-done:**
+
+- A Playwright test covering sign-in → trigger cascade → see new claim in Live feed passes against a deployed preview environment.
+- All six screens render without console errors at 375px and 1280px widths.
+- A cost.operation_proposed event triggers the CostApprovalModal; declining the modal causes the underlying operation to abort cleanly (no orphan rows, no half-charged ledger).
+
+### 10.7 Phase 6 — Acceptance
+
+**Tasks:**
 
 ```
-[ ] Real Hansard publication ingested via cron OR manual operator paste
-[ ] Critic runs, produces report
-[ ] Operator approves via Sources screen
-[ ] Claim extraction skill runs (note: claim_extraction is a Sprint 1 utility skill — see §11 below)
-[ ] Verifier grounds extracted claims
-[ ] Interrogator generates questions
-[ ] Live feed shows: source ingested, claims written, questions generated
-[ ] Cost ledger reflects all operations
-[ ] System screen shows cascade run summary
-
-If this works end-to-end on a real Hansard publication: Sprint 1 done.
+[ ] Walk the 12 acceptance criteria in §12 against a deployed dev environment
+[ ] Document any failures; fix or scope down before declaring Sprint 1 done
+[ ] Operator demo: ingest yesterday's Hansard end-to-end with no developer hand-holding
 ```
+
+**Definition-of-done:**
+
+- Every one of the 12 acceptance criteria in §12 passes on a real Hansard publication ingested through the production-shaped path (cron → Critic → operator approves → cascade → Live feed).
+- The RLS test matrix runs green against the production Supabase project as a smoke test before any public deploy.
+- Cost ledger for the demo run reconciles to within 5% of Anthropic's actual billing for the day.
+
+If all of the above hold, Sprint 1 is done. Otherwise it isn't, regardless of how many tasks have green checkboxes.
 
 ---
 
-## 11. THE CLAIM EXTRACTION GAP
+## 11. CLAIM EXTRACTION (utility skill — reference only)
 
-The cascade workflow's STEP 5 calls a `claim_extraction` skill that isn't in the original 11-role skills package. It's a utility skill — reads source body, returns structured claim candidates with Toulmin fields populated. Specified here for Sprint 1 implementation:
+The cascade workflow's STEP 5 calls the `claim_extraction` skill. As of skills-v1.0 (this revision), it is the twelfth skill in the skills package — a utility skill (not an analytical role) defined in **skills-v1.0.md §12**. The full prompt template, output schema, and idempotency rules live there.
 
-**Trigger:** Cascade STEP 5, after a source is approved.
+For Sprint 1: implement it as a fourth SKILL.md alongside Ingestion Critic, Verifier, and Interrogator. Add a fourth row to the `role_definitions` seed (`name = 'claim_extraction'`, `kind = 'utility'`). Cascade STEP 5 invokes it via the standard `role_runner.invokeRole()` path.
 
-**Reads:** Source body, source metadata (publication, author, date), thesis concept spines (for relevance hint).
-
-**Writes:** Returns structured array; the orchestrator then writes `claims`, `claim_versions`, `claim_entities`, `claim_sources` rows.
-
-**Model:** claude-opus-4-7.
-
-**API features:** Structured Outputs.
-
-**Prompt template:**
-
-```xml
-<task>
-You are the Claim Extractor. Given a source document, identify discrete factual claims
-worth recording in the substrate. Each claim should be:
-- Atomic (one factual proposition, not a compound)
-- Stated declaratively
-- Tied to specific entities mentioned in the source
-- Quotable from or directly inferable from the source text
-
-Do NOT extract:
-- Opinions, framing, editorial commentary (those are not claims)
-- Speculation about future events (those are predictions, separate flow)
-- Context-only facts that don't relate to active theses
-
-Extract 0-10 claims per source. More than 10 means you're being too granular.
-</task>
-
-<input>
-<source>
-  <type>{{source.source_type}}</type>
-  <title>{{source.title}}</title>
-  <publication>{{source.publication}}</publication>
-  <published_at>{{source.published_at}}</published_at>
-  <body>{{source.raw_text}}</body>
-</source>
-
-<active_thesis_concepts>
-{{concepts from active thesis concept_spines, for relevance hint}}
-</active_thesis_concepts>
-</input>
-
-<extraction_steps>
-For each candidate claim:
-
-1. State the data: what observable fact does this claim rest on, with a quotable
-   source passage?
-
-2. State the claim text: what is being asserted?
-
-3. Identify the warrant: what inference rule connects data to claim? (Often left
-   implicit in source; surface it.)
-
-4. Identify the qualifier: any IPCC-style likelihood or temporal scope?
-
-5. Identify the entities involved with their surface mentions (we'll resolve them
-   later).
-
-6. Propose the layer: factual / framing / architectural / distributive.
-
-7. Propose an Admiralty grade (default to source's grade unless a specific claim
-   has special standing).
-</extraction_steps>
-
-<output_format>
-Emit JSON conforming to the ClaimExtractionOutput schema.
-</output_format>
-
-<constraints>
-- Be quotable. The source passage you cite must be findable in the source text.
-- Be conservative on warrants. If the source doesn't make the warrant explicit and
-  it's not obviously inferable, leave warrant=null.
-- Most Hansard claims are factual layer. Architectural claims are rare and
-  high-value.
-</constraints>
-```
-
-**Output schema:**
-
-```json
-{
-  "type": "object",
-  "required": ["claims"],
-  "properties": {
-    "claims": {
-      "type": "array",
-      "maxItems": 10,
-      "items": {
-        "type": "object",
-        "required": ["data", "claim_text", "layer", "admiralty_grade", "entities"],
-        "properties": {
-          "data": { "type": "string" },
-          "claim_text": { "type": "string" },
-          "warrant": { "type": "string" },
-          "qualifier": { "type": "string" },
-          "rebuttal": { "type": "string" },
-          "layer": { "type": "string", "enum": ["factual", "framing", "architectural", "distributive"] },
-          "admiralty_grade": { "type": "string", "enum": ["A", "B", "C", "D", "E", "F"] },
-          "source_passage": { "type": "string" },
-          "entities": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["surface_text", "entity_type_hint"],
-              "properties": {
-                "surface_text": { "type": "string" },
-                "entity_type_hint": { "type": "string", "enum": ["person", "organization", "institution", "corporation", "department", "office", "legislation", "event", "concept", "location"] },
-                "context_excerpt": { "type": "string" }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-```
-
-**Add to skills package:**
-
-```
-packages/shared/skills/claim-extraction/
-├── SKILL.md
-└── schema.json
-```
-
-This is the fourth skill needed for Sprint 1, plus role_definitions seed gets a fourth row.
+**Why it's listed here at all.** Earlier revisions of this handoff (pre-skills-v1.0) treated claim_extraction as a "gap" because it wasn't in the original 11-role enumeration. It is no longer a gap; it is part of the skills package. This section remains as a pointer for builders who reach §10's Day-7 demo step ("Claim extraction skill runs") and want to know where the spec lives.
 
 ---
 

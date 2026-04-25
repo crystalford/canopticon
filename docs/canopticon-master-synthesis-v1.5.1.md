@@ -36,6 +36,8 @@ Three operational patterns govern how roles interact with the substrate:
 
 **Cross-model verification** is mandatory for publication-bound claims. The Verifier role runs on a different model family than the Generator — Claude generates, GPT-5 or Gemini verifies — because same-model self-critique empirically produces weaker results than cross-model adversarial checking. This adds one API vendor relationship and modest cost, and catches structural blind spots that same-model verification systematically misses.
 
+**Sprint-1 deferral.** Cross-model verification is *infrastructure* in Sprint 1 — the orchestrator wires the secondary-model code path (skills-v1.0 §14) and the cost gate accommodates it — but the *invocation* is deferred until the first thesis is set `is_public = TRUE`. Sprint 1 ships no publication-bound claims, no public predictions, and no public theses, so no claim crosses the publication threshold that triggers the secondary call. The Verifier in Sprint 1 runs Citations-API grounding only; the cross-model branch is exercised in Sprint 2 the moment a thesis goes public. This is a phased activation, not a relaxation of the principle. The build handoff (§1, §5) reflects this by listing GPT-5/Gemini as "deferred"; the principle in this section governs Sprint 2 onward.
+
 ### 5.1 Role Implementations
 
 Each role below is a prompt template triggered by state conditions. The trigger, input context, skill prompt intent, output schema, and implementation notes are specified.

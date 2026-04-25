@@ -1,6 +1,8 @@
 # CANOPTICON Skills Package v1.0
 
-**Purpose.** This document defines all eleven roles as Claude Skills. Each role is a named prompt template, packaged with its input substrate references, output substrate writes, structured-output schema (where applicable), and trigger conditions. The orchestrator (plain code) invokes these skills in response to substrate events.
+**Purpose.** This document defines all twelve skills — the eleven analytical roles plus one utility skill (claim_extraction) — as Claude Skills. Each skill is a named prompt template, packaged with its input substrate references, output substrate writes, structured-output schema (where applicable), and trigger conditions. The orchestrator (plain code) invokes these skills in response to substrate events.
+
+The eleven analytical roles are: Ingestion Critic, Verifier, Interrogator, Red Team, Steelman, Premortem, Gap Surfacer, Calibration, Tier Projector, Assumption Auditor, Indicator Validator. The utility skill is claim_extraction, invoked by the cascade workflow's STEP 5 to convert approved source bodies into structured claim candidates. It is "utility" rather than "role" because it produces no analytical judgment of its own — it is a structured-output adapter from prose to substrate.
 
 **Format.** Each role follows the same eight-section structure: Trigger, Reads from substrate, Writes to substrate, Model, API features, Prompt template, Output schema, Notes. This consistency lets Claude Code generate the SKILL.md filesystem layout mechanically from this document.
 
@@ -538,6 +540,12 @@ Emit JSON conforming to the InterrogatorOutput schema.
 
 - The `evidence_targets` array suggests where the operator might look to answer the question (e.g., "SEDAR+ filings 2017-2019", "Hansard Standing Committee on Finance June 2014").
 - The Interrogator does not answer its own questions. Answers come from new sources or operator research.
+
+### Sprint 1 round-trip contract
+
+The output schema above is intentionally narrow for v1.0 — every emitted field round-trips into the substrate without loss. See schema-v1.0 §12.4 for the field-by-field mapping into the `questions` table (`text`, `expected_information_gain`, `rationale`, `evidence_targets[]`).
+
+Fields that would require true-graph storage — discriminates-between-claims, tests-warrant-of-claim, depends-on-question — are deferred to v1.1 of both this skill and the schema, where they land in `question_claims` and `question_dependencies` edge tables (schema-v1.0 §12.2, §12.3). Sprint 1's Question Graph is a tree via `parent_question_id`; promoting it to a graph is a Sprint 2+ task with co-changes on both sides of this contract.
 
 ---
 
@@ -1700,7 +1708,176 @@ Emit JSON conforming to the IndicatorValidatorOutput schema.
 
 ---
 
-## 12. ROLE INVOCATION FLOW (orchestrator-side, for reference)
+## 12. CLAIM EXTRACTION (utility skill)
+
+This is the twelfth skill: a utility, not a role. It produces no analytical judgment — it converts an approved source body into structured claim candidates that the orchestrator then writes to the substrate. Roles (the eleven above) sit in judgment over substrate state; claim_extraction is the adapter that turns prose into substrate so the roles have something to judge.
+
+### Trigger
+
+Cascade workflow STEP 5, after a source's `ingestion_state` transitions to `approved`. Also invoked by the on-demand cascade when an operator manually approves a source outside the morning cron.
+
+### Reads from substrate
+
+- The approved source: `sources.raw_text` (or R2-hosted body), `source_type`, `title`, `publication`, `published_at`, Critic-assigned `admiralty_grade`
+- Active thesis concept spines (`thesis_concept_spines`) for relevance hint — claims that touch active investigations are flagged but never excluded
+
+### Writes to substrate
+
+- Returns a structured array of claim candidates. The orchestrator (not the skill) then writes:
+  - `claims` rows
+  - `claim_versions` rows (initial version, `is_current = TRUE`)
+  - `claim_entities` rows with `entity_id = NULL` until entity resolution runs (Sprint 2+)
+  - `claim_sources` rows linking each claim to the originating source with `supports = TRUE`
+- Emits `claim.extracted` events per candidate (one event per claim written)
+
+The skill itself produces no substrate writes — it returns a candidate array. This separation keeps the skill side-effect-free and the orchestrator's transactional boundary clean.
+
+### Model
+
+`claude-opus-4-7`. Claim extraction touches the Toulmin layer assignment and Admiralty inheritance; both are quality-sensitive. Haiku is acceptable for routine secondary-source fragments once a calibration baseline exists, but Sprint 1 standardizes on Opus.
+
+### API features
+
+- Structured Outputs (strict schema)
+- No Citations API call here — the source body is already grounded by virtue of being the input. Citations API is the Verifier's tool, not the extractor's.
+- No cross-model in v1.0. Claim extraction is a faithful-restatement task, not a judgment task; cross-model verification adds cost without catching the failure modes that matter here (over-extraction, framing-as-claim, compound atomicity).
+
+### Prompt template
+
+```xml
+<task>
+You are the Claim Extractor. Given a source document, identify discrete factual
+claims worth recording in the substrate. Each claim should be:
+
+- Atomic (one factual proposition, not a compound)
+- Stated declaratively
+- Tied to specific entities mentioned in the source
+- Quotable from or directly inferable from the source text
+
+Do NOT extract:
+- Opinions, framing, editorial commentary (those are not claims)
+- Speculation about future events (those are predictions, separate flow)
+- Context-only facts that don't relate to active theses
+
+Extract 0-10 claims per source. More than 10 means you're being too granular.
+Zero is a valid output for sources that contain only opinion, framing, or noise.
+</task>
+
+<input>
+<source>
+  <type>{{source.source_type}}</type>
+  <title>{{source.title}}</title>
+  <publication>{{source.publication}}</publication>
+  <published_at>{{source.published_at}}</published_at>
+  <admiralty_grade>{{source.admiralty_grade}}</admiralty_grade>
+  <body>{{source.raw_text}}</body>
+</source>
+
+<active_thesis_concepts>
+{{concepts from active thesis concept_spines, for relevance hint}}
+</active_thesis_concepts>
+</input>
+
+<extraction_steps>
+For each candidate claim:
+
+1. State the data: what observable fact does this claim rest on, with a quotable
+   source passage?
+
+2. State the claim text: what is being asserted?
+
+3. Identify the warrant: what inference rule connects data to claim? (Often left
+   implicit in source; surface it.)
+
+4. Identify the qualifier: any IPCC-style likelihood or temporal scope?
+
+5. Identify the entities involved with their surface mentions (we'll resolve
+   them later — entity_id stays NULL until Sprint 2's resolver runs).
+
+6. Propose the layer: factual / framing / architectural / distributive.
+
+7. Propose an Admiralty grade. Default to the source's grade unless a specific
+   claim has special standing (e.g., a grade-B publication directly quoting a
+   grade-A primary document inherits A for that quoted span).
+</extraction_steps>
+
+<output_format>
+Emit JSON conforming to the ClaimExtractionOutput schema.
+</output_format>
+
+<constraints>
+- Be quotable. The `source_passage` you cite must be findable verbatim in the
+  source body. Do not paraphrase the passage — copy it.
+- Be conservative on warrants. If the source doesn't make the warrant explicit
+  and it's not obviously inferable, leave warrant=null.
+- Most Hansard claims are factual layer. Architectural claims are rare and
+  high-value — flag the layer with care.
+- Do not invent entity types. Use the surface text exactly as it appears in
+  the source; type-hint conservatively.
+</constraints>
+```
+
+### Output schema
+
+```json
+{
+  "type": "object",
+  "required": ["claims"],
+  "properties": {
+    "claims": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["data", "claim_text", "layer", "admiralty_grade", "source_passage", "entities"],
+        "properties": {
+          "data": { "type": "string" },
+          "claim_text": { "type": "string" },
+          "warrant": { "type": ["string", "null"] },
+          "qualifier": { "type": ["string", "null"] },
+          "rebuttal": { "type": ["string", "null"] },
+          "layer": {
+            "type": "string",
+            "enum": ["factual", "framing", "architectural", "distributive"]
+          },
+          "admiralty_grade": {
+            "type": "string",
+            "enum": ["A", "B", "C", "D", "E", "F"]
+          },
+          "source_passage": { "type": "string" },
+          "entities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["surface_text", "entity_type_hint"],
+              "properties": {
+                "surface_text": { "type": "string" },
+                "entity_type_hint": {
+                  "type": "string",
+                  "enum": ["person", "organization", "institution", "corporation", "department", "office", "legislation", "event", "concept", "location"]
+                },
+                "context_excerpt": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### Notes
+
+**Why this is a utility, not a role.** The eleven analytical roles produce judgments — grading, grounding, questioning, falsification, calibration, projection. claim_extraction produces no judgment. It is a structured-output adapter from natural-language source bodies to substrate-shaped candidates. The orchestrator then hands those candidates to the analytical roles (Verifier grounds them, Interrogator interrogates them, Red Team attacks them). Mixing the adapter into the role list would conflate "structuring prose" with "evaluating claims" — distinct concerns.
+
+**Why it's not in the cascade as inline orchestrator code.** It could be — the orchestrator could call Anthropic directly and skip the Skill packaging. Two reasons it's a Skill: (1) prompt iteration without redeploy, the same justification as for the eleven roles; (2) audit symmetry — every model invocation flows through `role_invocations`, has a SHA-hashed prompt, and charges through `cost_ledger`. Skipping the Skill packaging would create a second, ad-hoc invocation pathway that bypasses the audit trail.
+
+**Idempotency.** Re-running claim_extraction on the same source must not duplicate claims. Dedup is by `(source_id, source_passage_hash)` at the orchestrator's apply step, not in the skill itself. The skill is stateless and may emit the same candidate twice across runs without issue — the apply step catches it.
+
+---
+
+## 13. ROLE INVOCATION FLOW (orchestrator-side, for reference)
 
 For every role invocation, the orchestrator:
 
@@ -1718,7 +1895,7 @@ If any step fails, the role invocation is marked status='error' with the error_d
 
 ---
 
-## 13. CROSS-MODEL VERIFICATION INFRASTRUCTURE
+## 14. CROSS-MODEL VERIFICATION INFRASTRUCTURE
 
 The Verifier (and optionally Red Team and Premortem) supports cross-model runs. The orchestrator implements:
 
@@ -1746,7 +1923,7 @@ Cost is charged to `cost_ledger` for both invocations. Operator approval gating 
 
 ---
 
-## 14. SKILLS PACKAGING (filesystem layout)
+## 15. SKILLS PACKAGING (filesystem layout)
 
 When this document is split into individual SKILL.md files for the build, the layout is:
 
@@ -1790,6 +1967,9 @@ When this document is split into individual SKILL.md files for the build, the la
   /indicator-validator
     SKILL.md
     schema.json
+  /claim-extraction
+    SKILL.md            (utility skill — section 12 of this doc)
+    schema.json
 ```
 
 Each SKILL.md includes a frontmatter block:
@@ -1811,7 +1991,7 @@ The `hash` updates on any change to the SKILL.md content; the orchestrator store
 
 ---
 
-## 15. NOTES AND DEFERRALS
+## 16. NOTES AND DEFERRALS
 
 **Deferred to v1.1 of skills:**
 
@@ -1819,9 +1999,16 @@ The `hash` updates on any change to the SKILL.md content; the orchestrator store
 - Per-thesis prompt customization. Currently roles use the same prompt template across all theses. Future: thesis-specific overrides for vantage selection, depth tuning, etc.
 - Role chains as named workflows. Currently the orchestrator wires roles together imperatively. Future: declarative workflow definitions (e.g., `cascade.yaml`).
 
-**Sprint 1 minimum roles:**
+**Sprint 1 minimum skills:**
 
-`ingestion_critic`, `verifier`, `interrogator`. These three plus the orchestrator and the Sprint 1 schema produce a working end-to-end pipeline: source ingests → Critic gates → operator approves → claims write → Verifier grounds → Interrogator generates questions → Live feed populates.
+Four skills ship in Sprint 1: three analytical roles plus the claim_extraction utility.
+
+- `ingestion_critic` — gates incoming sources
+- `claim_extraction` — converts approved sources into claim candidates (utility, §12)
+- `verifier` — grounds claims via Citations API
+- `interrogator` — generates verification questions
+
+These four plus the orchestrator and the Sprint 1 schema produce a working end-to-end pipeline: source ingests → Critic gates → operator approves → claim_extraction emits candidates → claims write → Verifier grounds → Interrogator generates questions → Live feed populates.
 
 `tier_projector` is required for any thesis that goes public, so it activates whenever the first thesis is set `is_public = TRUE`.
 
