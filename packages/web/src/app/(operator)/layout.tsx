@@ -23,6 +23,7 @@ export default async function OperatorLayout({ children }: { children: React.Rea
           <nav className="flex gap-4 text-text-dim font-mono text-xs uppercase tracking-widest">
             <NavLink href="/research" label="research" />
             <NavLink href="/sources" label="sources" />
+            <NavLink href="/claims" label="claims" />
             <NavLink href="/system" label="system" />
           </nav>
         </div>

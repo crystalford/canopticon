@@ -23,8 +23,10 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { AuthContext } from "../auth/middleware.ts";
 import { requireAuth } from "../auth/middleware.ts";
+import { AnthropicClient } from "../lib/anthropic.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
-import { userClient } from "../lib/supabase.ts";
+import { serviceClient, userClient } from "../lib/supabase.ts";
+import { runCascade } from "../orchestrator/cascade.ts";
 
 const sources = new Hono<AuthContext>();
 
@@ -205,6 +207,28 @@ async function recordAction(
     .select("id, action, acted_at, notes")
     .single();
   if (actionErr) throw new Error(`sources.${action}: ${actionErr.message}`);
+
+  // On approve, kick off a cascade inline so the approved source flows
+  // through claim_extraction + Verifier without an explicit "Run Cascade"
+  // click. Failure here doesn't unwind the approval — the source is
+  // approved, the next cascade run will pick it up.
+  if (action === "approved") {
+    try {
+      const ctx = {
+        service: serviceClient(c.env),
+        anthropic: new AnthropicClient({ apiKey: c.env.ANTHROPIC_API_KEY }),
+      };
+      await runCascade(ctx, {
+        user_id: c.get("user_id"),
+        triggered_by: "operator_manual",
+      });
+    } catch (err) {
+      console.warn("post-approve cascade failed", {
+        source_id: id,
+        message: (err as Error).message,
+      });
+    }
+  }
 
   return c.json({ data: { source_id: id, action: actionRow } });
 }
