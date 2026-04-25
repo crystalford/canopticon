@@ -39,13 +39,23 @@ export type RoleEventType =
   | "role.invocation_completed"
   | "role.invocation_failed";
 
+export type ResearchEventType =
+  | "research.started"
+  | "research.iteration_started"
+  | "research.tool_called"
+  | "research.source_registered"
+  | "research.iteration_completed"
+  | "research.completed"
+  | "research.failed";
+
 export type EventType =
   | SourceEventType
   | ClaimEventType
   | QuestionEventType
   | CascadeEventType
   | CostEventType
-  | RoleEventType;
+  | RoleEventType
+  | ResearchEventType;
 
 export interface OrchestratorEvent<T extends EventType = EventType> {
   id: string;

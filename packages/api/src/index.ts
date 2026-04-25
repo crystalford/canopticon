@@ -5,6 +5,7 @@ import { runHansardCron } from "./cron/hansard.ts";
 import type { Env } from "./env.ts";
 import { ApiError } from "./lib/errors.ts";
 import cascadeRoutes from "./routes/cascade.ts";
+import orchestratorRoutes from "./routes/orchestrator.ts";
 import researchRoutes from "./routes/research.ts";
 import sourcesRoutes from "./routes/sources.ts";
 
@@ -53,6 +54,7 @@ const v1 = new Hono<App>();
 v1.route("/sources", sourcesRoutes);
 v1.route("/cascade", cascadeRoutes);
 v1.route("/research", researchRoutes);
+v1.route("/orchestrator", orchestratorRoutes);
 app.route("/v1", v1);
 
 export default {

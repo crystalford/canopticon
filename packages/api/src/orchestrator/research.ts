@@ -27,6 +27,7 @@ import {
   estimateCostCents,
 } from "../lib/anthropic.ts";
 import { type CostGateContext, approvePaidOperation, chargeLedger } from "./cost_gate.ts";
+import { emitEvent } from "./events.ts";
 import {
   RESEARCH_TOOL_DEFINITIONS,
   type ResearchToolContext,
@@ -100,9 +101,29 @@ export async function runResearch(
     { role: "user", content: openingPrompt(input.topic, input.thesis_id ?? null) },
   ];
 
+  await emitEvent(ctx.service, {
+    user_id: input.user_id,
+    event_type: "research.started",
+    entity_id: research_run_id,
+    entity_type: "research_run",
+    payload: {
+      topic: input.topic,
+      thesis_id: input.thesis_id ?? null,
+      budget_cents,
+      max_iterations,
+    },
+  });
+
   try {
     while (result.iterations < max_iterations) {
       result.iterations++;
+      await emitEvent(ctx.service, {
+        user_id: input.user_id,
+        event_type: "research.iteration_started",
+        entity_id: research_run_id,
+        entity_type: "research_run",
+        payload: { iteration: result.iterations, total_cost_cents: result.total_cost_cents },
+      });
 
       // Cost gate before each turn.
       const estimated = estimateCostCents(model, 6000, 1500);
@@ -195,6 +216,20 @@ export async function runResearch(
       let doneSummary: string | null = null;
 
       for (const toolUse of output.tool_uses) {
+        await emitEvent(ctx.service, {
+          user_id: input.user_id,
+          event_type: "research.tool_called",
+          entity_id: research_run_id,
+          entity_type: "research_run",
+          payload: {
+            iteration: result.iterations,
+            tool: toolUse.name,
+            // Truncate input for the event payload — full input lives on the
+            // research_run.conversation column.
+            input_preview: previewInput(toolUse.input),
+          },
+        });
+
         const exec = await executeResearchTool(toolCtx, toolUse.name, toolUse.input);
         toolResults.push({
           type: "tool_result",
@@ -202,11 +237,37 @@ export async function runResearch(
           content: exec.content,
           is_error: exec.meta.is_error,
         });
-        if (exec.meta.source_id) result.sources_registered++;
+        if (exec.meta.source_id) {
+          result.sources_registered++;
+          await emitEvent(ctx.service, {
+            user_id: input.user_id,
+            event_type: "research.source_registered",
+            entity_id: exec.meta.source_id,
+            entity_type: "source",
+            payload: {
+              research_run_id,
+              iteration: result.iterations,
+            },
+          });
+        }
         if (exec.meta.done) doneSummary = exec.meta.done.summary;
       }
 
       messages.push({ role: "user", content: toolResults });
+
+      await emitEvent(ctx.service, {
+        user_id: input.user_id,
+        event_type: "research.iteration_completed",
+        entity_id: research_run_id,
+        entity_type: "research_run",
+        payload: {
+          iteration: result.iterations,
+          tool_count: output.tool_uses.length,
+          turn_cost_cents: turnCost,
+          total_cost_cents: result.total_cost_cents,
+          stop_reason: output.stop_reason,
+        },
+      });
 
       if (doneSummary) {
         result.done_summary = doneSummary;
@@ -232,7 +293,33 @@ export async function runResearch(
     error_detail: result.errors.length > 0 ? result.errors.join(" | ") : null,
   });
 
+  await emitEvent(ctx.service, {
+    user_id: input.user_id,
+    event_type: result.status === "failed" ? "research.failed" : "research.completed",
+    entity_id: research_run_id,
+    entity_type: "research_run",
+    payload: {
+      status: result.status,
+      iterations: result.iterations,
+      sources_registered: result.sources_registered,
+      total_cost_cents: result.total_cost_cents,
+      summary: result.done_summary,
+    },
+  });
+
   return result;
+}
+
+function previewInput(input: Record<string, unknown>): Record<string, unknown> {
+  const preview: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(input)) {
+    if (typeof v === "string" && v.length > 200) {
+      preview[k] = `${v.slice(0, 200)}…`;
+    } else {
+      preview[k] = v;
+    }
+  }
+  return preview;
 }
 
 // Persistence helpers --------------------------------------------------------
