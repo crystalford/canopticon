@@ -6,5 +6,5 @@ export default async function HomePage() {
   const cookieStore = await cookies();
   const supabase = serverClient(cookieStore as unknown as ServerCookieStore);
   const { data } = await supabase.auth.getUser();
-  redirect(data.user ? "/research" : "/sign-in");
+  redirect(data.user ? "/home" : "/sign-in");
 }

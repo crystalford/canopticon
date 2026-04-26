@@ -24,6 +24,7 @@ import { z } from "zod";
 import type { AuthContext } from "../auth/middleware.ts";
 import { requireAuth } from "../auth/middleware.ts";
 import { AnthropicClient } from "../lib/anthropic.ts";
+import { brierContribution, computeRollingBrier } from "../lib/brier.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
 import { serviceClient, userClient } from "../lib/supabase.ts";
 import { runCalibration } from "../orchestrator/calibration.ts";
@@ -242,46 +243,5 @@ predictions.post("/:id/resolve", async (c) => {
 
   return c.json({ data: { ...updated, calibration } });
 });
-
-function brierContribution(
-  probability: number,
-  outcome: "correct" | "incorrect" | "ambiguous",
-): number {
-  if (outcome === "correct") {
-    const err = 1 - probability;
-    return Math.round(err * err * 10000) / 10000;
-  }
-  if (outcome === "incorrect") {
-    return Math.round(probability * probability * 10000) / 10000;
-  }
-  return 0.25;
-}
-
-interface RollingBrierSummary {
-  resolved_count: number;
-  active_count: number;
-  rolling_brier: number | null;
-}
-
-function computeRollingBrier(
-  rows: Array<{ brier_contribution: number | null }>,
-): RollingBrierSummary {
-  let resolved = 0;
-  let active = 0;
-  let total = 0;
-  for (const row of rows) {
-    if (row.brier_contribution !== null && row.brier_contribution !== undefined) {
-      resolved++;
-      total += Number(row.brier_contribution);
-    } else {
-      active++;
-    }
-  }
-  return {
-    resolved_count: resolved,
-    active_count: active,
-    rolling_brier: resolved > 0 ? Math.round((total / resolved) * 10000) / 10000 : null,
-  };
-}
 
 export default predictions;

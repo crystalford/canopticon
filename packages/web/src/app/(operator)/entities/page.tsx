@@ -2,6 +2,7 @@
 
 import { Badge, Button, Card, ScreenHeader } from "@/components/primitives";
 import { ApiError, apiGet, apiPost } from "@/lib/api-client";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 interface EntityRow {
@@ -171,15 +172,19 @@ export default function EntitiesPage() {
           <ol className="divide-y divide-border-soft">
             {entities.map((e) => (
               <li key={e.id} className="py-3">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-cream font-serif">{e.canonical_name}</p>
-                  <Badge tone="neutral">{e.entity_type}</Badge>
-                </div>
-                {e.aliases.length > 0 && (
-                  <p className="text-text-faint font-mono text-xs mt-1">
-                    aka {e.aliases.join(" · ")}
-                  </p>
-                )}
+                <Link href={`/entities/${e.id}` as never} className="block group">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="text-cream font-serif group-hover:text-cream-bright">
+                      {e.canonical_name}
+                    </p>
+                    <Badge tone="neutral">{e.entity_type}</Badge>
+                  </div>
+                  {e.aliases.length > 0 && (
+                    <p className="text-text-faint font-mono text-xs mt-1">
+                      aka {e.aliases.join(" · ")}
+                    </p>
+                  )}
+                </Link>
               </li>
             ))}
           </ol>

@@ -242,7 +242,8 @@ async function writeClaimEntities(
   return written;
 }
 
-function normalize(s: string): string {
+/** Normalize a surface string for entity matching. Exported for tests. */
+export function normalize(s: string): string {
   return s
     .toLowerCase()
     .normalize("NFKD")
@@ -261,7 +262,8 @@ function bestSimilarity(normMention: string, candidate: CandidateEntity): number
   return best;
 }
 
-function jaccardTokenSimilarity(a: string, b: string): number {
+/** Jaccard similarity over whitespace-tokenized strings. Exported for tests. */
+export function jaccardTokenSimilarity(a: string, b: string): number {
   if (!a || !b) return 0;
   const at = new Set(a.split(" ").filter(Boolean));
   const bt = new Set(b.split(" ").filter(Boolean));

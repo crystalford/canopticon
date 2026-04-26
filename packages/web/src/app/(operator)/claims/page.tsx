@@ -3,6 +3,7 @@
 import { Badge, ScreenHeader } from "@/components/primitives";
 import { useOrchestratorEvents } from "@/hooks/use-orchestrator-events";
 import { ApiError, apiGet } from "@/lib/api-client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 interface ClaimRow {
@@ -145,13 +146,18 @@ function FilterRow({
 
 function ClaimRow({ claim }: { claim: ClaimRow }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-[auto_auto_1fr_auto] sm:items-baseline">
+    <Link
+      href={`/claims/${claim.id}` as never}
+      className="grid gap-2 sm:grid-cols-[auto_auto_1fr_auto] sm:items-baseline group"
+    >
       <GradeBadge grade={claim.admiralty_grade} />
       <Badge tone="cream" variant="outline">
         {claim.layer}
       </Badge>
       <div>
-        <p className="text-cream font-serif">claim {claim.id.slice(0, 8)}</p>
+        <p className="text-cream font-serif group-hover:text-cream-bright">
+          claim {claim.id.slice(0, 8)}
+        </p>
         <p className="text-text-faint font-mono text-xs mt-1">
           created {new Date(claim.created_at).toLocaleString()}
           {claim.is_linchpin && (
@@ -160,7 +166,7 @@ function ClaimRow({ claim }: { claim: ClaimRow }) {
         </p>
       </div>
       <VerificationBadge status={claim.verification_status} />
-    </div>
+    </Link>
   );
 }
 

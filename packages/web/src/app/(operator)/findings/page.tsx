@@ -108,32 +108,28 @@ export default function FindingsPage() {
         <ol className="divide-y divide-border-soft">
           {rows.map((f) => (
             <li key={f.id} className="py-4">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="text-cream font-serif text-lg">{f.title}</p>
-                <Badge tone={gradeTone(f.novelty_grade)}>{f.novelty_grade}</Badge>
-              </div>
-              <p className="text-text-dim text-sm mt-1 leading-relaxed">{f.narrative}</p>
-              <div className="flex gap-2 mt-2 items-baseline flex-wrap">
-                <Badge tone="neutral">{f.pattern_type.replace(/_/g, " ")}</Badge>
-                <Badge tone={statusTone(f.status)}>{f.status}</Badge>
-                {f.is_public && <Badge tone="amber">public</Badge>}
-                {f.confidence !== null && (
+              <Link href={`/findings/${f.id}` as never} className="block group">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-cream font-serif text-lg group-hover:text-cream-bright">
+                    {f.title}
+                  </p>
+                  <Badge tone={gradeTone(f.novelty_grade)}>{f.novelty_grade}</Badge>
+                </div>
+                <p className="text-text-dim text-sm mt-1 leading-relaxed">{f.narrative}</p>
+                <div className="flex gap-2 mt-2 items-baseline flex-wrap">
+                  <Badge tone="neutral">{f.pattern_type.replace(/_/g, " ")}</Badge>
+                  <Badge tone={statusTone(f.status)}>{f.status}</Badge>
+                  {f.is_public && <Badge tone="amber">public</Badge>}
+                  {f.confidence !== null && (
+                    <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
+                      confidence {Number(f.confidence).toFixed(2)}
+                    </span>
+                  )}
                   <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
-                    confidence {Number(f.confidence).toFixed(2)}
+                    via {f.surfaced_by}
                   </span>
-                )}
-                <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
-                  via {f.surfaced_by}
-                </span>
-                {f.thesis_id && (
-                  <Link
-                    href={`/studio/${f.thesis_id}` as never}
-                    className="text-text-dim hover:text-amber font-mono text-xs uppercase tracking-widest"
-                  >
-                    → thesis
-                  </Link>
-                )}
-              </div>
+                </div>
+              </Link>
             </li>
           ))}
         </ol>
