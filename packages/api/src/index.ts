@@ -4,9 +4,12 @@ import type { AuthContext } from "./auth/middleware.ts";
 import { runHansardCron } from "./cron/hansard.ts";
 import type { Env } from "./env.ts";
 import { ApiError } from "./lib/errors.ts";
+import articlesRoutes from "./routes/articles.ts";
 import cascadeRoutes from "./routes/cascade.ts";
 import claimsRoutes from "./routes/claims.ts";
 import orchestratorRoutes from "./routes/orchestrator.ts";
+import predictionsRoutes from "./routes/predictions.ts";
+import publicRoutes from "./routes/public.ts";
 import researchRoutes from "./routes/research.ts";
 import sourcesRoutes from "./routes/sources.ts";
 import systemRoutes from "./routes/system.ts";
@@ -57,10 +60,13 @@ const v1 = new Hono<App>();
 v1.route("/sources", sourcesRoutes);
 v1.route("/claims", claimsRoutes);
 v1.route("/theses", thesesRoutes);
+v1.route("/predictions", predictionsRoutes);
+v1.route("/articles", articlesRoutes);
 v1.route("/cascade", cascadeRoutes);
 v1.route("/research", researchRoutes);
 v1.route("/orchestrator", orchestratorRoutes);
 v1.route("/system", systemRoutes);
+v1.route("/public", publicRoutes);
 app.route("/v1", v1);
 
 export default {
