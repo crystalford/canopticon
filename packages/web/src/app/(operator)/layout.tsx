@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+export const runtime = "edge";
+
 export default async function OperatorLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
   const supabase = serverClient(cookieStore as unknown as ServerCookieStore);

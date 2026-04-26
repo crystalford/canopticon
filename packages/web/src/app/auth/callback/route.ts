@@ -8,6 +8,8 @@ import { type ServerCookieStore, serverClient } from "@/lib/supabase";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+export const runtime = "edge";
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");

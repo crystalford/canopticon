@@ -14,6 +14,9 @@ out/
 .wrangler/
 .dev.vars
 
+# Vercel adapter (used by @cloudflare/next-on-pages)
+.vercel/
+
 # Test / coverage
 coverage/
 *.lcov

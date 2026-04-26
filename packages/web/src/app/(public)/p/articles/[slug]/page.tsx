@@ -28,6 +28,7 @@ interface PublicArticleDetail {
   claim_count: number;
 }
 
+export const runtime = "edge";
 export const revalidate = 60;
 
 export default async function PublicArticlePage({

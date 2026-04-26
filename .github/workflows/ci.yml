@@ -50,3 +50,11 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: stub
           NEXT_PUBLIC_API_BASE_URL: https://stub.example.com
         run: pnpm exec next build
+
+      - name: Web build (Cloudflare Pages adapter)
+        working-directory: packages/web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://stub.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: stub
+          NEXT_PUBLIC_API_BASE_URL: https://stub.example.com
+        run: pnpm exec next-on-pages
