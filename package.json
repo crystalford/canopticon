@@ -1,0 +1,29 @@
+{
+  "name": "canopticon",
+  "version": "0.0.0",
+  "private": true,
+  "description": "CANOPTICON — forensic intelligence platform for Canadian political and economic structure.",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "pnpm -r test",
+    "dev:web": "pnpm --filter @canopticon/web dev",
+    "dev:api": "pnpm --filter @canopticon/api dev",
+    "sync-skills": "tsx scripts/sync-skills.ts",
+    "smoke": "tsx scripts/smoke.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@supabase/supabase-js": "^2.45.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

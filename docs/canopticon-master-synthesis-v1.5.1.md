@@ -36,6 +36,8 @@ Three operational patterns govern how roles interact with the substrate:
 
 **Cross-model verification** is mandatory for publication-bound claims. The Verifier role runs on a different model family than the Generator — Claude generates, GPT-5 or Gemini verifies — because same-model self-critique empirically produces weaker results than cross-model adversarial checking. This adds one API vendor relationship and modest cost, and catches structural blind spots that same-model verification systematically misses.
 
+**Activation.** Cross-model verification is *infrastructure* that's wired from day one — the orchestrator's secondary-model code path (skills-v1.0 §14) and the cost gate both accommodate it — but *invocation* is gated on `theses.is_public = TRUE`. No claim crosses the publication threshold until the operator promotes a thesis to public, so the Verifier defaults to Citations-API grounding only and the cross-model branch fires once a thesis goes public. This is a deliberate activation point, not a relaxation of the principle.
+
 ### 5.1 Role Implementations
 
 Each role below is a prompt template triggered by state conditions. The trigger, input context, skill prompt intent, output schema, and implementation notes are specified.

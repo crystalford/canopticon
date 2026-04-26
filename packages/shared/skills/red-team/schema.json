@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RedTeamOutput",
+  "type": "object",
+  "required": ["objections"],
+  "properties": {
+    "objections": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": ["objection_text", "severity"],
+        "properties": {
+          "target_claim_id": { "type": ["string", "null"] },
+          "objection_text": { "type": "string" },
+          "evidence_gap": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["minor", "notable", "major"]
+          }
+        }
+      }
+    },
+    "summary": { "type": "string" }
+  }
+}

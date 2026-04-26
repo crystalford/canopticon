@@ -1,0 +1,57 @@
+name: Sync skill prompts to Supabase
+
+# Reads packages/shared/skills/<role>/SKILL.md and writes the prompt
+# text into role_definitions.prompt_template in Supabase.
+#
+# Trigger this:
+#   - After your first sign-in (so role_definitions rows exist)
+#   - Any time you edit a SKILL.md prompt
+#
+# How to run: GitHub → Actions tab → "Sync skill prompts to Supabase"
+# in the left sidebar → "Run workflow" button.
+#
+# Required GitHub secrets:
+#   SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY
+
+on:
+  workflow_dispatch:
+    inputs:
+      role:
+        description: "Single role name to sync (leave blank for all)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Dry run only — show what would change, don't write"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync skills
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ROLE: ${{ inputs.role }}
+          DRY_RUN: ${{ inputs.dry_run == 'true' && '1' || '' }}
+        run: pnpm sync-skills

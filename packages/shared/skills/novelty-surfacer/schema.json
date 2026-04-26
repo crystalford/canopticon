@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NoveltySurfacerOutput",
+  "type": "object",
+  "required": ["candidates"],
+  "properties": {
+    "candidates": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "narrative",
+          "novelty_grade",
+          "pattern_type",
+          "confidence",
+          "supporting_claim_indices"
+        ],
+        "properties": {
+          "title": { "type": "string", "maxLength": 300 },
+          "narrative": { "type": "string" },
+          "novelty_grade": {
+            "type": "string",
+            "enum": ["incremental", "notable", "breakthrough"]
+          },
+          "pattern_type": {
+            "type": "string",
+            "enum": [
+              "recurring_actor",
+              "transaction_chain",
+              "mechanism_overlap",
+              "structural_homology",
+              "negative_space",
+              "conflict_of_interest",
+              "temporal_correlation",
+              "jurisdictional_arbitrage",
+              "other"
+            ]
+          },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "supporting_claim_indices": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 }
+          },
+          "linchpin_claim_indices": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "summary": { "type": "string" }
+  }
+}

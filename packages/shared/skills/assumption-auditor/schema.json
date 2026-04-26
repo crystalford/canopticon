@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AssumptionAuditorOutput",
+  "type": "object",
+  "required": ["audits"],
+  "properties": {
+    "audits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["assumption_id", "status", "rationale"],
+        "properties": {
+          "assumption_id": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["holding", "shaken", "broken", "retired"]
+          },
+          "is_linchpin": { "type": "boolean" },
+          "rationale": { "type": "string" },
+          "consequence_if_failed": { "type": "string" }
+        }
+      }
+    },
+    "summary": { "type": "string" }
+  }
+}

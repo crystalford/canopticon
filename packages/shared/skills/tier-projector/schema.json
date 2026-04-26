@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TierProjectorOutput",
+  "type": "object",
+  "required": ["bluf", "tier_80", "tier_800", "tier_full", "ipcc_likelihood"],
+  "properties": {
+    "bluf": { "type": "string", "maxLength": 500 },
+    "tier_80": { "type": "string" },
+    "tier_800": { "type": "string" },
+    "tier_full": { "type": "string" },
+    "ipcc_likelihood": {
+      "type": "string",
+      "enum": [
+        "virtually_certain",
+        "extremely_likely",
+        "very_likely",
+        "likely",
+        "more_likely_than_not",
+        "about_as_likely_as_not",
+        "unlikely",
+        "very_unlikely",
+        "extremely_unlikely",
+        "exceptionally_unlikely"
+      ]
+    }
+  }
+}

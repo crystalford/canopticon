@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InterrogatorOutput",
+  "type": "object",
+  "required": ["questions"],
+  "properties": {
+    "questions": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": ["text", "expected_information_gain", "rationale", "evidence_targets"],
+        "properties": {
+          "text": { "type": "string" },
+          "expected_information_gain": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "rationale": { "type": "string" },
+          "evidence_targets": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

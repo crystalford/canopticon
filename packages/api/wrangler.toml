@@ -1,0 +1,43 @@
+name = "canopticon-api"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Cron triggers — disabled by default.
+#
+# CANOPTICON's primary ingestion mode is operator-driven AI research
+# (see packages/api/src/research/), NOT scheduled feed pulls. Hansard /
+# RSS / API ingestion exists as an OPTIONAL backstop for users who want
+# a continuous low-priority source — it is not the demo path.
+#
+# To enable Hansard auto-ingest:
+#   1. Uncomment the [triggers] block below.
+#   2. Set OPERATOR_USER_ID via `wrangler secret put`.
+#   3. Re-deploy.
+#
+# [triggers]
+# crons = ["0 */6 * * *"]
+
+# R2 binding for source-body storage.
+# Created via `wrangler r2 bucket create canopticon-sources` once the
+# Cloudflare account is wired in.
+# [[r2_buckets]]
+# binding = "SOURCES"
+# bucket_name = "canopticon-sources"
+
+# Durable Objects — one DO class per cascade run. Keeps step state alive
+# across the orchestrator's incremental progress.
+# [[durable_objects.bindings]]
+# name = "CASCADE_RUN"
+# class_name = "CascadeRun"
+#
+# [[migrations]]
+# tag = "v1"
+# new_classes = ["CascadeRun"]
+
+# Environment variables — placeholders. Real secrets are set via
+# `wrangler secret put`. Frontend variables are NEXT_PUBLIC_* and live
+# in the web package's environment.
+[vars]
+LOG_LEVEL = "info"

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PremortemOutput",
+  "type": "object",
+  "required": ["failure_modes", "calibration_note"],
+  "properties": {
+    "failure_modes": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["narrative", "conditional_probability"],
+        "properties": {
+          "narrative": { "type": "string" },
+          "category": {
+            "type": "string",
+            "enum": [
+              "world_shifted",
+              "wrong_actor",
+              "wrong_timeline",
+              "definition_measurement",
+              "other"
+            ]
+          },
+          "conditional_probability": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "linchpin_assumption": { "type": "string" },
+          "consequence_if_failed": { "type": "string" }
+        }
+      }
+    },
+    "calibration_note": {
+      "type": "string",
+      "enum": ["too_high", "about_right", "too_low", "malformed"]
+    },
+    "recommended_probability": {
+      "type": "number",
+      "minimum": 0.05,
+      "maximum": 0.95
+    },
+    "summary": { "type": "string" }
+  }
+}
