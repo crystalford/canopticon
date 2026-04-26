@@ -23,6 +23,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AnthropicClient } from "../lib/anthropic.ts";
+import { runAssumptionAuditor } from "./assumption_auditor.ts";
 import { runInterrogator } from "./interrogator.ts";
 import { type InvokeRoleContext, invokeRole } from "./role_runner.ts";
 
@@ -41,6 +42,7 @@ export interface CascadeRunResult {
   claims_extracted: number;
   claims_verified: number;
   questions_generated: number;
+  assumptions_audited: number;
   cost_cents: number;
   errors: Array<{ ref: string; step: string; message: string }>;
 }
@@ -73,6 +75,7 @@ export async function runCascade(
     claims_extracted: 0,
     claims_verified: 0,
     questions_generated: 0,
+    assumptions_audited: 0,
     cost_cents: 0,
     errors: [],
   };
@@ -82,13 +85,15 @@ export async function runCascade(
     await stepClaimExtraction(ctx, input, cascadeRunId, limit, result);
     await stepVerifier(ctx, input, cascadeRunId, limit, result);
     await stepInterrogator(ctx, input, cascadeRunId, result);
+    await stepAssumptionAudit(ctx, input, cascadeRunId, result);
 
     if (result.errors.length > 0) {
       const anyProgress =
         result.critic_reports_written > 0 ||
         result.claims_extracted > 0 ||
         result.claims_verified > 0 ||
-        result.questions_generated > 0;
+        result.questions_generated > 0 ||
+        result.assumptions_audited > 0;
       result.status = anyProgress ? "partial" : "failed";
     }
   } catch (err) {
@@ -527,6 +532,75 @@ async function stepInterrogator(
       result.errors.push({
         ref: thesisId,
         step: "interrogator",
+        message: (err as Error).message,
+      });
+    }
+  }
+}
+
+// --- Step E: Assumption Auditor ------------------------------------------
+
+const STALE_AUDIT_DAYS = 14;
+
+async function stepAssumptionAudit(
+  ctx: CascadeContext,
+  input: CascadeRunInput,
+  cascadeRunId: string,
+  result: CascadeRunResult,
+): Promise<void> {
+  // Sweep theses with linchpin assumptions whose last_audited_at is null
+  // or older than STALE_AUDIT_DAYS. Group by thesis_id; one auditor run
+  // per thesis processes all stale linchpins for that thesis at once.
+  const cutoff = new Date(Date.now() - STALE_AUDIT_DAYS * 86_400_000).toISOString();
+  const { data: stale, error } = await ctx.service
+    .from("assumptions")
+    .select("id, thesis_id, last_audited_at")
+    .eq("user_id", input.user_id)
+    .eq("is_linchpin", true)
+    .neq("status", "retired")
+    .or(`last_audited_at.is.null,last_audited_at.lt.${cutoff}`);
+  if (error) {
+    result.errors.push({
+      ref: "(assumption_audit)",
+      step: "assumption_auditor",
+      message: error.message,
+    });
+    return;
+  }
+
+  const byThesis: Record<string, string[]> = {};
+  for (const row of stale ?? []) {
+    const r = row as { id: string; thesis_id: string | null };
+    if (!r.thesis_id) continue;
+    const list = byThesis[r.thesis_id] ?? [];
+    list.push(r.id);
+    byThesis[r.thesis_id] = list;
+  }
+
+  for (const [thesis_id, assumption_ids] of Object.entries(byThesis)) {
+    try {
+      const r = await runAssumptionAuditor(
+        { service: ctx.service, anthropic: ctx.anthropic },
+        {
+          user_id: input.user_id,
+          triggered_by: `cascade:${cascadeRunId}`,
+          thesis_id,
+          assumption_ids,
+        },
+      );
+      if (r.status === "completed") {
+        result.assumptions_audited += r.assumptions_updated;
+      } else if (r.status === "denied") {
+        result.errors.push({
+          ref: thesis_id,
+          step: "assumption_auditor",
+          message: `cost gate denied: ${r.decision.message}`,
+        });
+      }
+    } catch (err) {
+      result.errors.push({
+        ref: thesis_id,
+        step: "assumption_auditor",
         message: (err as Error).message,
       });
     }

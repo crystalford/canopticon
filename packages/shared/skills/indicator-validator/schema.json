@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "IndicatorValidatorOutput",
+  "type": "object",
+  "required": ["validation", "summary"],
+  "properties": {
+    "validation": {
+      "type": "string",
+      "enum": ["valid", "needs_revision", "rejected"]
+    },
+    "summary": { "type": "string" },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["category", "detail"],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": ["operationalization", "source", "cadence", "threshold", "thesis_link", "other"]
+          },
+          "detail": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["minor", "notable", "blocking"]
+          }
+        }
+      }
+    },
+    "suggested_revisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "suggested_value", "rationale"],
+        "properties": {
+          "field": {
+            "type": "string",
+            "enum": ["name", "definition", "source_uri", "cadence", "threshold"]
+          },
+          "suggested_value": { "type": "string" },
+          "rationale": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -85,6 +85,26 @@ interface ThesisArticle {
   updated_at: string;
 }
 
+interface ThesisIndicator {
+  id: string;
+  name: string;
+  definition: string;
+  source_uri: string | null;
+  cadence: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface ThesisAssumption {
+  id: string;
+  text: string;
+  status: string;
+  is_linchpin: boolean;
+  consequence_if_failed: string | null;
+  last_audited_at: string | null;
+  created_at: string;
+}
+
 const LAYERS = ["factual", "framing", "architectural", "distributive"] as const;
 const IPCC_OPTIONS = [
   ["", "—"],
@@ -107,6 +127,8 @@ export default function ThesisDetailPage({ params }: { params: Promise<{ id: str
   const [questions, setQuestions] = useState<ThesisQuestion[]>([]);
   const [predictions, setPredictions] = useState<ThesisPrediction[]>([]);
   const [articles, setArticles] = useState<ThesisArticle[]>([]);
+  const [indicators, setIndicators] = useState<ThesisIndicator[]>([]);
+  const [assumptions, setAssumptions] = useState<ThesisAssumption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -118,13 +140,17 @@ export default function ThesisDetailPage({ params }: { params: Promise<{ id: str
       apiGet<ThesisQuestion[]>(`/v1/theses/${id}/questions`),
       apiGet<{ predictions: ThesisPrediction[] }>(`/v1/predictions?thesis_id=${id}`),
       apiGet<ThesisArticle[]>(`/v1/articles?thesis_id=${id}`),
+      apiGet<ThesisIndicator[]>(`/v1/indicators?thesis_id=${id}`),
+      apiGet<ThesisAssumption[]>(`/v1/assumptions?thesis_id=${id}`),
     ])
-      .then(([t, c, q, p, a]) => {
+      .then(([t, c, q, p, a, ind, assume]) => {
         setThesis(t);
         setClaims(c);
         setQuestions(q);
         setPredictions(p.predictions);
         setArticles(a);
+        setIndicators(ind);
+        setAssumptions(assume);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : (err as Error).message));
   }, [id]);
@@ -357,6 +383,93 @@ export default function ThesisDetailPage({ params }: { params: Promise<{ id: str
           </ul>
         )}
         <DeclarePredictionPanel thesisId={id} onDeclared={load} />
+      </section>
+
+      <section className="mt-10">
+        <header className="flex items-baseline justify-between mb-3">
+          <h2 className="font-serif text-xl text-cream">Assumptions</h2>
+          <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
+            {assumptions.filter((a) => a.is_linchpin).length} linchpin ·{" "}
+            {assumptions.filter((a) => a.status === "shaken").length} shaken ·{" "}
+            {assumptions.filter((a) => a.status === "broken").length} broken
+          </span>
+        </header>
+        {assumptions.length === 0 ? (
+          <p className="text-text-faint font-mono text-xs uppercase tracking-widest mb-4">
+            no assumptions yet · publish or declare one below
+          </p>
+        ) : (
+          <ul className="space-y-2 mb-6">
+            {assumptions.map((a) => (
+              <li key={a.id} className="border-l-2 border-amber-dim pl-3 py-1">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <Badge tone={assumptionTone(a.status)}>{a.status}</Badge>
+                  {a.is_linchpin && <Badge tone="amber">linchpin</Badge>}
+                  {a.last_audited_at ? (
+                    <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
+                      audited {new Date(a.last_audited_at).toLocaleDateString()}
+                    </span>
+                  ) : (
+                    <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
+                      never audited
+                    </span>
+                  )}
+                </div>
+                <p className="text-text font-serif mt-1">{a.text}</p>
+                {a.consequence_if_failed && (
+                  <p className="text-text-dim text-sm mt-1 leading-relaxed">
+                    if it breaks: {a.consequence_if_failed}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <AssumptionsControls thesisId={id} hasAssumptions={assumptions.length > 0} onDone={load} />
+      </section>
+
+      <section className="mt-10">
+        <header className="flex items-baseline justify-between mb-3">
+          <h2 className="font-serif text-xl text-cream">Indicators</h2>
+          <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
+            {indicators.filter((i) => i.is_active).length} active
+          </span>
+        </header>
+        {indicators.length === 0 ? (
+          <p className="text-text-faint font-mono text-xs uppercase tracking-widest mb-4">
+            no indicators yet · declare one below
+          </p>
+        ) : (
+          <ul className="space-y-2 mb-6">
+            {indicators.map((i) => (
+              <li key={i.id} className="border-l-2 border-blue-dim pl-3 py-1">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <Badge tone={i.is_active ? "amber" : "neutral"}>
+                    {i.is_active ? "active" : "inactive"}
+                  </Badge>
+                  {i.cadence && (
+                    <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
+                      {i.cadence}
+                    </span>
+                  )}
+                  {i.source_uri && (
+                    <a
+                      href={i.source_uri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-text-dim hover:text-amber font-mono text-xs uppercase tracking-widest"
+                    >
+                      source
+                    </a>
+                  )}
+                </div>
+                <p className="text-text font-serif mt-1">{i.name}</p>
+                <p className="text-text-dim text-sm mt-1 leading-relaxed">{i.definition}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+        <DeclareIndicatorPanel thesisId={id} onDeclared={load} />
       </section>
 
       <section className="mt-10">
@@ -903,6 +1016,332 @@ function DraftArticlePanel({
         </div>
         <FieldError message={error} />
       </form>
+    </Card>
+  );
+}
+
+function assumptionTone(status: string): "amber" | "sage" | "signal" | "neutral" {
+  if (status === "holding") return "sage";
+  if (status === "shaken") return "amber";
+  if (status === "broken") return "signal";
+  return "neutral";
+}
+
+function AssumptionsControls({
+  thesisId,
+  hasAssumptions,
+  onDone,
+}: {
+  thesisId: string;
+  hasAssumptions: boolean;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [linchpin, setLinchpin] = useState(true);
+  const [consequence, setConsequence] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [auditing, setAuditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function declare(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await apiPost("/v1/assumptions", {
+        thesis_id: thesisId,
+        text: text.trim(),
+        is_linchpin: linchpin,
+        ...(consequence ? { consequence_if_failed: consequence.trim() } : {}),
+      });
+      setText("");
+      setConsequence("");
+      setOpen(false);
+      onDone();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : (err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function audit() {
+    setAuditing(true);
+    setError(null);
+    try {
+      await apiPost(`/v1/assumptions/audit-thesis/${thesisId}`, {});
+      onDone();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : (err as Error).message);
+    } finally {
+      setAuditing(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        {hasAssumptions && (
+          <Button tone="secondary" size="sm" onClick={audit} disabled={auditing}>
+            {auditing ? "auditing..." : "audit linchpins"}
+          </Button>
+        )}
+        {!open && (
+          <Button tone="secondary" size="sm" onClick={() => setOpen(true)}>
+            + declare assumption
+          </Button>
+        )}
+      </div>
+      {open && (
+        <Card tone="amber">
+          <form onSubmit={declare} className="space-y-3">
+            <div className="flex items-baseline justify-between">
+              <h3 className="font-serif text-lg text-amber">Declare assumption</h3>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-text-dim hover:text-amber font-mono text-xs uppercase tracking-widest"
+              >
+                cancel
+              </button>
+            </div>
+            <p className="text-text-faint font-mono text-xs leading-relaxed">
+              an assumption is something the thesis takes for granted · linchpins are the ones that,
+              if broken, would force a thesis revision
+            </p>
+            <div>
+              <Label htmlFor="ass-text">assumption</Label>
+              <Textarea
+                id="ass-text"
+                required
+                rows={3}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Carney remains in office through the next Parliamentary session."
+              />
+            </div>
+            <div>
+              <Label htmlFor="ass-cons">consequence if failed (optional)</Label>
+              <Textarea
+                id="ass-cons"
+                rows={2}
+                value={consequence}
+                onChange={(e) => setConsequence(e.target.value)}
+                placeholder="Without Carney, Brookfield's preferential access argument loses its central actor."
+              />
+            </div>
+            <label className="flex items-center gap-2 text-text-dim font-mono text-xs uppercase tracking-widest">
+              <input
+                type="checkbox"
+                checked={linchpin}
+                onChange={(e) => setLinchpin(e.target.checked)}
+              />
+              linchpin
+            </label>
+            <Button type="submit" tone="primary" disabled={submitting || text.trim().length < 10}>
+              {submitting ? "declaring..." : "declare"}
+            </Button>
+            <FieldError message={error} />
+          </form>
+        </Card>
+      )}
+      {!open && error && <p className="text-signal font-mono text-xs">{error}</p>}
+    </div>
+  );
+}
+
+function DeclareIndicatorPanel({
+  thesisId,
+  onDeclared,
+}: {
+  thesisId: string;
+  onDeclared: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [definition, setDefinition] = useState("");
+  const [sourceUri, setSourceUri] = useState("");
+  const [cadence, setCadence] = useState("");
+  const [thresholdRaw, setThresholdRaw] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [validation, setValidation] = useState<{
+    validation: string;
+    summary: string;
+    issues: Array<{ category: string; detail: string; severity: string | null }>;
+    suggested_revisions: Array<{ field: string; suggested_value: string; rationale: string }>;
+  } | null>(null);
+
+  async function declare(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    setValidation(null);
+
+    let threshold: unknown = undefined;
+    if (thresholdRaw.trim()) {
+      try {
+        threshold = JSON.parse(thresholdRaw);
+      } catch {
+        threshold = thresholdRaw.trim();
+      }
+    }
+
+    try {
+      const result = await apiPost<{
+        id: string;
+        validation: {
+          validation: string;
+          summary: string;
+          issues: Array<{ category: string; detail: string; severity: string | null }>;
+          suggested_revisions: Array<{ field: string; suggested_value: string; rationale: string }>;
+        } | null;
+      }>("/v1/indicators", {
+        thesis_id: thesisId,
+        name: name.trim(),
+        definition: definition.trim(),
+        ...(sourceUri ? { source_uri: sourceUri.trim() } : {}),
+        ...(cadence ? { cadence: cadence.trim() } : {}),
+        ...(threshold !== undefined ? { threshold } : {}),
+      });
+      if (result.validation) setValidation(result.validation);
+      setName("");
+      setDefinition("");
+      setSourceUri("");
+      setCadence("");
+      setThresholdRaw("");
+      onDeclared();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : (err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button tone="secondary" size="sm" onClick={() => setOpen(true)}>
+        + declare indicator
+      </Button>
+    );
+  }
+
+  return (
+    <Card tone="amber">
+      <form onSubmit={declare} className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <h3 className="font-serif text-lg text-amber">Declare indicator</h3>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="text-text-dim hover:text-amber font-mono text-xs uppercase tracking-widest"
+          >
+            cancel
+          </button>
+        </div>
+        <p className="text-text-faint font-mono text-xs leading-relaxed">
+          fires the Indicator Validator on declare · review feedback before recording observations
+        </p>
+        <div>
+          <Label htmlFor="ind-name">name</Label>
+          <Input
+            id="ind-name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="federal beneficial-ownership disclosure regulation count"
+          />
+        </div>
+        <div>
+          <Label htmlFor="ind-def">definition</Label>
+          <Textarea
+            id="ind-def"
+            required
+            rows={3}
+            value={definition}
+            onChange={(e) => setDefinition(e.target.value)}
+            placeholder="Number of federal regulations or orders-in-council in Canada Gazette Part II that introduce mandatory beneficial-ownership disclosure for federally regulated entities."
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <Label htmlFor="ind-source">source URI</Label>
+            <Input
+              id="ind-source"
+              type="url"
+              value={sourceUri}
+              onChange={(e) => setSourceUri(e.target.value)}
+              placeholder="https://canadagazette.gc.ca/..."
+            />
+          </div>
+          <div>
+            <Label htmlFor="ind-cadence">cadence</Label>
+            <Input
+              id="ind-cadence"
+              value={cadence}
+              onChange={(e) => setCadence(e.target.value)}
+              placeholder="weekly, monthly, on_publication"
+            />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="ind-threshold">threshold (JSON or freeform)</Label>
+          <Textarea
+            id="ind-threshold"
+            rows={2}
+            value={thresholdRaw}
+            onChange={(e) => setThresholdRaw(e.target.value)}
+            placeholder='{"value": ">=1", "direction": "increases_belief"}'
+          />
+        </div>
+        <Button type="submit" tone="primary" disabled={submitting || definition.trim().length < 10}>
+          {submitting ? "validating..." : "declare"}
+        </Button>
+        <FieldError message={error} />
+      </form>
+
+      {validation && (
+        <div className="mt-6 border-t border-border-soft pt-4">
+          <h4 className="font-mono text-xs uppercase tracking-widest text-amber mb-2">
+            validator · {validation.validation.replace(/_/g, " ")}
+          </h4>
+          {validation.summary && (
+            <p className="text-text leading-relaxed text-sm mb-3">{validation.summary}</p>
+          )}
+          {validation.issues.length > 0 && (
+            <ul className="space-y-2 mb-3">
+              {validation.issues.map((iss) => (
+                <li
+                  key={`${iss.category}-${iss.detail}`}
+                  className="border-l-2 border-signal-dim pl-3"
+                >
+                  <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
+                    {iss.category} {iss.severity ? `· ${iss.severity}` : ""}
+                  </p>
+                  <p className="text-text text-sm leading-relaxed">{iss.detail}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          {validation.suggested_revisions.length > 0 && (
+            <ul className="space-y-2">
+              {validation.suggested_revisions.map((rev) => (
+                <li
+                  key={`${rev.field}-${rev.suggested_value}`}
+                  className="border-l-2 border-amber-dim pl-3"
+                >
+                  <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
+                    suggest: {rev.field}
+                  </p>
+                  <p className="text-text text-sm font-serif">{rev.suggested_value}</p>
+                  <p className="text-text-dim text-xs mt-1 leading-relaxed">{rev.rationale}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </Card>
   );
 }
