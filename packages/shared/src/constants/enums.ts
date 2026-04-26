@@ -85,6 +85,7 @@ export const ROLE_NAMES = [
   "assumption_auditor",
   "indicator_validator",
   "claim_extraction",
+  "novelty_surfacer",
 ] as const;
 export type RoleName = (typeof ROLE_NAMES)[number];
 

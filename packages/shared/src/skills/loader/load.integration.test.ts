@@ -20,6 +20,7 @@ const dirNameFor: Record<RoleName, string> = {
   assumption_auditor: "assumption-auditor",
   indicator_validator: "indicator-validator",
   claim_extraction: "claim-extraction",
+  novelty_surfacer: "novelty-surfacer",
 };
 
 describe("Sprint 1 SKILL.md files", () => {

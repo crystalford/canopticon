@@ -26,6 +26,7 @@ import { requireAuth } from "../auth/middleware.ts";
 import { AnthropicClient } from "../lib/anthropic.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
 import { serviceClient, userClient } from "../lib/supabase.ts";
+import { runCalibration } from "../orchestrator/calibration.ts";
 import { runPremortem } from "../orchestrator/premortem.ts";
 
 const predictions = new Hono<AuthContext>();
@@ -218,13 +219,28 @@ predictions.post("/:id/resolve", async (c) => {
     .single();
   if (updErr) throw new Error(`predictions.resolve.update: ${updErr.message}`);
 
-  // Optional resolution note → cost_ledger / orchestrator_events. We
-  // keep it simple: drop a note row in orchestrator_events for the
-  // /system feed. Note text is operator-provided so we don't run the
-  // calibration role here; that activates separately when the user
-  // first asks for the rolling-Brier narrative.
+  // Auto-fire Calibration over the operator's resolved-prediction
+  // history. Errors and cost-gate denials are non-fatal — the
+  // resolution itself has already landed. Operator can re-run via
+  // POST /v1/calibration/run.
+  const userId = c.get("user_id");
+  const calibrationCtx = {
+    service: serviceClient(c.env),
+    anthropic: new AnthropicClient({ apiKey: c.env.ANTHROPIC_API_KEY }),
+  };
+  let calibration: unknown = null;
+  try {
+    const cal = await runCalibration(calibrationCtx, {
+      user_id: userId,
+      triggered_by: "predictions.resolve",
+      triggered_by_prediction_id: id,
+    });
+    if (cal.status === "completed") calibration = cal.report;
+  } catch (err) {
+    console.warn("calibration auto-fire failed", { message: (err as Error).message });
+  }
 
-  return c.json({ data: updated });
+  return c.json({ data: { ...updated, calibration } });
 });
 
 function brierContribution(

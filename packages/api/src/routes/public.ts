@@ -250,6 +250,146 @@ pub.get("/articles/:slug", async (c) => {
   });
 });
 
+// --- findings ------------------------------------------------------------
+
+pub.get("/findings", async (c) => {
+  const grade = c.req.query("novelty_grade");
+  const pattern = c.req.query("pattern_type");
+  const client = serviceClient(c.env);
+
+  const { data: publicTheses } = await client
+    .from("theses")
+    .select("id, title, slug")
+    .eq("is_public", true);
+  const thesisMap: Record<string, { title: string; slug: string }> = {};
+  for (const t of publicTheses ?? []) {
+    const row = t as { id: string; title: string; slug: string };
+    thesisMap[row.id] = { title: row.title, slug: row.slug };
+  }
+
+  let q = client
+    .from("findings")
+    .select(
+      "id, thesis_id, title, slug, narrative, novelty_grade, pattern_type, confidence, status, published_at, created_at",
+    )
+    .eq("is_public", true)
+    .in("status", ["public", "retracted"])
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .limit(100);
+  if (grade) q = q.eq("novelty_grade", grade);
+  if (pattern) q = q.eq("pattern_type", pattern);
+  const { data, error } = await q;
+  if (error) throw new Error(`public.findings: ${error.message}`);
+
+  const merged = (data ?? []).map((row) => {
+    const r = row as { thesis_id: string | null };
+    const meta = r.thesis_id ? thesisMap[r.thesis_id] : null;
+    return {
+      ...row,
+      thesis_title: meta?.title ?? null,
+      thesis_slug: meta?.slug ?? null,
+    };
+  });
+  return c.json({ data: merged });
+});
+
+pub.get("/findings/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  const client = serviceClient(c.env);
+
+  const { data: finding, error } = await client
+    .from("findings")
+    .select(
+      "id, thesis_id, title, slug, narrative, novelty_grade, pattern_type, confidence, status, published_at, retracted_at, retraction_note, created_at",
+    )
+    .eq("slug", slug)
+    .eq("is_public", true)
+    .in("status", ["public", "retracted"])
+    .maybeSingle();
+  if (error) throw new Error(`public.finding: ${error.message}`);
+  if (!finding) throw notFound("Public finding not found");
+  const f = finding as { id: string; thesis_id: string | null };
+
+  let thesis_title: string | null = null;
+  let thesis_slug: string | null = null;
+  if (f.thesis_id) {
+    const { data: thesis } = await client
+      .from("theses")
+      .select("title, slug, is_public")
+      .eq("id", f.thesis_id)
+      .maybeSingle<{ title: string; slug: string; is_public: boolean }>();
+    if (thesis?.is_public) {
+      thesis_title = thesis.title;
+      thesis_slug = thesis.slug;
+    }
+  }
+
+  // Pull supporting claims that the operator chose to surface — only
+  // claims whose grade is at least B and whose verification_status is
+  // grounded or partial. We don't expose unverified or contradicted
+  // claims via the public surface even when they support a finding.
+  const { data: support } = await client
+    .from("finding_supporting_claims")
+    .select("claim_id, is_linchpin")
+    .eq("finding_id", f.id);
+  const claimIds = (support ?? []).map((row) => (row as { claim_id: string }).claim_id);
+  const supportingClaims: Array<{
+    claim_id: string;
+    is_linchpin: boolean;
+    admiralty_grade: string;
+    claim_text: string;
+  }> = [];
+  if (claimIds.length > 0) {
+    const { data: claims } = await client
+      .from("claims")
+      .select("id, admiralty_grade, verification_status, current_version_id")
+      .in("id", claimIds);
+    const allowed = (claims ?? []).filter((row) => {
+      const r = row as { admiralty_grade: string; verification_status: string };
+      const goodGrade = ["A", "B", "C"].includes(r.admiralty_grade);
+      const goodVerification = ["grounded", "partial"].includes(r.verification_status);
+      return goodGrade && goodVerification;
+    });
+    const versionIds = allowed
+      .map((row) => (row as { current_version_id: string | null }).current_version_id)
+      .filter((v): v is string => Boolean(v));
+    const textById: Record<string, string> = {};
+    if (versionIds.length > 0) {
+      const { data: cv } = await client
+        .from("claim_versions")
+        .select("claim_id, claim_text")
+        .in("id", versionIds);
+      for (const row of cv ?? []) {
+        const r = row as { claim_id: string; claim_text: string };
+        textById[r.claim_id] = r.claim_text;
+      }
+    }
+    const linchpinMap: Record<string, boolean> = {};
+    for (const s of support ?? []) {
+      const r = s as { claim_id: string; is_linchpin: boolean };
+      linchpinMap[r.claim_id] = r.is_linchpin;
+    }
+    for (const c2 of allowed) {
+      const row = c2 as { id: string; admiralty_grade: string };
+      supportingClaims.push({
+        claim_id: row.id,
+        is_linchpin: linchpinMap[row.id] ?? false,
+        admiralty_grade: row.admiralty_grade,
+        claim_text: textById[row.id] ?? "",
+      });
+    }
+  }
+
+  return c.json({
+    data: {
+      ...finding,
+      thesis_title,
+      thesis_slug,
+      supporting_claims: supportingClaims,
+    },
+  });
+});
+
 // --- contradictions ------------------------------------------------------
 
 pub.get("/contradictions", async (c) => {

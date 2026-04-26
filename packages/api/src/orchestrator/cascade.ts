@@ -24,6 +24,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AnthropicClient } from "../lib/anthropic.ts";
 import { runAssumptionAuditor } from "./assumption_auditor.ts";
+import { runEntityResolver } from "./entity_resolver.ts";
+import { runGapSurfacer } from "./gap_surfacer.ts";
 import { runInterrogator } from "./interrogator.ts";
 import { type InvokeRoleContext, invokeRole } from "./role_runner.ts";
 
@@ -43,6 +45,8 @@ export interface CascadeRunResult {
   claims_verified: number;
   questions_generated: number;
   assumptions_audited: number;
+  gaps_surfaced: number;
+  entities_resolved: number;
   cost_cents: number;
   errors: Array<{ ref: string; step: string; message: string }>;
 }
@@ -76,6 +80,8 @@ export async function runCascade(
     claims_verified: 0,
     questions_generated: 0,
     assumptions_audited: 0,
+    gaps_surfaced: 0,
+    entities_resolved: 0,
     cost_cents: 0,
     errors: [],
   };
@@ -83,8 +89,10 @@ export async function runCascade(
   try {
     await stepCritic(ctx, input, cascadeRunId, limit, result);
     await stepClaimExtraction(ctx, input, cascadeRunId, limit, result);
+    await stepEntityResolution(ctx, input, result);
     await stepVerifier(ctx, input, cascadeRunId, limit, result);
     await stepInterrogator(ctx, input, cascadeRunId, result);
+    await stepGapSurfacer(ctx, input, cascadeRunId, result);
     await stepAssumptionAudit(ctx, input, cascadeRunId, result);
 
     if (result.errors.length > 0) {
@@ -93,7 +101,9 @@ export async function runCascade(
         result.claims_extracted > 0 ||
         result.claims_verified > 0 ||
         result.questions_generated > 0 ||
-        result.assumptions_audited > 0;
+        result.assumptions_audited > 0 ||
+        result.gaps_surfaced > 0 ||
+        result.entities_resolved > 0;
       result.status = anyProgress ? "partial" : "failed";
     }
   } catch (err) {
@@ -535,6 +545,77 @@ async function stepInterrogator(
         message: (err as Error).message,
       });
     }
+  }
+}
+
+// --- Step F: Gap Surfacer ------------------------------------------------
+
+async function stepGapSurfacer(
+  ctx: CascadeContext,
+  input: CascadeRunInput,
+  cascadeRunId: string,
+  result: CascadeRunResult,
+): Promise<void> {
+  const { data: theses, error } = await ctx.service
+    .from("theses")
+    .select("id")
+    .eq("user_id", input.user_id)
+    .neq("status", "archived");
+  if (error) {
+    result.errors.push({ ref: "(gap_surfacer)", step: "gap_surfacer", message: error.message });
+    return;
+  }
+
+  for (const t of theses ?? []) {
+    const thesisId = (t as { id: string }).id;
+    try {
+      const r = await runGapSurfacer(
+        { service: ctx.service, anthropic: ctx.anthropic },
+        {
+          user_id: input.user_id,
+          thesis_id: thesisId,
+          triggered_by: `cascade:${cascadeRunId}`,
+        },
+      );
+      if (r.status === "completed") {
+        result.gaps_surfaced += r.report.gaps.length;
+        result.questions_generated += r.questions_written;
+      } else if (r.status === "denied") {
+        result.errors.push({
+          ref: thesisId,
+          step: "gap_surfacer",
+          message: `cost gate denied: ${r.decision.message}`,
+        });
+      }
+    } catch (err) {
+      result.errors.push({
+        ref: thesisId,
+        step: "gap_surfacer",
+        message: (err as Error).message,
+      });
+    }
+  }
+}
+
+// --- Step G: Entity Resolution -------------------------------------------
+
+async function stepEntityResolution(
+  ctx: CascadeContext,
+  input: CascadeRunInput,
+  result: CascadeRunResult,
+): Promise<void> {
+  try {
+    const r = await runEntityResolver(
+      { service: ctx.service },
+      { user_id: input.user_id, triggered_by: "cascade" },
+    );
+    result.entities_resolved += r.mentions_resolved_exact + r.mentions_resolved_high;
+  } catch (err) {
+    result.errors.push({
+      ref: "(entity_resolver)",
+      step: "entity_resolver",
+      message: (err as Error).message,
+    });
   }
 }
 

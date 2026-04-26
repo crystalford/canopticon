@@ -105,6 +105,20 @@ interface ThesisAssumption {
   created_at: string;
 }
 
+interface ThesisFinding {
+  id: string;
+  title: string;
+  slug: string;
+  narrative: string;
+  novelty_grade: string;
+  pattern_type: string;
+  confidence: number | null;
+  status: string;
+  is_public: boolean;
+  surfaced_by: string;
+  created_at: string;
+}
+
 const LAYERS = ["factual", "framing", "architectural", "distributive"] as const;
 const IPCC_OPTIONS = [
   ["", "—"],
@@ -129,6 +143,7 @@ export default function ThesisDetailPage({ params }: { params: Promise<{ id: str
   const [articles, setArticles] = useState<ThesisArticle[]>([]);
   const [indicators, setIndicators] = useState<ThesisIndicator[]>([]);
   const [assumptions, setAssumptions] = useState<ThesisAssumption[]>([]);
+  const [findings, setFindings] = useState<ThesisFinding[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -142,8 +157,9 @@ export default function ThesisDetailPage({ params }: { params: Promise<{ id: str
       apiGet<ThesisArticle[]>(`/v1/articles?thesis_id=${id}`),
       apiGet<ThesisIndicator[]>(`/v1/indicators?thesis_id=${id}`),
       apiGet<ThesisAssumption[]>(`/v1/assumptions?thesis_id=${id}`),
+      apiGet<ThesisFinding[]>(`/v1/findings?thesis_id=${id}`),
     ])
-      .then(([t, c, q, p, a, ind, assume]) => {
+      .then(([t, c, q, p, a, ind, assume, find]) => {
         setThesis(t);
         setClaims(c);
         setQuestions(q);
@@ -151,6 +167,7 @@ export default function ThesisDetailPage({ params }: { params: Promise<{ id: str
         setArticles(a);
         setIndicators(ind);
         setAssumptions(assume);
+        setFindings(find);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : (err as Error).message));
   }, [id]);
@@ -177,6 +194,32 @@ export default function ThesisDetailPage({ params }: { params: Promise<{ id: str
     setActionError(null);
     try {
       await apiPost(`/v1/theses/${id}/publish`, {});
+      load();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : (err as Error).message);
+    } finally {
+      setActing(null);
+    }
+  }
+
+  async function runSurfaceGaps() {
+    setActing("surface_gaps");
+    setActionError(null);
+    try {
+      await apiPost(`/v1/theses/${id}/surface-gaps`, {});
+      load();
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : (err as Error).message);
+    } finally {
+      setActing(null);
+    }
+  }
+
+  async function runSurfaceFindings() {
+    setActing("surface_findings");
+    setActionError(null);
+    try {
+      await apiPost(`/v1/theses/${id}/surface-findings`, {});
       load();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : (err as Error).message);
@@ -220,7 +263,7 @@ export default function ThesisDetailPage({ params }: { params: Promise<{ id: str
           </>
         }
         actions={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               tone="secondary"
               size="sm"
@@ -228,6 +271,22 @@ export default function ThesisDetailPage({ params }: { params: Promise<{ id: str
               disabled={acting === "interrogate"}
             >
               {acting === "interrogate" ? "..." : "generate questions"}
+            </Button>
+            <Button
+              tone="secondary"
+              size="sm"
+              onClick={runSurfaceGaps}
+              disabled={acting === "surface_gaps"}
+            >
+              {acting === "surface_gaps" ? "..." : "surface gaps"}
+            </Button>
+            <Button
+              tone="secondary"
+              size="sm"
+              onClick={runSurfaceFindings}
+              disabled={acting === "surface_findings"}
+            >
+              {acting === "surface_findings" ? "..." : "surface findings"}
             </Button>
             {!thesis.is_public && (
               <Button tone="primary" size="sm" onClick={publish} disabled={acting === "publish"}>
@@ -500,6 +559,47 @@ export default function ThesisDetailPage({ params }: { params: Promise<{ id: str
           </ul>
         )}
         <DraftArticlePanel thesisId={id} thesisTitle={thesis.title} thesisSlug={thesis.slug} />
+      </section>
+
+      <section className="mt-10">
+        <header className="flex items-baseline justify-between mb-3">
+          <h2 className="font-serif text-xl text-cream">Findings</h2>
+          <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
+            {findings.filter((f) => f.novelty_grade === "breakthrough").length} breakthrough ·{" "}
+            {findings.filter((f) => f.novelty_grade === "notable").length} notable ·{" "}
+            {findings.filter((f) => f.novelty_grade === "incremental").length} incremental
+          </span>
+        </header>
+        {findings.length === 0 ? (
+          <p className="text-text-faint font-mono text-xs uppercase tracking-widest mb-4">
+            no findings yet · use &quot;surface findings&quot; above to fire the Novelty Surfacer
+          </p>
+        ) : (
+          <ul className="space-y-3 mb-4">
+            {findings.map((f) => (
+              <li key={f.id} className="border-l-2 border-amber-dim pl-3 py-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-cream font-serif">{f.title}</p>
+                  <Badge tone={findingGradeTone(f.novelty_grade)}>{f.novelty_grade}</Badge>
+                </div>
+                <p className="text-text-dim text-sm mt-1 leading-relaxed">{f.narrative}</p>
+                <div className="flex gap-2 mt-2 items-baseline flex-wrap">
+                  <Badge tone="neutral">{f.pattern_type.replace(/_/g, " ")}</Badge>
+                  <Badge tone={findingStatusTone(f.status)}>{f.status}</Badge>
+                  {f.is_public && <Badge tone="amber">public</Badge>}
+                  {f.confidence !== null && (
+                    <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
+                      confidence {Number(f.confidence).toFixed(2)}
+                    </span>
+                  )}
+                  <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
+                    via {f.surfaced_by}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="mt-10">
@@ -909,6 +1009,19 @@ function articleTone(status: string): "amber" | "sage" | "signal" | "neutral" {
   if (status === "published") return "sage";
   if (status === "corrected") return "amber";
   if (status === "retracted") return "signal";
+  return "neutral";
+}
+
+function findingGradeTone(g: string): "amber" | "sage" | "blue" {
+  if (g === "breakthrough") return "amber";
+  if (g === "notable") return "blue";
+  return "sage";
+}
+
+function findingStatusTone(s: string): "amber" | "sage" | "signal" | "neutral" {
+  if (s === "public") return "sage";
+  if (s === "confirmed") return "amber";
+  if (s === "retracted") return "signal";
   return "neutral";
 }
 

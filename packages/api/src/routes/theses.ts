@@ -21,7 +21,9 @@ import { requireAuth } from "../auth/middleware.ts";
 import { AnthropicClient } from "../lib/anthropic.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
 import { serviceClient, userClient } from "../lib/supabase.ts";
+import { runGapSurfacer } from "../orchestrator/gap_surfacer.ts";
 import { runInterrogator } from "../orchestrator/interrogator.ts";
+import { runNoveltySurfacer } from "../orchestrator/novelty_surfacer.ts";
 import { runPublicationGate } from "../orchestrator/publication.ts";
 
 const theses = new Hono<AuthContext>();
@@ -379,6 +381,60 @@ theses.post("/:id/publish", async (c) => {
   });
 
   return c.json({ data: result });
+});
+
+// --- gap surfacer + novelty surfacer (manual fire) ----------------------
+
+theses.post("/:id/surface-gaps", async (c) => {
+  const id = c.req.param("id");
+  if (!id) throw badRequest("Missing :id parameter");
+  const userId = c.get("user_id");
+
+  const ctx = {
+    service: serviceClient(c.env),
+    anthropic: new AnthropicClient({ apiKey: c.env.ANTHROPIC_API_KEY }),
+  };
+
+  const result = await runGapSurfacer(ctx, {
+    user_id: userId,
+    thesis_id: id,
+    triggered_by: "operator_manual",
+  });
+
+  if (result.status === "denied") {
+    return c.json({ data: { status: "pending_approval", decision: result.decision } }, 202);
+  }
+  if (result.status === "skipped") {
+    return c.json({ data: { status: "skipped", reason: result.reason } });
+  }
+  return c.json({
+    data: { ...result.report, questions_written: result.questions_written },
+  });
+});
+
+theses.post("/:id/surface-findings", async (c) => {
+  const id = c.req.param("id");
+  if (!id) throw badRequest("Missing :id parameter");
+  const userId = c.get("user_id");
+
+  const ctx = {
+    service: serviceClient(c.env),
+    anthropic: new AnthropicClient({ apiKey: c.env.ANTHROPIC_API_KEY }),
+  };
+
+  const result = await runNoveltySurfacer(ctx, {
+    user_id: userId,
+    thesis_id: id,
+    triggered_by: "operator_manual",
+  });
+
+  if (result.status === "denied") {
+    return c.json({ data: { status: "pending_approval", decision: result.decision } }, 202);
+  }
+  if (result.status === "skipped") {
+    return c.json({ data: { status: "skipped", reason: result.reason } });
+  }
+  return c.json({ data: result.report });
 });
 
 export default theses;
