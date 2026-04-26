@@ -1,6 +1,4 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "InterrogatorOutput",
   "type": "object",
   "required": ["questions"],
   "properties": {
@@ -10,19 +8,13 @@
       "maxItems": 7,
       "items": {
         "type": "object",
-        "required": ["text", "expected_information_gain", "rationale", "evidence_targets"],
+        "required": ["question_text", "eig_score", "rationale"],
         "properties": {
-          "text": { "type": "string" },
-          "expected_information_gain": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "rationale": { "type": "string" },
-          "evidence_targets": {
-            "type": "array",
-            "items": { "type": "string" }
-          }
+          "question_text": { "type": "string" },
+          "eig_score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "related_entity_names": { "type": "array", "items": { "type": "string" } },
+          "depends_on_questions": { "type": "array", "items": { "type": "string" } },
+          "rationale": { "type": "string" }
         }
       }
     }

@@ -1,63 +1,27 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ClaimExtractionOutput",
   "type": "object",
   "required": ["claims"],
   "properties": {
     "claims": {
       "type": "array",
+      "minItems": 0,
       "maxItems": 10,
       "items": {
         "type": "object",
-        "required": [
-          "data",
-          "claim_text",
-          "layer",
-          "admiralty_grade",
-          "source_passage",
-          "entities"
-        ],
+        "required": ["data", "claim_text", "qualifier", "layer"],
         "properties": {
           "data": { "type": "string" },
           "claim_text": { "type": "string" },
           "warrant": { "type": ["string", "null"] },
-          "qualifier": { "type": ["string", "null"] },
+          "backing": { "type": ["string", "null"] },
+          "qualifier": { "type": "string" },
           "rebuttal": { "type": ["string", "null"] },
           "layer": {
             "type": "string",
             "enum": ["factual", "framing", "architectural", "distributive"]
           },
-          "admiralty_grade": {
-            "type": "string",
-            "enum": ["A", "B", "C", "D", "E", "F"]
-          },
-          "source_passage": { "type": "string" },
-          "entities": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["surface_text", "entity_type_hint"],
-              "properties": {
-                "surface_text": { "type": "string" },
-                "entity_type_hint": {
-                  "type": "string",
-                  "enum": [
-                    "person",
-                    "organization",
-                    "institution",
-                    "corporation",
-                    "department",
-                    "office",
-                    "legislation",
-                    "event",
-                    "concept",
-                    "location"
-                  ]
-                },
-                "context_excerpt": { "type": "string" }
-              }
-            }
-          }
+          "entities_mentioned": { "type": "array", "items": { "type": "string" } },
+          "source_excerpt": { "type": "string" }
         }
       }
     }

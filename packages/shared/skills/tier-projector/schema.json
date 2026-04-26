@@ -1,13 +1,11 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "TierProjectorOutput",
   "type": "object",
-  "required": ["bluf", "tier_80", "tier_800", "tier_full", "ipcc_likelihood"],
+  "required": ["tier_bluf", "tier_80", "tier_800", "ipcc_likelihood", "grade_weighted_ratio"],
   "properties": {
-    "bluf": { "type": "string", "maxLength": 500 },
+    "tier_bluf": { "type": "string" },
     "tier_80": { "type": "string" },
     "tier_800": { "type": "string" },
-    "tier_full": { "type": "string" },
+    "tier_full": { "type": ["string", "null"] },
     "ipcc_likelihood": {
       "type": "string",
       "enum": [
@@ -22,6 +20,8 @@
         "extremely_unlikely",
         "exceptionally_unlikely"
       ]
-    }
+    },
+    "grade_weighted_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+    "change_summary": { "type": "string" }
   }
 }

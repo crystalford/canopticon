@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "required": ["proposed_relation", "reasoning"],
+  "properties": {
+    "proposed_relation": {
+      "type": "string",
+      "enum": ["duplicate", "refinement", "contradiction", "distinct"]
+    },
+    "related_claim_id": { "type": ["string", "null"] },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "reasoning": { "type": "string" }
+  }
+}

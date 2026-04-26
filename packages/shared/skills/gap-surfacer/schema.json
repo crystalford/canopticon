@@ -1,44 +1,30 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "GapSurfacerOutput",
   "type": "object",
-  "required": ["gaps", "summary"],
+  "required": ["stage_gaps", "structural_holes", "summary"],
   "properties": {
-    "gaps": {
+    "stage_gaps": {
+      "type": "object",
+      "properties": {
+        "missing_entities": { "type": "array", "items": { "type": "string" } },
+        "missing_relations": { "type": "array", "items": { "type": "string" } },
+        "counter_evidence": { "type": "array", "items": { "type": "string" } },
+        "time_periods": { "type": "array", "items": { "type": "string" } },
+        "stakeholder_perspectives": { "type": "array", "items": { "type": "string" } },
+        "comparison_cases": { "type": "array", "items": { "type": "string" } },
+        "disconfirming_indicators": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "structural_holes": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["stage", "description", "target_question", "severity"],
         "properties": {
-          "stage": {
-            "type": "string",
-            "enum": [
-              "entities",
-              "time",
-              "geography",
-              "evidence",
-              "source",
-              "counter_cases",
-              "lineage"
-            ]
-          },
-          "description": { "type": "string" },
-          "target_question": { "type": "string" },
-          "severity": {
-            "type": "string",
-            "enum": ["minor", "notable", "blocking"]
-          },
-          "suggested_role": {
-            "type": "string",
-            "enum": ["interrogator", "verifier", "operator_research"]
-          }
+          "cluster_a": { "type": "string" },
+          "cluster_b": { "type": "string" },
+          "missing_connection": { "type": "string" }
         }
       }
     },
-    "summary": { "type": "string" },
-    "top_priorities": {
-      "type": "array",
-      "items": { "type": "string" }
-    }
+    "summary": { "type": "string" }
   }
 }

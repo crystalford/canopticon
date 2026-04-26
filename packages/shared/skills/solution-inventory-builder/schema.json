@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "required": ["entries"],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["jurisdiction", "proposed_mechanism", "intervention_tier"],
+        "properties": {
+          "jurisdiction": { "type": "string" },
+          "proposed_mechanism": { "type": "string" },
+          "intervention_tier": { "type": "string", "enum": ["symptom", "mechanism", "structural"] },
+          "conditions_required": { "type": ["string", "null"] },
+          "observed_results": { "type": ["string", "null"] },
+          "why_worked": { "type": ["string", "null"] },
+          "why_failed": { "type": ["string", "null"] },
+          "exportability": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

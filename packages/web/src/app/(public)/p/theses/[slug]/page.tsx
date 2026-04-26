@@ -1,240 +1,104 @@
-import { Badge, Card } from "@/components/primitives";
-import { PublicApiError, publicGet } from "@/lib/public-api";
-import Link from "next/link";
-import { notFound } from "next/navigation";
+"use client";
 
-interface PublicThesisDetail {
-  id: string;
-  title: string;
+import { notFound, useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+
+interface PubThesis {
   slug: string;
-  status: string;
-  declared_at: string;
-  cynefin_domain: string | null;
-  current_version: {
-    version_number: number;
-    seed_paragraph: string;
-    bluf: string | null;
-    tier_80: string | null;
-    tier_800: string | null;
-    tier_full: string | null;
-    ipcc_likelihood: string | null;
-    created_at: string;
-  } | null;
-  contradictions: Array<{
-    id: string;
-    objection_text: string;
-    evidence_gap: string | null;
-    severity: string;
-    status: string;
-    generated_by: string;
-    created_at: string;
-  }>;
-  linchpin_assumptions: Array<{
-    id: string;
-    text: string;
-    status: string;
-    consequence_if_failed: string | null;
-  }>;
-  predictions: Array<{
-    id: string;
-    text: string;
-    probability: number;
-    ipcc_qualifier: string | null;
-    resolution_criteria: string;
-    resolution_horizon_at: string | null;
-    status: string;
-    brier_contribution: number | null;
-  }>;
+  title: string;
+  seed_summary?: string | null;
+  coined_phrase?: string | null;
+  ipcc_likelihood?: string | null;
+  tier_bluf: string;
+  tier_80: string;
+  tier_800: string;
+  tier_full?: string | null;
+  version_number: number;
+  primary_operator?: string | null;
+  published_at: string;
 }
 
-export const runtime = "edge";
-export const revalidate = 60;
+type Tier = "bluf" | "tier_80" | "tier_800" | "tier_full";
 
-export default async function PublicThesisPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  let thesis: PublicThesisDetail;
-  try {
-    thesis = await publicGet<PublicThesisDetail>(`/v1/public/theses/${slug}`);
-  } catch (err) {
-    if (err instanceof PublicApiError && err.status === 404) notFound();
-    throw err;
+export default function ThesisDetail() {
+  const params = useParams<{ slug: string }>();
+  const [thesis, setThesis] = useState<PubThesis | null>(null);
+  const [tier, setTier] = useState<Tier>("bluf");
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    fetch(`${apiBase}/v1/public/theses/${params.slug}`)
+      .then((r) => r.json())
+      .then((d: { thesis?: PubThesis; error?: unknown }) => {
+        if (d.thesis) setThesis(d.thesis);
+        else setError(true);
+      })
+      .catch(() => setError(true));
+  }, [params.slug]);
+
+  if (error) notFound();
+  if (!thesis) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-12 font-serif italic text-[#1a1410]/50">
+        Loading…
+      </div>
+    );
   }
 
-  const v = thesis.current_version;
+  const body =
+    tier === "bluf"
+      ? thesis.tier_bluf
+      : tier === "tier_80"
+        ? thesis.tier_80
+        : tier === "tier_800"
+          ? thesis.tier_800
+          : (thesis.tier_full ?? "Full tier not yet generated.");
 
   return (
-    <div className="px-6 py-10 max-w-4xl mx-auto">
-      <Link
-        href="/p"
-        className="text-text-dim hover:text-amber font-mono text-xs uppercase tracking-widest"
-      >
-        ← all theses
-      </Link>
+    <article className="mx-auto max-w-3xl px-6 py-12">
+      <p className="mb-2 font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+        v{thesis.version_number} · {new Date(thesis.published_at).toLocaleDateString()}
+        {thesis.ipcc_likelihood ? ` · IPCC: ${thesis.ipcc_likelihood.replace(/_/g, " ")}` : ""}
+      </p>
+      <h1 className="font-serif text-4xl leading-tight text-[#1a1410]">{thesis.title}</h1>
 
-      <header className="mt-4 mb-8">
-        <h1 className="font-serif text-3xl text-cream-bright mb-2">{thesis.title}</h1>
-        <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
-          {thesis.cynefin_domain ? `${thesis.cynefin_domain} · ` : ""}declared{" "}
-          {new Date(thesis.declared_at).toLocaleDateString()}
-          {v ? ` · v${v.version_number}` : ""}
+      {thesis.coined_phrase && (
+        <p className="mt-4 border-l-2 border-[#9c2333] pl-3 font-serif text-lg italic text-[#9c2333]">
+          "{thesis.coined_phrase}"
         </p>
-      </header>
-
-      {v?.bluf && (
-        <Card tone="amber" className="mb-8">
-          <p className="font-mono text-xs uppercase tracking-widest text-amber mb-2">BLUF</p>
-          <p className="text-cream-bright font-serif text-lg leading-relaxed">{v.bluf}</p>
-          {v.ipcc_likelihood && (
-            <p className="text-text-faint font-mono text-xs mt-2 uppercase tracking-widest">
-              {v.ipcc_likelihood.replace(/_/g, " ")}
-            </p>
-          )}
-        </Card>
       )}
 
-      {v?.tier_80 && (
-        <section className="mb-8">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-text-dim mb-2">
-            80-word
-          </h2>
-          <p className="text-text leading-relaxed">{v.tier_80}</p>
-        </section>
+      <div className="mt-8 flex gap-2 border-y border-[#1a1410]/15 py-2">
+        {(["bluf", "tier_80", "tier_800", "tier_full"] as Tier[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTier(t)}
+            className={`px-3 py-1 font-mono text-[10.5px] uppercase tracking-wider ${
+              tier === t ? "bg-[#1a1410] text-[#f4ede0]" : "text-[#5c4a3d] hover:bg-[#ede4d2]"
+            }`}
+          >
+            {t === "bluf"
+              ? "BLUF"
+              : t === "tier_80"
+                ? "80 words"
+                : t === "tier_800"
+                  ? "800 words"
+                  : "Full"}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6 whitespace-pre-line font-serif text-lg leading-relaxed text-[#1a1410]">
+        {body}
+      </div>
+
+      {thesis.primary_operator && (
+        <p className="mt-12 border-t border-[#1a1410]/15 pt-4 font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+          By {thesis.primary_operator}
+        </p>
       )}
-
-      {v?.tier_800 && (
-        <section className="mb-8">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-text-dim mb-2">
-            800-word
-          </h2>
-          <div className="text-text leading-relaxed whitespace-pre-line">{v.tier_800}</div>
-        </section>
-      )}
-
-      {v?.tier_full && (
-        <section className="mb-8">
-          <h2 className="font-mono text-xs uppercase tracking-widest text-text-dim mb-2">
-            full account
-          </h2>
-          <div className="text-text leading-relaxed whitespace-pre-line">{v.tier_full}</div>
-        </section>
-      )}
-
-      <section className="mb-8">
-        <h2 className="font-serif text-xl text-cream mb-3">Predictions</h2>
-        {thesis.predictions.length === 0 ? (
-          <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
-            no predictions yet
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {thesis.predictions.map((p) => (
-              <li key={p.id} className="border-b border-border-soft pb-3">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-text font-serif">{p.text}</p>
-                  <span className="text-amber font-mono text-xs uppercase tracking-widest shrink-0">
-                    p={Number(p.probability).toFixed(2)}
-                  </span>
-                </div>
-                <p className="text-text-dim text-sm mt-1 leading-relaxed">
-                  resolves: {p.resolution_criteria}
-                </p>
-                <div className="flex gap-2 mt-1 items-baseline flex-wrap">
-                  <Badge tone={predictionTone(p.status)}>{p.status.replace(/_/g, " ")}</Badge>
-                  {p.brier_contribution !== null && (
-                    <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
-                      brier {Number(p.brier_contribution).toFixed(3)}
-                    </span>
-                  )}
-                  {p.resolution_horizon_at && (
-                    <span className="text-text-faint font-mono text-xs">
-                      by {new Date(p.resolution_horizon_at).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <h2 className="font-serif text-xl text-cream mb-3">Linchpin assumptions</h2>
-        {thesis.linchpin_assumptions.length === 0 ? (
-          <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
-            no linchpin assumptions surfaced
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {thesis.linchpin_assumptions.map((a) => (
-              <li key={a.id} className="border-l-2 border-amber-dim pl-3">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <Badge tone={assumptionTone(a.status)}>{a.status}</Badge>
-                  <p className="text-text font-serif">{a.text}</p>
-                </div>
-                {a.consequence_if_failed && (
-                  <p className="text-text-dim text-sm mt-1 leading-relaxed">
-                    if it breaks: {a.consequence_if_failed}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <h2 className="font-serif text-xl text-cream mb-3">Contradictions</h2>
-        {thesis.contradictions.length === 0 ? (
-          <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
-            no open contradictions
-          </p>
-        ) : (
-          <ul className="space-y-3">
-            {thesis.contradictions.map((c) => (
-              <li key={c.id} className="border-l-2 border-signal-dim pl-3">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <Badge tone={severityTone(c.severity)}>{c.severity}</Badge>
-                  <Badge tone="neutral">{c.status}</Badge>
-                  <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
-                    via {c.generated_by}
-                  </span>
-                </div>
-                <p className="text-text font-serif mt-1">{c.objection_text}</p>
-                {c.evidence_gap && (
-                  <p className="text-text-dim text-sm mt-1 leading-relaxed">
-                    evidence gap: {c.evidence_gap}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+    </article>
   );
-}
-
-function predictionTone(status: string): "amber" | "sage" | "signal" | "neutral" {
-  if (status === "resolved_correct") return "sage";
-  if (status === "resolved_incorrect") return "signal";
-  if (status === "resolved_ambiguous") return "neutral";
-  if (status === "active") return "amber";
-  return "neutral";
-}
-
-function assumptionTone(status: string): "amber" | "sage" | "signal" | "neutral" {
-  if (status === "holding") return "sage";
-  if (status === "shaken") return "amber";
-  if (status === "broken") return "signal";
-  return "neutral";
-}
-
-function severityTone(severity: string): "amber" | "signal" | "neutral" {
-  if (severity === "major") return "signal";
-  if (severity === "notable") return "amber";
-  return "neutral";
 }

@@ -1,182 +1,138 @@
-// System routes — operator-facing observability.
-//
-//   GET /v1/system/health        process health (always 200 if reachable)
-//   GET /v1/system/costs         monthly + 30-day cost rollup
-//   GET /v1/system/role-activity per-role invocation rollup (last 7d / 30d)
+// Operations cockpit data: cost panel, cascade status, role health, Brier.
+// Powers the System screen in the operator app.
 
 import { Hono } from "hono";
-import type { AuthContext } from "../auth/middleware.ts";
-import { requireAuth } from "../auth/middleware.ts";
+import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { internal } from "../lib/errors.ts";
 import { userClient } from "../lib/supabase.ts";
+import { getPublicUserId } from "../lib/user.ts";
 
-const system = new Hono<AuthContext>();
-system.use("*", requireAuth());
+const app = new Hono<AuthContext>();
 
-system.get("/health", (c) => c.json({ data: { ok: true, ts: new Date().toISOString() } }));
+app.use("*", requireAuth());
 
-interface CostRow {
-  cost_cents: number;
-  operation_type: string;
-  occurred_at: string;
-  approved_by_operator: boolean;
-}
-
-interface UserRow {
-  monthly_ceiling_cents: number;
-}
-
-system.get("/costs", async (c) => {
-  const userId = c.get("user_id");
+app.get("/", async (c) => {
   const client = userClient(c.env, c.get("jwt"));
+  const userId = await getPublicUserId(client, c.get("user_id"));
 
-  const monthStart = monthStartIso();
-  const windowStart = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+  const sinceMonth = new Date();
+  sinceMonth.setUTCDate(1);
+  sinceMonth.setUTCHours(0, 0, 0, 0);
 
-  const [{ data: ledger, error: ledgerErr }, { data: user, error: userErr }] = await Promise.all([
+  const [ledgerR, lastCascadeR, rolesR, predsR, userRowR] = await Promise.all([
     client
       .from("cost_ledger")
-      .select("cost_cents, operation_type, occurred_at, approved_by_operator")
+      .select("operation_type, cost_cents, created_at")
       .eq("user_id", userId)
-      .gte("occurred_at", windowStart)
-      .order("occurred_at", { ascending: false })
-      .returns<CostRow[]>(),
-    client.from("users").select("monthly_ceiling_cents").eq("id", userId).maybeSingle<UserRow>(),
+      .gte("created_at", sinceMonth.toISOString()),
+    client
+      .from("cascade_runs")
+      .select("id, status, started_at, completed_at, spent_cents, stats, error_message")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(10),
+    client
+      .from("role_invocations")
+      .select("role_name, status")
+      .eq("user_id", userId)
+      .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString()),
+    client.from("predictions").select("status, brier_contribution, domain").eq("user_id", userId),
+    client
+      .from("users")
+      .select("monthly_ceiling_cents, ingestion_apis_enabled, cascade_cron_expr, named_operator")
+      .eq("id", userId)
+      .single(),
   ]);
 
-  if (ledgerErr) throw new Error(`system.costs.ledger: ${ledgerErr.message}`);
-  if (userErr) throw new Error(`system.costs.user: ${userErr.message}`);
-
-  const rows: CostRow[] = ledger ?? [];
-  const monthly = rows
-    .filter((r) => r.occurred_at >= monthStart)
-    .reduce((sum, r) => sum + r.cost_cents, 0);
-  const window30 = rows.reduce((sum, r) => sum + r.cost_cents, 0);
-
-  // Per-operation-type breakdown for the last 30 days.
-  const byOp: Record<string, { cents: number; count: number }> = {};
-  for (const r of rows) {
-    const slot = byOp[r.operation_type] ?? { cents: 0, count: 0 };
-    slot.cents += r.cost_cents;
-    slot.count += 1;
-    byOp[r.operation_type] = slot;
+  if (ledgerR.error || lastCascadeR.error || rolesR.error || predsR.error || userRowR.error) {
+    throw internal("system query failed");
   }
-  const by_operation_type = Object.entries(byOp)
-    .map(([operation_type, agg]) => ({ operation_type, ...agg }))
-    .sort((a, b) => b.cents - a.cents);
 
-  // Approved-by-operator vs auto split.
-  const approved_split = rows.reduce(
-    (acc, r) => {
-      if (r.approved_by_operator) acc.approved += r.cost_cents;
-      else acc.auto += r.cost_cents;
-      return acc;
-    },
-    { approved: 0, auto: 0 },
+  const monthlySpend = (ledgerR.data ?? []).reduce(
+    (s, r) => s + Number((r as { cost_cents: number }).cost_cents),
+    0,
   );
-
-  // Daily series for a sparkline.
-  const daily: Record<string, number> = {};
-  for (const r of rows) {
-    const day = r.occurred_at.slice(0, 10);
-    daily[day] = (daily[day] ?? 0) + r.cost_cents;
+  const byOp: Record<string, number> = {};
+  for (const r of ledgerR.data ?? []) {
+    const row = r as { operation_type: string; cost_cents: number };
+    byOp[row.operation_type] = (byOp[row.operation_type] ?? 0) + Number(row.cost_cents);
   }
-  const daily_series = Object.entries(daily)
-    .map(([day, cents]) => ({ day, cents }))
-    .sort((a, b) => a.day.localeCompare(b.day));
+
+  const roleStats: Record<string, { count: number; errors: number }> = {};
+  for (const r of rolesR.data ?? []) {
+    const row = r as { role_name: string; status: string };
+    const cur = roleStats[row.role_name] ?? { count: 0, errors: 0 };
+    cur.count++;
+    if (row.status === "failed") cur.errors++;
+    roleStats[row.role_name] = cur;
+  }
+
+  let brierTotal = 0;
+  let brierResolved = 0;
+  let active = 0;
+  for (const r of predsR.data ?? []) {
+    const row = r as { status: string; brier_contribution: number | null };
+    if (row.status === "active") active++;
+    if (row.brier_contribution !== null) {
+      brierTotal += Number(row.brier_contribution);
+      brierResolved++;
+    }
+  }
+  const rollingBrier = brierResolved > 0 ? brierTotal / brierResolved : null;
+
+  const userRow = userRowR.data as {
+    monthly_ceiling_cents: number;
+    ingestion_apis_enabled: boolean;
+    cascade_cron_expr: string | null;
+    named_operator: string | null;
+  };
 
   return c.json({
-    data: {
-      monthly_cents: monthly,
-      monthly_ceiling_cents: user?.monthly_ceiling_cents ?? 5000,
-      monthly_remaining_cents: Math.max(0, (user?.monthly_ceiling_cents ?? 5000) - monthly),
-      window_30d_cents: window30,
-      by_operation_type,
-      approved_split,
-      daily_series,
-      operation_count: rows.length,
+    cost: {
+      monthly_spend_cents: monthlySpend,
+      monthly_ceiling_cents: userRow.monthly_ceiling_cents,
+      by_operation: byOp,
+    },
+    cascade: {
+      last_runs: lastCascadeR.data ?? [],
+    },
+    roles: roleStats,
+    brier: {
+      rolling: rollingBrier,
+      resolved_count: brierResolved,
+      active_count: active,
+    },
+    settings: {
+      ingestion_apis_enabled: userRow.ingestion_apis_enabled,
+      cascade_cron_expr: userRow.cascade_cron_expr,
+      named_operator: userRow.named_operator,
     },
   });
 });
 
-interface InvocationRow {
-  role_name: string;
-  status: string;
-  cost_cents: number | null;
-  tokens_input: number | null;
-  tokens_output: number | null;
-  created_at: string;
-}
-
-system.get("/role-activity", async (c) => {
-  const userId = c.get("user_id");
+app.patch("/settings", async (c) => {
   const client = userClient(c.env, c.get("jwt"));
+  const userId = await getPublicUserId(client, c.get("user_id"));
+  const body = (await c.req.json()) as Record<string, unknown>;
 
-  const windowStart = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-
-  const { data, error } = await client
-    .from("role_invocations")
-    .select("role_name, status, cost_cents, tokens_input, tokens_output, created_at")
-    .eq("user_id", userId)
-    .gte("created_at", windowStart)
-    .order("created_at", { ascending: false })
-    .limit(2000)
-    .returns<InvocationRow[]>();
-  if (error) throw new Error(`system.role-activity: ${error.message}`);
-
-  const rows: InvocationRow[] = data ?? [];
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-
-  // Per-role rollup.
-  const byRole: Record<
-    string,
-    {
-      total: number;
-      success: number;
-      error: number;
-      partial: number;
-      total_cost_cents: number;
-      tokens_input: number;
-      tokens_output: number;
-      last_run_at: string | null;
-      last_7d: number;
-    }
-  > = {};
-  for (const r of rows) {
-    const slot = byRole[r.role_name] ?? {
-      total: 0,
-      success: 0,
-      error: 0,
-      partial: 0,
-      total_cost_cents: 0,
-      tokens_input: 0,
-      tokens_output: 0,
-      last_run_at: null,
-      last_7d: 0,
-    };
-    slot.total++;
-    if (r.status === "success") slot.success++;
-    else if (r.status === "error") slot.error++;
-    else if (r.status === "partial") slot.partial++;
-    slot.total_cost_cents += r.cost_cents ?? 0;
-    slot.tokens_input += r.tokens_input ?? 0;
-    slot.tokens_output += r.tokens_output ?? 0;
-    if (!slot.last_run_at || r.created_at > slot.last_run_at) slot.last_run_at = r.created_at;
-    if (r.created_at >= sevenDaysAgo) slot.last_7d++;
-    byRole[r.role_name] = slot;
+  const allowed = [
+    "monthly_ceiling_cents",
+    "ingestion_apis_enabled",
+    "cascade_cron_expr",
+    "named_operator",
+    "operator_credentials",
+  ];
+  const update: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (key in body) update[key] = body[key];
+  }
+  if (Object.keys(update).length === 0) {
+    return c.json({ ok: true, updated: 0 });
   }
 
-  const roles = Object.entries(byRole)
-    .map(([role_name, agg]) => ({ role_name, ...agg }))
-    .sort((a, b) => b.total - a.total);
-
-  return c.json({ data: { window_30d: roles, total_invocations: rows.length } });
+  const { error } = await client.from("users").update(update).eq("id", userId);
+  if (error) throw error;
+  return c.json({ ok: true, updated: Object.keys(update).length });
 });
 
-function monthStartIso(): string {
-  const d = new Date();
-  d.setUTCDate(1);
-  d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString();
-}
-
-export default system;
+export default app;

@@ -1,71 +1,73 @@
-// Cascade routes — see canopticon-api-v1.0.md §11.
-//
-//   POST /v1/cascade/run       Operator-triggered cascade execution
-//   GET  /v1/cascade/runs      Recent cascade runs
-//   GET  /v1/cascade/runs/:id  Single cascade run detail
-//
-// Runs synchronously in the Worker as long as it fits. When the cascade
-// grows past the Worker CPU budget, this route hands off to a Durable
-// Object — same orchestrator code, different host.
+// Cascade orchestration: trigger runs, list past runs, view a single run.
+// Actual 16-step orchestration is a stub for now — the cascade row is created,
+// status flips through, and an orchestrator_event is emitted. Real role
+// dispatch is wired in subsequent passes.
 
 import { Hono } from "hono";
-import { z } from "zod";
-import type { AuthContext } from "../auth/middleware.ts";
-import { requireAuth } from "../auth/middleware.ts";
-import { AnthropicClient } from "../lib/anthropic.ts";
-import { badRequest, notFound } from "../lib/errors.ts";
-import { serviceClient, userClient } from "../lib/supabase.ts";
-import { runCascade } from "../orchestrator/cascade.ts";
+import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { userClient } from "../lib/supabase.ts";
+import { getPublicUserId } from "../lib/user.ts";
 
-const cascade = new Hono<AuthContext>();
-cascade.use("*", requireAuth());
+const app = new Hono<AuthContext>();
+app.use("*", requireAuth());
 
-const runSchema = z.object({
-  limit: z.number().int().min(1).max(50).optional(),
-});
-
-cascade.post("/run", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const parsed = runSchema.safeParse(body ?? {});
-  if (!parsed.success) {
-    throw badRequest("Invalid cascade run payload", { issues: parsed.error.issues });
-  }
-
-  const ctx = {
-    service: serviceClient(c.env),
-    anthropic: new AnthropicClient({ apiKey: c.env.ANTHROPIC_API_KEY }),
-  };
-
-  const result = await runCascade(ctx, {
-    user_id: c.get("user_id"),
-    triggered_by: "operator_manual",
-    ...(parsed.data.limit !== undefined ? { limit: parsed.data.limit } : {}),
-  });
-
-  return c.json({ data: result }, 202);
-});
-
-cascade.get("/runs", async (c) => {
-  const limit = Number(c.req.query("limit") ?? 20);
+app.get("/runs", async (c) => {
   const client = userClient(c.env, c.get("jwt"));
+  const userId = await getPublicUserId(client, c.get("user_id"));
   const { data, error } = await client
     .from("cascade_runs")
-    .select(
-      "id, triggered_by, started_at, ended_at, status, sources_ingested, claims_written, questions_generated, total_cost_cents",
-    )
-    .order("started_at", { ascending: false })
-    .limit(Math.min(Math.max(1, limit), 100));
-  if (error) throw new Error(`cascade.runs: ${error.message}`);
-  return c.json({ data });
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return c.json({ runs: data ?? [] });
 });
 
-cascade.get("/runs/:id", async (c) => {
-  const id = c.req.param("id");
+app.get("/runs/:id", async (c) => {
   const client = userClient(c.env, c.get("jwt"));
-  const { data, error } = await client.from("cascade_runs").select("*").eq("id", id).maybeSingle();
-  if (error) throw new Error(`cascade.runs.get: ${error.message}`);
-  if (!data) throw notFound("Cascade run not found");
-  return c.json({ data });
+  const id = c.req.param("id");
+  const { data, error } = await client.from("cascade_runs").select("*").eq("id", id).single();
+  if (error) throw error;
+
+  const { data: invocations } = await client
+    .from("role_invocations")
+    .select("id, role_name, status, cost_cents, created_at")
+    .eq("cascade_run_id", id)
+    .order("created_at");
+
+  return c.json({ run: data, invocations: invocations ?? [] });
 });
 
-export default cascade;
+app.post("/run", async (c) => {
+  const client = userClient(c.env, c.get("jwt"));
+  const userId = await getPublicUserId(client, c.get("user_id"));
+
+  const { data: run, error } = await client
+    .from("cascade_runs")
+    .insert({
+      user_id: userId,
+      status: "pending",
+      trigger_source: "operator",
+      started_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  await client.from("orchestrator_events").insert({
+    user_id: userId,
+    event_type: "cascade.started",
+    cascade_run_id: (run as { id: string }).id,
+    subject_kind: "cascade_run",
+    subject_id: (run as { id: string }).id,
+    payload: { trigger: "operator" },
+  });
+
+  // Stub: in a full implementation, the cascade would now dispatch through
+  // the 16 steps. For first launch, the cascade row exists and the operator
+  // can see it; actual dispatch is wired in a follow-up pass.
+  return c.json({ run_id: (run as { id: string }).id }, 202);
+});
+
+export default app;

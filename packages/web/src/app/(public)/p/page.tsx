@@ -1,74 +1,154 @@
-import { Badge } from "@/components/primitives";
-import { PublicApiError, publicGet } from "@/lib/public-api";
+// Public home: lead investigation + theses + predictions + contradictions.
+
+import { publicGet } from "@/lib/public-api";
 import Link from "next/link";
 
-interface PublicThesisRow {
-  id: string;
-  title: string;
+export const runtime = "edge";
+
+interface PubArticle {
+  article_id: string;
   slug: string;
-  status: string;
-  declared_at: string;
-  cynefin_domain: string | null;
-  bluf: string | null;
-  ipcc_likelihood: string | null;
-  updated_at: string;
+  title: string;
+  subtitle?: string | null;
+  author?: string | null;
+  byline_date?: string | null;
+  reading_time_minutes?: number | null;
+  published_at: string;
 }
 
-export const revalidate = 60;
+interface PubThesis {
+  thesis_id: string;
+  slug: string;
+  title: string;
+  coined_phrase?: string | null;
+  ipcc_likelihood?: string | null;
+  tier_bluf: string;
+}
 
-export default async function PublicThesesIndex() {
-  let theses: PublicThesisRow[] = [];
-  let error: string | null = null;
-  try {
-    theses = await publicGet<PublicThesisRow[]>("/v1/public/theses");
-  } catch (err) {
-    error = err instanceof PublicApiError ? err.message : (err as Error).message;
-  }
+interface PubPrediction {
+  prediction_id: string;
+  slug: string;
+  statement: string;
+  confidence_pct: number;
+  resolution_horizon: string;
+  status: string;
+}
+
+interface PubContradiction {
+  contradiction_id: string;
+  slug: string;
+  posture: string;
+  resolution_reasoning: string | null;
+  payload: { headline?: string };
+}
+
+export default async function PublicHomePage() {
+  const [articlesR, thesesR, predsR, contraR] = await Promise.all([
+    publicGet<{ articles: PubArticle[] }>("/v1/public/articles", 60).catch(() => ({
+      articles: [],
+    })),
+    publicGet<{ theses: PubThesis[] }>("/v1/public/theses", 60).catch(() => ({ theses: [] })),
+    publicGet<{ predictions: PubPrediction[] }>("/v1/public/predictions", 60).catch(() => ({
+      predictions: [],
+    })),
+    publicGet<{ contradictions: PubContradiction[] }>("/v1/public/contradictions", 60).catch(
+      () => ({ contradictions: [] }),
+    ),
+  ]);
+
+  const lead = articlesR.articles[0];
+  const theses = thesesR.theses.slice(0, 3);
+  const activePreds = predsR.predictions.filter((p) => p.status === "active").slice(0, 3);
+  const contradictions = contraR.contradictions.slice(0, 3);
 
   return (
-    <div className="px-6 py-12 max-w-4xl mx-auto">
-      <header className="mb-10">
-        <h1 className="font-serif text-3xl text-cream-bright mb-2">CANOPTICON</h1>
-        <p className="text-text-dim font-mono text-xs uppercase tracking-widest">
-          forensic intelligence · published theses
-        </p>
-        <p className="text-text-dim leading-relaxed mt-4 max-w-2xl">
-          Each thesis is a formal claim about Canadian political-economic structure, supported by
-          documentary evidence. Predictions are tracked over time and scored against outcomes.
-          Contradictions and load-bearing assumptions are surfaced directly — there is nothing the
-          operator believes that the public surface hides.
-        </p>
-      </header>
+    <div className="mx-auto max-w-4xl px-6 py-12">
+      {lead && (
+        <article className="mb-16 border-b border-[#1a1410]/15 pb-12">
+          <p className="mb-2 font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+            Lead investigation ·{" "}
+            {lead.byline_date ?? new Date(lead.published_at).toLocaleDateString()}
+          </p>
+          <h1 className="font-serif text-5xl leading-tight text-[#1a1410]">{lead.title}</h1>
+          {lead.subtitle && (
+            <p className="mt-3 font-serif text-xl italic text-[#1a1410]/70">{lead.subtitle}</p>
+          )}
+          <Link
+            href={`/p/articles/${lead.slug}`}
+            className="mt-4 inline-block font-mono text-[10.5px] uppercase tracking-wider text-[#9c2333] hover:underline"
+          >
+            Read full investigation →
+          </Link>
+        </article>
+      )}
 
-      {error && <p className="text-signal font-mono text-xs mb-6">could not load: {error}</p>}
-
-      {theses.length === 0 ? (
-        <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
-          no public theses yet
-        </p>
-      ) : (
-        <ol className="divide-y divide-border-soft">
+      <section className="mb-12">
+        <h2 className="mb-4 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+          Theses in progress
+        </h2>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {theses.map((t) => (
-            <li key={t.id} className="py-6">
-              <Link href={`/p/theses/${t.slug}`} className="block group">
-                <div className="flex items-baseline justify-between gap-4 mb-2">
-                  <h2 className="font-serif text-xl text-cream group-hover:text-cream-bright">
-                    {t.title}
-                  </h2>
-                  {t.ipcc_likelihood && (
-                    <Badge tone="amber">{t.ipcc_likelihood.replace(/_/g, " ")}</Badge>
-                  )}
-                </div>
-                {t.bluf && <p className="text-text leading-relaxed mb-2">{t.bluf}</p>}
-                <p className="text-text-faint font-mono text-xs">
-                  {t.cynefin_domain ? `${t.cynefin_domain} · ` : ""}declared{" "}
-                  {new Date(t.declared_at).toLocaleDateString()}
-                </p>
-              </Link>
+            <Link key={t.thesis_id} href={`/p/theses/${t.slug}`} className="block">
+              <article className="border border-[#1a1410]/15 bg-[#ede4d2] p-4 hover:border-[#9c2333]">
+                {t.ipcc_likelihood && (
+                  <p className="font-mono text-[9.5px] uppercase tracking-wider text-[#9c2333]">
+                    {t.ipcc_likelihood.replace(/_/g, " ")}
+                  </p>
+                )}
+                <h3 className="mt-2 font-serif text-lg text-[#1a1410]">{t.title}</h3>
+                <p className="mt-2 font-serif text-sm italic text-[#1a1410]/70">{t.tier_bluf}</p>
+              </article>
+            </Link>
+          ))}
+          {theses.length === 0 && (
+            <p className="col-span-3 font-serif italic text-[#1a1410]/50">
+              No published theses yet.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="mb-12">
+        <h2 className="mb-4 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+          Active predictions
+        </h2>
+        <ul className="space-y-3">
+          {activePreds.map((p) => (
+            <li key={p.prediction_id} className="border-b border-[#1a1410]/10 pb-3">
+              <div className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+                {p.confidence_pct}% by {p.resolution_horizon}
+              </div>
+              <p className="mt-1 font-serif text-base text-[#1a1410]">{p.statement}</p>
             </li>
           ))}
-        </ol>
-      )}
+          {activePreds.length === 0 && (
+            <li className="font-serif italic text-[#1a1410]/50">No active predictions.</li>
+          )}
+        </ul>
+      </section>
+
+      <section>
+        <h2 className="mb-4 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+          Contradictions tracked
+        </h2>
+        <ul className="space-y-3">
+          {contradictions.map((c) => (
+            <li key={c.contradiction_id} className="border-l-2 border-[#9c2333] pl-3">
+              <div className="font-mono text-[10.5px] uppercase tracking-wider text-[#9c2333]">
+                {c.posture.replace(/_/g, " ")}
+              </div>
+              {c.resolution_reasoning && (
+                <p className="mt-1 font-serif text-sm italic text-[#1a1410]/80">
+                  {c.resolution_reasoning}
+                </p>
+              )}
+            </li>
+          ))}
+          {contradictions.length === 0 && (
+            <li className="font-serif italic text-[#1a1410]/50">No tracked contradictions yet.</li>
+          )}
+        </ul>
+      </section>
     </div>
   );
 }

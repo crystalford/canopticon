@@ -5,8 +5,7 @@
 // service-client filters by is_public on our behalf. Calls run in
 // server components so we can use Next.js's incremental cache.
 
-interface Envelope<T> {
-  data?: T;
+interface ErrorBody {
   error?: { code: string; message: string };
 }
 
@@ -32,14 +31,11 @@ export async function publicGet<T>(path: string, revalidate = 60): Promise<T> {
     next: { revalidate },
     headers: { accept: "application/json" },
   });
-  const json = (await res.json()) as Envelope<T>;
+  const json = (await res.json()) as ErrorBody & Record<string, unknown>;
   if (!res.ok || json.error) {
     const code = json.error?.code ?? "unknown";
     const msg = json.error?.message ?? `Request failed: ${res.status}`;
     throw new PublicApiError(res.status, code, msg);
   }
-  if (json.data === undefined) {
-    throw new PublicApiError(res.status, "no_data", "Response envelope missing data");
-  }
-  return json.data;
+  return json as T;
 }

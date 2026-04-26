@@ -36,8 +36,7 @@ async function authHeader(): Promise<Record<string, string>> {
   return token ? { authorization: `Bearer ${token}` } : {};
 }
 
-interface Envelope<T> {
-  data?: T;
+interface ErrorBody {
   error?: { code: string; message: string; details?: unknown };
 }
 
@@ -47,10 +46,21 @@ export async function apiGet<T>(path: string): Promise<T> {
   return unwrap<T>(res);
 }
 
-export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+  const headers = await authHeader();
+  const init: RequestInit = {
+    method: "POST",
+    headers: { ...headers, "content-type": "application/json" },
+  };
+  if (body !== undefined) init.body = JSON.stringify(body);
+  const res = await fetch(`${apiBaseUrl()}${path}`, init);
+  return unwrap<T>(res);
+}
+
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   const headers = await authHeader();
   const res = await fetch(`${apiBaseUrl()}${path}`, {
-    method: "POST",
+    method: "PATCH",
     headers: { ...headers, "content-type": "application/json" },
     body: JSON.stringify(body),
   });
@@ -65,12 +75,12 @@ async function unwrap<T>(res: Response): Promise<T> {
     }
     return undefined as T;
   }
-  const json = (await res.json()) as Envelope<T>;
+  const json = (await res.json()) as ErrorBody & Record<string, unknown>;
   if (!res.ok || json.error) {
     const err = json.error ?? { code: "unknown_error", message: `${res.status}` };
     throw new ApiError(res.status, err.code, err.message, err.details);
   }
-  return json.data as T;
+  return json as T;
 }
 
 // --- SSE via fetch streaming -----------------------------------------------

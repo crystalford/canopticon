@@ -1,43 +1,10 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "CalibrationOutput",
   "type": "object",
-  "required": ["narrative", "trend"],
+  "required": ["outcome", "resolution_narrative", "brier_contribution"],
   "properties": {
-    "narrative": { "type": "string" },
-    "trend": {
-      "type": "string",
-      "enum": ["improving", "stable", "degrading", "insufficient_data"]
-    },
-    "bins": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["band", "n", "empirical_rate"],
-        "properties": {
-          "band": { "type": "string" },
-          "n": { "type": "integer", "minimum": 0 },
-          "empirical_rate": { "type": "number", "minimum": 0, "maximum": 1 },
-          "note": { "type": "string" }
-        }
-      }
-    },
-    "domain_breakdown": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["domain", "n", "brier"],
-        "properties": {
-          "domain": { "type": "string" },
-          "n": { "type": "integer", "minimum": 0 },
-          "brier": { "type": "number", "minimum": 0, "maximum": 1 },
-          "note": { "type": "string" }
-        }
-      }
-    },
-    "adjustment_advice": {
-      "type": "array",
-      "items": { "type": "string" }
-    }
+    "outcome": { "type": "string", "enum": ["correct", "incorrect", "ambiguous"] },
+    "establishing_source_ids": { "type": "array", "items": { "type": "string" } },
+    "resolution_narrative": { "type": "string" },
+    "brier_contribution": { "type": "number", "minimum": 0, "maximum": 1 }
   }
 }

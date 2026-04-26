@@ -4,34 +4,42 @@
 // Reads packages/shared/skills/<name>/SKILL.md (and schema.json if present)
 // and updates the corresponding role_definitions rows in Supabase.
 //
-// Sprint 1 single-tenant assumption: one user has customized prompts (none
-// of them, since customization isn't a thing yet). The script blanket-
-// updates ALL role_definitions rows for each role across all users.
-// When per-user customization arrives, this script grows a "skip if
-// skill_md_hash differs from previous canonical" check.
+// SKILL.md format: YAML frontmatter + markdown body. Frontmatter must include
+//   name: ingestion_critic    # snake_case role_name enum value
+//   model: claude-opus-4-7
+//   features:
+//     citations_api: false
+//     structured_output: true
 //
 // Usage:
 //   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm sync-skills
 //
-// Required env:
-//   SUPABASE_URL
-//   SUPABASE_SERVICE_ROLE_KEY
-// Optional:
-//   DRY_RUN=1   — print what would change, don't write
-//   ROLE=name   — sync just one role (snake_case name)
+// Optional: DRY_RUN=1, ROLE=<snake_case_name>
 
+import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
-import { loadSkill } from "../packages/shared/src/skills/loader/load.ts";
+import { parse as parseYaml } from "yaml";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SKILLS_DIR = resolve(here, "../packages/shared/skills");
 
-interface CliOptions {
-  dryRun: boolean;
-  filterRole: string | null;
+interface SkillFrontmatter {
+  name: string;
+  model: string;
+  features: {
+    citations_api: boolean;
+    structured_output: boolean;
+  };
+}
+
+interface LoadedSkill {
+  name: string;
+  prompt: string;
+  hash: string;
+  frontmatter: SkillFrontmatter;
 }
 
 function readEnv(name: string): string {
@@ -43,22 +51,35 @@ function readEnv(name: string): string {
   return value;
 }
 
-function parseOptions(): CliOptions {
-  return {
-    dryRun: process.env.DRY_RUN === "1",
-    filterRole: process.env.ROLE ?? null,
-  };
+async function loadSkill(path: string): Promise<LoadedSkill> {
+  const raw = await readFile(path, "utf8");
+  const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  if (!match) throw new Error(`${path}: missing frontmatter`);
+  const fm = parseYaml(match[1] as string) as SkillFrontmatter;
+  const prompt = (match[2] as string).trim();
+  const hash = createHash("sha256").update(raw).digest("hex");
+  return { name: fm.name, prompt, hash, frontmatter: fm };
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function main() {
-  const opts = parseOptions();
+  const dryRun = process.env.DRY_RUN === "1";
+  const filterRole = process.env.ROLE ?? null;
   const url = readEnv("SUPABASE_URL");
   const key = readEnv("SUPABASE_SERVICE_ROLE_KEY");
   const client = createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  if (opts.dryRun) console.log("DRY_RUN=1 — no writes will be performed");
+  if (dryRun) console.log("DRY_RUN=1 — no writes will be performed");
 
   const entries = await readdir(SKILLS_DIR, { withFileTypes: true });
   const dirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
@@ -73,16 +94,16 @@ async function main() {
       continue;
     }
     const skill = await loadSkill(skillPath);
-    if (opts.filterRole && skill.name !== opts.filterRole) {
+    if (filterRole && skill.name !== filterRole) {
       skipped++;
       continue;
     }
 
     const schemaPath = resolve(SKILLS_DIR, dir, "schema.json");
-    let outputSchema: unknown = null;
+    let schemaJson: unknown = null;
     if (await exists(schemaPath)) {
       try {
-        outputSchema = JSON.parse(await readFile(schemaPath, "utf8"));
+        schemaJson = JSON.parse(await readFile(schemaPath, "utf8"));
       } catch (err) {
         console.error(`! ${dir}/schema.json failed to parse: ${(err as Error).message}`);
         process.exit(1);
@@ -91,17 +112,16 @@ async function main() {
 
     const update = {
       prompt_template: skill.prompt,
-      default_model: skill.frontmatter.model,
-      uses_citations_api: skill.frontmatter.features.citations_api,
-      uses_structured_output: skill.frontmatter.features.structured_output,
-      output_schema: outputSchema,
+      model: skill.frontmatter.model,
+      features: skill.frontmatter.features,
+      schema_json: schemaJson,
       skill_md_hash: skill.hash,
     };
 
-    if (opts.dryRun) {
+    if (dryRun) {
       console.log(`would update role_definitions WHERE name = ${skill.name}`);
       console.log(`  hash:   ${skill.hash.slice(0, 16)}…`);
-      console.log(`  model:  ${update.default_model}`);
+      console.log(`  model:  ${update.model}`);
       console.log(`  prompt: ${skill.prompt.length} chars`);
       synced++;
       continue;
@@ -120,15 +140,6 @@ async function main() {
   }
 
   console.log(`\n${synced} synced, ${skipped} skipped`);
-}
-
-async function exists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 main().catch((err) => {

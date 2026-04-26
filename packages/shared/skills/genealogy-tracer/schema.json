@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "required": ["events"],
+  "properties": {
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["event_role", "entity_name"],
+        "properties": {
+          "event_role": {
+            "type": "string",
+            "enum": ["first_appearance", "introducer", "amplifier", "funder", "material_interest"]
+          },
+          "entity_name": { "type": "string" },
+          "matched_entity_id": { "type": ["string", "null"] },
+          "occurred_at": { "type": ["string", "null"] },
+          "source_citation": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

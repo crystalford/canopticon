@@ -1,440 +1,135 @@
-// Theses routes — see canopticon-api-v1.0.md §7.
-//
-//   GET  /v1/theses                       list with status filter
-//   GET  /v1/theses/:id                   thesis with current version,
-//                                          claims by layer, open questions
-//   POST /v1/theses                       declare a new thesis
-//   POST /v1/theses/:id/versions          add a new version (BLUF, tiers,
-//                                          IPCC qualifier)
-//   GET  /v1/theses/:id/claims            integrated claims with layer
-//   POST /v1/theses/:id/claims            integrate a claim at a layer
-//   DELETE /v1/theses/:id/claims/:claim_id remove integration
-//   POST /v1/theses/:id/interrogate       fire the Interrogator on demand
-//   POST /v1/theses/:id/publish           mark is_public=TRUE; fires the
-//                                          publication-gate roles inline
+// Theses CRUD: list, fetch, create, update, watch-set management.
 
-import { CLAIM_LAYERS, IPCC_LIKELIHOODS } from "@canopticon/shared";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { AuthContext } from "../auth/middleware.ts";
-import { requireAuth } from "../auth/middleware.ts";
-import { AnthropicClient } from "../lib/anthropic.ts";
-import { badRequest, notFound } from "../lib/errors.ts";
-import { serviceClient, userClient } from "../lib/supabase.ts";
-import { runGapSurfacer } from "../orchestrator/gap_surfacer.ts";
-import { runInterrogator } from "../orchestrator/interrogator.ts";
-import { runNoveltySurfacer } from "../orchestrator/novelty_surfacer.ts";
-import { runPublicationGate } from "../orchestrator/publication.ts";
+import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { badRequest } from "../lib/errors.ts";
+import { userClient } from "../lib/supabase.ts";
+import { getPublicUserId } from "../lib/user.ts";
 
-const theses = new Hono<AuthContext>();
-theses.use("*", requireAuth());
+const app = new Hono<AuthContext>();
+app.use("*", requireAuth());
 
-// --- list / get ----------------------------------------------------------
-
-theses.get("/", async (c) => {
-  const status = c.req.query("status");
+app.get("/", async (c) => {
   const client = userClient(c.env, c.get("jwt"));
-  let q = client
+  const userId = await getPublicUserId(client, c.get("user_id"));
+  const { data, error } = await client
     .from("theses")
-    .select(
-      "id, title, slug, status, declared_at, cynefin_domain, is_public, created_at, updated_at",
-    )
-    .order("declared_at", { ascending: false })
-    .limit(100);
-  if (status) q = q.eq("status", status);
-  const { data, error } = await q;
-  if (error) throw new Error(`theses.list: ${error.message}`);
-  return c.json({ data });
+    .select(`
+      id, title, seed_summary, cynefin_domain, coined_phrase, ipcc_likelihood,
+      is_public, public_slug, primary_operator, archived_at, created_at, updated_at,
+      current_version:thesis_versions!theses_current_version_fk (id, version_number, tier_bluf, tier_80)
+    `)
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  return c.json({ theses: data ?? [] });
 });
 
-theses.get("/:id", async (c) => {
-  const id = c.req.param("id");
+app.get("/:id", async (c) => {
   const client = userClient(c.env, c.get("jwt"));
+  const id = c.req.param("id");
+  const { data, error } = await client.from("theses").select("*").eq("id", id).single();
+  if (error) throw error;
 
-  const [{ data: thesis, error: tErr }, { data: version, error: vErr }] = await Promise.all([
-    client
-      .from("theses")
-      .select(
-        "id, title, slug, status, declared_at, cynefin_domain, is_public, current_version_id, created_at, updated_at",
-      )
-      .eq("id", id)
-      .maybeSingle(),
+  const [versions, claims, watchSet, spine, inbox] = await Promise.all([
     client
       .from("thesis_versions")
-      .select(
-        "id, version_number, seed_paragraph, bluf, tier_80, tier_800, tier_full, ipcc_likelihood, change_summary, created_at",
-      )
+      .select("*")
       .eq("thesis_id", id)
-      .eq("is_current", true)
-      .maybeSingle(),
+      .order("version_number", { ascending: false }),
+    client
+      .from("thesis_claims")
+      .select("*")
+      .eq(
+        "thesis_version_id",
+        (data as { current_version_id: string }).current_version_id ??
+          "00000000-0000-0000-0000-000000000000",
+      ),
+    client.from("thesis_watch_sets").select("*").eq("thesis_id", id),
+    client.from("thesis_concept_spine").select("*").eq("thesis_id", id),
+    client.from("thesis_inbox").select("*").eq("thesis_id", id).eq("status", "pending"),
   ]);
-
-  if (tErr) throw new Error(`theses.get: ${tErr.message}`);
-  if (!thesis) throw notFound("Thesis not found");
-  if (vErr) throw new Error(`theses.get.version: ${vErr.message}`);
-
-  return c.json({ data: { ...thesis, current_version: version } });
+  return c.json({
+    thesis: data,
+    versions: versions.data ?? [],
+    claims: claims.data ?? [],
+    watch_set: watchSet.data ?? [],
+    concept_spine: spine.data ?? [],
+    inbox: inbox.data ?? [],
+  });
 });
-
-// --- create --------------------------------------------------------------
 
 const createSchema = z.object({
-  title: z.string().min(3).max(500),
-  slug: z
-    .string()
-    .min(3)
-    .max(120)
-    .regex(/^[a-z0-9-]+$/, "slug must be lowercase alphanumeric + dashes"),
-  seed_paragraph: z.string().min(20).max(4000),
-  cynefin_domain: z.enum(["clear", "complicated", "complex", "chaotic", "disorder"]).optional(),
+  title: z.string().min(1),
+  seed_summary: z.string().optional(),
+  cynefin_domain: z.enum(["simple", "complicated", "complex", "chaotic"]).optional(),
+  coined_phrase: z.string().optional(),
 });
 
-theses.post("/", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body) throw badRequest("Request body must be JSON");
-  const parsed = createSchema.safeParse(body);
-  if (!parsed.success) {
-    throw badRequest("Invalid thesis payload", { issues: parsed.error.issues });
-  }
-  const userId = c.get("user_id");
+app.post("/", async (c) => {
   const client = userClient(c.env, c.get("jwt"));
-
-  // Insert thesis row first (without current_version_id), then the
-  // initial thesis_versions row, then patch current_version_id.
-  const { data: thesisRow, error: tErr } = await client
+  const userId = await getPublicUserId(client, c.get("user_id"));
+  const parsed = createSchema.safeParse(await c.req.json());
+  if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
+  const { data, error } = await client
     .from("theses")
-    .insert({
-      user_id: userId,
-      title: parsed.data.title,
-      slug: parsed.data.slug,
-      status: "declared",
-      cynefin_domain: parsed.data.cynefin_domain ?? null,
-    })
+    .insert({ user_id: userId, ...parsed.data })
     .select("id")
     .single();
-  if (tErr) throw new Error(`theses.create: ${tErr.message}`);
-
-  const thesisId = thesisRow.id as string;
-
-  const { data: versionRow, error: vErr } = await client
-    .from("thesis_versions")
-    .insert({
-      thesis_id: thesisId,
-      user_id: userId,
-      version_number: 1,
-      is_current: true,
-      seed_paragraph: parsed.data.seed_paragraph,
-      change_summary: "initial declaration",
-    })
-    .select("id")
-    .single();
-  if (vErr) throw new Error(`theses.create.version: ${vErr.message}`);
-
-  await client
-    .from("theses")
-    .update({ current_version_id: versionRow.id as string })
-    .eq("id", thesisId);
-
-  return c.json({ data: { id: thesisId, version_id: versionRow.id } }, 201);
+  if (error) throw error;
+  return c.json({ id: (data as { id: string }).id }, 201);
 });
 
-// --- new version ---------------------------------------------------------
-
-const versionSchema = z.object({
-  seed_paragraph: z.string().min(20).max(4000),
-  bluf: z.string().max(500).optional(),
-  tier_80: z.string().max(800).optional(),
-  tier_800: z.string().max(8000).optional(),
-  tier_full: z.string().max(80_000).optional(),
-  ipcc_likelihood: z.enum(IPCC_LIKELIHOODS as readonly [string, ...string[]]).optional(),
-  change_summary: z.string().max(500).optional(),
+const updateSchema = z.object({
+  title: z.string().optional(),
+  seed_summary: z.string().optional(),
+  coined_phrase: z.string().optional(),
+  coined_phrase_definition: z.string().optional(),
+  falsifying_observation: z.string().optional(),
+  is_falsifiable: z.boolean().optional(),
+  primary_operator: z.string().optional(),
+  teachable_diagram_uri: z.string().optional(),
+  public_graph_artifact_uri: z.string().optional(),
 });
 
-theses.post("/:id/versions", async (c) => {
-  const id = c.req.param("id");
-  if (!id) throw badRequest("Missing :id parameter");
-  const body = await c.req.json().catch(() => null);
-  if (!body) throw badRequest("Request body must be JSON");
-  const parsed = versionSchema.safeParse(body);
-  if (!parsed.success) {
-    throw badRequest("Invalid version payload", { issues: parsed.error.issues });
-  }
-  const userId = c.get("user_id");
+app.patch("/:id", async (c) => {
   const client = userClient(c.env, c.get("jwt"));
-
-  const { data: existing, error: existingErr } = await client
-    .from("thesis_versions")
-    .select("version_number")
-    .eq("thesis_id", id)
-    .order("version_number", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (existingErr) throw new Error(`theses.versions: ${existingErr.message}`);
-  const nextVersion = ((existing?.version_number as number) ?? 0) + 1;
-
-  const { data: row, error: insertErr } = await client
-    .from("thesis_versions")
-    .insert({
-      thesis_id: id,
-      user_id: userId,
-      version_number: nextVersion,
-      is_current: true,
-      seed_paragraph: parsed.data.seed_paragraph,
-      bluf: parsed.data.bluf ?? null,
-      tier_80: parsed.data.tier_80 ?? null,
-      tier_800: parsed.data.tier_800 ?? null,
-      tier_full: parsed.data.tier_full ?? null,
-      ipcc_likelihood: parsed.data.ipcc_likelihood ?? null,
-      change_summary: parsed.data.change_summary ?? "manual update",
-    })
-    .select("id, version_number")
-    .single();
-  if (insertErr) throw new Error(`theses.versions.insert: ${insertErr.message}`);
-
-  await client
-    .from("theses")
-    .update({ current_version_id: row.id as string })
-    .eq("id", id);
-
-  return c.json({ data: row });
+  const id = c.req.param("id");
+  const parsed = updateSchema.safeParse(await c.req.json());
+  if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
+  const { error } = await client.from("theses").update(parsed.data).eq("id", id);
+  if (error) throw error;
+  return c.json({ ok: true });
 });
 
-// --- claims --------------------------------------------------------------
+const watchAddSchema = z.object({
+  entity_id: z.string().uuid(),
+  excluded: z.boolean().optional(),
+});
 
-theses.get("/:id/claims", async (c) => {
-  const id = c.req.param("id");
+app.post("/:id/watch-set", async (c) => {
   const client = userClient(c.env, c.get("jwt"));
-
-  const { data: tcs, error: tcErr } = await client
-    .from("thesis_claims")
-    .select("claim_id, layer, added_at")
-    .eq("thesis_id", id)
-    .is("removed_at", null);
-  if (tcErr) throw new Error(`theses.claims: ${tcErr.message}`);
-
-  const ids = (tcs ?? []).map((row) => (row as { claim_id: string }).claim_id);
-  if (ids.length === 0) return c.json({ data: [] });
-
-  const { data: claims, error: cErr } = await client
-    .from("claims")
-    .select("id, layer, admiralty_grade, verification_status, current_version_id")
-    .in("id", ids);
-  if (cErr) throw new Error(`theses.claims.fetch: ${cErr.message}`);
-
-  // Pull current version texts so the studio screen can render claim_text
-  // without an extra round-trip per claim.
-  const versionIds = (claims ?? [])
-    .map((row) => (row as { current_version_id: string | null }).current_version_id)
-    .filter((v): v is string => Boolean(v));
-  const versionsById: Record<string, { claim_text: string; data: string }> = {};
-  if (versionIds.length > 0) {
-    const { data: versions } = await client
-      .from("claim_versions")
-      .select("id, claim_id, claim_text, data")
-      .in("id", versionIds);
-    for (const v of versions ?? []) {
-      const row = v as { id: string; claim_text: string; data: string };
-      versionsById[row.id] = { claim_text: row.claim_text, data: row.data };
-    }
-  }
-
-  const integrationByClaim: Record<string, { layer: string; added_at: string }> = {};
-  for (const tc of tcs ?? []) {
-    const row = tc as { claim_id: string; layer: string; added_at: string };
-    integrationByClaim[row.claim_id] = { layer: row.layer, added_at: row.added_at };
-  }
-
-  const merged = (claims ?? []).map((row) => {
-    const claim = row as {
-      id: string;
-      layer: string;
-      admiralty_grade: string;
-      verification_status: string;
-      current_version_id: string | null;
-    };
-    const text = claim.current_version_id
-      ? versionsById[claim.current_version_id]?.claim_text
-      : null;
-    const integration = integrationByClaim[claim.id];
-    return {
-      id: claim.id,
-      layer: integration?.layer ?? claim.layer,
-      admiralty_grade: claim.admiralty_grade,
-      verification_status: claim.verification_status,
-      claim_text: text ?? "",
-      added_at: integration?.added_at ?? null,
-    };
-  });
-
-  return c.json({ data: merged });
-});
-
-const integrateSchema = z.object({
-  claim_id: z.string().uuid(),
-  layer: z.enum(CLAIM_LAYERS as readonly [string, ...string[]]),
-});
-
-theses.post("/:id/claims", async (c) => {
+  const userId = await getPublicUserId(client, c.get("user_id"));
   const id = c.req.param("id");
-  if (!id) throw badRequest("Missing :id parameter");
-  const body = await c.req.json().catch(() => null);
-  if (!body) throw badRequest("Request body must be JSON");
-  const parsed = integrateSchema.safeParse(body);
-  if (!parsed.success) {
-    throw badRequest("Invalid integration payload", { issues: parsed.error.issues });
-  }
-  const userId = c.get("user_id");
-  const client = userClient(c.env, c.get("jwt"));
-
-  const { data, error } = await client
-    .from("thesis_claims")
-    .insert({
-      user_id: userId,
-      thesis_id: id,
-      claim_id: parsed.data.claim_id,
-      layer: parsed.data.layer,
-    })
-    .select("id, layer, added_at")
-    .single();
-  if (error) {
-    if (error.code === "23505") {
-      throw badRequest("Claim already integrated at that layer");
-    }
-    throw new Error(`theses.claims.integrate: ${error.message}`);
-  }
-
-  return c.json({ data }, 201);
-});
-
-theses.delete("/:id/claims/:claim_id", async (c) => {
-  const id = c.req.param("id");
-  const claimId = c.req.param("claim_id");
-  if (!id || !claimId) throw badRequest("Missing parameter");
-  const client = userClient(c.env, c.get("jwt"));
-
-  const { error } = await client
-    .from("thesis_claims")
-    .update({ removed_at: new Date().toISOString() })
-    .eq("thesis_id", id)
-    .eq("claim_id", claimId)
-    .is("removed_at", null);
-  if (error) throw new Error(`theses.claims.remove: ${error.message}`);
-
-  return c.json({ data: { thesis_id: id, claim_id: claimId, removed: true } });
-});
-
-// --- questions ------------------------------------------------------------
-
-theses.get("/:id/questions", async (c) => {
-  const id = c.req.param("id");
-  const client = userClient(c.env, c.get("jwt"));
-  const { data, error } = await client
-    .from("questions")
-    .select(
-      "id, text, rationale, evidence_targets, expected_information_gain, status, generated_by, created_at",
-    )
-    .eq("thesis_id", id)
-    .order("expected_information_gain", { ascending: false })
-    .limit(100);
-  if (error) throw new Error(`theses.questions: ${error.message}`);
-  return c.json({ data });
-});
-
-theses.post("/:id/interrogate", async (c) => {
-  const id = c.req.param("id");
-  if (!id) throw badRequest("Missing :id parameter");
-  const userId = c.get("user_id");
-
-  const ctx = {
-    service: serviceClient(c.env),
-    anthropic: new AnthropicClient({ apiKey: c.env.ANTHROPIC_API_KEY }),
-  };
-
-  const result = await runInterrogator(ctx, {
+  const parsed = watchAddSchema.safeParse(await c.req.json());
+  if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
+  const { error } = await client.from("thesis_watch_sets").insert({
     user_id: userId,
     thesis_id: id,
-    triggered_by: "manual",
+    entity_id: parsed.data.entity_id,
+    excluded: parsed.data.excluded ?? false,
   });
-
-  if (result.status === "denied") {
-    return c.json({ data: { status: "pending_approval", decision: result.decision } }, 202);
-  }
-  return c.json({ data: result });
+  if (error) throw error;
+  return c.json({ ok: true });
 });
 
-// --- publish (publication-gate roles) ------------------------------------
-
-theses.post("/:id/publish", async (c) => {
+app.delete("/:id/watch-set/:entity_id", async (c) => {
+  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
-  if (!id) throw badRequest("Missing :id parameter");
-  const userId = c.get("user_id");
-
-  const ctx = {
-    service: serviceClient(c.env),
-    anthropic: new AnthropicClient({ apiKey: c.env.ANTHROPIC_API_KEY }),
-  };
-
-  const result = await runPublicationGate(ctx, {
-    user_id: userId,
-    thesis_id: id,
-    triggered_by: "operator_manual",
-  });
-
-  return c.json({ data: result });
+  const eid = c.req.param("entity_id");
+  await client.from("thesis_watch_sets").delete().eq("thesis_id", id).eq("entity_id", eid);
+  return c.json({ ok: true });
 });
 
-// --- gap surfacer + novelty surfacer (manual fire) ----------------------
-
-theses.post("/:id/surface-gaps", async (c) => {
-  const id = c.req.param("id");
-  if (!id) throw badRequest("Missing :id parameter");
-  const userId = c.get("user_id");
-
-  const ctx = {
-    service: serviceClient(c.env),
-    anthropic: new AnthropicClient({ apiKey: c.env.ANTHROPIC_API_KEY }),
-  };
-
-  const result = await runGapSurfacer(ctx, {
-    user_id: userId,
-    thesis_id: id,
-    triggered_by: "operator_manual",
-  });
-
-  if (result.status === "denied") {
-    return c.json({ data: { status: "pending_approval", decision: result.decision } }, 202);
-  }
-  if (result.status === "skipped") {
-    return c.json({ data: { status: "skipped", reason: result.reason } });
-  }
-  return c.json({
-    data: { ...result.report, questions_written: result.questions_written },
-  });
-});
-
-theses.post("/:id/surface-findings", async (c) => {
-  const id = c.req.param("id");
-  if (!id) throw badRequest("Missing :id parameter");
-  const userId = c.get("user_id");
-
-  const ctx = {
-    service: serviceClient(c.env),
-    anthropic: new AnthropicClient({ apiKey: c.env.ANTHROPIC_API_KEY }),
-  };
-
-  const result = await runNoveltySurfacer(ctx, {
-    user_id: userId,
-    thesis_id: id,
-    triggered_by: "operator_manual",
-  });
-
-  if (result.status === "denied") {
-    return c.json({ data: { status: "pending_approval", decision: result.decision } }, 202);
-  }
-  if (result.status === "skipped") {
-    return c.json({ data: { status: "skipped", reason: result.reason } });
-  }
-  return c.json({ data: result.report });
-});
-
-export default theses;
+export default app;

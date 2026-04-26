@@ -1,71 +1,47 @@
-import { Badge, ScreenHeader } from "@/components/primitives";
-import { PublicApiError, publicGet } from "@/lib/public-api";
+import { publicGet } from "@/lib/public-api";
 import Link from "next/link";
 
-interface PublicArticle {
-  id: string;
-  thesis_id: string | null;
-  title: string;
+export const runtime = "edge";
+
+interface PubArticle {
   slug: string;
-  status: string;
-  is_public: boolean;
-  published_at: string | null;
-  updated_at: string;
+  title: string;
+  subtitle?: string | null;
+  article_type: string;
+  author?: string | null;
+  byline_date?: string | null;
+  reading_time_minutes?: number | null;
+  published_at: string;
 }
 
-export const revalidate = 60;
-
-export default async function PublicArticlesPage() {
-  let articles: PublicArticle[] = [];
-  let error: string | null = null;
-  try {
-    articles = await publicGet<PublicArticle[]>("/v1/public/articles");
-  } catch (err) {
-    error = err instanceof PublicApiError ? err.message : (err as Error).message;
-  }
-
+export default async function ArticlesIndex() {
+  const r = await publicGet<{ articles: PubArticle[] }>("/v1/public/articles", 60).catch(() => ({
+    articles: [],
+  }));
   return (
-    <div className="px-6 py-12 max-w-4xl mx-auto">
-      <ScreenHeader title="Articles" subtitle="published narratives drawn from the substrate" />
-      <p className="text-text-dim leading-relaxed mt-2 mb-8 max-w-2xl">
-        Each article is grounded in claims, predictions, and assumptions tracked elsewhere on this
-        site. Corrections are append-only and visible underneath every published piece.
-      </p>
-
-      {error && <p className="text-signal font-mono text-xs mb-6">could not load: {error}</p>}
-
-      {articles.length === 0 ? (
-        <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
-          no published articles yet
-        </p>
-      ) : (
-        <ol className="divide-y divide-border-soft">
-          {articles.map((a) => (
-            <li key={a.id} className="py-6">
-              <Link href={`/p/articles/${a.slug}`} className="block group">
-                <div className="flex items-baseline justify-between gap-4 mb-1">
-                  <h2 className="font-serif text-xl text-cream group-hover:text-cream-bright">
-                    {a.title}
-                  </h2>
-                  <Badge tone={statusTone(a.status)}>{a.status}</Badge>
-                </div>
-                <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
-                  {a.published_at
-                    ? `published ${new Date(a.published_at).toLocaleDateString()}`
-                    : `updated ${new Date(a.updated_at).toLocaleDateString()}`}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ol>
-      )}
+    <div className="mx-auto max-w-4xl px-6 py-12">
+      <h1 className="mb-8 font-serif text-4xl text-[#1a1410]">Articles</h1>
+      <ul className="space-y-6">
+        {r.articles.map((a) => (
+          <li key={a.slug} className="border-b border-[#1a1410]/15 pb-4">
+            <p className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+              {a.article_type.replace(/_/g, " ")} ·{" "}
+              {a.byline_date ?? new Date(a.published_at).toLocaleDateString()}
+              {a.reading_time_minutes ? ` · ${a.reading_time_minutes} min read` : ""}
+            </p>
+            <Link
+              href={`/p/articles/${a.slug}`}
+              className="mt-1 block font-serif text-2xl text-[#1a1410] hover:text-[#9c2333]"
+            >
+              {a.title}
+            </Link>
+            {a.subtitle && <p className="mt-1 font-serif italic text-[#1a1410]/70">{a.subtitle}</p>}
+          </li>
+        ))}
+        {r.articles.length === 0 && (
+          <li className="font-serif italic text-[#1a1410]/50">No published articles yet.</li>
+        )}
+      </ul>
     </div>
   );
-}
-
-function statusTone(status: string): "amber" | "sage" | "signal" | "neutral" {
-  if (status === "published") return "sage";
-  if (status === "corrected") return "amber";
-  if (status === "retracted") return "signal";
-  return "neutral";
 }
