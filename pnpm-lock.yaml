@@ -79,6 +79,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.45.4
         version: 2.104.1
+      cytoscape:
+        specifier: ^3.30.4
+        version: 3.33.2
       next:
         specifier: 15.0.3
         version: 15.0.3(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)
@@ -92,6 +95,9 @@ importers:
       '@cloudflare/next-on-pages':
         specifier: ^1.13.7
         version: 1.13.16(@cloudflare/workers-types@4.20260425.1)(next@15.0.3(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106))(vercel@39.4.2(rollup@4.60.2))(wrangler@3.114.17(@cloudflare/workers-types@4.20260425.1))
+      '@types/cytoscape':
+        specifier: ^3.21.4
+        version: 3.31.0
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
@@ -1143,6 +1149,10 @@ packages:
   '@types/cookie@0.6.0':
     resolution: {integrity: sha512-4Kh9a6B2bQciAhf7FSuMRRkUWecJgJu9nPnx3yzpsfXX/c50REIqpHY4C82bXP90qrLtXtkDxTZosYO3UpOwlA==}
 
+  '@types/cytoscape@3.31.0':
+    resolution: {integrity: sha512-EXHOHxqQjGxLDEh5cP4te6J0bi7LbCzmZkzsR6f703igUac8UGMdEohMyU3GHAayCTZrLQOMnaE/lqB2Ekh8Ww==}
+    deprecated: This is a stub types definition. cytoscape provides its own type definitions, so you do not need this installed.
+
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
@@ -1478,6 +1488,10 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  cytoscape@3.33.2:
+    resolution: {integrity: sha512-sj4HXd3DokGhzZAdjDejGvTPLqlt84vNFN8m7bGsOzDY5DyVcxIb2ejIXat2Iy7HxWhdT/N1oKyheJ5YdpsGuw==}
+    engines: {node: '>=0.10'}
 
   data-uri-to-buffer@2.0.2:
     resolution: {integrity: sha512-ND9qDTLc6diwj+Xe5cdAgVTbLVdXbtxTJRXRhli8Mowuaan+0EJOtdqJ0QCHNSSPyoXGx9HX2/VMnKeC34AChA==}
@@ -3553,6 +3567,10 @@ snapshots:
 
   '@types/cookie@0.6.0': {}
 
+  '@types/cytoscape@3.31.0':
+    dependencies:
+      cytoscape: 3.33.2
+
   '@types/estree@1.0.8': {}
 
   '@types/json-schema@7.0.15': {}
@@ -3969,6 +3987,8 @@ snapshots:
   cssesc@3.0.0: {}
 
   csstype@3.2.3: {}
+
+  cytoscape@3.33.2: {}
 
   data-uri-to-buffer@2.0.2: {}
 

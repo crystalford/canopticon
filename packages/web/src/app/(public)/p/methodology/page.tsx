@@ -1,81 +1,71 @@
-import { ScreenHeader } from "@/components/primitives";
-
-export const revalidate = 3600;
+export const runtime = "edge";
 
 export default function MethodologyPage() {
   return (
-    <div className="px-6 py-12 max-w-3xl mx-auto">
-      <ScreenHeader title="Methodology" subtitle="how claims, theses, and predictions get made" />
+    <div className="mx-auto max-w-3xl px-6 py-12 font-serif text-lg leading-relaxed text-[#1a1410]">
+      <h1 className="mb-8 font-serif text-4xl">Methodology</h1>
 
-      <section className="mt-8 space-y-6 text-text leading-relaxed">
-        <h2 className="font-serif text-xl text-cream mt-8">Substrate</h2>
-        <p>
-          Every public-facing claim is stored as a substrate row with a version history. Claims
-          carry an Admiralty grade (A–F) for source reliability and a verification status drawn from
-          a documentary check by an independent model. Nothing is published from memory.
-        </p>
+      <Section title="What is CANOPTICON">
+        A forensic intelligence platform for Canadian political and economic structure analysis. It
+        surfaces structural patterns by integrating primary documents, named entities, and
+        verifiable claims into theses with explicit predictions, falsifying observations, and public
+        correction logs.
+      </Section>
 
-        <h2 className="font-serif text-xl text-cream mt-8">Theses</h2>
-        <p>
-          A thesis is a structured argument: a single sentence claim, a BLUF (bottom line up front),
-          and three progressively longer renderings (80, 800, full). Claims integrated into a thesis
-          are tagged by layer — factual, framing, architectural, distributive — so a reader can see
-          where the load-bearing weight sits.
-        </p>
-        <p>When a thesis is published, three roles fire on it before it goes live:</p>
-        <ul className="list-disc list-inside space-y-1 text-text-dim">
-          <li>
-            <span className="text-text">Tier Projector</span> — regenerates the BLUF / 80 / 800 /
-            full from current claim state.
-          </li>
-          <li>
-            <span className="text-text">Red Team</span> — surfaces the strongest objections; each
-            becomes a tracked contradiction.
-          </li>
-          <li>
-            <span className="text-text">Steelman</span> — articulates the strongest opposing
-            position; its load-bearing assumptions are recorded as linchpins.
-          </li>
-        </ul>
+      <Section title="Source grading (Admiralty Code)">
+        Sources are graded A through F. A is primary documents (Hansard, OIC, SEDAR+ filings,
+        peer-reviewed papers) with named authors and verifiable provenance. B is secondary reports
+        with traceable sourcing. C is opinion or single-sourced reporting. D, E, F are progressively
+        less reliable. Each thesis lists the grade distribution of its supporting evidence.
+      </Section>
 
-        <h2 className="font-serif text-xl text-cream mt-8">Predictions</h2>
-        <p>
-          Forecasts attached to a thesis are scored against outcomes using Brier (squared-error)
-          loss. Before any forecast is committed, a Premortem run imagines the prediction is wrong
-          on the resolution date and surfaces the failure modes that would explain it. Any
-          load-bearing assumption it depends on is added to the assumptions ledger. Operators are
-          encouraged to revise probabilities downward when the Premortem flags a calibration
-          mismatch.
-        </p>
-        <p>
-          The rolling Brier average is published. It includes resolved-incorrect outcomes. We do not
-          silently retire predictions.
-        </p>
+      <Section title="Toulmin claim structure">
+        Every claim carries six fields: data (the evidence), claim (the assertion), warrant (the
+        rule connecting them), backing (broader support for the warrant), qualifier (the calibrated
+        language), and rebuttal (conditions under which the claim fails).
+      </Section>
 
-        <h2 className="font-serif text-xl text-cream mt-8">IPCC qualifiers</h2>
-        <p>
-          BLUFs and predictions can carry an IPCC-style likelihood qualifier (virtually certain,
-          extremely likely, very likely, likely, more likely than not, about as likely as not,
-          unlikely, very unlikely, extremely unlikely, exceptionally unlikely). These map to
-          probability bands and are constrained by the underlying claim grades — a thesis built on
-          grade-D evidence cannot honestly carry a &quot;virtually certain&quot; qualifier.
-        </p>
+      <Section title="Calibrated language (IPCC scale)">
+        Probabilistic claims use the IPCC verbal scale: virtually certain (≥99%), very likely
+        (≥90%), likely (≥66%), about as likely as not (33–66%), unlikely (≤33%), very unlikely
+        (≤10%), exceptionally unlikely (≤1%). When in doubt between adjacent qualifiers, the weaker
+        is correct.
+      </Section>
 
-        <h2 className="font-serif text-xl text-cream mt-8">Contradictions and machloket</h2>
-        <p>
-          Contradictions surfaced by Red Team — or noticed by readers — are tracked open until
-          resolved or marked machloket (a documented disagreement that the evidence does not
-          settle). Dismissing a contradiction requires a written note. Resolution and dismissal are
-          both logged.
-        </p>
+      <Section title="Root-striking discipline">
+        Every investigation identifies its intervention level: symptom (managing effects), mechanism
+        (proximate causes), or structural (root design). Theses cannot publish until they reach Why
+        #4 or #5 in the Five Whys protocol — the structural condition or root design choice.
+      </Section>
 
-        <h2 className="font-serif text-xl text-cream mt-8">Articles and corrections</h2>
-        <p>
-          Articles draw on the substrate but are written separately. Each carries a version history;
-          corrections are appended below the body and never edited away. A retracted article remains
-          visible with a retraction notice — the substrate it cited stays accessible.
-        </p>
-      </section>
+      <Section title="Editorial standards">
+        Every published thesis ships with a methodology appendix listing sources used, grades, roles
+        run, contradictions considered, coined phrase definition. The trail is the moat; critics
+        must engage the evidence.
+      </Section>
+
+      <Section title="Corrections process">
+        Every correction is public. The Corrections page lists what changed, when, why, and which
+        item was affected. The Brier score on the prediction ledger is the operator's calibration
+        track record.
+      </Section>
+
+      <Section title="Credibility-positive practices">
+        We preserve contradictions rather than resolve them prematurely (machloket as legitimate
+        posture). We bank predictions before outcomes. We name our operator. We publish the graph
+        artifact behind every thesis so the evidence trail is independently traversable.
+      </Section>
     </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-8 border-t border-[#1a1410]/15 pt-6">
+      <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+        {title}
+      </h2>
+      <p>{children}</p>
+    </section>
   );
 }

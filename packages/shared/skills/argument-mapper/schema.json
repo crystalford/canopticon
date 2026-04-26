@@ -1,0 +1,34 @@
+{
+  "type": "object",
+  "required": ["layers"],
+  "properties": {
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["layer_label", "position_text", "node_key"],
+        "properties": {
+          "layer_label": {
+            "type": "string",
+            "enum": [
+              "surface",
+              "evidence",
+              "dependencies",
+              "empirical_disputes",
+              "values_disputes",
+              "meta_frame"
+            ]
+          },
+          "node_key": { "type": "string" },
+          "parent_node_key": { "type": ["string", "null"] },
+          "position_text": { "type": "string" },
+          "intervention_tier": {
+            "type": ["string", "null"],
+            "enum": ["symptom", "mechanism", "structural", null]
+          },
+          "supporting_claim_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

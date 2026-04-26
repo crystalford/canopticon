@@ -1,51 +1,21 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "IngestionCriticReport",
   "type": "object",
   "required": [
-    "admiralty_grade",
-    "grade_reasoning",
+    "proposed_grade",
     "bias_profile",
+    "watch_set_matches",
     "contradiction_flags",
-    "recommendation",
-    "recommendation_reasoning",
-    "prompt_injection_suspected"
+    "paid_op_required",
+    "reasoning"
   ],
   "properties": {
-    "admiralty_grade": {
-      "type": "string",
-      "enum": ["A", "B", "C", "D", "E", "F"]
-    },
-    "grade_reasoning": { "type": "string" },
-    "bias_profile": {
-      "type": "object",
-      "required": ["spectrum", "framing_notes"],
-      "properties": {
-        "spectrum": {
-          "type": "string",
-          "enum": ["left", "center_left", "center", "center_right", "right", "not_applicable"]
-        },
-        "framing_notes": { "type": "string" }
-      }
-    },
-    "contradiction_flags": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["claim_id", "nature", "severity"],
-        "properties": {
-          "claim_id": { "type": "string", "format": "uuid" },
-          "nature": { "type": "string", "enum": ["supports", "weakens", "contradicts"] },
-          "severity": { "type": "string", "enum": ["minor", "notable", "major"] },
-          "passage": { "type": "string" }
-        }
-      }
-    },
-    "recommendation": {
-      "type": "string",
-      "enum": ["approve", "defer", "reject"]
-    },
-    "recommendation_reasoning": { "type": "string" },
-    "prompt_injection_suspected": { "type": "boolean" }
-  }
+    "proposed_grade": { "type": "string", "enum": ["A", "B", "C", "D", "E", "F"] },
+    "bias_profile": { "type": "string" },
+    "watch_set_matches": { "type": "array", "items": { "type": "string" } },
+    "contradiction_flags": { "type": "array", "items": { "type": "string" } },
+    "paid_op_required": { "type": "boolean" },
+    "paid_op_estimate_cents": { "type": ["number", "null"] },
+    "reasoning": { "type": "string" }
+  },
+  "additionalProperties": false
 }

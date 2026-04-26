@@ -1,128 +1,117 @@
-import { Badge, Card, ScreenHeader, StatList } from "@/components/primitives";
-import { PublicApiError, publicGet } from "@/lib/public-api";
-import Link from "next/link";
+import { publicGet } from "@/lib/public-api";
 
-interface PublicPrediction {
-  id: string;
-  thesis_id: string | null;
-  thesis_title: string | null;
-  thesis_slug: string | null;
-  text: string;
-  probability: number;
-  ipcc_qualifier: string | null;
-  resolution_criteria: string;
-  resolution_horizon_at: string | null;
+export const runtime = "edge";
+
+interface PubPrediction {
+  slug: string;
+  statement: string;
+  confidence_pct: number;
+  ipcc_likelihood?: string | null;
+  resolution_criterion: string;
+  resolution_horizon: string;
+  domain?: string | null;
   status: string;
-  brier_contribution: number | null;
-  domain: string | null;
-  created_at: string;
+  resolved_at?: string | null;
+  resolved_outcome?: string | null;
+  brier_contribution?: number | null;
 }
 
-interface Summary {
-  resolved_count: number;
-  active_count: number;
-  rolling_brier: number | null;
-}
-
-export const revalidate = 60;
-
-export default async function PublicPredictionsPage() {
-  let predictions: PublicPrediction[] = [];
-  let summary: Summary | null = null;
-  let error: string | null = null;
-  try {
-    const res = await publicGet<{ predictions: PublicPrediction[]; summary: Summary }>(
-      "/v1/public/predictions",
-    );
-    predictions = res.predictions;
-    summary = res.summary;
-  } catch (err) {
-    error = err instanceof PublicApiError ? err.message : (err as Error).message;
-  }
+export default async function PredictionsPage() {
+  const r = await publicGet<{ predictions: PubPrediction[] }>("/v1/public/predictions", 60).catch(
+    () => ({ predictions: [] }),
+  );
+  const active = r.predictions.filter((p) => p.status === "active");
+  const resolved = r.predictions.filter((p) => p.status !== "active");
+  const brierTotal = resolved.reduce((s, p) => s + (p.brier_contribution ?? 0), 0);
+  const rolling = resolved.length > 0 ? brierTotal / resolved.length : null;
 
   return (
-    <div className="px-6 py-12 max-w-4xl mx-auto">
-      <ScreenHeader
-        title="Prediction ledger"
-        subtitle="forecasts on public theses · scored against outcomes"
-      />
+    <div className="mx-auto max-w-4xl px-6 py-12">
+      <h1 className="mb-2 font-serif text-4xl text-[#1a1410]">Prediction Ledger</h1>
+      <p className="mb-8 font-serif italic text-[#1a1410]/70">
+        Every probabilistic call we've banked, and how they've resolved.
+      </p>
 
-      {summary && (
-        <Card className="mb-6">
-          <StatList
-            stats={[
-              { label: "active", value: String(summary.active_count) },
-              { label: "resolved", value: String(summary.resolved_count) },
-              {
-                label: "rolling brier",
-                value: summary.rolling_brier !== null ? summary.rolling_brier.toFixed(3) : "—",
-              },
-            ]}
-          />
-          <p className="text-text-faint font-mono text-xs mt-3 leading-relaxed">
-            Brier score = mean squared error between forecast probability and outcome. 0 is perfect,
-            0.25 is uninformed, 1 is maximally wrong. The ledger is append-only.
-          </p>
-        </Card>
-      )}
+      <div className="mb-8 grid grid-cols-3 gap-4 border border-[#1a1410]/15 bg-[#ede4d2] p-4 font-mono text-[10.5px] uppercase tracking-wider">
+        <div>
+          <div className="text-3xl font-normal text-[#1a1410]">{active.length}</div>
+          <div className="text-[#5c4a3d]">Active</div>
+        </div>
+        <div>
+          <div className="text-3xl font-normal text-[#1a1410]">{resolved.length}</div>
+          <div className="text-[#5c4a3d]">Resolved</div>
+        </div>
+        <div>
+          <div className="text-3xl font-normal text-[#9c2333]">
+            {rolling !== null ? rolling.toFixed(3) : "—"}
+          </div>
+          <div className="text-[#5c4a3d]">Brier (rolling)</div>
+        </div>
+      </div>
 
-      {error && <p className="text-signal font-mono text-xs mb-6">could not load: {error}</p>}
-
-      {predictions.length === 0 ? (
-        <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
-          no predictions on public theses yet
-        </p>
-      ) : (
-        <ol className="divide-y divide-border-soft">
-          {predictions.map((p) => (
-            <li key={p.id} className="py-4">
-              <div className="flex items-baseline justify-between gap-3">
-                <p className="text-cream font-serif">{p.text}</p>
-                <span className="text-amber font-mono text-xs uppercase tracking-widest shrink-0">
-                  p={Number(p.probability).toFixed(2)}
-                </span>
-              </div>
-              <p className="text-text-dim text-sm mt-1 leading-relaxed">
-                resolves: {p.resolution_criteria}
-              </p>
-              <div className="flex gap-2 mt-2 items-baseline flex-wrap">
-                <Badge tone={predictionTone(p.status)}>{p.status.replace(/_/g, " ")}</Badge>
-                {p.ipcc_qualifier && (
-                  <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
-                    {p.ipcc_qualifier.replace(/_/g, " ")}
-                  </span>
-                )}
-                {p.brier_contribution !== null && (
-                  <span className="text-text-faint font-mono text-xs uppercase tracking-widest">
-                    brier {Number(p.brier_contribution).toFixed(3)}
-                  </span>
-                )}
-                {p.resolution_horizon_at && (
-                  <span className="text-text-faint font-mono text-xs">
-                    by {new Date(p.resolution_horizon_at).toLocaleDateString()}
-                  </span>
-                )}
-                {p.thesis_slug && (
-                  <Link
-                    href={`/p/theses/${p.thesis_slug}`}
-                    className="text-text-dim hover:text-amber font-mono text-xs uppercase tracking-widest"
-                  >
-                    → {p.thesis_title}
-                  </Link>
-                )}
-              </div>
-            </li>
+      <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">Active</h2>
+      <table className="mb-12 w-full border-collapse border border-[#1a1410]/15 font-serif text-sm">
+        <thead className="bg-[#ede4d2] font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+          <tr>
+            <th className="border border-[#1a1410]/15 p-2 text-left">Statement</th>
+            <th className="border border-[#1a1410]/15 p-2">Conf</th>
+            <th className="border border-[#1a1410]/15 p-2">By</th>
+            <th className="border border-[#1a1410]/15 p-2">Domain</th>
+          </tr>
+        </thead>
+        <tbody>
+          {active.map((p) => (
+            <tr key={p.slug}>
+              <td className="border border-[#1a1410]/15 p-2">{p.statement}</td>
+              <td className="border border-[#1a1410]/15 p-2 text-center">{p.confidence_pct}%</td>
+              <td className="border border-[#1a1410]/15 p-2 text-center">{p.resolution_horizon}</td>
+              <td className="border border-[#1a1410]/15 p-2 text-center">{p.domain ?? "—"}</td>
+            </tr>
           ))}
-        </ol>
-      )}
+          {active.length === 0 && (
+            <tr>
+              <td colSpan={4} className="p-4 text-center italic text-[#1a1410]/50">
+                No active predictions.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+        Resolved
+      </h2>
+      <table className="w-full border-collapse border border-[#1a1410]/15 font-serif text-sm">
+        <thead className="bg-[#ede4d2] font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+          <tr>
+            <th className="border border-[#1a1410]/15 p-2 text-left">Statement</th>
+            <th className="border border-[#1a1410]/15 p-2">Conf</th>
+            <th className="border border-[#1a1410]/15 p-2">Outcome</th>
+            <th className="border border-[#1a1410]/15 p-2">Brier</th>
+          </tr>
+        </thead>
+        <tbody>
+          {resolved.map((p) => (
+            <tr key={p.slug}>
+              <td className="border border-[#1a1410]/15 p-2">{p.statement}</td>
+              <td className="border border-[#1a1410]/15 p-2 text-center">{p.confidence_pct}%</td>
+              <td className="border border-[#1a1410]/15 p-2 text-center">
+                {p.resolved_outcome ?? p.status}
+              </td>
+              <td className="border border-[#1a1410]/15 p-2 text-center">
+                {p.brier_contribution?.toFixed(3) ?? "—"}
+              </td>
+            </tr>
+          ))}
+          {resolved.length === 0 && (
+            <tr>
+              <td colSpan={4} className="p-4 text-center italic text-[#1a1410]/50">
+                No resolved predictions yet.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
-}
-
-function predictionTone(status: string): "amber" | "sage" | "signal" | "neutral" {
-  if (status === "resolved_correct") return "sage";
-  if (status === "resolved_incorrect") return "signal";
-  if (status === "resolved_ambiguous") return "neutral";
-  if (status === "active") return "amber";
-  return "neutral";
 }

@@ -1,37 +1,40 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "VerifierOutput",
   "type": "object",
-  "required": ["claim_id", "verification_status", "reasoning", "citations"],
+  "required": ["verification_status", "reasoning"],
   "properties": {
-    "claim_id": { "type": "string", "format": "uuid" },
     "verification_status": {
       "type": "string",
       "enum": ["grounded", "partial", "unsupported", "contradicted"]
     },
-    "reasoning": { "type": "string" },
-    "citations": {
+    "suggested_ipcc_likelihood": {
+      "type": ["string", "null"],
+      "enum": [
+        "virtually_certain",
+        "extremely_likely",
+        "very_likely",
+        "likely",
+        "more_likely_than_not",
+        "about_as_likely_as_not",
+        "unlikely",
+        "very_unlikely",
+        "extremely_unlikely",
+        "exceptionally_unlikely",
+        null
+      ]
+    },
+    "supporting_source_ids": { "type": "array", "items": { "type": "string" } },
+    "contradicting_source_ids": { "type": "array", "items": { "type": "string" } },
+    "contradiction_pairs": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["source_id", "cited_text"],
         "properties": {
-          "source_id": { "type": "string", "format": "uuid" },
-          "cited_text": { "type": "string" },
-          "start_offset": { "type": ["integer", "null"], "minimum": 0 },
-          "end_offset": { "type": ["integer", "null"], "minimum": 0 },
-          "supports": { "type": "string", "enum": ["all", "partial", "contradicts"] }
+          "source_a": { "type": "string" },
+          "source_b": { "type": "string" },
+          "summary": { "type": "string" }
         }
       }
     },
-    "unsupported_components": {
-      "type": "array",
-      "items": { "type": "string" },
-      "description": "Specific assertions in claim_text that the source does NOT support. Required when verification_status='partial'."
-    },
-    "contradiction_note": {
-      "type": ["string", "null"],
-      "description": "Required when verification_status='contradicted'."
-    }
+    "reasoning": { "type": "string" }
   }
 }

@@ -1,161 +1,109 @@
 "use client";
 
-import { Badge, ScreenHeader } from "@/components/primitives";
-import { useOrchestratorEvents } from "@/hooks/use-orchestrator-events";
-import { ApiError, apiGet } from "@/lib/api-client";
-import Link from "next/link";
+import { Card, FilterChips, GradeChip, MetadataStrip, StatusChip } from "@/components/primitives";
+import { apiGet, apiPost } from "@/lib/api-client";
 import { useEffect, useState } from "react";
 
-interface SourceRow {
+type SourceState = "" | "pending_critic" | "approved" | "deferred" | "rejected";
+
+interface Source {
   id: string;
-  source_type: string;
   title: string;
   url: string | null;
-  publication: string | null;
-  author: string | null;
-  published_at: string | null;
-  retrieved_at: string;
-  admiralty_grade: string;
-  ingestion_mode: string;
+  source_type: string;
   ingestion_state: string;
-  slug: string | null;
-  created_at: string;
+  admiralty_grade: string | null;
+  bias_profile: string | null;
+  ingested_at: string;
+  published_at: string | null;
 }
-
-const STATE_FILTERS: Array<{ key: string; label: string }> = [
-  { key: "all", label: "all" },
-  { key: "pending_critic", label: "pending" },
-  { key: "critic_completed", label: "graded" },
-  { key: "approved", label: "approved" },
-  { key: "deferred", label: "deferred" },
-  { key: "rejected", label: "rejected" },
-];
 
 export default function SourcesPage() {
-  const [filter, setFilter] = useState<string>("pending_critic");
-  const [sources, setSources] = useState<SourceRow[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<SourceState>("pending_critic");
+  const [sources, setSources] = useState<Source[]>([]);
 
-  const { events } = useOrchestratorEvents({
-    filter: ["source.created", "source.updated"],
-    bufferSize: 50,
-  });
-  // Re-fetch when filter changes or new source events arrive.
-  const eventsTick = events.length;
-
+  async function load() {
+    const path = filter ? `/v1/sources/?state=${filter}` : "/v1/sources/";
+    const res = await apiGet<{ sources: Source[] }>(path);
+    setSources(res.sources);
+  }
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    void eventsTick; // referenced as a refetch trigger; biome wants it visible
-    const path =
-      filter === "all"
-        ? "/v1/sources?limit=100"
-        : `/v1/sources?ingestion_state=${filter}&limit=100`;
-    apiGet<SourceRow[]>(path)
-      .then((data) => {
-        if (!cancelled) {
-          setSources(data);
-          setLoadError(null);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setLoadError(err instanceof ApiError ? err.message : (err as Error).message);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [filter, eventsTick]);
+    void load();
+  }, [filter]);
+
+  async function decide(id: string, action: "approve" | "defer" | "reject") {
+    await apiPost(`/v1/sources/${id}/action`, { action });
+    await load();
+  }
 
   return (
-    <div className="px-6 py-8 max-w-5xl mx-auto">
-      <ScreenHeader title="Sources" subtitle="ingestion queue · grading · approvals" />
+    <main className="px-4 py-3">
+      <header className="mb-3">
+        <MetadataStrip>Sources · ingestion queue</MetadataStrip>
+        <h1 className="font-serif text-2xl text-cream-bright">Sources</h1>
+      </header>
 
-      <div className="flex gap-1 mb-6 border-b border-border-soft">
-        {STATE_FILTERS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            onClick={() => setFilter(f.key)}
-            className={`px-3 py-2 font-mono text-xs uppercase tracking-widest border-b-2 -mb-px ${
-              filter === f.key
-                ? "border-amber text-amber"
-                : "border-transparent text-text-dim hover:text-cream"
-            }`}
-          >
-            {f.label}
-          </button>
+      <FilterChips
+        chips={[
+          { value: "pending_critic", label: "Pending" },
+          { value: "approved", label: "Approved" },
+          { value: "deferred", label: "Deferred" },
+          { value: "rejected", label: "Rejected" },
+          { value: "", label: "All" },
+        ]}
+        active={filter}
+        onChange={setFilter}
+      />
+
+      <section className="mt-4 space-y-2">
+        {sources.map((s) => (
+          <Card key={s.id}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <MetadataStrip>{`${s.source_type.toUpperCase()} · ${new Date(s.ingested_at).toLocaleDateString()}`}</MetadataStrip>
+                <h3 className="mt-1 font-serif text-base text-cream-bright">{s.title}</h3>
+                {s.bias_profile && (
+                  <p className="mt-1 font-serif text-sm italic text-text-dim">{s.bias_profile}</p>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                {s.admiralty_grade && <GradeChip grade={s.admiralty_grade} />}
+                <StatusChip>{s.ingestion_state}</StatusChip>
+              </div>
+            </div>
+            {s.ingestion_state === "pending_critic" && (
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => decide(s.id, "approve")}
+                  className="flex-1 border border-cream-dim py-1 font-mono text-[10.5px] uppercase tracking-wider text-cream-bright hover:bg-cream-glow"
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  onClick={() => decide(s.id, "defer")}
+                  className="flex-1 border border-border py-1 font-mono text-[10.5px] uppercase tracking-wider text-text-dim hover:border-cream-dim"
+                >
+                  Defer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => decide(s.id, "reject")}
+                  className="flex-1 border border-signal-dim py-1 font-mono text-[10.5px] uppercase tracking-wider text-signal hover:bg-signal-glow"
+                >
+                  Reject
+                </button>
+              </div>
+            )}
+          </Card>
         ))}
-      </div>
-
-      {loadError && (
-        <p className="text-signal font-mono text-xs mb-4">could not load: {loadError}</p>
-      )}
-
-      {loading ? (
-        <p className="text-text-faint font-mono text-xs uppercase tracking-widest">loading...</p>
-      ) : sources.length === 0 ? (
-        <p className="text-text-faint font-mono text-xs uppercase tracking-widest">
-          no sources at this state
-        </p>
-      ) : (
-        <ol className="divide-y divide-border-soft">
-          {sources.map((source) => (
-            <li key={source.id} className="py-4">
-              <SourceRow source={source} />
-            </li>
-          ))}
-        </ol>
-      )}
-    </div>
+        {sources.length === 0 && (
+          <p className="py-12 text-center font-serif italic text-text-dim">
+            No sources match this filter.
+          </p>
+        )}
+      </section>
+    </main>
   );
-}
-
-function SourceRow({ source }: { source: SourceRow }) {
-  return (
-    <Link
-      href={`/sources/${source.id}` as never}
-      className="grid gap-2 sm:grid-cols-[auto_1fr_auto] sm:items-baseline hover:bg-bg-subtle -mx-2 px-2 py-1"
-    >
-      <GradeBadge grade={source.admiralty_grade} />
-      <div>
-        <p className="text-cream font-serif">{source.title}</p>
-        <p className="text-text-faint font-mono text-xs mt-1">
-          {source.source_type}
-          {source.publication ? ` · ${source.publication}` : ""}
-          {source.author ? ` · ${source.author}` : ""}
-          {source.published_at ? ` · ${new Date(source.published_at).toLocaleDateString()}` : ""}
-        </p>
-      </div>
-      <StateBadge state={source.ingestion_state} />
-    </Link>
-  );
-}
-
-function GradeBadge({ grade }: { grade: string }) {
-  const tone = grade === "A" ? "amber" : grade === "B" ? "tan" : "neutral";
-  return (
-    <Badge tone={tone} variant="solid" className="w-7 justify-center">
-      {grade}
-    </Badge>
-  );
-}
-
-function StateBadge({ state }: { state: string }) {
-  const tone =
-    state === "approved"
-      ? "sage"
-      : state === "rejected"
-        ? "signal"
-        : state === "deferred"
-          ? "tan"
-          : state === "critic_completed"
-            ? "blue"
-            : "amber";
-  return <Badge tone={tone}>{state.replace(/_/g, " ")}</Badge>;
 }

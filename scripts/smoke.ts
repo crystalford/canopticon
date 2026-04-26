@@ -1,81 +1,106 @@
 #!/usr/bin/env node
 // scripts/smoke.ts
 //
-// Verifies a fresh Supabase + Worker deployment actually works.
-//
-// Default mode is "offline" — no Anthropic spend. Checks:
-//   - Supabase URL + service-role key are valid
-//   - Every expected substrate table exists
-//   - Every claim_layer / role_name / etc. enum value is present
-//   - All 13 role_definitions exist with non-placeholder prompt_template
-//     (i.e., pnpm sync-skills has been run)
-//   - RLS is enabled on every public table
+// Verifies a fresh Supabase deployment has the substrate the new build expects.
+// No Anthropic spend; only runs SELECT/HEAD queries via service role.
 //
 // Usage:
 //   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... pnpm smoke
-//
-// Exits 0 on success, 1 on any failure.
 
 import { createClient } from "@supabase/supabase-js";
 
 interface Check {
   name: string;
-  run: () => Promise<string | null>; // returns failure message or null
+  run: () => Promise<string | null>;
 }
 
 const REQUIRED_TABLES = [
-  // 0003 users
+  // 0002 users + cost
   "users",
-  // 0004 cost_ledger
   "cost_ledger",
-  // 0005 sources
+  "cost_whitelists",
+  "cost_approvals",
+  // 0003 sources
   "sources",
-  // 0006 entities
+  "ingestion_critic_reports",
+  "ingestion_actions",
+  // 0004 entities
   "entities",
   "entity_mentions",
-  // 0007 claims
+  "entity_relations",
+  "entity_resolution_log",
+  "entity_merge_history",
+  "entity_resolution_queue",
+  // 0005 claims
   "claims",
   "claim_versions",
   "claim_entities",
   "claim_sources",
-  // 0008 theses
+  "claim_relations",
+  "claim_deduplication_queue",
+  // 0006 theses
   "theses",
   "thesis_versions",
   "thesis_claims",
+  "thesis_watch_sets",
   "thesis_concept_spine",
-  // 0009 role runtime
-  "role_definitions",
-  "role_invocations",
-  // 0011 triggers / orchestrator events
-  "orchestrator_events",
-  // 0013 workflow_runs / cascade_runs
-  "cascade_runs",
-  // 0014 questions
-  "questions",
-  // 0015 research runs
-  "research_runs",
-  // 0016 cost_approvals
-  "cost_approvals",
-  // 0017 remaining substrate
+  "thesis_inbox",
+  "coined_phrase_first_uses",
+  // 0007 falsifiability
   "assumptions",
   "assumption_supporting_claims",
   "indicators",
   "indicator_observations",
-  "contradictions",
   "predictions",
+  "contradictions",
+  // 0008 intellectual output
+  "five_whys_chains",
+  "five_whys_levels",
+  "solution_inventories",
+  "solution_entries",
+  "argument_maps",
+  "argument_layers",
+  "frame_genealogies",
+  "frame_propagation_events",
+  // 0009 articles + books
   "articles",
   "article_versions",
   "article_claims",
   "article_corrections",
   "books",
-  // 0018 findings
-  "findings",
-  "finding_supporting_claims",
+  "book_chapters",
+  // 0010 productions
+  "productions",
+  "scripts",
+  "beats",
+  "production_publishes",
+  "production_perf",
+  // 0011 questions
+  "questions",
+  "question_dependencies",
+  // 0012 adversarial
+  "red_team_objections",
+  "premortem_reports",
+  "gap_surfacer_reports",
+  // 0013 role runtime
+  "role_definitions",
+  "role_invocations",
+  "cascade_runs",
+  "workflow_runs",
+  "orchestrator_events",
+  // 0014 public cache
+  "pub_articles_cache",
+  "pub_theses_cache",
+  "pub_predictions_cache",
+  "pub_contradictions_cache",
+  "pub_entities_cache",
+  "pub_sources_cache",
+  "pub_claims_cache",
+  "pub_subscriptions",
 ];
 
 const REQUIRED_ROLE_NAMES = [
   "ingestion_critic",
-  "claim_extraction",
   "verifier",
   "interrogator",
   "red_team",
@@ -87,6 +112,12 @@ const REQUIRED_ROLE_NAMES = [
   "assumption_auditor",
   "indicator_validator",
   "novelty_surfacer",
+  "claim_extraction",
+  "entity_resolver",
+  "claim_deduplicator",
+  "solution_inventory_builder",
+  "argument_mapper",
+  "genealogy_tracer",
 ];
 
 function readEnv(name: string): string {
@@ -110,24 +141,22 @@ async function main() {
       name: "Supabase reachable",
       run: async () => {
         const { error } = await client.from("users").select("id", { head: true, count: "exact" });
-        if (error) return `failed to query users: ${error.message}`;
-        return null;
+        return error ? `failed to query users: ${error.message}` : null;
       },
     },
     {
-      name: "All expected tables exist",
+      name: `All ${REQUIRED_TABLES.length} expected tables exist`,
       run: async () => {
         const missing: string[] = [];
-        for (const table of REQUIRED_TABLES) {
-          const { error } = await client.from(table).select("*", { head: true, count: "exact" });
-          // Only count "relation does not exist" errors (PGRST205, 42P01).
+        for (const t of REQUIRED_TABLES) {
+          const { error } = await client.from(t).select("*", { head: true, count: "exact" });
           if (
             error &&
             (error.message.includes("does not exist") ||
               error.message.includes("Could not find the table") ||
               error.code === "42P01")
           ) {
-            missing.push(table);
+            missing.push(t);
           }
         }
         if (missing.length > 0) {
@@ -137,22 +166,22 @@ async function main() {
       },
     },
     {
-      name: "All 13 role_definitions exist for at least one user",
+      name: "All 18 role_definitions seeded for at least one user",
       run: async () => {
         const { data: users } = await client.from("users").select("id").limit(1);
         if (!users || users.length === 0) {
           return "no users yet — sign in once before running smoke against role_definitions";
         }
         const userId = (users[0] as { id: string }).id;
-        const { data: defs, error } = await client
+        const { data, error } = await client
           .from("role_definitions")
           .select("name")
           .eq("user_id", userId);
         if (error) return `query failed: ${error.message}`;
-        const present = new Set((defs ?? []).map((r) => (r as { name: string }).name));
+        const present = new Set((data ?? []).map((r) => (r as { name: string }).name));
         const missing = REQUIRED_ROLE_NAMES.filter((n) => !present.has(n));
         if (missing.length > 0) {
-          return `${missing.length} role_definitions missing for user ${userId.slice(0, 8)}: ${missing.join(", ")}`;
+          return `${missing.length} role_definitions missing: ${missing.join(", ")}`;
         }
         return null;
       },
@@ -162,7 +191,7 @@ async function main() {
       run: async () => {
         const { data, error } = await client
           .from("role_definitions")
-          .select("name, prompt_template")
+          .select("name")
           .like("prompt_template", "<see %");
         if (error) return `query failed: ${error.message}`;
         if (data && data.length > 0) {
@@ -175,42 +204,32 @@ async function main() {
       },
     },
     {
-      name: "Every role_definitions row references a real SKILL.md",
+      name: "Cost gate ready (whitelists seeded, ledger queryable)",
       run: async () => {
-        const { data } = await client
-          .from("role_definitions")
-          .select("name, skill_md_hash")
-          .is("skill_md_hash", null);
-        if (data && data.length > 0) {
-          const noHash = Array.from(new Set(data.map((r) => (r as { name: string }).name))).join(
-            ", ",
-          );
-          return `${data.length} role_definitions have null skill_md_hash (${noHash}) — re-run \`pnpm sync-skills\``;
-        }
-        return null;
-      },
-    },
-    {
-      name: "Cost gate tables ready (cost_ledger writable, cost_approvals queryable)",
-      run: async () => {
-        const { error: ledgerErr } = await client
+        const { error: lErr } = await client
           .from("cost_ledger")
           .select("id", { head: true, count: "exact" });
-        if (ledgerErr) return `cost_ledger query failed: ${ledgerErr.message}`;
-        const { error: apprErr } = await client
-          .from("cost_approvals")
+        if (lErr) return `cost_ledger query failed: ${lErr.message}`;
+        const { error: wErr } = await client
+          .from("cost_whitelists")
           .select("id", { head: true, count: "exact" });
-        if (apprErr) return `cost_approvals query failed: ${apprErr.message}`;
+        if (wErr) return `cost_whitelists query failed: ${wErr.message}`;
         return null;
       },
     },
     {
-      name: "Findings substrate ready (migration 0018 applied)",
+      name: "Public cache tables present",
       run: async () => {
-        const { error } = await client
-          .from("findings")
-          .select("id, novelty_grade, pattern_type", { head: true, count: "exact" });
-        if (error) return `findings query failed: ${error.message} — did 0018 apply?`;
+        const tables = [
+          "pub_articles_cache",
+          "pub_theses_cache",
+          "pub_predictions_cache",
+          "pub_contradictions_cache",
+        ];
+        for (const t of tables) {
+          const { error } = await client.from(t).select("*", { head: true, count: "exact" });
+          if (error) return `${t} not queryable: ${error.message}`;
+        }
         return null;
       },
     },

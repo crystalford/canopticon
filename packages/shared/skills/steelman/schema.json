@@ -1,24 +1,17 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "SteelmanOutput",
   "type": "object",
-  "required": ["opposing_position", "load_bearing_assumptions"],
+  "required": [
+    "strongest_form",
+    "strongest_evidence",
+    "rejected_assumptions",
+    "recommended_disposition",
+    "reasoning"
+  ],
   "properties": {
-    "opposing_position": { "type": "string" },
-    "load_bearing_assumptions": {
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 8,
-      "items": {
-        "type": "object",
-        "required": ["text"],
-        "properties": {
-          "text": { "type": "string" },
-          "is_linchpin": { "type": "boolean" },
-          "consequence_if_failed": { "type": "string" }
-        }
-      }
-    },
-    "summary": { "type": "string" }
+    "strongest_form": { "type": "string" },
+    "strongest_evidence": { "type": "array", "items": { "type": "string" } },
+    "rejected_assumptions": { "type": "array", "items": { "type": "string" } },
+    "recommended_disposition": { "type": "string", "enum": ["rebutted", "machloket", "update"] },
+    "reasoning": { "type": "string" }
   }
 }

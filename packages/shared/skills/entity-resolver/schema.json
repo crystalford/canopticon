@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "required": ["decision", "reasoning"],
+  "properties": {
+    "decision": { "type": "string", "enum": ["match", "no_match", "uncertain"] },
+    "matched_entity_id": { "type": ["string", "null"] },
+    "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+    "proposed_canonical_name": { "type": ["string", "null"] },
+    "proposed_entity_type": { "type": ["string", "null"] },
+    "proposed_primary_attribute": { "type": ["string", "null"] },
+    "top_candidate_ids": { "type": "array", "items": { "type": "string" } },
+    "reasoning": { "type": "string" }
+  }
+}

@@ -1,6 +1,4 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "AssumptionAuditorOutput",
   "type": "object",
   "required": ["audits"],
   "properties": {
@@ -8,19 +6,18 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["assumption_id", "status", "rationale"],
+        "required": ["assumption_id", "new_status", "audit_notes"],
         "properties": {
           "assumption_id": { "type": "string" },
-          "status": {
+          "new_status": {
             "type": "string",
-            "enum": ["holding", "shaken", "broken", "retired"]
+            "enum": ["holding", "weakening", "broken", "confirmed"]
           },
-          "is_linchpin": { "type": "boolean" },
-          "rationale": { "type": "string" },
-          "consequence_if_failed": { "type": "string" }
+          "audit_notes": { "type": "string" },
+          "linchpin_warning": { "type": "boolean" },
+          "suggested_new_supporting_claims": { "type": "array", "items": { "type": "string" } }
         }
       }
-    },
-    "summary": { "type": "string" }
+    }
   }
 }

@@ -1,27 +1,21 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "RedTeamOutput",
   "type": "object",
-  "required": ["objections"],
+  "required": ["vantage", "objections"],
   "properties": {
+    "vantage": { "type": "string" },
     "objections": {
       "type": "array",
-      "minItems": 3,
-      "maxItems": 7,
+      "minItems": 2,
+      "maxItems": 4,
       "items": {
         "type": "object",
-        "required": ["objection_text", "severity"],
+        "required": ["objection_text", "severity", "proposed_response"],
         "properties": {
-          "target_claim_id": { "type": ["string", "null"] },
           "objection_text": { "type": "string" },
-          "evidence_gap": { "type": "string" },
-          "severity": {
-            "type": "string",
-            "enum": ["minor", "notable", "major"]
-          }
+          "severity": { "type": "string", "enum": ["minor", "moderate", "severe", "fatal"] },
+          "proposed_response": { "type": "string" }
         }
       }
-    },
-    "summary": { "type": "string" }
+    }
   }
 }
