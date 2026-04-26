@@ -17,7 +17,8 @@
     "test": "pnpm -r test",
     "dev:web": "pnpm --filter @canopticon/web dev",
     "dev:api": "pnpm --filter @canopticon/api dev",
-    "sync-skills": "tsx scripts/sync-skills.ts"
+    "sync-skills": "tsx scripts/sync-skills.ts",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
