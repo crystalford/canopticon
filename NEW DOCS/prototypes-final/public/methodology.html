@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Methodology · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.methodology-toc {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 48px;
+}
+.methodology-toc h3 {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 14px;
+}
+.methodology-toc ol {
+  list-style: none;
+  counter-reset: toc;
+}
+.methodology-toc li {
+  counter-increment: toc;
+  padding: 6px 0;
+  font-size: 16px;
+  border-top: 1px solid var(--rule-soft);
+}
+.methodology-toc li:first-child { border-top: none; }
+.methodology-toc li::before {
+  content: counter(toc, decimal-leading-zero);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-right: 12px;
+  letter-spacing: 0.08em;
+}
+.methodology-toc a:hover { color: var(--signal); }
+section.method-block {
+  margin-bottom: 56px;
+}
+section.method-block h2 {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+section.method-block .method-tagline {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 20px;
+}
+section.method-block p {
+  margin-bottom: 16px;
+  font-size: 18px;
+  line-height: 1.6;
+}
+.standards-list {
+  list-style: none;
+  counter-reset: stand;
+}
+.standards-list li {
+  counter-increment: stand;
+  padding: 16px 0;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  gap: 20px;
+}
+.standards-list li::before {
+  content: counter(stand, decimal-leading-zero);
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--signal);
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+.standards-list li strong {
+  display: block;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  margin-bottom: 4px;
+  font-size: 18px;
+}
+.standards-list li p {
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+  margin: 0;
+}
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html" class="active">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-narrow">
+
+<h1 class="page-title">Methodology</h1>
+<h2 class="page-subtitle">How CANOPTICON works, in plain language.</h2>
+
+<div class="methodology-toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#what" class="dotted-link">What CANOPTICON is</a></li>
+    <li><a href="#sources" class="dotted-link">How sources are graded</a></li>
+    <li><a href="#claims" class="dotted-link">How claims are structured</a></li>
+    <li><a href="#layers" class="dotted-link">The four-layer template</a></li>
+    <li><a href="#qualifiers" class="dotted-link">Calibrated language</a></li>
+    <li><a href="#brier" class="dotted-link">Brier scoring and the prediction ledger</a></li>
+    <li><a href="#contradictions" class="dotted-link">Contradictions and machloket</a></li>
+    <li><a href="#root" class="dotted-link">Root-striking and the Five Whys</a></li>
+    <li><a href="#standards" class="dotted-link">Editorial standards</a></li>
+    <li><a href="#trust" class="dotted-link">The trust model</a></li>
+  </ol>
+</div>
+
+<section class="method-block" id="what">
+  <h2>What CANOPTICON is</h2>
+  <div class="method-tagline">FORENSIC INTELLIGENCE</div>
+  <p class="drop-cap">CANOPTICON is a forensic intelligence platform. The phrase is chosen deliberately. It is not journalism, not academic analysis, not investigation in the police sense, not a research database. It draws from each of those traditions but is none of them.</p>
+  <p>Forensic, because the work is evidence-first. Every claim has a source. Every source has a grade. Every inference from data to claim has a stated warrant. The chain of custody is preserved.</p>
+  <p>Intelligence, because the output is structured for action and decision rather than narrative consumption. A finished CANOPTICON product is closer to an intelligence assessment than a magazine article. It uses calibrated language for likelihood. It surfaces what is contested. It names what would change its mind.</p>
+  <p>The subject matter is Canadian political and economic structure. Not events alone, but the patterns underneath events — the institutional capture, the revolving doors, the architectures of quiet power, the distributive consequences.</p>
+</section>
+
+<section class="method-block" id="sources">
+  <h2>How sources are graded</h2>
+  <div class="method-tagline">ADMIRALTY GRADING</div>
+  <p>Every source CANOPTICON ingests is graded on a six-point scale originating in NATO intelligence training. The grades are visible on every published claim and every source page.</p>
+  <p><strong>A.</strong> Primary, official, verbatim. Gazette entries, Orders-in-Council, SEDAR+ filings, Hansard transcripts, court rulings, peer-reviewed papers. The reader can verify against the original.</p>
+  <p><strong>B.</strong> Credible secondary. Reporters at established outlets, analysts at known firms. Reliable but interpretive.</p>
+  <p><strong>C.</strong> Tertiary or partisan. Useful as signal of position; not as standalone evidence.</p>
+  <p><strong>D.</strong> Anonymous or low-quality. Used only when corroborated by higher-grade sources.</p>
+  <p><strong>E.</strong> Known unreliable. Tracked but treated with extreme caution.</p>
+  <p><strong>F.</strong> Cannot be assessed. Held until grade can be established.</p>
+  <p>The grades are honest. The platform does not upgrade.</p>
+</section>
+
+<section class="method-block" id="claims">
+  <h2>How claims are structured</h2>
+  <div class="method-tagline">TOULMIN ARGUMENT FORM</div>
+  <p>Every claim in CANOPTICON's substrate carries the components of Stephen Toulmin's argument model. The components are usually invisible in published prose but always present in the substrate, queryable through the public claim pages.</p>
+  <p><strong>Data.</strong> The documented fact (e.g., "Carney served on Brookfield's board from 2020 to 2024").</p>
+  <p><strong>Claim.</strong> The assertion derived from the data (e.g., "Carney has financial commitments that conflict with impartial regulation of Brookfield's interests").</p>
+  <p><strong>Warrant.</strong> The inference rule connecting data to claim. This is where most political disagreement actually lives.</p>
+  <p><strong>Backing.</strong> The support for the warrant itself.</p>
+  <p><strong>Qualifier.</strong> The probability or scope of the claim ("very likely," "likely," "in cases where...").</p>
+  <p><strong>Rebuttal.</strong> Known counterarguments to the claim, preserved in the record.</p>
+  <p>This structure makes disagreement legible. A reader who disputes a CANOPTICON claim can identify whether the dispute is about the data, the warrant, the backing, or the rebuttal — rather than a generalized "I disagree."</p>
+</section>
+
+<section class="method-block" id="layers">
+  <h2>The four-layer template</h2>
+  <div class="method-tagline">FACTUAL · FRAMING · ARCHITECTURAL · DISTRIBUTIVE</div>
+  <p>Every contested topic CANOPTICON addresses decomposes into four analytical layers. Cross-layer contradictions are preserved, not flattened.</p>
+  <p><strong>Factual.</strong> What is documented? Empirical, verifiable claims with primary sourcing.</p>
+  <p><strong>Framing.</strong> How is the topic being framed, and by whom? The genealogy of the given. Whose definitions are in play, whose vocabulary, whose categories.</p>
+  <p><strong>Architectural.</strong> What structural pattern is visible? Follow-the-money, actor-network mapping, institutional-capture diagnosis.</p>
+  <p><strong>Distributive.</strong> Who pays, who receives, on what timeline? Incidence analysis across class, generational, sectoral, regional lines.</p>
+  <p>A claim at the factual layer can be true while a claim at the framing layer about the same topic is misleading. Both are recorded.</p>
+</section>
+
+<section class="method-block" id="qualifiers">
+  <h2>Calibrated language</h2>
+  <div class="method-tagline">IPCC LIKELIHOOD QUALIFIERS</div>
+  <p>Probabilistic claims in CANOPTICON use the IPCC's verbal scale, mapped to numeric probability ranges:</p>
+  <p><em>Virtually certain</em> — 99–100%. <em>Very likely</em> — 90–100%. <em>Likely</em> — 66–100%. <em>About as likely as not</em> — 33–66%. <em>Unlikely</em> — 0–33%. <em>Very unlikely</em> — 0–10%. <em>Exceptionally unlikely</em> — 0–1%.</p>
+  <p>Operators are forbidden from writing "obviously" or "clearly" or "without doubt" inside calibrated outputs. When in doubt between two adjacent qualifiers, the weaker is correct. Confidence is a quantitative claim, not a tonal one.</p>
+</section>
+
+<section class="method-block" id="brier">
+  <h2>Brier scoring</h2>
+  <div class="method-tagline">CALIBRATION ACCOUNTABILITY</div>
+  <p>Every probabilistic prediction CANOPTICON publishes is banked with a confidence percentage and a resolution criterion. When the prediction resolves, its Brier contribution is computed: the squared difference between predicted probability and actual outcome.</p>
+  <p>Across many predictions, the rolling Brier score becomes the operator's track record — the asymptotic statement of how seriously the operator's confidence levels can be taken. A perfectly calibrated forecaster who predicts 70% on a set of events will see 70% of them occur; their Brier contribution from that cohort is low.</p>
+  <p>The Brier score is public. Always. <a href="predictions.html" class="dotted-link">See the prediction ledger.</a></p>
+</section>
+
+<section class="method-block" id="contradictions">
+  <h2>Contradictions and machloket</h2>
+  <div class="method-tagline">PRESERVED DISAGREEMENT</div>
+  <p>When new evidence contradicts an existing claim, the contradiction enters the registry rather than being silently overwritten. CANOPTICON treats four postures as legitimate: open, resolved one way, resolved the other way, or held as machloket.</p>
+  <p><em>Machloket</em> is a term from rabbinic tradition for a disagreement that is preserved rather than resolved, because both sides contribute to the picture. CANOPTICON's editorial position is that publicly acknowledging what is not settled is the most credible move available. <a href="contradictions.html" class="dotted-link">See the full contradiction tracker.</a></p>
+</section>
+
+<section class="method-block" id="root">
+  <h2>Root-striking and the Five Whys</h2>
+  <div class="method-tagline">STRUCTURAL DIAGNOSIS</div>
+  <p>Every CANOPTICON investigation identifies the level of intervention being analyzed: symptom (managing downstream effects), mechanism (targeting proximate causes), or structural (addressing root conditions).</p>
+  <p>The system runs the Five Whys protocol on every investigation. A thesis cannot publish until it has reached Why #4 or Why #5 — the structural condition or the root design choice. Outputs that only reach Why #1 or Why #2 are classified as news coverage, not structural analysis.</p>
+  <p>The contribution is always at the root level, or it is not a contribution.</p>
+</section>
+
+<section class="method-block" id="standards">
+  <h2>Editorial standards</h2>
+  <div class="method-tagline">THE VISIBLE TEN</div>
+  <ol class="standards-list">
+    <li><strong>No editorializing in content.</strong><p>Declarative, evidence-first voice. Conclusions emerge from documented facts.</p></li>
+    <li><strong>Every factual claim has a visible source.</strong><p>If it does not, it is not a claim — it is framing, and the text says so.</p></li>
+    <li><strong>Grades are honest.</strong><p>A-grade means primary, official, verbatim. The platform does not upgrade.</p></li>
+    <li><strong>Contradictions are preserved.</strong><p>Machloket is legitimate. Settled too quickly is worse than held open too long.</p></li>
+    <li><strong>Predictions are banked publicly.</strong><p>With confidence and horizon. The Brier score is public.</p></li>
+    <li><strong>Corrections are public and logged.</strong><p>Every one of them.</p></li>
+    <li><strong>No advertising, no sponsorship, no paid placement.</strong><p>If this changes, it will be announced publicly.</p></li>
+    <li><strong>No AI-generated content without operator review.</strong><p>AI is used in production; every published surface is operator-reviewed and signed off.</p></li>
+    <li><strong>No stock photography.</strong><p>Images used are original or properly licensed and credited.</p></li>
+    <li><strong>Open methodology.</strong><p>Schema, roles, and glossary are public. <a href="glossary.html" class="dotted-link">Glossary →</a></p></li>
+  </ol>
+</section>
+
+<section class="method-block" id="trust">
+  <h2>The trust model</h2>
+  <div class="method-tagline">STRUCTURAL, NOT PERSONAL</div>
+  <p>CANOPTICON's relationship to its readers rests on a specific trust model. The operator does not ask to be trusted on personality. No "trust me, I'm experienced." No "trust the brand."</p>
+  <p>The trust offering is structural: every claim sourced, every grade visible, every prediction banked, every correction logged, every contradiction shown. A reader who suspects the operator is wrong has the receipts to check.</p>
+  <p>In one sentence: <em>here is exactly how we know what we say we know, and here is exactly how we have been right or wrong about it before.</em></p>
+</section>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

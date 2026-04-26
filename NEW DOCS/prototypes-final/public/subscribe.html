@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Subscribe · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.subscribe-form {
+  max-width: 540px;
+  margin: 40px 0;
+}
+.form-block {
+  margin-bottom: 28px;
+}
+.form-block label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+.form-block input[type="email"] {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--ink-dim);
+  background: var(--paper-subtle);
+  font-family: var(--serif);
+  font-size: 18px;
+  color: var(--ink);
+}
+.form-block input[type="email"]:focus {
+  outline: none;
+  border-color: var(--signal);
+}
+.channel-checkbox {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-top: 1px solid var(--rule-soft);
+}
+.channel-checkbox:first-child { border-top: none; }
+.channel-checkbox input { margin-top: 4px; }
+.channel-name {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 17px;
+  margin-bottom: 2px;
+}
+.channel-desc {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-dim);
+}
+.subscribe-btn {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  padding: 14px 28px;
+  cursor: pointer;
+}
+.subscribe-btn:hover { background: var(--signal); }
+.alt-channels {
+  margin-top: 60px;
+  padding-top: 32px;
+  border-top: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+.alt-channel-card {
+  border: 1px solid var(--rule);
+  padding: 20px;
+  background: var(--paper-subtle);
+}
+.alt-channel-card h4 {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+.alt-channel-card p { font-size: 16px; line-height: 1.55; margin-bottom: 12px; }
+.alt-channel-card a {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--signal);
+  border-bottom: 1px solid var(--signal);
+  padding-bottom: 2px;
+}
+.privacy-note {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule-soft);
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  font-size: 15px;
+  line-height: 1.55;
+}
+@media (max-width: 800px) {
+  .alt-channels { grid-template-columns: 1fr; }
+}
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html" class="active">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-narrow">
+
+<h1 class="page-title">Subscribe</h1>
+<h2 class="page-subtitle">Free email and RSS. No paywall, no tracking, no sharing.</h2>
+
+<form class="subscribe-form">
+
+<div class="form-block">
+  <label for="email">Email address</label>
+  <input type="email" id="email" placeholder="you@example.com" />
+</div>
+
+<div class="form-block">
+  <label>Channels</label>
+
+  <div class="channel-checkbox">
+    <input type="checkbox" id="ch-articles" checked />
+    <div>
+      <div class="channel-name"><label for="ch-articles">New articles</label></div>
+      <div class="channel-desc">Email when an article is published. Around 2–4 per month.</div>
+    </div>
+  </div>
+
+  <div class="channel-checkbox">
+    <input type="checkbox" id="ch-theses" checked />
+    <div>
+      <div class="channel-name"><label for="ch-theses">Thesis updates</label></div>
+      <div class="channel-desc">Email when a thesis crosses a major milestone — new linchpin, contradiction surfaced, IPCC qualifier change. Roughly weekly.</div>
+    </div>
+  </div>
+
+  <div class="channel-checkbox">
+    <input type="checkbox" id="ch-predictions" />
+    <div>
+      <div class="channel-name"><label for="ch-predictions">Prediction resolutions</label></div>
+      <div class="channel-desc">Email when a banked prediction resolves correct or incorrect. Roughly 1–2 per month.</div>
+    </div>
+  </div>
+
+  <div class="channel-checkbox">
+    <input type="checkbox" id="ch-contradictions" />
+    <div>
+      <div class="channel-name"><label for="ch-contradictions">New contradictions</label></div>
+      <div class="channel-desc">Email when a contradiction is detected or its posture changes. Roughly weekly.</div>
+    </div>
+  </div>
+
+  <div class="channel-checkbox">
+    <input type="checkbox" id="ch-digest" />
+    <div>
+      <div class="channel-name"><label for="ch-digest">Weekly digest</label></div>
+      <div class="channel-desc">A single email Sunday morning with the week's substrate changes. Concise.</div>
+    </div>
+  </div>
+</div>
+
+<button type="button" class="subscribe-btn">Subscribe</button>
+
+<div class="privacy-note">Double opt-in. We email you a confirmation link; nothing happens until you click it. Your address is never shared. Unsubscribe link in every email. We do not track which links you click in emails. We do not have analytics on this page.</div>
+
+</form>
+
+<div class="alt-channels">
+
+  <div class="alt-channel-card">
+    <h4>RSS</h4>
+    <p>Per-surface feeds: all articles, theses, predictions, contradictions, plus per-thesis feeds for following individual investigations.</p>
+    <a href="feed/articles.xml">All feeds →</a>
+  </div>
+
+  <div class="alt-channel-card">
+    <h4>Mastodon</h4>
+    <p>The publication's account on the fediverse. Posts when articles publish; quieter feed than X.</p>
+    <a href="https://mas.to/@canopticon">@canopticon@mas.to →</a>
+  </div>
+
+  <div class="alt-channel-card">
+    <h4>X / Twitter</h4>
+    <p>Article posts plus weekly thesis updates. Lower-frequency than most accounts.</p>
+    <a href="https://x.com/canopticon">@canopticon →</a>
+  </div>
+
+  <div class="alt-channel-card">
+    <h4>Bluesky</h4>
+    <p>Mirror of X posts. Subscribe whichever you prefer.</p>
+    <a href="https://bsky.app/profile/canopticon.bsky.social">@canopticon.bsky.social →</a>
+  </div>
+
+</div>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

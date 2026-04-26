@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claim · Carney Brookfield Tenure · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.claim-header {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid var(--ink);
+}
+.claim-id-row {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 14px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.claim-statement {
+  font-family: var(--serif);
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 18px;
+}
+.claim-status-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.toulmin-block {
+  margin-bottom: 28px;
+  padding-left: 24px;
+  border-left: 3px solid var(--rule);
+}
+.toulmin-block.data { border-left-color: var(--sage); }
+.toulmin-block.warrant { border-left-color: var(--signal); }
+.toulmin-block.backing { border-left-color: var(--muted-blue); }
+.toulmin-block.qualifier { border-left-color: var(--amber); }
+.toulmin-block.rebuttal { border-left-color: var(--ink-dim); }
+.tb-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.toulmin-block.data .tb-label { color: var(--sage); }
+.toulmin-block.warrant .tb-label { color: var(--signal); }
+.toulmin-block.backing .tb-label { color: var(--muted-blue); }
+.toulmin-block.qualifier .tb-label { color: var(--amber); }
+.toulmin-block.rebuttal .tb-label { color: var(--ink-dim); }
+.tb-content {
+  font-size: 18px;
+  line-height: 1.55;
+}
+.tb-content a:hover { color: var(--signal); }
+.sources-section {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid var(--rule);
+}
+.source-row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  gap: 20px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.source-row .sr-grade {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.source-row .sr-grade.a { color: var(--sage); }
+.source-row .sr-grade.b { color: var(--muted-blue); }
+.source-row .sr-grade.c { color: var(--amber); }
+.source-row .sr-name { font-size: 16px; line-height: 1.5; }
+.source-row .sr-name .meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  display: block;
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+.source-row .sr-position {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.source-row .sr-position.supports { color: var(--sage); }
+.source-row .sr-position.contradicts { color: var(--signal); }
+.related-claims {
+  margin-top: 48px;
+}
+.related-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.related-row .rr-type {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.related-row .rr-text { font-size: 16px; line-height: 1.5; }
+.related-row .rr-text a:hover { color: var(--signal); }
+@media (max-width: 800px) {
+  .claim-statement { font-size: 26px; }
+  .source-row, .related-row { grid-template-columns: 1fr; gap: 4px; }
+}
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html" class="active">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-narrow">
+
+<div class="claim-header">
+  <div class="claim-id-row">
+    <span>CLAIM ID 1f2a3b4c</span>
+    <span>FACTUAL LAYER</span>
+    <span>VERSION 3 · CURRENT</span>
+    <span>UPDATED MAR 14, 2026</span>
+  </div>
+  <h1 class="claim-statement">Carney served on Brookfield Asset Management's board of directors as Vice Chair from August 2020 to December 2024.</h1>
+  <div class="claim-status-row">
+    <span class="chip chip-grade-a">GRADE A</span>
+    <span class="chip chip-likely">VERIFIED · GROUNDED</span>
+    <span class="chip chip-active">LINCHPIN</span>
+  </div>
+</div>
+
+<div class="toulmin-block data">
+  <div class="tb-label">DATA</div>
+  <div class="tb-content">
+    Brookfield's 2020 annual report (filed SEDAR+ March 2021) lists Carney as Vice Chair, appointed August 2020. The 2024 annual report and SEDAR+ filing 2024-12-04 record his departure effective December 4, 2024. The dates are unambiguous; the corporate record is primary.
+  </div>
+</div>
+
+<div class="toulmin-block warrant">
+  <div class="tb-label">WARRANT</div>
+  <div class="tb-content">
+    A Vice Chair role at a publicly-traded asset management firm involves: (a) fiduciary responsibility to the firm, (b) compensation in cash and equity that creates ongoing financial interest, (c) participation in strategic decisions about firm investments and policy positions, and (d) public association of the individual with the firm's interests. These four characteristics together constitute "service on the board" in the sense relevant to subsequent conflict-of-interest analysis.
+  </div>
+</div>
+
+<div class="toulmin-block backing">
+  <div class="tb-label">BACKING</div>
+  <div class="tb-content">
+    The warrant rests on (a) standard corporate-governance literature on board responsibilities, (b) Canadian conflict-of-interest jurisprudence holding that prior fiduciary roles create ongoing material interests, and (c) Brookfield's own SEDAR+ disclosures of Vice Chair compensation arrangements (cash component plus restricted share units with multi-year vesting).
+  </div>
+</div>
+
+<div class="toulmin-block qualifier">
+  <div class="tb-label">QUALIFIER</div>
+  <div class="tb-content">
+    Virtually certain (99–100%). The dates and role are documented in primary corporate filings; no plausible reading disputes them. The qualifier is at the maximum because the underlying data is verbatim corporate disclosure.
+  </div>
+</div>
+
+<div class="toulmin-block rebuttal">
+  <div class="tb-label">REBUTTAL</div>
+  <div class="tb-content">
+    No serious rebuttal exists for the factual claim itself. Discussion exists about whether Vice Chair is a "fully active" or "advisory" role, but Brookfield's filings describe the role using standard active-board language and the compensation arrangements are consistent with active-board membership. Subsequent claims about conflicts of interest or implications for political appointments rest on this claim but are not the subject of this particular claim's rebuttal.
+  </div>
+</div>
+
+<div class="sources-section">
+  <h3 class="section-head">Sources · 4 supporting · 0 contradicting</h3>
+
+  <div class="source-row">
+    <span class="sr-grade a">A · GRADE</span>
+    <div class="sr-name">
+      <a href="source-brookfield-2020.html" class="dotted-link">Brookfield Asset Management 2020 Annual Report</a>
+      <span class="meta">SEDAR+ filing · March 2021 · primary corporate disclosure</span>
+    </div>
+    <span class="sr-position supports">SUPPORTS</span>
+  </div>
+
+  <div class="source-row">
+    <span class="sr-grade a">A · GRADE</span>
+    <div class="sr-name">
+      <a href="source-brookfield-2024.html" class="dotted-link">Brookfield Asset Management 2024 Annual Report</a>
+      <span class="meta">SEDAR+ filing · March 2025 · primary corporate disclosure</span>
+    </div>
+    <span class="sr-position supports">SUPPORTS</span>
+  </div>
+
+  <div class="source-row">
+    <span class="sr-grade a">A · GRADE</span>
+    <div class="sr-name">
+      <a href="source-brookfield-departure.html" class="dotted-link">Brookfield 8-K Departure Notice</a>
+      <span class="meta">SEDAR+ 2024-12-04 · primary corporate disclosure</span>
+    </div>
+    <span class="sr-position supports">SUPPORTS</span>
+  </div>
+
+  <div class="source-row">
+    <span class="sr-grade b">B · GRADE</span>
+    <div class="sr-name">
+      <a href="source-globe-2020.html" class="dotted-link">"Carney joins Brookfield as Vice Chair" — Globe and Mail</a>
+      <span class="meta">August 13, 2020 · contemporaneous reporting · confirms appointment</span>
+    </div>
+    <span class="sr-position supports">SUPPORTS</span>
+  </div>
+</div>
+
+<h3 class="section-head related-claims">Related claims</h3>
+<div class="related-row">
+  <div class="rr-type">SUPPORTS</div>
+  <div class="rr-text"><a href="claim-conflict-pattern.html" class="dotted-link">Carney's Brookfield tenure overlaps with Brookfield's pursuit of federal infrastructure contracts beginning 2021.</a></div>
+</div>
+<div class="related-row">
+  <div class="rr-type">DEPENDS ON</div>
+  <div class="rr-text"><a href="claim-fiduciary-warrant.html" class="dotted-link">Vice Chair roles at Canadian publicly-listed firms involve active fiduciary responsibility.</a></div>
+</div>
+<div class="related-row">
+  <div class="rr-type">REFINED BY</div>
+  <div class="rr-text"><a href="claim-equity-vesting.html" class="dotted-link">Carney's Brookfield equity awards include vesting schedules extending past December 2024.</a></div>
+</div>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

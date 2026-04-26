@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monetary Thesis · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.thesis-header { padding-bottom: 24px; border-bottom: 2px solid var(--ink); margin-bottom: 32px; }
+.thesis-meta-top { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 12px; }
+.thesis-title { font-family: var(--serif); font-size: 52px; font-weight: 500; line-height: 1.1; letter-spacing: -0.01em; margin-bottom: 16px; }
+.thesis-seed { font-family: var(--serif); font-style: italic; font-size: 22px; color: var(--ink-dim); line-height: 1.45; margin-bottom: 20px; }
+.thesis-status { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); display: flex; gap: 16px; flex-wrap: wrap; align-items: center; padding: 14px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.thesis-bluf { background: var(--paper-deeper); padding: 28px 36px; margin: 40px -24px; border-left: 4px solid var(--signal); }
+.thesis-bluf .bluf-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--signal); margin-bottom: 12px; }
+.thesis-bluf .bluf-text { font-family: var(--serif); font-style: italic; font-size: 26px; line-height: 1.45; font-weight: 500; }
+.thesis-bluf .bluf-qualifier { font-family: var(--serif); font-style: italic; color: var(--signal); font-weight: 600; }
+.tier-switcher { display: flex; gap: 0; margin: 40px 0 24px; border: 1px solid var(--rule); }
+.tier-tab { flex: 1; padding: 12px 16px; background: var(--paper-subtle); font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); text-align: center; cursor: pointer; border-right: 1px solid var(--rule); }
+.tier-tab:last-child { border-right: none; }
+.tier-tab.active { background: var(--ink); color: var(--paper); }
+.tier-content { font-size: 18px; line-height: 1.7; margin-bottom: 48px; }
+.tier-content p { margin-bottom: 14px; }
+.layer-section { margin-bottom: 32px; border: 1px solid var(--rule); }
+.layer-head { padding: 16px 20px; background: var(--paper-subtle); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.layer-head .lh-name { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink); font-weight: 600; }
+.layer-head .lh-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+.layer-content { padding: 20px; border-top: 1px solid var(--rule); font-size: 16.5px; line-height: 1.6; }
+.layer-content p { margin-bottom: 12px; }
+.assumptions-block { margin-bottom: 48px; }
+.assumption-row { display: grid; grid-template-columns: 1fr 120px; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--rule-soft); align-items: center; }
+.assumption-row .ar-text { font-size: 16.5px; line-height: 1.5; }
+.assumption-row .ar-text strong { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--signal); margin-right: 6px; }
+.assumption-row .ar-status { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; text-align: right; }
+.ar-status.holding { color: var(--sage); }
+.ar-status.weakening { color: var(--amber); }
+.questions-block { margin-bottom: 48px; }
+.question-row { padding: 14px 0; border-bottom: 1px solid var(--rule-soft); }
+.qr-text { font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1.5; margin-bottom: 6px; }
+.qr-meta { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint); }
+.predictions-block { margin-bottom: 48px; }
+.pred-row { display: grid; grid-template-columns: 90px 1fr 100px; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+.pred-row .pr-conf { font-family: var(--mono); color: var(--amber); font-size: 13px; letter-spacing: 0.04em; }
+.pred-row .pr-text { font-size: 16px; line-height: 1.5; }
+.pred-row .pr-horizon { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); text-align: right; letter-spacing: 0.06em; }
+.history-block { margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--rule); }
+.version-row { display: grid; grid-template-columns: 80px 1fr; gap: 20px; padding: 12px 0; border-bottom: 1px solid var(--rule-soft); }
+.version-row .vr-version { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: 0.08em; }
+.version-row .vr-summary { font-size: 15.5px; line-height: 1.5; color: var(--ink-dim); }
+@media (max-width: 800px) {
+  .thesis-title { font-size: 36px; }
+  .thesis-bluf { padding: 20px 24px; margin: 32px -20px; }
+  .thesis-bluf .bluf-text { font-size: 20px; }
+  .tier-tab { font-size: 10px; padding: 10px 8px; }
+  .pred-row { grid-template-columns: 1fr; gap: 4px; }
+}
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html" class="active">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-narrow">
+
+<div class="thesis-header">
+  <div class="thesis-meta-top">THESIS · v0.4 · IN PROGRESS</div>
+  <h1 class="thesis-title">The architecture of quiet power: how Canadian monetary design shapes political outcomes.</h1>
+  <p class="thesis-seed">The housing crisis, the bank oligopoly, the conflicts of interest at the top of Canadian financial leadership are not separate stories. They are instances of a single structural condition: monetary system design that concentrates credit creation in a small number of institutions whose interests then shape the political system supposed to regulate them.</p>
+  <div class="thesis-status">
+    <span>DECLARED FEB 11, 2026</span>
+    <span>LAST UPDATED 4H AGO</span>
+    <span>47 CLAIMS INTEGRATED</span>
+    <span class="chip chip-likely">IPCC: LIKELY</span>
+  </div>
+</div>
+
+<div class="thesis-bluf">
+  <div class="bluf-label">BLUF · BOTTOM LINE UP FRONT</div>
+  <div class="bluf-text">It is <span class="bluf-qualifier">likely</span> that Canadian housing affordability, banking concentration, and senior-leadership conflict-of-interest patterns share a single structural cause in monetary-system design choices made between 1974 and 2002, and that policy responses operating at any level above that root will systematically fail to alter trajectory.</div>
+</div>
+
+<div class="tier-switcher">
+  <div class="tier-tab">BLUF</div>
+  <div class="tier-tab active">80 WORDS</div>
+  <div class="tier-tab">800 WORDS</div>
+  <div class="tier-tab">FULL</div>
+</div>
+
+<div class="tier-content">
+  <p>Three apparently-separate Canadian problems — housing-affordability collapse, the Big Five bank oligopoly, and the revolving-door pattern at senior monetary-policy roles — have a single structural source. The 1974 Bank Act amendments and 2002 securitization changes redesigned credit-creation architecture in ways that concentrate creation in five institutions while making housing the dominant asset class for that creation. Every actor downstream — from the political class to the median household — now has material interest in preserving that architecture. The system's design is its policy.</p>
+</div>
+
+<h3 class="section-head">Layer decomposition · 4 layers</h3>
+
+<div class="layer-section">
+  <div class="layer-head">
+    <span class="lh-name">FACTUAL · 24 CLAIMS · 19 GRADE-A</span>
+    <span class="lh-meta">7 LINCHPINS</span>
+  </div>
+  <div class="layer-content">
+    <p>The factual layer assembles documented events: the 1974 Bank Act amendments, the 1992 amendments, the 2002 securitization-treatment changes, the personnel-transition record between Big Five banks and the BoC/Finance Canada/PMO across 28 documented moves, and the contract-allocation patterns that follow each transition. All A-grade or B-grade where primary documents exist; nothing inferred.</p>
+    <p><a href="claim-1974-amendments.html" class="dotted-link">Anchoring claim: 1974 Bank Act amendments</a> · <a href="claim-2002-securitization.html" class="dotted-link">2002 securitization changes</a> · <a href="claim-revolving-door-record.html" class="dotted-link">28 documented personnel transitions</a></p>
+  </div>
+</div>
+
+<div class="layer-section">
+  <div class="layer-head">
+    <span class="lh-name">FRAMING · 8 CLAIMS · MIXED GRADE</span>
+    <span class="lh-meta">2 LINCHPINS</span>
+  </div>
+  <div class="layer-content">
+    <p>The dominant framing of these issues in Canadian discourse treats each as a separate story with separate causes. The framing layer documents how this fragmentation gets produced — through the propagation of the supply-side housing framing (see <a href="frame-genealogy-housing-supply.html" class="dotted-link">genealogy</a>), the framing of bank concentration as efficiency, and the framing of revolving-door appointments as expertise-utilization. Each framing has institutional sponsors and is reproducible across media.</p>
+  </div>
+</div>
+
+<div class="layer-section">
+  <div class="layer-head">
+    <span class="lh-name">ARCHITECTURAL · 11 CLAIMS · 7 GRADE-A</span>
+    <span class="lh-meta">5 LINCHPINS</span>
+  </div>
+  <div class="layer-content">
+    <p>The architectural layer maps the structural pattern: credit creation concentrated in five institutions; mortgage origination as the dominant credit-creation activity; CMHC's securitization role removing the constraint on bank balance sheets; senior personnel rotating through the regulator, the central bank, and the regulated banks. Together these constitute a tightly-coupled system. Most policy debate does not engage at this level.</p>
+  </div>
+</div>
+
+<div class="layer-section">
+  <div class="layer-head">
+    <span class="lh-name">DISTRIBUTIVE · 4 CLAIMS · 3 GRADE-A</span>
+    <span class="lh-meta">1 LINCHPIN</span>
+  </div>
+  <div class="layer-content">
+    <p>The distributive layer documents who pays and who receives. Net result of the architecture: wealth transfer from non-property-owning Canadians to property-owning Canadians; concentration of housing-asset gains in older cohorts; reduction of housing-as-shelter to housing-as-investment-class for the median Canadian household. The distributional pattern is monotonic across the period and well-documented.</p>
+  </div>
+</div>
+
+<h3 class="section-head">Assumptions and linchpins · 7 load-bearing</h3>
+<div class="assumptions-block">
+  <div class="assumption-row">
+    <div class="ar-text"><strong>LINCHPIN</strong>The 1974 amendments substantively changed credit-creation architecture, not merely operational details.</div>
+    <div class="ar-status holding">HOLDING</div>
+  </div>
+  <div class="assumption-row">
+    <div class="ar-text"><strong>LINCHPIN</strong>Mortgage origination is the dominant credit-creation activity in current Canadian banking.</div>
+    <div class="ar-status holding">HOLDING</div>
+  </div>
+  <div class="assumption-row">
+    <div class="ar-text"><strong>LINCHPIN</strong>The 28 documented personnel transitions represent a pattern, not a coincidence.</div>
+    <div class="ar-status holding">HOLDING</div>
+  </div>
+  <div class="assumption-row">
+    <div class="ar-text">The institutional capture pattern operates without explicit coordination.</div>
+    <div class="ar-status holding">HOLDING</div>
+  </div>
+  <div class="assumption-row">
+    <div class="ar-text"><strong>LINCHPIN</strong>Federal monetary architecture is a binding constraint on housing affordability.</div>
+    <div class="ar-status weakening">WEAKENING</div>
+  </div>
+  <div class="assumption-row">
+    <div class="ar-text">Reform of the architecture is politically possible without crisis.</div>
+    <div class="ar-status weakening">WEAKENING</div>
+  </div>
+  <div class="assumption-row">
+    <div class="ar-text">The thesis falsifying observation: a major reform passing with bank-oligopoly support.</div>
+    <div class="ar-status holding">HOLDING</div>
+  </div>
+</div>
+
+<h3 class="section-head">Open questions · 5</h3>
+<div class="questions-block">
+  <div class="question-row">
+    <div class="qr-text">How much of mortgage-debt growth since 2002 has been absorbed by existing-property revaluation versus new construction?</div>
+    <div class="qr-meta">EIG: 0.85 · GENERATED BY INTERROGATOR · APR 12</div>
+  </div>
+  <div class="question-row">
+    <div class="qr-text">Which jurisdictions have attempted reform of the credit-creation architecture in non-crisis conditions?</div>
+    <div class="qr-meta">EIG: 0.72 · GENERATED BY GAP SURFACER · APR 19</div>
+  </div>
+  <div class="question-row">
+    <div class="qr-text">What is the historical-counterfactual scenario where the 1974 amendments were not made?</div>
+    <div class="qr-meta">EIG: 0.68 · GENERATED BY INTERROGATOR · MAR 28</div>
+  </div>
+  <div class="question-row">
+    <div class="qr-text">Are there comparative cases (Australia, NZ, Ireland) with similar architecture but different outcomes?</div>
+    <div class="qr-meta">EIG: 0.81 · GENERATED BY GAP SURFACER · APR 19</div>
+  </div>
+  <div class="question-row">
+    <div class="qr-text">What does the BIS coordination record show about Canadian participation in setting these architectural choices?</div>
+    <div class="qr-meta">EIG: 0.74 · GENERATED BY INTERROGATOR · APR 02</div>
+  </div>
+</div>
+
+<h3 class="section-head">Anchored predictions · 4</h3>
+<div class="predictions-block">
+  <div class="pred-row">
+    <div class="pr-conf">75%</div>
+    <div class="pr-text">The next BoC governor will have prior tenure at a Big Five bank or a global asset manager.</div>
+    <div class="pr-horizon">JUN 2027</div>
+  </div>
+  <div class="pred-row">
+    <div class="pr-conf">85%</div>
+    <div class="pr-text">Brookfield will receive at least one additional federal infrastructure contract above $200M in the next 12 months.</div>
+    <div class="pr-horizon">APR 2027</div>
+  </div>
+  <div class="pred-row">
+    <div class="pr-conf">62%</div>
+    <div class="pr-text">Bill C-14 amendments will pass without strengthening the foreign-bank-takeover review threshold.</div>
+    <div class="pr-horizon">DEC 2026</div>
+  </div>
+  <div class="pred-row">
+    <div class="pr-conf">70%</div>
+    <div class="pr-text">CPPIB will increase allocation to private infrastructure above 12% of total assets within fiscal year.</div>
+    <div class="pr-horizon">MAR 2027</div>
+  </div>
+</div>
+
+<div class="history-block">
+  <h3 class="section-head" style="margin-top: 0;">Version history · 4 versions</h3>
+  <div class="version-row">
+    <div class="vr-version">v0.4</div>
+    <div class="vr-summary">v0.3 → v0.4: +3 architectural claims from OSFI February disclosures, +1 linchpin weakened (federal-monetary-architecture binding), tier projections regenerated. APR 25.</div>
+  </div>
+  <div class="version-row">
+    <div class="vr-version">v0.3</div>
+    <div class="vr-summary">v0.2 → v0.3: +5 factual claims from openparliament Hansard ingest, distributive layer expanded, contradictions surfaced (housing-financialization machloket). APR 12.</div>
+  </div>
+  <div class="version-row">
+    <div class="vr-version">v0.2</div>
+    <div class="vr-summary">v0.1 → v0.2: +12 claims, framing layer added, supply-framing genealogy linked. MAR 22.</div>
+  </div>
+  <div class="version-row">
+    <div class="vr-version">v0.1</div>
+    <div class="vr-summary">Initial declaration. Seed paragraph plus 8 anchoring claims. FEB 11.</div>
+  </div>
+</div>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

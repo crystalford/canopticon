@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contradictions · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.legend-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 48px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: 24px 0;
+}
+.legend-item .lg-name {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.legend-item .lg-name.open { color: var(--amber); }
+.legend-item .lg-name.machloket { color: var(--muted-blue); }
+.legend-item .lg-name.resolved { color: var(--sage); }
+.legend-item .lg-name.retired { color: var(--ink-faint); }
+.legend-item .lg-def {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+.contradiction-detail {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 28px;
+  margin-bottom: 24px;
+  border-left-width: 4px;
+}
+.contradiction-detail.open { border-left-color: var(--amber); }
+.contradiction-detail.machloket { border-left-color: var(--muted-blue); }
+.contradiction-detail.resolved { border-left-color: var(--sage); }
+.cd-meta-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 14px;
+}
+.cd-summary {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.35;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+.cd-claims {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.cd-claim {
+  border-left: 2px solid var(--rule);
+  padding-left: 14px;
+}
+.cd-claim-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 6px;
+}
+.cd-claim-text {
+  font-size: 15px;
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+.cd-claim-source {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted-blue);
+  letter-spacing: 0.04em;
+}
+.cd-roles {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 14px;
+}
+.cd-machloket-explainer {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+  background: var(--paper-deeper);
+  padding: 16px 20px;
+  border-left: 2px solid var(--muted-blue);
+}
+.cd-thesis-link {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--signal);
+  border-bottom: 1px solid var(--signal);
+  padding-bottom: 2px;
+  margin-top: 12px;
+}
+.resolved-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 100px 1fr;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+  align-items: baseline;
+}
+.resolved-row .rr-date {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.12em;
+}
+.resolved-row .rr-summary { font-size: 16px; line-height: 1.5; }
+.resolved-row .rr-outcome {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.resolved-row .rr-evidence {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  letter-spacing: 0.04em;
+}
+@media (max-width: 800px) {
+  .legend-grid { grid-template-columns: 1fr 1fr; }
+  .cd-claims { grid-template-columns: 1fr; }
+  .resolved-row { grid-template-columns: 1fr; gap: 4px; }
+}
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html" class="active">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-full">
+
+<h1 class="page-title">Contradictions</h1>
+<h2 class="page-subtitle">What the graph can't reconcile, and why.</h2>
+
+<div class="legend-grid">
+  <div class="legend-item">
+    <div class="lg-name open">Open</div>
+    <div class="lg-def">Detected, under investigation. May resolve as new evidence arrives.</div>
+  </div>
+  <div class="legend-item">
+    <div class="lg-name machloket">Machloket</div>
+    <div class="lg-def">Held open deliberately. Both positions contribute to the picture; collapsing would lose information.</div>
+  </div>
+  <div class="legend-item">
+    <div class="lg-name resolved">Resolved</div>
+    <div class="lg-def">New evidence has settled which side holds. Resolution is logged.</div>
+  </div>
+  <div class="legend-item">
+    <div class="lg-name retired">Retired</div>
+    <div class="lg-def">No longer a useful object — the underlying claims have been superseded or withdrawn.</div>
+  </div>
+</div>
+
+<h3 class="section-head">Open contradictions · 4</h3>
+
+<div class="contradiction-detail open">
+  <div class="cd-meta-row">
+    <span>OPEN · DETECTED APR 22</span>
+    <span class="chip chip-open">OPEN</span>
+  </div>
+  <div class="cd-summary">Whether Carney's Mansion House speech represents tactical accommodation of UK financial concerns or strategic alignment with the Wall Street Consensus.</div>
+  <div class="cd-claims">
+    <div class="cd-claim">
+      <div class="cd-claim-tag">CLAIM A · GRADE B</div>
+      <div class="cd-claim-text">The speech's emphasis on "blended finance" and de-risking aligns with positions Brookfield has publicly advocated since 2022.</div>
+      <div class="cd-claim-source">Toronto Star analysis · APR 18</div>
+    </div>
+    <div class="cd-claim">
+      <div class="cd-claim-tag">CLAIM B · GRADE B</div>
+      <div class="cd-claim-text">The speech's framing was a calibrated response to UK gilt-market pressure and does not signal a policy commitment for Canada.</div>
+      <div class="cd-claim-source">Globe and Mail editorial · APR 20</div>
+    </div>
+  </div>
+  <div class="cd-roles">RED TEAM · RAN APR 23 · STEELMAN · PENDING</div>
+  <a href="thesis-monetary.html" class="cd-thesis-link">Linked thesis: monetary architecture →</a>
+</div>
+
+<div class="contradiction-detail open">
+  <div class="cd-meta-row">
+    <span>OPEN · DETECTED APR 11</span>
+    <span class="chip chip-open">OPEN</span>
+  </div>
+  <div class="cd-summary">Whether the OSFI February disclosures represent enhanced supervisory transparency or strategic preemption of more substantive reform.</div>
+  <div class="cd-claims">
+    <div class="cd-claim">
+      <div class="cd-claim-tag">CLAIM A · GRADE A</div>
+      <div class="cd-claim-text">The disclosures include three previously unpublished risk metrics, exceeding the minimum required by the 2024 framework amendments.</div>
+      <div class="cd-claim-source">OSFI publication · FEB 14</div>
+    </div>
+    <div class="cd-claim">
+      <div class="cd-claim-tag">CLAIM B · GRADE B</div>
+      <div class="cd-claim-text">Internal correspondence (FOI release) shows the disclosures were timed specifically to forestall PBO recommendations expected in the Q1 report.</div>
+      <div class="cd-claim-source">FOI A-2024-00847 · APR 09</div>
+    </div>
+  </div>
+  <div class="cd-roles">RED TEAM · COMPLETE · STEELMAN · COMPLETE</div>
+  <a href="thesis-monetary.html" class="cd-thesis-link">Linked thesis: monetary architecture →</a>
+</div>
+
+<h3 class="section-head">Machloket registry · 2</h3>
+
+<div class="contradiction-detail machloket">
+  <div class="cd-meta-row">
+    <span>MACHLOKET · MARKED MAR 14</span>
+    <span class="chip chip-machloket">MACHLOKET</span>
+  </div>
+  <div class="cd-summary">Whether Canadian housing financialization is primarily a supply-side regulatory problem or primarily a monetary-architecture artifact.</div>
+  <div class="cd-claims">
+    <div class="cd-claim">
+      <div class="cd-claim-tag">POSITION A · ORTHODOX</div>
+      <div class="cd-claim-text">Insufficient construction permits, restrictive zoning, and slow approval processes are the binding constraints; supply expansion is the corrective.</div>
+      <div class="cd-claim-source">CMHC research, multiple A-grade sources</div>
+    </div>
+    <div class="cd-claim">
+      <div class="cd-claim-tag">POSITION B · HETERODOX</div>
+      <div class="cd-claim-text">Credit-creation patterns, mortgage-securitization design, and capital-gains tax treatment make housing a financial asset class regardless of supply; structural reform is the corrective.</div>
+      <div class="cd-claim-source">Lavoie/Seccareccia, Gabor, multiple B-grade sources</div>
+    </div>
+  </div>
+  <div class="cd-machloket-explainer">Why machloket: both positions have substantial empirical support. Supply analyses correctly identify binding constraints in specific markets; financialization analyses correctly identify constraints invariant to supply changes in other markets. The synthesis would require evidence neither tradition has assembled. Holding both as live preserves analytical completeness; collapsing would force a premature methodological commitment.</div>
+  <a href="thesis-housing.html" class="cd-thesis-link">Linked thesis: housing financialization →</a>
+</div>
+
+<div class="contradiction-detail machloket">
+  <div class="cd-meta-row">
+    <span>MACHLOKET · MARKED FEB 02</span>
+    <span class="chip chip-machloket">MACHLOKET</span>
+  </div>
+  <div class="cd-summary">Whether the PBO's institutional quietness since 2018 represents legitimate scope discipline or political accommodation.</div>
+  <div class="cd-claims">
+    <div class="cd-claim">
+      <div class="cd-claim-tag">POSITION A</div>
+      <div class="cd-claim-text">The PBO's mandate is bounded; analyses outside scope would compromise institutional standing and future independence.</div>
+      <div class="cd-claim-source">PBO institutional documents</div>
+    </div>
+    <div class="cd-claim">
+      <div class="cd-claim-tag">POSITION B</div>
+      <div class="cd-claim-text">The pattern of unpublished analyses across three appointments suggests scope is being read narrowly to avoid politically-uncomfortable findings.</div>
+      <div class="cd-claim-source">Comparison with pre-2018 publication record</div>
+    </div>
+  </div>
+  <div class="cd-machloket-explainer">Why machloket: the question of what the PBO mandate "should" cover is normative; the question of what it has covered is empirical. Both positions can be true simultaneously — narrow scope can be both institutionally correct and politically convenient. The thesis tracks both readings as live until evidence forces resolution.</div>
+  <a href="thesis-pbo.html" class="cd-thesis-link">Linked thesis: PBO institutional patterns →</a>
+</div>
+
+<h3 class="section-head">Resolved · 7</h3>
+
+<div class="resolved-row">
+  <div class="rr-date">APR 12</div>
+  <div class="rr-summary">Whether the BoC's March QE pause was permanent or operational.</div>
+  <div class="rr-outcome chip-resolved">RESOLVED A</div>
+  <div class="rr-evidence">BoC monetary policy report · APR 10</div>
+</div>
+<div class="resolved-row">
+  <div class="rr-date">MAR 28</div>
+  <div class="rr-summary">Whether Bill C-9 included sunset provisions on the foreign-investment review changes.</div>
+  <div class="rr-outcome chip-resolved">RESOLVED B</div>
+  <div class="rr-evidence">Bill text on royal assent · MAR 24</div>
+</div>
+<div class="resolved-row">
+  <div class="rr-date">MAR 14</div>
+  <div class="rr-summary">Whether RBC's CEO testimony to the Finance Committee acknowledged the mortgage-securitization risk metric.</div>
+  <div class="rr-outcome chip-resolved">RESOLVED A</div>
+  <div class="rr-evidence">Hansard FINA committee · MAR 12</div>
+</div>
+<div class="resolved-row">
+  <div class="rr-date">FEB 19</div>
+  <div class="rr-summary">Whether the OIC appointing Ryan as PBO included specific scope language.</div>
+  <div class="rr-outcome chip-resolved">RESOLVED A</div>
+  <div class="rr-evidence">OIC 2026-0143 · FEB 18</div>
+</div>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

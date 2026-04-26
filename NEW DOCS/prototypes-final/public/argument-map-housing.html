@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Argument Map · Housing · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.argmap-header { border-bottom: 2px solid var(--ink); padding-bottom: 24px; margin-bottom: 40px; }
+.argmap-question { font-family: var(--serif); font-size: 36px; line-height: 1.25; font-weight: 500; margin-bottom: 18px; }
+.argmap-meta { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); display: flex; gap: 16px; flex-wrap: wrap; }
+.argmap-explainer { font-family: var(--serif); font-style: italic; font-size: 18px; line-height: 1.55; color: var(--ink-dim); margin-bottom: 56px; padding: 20px 0; border-bottom: 1px solid var(--rule); }
+.argmap-layer { margin-bottom: 48px; border-left: 4px solid var(--rule); padding-left: 28px; position: relative; }
+.argmap-layer.layer-1 { border-left-color: var(--ink-dim); }
+.argmap-layer.layer-2 { border-left-color: var(--muted-blue); }
+.argmap-layer.layer-3 { border-left-color: var(--sage); }
+.argmap-layer.layer-4 { border-left-color: var(--amber); }
+.argmap-layer.layer-5 { border-left-color: var(--signal); }
+.argmap-layer.layer-6 { border-left-color: var(--ink); }
+.layer-num { position: absolute; left: -28px; top: 0; width: 24px; height: 24px; background: var(--paper); font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--ink); display: flex; align-items: center; justify-content: center; }
+.layer-title { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 6px; }
+.layer-name { font-family: var(--serif); font-size: 26px; font-weight: 500; margin-bottom: 16px; }
+.layer-tagline { font-family: var(--serif); font-style: italic; font-size: 15px; color: var(--ink-dim); margin-bottom: 20px; }
+.pos-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.pos { border: 1px solid var(--rule); background: var(--paper-subtle); padding: 16px 20px; }
+.pos-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 8px; }
+.pos-label.pro { color: var(--sage); }
+.pos-label.con { color: var(--signal); }
+.pos-content { font-size: 15.5px; line-height: 1.5; }
+.pos-content ul { padding-left: 18px; }
+.pos-content li { margin-bottom: 6px; }
+.dispute-block { background: var(--paper-deeper); padding: 18px 22px; margin-bottom: 12px; border-left: 3px solid var(--amber); }
+.dispute-block.values { border-left-color: var(--signal); }
+.dispute-block .db-question { font-family: var(--serif); font-style: italic; font-size: 17px; font-weight: 500; margin-bottom: 10px; }
+.dispute-block .db-positions { font-size: 14.5px; line-height: 1.55; color: var(--ink-dim); }
+.dispute-block .db-positions strong { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); font-weight: 500; display: inline-block; margin-right: 6px; }
+.meta-block { background: var(--ink); color: var(--paper); padding: 24px 28px; font-size: 16px; line-height: 1.6; }
+.meta-block h4 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--paper-deeper); margin-bottom: 12px; }
+.meta-block p { margin-bottom: 12px; }
+.meta-block strong { color: var(--paper); font-weight: 500; font-style: italic; }
+.intervention-tiers { margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--rule); }
+.intervention-tier { border: 1px solid var(--rule); padding: 20px 24px; margin-bottom: 14px; background: var(--paper-subtle); }
+.intervention-tier.symptom { border-left: 4px solid var(--ink-faint); }
+.intervention-tier.mechanism { border-left: 4px solid var(--amber); }
+.intervention-tier.structural { border-left: 4px solid var(--sage); }
+.intervention-tier h4 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 12px; }
+.intervention-tier.symptom h4 { color: var(--ink-faint); }
+.intervention-tier.mechanism h4 { color: var(--amber); }
+.intervention-tier.structural h4 { color: var(--sage); }
+.intervention-tier ul { padding-left: 20px; font-size: 16px; line-height: 1.6; }
+.intervention-tier li { margin-bottom: 6px; }
+@media (max-width: 800px) { .pos-pair { grid-template-columns: 1fr; } .argmap-question { font-size: 26px; } .layer-name { font-size: 22px; } }
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html" class="active">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-narrow">
+
+<div class="argmap-header">
+  <div class="argmap-meta" style="margin-bottom: 14px;">
+    <span>ARGUMENT MAP · DOMAIN: HOUSING</span>
+    <span>STATUS: PUBLISHED</span>
+    <span>v0.3 · UPDATED APR 19</span>
+  </div>
+  <h1 class="argmap-question">Why does the Canadian housing crisis persist despite two decades of policy attention?</h1>
+</div>
+
+<div class="argmap-explainer">
+The full six-layer argument tree for a contested public question. Most public debate operates at Layer 1 — the surface — while the real disagreement usually lives at Layer 4 (empirical) or Layer 5 (values), and the structural reason it never resolves is at Layer 6.
+</div>
+
+<div class="argmap-layer layer-1">
+  <span class="layer-num">1</span>
+  <div class="layer-title">LAYER 1 · SURFACE</div>
+  <h2 class="layer-name">What people actually argue about</h2>
+  <p class="layer-tagline">The bumper-sticker level. What's debated on Twitter, in headlines, in question period.</p>
+  <div class="pos-pair">
+    <div class="pos">
+      <div class="pos-label pro">SUPPLY-SIDE</div>
+      <div class="pos-content"><ul><li>"We need to build more housing."</li><li>"Cut red tape and zoning."</li><li>"Increased immigration produces this crisis."</li><li>"Foreign buyers are the problem."</li></ul></div>
+    </div>
+    <div class="pos">
+      <div class="pos-label con">STRUCTURAL-SIDE</div>
+      <div class="pos-content"><ul><li>"We've always built; it doesn't help affordability."</li><li>"Building more luxury condos doesn't house people."</li><li>"Foreign-buyer blame is xenophobic deflection."</li><li>"The crisis is engineered, not accidental."</li></ul></div>
+    </div>
+  </div>
+</div>
+
+<div class="argmap-layer layer-2">
+  <span class="layer-num">2</span>
+  <div class="layer-title">LAYER 2 · EVIDENCE</div>
+  <h2 class="layer-name">What each side cites</h2>
+  <p class="layer-tagline">The studies and statistics each side relies on. Real evidence, but selective.</p>
+  <div class="pos-pair">
+    <div class="pos">
+      <div class="pos-label pro">SUPPLY-SIDE EVIDENCE</div>
+      <div class="pos-content">CMHC supply-gap analyses (2022–2024). Per-capita housing-starts comparisons. Zoning-permit time-to-issue data from BC and Ontario. Vacant-land inventories.</div>
+    </div>
+    <div class="pos">
+      <div class="pos-label con">STRUCTURAL-SIDE EVIDENCE</div>
+      <div class="pos-content">BoC credit-creation data showing mortgage-debt growth outpacing GDP since 2002. Tax-treatment comparisons. Concentration metrics on Big Five mortgage origination. CPPIB asset allocation shifts.</div>
+    </div>
+  </div>
+</div>
+
+<div class="argmap-layer layer-3">
+  <span class="layer-num">3</span>
+  <div class="layer-title">LAYER 3 · DEPENDENCIES</div>
+  <h2 class="layer-name">What has to be true for each side's surface claim to hold</h2>
+  <p class="layer-tagline">The premises beneath the visible claims. Often unstated.</p>
+  <div class="pos-pair">
+    <div class="pos">
+      <div class="pos-label pro">SUPPLY-SIDE DEPENDS ON</div>
+      <div class="pos-content">That housing-as-shelter is the marginal demand driving prices. That supply elasticity is the binding constraint. That investor demand is bounded by cap rates. That the policy lever is municipal/provincial.</div>
+    </div>
+    <div class="pos">
+      <div class="pos-label con">STRUCTURAL-SIDE DEPENDS ON</div>
+      <div class="pos-content">That housing-as-investment-asset is the marginal demand driving prices. That credit creation is the binding constraint. That tax design and securitization architecture set demand. That the policy lever is federal monetary and fiscal.</div>
+    </div>
+  </div>
+</div>
+
+<div class="argmap-layer layer-4">
+  <span class="layer-num">4</span>
+  <div class="layer-title">LAYER 4 · EMPIRICAL DISPUTES</div>
+  <h2 class="layer-name">Where facts are actually contested — resolvable in principle</h2>
+  <p class="layer-tagline">The specific empirical questions where the evidence has not been assembled. These could be settled with research.</p>
+  <div class="dispute-block">
+    <div class="db-question">Is the marginal buyer in Canadian urban housing markets a shelter-seeker or an investor?</div>
+    <div class="db-positions"><strong>SUPPLY:</strong> shelter-seeker; price is a supply-demand artifact. <strong>STRUCTURAL:</strong> investor; price tracks credit availability and asset returns more than shelter demand.</div>
+  </div>
+  <div class="dispute-block">
+    <div class="db-question">How much of mortgage-debt growth since 2002 has been absorbed by existing-property revaluation versus new construction?</div>
+    <div class="db-positions"><strong>SUPPLY:</strong> minimally relevant. <strong>STRUCTURAL:</strong> central to the diagnosis; the data exists but is not assembled in publicly-cited form.</div>
+  </div>
+  <div class="dispute-block">
+    <div class="db-question">What is the empirical elasticity of urban housing prices to municipal zoning reforms over a 5-year window?</div>
+    <div class="db-positions"><strong>SUPPLY:</strong> high; reforms produce affordability improvement. <strong>STRUCTURAL:</strong> low; reforms produce supply but not price correction.</div>
+  </div>
+</div>
+
+<div class="argmap-layer layer-5">
+  <span class="layer-num">5</span>
+  <div class="layer-title">LAYER 5 · VALUES DISPUTES</div>
+  <h2 class="layer-name">Where priors differ — evidence alone cannot resolve</h2>
+  <p class="layer-tagline">Genuine value-laden questions. These are not factual disputes in disguise.</p>
+  <div class="dispute-block values">
+    <div class="db-question">Should existing homeowners' wealth be protected, or should the policy goal be reducing housing as a class of investment?</div>
+    <div class="db-positions"><strong>SUPPLY:</strong> protect homeowner equity; politically and economically necessary. <strong>STRUCTURAL:</strong> shrink the asset class; current homeowner wealth is a legacy effect of the system, not its purpose.</div>
+  </div>
+  <div class="dispute-block values">
+    <div class="db-question">Is intergenerational transfer of housing wealth legitimate or distortionary?</div>
+    <div class="db-positions"><strong>Implicit acceptance</strong> in supply-side framing; <strong>explicit critique</strong> in structural framing.</div>
+  </div>
+</div>
+
+<div class="argmap-layer layer-6">
+  <span class="layer-num">6</span>
+  <div class="layer-title">LAYER 6 · META</div>
+  <h2 class="layer-name">Why this argument keeps recurring without resolution</h2>
+  <p class="layer-tagline">The structural reason for the stalemate.</p>
+  <div class="meta-block">
+    <h4>WHY THIS DEBATE PERSISTS</h4>
+    <p>The supply-side framing is structurally favored by every major institutional actor in Canadian housing discourse: CMHC's mandate is supply-oriented; the construction industry funds research aligned with supply analysis; the Big Five banks have material interest in preserving mortgage origination as the central credit-creation activity; existing homeowners (the median household and most political-class members) have material interest in continued asset appreciation.</p>
+    <p>The structural framing has institutional support primarily in heterodox economics circles and post-Keynesian academic work, neither of which has the platform reach of CMHC research or bank-funded think tanks.</p>
+    <p><strong>Result:</strong> the empirical questions at Layer 4 — which could in principle be resolved by research — are not being resolved because the institutions that would fund and disseminate the research have material interest in the supply-side framing prevailing.</p>
+    <p>This is not a conspiracy. It is structural. Each actor responds to its own incentives. The aggregate effect is an argument that cannot resolve at the level it's being conducted.</p>
+  </div>
+</div>
+
+<div class="intervention-tiers">
+<h3 class="section-head">Intervention by leverage level</h3>
+<div class="intervention-tier symptom">
+  <h4>SYMPTOM LEVEL · LOWEST LEVERAGE</h4>
+  <ul>
+    <li>Build more shelter beds, expand emergency housing supports.</li>
+    <li>Down-payment assistance programs, first-time-buyer incentives.</li>
+    <li>Rent subsidies to households below income threshold.</li>
+  </ul>
+</div>
+<div class="intervention-tier mechanism">
+  <h4>MECHANISM LEVEL · MEDIUM LEVERAGE</h4>
+  <ul>
+    <li>Vacancy taxes and foreign-buyer bans.</li>
+    <li>Zoning reforms accelerating municipal approvals.</li>
+    <li>Stress tests on mortgage qualification.</li>
+    <li>Public housing construction at scale.</li>
+  </ul>
+</div>
+<div class="intervention-tier structural">
+  <h4>STRUCTURAL LEVEL · HIGHEST LEVERAGE</h4>
+  <ul>
+    <li>Reform of mortgage-securitization architecture (CMHC's role in credit creation).</li>
+    <li>Capital-gains tax treatment of primary and secondary residences.</li>
+    <li>Bank Act amendments altering Big Five mortgage-origination concentration.</li>
+    <li>Land-value taxation as primary municipal revenue source.</li>
+    <li>Re-classification of housing as constitutional infrastructure rather than asset class.</li>
+  </ul>
+</div>
+</div>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

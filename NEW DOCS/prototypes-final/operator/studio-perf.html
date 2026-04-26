@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Studio · Perf · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON operator app — shared design tokens and components */
+
+:root {
+  --bg-deeper: #0c0e12;
+  --bg: #0f1218;
+  --bg-elevated: #161a22;
+  --bg-soft: #1a1e27;
+
+  --border-soft: #1f2530;
+  --border: #2a3140;
+  --border-bright: #3a4254;
+
+  --text: #ede9de;
+  --text-dim: #8a857a;
+  --text-faint: #4f4b42;
+
+  --cream: #ede9de;
+  --cream-dim: #7a766c;
+  --cream-bright: #f5f1e6;
+
+  --signal: #d14156;
+  --signal-dim: #8a2433;
+  --signal-glow: rgba(209, 65, 86, 0.28);
+
+  --amber: #d4a24a;
+  --amber-dim: #8a6520;
+  --amber-bright: #e5b55b;
+
+  --sage: #7a8c5f;
+  --sage-dim: #4f5e3a;
+
+  --muted-blue: #4c617e;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at top, rgba(60,55,40,0.10) 0%, transparent 60%),
+    var(--bg);
+  min-height: 100vh;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+.app {
+  max-width: 440px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  padding-bottom: 70px;
+}
+
+/* MASTHEAD */
+.masthead {
+  padding: 18px 22px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.wordmark {
+  font-family: var(--serif);
+  font-size: 23px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.wordmark .can { color: var(--cream-bright); }
+.wordmark .opticon { color: var(--signal); }
+
+.wordmark-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  margin-left: 8px;
+  box-shadow: 0 0 8px var(--signal-glow);
+  vertical-align: middle;
+}
+
+.masthead-screen {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  display: flex;
+  gap: 8px;
+}
+.masthead-screen .time { color: var(--cream); }
+
+/* DATE STRIP */
+.date-strip {
+  padding: 10px 22px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* TABS */
+.tabs-row {
+  display: flex;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs-row::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.tab.active {
+  color: var(--cream);
+  border-bottom-color: var(--cream);
+  background: rgba(237,233,222,0.04);
+  font-weight: 600;
+}
+.tab-count {
+  color: var(--text-faint);
+  margin-left: 6px;
+  font-size: 9px;
+}
+.tab.active .tab-count { color: var(--cream); opacity: 0.6; }
+
+/* BOTTOM NAV */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-deeper);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0 14px;
+  z-index: 100;
+  max-width: 440px;
+  margin: 0 auto;
+}
+.nav-item {
+  flex: 1;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  cursor: pointer;
+  position: relative;
+  padding: 4px 0;
+}
+.nav-item.active { color: var(--cream); }
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 30%;
+  right: 30%;
+  height: 2px;
+  background: var(--cream);
+}
+
+/* CARDS */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 2px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.card-desc {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.card-footer {
+  display: flex;
+  gap: 8px;
+}
+
+/* CHIPS */
+.status-chip {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+.status-chip.ready { background: var(--cream); color: var(--bg-deeper); }
+.status-chip.recording { background: var(--signal); color: var(--bg-deeper); }
+.status-chip.producing { background: var(--amber); color: var(--bg-deeper); }
+.status-chip.archived { background: var(--border-bright); color: var(--text-dim); }
+.status-chip.hot { background: var(--signal); color: var(--bg-deeper); }
+.status-chip.review { background: var(--amber); color: var(--bg-deeper); }
+.status-chip.verified { background: var(--sage); color: var(--bg-deeper); }
+.status-chip.contradiction { background: var(--signal); color: var(--bg-deeper); }
+
+/* BUTTONS */
+.btn {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:active { background: var(--bg-soft); }
+.btn.primary {
+  border: 1px solid var(--cream);
+  color: var(--cream);
+  font-weight: 600;
+}
+.btn.primary:active { background: rgba(237,233,222,0.05); }
+.btn.danger {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+.btn.full { width: 100%; }
+
+/* PIPELINE */
+.pipeline {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.pipe-step {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 5px 2px;
+  border-top: 2px solid var(--border);
+  color: var(--text-faint);
+}
+.pipe-step.done { border-top-color: var(--sage); color: var(--sage); }
+.pipe-step.current { border-top-color: var(--amber); color: var(--amber); font-weight: 600; }
+
+/* SECTION HEADS */
+.section-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 18px 22px 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* PADDING WRAPS */
+.content-pad { padding: 14px 22px; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8,10,14,0.85);
+  z-index: 200;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-bright);
+  width: 100%;
+  max-width: 440px;
+  padding: 22px;
+  margin-bottom: 70px;
+  border-radius: 2px 2px 0 0;
+}
+.modal-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.modal-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.modal-body { font-size: 14.5px; line-height: 1.55; color: var(--text-dim); margin-bottom: 18px; }
+.modal-actions { display: flex; gap: 8px; }
+
+
+
+.studio-tab-content { padding: 14px 22px; }
+.prod-card { background: var(--bg-elevated); border: 1px solid var(--border-soft); padding: 16px; margin-bottom: 14px; }
+.prod-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.prod-meta { font-family: var(--mono); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-dim); }
+.prod-title { font-family: var(--serif); font-size: 18px; font-weight: 500; line-height: 1.3; margin-bottom: 6px; }
+.prod-desc { font-family: var(--serif); font-style: italic; font-size: 13.5px; color: var(--text-dim); line-height: 1.5; margin-bottom: 12px; }
+.platform-list { padding: 8px 0; border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); margin-bottom: 12px; }
+.platform-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; }
+.platform-row .pl-name { color: var(--cream); }
+.platform-row .pl-time { color: var(--text-dim); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; }
+.perf-card { background: var(--bg-elevated); border: 1px solid var(--border-soft); padding: 16px; margin-bottom: 14px; }
+.perf-meta { display: flex; justify-content: space-between; margin-bottom: 8px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-dim); }
+.tier-a { color: var(--sage); font-weight: 600; }
+.tier-b { color: var(--amber); font-weight: 600; }
+.perf-title { font-family: var(--serif); font-size: 17px; font-weight: 500; line-height: 1.3; margin-bottom: 12px; }
+.perf-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+.perf-stat { text-align: center; padding: 8px 4px; background: var(--bg-soft); border-radius: 2px; }
+.perf-stat-num { font-family: var(--mono); font-size: 15px; color: var(--cream); font-weight: 600; margin-bottom: 2px; }
+.perf-stat-label { font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint); }
+.perf-insight { font-family: var(--serif); font-style: italic; font-size: 13px; line-height: 1.5; color: var(--text-dim); border-left: 2px solid var(--cream-dim); padding-left: 12px; margin-top: 8px; }
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="masthead">
+    <div class="wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span><span class="wordmark-dot"></span></div>
+    <div class="masthead-screen"><span class="time">3</span>STUDIO</div>
+  </div>
+
+  <div class="date-strip">
+    <span>SUN APR 26 · 14:32 EST</span>
+    <span>CASCADE 4H AGO · ALL GREEN</span>
+  </div>
+
+  <div class="tabs-row">
+<a href="studio.html" class="tab" style="text-decoration:none;">Ready<span class="tab-count">3</span></a>
+<a href="studio-recording.html" class="tab" style="text-decoration:none;">Recording<span class="tab-count">1</span></a>
+<a href="studio-producing.html" class="tab" style="text-decoration:none;">Producing<span class="tab-count">2</span></a>
+<a href="studio-publish.html" class="tab" style="text-decoration:none;">Publish<span class="tab-count">2</span></a>
+<button class="tab active">Perf</button>
+<a href="studio-archive.html" class="tab" style="text-decoration:none;">Archive<span class="tab-count">12</span></a>
+</div>
+
+<div class="studio-tab-content">
+<div class="perf-card">
+  <div class="perf-meta"><span>ARTICLE · 4D AGO</span><span class="tier-a">A TIER</span></div>
+  <div class="perf-title">The revolving door between Brookfield and Canadian public service.</div>
+  <div class="perf-stats">
+    <div class="perf-stat"><div class="perf-stat-num">47k</div><div class="perf-stat-label">X IMP</div></div>
+    <div class="perf-stat"><div class="perf-stat-num">412</div><div class="perf-stat-label">OPENS</div></div>
+    <div class="perf-stat"><div class="perf-stat-num">234</div><div class="perf-stat-label">SAVES</div></div>
+    <div class="perf-stat"><div class="perf-stat-num">18</div><div class="perf-stat-label">SUBS</div></div>
+  </div>
+  <div class="perf-insight">The "seven documented moves" opener outperformed "pattern isn't incidental" by 3.2×. Script prompt v2.2 will weight declarative enumeration. <strong>Mark as canon</strong></div>
+</div>
+<div class="perf-card">
+  <div class="perf-meta"><span>SHORT · 11D AGO</span><span class="tier-a">A TIER</span></div>
+  <div class="perf-title">Why every PBO since 2005 has gone quiet.</div>
+  <div class="perf-stats">
+    <div class="perf-stat"><div class="perf-stat-num">142k</div><div class="perf-stat-label">TT VIEWS</div></div>
+    <div class="perf-stat"><div class="perf-stat-num">8.2k</div><div class="perf-stat-label">YT VIEWS</div></div>
+    <div class="perf-stat"><div class="perf-stat-num">3.4k</div><div class="perf-stat-label">SHARES</div></div>
+    <div class="perf-stat"><div class="perf-stat-num">284</div><div class="perf-stat-label">CMTS</div></div>
+  </div>
+  <div class="perf-insight">Layer-3 structure (architectural framing) drove 4× more saves than Layer-2 shorts. Continue pushing layer depth in 90-second formats.</div>
+</div>
+<div class="perf-card">
+  <div class="perf-meta"><span>SHORT · 18D AGO</span><span class="tier-b">B TIER</span></div>
+  <div class="perf-title">CMHC's quiet revisions to mortgage modeling.</div>
+  <div class="perf-stats">
+    <div class="perf-stat"><div class="perf-stat-num">22k</div><div class="perf-stat-label">VIEWS</div></div>
+    <div class="perf-stat"><div class="perf-stat-num">87</div><div class="perf-stat-label">SAVES</div></div>
+    <div class="perf-stat"><div class="perf-stat-num">312</div><div class="perf-stat-label">SHARES</div></div>
+    <div class="perf-stat"><div class="perf-stat-num">14</div><div class="perf-stat-label">SUBS</div></div>
+  </div>
+  <div class="perf-insight">Underperformed despite A-grade sourcing. Hypothesis: title was too neutral; abstract framing didn't hook. Future titles in this domain should anchor in named entities.</div>
+</div>
+</div>
+
+
+</div>
+
+<nav class="bottom-nav">
+<a href="live.html" class="nav-item">Live</a>
+<a href="graph.html" class="nav-item">Graph</a>
+<a href="studio.html" class="nav-item active">Studio</a>
+<a href="library.html" class="nav-item">Library</a>
+<a href="sources.html" class="nav-item">Sources</a>
+<a href="system.html" class="nav-item">System</a>
+
+</nav>
+
+</body>
+</html>

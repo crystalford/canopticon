@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prediction Ledger · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.brier-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: 24px 0;
+  margin-bottom: 40px;
+}
+.brier-stat .label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 6px;
+}
+.brier-stat .value {
+  font-family: var(--serif);
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1;
+}
+.brier-stat .meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+.calibration-chart {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 32px;
+  margin-bottom: 40px;
+}
+.cal-chart-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 24px;
+}
+.cal-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  height: 200px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.cal-bar-group {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 100%;
+  position: relative;
+}
+.cal-bar {
+  flex: 1;
+}
+.cal-bar.predicted { background: var(--muted-blue); }
+.cal-bar.actual { background: var(--sage); }
+.cal-bar-label {
+  position: absolute;
+  bottom: -28px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.08em;
+}
+.cal-legend {
+  display: flex;
+  gap: 24px;
+  margin-top: 40px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.cal-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+table.predictions-table .pred-text {
+  max-width: 360px;
+}
+table.predictions-table .conf {
+  font-family: var(--mono);
+  color: var(--amber);
+  letter-spacing: 0.04em;
+}
+table.predictions-table .horizon {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-dim);
+  letter-spacing: 0.06em;
+}
+.export-row {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.export-row a { color: var(--signal); border-bottom: 1px solid var(--signal); padding-bottom: 2px; }
+.domain-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 40px;
+}
+.domain-card {
+  border: 1px solid var(--rule);
+  padding: 20px;
+  background: var(--paper-subtle);
+}
+.domain-card .dc-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+.domain-card .dc-brier {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.domain-card .dc-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+@media (max-width: 800px) {
+  .brier-summary { grid-template-columns: repeat(2, 1fr); }
+  .domain-breakdown { grid-template-columns: 1fr; }
+}
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html" class="active">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-full">
+
+<h1 class="page-title">Prediction Ledger</h1>
+<h2 class="page-subtitle">Every probabilistic call we've banked, and how they've resolved.</h2>
+
+<div class="brier-summary">
+  <div class="brier-stat">
+    <div class="label">Active</div>
+    <div class="value">14</div>
+    <div class="meta">Awaiting resolution</div>
+  </div>
+  <div class="brier-stat">
+    <div class="label">Resolved</div>
+    <div class="value">9</div>
+    <div class="meta">7 correct, 2 incorrect</div>
+  </div>
+  <div class="brier-stat">
+    <div class="label">Rolling Brier</div>
+    <div class="value">0.142</div>
+    <div class="meta">Lower is better; 0.25 = coin flip</div>
+  </div>
+  <div class="brier-stat">
+    <div class="label">Best domain</div>
+    <div class="value">0.08</div>
+    <div class="meta">Monetary policy</div>
+  </div>
+</div>
+
+<div class="calibration-chart">
+  <div class="cal-chart-head">Calibration by confidence bucket</div>
+  <div class="cal-bars">
+    <div class="cal-bar-group">
+      <div class="cal-bar predicted" style="height: 60%"></div>
+      <div class="cal-bar actual" style="height: 50%"></div>
+      <div class="cal-bar-label">60%</div>
+    </div>
+    <div class="cal-bar-group">
+      <div class="cal-bar predicted" style="height: 70%"></div>
+      <div class="cal-bar actual" style="height: 67%"></div>
+      <div class="cal-bar-label">70%</div>
+    </div>
+    <div class="cal-bar-group">
+      <div class="cal-bar predicted" style="height: 80%"></div>
+      <div class="cal-bar actual" style="height: 75%"></div>
+      <div class="cal-bar-label">80%</div>
+    </div>
+    <div class="cal-bar-group">
+      <div class="cal-bar predicted" style="height: 90%"></div>
+      <div class="cal-bar actual" style="height: 100%"></div>
+      <div class="cal-bar-label">90%</div>
+    </div>
+  </div>
+  <div class="cal-legend">
+    <span><span class="cal-swatch" style="background: var(--muted-blue)"></span>Predicted probability</span>
+    <span><span class="cal-swatch" style="background: var(--sage)"></span>Actual frequency</span>
+  </div>
+</div>
+
+<h3 class="section-head">By domain</h3>
+<div class="domain-breakdown">
+  <div class="domain-card">
+    <div class="dc-name">Monetary policy</div>
+    <div class="dc-brier">0.08</div>
+    <div class="dc-meta">3 resolved · 2 active · best calibration</div>
+  </div>
+  <div class="domain-card">
+    <div class="dc-name">Regulatory</div>
+    <div class="dc-brier">0.13</div>
+    <div class="dc-meta">2 resolved · 4 active</div>
+  </div>
+  <div class="domain-card">
+    <div class="dc-name">Corporate</div>
+    <div class="dc-brier">0.16</div>
+    <div class="dc-meta">3 resolved · 5 active</div>
+  </div>
+  <div class="domain-card">
+    <div class="dc-name">Electoral</div>
+    <div class="dc-brier">0.24</div>
+    <div class="dc-meta">1 resolved · 3 active · worst calibration</div>
+  </div>
+</div>
+
+<h3 class="section-head">Active predictions</h3>
+<table class="data-table predictions-table">
+  <thead>
+    <tr>
+      <th style="width: 40%">Prediction</th>
+      <th>Confidence</th>
+      <th>Resolution criterion</th>
+      <th>Horizon</th>
+      <th>Domain</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="pred-text">The next BoC governor will have prior tenure at a Big Five bank or a global asset manager.</td>
+      <td class="conf">75% · LIKELY</td>
+      <td>Disclosed in OIC announcement</td>
+      <td class="horizon">JUN 2027</td>
+      <td>Monetary</td>
+    </tr>
+    <tr>
+      <td class="pred-text">Brookfield will receive at least one additional federal infrastructure contract above $200M in the next 12 months.</td>
+      <td class="conf">85% · VERY LIKELY</td>
+      <td>contracts.canada.ca filing</td>
+      <td class="horizon">APR 2027</td>
+      <td>Corporate</td>
+    </tr>
+    <tr>
+      <td class="pred-text">Bill C-14 amendments will pass without strengthening the foreign-bank-takeover review threshold.</td>
+      <td class="conf">62% · ABOUT AS LIKELY AS NOT</td>
+      <td>Bill text on royal assent</td>
+      <td class="horizon">DEC 2026</td>
+      <td>Regulatory</td>
+    </tr>
+    <tr>
+      <td class="pred-text">CPPIB will increase allocation to private infrastructure above 12% of total assets within fiscal year.</td>
+      <td class="conf">70% · LIKELY</td>
+      <td>CPPIB annual report</td>
+      <td class="horizon">MAR 2027</td>
+      <td>Corporate</td>
+    </tr>
+    <tr>
+      <td class="pred-text">The PBO will not publish a revised costing of the federal infrastructure pipeline before fiscal year-end.</td>
+      <td class="conf">80% · VERY LIKELY</td>
+      <td>PBO publication record</td>
+      <td class="horizon">MAR 2027</td>
+      <td>Regulatory</td>
+    </tr>
+    <tr>
+      <td class="pred-text">At least two of the Big Five banks will report record Q3 earnings driven by mortgage origination.</td>
+      <td class="conf">65% · LIKELY</td>
+      <td>Q3 earnings filings</td>
+      <td class="horizon">AUG 2026</td>
+      <td>Corporate</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 class="section-head">Resolved predictions</h3>
+<table class="data-table predictions-table">
+  <thead>
+    <tr>
+      <th style="width: 40%">Prediction</th>
+      <th>Confidence</th>
+      <th>Outcome</th>
+      <th>Brier</th>
+      <th>Resolved</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="pred-text">BoC will hold rates at the April 2026 meeting.</td>
+      <td class="conf">78%</td>
+      <td><span class="chip chip-correct">CORRECT</span></td>
+      <td>0.048</td>
+      <td class="horizon">APR 24</td>
+    </tr>
+    <tr>
+      <td class="pred-text">A senior OSFI official will move to a Big Five bank within 18 months of departure.</td>
+      <td class="conf">82%</td>
+      <td><span class="chip chip-correct">CORRECT</span></td>
+      <td>0.032</td>
+      <td class="horizon">MAR 18</td>
+    </tr>
+    <tr>
+      <td class="pred-text">CMHC will publish revised mortgage-default modeling using post-2022 data.</td>
+      <td class="conf">68%</td>
+      <td><span class="chip chip-incorrect">INCORRECT</span></td>
+      <td>0.462</td>
+      <td class="horizon">FEB 28</td>
+    </tr>
+    <tr>
+      <td class="pred-text">A federal infrastructure announcement will name a Brookfield-affiliated entity within 90 days.</td>
+      <td class="conf">73%</td>
+      <td><span class="chip chip-correct">CORRECT</span></td>
+      <td>0.073</td>
+      <td class="horizon">FEB 14</td>
+    </tr>
+    <tr>
+      <td class="pred-text">The PBO's Q4 2025 report will include analysis of carbon-tax revenue redistribution at the household level.</td>
+      <td class="conf">55%</td>
+      <td><span class="chip chip-incorrect">INCORRECT</span></td>
+      <td>0.302</td>
+      <td class="horizon">JAN 22</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="export-row">
+  <a href="predictions.csv">Download as CSV</a>
+  <a href="feed/predictions.xml">RSS feed</a>
+  <a href="methodology.html#brier">How Brier scoring works</a>
+</div>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

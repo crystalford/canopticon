@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glossary · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.glossary-toc {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 56px;
+  padding: 24px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.glossary-toc a:hover { color: var(--signal); }
+.glossary-section {
+  margin-bottom: 56px;
+}
+.glossary-section h2 {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 24px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--ink);
+}
+.glossary-entry {
+  margin-bottom: 28px;
+}
+.glossary-entry .term {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.glossary-entry .definition {
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.glossary-entry .definition em { font-style: italic; }
+@media (max-width: 800px) {
+  .glossary-toc { grid-template-columns: repeat(2, 1fr); }
+}
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html" class="active">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-narrow">
+
+<h1 class="page-title">Glossary</h1>
+<h2 class="page-subtitle">Every non-obvious term, defined.</h2>
+
+<div class="glossary-toc">
+  <a href="#epistemic" class="dotted-link">Epistemic</a>
+  <a href="#system" class="dotted-link">System</a>
+  <a href="#operational" class="dotted-link">Operational</a>
+  <a href="#regional" class="dotted-link">Canadian regional</a>
+</div>
+
+<section class="glossary-section" id="epistemic">
+<h2>Epistemic and methodological</h2>
+
+<div class="glossary-entry">
+  <div class="term">Admiralty grading</div>
+  <div class="definition">A six-point scale (A–F) for source reliability, originating in NATO intelligence training. A is primary, official, verbatim. B is credible secondary. C is tertiary or partisan. D is anonymous or low-quality. E is known unreliable. F is cannot-assess. Every CANOPTICON source carries an Admiralty grade visible on every published claim.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Brier score</div>
+  <div class="definition">A measure of calibration for probabilistic predictions, equal to the mean squared error between predicted probability and actual outcome. Lower is better. Across many predictions, the rolling Brier score becomes the operator's track record. Named after Glenn Brier (1950). CANOPTICON publishes its rolling Brier on the prediction ledger.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Catuṣkoṭi</div>
+  <div class="definition">A four-cornered logic from early Buddhist philosophy (Nagarjuna, Madhyamaka school) admitting four truth states: affirmation, negation, both, neither. CANOPTICON uses it as a non-binary posture option for claims under contested framing.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Cynefin</div>
+  <div class="definition">A sense-making framework (David Snowden) sorting problems into clear, complicated, complex, chaotic, and disorder domains. Different problem types require different response patterns. Pronunciation: <em>kuh-NEV-in</em>.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Forensic intelligence</div>
+  <div class="definition">CANOPTICON's self-description. Not journalism, not academic analysis, not investigation in the police sense. Forensic: examining evidence methodically, reconstructing structure from documented facts, preserving chain of custody.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">IPCC calibrated language</div>
+  <div class="definition">The Intergovernmental Panel on Climate Change's verbal probability scale, mapped to numeric ranges. Virtually certain (99–100%), very likely (90–100%), likely (66–100%), about as likely as not (33–66%), unlikely (0–33%), very unlikely (0–10%), exceptionally unlikely (0–1%). CANOPTICON uses these in tier projections so readers have a consistent verbal scale that maps to real probability ranges rather than vibes.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Lakatos — progressive vs degenerating</div>
+  <div class="definition">Imre Lakatos's argument that scientific theories should be evaluated by whether their broader research programme is <em>progressive</em> (predicts new phenomena that check out) or <em>degenerating</em> (only generates ad hoc adjustments). CANOPTICON applies this to its own theses.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Machloket</div>
+  <div class="definition">A term from rabbinic tradition for a disagreement that is preserved rather than resolved, because both sides contribute to the picture. CANOPTICON treats machloket as a legitimate contradiction posture.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">McLuhan — the medium is the message</div>
+  <div class="definition">Marshall McLuhan's thesis that the form of a medium embeds itself in any message communicated through it. Foundational influence on CANOPTICON's framing layer and platform self-conception.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Toulmin warrant</div>
+  <div class="definition">In Stephen Toulmin's argument model, the warrant is the (often implicit) rule of inference that licenses moving from data to claim. CANOPTICON requires warrants to be explicit so they can be separately attacked. Most political disagreement is about warrants, not data.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Van Evera tests</div>
+  <div class="definition">Stephen Van Evera's four logical weights for qualitative evidence: straw-in-the-wind, hoop test, smoking gun, doubly decisive. Used to tag evidence weight rather than treating all evidence as equivalent.</div>
+</div>
+
+</section>
+
+<section class="glossary-section" id="system">
+<h2>CANOPTICON-specific</h2>
+
+<div class="glossary-entry">
+  <div class="term">BLUF</div>
+  <div class="definition">"Bottom Line Up Front." Military and intelligence shorthand for leading with the conclusion. Every CANOPTICON thesis offers a BLUF — a one-sentence conclusion with IPCC likelihood qualifier.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Cascade</div>
+  <div class="definition">The system's primary workflow. Runs unattended from cron or on-demand. Processes pending sources through the Ingestion Critic, extracts claims, runs entity resolution, verifies new claims, generates Interrogator questions, runs the Gap Surfacer, calibrates resolved predictions, regenerates tier projections, audits assumptions weekly, detects convergences, and assembles the Live feed.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Coined phrase</div>
+  <div class="definition">Every landed thesis includes a coined phrase that compresses the structural finding into transmissible language. Not marketing — analytical work. <em>Manufacturing consent. Surveillance capitalism. Shock doctrine.</em></div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Ingestion Critic</div>
+  <div class="definition">A role that runs on every incoming source before it writes to claim registries. Produces a written assessment: Admiralty grade, bias profile, contradiction check, paid-op flags. The operator approves, defers, or rejects.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Layered-topic template</div>
+  <div class="definition">Every contested topic CANOPTICON addresses decomposes into four analytical layers: Factual, Framing, Architectural, Distributive. Cross-layer contradictions are preserved, not flattened.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Linchpin</div>
+  <div class="definition">An assumption or claim whose failure would collapse an entire thesis, not merely weaken it. Flagged so the operator knows where the thesis is most vulnerable.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Operator</div>
+  <div class="definition">The person using CANOPTICON to do intelligence work. The operator is the gate at every paid operation, every publish transition, every contested merge. The system serves the operator; it does not autonomously act.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Production engine</div>
+  <div class="definition">The half of CANOPTICON that turns substrate into shippable content (videos, audio, articles, threads). Six states: Ready / Recording / Producing / Publish / Perf / Archive.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Root-striking discipline</div>
+  <div class="definition">Every investigation identifies its intervention level (symptom / mechanism / structural). Publishable theses operate at the structural level. From Thoreau: <em>"There are a thousand hacking at the branches of evil to one who is striking at the root."</em></div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Substrate</div>
+  <div class="definition">The collective term for CANOPTICON's persistent data: claims, theses, articles, productions, entities, sources, assumptions, indicators, predictions, contradictions, questions, books, and their version histories. The system's memory and reasoning surface.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Undismissability architecture</div>
+  <div class="definition">Seven requirements every published thesis must satisfy: evidence density beyond rebuttal capacity, coined vocabulary, banked predictions (≥3), teachable diagram, methodology transparency, public graph artifact, named human accountability. Designed so critics must engage every piece of the evidence trail.</div>
+</div>
+
+</section>
+
+<section class="glossary-section" id="operational">
+<h2>Operational</h2>
+
+<div class="glossary-entry">
+  <div class="term">Cost gate</div>
+  <div class="definition">The single chokepoint through which every paid operation passes. Function checks ceiling, checks whitelist, either auto-approves, prompts the operator, or blocks. There is no fallback path that bypasses the gate. The discipline behind no-silent-spending.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Path A / Path B transcription</div>
+  <div class="definition">CANOPTICON's two-path discipline. Path A (free): YouTube captions via API. Path B (paid): AssemblyAI or transcription model when Path A returns nothing. LLM-as-transcriber explicitly forbidden because models hallucinate transcripts from URL metadata.</div>
+</div>
+
+</section>
+
+<section class="glossary-section" id="regional">
+<h2>Canadian regional</h2>
+
+<div class="glossary-entry">
+  <div class="term">BoC</div>
+  <div class="definition">Bank of Canada. Central bank. Responsible for monetary policy, currency issuance, and financial stability.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Big Five</div>
+  <div class="definition">Canada's five largest banks: RBC, TD, Scotiabank, BMO, CIBC. Systemically important; regulated by OSFI.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">Hansard</div>
+  <div class="definition">The verbatim transcript of debates in the Parliament of Canada. Published daily during sittings. A-grade source because it is verbatim and official.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">OIC</div>
+  <div class="definition">Order-in-Council. A formal executive-branch instrument issued by the Governor-in-Council (Cabinet). Used for appointments and regulatory actions.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">PBO</div>
+  <div class="definition">Parliamentary Budget Officer. An independent officer of Parliament who provides analysis of the federal budget. Appointed by the Governor-in-Council.</div>
+</div>
+
+<div class="glossary-entry">
+  <div class="term">SEDAR+</div>
+  <div class="definition">The Canadian filing system for public-company disclosures. Primary source for Canadian corporate filings. A-grade.</div>
+</div>
+
+</section>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

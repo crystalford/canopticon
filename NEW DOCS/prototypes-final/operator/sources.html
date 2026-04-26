@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sources · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON operator app — shared design tokens and components */
+
+:root {
+  --bg-deeper: #0c0e12;
+  --bg: #0f1218;
+  --bg-elevated: #161a22;
+  --bg-soft: #1a1e27;
+
+  --border-soft: #1f2530;
+  --border: #2a3140;
+  --border-bright: #3a4254;
+
+  --text: #ede9de;
+  --text-dim: #8a857a;
+  --text-faint: #4f4b42;
+
+  --cream: #ede9de;
+  --cream-dim: #7a766c;
+  --cream-bright: #f5f1e6;
+
+  --signal: #d14156;
+  --signal-dim: #8a2433;
+  --signal-glow: rgba(209, 65, 86, 0.28);
+
+  --amber: #d4a24a;
+  --amber-dim: #8a6520;
+  --amber-bright: #e5b55b;
+
+  --sage: #7a8c5f;
+  --sage-dim: #4f5e3a;
+
+  --muted-blue: #4c617e;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at top, rgba(60,55,40,0.10) 0%, transparent 60%),
+    var(--bg);
+  min-height: 100vh;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+.app {
+  max-width: 440px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  padding-bottom: 70px;
+}
+
+/* MASTHEAD */
+.masthead {
+  padding: 18px 22px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.wordmark {
+  font-family: var(--serif);
+  font-size: 23px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.wordmark .can { color: var(--cream-bright); }
+.wordmark .opticon { color: var(--signal); }
+
+.wordmark-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  margin-left: 8px;
+  box-shadow: 0 0 8px var(--signal-glow);
+  vertical-align: middle;
+}
+
+.masthead-screen {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  display: flex;
+  gap: 8px;
+}
+.masthead-screen .time { color: var(--cream); }
+
+/* DATE STRIP */
+.date-strip {
+  padding: 10px 22px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* TABS */
+.tabs-row {
+  display: flex;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs-row::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.tab.active {
+  color: var(--cream);
+  border-bottom-color: var(--cream);
+  background: rgba(237,233,222,0.04);
+  font-weight: 600;
+}
+.tab-count {
+  color: var(--text-faint);
+  margin-left: 6px;
+  font-size: 9px;
+}
+.tab.active .tab-count { color: var(--cream); opacity: 0.6; }
+
+/* BOTTOM NAV */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-deeper);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0 14px;
+  z-index: 100;
+  max-width: 440px;
+  margin: 0 auto;
+}
+.nav-item {
+  flex: 1;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  cursor: pointer;
+  position: relative;
+  padding: 4px 0;
+}
+.nav-item.active { color: var(--cream); }
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 30%;
+  right: 30%;
+  height: 2px;
+  background: var(--cream);
+}
+
+/* CARDS */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 2px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.card-desc {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.card-footer {
+  display: flex;
+  gap: 8px;
+}
+
+/* CHIPS */
+.status-chip {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+.status-chip.ready { background: var(--cream); color: var(--bg-deeper); }
+.status-chip.recording { background: var(--signal); color: var(--bg-deeper); }
+.status-chip.producing { background: var(--amber); color: var(--bg-deeper); }
+.status-chip.archived { background: var(--border-bright); color: var(--text-dim); }
+.status-chip.hot { background: var(--signal); color: var(--bg-deeper); }
+.status-chip.review { background: var(--amber); color: var(--bg-deeper); }
+.status-chip.verified { background: var(--sage); color: var(--bg-deeper); }
+.status-chip.contradiction { background: var(--signal); color: var(--bg-deeper); }
+
+/* BUTTONS */
+.btn {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:active { background: var(--bg-soft); }
+.btn.primary {
+  border: 1px solid var(--cream);
+  color: var(--cream);
+  font-weight: 600;
+}
+.btn.primary:active { background: rgba(237,233,222,0.05); }
+.btn.danger {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+.btn.full { width: 100%; }
+
+/* PIPELINE */
+.pipeline {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.pipe-step {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 5px 2px;
+  border-top: 2px solid var(--border);
+  color: var(--text-faint);
+}
+.pipe-step.done { border-top-color: var(--sage); color: var(--sage); }
+.pipe-step.current { border-top-color: var(--amber); color: var(--amber); font-weight: 600; }
+
+/* SECTION HEADS */
+.section-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 18px 22px 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* PADDING WRAPS */
+.content-pad { padding: 14px 22px; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8,10,14,0.85);
+  z-index: 200;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-bright);
+  width: 100%;
+  max-width: 440px;
+  padding: 22px;
+  margin-bottom: 70px;
+  border-radius: 2px 2px 0 0;
+}
+.modal-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.modal-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.modal-body { font-size: 14.5px; line-height: 1.55; color: var(--text-dim); margin-bottom: 18px; }
+.modal-actions { display: flex; gap: 8px; }
+
+
+
+.sources-tabs { display: flex; padding: 0 22px; border-bottom: 1px solid var(--border-soft); }
+.sources-tab { padding: 12px 14px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); border-bottom: 1px solid transparent; cursor: pointer; }
+.sources-tab.active { color: var(--cream); border-bottom-color: var(--cream); font-weight: 600; }
+.sources-tab .ct { margin-left: 4px; color: var(--text-faint); font-size: 9px; }
+
+.add-source-btn { padding: 14px 22px; border-bottom: 1px solid var(--border-soft); }
+
+.critic-card { background: var(--bg-elevated); border: 1px solid var(--border-soft); padding: 16px; margin-bottom: 14px; }
+.critic-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.critic-source-type { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim); }
+.critic-grade { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; padding: 3px 8px; border-radius: 2px; font-weight: 700; }
+.critic-grade.a { background: var(--sage); color: var(--bg-deeper); }
+.critic-grade.b { background: var(--muted-blue); color: var(--cream); }
+.critic-grade.c { background: var(--amber); color: var(--bg-deeper); }
+.critic-title { font-family: var(--serif); font-size: 17px; font-weight: 500; line-height: 1.3; margin-bottom: 4px; }
+.critic-citation { font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--text-dim); margin-bottom: 14px; }
+
+.critic-block { padding: 10px 0; border-top: 1px solid var(--border-soft); }
+.critic-block .cb-label { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
+.critic-block .cb-text { font-size: 13.5px; line-height: 1.5; color: var(--text-dim); }
+.critic-block .cb-text.match { color: var(--sage); }
+.critic-block .cb-text.flag { color: var(--amber); }
+
+.critic-actions { display: flex; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border-soft); margin-top: 14px; }
+
+.recent-card { padding: 12px 0; border-bottom: 1px solid var(--border-soft); display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+.recent-card .rc-grade { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; padding: 2px 6px; font-weight: 600; }
+.recent-card .rc-grade.a { background: var(--sage-dim); color: var(--sage); }
+.recent-card .rc-grade.b { background: rgba(76,97,126,0.3); color: var(--muted-blue); }
+.recent-card .rc-title { font-family: var(--serif); font-size: 14px; line-height: 1.3; }
+.recent-card .rc-stamp { font-family: var(--mono); font-size: 9.5px; color: var(--text-faint); letter-spacing: 0.08em; }
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="masthead">
+    <div class="wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span><span class="wordmark-dot"></span></div>
+    <div class="masthead-screen"><span class="time">5</span>SOURCES</div>
+  </div>
+
+  <div class="date-strip">
+    <span>SUN APR 26 · 14:32 EST</span>
+    <span>CASCADE 4H AGO · ALL GREEN</span>
+  </div>
+
+  
+<div class="sources-tabs">
+  <div class="sources-tab active">Pending<span class="ct">3</span></div>
+  <div class="sources-tab">Approved<span class="ct">142</span></div>
+  <div class="sources-tab">All<span class="ct">218</span></div>
+  <div class="sources-tab">Entity Q<span class="ct">7</span></div>
+  <div class="sources-tab">Dedup Q<span class="ct">2</span></div>
+</div>
+
+<div class="add-source-btn">
+  <button class="btn primary full">+ Add source · paste URL · upload · dictate</button>
+</div>
+
+<div class="section-head">Pending Critic reports · 3</div>
+
+<div class="content-pad">
+
+<div class="critic-card">
+  <div class="critic-card-head">
+    <span class="critic-source-type">RESEARCH NOTE · WEBHOOK</span>
+    <span class="critic-grade a">A · GRADE</span>
+  </div>
+  <div class="critic-title">Q1 2026 Financial System Review</div>
+  <div class="critic-citation">Bank of Canada · April 24, 2026</div>
+
+  <div class="critic-block">
+    <div class="cb-label">BIAS PROFILE</div>
+    <div class="cb-text">Official central bank publication. Standard institutional posture; explicit framing in introduction matches BoC mandate.</div>
+  </div>
+
+  <div class="critic-block">
+    <div class="cb-label">WATCH-SET MATCHES · 2</div>
+    <div class="cb-text match">Mark Carney (mentioned 4×) · Bill C-14 (mentioned 2×) · monetary-thesis spine match: 8 concepts.</div>
+  </div>
+
+  <div class="critic-block">
+    <div class="cb-label">CONTRADICTION CHECK</div>
+    <div class="cb-text flag">⚠ One section appears to contradict claim 2f3a from monetary thesis (re: Q4 2025 housing-credit growth). Worth attention.</div>
+  </div>
+
+  <div class="critic-block">
+    <div class="cb-label">PAID OPS</div>
+    <div class="cb-text">None required. Document is text-only and freely accessible.</div>
+  </div>
+
+  <div class="critic-block">
+    <div class="cb-label">REASONING</div>
+    <div class="cb-text">High-relevance A-grade source. Approve and route to monetary thesis inbox. Surface contradiction flag for resolution.</div>
+  </div>
+
+  <div class="critic-actions">
+    <button class="btn primary">Approve</button>
+    <button class="btn">Defer</button>
+    <button class="btn danger">Reject</button>
+  </div>
+</div>
+
+<div class="critic-card">
+  <div class="critic-card-head">
+    <span class="critic-source-type">VIDEO · CRON PULL</span>
+    <span class="critic-grade b">B · GRADE</span>
+  </div>
+  <div class="critic-title">Senate Banking Committee — Mar 28 hearing on bill C-14</div>
+  <div class="critic-citation">Hansard via openparliament.ca · Senate Banking · 02:14:08</div>
+
+  <div class="critic-block">
+    <div class="cb-label">BIAS PROFILE</div>
+    <div class="cb-text">Official Senate hearing. Witnesses include 3 industry representatives, 1 academic, 1 NGO. Speaker balance is approximately representative of typical Senate committee composition.</div>
+  </div>
+
+  <div class="critic-block">
+    <div class="cb-label">WATCH-SET MATCHES · 5</div>
+    <div class="cb-text match">RBC (5×) · TD (3×) · OSFI (8×) · Bill C-14 (12×) · foreign-takeover review threshold (4×)</div>
+  </div>
+
+  <div class="critic-block">
+    <div class="cb-label">CONTRADICTION CHECK</div>
+    <div class="cb-text">No contradictions detected with existing claims.</div>
+  </div>
+
+  <div class="critic-block">
+    <div class="cb-label">PAID OPS REQUIRED</div>
+    <div class="cb-text flag">⚠ Path A (YouTube captions) returned partial transcript only. Path B transcription estimated $1.20.</div>
+  </div>
+
+  <div class="critic-block">
+    <div class="cb-label">REASONING</div>
+    <div class="cb-text">High relevance to active monetary and Bank Act theses. Worth the $1.20 transcription cost. Recommend approve with paid op.</div>
+  </div>
+
+  <div class="critic-actions">
+    <button class="btn primary">Approve · pay $1.20</button>
+    <button class="btn">Defer</button>
+    <button class="btn danger">Reject</button>
+  </div>
+</div>
+
+<div class="critic-card">
+  <div class="critic-card-head">
+    <span class="critic-source-type">ARTICLE · OPERATOR UPLOAD</span>
+    <span class="critic-grade c">C · GRADE</span>
+  </div>
+  <div class="critic-title">"How Carney is Quietly Restructuring Canadian Capitalism"</div>
+  <div class="critic-citation">National Post op-ed · April 25, 2026</div>
+
+  <div class="critic-block">
+    <div class="cb-label">BIAS PROFILE</div>
+    <div class="cb-text flag">Op-ed format. Author is associated with C.D. Howe Institute (in Brookfield/big-bank funder genealogy). Framing tracks the institutional position; some claims unsupported by linked sources.</div>
+  </div>
+
+  <div class="critic-block">
+    <div class="cb-label">WATCH-SET MATCHES · 4</div>
+    <div class="cb-text match">Mark Carney · Brookfield · Bill C-14 · monetary architecture (concept spine)</div>
+  </div>
+
+  <div class="critic-block">
+    <div class="cb-label">REASONING</div>
+    <div class="cb-text">Useful as signal of current-period framing. Grade C reflects op-ed status and partisan framing. Recommend approve as framing-layer source; not as factual layer.</div>
+  </div>
+
+  <div class="critic-actions">
+    <button class="btn primary">Approve · framing only</button>
+    <button class="btn">Defer</button>
+    <button class="btn danger">Reject</button>
+  </div>
+</div>
+
+</div>
+
+<div class="section-head">Recently approved · last 24h</div>
+
+<div class="content-pad">
+
+<div class="recent-card">
+  <span class="rc-grade a">A</span>
+  <div class="rc-title">SEDAR+ filing — Brookfield Q1 2026</div>
+  <span class="rc-stamp">3H AGO</span>
+</div>
+
+<div class="recent-card">
+  <span class="rc-grade a">A</span>
+  <div class="rc-title">OIC 2026-0143 · PBO appointment</div>
+  <span class="rc-stamp">YESTERDAY</span>
+</div>
+
+<div class="recent-card">
+  <span class="rc-grade b">B</span>
+  <div class="rc-title">Globe and Mail · Brookfield infrastructure analysis</div>
+  <span class="rc-stamp">YESTERDAY</span>
+</div>
+
+<div class="recent-card">
+  <span class="rc-grade a">A</span>
+  <div class="rc-title">Hansard · Finance Committee · April 23</div>
+  <span class="rc-stamp">2D AGO</span>
+</div>
+
+</div>
+
+
+</div>
+
+<nav class="bottom-nav">
+<a href="live.html" class="nav-item">Live</a>
+<a href="graph.html" class="nav-item">Graph</a>
+<a href="studio.html" class="nav-item">Studio</a>
+<a href="library.html" class="nav-item">Library</a>
+<a href="sources.html" class="nav-item active">Sources</a>
+<a href="system.html" class="nav-item">System</a>
+
+</nav>
+
+</body>
+</html>

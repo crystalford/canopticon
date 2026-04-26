@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>System · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON operator app — shared design tokens and components */
+
+:root {
+  --bg-deeper: #0c0e12;
+  --bg: #0f1218;
+  --bg-elevated: #161a22;
+  --bg-soft: #1a1e27;
+
+  --border-soft: #1f2530;
+  --border: #2a3140;
+  --border-bright: #3a4254;
+
+  --text: #ede9de;
+  --text-dim: #8a857a;
+  --text-faint: #4f4b42;
+
+  --cream: #ede9de;
+  --cream-dim: #7a766c;
+  --cream-bright: #f5f1e6;
+
+  --signal: #d14156;
+  --signal-dim: #8a2433;
+  --signal-glow: rgba(209, 65, 86, 0.28);
+
+  --amber: #d4a24a;
+  --amber-dim: #8a6520;
+  --amber-bright: #e5b55b;
+
+  --sage: #7a8c5f;
+  --sage-dim: #4f5e3a;
+
+  --muted-blue: #4c617e;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at top, rgba(60,55,40,0.10) 0%, transparent 60%),
+    var(--bg);
+  min-height: 100vh;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+.app {
+  max-width: 440px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  padding-bottom: 70px;
+}
+
+/* MASTHEAD */
+.masthead {
+  padding: 18px 22px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.wordmark {
+  font-family: var(--serif);
+  font-size: 23px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.wordmark .can { color: var(--cream-bright); }
+.wordmark .opticon { color: var(--signal); }
+
+.wordmark-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  margin-left: 8px;
+  box-shadow: 0 0 8px var(--signal-glow);
+  vertical-align: middle;
+}
+
+.masthead-screen {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  display: flex;
+  gap: 8px;
+}
+.masthead-screen .time { color: var(--cream); }
+
+/* DATE STRIP */
+.date-strip {
+  padding: 10px 22px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* TABS */
+.tabs-row {
+  display: flex;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs-row::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.tab.active {
+  color: var(--cream);
+  border-bottom-color: var(--cream);
+  background: rgba(237,233,222,0.04);
+  font-weight: 600;
+}
+.tab-count {
+  color: var(--text-faint);
+  margin-left: 6px;
+  font-size: 9px;
+}
+.tab.active .tab-count { color: var(--cream); opacity: 0.6; }
+
+/* BOTTOM NAV */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-deeper);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0 14px;
+  z-index: 100;
+  max-width: 440px;
+  margin: 0 auto;
+}
+.nav-item {
+  flex: 1;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  cursor: pointer;
+  position: relative;
+  padding: 4px 0;
+}
+.nav-item.active { color: var(--cream); }
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 30%;
+  right: 30%;
+  height: 2px;
+  background: var(--cream);
+}
+
+/* CARDS */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 2px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.card-desc {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.card-footer {
+  display: flex;
+  gap: 8px;
+}
+
+/* CHIPS */
+.status-chip {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+.status-chip.ready { background: var(--cream); color: var(--bg-deeper); }
+.status-chip.recording { background: var(--signal); color: var(--bg-deeper); }
+.status-chip.producing { background: var(--amber); color: var(--bg-deeper); }
+.status-chip.archived { background: var(--border-bright); color: var(--text-dim); }
+.status-chip.hot { background: var(--signal); color: var(--bg-deeper); }
+.status-chip.review { background: var(--amber); color: var(--bg-deeper); }
+.status-chip.verified { background: var(--sage); color: var(--bg-deeper); }
+.status-chip.contradiction { background: var(--signal); color: var(--bg-deeper); }
+
+/* BUTTONS */
+.btn {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:active { background: var(--bg-soft); }
+.btn.primary {
+  border: 1px solid var(--cream);
+  color: var(--cream);
+  font-weight: 600;
+}
+.btn.primary:active { background: rgba(237,233,222,0.05); }
+.btn.danger {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+.btn.full { width: 100%; }
+
+/* PIPELINE */
+.pipeline {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.pipe-step {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 5px 2px;
+  border-top: 2px solid var(--border);
+  color: var(--text-faint);
+}
+.pipe-step.done { border-top-color: var(--sage); color: var(--sage); }
+.pipe-step.current { border-top-color: var(--amber); color: var(--amber); font-weight: 600; }
+
+/* SECTION HEADS */
+.section-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 18px 22px 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* PADDING WRAPS */
+.content-pad { padding: 14px 22px; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8,10,14,0.85);
+  z-index: 200;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-bright);
+  width: 100%;
+  max-width: 440px;
+  padding: 22px;
+  margin-bottom: 70px;
+  border-radius: 2px 2px 0 0;
+}
+.modal-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.modal-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.modal-body { font-size: 14.5px; line-height: 1.55; color: var(--text-dim); margin-bottom: 18px; }
+.modal-actions { display: flex; gap: 8px; }
+
+
+
+.system-section { padding: 16px 22px; border-bottom: 1px solid var(--border-soft); }
+.system-section h3 { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+
+.cost-bar-container { width: 100%; height: 10px; background: var(--bg-elevated); border: 1px solid var(--border); margin-bottom: 12px; position: relative; }
+.cost-bar-fill { height: 100%; background: var(--sage); transition: width 0.3s; }
+.cost-bar-fill.warning { background: var(--amber); }
+.cost-bar-fill.over { background: var(--signal); }
+.cost-summary { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; margin-bottom: 14px; }
+.cost-summary .spent { color: var(--cream); font-weight: 600; }
+.cost-summary .ceiling { color: var(--text-faint); }
+.cost-categories { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.cost-cat { display: flex; justify-content: space-between; padding: 6px 10px; background: var(--bg-elevated); font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; }
+.cost-cat .cat-name { color: var(--text-dim); }
+.cost-cat .cat-val { color: var(--cream); font-weight: 600; }
+
+.cascade-card { background: var(--bg-elevated); border: 1px solid var(--border-soft); padding: 14px; margin-bottom: 12px; }
+.cascade-card-head { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.cascade-time { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); }
+.cascade-status { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--sage); font-weight: 600; }
+.cascade-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; }
+.cascade-stat .num { color: var(--cream); font-weight: 600; display: block; font-size: 14px; }
+.cascade-stat .lbl { color: var(--text-faint); font-size: 8.5px; letter-spacing: 0.16em; text-transform: uppercase; }
+
+.role-row { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border-soft); align-items: center; font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; }
+.role-row .rn { color: var(--cream); }
+.role-row .rc { color: var(--text-dim); font-size: 10px; }
+.role-row .re { color: var(--signal); font-size: 10px; }
+.role-row .re.zero { color: var(--text-faint); }
+
+.toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
+.toggle-row .tr-name { font-family: var(--serif); font-size: 14.5px; }
+.toggle-row .tr-meta { font-family: var(--mono); font-size: 10px; color: var(--text-faint); letter-spacing: 0.12em; margin-top: 2px; }
+.toggle-switch { width: 44px; height: 24px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 12px; position: relative; cursor: pointer; }
+.toggle-switch.on { background: var(--sage-dim); border-color: var(--sage); }
+.toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; background: var(--text-faint); border-radius: 50%; transition: all 0.2s; }
+.toggle-switch.on::after { left: 22px; background: var(--sage); }
+
+.whitelist-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-soft); align-items: center; }
+.whitelist-row .wn { font-family: var(--mono); font-size: 11px; color: var(--cream); letter-spacing: 0.04em; }
+.whitelist-row .wm { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-top: 2px; letter-spacing: 0.04em; }
+.whitelist-row .wt { font-family: var(--mono); font-size: 10px; color: var(--sage); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
+
+.brier-display { padding: 18px; background: var(--bg-elevated); border: 1px solid var(--border); margin-top: 8px; }
+.brier-big { font-family: var(--serif); font-size: 36px; font-weight: 500; color: var(--cream); line-height: 1; margin-bottom: 6px; }
+.brier-meta { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 0.04em; }
+.brier-domains { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+.brier-domain { font-family: var(--mono); font-size: 10px; color: var(--text-dim); letter-spacing: 0.04em; }
+.brier-domain .bd-num { color: var(--cream); font-weight: 600; }
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="masthead">
+    <div class="wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span><span class="wordmark-dot"></span></div>
+    <div class="masthead-screen"><span class="time">6</span>SYSTEM</div>
+  </div>
+
+  <div class="date-strip">
+    <span>SUN APR 26 · 14:32 EST</span>
+    <span>CASCADE 4H AGO · ALL GREEN</span>
+  </div>
+
+  
+<div class="system-section">
+  <h3>Cost · April 2026</h3>
+  <div class="cost-bar-container">
+    <div class="cost-bar-fill" style="width: 28%"></div>
+  </div>
+  <div class="cost-summary">
+    <span class="spent">$14.20 spent</span>
+    <span class="ceiling">$50.00 ceiling · 28%</span>
+  </div>
+  <div class="cost-categories">
+    <div class="cost-cat"><span class="cat-name">Claude</span><span class="cat-val">$8.40</span></div>
+    <div class="cost-cat"><span class="cat-name">Verifier</span><span class="cat-val">$3.20</span></div>
+    <div class="cost-cat"><span class="cat-name">Transcript</span><span class="cat-val">$2.10</span></div>
+    <div class="cost-cat"><span class="cat-name">Premium</span><span class="cat-val">$0.50</span></div>
+  </div>
+</div>
+
+<div class="system-section">
+  <h3>Cascade · last run</h3>
+  <div class="cascade-card">
+    <div class="cascade-card-head">
+      <span class="cascade-time">10:32 EST · 4H AGO</span>
+      <span class="cascade-status">✓ COMPLETE</span>
+    </div>
+    <div class="cascade-stats">
+      <div class="cascade-stat"><span class="num">8</span><span class="lbl">sources</span></div>
+      <div class="cascade-stat"><span class="num">14</span><span class="lbl">claims</span></div>
+      <div class="cascade-stat"><span class="num">5</span><span class="lbl">questions</span></div>
+      <div class="cascade-stat"><span class="num">2</span><span class="lbl">contradict</span></div>
+    </div>
+  </div>
+  <button class="btn primary full">Run cascade now</button>
+</div>
+
+<div class="system-section">
+  <h3>Roles · last 24h</h3>
+  <div class="role-row"><span class="rn">ingestion_critic</span><span class="rc">8 invocations</span><span class="re zero">0 errors</span></div>
+  <div class="role-row"><span class="rn">claim_extraction</span><span class="rc">14 invocations</span><span class="re zero">0 errors</span></div>
+  <div class="role-row"><span class="rn">verifier</span><span class="rc">12 invocations</span><span class="re zero">0 errors</span></div>
+  <div class="role-row"><span class="rn">interrogator</span><span class="rc">3 invocations</span><span class="re zero">0 errors</span></div>
+  <div class="role-row"><span class="rn">entity_resolver</span><span class="rc">23 invocations</span><span class="re">1 error</span></div>
+  <div class="role-row"><span class="rn">tier_projector</span><span class="rc">2 invocations</span><span class="re zero">0 errors</span></div>
+  <div class="role-row"><span class="rn">gap_surfacer</span><span class="rc">1 invocation</span><span class="re zero">0 errors</span></div>
+</div>
+
+<div class="system-section">
+  <h3>Ingestion APIs · master toggle</h3>
+  <div class="toggle-row">
+    <div>
+      <div class="tr-name">Automated ingestion enabled</div>
+      <div class="tr-meta">WEBHOOKS · CRON · AI QUERIES</div>
+    </div>
+    <div class="toggle-switch on"></div>
+  </div>
+  <div class="toggle-row">
+    <div>
+      <div class="tr-name">Hansard cron (openparliament)</div>
+      <div class="tr-meta">EVERY 6H DURING SITTING</div>
+    </div>
+    <div class="toggle-switch on"></div>
+  </div>
+  <div class="toggle-row">
+    <div>
+      <div class="tr-name">YouTube PubSubHubbub</div>
+      <div class="tr-meta">5 WATCHED CHANNELS</div>
+    </div>
+    <div class="toggle-switch on"></div>
+  </div>
+  <div class="toggle-row">
+    <div>
+      <div class="tr-name">News RSS aggregation</div>
+      <div class="tr-meta">12 FEEDS · HOURLY</div>
+    </div>
+    <div class="toggle-switch on"></div>
+  </div>
+  <div class="toggle-row">
+    <div>
+      <div class="tr-name">SEDAR+ daily fetch</div>
+      <div class="tr-meta">WATCHLIST FILTER</div>
+    </div>
+    <div class="toggle-switch on"></div>
+  </div>
+  <div class="toggle-row">
+    <div>
+      <div class="tr-name">X stream filter</div>
+      <div class="tr-meta">DISABLED</div>
+    </div>
+    <div class="toggle-switch"></div>
+  </div>
+</div>
+
+<div class="system-section">
+  <h3>Cost whitelist rules · 4</h3>
+  <div class="whitelist-row">
+    <div>
+      <div class="wn">claude_completion</div>
+      <div class="wm">PER OP ≤ $0.05 · DAILY ≤ $5.00</div>
+    </div>
+    <span class="wt">ON</span>
+  </div>
+  <div class="whitelist-row">
+    <div>
+      <div class="wn">transcription_assemblyai</div>
+      <div class="wm">PER OP ≤ $2.00 · DAILY ≤ $5.00</div>
+    </div>
+    <span class="wt">ON</span>
+  </div>
+  <div class="whitelist-row">
+    <div>
+      <div class="wn">apify_scrape</div>
+      <div class="wm">PER OP ≤ $0.20 · DAILY ≤ $2.00</div>
+    </div>
+    <span class="wt">ON</span>
+  </div>
+  <div class="whitelist-row">
+    <div>
+      <div class="wn">gpt5_verification</div>
+      <div class="wm">CROSS-MODEL · NOT WHITELISTED</div>
+    </div>
+    <span class="wt" style="color: var(--text-faint)">PROMPT</span>
+  </div>
+  <div style="padding-top: 12px;"><button class="btn full">+ Add rule</button></div>
+</div>
+
+<div class="system-section">
+  <h3>Brier · rolling</h3>
+  <div class="brier-display">
+    <div class="brier-big">0.142</div>
+    <div class="brier-meta">9 RESOLVED · 7 CORRECT · 2 INCORRECT</div>
+    <div class="brier-domains">
+      <div class="brier-domain"><span class="bd-num">0.08</span> · monetary policy</div>
+      <div class="brier-domain"><span class="bd-num">0.13</span> · regulatory</div>
+      <div class="brier-domain"><span class="bd-num">0.16</span> · corporate</div>
+      <div class="brier-domain"><span class="bd-num">0.24</span> · electoral</div>
+    </div>
+  </div>
+</div>
+
+<div class="system-section">
+  <h3>Errors · 0 open</h3>
+  <div style="font-family: var(--mono); font-size: 11px; color: var(--sage); letter-spacing: 0.04em; padding: 8px 0;">All systems green · last error 6 days ago (transient API timeout · auto-recovered).</div>
+</div>
+
+
+</div>
+
+<nav class="bottom-nav">
+<a href="live.html" class="nav-item">Live</a>
+<a href="graph.html" class="nav-item">Graph</a>
+<a href="studio.html" class="nav-item">Studio</a>
+<a href="library.html" class="nav-item">Library</a>
+<a href="sources.html" class="nav-item">Sources</a>
+<a href="system.html" class="nav-item active">System</a>
+
+</nav>
+
+</body>
+</html>

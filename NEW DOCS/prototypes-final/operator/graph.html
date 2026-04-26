@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Graph · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON operator app — shared design tokens and components */
+
+:root {
+  --bg-deeper: #0c0e12;
+  --bg: #0f1218;
+  --bg-elevated: #161a22;
+  --bg-soft: #1a1e27;
+
+  --border-soft: #1f2530;
+  --border: #2a3140;
+  --border-bright: #3a4254;
+
+  --text: #ede9de;
+  --text-dim: #8a857a;
+  --text-faint: #4f4b42;
+
+  --cream: #ede9de;
+  --cream-dim: #7a766c;
+  --cream-bright: #f5f1e6;
+
+  --signal: #d14156;
+  --signal-dim: #8a2433;
+  --signal-glow: rgba(209, 65, 86, 0.28);
+
+  --amber: #d4a24a;
+  --amber-dim: #8a6520;
+  --amber-bright: #e5b55b;
+
+  --sage: #7a8c5f;
+  --sage-dim: #4f5e3a;
+
+  --muted-blue: #4c617e;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at top, rgba(60,55,40,0.10) 0%, transparent 60%),
+    var(--bg);
+  min-height: 100vh;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+.app {
+  max-width: 440px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  padding-bottom: 70px;
+}
+
+/* MASTHEAD */
+.masthead {
+  padding: 18px 22px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.wordmark {
+  font-family: var(--serif);
+  font-size: 23px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.wordmark .can { color: var(--cream-bright); }
+.wordmark .opticon { color: var(--signal); }
+
+.wordmark-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  margin-left: 8px;
+  box-shadow: 0 0 8px var(--signal-glow);
+  vertical-align: middle;
+}
+
+.masthead-screen {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  display: flex;
+  gap: 8px;
+}
+.masthead-screen .time { color: var(--cream); }
+
+/* DATE STRIP */
+.date-strip {
+  padding: 10px 22px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* TABS */
+.tabs-row {
+  display: flex;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs-row::-webkit-scrollbar { display: none; }
+.tab {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.tab.active {
+  color: var(--cream);
+  border-bottom-color: var(--cream);
+  background: rgba(237,233,222,0.04);
+  font-weight: 600;
+}
+.tab-count {
+  color: var(--text-faint);
+  margin-left: 6px;
+  font-size: 9px;
+}
+.tab.active .tab-count { color: var(--cream); opacity: 0.6; }
+
+/* BOTTOM NAV */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-deeper);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0 14px;
+  z-index: 100;
+  max-width: 440px;
+  margin: 0 auto;
+}
+.nav-item {
+  flex: 1;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  cursor: pointer;
+  position: relative;
+  padding: 4px 0;
+}
+.nav-item.active { color: var(--cream); }
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 30%;
+  right: 30%;
+  height: 2px;
+  background: var(--cream);
+}
+
+/* CARDS */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-soft);
+  border-radius: 2px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.card-desc {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+.card-footer {
+  display: flex;
+  gap: 8px;
+}
+
+/* CHIPS */
+.status-chip {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 2px;
+  font-weight: 600;
+}
+.status-chip.ready { background: var(--cream); color: var(--bg-deeper); }
+.status-chip.recording { background: var(--signal); color: var(--bg-deeper); }
+.status-chip.producing { background: var(--amber); color: var(--bg-deeper); }
+.status-chip.archived { background: var(--border-bright); color: var(--text-dim); }
+.status-chip.hot { background: var(--signal); color: var(--bg-deeper); }
+.status-chip.review { background: var(--amber); color: var(--bg-deeper); }
+.status-chip.verified { background: var(--sage); color: var(--bg-deeper); }
+.status-chip.contradiction { background: var(--signal); color: var(--bg-deeper); }
+
+/* BUTTONS */
+.btn {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:active { background: var(--bg-soft); }
+.btn.primary {
+  border: 1px solid var(--cream);
+  color: var(--cream);
+  font-weight: 600;
+}
+.btn.primary:active { background: rgba(237,233,222,0.05); }
+.btn.danger {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+.btn.full { width: 100%; }
+
+/* PIPELINE */
+.pipeline {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.pipe-step {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 5px 2px;
+  border-top: 2px solid var(--border);
+  color: var(--text-faint);
+}
+.pipe-step.done { border-top-color: var(--sage); color: var(--sage); }
+.pipe-step.current { border-top-color: var(--amber); color: var(--amber); font-weight: 600; }
+
+/* SECTION HEADS */
+.section-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 18px 22px 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* PADDING WRAPS */
+.content-pad { padding: 14px 22px; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8,10,14,0.85);
+  z-index: 200;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-bright);
+  width: 100%;
+  max-width: 440px;
+  padding: 22px;
+  margin-bottom: 70px;
+  border-radius: 2px 2px 0 0;
+}
+.modal-head {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.modal-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.modal-body { font-size: 14.5px; line-height: 1.55; color: var(--text-dim); margin-bottom: 18px; }
+.modal-actions { display: flex; gap: 8px; }
+
+
+
+.graph-filters { display: flex; gap: 6px; padding: 12px 22px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--border-soft); }
+.graph-filters::-webkit-scrollbar { display: none; }
+.graph-filter { padding: 5px 11px; background: var(--bg-elevated); border: 1px solid var(--border); font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); white-space: nowrap; cursor: pointer; }
+.graph-filter.active { background: var(--cream); color: var(--bg-deeper); border-color: var(--cream); font-weight: 600; }
+.graph-canvas { height: 460px; background: var(--bg-deeper); border-bottom: 1px solid var(--border-soft); position: relative; overflow: hidden; }
+.graph-svg { width: 100%; height: 100%; }
+.graph-svg .edge { stroke: var(--border-bright); stroke-width: 1; opacity: 0.5; }
+.graph-svg .edge.active { stroke: var(--cream); stroke-width: 1.5; opacity: 1; }
+.graph-svg .node-entity { fill: var(--muted-blue); stroke: var(--cream); stroke-width: 1; }
+.graph-svg .node-entity.active { fill: var(--signal); stroke: var(--cream); stroke-width: 2; }
+.graph-svg .node-claim { fill: var(--bg-elevated); stroke: var(--sage); stroke-width: 1; }
+.graph-svg .node-thesis { fill: var(--amber-dim); stroke: var(--amber); stroke-width: 2; }
+.graph-svg .node-source { fill: var(--bg-elevated); stroke: var(--text-dim); stroke-width: 1; }
+.graph-svg .node-label { font-family: var(--mono); font-size: 9px; fill: var(--cream); letter-spacing: 0.04em; }
+.graph-svg .node-label.dim { fill: var(--text-dim); }
+.graph-controls { position: absolute; top: 12px; right: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 5; }
+.graph-zoom-btn { width: 32px; height: 32px; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--cream); font-family: var(--mono); font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.legend-overlay { position: absolute; bottom: 12px; left: 12px; padding: 10px 12px; background: rgba(15,18,24,0.92); border: 1px solid var(--border); font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--text-dim); }
+.legend-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend-dot.entity { background: var(--muted-blue); }
+.legend-dot.claim { background: var(--bg-elevated); border: 1px solid var(--sage); }
+.legend-dot.thesis { background: var(--amber-dim); border: 1px solid var(--amber); }
+.legend-dot.source { background: var(--bg-elevated); border: 1px solid var(--text-dim); }
+.inspector { padding: 14px 22px; background: var(--bg-elevated); border-top: 1px solid var(--border); }
+.inspector-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.inspector-name { font-family: var(--serif); font-size: 22px; font-weight: 500; }
+.inspector-type { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim); }
+.inspector-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; padding: 10px 0; border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); }
+.inspector-stat { font-family: var(--mono); font-size: 10px; }
+.inspector-stat .num { display: block; color: var(--cream); font-size: 18px; font-weight: 600; margin-bottom: 2px; }
+.inspector-stat .lbl { color: var(--text-faint); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; }
+.inspector-claims-head { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim); margin: 14px 0 8px; }
+.inspector-claim { padding: 10px 0; border-bottom: 1px solid var(--border-soft); font-size: 13.5px; line-height: 1.5; color: var(--text-dim); }
+.inspector-claim-meta { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
+.inspector-claim-text { color: var(--cream); }
+.inspector-actions { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="masthead">
+    <div class="wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span><span class="wordmark-dot"></span></div>
+    <div class="masthead-screen"><span class="time">2</span>GRAPH</div>
+  </div>
+
+  <div class="date-strip">
+    <span>SUN APR 26 · 14:32 EST</span>
+    <span>CASCADE 4H AGO · ALL GREEN</span>
+  </div>
+
+  
+<div class="graph-filters">
+  <div class="graph-filter active">All</div>
+  <div class="graph-filter">Entities</div>
+  <div class="graph-filter">Claims</div>
+  <div class="graph-filter">Sources</div>
+  <div class="graph-filter">Theses</div>
+  <div class="graph-filter">Linchpins</div>
+  <div class="graph-filter">Contradictions</div>
+</div>
+
+<div class="graph-canvas">
+  <svg class="graph-svg" viewBox="0 0 440 460" xmlns="http://www.w3.org/2000/svg">
+    <!-- Edges -->
+    <line class="edge active" x1="220" y1="230" x2="120" y2="120"/>
+    <line class="edge active" x1="220" y1="230" x2="320" y2="120"/>
+    <line class="edge active" x1="220" y1="230" x2="100" y2="340"/>
+    <line class="edge active" x1="220" y1="230" x2="340" y2="340"/>
+    <line class="edge active" x1="220" y1="230" x2="220" y2="80"/>
+    <line class="edge" x1="120" y1="120" x2="50" y2="60"/>
+    <line class="edge" x1="320" y1="120" x2="380" y2="60"/>
+    <line class="edge" x1="100" y1="340" x2="40" y2="400"/>
+    <line class="edge" x1="340" y1="340" x2="400" y2="400"/>
+    <line class="edge" x1="220" y1="80" x2="160" y2="40"/>
+    <line class="edge" x1="220" y1="80" x2="280" y2="40"/>
+    <line class="edge" x1="120" y1="120" x2="220" y2="80"/>
+    <line class="edge" x1="320" y1="120" x2="220" y2="80"/>
+
+    <!-- Center: Carney (active entity) -->
+    <circle class="node-entity active" cx="220" cy="230" r="18"/>
+    <text class="node-label" x="220" y="265" text-anchor="middle">CARNEY</text>
+
+    <!-- Connected entities -->
+    <circle class="node-entity" cx="120" cy="120" r="14"/>
+    <text class="node-label dim" x="120" y="100" text-anchor="middle">BROOKFIELD</text>
+
+    <circle class="node-entity" cx="320" cy="120" r="13"/>
+    <text class="node-label dim" x="320" y="100" text-anchor="middle">BoC</text>
+
+    <circle class="node-entity" cx="100" cy="340" r="11"/>
+    <text class="node-label dim" x="100" y="365" text-anchor="middle">FSB</text>
+
+    <circle class="node-entity" cx="340" cy="340" r="11"/>
+    <text class="node-label dim" x="340" y="365" text-anchor="middle">GOLDMAN</text>
+
+    <!-- Thesis node -->
+    <rect class="node-thesis" x="200" y="60" width="40" height="40" rx="3"/>
+    <text class="node-label" x="220" y="85" text-anchor="middle">MONETARY</text>
+
+    <!-- Claim nodes -->
+    <circle class="node-claim" cx="50" cy="60" r="6"/>
+    <circle class="node-claim" cx="380" cy="60" r="6"/>
+    <circle class="node-claim" cx="40" cy="400" r="6"/>
+    <circle class="node-claim" cx="400" cy="400" r="6"/>
+    <circle class="node-claim" cx="160" cy="40" r="6"/>
+    <circle class="node-claim" cx="280" cy="40" r="6"/>
+    <circle class="node-claim" cx="160" cy="180" r="5"/>
+    <circle class="node-claim" cx="280" cy="180" r="5"/>
+    <circle class="node-claim" cx="160" cy="290" r="5"/>
+    <circle class="node-claim" cx="280" cy="290" r="5"/>
+
+    <!-- Source nodes (smaller) -->
+    <rect class="node-source" x="20" y="10" width="8" height="8"/>
+    <rect class="node-source" x="412" y="10" width="8" height="8"/>
+  </svg>
+
+  <div class="graph-controls">
+    <div class="graph-zoom-btn">+</div>
+    <div class="graph-zoom-btn">−</div>
+    <div class="graph-zoom-btn">⊕</div>
+  </div>
+
+  <div class="legend-overlay">
+    <div class="legend-row"><span class="legend-dot entity"></span>ENTITY</div>
+    <div class="legend-row"><span class="legend-dot claim"></span>CLAIM</div>
+    <div class="legend-row"><span class="legend-dot thesis"></span>THESIS</div>
+    <div class="legend-row"><span class="legend-dot source"></span>SOURCE</div>
+  </div>
+</div>
+
+<div class="inspector">
+  <div class="inspector-head">
+    <span class="inspector-name">Mark Carney</span>
+    <span class="inspector-type">PERSON · LIVE</span>
+  </div>
+  <div class="inspector-stats">
+    <div class="inspector-stat"><span class="num">73</span><span class="lbl">claims</span></div>
+    <div class="inspector-stat"><span class="num">28</span><span class="lbl">relations</span></div>
+    <div class="inspector-stat"><span class="num">4</span><span class="lbl">theses</span></div>
+  </div>
+
+  <div class="inspector-claims-head">Top linked claims · linchpins</div>
+
+  <div class="inspector-claim">
+    <div class="inspector-claim-meta">FACTUAL · GRADE A · LINCHPIN</div>
+    <div class="inspector-claim-text">Served on Brookfield's board as Vice Chair from August 2020 to December 2024.</div>
+  </div>
+
+  <div class="inspector-claim">
+    <div class="inspector-claim-meta">FACTUAL · GRADE A</div>
+    <div class="inspector-claim-text">Governor, Bank of Canada (2008–2013); Governor, Bank of England (2013–2020).</div>
+  </div>
+
+  <div class="inspector-claim">
+    <div class="inspector-claim-meta">ARCHITECTURAL · GRADE A · LINCHPIN</div>
+    <div class="inspector-claim-text">Career trajectory continues a documented pattern of personnel movement between Big Five banks, the BoC, asset managers, and political appointments.</div>
+  </div>
+
+  <div class="inspector-actions">
+    <button class="btn primary">Open entity page</button>
+    <button class="btn">Filter graph here</button>
+  </div>
+</div>
+
+
+</div>
+
+<nav class="bottom-nav">
+<a href="live.html" class="nav-item">Live</a>
+<a href="graph.html" class="nav-item active">Graph</a>
+<a href="studio.html" class="nav-item">Studio</a>
+<a href="library.html" class="nav-item">Library</a>
+<a href="sources.html" class="nav-item">Sources</a>
+<a href="system.html" class="nav-item">System</a>
+
+</nav>
+
+</body>
+</html>

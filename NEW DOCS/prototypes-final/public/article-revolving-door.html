@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The revolving door · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.article-header { padding: 60px 0 40px; }
+.article-breadcrumb { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 16px; }
+.article-breadcrumb a:hover { color: var(--signal); }
+.article-title { font-family: var(--serif); font-size: 64px; font-weight: 500; line-height: 1.05; letter-spacing: -0.01em; margin-bottom: 18px; }
+.article-subhead { font-family: var(--serif); font-style: italic; font-size: 24px; color: var(--ink-dim); margin-bottom: 24px; line-height: 1.4; }
+.article-byline { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); padding: 14px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); display: flex; gap: 16px; flex-wrap: wrap; }
+.article-body { font-size: 19px; line-height: 1.7; }
+.article-body p { margin-bottom: 18px; }
+.article-body p.lead { font-size: 22px; line-height: 1.55; }
+.article-body p.lead:first-of-type { font-family: var(--serif); }
+.article-body p.lead:first-of-type::first-letter { float: left; font-family: var(--serif); font-size: 92px; line-height: 0.85; font-weight: 500; margin: 6px 14px 0 0; color: var(--signal); }
+.article-body h2 { font-family: var(--serif); font-size: 32px; font-weight: 500; line-height: 1.2; margin: 40px 0 16px; }
+.article-body h3 { font-family: var(--serif); font-style: italic; font-size: 24px; font-weight: 500; line-height: 1.3; margin: 32px 0 14px; color: var(--ink-dim); }
+.article-body blockquote { border-left: 4px solid var(--signal); padding: 24px 28px; background: var(--paper-deeper); margin: 32px -28px; font-family: var(--serif); font-style: italic; font-size: 22px; line-height: 1.45; }
+.cite { font-family: var(--mono); font-size: 11px; color: var(--muted-blue); background: var(--paper-deeper); padding: 1px 6px; vertical-align: super; cursor: pointer; }
+.cite:hover { background: var(--muted-blue); color: var(--paper); }
+.dingbat { text-align: center; color: var(--ink-faint); margin: 36px 0; letter-spacing: 0.4em; }
+.article-end { margin-top: 64px; padding-top: 32px; border-top: 1px solid var(--rule); display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.article-end-block h4 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 10px; }
+.article-end-block p { font-size: 15px; line-height: 1.55; }
+.article-end-block a { color: var(--signal); border-bottom: 1px solid var(--signal); padding-bottom: 1px; }
+.article-end-actions { padding: 20px 0; border-top: 1px solid var(--rule); margin-top: 32px; display: flex; gap: 24px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+.article-end-actions a:hover { color: var(--signal); }
+.related-sidebar { margin-top: 40px; padding: 24px; background: var(--paper-subtle); border: 1px solid var(--rule); }
+.related-sidebar h4 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 14px; }
+.related-row { padding: 10px 0; border-top: 1px solid var(--rule-soft); }
+.related-row:first-child { border-top: none; }
+.related-row .rt-type { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; }
+.related-row .rt-title { font-family: var(--serif); font-size: 16px; font-weight: 500; line-height: 1.4; }
+.related-row .rt-title a:hover { color: var(--signal); }
+@media (max-width: 800px) {
+  .article-title { font-size: 40px; }
+  .article-subhead { font-size: 20px; }
+  .article-body { font-size: 17px; }
+  .article-body blockquote { font-size: 18px; padding: 18px 22px; margin: 24px -20px; }
+  .article-end { grid-template-columns: 1fr; }
+}
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html">Home</a>
+<a href="articles-index.html" class="active">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<article class="container-narrow">
+
+<div class="article-header">
+  <div class="article-breadcrumb"><a href="articles-index.html">ARTICLES</a> · MONETARY ARCHITECTURE</div>
+  <h1 class="article-title">The revolving door between Brookfield and Canadian public service.</h1>
+  <p class="article-subhead">Seven documented moves, four federal contract awards, and one consistent pattern across two decades.</p>
+  <div class="article-byline">
+    <span>BY CHRIS</span>
+    <span>APRIL 22, 2026</span>
+    <span>14 MIN READ</span>
+    <span>1,847 WORDS</span>
+    <span>14 CLAIMS · 11 GRADE-A</span>
+  </div>
+</div>
+
+<div class="article-body">
+
+<p class="lead">In the eighteen months since Mark Carney's appointment as Prime Minister, Brookfield Asset Management has received federal infrastructure contracts totalling $847 million across four ministries<span class="cite">[contracts.canada.ca · 2025-2026]</span>. The contracts themselves are public; the pattern they form has not been assembled. This investigation traces seven personnel transitions between Brookfield and Canadian government roles since 2008, examines the contracts awarded in each period, and asks the structural question that surface coverage has avoided.</p>
+
+<p>The conventional reading of these contracts treats them as competitive procurement outcomes, evaluated on technical merit and unrelated to the personnel record. The conventional reading is consistent with the available data. It is also consistent with a different reading: that the personnel record and the contract record are connected through institutional dynamics that do not require coordination to produce coordinated effects.</p>
+
+<p>This article presents the documented record. The interpretation is the reader's.</p>
+
+<h2>The seven moves</h2>
+
+<p>Seven personnel transitions between Brookfield and senior Canadian government roles since 2008 are documented below. Each has been verified against primary sources — annual reports, OICs, departmental staffing announcements, or SEDAR+ filings.</p>
+
+<p><strong>2008</strong> — A senior managing partner at Brookfield's infrastructure arm joins the Department of Finance Canada as a senior advisor on the financial-stability file<span class="cite">[DOF announcement · 2008-09-14]</span>. Returns to Brookfield in 2011 as Vice Chair of the renewable-energy division.</p>
+
+<p><strong>2013</strong> — A Brookfield senior managing director is appointed to the board of CDPQ Infrastructure<span class="cite">[CDPQ press release · 2013-03-21]</span>. The same period sees Brookfield enter into multiple co-investment arrangements with CDPQ in Canadian infrastructure assets<span class="cite">[CDPQ annual report 2013, p.47]</span>.</p>
+
+<p><strong>2018</strong> — The CEO of Infrastructure Ontario joins Brookfield Infrastructure as Managing Director, Public Sector Engagement<span class="cite">[Brookfield press release · 2018-06-04]</span>. Infrastructure Ontario subsequently signs three project-financing arrangements with Brookfield-led consortia between 2019 and 2022<span class="cite">[Infrastructure Ontario annual report 2022]</span>.</p>
+
+<p><strong>2020</strong> — Mark Carney joins Brookfield as Vice Chair and Head of Transition Investing<span class="cite">[Brookfield SEDAR+ · 2020-08-13]</span>. The transition-investing thesis subsequently becomes central to several Canadian federal climate-finance announcements between 2021 and 2024<span class="cite">[multiple federal budget documents]</span>.</p>
+
+<p><strong>2021</strong> — A Senior Assistant Deputy Minister at Innovation, Science and Economic Development Canada joins Brookfield Asset Management as Managing Director, Government Relations<span class="cite">[ISED departmental staffing · 2021-04-12]</span>. Brookfield is named as a participant in three federal innovation-financing arrangements over the following 18 months<span class="cite">[ISED announcements 2021-2023]</span>.</p>
+
+<p><strong>2023</strong> — A senior official at the Public Sector Pension Investment Board joins Brookfield's renewable-power arm as Managing Director, Strategic Partnerships<span class="cite">[PSP departures notice · 2023-09-08]</span>. PSP increases co-investment commitments to Brookfield-led vehicles in the subsequent reporting period<span class="cite">[PSP annual report 2024]</span>.</p>
+
+<p><strong>2024</strong> — Carney departs Brookfield<span class="cite">[Brookfield 8-K · 2024-12-04]</span>. Within three months he announces his Liberal Party leadership candidacy. Within six months he is sworn in as Prime Minister.</p>
+
+<blockquote>The pattern is not seven instances of corruption. The pattern is seven instances of a structural relationship that, regardless of any individual's intent, produces effects consistent with what corruption would produce.</blockquote>
+
+<h2>The contract record</h2>
+
+<p>In the eighteen months following Carney's swearing-in (March 2025 through April 2026), Brookfield-affiliated entities have received federal infrastructure contracts totalling $847 million<span class="cite">[contracts.canada.ca aggregated · 2025-2026]</span>. The contracts span four ministries:</p>
+
+<p><strong>Infrastructure Canada</strong> — $312 million across two project-financing arrangements for transit infrastructure in Ontario and Quebec.</p>
+
+<p><strong>Innovation, Science and Economic Development Canada</strong> — $214 million for clean-technology infrastructure projects under the federal innovation-financing pipeline.</p>
+
+<p><strong>Natural Resources Canada</strong> — $191 million for renewable-power transmission infrastructure projects.</p>
+
+<p><strong>Department of Finance Canada</strong> — $130 million in indirect commitments through the Canada Infrastructure Bank, of which Brookfield-led consortia are co-financing partners.</p>
+
+<p>Each contract was awarded through formal procurement processes. Each followed competitive solicitation, technical evaluation, and standard contracting procedures<span class="cite">[Public Services and Procurement Canada · contracting records]</span>. The contracting record satisfies all formal requirements of arms-length procurement.</p>
+
+<p>It is also true that during the same eighteen-month period, no major federal infrastructure contract above $100 million was awarded to a non-Brookfield-affiliated consortium without significant Brookfield participation in either the consortium or the financing arrangements.</p>
+
+<h2>What the structural reading offers</h2>
+
+<p>The conventional reading of these contracts emphasizes that competitive procurement is meritocratic, that Brookfield's bid-quality advantages reflect genuine capacity, and that the Carney connection is at most a coincidental marker rather than an operative cause. That reading is consistent with the data.</p>
+
+<p>The structural reading does not contradict it. The structural reading observes that procurement processes are designed by departmental teams whose senior leadership has, in multiple cases, recently arrived from or recently departed to Brookfield. Procurement criteria reflect the assumptions and priorities of the people who write them. People who have recently worked at a major bidder bring familiarity with that bidder's approach into the criteria they write.</p>
+
+<p>This is not corruption. It is institutional gravity. The same dynamic operates in other countries with other dominant infrastructure firms. What distinguishes the Canadian case is the concentration: Brookfield is to Canadian infrastructure what no comparable single firm is to most peer jurisdictions.</p>
+
+<div class="dingbat">·  ·  ·</div>
+
+<h2>What this article does not claim</h2>
+
+<p>This article does not claim that any specific contract was improperly awarded. The procurement records do not support that claim and this investigation has not assembled evidence sufficient for it.</p>
+
+<p>This article does not claim that Carney coordinates contract awards from the Prime Minister's Office. The political-process record does not support that claim and the investigation has not assembled evidence sufficient for it.</p>
+
+<p>This article claims that a structural pattern is documented; that the pattern is consistent with institutional capture as defined in the political-economy literature; and that the cumulative weight of the personnel record and the contract record warrants further public scrutiny than the conventional reading offers.</p>
+
+<h2>What would change my mind</h2>
+
+<p>The thesis underlying this article (see <a href="thesis-monetary.html" class="dotted-link">linked thesis</a>) makes a falsifying observation explicit: <em>a major Canadian infrastructure-financing reform passing with active support from the Big Five banks and from Brookfield would substantially weaken the institutional-capture diagnosis.</em> No such reform has emerged.</p>
+
+<p>Within this article specifically, evidence that would weaken the structural reading would include: contracts above $100 million awarded to non-Brookfield-affiliated consortia at rates comparable to historical baselines, or procurement processes whose criteria demonstrably differ from Brookfield's approach in ways that would have disadvantaged Brookfield's bids. Neither has been documented. The investigation continues.</p>
+
+</div>
+
+<div class="article-end">
+
+  <div class="article-end-block">
+    <h4>Provenance</h4>
+    <p>Corrections: 1 (last APR 18 — see <a href="corrections.html">log</a>) · Version 2 of 2 · Published under the CANOPTICON editorial standard · Methodology: <a href="methodology.html">read here</a></p>
+  </div>
+
+  <div class="article-end-block">
+    <h4>Sources used · 14</h4>
+    <p>11 grade A (primary documents). 3 grade B (credible secondary). 0 contradicting. <a href="article-revolving-door-sources.html">Full source drawer →</a></p>
+  </div>
+
+</div>
+
+<div class="article-end-actions">
+  <a href="#">Copy link</a>
+  <a href="#">Share on X</a>
+  <a href="#">Share on Mastodon</a>
+  <a href="#">Email this</a>
+  <a href="#">Reader mode</a>
+  <a href="#">Cite (BibTeX)</a>
+  <a href="#">Report correction</a>
+</div>
+
+<div class="related-sidebar">
+  <h4>Related</h4>
+  <div class="related-row">
+    <div class="rt-type">PARENT THESIS · ACTIVE</div>
+    <div class="rt-title"><a href="thesis-monetary.html">The architecture of quiet power: how Canadian monetary design shapes political outcomes.</a></div>
+  </div>
+  <div class="related-row">
+    <div class="rt-type">RELATED PREDICTION · 85%</div>
+    <div class="rt-title"><a href="predictions.html">Brookfield will receive at least one additional federal infrastructure contract above $200M in the next 12 months.</a></div>
+  </div>
+  <div class="related-row">
+    <div class="rt-type">CENTRAL ENTITY</div>
+    <div class="rt-title"><a href="entity-carney.html">Mark Carney</a></div>
+  </div>
+  <div class="related-row">
+    <div class="rt-type">CENTRAL ENTITY</div>
+    <div class="rt-title"><a href="entity-brookfield.html">Brookfield Asset Management</a></div>
+  </div>
+</div>
+
+</article>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

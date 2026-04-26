@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solution Inventory · Housing · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.solinv-header { border-bottom: 2px solid var(--ink); padding-bottom: 24px; margin-bottom: 32px; }
+.solinv-question { font-family: var(--serif); font-size: 36px; line-height: 1.25; font-weight: 500; margin-bottom: 16px; }
+.solinv-meta { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); display: flex; gap: 16px; flex-wrap: wrap; }
+.solinv-explainer { font-family: var(--serif); font-style: italic; font-size: 18px; line-height: 1.55; color: var(--ink-dim); margin-bottom: 48px; }
+.solution-entry { border: 1px solid var(--rule); padding: 28px; margin-bottom: 24px; background: var(--paper-subtle); border-left: 4px solid var(--rule); }
+.solution-entry.symptom { border-left-color: var(--ink-faint); }
+.solution-entry.mechanism { border-left-color: var(--amber); }
+.solution-entry.structural { border-left-color: var(--sage); }
+.se-name { font-family: var(--serif); font-size: 26px; font-weight: 500; line-height: 1.2; margin-bottom: 8px; }
+.se-meta { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; }
+.se-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px; }
+.se-block .label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 6px; }
+.se-block .content { font-size: 15.5px; line-height: 1.55; }
+.se-positions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px 0; margin-top: 16px; border-top: 1px solid var(--rule); }
+.se-pos { font-size: 14.5px; line-height: 1.5; color: var(--ink-dim); }
+.se-pos strong { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); display: block; margin-bottom: 6px; font-weight: 500; }
+.se-real { margin-top: 16px; padding: 16px 20px; background: var(--paper-deeper); border-left: 3px solid var(--signal); }
+.se-real .label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--signal); margin-bottom: 8px; }
+.se-real .content { font-family: var(--serif); font-style: italic; font-size: 16px; line-height: 1.55; }
+.tier-divider { font-family: var(--mono); font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-dim); text-align: center; margin: 48px 0 32px; padding: 12px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: var(--paper-deeper); }
+@media (max-width: 800px) { .se-grid, .se-positions { grid-template-columns: 1fr; gap: 16px; } .solution-entry { padding: 20px; } }
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html" class="active">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-narrow">
+
+<div class="solinv-header">
+  <div class="solinv-meta" style="margin-bottom: 14px;">
+    <span>SOLUTION INVENTORY · DOMAIN: HOUSING</span>
+    <span>STATUS: PUBLISHED</span>
+    <span>v0.4 · UPDATED APR 23</span>
+  </div>
+  <h1 class="solinv-question">What's been tried for the affordable-housing problem, where, and what actually happened?</h1>
+</div>
+
+<div class="solinv-explainer">
+Before proposing anything new, this inventory maps what has already been tried — across jurisdictions, with conditions, results, and exportability. Most policy debate happens without this map; the assembly is the contribution.
+</div>
+
+<div class="tier-divider">SYMPTOM-LEVEL INTERVENTIONS · MANAGING DOWNSTREAM EFFECTS</div>
+
+<div class="solution-entry symptom">
+  <h2 class="se-name">First-time buyer down-payment subsidies</h2>
+  <div class="se-meta"><span>JURISDICTIONS: ON · BC · QC · 6 US STATES</span><span>2010 – PRESENT</span><span>SYMPTOM LEVEL</span></div>
+  <div class="se-grid">
+    <div class="se-block"><div class="label">Conditions</div><div class="content">Income caps; first-residence requirements; matched contributions or interest-free loans up to specified amount.</div></div>
+    <div class="se-block"><div class="label">Results</div><div class="content">Measurable increase in first-time-buyer transactions; price effect ranges from neutral to mildly inflationary in supply-constrained markets. Net wealth transfer to existing sellers.</div></div>
+    <div class="se-block"><div class="label">Why it didn't shrink the problem</div><div class="content">Subsidy increases purchasing power without changing supply curve; in inelastic markets, capitalization into prices captures most of the subsidy.</div></div>
+    <div class="se-block"><div class="label">Exportability</div><div class="content">Necessary conditions for non-inflationary effect: elastic supply curve. Without that, the subsidy simply transfers to sellers.</div></div>
+  </div>
+  <div class="se-positions">
+    <div class="se-pos"><strong>PROPONENTS</strong>Helps families enter the market who otherwise couldn't; reduces wealth-inequality transmission in early adulthood.</div>
+    <div class="se-pos"><strong>CRITICS</strong>Price-inflationary; transfers public funds to existing homeowners; addresses no structural cause.</div>
+  </div>
+  <div class="se-real">
+    <div class="label">REAL DISAGREEMENT</div>
+    <div class="content">Whether housing-affordability policy should target individual buyers (helping families enter) or market structure (changing what housing is). The disagreement is about scope of intervention, not about whether the program works on its own terms.</div>
+  </div>
+</div>
+
+<div class="tier-divider">MECHANISM-LEVEL INTERVENTIONS · TARGETING PROXIMATE CAUSES</div>
+
+<div class="solution-entry mechanism">
+  <h2 class="se-name">Vacancy and foreign-buyer taxes</h2>
+  <div class="se-meta"><span>JURISDICTIONS: BC · ON · NEW ZEALAND · AUSTRALIA · UK</span><span>2016 – PRESENT</span><span>MECHANISM LEVEL</span></div>
+  <div class="se-grid">
+    <div class="se-block"><div class="label">Conditions</div><div class="content">Annual tax (1–2%) on properties left vacant or owned by foreign buyers. Self-declared with audit; declarations enforced by penalty.</div></div>
+    <div class="se-block"><div class="label">Results</div><div class="content">BC: measurable reduction in foreign-buyer transactions, marginal price effect on luxury segment, no significant effect on affordability. Vancouver vacancy rate reduced from 1.0% to 0.7%. NZ ban: similar pattern.</div></div>
+    <div class="se-block"><div class="label">Why it partially worked</div><div class="content">Reduces a marginal demand source (foreign capital). The reduction is real but marginal because foreign buyers were never the dominant demand source.</div></div>
+    <div class="se-block"><div class="label">Exportability</div><div class="content">Works as targeted intervention. Should not be expected to solve affordability; effect-size matches the demand-share it removes.</div></div>
+  </div>
+  <div class="se-positions">
+    <div class="se-pos"><strong>PROPONENTS</strong>Removes speculative demand; signals that housing is for residents.</div>
+    <div class="se-pos"><strong>CRITICS</strong>Marginal effect; can be politically inflammatory; addresses symptom not cause.</div>
+  </div>
+  <div class="se-real">
+    <div class="label">REAL DISAGREEMENT</div>
+    <div class="content">Whether the political signal value of these taxes is worth the analytical-distraction cost — they consume policy attention that could be directed at structural causes. Both sides agree the direct effect is small.</div>
+  </div>
+</div>
+
+<div class="solution-entry mechanism">
+  <h2 class="se-name">Zoning reform / "missing middle" upzoning</h2>
+  <div class="se-meta"><span>JURISDICTIONS: AUCKLAND · MINNEAPOLIS · TORONTO · VANCOUVER · CALIFORNIA</span><span>2016 – PRESENT</span><span>MECHANISM LEVEL</span></div>
+  <div class="se-grid">
+    <div class="se-block"><div class="label">Conditions</div><div class="content">Eliminate single-family-only zoning; allow duplex/triplex/fourplex by-right; reduce parking minimums; streamline approvals.</div></div>
+    <div class="se-block"><div class="label">Results</div><div class="content">Auckland (most-studied case): substantial supply increase across upzoned areas; rent growth 12–28% lower than control areas. Minneapolis: mixed; supply increase but limited price effect. Vancouver: minimal price effect to date.</div></div>
+    <div class="se-block"><div class="label">Why it worked in Auckland but not Vancouver</div><div class="content">Auckland's reform was paired with infrastructure investment and absorbed available capital; Vancouver's reform competes with extant investment-demand pressures the reform doesn't address.</div></div>
+    <div class="se-block"><div class="label">Exportability</div><div class="content">Necessary condition: supply elasticity is the binding constraint in the target market. Sufficient only when investor-demand component is small.</div></div>
+  </div>
+  <div class="se-positions">
+    <div class="se-pos"><strong>PROPONENTS</strong>Auckland evidence is strong; reforms work where supply is the constraint.</div>
+    <div class="se-pos"><strong>CRITICS</strong>Auckland's success doesn't generalize where investor demand dominates; risks transferring affordability to peripheral markets.</div>
+  </div>
+  <div class="se-real">
+    <div class="label">REAL DISAGREEMENT</div>
+    <div class="content">An empirical question — what fraction of Canadian urban demand is investor-driven versus shelter-driven — that has not been adequately measured. Without that measurement, both proponents and critics are arguing from priors.</div>
+  </div>
+</div>
+
+<div class="tier-divider">STRUCTURAL-LEVEL INTERVENTIONS · ADDRESSING ROOT CONDITIONS</div>
+
+<div class="solution-entry structural">
+  <h2 class="se-name">Land-value taxation</h2>
+  <div class="se-meta"><span>JURISDICTIONS: ESTONIA · SINGAPORE (PARTIAL) · DENMARK · PA (US, PARTIAL)</span><span>1916 – PRESENT</span><span>STRUCTURAL LEVEL</span></div>
+  <div class="se-grid">
+    <div class="se-block"><div class="label">Conditions</div><div class="content">Tax on unimproved land value rather than property value. Improvements (buildings, renovations) untaxed or lightly taxed.</div></div>
+    <div class="se-block"><div class="label">Results</div><div class="content">Pittsburgh (1913–2001): demonstrably reduced speculation, encouraged dense development. Estonia: similar pattern, with substantial new construction in formerly-vacant urban land. Reduction in speculative landholding patterns where implemented.</div></div>
+    <div class="se-block"><div class="label">Why it works</div><div class="content">Removes the speculative-asset character of land. Land cannot be hidden, moved, or hoarded productively. Burden falls on landholders rather than producers.</div></div>
+    <div class="se-block"><div class="label">Exportability</div><div class="content">Requires assessor capacity (separating land value from improvement value). Politically difficult in jurisdictions where landholders are concentrated and politically organized.</div></div>
+  </div>
+  <div class="se-positions">
+    <div class="se-pos"><strong>PROPONENTS</strong>Theoretically sound (Henry George, Stiglitz, multiple Nobel economists). Empirical record where implemented is consistent with predictions.</div>
+    <div class="se-pos"><strong>CRITICS</strong>Implementation challenges; political resistance; risk of over-taxing land-rich-cash-poor households (e.g., elderly homeowners on fixed incomes).</div>
+  </div>
+  <div class="se-real">
+    <div class="label">REAL DISAGREEMENT</div>
+    <div class="content">Whether the political and administrative obstacles can be overcome in a Canadian context. The economics is broadly accepted; the political economy of implementation is the contested question.</div>
+  </div>
+</div>
+
+<div class="solution-entry structural">
+  <h2 class="se-name">Reform of mortgage securitization architecture</h2>
+  <div class="se-meta"><span>JURISDICTIONS: ICELAND (POST-2008) · IRELAND (PARTIAL)</span><span>2008 – PRESENT</span><span>STRUCTURAL LEVEL</span></div>
+  <div class="se-grid">
+    <div class="se-block"><div class="label">Conditions</div><div class="content">Restructure the relationship between bank balance sheets, public mortgage insurance (CMHC equivalent), and securitization markets. Iceland's post-2008 housing reset is the closest live case.</div></div>
+    <div class="se-block"><div class="label">Results</div><div class="content">Iceland post-crisis reset reduced household debt-to-income substantially and stabilized housing prices at lower-relative levels. Achieved through a one-time crisis intervention, not normal-times reform.</div></div>
+    <div class="se-block"><div class="label">Why few jurisdictions have tried this</div><div class="content">In normal times, the political coalition for restructuring is absent. In crisis, the technical complexity exceeds capacity of reactive policy-making. Iceland succeeded because the crisis was severe enough to overcome both obstacles.</div></div>
+    <div class="se-block"><div class="label">Exportability</div><div class="content">Conditions for non-crisis implementation are largely unknown. Most relevant precedents come from post-crisis contexts that we hopefully don't replicate.</div></div>
+  </div>
+  <div class="se-positions">
+    <div class="se-pos"><strong>PROPONENTS</strong>Addresses the actual structural cause (credit-creation architecture) rather than its symptoms.</div>
+    <div class="se-pos"><strong>CRITICS</strong>Politically nearly impossible outside crisis. Risks introducing new instabilities. Existing system, while flawed, is at least stable.</div>
+  </div>
+  <div class="se-real">
+    <div class="label">REAL DISAGREEMENT</div>
+    <div class="content">Whether structural reform can be undertaken proactively (before crisis forces it) or whether crisis is the only forcing function strong enough to overcome the political coalition for the status quo. If the latter, the policy-design question is what reforms should be staged so they can be enacted when crisis arrives.</div>
+  </div>
+</div>
+
+<div class="solution-entry structural">
+  <h2 class="se-name">Capital-gains tax on primary residences</h2>
+  <div class="se-meta"><span>JURISDICTIONS: NONE FULL · UK (PARTIAL) · MOST OECD: NONE</span><span>HISTORICAL · CONTEMPLATED</span><span>STRUCTURAL LEVEL</span></div>
+  <div class="se-grid">
+    <div class="se-block"><div class="label">Conditions</div><div class="content">Tax capital gains on primary residence sale, eliminating the current Canadian principal-residence exemption. Could be partial (above threshold) or full.</div></div>
+    <div class="se-block"><div class="label">Results</div><div class="content">No major jurisdiction has fully implemented this on primary residences. UK partial-CGT: limited effect because thresholds remain well above typical home values.</div></div>
+    <div class="se-block"><div class="label">Why none have tried</div><div class="content">Politically toxic. Existing homeowner wealth in Canada is concentrated in primary residences; political class is property-wealthy; institutional resistance is total. No major party has proposed it.</div></div>
+    <div class="se-block"><div class="label">Exportability</div><div class="content">Currently unknown. The intervention exists in policy literature but not in implementation.</div></div>
+  </div>
+  <div class="se-positions">
+    <div class="se-pos"><strong>PROPONENTS</strong>Removes the most distortionary tax preference in the Canadian system. Reduces housing's investment character at the source.</div>
+    <div class="se-pos"><strong>CRITICS</strong>Punishes ordinary households that have planned around the existing system. Implementation would require generation-long phase-in. Politically untenable.</div>
+  </div>
+  <div class="se-real">
+    <div class="label">REAL DISAGREEMENT</div>
+    <div class="content">Whether the policy goal should be making housing not-an-asset (in which case capital-gains taxation is necessary), or preserving housing-as-asset while addressing affordability through other means (in which case capital-gains taxation is counter-productive). This is a Layer 5 values dispute, not a Layer 4 empirical one.</div>
+  </div>
+</div>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

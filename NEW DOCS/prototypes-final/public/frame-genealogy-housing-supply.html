@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frame Genealogy · Housing Supply · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.gen-header { border-bottom: 2px solid var(--ink); padding-bottom: 24px; margin-bottom: 32px; }
+.gen-frame { font-family: var(--serif); font-style: italic; font-size: 32px; line-height: 1.3; font-weight: 500; margin-bottom: 16px; padding: 16px 24px; background: var(--paper-deeper); border-left: 4px solid var(--signal); }
+.gen-meta { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); display: flex; gap: 16px; flex-wrap: wrap; }
+.gen-explainer { font-family: var(--serif); font-style: italic; font-size: 18px; line-height: 1.55; color: var(--ink-dim); margin-bottom: 48px; }
+.first-appearance { background: var(--paper-subtle); border: 1px solid var(--rule); padding: 24px 28px; margin-bottom: 48px; }
+.first-appearance h3 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 14px; }
+.first-appearance .fa-date { font-family: var(--serif); font-size: 28px; font-weight: 500; margin-bottom: 8px; }
+.first-appearance .fa-source { font-family: var(--serif); font-style: italic; font-size: 17px; color: var(--ink-dim); margin-bottom: 12px; }
+.first-appearance .fa-quote { font-size: 15.5px; line-height: 1.6; padding: 14px 20px; background: var(--paper-deeper); border-left: 3px solid var(--ink); }
+.timeline-section { margin-bottom: 48px; }
+.timeline-section h3 { font-family: var(--mono); font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 24px; padding-bottom: 10px; border-bottom: 2px solid var(--ink); }
+.tl-event { display: grid; grid-template-columns: 100px 1fr; gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+.tl-event .tl-date { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); letter-spacing: 0.08em; }
+.tl-event .tl-text { font-size: 17px; line-height: 1.55; }
+.tl-event .tl-meta { font-family: var(--mono); font-size: 11px; color: var(--muted-blue); margin-top: 4px; letter-spacing: 0.04em; }
+.actors-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 48px; }
+.actor-card { border: 1px solid var(--rule); padding: 20px; background: var(--paper-subtle); }
+.actor-card h4 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 10px; }
+.actor-list { font-size: 15.5px; line-height: 1.65; }
+.actor-list a { border-bottom: 1px dotted var(--ink-dim); }
+.actor-list a:hover { color: var(--signal); border-bottom-color: var(--signal); }
+.material-interest { background: var(--ink); color: var(--paper); padding: 28px 32px; margin-bottom: 32px; }
+.material-interest h3 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--paper-deeper); margin-bottom: 14px; }
+.material-interest p { font-size: 17px; line-height: 1.6; margin-bottom: 14px; }
+.material-interest p:last-child { margin-bottom: 0; }
+.material-interest strong { font-family: var(--serif); font-style: italic; color: var(--paper); font-weight: 500; }
+@media (max-width: 800px) { .actors-grid { grid-template-columns: 1fr; } .gen-frame { font-size: 22px; } .tl-event { grid-template-columns: 1fr; gap: 4px; } }
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html" class="active">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-narrow">
+
+<div class="gen-header">
+  <div class="gen-meta" style="margin-bottom: 16px;">
+    <span>FRAME GENEALOGY · DOMAIN: HOUSING</span>
+    <span>STATUS: PUBLISHED</span>
+    <span>v0.2 · UPDATED APR 14</span>
+  </div>
+  <div class="gen-frame">"The housing crisis is a supply problem."</div>
+</div>
+
+<div class="gen-explainer">
+The propagation of a framing through Canadian public discourse. When did this specific framing first appear, who introduced it, who amplified it, who funds the amplifiers, and what is their material interest in this framing prevailing. Not conspiracy thinking — structural analysis of how ideas move through political ecosystems.
+</div>
+
+<div class="first-appearance">
+  <h3>First sustained appearance</h3>
+  <div class="fa-date">2017</div>
+  <div class="fa-source">CMHC research note, "Housing Supply and Affordability" — November 2017</div>
+  <div class="fa-quote">The framing of the affordability problem as fundamentally one of insufficient supply enters Canadian policy discourse in coherent form here. Earlier statements existed but in fragmented form across multiple documents. The 2017 note consolidates the framing and provides the citation infrastructure used by subsequent commentators.</div>
+</div>
+
+<div class="timeline-section">
+  <h3>Propagation timeline</h3>
+
+  <div class="tl-event">
+    <div class="tl-date">2017</div>
+    <div>
+      <div class="tl-text">CMHC research note establishes the framing in policy-research literature.</div>
+      <div class="tl-meta">A · CMHC publication · ENTITY-CMHC</div>
+    </div>
+  </div>
+
+  <div class="tl-event">
+    <div class="tl-date">2018</div>
+    <div>
+      <div class="tl-text">C.D. Howe Institute publishes white paper adopting and expanding the supply-framing.</div>
+      <div class="tl-meta">B · think tank publication · ENTITY-CDHOWE</div>
+    </div>
+  </div>
+
+  <div class="tl-event">
+    <div class="tl-date">2019</div>
+    <div>
+      <div class="tl-text">Globe and Mail business pages adopt the framing as default in housing coverage.</div>
+      <div class="tl-meta">B · editorial pattern shift</div>
+    </div>
+  </div>
+
+  <div class="tl-event">
+    <div class="tl-date">2019 – 2020</div>
+    <div>
+      <div class="tl-text">Smart Prosperity Institute, BILD, Canadian Real Estate Association each publish supply-framed analyses citing CMHC.</div>
+      <div class="tl-meta">B/C · industry think tanks</div>
+    </div>
+  </div>
+
+  <div class="tl-event">
+    <div class="tl-date">2021</div>
+    <div>
+      <div class="tl-text">Federal Liberal Party adopts the framing in election platform housing planks.</div>
+      <div class="tl-meta">A · party platform document</div>
+    </div>
+  </div>
+
+  <div class="tl-event">
+    <div class="tl-date">2022</div>
+    <div>
+      <div class="tl-text">Conservative Party adopts the same framing with different policy prescriptions.</div>
+      <div class="tl-meta">A · party policy document</div>
+    </div>
+  </div>
+
+  <div class="tl-event">
+    <div class="tl-date">2023</div>
+    <div>
+      <div class="tl-text">Federal "Housing Accelerator Fund" is structured around supply-side incentives.</div>
+      <div class="tl-meta">A · OIC + budget documents</div>
+    </div>
+  </div>
+
+  <div class="tl-event">
+    <div class="tl-date">2024</div>
+    <div>
+      <div class="tl-text">Provincial reforms in BC and ON adopt the framing in their respective housing-acceleration legislation.</div>
+      <div class="tl-meta">A · provincial bills</div>
+    </div>
+  </div>
+
+  <div class="tl-event">
+    <div class="tl-date">2025</div>
+    <div>
+      <div class="tl-text">By this point the framing is so dominant that questioning it is treated in mainstream discourse as fringe-economic-thinking.</div>
+      <div class="tl-meta">Pattern across Canadian media</div>
+    </div>
+  </div>
+
+</div>
+
+<h3 class="section-head">Actors in the propagation</h3>
+<div class="actors-grid">
+
+  <div class="actor-card">
+    <h4>INTRODUCED BY</h4>
+    <div class="actor-list">
+      <a href="entity-cmhc.html">CMHC (Canada Mortgage and Housing Corporation)</a><br>
+      Federal Crown corporation, 2017 research note<br>
+      <span style="font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.04em;">The institutional mandate is supply-oriented; the framing is consistent with the institution's purpose.</span>
+    </div>
+  </div>
+
+  <div class="actor-card">
+    <h4>AMPLIFIED BY · THINK TANKS</h4>
+    <div class="actor-list">
+      <a href="entity-cdhowe.html">C.D. Howe Institute</a><br>
+      <a href="entity-smart-prosperity.html">Smart Prosperity Institute</a><br>
+      <a href="entity-fraser.html">Fraser Institute</a><br>
+      <a href="entity-pew-canada.html">Macdonald-Laurier Institute</a>
+    </div>
+  </div>
+
+  <div class="actor-card">
+    <h4>AMPLIFIED BY · INDUSTRY</h4>
+    <div class="actor-list">
+      <a href="entity-bild.html">BILD (Building Industry and Land Development Association)</a><br>
+      <a href="entity-crea.html">Canadian Real Estate Association</a><br>
+      <a href="entity-chba.html">Canadian Home Builders' Association</a>
+    </div>
+  </div>
+
+  <div class="actor-card">
+    <h4>AMPLIFIED BY · MEDIA</h4>
+    <div class="actor-list">
+      <a href="entity-globe.html">Globe and Mail</a> business pages (default framing 2019+)<br>
+      <a href="entity-financial-post.html">Financial Post</a><br>
+      Most major-paper business sections<br>
+      <span style="font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.04em;">Editorial pattern shift, not conspiracy.</span>
+    </div>
+  </div>
+
+  <div class="actor-card">
+    <h4>FUNDERS — THINK TANKS</h4>
+    <div class="actor-list">
+      Big Five banks (RBC, TD, Scotia, BMO, CIBC) collectively contribute substantial portions of think-tank operating budgets through corporate donations and research sponsorships.<br><br>
+      <a href="entity-rbc.html">RBC</a> · <a href="entity-td.html">TD</a> · <a href="entity-bmo.html">BMO</a> · <a href="entity-scotia.html">Scotiabank</a> · <a href="entity-cibc.html">CIBC</a>
+    </div>
+  </div>
+
+  <div class="actor-card">
+    <h4>FUNDERS — INDUSTRY</h4>
+    <div class="actor-list">
+      Member dues from developer-sector firms.<br>
+      <a href="entity-mattamy.html">Mattamy Homes</a> · <a href="entity-tridel.html">Tridel</a> · <a href="entity-brookfield.html">Brookfield Residential</a> · multiple regional developers<br>
+      Real estate brokerage networks (commission-based interests).
+    </div>
+  </div>
+
+</div>
+
+<div class="material-interest">
+  <h3>FUNDERS' MATERIAL INTEREST</h3>
+  <p>The material interest of the funder coalition in the supply-framing prevailing is direct and large.</p>
+  <p><strong>Big Five banks:</strong> mortgage origination is the central credit-creation activity in Canadian banking. The structural framing names mortgage securitization as a problem; the supply framing leaves mortgage origination unexamined. Banks' interest is in the supply framing winning.</p>
+  <p><strong>Developer industry:</strong> the supply framing positions developers as the solution. The structural framing positions them as one element among many. Industry interest is in the supply framing winning.</p>
+  <p><strong>Real estate brokerage:</strong> commission income depends on transaction volume, which depends on continued participation of investor-buyers. The structural framing threatens that demand source; the supply framing leaves it untouched.</p>
+  <p><strong>Existing homeowners (the median Canadian household):</strong> approximately two-thirds of household wealth in Canada is in real estate. The supply framing is consistent with continued price appreciation; the structural framing aims at price moderation. Median-household interest is in the supply framing winning.</p>
+  <p><strong>Aggregate effect:</strong> every major institutional actor in Canadian housing discourse has material interest in the supply framing prevailing. The structural framing's institutional support is concentrated in heterodox academic circles whose platform reach is small. The pattern is not conspiracy — it is the predictable result of each actor responding to its own incentives.</p>
+</div>
+
+<div style="margin-top: 48px; padding: 20px 24px; background: var(--paper-subtle); border: 1px solid var(--rule);">
+<h3 style="font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 12px;">RELATED</h3>
+<p style="font-size: 16px; line-height: 1.6;"><a href="argument-map-housing.html" class="dotted-link">Six-layer argument map for the housing question</a> — including the Layer 6 meta-analysis of why this debate persists, which draws directly on this genealogy.</p>
+<p style="font-size: 16px; line-height: 1.6; margin-top: 8px;"><a href="thesis-housing.html" class="dotted-link">The thesis: housing financialization and the Canadian municipal capture problem</a></p>
+</div>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

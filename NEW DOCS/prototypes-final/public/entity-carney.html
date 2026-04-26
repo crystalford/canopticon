@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mark Carney · CANOPTICON</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* CANOPTICON public site — shared design tokens */
+
+:root {
+  --paper: #f5f1e8;
+  --paper-deeper: #ebe6d8;
+  --paper-subtle: #efeade;
+  --ink: #1a1816;
+  --ink-dim: #5a564f;
+  --ink-faint: #8a8578;
+  --rule: #c9c2b0;
+  --rule-soft: #d9d2c0;
+
+  --signal: #9c2333;
+  --signal-dim: #5a1320;
+  --amber: #8a6520;
+  --amber-dim: #5a4215;
+  --sage: #5a7349;
+  --sage-dim: #3a4a2e;
+  --muted-blue: #4c617e;
+  --muted-blue-dim: #2e3a4a;
+  --tan: #b89968;
+
+  --serif: 'EB Garamond', Georgia, serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 19px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+a { color: inherit; text-decoration: none; }
+.dotted-link {
+  border-bottom: 1px dotted var(--ink-dim);
+  transition: border-color 0.2s ease;
+}
+.dotted-link:hover { border-bottom-color: var(--signal); color: var(--signal); }
+
+/* NAV */
+.nav-bar {
+  padding: 14px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.nav-wordmark {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+}
+.nav-wordmark .can { color: var(--ink); }
+.nav-wordmark .opticon { color: var(--signal); }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.nav-links a {
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+  transition: all 0.15s;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: var(--signal);
+  border-bottom-color: var(--signal);
+}
+
+/* PAGE WIDTH CONTAINERS */
+.container-narrow {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-wide {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+.container-full {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 32px;
+}
+
+/* TYPOGRAPHY */
+h1.page-title {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+h2.page-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink-dim);
+  margin-bottom: 36px;
+}
+
+.meta-strip {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+.meta-strip .sep::before { content: '·'; color: var(--ink-faint); }
+
+.section-rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: 48px 0;
+  position: relative;
+}
+.section-rule.dingbat::before {
+  content: '·  ·  ·';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--paper);
+  padding: 0 16px;
+  color: var(--ink-faint);
+  font-size: 14px;
+  letter-spacing: 0.4em;
+}
+
+h3.section-head {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 36px 0 18px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* CARDS */
+.card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 24px;
+  margin-bottom: 16px;
+}
+.card-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.card-subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+/* CHIPS */
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border: 1px solid currentColor;
+  font-weight: 500;
+}
+.chip-grade-a { color: var(--sage); }
+.chip-grade-b { color: var(--muted-blue); }
+.chip-grade-c { color: var(--amber); }
+.chip-grade-d, .chip-grade-e { color: var(--signal); }
+.chip-likely { color: var(--sage); }
+.chip-machloket { color: var(--muted-blue); }
+.chip-open { color: var(--amber); }
+.chip-resolved { color: var(--ink-dim); }
+.chip-active { color: var(--amber); }
+.chip-correct { color: var(--sage); }
+.chip-incorrect { color: var(--signal); }
+
+/* TABLES */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+table.data-table th {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--ink);
+  font-weight: 500;
+}
+table.data-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+table.data-table tr:hover td {
+  background: var(--paper-deeper);
+}
+
+/* FOOTER */
+.footer {
+  border-top: 1px solid var(--rule);
+  padding: 32px;
+  margin-top: 80px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+.footer-links a:hover { color: var(--signal); }
+
+/* DROP CAP */
+.drop-cap::first-letter {
+  float: left;
+  font-family: var(--serif);
+  font-size: 84px;
+  line-height: 0.85;
+  font-weight: 500;
+  margin: 6px 12px 0 0;
+  color: var(--signal);
+}
+
+/* PULL QUOTE */
+.pull-quote {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 28px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: var(--paper-deeper);
+  padding: 32px 36px;
+  margin: 40px -36px;
+  border-left: 4px solid var(--signal);
+  position: relative;
+}
+.pull-quote::before {
+  content: '"';
+  font-size: 64px;
+  color: var(--signal);
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  line-height: 1;
+}
+
+/* CITATION */
+.citation {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted-blue);
+  background: var(--paper-deeper);
+  padding: 1px 6px;
+  border-radius: 2px;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+/* MOBILE */
+@media (max-width: 680px) {
+  .nav-bar { padding: 12px 20px; }
+  .nav-links { gap: 14px; font-size: 10px; }
+  .container-narrow, .container-wide, .container-full { padding: 24px 20px; }
+  h1.page-title { font-size: 40px; }
+  h2.page-subtitle { font-size: 18px; }
+  .pull-quote { font-size: 22px; padding: 24px 28px; margin: 32px -20px; }
+}
+
+
+
+.entity-header {
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+}
+.entity-type {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+.entity-name {
+  font-family: var(--serif);
+  font-size: 56px;
+  font-weight: 500;
+  line-height: 1.05;
+  margin-bottom: 16px;
+}
+.entity-aliases {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--ink-dim);
+  margin-bottom: 14px;
+  font-size: 18px;
+}
+.entity-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.entity-stat .label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 6px;
+}
+.entity-stat .value {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 500;
+}
+.entity-summary {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.5;
+  color: var(--ink);
+  margin-bottom: 48px;
+  padding: 24px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.timeline {
+  margin-bottom: 48px;
+}
+.timeline-event {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+  align-items: baseline;
+}
+.timeline-event .te-date {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-faint);
+  letter-spacing: 0.08em;
+}
+.timeline-event .te-text {
+  font-size: 17px;
+  line-height: 1.55;
+}
+.timeline-event .te-source {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted-blue);
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+.relations-list {
+  margin-bottom: 48px;
+}
+.relation-item {
+  display: grid;
+  grid-template-columns: 1fr 200px 1fr;
+  gap: 20px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.relation-item .ri-other {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+}
+.relation-item .ri-other a:hover { color: var(--signal); }
+.relation-item .ri-type {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: center;
+  border-top: 1px dashed var(--rule);
+  border-bottom: 1px dashed var(--rule);
+  padding: 6px 0;
+}
+.relation-item .ri-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-align: right;
+  letter-spacing: 0.06em;
+}
+.theses-mention-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 48px;
+}
+.theses-mention-card {
+  border: 1px solid var(--rule);
+  background: var(--paper-subtle);
+  padding: 16px 20px;
+}
+.theses-mention-card .tm-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+.theses-mention-card .tm-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.theses-mention-card .tm-title a:hover { color: var(--signal); }
+@media (max-width: 800px) {
+  .entity-stats { grid-template-columns: repeat(2, 1fr); }
+  .relation-item { grid-template-columns: 1fr; }
+  .theses-mention-list { grid-template-columns: 1fr; }
+  .timeline-event { grid-template-columns: 1fr; gap: 4px; }
+  .entity-name { font-size: 40px; }
+}
+
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <a href="home.html"><div class="nav-wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div></a>
+  <div class="nav-links">
+<a href="home.html" class="active">Home</a>
+<a href="articles-index.html">Articles</a>
+<a href="theses-index.html">Theses</a>
+<a href="predictions.html">Predictions</a>
+<a href="contradictions.html">Contradictions</a>
+<a href="methodology.html">Methodology</a>
+<a href="about.html">About</a>
+  </div>
+</nav>
+
+
+<div class="container-full">
+
+<div class="entity-header">
+  <div class="entity-type">PERSON · PUBLIC FIGURE</div>
+  <h1 class="entity-name">Mark Carney</h1>
+  <div class="entity-aliases">Also: Mark J. Carney · M. Carney · the Prime Minister (2025–) · the former BoC Governor</div>
+</div>
+
+<div class="entity-stats">
+  <div class="entity-stat"><div class="label">Claims</div><div class="value">73</div></div>
+  <div class="entity-stat"><div class="label">Sources</div><div class="value">142</div></div>
+  <div class="entity-stat"><div class="label">Relations</div><div class="value">28</div></div>
+  <div class="entity-stat"><div class="label">Theses</div><div class="value">4</div></div>
+</div>
+
+<div class="entity-summary">
+Canadian economist and central banker, currently serving as Prime Minister. Former Governor of the Bank of Canada (2008–2013) and Bank of England (2013–2020). Vice Chair of Brookfield Asset Management (2020–2024). UN Special Envoy on Climate Action and Finance (2020–2025). His career trajectory across central banking, asset management, and political appointment is a recurring object of structural analysis on this platform — see linked theses below.
+</div>
+
+<h3 class="section-head">Timeline · 28 documented events</h3>
+<div class="timeline">
+
+  <div class="timeline-event">
+    <div class="te-date">MAR 2025</div>
+    <div>
+      <div class="te-text">Sworn in as Prime Minister of Canada following Liberal Party leadership election.</div>
+      <div class="te-source">A · OIC 2025-0312 · Canada Gazette Part II</div>
+    </div>
+  </div>
+
+  <div class="timeline-event">
+    <div class="te-date">JAN 2025</div>
+    <div>
+      <div class="te-text">Announced candidacy for Liberal Party leadership.</div>
+      <div class="te-source">A · Liberal Party of Canada press release</div>
+    </div>
+  </div>
+
+  <div class="timeline-event">
+    <div class="te-date">DEC 2024</div>
+    <div>
+      <div class="te-text">Stepped down from Brookfield Asset Management board, citing forthcoming political role.</div>
+      <div class="te-source">A · Brookfield SEDAR+ filing 2024-12-04</div>
+    </div>
+  </div>
+
+  <div class="timeline-event">
+    <div class="te-date">2020 – 2024</div>
+    <div>
+      <div class="te-text">Vice Chair, Brookfield Asset Management; Head of Transition Investing.</div>
+      <div class="te-source">A · Brookfield annual report 2020</div>
+    </div>
+  </div>
+
+  <div class="timeline-event">
+    <div class="te-date">2020 – 2025</div>
+    <div>
+      <div class="te-text">UN Special Envoy on Climate Action and Finance.</div>
+      <div class="te-source">A · UN announcement 2020-12-01</div>
+    </div>
+  </div>
+
+  <div class="timeline-event">
+    <div class="te-date">2013 – 2020</div>
+    <div>
+      <div class="te-text">Governor, Bank of England.</div>
+      <div class="te-source">A · BoE official records</div>
+    </div>
+  </div>
+
+  <div class="timeline-event">
+    <div class="te-date">2008 – 2013</div>
+    <div>
+      <div class="te-text">Governor, Bank of Canada.</div>
+      <div class="te-source">A · BoC official records</div>
+    </div>
+  </div>
+
+  <div class="timeline-event">
+    <div class="te-date">2003 – 2008</div>
+    <div>
+      <div class="te-text">Senior Associate Deputy Minister, Department of Finance Canada.</div>
+      <div class="te-source">A · Department of Finance organizational records</div>
+    </div>
+  </div>
+
+  <div class="timeline-event">
+    <div class="te-date">1990 – 2003</div>
+    <div>
+      <div class="te-text">Various positions at Goldman Sachs, including Co-Head of Sovereign Risk and Head of Public-Sector Business.</div>
+      <div class="te-source">B · Multiple secondary sources</div>
+    </div>
+  </div>
+
+</div>
+
+<h3 class="section-head">Relations · 28 documented</h3>
+<div class="relations-list">
+
+  <div class="relation-item">
+    <div class="ri-other"><a href="entity-brookfield.html" class="dotted-link">Brookfield Asset Management</a></div>
+    <div class="ri-type">EMPLOYED · VICE CHAIR</div>
+    <div class="ri-meta">2020 – 2024</div>
+  </div>
+
+  <div class="relation-item">
+    <div class="ri-other"><a href="entity-boc.html" class="dotted-link">Bank of Canada</a></div>
+    <div class="ri-type">CHAIRED · GOVERNOR</div>
+    <div class="ri-meta">2008 – 2013</div>
+  </div>
+
+  <div class="relation-item">
+    <div class="ri-other"><a href="entity-boe.html" class="dotted-link">Bank of England</a></div>
+    <div class="ri-type">CHAIRED · GOVERNOR</div>
+    <div class="ri-meta">2013 – 2020</div>
+  </div>
+
+  <div class="relation-item">
+    <div class="ri-other"><a href="entity-goldman.html" class="dotted-link">Goldman Sachs</a></div>
+    <div class="ri-type">EMPLOYED · SENIOR ROLES</div>
+    <div class="ri-meta">1990 – 2003</div>
+  </div>
+
+  <div class="relation-item">
+    <div class="ri-other"><a href="entity-fsb.html" class="dotted-link">Financial Stability Board</a></div>
+    <div class="ri-type">CHAIRED · 2011–2018</div>
+    <div class="ri-meta">2011 – 2018</div>
+  </div>
+
+  <div class="relation-item">
+    <div class="ri-other"><a href="entity-glasgow-finance.html" class="dotted-link">Glasgow Financial Alliance for Net Zero</a></div>
+    <div class="ri-type">CO-CHAIRED · CONVENER</div>
+    <div class="ri-meta">2021 – 2025</div>
+  </div>
+
+  <div class="relation-item">
+    <div class="ri-other"><a href="entity-pierre-poilievre.html" class="dotted-link">Pierre Poilievre</a></div>
+    <div class="ri-type">POLITICAL OPPONENT</div>
+    <div class="ri-meta">2025 – present</div>
+  </div>
+
+</div>
+
+<h3 class="section-head">Theses involving this entity</h3>
+<div class="theses-mention-list">
+
+  <div class="theses-mention-card">
+    <div class="tm-meta">PRIMARY · 47 LINKED CLAIMS</div>
+    <div class="tm-title"><a href="thesis-monetary.html">The architecture of quiet power: how Canadian monetary design shapes political outcomes.</a></div>
+  </div>
+
+  <div class="theses-mention-card">
+    <div class="tm-meta">REFERENCED · 12 LINKED CLAIMS</div>
+    <div class="tm-title"><a href="thesis-brookfield.html">The revolving door between Brookfield and Canadian public service.</a></div>
+  </div>
+
+  <div class="theses-mention-card">
+    <div class="tm-meta">REFERENCED · 8 LINKED CLAIMS</div>
+    <div class="tm-title"><a href="thesis-fsb.html">FSB coordination patterns and Canadian regulatory alignment.</a></div>
+  </div>
+
+  <div class="theses-mention-card">
+    <div class="tm-meta">REFERENCED · 6 LINKED CLAIMS</div>
+    <div class="tm-title"><a href="thesis-climate-finance.html">Climate finance commitments and the de-risking question.</a></div>
+  </div>
+
+</div>
+
+</div>
+
+
+<footer class="footer">
+  <div>CANOPTICON · Forensic intelligence · Canada</div>
+  <div class="footer-links">
+    <a href="subscribe.html">Subscribe</a>
+    <a href="search.html">Search</a>
+    <a href="glossary.html">Glossary</a>
+    <a href="corrections.html">Corrections</a>
+    <a href="methodology.html">Methodology</a>
+    <a href="about.html">About</a>
+  </div>
+</footer>
+
+</body>
+</html>

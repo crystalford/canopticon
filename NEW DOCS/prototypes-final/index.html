@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CANOPTICON · Prototype Index</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f5f1e8;
+    --paper-deeper: #ebe6d8;
+    --paper-subtle: #efeade;
+    --ink: #1a1816;
+    --ink-dim: #5a564f;
+    --ink-faint: #8a8578;
+    --rule: #c9c2b0;
+    --rule-soft: #d9d2c0;
+    --signal: #9c2333;
+    --amber: #8a6520;
+    --sage: #5a7349;
+    --muted-blue: #4c617e;
+    --serif: 'EB Garamond', Georgia, serif;
+    --mono: 'JetBrains Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    padding: 60px 24px 80px;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+    mix-blend-mode: multiply;
+  }
+  .container { max-width: 980px; margin: 0 auto; }
+  .masthead {
+    text-align: center;
+    padding-bottom: 40px;
+    margin-bottom: 56px;
+    border-bottom: 2px solid var(--ink);
+  }
+  .masthead .wordmark {
+    font-family: var(--serif);
+    font-size: 48px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+  }
+  .masthead .wordmark .can { color: var(--ink); }
+  .masthead .wordmark .opticon { color: var(--signal); }
+  .masthead-tagline {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 18px;
+  }
+  .masthead-subtitle {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 19px;
+    color: var(--ink-dim);
+    max-width: 580px;
+    margin: 0 auto;
+  }
+
+  .section {
+    margin-bottom: 64px;
+  }
+  .section-head {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .section-intro {
+    font-family: var(--serif);
+    font-style: italic;
+    color: var(--ink-dim);
+    margin-bottom: 28px;
+    font-size: 16px;
+    line-height: 1.55;
+    max-width: 720px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 720px) {
+    .grid { grid-template-columns: 1fr; }
+    .masthead .wordmark { font-size: 36px; }
+  }
+
+  .card {
+    border: 1px solid var(--rule);
+    background: var(--paper-subtle);
+    padding: 18px;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+  }
+  .card:hover {
+    border-color: var(--signal);
+    background: var(--paper-deeper);
+    transform: translateY(-2px);
+  }
+  .card-tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 6px;
+  }
+  .card-title {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+  .card-desc {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-dim);
+    line-height: 1.45;
+    flex: 1;
+  }
+  .card-link-meta {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px dotted var(--rule);
+  }
+  a.card { text-decoration: none; color: inherit; }
+
+  .preamble {
+    background: var(--paper-deeper);
+    padding: 28px 32px;
+    margin-bottom: 56px;
+    border-left: 4px solid var(--signal);
+  }
+  .preamble p {
+    margin-bottom: 12px;
+    font-size: 16.5px;
+    line-height: 1.6;
+  }
+  .preamble p:last-child { margin-bottom: 0; }
+  .preamble strong { font-style: italic; font-weight: 500; }
+
+  .footnote {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    text-align: center;
+  }
+
+  .group-card {
+    grid-column: span 3;
+    border: 1px solid var(--rule);
+    padding: 24px;
+    background: var(--paper-deeper);
+  }
+  @media (max-width: 720px) {
+    .group-card { grid-column: span 1; }
+  }
+  .group-card-head {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 14px;
+  }
+  .group-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  @media (max-width: 720px) {
+    .group-list { grid-template-columns: 1fr; }
+  }
+  .group-link {
+    padding: 10px 14px;
+    background: var(--paper-subtle);
+    border: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--ink);
+    text-transform: uppercase;
+    transition: all 0.15s;
+    display: block;
+    text-decoration: none;
+  }
+  .group-link:hover { border-color: var(--signal); color: var(--signal); }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div class="masthead">
+  <div class="wordmark"><span class="can">CAN</span><span class="opticon">OPTICON</span></div>
+  <div class="masthead-tagline">Forensic intelligence · Canada</div>
+  <div class="masthead-subtitle">Prototype index — every surface in the platform, as a working visual reference.</div>
+</div>
+
+<div class="preamble">
+  <p>This is the visual specification of CANOPTICON. Every surface mentioned in the docs has a single-file HTML prototype here, in the v9.2 design register: <strong>operator app</strong> in dark cockpit aesthetic for the mobile workspace, <strong>public site</strong> in paper-on-ink editorial register for what readers see. Real Canadian-political examples throughout for content reference (Carney, Brookfield, PBO, Bank Act, etc.).</p>
+  <p>Each prototype is self-contained. No build step, no dependencies, no shared assets — just open in a browser. Use these as the visual contract when building the actual application.</p>
+</div>
+
+<div class="section">
+  <div class="section-head">PUBLIC SITE · 19 SURFACES</div>
+  <div class="section-intro">The reader-facing surfaces. Editorial register: paper-on-ink, EB Garamond serif, drop caps, calibrated language, dotted citations. What public discourse encounters when CANOPTICON's outputs land.</div>
+
+  <div class="grid">
+    <a class="card" href="public/home.html">
+      <div class="card-tag">HOMEPAGE</div>
+      <div class="card-title">Home</div>
+      <div class="card-desc">Lead investigation, theses-in-progress grid, active predictions, contradictions held as machloket, weekly changelog.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/articles-index.html">
+      <div class="card-tag">INDEX</div>
+      <div class="card-title">Articles</div>
+      <div class="card-desc">All published articles, filtered by type, with claim counts and grade summaries.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/theses-index.html">
+      <div class="card-tag">INDEX</div>
+      <div class="card-title">Theses</div>
+      <div class="card-desc">Theses-in-progress with version, layer count, linchpin status, IPCC qualifier.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/article-revolving-door.html">
+      <div class="card-tag">ARTICLE TEMPLATE</div>
+      <div class="card-title">The revolving door between Brookfield and public service.</div>
+      <div class="card-desc">Full article page — Brookfield $847M contracts investigation. Drop cap, dotted citations, end-block provenance.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/thesis-monetary.html">
+      <div class="card-tag">THESIS TEMPLATE</div>
+      <div class="card-title">Thesis: monetary architecture</div>
+      <div class="card-desc">Full thesis page — BLUF, 4-tier switcher, layer decomposition, assumptions, predictions, version history.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/predictions.html">
+      <div class="card-tag">CREDIBILITY</div>
+      <div class="card-title">Prediction Ledger</div>
+      <div class="card-desc">Brier 0.142, calibration chart, domain breakdown, active and resolved predictions table.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/contradictions.html">
+      <div class="card-tag">CREDIBILITY</div>
+      <div class="card-title">Contradictions Tracker</div>
+      <div class="card-desc">Open contradictions, machloket registry, resolved log. Posture-typed and color-rail coded.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/methodology.html">
+      <div class="card-tag">CREDIBILITY</div>
+      <div class="card-title">Methodology</div>
+      <div class="card-desc">10 sections — what CANOPTICON is, how sources are graded, Toulmin structure, calibrated language, root-striking, editorial standards.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/about.html">
+      <div class="card-tag">CREDIBILITY</div>
+      <div class="card-title">About</div>
+      <div class="card-desc">Operator declaration, what this is and isn't, funding model, contact.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/entity-carney.html">
+      <div class="card-tag">AUTO-PAGE</div>
+      <div class="card-title">Entity: Mark Carney</div>
+      <div class="card-desc">Auto-generated entity page — timeline, relations, theses involving this entity. Template applies to all entities.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/source-oic-2026-0143.html">
+      <div class="card-tag">AUTO-PAGE</div>
+      <div class="card-title">Source: OIC 2026-0143</div>
+      <div class="card-desc">Auto-generated source page — A-grade, extracted claims, entities, references, citation provenance.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/claim-carney-brookfield.html">
+      <div class="card-tag">AUTO-PAGE</div>
+      <div class="card-title">Claim: Carney Brookfield tenure</div>
+      <div class="card-desc">Full Toulmin structure — data, warrant, backing, qualifier, rebuttal. Sources, related claims.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/argument-map-housing.html">
+      <div class="card-tag">OUTPUT FORMAT</div>
+      <div class="card-title">Argument Map: housing</div>
+      <div class="card-desc">Six-layer tree — surface, evidence, dependencies, empirical disputes, values disputes, meta. Intervention tiers.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/solution-inventory-housing.html">
+      <div class="card-tag">OUTPUT FORMAT</div>
+      <div class="card-title">Solution Inventory: housing</div>
+      <div class="card-desc">Comparative analysis across jurisdictions — symptom, mechanism, structural tiers. Real disagreement isolated.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/frame-genealogy-housing-supply.html">
+      <div class="card-tag">OUTPUT FORMAT</div>
+      <div class="card-title">Frame Genealogy: housing supply</div>
+      <div class="card-desc">Propagation timeline of "supply problem" framing — first appearance, amplifiers, funders, material interest.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/glossary.html">
+      <div class="card-tag">REFERENCE</div>
+      <div class="card-title">Glossary</div>
+      <div class="card-desc">Epistemic, system, operational, regional terms. Every non-obvious word, defined.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/subscribe.html">
+      <div class="card-tag">UTILITY</div>
+      <div class="card-title">Subscribe</div>
+      <div class="card-desc">Channel selection — articles, theses, predictions, contradictions, weekly digest. Plus RSS/Mastodon/X.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/search.html">
+      <div class="card-tag">UTILITY</div>
+      <div class="card-title">Search</div>
+      <div class="card-desc">Cross-substrate — articles, theses, claims, sources, entities, predictions. Filter chips, highlighted excerpts.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="public/corrections.html">
+      <div class="card-tag">CREDIBILITY</div>
+      <div class="card-title">Corrections Log</div>
+      <div class="card-desc">Every correction made, dated, public. The credibility-positive surface.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-head">OPERATOR APP · 14 SCREENS</div>
+  <div class="section-intro">The mobile cockpit for the operator. Dark-mode dashboard register: cream-on-charcoal, JetBrains Mono for metadata, EB Garamond for content. Six bottom-nav surfaces plus modals, queues, and the recording overlay.</div>
+
+  <div class="grid">
+
+    <a class="card" href="operator/live.html">
+      <div class="card-tag">BOTTOM NAV · 1</div>
+      <div class="card-title">Live</div>
+      <div class="card-desc">Activity feed since last cascade. Convergences, contradictions, verified claims, questions, source review.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="operator/graph.html">
+      <div class="card-tag">BOTTOM NAV · 2</div>
+      <div class="card-title">Graph</div>
+      <div class="card-desc">Substrate visualizer — entities, claims, theses, sources. Filter chips, SVG canvas, slide-up inspector.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="operator/studio.html">
+      <div class="card-tag">BOTTOM NAV · 3</div>
+      <div class="card-title">Studio · Ready</div>
+      <div class="card-desc">Production engine. Six tabs — Ready, Recording, Producing, Publish, Perf, Archive. Pipeline state per production.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="operator/library.html">
+      <div class="card-tag">BOTTOM NAV · 4</div>
+      <div class="card-title">Library</div>
+      <div class="card-desc">Books, articles, notes, sources. Search across all artifacts. Per-book ingest mode (substrate / influence / surface).</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="operator/sources.html">
+      <div class="card-tag">BOTTOM NAV · 5</div>
+      <div class="card-title">Sources</div>
+      <div class="card-desc">Pending Critic reports, approved sources. Add via paste/upload/dictate. Critic grading, bias profile, watchlist matches.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="operator/system.html">
+      <div class="card-tag">BOTTOM NAV · 6</div>
+      <div class="card-title">System</div>
+      <div class="card-desc">Cost ceiling, cascade status, role invocations, ingestion-API toggles, whitelist rules, Brier display, error log.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <div class="group-card">
+      <div class="group-card-head">STUDIO TABS · ALL SIX VARIANTS</div>
+      <div class="group-list">
+        <a href="operator/studio.html" class="group-link">Ready (3)</a>
+        <a href="operator/studio-recording.html" class="group-link">Recording (1)</a>
+        <a href="operator/studio-producing.html" class="group-link">Producing (2)</a>
+        <a href="operator/studio-publish.html" class="group-link">Publish (2)</a>
+        <a href="operator/studio-perf.html" class="group-link">Perf</a>
+        <a href="operator/studio-archive.html" class="group-link">Archive (12)</a>
+      </div>
+    </div>
+
+    <a class="card" href="operator/recording.html">
+      <div class="card-tag">FULL-SCREEN OVERLAY</div>
+      <div class="card-title">Recording overlay</div>
+      <div class="card-desc">Beat reader for the production engine. Big serif beat text, pulse-status REC indicator, beat-progress dots, waveform, three-button transport.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="operator/cost-approval-modal.html">
+      <div class="card-tag">MODAL</div>
+      <div class="card-title">Cost approval prompt</div>
+      <div class="card-desc">Operator-gated paid op. Source, rate, cost breakdown, Critic rationale, whitelist context. The chokepoint that prevents silent spending.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="operator/publish-prep-modal.html">
+      <div class="card-tag">MODAL</div>
+      <div class="card-title">Publish-prep workflow</div>
+      <div class="card-desc">Undismissability check matrix. Eight requirements with pass/warn/block status. Hard blocks prevent publish.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="operator/entity-resolution-queue.html">
+      <div class="card-tag">QUEUE UI</div>
+      <div class="card-title">Entity resolution queue</div>
+      <div class="card-desc">Uncertain entity mentions awaiting operator decision. Confirm match / new entity / defer. Confidence scores and candidate ranking.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+    <a class="card" href="operator/claim-dedup-queue.html">
+      <div class="card-tag">QUEUE UI</div>
+      <div class="card-title">Claim deduplication queue</div>
+      <div class="card-desc">New claim vs. existing. Four-button decision: duplicate, refinement, contradiction, distinct. Deduplicator's recommendation surfaced.</div>
+      <div class="card-link-meta">View →</div>
+    </a>
+
+  </div>
+</div>
+
+<div class="footnote">
+  CANOPTICON · v9.2 PROTOTYPE BUNDLE · APRIL 2026 · 33 SURFACES · ALL EXAMPLES INTEGRATED · BUILD-READY VISUAL CONTRACT
+</div>
+
+</div>
+
+</body>
+</html>
