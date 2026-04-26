@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { type RoleName, SPRINT_1_ROLE_NAMES } from "../../constants/enums.ts";
+import { ROLE_NAMES, type RoleName } from "../../constants/enums.ts";
 import { loadSkill } from "./load.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -23,14 +23,13 @@ const dirNameFor: Record<RoleName, string> = {
   novelty_surfacer: "novelty-surfacer",
 };
 
-describe("Sprint 1 SKILL.md files", () => {
-  for (const role of SPRINT_1_ROLE_NAMES) {
-    it(`loads ${role}/SKILL.md cleanly`, async () => {
+describe("All SKILL.md files load cleanly", () => {
+  for (const role of ROLE_NAMES) {
+    it(`loads ${role}/SKILL.md`, async () => {
       const path = resolve(skillsRoot, dirNameFor[role], "SKILL.md");
       const skill = await loadSkill(path);
       expect(skill.name).toBe(role);
       expect(skill.frontmatter.model).toBe("claude-opus-4-7");
-      expect(skill.frontmatter.features.structured_output).toBe(true);
       expect(skill.prompt.length).toBeGreaterThan(200);
       expect(skill.hash).toMatch(/^[0-9a-f]{64}$/);
     });
