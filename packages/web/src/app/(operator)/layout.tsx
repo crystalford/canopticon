@@ -32,6 +32,7 @@ export default async function OperatorLayout({ children }: { children: React.Rea
             <NavLink href="/predictions" label="predictions" />
             <NavLink href="/indicators" label="indicators" />
             <NavLink href="/entities" label="entities" />
+            <NavLink href="/graph" label="graph" />
             <NavLink href="/system" label="system" />
           </nav>
         </div>
