@@ -1,66 +1,72 @@
-// Operations cockpit data: cost panel, cascade status, role health, Brier.
-// Powers the System screen in the operator app.
+// System cockpit data: cost panel, cascade status, role health, Brier.
 
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import { internal } from "../lib/errors.ts";
-import { userClient } from "../lib/supabase.ts";
-import { getPublicUserId } from "../lib/user.ts";
+import { all, one, run, updateById } from "../lib/d1.ts";
 
 const app = new Hono<AuthContext>();
-
 app.use("*", requireAuth());
 
 app.get("/", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
+  const db = c.env.DB;
 
   const sinceMonth = new Date();
   sinceMonth.setUTCDate(1);
   sinceMonth.setUTCHours(0, 0, 0, 0);
+  const sinceMonthIso = sinceMonth.toISOString();
+  const sinceDayIso = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
-  const [ledgerR, lastCascadeR, rolesR, predsR, userRowR] = await Promise.all([
-    client
-      .from("cost_ledger")
-      .select("operation_type, cost_cents, created_at")
-      .eq("user_id", userId)
-      .gte("created_at", sinceMonth.toISOString()),
-    client
-      .from("cascade_runs")
-      .select("id, status, started_at, completed_at, spent_cents, stats, error_message")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(10),
-    client
-      .from("role_invocations")
-      .select("role_name, status")
-      .eq("user_id", userId)
-      .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString()),
-    client.from("predictions").select("status, brier_contribution, domain").eq("user_id", userId),
-    client
-      .from("users")
-      .select("monthly_ceiling_cents, ingestion_apis_enabled, cascade_cron_expr, named_operator")
-      .eq("id", userId)
-      .single(),
+  const [ledger, lastCascades, roles, preds, userRow] = await Promise.all([
+    all<{ operation_type: string; cost_cents: number }>(
+      db,
+      "SELECT operation_type, cost_cents FROM cost_ledger WHERE user_id = ? AND created_at >= ?",
+      [userId, sinceMonthIso],
+    ),
+    all<{
+      id: string;
+      status: string;
+      started_at: string | null;
+      completed_at: string | null;
+      spent_cents: number;
+      stats: string;
+      error_message: string | null;
+    }>(
+      db,
+      "SELECT id, status, started_at, completed_at, spent_cents, stats, error_message FROM cascade_runs WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
+      [userId],
+    ),
+    all<{ role_name: string; status: string }>(
+      db,
+      "SELECT role_name, status FROM role_invocations WHERE user_id = ? AND created_at >= ?",
+      [userId, sinceDayIso],
+    ),
+    all<{ status: string; brier_contribution: number | null; domain: string | null }>(
+      db,
+      "SELECT status, brier_contribution, domain FROM predictions WHERE user_id = ?",
+      [userId],
+    ),
+    one<{
+      monthly_ceiling_cents: number;
+      ingestion_apis_enabled: number;
+      cascade_cron_expr: string | null;
+      named_operator: string | null;
+    }>(
+      db,
+      "SELECT monthly_ceiling_cents, ingestion_apis_enabled, cascade_cron_expr, named_operator FROM users WHERE id = ?",
+      [userId],
+    ),
   ]);
 
-  if (ledgerR.error || lastCascadeR.error || rolesR.error || predsR.error || userRowR.error) {
-    throw internal("system query failed");
-  }
-
-  const monthlySpend = (ledgerR.data ?? []).reduce(
-    (s, r) => s + Number((r as { cost_cents: number }).cost_cents),
-    0,
-  );
+  let monthlySpend = 0;
   const byOp: Record<string, number> = {};
-  for (const r of ledgerR.data ?? []) {
-    const row = r as { operation_type: string; cost_cents: number };
+  for (const row of ledger) {
+    monthlySpend += Number(row.cost_cents);
     byOp[row.operation_type] = (byOp[row.operation_type] ?? 0) + Number(row.cost_cents);
   }
 
   const roleStats: Record<string, { count: number; errors: number }> = {};
-  for (const r of rolesR.data ?? []) {
-    const row = r as { role_name: string; status: string };
+  for (const row of roles) {
     const cur = roleStats[row.role_name] ?? { count: 0, errors: 0 };
     cur.count++;
     if (row.status === "failed") cur.errors++;
@@ -70,8 +76,7 @@ app.get("/", async (c) => {
   let brierTotal = 0;
   let brierResolved = 0;
   let active = 0;
-  for (const r of predsR.data ?? []) {
-    const row = r as { status: string; brier_contribution: number | null };
+  for (const row of preds) {
     if (row.status === "active") active++;
     if (row.brier_contribution !== null) {
       brierTotal += Number(row.brier_contribution);
@@ -80,41 +85,26 @@ app.get("/", async (c) => {
   }
   const rollingBrier = brierResolved > 0 ? brierTotal / brierResolved : null;
 
-  const userRow = userRowR.data as {
-    monthly_ceiling_cents: number;
-    ingestion_apis_enabled: boolean;
-    cascade_cron_expr: string | null;
-    named_operator: string | null;
-  };
-
   return c.json({
     cost: {
       monthly_spend_cents: monthlySpend,
-      monthly_ceiling_cents: userRow.monthly_ceiling_cents,
+      monthly_ceiling_cents: userRow?.monthly_ceiling_cents ?? 0,
       by_operation: byOp,
     },
-    cascade: {
-      last_runs: lastCascadeR.data ?? [],
-    },
+    cascade: { last_runs: lastCascades },
     roles: roleStats,
-    brier: {
-      rolling: rollingBrier,
-      resolved_count: brierResolved,
-      active_count: active,
-    },
+    brier: { rolling: rollingBrier, resolved_count: brierResolved, active_count: active },
     settings: {
-      ingestion_apis_enabled: userRow.ingestion_apis_enabled,
-      cascade_cron_expr: userRow.cascade_cron_expr,
-      named_operator: userRow.named_operator,
+      ingestion_apis_enabled: (userRow?.ingestion_apis_enabled ?? 0) === 1,
+      cascade_cron_expr: userRow?.cascade_cron_expr ?? null,
+      named_operator: userRow?.named_operator ?? null,
     },
   });
 });
 
 app.patch("/settings", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const body = (await c.req.json()) as Record<string, unknown>;
-
   const allowed = [
     "monthly_ceiling_cents",
     "ingestion_apis_enabled",
@@ -126,12 +116,10 @@ app.patch("/settings", async (c) => {
   for (const key of allowed) {
     if (key in body) update[key] = body[key];
   }
-  if (Object.keys(update).length === 0) {
-    return c.json({ ok: true, updated: 0 });
-  }
-
-  const { error } = await client.from("users").update(update).eq("id", userId);
-  if (error) throw error;
+  if (Object.keys(update).length === 0) return c.json({ ok: true, updated: 0 });
+  await updateById(c.env.DB, "users", userId, update);
+  // Suppress unused-import warning if updateById is the only thing changing here.
+  void run;
   return c.json({ ok: true, updated: Object.keys(update).length });
 });
 

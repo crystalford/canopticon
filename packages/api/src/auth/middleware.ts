@@ -1,14 +1,24 @@
-// Hono middleware that validates the bearer JWT and attaches user_id + token
-// to the request context. Use on every authenticated route.
+// Operator auth: gated by Cloudflare Access.
+//
+// Cloudflare Access sits in front of the Worker (configured in the
+// Zero Trust dashboard). On every request that's passed Access, two
+// headers are injected:
+//
+//   Cf-Access-Authenticated-User-Email: the verified email
+//   Cf-Access-Jwt-Assertion: signed JWT we could verify if needed
+//
+// For the single-operator model we accept the email header as the
+// identity. We also gate by OPERATOR_EMAIL: only that exact email is
+// allowed. (Belt-and-suspenders with the Access policy.)
 
 import type { MiddlewareHandler } from "hono";
 import type { Env } from "../env.ts";
-import { unauthorized } from "../lib/errors.ts";
-import { JwtError, verifySupabaseJwt } from "./jwt.ts";
+import { forbidden, unauthorized } from "../lib/errors.ts";
+import { getOrSeedOperator } from "../lib/seed.ts";
 
 export interface AuthVariables {
+  email: string;
   user_id: string;
-  jwt: string;
 }
 
 export type AuthContext = {
@@ -17,25 +27,17 @@ export type AuthContext = {
 };
 
 export const requireAuth = (): MiddlewareHandler<AuthContext> => async (c, next) => {
-  const header = c.req.header("authorization") ?? c.req.header("Authorization");
-  if (!header) {
-    throw unauthorized("Missing Authorization header");
+  const email = c.req.header("cf-access-authenticated-user-email");
+  if (!email) {
+    throw unauthorized("Cloudflare Access did not provide an email");
   }
-  const [scheme, token] = header.split(" ");
-  if (scheme !== "Bearer" || !token) {
-    throw unauthorized("Authorization header must be 'Bearer <token>'");
-  }
-
-  try {
-    const claims = await verifySupabaseJwt(token, c.env.SUPABASE_JWT_SECRET);
-    c.set("user_id", claims.sub);
-    c.set("jwt", token);
-  } catch (err) {
-    if (err instanceof JwtError) {
-      throw unauthorized(err.message);
-    }
-    throw err;
+  const operatorEmail = c.env.OPERATOR_EMAIL;
+  if (operatorEmail && email.toLowerCase() !== operatorEmail.toLowerCase()) {
+    throw forbidden(`Only ${operatorEmail} can use this app`);
   }
 
+  const userId = await getOrSeedOperator(c.env.DB, email);
+  c.set("email", email);
+  c.set("user_id", userId);
   await next();
 };

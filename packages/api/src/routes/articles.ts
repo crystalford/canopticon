@@ -1,64 +1,58 @@
-// Articles: list, fetch, create, version, publish-prep, corrections.
+// Articles + corrections.
 
 import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { all, insertOne, one } from "../lib/d1.ts";
 import { badRequest } from "../lib/errors.ts";
-import { userClient } from "../lib/supabase.ts";
-import { getPublicUserId } from "../lib/user.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
 
 app.get("/", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const type = c.req.query("type");
-  let q = client
-    .from("articles")
-    .select(`
-      id, article_type, title, subtitle, author, byline_date, is_public, public_slug, published_at, thesis_id,
-      current_version:article_versions!articles_current_version_fk (id, version_number, word_count, reading_time_minutes)
-    `)
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (type) q = q.eq("article_type", type);
-  const { data, error } = await q;
-  if (error) throw error;
-  return c.json({ articles: data ?? [] });
+  const sql = type
+    ? `SELECT a.id, a.article_type, a.title, a.subtitle, a.author, a.byline_date,
+              a.is_public, a.public_slug, a.published_at, a.thesis_id,
+              av.id AS version_id, av.version_number, av.word_count, av.reading_time_minutes
+       FROM articles a LEFT JOIN article_versions av ON av.id = a.current_version_id
+       WHERE a.user_id = ? AND a.article_type = ? ORDER BY a.created_at DESC`
+    : `SELECT a.id, a.article_type, a.title, a.subtitle, a.author, a.byline_date,
+              a.is_public, a.public_slug, a.published_at, a.thesis_id,
+              av.id AS version_id, av.version_number, av.word_count, av.reading_time_minutes
+       FROM articles a LEFT JOIN article_versions av ON av.id = a.current_version_id
+       WHERE a.user_id = ? ORDER BY a.created_at DESC`;
+  const params = type ? [userId, type] : [userId];
+  const articles = await all(c.env.DB, sql, params);
+  return c.json({ articles });
 });
 
 app.get("/:id", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
-  const { data, error } = await client.from("articles").select("*").eq("id", id).single();
-  if (error) throw error;
-  const [versions, claims, corrections] = await Promise.all([
-    client
-      .from("article_versions")
-      .select("*")
-      .eq("article_id", id)
-      .order("version_number", { ascending: false }),
-    client
-      .from("article_claims")
-      .select("claim_id, citation_locator")
-      .eq(
-        "article_version_id",
-        (data as { current_version_id: string | null }).current_version_id ??
-          "00000000-0000-0000-0000-000000000000",
-      ),
-    client
-      .from("article_corrections")
-      .select("*")
-      .eq("article_id", id)
-      .order("corrected_at", { ascending: false }),
-  ]);
-  return c.json({
-    article: data,
-    versions: versions.data ?? [],
-    claims: claims.data ?? [],
-    corrections: corrections.data ?? [],
-  });
+  const article = await one<{ current_version_id: string | null }>(
+    c.env.DB,
+    "SELECT * FROM articles WHERE id = ?",
+    [id],
+  );
+  const versions = await all(
+    c.env.DB,
+    "SELECT * FROM article_versions WHERE article_id = ? ORDER BY version_number DESC",
+    [id],
+  );
+  const claims = article?.current_version_id
+    ? await all(
+        c.env.DB,
+        "SELECT claim_id, citation_locator FROM article_claims WHERE article_version_id = ?",
+        [article.current_version_id],
+      )
+    : [];
+  const corrections = await all(
+    c.env.DB,
+    "SELECT * FROM article_corrections WHERE article_id = ? ORDER BY corrected_at DESC",
+    [id],
+  );
+  return c.json({ article, versions, claims, corrections });
 });
 
 const createSchema = z.object({
@@ -83,17 +77,11 @@ const createSchema = z.object({
 });
 
 app.post("/", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const parsed = createSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
-  const { data, error } = await client
-    .from("articles")
-    .insert({ user_id: userId, ...parsed.data })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return c.json({ id: (data as { id: string }).id }, 201);
+  const id = await insertOne(c.env.DB, "articles", { user_id: userId, ...parsed.data });
+  return c.json({ id }, 201);
 });
 
 const correctionSchema = z.object({
@@ -105,22 +93,17 @@ const correctionSchema = z.object({
 });
 
 app.post("/:id/corrections", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const id = c.req.param("id");
   const parsed = correctionSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
-  const { data, error } = await client
-    .from("article_corrections")
-    .insert({
-      user_id: userId,
-      article_id: id,
-      ...parsed.data,
-    })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return c.json({ id: (data as { id: string }).id }, 201);
+  const cid = await insertOne(c.env.DB, "article_corrections", {
+    user_id: userId,
+    article_id: id,
+    ...parsed.data,
+    is_public: parsed.data.is_public ?? true,
+  });
+  return c.json({ id: cid }, 201);
 });
 
 export default app;

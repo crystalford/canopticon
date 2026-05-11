@@ -1,17 +1,16 @@
+// Operator app layout.
+//
+// All routes under (operator)/* are gated by Cloudflare Access. The
+// Access policy in the Zero Trust dashboard is configured to require
+// the operator's email; unauthenticated visitors see Access's
+// sign-in page before they reach this layout.
+
 import { BottomNav } from "@/components/operator/BottomNav";
-import { type ServerCookieStore, serverClient } from "@/lib/supabase";
-import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 export const runtime = "edge";
 
 export default async function OperatorLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const supabase = serverClient(cookieStore as unknown as ServerCookieStore);
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect("/sign-in");
-
-  // Determine active nav from request URL.
   const h = await headers();
   const pathname = h.get("x-pathname") ?? h.get("x-invoke-path") ?? "";
   const active = `/${pathname.split("/")[1] ?? ""}`;

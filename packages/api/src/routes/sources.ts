@@ -1,45 +1,40 @@
-// Sources: list, ingest, approve/defer/reject, view critic reports.
-// Powers the Sources screen.
+// Sources: list, ingest, approve/defer/reject.
 
 import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { all, insertOne, one, run, updateById } from "../lib/d1.ts";
 import { badRequest } from "../lib/errors.ts";
-import { userClient } from "../lib/supabase.ts";
-import { getPublicUserId } from "../lib/user.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
 
 app.get("/", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const state = c.req.query("state");
-  let q = client
-    .from("sources")
-    .select(
-      "id, title, url, source_type, ingestion_state, admiralty_grade, bias_profile, ingested_at, published_at",
-    )
-    .eq("user_id", userId)
-    .order("ingested_at", { ascending: false })
-    .limit(100);
-  if (state) q = q.eq("ingestion_state", state);
-  const { data, error } = await q;
-  if (error) throw error;
-  return c.json({ sources: data ?? [] });
+  const rows = state
+    ? await all(
+        c.env.DB,
+        "SELECT id, title, url, source_type, ingestion_state, admiralty_grade, bias_profile, ingested_at, published_at FROM sources WHERE user_id = ? AND ingestion_state = ? ORDER BY ingested_at DESC LIMIT 100",
+        [userId, state],
+      )
+    : await all(
+        c.env.DB,
+        "SELECT id, title, url, source_type, ingestion_state, admiralty_grade, bias_profile, ingested_at, published_at FROM sources WHERE user_id = ? ORDER BY ingested_at DESC LIMIT 100",
+        [userId],
+      );
+  return c.json({ sources: rows });
 });
 
 app.get("/:id", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
-  const { data, error } = await client.from("sources").select("*").eq("id", id).single();
-  if (error) throw error;
-  const { data: report } = await client
-    .from("ingestion_critic_reports")
-    .select("*")
-    .eq("source_id", id)
-    .maybeSingle();
-  return c.json({ source: data, critic_report: report });
+  const source = await one(c.env.DB, "SELECT * FROM sources WHERE id = ?", [id]);
+  const critic_report = await one(
+    c.env.DB,
+    "SELECT * FROM ingestion_critic_reports WHERE source_id = ?",
+    [id],
+  );
+  return c.json({ source, critic_report });
 });
 
 const createSchema = z.object({
@@ -64,21 +59,17 @@ const createSchema = z.object({
 });
 
 app.post("/", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const parsed = createSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid source body", { issues: parsed.error.issues });
-  const { data, error } = await client
-    .from("sources")
-    .insert({
-      user_id: userId,
-      ...parsed.data,
-      ingested_via: "operator_upload",
-    })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return c.json({ id: (data as { id: string }).id }, 201);
+  const id = await insertOne(c.env.DB, "sources", {
+    user_id: userId,
+    ...parsed.data,
+    authors: parsed.data.authors ?? [],
+    metadata: parsed.data.metadata ?? {},
+    ingested_via: "operator_upload",
+  });
+  return c.json({ id }, 201);
 });
 
 const actionSchema = z.object({
@@ -88,8 +79,7 @@ const actionSchema = z.object({
 });
 
 app.post("/:id/action", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const id = c.req.param("id");
   const parsed = actionSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid action body", { issues: parsed.error.issues });
@@ -108,18 +98,15 @@ app.post("/:id/action", async (c) => {
   } else if (action === "edit_grade" && grade) {
     updates.admiralty_grade = grade;
   }
-
-  const { error: updErr } = await client.from("sources").update(updates).eq("id", id);
-  if (updErr) throw updErr;
-
-  const { error: actErr } = await client.from("ingestion_actions").insert({
+  await updateById(c.env.DB, "sources", id, updates);
+  await insertOne(c.env.DB, "ingestion_actions", {
     user_id: userId,
     source_id: id,
     action,
     notes: notes ?? null,
     payload: { grade: grade ?? null },
   });
-  if (actErr) throw actErr;
+  void run;
   return c.json({ ok: true });
 });
 

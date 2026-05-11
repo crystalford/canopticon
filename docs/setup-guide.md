@@ -1,418 +1,244 @@
-# CANOPTICON — Setup Guide (web-only, no terminal)
+# CANOPTICON Setup Guide
 
-> Verified against UI labels on **April 25, 2026**. If a label moved,
-> look in the same neighborhood — the option is usually right where
-> you'd expect it.
+All Cloudflare. No third-party database, no third-party auth. One vendor for infra, Anthropic for the model, your video editor of choice for production. About 25 minutes of dashboard clicking total.
 
-You will set this up entirely through web dashboards plus GitHub's
-"Run workflow" buttons. No local IDE, no terminal commands.
+## What you'll have at the end
 
-By the end:
-- `canopticon.com` — public site
-- `canopticon.com/home` (signed in) — your operator dashboard
-- `api.canopticon.com` — the API on Cloudflare Workers
-- Supabase as the database
-- Anthropic as the AI
+- Operator app at `canopticon.com/live` (gated to your email by Cloudflare Access)
+- Public site at `canopticon.com/p/*` (no auth)
+- API at `api.canopticon.com`
+- Database, file storage, and embeddings all on Cloudflare
+- Anthropic Claude as the only external service
 
-Total time: about **75 minutes**.
+## Prerequisites
 
----
-
-## About the things you might be wondering
-
-**`pnpm`, `wrangler`, `supabase` commands?** You'll never type any of
-them. We've set up GitHub Actions so every command runs on GitHub's
-servers when you click a "Run workflow" button. `pnpm smoke` =
-clicking "Run workflow" on the Smoke workflow. Etc.
-
-**Video storage?** The current build is text-only. Sources hold
-transcripts as text. If you want video later, that's a separate
-add-on (Cloudflare Stream + R2). Skip it for v1.
-
-**Cost?** Cloudflare and Supabase are free for what you need.
-Anthropic is pay-as-you-go: budget **$20–50/month** to start. Hard-cap
-your spend in the Anthropic dashboard before you start.
+- A Cloudflare account with `canopticon.com` already on Cloudflare DNS *(you have this)*
+- A GitHub account with the repo forked *(you have this)*
+- About $0 in monthly bills until you grow (everything sits on free tiers)
+- An [Anthropic API key](https://console.anthropic.com/) (their dashboard, API Keys → Create Key)
 
 ---
 
-## Step 1 — Fork the repo on GitHub (2 min)
+## Phase 1 — GitHub Secrets *(5 min)*
 
-1. Go to <https://github.com/crystalford/canopticon>.
-2. Click **Fork** (top-right). Accept defaults.
-3. You now own a copy at `https://github.com/<your-username>/canopticon`.
+### 1.1 Get your Cloudflare Account ID
 
----
+1. Open **[dash.cloudflare.com](https://dash.cloudflare.com)** and sign in
+2. Left sidebar → **Workers & Pages**
+3. On the right, find the **Account ID** field with a Copy button → copy it
+4. Save it somewhere temporarily (Notes, etc.)
 
-## Step 2 — Create the Supabase project (10 min)
+### 1.2 Create a Cloudflare API Token
 
-1. Sign in at <https://supabase.com>.
-2. Top-right: **New project**.
-3. Fill in:
-   - **Name**: `canopticon`
-   - **Database password**: click **Generate**, then copy it to a
-     password manager.
-   - **Region**: closest to you.
-   - **Plan**: Free.
-4. Click **Create new project**. Wait 1–2 minutes.
+1. Top-right → click your profile picture → **My Profile**
+2. Left sidebar → **API Tokens**
+3. **Create Token** (big blue button) → scroll to "Custom token" → **Get started**
+4. Token name: `canopticon-deploy`
+5. Add these permissions (click **+ Add more** for each):
+   - **Account** | **Workers Scripts** | **Edit**
+   - **Account** | **Workers R2 Storage** | **Edit**
+   - **Account** | **D1** | **Edit**
+   - **Account** | **Cloudflare Pages** | **Edit**
+   - **Account** | **Account Settings** | **Read**
+   - **Account** | **Vectorize** | **Edit**
+   - **User** | **Memberships** | **Read**
+6. **Account Resources**: leave as "All accounts" (or pick your specific account)
+7. **Continue to summary** → **Create Token**
+8. **Copy the token immediately** — it only shows once. Save next to the Account ID.
 
-### 2a — Grab your keys
+### 1.3 Add four secrets to GitHub
 
-Click the gear icon (bottom-left) → **Project Settings** → **API**.
-
-Copy these four values to a notes file (you'll paste them into other
-dashboards in the next steps):
-
-| Label in Supabase UI | Save this as |
-|---|---|
-| **Project URL** | `SUPABASE_URL` |
-| **anon public** key | `SUPABASE_ANON_KEY` |
-| **service_role** key (click Reveal) | `SUPABASE_SERVICE_ROLE_KEY` |
-| **JWT Secret** (further down on the same page, click Reveal) | `SUPABASE_JWT_SECRET` |
-
-### 2b — Run the migrations
-
-You'll paste the 18 migration files into the Supabase SQL Editor in
-order. This creates all 37+ tables.
-
-1. In Supabase sidebar: **SQL Editor**.
-2. In a second browser tab, open
-   <https://github.com/<your-username>/canopticon/tree/main/supabase/migrations>.
-3. For **each file in order from 0001 to 0018**:
-   - Click the file (e.g., `0001_extensions.sql`).
-   - Click the **Copy raw file** button (top-right of the file
-     viewer).
-   - Back in Supabase SQL Editor → **+ New query**.
-   - Paste. Click **Run** (bottom-right, or Ctrl/Cmd-Enter).
-   - Wait for "Success" message.
-   - Repeat for next file.
-
-If a migration errors, **stop and read the error**. Most likely cause:
-you ran them out of order, or you ran the same one twice. Worst case:
-in **Database → Backups** you can reset. (You haven't put real data in
-yet, so resetting costs nothing.)
-
-### 2c — Verify
-
-In Supabase sidebar: **Table Editor**. Top-left dropdown should be
-`public`. You should see **37+ tables** including `users`, `claims`,
-`theses`, `findings`, `predictions`, `cost_ledger`.
-
-If yes: ✅ Supabase is set up. Move on.
+1. Go to **github.com/your-username/canopticon → Settings**
+2. Left sidebar → **Secrets and variables** → **Actions**
+3. Click **New repository secret** four times:
+   - Name: `CLOUDFLARE_ACCOUNT_ID` — Value: (the account ID)
+   - Name: `CLOUDFLARE_API_TOKEN` — Value: (the API token)
+   - Name: `ANTHROPIC_API_KEY` — Value: your Anthropic key
+   - Name: `OPERATOR_EMAIL` — Value: your email (the only address that will be able to sign in)
 
 ---
 
-## Step 3 — Get an Anthropic API key (3 min)
+## Phase 2 — Run the deploy workflow *(~5 min)*
 
-1. Sign up at <https://console.anthropic.com>.
-2. Sidebar: **Billing** → add at least **$5** in credits.
-3. Sidebar: **Billing** → **Set spend limit** → set monthly cap
-   ($25 recommended for v1).
-4. Sidebar: **API Keys** → **Create Key**.
-5. Name it `canopticon-prod`.
-6. Copy the key (starts with `sk-ant-`). Save as `ANTHROPIC_API_KEY`.
+1. Go to **github.com/your-username/canopticon → Actions**
+2. Left sidebar → **Deploy to Cloudflare**
+3. Right side → **Run workflow** → green button confirming **Run workflow**
 
----
+Watch the live log. The workflow does all of this for you:
 
-## Step 4 — Create a Cloudflare API token (3 min)
+1. Creates the `canopticon` D1 database
+2. Runs all migrations (creates 60+ tables)
+3. Creates the `canopticon-files` R2 bucket (for recordings, source documents)
+4. Creates the `canopticon-embeddings` Vectorize index
+5. Pushes your Anthropic key as a Worker secret
+6. Deploys the API Worker at `canopticon-api.<your-account>.workers.dev`
+7. Builds and deploys the web app to Cloudflare Pages at `canopticon-web.pages.dev`
 
-You need an API token so GitHub Actions can deploy the API to your
-Cloudflare account.
+If it goes green, the site is live at the temporary Cloudflare URLs.
 
-1. Sign in at <https://dash.cloudflare.com>.
-2. Top-right profile icon → **My Profile** → **API Tokens** tab.
-3. Click **Create Token**.
-4. Pick **Edit Cloudflare Workers** template → **Use template**.
-5. Under **Account Resources**: select your account.
-6. Under **Zone Resources**: select **All zones** (so the token can
-   manage `canopticon.com` later).
-7. Click **Continue to summary** → **Create Token**.
-8. Copy the token. Save as `CLOUDFLARE_API_TOKEN`. **You will not see
-   it again.**
-9. Also grab your **Account ID**: dashboard home → right sidebar.
-   Save as `CLOUDFLARE_ACCOUNT_ID`.
+**If it goes red**: open the failed step in the log, copy the error, and we'll debug.
 
 ---
 
-## Step 5 — Add GitHub secrets (5 min)
+## Phase 3 — Wire your domain *(~10 min)*
 
-GitHub Actions needs to know all your keys to deploy and run scripts.
+### 3.1 Pages → canopticon.com
 
-1. In your fork: **Settings** (top tab) → **Secrets and variables** →
-   **Actions** (left sidebar).
-2. Click **New repository secret** for each of these. Paste the value
-   you saved earlier. Use the exact name shown.
+1. Cloudflare dashboard → **Workers & Pages**
+2. Find `canopticon-web` → click it
+3. Top tabs → **Custom domains**
+4. **Set up a custom domain** → enter `canopticon.com` → **Continue** → **Activate domain**
+5. Repeat with `www.canopticon.com`
 
-| Secret name | Value |
-|---|---|
-| `SUPABASE_URL` | from Step 2a |
-| `SUPABASE_ANON_KEY` | from Step 2a |
-| `SUPABASE_SERVICE_ROLE_KEY` | from Step 2a |
-| `SUPABASE_JWT_SECRET` | from Step 2a |
-| `ANTHROPIC_API_KEY` | from Step 3 |
-| `CLOUDFLARE_API_TOKEN` | from Step 4 |
-| `CLOUDFLARE_ACCOUNT_ID` | from Step 4 |
+DNS records auto-created since canopticon.com is already on Cloudflare. SSL is automatic.
 
-After saving each one, you should see seven secrets listed.
+### 3.2 Worker → api.canopticon.com
 
----
+1. Cloudflare dashboard → **Workers & Pages**
+2. Find `canopticon-api` → click it
+3. Top tabs → **Settings** → **Domains & Routes**
+4. **Add** → **Custom Domain** → enter `api.canopticon.com` → **Add Custom Domain**
 
-## Step 6 — Deploy the API to Cloudflare Workers (5 min)
+### 3.3 Tell the web where the API lives
 
-GitHub Actions will do the deploy for you.
+The deploy workflow ships the web with `NEXT_PUBLIC_API_BASE_URL` pointing to the temporary workers.dev URL. Update it to point at your new custom domain:
 
-1. In your fork: **Actions** tab.
-2. Left sidebar: **Deploy API to Cloudflare Workers**.
-3. Right side: **Run workflow** → branch `main` → green **Run
-   workflow** button.
-4. Wait ~3 minutes. Refresh. Click the run to see live logs. Look for
-   the green checkmark.
-
-When done, find the deployed URL:
-
-1. <https://dash.cloudflare.com> → **Workers & Pages** (left sidebar).
-2. Click `canopticon-api` → look at the top — there's a URL like
-   `https://canopticon-api.<account>.workers.dev`.
-3. Visit that URL + `/health` in your browser. Should print
-   `{"ok":true}`.
-
-If yes: ✅ API is live.
+1. Cloudflare dashboard → **Workers & Pages** → `canopticon-web`
+2. **Settings** → **Environment variables**
+3. **Add variable**:
+   - Variable name: `NEXT_PUBLIC_API_BASE_URL`
+   - Value: `https://api.canopticon.com`
+   - Environment: **Production**
+4. **Save**
+5. **Deployments** tab → top of the list → **⋯** menu → **Retry deployment** (so the build picks up the new env var)
 
 ---
 
-## Step 7 — Deploy the web to Cloudflare Pages (10 min)
+## Phase 4 — Lock down the operator app *(~5 min)*
 
-1. <https://dash.cloudflare.com> → **Workers & Pages** → **Create**
-   button → **Pages** tab → **Connect to Git**.
-2. Authorize Cloudflare to access your GitHub. Pick your `canopticon`
-   fork. Click **Begin setup**.
-3. Fill in the build configuration:
+Cloudflare Access gates `canopticon.com/live` (and the other operator screens) to your email. The public site (`/p/*`) stays open to everyone.
 
-| Field | Value |
-|---|---|
-| **Project name** | `canopticon-web` |
-| **Production branch** | `main` |
-| **Framework preset** | None |
-| **Build command** | `cd packages/web && pnpm install --frozen-lockfile && pnpm pages:build` |
-| **Build output directory** | `packages/web/.vercel/output/static` |
+### 4.1 Activate Zero Trust (free)
 
-4. Expand **Environment variables (advanced)** and add three:
+1. Cloudflare dashboard → left sidebar → **Zero Trust**
+2. First time only: pick a team name (e.g. `canopticon`), choose the **Free** plan (no credit card)
 
-| Variable | Value |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | from Step 2a |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from Step 2a |
-| `NEXT_PUBLIC_API_BASE_URL` | `https://api.canopticon.com` |
+### 4.2 Add the operator app
 
-> The API URL is the future custom-domain URL we'll set up in Step 8.
-> Even though it doesn't resolve yet, set it now — the web is built
-> with this value embedded.
+1. **Access** → **Applications** → **Add an application**
+2. Choose **Self-hosted**
+3. Application name: `Canopticon Operator`
+4. Session duration: `1 month` (so you don't have to re-auth daily)
+5. **Application domain**:
+   - Domain: `canopticon.com`
+   - Path: `live` *(this is one path; we add the others below)*
+6. **Next**
 
-5. Click **Save and Deploy**. First build takes 3–5 min.
+### 4.3 Add the policy
 
-### 7a — Set the compatibility flag (don't forget this)
+1. Policy name: `Operator only`
+2. Action: **Allow**
+3. Include: **Emails** → enter your operator email exactly as you set it in GitHub Secrets (case-sensitive matters less, but matching matters)
+4. **Next** → **Next** → **Add application**
 
-After the first deploy succeeds:
+### 4.4 Repeat for the other operator paths
 
-1. In `canopticon-web` → **Settings** (top) → **Functions** (left).
-2. Scroll to **Compatibility flags**.
-3. **Production**: click **Add flag**, type `nodejs_compat`, save.
-4. **Preview**: same — add `nodejs_compat`.
+Cloudflare Access only protects the exact path you list. Repeat 4.2 + 4.3 for these paths (same policy each time):
+- `graph`
+- `studio`
+- `library`
+- `sources`
+- `system`
 
-Then redeploy:
+*(Tip: you can also create one app with multiple paths in newer Access UI — look for "Add path" within the same Application.)*
 
-1. **Deployments** tab.
-2. On the latest deployment, click the **⋯** menu → **Retry
-   deployment**.
-
-### 7b — Verify
-
-Visit the temporary URL Cloudflare gave you (looks like
-`https://canopticon-web.pages.dev`). You should land on a sign-in
-page.
-
-If yes: ✅ Web is deployed.
+The public paths (`/p/articles`, `/p/theses`, etc.) and the homepage redirect aren't listed, so they stay unauthenticated.
 
 ---
 
-## Step 8 — Connect canopticon.com (10 min)
+## Phase 5 — Test it *(~2 min)*
 
-You already own `canopticon.com` on Cloudflare DNS — this part is
-fast.
-
-### 8a — Point canopticon.com at Pages
-
-1. <https://dash.cloudflare.com> → **Workers & Pages** →
-   `canopticon-web` → **Custom domains** tab.
-2. **Set up a custom domain** → enter `canopticon.com` → **Continue**.
-3. Cloudflare offers to add the DNS record automatically — accept.
-4. Repeat for `www.canopticon.com`.
-
-Wait 1–5 minutes for DNS to propagate. Visit
-<https://canopticon.com> — you should see the public site (or be
-redirected to sign-in).
-
-### 8b — Point api.canopticon.com at the Worker
-
-1. **Workers & Pages** → click `canopticon-api` (the Worker, not the
-   Pages project).
-2. **Settings** (top) → **Domains & Routes** (left).
-3. **Add** → **Custom domain** → enter `api.canopticon.com` → save.
-
-Visit <https://api.canopticon.com/health> — should print
-`{"ok":true}`.
-
-If yes: ✅ Domain wired up.
+1. Open `https://canopticon.com` in a fresh browser tab
+2. You should land on Cloudflare Access's sign-in page
+3. Enter your email → check inbox for the 6-digit code → paste it back
+4. You should land on the **Live** screen (empty — no activity yet, that's expected)
+5. Try the bottom-nav screens: Live / Graph / Studio / Library / Sources / System
+6. In a separate tab (or incognito), visit `https://canopticon.com/p` — should load with no auth prompt
 
 ---
 
-## Step 9 — Sign in for the first time (3 min)
+## Phase 6 — Sync the skill prompts *(~30 sec, one-time)*
 
-1. Visit <https://canopticon.com/sign-in>.
-2. Enter your email.
-3. Click **Send magic link**.
-4. Check your inbox. Email is from `noreply@mail.app.supabase.io` —
-   check spam if it's not in your inbox in 30 seconds.
-5. Click the link. You'll land on `/home`.
+After your first sign-in, the API has seeded your `users` row and 18 placeholder `role_definitions`. Now push the real prompts:
 
-If you land on `/home`: ✅ Auth works.
+1. GitHub → **Actions** → **Sync skill prompts to D1**
+2. **Run workflow** → green button
 
-> Note: by default the magic link goes to the temporary
-> `pages.dev` URL. To fix that, in Supabase: **Authentication** →
-> **URL Configuration**:
->   - **Site URL**: `https://canopticon.com`
->   - **Redirect URLs**: add `https://canopticon.com/auth/callback`
->
-> Save. Future magic links go to your real domain.
+When it goes green, your 18 Anthropic prompts are live in the database. The cost gate is also seeded. You can now use the system.
 
 ---
 
-## Step 10 — Push the skill prompts (2 min)
+## Phase 7 — Set the operator basics *(~2 min, optional but recommended)*
 
-The migrations seeded `role_definitions` rows but with **placeholder
-prompts**. You must run sync-skills now or every Claude call will go
-out with garbage.
+1. Open `canopticon.com/system`
+2. **Named operator**: type your real name (this is what shows on published articles)
+3. **Monthly ceiling**: default is $50. Adjust if you want a different cap on Anthropic spend.
 
-1. In your GitHub fork: **Actions** tab.
-2. Left sidebar: **Sync skill prompts to Supabase**.
-3. **Run workflow** → leave inputs blank → green **Run workflow**.
-4. Wait ~30 seconds. Refresh. Open the run. Confirm green checkmark
-   and "13 synced, 0 skipped" in the logs.
+That's it. You're operational.
 
 ---
 
-## Step 11 — Run the smoke test (2 min)
+## Daily use
 
-Final verification that everything works.
+- **Operator screens**: `canopticon.com/live` (+ /graph, /studio, /library, /sources, /system) — auth required
+- **Public site**: `canopticon.com/p` — no auth, this is what readers see
+- **Trigger a cascade**: Live screen → "Run Cascade" button
+- **Add a source**: Sources screen → there's an upload affordance (top-right)
 
-1. In GitHub: **Actions** tab.
-2. Left sidebar: **Smoke test (verify Supabase setup)**.
-3. **Run workflow** → green **Run workflow**.
-4. Wait ~30 seconds. Open the run.
+## Verifying setup
 
-You want to see all seven checks pass:
+If anything feels off, run the smoke test:
 
-```
-· Supabase reachable ... ok
-· All expected tables exist ... ok
-· All 13 role_definitions exist for at least one user ... ok
-· Skill prompts have been synced (no placeholders) ... ok
-· Every role_definitions row references a real SKILL.md ... ok
-· Cost gate tables ready ... ok
-· Findings substrate ready (migration 0018 applied) ... ok
-
-7 passed, 0 failed
-substrate looks healthy. ready to use.
-```
-
-If any check fails, **the failure message tells you what to fix** —
-usually re-run sync-skills, or re-paste a missing migration.
-
-If all 7 pass: ✅ **You're done. The system is live.**
-
----
-
-## Step 12 — Try it (10 min, ~$1 in Anthropic)
-
-1. <https://canopticon.com/research>.
-2. Type a research topic. Click **Run**.
-3. Watch the live event feed. ~2 min.
-4. Go to `/sources` → review what came in → **Approve** the ones you
-   trust.
-5. Wait for the cascade (cron fires every 6 hours, or manually
-   trigger it from `/system`).
-6. Go to `/claims` → see what got extracted.
-7. `/studio` → **+ new thesis** → declare → integrate a few claims.
-8. From the thesis page: **surface findings**, **declare prediction**,
-   **publish**.
-9. <https://canopticon.com/p/theses/your-slug> — your thesis is live
-   on the public site.
-
----
-
-## What you do daily
-
-You don't touch GitHub or the Cloudflare dashboard for normal use.
-You just visit <https://canopticon.com/home>, sign in, and work.
-
-You only re-touch this guide when:
-
-- **You changed a SKILL.md prompt**: re-run "Sync skill prompts to
-  Supabase" workflow.
-- **You added a new migration file** (you probably won't): paste it
-  into Supabase SQL Editor, then re-run smoke.
-- **You deployed an API code change**: GitHub Actions auto-deploys on
-  every push to main.
-- **You deployed a web code change**: Cloudflare Pages auto-deploys on
-  every push to main.
-
----
-
-## Troubleshooting
-
-**Pages build fails with "Cannot find module"**
-The build command is wrong. Check Step 7 — it must start with
-`cd packages/web && pnpm install --frozen-lockfile && ...`.
-
-**Pages site loads but every page shows "Internal Server Error"**
-You forgot the `nodejs_compat` flag (Step 7a). Add it, retry the
-deployment.
-
-**"Sync skill prompts" workflow says "0 rows updated"**
-No `users` row exists yet. You need to sign in via the web (Step 9)
-first, then re-run the workflow.
-
-**Smoke test says "5 role_definitions still have placeholder prompts"**
-Re-run "Sync skill prompts to Supabase" workflow.
-
-**Anthropic returns 401 / 403 in the system feed**
-Either the key is wrong (re-edit the `ANTHROPIC_API_KEY` GitHub
-secret, then re-run "Deploy API to Cloudflare Workers") or you're out
-of credit (top up at console.anthropic.com).
-
-**Magic link arrives but clicking it goes to pages.dev not
-canopticon.com**
-See Step 9 — set Site URL + Redirect URLs in Supabase Authentication.
-
-**Cost gate keeps blocking everything**
-The Cost Approval modal shows pending operations. Find it at the
-top-right of any operator page; approve to continue.
-
----
+1. GitHub → **Actions** → **Smoke test (verify deployment)** → **Run workflow**
+2. It checks: API health, public endpoints return correct shapes, operator routes are gated by Access
 
 ## Where things live
 
-| What | Where |
+| Thing | Where |
 |---|---|
-| Database tables | Supabase → Table Editor |
-| Run a SQL query | Supabase → SQL Editor |
-| API logs | Cloudflare → Workers & Pages → canopticon-api → Logs |
-| Web build logs | Cloudflare → Workers & Pages → canopticon-web → Deployments |
-| Anthropic spend | console.anthropic.com → Billing → Usage |
-| GitHub secrets | github.com/<you>/canopticon → Settings → Secrets and variables → Actions |
-| Run sync-skills | github.com/<you>/canopticon → Actions → Sync skill prompts → Run workflow |
-| Run smoke | github.com/<you>/canopticon → Actions → Smoke test → Run workflow |
-| Re-deploy API | github.com/<you>/canopticon → Actions → Deploy API → Run workflow |
-| Custom domains | Cloudflare → canopticon.com → DNS / Workers & Pages routes |
-| Operator UI | https://canopticon.com (signed in) |
-| Public site | https://canopticon.com (signed out) |
-| API | https://api.canopticon.com |
+| Database (D1) | Cloudflare → Workers & Pages → D1 → `canopticon` |
+| File storage (R2) | Cloudflare → R2 → `canopticon-files` |
+| Embeddings (Vectorize) | Cloudflare → AI → Vectorize → `canopticon-embeddings` |
+| API Worker | Cloudflare → Workers & Pages → `canopticon-api` |
+| Web (Pages) | Cloudflare → Workers & Pages → `canopticon-web` |
+| Access policies | Cloudflare → Zero Trust → Access → Applications |
+| Anthropic key | Stored as Worker secret; rotate via redeploy with new GitHub secret |
+| GitHub Actions logs | github.com/your-username/canopticon → Actions tab |
+
+## Cost expectations
+
+| Service | Free tier | When you'd pay |
+|---|---|---|
+| Cloudflare Pages | 500 builds/mo, unlimited bandwidth | Effectively never |
+| Cloudflare Workers | 100k requests/day | $5/mo if you exceed |
+| Cloudflare D1 | 5GB DB | ~never; this is text data |
+| Cloudflare R2 | 10GB + 1M ops free | Pennies above that |
+| Cloudflare Vectorize | 5M vectors, 30M queries/mo | ~never for a single operator |
+| Cloudflare Access | 50 users free | Effectively never |
+| Anthropic | Pay per token | Operator-controlled via System screen ceiling |
+
+Realistic infra cost for a solo operator: **$0/mo**. The only number that moves is your Anthropic usage, which you cap in the System screen.
+
+## Troubleshooting
+
+**"NEXT_PUBLIC_API_BASE_URL is not set"** — finish Phase 3.3, then redeploy the web.
+
+**Access prompts for sign-in but my email is rejected** — double-check `OPERATOR_EMAIL` in GitHub Secrets matches the email in the Access policy, exactly.
+
+**Smoke test says operator routes returned 200** — Access isn't gating yet. Re-check Phase 4: the Application's domain + path must match the operator route URLs.
+
+**API returns 401 on /v1/system from logged-in browser** — the API only trusts requests via Cloudflare Access. Make sure you're calling through `api.canopticon.com` (the Access-protected domain), not the `.workers.dev` URL directly.
+
+**D1 migration failed mid-deploy** — open the failed workflow step, copy the error. Most common cause: tried to re-run a CREATE TABLE that already exists. D1 migrations are forward-only and idempotent in our setup; if you need to start fresh, drop the database in the Cloudflare dashboard and re-run the deploy workflow.
+
+**I need to add a new operator email later** — update `OPERATOR_EMAIL` in GitHub Secrets (the Worker uses it) + add the email to the Access policy (Zero Trust gates with it). Both places.

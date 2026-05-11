@@ -1,12 +1,8 @@
-// Live feed: aggregates recent activity across the substrate for the
-// operator's Live screen. Per plan §open-question-3: per-table indexed
-// queries with LIMIT 50 each, merged in Worker via priority queue, capped
-// at 200 items total.
+// Live feed: cross-substrate activity aggregator.
 
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import { userClient } from "../lib/supabase.ts";
-import { getPublicUserId } from "../lib/user.ts";
+import { all } from "../lib/d1.ts";
 
 interface FeedItem {
   kind: string;
@@ -19,128 +15,75 @@ const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
 
 app.get("/", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const since = c.req.query("since") ?? new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const db = c.env.DB;
 
-  const [claimsR, contradictionsR, questionsR, predictionsR, productionsR, sourcesR, eventsR] =
-    await Promise.all([
-      client
-        .from("claims")
-        .select("id, layer, admiralty_grade, verification_status, created_at")
-        .eq("user_id", userId)
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      client
-        .from("contradictions")
-        .select("id, posture, created_at")
-        .eq("user_id", userId)
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      client
-        .from("questions")
-        .select("id, question_text, eig_score, created_at")
-        .eq("user_id", userId)
-        .eq("state", "open")
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      client
-        .from("predictions")
-        .select("id, statement, status, resolved_at, updated_at")
-        .eq("user_id", userId)
-        .gte("updated_at", since)
-        .order("updated_at", { ascending: false })
-        .limit(50),
-      client
-        .from("productions")
-        .select("id, title, state, updated_at")
-        .eq("user_id", userId)
-        .gte("updated_at", since)
-        .order("updated_at", { ascending: false })
-        .limit(50),
-      client
-        .from("sources")
-        .select("id, title, ingestion_state, created_at")
-        .eq("user_id", userId)
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(50),
-      client
-        .from("orchestrator_events")
-        .select("id, event_type, subject_kind, subject_id, payload, created_at")
-        .eq("user_id", userId)
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(50),
-    ]);
+  const [claims, contradictions, questions, preds, prods, sources, events] = await Promise.all([
+    all(
+      db,
+      "SELECT id, layer, admiralty_grade, verification_status, created_at FROM claims WHERE user_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 50",
+      [userId, since],
+    ),
+    all(
+      db,
+      "SELECT id, posture, created_at FROM contradictions WHERE user_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 50",
+      [userId, since],
+    ),
+    all(
+      db,
+      "SELECT id, question_text, eig_score, created_at FROM questions WHERE user_id = ? AND state = 'open' AND created_at >= ? ORDER BY created_at DESC LIMIT 50",
+      [userId, since],
+    ),
+    all(
+      db,
+      "SELECT id, statement, status, resolved_at, updated_at FROM predictions WHERE user_id = ? AND updated_at >= ? ORDER BY updated_at DESC LIMIT 50",
+      [userId, since],
+    ),
+    all(
+      db,
+      "SELECT id, title, state, updated_at FROM productions WHERE user_id = ? AND updated_at >= ? ORDER BY updated_at DESC LIMIT 50",
+      [userId, since],
+    ),
+    all(
+      db,
+      "SELECT id, title, ingestion_state, created_at FROM sources WHERE user_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 50",
+      [userId, since],
+    ),
+    all(
+      db,
+      "SELECT id, event_type, subject_kind, subject_id, payload, created_at FROM orchestrator_events WHERE user_id = ? AND created_at >= ? ORDER BY created_at DESC LIMIT 50",
+      [userId, since],
+    ),
+  ]);
 
   const feed: FeedItem[] = [];
-  for (const r of claimsR.data ?? [])
-    feed.push({
-      kind: "claim",
-      id: (r as { id: string }).id,
-      ts: (r as { created_at: string }).created_at,
-      payload: r as Record<string, unknown>,
-    });
-  for (const r of contradictionsR.data ?? [])
-    feed.push({
-      kind: "contradiction",
-      id: (r as { id: string }).id,
-      ts: (r as { created_at: string }).created_at,
-      payload: r as Record<string, unknown>,
-    });
-  for (const r of questionsR.data ?? [])
-    feed.push({
-      kind: "question",
-      id: (r as { id: string }).id,
-      ts: (r as { created_at: string }).created_at,
-      payload: r as Record<string, unknown>,
-    });
-  for (const r of predictionsR.data ?? [])
-    feed.push({
-      kind: "prediction",
-      id: (r as { id: string }).id,
-      ts: (r as { updated_at: string }).updated_at,
-      payload: r as Record<string, unknown>,
-    });
-  for (const r of productionsR.data ?? [])
-    feed.push({
-      kind: "production",
-      id: (r as { id: string }).id,
-      ts: (r as { updated_at: string }).updated_at,
-      payload: r as Record<string, unknown>,
-    });
-  for (const r of sourcesR.data ?? [])
-    feed.push({
-      kind: "source",
-      id: (r as { id: string }).id,
-      ts: (r as { created_at: string }).created_at,
-      payload: r as Record<string, unknown>,
-    });
-  for (const r of eventsR.data ?? [])
-    feed.push({
-      kind: "event",
-      id: (r as { id: string }).id,
-      ts: (r as { created_at: string }).created_at,
-      payload: r as Record<string, unknown>,
-    });
+  const pushAll = (kind: string, rows: unknown[], tsField: "created_at" | "updated_at") => {
+    for (const r of rows) {
+      const row = r as Record<string, unknown>;
+      feed.push({ kind, id: row.id as string, ts: row[tsField] as string, payload: row });
+    }
+  };
+  pushAll("claim", claims, "created_at");
+  pushAll("contradiction", contradictions, "created_at");
+  pushAll("question", questions, "created_at");
+  pushAll("prediction", preds, "updated_at");
+  pushAll("production", prods, "updated_at");
+  pushAll("source", sources, "created_at");
+  pushAll("event", events, "created_at");
 
   feed.sort((a, b) => (a.ts < b.ts ? 1 : -1));
   const capped = feed.slice(0, 200);
 
-  // Summary stats.
   const stats = {
-    claims: claimsR.data?.length ?? 0,
-    contradictions: contradictionsR.data?.length ?? 0,
-    questions: questionsR.data?.length ?? 0,
-    predictions_resolved: (predictionsR.data ?? []).filter((p) =>
+    claims: claims.length,
+    contradictions: contradictions.length,
+    questions: questions.length,
+    predictions_resolved: preds.filter((p) =>
       (p as { status: string }).status.startsWith("resolved"),
     ).length,
-    productions: productionsR.data?.length ?? 0,
-    sources_pending: (sourcesR.data ?? []).filter(
+    productions: prods.length,
+    sources_pending: sources.filter(
       (s) => (s as { ingestion_state: string }).ingestion_state === "pending_critic",
     ).length,
   };
