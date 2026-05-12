@@ -12,7 +12,7 @@ import type { NextRequest } from "next/server";
 
 const WORKER = "https://api.canopticon.com";
 
-function decodeJwtEmail(jwt: string): string | null {
+function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
   try {
     const parts = jwt.split(".");
     if (parts.length < 2 || !parts[1]) return null;
@@ -20,11 +20,27 @@ function decodeJwtEmail(jwt: string): string | null {
     const pad = padded.length % 4;
     const b64 = pad ? padded + "=".repeat(4 - pad) : padded;
     const decoded = atob(b64);
-    const obj = JSON.parse(decoded) as { email?: string };
-    return obj.email ?? null;
+    return JSON.parse(decoded) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+function emailFromJwt(jwt: string): string | null {
+  const payload = decodeJwtPayload(jwt);
+  if (!payload) return null;
+  // Access JWTs put the email at the top level on "email"; some configs
+  // (especially OIDC IdP-backed) put it in custom claims or "identity".
+  const candidates = [
+    payload.email,
+    payload.user_email,
+    (payload.identity as { email?: string } | undefined)?.email,
+    (payload.custom as { email?: string } | undefined)?.email,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.includes("@")) return c;
+  }
+  return null;
 }
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
@@ -55,7 +71,7 @@ async function proxyRequest(
   // the JWT payload — Access already verified the signature.
   let email = req.headers.get("cf-access-authenticated-user-email");
   const jwt = req.headers.get("cf-access-jwt-assertion");
-  if (!email && jwt) email = decodeJwtEmail(jwt);
+  if (!email && jwt) email = emailFromJwt(jwt);
 
   const target = `${WORKER}/${path.join("/")}${req.nextUrl.search}`;
 
@@ -69,12 +85,29 @@ async function proxyRequest(
   const idem = req.headers.get("idempotency-key");
   if (idem) fwdHeaders["idempotency-key"] = idem;
 
-  // Debug helper: if the Pages request has no Access email, surface
-  // exactly which headers we did receive so we can diagnose why.
-  if (!email && req.nextUrl.searchParams.get("__debug_headers") === "1") {
+  // Debug helper: surface what we received from Access. Pass ?__debug=1
+  // to inspect from the browser — useful when we can't find the email.
+  if (req.nextUrl.searchParams.get("__debug") === "1") {
     const names: string[] = [];
     req.headers.forEach((_v, k) => names.push(k));
-    return Response.json({ headers_seen: names, email, jwt_seen: !!jwt }, { status: 200 });
+    const payload = jwt ? decodeJwtPayload(jwt) : null;
+    return Response.json(
+      {
+        email_header: req.headers.get("cf-access-authenticated-user-email"),
+        email_resolved: email,
+        jwt_seen: !!jwt,
+        jwt_payload_keys: payload ? Object.keys(payload) : null,
+        jwt_payload_email_field: payload?.email ?? null,
+        jwt_payload_identity_email:
+          payload && typeof payload.identity === "object" && payload.identity
+            ? ((payload.identity as { email?: string }).email ?? null)
+            : null,
+        // Sanitized full payload: omit any token-like long strings.
+        jwt_payload: payload,
+        headers_seen: names,
+      },
+      { status: 200 },
+    );
   }
 
   // Buffer the body. Streaming a ReadableStream into another fetch()
