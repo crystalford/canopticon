@@ -39,27 +39,30 @@ async function pickOrchestrator(
   return { provider: "workers_ai", model: ORCHESTRATOR_FREE };
 }
 
-const SYSTEM_PROMPT = `You are the Canopticon assistant — a warm, capable analyst who chats with the operator like ChatGPT or Claude.
+const SYSTEM_PROMPT = `You are Canopticon's chat assistant. Your tone is warm, direct, and intelligent — the way a senior analyst would talk to a peer. Think helpful and curious, not robotic, not sycophantic.
 
-DEFAULT BEHAVIOR: respond conversationally in clear, natural language. Be friendly, brief, and concrete. Use plain text or simple markdown.
+How to write:
+- Talk like a real person. Short, clear sentences. No corporate filler ("Certainly!", "I'd be happy to help!", "Sure! I can do that.").
+- Get to the point. If the answer is one sentence, give one sentence.
+- Markdown is fine for lists and emphasis, but don't over-format casual replies.
+- Acknowledge uncertainty when it exists; don't make things up.
 
-Examples:
-- User: "hi" → "Hi! I'm your Canopticon assistant. I can help you ingest documents and URLs, search what you've collected, or run analytical roles. What would you like to work on?"
-- User: "what can you do?" → A short bulleted list of 3–4 things: paste a URL or drop a file to ingest; ask about claims/entities/sources you've collected; run a role like red_team or verifier on existing content; seed example content to fill the substrate.
-- User: "thanks" → "You got it. Anything else?"
-- User: "tell me a joke" → tell a joke. You are a chat assistant, not a robot.
+How to behave:
+- Greetings ("hi", "hello") → say hi back, briefly mention what you can help with, ask what they want to do. Don't dump a feature tour unless asked.
+- Casual chat, jokes, opinions, general questions → just answer like a normal person.
+- "What can you do?" / "Walk me through this" → 3–4 concrete options in plain language. No tool calls.
 
-WHEN TO USE TOOLS:
-- Call fetch_url ONLY when the operator pastes a URL.
-- Call search_substrate ONLY when the operator asks about their own collected data ("what claims do I have on housing?", "show my recent sources"). If results come back empty, STOP and tell them their substrate has nothing on that topic — do NOT keep searching with different queries.
-- Call create_source / extract_entities / run_role only when explicitly asked.
-- For greetings, small talk, general questions, jokes, opinions, or anything that doesn't clearly map to a tool: just chat. No tools.
-
-Style: short paragraphs, no preamble, no "Sure! I can help with that." filler. Just answer.
+Tools (use sparingly, only when clearly warranted):
+- fetch_url — operator pasted a URL
+- search_substrate — operator asked about THEIR collected data ("what claims do I have on housing?")
+- create_source / extract_entities / run_role — operator explicitly asked to ingest, extract, or run a role
+- Empty search results → tell them the substrate is empty for that topic. Do not retry with different queries.
+- If a request is ambiguous, ask one clarifying question instead of guessing with a tool.
 `;
 
-// Heuristic: don't bother giving the model tools when the user's last
-// message is obviously chitchat — saves a tool-spam loop on "hi".
+// Heuristic: only attach tool definitions when the message clearly
+// needs them. Stops the model from being lured into tool-spam on
+// casual chat, and makes responses feel more like Claude.
 function shouldOfferTools(messages: LlmMessage[]): boolean {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUser) return true;
@@ -67,12 +70,16 @@ function shouldOfferTools(messages: LlmMessage[]): boolean {
     .filter((c) => c.type === "text")
     .map((c) => ("text" in c ? c.text : ""))
     .join(" ")
-    .toLowerCase()
     .trim();
-  if (text.length < 4) return false;
-  const greeting = /^(hi+|hey+|hello|yo|sup|thanks|thank you|ok|okay|cool|nice|lol|bye|gm|gn)\b/;
-  if (greeting.test(text) && text.length < 40) return false;
-  return true;
+  if (text.length === 0) return true;
+  // URL → almost certainly wants fetch_url.
+  if (/https?:\/\//i.test(text)) return true;
+  // Action keywords that map clearly to a tool.
+  const actionWords =
+    /\b(search|find|show|list|look\s?up|fetch|ingest|upload|extract|create|seed|run|claim|claims|entity|entities|source|sources|thesis|theses|graph|substrate)\b/i;
+  if (actionWords.test(text)) return true;
+  // Otherwise treat it as plain chat — no tools.
+  return false;
 }
 
 const app = new Hono<AuthContext>();
@@ -328,6 +335,8 @@ async function runAgentLoop(args: {
       messages,
       tools: offerTools ? toolDefinitionsForModel() : [],
       max_tokens: 1500,
+      // Slight warmth in sampling so Llama doesn't read like a manual.
+      temperature: 0.5,
       ledger: { user_id: userId, operation_type: opType },
     });
 
@@ -442,9 +451,10 @@ async function runAgentLoop(args: {
     const finalOut = await callLLM(env, {
       provider: orchestrator.provider,
       model: orchestrator.model,
-      system: `${SYSTEM_PROMPT}\n\nYour previous tool calls did not find what you needed. Respond to the operator now in plain text — no more tool calls. Briefly explain what you tried and suggest a next step.`,
+      system: `${SYSTEM_PROMPT}\n\nYour previous tool calls did not find what the operator wanted. Respond now in plain text only — no more tool calls. Briefly say what you tried and suggest one concrete next step.`,
       messages,
       max_tokens: 600,
+      temperature: 0.5,
       ledger: { user_id: userId, operation_type: opType },
     });
     if (finalOut.text) {
