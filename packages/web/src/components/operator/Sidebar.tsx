@@ -35,29 +35,19 @@ export function Sidebar({
       <div className="border-b border-border-soft px-4 py-4">
         <div className="flex items-center gap-2 text-cream-bright">
           <svg
-            viewBox="0 0 96 16"
-            fill="currentColor"
+            viewBox="0 0 100 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="miter"
             className="h-5 w-24 shrink-0"
             aria-hidden="true"
           >
             <title>Canopticon eye mark</title>
-            {/* Left arrow ▶ */}
-            <polygon points="0,1 0,15 11,8" />
-            {/* Connector bar — left */}
-            <rect x="13" y="7" width="14" height="2" />
-            {/* Eye outline (almond / lens shape) */}
-            <path
-              d="M 30 8 Q 48 -1 66 8 Q 48 17 30 8 Z"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-            {/* Pupil */}
-            <circle cx="48" cy="8" r="3" />
-            {/* Connector bar — right */}
-            <rect x="69" y="7" width="14" height="2" />
-            {/* Right arrow ◀ */}
-            <polygon points="96,1 96,15 85,8" />
+            {/* One continuous outline: pointed corners, bulge over the iris. */}
+            <path d="M 1 8 L 35 7 Q 50 1 65 7 L 99 8 L 65 9 Q 50 15 35 9 Z" />
+            {/* Pupil — filled, no stroke. */}
+            <circle cx="50" cy="8" r="2.6" fill="currentColor" stroke="none" />
           </svg>
           <span className="font-sans text-base font-extrabold uppercase tracking-tight">
             Canopticon
