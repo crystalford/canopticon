@@ -49,6 +49,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # wrangler.toml ships with a placeholder database_id that the
+      # deploy workflow patches at deploy time. This job needs the same
+      # patch so wrangler d1 execute can resolve the real database.
+      - name: Resolve D1 database_id and patch wrangler.toml
+        working-directory: packages/api
+        run: |
+          DB_ID=$(pnpm exec wrangler d1 list --json | jq -r '.[] | select(.name=="canopticon") | .uuid')
+          if [ -z "$DB_ID" ] || [ "$DB_ID" = "null" ]; then
+            echo "Failed to resolve D1 database_id — has the deploy workflow run yet?"; exit 1
+          fi
+          echo "Using D1 database_id=$DB_ID"
+          sed -i "s/PLACEHOLDER_FILLED_BY_DEPLOY_WORKFLOW/$DB_ID/" wrangler.toml
+
       - name: Sync skills
         env:
           ROLE: ${{ inputs.role }}

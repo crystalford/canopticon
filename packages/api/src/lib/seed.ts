@@ -4,29 +4,87 @@
 // requireAuth() when it sees a request for an email that doesn't yet
 // have a users row.
 
-import { insertOne, nowIso, one } from "./d1.ts";
+import { insertOne, nowIso, one, run } from "./d1.ts";
 
-const REQUIRED_ROLE_NAMES = [
-  "ingestion_critic",
-  "verifier",
-  "interrogator",
-  "red_team",
-  "steelman",
-  "premortem",
-  "gap_surfacer",
-  "calibration",
-  "tier_projector",
-  "assumption_auditor",
-  "indicator_validator",
-  "novelty_surfacer",
-  "claim_extraction",
-  "entity_resolver",
-  "claim_deduplicator",
-  "solution_inventory_builder",
-  "argument_mapper",
-  "genealogy_tracer",
+// Per-role default tier — free-first Workers AI for every role. The
+// operator can flip a role to Anthropic from the System screen if the
+// global Anthropic toggle is on AND allow_anthropic_override=1 below.
+//
+// Models:
+//   - llama-4-scout: long-context writer; multimodal for PDF intake
+//   - llama-3.3-70b: reliable tool/decision calls
+//   - qwq-32b:      reasoning chains (red team, calibration, etc.)
+const ROLE_DEFAULTS: Array<{ name: string; model: string; allow_anthropic_override: number }> = [
+  // Writing / multimodal extraction
+  {
+    name: "ingestion_critic",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    allow_anthropic_override: 0,
+  },
+  {
+    name: "claim_extraction",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    allow_anthropic_override: 0,
+  },
+  {
+    name: "argument_mapper",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    allow_anthropic_override: 0,
+  },
+  {
+    name: "tier_projector",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    allow_anthropic_override: 1,
+  },
+  {
+    name: "solution_inventory_builder",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    allow_anthropic_override: 0,
+  },
+  {
+    name: "interrogator",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    allow_anthropic_override: 0,
+  },
+  {
+    name: "gap_surfacer",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    allow_anthropic_override: 0,
+  },
+  {
+    name: "genealogy_tracer",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    allow_anthropic_override: 1,
+  },
+  // Deterministic decisions
+  {
+    name: "entity_resolver",
+    model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    allow_anthropic_override: 0,
+  },
+  {
+    name: "claim_deduplicator",
+    model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    allow_anthropic_override: 0,
+  },
+  {
+    name: "indicator_validator",
+    model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    allow_anthropic_override: 0,
+  },
+  // Reasoning
+  { name: "novelty_surfacer", model: "@cf/qwen/qwq-32b", allow_anthropic_override: 0 },
+  { name: "red_team", model: "@cf/qwen/qwq-32b", allow_anthropic_override: 0 },
+  { name: "steelman", model: "@cf/qwen/qwq-32b", allow_anthropic_override: 0 },
+  { name: "premortem", model: "@cf/qwen/qwq-32b", allow_anthropic_override: 0 },
+  { name: "assumption_auditor", model: "@cf/qwen/qwq-32b", allow_anthropic_override: 0 },
+  { name: "verifier", model: "@cf/qwen/qwq-32b", allow_anthropic_override: 1 },
+  { name: "calibration", model: "@cf/qwen/qwq-32b", allow_anthropic_override: 0 },
 ];
 
+// Workers AI is free — auto-approve every workers_ai.* operation. The
+// per_op cap is symbolic ($0). Anthropic overrides keep tight caps in
+// case the operator flips a role to Claude.
 const DEFAULT_WHITELISTS: Array<{
   operation_type: string;
   enabled: boolean;
@@ -35,93 +93,63 @@ const DEFAULT_WHITELISTS: Array<{
   monthly_max_cents: number | null;
   notes: string;
 }> = [
+  // Workers AI buckets — all free, auto-approved.
   {
-    operation_type: "anthropic_role.ingestion_critic",
+    operation_type: "workers_ai.chat",
     enabled: true,
-    per_op_max_cents: 5,
-    daily_max_cents: 100,
-    monthly_max_cents: 2000,
-    notes: "auto-approve grading",
+    per_op_max_cents: 0,
+    daily_max_cents: null,
+    monthly_max_cents: null,
+    notes: "free chat",
   },
   {
-    operation_type: "anthropic_role.claim_extraction",
+    operation_type: "workers_ai.embed",
     enabled: true,
-    per_op_max_cents: 10,
-    daily_max_cents: 200,
-    monthly_max_cents: 3000,
-    notes: "auto-approve claim extraction",
+    per_op_max_cents: 0,
+    daily_max_cents: null,
+    monthly_max_cents: null,
+    notes: "free embeddings",
   },
   {
-    operation_type: "anthropic_role.entity_resolver",
+    operation_type: "workers_ai.extract.pdf",
     enabled: true,
-    per_op_max_cents: 5,
-    daily_max_cents: 100,
-    monthly_max_cents: 1500,
-    notes: "auto-approve ER",
+    per_op_max_cents: 0,
+    daily_max_cents: null,
+    monthly_max_cents: null,
+    notes: "free PDF extraction",
   },
   {
-    operation_type: "anthropic_role.claim_deduplicator",
+    operation_type: "workers_ai.extract.image",
     enabled: true,
-    per_op_max_cents: 5,
-    daily_max_cents: 100,
-    monthly_max_cents: 1500,
-    notes: "auto-approve dedup",
+    per_op_max_cents: 0,
+    daily_max_cents: null,
+    monthly_max_cents: null,
+    notes: "free image OCR",
   },
+  // Anthropic overrides — tight caps; only used when operator opts a role into Claude.
   {
-    operation_type: "anthropic_role.tier_projector",
+    operation_type: "anthropic.role.tier_projector",
     enabled: true,
     per_op_max_cents: 25,
     daily_max_cents: 300,
     monthly_max_cents: 4000,
-    notes: "tier regen each cascade",
+    notes: "opt-in Claude for briefs",
   },
   {
-    operation_type: "anthropic_role.indicator_validator",
+    operation_type: "anthropic.role.genealogy_tracer",
     enabled: true,
-    per_op_max_cents: 5,
-    daily_max_cents: 50,
-    monthly_max_cents: 500,
-    notes: "cheap validation",
+    per_op_max_cents: 30,
+    daily_max_cents: 200,
+    monthly_max_cents: 2000,
+    notes: "opt-in Claude for genealogy essays",
   },
   {
-    operation_type: "anthropic_role.calibration",
+    operation_type: "anthropic.role.verifier",
     enabled: true,
-    per_op_max_cents: 10,
-    daily_max_cents: 100,
-    monthly_max_cents: 1000,
-    notes: "nightly Brier sweep",
-  },
-  {
-    operation_type: "transcription_assemblyai",
-    enabled: false,
-    per_op_max_cents: null,
-    daily_max_cents: null,
-    monthly_max_cents: null,
-    notes: "operator approval required",
-  },
-  {
-    operation_type: "anthropic_role.solution_inventory_builder",
-    enabled: false,
-    per_op_max_cents: null,
-    daily_max_cents: null,
-    monthly_max_cents: null,
-    notes: "operator-invoked",
-  },
-  {
-    operation_type: "anthropic_role.argument_mapper",
-    enabled: false,
-    per_op_max_cents: null,
-    daily_max_cents: null,
-    monthly_max_cents: null,
-    notes: "operator-invoked",
-  },
-  {
-    operation_type: "anthropic_role.genealogy_tracer",
-    enabled: false,
-    per_op_max_cents: null,
-    daily_max_cents: null,
-    monthly_max_cents: null,
-    notes: "operator-invoked",
+    per_op_max_cents: 15,
+    daily_max_cents: 150,
+    monthly_max_cents: 1500,
+    notes: "opt-in Claude for citations",
   },
 ];
 
@@ -133,17 +161,22 @@ export async function seedOperator(db: D1Database, email: string): Promise<strin
 
   const userId = await insertOne(db, "users", { email });
 
-  for (const name of REQUIRED_ROLE_NAMES) {
+  for (const role of ROLE_DEFAULTS) {
     await insertOne(db, "role_definitions", {
       user_id: userId,
-      name,
-      prompt_template: `<see packages/shared/skills/${name.replace(/_/g, "-")}/SKILL.md — run pnpm sync-skills>`,
+      name: role.name,
+      provider: "workers_ai",
+      model: role.model,
+      allow_anthropic_override: role.allow_anthropic_override,
+      prompt_template: `<see packages/shared/skills/${role.name.replace(/_/g, "-")}/SKILL.md — run pnpm sync-skills>`,
     });
   }
 
   for (const w of DEFAULT_WHITELISTS) {
     await insertOne(db, "cost_whitelists", { user_id: userId, ...w });
   }
+
+  await run(db, "INSERT OR IGNORE INTO user_ai_prefs (user_id) VALUES (?)", [userId]);
 
   return userId;
 }

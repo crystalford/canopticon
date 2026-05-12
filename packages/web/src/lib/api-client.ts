@@ -57,6 +57,78 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return unwrap<T>(res);
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  const res = await fetch(`${apiBaseUrl()}${path}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  return unwrap<T>(res);
+}
+
+/** Multipart upload. The browser sets the content-type boundary; do not
+ *  override it manually. */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(`${apiBaseUrl()}${path}`, {
+    method: "POST",
+    body: form,
+    credentials: "include",
+  });
+  return unwrap<T>(res);
+}
+
+/** Stream an SSE response from a POST endpoint. Used by the chat agent
+ *  loop. The body is sent once; the response is a long-lived stream. */
+export async function postSse(options: {
+  path: string;
+  body: unknown;
+  signal?: AbortSignal;
+  onEvent: (e: SseEvent) => void;
+  onClose?: (reason: "stream_end" | "abort" | "error", err?: Error) => void;
+}): Promise<void> {
+  const init: RequestInit = {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "text/event-stream" },
+    body: JSON.stringify(options.body),
+    credentials: "include",
+  };
+  if (options.signal) init.signal = options.signal;
+  let res: Response;
+  try {
+    res = await fetch(`${apiBaseUrl()}${options.path}`, init);
+  } catch (err) {
+    options.onClose?.("error", err as Error);
+    return;
+  }
+  if (!res.ok || !res.body) {
+    options.onClose?.("error", new Error(`SSE failed: ${res.status} ${res.statusText}`));
+    return;
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) {
+        options.onClose?.("stream_end");
+        return;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      let sepIndex = buffer.indexOf("\n\n");
+      while (sepIndex >= 0) {
+        const block = buffer.slice(0, sepIndex);
+        buffer = buffer.slice(sepIndex + 2);
+        const event = parseSseBlock(block);
+        if (event) options.onEvent(event);
+        sepIndex = buffer.indexOf("\n\n");
+      }
+    }
+  } catch (err) {
+    if ((err as Error).name === "AbortError") options.onClose?.("abort");
+    else options.onClose?.("error", err as Error);
+  }
+}
+
 async function unwrap<T>(res: Response): Promise<T> {
   const contentType = res.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {

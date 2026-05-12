@@ -5,6 +5,7 @@
 
 import { Card, type ChipTone, MetadataStrip, StatusChip } from "@/components/primitives";
 import { apiGet, apiPost } from "@/lib/api-client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 interface FeedItem {
@@ -106,9 +107,15 @@ export default function LivePage() {
           </Card>
         ))}
         {data && data.feed.length === 0 && (
-          <p className="col-span-full py-12 text-center font-serif italic text-text-dim">
-            No activity in the last 24 hours. Run a cascade or ingest a source to populate.
-          </p>
+          <div className="col-span-full mx-auto max-w-md py-8 text-center">
+            <p className="font-serif italic text-text-dim">No activity in the last 24 hours.</p>
+            <Link
+              href="/chat?prompt=Please%20seed%20example%20content%20so%20I%20can%20see%20what%20the%20app%20looks%20like%20with%20real%20data."
+              className="mt-3 inline-block border border-amber bg-amber/10 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-amber hover:bg-amber/20"
+            >
+              Open Chat → seed content
+            </Link>
+          </div>
         )}
       </section>
     </main>

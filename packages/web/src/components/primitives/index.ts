@@ -1,6 +1,10 @@
+export { ApprovalCard } from "./ApprovalCard";
 export { Card, MetadataStrip } from "./Card";
+export { FileDrop } from "./FileDrop";
+export type { PendingUpload } from "./FileDrop";
 export { FilterChips } from "./FilterChips";
 export type { FilterChip } from "./FilterChips";
+export { Markdown } from "./Markdown";
 export { Modal } from "./Modal";
 export { PipelineProgress } from "./PipelineProgress";
 export type { PipelineStage, StageState } from "./PipelineProgress";

@@ -5,9 +5,11 @@ import type { Env } from "./env.ts";
 import { ApiError } from "./lib/errors.ts";
 import articlesRoutes from "./routes/articles.ts";
 import cascadeRoutes from "./routes/cascade.ts";
+import chatRoutes from "./routes/chat.ts";
 import claimsRoutes from "./routes/claims.ts";
 import contradictionsRoutes from "./routes/contradictions.ts";
 import costRoutes from "./routes/cost.ts";
+import embeddingsRoutes from "./routes/embeddings.ts";
 import entitiesRoutes from "./routes/entities.ts";
 import intellectualRoutes from "./routes/intellectual.ts";
 import libraryRoutes from "./routes/library.ts";
@@ -20,6 +22,7 @@ import publishRoutes from "./routes/publish.ts";
 import sourcesRoutes from "./routes/sources.ts";
 import systemRoutes from "./routes/system.ts";
 import thesesRoutes from "./routes/theses.ts";
+import uploadsRoutes from "./routes/uploads.ts";
 
 type App = AuthContext;
 
@@ -78,6 +81,9 @@ v1.route("/live", liveRoutes);
 v1.route("/orchestrator", orchestratorRoutes);
 v1.route("/intellectual", intellectualRoutes);
 v1.route("/public", publicRoutes);
+v1.route("/chat", chatRoutes);
+v1.route("/uploads", uploadsRoutes);
+v1.route("/embeddings", embeddingsRoutes);
 app.route("/v1", v1);
 
 export default {
