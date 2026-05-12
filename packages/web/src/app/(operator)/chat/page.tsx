@@ -167,10 +167,15 @@ function ChatPageInner() {
     if (!composer.trim() && pendingFileIds.length === 0) return;
 
     let conversationId = activeId;
-    if (!conversationId) {
-      const { id } = await apiPost<{ id: string }>("/v1/chat/conversations");
-      conversationId = id;
-      setActiveId(id);
+    try {
+      if (!conversationId) {
+        const { id } = await apiPost<{ id: string }>("/v1/chat/conversations");
+        conversationId = id;
+        setActiveId(id);
+      }
+    } catch (e) {
+      setError(`Could not create conversation: ${(e as Error).message}`);
+      return;
     }
     const text = composer;
     setComposer("");
@@ -183,71 +188,77 @@ function ChatPageInner() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    await postSse({
-      path: `/v1/chat/conversations/${conversationId}/messages`,
-      body: { text, attached_file_ids: attached },
-      signal: controller.signal,
-      onEvent: (e) => {
-        const data = e.data as Record<string, unknown> | undefined;
-        if (e.event === "message_delta" && data) {
-          setStreaming((s) => ({
-            ...(s ?? initialStream),
-            text: (s?.text ?? "") + String(data.text ?? ""),
-          }));
-        } else if (e.event === "tool_call" && data) {
-          setStreaming((s) => ({
-            ...(s ?? initialStream),
-            toolCalls: [
-              ...(s?.toolCalls ?? []),
-              {
-                id: String(data.tool_use_id),
-                name: String(data.name),
-                input: (data.input as Record<string, unknown>) ?? {},
-                status: data.confirm ? "awaiting" : "running",
-              },
-            ],
-          }));
-        } else if (e.event === "tool_result" && data) {
-          setStreaming((s) => {
-            if (!s) return s;
-            return {
-              ...s,
-              toolCalls: s.toolCalls.map((c) =>
-                c.id === String(data.tool_use_id)
-                  ? {
-                      ...c,
-                      status: data.error ? "error" : "success",
-                      output: String(data.output ?? data.error ?? ""),
-                      sideEffects: (data.side_effects as SideEffect[] | undefined) ?? [],
-                    }
-                  : c,
-              ),
-            };
-          });
-        } else if (e.event === "awaiting_confirm" && data) {
-          setStreaming((s) => {
-            if (!s) return s;
-            return {
-              ...s,
-              toolCalls: s.toolCalls.map((c) =>
-                c.id === String(data.tool_use_id) ? { ...c, status: "awaiting" } : c,
-              ),
-            };
-          });
-        } else if (e.event === "error" && data) {
-          setError(String(data.message ?? "agent error"));
-        }
-      },
-      onClose: async (reason) => {
-        if (reason === "stream_end" || reason === "abort") {
-          setStreaming(null);
-          if (conversationId) await loadConversation(conversationId);
-          await refreshConversations();
-        } else if (reason === "error") {
-          setStreaming(null);
-        }
-      },
-    });
+    try {
+      await postSse({
+        path: `/v1/chat/conversations/${conversationId}/messages`,
+        body: { text, attached_file_ids: attached },
+        signal: controller.signal,
+        onEvent: (e) => {
+          const data = e.data as Record<string, unknown> | undefined;
+          if (e.event === "message_delta" && data) {
+            setStreaming((s) => ({
+              ...(s ?? initialStream),
+              text: (s?.text ?? "") + String(data.text ?? ""),
+            }));
+          } else if (e.event === "tool_call" && data) {
+            setStreaming((s) => ({
+              ...(s ?? initialStream),
+              toolCalls: [
+                ...(s?.toolCalls ?? []),
+                {
+                  id: String(data.tool_use_id),
+                  name: String(data.name),
+                  input: (data.input as Record<string, unknown>) ?? {},
+                  status: data.confirm ? "awaiting" : "running",
+                },
+              ],
+            }));
+          } else if (e.event === "tool_result" && data) {
+            setStreaming((s) => {
+              if (!s) return s;
+              return {
+                ...s,
+                toolCalls: s.toolCalls.map((c) =>
+                  c.id === String(data.tool_use_id)
+                    ? {
+                        ...c,
+                        status: data.error ? "error" : "success",
+                        output: String(data.output ?? data.error ?? ""),
+                        sideEffects: (data.side_effects as SideEffect[] | undefined) ?? [],
+                      }
+                    : c,
+                ),
+              };
+            });
+          } else if (e.event === "awaiting_confirm" && data) {
+            setStreaming((s) => {
+              if (!s) return s;
+              return {
+                ...s,
+                toolCalls: s.toolCalls.map((c) =>
+                  c.id === String(data.tool_use_id) ? { ...c, status: "awaiting" } : c,
+                ),
+              };
+            });
+          } else if (e.event === "error" && data) {
+            setError(String(data.message ?? "agent error"));
+          }
+        },
+        onClose: async (reason, err) => {
+          if (reason === "stream_end" || reason === "abort") {
+            setStreaming(null);
+            if (conversationId) await loadConversation(conversationId);
+            await refreshConversations();
+          } else if (reason === "error") {
+            setStreaming(null);
+            setError(`Stream failed: ${err?.message ?? "unknown error"}`);
+          }
+        },
+      });
+    } catch (e) {
+      setStreaming(null);
+      setError(`Send failed: ${(e as Error).message}`);
+    }
   }
 
   async function confirmTool(toolUseId: string, edited: Record<string, unknown>) {
