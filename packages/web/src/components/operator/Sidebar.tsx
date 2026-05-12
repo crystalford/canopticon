@@ -35,19 +35,14 @@ export function Sidebar({
       <div className="border-b border-border-soft px-4 py-4">
         <div className="flex items-center gap-2 text-cream-bright">
           <svg
-            viewBox="0 0 100 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="miter"
-            className="h-5 w-24 shrink-0"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+            className="h-5 w-5 shrink-0"
             aria-hidden="true"
           >
-            <title>Canopticon eye mark</title>
-            {/* One continuous outline: pointed corners, bulge over the iris. */}
-            <path d="M 1 8 L 35 7 Q 50 1 65 7 L 99 8 L 65 9 Q 50 15 35 9 Z" />
-            {/* Pupil — filled, no stroke. */}
-            <circle cx="50" cy="8" r="2.6" fill="currentColor" stroke="none" />
+            <title>Canopticon</title>
+            <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.4" />
+            <circle cx="8" cy="8" r="2.4" />
           </svg>
           <span className="font-sans text-base font-extrabold uppercase tracking-tight">
             Canopticon

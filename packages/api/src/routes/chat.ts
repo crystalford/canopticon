@@ -19,12 +19,17 @@ const MAX_LOOP_ITERATIONS = 12;
 
 const SYSTEM_PROMPT = `You are Canopticon's analyst assistant. You help the operator ingest material into the substrate (entities, claims, theses, sources) and produce intelligence outputs from it.
 
+When to use tools vs respond directly:
+- For greetings, small talk, or general questions ("hi", "what can you do?", "explain X"), respond directly in plain text. Do NOT call tools.
+- Only call search_substrate when the operator asks about THEIR data ("what claims do I have on X?", "show me my recent sources").
+- If search_substrate returns no matches, do not retry with different queries — tell the operator their substrate is empty for that topic and suggest they seed_example_content or paste a URL.
+- Call fetch_url only when the operator gives you a URL. Call create_source / extract_entities / run_role only when explicitly asked or as part of an intake flow.
+
 Operating principles:
 - Free-first: you run on Cloudflare Workers AI. Heavy roles (red team, calibration, etc.) call free Workers-AI models too. Only escalate to Anthropic when the operator has opted that role in.
-- Auto reads, confirm writes: search_substrate, query_graph, read_file, fetch_url, run_role, create_source, extract_entities all run automatically. commit_entities, create_claim, create_thesis, seed_example_content require operator confirmation — when you call them, the UI shows a confirm card; the operator may edit your proposals before they commit.
-- Substrate first: when the operator pastes content, your default path is fetch_url or create_source, then run_role(claim_extraction), then propose entities via extract_entities, then propose commit_entities.
+- Auto reads, confirm writes: search_substrate, query_graph, read_file, fetch_url, run_role, create_source, extract_entities run automatically. commit_entities, create_claim, create_thesis, seed_example_content require operator confirmation.
 - Be concise. Use markdown headings and short paragraphs. When you can answer in one sentence, do.
-- When the operator asks "what can I do here?" or sounds new, offer concrete next actions: seed_example_content, paste a URL, drop a PDF, run a specific role on existing content.
+- When the operator asks "what can I do here?" or sounds new, offer concrete next actions in plain text: seed example content, paste a URL, drop a PDF, run a role on existing content.
 `;
 
 const app = new Hono<AuthContext>();
@@ -366,6 +371,41 @@ async function runAgentLoop(args: {
     }
 
     if (blockedByConfirm) return; // wait for the client to confirm
+  }
+
+  // Loop hit the iteration cap without producing a final text response.
+  // Force one more LLM call with tools disabled so the operator gets an
+  // answer instead of staring at a wall of tool calls.
+  try {
+    const messages = await loadConversationMessages(env.DB, conversationId);
+    const finalOut = await callLLM(env, {
+      provider: "workers_ai",
+      model: ORCHESTRATOR_MODEL,
+      system: `${SYSTEM_PROMPT}\n\nYour previous tool calls did not find what you needed. Respond to the operator now in plain text — no more tool calls. Briefly explain what you tried and suggest a next step.`,
+      messages,
+      max_tokens: 600,
+      ledger: { user_id: userId, operation_type: "workers_ai.chat" },
+    });
+    if (finalOut.text) {
+      await insertOne(env.DB, "chat_messages", {
+        conversation_id: conversationId,
+        user_id: userId,
+        seq: seq++,
+        role: "assistant",
+        content_json: JSON.stringify([{ type: "text", text: finalOut.text }] satisfies LlmContent[]),
+        provider: finalOut.provider,
+        model: finalOut.model,
+        tokens_in: finalOut.usage.input_tokens,
+        tokens_out: finalOut.usage.output_tokens,
+        cost_cents: finalOut.cost_cents,
+        cost_ledger_id: finalOut.cost_ledger_id,
+        stop_reason: "end_turn",
+      });
+      emit("message_delta", { text: finalOut.text });
+      return;
+    }
+  } catch {
+    // Fall through to the error event below.
   }
 
   emit("error", { message: `Agent loop hit max iterations (${MAX_LOOP_ITERATIONS}).` });
