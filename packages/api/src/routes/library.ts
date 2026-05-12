@@ -1,78 +1,65 @@
-// Library: cross-substrate search across articles, books, sources, theses, claims.
+// Library: cross-substrate search.
 
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import { userClient } from "../lib/supabase.ts";
-import { getPublicUserId } from "../lib/user.ts";
+import { all } from "../lib/d1.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
 
 app.get("/search", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const q = c.req.query("q") ?? "";
   const types = (c.req.query("types") ?? "articles,books,sources,theses").split(",");
-
+  const like = `%${q}%`;
   const results: Record<string, unknown[]> = {};
+
   if (types.includes("articles")) {
-    const { data } = await client
-      .from("articles")
-      .select("id, title, subtitle, article_type, public_slug")
-      .eq("user_id", userId)
-      .ilike("title", `%${q}%`)
-      .limit(20);
-    results.articles = data ?? [];
+    results.articles = await all(
+      c.env.DB,
+      "SELECT id, title, subtitle, article_type, public_slug FROM articles WHERE user_id = ? AND title LIKE ? LIMIT 20",
+      [userId, like],
+    );
   }
   if (types.includes("books")) {
-    const { data } = await client
-      .from("books")
-      .select("id, title, authors, ingest_mode, reading_progress")
-      .eq("user_id", userId)
-      .ilike("title", `%${q}%`)
-      .limit(20);
-    results.books = data ?? [];
+    results.books = await all(
+      c.env.DB,
+      "SELECT id, title, authors, ingest_mode, reading_progress FROM books WHERE user_id = ? AND title LIKE ? LIMIT 20",
+      [userId, like],
+    );
   }
   if (types.includes("sources")) {
-    const { data } = await client
-      .from("sources")
-      .select("id, title, source_type, admiralty_grade, published_at")
-      .eq("user_id", userId)
-      .ilike("title", `%${q}%`)
-      .limit(20);
-    results.sources = data ?? [];
+    results.sources = await all(
+      c.env.DB,
+      "SELECT id, title, source_type, admiralty_grade, published_at FROM sources WHERE user_id = ? AND title LIKE ? LIMIT 20",
+      [userId, like],
+    );
   }
   if (types.includes("theses")) {
-    const { data } = await client
-      .from("theses")
-      .select("id, title, seed_summary, public_slug")
-      .eq("user_id", userId)
-      .ilike("title", `%${q}%`)
-      .limit(20);
-    results.theses = data ?? [];
+    results.theses = await all(
+      c.env.DB,
+      "SELECT id, title, seed_summary, public_slug FROM theses WHERE user_id = ? AND title LIKE ? LIMIT 20",
+      [userId, like],
+    );
   }
   if (types.includes("claims")) {
-    // Search claim_versions for claim_text.
-    const { data } = await client
-      .from("claim_versions")
-      .select("claim_id, claim_text")
-      .ilike("claim_text", `%${q}%`)
-      .limit(20);
-    results.claims = data ?? [];
+    results.claims = await all(
+      c.env.DB,
+      "SELECT claim_id, claim_text FROM claim_versions WHERE claim_text LIKE ? LIMIT 20",
+      [like],
+    );
   }
   return c.json(results);
 });
 
 app.get("/books", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
-  const { data, error } = await client
-    .from("books")
-    .select("*, book_chapters(id, chapter_number, title)")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return c.json({ books: data ?? [] });
+  const userId = c.get("user_id");
+  const books = await all(
+    c.env.DB,
+    "SELECT * FROM books WHERE user_id = ? ORDER BY created_at DESC",
+    [userId],
+  );
+  return c.json({ books });
 });
 
 export default app;

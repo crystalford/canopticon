@@ -1,18 +1,15 @@
-name: Sync skill prompts to Supabase
+name: Sync skill prompts to D1
 
 # Reads packages/shared/skills/<role>/SKILL.md and writes the prompt
-# text into role_definitions.prompt_template in Supabase.
+# text into role_definitions.prompt_template in the D1 database.
 #
 # Trigger this:
 #   - After your first sign-in (so role_definitions rows exist)
 #   - Any time you edit a SKILL.md prompt
 #
-# How to run: GitHub → Actions tab → "Sync skill prompts to Supabase"
-# in the left sidebar → "Run workflow" button.
-#
 # Required GitHub secrets:
-#   SUPABASE_URL
-#   SUPABASE_SERVICE_ROLE_KEY
+#   CLOUDFLARE_API_TOKEN
+#   CLOUDFLARE_ACCOUNT_ID
 
 on:
   workflow_dispatch:
@@ -33,6 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -50,8 +51,6 @@ jobs:
 
       - name: Sync skills
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ROLE: ${{ inputs.role }}
           DRY_RUN: ${{ inputs.dry_run == 'true' && '1' || '' }}
         run: pnpm sync-skills

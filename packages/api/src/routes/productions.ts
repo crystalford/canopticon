@@ -1,65 +1,59 @@
-// Productions: studio queue, scripts, beats, recording, publish.
+// Productions: studio queue, scripts, beats, publishes.
 
 import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { all, one, updateById } from "../lib/d1.ts";
 import { badRequest } from "../lib/errors.ts";
-import { userClient } from "../lib/supabase.ts";
-import { getPublicUserId } from "../lib/user.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
 
 app.get("/", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const state = c.req.query("state");
-  let q = client
-    .from("productions")
-    .select("*")
-    .eq("user_id", userId)
-    .order("updated_at", { ascending: false });
-  if (state) q = q.eq("state", state);
-  const { data, error } = await q;
-  if (error) throw error;
-  return c.json({ productions: data ?? [] });
+  const productions = state
+    ? await all(
+        c.env.DB,
+        "SELECT * FROM productions WHERE user_id = ? AND state = ? ORDER BY updated_at DESC",
+        [userId, state],
+      )
+    : await all(c.env.DB, "SELECT * FROM productions WHERE user_id = ? ORDER BY updated_at DESC", [
+        userId,
+      ]);
+  return c.json({ productions });
 });
 
 app.get("/:id", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
-  const { data, error } = await client.from("productions").select("*").eq("id", id).single();
-  if (error) throw error;
-  const { data: scripts } = await client
-    .from("scripts")
-    .select("*")
-    .eq("production_id", id)
-    .order("version_number", { ascending: false });
-  const { data: publishes } = await client
-    .from("production_publishes")
-    .select("*")
-    .eq("production_id", id);
-  return c.json({ production: data, scripts: scripts ?? [], publishes: publishes ?? [] });
+  const production = await one(c.env.DB, "SELECT * FROM productions WHERE id = ?", [id]);
+  const scripts = await all(
+    c.env.DB,
+    "SELECT * FROM scripts WHERE production_id = ? ORDER BY version_number DESC",
+    [id],
+  );
+  const publishes = await all(
+    c.env.DB,
+    "SELECT * FROM production_publishes WHERE production_id = ?",
+    [id],
+  );
+  return c.json({ production, scripts, publishes });
 });
 
 app.get("/:id/beats", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
-  const { data: scripts } = await client
-    .from("scripts")
-    .select("id")
-    .eq("production_id", id)
-    .order("version_number", { ascending: false })
-    .limit(1);
-  if (!scripts || scripts.length === 0) return c.json({ beats: [] });
-  const scriptId = (scripts[0] as { id: string }).id;
-  const { data, error } = await client
-    .from("beats")
-    .select("*")
-    .eq("script_id", scriptId)
-    .order("beat_number");
-  if (error) throw error;
-  return c.json({ beats: data ?? [], script_id: scriptId });
+  const script = await one<{ id: string }>(
+    c.env.DB,
+    "SELECT id FROM scripts WHERE production_id = ? ORDER BY version_number DESC LIMIT 1",
+    [id],
+  );
+  if (!script) return c.json({ beats: [] });
+  const beats = await all(
+    c.env.DB,
+    "SELECT * FROM beats WHERE script_id = ? ORDER BY beat_number",
+    [script.id],
+  );
+  return c.json({ beats, script_id: script.id });
 });
 
 const beatStateSchema = z.object({
@@ -68,7 +62,6 @@ const beatStateSchema = z.object({
 });
 
 app.patch("/beats/:id", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
   const parsed = beatStateSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
@@ -77,8 +70,7 @@ app.patch("/beats/:id", async (c) => {
     update.recording_uri = parsed.data.recording_uri;
     update.recorded_at = new Date().toISOString();
   }
-  const { error } = await client.from("beats").update(update).eq("id", id);
-  if (error) throw error;
+  await updateById(c.env.DB, "beats", id, update);
   return c.json({ ok: true });
 });
 
@@ -87,15 +79,10 @@ const stateSchema = z.object({
 });
 
 app.patch("/:id/state", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
   const parsed = stateSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
-  const { error } = await client
-    .from("productions")
-    .update({ state: parsed.data.state })
-    .eq("id", id);
-  if (error) throw error;
+  await updateById(c.env.DB, "productions", id, { state: parsed.data.state });
   return c.json({ ok: true });
 });
 

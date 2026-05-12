@@ -1,15 +1,13 @@
-name: Smoke test (verify Supabase setup)
+name: Smoke test (verify deployment)
 
-# Verifies your live Supabase project is healthy without spending
-# Anthropic credits. Runs after you've completed initial setup to
-# confirm everything's wired up.
+# Verifies the deployed Worker is healthy. Runs after initial setup or
+# after each push to confirm everything's wired up.
 #
-# How to run: GitHub → Actions tab → "Smoke test (verify Supabase
-# setup)" in the left sidebar → "Run workflow" button.
+# How to run: GitHub → Actions tab → "Smoke test (verify deployment)"
+# in the left sidebar → "Run workflow" button.
 #
 # Required GitHub secrets:
-#   SUPABASE_URL
-#   SUPABASE_SERVICE_ROLE_KEY
+#   API_BASE_URL   — your deployed Worker URL, e.g. https://api.canopticon.com
 
 on:
   workflow_dispatch:
@@ -36,6 +34,5 @@ jobs:
 
       - name: Run smoke test
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
         run: pnpm smoke

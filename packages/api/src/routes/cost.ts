@@ -1,27 +1,22 @@
-// Cost panel data: pending approvals, ledger, whitelist rules.
-// Powers the cost-approval modal and System cost panel.
+// Cost approvals, ledger, whitelists.
 
 import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { all, insertOne, one, run, updateById } from "../lib/d1.ts";
 import { badRequest } from "../lib/errors.ts";
-import { userClient } from "../lib/supabase.ts";
-import { getPublicUserId } from "../lib/user.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
 
 app.get("/approvals", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
-  const { data, error } = await client
-    .from("cost_approvals")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return c.json({ approvals: data ?? [] });
+  const userId = c.get("user_id");
+  const approvals = await all(
+    c.env.DB,
+    "SELECT * FROM cost_approvals WHERE user_id = ? AND status = 'pending' ORDER BY created_at DESC",
+    [userId],
+  );
+  return c.json({ approvals });
 });
 
 const decisionSchema = z.object({
@@ -30,97 +25,87 @@ const decisionSchema = z.object({
 });
 
 app.post("/approvals/:id/decide", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const parsed = decisionSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid decision", { issues: parsed.error.issues });
 
   const id = c.req.param("id");
-  const { data: approval, error } = await client
-    .from("cost_approvals")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", userId)
-    .single();
-  if (error) throw error;
-  const a = approval as {
+  const approval = await one<{
     id: string;
     operation_type: string;
     provider: string;
     model: string | null;
     estimated_cost_cents: number;
-  };
+  }>(c.env.DB, "SELECT * FROM cost_approvals WHERE id = ? AND user_id = ?", [id, userId]);
+  if (!approval) throw badRequest("approval not found");
 
   if (parsed.data.decision === "deny") {
-    await client
-      .from("cost_approvals")
-      .update({
-        status: "denied",
-        decided_at: new Date().toISOString(),
-        decision_notes: parsed.data.notes ?? null,
-      })
-      .eq("id", id);
+    await updateById(c.env.DB, "cost_approvals", id, {
+      status: "denied",
+      decided_at: new Date().toISOString(),
+      decision_notes: parsed.data.notes ?? null,
+    });
     return c.json({ ok: true });
   }
 
-  await client
-    .from("cost_approvals")
-    .update({
-      status: "approved",
-      decided_at: new Date().toISOString(),
-      decision_notes: parsed.data.notes ?? null,
-    })
-    .eq("id", id);
-
-  await client.from("cost_ledger").insert({
+  await updateById(c.env.DB, "cost_approvals", id, {
+    status: "approved",
+    decided_at: new Date().toISOString(),
+    decision_notes: parsed.data.notes ?? null,
+  });
+  await insertOne(c.env.DB, "cost_ledger", {
     user_id: userId,
-    operation_type: a.operation_type,
-    provider: a.provider,
-    model: a.model,
-    cost_cents: a.estimated_cost_cents,
+    operation_type: approval.operation_type,
+    provider: approval.provider,
+    model: approval.model,
+    cost_cents: approval.estimated_cost_cents,
     whitelisted: false,
-    approval_id: a.id,
+    approval_id: approval.id,
   });
 
   if (parsed.data.decision === "approve_and_whitelist") {
-    await client.from("cost_whitelists").upsert(
-      {
-        user_id: userId,
-        operation_type: a.operation_type,
-        enabled: true,
-        per_op_max_cents: a.estimated_cost_cents * 2,
-      },
-      { onConflict: "user_id,operation_type" },
+    const existing = await one<{ id: string }>(
+      c.env.DB,
+      "SELECT id FROM cost_whitelists WHERE user_id = ? AND operation_type = ?",
+      [userId, approval.operation_type],
     );
+    if (existing) {
+      await updateById(c.env.DB, "cost_whitelists", existing.id, {
+        enabled: true,
+        per_op_max_cents: approval.estimated_cost_cents * 2,
+      });
+    } else {
+      await insertOne(c.env.DB, "cost_whitelists", {
+        user_id: userId,
+        operation_type: approval.operation_type,
+        enabled: true,
+        per_op_max_cents: approval.estimated_cost_cents * 2,
+      });
+    }
   }
-
+  void run;
   return c.json({ ok: true });
 });
 
 app.get("/whitelists", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
-  const { data, error } = await client
-    .from("cost_whitelists")
-    .select("*")
-    .eq("user_id", userId)
-    .order("operation_type");
-  if (error) throw error;
-  return c.json({ whitelists: data ?? [] });
+  const userId = c.get("user_id");
+  const whitelists = await all(
+    c.env.DB,
+    "SELECT * FROM cost_whitelists WHERE user_id = ? ORDER BY operation_type",
+    [userId],
+  );
+  return c.json({ whitelists });
 });
 
 app.get("/ledger", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const limit = Math.min(Number.parseInt(c.req.query("limit") ?? "100", 10), 500);
-  const { data, error } = await client
-    .from("cost_ledger")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return c.json({ entries: data ?? [] });
+  const entries = await all(
+    c.env.DB,
+    "SELECT * FROM cost_ledger WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+    [userId, limit],
+  );
+  return c.json({ entries });
 });
 
 export default app;

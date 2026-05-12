@@ -1,29 +1,28 @@
-// Predictions: list, create, resolve. Brier score endpoint.
+// Predictions: list, create, resolve, Brier.
 
 import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
 import { type Outcome, brierContribution, computeRollingBrier } from "../lib/brier.ts";
+import { all, insertOne, one, updateById } from "../lib/d1.ts";
 import { badRequest } from "../lib/errors.ts";
-import { userClient } from "../lib/supabase.ts";
-import { getPublicUserId } from "../lib/user.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
 
 app.get("/", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const status = c.req.query("status");
-  let q = client
-    .from("predictions")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (status) q = q.eq("status", status);
-  const { data, error } = await q;
-  if (error) throw error;
-  return c.json({ predictions: data ?? [] });
+  const predictions = status
+    ? await all(
+        c.env.DB,
+        "SELECT * FROM predictions WHERE user_id = ? AND status = ? ORDER BY created_at DESC",
+        [userId, status],
+      )
+    : await all(c.env.DB, "SELECT * FROM predictions WHERE user_id = ? ORDER BY created_at DESC", [
+        userId,
+      ]);
+  return c.json({ predictions });
 });
 
 const createSchema = z.object({
@@ -51,17 +50,11 @@ const createSchema = z.object({
 });
 
 app.post("/", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const parsed = createSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
-  const { data, error } = await client
-    .from("predictions")
-    .insert({ user_id: userId, ...parsed.data })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return c.json({ id: (data as { id: string }).id }, 201);
+  const id = await insertOne(c.env.DB, "predictions", { user_id: userId, ...parsed.data });
+  return c.json({ id }, 201);
 });
 
 const resolveSchema = z.object({
@@ -70,18 +63,16 @@ const resolveSchema = z.object({
 });
 
 app.post("/:id/resolve", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
   const parsed = resolveSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
-  const { data: pred, error: getErr } = await client
-    .from("predictions")
-    .select("confidence_pct")
-    .eq("id", id)
-    .single();
-  if (getErr) throw getErr;
-
-  const probability = (pred as { confidence_pct: number }).confidence_pct / 100;
+  const pred = await one<{ confidence_pct: number }>(
+    c.env.DB,
+    "SELECT confidence_pct FROM predictions WHERE id = ?",
+    [id],
+  );
+  if (!pred) throw badRequest("prediction not found");
+  const probability = pred.confidence_pct / 100;
   const brier = brierContribution(probability, parsed.data.outcome as Outcome);
   const status =
     parsed.data.outcome === "correct"
@@ -89,29 +80,23 @@ app.post("/:id/resolve", async (c) => {
       : parsed.data.outcome === "incorrect"
         ? "resolved_incorrect"
         : "resolved_ambiguous";
-
-  const { error } = await client
-    .from("predictions")
-    .update({
-      status,
-      resolved_at: new Date().toISOString(),
-      resolved_outcome: parsed.data.resolved_outcome,
-      brier_contribution: brier,
-    })
-    .eq("id", id);
-  if (error) throw error;
+  await updateById(c.env.DB, "predictions", id, {
+    status,
+    resolved_at: new Date().toISOString(),
+    resolved_outcome: parsed.data.resolved_outcome,
+    brier_contribution: brier,
+  });
   return c.json({ ok: true, brier_contribution: brier });
 });
 
 app.get("/brier", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
-  const { data, error } = await client
-    .from("predictions")
-    .select("brier_contribution")
-    .eq("user_id", userId);
-  if (error) throw error;
-  const summary = computeRollingBrier((data ?? []) as Array<{ brier_contribution: number | null }>);
+  const userId = c.get("user_id");
+  const rows = await all<{ brier_contribution: number | null }>(
+    c.env.DB,
+    "SELECT brier_contribution FROM predictions WHERE user_id = ?",
+    [userId],
+  );
+  const summary = computeRollingBrier(rows);
   return c.json(summary);
 });
 

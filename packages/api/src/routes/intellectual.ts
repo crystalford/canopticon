@@ -1,122 +1,94 @@
-// Intellectual output: argument maps, solution inventories, frame
-// genealogies, five-whys chains. CRUD for these substrate first-class
-// outputs that surface in the public site.
+// Argument maps, solution inventories, frame genealogies, five-whys.
 
 import { Hono } from "hono";
 import { z } from "zod";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { all, insertOne, one, updateById } from "../lib/d1.ts";
 import { badRequest } from "../lib/errors.ts";
-import { userClient } from "../lib/supabase.ts";
-import { getPublicUserId } from "../lib/user.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
 
-// Argument maps.
 app.get("/argument-maps", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
-  const { data, error } = await client
-    .from("argument_maps")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return c.json({ maps: data ?? [] });
+  const userId = c.get("user_id");
+  const maps = await all(
+    c.env.DB,
+    "SELECT * FROM argument_maps WHERE user_id = ? ORDER BY created_at DESC",
+    [userId],
+  );
+  return c.json({ maps });
 });
 
 app.get("/argument-maps/:id", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
-  const { data, error } = await client.from("argument_maps").select("*").eq("id", id).single();
-  if (error) throw error;
-  const { data: layers } = await client
-    .from("argument_layers")
-    .select("*")
-    .eq("map_id", id)
-    .order("layer_number");
-  return c.json({ map: data, layers: layers ?? [] });
+  const map = await one(c.env.DB, "SELECT * FROM argument_maps WHERE id = ?", [id]);
+  const layers = await all(
+    c.env.DB,
+    "SELECT * FROM argument_layers WHERE map_id = ? ORDER BY layer_number",
+    [id],
+  );
+  return c.json({ map, layers });
 });
 
-// Solution inventories.
 app.get("/solution-inventories", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
-  const { data, error } = await client
-    .from("solution_inventories")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return c.json({ inventories: data ?? [] });
+  const userId = c.get("user_id");
+  const inventories = await all(
+    c.env.DB,
+    "SELECT * FROM solution_inventories WHERE user_id = ? ORDER BY created_at DESC",
+    [userId],
+  );
+  return c.json({ inventories });
 });
 
 app.get("/solution-inventories/:id", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
-  const { data, error } = await client
-    .from("solution_inventories")
-    .select("*")
-    .eq("id", id)
-    .single();
-  if (error) throw error;
-  const { data: entries } = await client
-    .from("solution_entries")
-    .select("*")
-    .eq("inventory_id", id);
-  return c.json({ inventory: data, entries: entries ?? [] });
+  const inventory = await one(c.env.DB, "SELECT * FROM solution_inventories WHERE id = ?", [id]);
+  const entries = await all(c.env.DB, "SELECT * FROM solution_entries WHERE inventory_id = ?", [
+    id,
+  ]);
+  return c.json({ inventory, entries });
 });
 
-// Frame genealogies.
 app.get("/frame-genealogies", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
-  const { data, error } = await client
-    .from("frame_genealogies")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return c.json({ genealogies: data ?? [] });
+  const userId = c.get("user_id");
+  const genealogies = await all(
+    c.env.DB,
+    "SELECT * FROM frame_genealogies WHERE user_id = ? ORDER BY created_at DESC",
+    [userId],
+  );
+  return c.json({ genealogies });
 });
 
 app.get("/frame-genealogies/:id", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
-  const { data, error } = await client.from("frame_genealogies").select("*").eq("id", id).single();
-  if (error) throw error;
-  const { data: events } = await client
-    .from("frame_propagation_events")
-    .select("*")
-    .eq("genealogy_id", id)
-    .order("occurred_at");
-  return c.json({ genealogy: data, events: events ?? [] });
+  const genealogy = await one(c.env.DB, "SELECT * FROM frame_genealogies WHERE id = ?", [id]);
+  const events = await all(
+    c.env.DB,
+    "SELECT * FROM frame_propagation_events WHERE genealogy_id = ? ORDER BY occurred_at",
+    [id],
+  );
+  return c.json({ genealogy, events });
 });
 
-// Five-whys chains.
 app.get("/five-whys", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
-  const { data, error } = await client
-    .from("five_whys_chains")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return c.json({ chains: data ?? [] });
+  const userId = c.get("user_id");
+  const chains = await all(
+    c.env.DB,
+    "SELECT * FROM five_whys_chains WHERE user_id = ? ORDER BY created_at DESC",
+    [userId],
+  );
+  return c.json({ chains });
 });
 
 app.get("/five-whys/:id", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
   const id = c.req.param("id");
-  const { data, error } = await client.from("five_whys_chains").select("*").eq("id", id).single();
-  if (error) throw error;
-  const { data: levels } = await client
-    .from("five_whys_levels")
-    .select("*")
-    .eq("chain_id", id)
-    .order("level");
-  return c.json({ chain: data, levels: levels ?? [] });
+  const chain = await one(c.env.DB, "SELECT * FROM five_whys_chains WHERE id = ?", [id]);
+  const levels = await all(
+    c.env.DB,
+    "SELECT * FROM five_whys_levels WHERE chain_id = ? ORDER BY level",
+    [id],
+  );
+  return c.json({ chain, levels });
 });
 
 const fiveWhysCreateSchema = z.object({
@@ -125,17 +97,11 @@ const fiveWhysCreateSchema = z.object({
 });
 
 app.post("/five-whys", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const parsed = fiveWhysCreateSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
-  const { data, error } = await client
-    .from("five_whys_chains")
-    .insert({ user_id: userId, ...parsed.data })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return c.json({ id: (data as { id: string }).id }, 201);
+  const id = await insertOne(c.env.DB, "five_whys_chains", { user_id: userId, ...parsed.data });
+  return c.json({ id }, 201);
 });
 
 const levelSchema = z.object({
@@ -153,24 +119,22 @@ const levelSchema = z.object({
 });
 
 app.post("/five-whys/:id/levels", async (c) => {
-  const client = userClient(c.env, c.get("jwt"));
-  const userId = await getPublicUserId(client, c.get("user_id"));
+  const userId = c.get("user_id");
   const id = c.req.param("id");
   const parsed = levelSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
-  const { error } = await client.from("five_whys_levels").insert({
+  await insertOne(c.env.DB, "five_whys_levels", {
     user_id: userId,
     chain_id: id,
     ...parsed.data,
+    supporting_claim_ids: parsed.data.supporting_claim_ids ?? [],
   });
-  if (error) throw error;
-  // If level 4 or 5 is added with structural tier, mark reached_root.
   if (
     (parsed.data.level === "why_4_structural_condition" ||
       parsed.data.level === "why_5_root_design_choice") &&
     parsed.data.intervention_tier === "structural"
   ) {
-    await client.from("five_whys_chains").update({ reached_root: true }).eq("id", id);
+    await updateById(c.env.DB, "five_whys_chains", id, { reached_root: true });
   }
   return c.json({ ok: true });
 });
