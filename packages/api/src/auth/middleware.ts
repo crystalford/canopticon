@@ -1,15 +1,11 @@
 // Operator auth: gated by Cloudflare Access.
 //
-// Cloudflare Access sits in front of the Worker (configured in the
-// Zero Trust dashboard). On every request that's passed Access, two
-// headers are injected:
-//
-//   Cf-Access-Authenticated-User-Email: the verified email
-//   Cf-Access-Jwt-Assertion: signed JWT we could verify if needed
-//
-// For the single-operator model we accept the email header as the
-// identity. We also gate by OPERATOR_EMAIL: only that exact email is
-// allowed. (Belt-and-suspenders with the Access policy.)
+// In production, the Pages app proxies API calls to this Worker. Because
+// Cloudflare strips `cf-access-*` headers when they arrive from a non-edge
+// source (anti-spoofing), the proxy also forwards the email under
+// `x-canopticon-email` and the JWT under `x-canopticon-jwt`. We accept
+// any of these and fall back to decoding the JWT payload (Access already
+// verified the signature before it reached the Pages tier).
 
 import type { MiddlewareHandler } from "hono";
 import type { Env } from "../env.ts";
@@ -26,8 +22,36 @@ export type AuthContext = {
   Variables: AuthVariables & { trace_id: string };
 };
 
+function decodeJwtEmail(jwt: string): string | null {
+  try {
+    const parts = jwt.split(".");
+    if (parts.length < 2 || !parts[1]) return null;
+    const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const pad = padded.length % 4;
+    const b64 = pad ? padded + "=".repeat(4 - pad) : padded;
+    const decoded = atob(b64);
+    const obj = JSON.parse(decoded) as Record<string, unknown>;
+    const candidates: unknown[] = [
+      obj.email,
+      obj.user_email,
+      (obj.identity as { email?: string } | undefined)?.email,
+      (obj.custom as { email?: string } | undefined)?.email,
+    ];
+    for (const c of candidates) {
+      if (typeof c === "string" && c.includes("@")) return c;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export const requireAuth = (): MiddlewareHandler<AuthContext> => async (c, next) => {
-  const email = c.req.header("cf-access-authenticated-user-email");
+  const email =
+    c.req.header("x-canopticon-email") ??
+    c.req.header("cf-access-authenticated-user-email") ??
+    decodeJwtEmailFromHeaders(c);
+
   if (!email) {
     throw unauthorized("Cloudflare Access did not provide an email");
   }
@@ -41,3 +65,11 @@ export const requireAuth = (): MiddlewareHandler<AuthContext> => async (c, next)
   c.set("user_id", userId);
   await next();
 };
+
+function decodeJwtEmailFromHeaders(c: {
+  req: { header: (n: string) => string | undefined };
+}): string | null {
+  const jwt = c.req.header("x-canopticon-jwt") ?? c.req.header("cf-access-jwt-assertion");
+  if (!jwt) return null;
+  return decodeJwtEmail(jwt);
+}
