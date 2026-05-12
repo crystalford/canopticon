@@ -39,6 +39,16 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/web/.next/cache
+            packages/web/.vercel/output
+          key: nextjs-${{ runner.os }}-${{ hashFiles('packages/web/**/*.{ts,tsx,js,jsx,css}', 'packages/web/package.json', 'packages/web/next.config.ts') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-
+
       # --- D1 database -----------------------------------------------
       # Try to create; if it already exists, the API returns an error
       # that we recognize and continue.

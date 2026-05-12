@@ -14,26 +14,84 @@ import { callLLM } from "../llm/index.ts";
 import { TOOLS_BY_NAME, type ToolSideEffect, toolDefinitionsForModel } from "../llm/tools.ts";
 import type { LlmContent, LlmMessage } from "../llm/types.ts";
 
-const ORCHESTRATOR_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+// Default chat orchestrator: free Workers-AI Llama. If the operator has
+// enabled Anthropic (System screen), the orchestrator switches to Claude
+// Sonnet for the chat thread — the experience the user wants.
+const ORCHESTRATOR_FREE = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const ORCHESTRATOR_CLAUDE = "claude-sonnet-4-6";
 const MAX_LOOP_ITERATIONS = 12;
 
-const SYSTEM_PROMPT = `You are Canopticon's analyst assistant. You help the operator ingest material into the substrate (entities, claims, theses, sources) and produce intelligence outputs from it.
+async function pickOrchestrator(
+  env: AuthContext["Bindings"],
+  userId: string,
+): Promise<{ provider: "workers_ai" | "anthropic"; model: string }> {
+  if (!env.ANTHROPIC_API_KEY) {
+    return { provider: "workers_ai", model: ORCHESTRATOR_FREE };
+  }
+  const prefs = await one<{ anthropic_enabled: number }>(
+    env.DB,
+    "SELECT anthropic_enabled FROM user_ai_prefs WHERE user_id = ?",
+    [userId],
+  );
+  if (prefs?.anthropic_enabled === 1) {
+    return { provider: "anthropic", model: ORCHESTRATOR_CLAUDE };
+  }
+  return { provider: "workers_ai", model: ORCHESTRATOR_FREE };
+}
 
-When to use tools vs respond directly:
-- For greetings, small talk, or general questions ("hi", "what can you do?", "explain X"), respond directly in plain text. Do NOT call tools.
-- Only call search_substrate when the operator asks about THEIR data ("what claims do I have on X?", "show me my recent sources").
-- If search_substrate returns no matches, do not retry with different queries — tell the operator their substrate is empty for that topic and suggest they seed_example_content or paste a URL.
-- Call fetch_url only when the operator gives you a URL. Call create_source / extract_entities / run_role only when explicitly asked or as part of an intake flow.
+const SYSTEM_PROMPT = `You are the Canopticon assistant — a warm, capable analyst who chats with the operator like ChatGPT or Claude.
 
-Operating principles:
-- Free-first: you run on Cloudflare Workers AI. Heavy roles (red team, calibration, etc.) call free Workers-AI models too. Only escalate to Anthropic when the operator has opted that role in.
-- Auto reads, confirm writes: search_substrate, query_graph, read_file, fetch_url, run_role, create_source, extract_entities run automatically. commit_entities, create_claim, create_thesis, seed_example_content require operator confirmation.
-- Be concise. Use markdown headings and short paragraphs. When you can answer in one sentence, do.
-- When the operator asks "what can I do here?" or sounds new, offer concrete next actions in plain text: seed example content, paste a URL, drop a PDF, run a role on existing content.
+DEFAULT BEHAVIOR: respond conversationally in clear, natural language. Be friendly, brief, and concrete. Use plain text or simple markdown.
+
+Examples:
+- User: "hi" → "Hi! I'm your Canopticon assistant. I can help you ingest documents and URLs, search what you've collected, or run analytical roles. What would you like to work on?"
+- User: "what can you do?" → A short bulleted list of 3–4 things: paste a URL or drop a file to ingest; ask about claims/entities/sources you've collected; run a role like red_team or verifier on existing content; seed example content to fill the substrate.
+- User: "thanks" → "You got it. Anything else?"
+- User: "tell me a joke" → tell a joke. You are a chat assistant, not a robot.
+
+WHEN TO USE TOOLS:
+- Call fetch_url ONLY when the operator pastes a URL.
+- Call search_substrate ONLY when the operator asks about their own collected data ("what claims do I have on housing?", "show my recent sources"). If results come back empty, STOP and tell them their substrate has nothing on that topic — do NOT keep searching with different queries.
+- Call create_source / extract_entities / run_role only when explicitly asked.
+- For greetings, small talk, general questions, jokes, opinions, or anything that doesn't clearly map to a tool: just chat. No tools.
+
+Style: short paragraphs, no preamble, no "Sure! I can help with that." filler. Just answer.
 `;
+
+// Heuristic: don't bother giving the model tools when the user's last
+// message is obviously chitchat — saves a tool-spam loop on "hi".
+function shouldOfferTools(messages: LlmMessage[]): boolean {
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  if (!lastUser) return true;
+  const text = lastUser.content
+    .filter((c) => c.type === "text")
+    .map((c) => ("text" in c ? c.text : ""))
+    .join(" ")
+    .toLowerCase()
+    .trim();
+  if (text.length < 4) return false;
+  const greeting = /^(hi+|hey+|hello|yo|sup|thanks|thank you|ok|okay|cool|nice|lol|bye|gm|gn)\b/;
+  if (greeting.test(text) && text.length < 40) return false;
+  return true;
+}
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
+
+// Returns the orchestrator the chat will use for this operator, so the
+// UI can show "claude-sonnet-4-6" instead of a hardcoded model label.
+app.get("/model", async (c) => {
+  const userId = c.get("user_id");
+  const o = await pickOrchestrator(c.env, userId);
+  return c.json({
+    provider: o.provider,
+    model: o.model,
+    label:
+      o.provider === "anthropic"
+        ? "Anthropic · Claude Sonnet 4.6"
+        : "Workers AI · Free Tier · Llama 3.3 70B",
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Conversations CRUD
@@ -255,19 +313,22 @@ async function runAgentLoop(args: {
 }): Promise<void> {
   const { env, userId, conversationId, emit, ping } = args;
   let seq = args.startSeq;
+  const orchestrator = await pickOrchestrator(env, userId);
+  const opType = orchestrator.provider === "anthropic" ? "anthropic.chat" : "workers_ai.chat";
 
   for (let iter = 0; iter < MAX_LOOP_ITERATIONS; iter++) {
     const messages = await loadConversationMessages(env.DB, conversationId);
     ping();
 
+    const offerTools = shouldOfferTools(messages);
     const out = await callLLM(env, {
-      provider: "workers_ai",
-      model: ORCHESTRATOR_MODEL,
+      provider: orchestrator.provider,
+      model: orchestrator.model,
       system: SYSTEM_PROMPT,
       messages,
-      tools: toolDefinitionsForModel(),
+      tools: offerTools ? toolDefinitionsForModel() : [],
       max_tokens: 1500,
-      ledger: { user_id: userId, operation_type: "workers_ai.chat" },
+      ledger: { user_id: userId, operation_type: opType },
     });
 
     // Persist assistant message (text + tool_use blocks).
@@ -379,12 +440,12 @@ async function runAgentLoop(args: {
   try {
     const messages = await loadConversationMessages(env.DB, conversationId);
     const finalOut = await callLLM(env, {
-      provider: "workers_ai",
-      model: ORCHESTRATOR_MODEL,
+      provider: orchestrator.provider,
+      model: orchestrator.model,
       system: `${SYSTEM_PROMPT}\n\nYour previous tool calls did not find what you needed. Respond to the operator now in plain text — no more tool calls. Briefly explain what you tried and suggest a next step.`,
       messages,
       max_tokens: 600,
-      ledger: { user_id: userId, operation_type: "workers_ai.chat" },
+      ledger: { user_id: userId, operation_type: opType },
     });
     if (finalOut.text) {
       await insertOne(env.DB, "chat_messages", {
@@ -392,7 +453,9 @@ async function runAgentLoop(args: {
         user_id: userId,
         seq: seq++,
         role: "assistant",
-        content_json: JSON.stringify([{ type: "text", text: finalOut.text }] satisfies LlmContent[]),
+        content_json: JSON.stringify([
+          { type: "text", text: finalOut.text },
+        ] satisfies LlmContent[]),
         provider: finalOut.provider,
         model: finalOut.model,
         tokens_in: finalOut.usage.input_tokens,

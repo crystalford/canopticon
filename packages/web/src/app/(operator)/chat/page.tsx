@@ -82,7 +82,14 @@ function ChatPageInner() {
   const [pendingFileIds, setPendingFileIds] = useState<string[]>([]);
   const [streaming, setStreaming] = useState<StreamingState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [modelLabel, setModelLabel] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    apiGet<{ label: string }>("/v1/chat/model")
+      .then((r) => setModelLabel(r.label))
+      .catch(() => setModelLabel(null));
+  }, []);
 
   const notifyConversationsChanged = useCallback(() => {
     if (typeof window !== "undefined") {
@@ -303,7 +310,7 @@ function ChatPageInner() {
           />
           <div className="mt-1 flex items-center justify-between">
             <span className="font-mono text-[10px] uppercase tracking-wider text-text-faint">
-              Workers AI · free tier · Llama 3.3 70B
+              {modelLabel ?? "Loading model…"}
             </span>
             <button
               type="button"
