@@ -34,6 +34,16 @@ interface SystemData {
     cascade_cron_expr: string | null;
     named_operator: string | null;
   };
+  providers: {
+    workers_ai: { enabled: boolean; free: boolean };
+    anthropic: { enabled: boolean; available: boolean };
+  };
+  roles_assignment: Array<{
+    name: string;
+    provider: string;
+    model: string;
+    allow_anthropic_override: boolean;
+  }>;
 }
 
 export default function SystemPage() {
@@ -48,6 +58,16 @@ export default function SystemPage() {
 
   async function toggleIngestion(next: boolean) {
     await apiPatch("/v1/system/settings", { ingestion_apis_enabled: next });
+    await load();
+  }
+
+  async function toggleAnthropic(next: boolean) {
+    await apiPatch("/v1/system/providers", { anthropic_enabled: next });
+    await load();
+  }
+
+  async function setRoleProvider(name: string, provider: "workers_ai" | "anthropic") {
+    await apiPatch(`/v1/system/roles/${name}`, { provider });
     await load();
   }
 
@@ -157,6 +177,87 @@ export default function SystemPage() {
           </div>
           <div className="mt-1 font-mono text-[11px] text-text-dim">
             Named operator: {data.settings.named_operator ?? "—"}
+          </div>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <MetadataStrip>AI Providers</MetadataStrip>
+          <div className="mt-3 grid grid-cols-2 gap-4">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[11px] uppercase tracking-wider text-cream-dim">
+                  Workers AI
+                </span>
+                <span className="font-mono text-[10px] text-sage">FREE</span>
+              </div>
+              <div className="mt-1 font-serif text-[12px] text-text-dim">
+                Llama 4 Scout · Llama 3.3 70B · QwQ-32B · bge embeddings. Always on.
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[11px] uppercase tracking-wider text-cream-dim">
+                  Anthropic (opt-in)
+                </span>
+                <Toggle
+                  checked={data.providers.anthropic.enabled}
+                  onChange={toggleAnthropic}
+                  {...(data.providers.anthropic.available ? {} : { label: "(no key)" })}
+                />
+              </div>
+              <div className="mt-1 font-serif text-[12px] text-text-dim">
+                {data.providers.anthropic.available
+                  ? "Used per-role only when you flip a role below to anthropic."
+                  : "Set ANTHROPIC_API_KEY in Worker secrets to enable."}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <MetadataStrip>Role assignments</MetadataStrip>
+          <div className="mt-2 overflow-x-auto">
+            <table className="min-w-full font-mono text-[11px]">
+              <thead>
+                <tr className="text-left text-text-faint">
+                  <th className="py-1 pr-3">Role</th>
+                  <th className="py-1 pr-3">Provider</th>
+                  <th className="py-1 pr-3">Model</th>
+                  <th className="py-1">Anthropic override</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.roles_assignment.map((r) => (
+                  <tr key={r.name} className="border-t border-border-soft">
+                    <td className="py-1 pr-3 text-cream">{r.name}</td>
+                    <td className="py-1 pr-3">
+                      {r.allow_anthropic_override && data.providers.anthropic.enabled ? (
+                        <select
+                          value={r.provider}
+                          onChange={(e) =>
+                            setRoleProvider(r.name, e.target.value as "workers_ai" | "anthropic")
+                          }
+                          className="border border-border-soft bg-bg-deeper px-1 py-0.5 text-cream"
+                        >
+                          <option value="workers_ai">workers_ai</option>
+                          <option value="anthropic">anthropic</option>
+                        </select>
+                      ) : (
+                        <span className="text-text-dim">{r.provider}</span>
+                      )}
+                    </td>
+                    <td className="py-1 pr-3 text-text-dim">{r.model}</td>
+                    <td className="py-1">
+                      {r.allow_anthropic_override ? (
+                        <span className="text-amber">allowed</span>
+                      ) : (
+                        <span className="text-text-faint">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </Card>
       </div>

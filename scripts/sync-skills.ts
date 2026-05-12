@@ -84,7 +84,10 @@ async function main() {
     const schemaJson = (await exists(schemaPath)) ? await readFile(schemaPath, "utf8") : null;
     const featuresJson = JSON.stringify(skill.frontmatter.features);
 
-    const sql = `UPDATE role_definitions SET prompt_template = '${sqlEscape(skill.prompt)}', model = '${sqlEscape(skill.frontmatter.model)}', features = '${sqlEscape(featuresJson)}', schema_json = ${schemaJson ? `'${sqlEscape(schemaJson)}'` : "NULL"}, skill_md_hash = '${skill.hash}' WHERE name = '${skill.name}';`;
+    // Only sync the prompt + features + schema + hash. The provider/model
+    // columns are governed by migrations and operator overrides via the
+    // System screen — re-syncing skills must NOT clobber that.
+    const sql = `UPDATE role_definitions SET prompt_template = '${sqlEscape(skill.prompt)}', features = '${sqlEscape(featuresJson)}', schema_json = ${schemaJson ? `'${sqlEscape(schemaJson)}'` : "NULL"}, skill_md_hash = '${skill.hash}' WHERE name = '${skill.name}';`;
 
     if (dryRun) {
       console.log(`would update role_definitions WHERE name = ${skill.name}`);

@@ -10,6 +10,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  { href: "/chat", label: "Chat", icon: "▤" },
   { href: "/live", label: "Live", icon: "○" },
   { href: "/graph", label: "Graph", icon: "◇" },
   { href: "/studio", label: "Studio", icon: "▷" },

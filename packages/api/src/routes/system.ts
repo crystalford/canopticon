@@ -17,7 +17,7 @@ app.get("/", async (c) => {
   const sinceMonthIso = sinceMonth.toISOString();
   const sinceDayIso = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
-  const [ledger, lastCascades, roles, preds, userRow] = await Promise.all([
+  const [ledger, lastCascades, roles, preds, userRow, roleDefs, aiPrefs] = await Promise.all([
     all<{ operation_type: string; cost_cents: number }>(
       db,
       "SELECT operation_type, cost_cents FROM cost_ledger WHERE user_id = ? AND created_at >= ?",
@@ -54,6 +54,16 @@ app.get("/", async (c) => {
     }>(
       db,
       "SELECT monthly_ceiling_cents, ingestion_apis_enabled, cascade_cron_expr, named_operator FROM users WHERE id = ?",
+      [userId],
+    ),
+    all<{ name: string; provider: string; model: string; allow_anthropic_override: number }>(
+      db,
+      "SELECT name, provider, model, allow_anthropic_override FROM role_definitions WHERE user_id = ? AND enabled = 1 ORDER BY name",
+      [userId],
+    ),
+    one<{ anthropic_enabled: number; default_chat_model: string }>(
+      db,
+      "SELECT anthropic_enabled, default_chat_model FROM user_ai_prefs WHERE user_id = ?",
       [userId],
     ),
   ]);
@@ -99,7 +109,70 @@ app.get("/", async (c) => {
       cascade_cron_expr: userRow?.cascade_cron_expr ?? null,
       named_operator: userRow?.named_operator ?? null,
     },
+    providers: {
+      workers_ai: { enabled: true, free: true },
+      anthropic: {
+        enabled: (aiPrefs?.anthropic_enabled ?? 0) === 1,
+        available: !!c.env.ANTHROPIC_API_KEY,
+      },
+    },
+    roles_assignment: roleDefs.map((r) => ({
+      name: r.name,
+      provider: r.provider,
+      model: r.model,
+      allow_anthropic_override: r.allow_anthropic_override === 1,
+    })),
   });
+});
+
+// Per-role provider/model override.
+app.patch("/roles/:name", async (c) => {
+  const userId = c.get("user_id");
+  const name = c.req.param("name");
+  const body = (await c.req.json()) as { provider?: string; model?: string };
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  if (body.provider) {
+    if (body.provider !== "workers_ai" && body.provider !== "anthropic") {
+      return c.json(
+        { error: { code: "bad_request", message: "provider must be workers_ai or anthropic" } },
+        400,
+      );
+    }
+    sets.push("provider = ?");
+    params.push(body.provider);
+  }
+  if (body.model) {
+    sets.push("model = ?");
+    params.push(body.model);
+  }
+  if (sets.length === 0) return c.json({ ok: true, updated: 0 });
+  sets.push("updated_at = ?");
+  params.push(new Date().toISOString());
+  params.push(userId, name);
+  await run(
+    c.env.DB,
+    `UPDATE role_definitions SET ${sets.join(", ")} WHERE user_id = ? AND name = ?`,
+    params,
+  );
+  return c.json({ ok: true });
+});
+
+// Global Anthropic on/off switch.
+app.patch("/providers", async (c) => {
+  const userId = c.get("user_id");
+  const body = (await c.req.json()) as { anthropic_enabled?: boolean };
+  if (typeof body.anthropic_enabled !== "boolean") {
+    return c.json({ error: { code: "bad_request", message: "anthropic_enabled required" } }, 400);
+  }
+  await run(
+    c.env.DB,
+    `INSERT INTO user_ai_prefs (user_id, anthropic_enabled, updated_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET anthropic_enabled = excluded.anthropic_enabled, updated_at = excluded.updated_at`,
+    [userId, body.anthropic_enabled ? 1 : 0, new Date().toISOString()],
+  );
+  return c.json({ ok: true });
 });
 
 app.patch("/settings", async (c) => {

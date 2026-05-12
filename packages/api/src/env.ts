@@ -5,8 +5,10 @@ export interface Env {
   DB: D1Database;
   FILES: R2Bucket;
   EMBEDDINGS: VectorizeIndex;
+  AI: Ai;
 
-  // Anthropic.
+  // Anthropic — optional escape hatch. When unset, Workers AI handles
+  // every role.
   ANTHROPIC_API_KEY: string;
 
   // The single operator's email — Cloudflare Access gates the operator
