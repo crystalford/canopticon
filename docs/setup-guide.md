@@ -123,15 +123,19 @@ Cloudflare Access gates `canopticon.com/live` (and the other operator screens) t
 1. Cloudflare dashboard → left sidebar → **Zero Trust**
 2. First time only: pick a team name (e.g. `canopticon`), choose the **Free** plan (no credit card)
 
-### 4.2 Add the operator app
+### 4.2 Add the operator app (one app, six paths)
 
 1. **Access** → **Applications** → **Add an application**
 2. Choose **Self-hosted**
 3. Application name: `Canopticon Operator`
 4. Session duration: `1 month` (so you don't have to re-auth daily)
-5. **Application domain**:
-   - Domain: `canopticon.com`
-   - Path: `live` *(this is one path; we add the others below)*
+5. **Application domain** — add all six operator paths to this **one** app. Click **+ Add a domain or path** for each:
+   - `canopticon.com/live`
+   - `canopticon.com/graph`
+   - `canopticon.com/studio`
+   - `canopticon.com/library`
+   - `canopticon.com/sources`
+   - `canopticon.com/system`
 6. **Next**
 
 ### 4.3 Add the policy
@@ -140,17 +144,6 @@ Cloudflare Access gates `canopticon.com/live` (and the other operator screens) t
 2. Action: **Allow**
 3. Include: **Emails** → enter your operator email exactly as you set it in GitHub Secrets (case-sensitive matters less, but matching matters)
 4. **Next** → **Next** → **Add application**
-
-### 4.4 Repeat for the other operator paths
-
-Cloudflare Access only protects the exact path you list. Repeat 4.2 + 4.3 for these paths (same policy each time):
-- `graph`
-- `studio`
-- `library`
-- `sources`
-- `system`
-
-*(Tip: you can also create one app with multiple paths in newer Access UI — look for "Add path" within the same Application.)*
 
 The public paths (`/p/articles`, `/p/theses`, etc.) and the homepage redirect aren't listed, so they stay unauthenticated.
 

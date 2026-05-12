@@ -76,7 +76,7 @@ export default function RecordingPage() {
         <div className="font-mono text-[10.5px] uppercase tracking-wider text-signal">● REC</div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-6 py-8">
+      <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto px-6 py-8">
         {current.cue_label && (
           <div className="mb-4 font-mono text-[10.5px] uppercase tracking-wider text-amber">
             CUE · {current.cue_label}

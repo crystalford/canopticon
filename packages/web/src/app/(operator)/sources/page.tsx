@@ -37,10 +37,12 @@ export default function SourcesPage() {
   }
 
   return (
-    <main className="px-4 py-3">
-      <header className="mb-3">
+    <main>
+      <header className="mb-6">
         <MetadataStrip>Sources · ingestion queue</MetadataStrip>
-        <h1 className="font-serif text-2xl text-cream-bright">Sources</h1>
+        <h1 className="font-sans text-3xl font-extrabold uppercase tracking-tight text-cream-bright md:text-4xl">
+          Sources
+        </h1>
       </header>
 
       <FilterChips
@@ -55,7 +57,7 @@ export default function SourcesPage() {
         onChange={setFilter}
       />
 
-      <section className="mt-4 space-y-2">
+      <section className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {sources.map((s) => (
           <Card key={s.id}>
             <div className="flex items-start justify-between gap-3">
@@ -99,7 +101,7 @@ export default function SourcesPage() {
           </Card>
         ))}
         {sources.length === 0 && (
-          <p className="py-12 text-center font-serif italic text-text-dim">
+          <p className="col-span-full py-12 text-center font-serif italic text-text-dim">
             No sources match this filter.
           </p>
         )}
