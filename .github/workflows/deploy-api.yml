@@ -49,7 +49,7 @@ jobs:
           output=$(pnpm exec wrangler d1 create canopticon 2>&1)
           code=$?
           echo "$output"
-          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|already created"; then
+          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|already created|duplicate"; then
             exit $code
           fi
           set -e
@@ -89,7 +89,7 @@ jobs:
           output=$(pnpm exec wrangler vectorize create canopticon-embeddings --dimensions=1024 --metric=cosine 2>&1)
           code=$?
           echo "$output"
-          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists"; then
+          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|duplicate_name"; then
             exit $code
           fi
           set -e
@@ -119,7 +119,7 @@ jobs:
           output=$(pnpm exec wrangler pages project create canopticon-web --production-branch=main 2>&1)
           code=$?
           echo "$output"
-          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|same name"; then
+          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|same name|duplicate"; then
             exit $code
           fi
           set -e
