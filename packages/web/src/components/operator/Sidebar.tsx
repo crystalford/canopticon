@@ -87,16 +87,36 @@ export function Sidebar({
 
       <SidebarConversations {...(onNavigate ? { onNavigate } : {})} />
 
-      {email && (
-        <div className="shrink-0 border-t border-border-soft px-4 py-3">
-          <div className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
-            Signed in as
-          </div>
-          <div className="mt-1 truncate font-mono text-[11px] text-cream-dim" title={email}>
-            {email}
-          </div>
-        </div>
-      )}
+      <div className="shrink-0 border-t border-border-soft px-4 py-3">
+        {email ? (
+          <>
+            <div className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
+              Signed in as
+            </div>
+            <div className="mt-1 truncate font-mono text-[11px] text-cream-dim" title={email}>
+              {email}
+            </div>
+            <a
+              href="/cdn-cgi/access/logout"
+              className="mt-2 inline-block border border-border-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-cream-dim hover:border-cream-dim hover:text-cream-bright"
+            >
+              Sign out
+            </a>
+          </>
+        ) : (
+          <>
+            <div className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
+              Not signed in
+            </div>
+            <a
+              href="/"
+              className="mt-2 inline-block border border-amber bg-amber/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber hover:bg-amber/20"
+            >
+              Sign in
+            </a>
+          </>
+        )}
+      </div>
     </nav>
   );
 }
