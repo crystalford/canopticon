@@ -66,13 +66,25 @@ export default function LivePage() {
   }
 
   return (
-    <main className="px-4 py-3">
-      <header className="mb-3">
-        <MetadataStrip>Cascade · live feed</MetadataStrip>
-        <h1 className="font-serif text-2xl text-cream-bright">What changed</h1>
+    <main>
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <MetadataStrip>Cascade · live feed</MetadataStrip>
+          <h1 className="font-sans text-3xl font-extrabold uppercase tracking-tight text-cream-bright md:text-4xl">
+            What changed
+          </h1>
+        </div>
+        <button
+          type="button"
+          disabled={loading}
+          onClick={runCascade}
+          className="border border-cream-dim px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-cream-bright hover:bg-cream-glow disabled:opacity-50"
+        >
+          {loading ? "Running cascade…" : "Run Cascade"}
+        </button>
       </header>
 
-      <section className="mb-4 grid grid-cols-3 gap-2 border border-border-soft bg-bg-card p-3">
+      <section className="mb-6 grid grid-cols-3 gap-2 border border-border-soft bg-bg-card p-4 md:grid-cols-6 md:gap-4">
         <Stat label="Claims" value={data?.stats.claims ?? 0} />
         <Stat label="Questions" value={data?.stats.questions ?? 0} />
         <Stat label="Contradictions" value={data?.stats.contradictions ?? 0} />
@@ -81,16 +93,7 @@ export default function LivePage() {
         <Stat label="Pending sources" value={data?.stats.sources_pending ?? 0} />
       </section>
 
-      <button
-        type="button"
-        disabled={loading}
-        onClick={runCascade}
-        className="mb-4 w-full border border-cream-dim py-2 font-mono text-[11px] uppercase tracking-wider text-cream-bright hover:bg-cream-glow disabled:opacity-50"
-      >
-        {loading ? "Running cascade…" : "Run Cascade"}
-      </button>
-
-      <section className="space-y-2">
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {(data?.feed ?? []).map((item) => (
           <Card key={`${item.kind}-${item.id}`} rail={railByKind[item.kind] ?? "default"}>
             <div className="flex items-start justify-between gap-3">
@@ -103,7 +106,7 @@ export default function LivePage() {
           </Card>
         ))}
         {data && data.feed.length === 0 && (
-          <p className="py-12 text-center font-serif italic text-text-dim">
+          <p className="col-span-full py-12 text-center font-serif italic text-text-dim">
             No activity in the last 24 hours. Run a cascade or ingest a source to populate.
           </p>
         )}

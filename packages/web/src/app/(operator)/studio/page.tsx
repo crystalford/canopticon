@@ -61,10 +61,12 @@ export default function StudioPage() {
   }
 
   return (
-    <main className="px-4 py-3">
-      <header className="mb-3">
+    <main>
+      <header className="mb-6">
         <MetadataStrip>Studio · production</MetadataStrip>
-        <h1 className="font-serif text-2xl text-cream-bright">Studio</h1>
+        <h1 className="font-sans text-3xl font-extrabold uppercase tracking-tight text-cream-bright md:text-4xl">
+          Studio
+        </h1>
       </header>
 
       <FilterChips
@@ -80,7 +82,7 @@ export default function StudioPage() {
         onChange={setTab}
       />
 
-      <section className="mt-4 space-y-3">
+      <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {productions.map((p) => (
           <Card key={p.id}>
             <MetadataStrip>{`${p.format.toUpperCase()} · ${new Date(p.updated_at).toLocaleDateString()}`}</MetadataStrip>
@@ -111,7 +113,7 @@ export default function StudioPage() {
           </Card>
         ))}
         {productions.length === 0 && (
-          <p className="py-12 text-center font-serif italic text-text-dim">
+          <p className="col-span-full py-12 text-center font-serif italic text-text-dim">
             No productions in this state.
           </p>
         )}

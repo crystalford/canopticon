@@ -39,10 +39,12 @@ export default function LibraryPage() {
   }, [tab, q]);
 
   return (
-    <main className="px-4 py-3">
-      <header className="mb-3">
+    <main>
+      <header className="mb-6">
         <MetadataStrip>Library · references</MetadataStrip>
-        <h1 className="font-serif text-2xl text-cream-bright">Library</h1>
+        <h1 className="font-sans text-3xl font-extrabold uppercase tracking-tight text-cream-bright md:text-4xl">
+          Library
+        </h1>
       </header>
 
       <input
@@ -63,7 +65,7 @@ export default function LibraryPage() {
         onChange={setTab}
       />
 
-      <section className="mt-4 space-y-2">
+      <section className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {tab === "articles" &&
           (results.articles ?? []).map((a) => (
             <Card key={a.id}>

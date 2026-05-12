@@ -126,13 +126,18 @@ export default function GraphPage() {
   }, [data]);
 
   return (
-    <main className="px-4 py-3">
-      <header className="mb-3">
+    <main>
+      <header className="mb-6">
         <MetadataStrip>Graph · substrate</MetadataStrip>
-        <h1 className="font-serif text-2xl text-cream-bright">Entity Graph</h1>
+        <h1 className="font-sans text-3xl font-extrabold uppercase tracking-tight text-cream-bright md:text-4xl">
+          Entity Graph
+        </h1>
       </header>
 
-      <div ref={containerRef} className="h-[60vh] w-full border border-border-soft bg-bg-deeper" />
+      <div
+        ref={containerRef}
+        className="h-[60vh] w-full border border-border-soft bg-bg-deeper md:h-[78vh]"
+      />
 
       {selected && (
         <Card className="mt-3">
