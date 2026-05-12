@@ -2,8 +2,8 @@
 
 // Chat / Intake — the daily operator entry point.
 //
-// Layout: conversations rail (lg+) · message thread · "what just happened"
-// rail (xl+). Composer at bottom with drag-drop + URL detection.
+// Layout: message thread + composer. Conversations live in the main
+// sidebar (see SidebarConversations) so we don't render a second rail.
 //
 // Agent loop runs server-side; client streams `tool_call`, `tool_result`,
 // `awaiting_confirm`, `message_delta`, `done`, `error` SSE events and
@@ -17,19 +17,9 @@ import {
   MetadataStrip,
   type PendingUpload,
 } from "@/components/primitives";
-import { apiDelete, apiGet, apiPost, apiUpload, postSse } from "@/lib/api-client";
-import { useSearchParams } from "next/navigation";
+import { apiGet, apiPost, apiUpload, postSse } from "@/lib/api-client";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-interface Conversation {
-  id: string;
-  title: string | null;
-  pinned: number;
-  last_message_at: string | null;
-  message_count: number;
-  total_cost_cents: number;
-  created_at: string;
-}
 
 interface ContentBlock {
   type: string;
@@ -81,11 +71,11 @@ export default function ChatPage() {
 }
 
 function ChatPageInner() {
+  const router = useRouter();
   const params = useSearchParams();
   const initialPrompt = params?.get("prompt") ?? "";
+  const activeId = params?.get("c") ?? null;
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [composer, setComposer] = useState(initialPrompt);
   const [pending, setPending] = useState<PendingUpload[]>([]);
@@ -94,19 +84,16 @@ function ChatPageInner() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const refreshConversations = useCallback(async () => {
-    const data = await apiGet<{ conversations: Conversation[] }>("/v1/chat/conversations");
-    setConversations(data.conversations);
+  const notifyConversationsChanged = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("conversations-changed"));
+    }
   }, []);
 
   const loadConversation = useCallback(async (id: string) => {
     const data = await apiGet<{ messages: Message[] }>(`/v1/chat/conversations/${id}`);
     setMessages(data.messages);
   }, []);
-
-  useEffect(() => {
-    void refreshConversations();
-  }, [refreshConversations]);
 
   useEffect(() => {
     if (!activeId) {
@@ -116,21 +103,23 @@ function ChatPageInner() {
     void loadConversation(activeId);
   }, [activeId, loadConversation]);
 
-  async function newConversation() {
-    const { id } = await apiPost<{ id: string }>("/v1/chat/conversations");
-    await refreshConversations();
-    setActiveId(id);
-  }
+  const setActiveId = useCallback(
+    (id: string | null) => {
+      router.push(id ? `/chat?c=${id}` : "/chat");
+    },
+    [router],
+  );
 
-  async function archive(id: string) {
-    await apiDelete(`/v1/chat/conversations/${id}`);
-    if (activeId === id) setActiveId(null);
-    await refreshConversations();
+  async function newConversation(): Promise<string> {
+    const { id } = await apiPost<{ id: string }>("/v1/chat/conversations");
+    notifyConversationsChanged();
+    setActiveId(id);
+    return id;
   }
 
   async function handleFiles(files: File[]) {
-    if (!activeId) await newConversation();
-    const conversationId = activeId;
+    let conversationId = activeId;
+    if (!conversationId) conversationId = await newConversation();
     const newPending: PendingUpload[] = files.map((f, i) => ({
       id: `${Date.now()}-${i}`,
       name: f.name,
@@ -169,9 +158,7 @@ function ChatPageInner() {
     let conversationId = activeId;
     try {
       if (!conversationId) {
-        const { id } = await apiPost<{ id: string }>("/v1/chat/conversations");
-        conversationId = id;
-        setActiveId(id);
+        conversationId = await newConversation();
       }
     } catch (e) {
       setError(`Could not create conversation: ${(e as Error).message}`);
@@ -248,7 +235,7 @@ function ChatPageInner() {
           if (reason === "stream_end" || reason === "abort") {
             setStreaming(null);
             if (conversationId) await loadConversation(conversationId);
-            await refreshConversations();
+            notifyConversationsChanged();
           } else if (reason === "error") {
             setStreaming(null);
             setError(`Stream failed: ${err?.message ?? "unknown error"}`);
@@ -281,54 +268,11 @@ function ChatPageInner() {
     }
   }
 
-  const isEmpty = conversations.length === 0 && !activeId;
+  const isEmpty = !activeId && messages.length === 0;
 
   return (
-    <main className="flex h-[calc(100vh-7rem)] flex-col gap-3 md:h-[calc(100vh-8rem)] md:flex-row">
-      {/* Conversations rail */}
-      <aside className="flex w-full shrink-0 flex-col gap-2 border-b border-border-soft pb-2 md:w-60 md:border-b-0 md:border-r md:pb-0 md:pr-3">
-        <div className="flex items-center justify-between">
-          <MetadataStrip>Conversations</MetadataStrip>
-          <button
-            type="button"
-            onClick={newConversation}
-            className="border border-border-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-cream-dim hover:text-cream-bright"
-          >
-            New
-          </button>
-        </div>
-        <ul className="flex-1 space-y-1 overflow-y-auto">
-          {conversations.length === 0 && (
-            <li className="font-serif text-[12px] italic text-text-faint">No conversations yet.</li>
-          )}
-          {conversations.map((c) => (
-            <li key={c.id} className="group flex items-stretch">
-              <button
-                type="button"
-                onClick={() => setActiveId(c.id)}
-                className={`flex flex-1 items-start gap-2 border-l-2 px-2 py-1 text-left font-mono text-[11px] ${
-                  activeId === c.id
-                    ? "border-cream bg-cream-glow text-cream-bright"
-                    : "border-transparent text-text-dim hover:border-cream-dim hover:text-cream"
-                }`}
-              >
-                <span className="line-clamp-2">{c.title ?? "Untitled"}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => void archive(c.id)}
-                title="Archive"
-                aria-label={`Archive ${c.title ?? "conversation"}`}
-                className="px-1 font-mono text-[14px] text-text-faint opacity-0 transition-opacity hover:text-signal group-hover:opacity-100"
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
-
-      {/* Center: messages thread */}
+    <main className="flex h-[calc(100vh-7rem)] flex-col gap-3 md:h-[calc(100vh-8rem)]">
+      {/* Messages thread */}
       <section className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto pr-2">
           {isEmpty ? (
