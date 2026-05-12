@@ -278,7 +278,7 @@ function ChatPageInner() {
           {isEmpty ? (
             <WelcomeCard onStarter={(p) => setComposer(p)} />
           ) : messages.length === 0 && !streaming ? (
-            <p className="font-serif italic text-text-dim">
+            <p className="font-sans italic text-text-dim">
               No messages yet. Say hi or paste a URL.
             </p>
           ) : (
@@ -299,7 +299,7 @@ function ChatPageInner() {
               }
             }}
             placeholder="Paste a URL, drop a file, or describe what you want. Cmd+Enter to send."
-            className="mt-2 h-20 w-full resize-y border border-border-soft bg-bg-deeper px-3 py-2 font-serif text-[14px] text-text focus:border-cream-dim focus:outline-none"
+            className="mt-2 h-20 w-full resize-y border border-border-soft bg-bg-deeper px-3 py-2 font-sans text-[14px] text-text focus:border-cream-dim focus:outline-none"
           />
           <div className="mt-1 flex items-center justify-between">
             <span className="font-mono text-[10px] uppercase tracking-wider text-text-faint">
@@ -347,7 +347,7 @@ function WelcomeCard({ onStarter }: { onStarter: (prompt: string) => void }) {
       <h2 className="mt-1 font-sans text-2xl font-extrabold uppercase tracking-tight text-cream-bright">
         Welcome.
       </h2>
-      <p className="mt-2 font-serif text-[14px] text-text-dim">
+      <p className="mt-2 font-sans text-[14px] text-text-dim">
         This is your daily entry point. Paste URLs, drop files, ask questions. The agent runs on
         Cloudflare Workers AI (free), and routes the 18 forensic roles through Llama 4 Scout /
         QwQ-32B. Anthropic is an opt-in escape hatch per role.
@@ -411,7 +411,7 @@ function RenderedMessage({
       .join("\n");
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] border-l-2 border-cream-dim bg-bg-deeper px-3 py-2 font-serif text-[14px] text-cream">
+        <div className="max-w-[80%] border-l-2 border-cream-dim bg-bg-deeper px-3 py-2 font-sans text-[14px] text-cream">
           {text || <em className="text-text-faint">(empty)</em>}
         </div>
       </div>

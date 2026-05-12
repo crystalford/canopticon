@@ -7,7 +7,7 @@ import { Fragment, type ReactNode } from "react";
 export function Markdown({ source }: { source: string }) {
   const blocks = splitBlocks(source);
   return (
-    <div className="font-serif text-[14px] leading-snug text-text">
+    <div className="font-sans text-[14px] leading-relaxed text-text">
       {blocks.map((b, i) => renderBlock(b, i))}
     </div>
   );

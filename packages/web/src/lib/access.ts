@@ -39,8 +39,17 @@ function decodeJwtEmail(jwt: string): string | null {
     const b64 = pad ? padded + "=".repeat(4 - pad) : padded;
     const decoded =
       typeof atob === "function" ? atob(b64) : Buffer.from(b64, "base64").toString("utf8");
-    const obj = JSON.parse(decoded) as { email?: string };
-    return obj.email ?? null;
+    const obj = JSON.parse(decoded) as Record<string, unknown>;
+    const candidates: unknown[] = [
+      obj.email,
+      obj.user_email,
+      (obj.identity as { email?: string } | undefined)?.email,
+      (obj.custom as { email?: string } | undefined)?.email,
+    ];
+    for (const c of candidates) {
+      if (typeof c === "string" && c.includes("@")) return c;
+    }
+    return null;
   } catch {
     return null;
   }

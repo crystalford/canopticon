@@ -35,24 +35,28 @@ export function Sidebar({
       <div className="border-b border-border-soft px-4 py-4">
         <div className="flex items-center gap-2 text-cream-bright">
           <svg
-            viewBox="0 0 48 16"
+            viewBox="0 0 64 16"
             fill="currentColor"
-            className="h-4 w-12 shrink-0"
+            className="h-5 w-16 shrink-0"
             aria-hidden="true"
           >
             <title>Canopticon eye mark</title>
-            <path d="M0 8 L4 4 L4 12 Z" />
-            <path d="M48 8 L44 4 L44 12 Z" />
+            {/* Left arrow pointing right toward eye */}
+            <path d="M0 4 L0 12 L7 8 Z" />
+            {/* Eye outline */}
             <ellipse
-              cx="24"
+              cx="32"
               cy="8"
-              rx="12"
-              ry="6"
+              rx="13"
+              ry="5.5"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.5"
+              strokeWidth="1.6"
             />
-            <circle cx="24" cy="8" r="2.5" />
+            {/* Pupil */}
+            <circle cx="32" cy="8" r="2.6" />
+            {/* Right arrow pointing left toward eye */}
+            <path d="M64 4 L64 12 L57 8 Z" />
           </svg>
           <span className="font-sans text-base font-extrabold uppercase tracking-tight">
             Canopticon
