@@ -20,10 +20,30 @@ export interface AccessUser {
 
 export async function currentUser(): Promise<AccessUser | null> {
   const h = await headers();
-  const email = h.get("cf-access-authenticated-user-email");
+  const headerEmail = h.get("cf-access-authenticated-user-email");
   const jwt = h.get("cf-access-jwt-assertion");
+  // Some Access configurations forward only the JWT and not the parsed
+  // identity headers. Fall back to decoding the JWT payload; Access has
+  // already verified the signature before the request reaches us.
+  const email = headerEmail ?? (jwt ? decodeJwtEmail(jwt) : null);
   if (!email) return null;
   return { email, jwt };
+}
+
+function decodeJwtEmail(jwt: string): string | null {
+  try {
+    const parts = jwt.split(".");
+    if (parts.length < 2 || !parts[1]) return null;
+    const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const pad = padded.length % 4;
+    const b64 = pad ? padded + "=".repeat(4 - pad) : padded;
+    const decoded =
+      typeof atob === "function" ? atob(b64) : Buffer.from(b64, "base64").toString("utf8");
+    const obj = JSON.parse(decoded) as { email?: string };
+    return obj.email ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Use this in API calls from the browser. The cookie attached to the

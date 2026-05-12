@@ -12,6 +12,21 @@ import type { NextRequest } from "next/server";
 
 const WORKER = "https://api.canopticon.com";
 
+function decodeJwtEmail(jwt: string): string | null {
+  try {
+    const parts = jwt.split(".");
+    if (parts.length < 2 || !parts[1]) return null;
+    const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const pad = padded.length % 4;
+    const b64 = pad ? padded + "=".repeat(4 - pad) : padded;
+    const decoded = atob(b64);
+    const obj = JSON.parse(decoded) as { email?: string };
+    return obj.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   return proxyRequest(req, ctx);
 }
@@ -35,9 +50,12 @@ async function proxyRequest(
   const { path } = await ctx.params;
 
   // Cloudflare Access injects these headers on the request once it
-  // passes through Access on the pages domain.
-  const email = req.headers.get("cf-access-authenticated-user-email");
+  // passes through Access on the pages domain. In some Access configs
+  // only the JWT is forwarded (no parsed email header), so we decode
+  // the JWT payload — Access already verified the signature.
+  let email = req.headers.get("cf-access-authenticated-user-email");
   const jwt = req.headers.get("cf-access-jwt-assertion");
+  if (!email && jwt) email = decodeJwtEmail(jwt);
 
   const target = `${WORKER}/${path.join("/")}${req.nextUrl.search}`;
 
