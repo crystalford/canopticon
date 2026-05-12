@@ -126,10 +126,6 @@ jobs:
 
       - name: Build web for Cloudflare Pages
         working-directory: packages/web
-        env:
-          # Build-time URL. If you haven't wired api.canopticon.com yet,
-          # override via Pages dashboard → Settings → Environment variables.
-          NEXT_PUBLIC_API_BASE_URL: https://api.canopticon.com
         run: pnpm pages:build
 
       - name: Deploy web to Pages

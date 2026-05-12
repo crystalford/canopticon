@@ -20,9 +20,15 @@ export class ApiError extends Error {
 }
 
 function apiBaseUrl(): string {
-  const url = process.env.NEXT_PUBLIC_API_BASE_URL;
-  if (!url) throw new Error("NEXT_PUBLIC_API_BASE_URL is not set");
-  return url.replace(/\/$/, "");
+  const env = process.env.NEXT_PUBLIC_API_BASE_URL;
+  // In production, proxy API calls through the same-origin /api route so
+  // there are no CORS preflight issues. Set NEXT_PUBLIC_API_BASE_URL to a
+  // full http:// URL only in local dev to bypass the proxy and call the
+  // wrangler dev server directly.
+  if (env && (env.startsWith("http://") || env.startsWith("https://"))) {
+    return env.replace(/\/$/, "");
+  }
+  return "/api";
 }
 
 interface ErrorBody {

@@ -33,3 +33,4 @@ binding = "AI"
 [vars]
 LOG_LEVEL = "info"
 OPERATOR_EMAIL = ""
+# deploy trigger: 2026-05-12
