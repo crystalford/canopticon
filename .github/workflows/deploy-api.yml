@@ -117,7 +117,12 @@ jobs:
       - name: Build web for Cloudflare Pages
         working-directory: packages/web
         env:
-          NEXT_PUBLIC_API_BASE_URL: https://canopticon-api.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev
+          # Build-time URL — overridden at runtime by the Pages env var
+          # NEXT_PUBLIC_API_BASE_URL once you wire api.canopticon.com.
+          # If you have NOT wired the custom domain yet, set this env var
+          # manually in the Pages dashboard (Settings → Environment
+          # variables) to your worker subdomain and redeploy.
+          NEXT_PUBLIC_API_BASE_URL: https://api.canopticon.com
         run: pnpm pages:build
 
       - name: Deploy web to Pages
