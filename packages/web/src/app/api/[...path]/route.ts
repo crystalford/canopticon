@@ -89,6 +89,23 @@ async function proxyRequest(
     );
   }
 
+  // If Access intercepted the request it redirects to the login page;
+  // fetch follows the redirect and we get HTML with status 200. Detect
+  // this so the browser gets a clear 401 instead of a parse crash.
+  const upstreamCt = upstream.headers.get("content-type") ?? "";
+  if (!upstreamCt.includes("application/json") && !upstreamCt.includes("text/event-stream")) {
+    return Response.json(
+      {
+        error: {
+          code: "proxy_access_intercept",
+          message:
+            "Cloudflare Access intercepted the Worker request — remove api.canopticon.com from your Access application. The proxy already forwards your authenticated email; only canopticon.com needs Access protection.",
+        },
+      },
+      { status: 401 },
+    );
+  }
+
   const resHeaders = new Headers();
   for (const key of ["content-type", "cache-control", "x-accel-buffering"]) {
     const val = upstream.headers.get(key);
