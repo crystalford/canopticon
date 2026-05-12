@@ -105,6 +105,15 @@ jobs:
       # sync-skills workflow manually after first sign-in.
 
       # --- Build and deploy Pages ------------------------------------
+      - name: Create Pages project (idempotent)
+        working-directory: packages/web
+        run: |
+          if pnpm exec wrangler pages project list --json 2>/dev/null | jq -e '.[] | select(.name=="canopticon-web")' >/dev/null; then
+            echo "Pages project 'canopticon-web' already exists"
+          else
+            pnpm exec wrangler pages project create canopticon-web --production-branch=main
+          fi
+
       - name: Build web for Cloudflare Pages
         working-directory: packages/web
         env:
@@ -113,4 +122,4 @@ jobs:
 
       - name: Deploy web to Pages
         working-directory: packages/web
-        run: pnpm exec wrangler pages deploy .vercel/output/static --project-name=canopticon-web --branch=main
+        run: pnpm exec wrangler pages deploy .vercel/output/static --project-name=canopticon-web --branch=main --commit-dirty=true
