@@ -8,7 +8,7 @@
 
 export const runtime = "edge";
 
-import { type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const WORKER = "https://api.canopticon.com";
 
@@ -47,9 +47,17 @@ async function proxyRequest(
   const ct = req.headers.get("content-type");
   if (ct) fwdHeaders["content-type"] = ct;
   const accept = req.headers.get("accept");
-  if (accept) fwdHeaders["accept"] = accept;
+  if (accept) fwdHeaders.accept = accept;
   const idem = req.headers.get("idempotency-key");
   if (idem) fwdHeaders["idempotency-key"] = idem;
+
+  // Debug helper: if the Pages request has no Access email, surface
+  // exactly which headers we did receive so we can diagnose why.
+  if (!email && req.nextUrl.searchParams.get("__debug_headers") === "1") {
+    const names: string[] = [];
+    req.headers.forEach((_v, k) => names.push(k));
+    return Response.json({ headers_seen: names, email, jwt_seen: !!jwt }, { status: 200 });
+  }
 
   // Buffer the body. Streaming a ReadableStream into another fetch()
   // requires `duplex: "half"`, which is inconsistent across runtimes.
