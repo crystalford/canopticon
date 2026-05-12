@@ -76,8 +76,17 @@ async function proxyRequest(
   const target = `${WORKER}/${path.join("/")}${req.nextUrl.search}`;
 
   const fwdHeaders: Record<string, string> = {};
-  if (email) fwdHeaders["cf-access-authenticated-user-email"] = email;
-  if (jwt) fwdHeaders["cf-access-jwt-assertion"] = jwt;
+  // Cloudflare strips cf-* headers from inter-Worker fetches as an
+  // anti-spoofing measure, so we also send under app-specific names
+  // that the Worker auth middleware reads as a fallback.
+  if (email) {
+    fwdHeaders["cf-access-authenticated-user-email"] = email;
+    fwdHeaders["x-canopticon-email"] = email;
+  }
+  if (jwt) {
+    fwdHeaders["cf-access-jwt-assertion"] = jwt;
+    fwdHeaders["x-canopticon-jwt"] = jwt;
+  }
   const ct = req.headers.get("content-type");
   if (ct) fwdHeaders["content-type"] = ct;
   const accept = req.headers.get("accept");
