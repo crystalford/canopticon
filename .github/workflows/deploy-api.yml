@@ -2,7 +2,7 @@ name: Deploy to Cloudflare
 
 # One-button deploy. Creates (or reuses) the D1 database, R2 bucket,
 # and Vectorize index; runs migrations; pushes secrets; deploys the
-# Worker and Pages project; syncs the 18 skill prompts.
+# Worker and Pages project.
 #
 # Required GitHub secrets:
 #   CLOUDFLARE_API_TOKEN
@@ -40,14 +40,19 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # --- D1 database -----------------------------------------------
-      - name: Create D1 database (idempotent)
+      # Try to create; if it already exists, the API returns an error
+      # that we recognize and continue.
+      - name: Ensure D1 database
         working-directory: packages/api
         run: |
-          if pnpm exec wrangler d1 list --json | jq -e '.[] | select(.name=="canopticon")' >/dev/null; then
-            echo "D1 database 'canopticon' already exists"
-          else
-            pnpm exec wrangler d1 create canopticon
+          set +e
+          output=$(pnpm exec wrangler d1 create canopticon 2>&1)
+          code=$?
+          echo "$output"
+          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|already created"; then
+            exit $code
           fi
+          set -e
 
       - name: Resolve D1 database_id and patch wrangler.toml
         working-directory: packages/api
@@ -64,24 +69,30 @@ jobs:
         run: pnpm exec wrangler d1 migrations apply canopticon --remote
 
       # --- R2 bucket -------------------------------------------------
-      - name: Create R2 bucket (idempotent)
+      - name: Ensure R2 bucket
         working-directory: packages/api
         run: |
-          if pnpm exec wrangler r2 bucket list --json | jq -e '.[] | select(.name=="canopticon-files")' >/dev/null; then
-            echo "R2 bucket 'canopticon-files' already exists"
-          else
-            pnpm exec wrangler r2 bucket create canopticon-files
+          set +e
+          output=$(pnpm exec wrangler r2 bucket create canopticon-files 2>&1)
+          code=$?
+          echo "$output"
+          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|already own it"; then
+            exit $code
           fi
+          set -e
 
       # --- Vectorize index -------------------------------------------
-      - name: Create Vectorize index (idempotent)
+      - name: Ensure Vectorize index
         working-directory: packages/api
         run: |
-          if pnpm exec wrangler vectorize list --json 2>/dev/null | jq -e '.[] | select(.name=="canopticon-embeddings")' >/dev/null; then
-            echo "Vectorize index 'canopticon-embeddings' already exists"
-          else
-            pnpm exec wrangler vectorize create canopticon-embeddings --dimensions=1024 --metric=cosine
+          set +e
+          output=$(pnpm exec wrangler vectorize create canopticon-embeddings --dimensions=1024 --metric=cosine 2>&1)
+          code=$?
+          echo "$output"
+          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists"; then
+            exit $code
           fi
+          set -e
 
       # --- Worker secrets --------------------------------------------
       - name: Push Worker secrets
@@ -100,28 +111,24 @@ jobs:
         working-directory: packages/api
         run: pnpm exec wrangler deploy
 
-      # --- Sync skill prompts ----------------------------------------
-      # Skipped on first deploy (no users row yet); operator runs the
-      # sync-skills workflow manually after first sign-in.
-
-      # --- Build and deploy Pages ------------------------------------
-      - name: Create Pages project (idempotent)
+      # --- Pages project ---------------------------------------------
+      - name: Ensure Pages project
         working-directory: packages/web
         run: |
-          if pnpm exec wrangler pages project list --json 2>/dev/null | jq -e '.[] | select(.name=="canopticon-web")' >/dev/null; then
-            echo "Pages project 'canopticon-web' already exists"
-          else
-            pnpm exec wrangler pages project create canopticon-web --production-branch=main
+          set +e
+          output=$(pnpm exec wrangler pages project create canopticon-web --production-branch=main 2>&1)
+          code=$?
+          echo "$output"
+          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|same name"; then
+            exit $code
           fi
+          set -e
 
       - name: Build web for Cloudflare Pages
         working-directory: packages/web
         env:
-          # Build-time URL — overridden at runtime by the Pages env var
-          # NEXT_PUBLIC_API_BASE_URL once you wire api.canopticon.com.
-          # If you have NOT wired the custom domain yet, set this env var
-          # manually in the Pages dashboard (Settings → Environment
-          # variables) to your worker subdomain and redeploy.
+          # Build-time URL. If you haven't wired api.canopticon.com yet,
+          # override via Pages dashboard → Settings → Environment variables.
           NEXT_PUBLIC_API_BASE_URL: https://api.canopticon.com
         run: pnpm pages:build
 
