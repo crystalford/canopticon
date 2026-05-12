@@ -1,7 +1,9 @@
 // Shared vertical nav. Rendered in both the desktop fixed sidebar and
-// the mobile slide-in drawer.
+// the mobile slide-in drawer. Conversations live inside the same panel
+// (ChatGPT / Claude style) so the chat page doesn't need its own rail.
 
 import Link from "next/link";
+import { SidebarConversations } from "./SidebarConversations";
 
 export interface NavItem {
   href: string;
@@ -61,7 +63,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <ul className="flex-1 overflow-y-auto py-2">
+      <ul className="shrink-0 py-2">
         {NAV_ITEMS.map((item) => {
           const isActive = active === item.href;
           return (
@@ -83,8 +85,10 @@ export function Sidebar({
         })}
       </ul>
 
+      <SidebarConversations {...(onNavigate ? { onNavigate } : {})} />
+
       {email && (
-        <div className="border-t border-border-soft px-4 py-3">
+        <div className="shrink-0 border-t border-border-soft px-4 py-3">
           <div className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
             Signed in as
           </div>

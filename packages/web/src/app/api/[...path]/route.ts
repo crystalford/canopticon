@@ -9,7 +9,6 @@
 export const runtime = "edge";
 
 import { type NextRequest } from "next/server";
-import { headers } from "next/headers";
 
 const WORKER = "https://api.canopticon.com";
 
@@ -34,30 +33,60 @@ async function proxyRequest(
   ctx: { params: Promise<{ path: string[] }> },
 ): Promise<Response> {
   const { path } = await ctx.params;
-  const h = await headers();
-  const email = h.get("cf-access-authenticated-user-email");
 
-  // Rebuild the URL including any query string from the original request.
+  // Cloudflare Access injects these headers on the request once it
+  // passes through Access on the pages domain.
+  const email = req.headers.get("cf-access-authenticated-user-email");
+  const jwt = req.headers.get("cf-access-jwt-assertion");
+
   const target = `${WORKER}/${path.join("/")}${req.nextUrl.search}`;
 
   const fwdHeaders: Record<string, string> = {};
-  // Forward the Access-verified email so the Worker can identify the user.
   if (email) fwdHeaders["cf-access-authenticated-user-email"] = email;
+  if (jwt) fwdHeaders["cf-access-jwt-assertion"] = jwt;
   const ct = req.headers.get("content-type");
   if (ct) fwdHeaders["content-type"] = ct;
   const accept = req.headers.get("accept");
   if (accept) fwdHeaders["accept"] = accept;
+  const idem = req.headers.get("idempotency-key");
+  if (idem) fwdHeaders["idempotency-key"] = idem;
+
+  // Buffer the body. Streaming a ReadableStream into another fetch()
+  // requires `duplex: "half"`, which is inconsistent across runtimes.
+  let body: ArrayBuffer | undefined;
+  if (req.method !== "GET" && req.method !== "HEAD" && req.method !== "DELETE") {
+    try {
+      body = await req.arrayBuffer();
+    } catch (err) {
+      return Response.json(
+        {
+          error: {
+            code: "proxy_body_read_failed",
+            message: `Could not read request body: ${(err as Error).message ?? String(err)}`,
+          },
+        },
+        { status: 502 },
+      );
+    }
+  }
 
   const init: RequestInit = { method: req.method, headers: fwdHeaders };
-  if (req.method !== "GET" && req.method !== "HEAD" && req.method !== "DELETE") {
-    init.body = req.body;
-  }
+  if (body && body.byteLength > 0) init.body = body;
 
   let upstream: Response;
   try {
     upstream = await fetch(target, init);
   } catch (err) {
-    return Response.json({ error: { code: "proxy_error", message: String(err) } }, { status: 502 });
+    return Response.json(
+      {
+        error: {
+          code: "proxy_fetch_failed",
+          message: `Proxy fetch to ${target} threw: ${(err as Error).message ?? String(err)}`,
+          email_present: !!email,
+        },
+      },
+      { status: 502 },
+    );
   }
 
   const resHeaders = new Headers();
@@ -66,6 +95,5 @@ async function proxyRequest(
     if (val) resHeaders.set(key, val);
   }
 
-  // Pass the body through as a stream — critical for SSE chat responses.
   return new Response(upstream.body, { status: upstream.status, headers: resHeaders });
 }
