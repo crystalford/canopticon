@@ -45,6 +45,12 @@ interface WorkersAiChatResponse {
   };
 }
 
+function isOpenAiShapeModel(model: string): boolean {
+  // Partner models (Moonshot Kimi, DeepSeek, OpenAI-compat) speak strict
+  // OpenAI Chat Completions and reject unknown fields like repetition_penalty.
+  return /^@cf\/(moonshotai|deepseek-ai|openai)/i.test(model);
+}
+
 function buildBody(input: LlmCallInput): Record<string, unknown> {
   const body: Record<string, unknown> = {
     messages: toChatMessages(input),
@@ -52,7 +58,11 @@ function buildBody(input: LlmCallInput): Record<string, unknown> {
     temperature: input.temperature ?? 0,
   };
   if (input.top_p !== undefined) body.top_p = input.top_p;
-  if (input.repetition_penalty !== undefined) body.repetition_penalty = input.repetition_penalty;
+  // repetition_penalty is a Llama-family parameter; partner models on the
+  // OpenAI-compatible path will 8004 on unknown fields.
+  if (input.repetition_penalty !== undefined && !isOpenAiShapeModel(input.model)) {
+    body.repetition_penalty = input.repetition_penalty;
+  }
   if (input.tools && input.tools.length > 0) {
     body.tools = input.tools.map((t) => ({
       type: "function",
