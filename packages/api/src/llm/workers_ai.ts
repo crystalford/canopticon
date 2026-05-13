@@ -10,13 +10,31 @@
 import type { LlmCallInput, LlmCallOutput, LlmContent, LlmMessage, LlmStopReason } from "./types";
 
 interface WorkersAiChatResponse {
+  // Llama-style normalized shape that Workers AI returns for most catalog models.
   response?: string;
   tool_calls?: Array<{
     id?: string;
     name: string;
     arguments?: Record<string, unknown> | string;
   }>;
-  usage?: { prompt_tokens?: number; completion_tokens?: number };
+  // OpenAI-compatible shape that partner models (Kimi, DeepSeek, etc.) return.
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+      tool_calls?: Array<{
+        id?: string;
+        type?: string;
+        function?: { name: string; arguments?: string };
+      }>;
+    };
+    finish_reason?: string;
+  }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    input_tokens?: number;
+    output_tokens?: number;
+  };
 }
 
 export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCallOutput> {
@@ -45,16 +63,34 @@ export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCal
 
   const res = (await ai.run(input.model as never, body as never)) as WorkersAiChatResponse;
 
-  const text = stripFiller(typeof res.response === "string" ? res.response : "");
-  const tool_uses = (res.tool_calls ?? []).map((tc, i) => ({
-    id: tc.id ?? `call_${i}_${crypto.randomUUID().slice(0, 8)}`,
-    name: tc.name,
-    input: typeof tc.arguments === "string" ? safeParse(tc.arguments) : (tc.arguments ?? {}),
-  }));
+  // Llama-style returns {response, tool_calls}. Partner models (Kimi, DeepSeek)
+  // return OpenAI shape {choices: [{message: {content, tool_calls}}]}.
+  const openAiMsg = res.choices?.[0]?.message;
+  const rawText =
+    typeof res.response === "string" && res.response.length > 0
+      ? res.response
+      : (openAiMsg?.content ?? "");
+  const text = stripFiller(rawText);
+
+  const rawToolCalls = res.tool_calls ?? [];
+  const openAiToolCalls = openAiMsg?.tool_calls ?? [];
+  const tool_uses = rawToolCalls.length > 0
+    ? rawToolCalls.map((tc, i) => ({
+        id: tc.id ?? `call_${i}_${crypto.randomUUID().slice(0, 8)}`,
+        name: tc.name,
+        input: typeof tc.arguments === "string" ? safeParse(tc.arguments) : (tc.arguments ?? {}),
+      }))
+    : openAiToolCalls
+        .filter((tc) => tc.function?.name)
+        .map((tc, i) => ({
+          id: tc.id ?? `call_${i}_${crypto.randomUUID().slice(0, 8)}`,
+          name: tc.function?.name ?? "",
+          input: tc.function?.arguments ? safeParse(tc.function.arguments) : {},
+        }));
 
   const usage = {
-    input_tokens: res.usage?.prompt_tokens ?? 0,
-    output_tokens: res.usage?.completion_tokens ?? 0,
+    input_tokens: res.usage?.prompt_tokens ?? res.usage?.input_tokens ?? 0,
+    output_tokens: res.usage?.completion_tokens ?? res.usage?.output_tokens ?? 0,
   };
 
   let structured: unknown = null;
