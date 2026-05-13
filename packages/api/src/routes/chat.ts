@@ -14,7 +14,7 @@ import { callLLM } from "../llm/index.ts";
 import { TOOLS_BY_NAME, type ToolSideEffect, toolDefinitionsForModel } from "../llm/tools.ts";
 import type { LlmContent, LlmMessage } from "../llm/types.ts";
 
-const ORCHESTRATOR_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const ORCHESTRATOR_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 const MAX_LOOP_ITERATIONS = 12;
 
 const SYSTEM_PROMPT = `You are Canopticon — a sharp intelligence assistant built for a single operator. Think of your voice as a senior analyst talking to a peer: warm, direct, a little opinionated, never corporate.

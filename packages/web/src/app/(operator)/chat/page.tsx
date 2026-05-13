@@ -303,7 +303,7 @@ function ChatPageInner() {
           />
           <div className="mt-1 flex items-center justify-between">
             <span className="font-mono text-[10px] uppercase tracking-wider text-text-faint">
-              Workers AI · free tier · Llama 3.3 70B
+              Workers AI · free tier · Llama 4 Scout 17B
             </span>
             <button
               type="button"
