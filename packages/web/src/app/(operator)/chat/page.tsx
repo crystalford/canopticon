@@ -293,12 +293,12 @@ function ChatPageInner() {
             value={composer}
             onChange={(e) => setComposer(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 void send();
               }
             }}
-            placeholder="Paste a URL, drop a file, or describe what you want. Cmd+Enter to send."
+            placeholder="Paste a URL, drop a file, or describe what you want. Enter to send, Shift+Enter for new line."
             className="mt-2 h-20 w-full resize-y border border-border-soft bg-bg-deeper px-3 py-2 font-sans text-[14px] text-text focus:border-cream-dim focus:outline-none"
           />
           <div className="mt-1 flex items-center justify-between">
