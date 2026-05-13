@@ -75,9 +75,9 @@ export default async function PublicHomePage() {
           The structured record beneath the headlines.
         </h1>
         <p className="mx-auto mt-5 max-w-2xl font-serif text-base leading-relaxed text-[#1a1410]/80">
-          Canopticon tracks claims, calibrates predictions, and surfaces contradictions
-          in Canada's political and economic record. Investigations link back to the
-          evidence behind them — and show, openly, where the work is still uncertain.
+          Canopticon tracks claims, calibrates predictions, and surfaces contradictions in Canada's
+          political and economic record. Investigations link back to the evidence behind them — and
+          show, openly, where the work is still uncertain.
         </p>
       </section>
 
