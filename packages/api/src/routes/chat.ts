@@ -10,7 +10,7 @@ import { type AuthContext, requireAuth } from "../auth/middleware.ts";
 import { all, insertOne, one, parseJson, run } from "../lib/d1.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
 import { SSE_HEADERS, formatSseComment, formatSseEvent } from "../lib/sse.ts";
-import { callLLM } from "../llm/index.ts";
+import { callLLM, streamLLM } from "../llm/index.ts";
 import { TOOLS_BY_NAME, type ToolSideEffect, toolDefinitionsForModel } from "../llm/tools.ts";
 import type { LlmContent, LlmMessage } from "../llm/types.ts";
 
@@ -297,20 +297,26 @@ async function runAgentLoop(args: {
     ping();
 
     const offerTools = shouldOfferTools(messages);
-    const out = await callLLM(env, {
-      provider: "workers_ai",
-      model: ORCHESTRATOR_MODEL,
-      system: SYSTEM_PROMPT,
-      messages,
-      tools: offerTools ? toolDefinitionsForModel() : [],
-      max_tokens: 1500,
-      temperature: 0.7,
-      top_p: 0.9,
-      repetition_penalty: 1.05,
-      ledger: { user_id: userId, operation_type: "workers_ai.chat" },
-    });
+    const out = await streamLLM(
+      env,
+      {
+        provider: "workers_ai",
+        model: ORCHESTRATOR_MODEL,
+        system: SYSTEM_PROMPT,
+        messages,
+        tools: offerTools ? toolDefinitionsForModel() : [],
+        max_tokens: 1500,
+        temperature: 0.7,
+        top_p: 0.9,
+        repetition_penalty: 1.05,
+        ledger: { user_id: userId, operation_type: "workers_ai.chat" },
+      },
+      (chunk) => {
+        if (chunk.delta) emit("message_delta", { text: chunk.delta });
+      },
+    );
 
-    // Persist assistant message (text + tool_use blocks).
+    // Persist assistant message (text + tool_use blocks) after streaming completes.
     const assistantContent: LlmContent[] = [];
     if (out.text) assistantContent.push({ type: "text", text: out.text });
     for (const tu of out.tool_uses) {
@@ -330,7 +336,6 @@ async function runAgentLoop(args: {
       cost_ledger_id: out.cost_ledger_id,
       stop_reason: out.stop_reason,
     });
-    if (out.text) emit("message_delta", { text: out.text });
 
     if (out.tool_uses.length === 0 || out.stop_reason !== "tool_use") {
       return; // end of turn
