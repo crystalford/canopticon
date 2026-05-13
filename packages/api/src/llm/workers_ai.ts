@@ -74,19 +74,20 @@ export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCal
 
   const rawToolCalls = res.tool_calls ?? [];
   const openAiToolCalls = openAiMsg?.tool_calls ?? [];
-  const tool_uses = rawToolCalls.length > 0
-    ? rawToolCalls.map((tc, i) => ({
-        id: tc.id ?? `call_${i}_${crypto.randomUUID().slice(0, 8)}`,
-        name: tc.name,
-        input: typeof tc.arguments === "string" ? safeParse(tc.arguments) : (tc.arguments ?? {}),
-      }))
-    : openAiToolCalls
-        .filter((tc) => tc.function?.name)
-        .map((tc, i) => ({
+  const tool_uses =
+    rawToolCalls.length > 0
+      ? rawToolCalls.map((tc, i) => ({
           id: tc.id ?? `call_${i}_${crypto.randomUUID().slice(0, 8)}`,
-          name: tc.function?.name ?? "",
-          input: tc.function?.arguments ? safeParse(tc.function.arguments) : {},
-        }));
+          name: tc.name,
+          input: typeof tc.arguments === "string" ? safeParse(tc.arguments) : (tc.arguments ?? {}),
+        }))
+      : openAiToolCalls
+          .filter((tc) => tc.function?.name)
+          .map((tc, i) => ({
+            id: tc.id ?? `call_${i}_${crypto.randomUUID().slice(0, 8)}`,
+            name: tc.function?.name ?? "",
+            input: tc.function?.arguments ? safeParse(tc.function.arguments) : {},
+          }));
 
   const usage = {
     input_tokens: res.usage?.prompt_tokens ?? res.usage?.input_tokens ?? 0,
