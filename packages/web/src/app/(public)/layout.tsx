@@ -10,7 +10,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <div className="min-h-screen bg-[#f4ede0] text-[#1a1410]">
       <header className="border-b border-[#1a1410]/15 bg-[#f4ede0]">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Link href="/p" className="font-serif text-2xl tracking-tight text-[#1a1410]">
+          <Link href="/" className="font-serif text-2xl tracking-tight text-[#1a1410]">
             CANOPTICON
           </Link>
           <nav className="flex gap-4 font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
