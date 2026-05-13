@@ -1,7 +1,9 @@
 // Shared vertical nav. Rendered in both the desktop fixed sidebar and
-// the mobile slide-in drawer.
+// the mobile slide-in drawer. Conversations live inside the same panel
+// (ChatGPT / Claude style) so the chat page doesn't need its own rail.
 
 import Link from "next/link";
+import { SidebarConversations } from "./SidebarConversations";
 
 export interface NavItem {
   href: string;
@@ -33,24 +35,14 @@ export function Sidebar({
       <div className="border-b border-border-soft px-4 py-4">
         <div className="flex items-center gap-2 text-cream-bright">
           <svg
-            viewBox="0 0 48 16"
+            viewBox="0 0 16 16"
             fill="currentColor"
-            className="h-4 w-12 shrink-0"
+            className="h-5 w-5 shrink-0"
             aria-hidden="true"
           >
-            <title>Canopticon eye mark</title>
-            <path d="M0 8 L4 4 L4 12 Z" />
-            <path d="M48 8 L44 4 L44 12 Z" />
-            <ellipse
-              cx="24"
-              cy="8"
-              rx="12"
-              ry="6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            />
-            <circle cx="24" cy="8" r="2.5" />
+            <title>Canopticon</title>
+            <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.4" />
+            <circle cx="8" cy="8" r="2.4" />
           </svg>
           <span className="font-sans text-base font-extrabold uppercase tracking-tight">
             Canopticon
@@ -61,7 +53,7 @@ export function Sidebar({
         </div>
       </div>
 
-      <ul className="flex-1 overflow-y-auto py-2">
+      <ul className="shrink-0 py-2">
         {NAV_ITEMS.map((item) => {
           const isActive = active === item.href;
           return (
@@ -83,16 +75,38 @@ export function Sidebar({
         })}
       </ul>
 
-      {email && (
-        <div className="border-t border-border-soft px-4 py-3">
-          <div className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
-            Signed in as
-          </div>
-          <div className="mt-1 truncate font-mono text-[11px] text-cream-dim" title={email}>
-            {email}
-          </div>
-        </div>
-      )}
+      <SidebarConversations {...(onNavigate ? { onNavigate } : {})} />
+
+      <div className="shrink-0 border-t border-border-soft px-4 py-3">
+        {email ? (
+          <>
+            <div className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
+              Signed in as
+            </div>
+            <div className="mt-1 truncate font-mono text-[11px] text-cream-dim" title={email}>
+              {email}
+            </div>
+            <a
+              href="/cdn-cgi/access/logout"
+              className="mt-2 inline-block border border-border-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-cream-dim hover:border-cream-dim hover:text-cream-bright"
+            >
+              Sign out
+            </a>
+          </>
+        ) : (
+          <>
+            <div className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
+              Not signed in
+            </div>
+            <a
+              href="/"
+              className="mt-2 inline-block border border-amber bg-amber/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber hover:bg-amber/20"
+            >
+              Sign in
+            </a>
+          </>
+        )}
+      </div>
     </nav>
   );
 }
