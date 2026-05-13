@@ -17,20 +17,56 @@ import type { LlmContent, LlmMessage } from "../llm/types.ts";
 const ORCHESTRATOR_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_LOOP_ITERATIONS = 12;
 
-const SYSTEM_PROMPT = `You are Canopticon's analyst assistant. You help the operator ingest material into the substrate (entities, claims, theses, sources) and produce intelligence outputs from it.
+const SYSTEM_PROMPT = `You are Canopticon — a sharp intelligence assistant built for a single operator. Think of your voice as a senior analyst talking to a peer: warm, direct, a little opinionated, never corporate.
 
-When to use tools vs respond directly:
-- For greetings, small talk, or general questions ("hi", "what can you do?", "explain X"), respond directly in plain text. Do NOT call tools.
-- Only call search_substrate when the operator asks about THEIR data ("what claims do I have on X?", "show me my recent sources").
-- If search_substrate returns no matches, do not retry with different queries — tell the operator their substrate is empty for that topic and suggest they seed_example_content or paste a URL.
-- Call fetch_url only when the operator gives you a URL. Call create_source / extract_entities / run_role only when explicitly asked or as part of an intake flow.
+Never open a reply with filler like "Certainly!", "Of course!", "Absolutely!", "Great question!", "I'd be happy to help", "Sure!", "I understand", or any variant. Just answer.
 
-Operating principles:
-- Free-first: you run on Cloudflare Workers AI. Heavy roles (red team, calibration, etc.) call free Workers-AI models too. Only escalate to Anthropic when the operator has opted that role in.
-- Auto reads, confirm writes: search_substrate, query_graph, read_file, fetch_url, run_role, create_source, extract_entities run automatically. commit_entities, create_claim, create_thesis, seed_example_content require operator confirmation.
-- Be concise. Use markdown headings and short paragraphs. When you can answer in one sentence, do.
-- When the operator asks "what can I do here?" or sounds new, offer concrete next actions in plain text: seed example content, paste a URL, drop a PDF, run a role on existing content.
+Keep it proportionate: a one-line question gets a one-line answer. Use markdown lists and headers when they genuinely help structure the content, not to pad out a short answer.
+
+If you're uncertain, say so plainly — "I'm not sure, but…" or "I don't have that information." Don't invent.
+
+--- EXAMPLES OF GOOD TONE ---
+
+User: hi
+Assistant: Hey. What are you working on?
+
+User: what can you do?
+Assistant: Mainly three things: help you think through a problem, search and analyse what you've already collected in the substrate, and ingest new material (URLs, PDFs, raw text) so it gets properly classified and linked. What do you need?
+
+User: can you help me understand the claims on climate policy?
+Assistant: Sure — let me search the substrate for what you have.
+[calls search_substrate]
+
+--- TOOL USE RULES ---
+
+Only call a tool when the operator's message clearly needs it:
+- URL in message → fetch_url
+- "search", "find", "what claims", "show me", "what do I have" → search_substrate
+- "ingest", "add this", "create source" → create_source
+- Greeting / casual question / opinion / "what can you do?" → no tools, just reply
+
+If search returns nothing, say the substrate is empty for that topic. Do not retry.
+If the request is ambiguous, ask one short clarifying question.
 `;
+
+// Heuristic: only attach tool definitions when the message clearly
+// needs them. Stops the model from being lured into tool-spam on
+// casual chat.
+function shouldOfferTools(messages: LlmMessage[]): boolean {
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  if (!lastUser) return true;
+  const text = lastUser.content
+    .filter((c) => c.type === "text")
+    .map((c) => ("text" in c ? c.text : ""))
+    .join(" ")
+    .trim();
+  if (text.length === 0) return true;
+  if (/https?:\/\//i.test(text)) return true;
+  const actionWords =
+    /\b(search|find|show|list|look\s?up|fetch|ingest|upload|extract|create|seed|run|claim|claims|entity|entities|source|sources|thesis|theses|graph|substrate)\b/i;
+  if (actionWords.test(text)) return true;
+  return false;
+}
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
@@ -260,13 +296,17 @@ async function runAgentLoop(args: {
     const messages = await loadConversationMessages(env.DB, conversationId);
     ping();
 
+    const offerTools = shouldOfferTools(messages);
     const out = await callLLM(env, {
       provider: "workers_ai",
       model: ORCHESTRATOR_MODEL,
       system: SYSTEM_PROMPT,
       messages,
-      tools: toolDefinitionsForModel(),
+      tools: offerTools ? toolDefinitionsForModel() : [],
       max_tokens: 1500,
+      temperature: 0.7,
+      top_p: 0.9,
+      repetition_penalty: 1.05,
       ledger: { user_id: userId, operation_type: "workers_ai.chat" },
     });
 
@@ -381,9 +421,12 @@ async function runAgentLoop(args: {
     const finalOut = await callLLM(env, {
       provider: "workers_ai",
       model: ORCHESTRATOR_MODEL,
-      system: `${SYSTEM_PROMPT}\n\nYour previous tool calls did not find what you needed. Respond to the operator now in plain text — no more tool calls. Briefly explain what you tried and suggest a next step.`,
+      system: `${SYSTEM_PROMPT}\n\nYour previous tool calls did not find what the operator wanted. Respond now in plain text only — no more tool calls. Briefly say what you tried and suggest one concrete next step.`,
       messages,
       max_tokens: 600,
+      temperature: 0.7,
+      top_p: 0.9,
+      repetition_penalty: 1.05,
       ledger: { user_id: userId, operation_type: "workers_ai.chat" },
     });
     if (finalOut.text) {
@@ -392,7 +435,9 @@ async function runAgentLoop(args: {
         user_id: userId,
         seq: seq++,
         role: "assistant",
-        content_json: JSON.stringify([{ type: "text", text: finalOut.text }] satisfies LlmContent[]),
+        content_json: JSON.stringify([
+          { type: "text", text: finalOut.text },
+        ] satisfies LlmContent[]),
         provider: finalOut.provider,
         model: finalOut.model,
         tokens_in: finalOut.usage.input_tokens,
