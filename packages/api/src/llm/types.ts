@@ -36,6 +36,8 @@ export interface LlmCallInput {
   tools?: LlmToolDef[] | undefined;
   max_tokens: number;
   temperature?: number | undefined;
+  top_p?: number | undefined;
+  repetition_penalty?: number | undefined;
   /** Request JSON output that matches this schema. Only honoured by Anthropic. */
   response_schema?: Record<string, unknown> | undefined;
   /** When set, the call ledgers itself under this operation_type and user. */

@@ -27,6 +27,8 @@ export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCal
     max_tokens: input.max_tokens,
     temperature: input.temperature ?? 0,
   };
+  if (input.top_p !== undefined) body.top_p = input.top_p;
+  if (input.repetition_penalty !== undefined) body.repetition_penalty = input.repetition_penalty;
   if (input.tools && input.tools.length > 0) {
     body.tools = input.tools.map((t) => ({
       type: "function",
@@ -43,7 +45,7 @@ export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCal
 
   const res = (await ai.run(input.model as never, body as never)) as WorkersAiChatResponse;
 
-  const text = typeof res.response === "string" ? res.response : "";
+  const text = stripFiller(typeof res.response === "string" ? res.response : "");
   const tool_uses = (res.tool_calls ?? []).map((tc, i) => ({
     id: tc.id ?? `call_${i}_${crypto.randomUUID().slice(0, 8)}`,
     name: tc.name,
@@ -107,6 +109,13 @@ function serializeContent(content: LlmContent[]): string {
     else if (c.type === "image") parts.push(`[Image attached, mime=${c.mime}]`);
   }
   return parts.join("\n");
+}
+
+function stripFiller(text: string): string {
+  return text.replace(
+    /^(Certainly!?|Of course!?|Sure!?|Absolutely!?|Great question!?|I'd be happy to[^!]*!?|I'm happy to help[^!]*!?)\s*/i,
+    "",
+  );
 }
 
 function safeParse(s: string): Record<string, unknown> {
