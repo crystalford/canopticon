@@ -10,6 +10,7 @@ import { type AuthContext, requireAuth } from "../auth/middleware.ts";
 import { all, insertOne, one, parseJson, run } from "../lib/d1.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
 import { SSE_HEADERS, formatSseComment, formatSseEvent } from "../lib/sse.ts";
+import { runCascade } from "../llm/cascade.ts";
 import { extractUpload } from "../llm/extract.ts";
 import { callLLM, streamLLM } from "../llm/index.ts";
 import { TOOLS_BY_NAME, type ToolSideEffect, toolDefinitionsForModel } from "../llm/tools.ts";
@@ -189,9 +190,21 @@ app.post("/conversations/:id/messages", async (c) => {
   // pending — it's slower for the first message touching a file but means
   // "drop PDF + ask question" works in a single turn.
   const userContent: LlmContent[] = [{ type: "text", text: body.text }];
+  const newSourceIds: string[] = [];
   for (const fid of body.attached_file_ids ?? []) {
-    const preamble = await buildFilePreamble(c.env, fid);
-    if (preamble) userContent.push({ type: "text", text: preamble });
+    const result = await buildFilePreamble(c.env, fid);
+    if (result?.preamble) userContent.push({ type: "text", text: result.preamble });
+    // Only auto-cascade for sources that just got extracted on this turn —
+    // re-attaching the same file later shouldn't re-run the pipeline.
+    if (result?.sourceId && result.wasNewlyExtracted) newSourceIds.push(result.sourceId);
+  }
+  // Fire the analysis cascade in the background for any source that just
+  // landed. Operator's chat response returns immediately; the cascade runs
+  // ingestion_critic → claim_extraction and surfaces on /live as events.
+  for (const sourceId of newSourceIds) {
+    c.executionCtx.waitUntil(
+      runCascade(c.env, { userId, sourceId, trigger: "auto_on_chat_attach" }),
+    );
   }
   const userSeq = await nextSeq(c.env.DB, conversationId);
   await insertOne(c.env.DB, "chat_messages", {
@@ -510,10 +523,16 @@ interface FileRow {
   created_source_id: string | null;
 }
 
+interface FilePreambleResult {
+  preamble: string;
+  sourceId: string | null;
+  wasNewlyExtracted: boolean;
+}
+
 async function buildFilePreamble(
   env: AuthContext["Bindings"],
   fileId: string,
-): Promise<string | null> {
+): Promise<FilePreambleResult | null> {
   let row = await one<FileRow>(
     env.DB,
     `SELECT extraction_status, extracted_text, extracted_summary, original_filename,
@@ -523,9 +542,11 @@ async function buildFilePreamble(
   );
   if (!row) return null;
 
+  let wasNewlyExtracted = false;
   if (row.extraction_status === "pending" || row.extraction_status === "extracting") {
     try {
       await extractUpload(env, fileId);
+      wasNewlyExtracted = true;
       row = await one<FileRow>(
         env.DB,
         `SELECT extraction_status, extracted_text, extracted_summary, original_filename,
@@ -534,12 +555,20 @@ async function buildFilePreamble(
         [fileId],
       );
     } catch (err) {
-      return `<attached_file id="${fileId}" filename="${escapeAttr(row.original_filename)}" extraction_failed="true">\n${(err as Error).message}\n</attached_file>`;
+      return {
+        preamble: `<attached_file id="${fileId}" filename="${escapeAttr(row.original_filename)}" extraction_failed="true">\n${(err as Error).message}\n</attached_file>`,
+        sourceId: null,
+        wasNewlyExtracted: false,
+      };
     }
   }
   if (!row) return null;
   if (row.extraction_status !== "extracted") {
-    return `<attached_file id="${fileId}" filename="${escapeAttr(row.original_filename)}" extraction_status="${row.extraction_status}" />`;
+    return {
+      preamble: `<attached_file id="${fileId}" filename="${escapeAttr(row.original_filename)}" extraction_status="${row.extraction_status}" />`,
+      sourceId: row.created_source_id,
+      wasNewlyExtracted: false,
+    };
   }
 
   const summary = row.extracted_summary?.trim() ?? "";
@@ -554,7 +583,11 @@ async function buildFilePreamble(
   if (summary && summary !== text) lines.push(`Summary: ${summary}`, "");
   if (text) lines.push(text);
   lines.push("</attached_file>");
-  return lines.join("\n");
+  return {
+    preamble: lines.join("\n"),
+    sourceId: row.created_source_id,
+    wasNewlyExtracted,
+  };
 }
 
 function escapeAttr(s: string): string {
