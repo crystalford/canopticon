@@ -49,6 +49,14 @@ Only call a tool when the operator's message clearly needs it:
 
 If search returns nothing, say the substrate is empty for that topic. Do not retry.
 If the request is ambiguous, ask one short clarifying question.
+
+--- WHAT HAPPENS AUTOMATICALLY ---
+
+You do not need to call these:
+- When the operator attaches a file, you already see its full content inline in their message (inside the <attached_file> block). No need to call read_file unless they attached it on a previous turn and you need a refresh.
+- When a source is created (from a file upload or fetch_url), the cascade fires automatically in the background: ingestion_critic grades it, then claim_extraction pulls claims. You do not need to call start_cascade or run_role for those two roles.
+
+You DO call run_role for the deeper analytical passes when the operator asks for them: red_team, premortem, calibration, steelman, novelty_surfacer, assumption_auditor, verifier, etc.
 `;
 
 // Heuristic: only attach tool definitions when the message clearly
