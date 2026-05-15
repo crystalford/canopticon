@@ -10,6 +10,7 @@ import { type AuthContext, requireAuth } from "../auth/middleware.ts";
 import { all, insertOne, one, parseJson, run } from "../lib/d1.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
 import { SSE_HEADERS, formatSseComment, formatSseEvent } from "../lib/sse.ts";
+import { extractUpload } from "../llm/extract.ts";
 import { callLLM, streamLLM } from "../llm/index.ts";
 import { TOOLS_BY_NAME, type ToolSideEffect, toolDefinitionsForModel } from "../llm/tools.ts";
 import type { LlmContent, LlmMessage } from "../llm/types.ts";
@@ -182,9 +183,15 @@ app.post("/conversations/:id/messages", async (c) => {
   if (!conv) throw notFound("conversation");
 
   // Persist the user message immediately.
+  // Attached files: expand the extracted text into the user message right
+  // away so the model sees the content on this turn without having to call
+  // read_file first. Extraction is triggered synchronously here if still
+  // pending — it's slower for the first message touching a file but means
+  // "drop PDF + ask question" works in a single turn.
   const userContent: LlmContent[] = [{ type: "text", text: body.text }];
   for (const fid of body.attached_file_ids ?? []) {
-    userContent.push({ type: "text", text: `<attached_file id="${fid}" />` });
+    const preamble = await buildFilePreamble(c.env, fid);
+    if (preamble) userContent.push({ type: "text", text: preamble });
   }
   const userSeq = await nextSeq(c.env.DB, conversationId);
   await insertOne(c.env.DB, "chat_messages", {
@@ -492,6 +499,66 @@ async function persistToolResult(
     tool_status: args.is_error ? "error" : "success",
     side_effects: args.side_effects ?? [],
   });
+}
+
+interface FileRow {
+  extraction_status: string;
+  extracted_text: string | null;
+  extracted_summary: string | null;
+  original_filename: string;
+  classification: string | null;
+  created_source_id: string | null;
+}
+
+async function buildFilePreamble(
+  env: AuthContext["Bindings"],
+  fileId: string,
+): Promise<string | null> {
+  let row = await one<FileRow>(
+    env.DB,
+    `SELECT extraction_status, extracted_text, extracted_summary, original_filename,
+            classification, created_source_id
+       FROM uploaded_files WHERE id = ?`,
+    [fileId],
+  );
+  if (!row) return null;
+
+  if (row.extraction_status === "pending" || row.extraction_status === "extracting") {
+    try {
+      await extractUpload(env, fileId);
+      row = await one<FileRow>(
+        env.DB,
+        `SELECT extraction_status, extracted_text, extracted_summary, original_filename,
+                classification, created_source_id
+           FROM uploaded_files WHERE id = ?`,
+        [fileId],
+      );
+    } catch (err) {
+      return `<attached_file id="${fileId}" filename="${escapeAttr(row.original_filename)}" extraction_failed="true">\n${(err as Error).message}\n</attached_file>`;
+    }
+  }
+  if (!row) return null;
+  if (row.extraction_status !== "extracted") {
+    return `<attached_file id="${fileId}" filename="${escapeAttr(row.original_filename)}" extraction_status="${row.extraction_status}" />`;
+  }
+
+  const summary = row.extracted_summary?.trim() ?? "";
+  const text = row.extracted_text?.trim() ?? "";
+  const attrs = [
+    `id="${fileId}"`,
+    `filename="${escapeAttr(row.original_filename)}"`,
+    `classification="${row.classification ?? "other"}"`,
+  ];
+  if (row.created_source_id) attrs.push(`source_id="${row.created_source_id}"`);
+  const lines = [`<attached_file ${attrs.join(" ")}>`];
+  if (summary && summary !== text) lines.push(`Summary: ${summary}`, "");
+  if (text) lines.push(text);
+  lines.push("</attached_file>");
+  return lines.join("\n");
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
 async function nextSeq(db: D1Database, conversationId: string): Promise<number> {
