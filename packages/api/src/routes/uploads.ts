@@ -6,6 +6,7 @@ import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
 import { all, insertOne, one } from "../lib/d1.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
+import { runCascade } from "../llm/cascade.ts";
 import { extractUpload } from "../llm/extract.ts";
 
 const app = new Hono<AuthContext>();
@@ -87,6 +88,14 @@ app.post("/:id/extract", async (c) => {
   );
   if (!owned) throw notFound("upload");
   const result = await extractUpload(c.env, owned.id);
+  // Kick the analysis cascade in the background so the response returns now.
+  c.executionCtx.waitUntil(
+    runCascade(c.env, {
+      userId,
+      sourceId: result.source_id,
+      trigger: "auto_on_extract",
+    }),
+  );
   return c.json(result);
 });
 

@@ -2,7 +2,9 @@
 
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import { all, insertOne, one } from "../lib/d1.ts";
+import { all, one } from "../lib/d1.ts";
+import { badRequest, notFound } from "../lib/errors.ts";
+import { runCascade } from "../llm/cascade.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
@@ -28,23 +30,23 @@ app.get("/runs/:id", async (c) => {
   return c.json({ run, invocations });
 });
 
+// Manually trigger a cascade for a specific source. The cascade itself runs
+// in the background via waitUntil — the response returns immediately with
+// just an acknowledgement; progress shows up on /live via orchestrator_events.
 app.post("/run", async (c) => {
   const userId = c.get("user_id");
-  const runId = await insertOne(c.env.DB, "cascade_runs", {
-    user_id: userId,
-    status: "pending",
-    trigger_source: "operator",
-    started_at: new Date().toISOString(),
-  });
-  await insertOne(c.env.DB, "orchestrator_events", {
-    user_id: userId,
-    event_type: "cascade.started",
-    cascade_run_id: runId,
-    subject_kind: "cascade_run",
-    subject_id: runId,
-    payload: { trigger: "operator" },
-  });
-  return c.json({ run_id: runId }, 202);
+  const body = (await c.req.json().catch(() => ({}))) as { source_id?: string };
+  if (!body.source_id) throw badRequest("source_id is required");
+  const source = await one<{ id: string }>(
+    c.env.DB,
+    "SELECT id FROM sources WHERE id = ? AND user_id = ?",
+    [body.source_id, userId],
+  );
+  if (!source) throw notFound("source");
+  c.executionCtx.waitUntil(
+    runCascade(c.env, { userId, sourceId: body.source_id, trigger: "operator" }),
+  );
+  return c.json({ accepted: true, source_id: body.source_id }, 202);
 });
 
 export default app;
