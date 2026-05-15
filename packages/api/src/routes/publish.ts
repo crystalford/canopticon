@@ -122,14 +122,148 @@ const confirmSchema = z.object({
 });
 
 app.post("/theses/:id/confirm", async (c) => {
+  const userId = c.get("user_id");
   const id = c.req.param("id");
   const parsed = confirmSchema.safeParse(await c.req.json());
   if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
+
+  const thesis = await one<{
+    id: string;
+    user_id: string;
+    title: string;
+    seed_summary: string | null;
+    coined_phrase: string | null;
+    ipcc_likelihood: string | null;
+    public_slug: string | null;
+    primary_operator: string | null;
+    current_version_id: string | null;
+  }>(c.env.DB, "SELECT * FROM theses WHERE id = ? AND user_id = ?", [id, userId]);
+  if (!thesis) throw badRequest("thesis not found");
+
+  const publishedAt = new Date().toISOString();
+  const slug = thesis.public_slug ?? slugify(thesis.title);
   await updateById(c.env.DB, "theses", id, {
     is_public: true,
-    published_at: new Date().toISOString(),
+    public_slug: slug,
+    published_at: publishedAt,
   });
-  return c.json({ ok: true });
+
+  // Populate the public cache so the published thesis surfaces on /p.
+  const version = thesis.current_version_id
+    ? await one<{
+        tier_bluf: string;
+        tier_80: string;
+        tier_800: string;
+        tier_full: string | null;
+        version_number: number;
+      }>(
+        c.env.DB,
+        "SELECT tier_bluf, tier_80, tier_800, tier_full, version_number FROM thesis_versions WHERE id = ?",
+        [thesis.current_version_id],
+      )
+    : null;
+  if (!version) throw badRequest("thesis has no current_version_id; cannot publish");
+
+  await c.env.DB.prepare(
+    `INSERT OR REPLACE INTO pub_theses_cache
+       (thesis_id, user_id, slug, title, seed_summary, coined_phrase, ipcc_likelihood,
+        tier_bluf, tier_80, tier_800, tier_full, version_number, primary_operator,
+        published_at, payload, refreshed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', ?)`,
+  )
+    .bind(
+      thesis.id,
+      thesis.user_id,
+      slug,
+      thesis.title,
+      thesis.seed_summary,
+      thesis.coined_phrase,
+      thesis.ipcc_likelihood,
+      version.tier_bluf,
+      version.tier_80,
+      version.tier_800,
+      version.tier_full,
+      version.version_number,
+      thesis.primary_operator,
+      publishedAt,
+      publishedAt,
+    )
+    .run();
+
+  return c.json({ ok: true, slug });
 });
+
+app.post("/articles/:id/confirm", async (c) => {
+  const userId = c.get("user_id");
+  const id = c.req.param("id");
+  const parsed = confirmSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) throw badRequest("invalid body", { issues: parsed.error.issues });
+
+  const article = await one<{
+    id: string;
+    user_id: string;
+    article_type: string;
+    title: string;
+    subtitle: string | null;
+    author: string | null;
+    byline_date: string | null;
+    public_slug: string | null;
+    current_version_id: string | null;
+  }>(c.env.DB, "SELECT * FROM articles WHERE id = ? AND user_id = ?", [id, userId]);
+  if (!article) throw badRequest("article not found");
+  if (!article.current_version_id) throw badRequest("article has no current_version_id");
+
+  const version = await one<{
+    body_md: string;
+    word_count: number | null;
+    reading_time_minutes: number | null;
+  }>(
+    c.env.DB,
+    "SELECT body_md, word_count, reading_time_minutes FROM article_versions WHERE id = ?",
+    [article.current_version_id],
+  );
+  if (!version) throw badRequest("article_version not found");
+
+  const publishedAt = new Date().toISOString();
+  const slug = article.public_slug ?? slugify(article.title);
+  await updateById(c.env.DB, "articles", id, {
+    is_public: true,
+    public_slug: slug,
+    published_at: publishedAt,
+  });
+
+  await c.env.DB.prepare(
+    `INSERT OR REPLACE INTO pub_articles_cache
+       (article_id, user_id, slug, article_type, title, subtitle, author, byline_date,
+        body_md, word_count, reading_time_minutes, published_at, payload, refreshed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', ?)`,
+  )
+    .bind(
+      article.id,
+      article.user_id,
+      slug,
+      article.article_type,
+      article.title,
+      article.subtitle,
+      article.author,
+      article.byline_date,
+      version.body_md,
+      version.word_count,
+      version.reading_time_minutes,
+      publishedAt,
+      publishedAt,
+    )
+    .run();
+
+  return c.json({ ok: true, slug });
+});
+
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
 
 export default app;
