@@ -555,6 +555,46 @@ const seed_example_content: ToolDef = {
   },
 };
 
+// note_finding: used by the watcher agent (and available to chat) to log
+// a short observation as an orchestrator_event for the Live screen. No
+// substrate mutation beyond the event row.
+const note_finding: ToolDef = {
+  name: "note_finding",
+  description:
+    "Log a short observation (a language shift, a no-change-since-last-check, a no-match) as an event on the Live feed. Use this from the watcher loop to record what you saw. No substrate mutation.",
+  input_schema: {
+    type: "object",
+    properties: {
+      kind: {
+        enum: ["language_shift", "no_change", "no_match", "anomaly", "note"],
+      },
+      summary: {
+        type: "string",
+        description: "One paragraph. Terse, specific, no filler.",
+      },
+      subject_kind: { type: "string" },
+      subject_id: { type: "string" },
+    },
+    required: ["kind", "summary"],
+  },
+  confirm: false,
+  async exec({ env, userId }, input) {
+    const kind = String(input.kind);
+    const summary = String(input.summary);
+    const eventId = await insertOne(env.DB, "orchestrator_events", {
+      user_id: userId,
+      event_type: `finding.${kind}`,
+      subject_kind: (input.subject_kind as string | undefined) ?? null,
+      subject_id: (input.subject_id as string | undefined) ?? null,
+      payload: { kind, summary },
+    });
+    return {
+      output: `Logged ${kind}: ${summary}`,
+      side_effects: [{ kind: "role_invocation", id: eventId, summary }],
+    };
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -571,6 +611,7 @@ export const TOOLS: ToolDef[] = [
   create_claim,
   create_thesis,
   seed_example_content,
+  note_finding,
 ];
 
 export const TOOLS_BY_NAME: Record<string, ToolDef> = Object.fromEntries(

@@ -30,6 +30,13 @@ index_name = "canopticon-embeddings"
 [ai]
 binding = "AI"
 
+# Cron Triggers — fires the `scheduled()` handler in src/index.ts.
+# Currently every Monday at 12:00 UTC: the watcher loops over enabled
+# monitors and kicks off the agent for each. Add more cron lines for
+# different cadences as the monitor cluster grows.
+[triggers]
+crons = ["0 12 * * 1"]
+
 [vars]
 LOG_LEVEL = "info"
 OPERATOR_EMAIL = ""
