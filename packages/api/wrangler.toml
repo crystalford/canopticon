@@ -40,4 +40,11 @@ crons = ["0 12 * * 1"]
 [vars]
 LOG_LEVEL = "info"
 OPERATOR_EMAIL = ""
+# Toggles the Graph compartment. "true" enables substrate tools in chat
+# (search_substrate, query_graph, create_source, etc.) and fires the
+# auto-cascade on post publish. "false" hides graph tools entirely; CMS
+# (chat -> draft -> publish -> /p/<slug>) keeps working with no graph
+# dependency. Flip per environment to develop graph features without
+# breaking the publication.
+GRAPH_ENABLED = "true"
 # deploy trigger: 2026-05-12

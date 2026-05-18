@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { AuthContext } from "./auth/middleware.ts";
+import postsRoutes from "./cms/routes/api-posts.ts";
 import type { Env } from "./env.ts";
 import { ApiError } from "./lib/errors.ts";
 import articlesRoutes from "./routes/articles.ts";
@@ -86,6 +87,7 @@ v1.route("/chat", chatRoutes);
 v1.route("/uploads", uploadsRoutes);
 v1.route("/embeddings", embeddingsRoutes);
 v1.route("/monitors", monitorsRoutes);
+v1.route("/posts", postsRoutes);
 app.route("/v1", v1);
 
 import { all as dbAll } from "./lib/d1.ts";
@@ -95,12 +97,12 @@ import { runWatcher } from "./llm/watcher.ts";
 // declared in wrangler.toml. For each enabled monitor, we kick off a
 // watcher via ctx.waitUntil so the worker invocation returns quickly
 // while the agent loops run in the background.
-async function scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+const scheduled: ExportedHandlerScheduledHandler<Env> = async (_controller, env, ctx) => {
   const monitors = await dbAll<{ id: string }>(env.DB, "SELECT id FROM monitors WHERE enabled = 1");
   for (const m of monitors) {
     ctx.waitUntil(runWatcher(env, m.id));
   }
-}
+};
 
 export default {
   fetch: app.fetch,

@@ -7,13 +7,14 @@
 
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { loadTools, toolDefinitionsForModel } from "../chat/tool-loader.ts";
 import { all, insertOne, one, parseJson, run } from "../lib/d1.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
 import { SSE_HEADERS, formatSseComment, formatSseEvent } from "../lib/sse.ts";
 import { runCascade } from "../llm/cascade.ts";
 import { extractUpload } from "../llm/extract.ts";
 import { callLLM, streamLLM } from "../llm/index.ts";
-import { TOOLS_BY_NAME, type ToolSideEffect, toolDefinitionsForModel } from "../llm/tools.ts";
+import type { ToolSideEffect } from "../llm/tools.ts";
 import type { LlmContent, LlmMessage } from "../llm/types.ts";
 
 const ORCHESTRATOR_MODEL = "@cf/moonshotai/kimi-k2.6";
@@ -41,11 +42,21 @@ Assistant: Sure — let me search the substrate for what you have.
 
 --- TOOL USE RULES ---
 
-Only call a tool when the operator's message clearly needs it:
+You have two groups of tools:
+
+CMS — always available, the operator's daily-driver:
+- "Draft a post about X" / pasted long block → draft_post
+- "What am I working on" / "show drafts" → list_drafts
+- "Show my posts" / "list articles" → list_posts
+- "Publish that as <slug>" → publish_post (set is_forensic=true only when the operator says "thesis" or "forensic")
+- "Edit that post" / "change the title" → update_post
+
+GRAPH — only available when the graph compartment is enabled:
 - URL in message → fetch_url
 - "search", "find", "what claims", "show me", "what do I have" → search_substrate
-- "ingest", "add this", "create source" → create_source
-- Greeting / casual question / opinion / "what can you do?" → no tools, just reply
+- "ingest", "add this" (for an external doc, not a post) → create_source
+
+Greeting / casual question / opinion / "what can you do?" → no tools, just reply.
 
 If search returns nothing, say the substrate is empty for that topic. Do not retry.
 If the request is ambiguous, ask one short clarifying question.
@@ -279,7 +290,8 @@ app.post("/conversations/:id/tool/:tool_use_id/confirm", async (c) => {
   );
   if (!toolRow) throw notFound("tool_use");
   if (toolRow.tool_status !== "pending") return c.json({ ok: true, already: true });
-  const tool = TOOLS_BY_NAME[toolRow.tool_name];
+  const { toolsByName } = loadTools(c.env);
+  const tool = toolsByName[toolRow.tool_name];
   if (!tool) throw badRequest(`unknown tool: ${toolRow.tool_name}`);
 
   const staged = parseJson<LlmContent[]>(toolRow.content_json, []);
@@ -320,6 +332,11 @@ async function runAgentLoop(args: {
   const { env, userId, conversationId, emit, ping } = args;
   let seq = args.startSeq;
 
+  const { tools: availableTools, toolsByName, graphEnabled } = loadTools(env);
+  const systemPrompt = graphEnabled
+    ? SYSTEM_PROMPT
+    : `${SYSTEM_PROMPT}\n\n[Graph compartment disabled. Only CMS tools are available; if asked about claims/entities/sources/theses say "the graph is currently disabled" and offer to draft a post instead.]`;
+
   for (let iter = 0; iter < MAX_LOOP_ITERATIONS; iter++) {
     const messages = await loadConversationMessages(env.DB, conversationId);
     ping();
@@ -330,9 +347,9 @@ async function runAgentLoop(args: {
       {
         provider: "workers_ai",
         model: ORCHESTRATOR_MODEL,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         messages,
-        tools: offerTools ? toolDefinitionsForModel() : [],
+        tools: offerTools ? toolDefinitionsForModel(availableTools) : [],
         max_tokens: 1500,
         temperature: 0.7,
         top_p: 0.9,
@@ -371,7 +388,7 @@ async function runAgentLoop(args: {
 
     let blockedByConfirm = false;
     for (const tu of out.tool_uses) {
-      const tool = TOOLS_BY_NAME[tu.name];
+      const tool = toolsByName[tu.name];
       if (!tool) {
         await persistToolResult(env, {
           conversationId,
@@ -454,7 +471,7 @@ async function runAgentLoop(args: {
     const finalOut = await callLLM(env, {
       provider: "workers_ai",
       model: ORCHESTRATOR_MODEL,
-      system: `${SYSTEM_PROMPT}\n\nYour previous tool calls did not find what the operator wanted. Respond now in plain text only — no more tool calls. Briefly say what you tried and suggest one concrete next step.`,
+      system: `${systemPrompt}\n\nYour previous tool calls did not find what the operator wanted. Respond now in plain text only — no more tool calls. Briefly say what you tried and suggest one concrete next step.`,
       messages,
       max_tokens: 600,
       temperature: 0.7,
@@ -550,6 +567,7 @@ async function buildFilePreamble(
   );
   if (!row) return null;
 
+  const originalFilename = row.original_filename;
   let wasNewlyExtracted = false;
   if (row.extraction_status === "pending" || row.extraction_status === "extracting") {
     try {
@@ -564,7 +582,7 @@ async function buildFilePreamble(
       );
     } catch (err) {
       return {
-        preamble: `<attached_file id="${fileId}" filename="${escapeAttr(row.original_filename)}" extraction_failed="true">\n${(err as Error).message}\n</attached_file>`,
+        preamble: `<attached_file id="${fileId}" filename="${escapeAttr(originalFilename)}" extraction_failed="true">\n${(err as Error).message}\n</attached_file>`,
         sourceId: null,
         wasNewlyExtracted: false,
       };

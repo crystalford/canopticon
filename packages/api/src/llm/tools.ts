@@ -15,7 +15,7 @@ import { runRole } from "./role-runner";
 import { seedExamples } from "./seed-examples";
 
 export interface ToolSideEffect {
-  kind: "entity" | "claim" | "thesis" | "source" | "role_invocation" | "upload";
+  kind: "entity" | "claim" | "thesis" | "source" | "role_invocation" | "upload" | "post";
   id: string;
   summary: string;
 }
