@@ -1,10 +1,15 @@
 // Public home: D1+D4 Vercel-pro near-white. Masthead + publication feed.
 // Geist throughout. Single rose accent.
+//
+// `dynamic = "force-dynamic"` so freshly-published posts appear here
+// immediately. With ISR (revalidate: 60) the homepage could hold a
+// stale empty list for a minute after the operator hits Publish.
 
 import { publicGet } from "@/lib/public-api";
 import Link from "next/link";
 
 export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
 interface PubArticle {
   article_id?: string;
@@ -57,15 +62,15 @@ interface PubContradiction {
 
 export default async function PublicHomePage() {
   const [articlesR, postsR, thesesR, predsR, contraR] = await Promise.all([
-    publicGet<{ articles: PubArticle[] }>("/v1/public/articles", 60).catch(() => ({
+    publicGet<{ articles: PubArticle[] }>("/v1/public/articles", 0).catch(() => ({
       articles: [],
     })),
-    publicGet<{ posts: PubPost[] }>("/v1/public/posts", 60).catch(() => ({ posts: [] })),
-    publicGet<{ theses: PubThesis[] }>("/v1/public/theses", 60).catch(() => ({ theses: [] })),
-    publicGet<{ predictions: PubPrediction[] }>("/v1/public/predictions", 60).catch(() => ({
+    publicGet<{ posts: PubPost[] }>("/v1/public/posts", 0).catch(() => ({ posts: [] })),
+    publicGet<{ theses: PubThesis[] }>("/v1/public/theses", 0).catch(() => ({ theses: [] })),
+    publicGet<{ predictions: PubPrediction[] }>("/v1/public/predictions", 0).catch(() => ({
       predictions: [],
     })),
-    publicGet<{ contradictions: PubContradiction[] }>("/v1/public/contradictions", 60).catch(
+    publicGet<{ contradictions: PubContradiction[] }>("/v1/public/contradictions", 0).catch(
       () => ({ contradictions: [] }),
     ),
   ]);

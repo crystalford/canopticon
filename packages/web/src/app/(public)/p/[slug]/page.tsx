@@ -1,11 +1,20 @@
 // Canonical post URL: canopticon.com/p/<slug>. Reads from the CMS posts
 // table directly — no cache populator step. body_html was rendered at
 // publish time so this page is pure read-through.
+//
+// `dynamic = "force-dynamic"` (and `revalidate: 0` on the fetch) means
+// every request goes through to the API. The previous `revalidate: 60`
+// caused a real bug: visiting /p/<slug> before publish cached the 404
+// for 60s, so clicking "View public →" right after publishing showed
+// stale 404. With force-dynamic the cost is one D1 read per page view,
+// which is negligible at our traffic level and gives the operator an
+// immediately-correct experience after publishing.
 
 import { publicGet } from "@/lib/public-api";
 import { notFound } from "next/navigation";
 
 export const runtime = "edge";
+export const dynamic = "force-dynamic";
 
 interface PostDetail {
   id: string;
@@ -23,7 +32,7 @@ interface PostDetail {
 
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const r = await publicGet<{ post: PostDetail }>(`/v1/public/posts/${slug}`, 60).catch(() => null);
+  const r = await publicGet<{ post: PostDetail }>(`/v1/public/posts/${slug}`, 0).catch(() => null);
   if (!r) notFound();
   const p = r.post;
   const tags = safeJsonArray(p.tags);
