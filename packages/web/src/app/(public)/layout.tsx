@@ -18,16 +18,16 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             canopticon<span className="text-[var(--signal)]">.</span>
           </Link>
           <nav className="mono flex gap-5 text-[11px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
-            <Link href="/p/articles" className="hover:text-[var(--ink)]">
+            <Link href="/articles" className="hover:text-[var(--ink)]">
               Articles
             </Link>
-            <Link href="/p/theses" className="hover:text-[var(--ink)]">
+            <Link href="/theses" className="hover:text-[var(--ink)]">
               Theses
             </Link>
-            <Link href="/p/predictions" className="hover:text-[var(--ink)]">
+            <Link href="/predictions" className="hover:text-[var(--ink)]">
               Predictions
             </Link>
-            <Link href="/p/contradictions" className="hover:text-[var(--ink)]">
+            <Link href="/contradictions" className="hover:text-[var(--ink)]">
               Contradictions
             </Link>
             <Link href="/p/methodology" className="hover:text-[var(--ink)]">
