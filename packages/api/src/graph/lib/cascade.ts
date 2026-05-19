@@ -7,8 +7,8 @@
 // passes (red_team, premortem, calibration, etc.) that don't need to
 // auto-fire on every source.
 
-import type { Env } from "../env";
-import { insertOne, one, run } from "../lib/d1";
+import type { Env } from "../../env";
+import { insertOne, one, run } from "../../lib/d1";
 import { runRole } from "./role-runner";
 
 export interface RunCascadeArgs {

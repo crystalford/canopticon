@@ -4,9 +4,9 @@
 
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { runWatcher } from "../graph/lib/watcher.ts";
 import { all, one, run } from "../lib/d1.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
-import { runWatcher } from "../llm/watcher.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());

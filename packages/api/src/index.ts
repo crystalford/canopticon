@@ -90,8 +90,8 @@ v1.route("/monitors", monitorsRoutes);
 v1.route("/posts", postsRoutes);
 app.route("/v1", v1);
 
+import { runWatcher } from "./graph/lib/watcher.ts";
 import { all as dbAll } from "./lib/d1.ts";
-import { runWatcher } from "./llm/watcher.ts";
 
 // Cloudflare Cron Trigger handler. Wrangler fires this on the schedule
 // declared in wrangler.toml. For each enabled monitor, we kick off a

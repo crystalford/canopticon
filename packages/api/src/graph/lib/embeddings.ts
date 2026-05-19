@@ -1,6 +1,6 @@
 // Embeddings: Workers AI bge-large-en-v1.5 (1024-dim, cosine) -> Vectorize.
 
-import type { Env } from "../env";
+import type { Env } from "../../env";
 
 const EMBED_MODEL = "@cf/baai/bge-large-en-v1.5";
 

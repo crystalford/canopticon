@@ -4,11 +4,11 @@
 // substrate, only ingests genuinely new content via create_source (which
 // auto-fires the cascade), and emits a finding event for the Live screen.
 
-import type { Env } from "../env";
-import { insertOne, one, run } from "../lib/d1";
-import { callLLM } from "./index";
-import { TOOLS_BY_NAME, type ToolDef } from "./tools";
-import type { LlmContent, LlmMessage, LlmToolDef } from "./types";
+import type { Env } from "../../env";
+import { insertOne, one, run } from "../../lib/d1";
+import { callLLM } from "../../llm/index";
+import type { LlmContent, LlmMessage, LlmToolDef } from "../../llm/types";
+import { TOOLS_BY_NAME, type ToolDef } from "../tools/index";
 
 const WATCHER_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_LOOP_ITERATIONS = 8;

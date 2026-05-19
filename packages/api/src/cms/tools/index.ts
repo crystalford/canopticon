@@ -1,8 +1,8 @@
 // CMS chat tools — always registered, no feature flag. These keep the
 // chat → draft → publish loop working with zero graph dependency.
 
+import type { ToolDef } from "../../graph/tools/index";
 import { all, insertOne, one, run } from "../../lib/d1";
-import type { ToolDef } from "../../llm/tools";
 import { renderMarkdown, slugify } from "../lib/render-post.ts";
 
 const draftPost: ToolDef = {

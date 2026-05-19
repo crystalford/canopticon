@@ -4,10 +4,10 @@
 // so the downstream cascade (ingestion_critic -> claim_extraction -> ...)
 // fires automatically.
 
-import type { Env } from "../env";
-import { insertOne, one, run } from "../lib/d1";
+import type { Env } from "../../env";
+import { insertOne, one, run } from "../../lib/d1";
+import { callLLM } from "../../llm/index";
 import { embedText, upsertVector, vectorId } from "./embeddings";
-import { callLLM } from "./index";
 
 const INLINE_TEXT_MAX = 8 * 1024; // 8KB head kept in D1; full text lives in R2
 

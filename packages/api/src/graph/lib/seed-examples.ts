@@ -1,8 +1,8 @@
 // Seed-example-content tool body. Three short public-domain excerpts that
 // give the operator something to look at on first login.
 
-import type { Env } from "../env";
-import { insertOne } from "../lib/d1";
+import type { Env } from "../../env";
+import { insertOne } from "../../lib/d1";
 import { embedText, upsertVector, vectorId } from "./embeddings";
 
 interface SeedSource {

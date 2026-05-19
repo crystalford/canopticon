@@ -7,12 +7,12 @@
 //
 // "Auto reads, confirm writes" — see the plan for the policy.
 
-import type { Env } from "../env";
-import { all, insertOne, one, parseJson } from "../lib/d1";
-import { embedText, searchVectors, upsertVector, vectorId } from "./embeddings";
-import { extractUpload, extractUrl } from "./extract";
-import { runRole } from "./role-runner";
-import { seedExamples } from "./seed-examples";
+import type { Env } from "../../env";
+import { all, insertOne, one, parseJson } from "../../lib/d1";
+import { embedText, searchVectors, upsertVector, vectorId } from "../lib/embeddings";
+import { extractUpload, extractUrl } from "../lib/extract";
+import { runRole } from "../lib/role-runner";
+import { seedExamples } from "../lib/seed-examples";
 
 export interface ToolSideEffect {
   kind: "entity" | "claim" | "thesis" | "source" | "role_invocation" | "upload" | "post";

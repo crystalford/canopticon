@@ -2,10 +2,10 @@
 // into an LLM call, writes a role_invocations row, and emits an
 // orchestrator_events row so the Live screen sees it.
 
-import type { Env } from "../env";
-import { insertOne, one, parseJson, run } from "../lib/d1";
-import { callLLM } from "./index";
-import type { LlmMessage } from "./types";
+import type { Env } from "../../env";
+import { insertOne, one, parseJson, run } from "../../lib/d1";
+import { callLLM } from "../../llm/index";
+import type { LlmMessage } from "../../llm/types";
 
 export interface RunRoleArgs {
   userId: string;

@@ -9,8 +9,8 @@
 
 import { CMS_TOOLS } from "../cms/tools/index.ts";
 import type { Env } from "../env.ts";
-import { TOOLS as GRAPH_TOOLS } from "../llm/tools.ts";
-import type { ToolDef } from "../llm/tools.ts";
+import { TOOLS as GRAPH_TOOLS } from "../graph/tools/index.ts";
+import type { ToolDef } from "../graph/tools/index.ts";
 
 export interface LoadedTools {
   tools: ToolDef[];
