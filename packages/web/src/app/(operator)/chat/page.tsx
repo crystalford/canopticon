@@ -303,7 +303,7 @@ function ChatPageInner() {
           />
           <div className="mt-1 flex items-center justify-between">
             <span className="font-mono text-[10px] uppercase tracking-wider text-text-faint">
-              Workers AI · Moonshot Kimi K2.6
+              Workers AI · Llama 3.3 70B
             </span>
             <button
               type="button"

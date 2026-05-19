@@ -2,11 +2,13 @@
 // and normalizes the response shape.
 //
 // Models in scope:
-//   - @cf/moonshotai/kimi-k2.6                  (chat orchestrator, OpenAI shape)
-//   - @cf/meta/llama-4-scout-17b-16e-instruct   (multimodal, 131k ctx)
-//   - @cf/meta/llama-3.3-70b-instruct-fp8-fast  (tool-calling orchestrator)
-//   - @cf/qwen/qwq-32b                          (reasoning roles)
-//   - @cf/baai/bge-large-en-v1.5                (embeddings)
+//   - @cf/meta/llama-3.3-70b-instruct-fp8-fast  (chat orchestrator + extraction)
+//   - @cf/meta/llama-3.1-8b-instruct-fp8-fast   (cheap routing, citation, predictor parse)
+//   - @cf/meta/llama-4-scout-17b-16e-instruct   (multimodal, 131k ctx; PDF/image extract)
+//   - @cf/baai/bge-base-en-v1.5                 (768-dim embeddings)
+//
+// Kept partner-shape detection (Kimi/DeepSeek/OpenAI-compat) so we can
+// route to them via AI Gateway in future without rewriting the adapter.
 
 import type {
   LlmCallInput,

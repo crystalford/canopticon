@@ -17,7 +17,14 @@ import { callLLM, streamLLM } from "../llm/index.ts";
 import type { ToolSideEffect } from "../llm/tools.ts";
 import type { LlmContent, LlmMessage } from "../llm/types.ts";
 
-const ORCHESTRATOR_MODEL = "@cf/moonshotai/kimi-k2.6";
+// Chat orchestrator: Llama 3.3 70B (fp8-fast). Per the system spec, tool
+// routing technically belongs on Llama 3.1 8B and heavy synthesis on 3.3
+// 70B, but our unified agent loop benefits from a single model that does
+// both well — 3.3 70B handles tool calls reliably AND produces decent
+// prose. The router/heavy split can become a Phase-future optimization
+// if it matters. Claude Sonnet 4.6 via AI Gateway is the opt-in escape
+// hatch for synthesis + critic (Phase 6).
+const ORCHESTRATOR_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_LOOP_ITERATIONS = 12;
 
 const SYSTEM_PROMPT = `You are Canopticon — a sharp intelligence assistant built for a single operator. Think of your voice as a senior analyst talking to a peer: warm, direct, a little opinionated, never corporate.

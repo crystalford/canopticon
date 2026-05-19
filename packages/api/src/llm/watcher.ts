@@ -1,4 +1,4 @@
-// Watcher: a stripped-down Kimi agent loop that runs autonomously on a
+// Watcher: a stripped-down agent loop that runs autonomously on a
 // schedule against a single monitor. No SSE, no client, no confirm flow.
 // The agent fetches the source URL, judges novelty against the existing
 // substrate, only ingests genuinely new content via create_source (which
@@ -10,7 +10,7 @@ import { callLLM } from "./index";
 import { TOOLS_BY_NAME, type ToolDef } from "./tools";
 import type { LlmContent, LlmMessage, LlmToolDef } from "./types";
 
-const WATCHER_MODEL = "@cf/moonshotai/kimi-k2.6";
+const WATCHER_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const MAX_LOOP_ITERATIONS = 8;
 
 // Curated subset of the chat tool registry. note_finding is the only
