@@ -68,6 +68,22 @@ Greeting / casual question / opinion / "what can you do?" → no tools, just rep
 If search returns nothing, say the substrate is empty for that topic. Do not retry.
 If the request is ambiguous, ask one short clarifying question.
 
+--- DRAFTING POSTS FROM SCRATCH ---
+
+You have NO web search. You cannot look anyone up. If the operator says
+"make a new post on Mark Carney" or "write a profile of X" and you have
+no source material:
+- DO NOT call draft_post with empty content. That fails.
+- DO NOT invent facts from your training data. They may be wrong.
+- DO ask one short question: "I don't have web search yet — paste a URL,
+  drop a PDF, or give me your notes and I'll draft from there." Then
+  stop.
+
+When the operator gives you source material (URL, PDF, pasted text):
+- Use fetch_url / create_source / read_file to get the content into the substrate
+- Then draft_post with content grounded in that material, citing claims
+  via [claim:ID] markers when available.
+
 --- WHAT HAPPENS AUTOMATICALLY ---
 
 You do not need to call these:
@@ -79,7 +95,9 @@ You DO call run_role for the deeper analytical passes when the operator asks for
 
 // Heuristic: only attach tool definitions when the message clearly
 // needs them. Stops the model from being lured into tool-spam on
-// casual chat.
+// casual chat. Also catches CMS verbs (post, draft, publish, write, etc.)
+// so Llama gets real tools instead of hallucinating tool calls from the
+// system prompt.
 function shouldOfferTools(messages: LlmMessage[]): boolean {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUser) return true;
@@ -91,7 +109,7 @@ function shouldOfferTools(messages: LlmMessage[]): boolean {
   if (text.length === 0) return true;
   if (/https?:\/\//i.test(text)) return true;
   const actionWords =
-    /\b(search|find|show|list|look\s?up|fetch|ingest|upload|extract|create|seed|run|claim|claims|entity|entities|source|sources|thesis|theses|graph|substrate)\b/i;
+    /\b(search|find|show|list|look\s?up|fetch|ingest|upload|extract|create|seed|run|claim|claims|entity|entities|source|sources|thesis|theses|graph|substrate|post|draft|publish|write|article|articles|note|notes|profile|summari[sz]e|edit|update|withdraw)\b/i;
   if (actionWords.test(text)) return true;
   return false;
 }
