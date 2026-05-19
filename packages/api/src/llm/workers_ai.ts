@@ -134,6 +134,9 @@ export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCal
       finalText = rescued.remainder;
     }
   }
+  // Dedup: drop identical-input duplicates Llama sometimes emits in a
+  // single response. Keeps the first; subsequent ones are model noise.
+  finalToolUses = dedupeToolUses(finalToolUses);
 
   const usage = {
     input_tokens: res.usage?.prompt_tokens ?? res.usage?.input_tokens ?? 0,
@@ -298,18 +301,22 @@ export async function streamWorkersAi(
     }
   }
 
-  const tool_uses = [...toolByIndex.entries()]
+  // Build the raw list, then dedup by (name, input) — Llama sometimes
+  // emits the same call multiple times in one stream. Emit a single
+  // tool_use chunk per unique call so the UI doesn't render duplicate
+  // chips.
+  const rawToolUses = [...toolByIndex.entries()]
     .sort(([a], [b]) => a - b)
     .filter(([, t]) => t.name.length > 0)
-    .map(([idx, t]) => {
-      const tu = {
-        id: t.id || `call_${idx}_${crypto.randomUUID().slice(0, 8)}`,
-        name: t.name,
-        input: t.argumentsText ? safeParse(t.argumentsText) : {},
-      };
-      onChunk({ tool_use: tu });
-      return tu;
-    });
+    .map(([idx, t]) => ({
+      id: t.id || `call_${idx}_${crypto.randomUUID().slice(0, 8)}`,
+      name: t.name,
+      input: t.argumentsText ? safeParse(t.argumentsText) : {},
+    }));
+  const tool_uses = dedupeToolUses(rawToolUses);
+  for (const tu of tool_uses) {
+    onChunk({ tool_use: tu });
+  }
 
   const stop_reason: LlmStopReason =
     finishReason === "tool_calls" || tool_uses.length > 0
@@ -535,6 +542,44 @@ function looksLikeToolCallPrefix(accumulated: string): boolean {
   if (/^\{\s*"type"\s*:\s*"function"/.test(t)) return true;
   if (/^\{\s*"name"\s*:\s*"[a-z_]/i.test(t)) return true;
   return false;
+}
+
+/** Canonical hash of a tool call for dedup: name + stable-stringified
+ *  input. Order-independent — two calls with the same logical input
+ *  hash identically regardless of key insertion order. */
+export function toolUseHash(name: string, input: Record<string, unknown>): string {
+  return `${name}:${stableStringify(input)}`;
+}
+
+/** Fold a tool_uses array by hash: keep the first occurrence, drop the
+ *  rest. Llama 3.3 70B sometimes emits the same tool call N times in
+ *  one response (especially after a recent successful call). The agent
+ *  loop only needs to execute each unique call once.
+ *
+ *  Note: any legitimate "call the same tool twice in one turn" flow
+ *  would need to vary the input — identical-input duplicates are always
+ *  a model artifact. */
+export function dedupeToolUses<T extends { name: string; input: Record<string, unknown> }>(
+  tool_uses: T[],
+): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const tu of tool_uses) {
+    const h = toolUseHash(tu.name, tu.input);
+    if (seen.has(h)) continue;
+    seen.add(h);
+    out.push(tu);
+  }
+  return out;
+}
+
+function stableStringify(v: unknown): string {
+  if (v === null || typeof v !== "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return `[${v.map(stableStringify).join(",")}]`;
+  const keys = Object.keys(v as Record<string, unknown>).sort();
+  return `{${keys
+    .map((k) => `${JSON.stringify(k)}:${stableStringify((v as Record<string, unknown>)[k])}`)
+    .join(",")}}`;
 }
 
 function stripFiller(text: string): string {
