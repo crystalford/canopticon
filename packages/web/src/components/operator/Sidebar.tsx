@@ -1,6 +1,5 @@
-// Shared vertical nav. Rendered in both the desktop fixed sidebar and
-// the mobile slide-in drawer. Conversations live inside the same panel
-// (ChatGPT / Claude style) so the chat page doesn't need its own rail.
+// Operator sidebar — ports the design archive's op-side + op-nav structure.
+// Wordmark + nav (with icon + optional count) + signed-in footer.
 
 import Link from "next/link";
 import { SidebarConversations } from "./SidebarConversations";
@@ -11,14 +10,17 @@ export interface NavItem {
   icon: string;
 }
 
+// Order matches the design archive's operator console. Posts is new
+// (CMS admin — the design archive didn't have it; the spec needed one).
+// Studio is a placeholder per the system spec.
 export const NAV_ITEMS: NavItem[] = [
   { href: "/chat", label: "Chat", icon: "▤" },
-  { href: "/live", label: "Live", icon: "○" },
+  { href: "/posts", label: "Posts", icon: "✎" },
+  { href: "/live", label: "Dashboard", icon: "◐" },
   { href: "/graph", label: "Graph", icon: "◇" },
-  { href: "/studio", label: "Studio", icon: "▷" },
-  { href: "/library", label: "Library", icon: "≡" },
-  { href: "/sources", label: "Sources", icon: "◆" },
+  { href: "/sources", label: "Sources", icon: "◫" },
   { href: "/monitors", label: "Monitors", icon: "◎" },
+  { href: "/library", label: "Library", icon: "☐" },
   { href: "/system", label: "System", icon: "⚙" },
 ];
 
@@ -32,82 +34,69 @@ export function Sidebar({
   onNavigate?: () => void;
 }) {
   return (
-    <nav className="flex h-full w-full flex-col bg-bg-deeper">
-      <div className="border-b border-border-soft px-4 py-4">
-        <div className="flex items-center gap-2 text-cream-bright">
-          <svg
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            className="h-5 w-5 shrink-0"
-            aria-hidden="true"
-          >
-            <title>Canopticon</title>
-            <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1.4" />
-            <circle cx="8" cy="8" r="2.4" />
-          </svg>
-          <span className="font-sans text-base font-extrabold uppercase tracking-tight">
-            Canopticon
-          </span>
-        </div>
-        <div className="mt-1 font-mono text-[10px] uppercase tracking-wider text-text-faint">
-          Operator
+    <>
+      <div className="op-brand">
+        <Link
+          href="/"
+          className="block font-sans text-[22px] font-semibold tracking-tight text-[var(--ink)]"
+        >
+          canopticon<span className="text-[var(--signal)]">.</span>
+        </Link>
+        <div className="mono mt-1" style={{ fontSize: 11, color: "var(--ink-mute)" }}>
+          operator console
         </div>
       </div>
 
-      <ul className="shrink-0 py-2">
+      <nav className="op-nav">
         {NAV_ITEMS.map((item) => {
           const isActive = active === item.href;
           return (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                {...(onNavigate ? { onClick: onNavigate } : {})}
-                className={`flex items-center gap-3 border-l-2 px-4 py-2 font-mono text-[11px] uppercase tracking-wider ${
-                  isActive
-                    ? "border-cream bg-cream-glow text-cream-bright"
-                    : "border-transparent text-text-dim hover:border-cream-dim hover:text-cream"
-                }`}
-              >
-                <span className="text-base leading-none">{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            </li>
+            <Link
+              key={item.href}
+              href={item.href}
+              {...(onNavigate ? { onClick: onNavigate } : {})}
+              className={isActive ? "on" : ""}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span
+                  style={{
+                    color: "var(--ink-mute)",
+                    width: 14,
+                    display: "inline-block",
+                  }}
+                >
+                  {item.icon}
+                </span>
+                {item.label}
+              </span>
+            </Link>
           );
         })}
-      </ul>
+      </nav>
 
       <SidebarConversations {...(onNavigate ? { onNavigate } : {})} />
 
-      <div className="shrink-0 border-t border-border-soft px-4 py-3">
+      <div className="op-side-foot">
         {email ? (
           <>
-            <div className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
-              Signed in as
-            </div>
-            <div className="mt-1 truncate font-mono text-[11px] text-cream-dim" title={email}>
-              {email}
-            </div>
+            <div>Signed in · {email}</div>
             <a
               href="/cdn-cgi/access/logout"
-              className="mt-2 inline-block border border-border-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-cream-dim hover:border-cream-dim hover:text-cream-bright"
+              className="mono"
+              style={{ color: "var(--ink-3)", textDecoration: "none" }}
             >
-              Sign out
+              Sign out →
             </a>
           </>
         ) : (
           <>
-            <div className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
-              Not signed in
-            </div>
-            <a
-              href="/"
-              className="mt-2 inline-block border border-amber bg-amber/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber hover:bg-amber/20"
-            >
-              Sign in
+            <div>Not signed in</div>
+            <a href="/" className="mono" style={{ color: "var(--signal)", textDecoration: "none" }}>
+              Sign in →
             </a>
           </>
         )}
       </div>
-    </nav>
+    </>
   );
 }
