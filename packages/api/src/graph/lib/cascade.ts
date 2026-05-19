@@ -9,6 +9,9 @@
 
 import type { Env } from "../../env";
 import { insertOne, one, run } from "../../lib/d1";
+import { runCharacterUpdater } from "../roles/character-updater";
+import { recomputeHeatForSource } from "./heat-score";
+import { seedCharacterFromWikipedia } from "./character";
 import { runRole } from "./role-runner";
 
 export interface RunCascadeArgs {
@@ -73,6 +76,84 @@ export async function runCascade(env: Env, args: RunCascadeArgs): Promise<void> 
         args.sourceId,
       ]);
     }
+  }
+
+  // Character pipeline — runs after claim extraction. Recomputes heat
+  // for every person mentioned in the new claims; auto-promotes anyone
+  // crossing the threshold (with a Wikipedia seed if possible); then
+  // fires the updater for every existing character touched by this
+  // source. All best-effort: any failure is logged but does not fail
+  // the cascade.
+  try {
+    const { recomputed, promoted } = await recomputeHeatForSource(
+      env,
+      args.userId,
+      args.sourceId,
+    );
+    for (const entityId of promoted) {
+      try {
+        await seedCharacterFromWikipedia(env, args.userId, entityId);
+        await insertOne(env.DB, "orchestrator_events", {
+          user_id: args.userId,
+          event_type: "character.auto_promoted",
+          cascade_run_id: cascadeRunId,
+          subject_kind: "entity",
+          subject_id: entityId,
+          payload: { source_id: args.sourceId },
+        });
+      } catch (err) {
+        await insertOne(env.DB, "orchestrator_events", {
+          user_id: args.userId,
+          event_type: "character.promotion_failed",
+          cascade_run_id: cascadeRunId,
+          subject_kind: "entity",
+          subject_id: entityId,
+          payload: { error: (err as Error).message },
+        });
+      }
+    }
+    // Existing characters that aren't in `promoted` but were touched by
+    // this source get an updater run with the new claims.
+    for (const entityId of recomputed) {
+      const isChar = await one<{ is_character: number }>(
+        env.DB,
+        "SELECT is_character FROM entities WHERE id = ?",
+        [entityId],
+      );
+      if (isChar?.is_character !== 1) continue;
+      if (promoted.includes(entityId)) continue;
+      try {
+        const result = await runCharacterUpdater(env, args.userId, entityId, args.sourceId);
+        if (result.proposals_created > 0) {
+          await insertOne(env.DB, "orchestrator_events", {
+            user_id: args.userId,
+            event_type: "character.proposals_created",
+            cascade_run_id: cascadeRunId,
+            subject_kind: "entity",
+            subject_id: entityId,
+            payload: { count: result.proposals_created },
+          });
+        }
+      } catch (err) {
+        await insertOne(env.DB, "orchestrator_events", {
+          user_id: args.userId,
+          event_type: "character.updater_failed",
+          cascade_run_id: cascadeRunId,
+          subject_kind: "entity",
+          subject_id: entityId,
+          payload: { error: (err as Error).message },
+        });
+      }
+    }
+  } catch (err) {
+    await insertOne(env.DB, "orchestrator_events", {
+      user_id: args.userId,
+      event_type: "character.pipeline_failed",
+      cascade_run_id: cascadeRunId,
+      subject_kind: "source",
+      subject_id: args.sourceId,
+      payload: { error: (err as Error).message },
+    });
   }
 
   await run(

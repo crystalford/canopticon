@@ -3,7 +3,7 @@
 
 import { Hono } from "hono";
 import type { Env } from "../env.ts";
-import { all, insertOne, one } from "../lib/d1.ts";
+import { all, insertOne, one, parseJson } from "../lib/d1.ts";
 import { notFound } from "../lib/errors.ts";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -118,6 +118,93 @@ app.get("/claims/:slug", async (c) => {
   ]);
   if (!claim) throw notFound();
   return c.json({ claim });
+});
+
+app.get("/characters", async (c) => {
+  const limit = Math.min(Number(c.req.query("limit") ?? 100), 200);
+  const characters = await all(
+    c.env.DB,
+    `SELECT cp.slug, cp.canonical_name, cp.current_role, cp.portrait_url,
+            cp.updated_at, e.heat_score
+       FROM character_profiles cp
+       JOIN entities e ON e.id = cp.entity_id
+      WHERE cp.visibility = 'public'
+      ORDER BY e.heat_score DESC, cp.updated_at DESC
+      LIMIT ?`,
+    [limit],
+  );
+  return c.json({ characters });
+});
+
+app.get("/characters/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  const profile = await one<{
+    id: string;
+    entity_id: string;
+    canonical_name: string;
+    slug: string;
+    current_role: string | null;
+    bio_md: string;
+    bio_html: string | null;
+    wikipedia_url: string | null;
+    portrait_url: string | null;
+    updated_at: string;
+  }>(
+    c.env.DB,
+    `SELECT id, entity_id, canonical_name, slug, current_role,
+            bio_md, bio_html, wikipedia_url, portrait_url, updated_at
+       FROM character_profiles
+      WHERE slug = ? AND visibility = 'public'`,
+    [slug],
+  );
+  if (!profile) throw notFound();
+  const entity = await one<{ heat_score: number }>(
+    c.env.DB,
+    "SELECT heat_score FROM entities WHERE id = ?",
+    [profile.entity_id],
+  );
+  const timeline = await all(
+    c.env.DB,
+    `SELECT event_date, event_title, event_body, significance, source_claim_ids
+       FROM character_timeline_events
+      WHERE entity_id = ? AND status = 'confirmed'
+      ORDER BY event_date DESC`,
+    [profile.entity_id],
+  );
+  const claims = await all(
+    c.env.DB,
+    `SELECT c.id, cv.claim_text, c.layer, c.admiralty_grade, c.ipcc_likelihood,
+            c.public_slug, c.created_at
+       FROM claim_entities ce
+       JOIN claims c ON c.id = ce.claim_id
+       JOIN claim_versions cv ON cv.id = c.current_version_id
+      WHERE ce.entity_id = ?
+      ORDER BY c.created_at DESC LIMIT 50`,
+    [profile.entity_id],
+  );
+  const relations = await all(
+    c.env.DB,
+    `SELECT er.relation_type, er.strength, er.active_from, er.active_to,
+            CASE WHEN er.from_entity_id = ? THEN e.canonical_name ELSE f.canonical_name END AS other_name,
+            CASE WHEN er.from_entity_id = ? THEN er.to_entity_id ELSE er.from_entity_id END AS other_id,
+            CASE WHEN er.from_entity_id = ? THEN e.public_slug ELSE f.public_slug END AS other_slug
+       FROM entity_relations er
+       LEFT JOIN entities e ON e.id = er.to_entity_id
+       LEFT JOIN entities f ON f.id = er.from_entity_id
+      WHERE er.from_entity_id = ? OR er.to_entity_id = ?
+      LIMIT 50`,
+    [profile.entity_id, profile.entity_id, profile.entity_id, profile.entity_id, profile.entity_id],
+  );
+  return c.json({
+    profile,
+    heat_score: entity?.heat_score ?? 0,
+    timeline: timeline.map((t) => ({
+      ...t,
+      source_claim_ids: parseJson((t as { source_claim_ids: unknown }).source_claim_ids, []),
+    })),
+    claims,
+    relations,
+  });
 });
 
 app.get("/corrections", async (c) => {

@@ -5,6 +5,7 @@ import postsRoutes from "./cms/routes/api-posts.ts";
 import type { Env } from "./env.ts";
 // Graph compartment routes.
 import cascadeRoutes from "./graph/routes/cascade.ts";
+import charactersRoutes from "./graph/routes/characters.ts";
 import claimsRoutes from "./graph/routes/claims.ts";
 import contradictionsRoutes from "./graph/routes/contradictions.ts";
 import embeddingsRoutes from "./graph/routes/embeddings.ts";
@@ -26,6 +27,8 @@ import libraryRoutes from "./routes/library.ts";
 import productionsRoutes from "./routes/productions.ts";
 import publicRoutes from "./routes/public.ts";
 import publishRoutes from "./routes/publish.ts";
+import stitchRoutes from "./studio/routes/api-stitch.ts";
+import studioRoutes from "./studio/routes/api-studio.ts";
 import systemRoutes from "./routes/system.ts";
 
 type App = AuthContext;
@@ -90,6 +93,22 @@ v1.route("/uploads", uploadsRoutes);
 v1.route("/embeddings", embeddingsRoutes);
 v1.route("/monitors", monitorsRoutes);
 v1.route("/posts", postsRoutes);
+v1.route("/characters", charactersRoutes);
+
+// Studio compartment — gated by env.STUDIO_ENABLED. When false, the
+// routes 404 (we just don't mount them) and the operator UI shows a
+// placeholder.
+const studioGate = new Hono<App>();
+studioGate.use("*", async (c, next) => {
+  if (c.env.STUDIO_ENABLED !== "true") {
+    return c.json({ error: { code: "studio_disabled", message: "Studio is disabled" } }, 404);
+  }
+  await next();
+});
+studioGate.route("/", studioRoutes);
+studioGate.route("/", stitchRoutes);
+v1.route("/studio", studioGate);
+
 app.route("/v1", v1);
 
 import { runWatcher } from "./graph/lib/watcher.ts";

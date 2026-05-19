@@ -53,4 +53,10 @@ CLOUDFLARE_ACCOUNT_ID = ""
 # dependency. Flip per environment to develop graph features without
 # breaking the publication.
 GRAPH_ENABLED = "true"
+# Toggles the Studio compartment (audio production). "true" enables
+# studio chat tools (propose_script_from_post, start_recording, etc.) and
+# unlocks the six-tab Studio shell at /studio. "false" hides studio
+# tools entirely; CMS and Graph work standalone. Flip per environment
+# to develop studio features without breaking the publication.
+STUDIO_ENABLED = "false"
 # deploy trigger: 2026-05-12

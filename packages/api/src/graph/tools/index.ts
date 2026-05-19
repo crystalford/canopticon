@@ -13,6 +13,7 @@ import { embedText, searchVectors, upsertVector, vectorId } from "../lib/embeddi
 import { extractUpload, extractUrl } from "../lib/extract";
 import { runRole } from "../lib/role-runner";
 import { seedExamples } from "../lib/seed-examples";
+import { CHARACTER_TOOLS } from "./characters";
 import { WEB_RESEARCH_TOOLS } from "./web_research";
 
 export interface ToolSideEffect {
@@ -614,6 +615,7 @@ export const TOOLS: ToolDef[] = [
   seed_example_content,
   note_finding,
   ...WEB_RESEARCH_TOOLS,
+  ...CHARACTER_TOOLS,
 ];
 
 export const TOOLS_BY_NAME: Record<string, ToolDef> = Object.fromEntries(
