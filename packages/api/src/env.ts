@@ -24,4 +24,12 @@ export interface Env {
   // are hidden from the chat and the CMS publish path skips its graph hook.
   // CMS works standalone in either mode.
   GRAPH_ENABLED: string;
+
+  // Cloudflare Browser Rendering — optional. When configured, the
+  // web_search / web_fetch_rendered tools become available (confirm-required,
+  // paid). Wikipedia tools work without these. Set CLOUDFLARE_ACCOUNT_ID as
+  // a public var in wrangler.toml and CLOUDFLARE_API_TOKEN as a Worker secret
+  // with `Browser Rendering Edit` permission.
+  CLOUDFLARE_ACCOUNT_ID?: string;
+  CLOUDFLARE_API_TOKEN?: string;
 }
