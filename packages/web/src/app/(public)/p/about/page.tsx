@@ -2,7 +2,7 @@ export const runtime = "edge";
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12 font-serif text-lg leading-relaxed text-[#1a1410]">
+    <div className="mx-auto max-w-3xl px-6 py-12 font-serif text-lg leading-relaxed text-[var(--ink)]">
       <h1 className="mb-8 font-serif text-4xl">About</h1>
       <p>
         CANOPTICON is a forensic intelligence platform built and operated by a single named human
@@ -20,14 +20,14 @@ export default function AboutPage() {
         public. The Brier score on the prediction ledger is the track record. There is no anonymous
         publishing here.
       </p>
-      <h2 className="mt-12 mb-3 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+      <h2 className="mt-12 mb-3 font-mono text-[11px] uppercase tracking-wider text-[var(--ink-mute)]">
         Funding
       </h2>
       <p>
         Self-funded. No advertising, no sponsorship, no subscriber-paid editorial influence. If that
         changes, this section will reflect it.
       </p>
-      <h2 className="mt-12 mb-3 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+      <h2 className="mt-12 mb-3 font-mono text-[11px] uppercase tracking-wider text-[var(--ink-mute)]">
         Contact
       </h2>
       <p>Subscribe via the Subscribe page. For corrections, see the Corrections page.</p>

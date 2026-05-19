@@ -32,17 +32,17 @@ export default async function ClaimDetail({ params }: { params: Promise<{ slug: 
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <p className="mb-2 font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+      <p className="mb-2 font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
         {c.layer.toUpperCase()} · {c.verification_status.toUpperCase()}
         {c.admiralty_grade ? ` · Grade ${c.admiralty_grade}` : ""}
         {c.ipcc_likelihood ? ` · ${c.ipcc_likelihood.replace(/_/g, " ")}` : ""}
       </p>
-      <h1 className="font-serif text-2xl leading-snug text-[#1a1410]">{c.claim_text}</h1>
+      <h1 className="font-serif text-2xl leading-snug text-[var(--ink)]">{c.claim_text}</h1>
 
-      <dl className="mt-8 space-y-4 font-serif text-base text-[#1a1410]">
+      <dl className="mt-8 space-y-4 font-serif text-base text-[var(--ink)]">
         {p.data && (
           <div>
-            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
               Data
             </dt>
             <dd>{p.data}</dd>
@@ -50,7 +50,7 @@ export default async function ClaimDetail({ params }: { params: Promise<{ slug: 
         )}
         {p.warrant && (
           <div>
-            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
               Warrant
             </dt>
             <dd>{p.warrant}</dd>
@@ -58,7 +58,7 @@ export default async function ClaimDetail({ params }: { params: Promise<{ slug: 
         )}
         {p.backing && (
           <div>
-            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
               Backing
             </dt>
             <dd>{p.backing}</dd>
@@ -66,7 +66,7 @@ export default async function ClaimDetail({ params }: { params: Promise<{ slug: 
         )}
         {p.qualifier && (
           <div>
-            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
               Qualifier
             </dt>
             <dd>{p.qualifier}</dd>
@@ -74,7 +74,7 @@ export default async function ClaimDetail({ params }: { params: Promise<{ slug: 
         )}
         {p.rebuttal && (
           <div>
-            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
               Rebuttal
             </dt>
             <dd>{p.rebuttal}</dd>
@@ -84,7 +84,7 @@ export default async function ClaimDetail({ params }: { params: Promise<{ slug: 
 
       {p.sources && p.sources.length > 0 && (
         <section className="mt-12">
-          <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+          <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[var(--ink-mute)]">
             Sources
           </h2>
           <ul className="space-y-1 font-serif">
@@ -92,11 +92,11 @@ export default async function ClaimDetail({ params }: { params: Promise<{ slug: 
               <li key={s.slug}>
                 <a
                   href={`/p/sources/${s.slug}`}
-                  className="border-b border-dotted border-[#1a1410]/40 hover:border-[#9c2333] hover:text-[#9c2333]"
+                  className="border-b border-dotted border-[var(--rule)] hover:border-[var(--signal)] hover:text-[var(--signal)]"
                 >
                   {s.title}
                 </a>
-                {!s.supports && <span className="ml-2 text-[#9c2333]">(contradicts)</span>}
+                {!s.supports && <span className="ml-2 text-[var(--signal)]">(contradicts)</span>}
               </li>
             ))}
           </ul>

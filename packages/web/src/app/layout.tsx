@@ -1,14 +1,16 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { EB_Garamond, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 
-const ebGaramond = EB_Garamond({
+// Geist + Geist Mono — the D1+D4 design's only typefaces. The serif from
+// the old prototype is gone with the cream-paper aesthetic.
+const geist = Geist({
   subsets: ["latin"],
-  variable: "--font-serif",
+  variable: "--font-sans",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
   display: "swap",
@@ -16,12 +18,12 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "CANOPTICON",
-  description: "Forensic intelligence platform for Canadian political and economic structure.",
+  description: "Forensic intelligence — Canadian political and economic structure.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${ebGaramond.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
       <body>{children}</body>
     </html>
   );

@@ -19,4 +19,9 @@ export interface Env {
   OPENPARLIAMENT_USER_AGENT?: string;
 
   LOG_LEVEL: string;
+
+  // Feature flag: toggles the Graph compartment. When "false", graph tools
+  // are hidden from the chat and the CMS publish path skips its graph hook.
+  // CMS works standalone in either mode.
+  GRAPH_ENABLED: string;
 }

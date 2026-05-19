@@ -3,9 +3,13 @@
 // Client wrapper that holds the mobile drawer state and renders the
 // shared Sidebar in two places: fixed-position on desktop, slide-in
 // overlay on mobile.
+//
+// Sets data-mode="operator" on <html> so the D1+D4 dark-zinc token set
+// applies under (operator)/*. The public site keeps the default near-
+// white tokens.
 
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MobileTopBar } from "./MobileTopBar";
 import { Sidebar } from "./Sidebar";
 
@@ -19,6 +23,13 @@ export function OperatorShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname() ?? "";
   const active = `/${pathname.split("/")[1] ?? ""}`;
+
+  useEffect(() => {
+    document.documentElement.dataset.mode = "operator";
+    return () => {
+      delete document.documentElement.dataset.mode;
+    };
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-bg text-text">

@@ -178,8 +178,52 @@ export async function seedOperator(db: D1Database, email: string): Promise<strin
 
   await run(db, "INSERT OR IGNORE INTO user_ai_prefs (user_id) VALUES (?)", [userId]);
 
+  for (const m of DEFAULT_MONITORS) {
+    await insertOne(db, "monitors", { user_id: userId, ...m });
+  }
+
   return userId;
 }
+
+// Initial monitor cluster — the apex of the pyramid. Both run weekly
+// (Mondays 12:00 UTC) and use the same agent loop; only their source URL
+// and scout prompt differ. Add more here as the cluster expands.
+const DEFAULT_MONITORS: Array<{
+  name: string;
+  tier: number;
+  source_url: string;
+  cadence_cron: string;
+  scout_prompt: string;
+}> = [
+  {
+    name: "BIS Global Economy Meeting",
+    tier: 1,
+    source_url: "https://www.bis.org/press/index.htm",
+    cadence_cron: "0 12 * * 1",
+    scout_prompt: `Look for the most recent BIS Global Economy Meeting readout — the bimonthly meeting of ~60 central bank governors in Basel. The title will contain "Governors" or "central banks meet" and the readout is short (2-3 paragraphs). The meeting happens approximately every two months (Jan/Mar/May/Jul/Sep/Nov), so most weeks there will be nothing new.
+
+If you find a new readout:
+1. Fetch its full text.
+2. Compare its language to the prior readout from the same series (search_substrate for "BIS Governors" sorted by date).
+3. In your note_finding summary, call out: which topics they say they discussed; which specific phrases are new vs the prior readout; which prior phrases dropped; whether they highlight any specific concern ("sovereign debt markets", "operational framework", "macroprudential tools", "non-bank financial intermediation", "transition finance", etc.). The vocabulary itself is the signal.
+
+Set source_type="report" on create_source. Set authors=["Bank for International Settlements"].`,
+  },
+  {
+    name: "FSB Chair correspondence",
+    tier: 1,
+    source_url: "https://www.fsb.org/correspondence",
+    cadence_cron: "0 12 * * 1",
+    scout_prompt: `Look for the most recent letter from the FSB Chair to G20 Finance Ministers. These appear ~4 times a year around G20 Finance Ministers meetings. The author currently is Andrew Bailey.
+
+If you find a new letter:
+1. Fetch its full text.
+2. Compare to the prior letter in this series (search_substrate for "FSB Chair letter G20" sorted by date).
+3. In your note_finding summary, call out: which workstreams the Chair highlights; new workstream names (e.g. "transition finance", "climate-related financial risks", "crypto-asset markets", "non-bank financial intermediation"); any mention of "defence finance" or "security and resilience" (significant — would be a new direction); changes in framing or priority order vs the prior letter.
+
+Set source_type="filing" on create_source. Set authors=["Financial Stability Board"].`,
+  },
+];
 
 /** Look up the operator's user_id by email, seeding if absent. */
 export async function getOrSeedOperator(db: D1Database, email: string): Promise<string> {

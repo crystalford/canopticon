@@ -18,6 +18,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/studio", label: "Studio", icon: "▷" },
   { href: "/library", label: "Library", icon: "≡" },
   { href: "/sources", label: "Sources", icon: "◆" },
+  { href: "/monitors", label: "Monitors", icon: "◎" },
   { href: "/system", label: "System", icon: "⚙" },
 ];
 

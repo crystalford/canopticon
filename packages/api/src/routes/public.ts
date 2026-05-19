@@ -8,6 +8,39 @@ import { notFound } from "../lib/errors.ts";
 
 const app = new Hono<{ Bindings: Env }>();
 
+// Public reads of the CMS posts table. canopticon.com/p/<slug> hits these.
+app.get("/posts", async (c) => {
+  const postType = c.req.query("post_type");
+  const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
+  const rows = postType
+    ? await all(
+        c.env.DB,
+        `SELECT id, slug, title, subtitle, post_type, byline, is_forensic, published_at
+           FROM posts WHERE status = 'published' AND post_type = ?
+          ORDER BY published_at DESC LIMIT ?`,
+        [postType, limit],
+      )
+    : await all(
+        c.env.DB,
+        `SELECT id, slug, title, subtitle, post_type, byline, is_forensic, published_at
+           FROM posts WHERE status = 'published'
+          ORDER BY published_at DESC LIMIT ?`,
+        [limit],
+      );
+  return c.json({ posts: rows });
+});
+
+app.get("/posts/:slug", async (c) => {
+  const post = await one(
+    c.env.DB,
+    `SELECT id, slug, title, subtitle, body_html, post_type, byline, tags, is_forensic, published_at, updated_at
+       FROM posts WHERE slug = ? AND status = 'published'`,
+    [c.req.param("slug")],
+  );
+  if (!post) throw notFound();
+  return c.json({ post });
+});
+
 app.get("/articles", async (c) => {
   const type = c.req.query("type");
   const articles = type

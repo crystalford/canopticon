@@ -22,21 +22,21 @@ export default async function CorrectionsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <h1 className="mb-2 font-serif text-4xl text-[#1a1410]">Corrections</h1>
-      <p className="mb-8 font-serif italic text-[#1a1410]/70">
+      <h1 className="mb-2 font-serif text-4xl text-[var(--ink)]">Corrections</h1>
+      <p className="mb-8 font-serif italic text-[var(--ink-3)]">
         Every correction we've ever made, publicly. The trail is the moat.
       </p>
 
-      <div className="mb-8 grid grid-cols-2 gap-4 border border-[#1a1410]/15 bg-[#ede4d2] p-4">
+      <div className="mb-8 grid grid-cols-2 gap-4 border border-[var(--rule)] bg-[var(--paper-2)] p-4">
         <div>
-          <div className="font-mono text-3xl text-[#1a1410]">{r.corrections.length}</div>
-          <div className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+          <div className="font-mono text-3xl text-[var(--ink)]">{r.corrections.length}</div>
+          <div className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
             Total
           </div>
         </div>
         <div>
-          <div className="font-mono text-3xl text-[#1a1410]">{yearCount}</div>
-          <div className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+          <div className="font-mono text-3xl text-[var(--ink)]">{yearCount}</div>
+          <div className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
             {thisYear}
           </div>
         </div>
@@ -44,21 +44,21 @@ export default async function CorrectionsPage() {
 
       <ul className="space-y-6">
         {r.corrections.map((c) => (
-          <li key={c.id} className="border-b border-[#1a1410]/15 pb-4">
-            <p className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+          <li key={c.id} className="border-b border-[var(--rule)] pb-4">
+            <p className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
               {new Date(c.corrected_at).toLocaleDateString()}
             </p>
             {c.original_text && (
-              <p className="mt-2 font-serif italic text-[#1a1410]/60 line-through">
+              <p className="mt-2 font-serif italic text-[var(--ink)]/60 line-through">
                 {c.original_text}
               </p>
             )}
-            <p className="mt-1 font-serif text-[#1a1410]">{c.corrected_text}</p>
-            <p className="mt-2 font-serif text-sm italic text-[#1a1410]/70">Why: {c.reason}</p>
+            <p className="mt-1 font-serif text-[var(--ink)]">{c.corrected_text}</p>
+            <p className="mt-2 font-serif text-sm italic text-[var(--ink-3)]">Why: {c.reason}</p>
           </li>
         ))}
         {r.corrections.length === 0 && (
-          <li className="font-serif italic text-[#1a1410]/50">No corrections yet.</li>
+          <li className="font-serif italic text-[var(--ink-faint)]">No corrections yet.</li>
         )}
       </ul>
     </div>

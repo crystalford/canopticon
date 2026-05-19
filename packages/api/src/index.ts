@@ -1,28 +1,32 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { AuthContext } from "./auth/middleware.ts";
+import postsRoutes from "./cms/routes/api-posts.ts";
 import type { Env } from "./env.ts";
+// Graph compartment routes.
+import cascadeRoutes from "./graph/routes/cascade.ts";
+import claimsRoutes from "./graph/routes/claims.ts";
+import contradictionsRoutes from "./graph/routes/contradictions.ts";
+import embeddingsRoutes from "./graph/routes/embeddings.ts";
+import entitiesRoutes from "./graph/routes/entities.ts";
+import liveRoutes from "./graph/routes/live.ts";
+import monitorsRoutes from "./graph/routes/monitors.ts";
+import orchestratorRoutes from "./graph/routes/orchestrator.ts";
+import predictionsRoutes from "./graph/routes/predictions.ts";
+import sourcesRoutes from "./graph/routes/sources.ts";
+import thesesRoutes from "./graph/routes/theses.ts";
+import uploadsRoutes from "./graph/routes/uploads.ts";
 import { ApiError } from "./lib/errors.ts";
+// Shared / cross-compartment routes.
 import articlesRoutes from "./routes/articles.ts";
-import cascadeRoutes from "./routes/cascade.ts";
 import chatRoutes from "./routes/chat.ts";
-import claimsRoutes from "./routes/claims.ts";
-import contradictionsRoutes from "./routes/contradictions.ts";
 import costRoutes from "./routes/cost.ts";
-import embeddingsRoutes from "./routes/embeddings.ts";
-import entitiesRoutes from "./routes/entities.ts";
 import intellectualRoutes from "./routes/intellectual.ts";
 import libraryRoutes from "./routes/library.ts";
-import liveRoutes from "./routes/live.ts";
-import orchestratorRoutes from "./routes/orchestrator.ts";
-import predictionsRoutes from "./routes/predictions.ts";
 import productionsRoutes from "./routes/productions.ts";
 import publicRoutes from "./routes/public.ts";
 import publishRoutes from "./routes/publish.ts";
-import sourcesRoutes from "./routes/sources.ts";
 import systemRoutes from "./routes/system.ts";
-import thesesRoutes from "./routes/theses.ts";
-import uploadsRoutes from "./routes/uploads.ts";
 
 type App = AuthContext;
 
@@ -84,8 +88,25 @@ v1.route("/public", publicRoutes);
 v1.route("/chat", chatRoutes);
 v1.route("/uploads", uploadsRoutes);
 v1.route("/embeddings", embeddingsRoutes);
+v1.route("/monitors", monitorsRoutes);
+v1.route("/posts", postsRoutes);
 app.route("/v1", v1);
+
+import { runWatcher } from "./graph/lib/watcher.ts";
+import { all as dbAll } from "./lib/d1.ts";
+
+// Cloudflare Cron Trigger handler. Wrangler fires this on the schedule
+// declared in wrangler.toml. For each enabled monitor, we kick off a
+// watcher via ctx.waitUntil so the worker invocation returns quickly
+// while the agent loops run in the background.
+const scheduled: ExportedHandlerScheduledHandler<Env> = async (_controller, env, ctx) => {
+  const monitors = await dbAll<{ id: string }>(env.DB, "SELECT id FROM monitors WHERE enabled = 1");
+  for (const m of monitors) {
+    ctx.waitUntil(runWatcher(env, m.id));
+  }
+};
 
 export default {
   fetch: app.fetch,
+  scheduled,
 } satisfies ExportedHandler<Env>;
