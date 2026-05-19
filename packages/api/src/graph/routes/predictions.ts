@@ -2,10 +2,10 @@
 
 import { Hono } from "hono";
 import { z } from "zod";
-import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import { type Outcome, brierContribution, computeRollingBrier } from "../lib/brier.ts";
-import { all, insertOne, one, updateById } from "../lib/d1.ts";
-import { badRequest } from "../lib/errors.ts";
+import { type AuthContext, requireAuth } from "../../auth/middleware.ts";
+import { type Outcome, brierContribution, computeRollingBrier } from "../../lib/brier.ts";
+import { all, insertOne, one, updateById } from "../../lib/d1.ts";
+import { badRequest } from "../../lib/errors.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());

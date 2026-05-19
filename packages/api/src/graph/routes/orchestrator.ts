@@ -1,9 +1,9 @@
 // Orchestrator events SSE stream.
 
 import { Hono } from "hono";
-import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import { all, one } from "../lib/d1.ts";
-import { SSE_HEADERS, formatSseComment, formatSseEvent } from "../lib/sse.ts";
+import { type AuthContext, requireAuth } from "../../auth/middleware.ts";
+import { all, one } from "../../lib/d1.ts";
+import { SSE_HEADERS, formatSseComment, formatSseEvent } from "../../lib/sse.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());

@@ -3,28 +3,30 @@ import { cors } from "hono/cors";
 import type { AuthContext } from "./auth/middleware.ts";
 import postsRoutes from "./cms/routes/api-posts.ts";
 import type { Env } from "./env.ts";
+// Graph compartment routes.
+import cascadeRoutes from "./graph/routes/cascade.ts";
+import claimsRoutes from "./graph/routes/claims.ts";
+import contradictionsRoutes from "./graph/routes/contradictions.ts";
+import embeddingsRoutes from "./graph/routes/embeddings.ts";
+import entitiesRoutes from "./graph/routes/entities.ts";
+import liveRoutes from "./graph/routes/live.ts";
+import monitorsRoutes from "./graph/routes/monitors.ts";
+import orchestratorRoutes from "./graph/routes/orchestrator.ts";
+import predictionsRoutes from "./graph/routes/predictions.ts";
+import sourcesRoutes from "./graph/routes/sources.ts";
+import thesesRoutes from "./graph/routes/theses.ts";
+import uploadsRoutes from "./graph/routes/uploads.ts";
 import { ApiError } from "./lib/errors.ts";
+// Shared / cross-compartment routes.
 import articlesRoutes from "./routes/articles.ts";
-import cascadeRoutes from "./routes/cascade.ts";
 import chatRoutes from "./routes/chat.ts";
-import claimsRoutes from "./routes/claims.ts";
-import contradictionsRoutes from "./routes/contradictions.ts";
 import costRoutes from "./routes/cost.ts";
-import embeddingsRoutes from "./routes/embeddings.ts";
-import entitiesRoutes from "./routes/entities.ts";
 import intellectualRoutes from "./routes/intellectual.ts";
 import libraryRoutes from "./routes/library.ts";
-import liveRoutes from "./routes/live.ts";
-import monitorsRoutes from "./routes/monitors.ts";
-import orchestratorRoutes from "./routes/orchestrator.ts";
-import predictionsRoutes from "./routes/predictions.ts";
 import productionsRoutes from "./routes/productions.ts";
 import publicRoutes from "./routes/public.ts";
 import publishRoutes from "./routes/publish.ts";
-import sourcesRoutes from "./routes/sources.ts";
 import systemRoutes from "./routes/system.ts";
-import thesesRoutes from "./routes/theses.ts";
-import uploadsRoutes from "./routes/uploads.ts";
 
 type App = AuthContext;
 

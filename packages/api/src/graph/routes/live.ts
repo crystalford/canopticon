@@ -1,8 +1,8 @@
 // Live feed: cross-substrate activity aggregator.
 
 import { Hono } from "hono";
-import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import { all } from "../lib/d1.ts";
+import { type AuthContext, requireAuth } from "../../auth/middleware.ts";
+import { all } from "../../lib/d1.ts";
 
 interface FeedItem {
   kind: string;

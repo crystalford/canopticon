@@ -4,10 +4,10 @@
 // screen's "Reindex" button.
 
 import { Hono } from "hono";
-import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import { embedText, upsertVector, vectorId } from "../graph/lib/embeddings.ts";
-import { all } from "../lib/d1.ts";
-import { badRequest } from "../lib/errors.ts";
+import { type AuthContext, requireAuth } from "../../auth/middleware.ts";
+import { all } from "../../lib/d1.ts";
+import { badRequest } from "../../lib/errors.ts";
+import { embedText, upsertVector, vectorId } from "../lib/embeddings.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());

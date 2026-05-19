@@ -3,11 +3,11 @@
 // is triggered explicitly via POST /uploads/:id/extract.
 
 import { Hono } from "hono";
-import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import { runCascade } from "../graph/lib/cascade.ts";
-import { extractUpload } from "../graph/lib/extract.ts";
-import { all, insertOne, one } from "../lib/d1.ts";
-import { badRequest, notFound } from "../lib/errors.ts";
+import { type AuthContext, requireAuth } from "../../auth/middleware.ts";
+import { all, insertOne, one } from "../../lib/d1.ts";
+import { badRequest, notFound } from "../../lib/errors.ts";
+import { runCascade } from "../lib/cascade.ts";
+import { extractUpload } from "../lib/extract.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
