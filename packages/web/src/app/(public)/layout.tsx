@@ -17,18 +17,11 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           >
             canopticon<span className="text-[var(--signal)]">.</span>
           </Link>
+          {/* Theses / Predictions / Contradictions hidden until they
+              have real content — they'll come back as the substrate fills. */}
           <nav className="mono flex flex-1 justify-end gap-5 text-[11px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
             <Link href="/articles" className="hover:text-[var(--ink)]">
               Articles
-            </Link>
-            <Link href="/theses" className="hover:text-[var(--ink)]">
-              Theses
-            </Link>
-            <Link href="/predictions" className="hover:text-[var(--ink)]">
-              Predictions
-            </Link>
-            <Link href="/contradictions" className="hover:text-[var(--ink)]">
-              Contradictions
             </Link>
             <Link href="/p/methodology" className="hover:text-[var(--ink)]">
               Method
