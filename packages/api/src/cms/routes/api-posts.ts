@@ -10,6 +10,7 @@ import { type AuthContext, requireAuth } from "../../auth/middleware.ts";
 import { all, insertOne, one, run } from "../../lib/d1.ts";
 import { badRequest, notFound } from "../../lib/errors.ts";
 import { ulid } from "../../shared/id.ts";
+import { runPublishPrep } from "../lib/publish-prep.ts";
 import { renderMarkdown, slugify } from "../lib/render-post.ts";
 
 const app = new Hono<AuthContext>();
@@ -190,6 +191,7 @@ app.post("/:id/publish", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
     slug?: string;
     is_forensic?: boolean;
+    override_warns?: boolean;
   };
 
   const post = await one<PostRow>(c.env.DB, "SELECT * FROM posts WHERE id = ? AND user_id = ?", [
@@ -203,6 +205,26 @@ app.post("/:id/publish", async (c) => {
   const finalSlug = body.slug ? slugify(body.slug) : post.slug;
   const bodyHtml = renderMarkdown(post.body_md);
   const isForensic = body.is_forensic !== undefined ? (body.is_forensic ? 1 : 0) : post.is_forensic;
+
+  // Forensic-mode publish: run all 8 gates. Block on any failure unless
+  // the operator passes override_warns=true (only valid for "warn"-class
+  // gates in future; for now any failure blocks).
+  if (isForensic === 1) {
+    const prep = await runPublishPrep(c.env, userId, id);
+    if (!prep.pass) {
+      return c.json(
+        {
+          error: {
+            code: "publish_prep_failed",
+            message: "Forensic publish-prep gates failed",
+            failed_gates: prep.failed_gates,
+            gates: prep.gates,
+          },
+        },
+        400,
+      );
+    }
+  }
 
   await run(
     c.env.DB,
@@ -220,6 +242,21 @@ app.post("/:id/publish", async (c) => {
   }
 
   return c.json({ ok: true, slug: finalSlug, published_at: publishedAt });
+});
+
+// Dry-run publish-prep: tells the operator which forensic gates would
+// fail without actually publishing. Useful before the final commit.
+app.get("/:id/publish-prep", async (c) => {
+  const userId = c.get("user_id");
+  const id = c.req.param("id");
+  const post = await one<{ id: string }>(
+    c.env.DB,
+    "SELECT id FROM posts WHERE id = ? AND user_id = ?",
+    [id, userId],
+  );
+  if (!post) throw notFound("post");
+  const prep = await runPublishPrep(c.env, userId, id);
+  return c.json(prep);
 });
 
 app.delete("/:id", async (c) => {

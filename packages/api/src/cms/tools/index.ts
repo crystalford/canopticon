@@ -3,6 +3,7 @@
 
 import type { ToolDef } from "../../graph/tools/index";
 import { all, insertOne, one, run } from "../../lib/d1";
+import { runPublishPrep } from "../lib/publish-prep.ts";
 import { renderMarkdown, slugify } from "../lib/render-post.ts";
 
 const draftPost: ToolDef = {
@@ -338,4 +339,35 @@ const updatePost: ToolDef = {
   },
 };
 
-export const CMS_TOOLS: ToolDef[] = [draftPost, listDrafts, listPosts, publishPost, updatePost];
+const runPublishPrepTool: ToolDef = {
+  name: "run_publish_prep",
+  description:
+    "Run the 8 forensic-mode publish-prep gates against a draft (evidence density, coined phrase, banked predictions, teachable diagram, methodology appendix, named byline, intervention level, public graph artifact). Dry-run only — does not publish. Use when the operator asks 'is this ready to publish as forensic?' or 'run publish-prep on draft N'.",
+  input_schema: {
+    type: "object",
+    properties: { post_id: { type: "string" } },
+    required: ["post_id"],
+  },
+  confirm: false,
+  async exec({ env, userId }, input) {
+    const postId = String(input.post_id);
+    const prep = await runPublishPrep(env, userId, postId);
+    const lines = [`Forensic publish-prep for ${postId}: **${prep.pass ? "PASS" : "BLOCK"}**`];
+    for (const g of prep.gates) {
+      lines.push(`- ${g.pass ? "✓" : "✗"} ${g.name}: ${g.detail}`);
+    }
+    if (!prep.pass) {
+      lines.push(`\nFailed gates: ${prep.failed_gates.join(", ")}`);
+    }
+    return { output: lines.join("\n"), side_effects: [] };
+  },
+};
+
+export const CMS_TOOLS: ToolDef[] = [
+  draftPost,
+  listDrafts,
+  listPosts,
+  publishPost,
+  updatePost,
+  runPublishPrepTool,
+];
