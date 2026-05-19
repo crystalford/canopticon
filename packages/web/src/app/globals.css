@@ -266,3 +266,324 @@ body {
 .hover-rule:hover {
   border-bottom-color: var(--ink);
 }
+
+/* ===========================================================================
+   OPERATOR APP CHROME — ported from canopticon2/project/styles.css
+   Used by OperatorShell + Sidebar to match the D1+D4 prototype:
+   sticky sidebar with brand + nav + spend footer; sticky top header with
+   title + coord + primary action.
+   =========================================================================== */
+
+.op-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+.op-side {
+  border-right: 1px solid var(--rule);
+  padding: 22px 16px;
+  background: var(--paper);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.op-side .op-brand {
+  padding: 0 8px 18px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 16px;
+}
+.op-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+.op-nav a,
+.op-nav button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  letter-spacing: -0.005em;
+  color: var(--ink-mute);
+  cursor: pointer;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: background 0.1s, color 0.1s;
+  background: transparent;
+  border: 0;
+  text-decoration: none;
+}
+.op-nav a:hover,
+.op-nav button:hover {
+  color: var(--ink);
+  background: var(--paper-2);
+}
+.op-nav a.on,
+.op-nav button.on {
+  color: var(--ink);
+  background: var(--paper-2);
+  font-weight: 600;
+}
+.op-nav .count {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+}
+.op-nav a.on .count,
+.op-nav button.on .count {
+  color: var(--ink);
+}
+.op-side-foot {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--ink-faint);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.op-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.op-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+.op-header-title {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+.op-header-coord {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11.5px;
+  color: var(--ink-mute);
+}
+.op-content {
+  padding: 28px 32px 80px;
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 880px) {
+  .op-shell {
+    grid-template-columns: 1fr;
+  }
+  .op-side {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    height: auto;
+    flex-direction: row;
+    padding: 6px 4px;
+    border-right: none;
+    border-top: 1px solid var(--rule);
+    z-index: 80;
+    background: var(--paper);
+    overflow-x: auto;
+  }
+  .op-side .op-brand,
+  .op-side-foot {
+    display: none;
+  }
+  .op-nav {
+    flex-direction: row;
+    flex: 1;
+  }
+  .op-nav a,
+  .op-nav button {
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px 8px;
+    font-size: 11px;
+    min-width: 60px;
+    text-align: center;
+  }
+  .op-nav .count {
+    display: none;
+  }
+  .op-content {
+    padding: 20px 16px 100px;
+  }
+  .op-header {
+    padding: 12px 16px;
+    position: static;
+  }
+}
+
+/* ===========================================================================
+   BUTTONS — primary / signal / ghost / sm / full. Match design archive.
+   =========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  padding: 8px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  text-align: center;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.btn:hover {
+  background: var(--paper-2);
+  border-color: var(--ink-faint);
+}
+.btn.primary {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.btn.primary:hover {
+  background: var(--ink-2);
+}
+.btn.signal {
+  border-color: var(--signal);
+  color: var(--signal);
+  background: var(--surface);
+}
+.btn.signal:hover {
+  background: var(--signal-bg);
+}
+.btn.signal-primary {
+  background: var(--signal);
+  color: #ffffff;
+  border-color: var(--signal);
+}
+.btn.signal-primary:hover {
+  background: var(--signal-deep);
+  border-color: var(--signal-deep);
+}
+.btn.ghost {
+  border-color: transparent;
+  color: var(--ink-3);
+  background: transparent;
+}
+.btn.ghost:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+.btn.sm {
+  padding: 5px 10px;
+  font-size: 12.5px;
+}
+.btn.full {
+  width: 100%;
+}
+
+/* ===========================================================================
+   SURFACE CARDS + CHIPS — used everywhere in the operator app
+   =========================================================================== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 22px 24px;
+}
+.card.compact {
+  padding: 18px 20px;
+}
+.card.flat {
+  background: transparent;
+  border: 1px solid var(--rule);
+}
+.card.soft {
+  background: var(--paper-2);
+  border: 1px solid transparent;
+}
+.card.signal {
+  border-color: var(--signal-border);
+  background: var(--signal-bg);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--ink-3);
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.chip.solid {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.chip-signal {
+  color: var(--signal);
+  border-color: var(--signal-border);
+  background: var(--signal-bg);
+}
+.chip-acid {
+  color: var(--verified);
+  border-color: var(--verified-border);
+  background: var(--verified-bg);
+}
+.chip-amber {
+  color: var(--warning);
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+.chip-mute {
+  color: var(--ink-mute);
+  border-color: var(--rule);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: fadeUp 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
