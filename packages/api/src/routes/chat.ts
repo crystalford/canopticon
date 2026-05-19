@@ -63,6 +63,17 @@ GRAPH — only available when the graph compartment is enabled:
 - "search", "find", "what claims", "show me", "what do I have" → search_substrate
 - "ingest", "add this" (for an external doc, not a post) → create_source
 
+WEB RESEARCH — for "look up X", "tell me about X", "profile of X", "research X":
+- ALWAYS try Wikipedia first. Free, no cost. Two-step:
+  1. wikipedia_search(query) — disambiguation; pick the right page
+  2. wikipedia_lookup(title) — read the summary
+- If Wikipedia has no page OR the summary doesn't have what you need, STOP
+  and ask the operator: "Wikipedia didn't have enough. Want me to search the
+  web (~\$0.005 via Cloudflare Browser Rendering)?" Wait for explicit yes
+  before calling web_search.
+- NEVER call web_search or web_fetch_rendered without an operator yes first.
+  Those tools cost real money per call.
+
 Greeting / casual question / opinion / "what can you do?" → no tools, just reply.
 
 If search returns nothing, say the substrate is empty for that topic. Do not retry.

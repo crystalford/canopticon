@@ -40,6 +40,12 @@ crons = ["0 12 * * 1"]
 [vars]
 LOG_LEVEL = "info"
 OPERATOR_EMAIL = ""
+# Cloudflare Browser Rendering — optional. Set this to your account id to
+# enable web_search / web_fetch_rendered chat tools. Pair with the
+# CLOUDFLARE_API_TOKEN Worker secret (`wrangler secret put CLOUDFLARE_API_TOKEN`)
+# scoped with the 'Browser Rendering Edit' permission. ~$0.005 per page.
+# Leave empty to keep web research limited to Wikipedia (free).
+CLOUDFLARE_ACCOUNT_ID = ""
 # Toggles the Graph compartment. "true" enables substrate tools in chat
 # (search_substrate, query_graph, create_source, etc.) and fires the
 # auto-cascade on post publish. "false" hides graph tools entirely; CMS
