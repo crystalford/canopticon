@@ -5,6 +5,7 @@ import postsRoutes from "./cms/routes/api-posts.ts";
 import type { Env } from "./env.ts";
 // Graph compartment routes.
 import cascadeRoutes from "./graph/routes/cascade.ts";
+import charactersRoutes from "./graph/routes/characters.ts";
 import claimsRoutes from "./graph/routes/claims.ts";
 import contradictionsRoutes from "./graph/routes/contradictions.ts";
 import embeddingsRoutes from "./graph/routes/embeddings.ts";
@@ -90,6 +91,7 @@ v1.route("/uploads", uploadsRoutes);
 v1.route("/embeddings", embeddingsRoutes);
 v1.route("/monitors", monitorsRoutes);
 v1.route("/posts", postsRoutes);
+v1.route("/characters", charactersRoutes);
 app.route("/v1", v1);
 
 import { runWatcher } from "./graph/lib/watcher.ts";

@@ -16,6 +16,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { href: "/chat", label: "Chat", icon: "▤" },
   { href: "/posts", label: "Posts", icon: "✎" },
+  { href: "/characters", label: "Characters", icon: "◉" },
   { href: "/live", label: "Dashboard", icon: "◐" },
   { href: "/graph", label: "Graph", icon: "◇" },
   { href: "/sources", label: "Sources", icon: "◫" },

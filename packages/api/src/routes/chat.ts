@@ -63,6 +63,18 @@ GRAPH — only available when the graph compartment is enabled:
 - "search", "find", "what claims", "show me", "what do I have" → search_substrate
 - "ingest", "add this" (for an external doc, not a post) → create_source
 
+CHARACTERS — first-class dossiers for the public figures the operator tracks:
+- "Promote X to character" / "make X a character" → seed_character_from_wikipedia
+  (auto-fetches bio + timeline from Wikipedia; falls back to a minimal profile)
+- "Promote X manually" (when Wikipedia has no page) → promote_to_character
+- "What proposals are pending" / "show pending updates" → list_pending_proposals
+- "Approve proposal <id>" → approve_proposal
+- "Reject proposal <id>" → reject_proposal
+- "Demote X" → demote_character
+- Characters auto-promote when a person's heat score crosses 0.6 after a
+  new source is ingested. You don't need to call promote unless the operator
+  explicitly asks.
+
 WEB RESEARCH — for "look up X", "tell me about X", "profile of X", "research X":
 - ALWAYS try Wikipedia first. Free, no cost. Two-step:
   1. wikipedia_search(query) — disambiguation; pick the right page
@@ -120,7 +132,7 @@ function shouldOfferTools(messages: LlmMessage[]): boolean {
   if (text.length === 0) return true;
   if (/https?:\/\//i.test(text)) return true;
   const actionWords =
-    /\b(search|find|show|list|look\s?up|fetch|ingest|upload|extract|create|seed|run|claim|claims|entity|entities|source|sources|thesis|theses|graph|substrate|post|draft|publish|write|article|articles|note|notes|profile|summari[sz]e|edit|update|withdraw)\b/i;
+    /\b(search|find|show|list|look\s?up|fetch|ingest|upload|extract|create|seed|run|claim|claims|entity|entities|source|sources|thesis|theses|graph|substrate|post|draft|publish|write|article|articles|note|notes|profile|summari[sz]e|edit|update|withdraw|character|characters|dossier|promote|demote|approve|reject|proposal|proposals)\b/i;
   if (actionWords.test(text)) return true;
   return false;
 }
