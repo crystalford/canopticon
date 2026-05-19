@@ -232,9 +232,10 @@ app.post("/beats/:beatId/audio", async (c) => {
   if (!beat) throw notFound();
 
   const form = await c.req.formData();
-  const audio = form.get("audio") as unknown as
-    | { arrayBuffer: () => Promise<ArrayBuffer>; type: string }
-    | null;
+  const audio = form.get("audio") as unknown as {
+    arrayBuffer: () => Promise<ArrayBuffer>;
+    type: string;
+  } | null;
   if (!audio || typeof audio.arrayBuffer !== "function") {
     throw badRequest("audio field required");
   }
@@ -340,11 +341,10 @@ async function createProductionWithBeats(
 }
 
 async function mustOwn(db: D1Database, userId: string, productionId: string): Promise<void> {
-  const owned = await one(
-    db,
-    "SELECT id FROM studio_productions WHERE id = ? AND user_id = ?",
-    [productionId, userId],
-  );
+  const owned = await one(db, "SELECT id FROM studio_productions WHERE id = ? AND user_id = ?", [
+    productionId,
+    userId,
+  ]);
   if (!owned) throw notFound();
 }
 

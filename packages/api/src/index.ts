@@ -27,9 +27,9 @@ import libraryRoutes from "./routes/library.ts";
 import productionsRoutes from "./routes/productions.ts";
 import publicRoutes from "./routes/public.ts";
 import publishRoutes from "./routes/publish.ts";
+import systemRoutes from "./routes/system.ts";
 import stitchRoutes from "./studio/routes/api-stitch.ts";
 import studioRoutes from "./studio/routes/api-studio.ts";
-import systemRoutes from "./routes/system.ts";
 
 type App = AuthContext;
 

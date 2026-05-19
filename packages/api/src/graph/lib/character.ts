@@ -45,9 +45,7 @@ export async function buildUniqueSlug(env: Env, name: string): Promise<string> {
   const base = slugify(name);
   let candidate = base;
   let n = 2;
-  while (
-    await one(env.DB, "SELECT 1 AS one FROM character_profiles WHERE slug = ?", [candidate])
-  ) {
+  while (await one(env.DB, "SELECT 1 AS one FROM character_profiles WHERE slug = ?", [candidate])) {
     candidate = `${base}-${n}`;
     n += 1;
     if (n > 50) {
@@ -109,11 +107,10 @@ export async function promoteToCharacter(
     bio_md: `# ${entity.canonical_name}\n\n(No biographical summary yet. Use the operator UI to write one.)`,
     visibility: "public",
   });
-  await run(
-    env.DB,
-    "UPDATE entities SET is_character = 1, auto_promoted_at = ? WHERE id = ?",
-    [now, entityId],
-  );
+  await run(env.DB, "UPDATE entities SET is_character = 1, auto_promoted_at = ? WHERE id = ?", [
+    now,
+    entityId,
+  ]);
   return {
     entity_id: entityId,
     profile_id: profileId,
@@ -207,11 +204,10 @@ export async function seedCharacterFromWikipedia(
     bio_md: bioMd,
     change_summary: existing ? "Re-seeded from Wikipedia" : "Seeded from Wikipedia",
   });
-  await run(
-    env.DB,
-    "UPDATE character_profiles SET version_count = ? WHERE id = ?",
-    [versionNumber, profileId],
-  );
+  await run(env.DB, "UPDATE character_profiles SET version_count = ? WHERE id = ?", [
+    versionNumber,
+    profileId,
+  ]);
 
   // Seed timeline events from year-prefixed sentences in the extract.
   const timelineCount = await seedTimelineFromExtract(env, entityId, summary.extract);
@@ -233,16 +229,11 @@ export async function seedCharacterFromWikipedia(
 
 /** Demote a character — clears the flag but keeps the profile row so the
  *  bio isn't lost. Use the operator UI to delete fully. */
-export async function demoteCharacter(
-  env: Env,
-  userId: string,
-  entityId: string,
-): Promise<void> {
-  await run(
-    env.DB,
-    "UPDATE entities SET is_character = 0 WHERE id = ? AND user_id = ?",
-    [entityId, userId],
-  );
+export async function demoteCharacter(env: Env, userId: string, entityId: string): Promise<void> {
+  await run(env.DB, "UPDATE entities SET is_character = 0 WHERE id = ? AND user_id = ?", [
+    entityId,
+    userId,
+  ]);
 }
 
 async function fetchWikiSummary(title: string): Promise<WikiSummary | null> {

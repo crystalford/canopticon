@@ -42,7 +42,6 @@ export default async function PublicCharactersIndex() {
                 className="flex items-start gap-4 rounded-md border border-[var(--rule)] p-4 transition hover:border-[var(--signal)]"
               >
                 {c.portrait_url ? (
-                  // biome-ignore lint/performance/noImgElement: external Wikipedia URLs
                   <img
                     src={c.portrait_url}
                     alt=""
@@ -59,8 +58,7 @@ export default async function PublicCharactersIndex() {
                     <div className="text-sm text-[var(--ink-3)]">{c.current_role}</div>
                   )}
                   <div className="mt-1 font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
-                    heat {c.heat_score.toFixed(2)} ·{" "}
-                    {watchTagForHeat(c.heat_score)}
+                    heat {c.heat_score.toFixed(2)} · {watchTagForHeat(c.heat_score)}
                   </div>
                 </div>
               </Link>

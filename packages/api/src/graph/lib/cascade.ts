@@ -10,8 +10,8 @@
 import type { Env } from "../../env";
 import { insertOne, one, run } from "../../lib/d1";
 import { runCharacterUpdater } from "../roles/character-updater";
-import { recomputeHeatForSource } from "./heat-score";
 import { seedCharacterFromWikipedia } from "./character";
+import { recomputeHeatForSource } from "./heat-score";
 import { runRole } from "./role-runner";
 
 export interface RunCascadeArgs {
@@ -85,11 +85,7 @@ export async function runCascade(env: Env, args: RunCascadeArgs): Promise<void> 
   // source. All best-effort: any failure is logged but does not fail
   // the cascade.
   try {
-    const { recomputed, promoted } = await recomputeHeatForSource(
-      env,
-      args.userId,
-      args.sourceId,
-    );
+    const { recomputed, promoted } = await recomputeHeatForSource(env, args.userId, args.sourceId);
     for (const entityId of promoted) {
       try {
         await seedCharacterFromWikipedia(env, args.userId, entityId);

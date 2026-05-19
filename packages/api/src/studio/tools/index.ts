@@ -6,8 +6,8 @@
 //   list_productions, show_production, start_recording,
 //   pause_production, resume_production, stitch_production, archive_production
 
-import { all, insertOne, one, run } from "../../lib/d1";
 import type { ToolDef } from "../../graph/tools/index";
+import { all, insertOne, one, run } from "../../lib/d1";
 import { ideateFromClaims, ideateFromPost } from "../roles/script-ideator";
 
 const proposeFromPost: ToolDef = {
@@ -48,10 +48,7 @@ const proposeFromPost: ToolDef = {
       beats: ideated.beats,
     });
     return {
-      output:
-        `Proposed script for **${post.title}** (${ideated.beats.length} beats).\n` +
-        `Production id: ${productionId}\n` +
-        `Open at /studio to review and approve.`,
+      output: `Proposed script for **${post.title}** (${ideated.beats.length} beats).\nProduction id: ${productionId}\nOpen at /studio to review and approve.`,
       side_effects: [{ kind: "post", id: productionId, summary: ideated.title ?? post.title }],
     };
   },
@@ -217,11 +214,11 @@ const showProduction: ToolDef = {
       (b) =>
         `${b.recorded ? "✓" : "·"} ${b.beat_index + 1}. [${b.role}] ${b.cue ?? ""} — ${b.beat_text.slice(0, 80)}${b.beat_text.length > 80 ? "…" : ""}`,
     );
+    const coherence = production.coherence_notes
+      ? `\n\nCoherence notes:\n${production.coherence_notes}`
+      : "";
     return {
-      output:
-        `**${production.title}** (${production.state})\n` +
-        `Target: ~${Math.round((production.script_total_seconds ?? 0) / 60)} min · ${beats.length} beats\n\n${beatLines.join("\n")}` +
-        (production.coherence_notes ? `\n\nCoherence notes:\n${production.coherence_notes}` : ""),
+      output: `**${production.title}** (${production.state})\nTarget: ~${Math.round((production.script_total_seconds ?? 0) / 60)} min · ${beats.length} beats\n\n${beatLines.join("\n")}${coherence}`,
       side_effects: [],
     };
   },
@@ -229,7 +226,8 @@ const showProduction: ToolDef = {
 
 const startRecording: ToolDef = {
   name: "start_recording",
-  description: "Move a production into the recording state and return the URL of the recording overlay UI.",
+  description:
+    "Move a production into the recording state and return the URL of the recording overlay UI.",
   input_schema: {
     type: "object",
     properties: { production_id: { type: "string" } },
@@ -392,11 +390,10 @@ async function findPost(
   input: { post_id?: unknown; post_slug?: unknown },
 ): Promise<{ id: string; title: string; body_md: string } | null> {
   if (input.post_id) {
-    return await one(
-      env.DB,
-      "SELECT id, title, body_md FROM posts WHERE id = ? AND user_id = ?",
-      [String(input.post_id), userId],
-    );
+    return await one(env.DB, "SELECT id, title, body_md FROM posts WHERE id = ? AND user_id = ?", [
+      String(input.post_id),
+      userId,
+    ]);
   }
   if (input.post_slug) {
     return await one(
@@ -454,11 +451,10 @@ async function persistProduction(
 }
 
 async function mustOwn(db: D1Database, userId: string, productionId: string): Promise<void> {
-  const owned = await one(
-    db,
-    "SELECT id FROM studio_productions WHERE id = ? AND user_id = ?",
-    [productionId, userId],
-  );
+  const owned = await one(db, "SELECT id FROM studio_productions WHERE id = ? AND user_id = ?", [
+    productionId,
+    userId,
+  ]);
   if (!owned) throw new Error("production not found");
 }
 

@@ -66,7 +66,10 @@ export default function StudioPage() {
     void load();
   }, [tab]);
 
-  async function action(id: string, kind: "approve" | "start" | "pause" | "resume" | "stitch" | "archive") {
+  async function action(
+    id: string,
+    kind: "approve" | "start" | "pause" | "resume" | "stitch" | "archive",
+  ) {
     setBusy(true);
     try {
       const path =
@@ -158,7 +161,10 @@ export default function StudioPage() {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {productions.map((p) => (
           <article key={p.id} className="card compact">
-            <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div
+              className="row"
+              style={{ justifyContent: "space-between", alignItems: "flex-start" }}
+            >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="row" style={{ gap: 8, marginBottom: 6 }}>
                   <span className="chip">{p.source_kind}</span>
@@ -171,7 +177,10 @@ export default function StudioPage() {
                   {p.use_anthropic === 1 && <span className="chip chip-signal">claude</span>}
                 </div>
                 <h3 style={{ fontSize: 18, fontWeight: 600, color: "var(--ink)" }}>{p.title}</h3>
-                <p className="mono" style={{ marginTop: 6, fontSize: 11, color: "var(--ink-mute)" }}>
+                <p
+                  className="mono"
+                  style={{ marginTop: 6, fontSize: 11, color: "var(--ink-mute)" }}
+                >
                   Updated {new Date(p.updated_at).toLocaleString()}
                 </p>
               </div>
@@ -206,9 +215,7 @@ export default function StudioPage() {
                     </button>
                   </>
                 )}
-                {(tab === "approved" ||
-                  tab === "recording" ||
-                  tab === "paused") && (
+                {(tab === "approved" || tab === "recording" || tab === "paused") && (
                   <button
                     type="button"
                     className="btn sm ghost"

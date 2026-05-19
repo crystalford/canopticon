@@ -85,10 +85,7 @@ export interface IdeateFromClaimsArgs {
   useAnthropic?: boolean;
 }
 
-export async function ideateFromPost(
-  env: Env,
-  args: IdeateFromPostArgs,
-): Promise<IdeatorOutput> {
+export async function ideateFromPost(env: Env, args: IdeateFromPostArgs): Promise<IdeatorOutput> {
   const filled = PROMPT_FROM_POST.replace("{TITLE}", args.postTitle).replace(
     "{BODY}",
     args.postBody.slice(0, 16000),
@@ -102,9 +99,7 @@ export async function ideateFromClaims(
 ): Promise<IdeatorOutput> {
   const filled = PROMPT_FROM_CLAIMS.replace("{TOPIC}", args.topic).replace(
     "{CLAIMS}",
-    args.claims
-      .map((c) => `- [id=${c.id}] ${c.text}\n  evidence: ${c.evidence_text}`)
-      .join("\n"),
+    args.claims.map((c) => `- [id=${c.id}] ${c.text}\n  evidence: ${c.evidence_text}`).join("\n"),
   );
   return runIdeator(env, args.userId, filled, args.useAnthropic ?? false);
 }

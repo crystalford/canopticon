@@ -103,7 +103,7 @@ export default function CharacterDetailPage() {
   async function reseed() {
     setBusy(true);
     try {
-      await apiPost(`/v1/characters/seed`, { entity_id: profile.entity_id });
+      await apiPost("/v1/characters/seed", { entity_id: profile.entity_id });
       await load();
     } finally {
       setBusy(false);
@@ -114,7 +114,6 @@ export default function CharacterDetailPage() {
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <header className="row" style={{ gap: 16, alignItems: "flex-start" }}>
         {profile.portrait_url ? (
-          // biome-ignore lint/performance/noImgElement: external Wikipedia URLs
           <img
             src={profile.portrait_url}
             alt=""
@@ -162,11 +161,7 @@ export default function CharacterDetailPage() {
         <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
           <h2 style={{ fontSize: 16, fontWeight: 600 }}>Bio</h2>
           {!editing ? (
-            <button
-              type="button"
-              className="btn sm ghost"
-              onClick={() => setEditing(true)}
-            >
+            <button type="button" className="btn sm ghost" onClick={() => setEditing(true)}>
               Edit
             </button>
           ) : (
@@ -303,17 +298,12 @@ export default function CharacterDetailPage() {
                   listStyle: "none",
                 }}
               >
-                <span
-                  className="mono"
-                  style={{ fontSize: 12, color: "var(--ink-mute)" }}
-                >
+                <span className="mono" style={{ fontSize: 12, color: "var(--ink-mute)" }}>
                   {t.event_date}
                 </span>
                 <div>
                   <div className="row" style={{ gap: 6, marginBottom: 4 }}>
-                    {t.significance === "major" && (
-                      <span className="chip chip-signal">major</span>
-                    )}
+                    {t.significance === "major" && <span className="chip chip-signal">major</span>}
                     <span className="chip chip-mute mono">{t.proposed_by}</span>
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 500 }}>{t.event_title}</div>
@@ -343,12 +333,9 @@ function ProposalPayload({
     return (
       <div>
         <div className="mono" style={{ fontSize: 12, color: "var(--ink-mute)" }}>
-          {String(payload.event_date ?? "")} ·{" "}
-          {String(payload.significance ?? "context")}
+          {String(payload.event_date ?? "")} · {String(payload.significance ?? "context")}
         </div>
-        <div style={{ marginTop: 4, fontWeight: 500 }}>
-          {String(payload.event_title ?? "")}
-        </div>
+        <div style={{ marginTop: 4, fontWeight: 500 }}>{String(payload.event_title ?? "")}</div>
         {payload.event_body ? (
           <p style={{ marginTop: 4, fontSize: 13, color: "var(--ink-2)" }}>
             {String(payload.event_body)}
@@ -360,14 +347,10 @@ function ProposalPayload({
   if (kind === "role_change") {
     return (
       <div>
-        <span style={{ color: "var(--ink-3)" }}>{String(payload.from_role ?? "(unknown)")}</span>{" "}
-        →{" "}
+        <span style={{ color: "var(--ink-3)" }}>{String(payload.from_role ?? "(unknown)")}</span> →{" "}
         <span style={{ fontWeight: 500 }}>{String(payload.to_role ?? "")}</span>
         {payload.effective_date ? (
-          <span
-            className="mono"
-            style={{ marginLeft: 8, fontSize: 12, color: "var(--ink-mute)" }}
-          >
+          <span className="mono" style={{ marginLeft: 8, fontSize: 12, color: "var(--ink-mute)" }}>
             {String(payload.effective_date)}
           </span>
         ) : null}

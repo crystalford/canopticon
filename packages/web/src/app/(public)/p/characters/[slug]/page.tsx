@@ -5,8 +5,8 @@
 // the network of relations to other entities.
 
 import { publicGet } from "@/lib/public-api";
-import { notFound } from "next/navigation";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 export const runtime = "edge";
 
@@ -65,9 +65,7 @@ export default async function CharacterPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const r = await publicGet<DetailResponse>(`/v1/public/characters/${slug}`, 60).catch(
-    () => null,
-  );
+  const r = await publicGet<DetailResponse>(`/v1/public/characters/${slug}`, 60).catch(() => null);
   if (!r) notFound();
   const { profile, heat_score, timeline, claims, relations } = r;
 
@@ -78,7 +76,6 @@ export default async function CharacterPage({
       </p>
       <div className="flex items-start gap-5">
         {profile.portrait_url ? (
-          // biome-ignore lint/performance/noImgElement: external Wikipedia URLs
           <img
             src={profile.portrait_url}
             alt=""
@@ -108,22 +105,15 @@ export default async function CharacterPage({
           <h2 className="font-serif text-3xl text-[var(--ink)]">Timeline</h2>
           <ol className="mt-6 flex flex-col gap-6">
             {timeline.map((t, i) => (
-              <li
-                key={`${t.event_date}-${i}`}
-                className="grid grid-cols-[100px_1fr] gap-4"
-              >
-                <span className="font-mono text-[12px] text-[var(--ink-mute)]">
-                  {t.event_date}
-                </span>
+              <li key={`${t.event_date}-${i}`} className="grid grid-cols-[100px_1fr] gap-4">
+                <span className="font-mono text-[12px] text-[var(--ink-mute)]">{t.event_date}</span>
                 <div>
                   {t.significance === "major" && (
                     <span className="mr-2 inline-block rounded-sm bg-[var(--signal)]/10 px-1 font-mono text-[10px] uppercase tracking-wider text-[var(--signal)]">
                       major
                     </span>
                   )}
-                  <span className="font-serif text-lg text-[var(--ink)]">
-                    {t.event_title}
-                  </span>
+                  <span className="font-serif text-lg text-[var(--ink)]">{t.event_title}</span>
                   {t.event_body && t.event_body !== t.event_title && (
                     <p className="mt-1 text-sm text-[var(--ink-3)]">{t.event_body}</p>
                   )}
@@ -139,10 +129,7 @@ export default async function CharacterPage({
           <h2 className="font-serif text-3xl text-[var(--ink)]">Recorded claims</h2>
           <ul className="mt-6 flex flex-col gap-3">
             {claims.map((c) => (
-              <li
-                key={c.id}
-                className="rounded-md border border-[var(--rule)] p-3 text-sm"
-              >
+              <li key={c.id} className="rounded-md border border-[var(--rule)] p-3 text-sm">
                 <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
                   {c.layer}
                   {c.admiralty_grade ? ` · ${c.admiralty_grade}` : ""}
@@ -246,19 +233,13 @@ function BioBody({ markdown }: { markdown: string }) {
         if (b.type === "blank") return null;
         if (b.type === "h2")
           return (
-            <h2
-              key={i}
-              className="mt-8 font-serif text-3xl text-[var(--ink)]"
-            >
+            <h2 key={i} className="mt-8 font-serif text-3xl text-[var(--ink)]">
               {b.text}
             </h2>
           );
         if (b.type === "h3")
           return (
-            <h3
-              key={i}
-              className="mt-6 font-serif text-2xl text-[var(--ink)]"
-            >
+            <h3 key={i} className="mt-6 font-serif text-2xl text-[var(--ink)]">
               {b.text}
             </h3>
           );

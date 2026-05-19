@@ -108,7 +108,7 @@ export default function RecordPage() {
     setUploading(true);
     try {
       const form = new FormData();
-      form.append("audio", blob, `take.webm`);
+      form.append("audio", blob, "take.webm");
       form.append("duration_ms", String(durationMs));
       await apiUpload(`/v1/studio/beats/${current.id}/audio`, form);
       await load();
@@ -182,11 +182,7 @@ export default function RecordPage() {
               ● REC
             </span>
           )}
-          <button
-            type="button"
-            className="btn sm ghost"
-            onClick={() => router.push("/studio")}
-          >
+          <button type="button" className="btn sm ghost" onClick={() => router.push("/studio")}>
             Exit
           </button>
         </div>
@@ -200,12 +196,7 @@ export default function RecordPage() {
               flex: 1,
               height: 4,
               borderRadius: 2,
-              background:
-                i === idx
-                  ? "var(--signal)"
-                  : b.recorded
-                    ? "var(--ink-3)"
-                    : "var(--rule)",
+              background: i === idx ? "var(--signal)" : b.recorded ? "var(--ink-3)" : "var(--rule)",
             }}
           />
         ))}
@@ -281,11 +272,7 @@ export default function RecordPage() {
             <button type="button" className="btn ghost" onClick={() => void retake()}>
               Retake
             </button>
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => void markGoodAndNext()}
-            >
+            <button type="button" className="btn primary" onClick={() => void markGoodAndNext()}>
               Mark good · Next
             </button>
           </>
@@ -296,11 +283,7 @@ export default function RecordPage() {
           </span>
         )}
         {!recording && !uploading && idx > 0 && (
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => setIdx(Math.max(0, idx - 1))}
-          >
+          <button type="button" className="btn ghost" onClick={() => setIdx(Math.max(0, idx - 1))}>
             ← Prev beat
           </button>
         )}

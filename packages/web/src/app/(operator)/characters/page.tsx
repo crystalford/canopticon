@@ -78,9 +78,7 @@ export default function CharactersPage() {
           style={{ textAlign: "center", padding: "48px 24px", color: "var(--ink-mute)" }}
         >
           <p style={{ marginBottom: 8 }}>
-            {filter === "pending"
-              ? "No pending proposals."
-              : "No characters yet."}
+            {filter === "pending" ? "No pending proposals." : "No characters yet."}
           </p>
           <p style={{ fontSize: 13 }}>
             Characters auto-promote when a person's heat score crosses 0.6, or you can promote
@@ -94,7 +92,6 @@ export default function CharactersPage() {
           <article key={c.profile_id} className="card compact">
             <div className="row" style={{ alignItems: "flex-start", gap: 16 }}>
               {c.portrait_url ? (
-                // biome-ignore lint/performance/noImgElement: external Wikipedia URLs
                 <img
                   src={c.portrait_url}
                   alt=""
@@ -124,9 +121,7 @@ export default function CharactersPage() {
                   <span className="chip mono">heat {c.heat_score.toFixed(2)}</span>
                   <span className="chip chip-mute">{c.mention_count} mentions</span>
                   {c.pending_proposals > 0 && (
-                    <span className="chip chip-signal">
-                      {c.pending_proposals} pending
-                    </span>
+                    <span className="chip chip-signal">{c.pending_proposals} pending</span>
                   )}
                 </div>
                 <h3

@@ -120,11 +120,7 @@ const draftPost: ToolDef = {
       const placeholder = detectPlaceholderBody(bodyMd);
       if (placeholder) {
         return {
-          output:
-            `Refused: body_md contains a placeholder ("${placeholder}"). ` +
-            "Write out the complete article body — placeholders are forbidden. " +
-            "If you don't have enough source material, ask the operator instead of calling this tool. " +
-            "If the operator wants to save an attached file as-is, pass source_file_id and omit body_md.",
+          output: `Refused: body_md contains a placeholder ("${placeholder}"). Write out the complete article body — placeholders are forbidden. If you don't have enough source material, ask the operator instead of calling this tool. If the operator wants to save an attached file as-is, pass source_file_id and omit body_md.`,
           side_effects: [],
         };
       }
@@ -183,10 +179,7 @@ const draftPost: ToolDef = {
       });
       return {
         output: `Updated draft ${updateId}: "${title}".`,
-        side_effects: [
-          { kind: "post", id: updateId, summary: title },
-          ...sourceSideEffect,
-        ],
+        side_effects: [{ kind: "post", id: updateId, summary: title }, ...sourceSideEffect],
       };
     }
 
@@ -210,10 +203,7 @@ const draftPost: ToolDef = {
     });
     return {
       output: `Saved as draft ${id}: "${title}". Publish when ready.`,
-      side_effects: [
-        { kind: "post", id, summary: title },
-        ...sourceSideEffect,
-      ],
+      side_effects: [{ kind: "post", id, summary: title }, ...sourceSideEffect],
     };
   },
 };
@@ -430,11 +420,7 @@ const updatePost: ToolDef = {
       const placeholder = detectPlaceholderBody(input.body_md);
       if (placeholder) {
         return {
-          output:
-            `Refused: body_md contains a placeholder ("${placeholder}"). ` +
-            "Re-call update_post with the COMPLETE article body. Never abbreviate with " +
-            "'(rest of the article)' or similar — write the full markdown out. " +
-            "If the operator wants to replace the body with an attached file, pass source_file_id and omit body_md.",
+          output: `Refused: body_md contains a placeholder ("${placeholder}"). Re-call update_post with the COMPLETE article body. Never abbreviate with '(rest of the article)' or similar — write the full markdown out. If the operator wants to replace the body with an attached file, pass source_file_id and omit body_md.`,
           side_effects: [],
         };
       }
@@ -507,10 +493,7 @@ const updatePost: ToolDef = {
 
     return {
       output: `Updated "${typeof input.title === "string" ? input.title : post.title}".`,
-      side_effects: [
-        { kind: "post", id: postId, summary: post.title },
-        ...sourceSideEffect,
-      ],
+      side_effects: [{ kind: "post", id: postId, summary: post.title }, ...sourceSideEffect],
     };
   },
 };

@@ -47,9 +47,9 @@ interface EntityRow {
 }
 
 interface MetadataShape {
-  wikipedia_checked_at?: string;
-  wikipedia_url?: string;
-  wikipedia_match?: string;
+  wikipedia_checked_at?: string | undefined;
+  wikipedia_url?: string | undefined;
+  wikipedia_match?: string | undefined;
   heat_breakdown?: HeatBreakdown;
   [k: string]: unknown;
 }
@@ -108,9 +108,7 @@ export async function computeHeatScore(
   // 3) Wikipedia eligibility — cached so we don't re-probe on every claim.
   let wikipediaContribution = 0;
   let wikipediaUrl = metadata.wikipedia_url;
-  const cachedAt = metadata.wikipedia_checked_at
-    ? Date.parse(metadata.wikipedia_checked_at)
-    : null;
+  const cachedAt = metadata.wikipedia_checked_at ? Date.parse(metadata.wikipedia_checked_at) : null;
   const STALE_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
   const cacheFresh = cachedAt && Date.now() - cachedAt < STALE_MS;
   if (cacheFresh) {
@@ -124,8 +122,8 @@ export async function computeHeatScore(
       wikipediaUrl = probe.url;
       wikipediaContribution = W_WIKIPEDIA;
     } else {
-      delete metadata.wikipedia_url;
-      delete metadata.wikipedia_match;
+      metadata.wikipedia_url = undefined;
+      metadata.wikipedia_match = undefined;
     }
   }
 
@@ -240,7 +238,7 @@ export async function recomputeHeatForSource(
 }
 
 async function probeWikipedia(
-  env: Env,
+  _env: Env,
   name: string,
 ): Promise<{ url: string; title: string } | null> {
   try {
@@ -267,8 +265,6 @@ async function probeWikipedia(
   } catch {
     return null;
   }
-  // env unused here; kept in signature for future per-language config.
-  void env;
 }
 
 function zeroBreakdown(): HeatBreakdown {
