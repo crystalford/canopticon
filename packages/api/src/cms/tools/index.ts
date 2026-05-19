@@ -6,6 +6,26 @@ import { all, insertOne, one, run } from "../../lib/d1";
 import { runPublishPrep } from "../lib/publish-prep.ts";
 import { renderMarkdown, slugify } from "../lib/render-post.ts";
 
+// Llama 3.3 70B sometimes shortcuts a long body_md to a placeholder
+// like "... (rest of the article)". That writes garbage to the DB.
+// Detect the most common placeholders so the tool returns a refusal
+// the model can react to instead of silently saving junk.
+const PLACEHOLDER_PATTERNS = [
+  /\(\s*rest of (the )?(article|post|content|body)[^)]*\)/i,
+  /\[\s*(content continues?|rest of (the )?(article|post|body)|full body here|continued)\s*\]/i,
+  /\.\.\.\s*\(?\s*(continued|truncated|full body|rest)\s*\)?/i,
+  /\bTODO:\s*fill in\b/i,
+  /^\s*\.\.\.\s*$/m,
+];
+
+function detectPlaceholderBody(bodyMd: string): string | null {
+  for (const p of PLACEHOLDER_PATTERNS) {
+    const m = p.exec(bodyMd);
+    if (m) return m[0];
+  }
+  return null;
+}
+
 const draftPost: ToolDef = {
   name: "draft_post",
   description:
@@ -33,6 +53,17 @@ const draftPost: ToolDef = {
       typeof input.post_type === "string" && ["article", "thesis", "note"].includes(input.post_type)
         ? input.post_type
         : "article";
+
+    const placeholder = detectPlaceholderBody(bodyMd);
+    if (placeholder) {
+      return {
+        output:
+          `Refused: body_md contains a placeholder ("${placeholder}"). ` +
+          "Write out the complete article body — placeholders are forbidden. " +
+          "If you don't have enough source material, ask the operator instead of calling this tool.",
+        side_effects: [],
+      };
+    }
 
     if (typeof input.update_post_id === "string" && input.update_post_id) {
       const updateId = input.update_post_id;
@@ -297,6 +328,16 @@ const updatePost: ToolDef = {
       params.push(input.subtitle);
     }
     if (typeof input.body_md === "string") {
+      const placeholder = detectPlaceholderBody(input.body_md);
+      if (placeholder) {
+        return {
+          output:
+            `Refused: body_md contains a placeholder ("${placeholder}"). ` +
+            "Re-call update_post with the COMPLETE article body. Never abbreviate with " +
+            "'(rest of the article)' or similar — write the full markdown out.",
+          side_effects: [],
+        };
+      }
       sets.push("body_md = ?");
       params.push(input.body_md);
     }

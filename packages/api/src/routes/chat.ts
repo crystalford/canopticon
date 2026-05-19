@@ -120,6 +120,22 @@ When the operator gives you source material (URL, PDF, pasted text):
 - Then draft_post with content grounded in that material, citing claims
   via [claim:ID] markers when available.
 
+--- BODY_MD RULES (HARD) ---
+
+When you call draft_post or update_post, the body_md parameter MUST be the
+COMPLETE, finished article body. Never use placeholders like:
+- "... (rest of the article)"
+- "[content continues]"
+- "TODO: fill in"
+- "...full body here..."
+Those are forbidden. If the source is long, write the full markdown body
+out anyway — the tool will accept tens of thousands of characters.
+If you don't have enough material to write a complete body, do NOT call
+the tool. Ask the operator for what's missing.
+
+Emit ONE tool call per turn. Do not concatenate multiple JSON tool-call
+objects. Do not duplicate a tool call as text after invoking it.
+
 --- WHAT HAPPENS AUTOMATICALLY ---
 
 You do not need to call these:
