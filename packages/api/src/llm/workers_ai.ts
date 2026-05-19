@@ -113,22 +113,25 @@ export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCal
             input: tc.function?.arguments ? safeParse(tc.function.arguments) : {},
           }));
 
-  // RESCUE Llama text-format tool calls (see rescueLlamaToolCall below).
-  // Only applies when the model gave us no structured tool_calls but
-  // the text clearly looks like one.
+  // RESCUE Llama text-format tool calls (see rescueLlamaToolCalls below).
+  // Runs even when the model already gave us structured tool_calls,
+  // because Llama sometimes appends raw-JSON tool calls AFTER a real one
+  // and the leaked JSON shows up in the chat UI. response_schema mode
+  // skips rescue because the text IS the structured output.
   let finalText = text;
   let finalToolUses = tool_uses;
-  if (finalToolUses.length === 0 && !input.response_schema) {
-    const rescued = rescueLlamaToolCall(finalText);
-    if (rescued) {
+  if (!input.response_schema && finalText) {
+    const rescued = rescueLlamaToolCalls(finalText);
+    if (rescued.calls.length > 0) {
       finalToolUses = [
-        {
-          id: `call_0_${crypto.randomUUID().slice(0, 8)}`,
-          name: rescued.name,
-          input: rescued.input,
-        },
+        ...finalToolUses,
+        ...rescued.calls.map((c, i) => ({
+          id: `call_${finalToolUses.length + i}_${crypto.randomUUID().slice(0, 8)}`,
+          name: c.name,
+          input: c.input,
+        })),
       ];
-      finalText = "";
+      finalText = rescued.remainder;
     }
   }
 
@@ -187,6 +190,11 @@ export async function streamWorkersAi(
 
   let fullText = "";
   let leadingFillerStripped = false;
+  // Once the accumulated stream text looks like a Llama tool-call
+  // JSON (e.g. starts with `{"type":` or `<|python_tag|>`), suppress
+  // deltas to the client so the raw JSON doesn't leak into the chat
+  // UI. The rescue at end-of-stream parses it as a real tool_use.
+  let suppressDeltas = false;
   const toolByIndex = new Map<number, PartialToolCall>();
   let finishReason: string | null = null;
   let usagePrompt = 0;
@@ -231,7 +239,8 @@ export async function streamWorkersAi(
           leadingFillerStripped = chunkText.length > 0;
         }
         fullText += chunkText;
-        if (chunkText) onChunk({ delta: chunkText });
+        if (!suppressDeltas && looksLikeToolCallPrefix(fullText)) suppressDeltas = true;
+        if (chunkText && !suppressDeltas) onChunk({ delta: chunkText });
       }
       const choice = parsed.choices?.[0];
       const delta = choice?.delta;
@@ -242,7 +251,8 @@ export async function streamWorkersAi(
           leadingFillerStripped = (fullText + chunkText).length > 0;
         }
         fullText += chunkText;
-        if (chunkText) onChunk({ delta: chunkText });
+        if (!suppressDeltas && looksLikeToolCallPrefix(fullText)) suppressDeltas = true;
+        if (chunkText && !suppressDeltas) onChunk({ delta: chunkText });
       }
       if (delta?.tool_calls) {
         for (const tc of delta.tool_calls) {
@@ -264,22 +274,28 @@ export async function streamWorkersAi(
   }
 
   // RESCUE: Llama 3.3 70B often emits tool calls as raw JSON in the
-  // assistant text instead of using the OpenAI tool_calls field.
+  // assistant text instead of using the OpenAI tool_calls field, and
+  // sometimes does so EVEN WHEN it also emits a proper tool_call (the
+  // text leaks as visible JSON in the chat UI). Strip every tool-call-
+  // shaped JSON object out of the text and append the parsed calls.
   // Common Llama formats:
   //   {"type": "function", "name": "X", "parameters": {...}}
   //   {"name": "X", "arguments": {...}}
   //   <function=X>{"arg": "val"}</function>
   //   <|python_tag|>X.call({"arg": "val"})
-  // If we see no structured tool_calls but the fullText looks like one
-  // of these, extract it as a tool_use and clear the text.
-  const rescued = rescueLlamaToolCall(fullText);
-  if (rescued && toolByIndex.size === 0) {
-    toolByIndex.set(0, {
-      id: "",
-      name: rescued.name,
-      argumentsText: JSON.stringify(rescued.input),
-    });
-    fullText = "";
+  if (fullText) {
+    const rescued = rescueLlamaToolCalls(fullText);
+    if (rescued.calls.length > 0) {
+      const baseIdx = toolByIndex.size;
+      rescued.calls.forEach((c, i) => {
+        toolByIndex.set(baseIdx + i, {
+          id: "",
+          name: c.name,
+          argumentsText: JSON.stringify(c.input),
+        });
+      });
+      fullText = rescued.remainder;
+    }
   }
 
   const tool_uses = [...toolByIndex.entries()]
@@ -358,40 +374,134 @@ function serializeContent(content: LlmContent[]): string {
 
 /** Llama 3.3 70B occasionally emits its tool call as raw JSON in the
  *  assistant text instead of using the OpenAI tool_calls field. This
- *  scans for the common variants and returns a structured tool_use if
- *  one is found. The chat agent loop then treats it like a real tool
- *  call (executes the tool, feeds the result back). */
+ *  scans for the common variants and returns the first one found.
+ *  Kept for back-compat; new callers should prefer `rescueLlamaToolCalls`
+ *  which handles multiple concatenated calls and returns the remainder. */
 export function rescueLlamaToolCall(
   text: string,
 ): { name: string; input: Record<string, unknown> } | null {
-  const trimmed = text.trim();
-  if (!trimmed) return null;
+  const result = rescueLlamaToolCalls(text);
+  return result.calls[0] ?? null;
+}
 
-  // Format 1: <|python_tag|>name.call({...}) — Llama 3.1/3.3 default
-  const pyTag = trimmed.match(/<\|python_tag\|>\s*([a-z_][a-z0-9_]*)\.call\((.+)\)/is);
-  if (pyTag?.[1] && pyTag[2]) {
-    return { name: pyTag[1], input: safeParse(pyTag[2]) };
+/** Multi-call rescue. Scans the whole text for tool-call-shaped JSON
+ *  objects (and the python_tag / function-tag variants), returns every
+ *  one found along with the text that remains after they're stripped.
+ *
+ *  Why this exists: Llama sometimes emits one structured tool_call via
+ *  the OpenAI tool_calls field AND then duplicates it (or appends a
+ *  second tool call) as raw text in the assistant message. The raw
+ *  text leaks into the chat UI as visible JSON. Stripping it on the
+ *  server keeps the chat clean. */
+export function rescueLlamaToolCalls(text: string): {
+  calls: Array<{ name: string; input: Record<string, unknown> }>;
+  remainder: string;
+} {
+  const calls: Array<{ name: string; input: Record<string, unknown> }> = [];
+  let remainder = text;
+
+  // Strip <|python_tag|>name.call({...}) blocks.
+  remainder = remainder.replace(
+    /<\|python_tag\|>\s*([a-z_][a-z0-9_]*)\.call\((.+?)\)/gis,
+    (_m, name: string, args: string) => {
+      calls.push({ name, input: safeParse(args) });
+      return "";
+    },
+  );
+
+  // Strip <function=name>{json}</function> blocks.
+  remainder = remainder.replace(
+    /<function=([a-z_][a-z0-9_]*)>([\s\S]*?)(?:<\/function>|$)/gi,
+    (_m, name: string, body: string) => {
+      calls.push({ name, input: safeParse(body) });
+      return "";
+    },
+  );
+
+  // Scan for balanced-brace JSON objects and extract any that look like
+  // a tool call ({type:function,name,parameters} or {name,arguments|parameters}).
+  remainder = stripToolCallJsonObjects(remainder, calls);
+
+  return { calls, remainder: remainder.trim() };
+}
+
+/** Walk the text, find balanced-brace JSON objects, and pull out any
+ *  that match a tool-call schema. Returns the text with those objects
+ *  removed. Non-tool-call objects are left in place. */
+function stripToolCallJsonObjects(
+  text: string,
+  out: Array<{ name: string; input: Record<string, unknown> }>,
+): string {
+  let result = "";
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (ch !== "{") {
+      result += ch;
+      i += 1;
+      continue;
+    }
+    const end = findBalancedBraceEnd(text, i);
+    if (end === -1) {
+      // Unbalanced — copy the rest verbatim and stop.
+      result += text.slice(i);
+      break;
+    }
+    const candidate = text.slice(i, end + 1);
+    const parsed = tryParseToolCall(candidate);
+    if (parsed) {
+      out.push(parsed);
+      // Skip the consumed object (and any trailing whitespace/comma).
+      i = end + 1;
+      while (i < text.length && /[\s,]/.test(text[i] ?? "")) i += 1;
+    } else {
+      result += text.slice(i, end + 1);
+      i = end + 1;
+    }
   }
-  // Format 2: <function=name>{json}</function>
-  const fnTag = trimmed.match(/<function=([a-z_][a-z0-9_]*)>(.*?)(?:<\/function>|$)/is);
-  if (fnTag?.[1] && fnTag[2]) {
-    return { name: fnTag[1], input: safeParse(fnTag[2]) };
+  return result;
+}
+
+/** Find the index of the matching `}` for the `{` at `start`. Respects
+ *  string literals. Returns -1 if unbalanced. */
+function findBalancedBraceEnd(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
   }
-  // Format 3 + 4: bare JSON. Pull out the first top-level JSON object and
-  // inspect it. Accept {type:'function', name, parameters} (the screenshot
-  // case) or {name, arguments} (Llama's other variant).
-  const jsonStart = trimmed.indexOf("{");
-  const jsonEnd = trimmed.lastIndexOf("}");
-  if (jsonStart === -1 || jsonEnd <= jsonStart) return null;
-  const candidate = trimmed.slice(jsonStart, jsonEnd + 1);
+  return -1;
+}
+
+function tryParseToolCall(
+  candidate: string,
+): { name: string; input: Record<string, unknown> } | null {
   let obj = safeParse(candidate) as Record<string, unknown>;
-  // Llama sometimes emits malformed JSON like `{"content":}` when it has
-  // no value for a field. Try a few repairs before giving up.
   if (!obj || Object.keys(obj).length === 0) {
+    // Repair common malformations.
     const repaired = candidate
-      .replace(/"\s*:\s*}/g, '": ""}') // `"k":}` → `"k": ""}`
-      .replace(/"\s*:\s*,/g, '": "",') // `"k":,` → `"k": "",`
-      .replace(/,(\s*[}\]])/g, "$1"); // trailing commas
+      .replace(/"\s*:\s*}/g, '": ""}')
+      .replace(/"\s*:\s*,/g, '": "",')
+      .replace(/,(\s*[}\]])/g, "$1");
     obj = safeParse(repaired) as Record<string, unknown>;
   }
   if (!obj || typeof obj !== "object") return null;
@@ -410,6 +520,21 @@ export function rescueLlamaToolCall(
     return { name: obj.name, input: obj.parameters as Record<string, unknown> };
   }
   return null;
+}
+
+/** Cheap prefix detector for "the model is starting to emit a tool call
+ *  as text". Used to suppress delta streaming so leaked JSON doesn't
+ *  appear in the chat UI. End-of-stream rescue still parses it as a
+ *  real tool_use. */
+function looksLikeToolCallPrefix(accumulated: string): boolean {
+  const t = accumulated.trimStart();
+  if (!t) return false;
+  if (t.startsWith("<|python_tag|>")) return true;
+  if (/^<function=[a-z_]/i.test(t)) return true;
+  // Tool-call-shaped JSON: {"type":"function",... or {"name":"...","parameters":...
+  if (/^\{\s*"type"\s*:\s*"function"/.test(t)) return true;
+  if (/^\{\s*"name"\s*:\s*"[a-z_]/i.test(t)) return true;
+  return false;
 }
 
 function stripFiller(text: string): string {
