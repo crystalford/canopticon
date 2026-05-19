@@ -9,14 +9,7 @@
 // `awaiting_confirm`, `message_delta`, `done`, `error` SSE events and
 // renders them in real time.
 
-import {
-  ApprovalCard,
-  Card,
-  FileDrop,
-  Markdown,
-  MetadataStrip,
-  type PendingUpload,
-} from "@/components/primitives";
+import { ApprovalCard, FileDrop, Markdown, type PendingUpload } from "@/components/primitives";
 import { apiGet, apiPost, apiUpload, postSse } from "@/lib/api-client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -271,14 +264,17 @@ function ChatPageInner() {
   const isEmpty = !activeId && messages.length === 0;
 
   return (
-    <main className="flex h-[calc(100vh-7rem)] flex-col gap-3 md:h-[calc(100vh-8rem)]">
+    <main
+      className="flex flex-col"
+      style={{ height: "calc(100vh - 90px)", maxHeight: "calc(100vh - 90px)" }}
+    >
       {/* Messages thread */}
       <section className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto pr-2">
           {isEmpty ? (
             <WelcomeCard onStarter={(p) => setComposer(p)} />
           ) : messages.length === 0 && !streaming ? (
-            <p className="font-sans italic text-text-dim">
+            <p style={{ color: "var(--ink-mute)", fontStyle: "italic", padding: "24px 0" }}>
               No messages yet. Say hi or paste a URL.
             </p>
           ) : (
@@ -287,7 +283,7 @@ function ChatPageInner() {
         </div>
 
         {/* Composer */}
-        <div className="mt-2 border-t border-border-soft pt-2">
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--rule)" }}>
           <FileDrop onFiles={handleFiles} pending={pending} compact />
           <textarea
             value={composer}
@@ -298,23 +294,44 @@ function ChatPageInner() {
                 void send();
               }
             }}
-            placeholder="Paste a URL, drop a file, or describe what you want. Enter to send, Shift+Enter for new line."
-            className="mt-2 h-20 w-full resize-y border border-border-soft bg-bg-deeper px-3 py-2 font-sans text-[14px] text-text focus:border-cream-dim focus:outline-none"
+            placeholder="Ask anything. Paste a URL, drop a file, draft a post. Enter to send · Shift+Enter for newline."
+            style={{
+              marginTop: 8,
+              height: 84,
+              width: "100%",
+              resize: "vertical",
+              border: "1px solid var(--rule)",
+              borderRadius: 8,
+              background: "var(--surface)",
+              padding: "12px 14px",
+              fontFamily: "var(--font-sans), system-ui, sans-serif",
+              fontSize: 14.5,
+              lineHeight: 1.5,
+              color: "var(--ink)",
+              outline: "none",
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "var(--ink-faint)";
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = "var(--rule)";
+            }}
           />
-          <div className="mt-1 flex items-center justify-between">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-text-faint">
+          <div className="row" style={{ marginTop: 8, justifyContent: "space-between" }}>
+            <span style={{ fontSize: 12, color: "var(--ink-mute)" }}>
               Workers AI · Llama 3.3 70B
             </span>
             <button
               type="button"
               onClick={send}
               disabled={!!streaming || (!composer.trim() && pendingFileIds.length === 0)}
-              className="border border-amber bg-amber/10 px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-amber hover:bg-amber/20 disabled:opacity-40"
+              className="btn primary"
+              style={{ minWidth: 96 }}
             >
               {streaming ? "Thinking…" : "Send"}
             </button>
           </div>
-          {error && <p className="mt-1 font-mono text-[11px] text-signal">{error}</p>}
+          {error && <p style={{ marginTop: 8, fontSize: 12, color: "var(--signal)" }}>{error}</p>}
         </div>
       </section>
     </main>
@@ -328,11 +345,11 @@ function WelcomeCard({ onStarter }: { onStarter: (prompt: string) => void }) {
       prompt: "Please seed example content so I can see what the app looks like with real data.",
     },
     {
-      label: "Walk me through the app",
-      prompt: "What can I do here? Give me a tour of the 6 screens and what they're for.",
+      label: "Walk me through what's here",
+      prompt: "What can I do here? Give me a tour of the screens and what they're for.",
     },
     {
-      label: "Help me ingest a URL",
+      label: "Ingest a URL",
       prompt:
         "I'll paste a URL next. When I do, fetch it, grade it as a source, and propose entities and claims.",
     },
@@ -342,30 +359,42 @@ function WelcomeCard({ onStarter }: { onStarter: (prompt: string) => void }) {
     },
   ];
   return (
-    <Card className="mx-auto mt-6 max-w-2xl">
-      <MetadataStrip>Chat · intake</MetadataStrip>
-      <h2 className="mt-1 font-sans text-2xl font-extrabold uppercase tracking-tight text-cream-bright">
-        Welcome.
+    <div style={{ maxWidth: 640, margin: "32px auto 0", padding: "0 8px" }}>
+      <h2
+        style={{
+          fontFamily: "var(--font-sans), system-ui, sans-serif",
+          fontSize: 32,
+          fontWeight: 600,
+          letterSpacing: "-0.025em",
+          color: "var(--ink)",
+        }}
+      >
+        Hey. What are you working on?
       </h2>
-      <p className="mt-2 font-sans text-[14px] text-text-dim">
-        This is your daily entry point. Paste URLs, drop files, ask questions. The agent runs on
-        Cloudflare Workers AI (free), and routes the 18 forensic roles through Llama 4 Scout /
-        QwQ-32B. Anthropic is an opt-in escape hatch per role.
+      <p
+        style={{
+          marginTop: 10,
+          fontSize: 15,
+          lineHeight: 1.55,
+          color: "var(--ink-3)",
+        }}
+      >
+        Paste a URL, drop a file, draft a post, or ask about your substrate. Running on Llama 3.3
+        70B by default — Claude Sonnet is opt-in per role from System.
       </p>
-      <ul className="mt-3 flex flex-wrap gap-2">
+      <div className="row" style={{ marginTop: 18, flexWrap: "wrap", gap: 8 }}>
         {starters.map((s) => (
-          <li key={s.label}>
-            <button
-              type="button"
-              onClick={() => onStarter(s.prompt)}
-              className="border border-border-soft bg-bg-deeper px-3 py-1 font-mono text-[11px] uppercase tracking-wider text-cream-dim hover:border-cream-dim hover:text-cream-bright"
-            >
-              {s.label}
-            </button>
-          </li>
+          <button
+            key={s.label}
+            type="button"
+            onClick={() => onStarter(s.prompt)}
+            className="btn sm"
+          >
+            {s.label}
+          </button>
         ))}
-      </ul>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -410,9 +439,21 @@ function RenderedMessage({
       .map((b) => b.text ?? "")
       .join("\n");
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[80%] border-l-2 border-cream-dim bg-bg-deeper px-3 py-2 font-sans text-[14px] text-cream">
-          {text || <em className="text-text-faint">(empty)</em>}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div
+          style={{
+            maxWidth: "78%",
+            background: "var(--ink)",
+            color: "var(--paper)",
+            padding: "10px 14px",
+            borderRadius: 14,
+            fontSize: 14.5,
+            lineHeight: 1.55,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {text || <em style={{ opacity: 0.7 }}>(empty)</em>}
         </div>
       </div>
     );
@@ -431,15 +472,11 @@ function RenderedMessage({
       );
     }
     return (
-      <details className="border border-border-soft px-3 py-2">
-        <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-wider text-text-dim">
-          <span className={m.tool_status === "error" ? "text-signal" : "text-sage"}>●</span>{" "}
-          {m.tool_name}
-        </summary>
-        <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-text-dim">
-          {resultBlock?.output ?? "(no output)"}
-        </pre>
-      </details>
+      <ToolRow
+        name={m.tool_name ?? "tool"}
+        status={m.tool_status ?? "success"}
+        output={resultBlock?.output ?? null}
+      />
     );
   }
   // assistant
@@ -448,9 +485,85 @@ function RenderedMessage({
     .map((b) => b.text ?? "")
     .join("\n");
   return (
-    <Card>
+    <div
+      style={{
+        padding: "4px 2px",
+        fontSize: 14.5,
+        lineHeight: 1.6,
+        color: "var(--ink)",
+      }}
+    >
       <Markdown source={text} />
-    </Card>
+    </div>
+  );
+}
+
+function ToolRow({
+  name,
+  status,
+  output,
+}: {
+  name: string;
+  status: string;
+  output: string | null;
+}) {
+  const dotColor =
+    status === "error"
+      ? "var(--signal)"
+      : status === "success"
+        ? "var(--verified)"
+        : "var(--warning)";
+  return (
+    <details
+      style={{
+        background: "var(--paper-2)",
+        border: "1px solid var(--rule)",
+        borderRadius: 8,
+        padding: "8px 12px",
+      }}
+    >
+      <summary
+        style={{
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontSize: 12.5,
+          color: "var(--ink-3)",
+          listStyle: "none",
+        }}
+      >
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: dotColor,
+            display: "inline-block",
+          }}
+        />
+        <span className="mono">{name}</span>
+        {status === "running" && (
+          <span style={{ fontStyle: "italic", color: "var(--ink-mute)" }}>running…</span>
+        )}
+      </summary>
+      {output && (
+        <pre
+          style={{
+            marginTop: 8,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontFamily: "var(--font-mono), ui-monospace, monospace",
+            fontSize: 12,
+            color: "var(--ink-3)",
+            maxHeight: 280,
+            overflow: "auto",
+          }}
+        >
+          {output}
+        </pre>
+      )}
+    </details>
   );
 }
 
@@ -462,7 +575,7 @@ function StreamingPreview({
   onConfirm: (toolUseId: string, edited: Record<string, unknown>) => void;
 }) {
   return (
-    <div className="space-y-2">
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {streaming.toolCalls.map((tc) => {
         if (tc.status === "awaiting") {
           return (
@@ -475,47 +588,19 @@ function StreamingPreview({
             />
           );
         }
-        return (
-          <details key={tc.id} className="border border-border-soft px-3 py-2">
-            <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-wider text-text-dim">
-              <span
-                className={
-                  tc.status === "error"
-                    ? "text-signal"
-                    : tc.status === "success"
-                      ? "text-sage"
-                      : "text-amber"
-                }
-              >
-                ●
-              </span>{" "}
-              {tc.name}
-              {tc.status === "running" && <span className="ml-2 italic">running…</span>}
-            </summary>
-            {tc.output && (
-              <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-text-dim">
-                {tc.output}
-              </pre>
-            )}
-            {tc.sideEffects && tc.sideEffects.length > 0 && (
-              <ul className="mt-2 flex flex-wrap gap-1">
-                {tc.sideEffects.map((se, i) => (
-                  <li
-                    key={i}
-                    className="border border-border-soft bg-bg-deeper px-2 py-0.5 font-mono text-[10px] text-cream-dim"
-                  >
-                    {se.kind}: {se.summary}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </details>
-        );
+        return <ToolRow key={tc.id} name={tc.name} status={tc.status} output={tc.output ?? null} />;
       })}
       {streaming.text && (
-        <Card>
+        <div
+          style={{
+            padding: "4px 2px",
+            fontSize: 14.5,
+            lineHeight: 1.6,
+            color: "var(--ink)",
+          }}
+        >
           <Markdown source={streaming.text} />
-        </Card>
+        </div>
       )}
     </div>
   );
