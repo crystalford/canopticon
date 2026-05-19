@@ -25,6 +25,11 @@ export interface Env {
   // CMS works standalone in either mode.
   GRAPH_ENABLED: string;
 
+  // Feature flag: toggles the Studio compartment (audio production).
+  // When "false", studio tools are hidden from chat and the /studio route
+  // shows the placeholder. CMS/Graph work standalone in either mode.
+  STUDIO_ENABLED: string;
+
   // Cloudflare Browser Rendering — optional. When configured, the
   // web_search / web_fetch_rendered tools become available (confirm-required,
   // paid). Wikipedia tools work without these. Set CLOUDFLARE_ACCOUNT_ID as

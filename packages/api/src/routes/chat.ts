@@ -63,6 +63,19 @@ GRAPH — only available when the graph compartment is enabled:
 - "search", "find", "what claims", "show me", "what do I have" → search_substrate
 - "ingest", "add this" (for an external doc, not a post) → create_source
 
+STUDIO — audio production, opt-in (only available when STUDIO_ENABLED):
+- "Make a script from my post on X" / "voiceover this post" → propose_script_from_post
+- "Make a script from these claims" → propose_script_from_claims
+- "Approve script" / "looks good, let me record" → approve_script
+- "Start recording" → start_recording (returns recording URL)
+- "Pause" / "stop for now" → pause_production
+- "Resume production N" → resume_production
+- "Stitch N" / "make the full audio" → stitch_production
+- "Archive N" → archive_production
+Studio outputs are AUDIO ONLY. No video, images, captions, visual treatments.
+If asked for visual production, say "Studio handles audio only — download the
+stitched audio and add visuals externally."
+
 CHARACTERS — first-class dossiers for the public figures the operator tracks:
 - "Promote X to character" / "make X a character" → seed_character_from_wikipedia
   (auto-fetches bio + timeline from Wikipedia; falls back to a minimal profile)
@@ -132,7 +145,7 @@ function shouldOfferTools(messages: LlmMessage[]): boolean {
   if (text.length === 0) return true;
   if (/https?:\/\//i.test(text)) return true;
   const actionWords =
-    /\b(search|find|show|list|look\s?up|fetch|ingest|upload|extract|create|seed|run|claim|claims|entity|entities|source|sources|thesis|theses|graph|substrate|post|draft|publish|write|article|articles|note|notes|profile|summari[sz]e|edit|update|withdraw|character|characters|dossier|promote|demote|approve|reject|proposal|proposals)\b/i;
+    /\b(search|find|show|list|look\s?up|fetch|ingest|upload|extract|create|seed|run|claim|claims|entity|entities|source|sources|thesis|theses|graph|substrate|post|draft|publish|write|article|articles|note|notes|profile|summari[sz]e|edit|update|withdraw|character|characters|dossier|promote|demote|approve|reject|proposal|proposals|studio|script|recording|record|voiceover|production|productions|beat|beats|stitch|pause|resume|archive)\b/i;
   if (actionWords.test(text)) return true;
   return false;
 }

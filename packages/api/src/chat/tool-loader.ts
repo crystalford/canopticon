@@ -11,19 +11,23 @@ import { CMS_TOOLS } from "../cms/tools/index.ts";
 import type { Env } from "../env.ts";
 import { TOOLS as GRAPH_TOOLS } from "../graph/tools/index.ts";
 import type { ToolDef } from "../graph/tools/index.ts";
+import { STUDIO_TOOLS } from "../studio/tools/index.ts";
 
 export interface LoadedTools {
   tools: ToolDef[];
   toolsByName: Record<string, ToolDef>;
   graphEnabled: boolean;
+  studioEnabled: boolean;
 }
 
 export function loadTools(env: Env): LoadedTools {
   const graphEnabled = env.GRAPH_ENABLED === "true";
+  const studioEnabled = env.STUDIO_ENABLED === "true";
   const tools: ToolDef[] = [...CMS_TOOLS];
   if (graphEnabled) tools.push(...GRAPH_TOOLS);
+  if (studioEnabled) tools.push(...STUDIO_TOOLS);
   const toolsByName: Record<string, ToolDef> = Object.fromEntries(tools.map((t) => [t.name, t]));
-  return { tools, toolsByName, graphEnabled };
+  return { tools, toolsByName, graphEnabled, studioEnabled };
 }
 
 export function toolDefinitionsForModel(tools: ToolDef[]) {
