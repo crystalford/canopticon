@@ -1,6 +1,7 @@
 // CMS chat tools — always registered, no feature flag. These keep the
 // chat → draft → publish loop working with zero graph dependency.
 
+import type { Env } from "../../env";
 import type { ToolDef } from "../../graph/tools/index";
 import { all, insertOne, one, run } from "../../lib/d1";
 import { runPublishPrep } from "../lib/publish-prep.ts";
@@ -26,6 +27,53 @@ function detectPlaceholderBody(bodyMd: string): string | null {
   return null;
 }
 
+// Load the full extracted body of an attached file for use as a post's
+// body_md. The model can't reliably echo long files through a JSON
+// parameter (1500-4000 max_tokens out), so the chat tools accept a
+// source_file_id instead and we read the body server-side here.
+//
+// Storage layout: extract.ts caps uploaded_files.extracted_text at
+// INLINE_TEXT_MAX (8KB) and stashes any overflow in R2 at the key
+// `extracted/<file_id>.txt`. So R2 is the source of truth for long
+// files; D1 is the fallback for short ones.
+async function loadBodyFromFile(
+  env: Env,
+  userId: string,
+  fileId: string,
+): Promise<{ body_md: string; filename: string } | { error: string }> {
+  const row = await one<{
+    extraction_status: string;
+    extracted_text: string | null;
+    original_filename: string;
+  }>(
+    env.DB,
+    "SELECT extraction_status, extracted_text, original_filename FROM uploaded_files WHERE id = ? AND user_id = ?",
+    [fileId, userId],
+  );
+  if (!row) {
+    return { error: `source_file_id ${fileId} not found or not owned by you` };
+  }
+  if (row.extraction_status !== "extracted") {
+    return {
+      error: `file ${fileId} not extracted yet (status=${row.extraction_status}) — wait a moment or pass body_md directly`,
+    };
+  }
+  // R2 first (full content for files >8KB), D1 fallback (sub-8KB files
+  // never get the R2 overflow object written).
+  let body_md = "";
+  try {
+    const obj = await env.FILES.get(`extracted/${fileId}.txt`);
+    if (obj) body_md = await obj.text();
+  } catch {
+    // R2 fetch failure is non-fatal; fall through to D1.
+  }
+  if (!body_md) body_md = row.extracted_text ?? "";
+  if (!body_md) {
+    return { error: `file ${fileId} has no extracted content` };
+  }
+  return { body_md, filename: row.original_filename };
+}
+
 const draftPost: ToolDef = {
   name: "draft_post",
   description:
@@ -35,7 +83,16 @@ const draftPost: ToolDef = {
     properties: {
       title: { type: "string" },
       subtitle: { type: "string" },
-      body_md: { type: "string" },
+      body_md: {
+        type: "string",
+        description:
+          "The complete article body in markdown. Use when writing fresh prose, or editing/extending an attached file. For saving an attached file verbatim, prefer source_file_id instead.",
+      },
+      source_file_id: {
+        type: "string",
+        description:
+          "Pass this to save an uploaded file's full content as the post body — preferred over echoing body_md when the operator wants a file saved as-is. The server reads the file from storage. Do not also include body_md unless you want body_md to override the file content.",
+      },
       post_type: { enum: ["article", "thesis", "note"] },
       tags: { type: "array", items: { type: "string" } },
       update_post_id: {
@@ -43,27 +100,55 @@ const draftPost: ToolDef = {
         description: "If provided, updates the existing draft instead of creating new.",
       },
     },
-    required: ["title", "body_md"],
+    required: ["title"],
   },
   confirm: false,
   async exec({ env, userId }, input) {
     const title = String(input.title);
-    const bodyMd = String(input.body_md);
     const postType =
       typeof input.post_type === "string" && ["article", "thesis", "note"].includes(input.post_type)
         ? input.post_type
         : "article";
 
-    const placeholder = detectPlaceholderBody(bodyMd);
-    if (placeholder) {
+    // Resolve body precedence: explicit body_md wins; else source_file_id
+    // loads from R2/D1; else refuse.
+    let bodyMd: string | null = null;
+    let sourceFileId: string | null = null;
+    let sourceFilename: string | null = null;
+    if (typeof input.body_md === "string" && input.body_md.length > 0) {
+      bodyMd = input.body_md;
+      const placeholder = detectPlaceholderBody(bodyMd);
+      if (placeholder) {
+        return {
+          output:
+            `Refused: body_md contains a placeholder ("${placeholder}"). ` +
+            "Write out the complete article body — placeholders are forbidden. " +
+            "If you don't have enough source material, ask the operator instead of calling this tool. " +
+            "If the operator wants to save an attached file as-is, pass source_file_id and omit body_md.",
+          side_effects: [],
+        };
+      }
+    } else if (typeof input.source_file_id === "string" && input.source_file_id.length > 0) {
+      sourceFileId = input.source_file_id;
+      const loaded = await loadBodyFromFile(env, userId, sourceFileId);
+      if ("error" in loaded) {
+        return { output: `Refused: ${loaded.error}`, side_effects: [] };
+      }
+      bodyMd = loaded.body_md;
+      sourceFilename = loaded.filename;
+    } else {
       return {
         output:
-          `Refused: body_md contains a placeholder ("${placeholder}"). ` +
-          "Write out the complete article body — placeholders are forbidden. " +
-          "If you don't have enough source material, ask the operator instead of calling this tool.",
+          "Refused: provide either body_md (the complete article body) or source_file_id " +
+          "(an uploaded file's id from the <attached_file> block).",
         side_effects: [],
       };
     }
+
+    const sourceSideEffect =
+      sourceFileId && sourceFilename
+        ? [{ kind: "upload" as const, id: sourceFileId, summary: sourceFilename }]
+        : [];
 
     if (typeof input.update_post_id === "string" && input.update_post_id) {
       const updateId = input.update_post_id;
@@ -92,11 +177,16 @@ const draftPost: ToolDef = {
         post_id: updateId,
         version: (nextVersion?.max ?? 0) + 1,
         body_md: bodyMd,
-        change_summary: "Updated via chat",
+        change_summary: sourceFileId
+          ? `Updated via chat from file ${sourceFilename ?? sourceFileId}`
+          : "Updated via chat",
       });
       return {
         output: `Updated draft ${updateId}: "${title}".`,
-        side_effects: [{ kind: "post", id: updateId, summary: title }],
+        side_effects: [
+          { kind: "post", id: updateId, summary: title },
+          ...sourceSideEffect,
+        ],
       };
     }
 
@@ -114,11 +204,16 @@ const draftPost: ToolDef = {
       post_id: id,
       version: 1,
       body_md: bodyMd,
-      change_summary: "Initial draft",
+      change_summary: sourceFileId
+        ? `Initial draft from file ${sourceFilename ?? sourceFileId}`
+        : "Initial draft",
     });
     return {
       output: `Saved as draft ${id}: "${title}". Publish when ready.`,
-      side_effects: [{ kind: "post", id, summary: title }],
+      side_effects: [
+        { kind: "post", id, summary: title },
+        ...sourceSideEffect,
+      ],
     };
   },
 };
@@ -300,7 +395,16 @@ const updatePost: ToolDef = {
       post_id: { type: "string" },
       title: { type: "string" },
       subtitle: { type: "string" },
-      body_md: { type: "string" },
+      body_md: {
+        type: "string",
+        description:
+          "The complete new body in markdown. For replacing the body with an attached file's contents, prefer source_file_id.",
+      },
+      source_file_id: {
+        type: "string",
+        description:
+          "Pass this to replace the post body with an uploaded file's full content. The server reads the file from storage. If both body_md and source_file_id are present, body_md wins.",
+      },
       tags: { type: "array", items: { type: "string" } },
       is_forensic: { type: "boolean" },
       change_summary: { type: "string" },
@@ -317,6 +421,34 @@ const updatePost: ToolDef = {
     );
     if (!post) return { output: `Post ${postId} not found.`, side_effects: [] };
 
+    // Resolve new body: explicit body_md wins; else source_file_id loads
+    // from R2/D1; else leave body unchanged.
+    let newBody: string | null = null;
+    let sourceFileId: string | null = null;
+    let sourceFilename: string | null = null;
+    if (typeof input.body_md === "string" && input.body_md.length > 0) {
+      const placeholder = detectPlaceholderBody(input.body_md);
+      if (placeholder) {
+        return {
+          output:
+            `Refused: body_md contains a placeholder ("${placeholder}"). ` +
+            "Re-call update_post with the COMPLETE article body. Never abbreviate with " +
+            "'(rest of the article)' or similar — write the full markdown out. " +
+            "If the operator wants to replace the body with an attached file, pass source_file_id and omit body_md.",
+          side_effects: [],
+        };
+      }
+      newBody = input.body_md;
+    } else if (typeof input.source_file_id === "string" && input.source_file_id.length > 0) {
+      sourceFileId = input.source_file_id;
+      const loaded = await loadBodyFromFile(env, userId, sourceFileId);
+      if ("error" in loaded) {
+        return { output: `Refused: ${loaded.error}`, side_effects: [] };
+      }
+      newBody = loaded.body_md;
+      sourceFilename = loaded.filename;
+    }
+
     const sets: string[] = [];
     const params: unknown[] = [];
     if (typeof input.title === "string") {
@@ -327,19 +459,9 @@ const updatePost: ToolDef = {
       sets.push("subtitle = ?");
       params.push(input.subtitle);
     }
-    if (typeof input.body_md === "string") {
-      const placeholder = detectPlaceholderBody(input.body_md);
-      if (placeholder) {
-        return {
-          output:
-            `Refused: body_md contains a placeholder ("${placeholder}"). ` +
-            "Re-call update_post with the COMPLETE article body. Never abbreviate with " +
-            "'(rest of the article)' or similar — write the full markdown out.",
-          side_effects: [],
-        };
-      }
+    if (newBody !== null) {
       sets.push("body_md = ?");
-      params.push(input.body_md);
+      params.push(newBody);
     }
     if (Array.isArray(input.tags)) {
       sets.push("tags = ?");
@@ -358,24 +480,37 @@ const updatePost: ToolDef = {
 
     await run(env.DB, `UPDATE posts SET ${sets.join(", ")} WHERE id = ? AND user_id = ?`, params);
 
-    if (typeof input.body_md === "string" && input.body_md !== post.body_md) {
+    if (newBody !== null && newBody !== post.body_md) {
       const nextVersion = await one<{ max: number | null }>(
         env.DB,
         "SELECT MAX(version) AS max FROM post_versions WHERE post_id = ?",
         [postId],
       );
+      const changeSummary =
+        typeof input.change_summary === "string"
+          ? input.change_summary
+          : sourceFileId
+            ? `Edit via chat from file ${sourceFilename ?? sourceFileId}`
+            : "Edit via chat";
       await insertOne(env.DB, "post_versions", {
         post_id: postId,
         version: (nextVersion?.max ?? 0) + 1,
-        body_md: input.body_md,
-        change_summary:
-          typeof input.change_summary === "string" ? input.change_summary : "Edit via chat",
+        body_md: newBody,
+        change_summary: changeSummary,
       });
     }
 
+    const sourceSideEffect =
+      sourceFileId && sourceFilename
+        ? [{ kind: "upload" as const, id: sourceFileId, summary: sourceFilename }]
+        : [];
+
     return {
       output: `Updated "${typeof input.title === "string" ? input.title : post.title}".`,
-      side_effects: [{ kind: "post", id: postId, summary: post.title }],
+      side_effects: [
+        { kind: "post", id: postId, summary: post.title },
+        ...sourceSideEffect,
+      ],
     };
   },
 };

@@ -120,18 +120,23 @@ When the operator gives you source material (URL, PDF, pasted text):
 - Then draft_post with content grounded in that material, citing claims
   via [claim:ID] markers when available.
 
---- BODY_MD RULES (HARD) ---
+--- BODY RULES (HARD) ---
 
-When you call draft_post or update_post, the body_md parameter MUST be the
-COMPLETE, finished article body. Never use placeholders like:
-- "... (rest of the article)"
-- "[content continues]"
-- "TODO: fill in"
-- "...full body here..."
-Those are forbidden. If the source is long, write the full markdown body
-out anyway — the tool will accept tens of thousands of characters.
-If you don't have enough material to write a complete body, do NOT call
-the tool. Ask the operator for what's missing.
+When the operator wants to save an attached file verbatim as a post:
+- Call draft_post with source_file_id="<id from the attached_file block>"
+  and OMIT body_md. The server reads the full file from storage.
+- You still pick title, subtitle, and tags from the attached_file content
+  you can see (first 8KB) and the operator's phrasing.
+
+When the operator wants you to write original prose, or edit + extend an
+attached file, body_md must be the COMPLETE finished body. Placeholders
+like "... (rest of the article)", "[content continues]", "TODO: fill in",
+"...full body here..." are forbidden — the tool will refuse them. If you
+don't have enough material to write a complete body, do NOT call the
+tool; ask the operator for what's missing.
+
+If you supply both body_md and source_file_id, body_md wins (useful for
+"save this file but add an intro paragraph").
 
 Emit ONE tool call per turn. Do not concatenate multiple JSON tool-call
 objects. Do not duplicate a tool call as text after invoking it.
@@ -139,7 +144,7 @@ objects. Do not duplicate a tool call as text after invoking it.
 --- WHAT HAPPENS AUTOMATICALLY ---
 
 You do not need to call these:
-- When the operator attaches a file, you already see its full content inline in their message (inside the <attached_file> block). No need to call read_file unless they attached it on a previous turn and you need a refresh.
+- When the operator attaches a file, the <attached_file> block shows you the file's first 8KB plus its summary so you can pick a title and tags. To save the file verbatim as a post, pass source_file_id — do not echo the body.
 - When a source is created (from a file upload or fetch_url), the cascade fires automatically in the background: ingestion_critic grades it, then claim_extraction pulls claims. You do not need to call start_cascade or run_role for those two roles.
 
 You DO call run_role for the deeper analytical passes when the operator asks for them: red_team, premortem, calibration, steelman, novelty_surfacer, assumption_auditor, verifier, etc.
@@ -288,7 +293,7 @@ app.post("/conversations/:id/messages", async (c) => {
   const userContent: LlmContent[] = [{ type: "text", text: body.text }];
   const newSourceIds: string[] = [];
   for (const fid of body.attached_file_ids ?? []) {
-    const result = await buildFilePreamble(c.env, fid);
+    const result = await buildFilePreamble(c.env, userId, fid);
     if (result?.preamble) userContent.push({ type: "text", text: result.preamble });
     // Only auto-cascade for sources that just got extracted on this turn —
     // re-attaching the same file later shouldn't re-run the pipeline.
@@ -427,7 +432,7 @@ async function runAgentLoop(args: {
         system: systemPrompt,
         messages,
         tools: offerTools ? toolDefinitionsForModel(availableTools) : [],
-        max_tokens: 1500,
+        max_tokens: 4000,
         temperature: 0.7,
         top_p: 0.9,
         repetition_penalty: 1.05,
@@ -633,14 +638,15 @@ interface FilePreambleResult {
 
 async function buildFilePreamble(
   env: AuthContext["Bindings"],
+  userId: string,
   fileId: string,
 ): Promise<FilePreambleResult | null> {
   let row = await one<FileRow>(
     env.DB,
     `SELECT extraction_status, extracted_text, extracted_summary, original_filename,
             classification, created_source_id
-       FROM uploaded_files WHERE id = ?`,
-    [fileId],
+       FROM uploaded_files WHERE id = ? AND user_id = ?`,
+    [fileId, userId],
   );
   if (!row) return null;
 
@@ -654,8 +660,8 @@ async function buildFilePreamble(
         env.DB,
         `SELECT extraction_status, extracted_text, extracted_summary, original_filename,
                 classification, created_source_id
-           FROM uploaded_files WHERE id = ?`,
-        [fileId],
+           FROM uploaded_files WHERE id = ? AND user_id = ?`,
+        [fileId, userId],
       );
     } catch (err) {
       return {
