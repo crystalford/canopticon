@@ -2,7 +2,7 @@ export const runtime = "edge";
 
 export default function MethodologyPage() {
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12 font-serif text-lg leading-relaxed text-[#1a1410]">
+    <div className="mx-auto max-w-3xl px-6 py-12 font-serif text-lg leading-relaxed text-[var(--ink)]">
       <h1 className="mb-8 font-serif text-4xl">Methodology</h1>
 
       <Section title="What is CANOPTICON">
@@ -61,8 +61,8 @@ export default function MethodologyPage() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mb-8 border-t border-[#1a1410]/15 pt-6">
-      <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+    <section className="mb-8 border-t border-[var(--rule)] pt-6">
+      <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[var(--ink-mute)]">
         {title}
       </h2>
       <p>{children}</p>

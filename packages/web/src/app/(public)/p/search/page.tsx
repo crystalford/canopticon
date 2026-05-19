@@ -52,17 +52,17 @@ export default function SearchPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <h1 className="mb-8 font-serif text-4xl text-[#1a1410]">Search</h1>
+      <h1 className="mb-8 font-serif text-4xl text-[var(--ink)]">Search</h1>
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search across the substrate…"
-        className="mb-6 w-full border border-[#1a1410]/30 bg-[#f4ede0] px-3 py-2 font-serif text-lg text-[#1a1410] focus:border-[#9c2333] focus:outline-none"
+        className="mb-6 w-full border border-[var(--rule)] bg-[var(--paper)] px-3 py-2 font-serif text-lg text-[var(--ink)] focus:border-[var(--signal)] focus:outline-none"
       />
 
       {results.articles && results.articles.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-wider text-[var(--ink-mute)]">
             Articles
           </h2>
           <ul className="space-y-2">
@@ -70,7 +70,7 @@ export default function SearchPage() {
               <li key={a.slug}>
                 <Link
                   href={`/p/articles/${a.slug}`}
-                  className="font-serif text-lg text-[#1a1410] hover:text-[#9c2333]"
+                  className="font-serif text-lg text-[var(--ink)] hover:text-[var(--signal)]"
                 >
                   {a.title}
                 </Link>
@@ -82,7 +82,7 @@ export default function SearchPage() {
 
       {results.theses && results.theses.length > 0 && (
         <section>
-          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+          <h2 className="mb-2 font-mono text-[11px] uppercase tracking-wider text-[var(--ink-mute)]">
             Theses
           </h2>
           <ul className="space-y-2">
@@ -90,11 +90,11 @@ export default function SearchPage() {
               <li key={t.slug}>
                 <Link
                   href={`/p/theses/${t.slug}`}
-                  className="font-serif text-lg text-[#1a1410] hover:text-[#9c2333]"
+                  className="font-serif text-lg text-[var(--ink)] hover:text-[var(--signal)]"
                 >
                   {t.title}
                 </Link>
-                <p className="font-serif italic text-[#1a1410]/70">{t.tier_bluf}</p>
+                <p className="font-serif italic text-[var(--ink-3)]">{t.tier_bluf}</p>
               </li>
             ))}
           </ul>
@@ -102,7 +102,7 @@ export default function SearchPage() {
       )}
 
       {q.length >= 2 && !results.articles?.length && !results.theses?.length && (
-        <p className="font-serif italic text-[#1a1410]/50">No matches.</p>
+        <p className="font-serif italic text-[var(--ink-faint)]">No matches.</p>
       )}
     </div>
   );

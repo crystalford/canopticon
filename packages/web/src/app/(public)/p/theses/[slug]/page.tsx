@@ -40,7 +40,7 @@ export default function ThesisDetail() {
   if (error) notFound();
   if (!thesis) {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-12 font-serif italic text-[#1a1410]/50">
+      <div className="mx-auto max-w-3xl px-6 py-12 font-serif italic text-[var(--ink-faint)]">
         Loading…
       </div>
     );
@@ -57,26 +57,28 @@ export default function ThesisDetail() {
 
   return (
     <article className="mx-auto max-w-3xl px-6 py-12">
-      <p className="mb-2 font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+      <p className="mb-2 font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
         v{thesis.version_number} · {new Date(thesis.published_at).toLocaleDateString()}
         {thesis.ipcc_likelihood ? ` · IPCC: ${thesis.ipcc_likelihood.replace(/_/g, " ")}` : ""}
       </p>
-      <h1 className="font-serif text-4xl leading-tight text-[#1a1410]">{thesis.title}</h1>
+      <h1 className="font-serif text-4xl leading-tight text-[var(--ink)]">{thesis.title}</h1>
 
       {thesis.coined_phrase && (
-        <p className="mt-4 border-l-2 border-[#9c2333] pl-3 font-serif text-lg italic text-[#9c2333]">
+        <p className="mt-4 border-l-2 border-[var(--signal)] pl-3 font-serif text-lg italic text-[var(--signal)]">
           "{thesis.coined_phrase}"
         </p>
       )}
 
-      <div className="mt-8 flex gap-2 border-y border-[#1a1410]/15 py-2">
+      <div className="mt-8 flex gap-2 border-y border-[var(--rule)] py-2">
         {(["bluf", "tier_80", "tier_800", "tier_full"] as Tier[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTier(t)}
             className={`px-3 py-1 font-mono text-[10.5px] uppercase tracking-wider ${
-              tier === t ? "bg-[#1a1410] text-[#f4ede0]" : "text-[#5c4a3d] hover:bg-[#ede4d2]"
+              tier === t
+                ? "bg-[var(--ink)] text-[var(--paper)]"
+                : "text-[var(--ink-mute)] hover:bg-[var(--paper-2)]"
             }`}
           >
             {t === "bluf"
@@ -90,12 +92,12 @@ export default function ThesisDetail() {
         ))}
       </div>
 
-      <div className="mt-6 whitespace-pre-line font-serif text-lg leading-relaxed text-[#1a1410]">
+      <div className="mt-6 whitespace-pre-line font-serif text-lg leading-relaxed text-[var(--ink)]">
         {body}
       </div>
 
       {thesis.primary_operator && (
-        <p className="mt-12 border-t border-[#1a1410]/15 pt-4 font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+        <p className="mt-12 border-t border-[var(--rule)] pt-4 font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
           By {thesis.primary_operator}
         </p>
       )}

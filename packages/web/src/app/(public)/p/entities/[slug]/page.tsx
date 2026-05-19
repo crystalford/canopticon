@@ -26,21 +26,24 @@ export default async function EntityDetail({ params }: { params: Promise<{ slug:
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <p className="mb-2 font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+      <p className="mb-2 font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
         {e.entity_type}
       </p>
-      <h1 className="font-serif text-4xl text-[#1a1410]">{e.canonical_name}</h1>
-      {e.summary && <p className="mt-3 font-serif text-lg italic text-[#1a1410]/80">{e.summary}</p>}
+      <h1 className="font-serif text-4xl text-[var(--ink)]">{e.canonical_name}</h1>
+      {e.summary && (
+        <p className="mt-3 font-serif text-lg italic text-[var(--ink-2)]">{e.summary}</p>
+      )}
 
       {e.payload.timeline && e.payload.timeline.length > 0 && (
         <section className="mt-12">
-          <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+          <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[var(--ink-mute)]">
             Timeline
           </h2>
           <ul className="space-y-2">
             {e.payload.timeline.map((t, i) => (
               <li key={i} className="font-serif">
-                <span className="font-mono text-[10.5px] text-[#5c4a3d]">{t.date}</span> · {t.event}
+                <span className="font-mono text-[10.5px] text-[var(--ink-mute)]">{t.date}</span> ·{" "}
+                {t.event}
               </li>
             ))}
           </ul>
@@ -49,13 +52,13 @@ export default async function EntityDetail({ params }: { params: Promise<{ slug:
 
       {e.payload.relations && e.payload.relations.length > 0 && (
         <section className="mt-12">
-          <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+          <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[var(--ink-mute)]">
             Relations
           </h2>
           <ul className="space-y-1 font-serif">
             {e.payload.relations.map((rel, i) => (
               <li key={i}>
-                <span className="font-mono text-[10.5px] text-[#5c4a3d]">
+                <span className="font-mono text-[10.5px] text-[var(--ink-mute)]">
                   {rel.relation_type.replace(/_/g, " ")}
                 </span>{" "}
                 · {rel.name}

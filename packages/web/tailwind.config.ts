@@ -57,8 +57,26 @@ const config: Config = {
         },
       },
       fontFamily: {
-        serif: ["var(--font-serif)", "EB Garamond", "Georgia", "serif"],
-        mono: ["var(--font-mono)", "JetBrains Mono", "ui-monospace", "monospace"],
+        sans: [
+          "var(--font-sans)",
+          "Geist",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "system-ui",
+          "sans-serif",
+        ],
+        // 'serif' kept pointing at Geist so legacy class names render
+        // consistently after the rebrand. The editorial cream/serif look
+        // is gone — everything is Geist now.
+        serif: [
+          "var(--font-sans)",
+          "Geist",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "system-ui",
+          "sans-serif",
+        ],
+        mono: ["var(--font-mono)", "Geist Mono", "JetBrains Mono", "ui-monospace", "monospace"],
       },
       borderRadius: {
         none: "0",

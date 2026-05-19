@@ -3,76 +3,266 @@
 @tailwind utilities;
 
 /*
- * Design tokens — pulled directly from canopticon-prototype-v92.html.
- * Names use semantic categories (bg / text / amber / signal / sage / blue
- * / tan / good) and intensity suffixes (dim / bright / faint / glow).
+ * CANOPTICON / INSTRUMENT — design tokens.
  *
- * If you find yourself reaching for a hex value that isn't here, add a
- * token first — don't inline it. Tailwind's color map (tailwind.config.ts)
- * references these CSS vars so utility classes stay in lock-step.
+ * D1+D4 synthesis from the design archive: Vercel-pro near-white surface
+ * for the public site, dark zinc for the operator app. Geist + Geist Mono
+ * only. Single rose accent (`signal`). Hairline borders, generous
+ * whitespace.
+ *
+ * Two modes:
+ *   - default (html) → public, near-white
+ *   - [data-mode="operator"] (set on <html> inside the operator layout)
+ *     → dark zinc surface
+ *
+ * Tailwind utility names (text-cream-bright, bg-bg-deeper, etc.) are kept
+ * for back-compat with existing components, remapped to the new palette
+ * via tailwind.config.ts so the rebrand applies everywhere without per-
+ * file edits. New code should prefer the semantic `ink` / `paper` / `rule`
+ * names.
  */
 :root {
-  /* Backgrounds (cool dark navy, not pure black). */
-  --color-bg: #0f1218;
-  --color-bg-deeper: #0a0c11;
-  --color-bg-elevated: #161a22;
-  --color-bg-subtle: #1c2029;
-  --color-bg-card: #13161d;
+  /* PUBLIC — near-white (Vercel) */
+  --pub-paper: #fafafa;
+  --pub-paper-2: #f4f4f5;
+  --pub-paper-3: #e9e9eb;
+  --pub-surface: #ffffff;
+  --pub-ink: #0a0a0a;
+  --pub-ink-2: #18181b;
+  --pub-ink-3: #525252;
+  --pub-ink-mute: #737373;
+  --pub-ink-faint: #a3a3a3;
+  --pub-rule: #e5e5e5;
+  --pub-rule-soft: #f4f4f5;
 
-  /* Borders. */
-  --color-border: #242934;
-  --color-border-soft: #1b1f28;
-  --color-border-bright: #323845;
+  /* OPERATOR — pure dark zinc */
+  --op-paper: #09090b;
+  --op-paper-2: #18181b;
+  --op-paper-3: #27272a;
+  --op-paper-4: #3f3f46;
+  --op-surface: #18181b;
+  --op-ink: #fafafa;
+  --op-ink-2: #e4e4e7;
+  --op-ink-3: #a1a1aa;
+  --op-ink-mute: #71717a;
+  --op-ink-faint: #52525b;
+  --op-rule: #27272a;
+  --op-rule-bright: #3f3f46;
 
-  /* Text + cream family. */
-  --color-text: #ede9de;
-  --color-text-dim: #8a857a;
-  --color-text-faint: #4f4b42;
-  --color-cream: #ede9de;
-  --color-cream-dim: #7a766c;
-  --color-cream-bright: #f5f1e6;
-  --color-cream-glow: rgba(237, 233, 222, 0.22);
+  /* SIGNALS — shared. Use sparingly. */
+  --signal: #e11d48;
+  --signal-bg: #fff1f2;
+  --signal-border: #fecdd3;
+  --signal-deep: #be123c;
+  --verified: #16a34a;
+  --verified-bg: #f0fdf4;
+  --verified-border: #bbf7d0;
+  --warning: #ca8a04;
+  --warning-bg: #fefce8;
+  --warning-border: #fde68a;
 
-  /* Signal red — alarm, contradictions, denials. */
-  --color-signal: #d14156;
-  --color-signal-dim: #8a2433;
-  --color-signal-glow: rgba(209, 65, 86, 0.28);
+  --signal-bg-dark: #2a0d15;
+  --verified-bg-dark: #0d2018;
+  --warning-bg-dark: #2a200a;
 
-  /* Amber — primary action, headlines, current state. */
-  --color-amber: #d4a24a;
-  --color-amber-dim: #8a6520;
-  --color-amber-bright: #e5b55b;
-  --color-amber-glow: rgba(212, 162, 74, 0.3);
+  /* DEFAULTS (public). */
+  --paper: var(--pub-paper);
+  --paper-2: var(--pub-paper-2);
+  --paper-3: var(--pub-paper-3);
+  --surface: var(--pub-surface);
+  --ink: var(--pub-ink);
+  --ink-2: var(--pub-ink-2);
+  --ink-3: var(--pub-ink-3);
+  --ink-mute: var(--pub-ink-mute);
+  --ink-faint: var(--pub-ink-faint);
+  --rule: var(--pub-rule);
+  --rule-soft: var(--pub-rule-soft);
 
-  /* Sage — confirmation, sources registered, "good". */
-  --color-sage: #94b280;
-  --color-sage-dim: #5a7349;
-  --color-sage-glow: rgba(148, 178, 128, 0.2);
-  --color-good: #7a9c55;
+  /* LEGACY NAMES — kept so existing Tailwind classes don't break.
+     Remapped to the new palette so the rebrand applies everywhere. */
+  --color-bg: var(--paper);
+  --color-bg-deeper: var(--paper-2);
+  --color-bg-elevated: var(--surface);
+  --color-bg-subtle: var(--paper-2);
+  --color-bg-card: var(--surface);
+  --color-border: var(--rule);
+  --color-border-soft: var(--rule-soft);
+  --color-border-bright: var(--rule);
+  --color-text: var(--ink);
+  --color-text-dim: var(--ink-3);
+  --color-text-faint: var(--ink-faint);
+  --color-cream: var(--ink);
+  --color-cream-dim: var(--ink-3);
+  --color-cream-bright: var(--ink);
+  --color-cream-glow: rgba(10, 10, 10, 0.05);
+  --color-signal: var(--signal);
+  --color-signal-dim: var(--signal-deep);
+  --color-signal-glow: rgba(225, 29, 72, 0.1);
+  --color-amber: var(--warning);
+  --color-amber-dim: #92400e;
+  --color-amber-bright: #ca8a04;
+  --color-amber-glow: rgba(202, 138, 4, 0.1);
+  --color-sage: var(--verified);
+  --color-sage-dim: #15803d;
+  --color-sage-glow: rgba(22, 163, 74, 0.1);
+  --color-good: var(--verified);
+  --color-blue: #2563eb;
+  --color-blue-dim: #1e40af;
+  --color-blue-glow: rgba(37, 99, 235, 0.1);
+  --color-tan: #b45309;
+  --color-tan-dim: #78350f;
+}
 
-  /* Muted blue — info, secondary refs, links. */
-  --color-blue: #8fa3c4;
-  --color-blue-dim: #4c617e;
-  --color-blue-glow: rgba(143, 163, 196, 0.22);
+[data-mode="operator"] {
+  --paper: var(--op-paper);
+  --paper-2: var(--op-paper-2);
+  --paper-3: var(--op-paper-3);
+  --surface: var(--op-surface);
+  --ink: var(--op-ink);
+  --ink-2: var(--op-ink-2);
+  --ink-3: var(--op-ink-3);
+  --ink-mute: var(--op-ink-mute);
+  --ink-faint: var(--op-ink-faint);
+  --rule: var(--op-rule);
+  --rule-soft: var(--op-rule);
 
-  /* Tan — deferred, neutral-warm. */
-  --color-tan: #d0a279;
-  --color-tan-dim: #7a5d3f;
+  --color-bg: var(--op-paper);
+  --color-bg-deeper: var(--op-paper);
+  --color-bg-elevated: var(--op-paper-2);
+  --color-bg-subtle: var(--op-paper-2);
+  --color-bg-card: var(--op-paper-2);
+  --color-border: var(--op-rule);
+  --color-border-soft: var(--op-rule);
+  --color-border-bright: var(--op-rule-bright);
+  --color-text: var(--op-ink);
+  --color-text-dim: var(--op-ink-3);
+  --color-text-faint: var(--op-ink-faint);
+  --color-cream: var(--op-ink-2);
+  --color-cream-dim: var(--op-ink-3);
+  --color-cream-bright: var(--op-ink);
+  --color-cream-glow: rgba(250, 250, 250, 0.06);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 html,
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-serif), Georgia, serif;
-}
-
-/* No rounded corners — drophead aesthetic. */
-* {
-  border-radius: 0 !important;
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui,
+    sans-serif;
+  font-size: 14.5px;
+  line-height: 1.55;
+  font-feature-settings: "ss01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
 }
 
 ::selection {
-  background: var(--color-amber);
-  color: var(--color-bg);
+  background: var(--signal);
+  color: #ffffff;
+}
+
+/* TYPOGRAPHY UTILITIES — match the design archive class names. */
+
+.mono {
+  font-family: var(--font-mono), "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+  font-feature-settings: "ss01", "zero", "tnum";
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-family: var(--font-mono), "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.kicker {
+  font-family: var(--font-mono), "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  color: var(--ink-mute);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kicker .live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  animation: pulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.coord {
+  font-family: var(--font-mono), "Geist Mono", ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.coord .sep {
+  color: var(--ink-faint);
+}
+.coord .hi {
+  color: var(--ink);
+}
+.coord .signal {
+  color: var(--signal);
+}
+
+.h-display {
+  font-family: var(--font-sans), -apple-system, system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.citation-chip {
+  display: inline-block;
+  font-family: var(--font-mono), "Geist Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--signal);
+  background: var(--signal-bg);
+  border: 1px solid var(--signal-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin: 0 1px;
+  vertical-align: baseline;
+  text-decoration: none;
+}
+.citation-chip:hover {
+  background: var(--signal);
+  color: #ffffff;
+}
+
+.hover-rule {
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+.hover-rule:hover {
+  border-bottom-color: var(--ink);
 }

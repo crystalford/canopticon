@@ -19,11 +19,11 @@ const postureLabels: Record<string, string> = {
 };
 
 const postureColors: Record<string, string> = {
-  open: "border-[#9c2333]",
-  resolved_a: "border-[#5c8a4a]",
-  resolved_b: "border-[#5c8a4a]",
-  machloket: "border-[#d4a24a]",
-  retired: "border-[#5c4a3d]",
+  open: "border-[var(--signal)]",
+  resolved_a: "border-[var(--verified)]",
+  resolved_b: "border-[var(--verified)]",
+  machloket: "border-[var(--warning)]",
+  retired: "border-[var(--ink-mute)]",
 };
 
 export default async function ContradictionsPage() {
@@ -39,35 +39,37 @@ export default async function ContradictionsPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
-      <h1 className="mb-2 font-serif text-4xl text-[#1a1410]">Contradictions</h1>
-      <p className="mb-8 font-serif italic text-[#1a1410]/70">
+      <h1 className="mb-2 font-serif text-4xl text-[var(--ink)]">Contradictions</h1>
+      <p className="mb-8 font-serif italic text-[var(--ink-3)]">
         What the graph can't reconcile, and why.
       </p>
 
       {Object.entries(grouped).map(([posture, items]) => (
         <section key={posture} className="mb-10">
-          <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[#5c4a3d]">
+          <h2 className="mb-3 font-mono text-[11px] uppercase tracking-wider text-[var(--ink-mute)]">
             {postureLabels[posture] ?? posture}
           </h2>
           <ul className="space-y-3">
             {items.map((c) => (
               <li
                 key={c.slug}
-                className={`border-l-2 ${postureColors[posture] ?? "border-[#5c4a3d]"} pl-4`}
+                className={`border-l-2 ${postureColors[posture] ?? "border-[var(--ink-mute)]"} pl-4`}
               >
                 {c.payload.headline && (
-                  <p className="font-serif text-lg text-[#1a1410]">{c.payload.headline}</p>
+                  <p className="font-serif text-lg text-[var(--ink)]">{c.payload.headline}</p>
                 )}
                 {c.payload.claim_a && (
-                  <p className="mt-1 font-serif italic text-[#1a1410]/80">"{c.payload.claim_a}"</p>
+                  <p className="mt-1 font-serif italic text-[var(--ink-2)]">
+                    "{c.payload.claim_a}"
+                  </p>
                 )}
                 {c.payload.claim_b && (
-                  <p className="mt-1 font-serif italic text-[#1a1410]/80">
+                  <p className="mt-1 font-serif italic text-[var(--ink-2)]">
                     vs. "{c.payload.claim_b}"
                   </p>
                 )}
                 {c.resolution_reasoning && (
-                  <p className="mt-2 font-serif text-sm text-[#1a1410]/70">
+                  <p className="mt-2 font-serif text-sm text-[var(--ink-3)]">
                     {c.resolution_reasoning}
                   </p>
                 )}
@@ -77,7 +79,7 @@ export default async function ContradictionsPage() {
         </section>
       ))}
       {r.contradictions.length === 0 && (
-        <p className="font-serif italic text-[#1a1410]/50">No tracked contradictions yet.</p>
+        <p className="font-serif italic text-[var(--ink-faint)]">No tracked contradictions yet.</p>
       )}
     </div>
   );

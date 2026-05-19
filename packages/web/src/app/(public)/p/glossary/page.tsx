@@ -114,15 +114,15 @@ export default function GlossaryPage() {
   const sorted = [...entries].sort((a, b) => a.term.localeCompare(b.term));
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <h1 className="mb-8 font-serif text-4xl text-[#1a1410]">Glossary</h1>
+      <h1 className="mb-8 font-serif text-4xl text-[var(--ink)]">Glossary</h1>
       <dl className="space-y-4">
         {sorted.map((e) => (
           <div key={e.term}>
-            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[#5c4a3d]">
+            <dt className="font-mono text-[10.5px] uppercase tracking-wider text-[var(--ink-mute)]">
               {e.category}
             </dt>
-            <dt className="font-serif text-xl text-[#1a1410]">{e.term}</dt>
-            <dd className="mt-1 font-serif text-base leading-relaxed text-[#1a1410]/80">
+            <dt className="font-serif text-xl text-[var(--ink)]">{e.term}</dt>
+            <dd className="mt-1 font-serif text-base leading-relaxed text-[var(--ink-2)]">
               {e.definition}
             </dd>
           </div>
