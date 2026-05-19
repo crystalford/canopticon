@@ -5,9 +5,9 @@
 // (PATCH), Publish (POST), Withdraw (DELETE) live in the footer.
 // Pattern mirrors the character bio editor at characters/[slug]/page.tsx.
 
-import { apiDelete, apiGet, apiPatch, apiPost, ApiError } from "@/lib/api-client";
+import { ApiError, apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api-client";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 interface Post {
@@ -71,7 +71,6 @@ function snapshotFrom(p: Post): Snapshot {
 
 export default function PostEditorPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const postId = params?.id ?? "";
 
   const [data, setData] = useState<PostResponse | null>(null);
@@ -190,10 +189,7 @@ export default function PostEditorPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <header
-        className="row"
-        style={{ justifyContent: "space-between", alignItems: "center" }}
-      >
+      <header className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <div className="row" style={{ gap: 8 }}>
           <Link
             href="/posts"
@@ -205,11 +201,7 @@ export default function PostEditorPage() {
           <span className="chip">{post.post_type}</span>
           <span
             className={`chip ${
-              post.status === "published"
-                ? "chip-acid"
-                : post.status === "draft"
-                  ? "chip-mute"
-                  : ""
+              post.status === "published" ? "chip-acid" : post.status === "draft" ? "chip-mute" : ""
             }`}
           >
             {post.status}
@@ -290,7 +282,7 @@ export default function PostEditorPage() {
         </div>
 
         <Field label="Forensic">
-          <label className="row" style={{ gap: 8, fontSize: 13, color: "var(--ink-2)" }}>
+          <div className="row" style={{ gap: 8, fontSize: 13, color: "var(--ink-2)" }}>
             <input
               type="checkbox"
               checked={isForensic}
@@ -300,7 +292,7 @@ export default function PostEditorPage() {
             <span style={{ fontSize: 11, color: "var(--ink-mute)" }}>
               · publish-prep gates run on publish
             </span>
-          </label>
+          </div>
         </Field>
 
         <Field label={`Body markdown · ${bodyMd.length.toLocaleString()} chars`}>
@@ -413,8 +405,9 @@ function Field({
   style?: React.CSSProperties;
 }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6, ...style }}>
-      <label
+    // biome-ignore lint/a11y/noLabelWithoutControl: the control is passed as children
+    <label style={{ display: "flex", flexDirection: "column", gap: 6, ...style }}>
+      <span
         className="mono"
         style={{
           fontSize: 11,
@@ -424,8 +417,8 @@ function Field({
         }}
       >
         {label}
-      </label>
+      </span>
       {children}
-    </div>
+    </label>
   );
 }

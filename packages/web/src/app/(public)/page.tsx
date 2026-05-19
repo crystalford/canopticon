@@ -70,9 +70,9 @@ export default async function PublicHomePage() {
     publicGet<{ predictions: PubPrediction[] }>("/v1/public/predictions", 0).catch(() => ({
       predictions: [],
     })),
-    publicGet<{ contradictions: PubContradiction[] }>("/v1/public/contradictions", 0).catch(
-      () => ({ contradictions: [] }),
-    ),
+    publicGet<{ contradictions: PubContradiction[] }>("/v1/public/contradictions", 0).catch(() => ({
+      contradictions: [],
+    })),
   ]);
 
   // Prefer the new CMS posts for the lead; fall back to the older

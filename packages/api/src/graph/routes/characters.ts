@@ -40,11 +40,7 @@ app.get("/:slug", async (c) => {
     visibility: string;
     created_at: string;
     updated_at: string;
-  }>(
-    c.env.DB,
-    "SELECT * FROM character_profiles WHERE slug = ? AND user_id = ?",
-    [slug, userId],
-  );
+  }>(c.env.DB, "SELECT * FROM character_profiles WHERE slug = ? AND user_id = ?", [slug, userId]);
   if (!profile) throw notFound();
   const entity = await one<{ heat_score: number; metadata: string | null }>(
     c.env.DB,
@@ -73,10 +69,7 @@ app.get("/:slug", async (c) => {
     })),
     proposals: proposals.map((p) => ({
       ...p,
-      proposed_payload: parseJson(
-        (p as { proposed_payload: unknown }).proposed_payload,
-        {},
-      ),
+      proposed_payload: parseJson((p as { proposed_payload: unknown }).proposed_payload, {}),
       source_claim_ids: parseJson((p as { source_claim_ids: unknown }).source_claim_ids, []),
     })),
   });

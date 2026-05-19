@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Env } from "../src/env.ts";
 import { CMS_TOOLS } from "../src/cms/tools/index.ts";
+import type { Env } from "../src/env.ts";
 import type { ToolDef } from "../src/graph/tools/index.ts";
 
 // Minimal in-memory D1 stub: just enough surface to satisfy `one`, `all`,
@@ -196,7 +196,7 @@ describe("draft_post — body_md path (back-compat)", () => {
 
 describe("draft_post — source_file_id path", () => {
   it("loads body from R2 when the file is large", async () => {
-    const bigBody = "# Long\n\n" + "Lorem ipsum ".repeat(2000); // ~24KB
+    const bigBody = `# Long\n\n${"Lorem ipsum ".repeat(2000)}`; // ~24KB
     const db = makeDb({
       uploaded_files: {
         f1: {
@@ -218,9 +218,7 @@ describe("draft_post — source_file_id path", () => {
     expect(res.output).toMatch(/Saved as draft/);
     // Should include both the post and the upload side effect.
     expect(res.side_effects).toHaveLength(2);
-    expect(res.side_effects.find((s) => s.kind === "upload")?.summary).toBe(
-      "the-interior-v2.md",
-    );
+    expect(res.side_effects.find((s) => s.kind === "upload")?.summary).toBe("the-interior-v2.md");
   });
 
   it("falls back to D1 extracted_text when R2 overflow object is missing", async () => {

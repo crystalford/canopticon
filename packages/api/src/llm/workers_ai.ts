@@ -474,15 +474,15 @@ function stripToolCallJsonObjects(
 function findBalancedBraceEnd(text: string, start: number): number {
   let depth = 0;
   let inString = false;
-  let escape = false;
+  let escaping = false;
   for (let i = start; i < text.length; i++) {
     const ch = text[i];
-    if (escape) {
-      escape = false;
+    if (escaping) {
+      escaping = false;
       continue;
     }
     if (ch === "\\") {
-      escape = true;
+      escaping = true;
       continue;
     }
     if (ch === '"') {

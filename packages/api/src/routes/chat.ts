@@ -15,8 +15,8 @@ import { all, insertOne, one, parseJson, run } from "../lib/d1.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
 import { SSE_HEADERS, formatSseComment, formatSseEvent } from "../lib/sse.ts";
 import { callLLM, streamLLM } from "../llm/index.ts";
-import { toolUseHash } from "../llm/workers_ai.ts";
 import type { LlmContent, LlmMessage } from "../llm/types.ts";
+import { toolUseHash } from "../llm/workers_ai.ts";
 
 // Chat orchestrator: Llama 3.3 70B (fp8-fast). Per the system spec, tool
 // routing technically belongs on Llama 3.1 8B and heavy synthesis on 3.3
@@ -432,10 +432,7 @@ async function runAgentLoop(args: {
   // so an identical re-call short-circuits without re-running the
   // executor (no double-INSERT into posts, etc).
   let prevHashSet: Set<string> = new Set();
-  const executedResults = new Map<
-    string,
-    { output: string; side_effects: ToolSideEffect[] }
-  >();
+  const executedResults = new Map<string, { output: string; side_effects: ToolSideEffect[] }>();
 
   for (let iter = 0; iter < MAX_LOOP_ITERATIONS; iter++) {
     const messages = await loadConversationMessages(env.DB, conversationId);
@@ -570,9 +567,7 @@ async function runAgentLoop(args: {
         // Guards against side-effect duplication (no double-INSERT
         // if Llama emits the same call twice across iterations).
         const cached = executedResults.get(hash);
-        const result =
-          cached ??
-          (await tool.exec({ env, userId, conversationId }, tu.input));
+        const result = cached ?? (await tool.exec({ env, userId, conversationId }, tu.input));
         if (!cached) executedResults.set(hash, result);
         await persistToolResult(env, {
           conversationId,
