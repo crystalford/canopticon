@@ -113,26 +113,45 @@ export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCal
             input: tc.function?.arguments ? safeParse(tc.function.arguments) : {},
           }));
 
+  // RESCUE Llama text-format tool calls (see rescueLlamaToolCall below).
+  // Only applies when the model gave us no structured tool_calls but
+  // the text clearly looks like one.
+  let finalText = text;
+  let finalToolUses = tool_uses;
+  if (finalToolUses.length === 0 && !input.response_schema) {
+    const rescued = rescueLlamaToolCall(finalText);
+    if (rescued) {
+      finalToolUses = [
+        {
+          id: `call_0_${crypto.randomUUID().slice(0, 8)}`,
+          name: rescued.name,
+          input: rescued.input,
+        },
+      ];
+      finalText = "";
+    }
+  }
+
   const usage = {
     input_tokens: res.usage?.prompt_tokens ?? res.usage?.input_tokens ?? 0,
     output_tokens: res.usage?.completion_tokens ?? res.usage?.output_tokens ?? 0,
   };
 
   let structured: unknown = null;
-  if (input.response_schema && text) {
+  if (input.response_schema && finalText) {
     try {
-      structured = JSON.parse(text);
+      structured = JSON.parse(finalText);
     } catch {
       structured = null;
     }
   }
 
-  const stop_reason: LlmStopReason = tool_uses.length > 0 ? "tool_use" : "end_turn";
+  const stop_reason: LlmStopReason = finalToolUses.length > 0 ? "tool_use" : "end_turn";
 
   return {
-    text,
+    text: finalText,
     structured,
-    tool_uses,
+    tool_uses: finalToolUses,
     stop_reason,
     usage,
     cost_cents: 0,
@@ -244,6 +263,25 @@ export async function streamWorkersAi(
     }
   }
 
+  // RESCUE: Llama 3.3 70B often emits tool calls as raw JSON in the
+  // assistant text instead of using the OpenAI tool_calls field.
+  // Common Llama formats:
+  //   {"type": "function", "name": "X", "parameters": {...}}
+  //   {"name": "X", "arguments": {...}}
+  //   <function=X>{"arg": "val"}</function>
+  //   <|python_tag|>X.call({"arg": "val"})
+  // If we see no structured tool_calls but the fullText looks like one
+  // of these, extract it as a tool_use and clear the text.
+  const rescued = rescueLlamaToolCall(fullText);
+  if (rescued && toolByIndex.size === 0) {
+    toolByIndex.set(0, {
+      id: "",
+      name: rescued.name,
+      argumentsText: JSON.stringify(rescued.input),
+    });
+    fullText = "";
+  }
+
   const tool_uses = [...toolByIndex.entries()]
     .sort(([a], [b]) => a - b)
     .filter(([, t]) => t.name.length > 0)
@@ -316,6 +354,53 @@ function serializeContent(content: LlmContent[]): string {
     else if (c.type === "image") parts.push(`[Image attached, mime=${c.mime}]`);
   }
   return parts.join("\n");
+}
+
+/** Llama 3.3 70B occasionally emits its tool call as raw JSON in the
+ *  assistant text instead of using the OpenAI tool_calls field. This
+ *  scans for the common variants and returns a structured tool_use if
+ *  one is found. The chat agent loop then treats it like a real tool
+ *  call (executes the tool, feeds the result back). */
+export function rescueLlamaToolCall(
+  text: string,
+): { name: string; input: Record<string, unknown> } | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+
+  // Format 1: <|python_tag|>name.call({...}) — Llama 3.1/3.3 default
+  const pyTag = trimmed.match(/<\|python_tag\|>\s*([a-z_][a-z0-9_]*)\.call\((.+)\)/is);
+  if (pyTag?.[1] && pyTag[2]) {
+    return { name: pyTag[1], input: safeParse(pyTag[2]) };
+  }
+  // Format 2: <function=name>{json}</function>
+  const fnTag = trimmed.match(/<function=([a-z_][a-z0-9_]*)>(.*?)(?:<\/function>|$)/is);
+  if (fnTag?.[1] && fnTag[2]) {
+    return { name: fnTag[1], input: safeParse(fnTag[2]) };
+  }
+  // Format 3 + 4: bare JSON. Pull out the first top-level JSON object and
+  // inspect it. Accept {type:'function', name, parameters} (the screenshot
+  // case) or {name, arguments} (Llama's other variant).
+  const jsonStart = trimmed.indexOf("{");
+  const jsonEnd = trimmed.lastIndexOf("}");
+  if (jsonStart === -1 || jsonEnd <= jsonStart) return null;
+  const candidate = trimmed.slice(jsonStart, jsonEnd + 1);
+  const obj = safeParse(candidate) as Record<string, unknown>;
+  if (!obj || typeof obj !== "object") return null;
+
+  if (typeof obj.name === "string" && obj.parameters && typeof obj.parameters === "object") {
+    return { name: obj.name, input: obj.parameters as Record<string, unknown> };
+  }
+  if (typeof obj.name === "string" && obj.arguments && typeof obj.arguments === "object") {
+    return { name: obj.name, input: obj.arguments as Record<string, unknown> };
+  }
+  if (
+    obj.type === "function" &&
+    typeof obj.name === "string" &&
+    typeof obj.parameters === "object"
+  ) {
+    return { name: obj.name, input: obj.parameters as Record<string, unknown> };
+  }
+  return null;
 }
 
 function stripFiller(text: string): string {
