@@ -15,6 +15,7 @@ import { all, insertOne, one, parseJson, run } from "../lib/d1.ts";
 import { badRequest, notFound } from "../lib/errors.ts";
 import { SSE_HEADERS, formatSseComment, formatSseEvent } from "../lib/sse.ts";
 import { callLLM, streamLLM } from "../llm/index.ts";
+import { toolUseHash } from "../llm/workers_ai.ts";
 import type { LlmContent, LlmMessage } from "../llm/types.ts";
 
 // Chat orchestrator: Llama 3.3 70B (fp8-fast). Per the system spec, tool
@@ -25,7 +26,7 @@ import type { LlmContent, LlmMessage } from "../llm/types.ts";
 // if it matters. Claude Sonnet 4.6 via AI Gateway is the opt-in escape
 // hatch for synthesis + critic (Phase 6).
 const ORCHESTRATOR_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-const MAX_LOOP_ITERATIONS = 12;
+const MAX_LOOP_ITERATIONS = 6;
 
 const SYSTEM_PROMPT = `You are Canopticon — a sharp intelligence assistant built for a single operator. Think of your voice as a senior analyst talking to a peer: warm, direct, a little opinionated, never corporate.
 
@@ -140,6 +141,11 @@ If you supply both body_md and source_file_id, body_md wins (useful for
 
 Emit ONE tool call per turn. Do not concatenate multiple JSON tool-call
 objects. Do not duplicate a tool call as text after invoking it.
+
+After a tool call succeeds, your next turn must be a short plain-text
+confirmation — do NOT call the same tool again with the same input.
+The server refuses identical re-calls and surfaces a synthesized "Done"
+message; relying on that is a worse experience than just confirming.
 
 --- WHAT HAPPENS AUTOMATICALLY ---
 
@@ -419,6 +425,18 @@ async function runAgentLoop(args: {
     ? SYSTEM_PROMPT
     : `${SYSTEM_PROMPT}\n\n[Graph compartment disabled. Only CMS tools are available; if asked about claims/entities/sources/theses say "the graph is currently disabled" and offer to draft a post instead.]`;
 
+  // Loop-dedup state. `prevHashSet` is the set of (name, input) hashes
+  // the model emitted in the previous iteration; we compare next
+  // iteration's set to it and break out if identical (Llama loop on
+  // its own success). `executedResults` caches per-hash tool outputs
+  // so an identical re-call short-circuits without re-running the
+  // executor (no double-INSERT into posts, etc).
+  let prevHashSet: Set<string> = new Set();
+  const executedResults = new Map<
+    string,
+    { output: string; side_effects: ToolSideEffect[] }
+  >();
+
   for (let iter = 0; iter < MAX_LOOP_ITERATIONS; iter++) {
     const messages = await loadConversationMessages(env.DB, conversationId);
     ping();
@@ -468,6 +486,41 @@ async function runAgentLoop(args: {
       return; // end of turn
     }
 
+    // Across-iteration loop detection: if the model emitted the same
+    // set of tool_use hashes as last iteration, it's stuck — Llama 3.3
+    // sometimes re-calls a successful tool on its next turn instead of
+    // emitting a text confirmation. Break out with a synthesized
+    // confirmation so the chat doesn't render 6+ identical chips.
+    const currentHashes = out.tool_uses.map((t) => toolUseHash(t.name, t.input));
+    const currentHashSet = new Set(currentHashes);
+    const sameAsPrev =
+      currentHashSet.size > 0 &&
+      currentHashSet.size === prevHashSet.size &&
+      [...currentHashSet].every((h) => prevHashSet.has(h));
+    if (sameAsPrev) {
+      const lastOutput = currentHashes
+        .map((h) => executedResults.get(h)?.output)
+        .filter((s): s is string => Boolean(s))
+        .join("\n");
+      const synthText = lastOutput ? `Done. ${lastOutput}` : "Done.";
+      await insertOne(env.DB, "chat_messages", {
+        conversation_id: conversationId,
+        user_id: userId,
+        seq: seq++,
+        role: "assistant",
+        content_json: JSON.stringify([{ type: "text", text: synthText }] satisfies LlmContent[]),
+        provider: "synth",
+        model: "loop-guard",
+        tokens_in: 0,
+        tokens_out: 0,
+        cost_cents: 0,
+        cost_ledger_id: null,
+        stop_reason: "end_turn",
+      });
+      emit("message_delta", { text: synthText });
+      return;
+    }
+
     let blockedByConfirm = false;
     for (const tu of out.tool_uses) {
       const tool = toolsByName[tu.name];
@@ -512,7 +565,15 @@ async function runAgentLoop(args: {
       }
 
       try {
-        const result = await tool.exec({ env, userId, conversationId }, tu.input);
+        const hash = toolUseHash(tu.name, tu.input);
+        // Replay from cache if this exact call already ran this turn.
+        // Guards against side-effect duplication (no double-INSERT
+        // if Llama emits the same call twice across iterations).
+        const cached = executedResults.get(hash);
+        const result =
+          cached ??
+          (await tool.exec({ env, userId, conversationId }, tu.input));
+        if (!cached) executedResults.set(hash, result);
         await persistToolResult(env, {
           conversationId,
           userId,
@@ -526,6 +587,7 @@ async function runAgentLoop(args: {
           tool_use_id: tu.id,
           output: result.output,
           side_effects: result.side_effects,
+          ...(cached ? { from_cache: true } : {}),
         });
       } catch (err) {
         const msg = (err as Error).message ?? "tool failure";
@@ -543,6 +605,9 @@ async function runAgentLoop(args: {
     }
 
     if (blockedByConfirm) return; // wait for the client to confirm
+
+    // Anchor this iteration's hash set for next-iteration loop detection.
+    prevHashSet = currentHashSet;
   }
 
   // Loop hit the iteration cap without producing a final text response.

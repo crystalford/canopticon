@@ -113,7 +113,12 @@ export default function PostsPage() {
                     color: "var(--ink)",
                   }}
                 >
-                  {p.title}
+                  <Link
+                    href={`/posts/${p.id}`}
+                    style={{ color: "var(--ink)", textDecoration: "none" }}
+                  >
+                    {p.title}
+                  </Link>
                 </h3>
                 {p.subtitle && (
                   <p style={{ marginTop: 4, fontSize: 14, color: "var(--ink-3)" }}>{p.subtitle}</p>
@@ -138,21 +143,26 @@ export default function PostsPage() {
                 </p>
               </div>
               <div className="row" style={{ gap: 6 }}>
+                <Link href={`/posts/${p.id}`} className="btn sm primary">
+                  Edit
+                </Link>
                 {p.status === "draft" && (
                   <button
                     type="button"
-                    className="btn sm primary"
+                    className="btn sm ghost"
                     onClick={() => void publish(p.id)}
                     disabled={busy}
                   >
                     {busy ? "…" : "Publish"}
                   </button>
                 )}
-                <Link
-                  href={p.status === "published" ? `/p/${p.slug}` : `/chat?post=${p.id}`}
-                  className="btn sm ghost"
-                >
-                  {p.status === "published" ? "Read" : "Edit in chat"}
+                {p.status === "published" && (
+                  <Link href={`/p/${p.slug}`} className="btn sm ghost">
+                    Read
+                  </Link>
+                )}
+                <Link href={`/chat?post=${p.id}`} className="btn sm ghost">
+                  Chat
                 </Link>
               </div>
             </div>
