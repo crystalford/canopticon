@@ -10,14 +10,14 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   return (
     <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
       <header className="border-b border-[var(--rule)] bg-[var(--paper)]">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-6 px-6 py-4">
           <Link
             href="/"
             className="font-sans text-[22px] font-semibold tracking-tight text-[var(--ink)]"
           >
             canopticon<span className="text-[var(--signal)]">.</span>
           </Link>
-          <nav className="mono flex gap-5 text-[11px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
+          <nav className="mono flex flex-1 justify-end gap-5 text-[11px] uppercase tracking-[0.04em] text-[var(--ink-3)]">
             <Link href="/articles" className="hover:text-[var(--ink)]">
               Articles
             </Link>
@@ -37,6 +37,14 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               About
             </Link>
           </nav>
+          {/* Admin entry — Cloudflare Access OTP kicks in once the link
+              is followed. The operator app lives at /chat by default. */}
+          <Link
+            href="/chat"
+            className="mono shrink-0 border border-[var(--rule)] px-3 py-1 text-[10.5px] uppercase tracking-[0.06em] text-[var(--ink-3)] transition-colors hover:border-[var(--ink)] hover:text-[var(--ink)]"
+          >
+            Admin →
+          </Link>
         </div>
       </header>
       <main>{children}</main>
