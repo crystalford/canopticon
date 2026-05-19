@@ -384,7 +384,16 @@ export function rescueLlamaToolCall(
   const jsonEnd = trimmed.lastIndexOf("}");
   if (jsonStart === -1 || jsonEnd <= jsonStart) return null;
   const candidate = trimmed.slice(jsonStart, jsonEnd + 1);
-  const obj = safeParse(candidate) as Record<string, unknown>;
+  let obj = safeParse(candidate) as Record<string, unknown>;
+  // Llama sometimes emits malformed JSON like `{"content":}` when it has
+  // no value for a field. Try a few repairs before giving up.
+  if (!obj || Object.keys(obj).length === 0) {
+    const repaired = candidate
+      .replace(/"\s*:\s*}/g, '": ""}') // `"k":}` → `"k": ""}`
+      .replace(/"\s*:\s*,/g, '": "",') // `"k":,` → `"k": "",`
+      .replace(/,(\s*[}\]])/g, "$1"); // trailing commas
+    obj = safeParse(repaired) as Record<string, unknown>;
+  }
   if (!obj || typeof obj !== "object") return null;
 
   if (typeof obj.name === "string" && obj.parameters && typeof obj.parameters === "object") {
