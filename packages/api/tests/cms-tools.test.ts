@@ -42,8 +42,8 @@ function makeDb(initial: Partial<Tables> = {}): D1Database {
       return { results: [row], meta: { changes: 0 } };
     }
 
-    // SELECT body_md, title FROM posts
-    if (s.startsWith("SELECT body_md, title FROM posts")) {
+    // SELECT body_md, title[, status] FROM posts
+    if (s.startsWith("SELECT body_md, title")) {
       const [postId, userId] = params as [string, string];
       const row = tables.posts[postId];
       if (!row || row.user_id !== userId) return { results: [], meta: { changes: 0 } };

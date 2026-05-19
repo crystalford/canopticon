@@ -148,21 +148,46 @@ const draftPost: ToolDef = {
 
     if (typeof input.update_post_id === "string" && input.update_post_id) {
       const updateId = input.update_post_id;
+      // If the target is already published, re-render body_html so the
+      // public site reflects the edit. Drafts leave body_html null.
+      const target = await one<{ status: string }>(
+        env.DB,
+        "SELECT status FROM posts WHERE id = ? AND user_id = ?",
+        [updateId, userId],
+      );
+      const bodyHtmlUpdate = target?.status === "published" ? renderMarkdown(bodyMd) : null;
       await run(
         env.DB,
-        `UPDATE posts
-            SET title = ?, subtitle = ?, body_md = ?, post_type = ?, tags = ?, updated_at = ?
-          WHERE id = ? AND user_id = ?`,
-        [
-          title,
-          (input.subtitle as string | undefined) ?? null,
-          bodyMd,
-          postType,
-          JSON.stringify(input.tags ?? []),
-          new Date().toISOString(),
-          updateId,
-          userId,
-        ],
+        bodyHtmlUpdate !== null
+          ? `UPDATE posts
+                SET title = ?, subtitle = ?, body_md = ?, body_html = ?, post_type = ?,
+                    tags = ?, updated_at = ?
+              WHERE id = ? AND user_id = ?`
+          : `UPDATE posts
+                SET title = ?, subtitle = ?, body_md = ?, post_type = ?, tags = ?, updated_at = ?
+              WHERE id = ? AND user_id = ?`,
+        bodyHtmlUpdate !== null
+          ? [
+              title,
+              (input.subtitle as string | undefined) ?? null,
+              bodyMd,
+              bodyHtmlUpdate,
+              postType,
+              JSON.stringify(input.tags ?? []),
+              new Date().toISOString(),
+              updateId,
+              userId,
+            ]
+          : [
+              title,
+              (input.subtitle as string | undefined) ?? null,
+              bodyMd,
+              postType,
+              JSON.stringify(input.tags ?? []),
+              new Date().toISOString(),
+              updateId,
+              userId,
+            ],
       );
       const nextVersion = await one<{ max: number | null }>(
         env.DB,
@@ -404,9 +429,9 @@ const updatePost: ToolDef = {
   confirm: false,
   async exec({ env, userId }, input) {
     const postId = String(input.post_id);
-    const post = await one<{ body_md: string; title: string }>(
+    const post = await one<{ body_md: string; title: string; status: string }>(
       env.DB,
-      "SELECT body_md, title FROM posts WHERE id = ? AND user_id = ?",
+      "SELECT body_md, title, status FROM posts WHERE id = ? AND user_id = ?",
       [postId, userId],
     );
     if (!post) return { output: `Post ${postId} not found.`, side_effects: [] };
@@ -448,6 +473,13 @@ const updatePost: ToolDef = {
     if (newBody !== null) {
       sets.push("body_md = ?");
       params.push(newBody);
+      // Re-render body_html if the post is already public — keeps the
+      // public render in sync with the new body_md without requiring
+      // a manual re-publish.
+      if (post.status === "published") {
+        sets.push("body_html = ?");
+        params.push(renderMarkdown(newBody));
+      }
     }
     if (Array.isArray(input.tags)) {
       sets.push("tags = ?");

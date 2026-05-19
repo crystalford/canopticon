@@ -2,6 +2,7 @@
 // D1 binding is on the Worker; we just query directly.
 
 import { Hono } from "hono";
+import { renderMarkdown } from "../cms/lib/render-post.ts";
 import type { Env } from "../env.ts";
 import { all, insertOne, one, parseJson } from "../lib/d1.ts";
 import { notFound } from "../lib/errors.ts";
@@ -31,14 +32,35 @@ app.get("/posts", async (c) => {
 });
 
 app.get("/posts/:slug", async (c) => {
-  const post = await one(
+  const post = await one<{
+    id: string;
+    slug: string;
+    title: string;
+    subtitle: string | null;
+    body_html: string | null;
+    body_md: string;
+    post_type: string;
+    byline: string | null;
+    tags: string;
+    is_forensic: number;
+    published_at: string;
+    updated_at: string;
+  }>(
     c.env.DB,
-    `SELECT id, slug, title, subtitle, body_html, post_type, byline, tags, is_forensic, published_at, updated_at
+    `SELECT id, slug, title, subtitle, body_html, body_md, post_type, byline, tags, is_forensic, published_at, updated_at
        FROM posts WHERE slug = ? AND status = 'published'`,
     [c.req.param("slug")],
   );
   if (!post) throw notFound();
-  return c.json({ post });
+  // Fallback: if body_html is empty/null (legacy rows, or a publish
+  // path that didn't render), render from body_md on the fly. The
+  // public site always gets something usable.
+  if (!post.body_html || post.body_html.length === 0) {
+    post.body_html = renderMarkdown(post.body_md);
+  }
+  // body_md is not part of the public contract; strip before returning.
+  const { body_md: _bm, ...publicPost } = post;
+  return c.json({ post: publicPost });
 });
 
 app.get("/articles", async (c) => {
