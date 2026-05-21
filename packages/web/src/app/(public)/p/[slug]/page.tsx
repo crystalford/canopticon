@@ -9,9 +9,12 @@
 // stale 404. With force-dynamic the cost is one D1 read per page view,
 // which is negligible at our traffic level and gives the operator an
 // immediately-correct experience after publishing.
-
-import { publicGet } from "@/lib/public-api";
-import { notFound } from "next/navigation";
+//
+// On fetch failure: instead of notFound() (which renders the generic
+// 404 page and hides the cause), render a visible diagnostic that
+// shows the exact API URL attempted, the response status, and the
+// error body. Lets the operator see *why* a "should be live" post
+// isn't showing up.
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -30,10 +33,49 @@ interface PostDetail {
   updated_at: string;
 }
 
+interface FetchOutcome {
+  ok: boolean;
+  status: number;
+  url: string;
+  bodyPreview: string;
+  post?: PostDetail;
+}
+
+async function fetchPost(slug: string): Promise<FetchOutcome> {
+  const baseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
+  const url = `${baseUrl}/v1/public/posts/${encodeURIComponent(slug)}`;
+  try {
+    const res = await fetch(url, {
+      next: { revalidate: 0 },
+      headers: { accept: "application/json" },
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        url,
+        bodyPreview: text.slice(0, 500),
+      };
+    }
+    const json = JSON.parse(text) as { post: PostDetail };
+    return { ok: true, status: res.status, url, bodyPreview: "", post: json.post };
+  } catch (err) {
+    return {
+      ok: false,
+      status: 0,
+      url,
+      bodyPreview: `Fetch error: ${(err as Error).message}`,
+    };
+  }
+}
+
 export default async function PostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const r = await publicGet<{ post: PostDetail }>(`/v1/public/posts/${slug}`, 0).catch(() => null);
-  if (!r) notFound();
+  const r = await fetchPost(slug);
+  if (!r.ok || !r.post) {
+    return <Diagnostic slug={slug} outcome={r} />;
+  }
   const p = r.post;
   const tags = safeJsonArray(p.tags);
 
@@ -57,6 +99,33 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
         </p>
       )}
     </article>
+  );
+}
+
+function Diagnostic({ slug, outcome }: { slug: string; outcome: FetchOutcome }) {
+  return (
+    <main className="mx-auto max-w-3xl px-6 py-12 font-mono text-sm">
+      <h1 className="text-2xl font-bold">Post not found: {slug}</h1>
+      <p className="mt-2 text-[var(--ink-3)]">
+        Diagnostic info — the public site fetches the API directly. Below is exactly what came back.
+      </p>
+      <dl className="mt-6 grid grid-cols-[120px_1fr] gap-y-2 text-[12px]">
+        <dt className="text-[var(--ink-mute)]">slug</dt>
+        <dd>{slug}</dd>
+        <dt className="text-[var(--ink-mute)]">api url</dt>
+        <dd className="break-all">{outcome.url}</dd>
+        <dt className="text-[var(--ink-mute)]">status</dt>
+        <dd>{outcome.status || "(network error)"}</dd>
+        <dt className="text-[var(--ink-mute)]">body</dt>
+        <dd className="whitespace-pre-wrap break-all">{outcome.bodyPreview || "(empty)"}</dd>
+      </dl>
+      <p className="mt-8 text-[12px] text-[var(--ink-mute)]">
+        If status=404 and body is `{"{"}error: post not found{"}"}` then the post isn't in the D1
+        the public Worker reads from — either it isn't `status='published'` or the slug doesn't
+        match. If status=200 but post is missing, the API contract changed. If status=0, the Worker
+        is unreachable.
+      </p>
+    </main>
   );
 }
 
