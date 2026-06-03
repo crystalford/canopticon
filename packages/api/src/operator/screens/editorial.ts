@@ -130,16 +130,17 @@ ${opHeader("Editorial", `${active.kind} · ${active.slug}`, `<a class="btn sm" h
     <div>
       <form method="POST" action="/op/editorial/${escapeAttr(active.slug)}/save" style="display:flex;flex-direction:column;gap:14px">
         <div class="row between" style="gap:10px;flex-wrap:wrap">
-          <div class="row" style="gap:10px;align-items:center">${statusBadge}<span class="coord">${escapeHtml(active.byline ?? "the operator")}</span></div>
+          <div class="row" style="gap:10px;align-items:center">${statusBadge}<span class="coord">${escapeHtml(active.byline ?? "the operator")}</span><span class="coord" style="color:var(--ink-faint)">·</span><span class="coord">${escapeHtml(kindLabel(active.kind))}</span></div>
           <div class="row" style="gap:8px">${publishButton}<button class="btn sm primary" type="submit">Save</button></div>
         </div>
         <input name="title" value="${escapeAttr(active.title ?? "")}" placeholder="Title…"
                style="background:transparent;border:none;border-bottom:1px solid var(--rule);padding:8px 0;font-family:var(--serif);font-size:30px;letter-spacing:-0.02em;color:var(--ink);font-weight:600;width:100%" />
         <input name="subtitle" value="${escapeAttr(active.subtitle ?? "")}" placeholder="Subtitle…"
                style="background:transparent;border:none;border-bottom:1px solid var(--rule-soft);padding:6px 0;font-family:var(--serif);font-size:17px;color:var(--ink-2);width:100%" />
+        ${renderKindHint(active.kind)}
         <textarea name="body_md" rows="22"
-                  style="background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:16px;font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--ink);width:100%;resize:vertical">${escapeHtml(active.body_md ?? "")}</textarea>
-        <div class="coord" style="font-size:11px">Markdown · ${(active.body_md ?? "").split(/\s+/).filter(Boolean).length} words</div>
+                  style="background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:16px;font-family:var(--mono);font-size:13.5px;line-height:1.65;color:var(--ink);width:100%;resize:vertical">${escapeHtml(active.body_md ?? "")}</textarea>
+        ${renderEditorFoot(active.body_md ?? "")}
       </form>
     </div>
   </div>
@@ -192,6 +193,48 @@ export async function publishEditorial(
   )
     .bind(targetStatus, now, now, userId, slug)
     .run();
+}
+
+function kindLabel(kind: string): string {
+  const map: Record<string, string> = {
+    essay: "Essay",
+    "research-report": "Research report",
+    "documented-record": "Documented record",
+    thesis: "Thesis",
+    synthesis: "Synthesis",
+    brief: "Brief",
+    note: "Library entry",
+  };
+  return map[kind] ?? kind;
+}
+
+function renderKindHint(kind: string): string {
+  const hint =
+    kind === "research-report" || kind === "brief"
+      ? `<div class="card soft" style="padding:12px 14px;font-size:12.5px;color:var(--ink-2);line-height:1.55;font-family:var(--mono)">
+      Structure for the rendered page: <code>## Short version</code> (bulleted), <code>## Key findings</code> with <code>### sub-headings</code>, <code>## Caveats &amp; confidence</code> (bulleted). Anything else renders as trailing prose.
+    </div>`
+      : kind === "documented-record"
+        ? `<div class="card soft" style="padding:12px 14px;font-size:12.5px;color:var(--ink-2);line-height:1.55;font-family:var(--mono)">
+      Structure: <code>## What this is</code> (bulleted), <code>## What this is not</code> (bulleted), prose, then <code>## Source log</code> (one entry per line, "Title — Org · Date").
+    </div>`
+        : kind === "essay" || kind === "thesis" || kind === "synthesis"
+          ? `<div class="card soft" style="padding:12px 14px;font-size:12.5px;color:var(--ink-2);line-height:1.55;font-family:var(--mono)">
+      Free-form serif prose. Use Markdown sections as you would in an essay; no rigid template.
+    </div>`
+          : "";
+  return hint;
+}
+
+function renderEditorFoot(body_md: string): string {
+  const words = body_md.split(/\s+/).filter(Boolean).length;
+  const chars = body_md.length;
+  const minutes = words < 50 ? 0 : Math.max(1, Math.round(words / 200));
+  const reading = minutes > 0 ? ` · ~${minutes} min read` : "";
+  return `<div class="coord" style="font-size:11px;display:flex;justify-content:space-between">
+    <span>Markdown · ${words.toLocaleString()} words${reading}</span>
+    <span>${chars.toLocaleString()} characters</span>
+  </div>`;
 }
 
 function renderEmpty(): string {
