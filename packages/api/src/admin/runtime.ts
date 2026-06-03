@@ -113,7 +113,7 @@ async function loadCounts(db: D1Database, userId: string): Promise<Counts> {
        (SELECT COUNT(*) FROM topics WHERE user_id = ?) AS topics,
        (SELECT COUNT(*) FROM claims WHERE user_id = ?) AS claims,
        (SELECT COUNT(*) FROM sources WHERE user_id = ?) AS sources,
-       (SELECT COUNT(*) FROM conversations WHERE user_id = ?) AS conversations`,
+       (SELECT COUNT(*) FROM chat_conversations WHERE user_id = ?) AS conversations`,
     [userId, userId, userId, userId, userId, userId],
   );
   return (
