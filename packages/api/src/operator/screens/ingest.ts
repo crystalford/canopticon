@@ -1,111 +1,158 @@
+// Ingest — door two. The premium intake. Drop a document (or a zip of
+// many), see what would change in the structure (claims, entities,
+// near-duplicates), confirm. The system is supposed to work organically
+// from documents — no seed corpus required.
+
 import type { Env } from "../../env";
-import { one } from "../../lib/d1";
+import { all } from "../../lib/d1";
 import { resolveOperatorId } from "../../public/data";
 import { escapeHtml } from "../../public/layout";
-import { opHeader, renderOpPage } from "../layout";
+import { commandBar, icon, opHeader, renderOpPage } from "../layout";
 
 interface DbStats {
-  topics: number;
   entities: number;
   pieces: number;
-  publishedPieces: number;
+  workingMaterial: number;
+  published: number;
 }
 
 async function getStats(env: Env): Promise<DbStats> {
   const userId = await resolveOperatorId(env.DB);
-  if (!userId) return { topics: 0, entities: 0, pieces: 0, publishedPieces: 0 };
-  const [t, e, p, pub] = await Promise.all([
-    one<{ c: number }>(env.DB, "SELECT count(*) as c FROM topics WHERE user_id = ?", [userId]),
-    one<{ c: number }>(env.DB, "SELECT count(*) as c FROM entities WHERE user_id = ?", [userId]),
-    one<{ c: number }>(env.DB, "SELECT count(*) as c FROM pieces WHERE user_id = ?", [userId]),
-    one<{ c: number }>(
-      env.DB,
-      "SELECT count(*) as c FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical')",
-      [userId],
-    ),
-  ]);
+  if (!userId) return { entities: 0, pieces: 0, workingMaterial: 0, published: 0 };
+  const rows = await all<{ k: string; n: number }>(
+    env.DB,
+    `SELECT 'entities' AS k, count(*) AS n FROM entities WHERE user_id = ?
+     UNION ALL SELECT 'pieces', count(*) FROM pieces WHERE user_id = ?
+     UNION ALL SELECT 'working', count(*) FROM pieces WHERE user_id = ? AND publication_status = 'working-material'
+     UNION ALL SELECT 'published', count(*) FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical')`,
+    [userId, userId, userId, userId],
+  );
+  const m = new Map(rows.map((r) => [r.k, r.n]));
   return {
-    topics: t?.c ?? 0,
-    entities: e?.c ?? 0,
-    pieces: p?.c ?? 0,
-    publishedPieces: pub?.c ?? 0,
+    entities: m.get("entities") ?? 0,
+    pieces: m.get("pieces") ?? 0,
+    workingMaterial: m.get("working") ?? 0,
+    published: m.get("published") ?? 0,
   };
+}
+
+async function recentIngests(
+  env: Env,
+): Promise<Array<{ slug: string; title: string; kind: string; when: string }>> {
+  const userId = await resolveOperatorId(env.DB);
+  if (!userId) return [];
+  return all<{ slug: string; title: string; kind: string; when: string }>(
+    env.DB,
+    `SELECT slug, title, kind, COALESCE(updated_at, created_at) AS when
+       FROM pieces
+      WHERE user_id = ? AND publication_status = 'working-material'
+      ORDER BY COALESCE(updated_at, created_at) DESC
+      LIMIT 8`,
+    [userId],
+  );
 }
 
 export async function renderIngestScreen(
   env: Env,
   params: { result?: string | undefined; error?: string | undefined } = {},
 ): Promise<string> {
-  const stats = await getStats(env);
+  const [stats, recent] = await Promise.all([getStats(env), recentIngests(env)]);
 
   const resultBanner = params.result
-    ? `<div style="margin-bottom:24px;padding:14px 18px;border-radius:var(--r);background:var(--confirmed-bg,rgba(34,197,94,.08));border:1px solid var(--confirmed-bd,rgba(34,197,94,.25));color:var(--ink);font-size:13.5px;white-space:pre-wrap;font-family:var(--mono)">${escapeHtml(params.result)}</div>`
+    ? `<div style="margin-bottom:24px;padding:14px 18px;border-radius:var(--r);background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);color:var(--ink);font-size:13.5px;white-space:pre-wrap;font-family:var(--mono)">${escapeHtml(params.result)}</div>`
     : "";
 
   const errorBanner = params.error
-    ? `<div style="margin-bottom:24px;padding:14px 18px;border-radius:var(--r);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);color:var(--correction,#ef4444);font-size:13.5px;font-family:var(--mono)">${escapeHtml(params.error)}</div>`
+    ? `<div style="margin-bottom:24px;padding:14px 18px;border-radius:var(--r);background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);color:var(--correction);font-size:13.5px;font-family:var(--mono)">${escapeHtml(params.error)}</div>`
     : "";
 
-  const statChip = (label: string, value: number) =>
-    `<div style="display:flex;flex-direction:column;align-items:center;padding:12px 20px;border-radius:var(--r);background:var(--surface);border:1px solid var(--rule)">
-      <span style="font-size:24px;font-weight:600;color:var(--ink);font-family:var(--mono)">${value}</span>
-      <span style="font-size:11px;color:var(--ink-mute);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px">${escapeHtml(label)}</span>
+  const statCard = (label: string, value: number) =>
+    `<div style="text-align:center;padding:16px 20px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--rule)">
+      <div style="font-family:var(--mono);font-size:26px;color:var(--ink);font-variant-numeric:tabular-nums">${value}</div>
+      <div class="label" style="margin-top:4px">${escapeHtml(label)}</div>
     </div>`;
 
+  const recentList = recent.length
+    ? `<div class="col" style="gap:0">${recent
+        .map(
+          (r) => `<div style="padding:10px 0;border-bottom:1px solid var(--rule-soft)">
+  <div class="row between" style="margin-bottom:3px">
+    <a href="/op/editorial/${escapeHtml(r.slug)}" style="font-size:14px;color:var(--ink);text-decoration:none">${escapeHtml(r.title)}</a>
+    <span class="coord">${escapeHtml(formatRelative(r.when))}</span>
+  </div>
+  <div class="coord" style="font-size:11px">${escapeHtml(r.kind)} · working-material</div>
+</div>`,
+        )
+        .join("")}</div>`
+    : `<div class="coord faint">No working-material pieces yet. Drop a document above to get started.</div>`;
+
   const body = `
-${opHeader("Ingest", "populate the corpus")}
-<div style="padding:28px 32px;max-width:720px">
+${opHeader("Ingest", "door two · drop a piece, see what would change")}
+<div class="op-content">
+  <p class="muted" style="margin-bottom:22px;font-family:var(--serif);font-size:16px;line-height:1.55;max-width:680px">
+    Drop a finished or near-finished piece. The system shows what it would change in the structure — new claims, new entities, near-duplicates — before anything commits. Pieces enter as working-material; promote to published from <a href="/op/editorial" style="color:var(--accent)">Editorial</a>.
+  </p>
 
   ${resultBanner}${errorBanner}
 
-  <div style="display:flex;gap:12px;margin-bottom:32px">
-    ${statChip("Topics", stats.topics)}
-    ${statChip("Entities", stats.entities)}
-    ${statChip("Pieces", stats.pieces)}
-    ${statChip("Published", stats.publishedPieces)}
+  <div class="cards-4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:32px">
+    ${statCard("Entities", stats.entities)}
+    ${statCard("Pieces total", stats.pieces)}
+    ${statCard("Working-material", stats.workingMaterial)}
+    ${statCard("Published", stats.published)}
   </div>
 
   <section style="margin-bottom:36px">
-    <h2 style="font-size:15px;font-weight:600;color:var(--ink);margin:0 0 6px">Initialize corpus</h2>
-    <p style="font-size:13.5px;color:var(--ink-2);margin:0 0 16px;line-height:1.55">
-      Seeds the structural skeleton: 3 topic hubs, 8 entities, and 5 canonical investigations
-      (monetary-power, housing, capital-capture). Idempotent — safe to run again; existing rows
-      are skipped unless you check Force.
-    </p>
-    <form method="POST" action="/op/ingest/seed" style="display:flex;gap:10px;align-items:center">
-      <label style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--ink-2)">
-        <input type="checkbox" name="force" value="1" style="accent-color:var(--accent)" />
-        Force overwrite
+    ${sectionHead("Drop a document", '<span class="coord">.md · .txt · .pdf · .zip</span>')}
+    <form method="POST" action="/op/ingest/upload" enctype="multipart/form-data"
+          style="display:flex;flex-direction:column;gap:14px"
+          onsubmit="this.querySelector('button[type=submit]').textContent='Ingesting…';this.querySelector('button[type=submit]').disabled=true">
+      <label class="card soft" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;border:1px dashed var(--rule);cursor:pointer;text-align:center;gap:8px">
+        ${icon("arrowUR", 28, "var(--accent)")}
+        <div style="font-family:var(--serif);font-size:16px;color:var(--ink);margin-top:6px">Pick file(s) or drop a zip</div>
+        <div class="coord">single .md/.txt/.pdf, or a .zip containing many — the worker extracts and ingests each</div>
+        <input type="file" name="file" accept=".md,.txt,.pdf,.zip,text/markdown,text/plain,application/pdf,application/zip" multiple
+               style="margin-top:12px;font-size:13px;color:var(--ink-2)" />
       </label>
-      <button type="submit" class="btn btn-primary" style="min-width:120px">Seed corpus</button>
-    </form>
-  </section>
-
-  <section>
-    <h2 style="font-size:15px;font-weight:600;color:var(--ink);margin:0 0 6px">Import library zip</h2>
-    <p style="font-size:13.5px;color:var(--ink-2);margin:0 0 16px;line-height:1.55">
-      Upload <code style="font-family:var(--mono);font-size:12.5px">canopticon-library.zip</code> to
-      bulk-import the 65-report research corpus as working-material pieces. The Worker extracts the
-      zip and ingests each report — no curl or scripts needed. Idempotent by slug.
-    </p>
-    <form method="POST" action="/op/ingest/library" enctype="multipart/form-data"
-          style="display:flex;flex-direction:column;gap:12px"
-          onsubmit="this.querySelector('button').textContent='Importing…';this.querySelector('button').disabled=true">
-      <div style="display:flex;gap:10px;align-items:center">
-        <input type="file" name="zip" accept=".zip" required
-               style="flex:1;font-size:13.5px;color:var(--ink-2);background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:8px 12px" />
-        <label style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--ink-2)">
+      <div class="row between" style="gap:12px;flex-wrap:wrap">
+        <label class="row" style="gap:8px;align-items:center;font-size:13px;color:var(--ink-2)">
           <input type="checkbox" name="force" value="1" style="accent-color:var(--accent)" />
-          Force overwrite
+          Force overwrite (re-import existing slugs)
         </label>
-      </div>
-      <div>
-        <button type="submit" class="btn btn-primary" style="min-width:140px">Import zip</button>
+        <button type="submit" class="btn primary">Ingest</button>
       </div>
     </form>
   </section>
 
+  ${commandBar(`Or describe what you want to ingest — "Save this URL as a working piece", "Pull these claims out of the attached PDF"…`)}
+
+  <section style="margin-top:36px">
+    ${sectionHead("Recent working-material", "")}
+    ${recentList}
+  </section>
 </div>`;
 
   return renderOpPage({ title: "Ingest", body, activeNav: "/op/ingest", fullBleed: true });
+}
+
+function sectionHead(label: string, action: string): string {
+  return `<div class="row between" style="border-bottom:1px solid var(--rule);padding-bottom:9px;margin-bottom:16px;gap:16px">
+  <div class="label">${escapeHtml(label)}</div>
+  ${action}
+</div>`;
+}
+
+function formatRelative(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "—";
+  const delta = Date.now() - t;
+  const min = Math.round(delta / 60000);
+  if (min < 1) return "just now";
+  if (min < 60) return `${min}m`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const d = Math.round(hr / 24);
+  if (d < 30) return `${d}d`;
+  return iso.slice(0, 10);
 }

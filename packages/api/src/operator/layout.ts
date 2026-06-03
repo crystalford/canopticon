@@ -1,8 +1,10 @@
 // Operator console shell. Dark-instrument theme (data-mode="operator").
 // Reuses the design build's op-shell / op-side / op-brand / op-nav /
-// op-main / op-content / op-header classes from styles.css. The design
-// used <button> elements for nav (React SPA); we use <a> links (server-
-// routed) styled identically via a small inline rule block.
+// op-main / op-content / op-header classes from styles.css.
+//
+// The design used React + onClick handlers on <button>s; we use <a>
+// links styled to match. Icons ported from the design's ICONS map
+// (op-app.jsx) — inlined SVG, currentColor-stroked.
 //
 // Cloudflare Access gates every /op/* route, so these screens are only
 // reachable by the operator. No auth UI needed here.
@@ -10,31 +12,83 @@
 import { escapeAttr, escapeHtml } from "../public/layout";
 import { stylesHash } from "../public/styles";
 
+// Icon paths ported verbatim from the design build (op-app.jsx ICONS).
+const ICONS: Record<string, string> = {
+  doc: "M6 2h8l4 4v16H6zM14 2v4h4",
+  layers: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5",
+  plus: "M12 5v14M5 12h14",
+  arrowUR: "M7 17 17 7M9 7h8v8",
+  edit: "M4 20h4L18 10l-4-4L4 16zM14 6l4 4",
+  play: "M7 5l12 7-12 7z",
+  spark: "M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z",
+  check: "M5 12l4 4 10-10",
+  chevron: "M9 6l6 6-6 6",
+  grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+  dot: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z",
+  chat: "M3 5h18v12H7l-4 4z",
+};
+
+export function icon(name: string, size = 15, color?: string): string {
+  const d = ICONS[name] ?? "";
+  const filled = name === "dot";
+  const colorAttr = color ? ` style="color:${color}"` : "";
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${filled ? "currentColor" : "none"}" stroke="${filled ? "none" : "currentColor"}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"${colorAttr}><path d="${d}"/></svg>`;
+}
+
 export interface OpNavItem {
   href: string;
   label: string;
+  icon: string;
+}
+export interface OpNavGroup {
+  group: string;
+  items: OpNavItem[];
 }
 
-// The screen taxonomy from the PROBE handoff + the existing console.
-export const OP_NAV: OpNavItem[] = [
-  { href: "/op", label: "Console" },
-  { href: "/op/chat", label: "Chat" },
-  { href: "/op/workbench", label: "Workbench" },
-  { href: "/op/ingest", label: "Ingest" },
-  { href: "/op/editorial", label: "Editorial" },
-  { href: "/op/leads", label: "Leads" },
-  { href: "/op/patterns", label: "Patterns" },
-  { href: "/op/publish", label: "Publish" },
-  { href: "/op/studio", label: "Studio" },
+// Screen taxonomy from the PROBE handoff. Groups + ordering mirror
+// the design build's NAV constant.
+export const OP_NAV: OpNavGroup[] = [
+  {
+    group: "Work",
+    items: [
+      { href: "/op", label: "Console", icon: "doc" },
+      { href: "/op/chat", label: "Chat", icon: "chat" },
+      { href: "/op/workbench", label: "Workbench", icon: "layers" },
+    ],
+  },
+  {
+    group: "Intake",
+    items: [
+      { href: "/op/build", label: "Build", icon: "plus" },
+      { href: "/op/ingest", label: "Ingest", icon: "arrowUR" },
+    ],
+  },
+  {
+    group: "Author",
+    items: [
+      { href: "/op/editorial", label: "Editorial", icon: "edit" },
+      { href: "/op/studio", label: "Studio", icon: "play" },
+    ],
+  },
+  {
+    group: "Surface",
+    items: [
+      { href: "/op/leads", label: "Leads", icon: "spark" },
+      { href: "/op/patterns", label: "Patterns", icon: "grid" },
+      { href: "/op/publish", label: "Publish", icon: "check" },
+    ],
+  },
 ];
 
-// Small supplementary rules: anchor-flavored nav links (the design used
-// buttons) + the chat/editorial layout primitives. Kept inline so the
-// operator console is self-contained without editing the shared CSS.
+// Inline rules for nav-link anchors (design used <button>s) + chat/editorial
+// layout primitives + command bar.
 const OP_INLINE_CSS = `
 .op-nav a.op-nav-link{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:8px 10px;font-size:13.5px;letter-spacing:-0.01em;color:var(--ink-mute);text-decoration:none;border-radius:var(--r-sm);font-weight:500;transition:background .1s,color .1s;gap:8px}
 .op-nav a.op-nav-link:hover{color:var(--ink);background:var(--paper-2)}
 .op-nav a.op-nav-link.is-active{color:var(--ink);background:var(--paper-2)}
+.op-nav a.op-nav-link .nav-icon{color:var(--ink-mute);display:inline-flex;flex-shrink:0}
+.op-nav a.op-nav-link.is-active .nav-icon{color:var(--accent)}
+.op-nav a.op-nav-link .nav-label{flex:1;display:inline-flex;align-items:center;gap:10px}
 .op-header-actions{display:flex;gap:8px;align-items:center}
 .op-chat-wrap{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 27px)}
 .op-chat-list{border-right:1px solid var(--rule);padding:14px 10px;overflow-y:auto}
@@ -55,6 +109,11 @@ const OP_INLINE_CSS = `
 .op-composer{border-top:1px solid var(--rule);padding:16px 28px;background:var(--paper)}
 .op-composer textarea{width:100%;min-height:64px;resize:vertical;background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:12px 14px;color:var(--ink);font-family:var(--sans);font-size:14.5px;line-height:1.5}
 .op-composer .row{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.cmdbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-lg);transition:border-color .12s}
+.cmdbar:focus-within{border-color:var(--accent-bd)}
+.cmdbar .prompt{font-family:var(--mono);color:var(--accent);font-size:14px;flex-shrink:0}
+.cmdbar input{flex:1;background:transparent;border:none;outline:none;color:var(--ink);font-family:var(--sans);font-size:14px}
+.cmdbar input::placeholder{color:var(--ink-faint)}
 `;
 
 export interface OpPageArgs {
@@ -105,22 +164,29 @@ ${clientScript}
 }
 
 function renderOpNav(activeHref?: string): string {
-  const items = OP_NAV.map((item) => {
-    const isActive =
-      activeHref === item.href ||
-      (item.href !== "/op" && activeHref ? activeHref.startsWith(item.href) : false);
-    return `<a href="${escapeAttr(item.href)}" class="op-nav-link${isActive ? " is-active" : ""}">
-  <span>${escapeHtml(item.label)}</span>
+  const groups = OP_NAV.map((g) => {
+    const links = g.items
+      .map((item) => {
+        const isActive =
+          activeHref === item.href ||
+          (item.href !== "/op" && activeHref ? activeHref.startsWith(item.href) : false);
+        return `<a href="${escapeAttr(item.href)}" class="op-nav-link${isActive ? " is-active" : ""}">
+  <span class="nav-label"><span class="nav-icon">${icon(item.icon, 15)}</span>${escapeHtml(item.label)}</span>
 </a>`;
+      })
+      .join("");
+    return `<div class="grp">${escapeHtml(g.group)}</div>${links}`;
   }).join("");
+
   return `<aside class="op-side">
   <div class="op-brand">
-    <a href="/op" class="wordmark" style="font-size:20px">canopticon<span class="dot">.</span></a>
+    <a href="/op" class="wordmark" style="font-size:20px;text-decoration:none">canopticon<span class="dot">.</span></a>
     <div class="mono" style="font-size:10.5px;color:var(--ink-mute);margin-top:3px;text-transform:uppercase;letter-spacing:0.08em">operator console</div>
   </div>
-  <nav class="op-nav">${items}</nav>
+  <nav class="op-nav">${groups}</nav>
   <div class="op-side-foot">
-    <a href="/" class="op-link">public site →</a>
+    <a href="/" style="color:var(--ink-mute);text-decoration:none">public site →</a>
+    <span>graph · 1 operator · D1 + Vectorize</span>
   </div>
 </aside>`;
 }
@@ -134,6 +200,19 @@ export function opHeader(title: string, coord = "", actions = ""): string {
   </div>
   ${actions ? `<div class="op-header-actions">${actions}</div>` : ""}
 </div>`;
+}
+
+// Command bar (design's top-of-screen agent prompt). Submits to /op/chat
+// with ?q= so the chat screen picks up the first message.
+export function commandBar(placeholder?: string): string {
+  const ph =
+    placeholder ??
+    "Command the record — draft a piece, ingest a document, ask what contradicts this…";
+  return `<form class="cmdbar" action="/op/chat" method="GET" style="margin-bottom:22px">
+  <span class="prompt">›</span>
+  <input name="q" placeholder="${escapeAttr(ph)}" autocomplete="off" />
+  <span class="chip">chat</span>
+</form>`;
 }
 
 function jsonForScript(data: unknown): string {
