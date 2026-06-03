@@ -66,9 +66,26 @@ app.get("/record/:slug", async (c) => {
   return htmlResponse(html);
 });
 
-// ---- Patterns -------------------------------------------------------------
+// ---- Patterns / gaps / timeline (the lighthouse) -------------------------
 
 app.get("/patterns", async (c) => htmlResponse(await renderPatternsIndex(c.env)));
+
+app.get("/patterns/:slug", async (c) => {
+  const { renderPatternDetail } = await import("./render/pattern-detail");
+  const html = await renderPatternDetail(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+app.get("/gaps", async (c) => {
+  const { renderGapsIndex } = await import("./render/gaps");
+  return htmlResponse(await renderGapsIndex(c.env));
+});
+
+app.get("/timeline", async (c) => {
+  const { renderTimelineIndex } = await import("./render/timeline");
+  return htmlResponse(await renderTimelineIndex(c.env));
+});
 
 // ---- Library --------------------------------------------------------------
 

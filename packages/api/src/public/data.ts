@@ -280,5 +280,91 @@ export async function countOrphanPieces(db: D1Database, userId: string): Promise
   return row?.n ?? 0;
 }
 
+// ---- Pattern detail / gaps / timeline ------------------------------------
+
+export interface PatternDetail extends PatternSummary {
+  disconfirming_md: string;
+  notes_md: string | null;
+  date_range_from: string | null;
+  date_range_to: string | null;
+}
+
+export async function getPatternBySlug(
+  db: D1Database,
+  userId: string,
+  slug: string,
+): Promise<PatternDetail | null> {
+  return one<PatternDetail>(
+    db,
+    `SELECT id, slug, kind, title, statement_md, confidence, signed_by, signed_at,
+            disconfirming_md, notes_md, date_range_from, date_range_to
+       FROM patterns WHERE user_id = ? AND slug = ? AND status = 'signed'`,
+    [userId, slug],
+  );
+}
+
+export async function piecesForPattern(
+  db: D1Database,
+  userId: string,
+  patternId: string,
+): Promise<PieceSummary[]> {
+  return all<PieceSummary>(
+    db,
+    `SELECT p.id, p.slug, p.title, p.subtitle, p.kind, p.subtype,
+            p.publication_status, p.byline, p.published_at, p.signed_by
+       FROM pattern_pieces pp
+       JOIN pieces p ON p.id = pp.piece_id
+      WHERE pp.user_id = ? AND pp.pattern_id = ?
+      ORDER BY p.published_at DESC`,
+    [userId, patternId],
+  );
+}
+
+export interface GapRow {
+  id: string;
+  slug: string;
+  title: string;
+  subject_kind: string;
+  subject_id: string | null;
+  what_we_have_md: string;
+  what_we_lack_md: string;
+  suggested_next_step_md: string;
+  signed_by: string | null;
+  status: string;
+}
+
+export async function listGaps(db: D1Database, userId: string): Promise<GapRow[]> {
+  return all<GapRow>(
+    db,
+    `SELECT id, slug, title, subject_kind, subject_id, what_we_have_md,
+            what_we_lack_md, suggested_next_step_md, signed_by, status
+       FROM gaps WHERE user_id = ? AND status IN ('open','partially-filled')
+      ORDER BY updated_at DESC`,
+    [userId],
+  );
+}
+
+export interface TimelineEventRow {
+  id: string;
+  event_date: string;
+  title: string;
+  body_md: string | null;
+  related_piece_ids: string;
+  related_entity_ids: string;
+  significance: string;
+}
+
+export async function listTimelineEvents(
+  db: D1Database,
+  userId: string,
+): Promise<TimelineEventRow[]> {
+  return all<TimelineEventRow>(
+    db,
+    `SELECT id, event_date, title, body_md, related_piece_ids, related_entity_ids, significance
+       FROM timeline_events WHERE user_id = ? ORDER BY event_date DESC`,
+    [userId],
+  );
+}
+
 // Re-export parseJson so renderers can decode tags without importing d1.
 export { parseJson };

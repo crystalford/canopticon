@@ -95,6 +95,12 @@ v1.route("/monitors", monitorsRoutes);
 v1.route("/posts", postsRoutes);
 v1.route("/characters", charactersRoutes);
 
+import lighthouseRoutes from "./graph/routes/lighthouse.ts";
+v1.route("/lighthouse", lighthouseRoutes);
+
+import adminSeedRoutes from "./admin/seed-corpus.ts";
+v1.route("/admin", adminSeedRoutes);
+
 // Studio compartment — gated by env.STUDIO_ENABLED. When false, the
 // routes 404 (we just don't mount them) and the operator UI shows a
 // placeholder.
