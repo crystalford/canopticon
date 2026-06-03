@@ -111,6 +111,24 @@ v1.route("/studio", studioGate);
 
 app.route("/v1", v1);
 
+import { htmlResponse } from "./public/layout.ts";
+// Public site — Phase 1 skeleton. Server-rendered HTML at canopticon.com.
+// Mounted last so /v1 and /health take precedence on overlapping paths.
+import publicSiteRoutes, { renderNotFound as renderPublicNotFound } from "./public/routes.ts";
+app.route("/", publicSiteRoutes);
+
+// Unified notFound: JSON for the API surface, styled HTML for public.
+app.notFound((c) => {
+  const path = c.req.path;
+  if (path.startsWith("/v1/") || path === "/health") {
+    return c.json(
+      { error: { code: "not_found", message: "Not found", trace_id: c.get("trace_id") } },
+      404,
+    );
+  }
+  return htmlResponse(renderPublicNotFound(path), { status: 404 });
+});
+
 import { runWatcher } from "./graph/lib/watcher.ts";
 import { all as dbAll } from "./lib/d1.ts";
 
