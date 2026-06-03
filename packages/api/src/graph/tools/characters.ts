@@ -14,14 +14,15 @@ import type { ToolDef } from "./index";
 const seedFromWiki: ToolDef = {
   name: "seed_character_from_wikipedia",
   description:
-    "Promote a person entity to a first-class character profile and seed the bio + timeline from Wikipedia. Falls back to a minimal profile if Wikipedia has no match. Idempotent — re-seeding refreshes the bio.",
+    "Promote a person to a first-class character profile and seed the bio + timeline from Wikipedia. If no entity with this name exists yet, creates one automatically (you don't need to commit_entities first). Falls back to a minimal profile if Wikipedia has no match. Idempotent — re-seeding refreshes the bio.",
   input_schema: {
     type: "object",
     properties: {
-      entity_id: { type: "string", description: "Person entity to promote." },
+      entity_id: { type: "string", description: "Existing person entity to promote." },
       entity_name: {
         type: "string",
-        description: "Alternative to entity_id — looked up by canonical_name.",
+        description:
+          "Canonical name. Existing matching entity is reused; otherwise a new person entity is created automatically. This is the common path for 'add X as a character'.",
       },
       wikipedia_title: {
         type: "string",
@@ -31,8 +32,25 @@ const seedFromWiki: ToolDef = {
   },
   confirm: true,
   async exec({ env, userId }, input) {
-    const entity = await resolveEntity(env, userId, input);
-    if (!entity) return { output: "No matching person entity.", side_effects: [] };
+    let entity = await resolveEntity(env, userId, input);
+    if (!entity) {
+      const name = typeof input.entity_name === "string" ? input.entity_name.trim() : "";
+      if (!name) {
+        return {
+          output: "Provide entity_id or entity_name (a person's canonical name).",
+          side_effects: [],
+        };
+      }
+      // No existing entity — create one. Person type is the right default
+      // for the character compartment.
+      const newId = await insertOne(env.DB, "entities", {
+        user_id: userId,
+        canonical_name: name,
+        entity_type: "person",
+        aliases: [],
+      });
+      entity = { id: newId, canonical_name: name };
+    }
     const wikiTitle = input.wikipedia_title as string | undefined;
     const result = await seedCharacterFromWikipedia(
       env,
@@ -42,12 +60,7 @@ const seedFromWiki: ToolDef = {
     );
     const route = `/characters/${result.slug}`;
     return {
-      output:
-        `Seeded character **${entity.canonical_name}** from ${result.source}.\n` +
-        `- Profile slug: ${result.slug}\n` +
-        `- Timeline events seeded: ${result.timeline_events_count}\n` +
-        `- Operator view: ${route}\n` +
-        `- Public page: /p/characters/${result.slug}`,
+      output: `Seeded character **${entity.canonical_name}** from ${result.source}.\n- Profile slug: ${result.slug}\n- Timeline events seeded: ${result.timeline_events_count}\n- Operator view: ${route}\n- Public page: /p/characters/${result.slug}`,
       side_effects: [{ kind: "entity", id: entity.id, summary: entity.canonical_name }],
     };
   },

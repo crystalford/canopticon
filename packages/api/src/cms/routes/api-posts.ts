@@ -152,6 +152,14 @@ app.patch("/:id", async (c) => {
       );
     }
   }
+  // If body_md changed AND the post is already published, re-render
+  // body_html so the public site reflects the edit. Publishing the
+  // first time renders body_html in the publish handler; this keeps it
+  // in sync on subsequent edits.
+  if (typeof body.body_md === "string" && post.status === "published") {
+    updates.push("body_html = ?");
+    params.push(renderMarkdown(body.body_md));
+  }
   if (typeof body.slug === "string" && body.slug.length > 0) {
     updates.push("slug = ?");
     params.push(slugify(body.slug));
@@ -199,7 +207,12 @@ app.post("/:id/publish", async (c) => {
     userId,
   ]);
   if (!post) throw notFound("post");
-  if (post.status === "published") return c.json({ ok: true, already: true, slug: post.slug });
+
+  // Re-publishing an already-published post is allowed: it re-renders
+  // body_html from the current body_md so any edits made after the
+  // first publish reach the public site. The PATCH endpoint also does
+  // this in lockstep, but operators sometimes hit Publish after edits.
+  const isRepublish = post.status === "published";
 
   const publishedAt = new Date().toISOString();
   const finalSlug = body.slug ? slugify(body.slug) : post.slug;
@@ -226,22 +239,32 @@ app.post("/:id/publish", async (c) => {
     }
   }
 
+  // Preserve the original published_at on republish; only stamp it on
+  // the first publish.
+  const publishedAtFinal = post.published_at ?? publishedAt;
   await run(
     c.env.DB,
     `UPDATE posts
         SET status = 'published', published_at = ?, slug = ?, body_html = ?, is_forensic = ?,
             updated_at = ?
       WHERE id = ? AND user_id = ?`,
-    [publishedAt, finalSlug, bodyHtml, isForensic, publishedAt, id, userId],
+    [publishedAtFinal, finalSlug, bodyHtml, isForensic, publishedAt, id, userId],
   );
 
-  // Graph hook: only if the compartment is enabled. CMS publish has already
-  // completed by this point — the public render works regardless.
-  if (c.env.GRAPH_ENABLED === "true") {
+  // Graph hook: only on first publish, and only if the compartment is
+  // enabled. CMS publish has already completed by this point — the
+  // public render works regardless. Republish skips the hook so we
+  // don't duplicate cascade work on every edit.
+  if (!isRepublish && c.env.GRAPH_ENABLED === "true") {
     c.executionCtx.waitUntil(graphIngestFromPost(c.env, userId, id, post.title, post.body_md));
   }
 
-  return c.json({ ok: true, slug: finalSlug, published_at: publishedAt });
+  return c.json({
+    ok: true,
+    slug: finalSlug,
+    published_at: publishedAtFinal,
+    republish: isRepublish,
+  });
 });
 
 // Dry-run publish-prep: tells the operator which forensic gates would

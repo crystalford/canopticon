@@ -95,6 +95,14 @@ v1.route("/monitors", monitorsRoutes);
 v1.route("/posts", postsRoutes);
 v1.route("/characters", charactersRoutes);
 
+import lighthouseRoutes from "./graph/routes/lighthouse.ts";
+v1.route("/lighthouse", lighthouseRoutes);
+
+import adminIngestLibraryRoutes from "./admin/ingest-library.ts";
+import adminSeedRoutes from "./admin/seed-corpus.ts";
+v1.route("/admin", adminSeedRoutes);
+v1.route("/admin", adminIngestLibraryRoutes);
+
 // Studio compartment — gated by env.STUDIO_ENABLED. When false, the
 // routes 404 (we just don't mount them) and the operator UI shows a
 // placeholder.
@@ -110,6 +118,30 @@ studioGate.route("/", stitchRoutes);
 v1.route("/studio", studioGate);
 
 app.route("/v1", v1);
+
+// Operator console — server-rendered HTML at /op/*. Cloudflare Access
+// gates this subtree at the edge, so every request here is the
+// authenticated operator. Mounted before the public catch-all.
+import operatorRoutes from "./operator/routes.ts";
+app.route("/op", operatorRoutes);
+
+import { htmlResponse } from "./public/layout.ts";
+// Public site — server-rendered HTML at canopticon.com. Mounted last so
+// /v1, /op, and /health take precedence on overlapping paths.
+import publicSiteRoutes, { renderNotFound as renderPublicNotFound } from "./public/routes.ts";
+app.route("/", publicSiteRoutes);
+
+// Unified notFound: JSON for the API surface, styled HTML for public.
+app.notFound((c) => {
+  const path = c.req.path;
+  if (path.startsWith("/v1/") || path === "/health") {
+    return c.json(
+      { error: { code: "not_found", message: "Not found", trace_id: c.get("trace_id") } },
+      404,
+    );
+  }
+  return htmlResponse(renderPublicNotFound(path), { status: 404 });
+});
 
 import { runWatcher } from "./graph/lib/watcher.ts";
 import { all as dbAll } from "./lib/d1.ts";

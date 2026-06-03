@@ -2,7 +2,7 @@ name: Deploy to Cloudflare
 
 # One-button deploy. Creates (or reuses) the D1 database, R2 bucket,
 # and Vectorize index; runs migrations; pushes secrets; deploys the
-# Worker and Pages project.
+# Worker (canopticon-api) which now hosts the API, the public site, and the operator console.
 #
 # Required GitHub secrets:
 #   CLOUDFLARE_API_TOKEN
@@ -111,23 +111,7 @@ jobs:
         working-directory: packages/api
         run: pnpm exec wrangler deploy
 
-      # --- Pages project ---------------------------------------------
-      - name: Ensure Pages project
-        working-directory: packages/web
-        run: |
-          set +e
-          output=$(pnpm exec wrangler pages project create canopticon-web --production-branch=main 2>&1)
-          code=$?
-          echo "$output"
-          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|same name|duplicate"; then
-            exit $code
-          fi
-          set -e
-
-      - name: Build web for Cloudflare Pages
-        working-directory: packages/web
-        run: pnpm pages:build
-
-      - name: Deploy web to Pages
-        working-directory: packages/web
-        run: pnpm exec wrangler pages deploy .vercel/output/static --project-name=canopticon-web --branch=main --commit-dirty=true
+      # Pages deploy removed in the PROBE pivot — the Worker serves
+      # canopticon.com (public HTML at /*, operator HTML at /op/*, API
+      # at /v1/*) directly. The canopticon-web Pages project still
+      # exists in Cloudflare but receives no new deploys.

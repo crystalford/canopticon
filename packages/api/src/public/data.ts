@@ -1,0 +1,370 @@
+// Public-site data access. Reads the new PROBE-shaped tables (pieces,
+// topics, entities, patterns, ...) from D1 and shapes them for the
+// renderers. Every query is scoped to the operator (single-tenant:
+// the public site shows the one operator's published record).
+//
+// Surfaces only published/canonical pieces — working-material passes
+// (chain interior) never get a public page (spec §2.6). The one
+// exception is the Library, which lists working-material too (it's the
+// raw research layer) but marks it as such.
+
+import { all, one, parseJson } from "../lib/d1";
+
+export interface PublicEnv {
+  DB: D1Database;
+}
+
+// The public site is single-operator. Resolve "the operator" as the
+// first (and only) user row. Cached per request via the caller.
+export async function resolveOperatorId(db: D1Database): Promise<string | null> {
+  const row = await one<{ id: string }>(db, "SELECT id FROM users ORDER BY created_at LIMIT 1", []);
+  return row?.id ?? null;
+}
+
+// ---- Topics ---------------------------------------------------------------
+
+export interface TopicRow {
+  id: string;
+  slug: string;
+  label: string;
+  overview_md: string;
+  overview_html: string | null;
+  signed_by: string | null;
+}
+
+export async function listTopics(db: D1Database, userId: string): Promise<TopicRow[]> {
+  return all<TopicRow>(
+    db,
+    `SELECT id, slug, label, overview_md, overview_html, signed_by
+       FROM topics WHERE user_id = ? ORDER BY sort_order, label`,
+    [userId],
+  );
+}
+
+export async function getTopic(
+  db: D1Database,
+  userId: string,
+  slug: string,
+): Promise<TopicRow | null> {
+  return one<TopicRow>(
+    db,
+    `SELECT id, slug, label, overview_md, overview_html, signed_by
+       FROM topics WHERE user_id = ? AND slug = ?`,
+    [userId, slug],
+  );
+}
+
+// Reports/pieces that map to a topic, newest first. Used on the topic
+// hub. No 6-link cap — the anti-thinness fix from the audit.
+export async function piecesForTopic(
+  db: D1Database,
+  userId: string,
+  topicId: string,
+): Promise<PieceSummary[]> {
+  return all<PieceSummary>(
+    db,
+    `SELECT p.id, p.slug, p.title, p.subtitle, p.kind, p.subtype,
+            p.publication_status, p.byline, p.published_at, p.signed_by
+       FROM topic_pieces tp
+       JOIN pieces p ON p.id = tp.piece_id
+      WHERE tp.user_id = ? AND tp.topic_id = ?
+        AND p.publication_status IN ('published','canonical')
+      ORDER BY tp.sort_order, p.published_at DESC`,
+    [userId, topicId],
+  );
+}
+
+export async function entitiesForTopic(
+  db: D1Database,
+  userId: string,
+  topicId: string,
+): Promise<EntitySummary[]> {
+  return all<EntitySummary>(
+    db,
+    `SELECT e.id, e.canonical_name, e.public_slug, e.kind, e.entity_type,
+            e.current_role, e.heat_score
+       FROM topic_entities te
+       JOIN entities e ON e.id = te.entity_id
+      WHERE te.user_id = ? AND te.topic_id = ?
+      ORDER BY te.sort_order, e.heat_score DESC`,
+    [userId, topicId],
+  );
+}
+
+// ---- Pieces / investigations ---------------------------------------------
+
+export interface PieceSummary {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  kind: string;
+  subtype: string | null;
+  publication_status: string;
+  byline: string | null;
+  published_at: string | null;
+  signed_by: string | null;
+}
+
+export interface PieceDetail extends PieceSummary {
+  body_md: string;
+  body_html: string | null;
+  chain_id: string | null;
+  tags: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Investigations index: published + canonical pieces of the editorial
+// kinds (not raw library working-material). Newest first.
+export async function listInvestigations(db: D1Database, userId: string): Promise<PieceSummary[]> {
+  return all<PieceSummary>(
+    db,
+    `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
+            byline, published_at, signed_by
+       FROM pieces
+      WHERE user_id = ? AND publication_status IN ('published','canonical')
+      ORDER BY published_at DESC, updated_at DESC`,
+    [userId],
+  );
+}
+
+export async function getPieceBySlug(
+  db: D1Database,
+  userId: string,
+  slug: string,
+): Promise<PieceDetail | null> {
+  return one<PieceDetail>(
+    db,
+    `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
+            byline, published_at, signed_by, body_md, body_html, chain_id,
+            tags, created_at, updated_at
+       FROM pieces WHERE user_id = ? AND slug = ?`,
+    [userId, slug],
+  );
+}
+
+// Library: every piece including working-material, with a status tag so
+// the raw research layer is honest about what's a finished publication
+// vs an interior chain pass.
+export async function listLibrary(db: D1Database, userId: string): Promise<PieceSummary[]> {
+  return all<PieceSummary>(
+    db,
+    `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
+            byline, published_at, signed_by
+       FROM pieces WHERE user_id = ?
+      ORDER BY COALESCE(published_at, created_at) DESC`,
+    [userId],
+  );
+}
+
+// Topics a piece belongs to — for the piece page's "filed under" line.
+export async function topicsForPiece(
+  db: D1Database,
+  userId: string,
+  pieceId: string,
+): Promise<Array<{ slug: string; label: string }>> {
+  return all<{ slug: string; label: string }>(
+    db,
+    `SELECT t.slug, t.label
+       FROM topic_pieces tp JOIN topics t ON t.id = tp.topic_id
+      WHERE tp.user_id = ? AND tp.piece_id = ?
+      ORDER BY t.sort_order, t.label`,
+    [userId, pieceId],
+  );
+}
+
+// ---- Entities / the record -----------------------------------------------
+
+export interface EntitySummary {
+  id: string;
+  canonical_name: string;
+  public_slug: string | null;
+  kind: string | null;
+  entity_type: string;
+  current_role: string | null;
+  heat_score: number;
+}
+
+export interface EntityDetail extends EntitySummary {
+  bio_md: string | null;
+  bio_html: string | null;
+  description: string | null;
+  metadata: string;
+}
+
+// The record index, grouped by kind, most-developed first.
+export async function listEntities(db: D1Database, userId: string): Promise<EntitySummary[]> {
+  return all<EntitySummary>(
+    db,
+    `SELECT id, canonical_name, public_slug, kind, entity_type, current_role, heat_score
+       FROM entities WHERE user_id = ?
+      ORDER BY heat_score DESC, canonical_name`,
+    [userId],
+  );
+}
+
+export async function getEntityBySlug(
+  db: D1Database,
+  userId: string,
+  slug: string,
+): Promise<EntityDetail | null> {
+  return one<EntityDetail>(
+    db,
+    `SELECT id, canonical_name, public_slug, kind, entity_type, current_role,
+            heat_score, bio_md, bio_html, description, metadata
+       FROM entities WHERE user_id = ? AND public_slug = ?`,
+    [userId, slug],
+  );
+}
+
+// Pieces that mention an entity (via claim → claim_entities → entity).
+// For the entity page's "appears in" footprint.
+export async function piecesMentioningEntity(
+  db: D1Database,
+  userId: string,
+  entityId: string,
+): Promise<PieceSummary[]> {
+  return all<PieceSummary>(
+    db,
+    `SELECT DISTINCT p.id, p.slug, p.title, p.subtitle, p.kind, p.subtype,
+            p.publication_status, p.byline, p.published_at, p.signed_by
+       FROM claim_entities ce
+       JOIN claims c ON c.id = ce.claim_id
+       JOIN pieces p ON p.id = c.asserted_in_piece_id
+      WHERE ce.user_id = ? AND ce.entity_id = ?
+        AND p.publication_status IN ('published','canonical')
+      ORDER BY p.published_at DESC`,
+    [userId, entityId],
+  );
+}
+
+// ---- Patterns / lighthouse -----------------------------------------------
+
+export interface PatternSummary {
+  id: string;
+  slug: string;
+  kind: string;
+  title: string;
+  statement_md: string;
+  confidence: string;
+  signed_by: string | null;
+  signed_at: string | null;
+}
+
+// Only signed patterns reach the public site (spec §6.5: candidates
+// live in the operator's Leads queue, never auto-published).
+export async function listSignedPatterns(
+  db: D1Database,
+  userId: string,
+): Promise<PatternSummary[]> {
+  return all<PatternSummary>(
+    db,
+    `SELECT id, slug, kind, title, statement_md, confidence, signed_by, signed_at
+       FROM patterns WHERE user_id = ? AND status = 'signed'
+      ORDER BY signed_at DESC`,
+    [userId],
+  );
+}
+
+// Helper: how many distinct topics exist, for the anti-orphan render
+// check on the library page.
+export async function countOrphanPieces(db: D1Database, userId: string): Promise<number> {
+  const row = await one<{ n: number }>(
+    db,
+    `SELECT COUNT(*) AS n FROM pieces p
+      WHERE p.user_id = ? AND p.publication_status IN ('published','canonical')
+        AND NOT EXISTS (SELECT 1 FROM topic_pieces tp WHERE tp.piece_id = p.id)`,
+    [userId],
+  );
+  return row?.n ?? 0;
+}
+
+// ---- Pattern detail / gaps / timeline ------------------------------------
+
+export interface PatternDetail extends PatternSummary {
+  disconfirming_md: string;
+  notes_md: string | null;
+  date_range_from: string | null;
+  date_range_to: string | null;
+}
+
+export async function getPatternBySlug(
+  db: D1Database,
+  userId: string,
+  slug: string,
+): Promise<PatternDetail | null> {
+  return one<PatternDetail>(
+    db,
+    `SELECT id, slug, kind, title, statement_md, confidence, signed_by, signed_at,
+            disconfirming_md, notes_md, date_range_from, date_range_to
+       FROM patterns WHERE user_id = ? AND slug = ? AND status = 'signed'`,
+    [userId, slug],
+  );
+}
+
+export async function piecesForPattern(
+  db: D1Database,
+  userId: string,
+  patternId: string,
+): Promise<PieceSummary[]> {
+  return all<PieceSummary>(
+    db,
+    `SELECT p.id, p.slug, p.title, p.subtitle, p.kind, p.subtype,
+            p.publication_status, p.byline, p.published_at, p.signed_by
+       FROM pattern_pieces pp
+       JOIN pieces p ON p.id = pp.piece_id
+      WHERE pp.user_id = ? AND pp.pattern_id = ?
+      ORDER BY p.published_at DESC`,
+    [userId, patternId],
+  );
+}
+
+export interface GapRow {
+  id: string;
+  slug: string;
+  title: string;
+  subject_kind: string;
+  subject_id: string | null;
+  what_we_have_md: string;
+  what_we_lack_md: string;
+  suggested_next_step_md: string;
+  signed_by: string | null;
+  status: string;
+}
+
+export async function listGaps(db: D1Database, userId: string): Promise<GapRow[]> {
+  return all<GapRow>(
+    db,
+    `SELECT id, slug, title, subject_kind, subject_id, what_we_have_md,
+            what_we_lack_md, suggested_next_step_md, signed_by, status
+       FROM gaps WHERE user_id = ? AND status IN ('open','partially-filled')
+      ORDER BY updated_at DESC`,
+    [userId],
+  );
+}
+
+export interface TimelineEventRow {
+  id: string;
+  event_date: string;
+  title: string;
+  body_md: string | null;
+  related_piece_ids: string;
+  related_entity_ids: string;
+  significance: string;
+}
+
+export async function listTimelineEvents(
+  db: D1Database,
+  userId: string,
+): Promise<TimelineEventRow[]> {
+  return all<TimelineEventRow>(
+    db,
+    `SELECT id, event_date, title, body_md, related_piece_ids, related_entity_ids, significance
+       FROM timeline_events WHERE user_id = ? ORDER BY event_date DESC`,
+    [userId],
+  );
+}
+
+// Re-export parseJson so renderers can decode tags without importing d1.
+export { parseJson };

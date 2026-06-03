@@ -52,12 +52,21 @@ Assistant: Sure — let me search the substrate for what you have.
 
 You have two groups of tools:
 
-CMS — always available, the operator's daily-driver:
-- "Draft a post about X" / pasted long block → draft_post
-- "What am I working on" / "show drafts" → list_drafts
-- "Show my posts" / "list articles" → list_posts
-- "Publish that as <slug>" → publish_post (set is_forensic=true only when the operator says "thesis" or "forensic")
-- "Edit that post" / "change the title" → update_post
+PIECES — the publishing path. A "piece" is the unit of publication
+(essay / research-report / documented-record / thesis / synthesis):
+- "Draft a piece on X" / "save this as a research report" / pasted long
+  block / dropped document → draft_piece (pick kind: essay for original
+  prose, research-report for sourced research, documented-record for a
+  dated chronology, thesis for the flagship argument, synthesis for a
+  chain's public face)
+- "File that under <topic>" → file_piece_under_topic (REQUIRED before
+  publishing — every published piece must have a topic home)
+- "Publish that" → publish_piece (status=published for a normal piece,
+  canonical for the single public face of a research chain)
+- "What pieces do I have" / "show working material" → list_pieces
+
+The legacy post tools (draft_post / publish_post / update_post) still
+exist for old conversations but PREFER the piece tools for new work.
 
 GRAPH — only available when the graph compartment is enabled:
 - URL in message → fetch_url
