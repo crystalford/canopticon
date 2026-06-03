@@ -67,9 +67,10 @@ describe("operator console — Phase 3", () => {
     expect(js).toContain("getReader");
   });
 
-  it("each skeleton screen renders the op shell", async () => {
+  it("each operator screen renders the op shell", async () => {
     for (const path of [
       "/op/workbench",
+      "/op/build",
       "/op/editorial",
       "/op/leads",
       "/op/patterns",
@@ -80,18 +81,15 @@ describe("operator console — Phase 3", () => {
       expect(res.status, `path ${path}`).toBe(200);
       const html = await res.text();
       expect(html).toMatch(/<html[^>]*data-mode="operator"/);
-      expect(html).toContain("In progress");
     }
   });
 
-  it("ingest screen renders the op shell with seed + upload forms", async () => {
+  it("ingest screen renders the drop-files form", async () => {
     const res = await app.fetch(new Request("http://test/op/ingest"), env);
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toMatch(/<html[^>]*data-mode="operator"/);
-    expect(html).toContain("Initialize corpus");
-    expect(html).toContain("Import library zip");
-    expect(html).toContain("/op/ingest/seed");
-    expect(html).toContain("/op/ingest/library");
+    expect(html).toContain("Drop a document");
+    expect(html).toContain("/op/ingest/upload");
   });
 });
