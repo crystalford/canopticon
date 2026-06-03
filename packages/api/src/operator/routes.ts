@@ -112,6 +112,32 @@ app.post("/ingest/upload", async (c) => {
   }
 });
 
+// Reset ingested pieces — surgical delete that wipes every piece that
+// came in through Ingest (anything with metadata.ingested_from set).
+// Seed-corpus pieces and chat-drafted pieces are NOT touched. All piece
+// joins (topic_pieces, piece_versions, pattern_pieces, chain_passes)
+// cascade automatically per their FK definitions.
+app.post("/ingest/reset", async (c) => {
+  try {
+    const userId = await resolveOperatorId(c.env.DB);
+    if (!userId) return c.redirect("/op/ingest?error=No+operator+user");
+    const result = await c.env.DB.prepare(
+      `DELETE FROM pieces
+        WHERE user_id = ?
+          AND json_valid(metadata)
+          AND json_extract(metadata, '$.ingested_from') IS NOT NULL`,
+    )
+      .bind(userId)
+      .run();
+    const count = result.meta?.changes ?? 0;
+    return c.redirect(
+      `/op/ingest?result=${encodeURIComponent(`✓ Deleted ${count} ingested pieces. The seed corpus and chat-drafted pieces are untouched. You can re-upload now.`)}`,
+    );
+  } catch (err) {
+    return c.redirect(`/op/ingest?error=${encodeURIComponent((err as Error).message)}`);
+  }
+});
+
 // Editorial — writing interface.
 app.get("/editorial", async (c) => {
   const saved = c.req.query("saved") === "1";

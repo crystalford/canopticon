@@ -14,18 +14,22 @@ interface DbStats {
   pieces: number;
   workingMaterial: number;
   published: number;
+  ingested: number;
 }
 
 async function getStats(env: Env): Promise<DbStats> {
   const userId = await resolveOperatorId(env.DB);
-  if (!userId) return { entities: 0, pieces: 0, workingMaterial: 0, published: 0 };
+  if (!userId) return { entities: 0, pieces: 0, workingMaterial: 0, published: 0, ingested: 0 };
   const rows = await all<{ k: string; n: number }>(
     env.DB,
     `SELECT 'entities' AS k, count(*) AS n FROM entities WHERE user_id = ?
      UNION ALL SELECT 'pieces', count(*) FROM pieces WHERE user_id = ?
      UNION ALL SELECT 'working', count(*) FROM pieces WHERE user_id = ? AND publication_status = 'working-material'
-     UNION ALL SELECT 'published', count(*) FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical')`,
-    [userId, userId, userId, userId],
+     UNION ALL SELECT 'published', count(*) FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical')
+     UNION ALL SELECT 'ingested', count(*) FROM pieces
+        WHERE user_id = ? AND json_valid(metadata)
+          AND json_extract(metadata, '$.ingested_from') IS NOT NULL`,
+    [userId, userId, userId, userId, userId],
   );
   const m = new Map(rows.map((r) => [r.k, r.n]));
   return {
@@ -33,6 +37,7 @@ async function getStats(env: Env): Promise<DbStats> {
     pieces: m.get("pieces") ?? 0,
     workingMaterial: m.get("working") ?? 0,
     published: m.get("published") ?? 0,
+    ingested: m.get("ingested") ?? 0,
   };
 }
 
@@ -106,13 +111,26 @@ ${opHeader("Ingest", "drop documents · land on the public site")}
 
   ${
     stats.workingMaterial > 0
-      ? `<div class="card soft" style="margin-bottom:28px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-left:2px solid var(--accent)">
+      ? `<div class="card soft" style="margin-bottom:14px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-left:2px solid var(--accent)">
     <div>
       <div style="font-family:var(--serif);font-size:15px;color:var(--ink);margin-bottom:2px">${stats.workingMaterial} pieces sitting in working-material</div>
       <div class="coord">Promote them all to published in one click — appears on the public site immediately.</div>
     </div>
     <form method="POST" action="/op/editorial/bulk-publish" style="margin:0" onsubmit="return confirm('Publish all ${stats.workingMaterial} working-material pieces?');">
       <button type="submit" class="btn primary">Publish all ${stats.workingMaterial}</button>
+    </form>
+  </div>`
+      : ""
+  }
+  ${
+    stats.ingested > 0
+      ? `<div class="card soft" style="margin-bottom:28px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-left:2px solid var(--correction)">
+    <div>
+      <div style="font-family:var(--serif);font-size:15px;color:var(--ink);margin-bottom:2px">${stats.ingested} pieces previously imported through Ingest</div>
+      <div class="coord">Reset wipes only pieces that came in here — seed corpus and chat-drafted pieces stay. Then re-upload clean.</div>
+    </div>
+    <form method="POST" action="/op/ingest/reset" style="margin:0" onsubmit="return confirm('Permanently delete all ${stats.ingested} previously imported pieces? Seed corpus and chat-drafted pieces are not affected. This cannot be undone.');">
+      <button type="submit" class="btn" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);color:var(--correction)">Reset imported pieces (${stats.ingested})</button>
     </form>
   </div>`
       : ""
