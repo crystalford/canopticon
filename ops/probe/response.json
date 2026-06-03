@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-06-03T12:27:30Z",
-  "run_id": "26884668226",
+  "requested_at": "2026-06-03T12:34:02Z",
+  "run_id": "26885007767",
   "method": "GET",
   "path": "/v1/admin/runtime",
-  "status": 302,
-  "body": "<html>\r\n<head><title>302 Found</title></head>\r\n<body>\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\r"
+  "status": 500,
+  "body": "{\n  \"error\": {\n    \"code\": \"internal_error\",\n    \"message\": \"Internal server error\",\n    \"trace_id\": \"d4af797d-bc0f-4974-8601-5db5b4bd681c\"\n  }\n}"
 }
