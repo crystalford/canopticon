@@ -70,7 +70,6 @@ describe("operator console — Phase 3", () => {
   it("each skeleton screen renders the op shell", async () => {
     for (const path of [
       "/op/workbench",
-      "/op/ingest",
       "/op/editorial",
       "/op/leads",
       "/op/patterns",
@@ -83,5 +82,16 @@ describe("operator console — Phase 3", () => {
       expect(html).toMatch(/<html[^>]*data-mode="operator"/);
       expect(html).toContain("In progress");
     }
+  });
+
+  it("ingest screen renders the op shell with seed + upload forms", async () => {
+    const res = await app.fetch(new Request("http://test/op/ingest"), env);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toMatch(/<html[^>]*data-mode="operator"/);
+    expect(html).toContain("Initialize corpus");
+    expect(html).toContain("Import library zip");
+    expect(html).toContain("/op/ingest/seed");
+    expect(html).toContain("/op/ingest/library");
   });
 });
