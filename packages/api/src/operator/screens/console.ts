@@ -153,25 +153,33 @@ function statCard(label: string, value: number, href: string): string {
 }
 
 async function loadCounts(db: D1Database, userId: string): Promise<Counts> {
-  const rows = await all<{ k: string; n: number }>(
-    db,
-    `SELECT 'pieces' AS k, COUNT(*) AS n FROM pieces WHERE user_id = ?
-     UNION ALL SELECT 'entities', COUNT(*) FROM entities WHERE user_id = ?
-     UNION ALL SELECT 'proposals', COUNT(*) FROM character_update_proposals WHERE status = 'pending'
-     UNION ALL SELECT 'topics', COUNT(*) FROM topics WHERE user_id = ?
-     UNION ALL SELECT 'working', COUNT(*) FROM pieces WHERE user_id = ? AND publication_status = 'working-material'
-     UNION ALL SELECT 'published', COUNT(*) FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical')`,
-    [userId, userId, userId, userId, userId],
-  );
-  const map = new Map(rows.map((r) => [r.k, r.n]));
-  return {
-    pieces: map.get("pieces") ?? 0,
-    entities: map.get("entities") ?? 0,
-    proposals: map.get("proposals") ?? 0,
-    topics: map.get("topics") ?? 0,
-    workingMaterial: map.get("working") ?? 0,
-    publishedPieces: map.get("published") ?? 0,
+  // D1's SQLite limits UNION ALL to ~5 terms (SQLITE_LIMIT_COMPOUND_SELECT
+  // = 5). Run individual counts in parallel against the same connection
+  // instead — Workers AI / D1 handles concurrent reads fine.
+  const scalar = async (sql: string, binds: unknown[]): Promise<number> => {
+    const row = await db
+      .prepare(sql)
+      .bind(...binds)
+      .first<{ n: number }>();
+    return row?.n ?? 0;
   };
+  const [pieces, entities, proposals, topics, workingMaterial, publishedPieces] = await Promise.all(
+    [
+      scalar("SELECT COUNT(*) AS n FROM pieces WHERE user_id = ?", [userId]),
+      scalar("SELECT COUNT(*) AS n FROM entities WHERE user_id = ?", [userId]),
+      scalar("SELECT COUNT(*) AS n FROM character_update_proposals WHERE status = 'pending'", []),
+      scalar("SELECT COUNT(*) AS n FROM topics WHERE user_id = ?", [userId]),
+      scalar(
+        "SELECT COUNT(*) AS n FROM pieces WHERE user_id = ? AND publication_status = 'working-material'",
+        [userId],
+      ),
+      scalar(
+        "SELECT COUNT(*) AS n FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical')",
+        [userId],
+      ),
+    ],
+  );
+  return { pieces, entities, proposals, topics, workingMaterial, publishedPieces };
 }
 
 async function loadRecent(db: D1Database, userId: string): Promise<RecentItem[]> {
