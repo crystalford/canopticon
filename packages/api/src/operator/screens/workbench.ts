@@ -3,7 +3,7 @@
 // open questions. Real data: entities + claims + relations from D1.
 
 import { all, one } from "../../lib/d1";
-import { escapeHtml } from "../../public/layout";
+import { escapeAttr, escapeHtml } from "../../public/layout";
 import { resolveOperatorId } from "../data";
 import { commandBar, icon, opHeader, renderOpPage } from "../layout";
 
@@ -73,30 +73,40 @@ export async function renderWorkbench(env: { DB: D1Database }, slug?: string): P
     )
     .join("");
 
+  const scopeCrumbs = `<div class="scope" style="margin-bottom:20px">
+    <a href="/op/workbench">Workbench</a>
+    <span class="arr">›</span>
+    <span>${escapeHtml(entity.kind)}</span>
+    <span class="arr">›</span>
+    <span class="cur">${escapeHtml(entity.canonical_name)}</span>
+  </div>`;
+
   const body = `
-${opHeader("Workbench", `${entity.kind} · ${entity.public_slug}`, switcherForm(switcher))}
+${opHeader("Workbench", "node as working surface", switcherForm(switcher))}
 <div class="op-content">
-  <div class="row between" style="margin-bottom:18px;flex-wrap:wrap;gap:12px">
+  ${scopeCrumbs}
+  <div class="row between" style="margin-bottom:20px;flex-wrap:wrap;gap:12px;align-items:flex-end">
     <div>
-      <h2 style="font-family:var(--serif);font-size:26px;letter-spacing:-0.02em;margin:0 0 4px;color:var(--ink)">${escapeHtml(entity.canonical_name)}</h2>
-      ${entity.current_role ? `<div class="coord" style="font-size:13px">${escapeHtml(entity.current_role)}</div>` : ""}
+      <h2 style="font-family:var(--serif);font-size:30px;letter-spacing:-0.02em;margin:0 0 6px;color:var(--ink);line-height:1.1">${escapeHtml(entity.canonical_name)}</h2>
+      ${entity.current_role ? `<div class="ph-sub" style="font-size:15px;color:var(--ink-2);font-style:italic">${escapeHtml(entity.current_role)}</div>` : ""}
     </div>
     <div class="row" style="gap:8px">
-      <a class="btn sm" href="/${entity.kind === "person" ? "entities" : "entities"}/${escapeHtml(entity.public_slug)}" target="_blank" style="text-decoration:none">${icon("doc", 13)} Preview public</a>
+      <a class="btn sm" href="/record/${escapeAttr(entity.public_slug)}" target="_blank" style="text-decoration:none">${icon("doc", 13)} Preview public</a>
     </div>
   </div>
 
-  ${commandBar(`Command this node — "Research the trust structure", "Find what contradicts this"…`)}
+  ${commandBar('Command this node — "Research the trust structure", "Find what contradicts this"…')}
 
   <div style="display:grid;grid-template-columns:1.55fr 1fr;gap:28px;margin-top:22px" class="op-grid">
     <div>
       ${sectionHead("Claims on this node", `<span class="coord">${confirmedN} confirmed · ${draftN} draft</span>`)}
       ${claimsBlock}
+      ${claims.length > 0 ? `<div class="row" style="gap:14px;margin-top:14px"><span class="coord faint"><span style="display:inline-block;width:10px;height:3px;background:var(--ink-faint);vertical-align:middle;margin-right:4px"></span>the facts</span><span class="coord faint"><span style="display:inline-block;width:10px;height:3px;background:var(--accent);vertical-align:middle;margin-right:4px"></span>the analysis (signed)</span></div>` : ""}
     </div>
     <aside style="display:flex;flex-direction:column;gap:26px">
-      ${entity.bio_md ? `<div>${sectionHead("Bio", "")}<div class="prose" style="font-size:13.5px;line-height:1.6">${escapeHtml(entity.bio_md.slice(0, 800))}${entity.bio_md.length > 800 ? "…" : ""}</div></div>` : ""}
+      ${entity.bio_md ? `<div>${sectionHead("Bio", "")}<div class="prose" style="font-size:14px;line-height:1.65">${escapeHtml(entity.bio_md.slice(0, 800))}${entity.bio_md.length > 800 ? "…" : ""}</div></div>` : ""}
       <div>
-        ${sectionHead("Threads", "")}
+        ${sectionHead("Threads", `<span class="coord">${others.length}</span>`)}
         ${threadsBlock}
       </div>
     </aside>
@@ -124,23 +134,37 @@ function sectionHead(label: string, action: string): string {
 </div>`;
 }
 
+function confDots(level: string | null): string {
+  const filled = level === "high" ? 5 : level === "low" ? 1 : 3;
+  return `<span class="conf-dots">${Array.from({ length: 5 })
+    .map((_, i) => `<span class="d${i < filled ? (level === "high" ? " hi" : " on") : ""}"></span>`)
+    .join("")}</span>`;
+}
+
 function renderClaimCard(c: WBClaim): string {
   const conf = c.confidence ?? "medium";
   const register = c.register ?? "fact";
   const isAnalysis = register === "analysis";
   const status = c.status ?? "draft";
-  return `<div class="claimcard ${status === "confirmed" ? "confirmed" : "draft"}${conf === "low" ? " lowconf" : ""}">
+  const isConfirmed = status === "confirmed";
+  return `<div class="claimcard ${isConfirmed ? "confirmed" : "draft"}${conf === "low" ? " lowconf" : ""}">
   <span class="cc-register ${isAnalysis ? "analysis" : "fact"}"></span>
   <div class="cc-top">
     <span class="row" style="gap:8px">
       <span class="coord">${escapeHtml(c.id.slice(0, 8))}</span>
       <span class="chip${isAnalysis ? " accent" : ""}">${isAnalysis ? "analysis · signed" : "fact"}</span>
     </span>
-    <span class="row" style="gap:8px">
-      <span class="chip ${status === "confirmed" ? "confirmed" : "draft"}">${escapeHtml(status)}</span>
-    </span>
+    <span class="row" style="gap:8px">${confDots(conf)}<span class="chip ${isConfirmed ? "confirmed" : "draft"}">${escapeHtml(status)}</span></span>
   </div>
   <div class="cc-body">${escapeHtml(c.text)}</div>
+  <div class="cc-foot">
+    <span class="coord faint">${isAnalysis ? "judgment — no external source" : "external source attached"}</span>
+    ${
+      isConfirmed
+        ? `<span class="coord" style="color:var(--confirmed)">${icon("check", 12)} citable</span>`
+        : `<a class="btn sm accent" href="/op/chat?q=${encodeURIComponent(`Confirm claim ${c.id} into the facts.`)}" style="text-decoration:none">${icon("check", 13)} Confirm into the facts</a>`
+    }
+  </div>
 </div>`;
 }
 

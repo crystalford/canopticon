@@ -36,23 +36,28 @@ export async function renderPatterns(env: { DB: D1Database }): Promise<string> {
   const signed = rows.filter((p) => p.signed_at);
   const queue = rows.filter((p) => !p.signed_at);
 
+  const scoreGauge = (level: string | null): string => {
+    const v = level === "high" ? 90 : level === "low" ? 30 : 60;
+    const color = v >= 80 ? "var(--confirmed)" : v >= 60 ? "var(--accent)" : "var(--ink-faint)";
+    return `<div class="gauge" style="width:92px"><div class="gauge-fill" style="width:${v}%;background:${color}"></div></div>`;
+  };
+
   const renderCard = (
     p: PatternRow,
     isSigned: boolean,
   ): string => `<div class="lead-card${isSigned ? "" : " project"}">
-  <div class="row between" style="margin-bottom:10px;gap:12px;flex-wrap:wrap">
-    <span class="row" style="gap:8px">
+  <div class="row between" style="margin-bottom:12px;gap:12px;flex-wrap:wrap">
+    <span class="row" style="gap:10px">${scoreGauge(p.confidence)}<span class="coord">${escapeHtml(p.confidence ?? "medium")} confidence</span></span>
+    <span class="row" style="gap:7px;flex-wrap:wrap">
       <span class="chip">${escapeHtml(p.kind ?? "pattern")}</span>
-      ${p.confidence ? `<span class="chip">${escapeHtml(p.confidence)}</span>` : ""}
       <span class="chip ${isSigned ? "confirmed" : "draft"}">${isSigned ? "signed" : "candidate"}</span>
     </span>
-    <span class="coord">${escapeHtml(p.id.slice(0, 8))}</span>
   </div>
-  <div style="font-family:var(--serif);font-size:17px;line-height:1.4;margin-bottom:8px">${escapeHtml(p.title)}</div>
-  ${p.statement_md ? `<div class="prose" style="font-size:13.5px;line-height:1.55;color:var(--ink-2);margin-bottom:10px">${renderMarkdown(p.statement_md.slice(0, 400))}${p.statement_md.length > 400 ? "…" : ""}</div>` : ""}
-  ${p.disconfirming_md ? `<div class="diff-row" style="margin-bottom:12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--r);padding:10px 14px"><div style="flex:1"><div class="coord" style="color:var(--correction);margin-bottom:4px">Disconfirming evidence</div><div style="font-size:13px;color:var(--ink-2);line-height:1.5">${escapeHtml(p.disconfirming_md.slice(0, 240))}${p.disconfirming_md.length > 240 ? "…" : ""}</div></div></div>` : ""}
+  <div style="font-family:var(--serif);font-size:18px;line-height:1.35;margin-bottom:10px;color:var(--ink)">${escapeHtml(p.title)}</div>
+  ${p.statement_md ? `<div class="prose" style="font-size:14px;line-height:1.6;color:var(--ink-2);margin-bottom:12px">${renderMarkdown(p.statement_md.slice(0, 500))}${p.statement_md.length > 500 ? "…" : ""}</div>` : ""}
+  ${p.disconfirming_md ? `<div class="diff-row" style="margin-bottom:14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:var(--r);padding:12px 16px"><span class="dr-mark" style="color:var(--correction);margin-right:8px">−</span><div style="flex:1"><div class="coord" style="color:var(--correction);margin-bottom:4px">Disconfirming evidence — shown, not hidden</div><div style="font-size:13.5px;color:var(--ink-2);line-height:1.55">${escapeHtml(p.disconfirming_md.slice(0, 300))}${p.disconfirming_md.length > 300 ? "…" : ""}</div></div></div>` : ""}
   <div class="row" style="gap:8px">
-    ${isSigned ? `<a class="btn sm" href="/patterns/${escapeHtml(p.slug)}" target="_blank" style="text-decoration:none">${icon("doc", 13)} View public</a>` : `<form method="POST" action="/op/patterns/${escapeHtml(p.id)}/sign" style="display:inline"><button class="btn sm accent" type="submit">${icon("check", 13)} Sign</button></form>`}
+    ${isSigned ? `<a class="btn sm" href="/patterns/${escapeHtml(p.slug)}" target="_blank" style="text-decoration:none">${icon("doc", 13)} View public</a>` : `<form method="POST" action="/op/patterns/${escapeHtml(p.id)}/sign" style="display:inline"><button class="btn sm accent" type="submit">${icon("check", 13)} Sign &amp; publish</button></form>`}
   </div>
 </div>`;
 

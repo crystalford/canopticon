@@ -14,6 +14,8 @@ interface Counts {
   entities: number;
   proposals: number;
   topics: number;
+  workingMaterial: number;
+  publishedPieces: number;
 }
 interface RecentItem {
   tag: string;
@@ -91,17 +93,32 @@ export async function renderConsole(env: { DB: D1Database }): Promise<string> {
     )
     .join("");
 
+  const attentionCard =
+    counts.workingMaterial > 0
+      ? `<div class="card soft" style="margin-bottom:24px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-left:2px solid var(--accent)">
+    <div>
+      <div style="font-family:var(--serif);font-size:15.5px;color:var(--ink);margin-bottom:2px">${counts.workingMaterial} pieces sitting in working-material</div>
+      <div class="coord">Promote them all to published in one click — they appear on the public site immediately.</div>
+    </div>
+    <form method="POST" action="/op/editorial/bulk-publish" style="margin:0" onsubmit="return confirm('Publish all ${counts.workingMaterial} working-material pieces?');">
+      <button type="submit" class="btn primary">Publish all ${counts.workingMaterial}</button>
+    </form>
+  </div>`
+      : "";
+
   const body = `
-${opHeader("Console", "home · leads · recent")}
+${opHeader("Console", "the standing record · operator")}
 <div class="op-content">
   ${commandBar()}
+  ${attentionCard}
   <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:28px;margin-top:6px" class="op-grid">
     <div>
       ${sectionHead("Leads — the last thing built points at the next", '<a class="coord" href="/op/leads" style="color:var(--ink-mute);text-decoration:none">All leads →</a>')}
       ${leadsBlock}
       ${sectionHead("Corpus at a glance", "")}
-      <div class="cards-3" style="margin-top:6px">
-        ${statCard("Pieces", counts.pieces, "/op/editorial")}
+      <div class="cards-4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px">
+        ${statCard("Published", counts.publishedPieces, "/op/editorial")}
+        ${statCard("Working", counts.workingMaterial, "/op/editorial")}
         ${statCard("Entities", counts.entities, "/op/workbench")}
         ${statCard("Topics", counts.topics, "/topics")}
       </div>
@@ -141,8 +158,10 @@ async function loadCounts(db: D1Database, userId: string): Promise<Counts> {
     `SELECT 'pieces' AS k, COUNT(*) AS n FROM pieces WHERE user_id = ?
      UNION ALL SELECT 'entities', COUNT(*) FROM entities WHERE user_id = ?
      UNION ALL SELECT 'proposals', COUNT(*) FROM character_update_proposals WHERE status = 'pending'
-     UNION ALL SELECT 'topics', COUNT(*) FROM topics WHERE user_id = ?`,
-    [userId, userId, userId],
+     UNION ALL SELECT 'topics', COUNT(*) FROM topics WHERE user_id = ?
+     UNION ALL SELECT 'working', COUNT(*) FROM pieces WHERE user_id = ? AND publication_status = 'working-material'
+     UNION ALL SELECT 'published', COUNT(*) FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical')`,
+    [userId, userId, userId, userId, userId],
   );
   const map = new Map(rows.map((r) => [r.k, r.n]));
   return {
@@ -150,6 +169,8 @@ async function loadCounts(db: D1Database, userId: string): Promise<Counts> {
     entities: map.get("entities") ?? 0,
     proposals: map.get("proposals") ?? 0,
     topics: map.get("topics") ?? 0,
+    workingMaterial: map.get("working") ?? 0,
+    publishedPieces: map.get("published") ?? 0,
   };
 }
 
@@ -216,5 +237,12 @@ function formatRelative(iso: string | null): string {
 }
 
 function zeroCounts(): Counts {
-  return { pieces: 0, entities: 0, proposals: 0, topics: 0 };
+  return {
+    pieces: 0,
+    entities: 0,
+    proposals: 0,
+    topics: 0,
+    workingMaterial: 0,
+    publishedPieces: 0,
+  };
 }
