@@ -1,0 +1,115 @@
+name: Canopticon admin probe
+
+# On-demand diagnostic probe. Claude Code triggers this via the GitHub
+# API (workflow_dispatch) when it needs to read the live system's runtime
+# state or drive a single, synchronous admin operation. The runner reaches
+# canopticon.com (which Claude's sandbox cannot) using a Cloudflare Access
+# *service token*, writes the response into ops/probe/response.json, and
+# commits it back so Claude can read it.
+#
+# Cost discipline: this runs ONLY when triggered, takes ~15 seconds, and
+# never loops. Do NOT add cron schedules or batch work here — heavy or
+# repeated compute belongs on Cloudflare, not on Actions minutes.
+#
+# Required repository secrets:
+#   CF_ACCESS_CLIENT_ID      — service token client id
+#   CF_ACCESS_CLIENT_SECRET  — service token client secret
+#
+# Setup (one-time, in Cloudflare Zero Trust):
+#   1. Access → Service Auth → Service Tokens → create "claude-code-bridge"
+#   2. Access → Applications → [canopticon] → Policies → add a policy with
+#      Action: Service Auth, Include: Service Token = claude-code-bridge
+#   See ops/probe/README.md for the full runbook.
+
+on:
+  workflow_dispatch:
+    inputs:
+      path:
+        description: "Path to call, e.g. /v1/admin/runtime"
+        required: true
+        default: "/v1/admin/runtime"
+        type: string
+      method:
+        description: "HTTP method"
+        required: true
+        default: "GET"
+        type: choice
+        options: [GET, POST, PATCH, DELETE]
+      body:
+        description: "Optional JSON request body (for POST/PATCH)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Call the live site through Cloudflare Access
+        id: call
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          PROBE_PATH: ${{ github.event.inputs.path }}
+          PROBE_METHOD: ${{ github.event.inputs.method }}
+          PROBE_BODY: ${{ github.event.inputs.body }}
+        run: |
+          set -euo pipefail
+          BASE="https://canopticon.com"
+          URL="${BASE}${PROBE_PATH}"
+          echo "→ ${PROBE_METHOD} ${URL}"
+
+          mkdir -p ops/probe
+
+          # Build curl args. Capture body + status separately so we always
+          # write a structured response even on non-2xx.
+          ARGS=(-sS -m 30 -X "${PROBE_METHOD}"
+                -H "CF-Access-Client-Id: ${CF_ACCESS_CLIENT_ID}"
+                -H "CF-Access-Client-Secret: ${CF_ACCESS_CLIENT_SECRET}"
+                -H "content-type: application/json"
+                -w '\n%{http_code}')
+          if [ -n "${PROBE_BODY}" ]; then
+            ARGS+=(-d "${PROBE_BODY}")
+          fi
+
+          RAW="$(curl "${ARGS[@]}" "${URL}" || true)"
+          STATUS="$(printf '%s' "${RAW}" | tail -n1)"
+          PAYLOAD="$(printf '%s' "${RAW}" | sed '$d')"
+
+          # Pretty-print JSON payloads; leave plain text alone.
+          if printf '%s' "${PAYLOAD}" | jq -e . >/dev/null 2>&1; then
+            PRETTY="$(printf '%s' "${PAYLOAD}" | jq .)"
+          else
+            PRETTY="${PAYLOAD}"
+          fi
+
+          jq -n \
+            --arg path "${PROBE_PATH}" \
+            --arg method "${PROBE_METHOD}" \
+            --arg status "${STATUS}" \
+            --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg run "${GITHUB_RUN_ID}" \
+            --argjson payload "$(printf '%s' "${PRETTY}" | jq -Rs .)" \
+            '{requested_at:$ts, run_id:$run, method:$method, path:$path, status:($status|tonumber? // $status), body:$payload}' \
+            > ops/probe/response.json
+
+          echo "← status ${STATUS}"
+
+      - name: Commit response
+        run: |
+          set -euo pipefail
+          git config user.name "canopticon-probe[bot]"
+          git config user.email "probe@users.noreply.github.com"
+          git add ops/probe/response.json
+          if git diff --cached --quiet; then
+            echo "No change in response.json"
+          else
+            git commit -m "probe: ${{ github.event.inputs.method }} ${{ github.event.inputs.path }} [skip ci]"
+            git push
+          fi

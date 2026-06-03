@@ -1,0 +1,8 @@
+{
+  "requested_at": null,
+  "run_id": null,
+  "method": null,
+  "path": null,
+  "status": null,
+  "body": "No probe has run yet. Claude triggers the 'Canopticon admin probe' workflow; the runner overwrites this file with the live response."
+}

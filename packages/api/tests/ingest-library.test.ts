@@ -167,4 +167,37 @@ describe("/v1/admin/ingest-library", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it("accepts a Cloudflare Access service token (common_name, no email)", async () => {
+    const { db } = makeDb();
+    const env = {
+      ANTHROPIC_API_KEY: "test",
+      LOG_LEVEL: "info",
+      OPERATOR_EMAIL: "op@test",
+      DB: db,
+    };
+    // A service-token JWT: header.payload.sig, payload carries common_name
+    // and no email. Access already verified the signature upstream, so the
+    // middleware only base64-decodes the payload.
+    const payload = Buffer.from(JSON.stringify({ common_name: "claude-code-bridge" })).toString(
+      "base64url",
+    );
+    const serviceJwt = `eyJhbGciOiJSUzI1NiJ9.${payload}.sig`;
+    const res = await app.fetch(
+      new Request("http://test/v1/admin/ingest-library", {
+        method: "POST",
+        headers: {
+          // Only the signed JWT — no client-id header. The common_name in
+          // the JWT is the trust anchor.
+          "cf-access-jwt-assertion": serviceJwt,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ reports: [] }),
+      }),
+      env,
+    );
+    // Auth passes (resolves to the operator), so we get the 400 from the
+    // empty-payload validator — not a 401/403.
+    expect(res.status).toBe(400);
+  });
 });
