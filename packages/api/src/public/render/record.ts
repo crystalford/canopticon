@@ -42,7 +42,7 @@ export async function renderRecordIndex(env: PublicEnv): Promise<string> {
 
   const body = `
 <section style="margin-bottom:24px">
-  <div class="kicker" style="margin-bottom:16px"><span class="live"></span> Reference · the standing record</div>
+  <div class="kicker" style="margin-bottom:16px"><span class="live"></span> Reference</div>
   <h1 style="font-family:var(--serif);font-size:40px;line-height:1.12;letter-spacing:-0.015em;margin:0 0 12px;color:var(--ink)">The Record</h1>
   <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
     People, organizations, and concepts. Look up an entity and see every claim,

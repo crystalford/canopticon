@@ -38,12 +38,12 @@ async function getStats(env: Env): Promise<DbStats> {
 
 async function recentIngests(
   env: Env,
-): Promise<Array<{ slug: string; title: string; kind: string; when: string }>> {
+): Promise<Array<{ slug: string; title: string; kind: string; ts: string }>> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return [];
-  return all<{ slug: string; title: string; kind: string; when: string }>(
+  return all<{ slug: string; title: string; kind: string; ts: string }>(
     env.DB,
-    `SELECT slug, title, kind, COALESCE(updated_at, created_at) AS when
+    `SELECT slug, title, kind, COALESCE(updated_at, created_at) AS ts
        FROM pieces
       WHERE user_id = ? AND publication_status = 'working-material'
       ORDER BY COALESCE(updated_at, created_at) DESC
@@ -78,7 +78,7 @@ export async function renderIngestScreen(
           (r) => `<div style="padding:10px 0;border-bottom:1px solid var(--rule-soft)">
   <div class="row between" style="margin-bottom:3px">
     <a href="/op/editorial/${escapeHtml(r.slug)}" style="font-size:14px;color:var(--ink);text-decoration:none">${escapeHtml(r.title)}</a>
-    <span class="coord">${escapeHtml(formatRelative(r.when))}</span>
+    <span class="coord">${escapeHtml(formatRelative(r.ts))}</span>
   </div>
   <div class="coord" style="font-size:11px">${escapeHtml(r.kind)} · working-material</div>
 </div>`,

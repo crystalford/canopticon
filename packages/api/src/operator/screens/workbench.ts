@@ -145,19 +145,18 @@ function renderClaimCard(c: WBClaim): string {
 }
 
 async function loadClaims(db: D1Database, entityId: string): Promise<WBClaim[]> {
-  // Claims joined via claim_entities; fall back to text search if that
-  // table isn't populated for this entity.
   const rows = await all<{
     id: string;
-    text: string;
-    confidence: string | null;
-    register: string | null;
-    status: string | null;
+    claim_text: string | null;
+    admiralty_grade: string | null;
+    verification_status: string | null;
+    layer: string | null;
   }>(
     db,
-    `SELECT c.id, c.text, c.confidence, c.register, c.status
+    `SELECT c.id, cv.claim_text, c.admiralty_grade, c.verification_status, c.layer
        FROM claims c
        JOIN claim_entities ce ON ce.claim_id = c.id
+       LEFT JOIN claim_versions cv ON cv.id = c.current_version_id
       WHERE ce.entity_id = ?
       ORDER BY c.created_at DESC
       LIMIT 30`,
@@ -165,10 +164,17 @@ async function loadClaims(db: D1Database, entityId: string): Promise<WBClaim[]> 
   );
   return rows.map((r) => ({
     id: r.id,
-    text: r.text,
-    confidence: r.confidence,
-    register: r.register,
-    status: r.status ?? "draft",
+    text: r.claim_text ?? "(no claim text)",
+    confidence:
+      r.admiralty_grade === "A" || r.admiralty_grade === "B"
+        ? "high"
+        : r.admiralty_grade === "C"
+          ? "medium"
+          : r.admiralty_grade
+            ? "low"
+            : "medium",
+    register: r.layer === "factual" ? "fact" : r.layer ? "analysis" : null,
+    status: r.verification_status === "grounded" ? "confirmed" : (r.verification_status ?? "draft"),
   }));
 }
 

@@ -83,7 +83,7 @@ export async function renderTopicHub(env: PublicEnv, slug: string): Promise<stri
 
   const body = `
 <section style="margin-bottom:28px">
-  <div class="kicker" style="margin-bottom:16px"><span class="live"></span> Topic · the standing record</div>
+  <div class="kicker" style="margin-bottom:16px"><span class="live"></span> Topic</div>
   <h1 style="font-family:var(--serif);font-size:42px;line-height:1.1;letter-spacing:-0.018em;margin:0 0 16px;color:var(--ink)">${escapeHtml(topic.label)}</h1>
   ${overviewHtml ? `<div class="prose" style="max-width:680px">${overviewHtml}</div>` : ""}
   ${topic.signed_by ? `<p class="coord" style="margin-top:14px"><span>Signed · ${escapeHtml(topic.signed_by)}</span></p>` : ""}
