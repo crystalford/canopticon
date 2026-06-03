@@ -99,9 +99,11 @@ import lighthouseRoutes from "./graph/routes/lighthouse.ts";
 v1.route("/lighthouse", lighthouseRoutes);
 
 import adminIngestLibraryRoutes from "./admin/ingest-library.ts";
+import adminRuntimeRoutes from "./admin/runtime.ts";
 import adminSeedRoutes from "./admin/seed-corpus.ts";
 v1.route("/admin", adminSeedRoutes);
 v1.route("/admin", adminIngestLibraryRoutes);
+v1.route("/admin", adminRuntimeRoutes);
 
 // Studio compartment — gated by env.STUDIO_ENABLED. When false, the
 // routes 404 (we just don't mount them) and the operator UI shows a

@@ -9,12 +9,14 @@
 import { Hono } from "hono";
 import type { Env } from "../env";
 import { htmlResponse } from "./layout";
+import { renderAbout } from "./render/about";
 import { renderHome } from "./render/home";
 import {
   renderInvestigationsIndex,
   renderLibraryIndex,
   renderPiecePage,
 } from "./render/investigations";
+import { renderMethodology } from "./render/methodology";
 import { renderPatternsIndex } from "./render/patterns";
 import { renderNotFound, renderPlaceholder } from "./render/placeholder";
 import { renderEntityPage, renderRecordIndex } from "./render/record";
@@ -93,27 +95,9 @@ app.get("/library", async (c) => htmlResponse(await renderLibraryIndex(c.env)));
 
 // ---- Utility pages (still placeholders until trailing Phase 2) -----------
 
-app.get("/about", () =>
-  htmlResponse(
-    renderPlaceholder({
-      title: "About",
-      description: "What Canopticon is and how it works.",
-      activeNav: "/about",
-      whatsHere: "About copy lands once the core surfaces are real.",
-    }),
-  ),
-);
+app.get("/about", () => htmlResponse(renderAbout()));
 
-app.get("/methodology", () =>
-  htmlResponse(
-    renderPlaceholder({
-      title: "Methodology",
-      description: "How facts get grounded, how analysis gets signed, where the line is.",
-      activeNav: "/methodology",
-      whatsHere: "Methodology page lands with the core surfaces.",
-    }),
-  ),
-);
+app.get("/methodology", () => htmlResponse(renderMethodology()));
 
 app.get("/sources", () =>
   htmlResponse(

@@ -56,10 +56,10 @@ export interface RenderPageArgs {
 export function renderPage(args: RenderPageArgs): string {
   const fullTitle = args.title
     ? `${escapeHtml(args.title)} — Canopticon`
-    : "CANOPTICON — the standing record";
+    : "CANOPTICON — Forensic intelligence";
   const description = escapeHtml(
     args.description ??
-      "Sourced claims about Canadian power. Investigations, patterns, the record beneath the headlines.",
+      "Forensic intelligence. Sourced, structured, permanent. Mapping the architecture of systems and institutions through sourced claims and signed analysis.",
   );
   const mode = args.mode ?? "public";
   const zone = args.zone ?? "home";
@@ -99,9 +99,7 @@ function renderTopStrip(mode: "public" | "operator"): string {
   return `<div class="top-strip">
 <div class="ts-left">
   <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent)"></span>
-  <span>Canada · Federal</span>
-  <span class="dim">·</span>
-  <span>the standing record</span>
+  <span>live · kept current</span>
 </div>
 <div class="ts-right">${opLink}</div>
 </div>`;
@@ -114,7 +112,7 @@ function renderPubNav(activeHref?: string): string {
   }).join("");
   return `<div class="pub-nav">
 <a href="/" style="display:flex;align-items:center">
-  <div class="wordmark">canopticon<span class="dot">.</span><span class="wordmark-sub">the standing record</span></div>
+  <div class="wordmark">canopticon<span class="dot">.</span><span class="wordmark-sub">forensic intelligence</span></div>
 </a>
 <div class="pub-nav-links">${items}</div>
 <a href="/search" class="pub-nav-search">
@@ -135,7 +133,7 @@ function renderFooter(): string {
 <div class="inner foot-cols">
 <div style="max-width:340px">
   <div class="wordmark">canopticon<span class="dot">.</span></div>
-  <p class="muted" style="font-size:13px;margin-top:12px;line-height:1.55;font-family:var(--serif)">An invisible graph of sourced claims about power in Canada — projected outward as tight, citable pages and signed investigations. The facts are the commodity; the analysis is the moat.</p>
+  <p class="muted" style="font-size:13px;margin-top:12px;line-height:1.55;font-family:var(--serif)">CANOPTICON is a forensic intelligence system — mapping the architecture of systems and institutions through sourced claims, signed analysis, and a growing graph of verified connections. The facts are the foundation. The patterns are the point.</p>
 </div>
 <div>
   <div class="label" style="margin-bottom:12px">Explore</div>

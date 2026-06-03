@@ -20,7 +20,7 @@ const PILLARS: PillarSpec[] = [
     typeLabel: "Subject pillars",
     typeClass: "t-topic",
     blurb:
-      "Explore the corpus by subject — monetary power, capital and capture, climate finance, media, housing, and the network.",
+      "The corpus by subject — the structures, networks, and institutions the work is pointed at.",
   },
   {
     href: "/investigations",
@@ -36,7 +36,7 @@ const PILLARS: PillarSpec[] = [
     typeLabel: "Reference",
     typeClass: "t-entity",
     blurb:
-      "People, organizations, programs — the standing reference. Look up an entity and see every claim, source, and pattern that touches them.",
+      "People, organizations, programs. Look up an entity and see every claim, source, and pattern that touches them.",
   },
   {
     href: "/patterns",
@@ -51,8 +51,7 @@ const PILLARS: PillarSpec[] = [
     label: "Library",
     typeLabel: "The raw research",
     typeClass: "t-research-report",
-    blurb:
-      "Sixty-five seed reports and everything ingested since. The working material the rest is built on, kept whole and downloadable.",
+    blurb: "The working material the rest is built on — kept whole, kept honest, downloadable.",
   },
 ];
 
@@ -69,13 +68,13 @@ export function renderHome(): string {
   const body = `
 <section style="margin-bottom:18px">
   <div class="kicker" style="margin-bottom:18px">
-    <span class="live"></span> Forensic intelligence · Canada · the standing record
+    <span class="live"></span> Forensic intelligence · sourced, structured, permanent
   </div>
-  <h1 style="font-family:var(--serif);font-size:48px;line-height:1.1;letter-spacing:-0.02em;margin:0 0 18px;color:var(--ink)">The standing record beneath the headlines.</h1>
+  <h1 style="font-family:var(--serif);font-size:48px;line-height:1.1;letter-spacing:-0.02em;margin:0 0 18px;color:var(--ink)">How things actually work, beneath the official account.</h1>
   <p style="font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--ink-2);max-width:680px">
-    Canopticon tracks claims, calibrates predictions, and surfaces contradictions in
-    Canada's political and economic record. Investigations link back to the evidence
-    behind them — and show, openly, where the work is still uncertain.
+    A forensic intelligence system — mapping the architecture of systems and
+    institutions through sourced claims, signed analysis, and a growing graph of
+    verified connections. The facts are the foundation. The patterns are the point.
   </p>
 </section>
 
@@ -89,7 +88,7 @@ export function renderHome(): string {
   return renderPage({
     title: "",
     description:
-      "Forensic intelligence on Canadian power. Sourced facts, signed analysis, the record beneath the headlines.",
+      "Forensic intelligence. Sourced, structured, permanent. Mapping the architecture of systems and institutions through sourced claims and signed analysis.",
     body,
     activeNav: "/",
     zone: "home",
