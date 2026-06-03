@@ -20,25 +20,32 @@ interface DbStats {
 async function getStats(env: Env): Promise<DbStats> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return { entities: 0, pieces: 0, workingMaterial: 0, published: 0, ingested: 0 };
-  const rows = await all<{ k: string; n: number }>(
-    env.DB,
-    `SELECT 'entities' AS k, count(*) AS n FROM entities WHERE user_id = ?
-     UNION ALL SELECT 'pieces', count(*) FROM pieces WHERE user_id = ?
-     UNION ALL SELECT 'working', count(*) FROM pieces WHERE user_id = ? AND publication_status = 'working-material'
-     UNION ALL SELECT 'published', count(*) FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical')
-     UNION ALL SELECT 'ingested', count(*) FROM pieces
-        WHERE user_id = ? AND json_valid(metadata)
-          AND json_extract(metadata, '$.ingested_from') IS NOT NULL`,
-    [userId, userId, userId, userId, userId],
-  );
-  const m = new Map(rows.map((r) => [r.k, r.n]));
-  return {
-    entities: m.get("entities") ?? 0,
-    pieces: m.get("pieces") ?? 0,
-    workingMaterial: m.get("working") ?? 0,
-    published: m.get("published") ?? 0,
-    ingested: m.get("ingested") ?? 0,
+  // D1's SQLITE_LIMIT_COMPOUND_SELECT is 5 — UNION ALL chains break at 6+
+  // terms. Run individual counts in parallel; the same connection handles
+  // concurrent reads cleanly.
+  const scalar = async (sql: string, binds: unknown[]): Promise<number> => {
+    const row = await env.DB.prepare(sql)
+      .bind(...binds)
+      .first<{ n: number }>();
+    return row?.n ?? 0;
   };
+  const [entities, pieces, workingMaterial, published, ingested] = await Promise.all([
+    scalar("SELECT count(*) AS n FROM entities WHERE user_id = ?", [userId]),
+    scalar("SELECT count(*) AS n FROM pieces WHERE user_id = ?", [userId]),
+    scalar(
+      "SELECT count(*) AS n FROM pieces WHERE user_id = ? AND publication_status = 'working-material'",
+      [userId],
+    ),
+    scalar(
+      "SELECT count(*) AS n FROM pieces WHERE user_id = ? AND publication_status IN ('published','canonical')",
+      [userId],
+    ),
+    scalar(
+      `SELECT count(*) AS n FROM pieces WHERE user_id = ? AND json_valid(metadata) AND json_extract(metadata, '$.ingested_from') IS NOT NULL`,
+      [userId],
+    ),
+  ]);
+  return { entities, pieces, workingMaterial, published, ingested };
 }
 
 async function recentIngests(
