@@ -50,10 +50,42 @@ app.use("*", async (c, next) => {
   await next();
 });
 
-app.onError((err, c) => {
-  const traceId = c.get("trace_id");
+app.onError(async (err, c) => {
+  const traceId = c.get("trace_id") ?? crypto.randomUUID();
   if (err instanceof ApiError) {
     return c.json(err.toBody(traceId), err.status as 400 | 401 | 403 | 404 | 500);
+  }
+  // Persist real error stacks to D1 so /v1/admin/runtime surfaces them —
+  // no more "trace_id only" with the actual stack hidden in wrangler tail.
+  // Best-effort; if logging itself fails we swallow rather than compound.
+  try {
+    const userRow = c.env.OPERATOR_EMAIL
+      ? await c.env.DB.prepare("SELECT id FROM users WHERE email = ? LIMIT 1")
+          .bind(c.env.OPERATOR_EMAIL)
+          .first<{ id: string }>()
+      : null;
+    if (userRow?.id) {
+      await c.env.DB.prepare(
+        `INSERT INTO orchestrator_events (id, user_id, event_type, trace_id, payload, created_at)
+         VALUES (?, ?, 'worker_error', ?, ?, ?)`,
+      )
+        .bind(
+          crypto.randomUUID(),
+          userRow.id,
+          traceId,
+          JSON.stringify({
+            path: c.req.path,
+            method: c.req.method,
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack?.slice(0, 4000) : undefined,
+            name: err instanceof Error ? err.name : undefined,
+          }),
+          new Date().toISOString(),
+        )
+        .run();
+    }
+  } catch (logErr) {
+    console.error("error-log insert failed", logErr);
   }
   console.error("unhandled error", { trace_id: traceId, err });
   return c.json(
