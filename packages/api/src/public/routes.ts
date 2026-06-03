@@ -8,16 +8,14 @@
 
 import { Hono } from "hono";
 import type { Env } from "../env";
+import { getPieceBySlug, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
 import { renderAbout } from "./render/about";
 import { renderHome } from "./render/home";
-import {
-  renderInvestigationsIndex,
-  renderLibraryIndex,
-  renderPiecePage,
-} from "./render/investigations";
+import { renderInvestigationsIndex, renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
 import { renderPatternsIndex } from "./render/patterns";
+import { renderPiece } from "./render/piece-template";
 import { renderNotFound, renderPlaceholder } from "./render/placeholder";
 import { renderEntityPage, renderRecordIndex } from "./render/record";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
@@ -53,24 +51,42 @@ app.get("/topics/:slug", async (c) => {
 app.get("/investigations", async (c) => htmlResponse(await renderInvestigationsIndex(c.env)));
 
 app.get("/investigations/:slug", async (c) => {
-  const html = await renderPiecePage(c.env, c.req.param("slug"));
+  const html = await renderPiece(c.env, c.req.param("slug"));
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
 });
 
 // Universal piece page — any kind, as long as it's published or canonical.
 // Editor and Publish screens link here; treat as the canonical short URL
-// for a piece. Working-material stays private (renderPiecePage returns null).
+// for a piece. Working-material stays private.
 app.get("/p/:slug", async (c) => {
-  const html = await renderPiecePage(c.env, c.req.param("slug"));
+  const html = await renderPiece(c.env, c.req.param("slug"));
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
 });
 
-// Library piece page — same renderer; lives at /library/:slug for the
-// raw-research kinds (notes, etc.) that come in through bulk ingest.
+// Clean-markdown download — the "source of record" button on every
+// piece page links here. Returns the raw body_md with a Content-Disposition
+// that triggers a download in browsers.
+app.get("/p/:slug.md", async (c) => {
+  const slug = (c.req.param("slug") ?? "").replace(/\.md$/, "");
+  if (!slug) return c.notFound();
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.notFound();
+  const piece = await getPieceBySlug(c.env.DB, userId, slug);
+  if (!piece || piece.publication_status === "working-material") return c.notFound();
+  return new Response(piece.body_md ?? "", {
+    headers: {
+      "content-type": "text/markdown; charset=utf-8",
+      "content-disposition": `attachment; filename="${slug}.md"`,
+      "cache-control": "public, max-age=300",
+    },
+  });
+});
+
+// Library piece page — same renderer.
 app.get("/library/:slug", async (c) => {
-  const html = await renderPiecePage(c.env, c.req.param("slug"));
+  const html = await renderPiece(c.env, c.req.param("slug"));
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
 });
