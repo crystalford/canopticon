@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-06-03T16:09:30Z",
-  "run_id": "26897398422",
+  "requested_at": "2026-06-03T16:13:44Z",
+  "run_id": "26897627972",
   "method": "GET",
   "path": "/op",
   "status": 500,
-  "body": "{\n  \"error\": {\n    \"code\": \"internal_error\",\n    \"message\": \"Internal server error\",\n    \"trace_id\": \"0a152132-0f95-4f3a-b96c-141ae7d166be\"\n  }\n}"
+  "body": "{\n  \"error\": {\n    \"code\": \"internal_error\",\n    \"message\": \"Internal server error\",\n    \"trace_id\": \"4a83c13c-4d9c-4a1d-bb80-8c031d56c2c0\"\n  }\n}"
 }
