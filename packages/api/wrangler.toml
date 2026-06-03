@@ -4,14 +4,11 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-# Custom domain — routes all traffic for canopticon.com through this Worker.
-# The zone_name must match the zone in your Cloudflare account.
-# After deploy, go to Cloudflare Dashboard → Pages → canopticon-web →
-# Custom domains and REMOVE canopticon.com so the Worker route wins.
-routes = [
-  { pattern = "canopticon.com/*", zone_name = "canopticon.com" },
-  { pattern = "www.canopticon.com/*", zone_name = "canopticon.com" },
-]
+# Custom domains for canopticon.com / www.canopticon.com are configured
+# via the Cloudflare dashboard (Workers & Pages → canopticon-api →
+# Settings → Domains & Routes). Those persist across deploys and don't
+# need a `routes` block here — adding one would require Workers Routes
+# Edit on the zone, which the deploy token doesn't have.
 
 # D1 database — created via the deploy workflow with
 # `wrangler d1 create canopticon` then the database_id is written here.
