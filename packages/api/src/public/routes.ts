@@ -91,23 +91,6 @@ app.get("/library/:slug", async (c) => {
   return htmlResponse(html);
 });
 
-// Universal piece page — any kind, as long as it's published or canonical.
-// Editor and Publish screens link here; treat as the canonical short URL
-// for a piece. Working-material stays private (renderPiecePage returns null).
-app.get("/p/:slug", async (c) => {
-  const html = await renderPiecePage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// Library piece page — same renderer; lives at /library/:slug for the
-// raw-research kinds (notes, etc.) that come in through bulk ingest.
-app.get("/library/:slug", async (c) => {
-  const html = await renderPiecePage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
 // ---- The Record -----------------------------------------------------------
 
 app.get("/record", async (c) => htmlResponse(await renderRecordIndex(c.env)));
