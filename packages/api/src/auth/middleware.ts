@@ -47,13 +47,30 @@ function decodeJwtEmail(jwt: string): string | null {
 }
 
 export const requireAuth = (): MiddlewareHandler<AuthContext> => async (c, next) => {
-  const email =
+  let email =
     c.req.header("x-canopticon-email") ??
     c.req.header("cf-access-authenticated-user-email") ??
     decodeJwtEmailFromHeaders(c);
 
+  // Service-token path. A Cloudflare Access *service token* (used by the
+  // admin-probe GitHub Action) authenticates machine-to-machine: Access
+  // validates the token at the edge and injects a signed JWT carrying a
+  // `common_name` claim and no email. Single-operator app, so a valid
+  // service-token JWT resolves to the sole operator.
+  //
+  // We require the JWT's common_name — NOT a bare cf-access-client-id
+  // header. The JWT is signed by Access and cannot be spoofed; a raw
+  // header can be (e.g. if the Worker is ever hit outside Access via its
+  // workers.dev URL). The signature is the trust anchor.
   if (!email) {
-    throw unauthorized("Cloudflare Access did not provide an email");
+    const serviceTokenName = decodeJwtCommonNameFromHeaders(c);
+    if (serviceTokenName && c.env.OPERATOR_EMAIL) {
+      email = c.env.OPERATOR_EMAIL;
+    }
+  }
+
+  if (!email) {
+    throw unauthorized("Cloudflare Access did not provide an email or service token");
   }
   const operatorEmail = c.env.OPERATOR_EMAIL;
   if (operatorEmail && email.toLowerCase() !== operatorEmail.toLowerCase()) {
@@ -72,4 +89,29 @@ function decodeJwtEmailFromHeaders(c: {
   const jwt = c.req.header("x-canopticon-jwt") ?? c.req.header("cf-access-jwt-assertion");
   if (!jwt) return null;
   return decodeJwtEmail(jwt);
+}
+
+// Service-token JWTs carry the token name under `common_name` (and no
+// email). Decode it the same way — Access already verified the signature.
+function decodeJwtCommonName(jwt: string): string | null {
+  try {
+    const parts = jwt.split(".");
+    if (parts.length < 2 || !parts[1]) return null;
+    const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const pad = padded.length % 4;
+    const b64 = pad ? padded + "=".repeat(4 - pad) : padded;
+    const obj = JSON.parse(atob(b64)) as Record<string, unknown>;
+    const cn = obj.common_name ?? (obj.custom as { common_name?: string } | undefined)?.common_name;
+    return typeof cn === "string" && cn.length > 0 ? cn : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeJwtCommonNameFromHeaders(c: {
+  req: { header: (n: string) => string | undefined };
+}): string | null {
+  const jwt = c.req.header("x-canopticon-jwt") ?? c.req.header("cf-access-jwt-assertion");
+  if (!jwt) return null;
+  return decodeJwtCommonName(jwt);
 }
