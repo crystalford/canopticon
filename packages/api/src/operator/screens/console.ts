@@ -172,7 +172,7 @@ async function loadRecent(db: D1Database, userId: string): Promise<RecentItem[]>
     tag: r.publication_status,
     text: r.title,
     when: formatRelative(r.updated_at),
-    href: r.publication_status === "working-material" ? undefined : `/record/${r.slug}`,
+    href: r.publication_status === "working-material" ? undefined : `/p/${r.slug}`,
   }));
 }
 

@@ -59,13 +59,19 @@ app.get("/ingest", async (c) => {
   return opHtml(await renderIngestScreen(c.env, { result, error }));
 });
 
-// Ingest upload — accepts one or more files. Loose .md/.txt → working-
-// material piece; .zip → unpack, look for library-manifest.json or just
-// take any .md/.txt inside.
+// Ingest upload — accepts one or more files. Loose .md/.txt → piece;
+// .zip → unpack, look for library-manifest.json or just take any
+// .md/.txt inside. Status comes from the form (default = "published"
+// so the operator's mental model matches: drop a doc, see it on the
+// public site).
 app.post("/ingest/upload", async (c) => {
   try {
     const form = await c.req.formData();
     const force = form.get("force") === "1";
+    const statusRaw = form.get("status")?.toString() ?? "published";
+    const status = (
+      ["working-material", "published", "canonical"].includes(statusRaw) ? statusRaw : "published"
+    ) as "working-material" | "published" | "canonical";
     const userId = await resolveOperatorId(c.env.DB);
     if (!userId) throw new Error("No operator user found — run the deploy workflow first.");
 
@@ -83,15 +89,15 @@ app.post("/ingest/upload", async (c) => {
 
     for (const file of files) {
       if (file.name.toLowerCase().endsWith(".zip")) {
-        await ingestZip(c.env, file, userId, force, report);
+        await ingestZip(c.env, file, userId, force, status, report);
       } else {
-        await ingestSingle(c.env, file, userId, force, report);
+        await ingestSingle(c.env, file, userId, force, status, report);
       }
     }
 
     const lines = [
       "✓ Ingest complete",
-      `  Inserted: ${report.inserted}`,
+      `  Inserted: ${report.inserted} (status: ${status})`,
       `  Skipped:  ${report.skipped} (already exists; check Force to overwrite)`,
       ...(report.failed.length
         ? [
@@ -110,12 +116,14 @@ app.post("/ingest/upload", async (c) => {
 app.get("/editorial", async (c) => {
   const saved = c.req.query("saved") === "1";
   const published = c.req.query("published") === "1";
-  return opHtml(await renderEditorial(c.env, undefined, { saved, published }));
+  const bulk = Number(c.req.query("bulk")) || undefined;
+  return opHtml(await renderEditorial(c.env, undefined, { saved, published, bulk }));
 });
 app.get("/editorial/:slug", async (c) => {
   const saved = c.req.query("saved") === "1";
   const published = c.req.query("published") === "1";
-  return opHtml(await renderEditorial(c.env, c.req.param("slug"), { saved, published }));
+  const bulk = Number(c.req.query("bulk")) || undefined;
+  return opHtml(await renderEditorial(c.env, c.req.param("slug"), { saved, published, bulk }));
 });
 app.post("/editorial/:slug/save", async (c) => {
   const slug = c.req.param("slug");
@@ -130,9 +138,40 @@ app.post("/editorial/:slug/save", async (c) => {
 app.post("/editorial/:slug/publish", async (c) => {
   const slug = c.req.param("slug");
   const form = await c.req.formData();
-  const target = (form.get("status")?.toString() ?? "published") as "published" | "canonical";
+  // formaction submits the SAME form's title/subtitle/body_md fields, so
+  // "Save & publish" should persist edits AND change status in one click.
+  await saveEditorial(c.env, slug, {
+    title: form.get("title")?.toString(),
+    subtitle: form.get("subtitle")?.toString(),
+    body_md: form.get("body_md")?.toString(),
+  });
+  // Status comes from either a form field (Save button hidden input) or a
+  // ?status=… query string set by formaction. Default = "published".
+  const target = (form.get("status")?.toString() ?? c.req.query("status") ?? "published") as
+    | "published"
+    | "canonical";
   await publishEditorial(c.env, slug, target);
   return c.redirect(`/op/editorial/${slug}?published=1`);
+});
+
+// Bulk publish — promote every working-material piece to published.
+// Useful right after a bulk ingest (the 65-report library, a zip of
+// notes, etc.). Idempotent. Redirects back with a count.
+app.post("/editorial/bulk-publish", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/editorial?error=No+operator+user");
+  const now = new Date().toISOString();
+  const result = await c.env.DB.prepare(
+    `UPDATE pieces
+        SET publication_status = 'published',
+            published_at = COALESCE(published_at, ?),
+            updated_at = ?
+      WHERE user_id = ? AND publication_status = 'working-material'`,
+  )
+    .bind(now, now, userId)
+    .run();
+  const count = result.meta?.changes ?? 0;
+  return c.redirect(`/op/editorial?bulk=${count}`);
 });
 
 // Leads — triage queue.
@@ -174,11 +213,14 @@ interface IngestReport {
   failed: Array<{ slug: string; reason: string }>;
 }
 
+type IngestStatus = "working-material" | "published" | "canonical";
+
 async function ingestZip(
   env: Env,
   zipFile: File,
   userId: string,
   force: boolean,
+  status: IngestStatus,
   report: IngestReport,
 ): Promise<void> {
   const bytes = new Uint8Array(await zipFile.arrayBuffer());
@@ -215,6 +257,7 @@ async function ingestZip(
           title: r.title.replace(/^#+\s*/, "").trim(),
           kind: r.kind ?? "research-report",
           body_md: dec.decode(bytes),
+          status,
           metadata: {
             source_id: r.id ?? null,
             detected_entities: r.detected_entities ?? [],
@@ -231,19 +274,20 @@ async function ingestZip(
     return;
   }
 
-  // No manifest — every .md/.txt becomes a working-material piece.
   for (const [path, bytes] of Object.entries(unzipped)) {
     if (!/\.(md|txt)$/i.test(path)) continue;
     const filename = path.split("/").pop() ?? path;
     const slug = slugify(filename.replace(/\.(md|txt)$/i, ""));
+    if (!slug) continue;
     const body_md = dec.decode(bytes);
-    const title = extractTitle(body_md) ?? prettyTitle(filename);
+    const title = bestTitle(body_md, filename);
     try {
       await upsertPiece(env, userId, {
         slug,
         title,
         kind: "note",
         body_md,
+        status,
         metadata: { ingested_from: "zip-bulk", original_filename: filename },
         force,
         report,
@@ -259,6 +303,7 @@ async function ingestSingle(
   file: File,
   userId: string,
   force: boolean,
+  status: IngestStatus,
   report: IngestReport,
 ): Promise<void> {
   const name = file.name;
@@ -270,8 +315,6 @@ async function ingestSingle(
     body_md = await file.text();
     kind = "note";
   } else if (/\.pdf$/i.test(name)) {
-    // PDF support: needs extraction (Llama Scout) — out of scope for the
-    // synchronous form submit. Surface a friendly error pointing at chat.
     report.failed.push({
       slug,
       reason: "PDF ingestion runs through chat (drop into chat to extract). Not yet wired here.",
@@ -281,13 +324,14 @@ async function ingestSingle(
     body_md = await file.text();
   }
 
-  const title = extractTitle(body_md) ?? prettyTitle(name);
+  const title = bestTitle(body_md, name);
   try {
     await upsertPiece(env, userId, {
       slug,
       title,
       kind,
       body_md,
+      status,
       metadata: { ingested_from: "single-file", original_filename: name },
       force,
       report,
@@ -302,6 +346,7 @@ interface UpsertArgs {
   title: string;
   kind: string;
   body_md: string;
+  status: IngestStatus;
   metadata: Record<string, unknown>;
   force: boolean;
   report: IngestReport;
@@ -317,33 +362,63 @@ async function upsertPiece(env: Env, userId: string, args: UpsertArgs): Promise<
     args.report.skipped++;
     return;
   }
+  const now = new Date().toISOString();
+  const isPublished = args.status !== "working-material";
   if (existing && args.force) {
-    await run(
-      env.DB,
-      "UPDATE pieces SET title = ?, kind = ?, body_md = ?, metadata = ?, updated_at = ? WHERE id = ?",
-      [
-        args.title,
-        args.kind,
-        args.body_md,
-        JSON.stringify(args.metadata),
-        new Date().toISOString(),
-        existing.id,
-      ],
-    );
+    if (isPublished) {
+      await run(
+        env.DB,
+        `UPDATE pieces
+            SET title = ?, kind = ?, body_md = ?, metadata = ?,
+                publication_status = ?,
+                published_at = COALESCE(published_at, ?),
+                updated_at = ?
+          WHERE id = ?`,
+        [
+          args.title,
+          args.kind,
+          args.body_md,
+          JSON.stringify(args.metadata),
+          args.status,
+          now,
+          now,
+          existing.id,
+        ],
+      );
+    } else {
+      await run(
+        env.DB,
+        `UPDATE pieces
+            SET title = ?, kind = ?, body_md = ?, metadata = ?,
+                publication_status = ?, updated_at = ?
+          WHERE id = ?`,
+        [
+          args.title,
+          args.kind,
+          args.body_md,
+          JSON.stringify(args.metadata),
+          args.status,
+          now,
+          existing.id,
+        ],
+      );
+    }
     args.report.inserted++;
     return;
   }
-  await insertOne(env.DB, "pieces", {
+  const insertRow: Record<string, unknown> = {
     user_id: userId,
     slug: args.slug,
     title: args.title,
     kind: args.kind,
-    publication_status: "working-material",
+    publication_status: args.status,
     body_md: args.body_md,
     byline: "the operator",
     tags: JSON.stringify([]),
     metadata: JSON.stringify(args.metadata),
-  });
+  };
+  if (isPublished) insertRow.published_at = now;
+  await insertOne(env.DB, "pieces", insertRow);
   args.report.inserted++;
 }
 
@@ -355,14 +430,38 @@ function slugify(s: string): string {
     .slice(0, 120);
 }
 
-function extractTitle(body_md: string): string | null {
-  const m = body_md.match(/^#\s+(.+)$/m);
-  return m ? (m[1]?.trim() ?? null) : null;
+// Best-effort title extraction. Tries (1) a leading "# heading", (2) the
+// first non-empty line treated as a title if short, (3) a filename
+// fallback that strips claude-artifact-style noise. Always returns a
+// non-empty string so the editor never loads with a blank title.
+function bestTitle(body_md: string, filename: string): string {
+  const heading = body_md.match(/^#{1,3}\s+(.+)$/m);
+  if (heading?.[1]) {
+    const t = heading[1].trim();
+    if (t.length > 0 && t.length <= 200) return t;
+  }
+  const firstLine = body_md
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
+  if (
+    firstLine &&
+    firstLine.length > 4 &&
+    firstLine.length <= 160 &&
+    !firstLine.startsWith("```")
+  ) {
+    return firstLine.replace(/^[#>*\-\s]+/, "").trim();
+  }
+  return prettyTitle(filename);
 }
 
 function prettyTitle(filename: string): string {
-  return filename
-    .replace(/\.(md|txt|pdf)$/i, "")
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  let s = filename.replace(/\.(md|txt|pdf|html|json)$/i, "");
+  // Strip Claude.ai compass-artifact prefixes that uniquely identify the
+  // export but read as noise in a piece title.
+  s = s.replace(/^compass-artifact-wf-[a-f0-9-]{36}-?/i, "");
+  s = s.replace(/-text-markdown-\d+$/i, "");
+  s = s.replace(/[-_]+/g, " ").trim();
+  if (s.length === 0) return "Untitled";
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
 }

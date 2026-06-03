@@ -138,10 +138,17 @@ function formatRelative(iso: string | null): string {
 }
 
 function renderEmpty(): string {
-  return renderOpPage({
-    title: "Leads",
-    body: `${opHeader("Leads", "patterning · the quiet engine")}<div class="op-content"><div class="card soft" style="padding:30px;text-align:center;color:var(--ink-mute)">${icon("spark", 28, "var(--accent)")}<div style="margin-top:12px;font-size:14.5px">No leads yet. As entities accumulate evidence, the worker surfaces them here.</div></div></div>`,
-    activeNav: "/op/leads",
-    fullBleed: true,
-  });
+  const body = `
+${opHeader("Leads", "patterning · the quiet engine")}
+<div class="op-content">
+  <div class="card soft" style="padding:40px 36px;max-width:680px;margin:24px auto 0;text-align:center">
+    <div style="margin-bottom:14px;display:inline-flex;width:48px;height:48px;align-items:center;justify-content:center;background:var(--paper-2);border-radius:50%;color:var(--accent)">${icon("spark", 22)}</div>
+    <h3 style="font-size:18px;margin:0 0 8px;color:var(--ink);font-family:var(--serif);font-weight:600">No leads yet</h3>
+    <p style="font-family:var(--serif);font-size:15px;line-height:1.6;color:var(--ink-2);margin:0 0 22px;max-width:480px;margin-left:auto;margin-right:auto">
+      The patterning engine watches the whole graph and hands you hunches to chase — small leads and project-scale opportunities. As entities accumulate evidence and near-duplicates surface, they'll land here.
+    </p>
+    <a class="btn accent" href="/op/ingest" style="text-decoration:none">${icon("arrowUR", 14)} Ingest documents</a>
+  </div>
+</div>`;
+  return renderOpPage({ title: "Leads", body, activeNav: "/op/leads", fullBleed: true });
 }

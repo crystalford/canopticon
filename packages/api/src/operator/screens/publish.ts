@@ -57,7 +57,7 @@ export async function renderPublish(env: { DB: D1Database }, slug?: string): Pro
 
   const isWorking = active.publication_status === "working-material";
   const isPublished = active.publication_status === "published";
-  const previewUrl = isWorking ? "" : `/record/${active.slug}`;
+  const previewUrl = isWorking ? "" : `/p/${active.slug}`;
 
   const actions = `
     ${
@@ -91,7 +91,7 @@ ${opHeader("Publish", "project a node to its public face", switcher)}
   <div class="row between" style="margin-bottom:16px;flex-wrap:wrap;gap:12px">
     <div class="row" style="gap:10px">
       <span class="chip ${statusTone}">${escapeHtml(active.publication_status)}</span>
-      <span class="coord">/record/${escapeHtml(active.slug)}</span>
+      <span class="coord">/p/${escapeHtml(active.slug)}</span>
     </div>
     <div class="row" style="gap:8px;flex-wrap:wrap">${actions}</div>
   </div>
@@ -142,10 +142,17 @@ export async function changePublicationStatus(
 }
 
 function renderEmpty(): string {
-  return renderOpPage({
-    title: "Publish",
-    body: `${opHeader("Publish", "project a node to its public face")}<div class="op-content"><div class="card soft" style="padding:30px;text-align:center;color:var(--ink-mute)">${icon("check", 28, "var(--accent)")}<div style="margin-top:12px;font-size:14.5px">No pieces to publish yet.</div></div></div>`,
-    activeNav: "/op/publish",
-    fullBleed: true,
-  });
+  const body = `
+${opHeader("Publish", "project a piece to its public face")}
+<div class="op-content">
+  <div class="card soft" style="padding:40px 36px;max-width:680px;margin:24px auto 0;text-align:center">
+    <div style="margin-bottom:14px;display:inline-flex;width:48px;height:48px;align-items:center;justify-content:center;background:var(--paper-2);border-radius:50%;color:var(--accent)">${icon("check", 22)}</div>
+    <h3 style="font-size:18px;margin:0 0 8px;color:var(--ink);font-family:var(--serif);font-weight:600">No pieces to publish yet</h3>
+    <p style="font-family:var(--serif);font-size:15px;line-height:1.6;color:var(--ink-2);margin:0 0 22px;max-width:480px;margin-left:auto;margin-right:auto">
+      Publish is where pieces move from working-material → published → canonical. Once a piece exists, you'll preview the real public render here and ship it with one click.
+    </p>
+    <a class="btn accent" href="/op/ingest" style="text-decoration:none">${icon("arrowUR", 14)} Ingest documents</a>
+  </div>
+</div>`;
+  return renderOpPage({ title: "Publish", body, activeNav: "/op/publish", fullBleed: true });
 }
