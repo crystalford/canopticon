@@ -1,8 +1,8 @@
 {
-  "requested_at": null,
-  "run_id": null,
-  "method": null,
-  "path": null,
-  "status": null,
-  "body": "No probe has run yet. Claude triggers the 'Canopticon admin probe' workflow; the runner overwrites this file with the live response."
+  "requested_at": "2026-06-03T12:27:30Z",
+  "run_id": "26884668226",
+  "method": "GET",
+  "path": "/v1/admin/runtime",
+  "status": 302,
+  "body": "<html>\r\n<head><title>302 Found</title></head>\r\n<body>\r\n<center><h1>302 Found</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\r"
 }
