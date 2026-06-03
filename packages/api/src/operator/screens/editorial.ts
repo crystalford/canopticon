@@ -29,7 +29,11 @@ interface PieceListRow {
 export async function renderEditorial(
   env: { DB: D1Database },
   slug?: string,
-  params: { saved?: boolean; published?: boolean } = {},
+  params: {
+    saved?: boolean | undefined;
+    published?: boolean | undefined;
+    bulk?: number | undefined;
+  } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return renderEmpty();
@@ -63,41 +67,59 @@ export async function renderEditorial(
     return renderEmpty();
   }
 
+  const banner = (text: string) =>
+    `<div style="margin-bottom:14px;padding:10px 14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:var(--r);color:var(--confirmed);font-size:13px">${text}</div>`;
   const banners = [
-    params.saved
-      ? `<div style="margin-bottom:14px;padding:10px 14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:var(--r);color:var(--confirmed);font-size:13px">✓ Saved</div>`
-      : "",
+    params.saved ? banner("✓ Saved") : "",
     params.published
-      ? `<div style="margin-bottom:14px;padding:10px 14px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:var(--r);color:var(--confirmed);font-size:13px">✓ Published — visible at /record/${escapeHtml(active.slug)}</div>`
+      ? banner(
+          `✓ Published — visible at <a href="/p/${escapeHtml(active.slug)}" target="_blank" style="color:inherit">/p/${escapeHtml(active.slug)}</a>`,
+        )
+      : "",
+    params.bulk && params.bulk > 0
+      ? banner(`✓ Bulk published ${params.bulk} piece${params.bulk === 1 ? "" : "s"}`)
       : "",
   ].join("");
+
+  const statusDot = (s: string): string => {
+    const c =
+      s === "canonical"
+        ? "var(--confirmed)"
+        : s === "published"
+          ? "var(--accent)"
+          : "var(--ink-faint)";
+    return `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${c};flex-shrink:0"></span>`;
+  };
 
   const list = pieces
     .map((p) => {
       const isActive = p.slug === active.slug;
-      return `<a href="/op/editorial/${escapeAttr(p.slug)}" class="${isActive ? "is-active" : ""}" style="display:block;padding:10px 12px;border-radius:var(--r-sm);text-decoration:none;color:${isActive ? "var(--ink)" : "var(--ink-2)"};background:${isActive ? "var(--paper-2)" : "transparent"};margin-bottom:2px">
-  <div style="font-size:13.5px;line-height:1.4;margin-bottom:3px">${escapeHtml(p.title)}</div>
-  <div class="coord" style="font-size:11px">${escapeHtml(p.kind)} · ${escapeHtml(p.publication_status)}</div>
+      const title = p.title?.trim();
+      const titleHtml = title
+        ? escapeHtml(title)
+        : `<span style="font-style:italic;color:var(--ink-faint)">(no title — ${escapeHtml(p.slug.slice(0, 40))})</span>`;
+      return `<a href="/op/editorial/${escapeAttr(p.slug)}" class="${isActive ? "is-active" : ""}" style="display:block;padding:10px 12px;border-radius:var(--r-sm);text-decoration:none;color:${isActive ? "var(--ink)" : "var(--ink-2)"};background:${isActive ? "var(--paper-2)" : "transparent"};margin-bottom:2px;border-left:2px solid ${isActive ? "var(--accent)" : "transparent"}">
+  <div style="font-size:13.5px;line-height:1.4;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${titleHtml}</div>
+  <div class="coord row" style="font-size:11px;gap:6px;align-items:center">${statusDot(p.publication_status)} ${escapeHtml(p.kind)} · ${escapeHtml(p.publication_status)}</div>
 </a>`;
     })
     .join("");
 
   const statusBadge = `<span class="chip ${active.publication_status === "canonical" ? "confirmed" : active.publication_status === "published" ? "accent" : "draft"}">${escapeHtml(active.publication_status)}</span>`;
 
-  const publishForm =
+  // formaction on a single button beats nested <form>s (HTML doesn't allow
+  // those — browsers ignore the inner form and the inner button just submits
+  // the outer one). With formaction, both buttons live in one form and post
+  // the same title/subtitle/body_md fields; only the target URL differs.
+  const publishButton =
     active.publication_status === "working-material"
-      ? `<form method="POST" action="/op/editorial/${escapeAttr(active.slug)}/publish" style="display:inline">
-        <button class="btn sm accent" type="submit">${icon("check", 13)} Publish</button>
-      </form>`
+      ? `<button class="btn sm accent" type="submit" formaction="/op/editorial/${escapeAttr(active.slug)}/publish" formnovalidate>${icon("check", 13)} Save &amp; publish</button>`
       : active.publication_status === "published"
-        ? `<form method="POST" action="/op/editorial/${escapeAttr(active.slug)}/publish" style="display:inline">
-          <input type="hidden" name="status" value="canonical" />
-          <button class="btn sm" type="submit">${icon("check", 13)} Mark canonical</button>
-        </form>`
+        ? `<button class="btn sm" type="submit" formaction="/op/editorial/${escapeAttr(active.slug)}/publish?status=canonical">${icon("check", 13)} Save &amp; mark canonical</button>`
         : "";
 
   const body = `
-${opHeader("Editorial", `${active.kind} · ${active.slug}`, `<a class="btn sm" href="/record/${escapeAttr(active.slug)}" target="_blank" style="text-decoration:none">${icon("doc", 13)} View public</a>`)}
+${opHeader("Editorial", `${active.kind} · ${active.slug}`, `<a class="btn sm" href="/p/${escapeAttr(active.slug)}" target="_blank" style="text-decoration:none">${icon("doc", 13)} View public</a>`)}
 <div class="op-content">
   ${banners}
   <div style="display:grid;grid-template-columns:280px 1fr;gap:24px">
@@ -109,9 +131,9 @@ ${opHeader("Editorial", `${active.kind} · ${active.slug}`, `<a class="btn sm" h
       <form method="POST" action="/op/editorial/${escapeAttr(active.slug)}/save" style="display:flex;flex-direction:column;gap:14px">
         <div class="row between" style="gap:10px;flex-wrap:wrap">
           <div class="row" style="gap:10px;align-items:center">${statusBadge}<span class="coord">${escapeHtml(active.byline ?? "the operator")}</span></div>
-          <div class="row" style="gap:8px">${publishForm}<button class="btn sm primary" type="submit">Save</button></div>
+          <div class="row" style="gap:8px">${publishButton}<button class="btn sm primary" type="submit">Save</button></div>
         </div>
-        <input name="title" value="${escapeAttr(active.title)}" required
+        <input name="title" value="${escapeAttr(active.title ?? "")}" placeholder="Title…"
                style="background:transparent;border:none;border-bottom:1px solid var(--rule);padding:8px 0;font-family:var(--serif);font-size:30px;letter-spacing:-0.02em;color:var(--ink);font-weight:600;width:100%" />
         <input name="subtitle" value="${escapeAttr(active.subtitle ?? "")}" placeholder="Subtitle…"
                style="background:transparent;border:none;border-bottom:1px solid var(--rule-soft);padding:6px 0;font-family:var(--serif);font-size:17px;color:var(--ink-2);width:100%" />
@@ -176,11 +198,17 @@ function renderEmpty(): string {
   const body = `
 ${opHeader("Editorial", "write & finish signed pieces")}
 <div class="op-content">
-  <div class="card soft" style="padding:30px;max-width:640px;text-align:center">
-    <h3 style="font-size:16px;margin:0 0 8px;color:var(--ink)">No pieces yet</h3>
-    <p style="font-family:var(--serif);font-size:15px;line-height:1.55;color:var(--ink-2);margin:0 0 16px">
-      Drop a document in <a href="/op/ingest" style="color:var(--accent)">Ingest</a> or draft one through <a href="/op/chat" style="color:var(--accent)">Chat</a>.
+  <div class="card soft" style="padding:40px 36px;max-width:680px;margin:24px auto 0;text-align:center">
+    <div style="margin-bottom:14px;display:inline-flex;width:48px;height:48px;align-items:center;justify-content:center;background:var(--paper-2);border-radius:50%;color:var(--accent)">${icon("edit", 22)}</div>
+    <h3 style="font-size:18px;margin:0 0 8px;color:var(--ink);font-family:var(--serif);font-weight:600">No pieces yet</h3>
+    <p style="font-family:var(--serif);font-size:15px;line-height:1.6;color:var(--ink-2);margin:0 0 22px;max-width:480px;margin-left:auto;margin-right:auto">
+      Editorial is where pieces get titled, sub-titled, and finished before they ship.
+      Drop a document in Ingest or draft one through Chat to get started.
     </p>
+    <div class="row" style="gap:10px;justify-content:center;flex-wrap:wrap">
+      <a class="btn accent" href="/op/ingest" style="text-decoration:none">${icon("arrowUR", 14)} Ingest documents</a>
+      <a class="btn" href="/op/chat" style="text-decoration:none">${icon("chat", 14)} Open chat</a>
+    </div>
   </div>
 </div>`;
   return renderOpPage({ title: "Editorial", body, activeNav: "/op/editorial", fullBleed: true });

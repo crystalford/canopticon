@@ -87,44 +87,67 @@ export async function renderIngestScreen(
     : `<div class="coord faint">No working-material pieces yet. Drop a document above to get started.</div>`;
 
   const body = `
-${opHeader("Ingest", "door two · drop a piece, see what would change")}
+${opHeader("Ingest", "drop documents · land on the public site")}
 <div class="op-content">
-  <p class="muted" style="margin-bottom:22px;font-family:var(--serif);font-size:16px;line-height:1.55;max-width:680px">
-    Drop a finished or near-finished piece. The system shows what it would change in the structure — new claims, new entities, near-duplicates — before anything commits. Pieces enter as working-material; promote to published from <a href="/op/editorial" style="color:var(--accent)">Editorial</a>.
+  <p class="muted" style="margin-bottom:24px;font-family:var(--serif);font-size:16px;line-height:1.6;max-width:680px">
+    Drop a file (or a zip of files). Each becomes a piece. By default new pieces are
+    <strong>published</strong> immediately — the public site shows them as soon as ingest finishes.
+    Drop into <strong>working-material</strong> if you want to edit them in <a href="/op/editorial" style="color:var(--accent)">Editorial</a> first.
   </p>
 
   ${resultBanner}${errorBanner}
 
-  <div class="cards-4" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:32px">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:32px">
     ${statCard("Entities", stats.entities)}
     ${statCard("Pieces total", stats.pieces)}
     ${statCard("Working-material", stats.workingMaterial)}
     ${statCard("Published", stats.published)}
   </div>
 
+  ${
+    stats.workingMaterial > 0
+      ? `<div class="card soft" style="margin-bottom:28px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-left:2px solid var(--accent)">
+    <div>
+      <div style="font-family:var(--serif);font-size:15px;color:var(--ink);margin-bottom:2px">${stats.workingMaterial} pieces sitting in working-material</div>
+      <div class="coord">Promote them all to published in one click — appears on the public site immediately.</div>
+    </div>
+    <form method="POST" action="/op/editorial/bulk-publish" style="margin:0" onsubmit="return confirm('Publish all ${stats.workingMaterial} working-material pieces?');">
+      <button type="submit" class="btn primary">Publish all ${stats.workingMaterial}</button>
+    </form>
+  </div>`
+      : ""
+  }
+
   <section style="margin-bottom:36px">
-    ${sectionHead("Drop a document", '<span class="coord">.md · .txt · .pdf · .zip</span>')}
+    ${sectionHead("Drop a document", '<span class="coord">.md · .txt · .zip</span>')}
     <form method="POST" action="/op/ingest/upload" enctype="multipart/form-data"
           style="display:flex;flex-direction:column;gap:14px"
           onsubmit="this.querySelector('button[type=submit]').textContent='Ingesting…';this.querySelector('button[type=submit]').disabled=true">
       <label class="card soft" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:36px;border:1px dashed var(--rule);cursor:pointer;text-align:center;gap:8px">
         ${icon("arrowUR", 28, "var(--accent)")}
         <div style="font-family:var(--serif);font-size:16px;color:var(--ink);margin-top:6px">Pick file(s) or drop a zip</div>
-        <div class="coord">single .md/.txt/.pdf, or a .zip containing many — the worker extracts and ingests each</div>
-        <input type="file" name="file" accept=".md,.txt,.pdf,.zip,text/markdown,text/plain,application/pdf,application/zip" multiple
+        <div class="coord">single .md/.txt, or a .zip containing many — the worker extracts and ingests each</div>
+        <input type="file" name="file" accept=".md,.txt,.zip,text/markdown,text/plain,application/zip" multiple
                style="margin-top:12px;font-size:13px;color:var(--ink-2)" />
       </label>
-      <div class="row between" style="gap:12px;flex-wrap:wrap">
+      <div class="row between" style="gap:14px;flex-wrap:wrap">
+        <label class="row" style="gap:8px;align-items:center;font-size:13px;color:var(--ink-2)">
+          <span style="color:var(--ink-mute)">Publication status:</span>
+          <select name="status" style="background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-sm);padding:5px 8px;color:var(--ink);font-size:13px">
+            <option value="published" selected>Published (public immediately)</option>
+            <option value="working-material">Working-material (draft, edit first)</option>
+          </select>
+        </label>
         <label class="row" style="gap:8px;align-items:center;font-size:13px;color:var(--ink-2)">
           <input type="checkbox" name="force" value="1" style="accent-color:var(--accent)" />
-          Force overwrite (re-import existing slugs)
+          Force overwrite existing
         </label>
         <button type="submit" class="btn primary">Ingest</button>
       </div>
     </form>
   </section>
 
-  ${commandBar(`Or describe what you want to ingest — "Save this URL as a working piece", "Pull these claims out of the attached PDF"…`)}
+  ${commandBar('Or describe what you want to ingest — "Save this URL as a piece", "Extract claims from the attached PDF"…')}
 
   <section style="margin-top:36px">
     ${sectionHead("Recent working-material", "")}

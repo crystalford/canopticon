@@ -93,10 +93,17 @@ function sectionHead(label: string, action: string): string {
 }
 
 function renderEmpty(): string {
-  return renderOpPage({
-    title: "Patterns",
-    body: `${opHeader("Patterns", "the lighthouse")}<div class="op-content"><div class="card soft" style="padding:30px;text-align:center;color:var(--ink-mute)">${icon("grid", 28, "var(--accent)")}<div style="margin-top:12px;font-size:14.5px">No patterns yet. The lighthouse needs corpus to read.</div></div></div>`,
-    activeNav: "/op/patterns",
-    fullBleed: true,
-  });
+  const body = `
+${opHeader("Patterns", "the lighthouse · triage candidates")}
+<div class="op-content">
+  <div class="card soft" style="padding:40px 36px;max-width:680px;margin:24px auto 0;text-align:center">
+    <div style="margin-bottom:14px;display:inline-flex;width:48px;height:48px;align-items:center;justify-content:center;background:var(--paper-2);border-radius:50%;color:var(--accent)">${icon("grid", 22)}</div>
+    <h3 style="font-size:18px;margin:0 0 8px;color:var(--ink);font-family:var(--serif);font-weight:600">No patterns yet</h3>
+    <p style="font-family:var(--serif);font-size:15px;line-height:1.6;color:var(--ink-2);margin:0 0 22px;max-width:480px;margin-left:auto;margin-right:auto">
+      Patterns are insights that emerge across documents — no single piece contains them. The lighthouse needs corpus to read; ingest some documents and run the detector to surface candidate patterns.
+    </p>
+    <a class="btn accent" href="/op/ingest" style="text-decoration:none">${icon("arrowUR", 14)} Ingest documents</a>
+  </div>
+</div>`;
+  return renderOpPage({ title: "Patterns", body, activeNav: "/op/patterns", fullBleed: true });
 }

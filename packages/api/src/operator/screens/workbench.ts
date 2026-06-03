@@ -182,11 +182,17 @@ function renderEmpty(): string {
   const body = `
 ${opHeader("Workbench", "node as working surface")}
 <div class="op-content">
-  <div class="card soft" style="padding:30px;max-width:640px;text-align:center">
-    <h3 style="font-size:16px;margin:0 0 8px;color:var(--ink)">No entities yet</h3>
-    <p style="font-family:var(--serif);font-size:15px;line-height:1.55;color:var(--ink-2);margin:0 0 16px">
-      Seed the corpus from <a href="/op/ingest" style="color:var(--accent)">Ingest</a> or build a new node through <a href="/op/build" style="color:var(--accent)">Build</a>.
+  <div class="card soft" style="padding:40px 36px;max-width:680px;margin:24px auto 0;text-align:center">
+    <div style="margin-bottom:14px;display:inline-flex;width:48px;height:48px;align-items:center;justify-content:center;background:var(--paper-2);border-radius:50%;color:var(--accent)">${icon("layers", 22)}</div>
+    <h3 style="font-size:18px;margin:0 0 8px;color:var(--ink);font-family:var(--serif);font-weight:600">No entities yet</h3>
+    <p style="font-family:var(--serif);font-size:15px;line-height:1.6;color:var(--ink-2);margin:0 0 22px;max-width:480px;margin-left:auto;margin-right:auto">
+      The Workbench opens any entity's working surface — its claims, sources, relations, and open leads.
+      Entities accumulate as pieces are ingested and the assistant resolves people, organizations, and concepts inside them.
     </p>
+    <div class="row" style="gap:10px;justify-content:center;flex-wrap:wrap">
+      <a class="btn accent" href="/op/ingest" style="text-decoration:none">${icon("arrowUR", 14)} Ingest documents</a>
+      <a class="btn" href="/op/build" style="text-decoration:none">${icon("plus", 14)} Build a node</a>
+    </div>
   </div>
 </div>`;
   return renderOpPage({

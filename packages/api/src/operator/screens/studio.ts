@@ -42,7 +42,7 @@ export async function renderStudio(env: Env): Promise<string> {
     <span class="row" style="gap:8px"><span class="chip ${s.status === "stitched" ? "confirmed" : "draft"}">${escapeHtml(s.status)}</span><span class="coord">${s.segment_count} segments</span></span>
     <span class="coord">${escapeHtml(s.id.slice(0, 8))}</span>
   </div>
-  <div style="font-size:14px"><a href="/record/${escapeHtml(s.piece_slug)}" style="color:var(--ink);text-decoration:none">${escapeHtml(s.piece_slug)}</a></div>
+  <div style="font-size:14px"><a href="/p/${escapeHtml(s.piece_slug)}" style="color:var(--ink);text-decoration:none">${escapeHtml(s.piece_slug)}</a></div>
 </div>`,
         )
         .join("")}</div>`

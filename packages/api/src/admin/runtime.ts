@@ -56,14 +56,17 @@ app.get("/runtime", async (c) => {
     all<{
       id: string;
       slug: string;
-      title: string;
+      title: string | null;
       kind: string;
       publication_status: string;
+      body_len: number;
       created_at: string;
       updated_at: string;
     }>(
       c.env.DB,
-      `SELECT id, slug, title, kind, publication_status, created_at, updated_at
+      `SELECT id, slug, title, kind, publication_status,
+              COALESCE(length(body_md), 0) AS body_len,
+              created_at, updated_at
          FROM pieces
         WHERE user_id = ?
         ORDER BY COALESCE(updated_at, created_at) DESC

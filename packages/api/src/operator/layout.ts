@@ -83,6 +83,12 @@ export const OP_NAV: OpNavGroup[] = [
 // Inline rules for nav-link anchors (design used <button>s) + chat/editorial
 // layout primitives + command bar.
 const OP_INLINE_CSS = `
+.op-shell{min-height:100vh}
+.op-header{padding-top:20px;padding-bottom:18px;position:relative;top:0}
+.op-header-title{font-size:22px !important;letter-spacing:-0.02em !important}
+.op-header-coord{font-size:12px !important;margin-top:2px}
+.op-content{padding-top:32px !important}
+.op-content > .card.soft, .op-content > section > .card.soft{padding:24px 26px}
 .op-nav a.op-nav-link{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:8px 10px;font-size:13.5px;letter-spacing:-0.01em;color:var(--ink-mute);text-decoration:none;border-radius:var(--r-sm);font-weight:500;transition:background .1s,color .1s;gap:8px}
 .op-nav a.op-nav-link:hover{color:var(--ink);background:var(--paper-2)}
 .op-nav a.op-nav-link.is-active{color:var(--ink);background:var(--paper-2)}
