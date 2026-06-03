@@ -1,78 +1,11 @@
 // CMS chat tools — always registered, no feature flag. These keep the
 // chat → draft → publish loop working with zero graph dependency.
 
-import type { Env } from "../../env";
 import type { ToolDef } from "../../graph/tools/index";
 import { all, insertOne, one, run } from "../../lib/d1";
+import { detectPlaceholderBody, loadBodyFromFile } from "../lib/body-source.ts";
 import { runPublishPrep } from "../lib/publish-prep.ts";
 import { renderMarkdown, slugify } from "../lib/render-post.ts";
-
-// Llama 3.3 70B sometimes shortcuts a long body_md to a placeholder
-// like "... (rest of the article)". That writes garbage to the DB.
-// Detect the most common placeholders so the tool returns a refusal
-// the model can react to instead of silently saving junk.
-const PLACEHOLDER_PATTERNS = [
-  /\(\s*rest of (the )?(article|post|content|body)[^)]*\)/i,
-  /\[\s*(content continues?|rest of (the )?(article|post|body)|full body here|continued)\s*\]/i,
-  /\.\.\.\s*\(?\s*(continued|truncated|full body|rest)\s*\)?/i,
-  /\bTODO:\s*fill in\b/i,
-  /^\s*\.\.\.\s*$/m,
-];
-
-function detectPlaceholderBody(bodyMd: string): string | null {
-  for (const p of PLACEHOLDER_PATTERNS) {
-    const m = p.exec(bodyMd);
-    if (m) return m[0];
-  }
-  return null;
-}
-
-// Load the full extracted body of an attached file for use as a post's
-// body_md. The model can't reliably echo long files through a JSON
-// parameter (1500-4000 max_tokens out), so the chat tools accept a
-// source_file_id instead and we read the body server-side here.
-//
-// Storage layout: extract.ts caps uploaded_files.extracted_text at
-// INLINE_TEXT_MAX (8KB) and stashes any overflow in R2 at the key
-// `extracted/<file_id>.txt`. So R2 is the source of truth for long
-// files; D1 is the fallback for short ones.
-async function loadBodyFromFile(
-  env: Env,
-  userId: string,
-  fileId: string,
-): Promise<{ body_md: string; filename: string } | { error: string }> {
-  const row = await one<{
-    extraction_status: string;
-    extracted_text: string | null;
-    original_filename: string;
-  }>(
-    env.DB,
-    "SELECT extraction_status, extracted_text, original_filename FROM uploaded_files WHERE id = ? AND user_id = ?",
-    [fileId, userId],
-  );
-  if (!row) {
-    return { error: `source_file_id ${fileId} not found or not owned by you` };
-  }
-  if (row.extraction_status !== "extracted") {
-    return {
-      error: `file ${fileId} not extracted yet (status=${row.extraction_status}) — wait a moment or pass body_md directly`,
-    };
-  }
-  // R2 first (full content for files >8KB), D1 fallback (sub-8KB files
-  // never get the R2 overflow object written).
-  let body_md = "";
-  try {
-    const obj = await env.FILES.get(`extracted/${fileId}.txt`);
-    if (obj) body_md = await obj.text();
-  } catch {
-    // R2 fetch failure is non-fatal; fall through to D1.
-  }
-  if (!body_md) body_md = row.extracted_text ?? "";
-  if (!body_md) {
-    return { error: `file ${fileId} has no extracted content` };
-  }
-  return { body_md, filename: row.original_filename };
-}
 
 const draftPost: ToolDef = {
   name: "draft_post",

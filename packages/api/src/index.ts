@@ -111,9 +111,15 @@ v1.route("/studio", studioGate);
 
 app.route("/v1", v1);
 
+// Operator console — server-rendered HTML at /op/*. Cloudflare Access
+// gates this subtree at the edge, so every request here is the
+// authenticated operator. Mounted before the public catch-all.
+import operatorRoutes from "./operator/routes.ts";
+app.route("/op", operatorRoutes);
+
 import { htmlResponse } from "./public/layout.ts";
-// Public site — Phase 1 skeleton. Server-rendered HTML at canopticon.com.
-// Mounted last so /v1 and /health take precedence on overlapping paths.
+// Public site — server-rendered HTML at canopticon.com. Mounted last so
+// /v1, /op, and /health take precedence on overlapping paths.
 import publicSiteRoutes, { renderNotFound as renderPublicNotFound } from "./public/routes.ts";
 app.route("/", publicSiteRoutes);
 

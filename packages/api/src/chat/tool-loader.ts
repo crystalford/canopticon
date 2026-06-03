@@ -8,6 +8,7 @@
 // substrate operations.
 
 import { CMS_TOOLS } from "../cms/tools/index.ts";
+import { PIECE_TOOLS } from "../cms/tools/pieces.ts";
 import type { Env } from "../env.ts";
 import { TOOLS as GRAPH_TOOLS } from "../graph/tools/index.ts";
 import type { ToolDef } from "../graph/tools/index.ts";
@@ -23,7 +24,10 @@ export interface LoadedTools {
 export function loadTools(env: Env): LoadedTools {
   const graphEnabled = env.GRAPH_ENABLED === "true";
   const studioEnabled = env.STUDIO_ENABLED === "true";
-  const tools: ToolDef[] = [...CMS_TOOLS];
+  // PIECE_TOOLS are the new PROBE publishing path; CMS_TOOLS (posts)
+  // stay for back-compat with existing chat history until they're
+  // retired in a cleanup pass.
+  const tools: ToolDef[] = [...PIECE_TOOLS, ...CMS_TOOLS];
   if (graphEnabled) tools.push(...GRAPH_TOOLS);
   if (studioEnabled) tools.push(...STUDIO_TOOLS);
   const toolsByName: Record<string, ToolDef> = Object.fromEntries(tools.map((t) => [t.name, t]));
