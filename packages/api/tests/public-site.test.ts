@@ -1,12 +1,41 @@
 import { describe, expect, it } from "vitest";
 import app from "../src/index.ts";
 
+// Minimal D1 stub: every SELECT returns empty results, so the public
+// surfaces exercise their real render paths against an empty corpus
+// (the Phase 2 "renders gracefully empty before seed" requirement).
+function makeEmptyDb(): D1Database {
+  const stmt = {
+    bind() {
+      return stmt;
+    },
+    async first() {
+      return null;
+    },
+    async all() {
+      return { results: [] };
+    },
+    async run() {
+      return { results: [], meta: { changes: 0 } };
+    },
+  };
+  return {
+    prepare() {
+      return stmt as unknown as D1PreparedStatement;
+    },
+    dump: async () => new ArrayBuffer(0),
+    batch: async () => [],
+    exec: async () => ({ count: 0, duration: 0 }),
+  } as unknown as D1Database;
+}
+
 const env = {
   SUPABASE_URL: "http://localhost:54321",
   SUPABASE_SERVICE_ROLE_KEY: "test",
   ANTHROPIC_API_KEY: "test",
   OPENPARLIAMENT_USER_AGENT: "test",
   LOG_LEVEL: "info",
+  DB: makeEmptyDb(),
 };
 
 describe("public site — Phase 1 skeleton", () => {
@@ -24,15 +53,37 @@ describe("public site — Phase 1 skeleton", () => {
     expect(html).toMatch(/<html[^>]*data-mode="public"/);
   });
 
-  it("each primary destination renders without JS", async () => {
-    for (const path of ["/topics", "/investigations", "/record", "/patterns", "/library"]) {
+  it("each primary destination renders real surfaces without JS", async () => {
+    const expectedHeading: Record<string, string> = {
+      "/topics": "Topics",
+      "/investigations": "Investigations",
+      "/record": "The Record",
+      "/patterns": "Patterns",
+      "/library": "Library",
+    };
+    for (const [path, heading] of Object.entries(expectedHeading)) {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(200);
       const html = await res.text();
-      // The active nav entry must appear in the rendered markup.
-      expect(html, `path ${path} body`).toContain("Phase 1 skeleton");
+      // The page heading must appear in the server-rendered markup.
+      expect(html, `path ${path} heading`).toContain(`>${heading}<`);
+      // Empty corpus → graceful empty state, not a crash.
+      expect(html, `path ${path} empty state`).toMatch(/No .* yet|is empty|No published/i);
       // Confirms no client-side rendering needed — content sits in HTML.
       expect(html).not.toContain("__NEXT_DATA__");
+    }
+  });
+
+  it("a missing detail slug returns the styled 404", async () => {
+    for (const path of [
+      "/topics/does-not-exist",
+      "/investigations/does-not-exist",
+      "/record/does-not-exist",
+    ]) {
+      const res = await app.fetch(new Request(`http://test${path}`), env);
+      expect(res.status, `path ${path}`).toBe(404);
+      const html = await res.text();
+      expect(html).toContain("We don't have a page here.");
     }
   });
 
