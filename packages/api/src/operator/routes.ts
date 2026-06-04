@@ -24,7 +24,7 @@ import { digest } from "../graph/lib/digestion";
 import { extractUpload, readFullExtractedText } from "../graph/lib/extract";
 import { composeScript } from "../graph/lib/studio/compose";
 import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
-import { insertOne, one, run } from "../lib/d1";
+import { all, insertOne, one, run } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
@@ -46,7 +46,8 @@ app.get("/", async (c) => {
   const focusPieceId = c.req.query("piece");
   const error = c.req.query("error");
   const ingested = c.req.query("ingested");
-  return opHtml(await renderFeedScreen(c.env, { focusPieceId, error, ingested }));
+  const processing = c.req.query("processing");
+  return opHtml(await renderFeedScreen(c.env, { focusPieceId, error, ingested, processing }));
 });
 
 // POST /op/feed/upload — the auto-ingest entry point.
@@ -82,46 +83,115 @@ app.post("/feed/upload", async (c) => {
       } catch (err) {
         return c.redirect(`/op?error=${encodeURIComponent(`Bad zip: ${(err as Error).message}`)}`);
       }
-      // Skip macOS resource-fork junk (__MACOSX/, dotfiles).
       const names = Object.keys(entries).filter(
         (n) => !n.startsWith("__MACOSX/") && !(n.split("/").pop() ?? "").startsWith("."),
       );
       if (names.length === 0) {
         return c.redirect(`/op?error=${encodeURIComponent("No .md/.txt/.pdf files in the zip")}`);
       }
-      let ok = 0;
+      // For zips: create + extract every entry synchronously (fast), then kick
+      // off each doc's digestion in the background. The redirect happens
+      // immediately so the operator sees the activity log start filling in.
+      const pieceIds: string[] = [];
       for (const name of names.slice(0, ZIP_MAX_ENTRIES)) {
         const bytes = entries[name];
         if (!bytes) continue;
         const base = name.split("/").pop() || name;
         try {
-          await ingestFile(c.env, userId, bytes, base, mimeForName(base), bytes.length);
-          ok++;
+          const p = await createAndExtract(
+            c.env,
+            userId,
+            bytes,
+            base,
+            mimeForName(base),
+            bytes.length,
+          );
+          pieceIds.push(p.pieceId);
+          c.executionCtx.waitUntil(
+            digest(c.env, {
+              userId,
+              pieceId: p.pieceId,
+              pieceSlug: p.slug,
+              title: p.title,
+              body_md: p.body_md,
+              sourceId: p.sourceId,
+            }),
+          );
         } catch {
           // skip a bad entry; keep ingesting the rest
         }
       }
-      return c.redirect(`/op?ingested=${ok}`);
+      return c.redirect(`/op?ingested=${pieceIds.length}&processing=1`);
     }
 
-    const pieceId = await ingestFile(c.env, userId, f.stream(), f.name, f.type, f.size);
-    return c.redirect(`/op?piece=${encodeURIComponent(pieceId)}`);
+    // Single-file: same pattern. Fast path returns the new piece; digestion
+    // runs in the background via waitUntil so the page returns immediately.
+    const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size);
+    c.executionCtx.waitUntil(
+      digest(c.env, {
+        userId,
+        pieceId: p.pieceId,
+        pieceSlug: p.slug,
+        title: p.title,
+        body_md: p.body_md,
+        sourceId: p.sourceId,
+      }),
+    );
+    return c.redirect(`/op?piece=${encodeURIComponent(p.pieceId)}&processing=1`);
   } catch (err) {
     return c.redirect(`/op?error=${encodeURIComponent((err as Error).message)}`);
   }
 });
 
-// Ingest one document end-to-end: R2 + uploaded_files → extract → full-text
-// read → pieces row → digest. Returns the new piece id. Shared by the
-// single-file and zip-expansion paths.
-async function ingestFile(
+// Lightweight status endpoint for the Feed processing banner to poll. Returns
+// the piece's digestion state from orchestrator_events without renderering HTML.
+app.get("/feed/status", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.json({ ok: false, error: "no operator" }, 401);
+  const pieceId = c.req.query("piece") ?? "";
+  if (!pieceId) return c.json({ ok: false, error: "missing piece" }, 400);
+  const events = await all<{ event_type: string }>(
+    c.env.DB,
+    "SELECT event_type FROM orchestrator_events WHERE user_id = ? AND subject_id = ? ORDER BY created_at",
+    [userId, pieceId],
+  );
+  const types = events.map((e) => e.event_type);
+  const done =
+    types.includes("feed.detect_chains.completed") || types.some((t) => t.endsWith(".failed"));
+  // Coarse step the UI can render.
+  let step = "extracting text";
+  if (types.includes("feed.extract_claims.started")) step = "extracting claims";
+  if (types.includes("feed.extract_claims.completed")) step = "embedding";
+  if (types.includes("feed.embed.completed")) step = "detecting chains";
+  if (types.some((t) => t.endsWith(".failed"))) step = "failed";
+  if (types.includes("feed.detect_chains.completed")) step = "done";
+  const claims = await one<{ n: number }>(
+    c.env.DB,
+    "SELECT COUNT(*) AS n FROM claims WHERE user_id = ? AND asserted_in_piece_id = ?",
+    [userId, pieceId],
+  );
+  return c.json({ ok: true, done, step, claims: claims?.n ?? 0, events: types.length });
+});
+
+interface CreatedPiece {
+  pieceId: string;
+  slug: string;
+  title: string;
+  body_md: string;
+  sourceId: string;
+}
+
+// Create + extract — the fast, deterministic half of ingest. Returns the new
+// piece's id + slug + extracted text so the caller can hand it to digest()
+// either inline or via waitUntil.
+async function createAndExtract(
   env: Env,
   userId: string,
   body: ReadableStream | Uint8Array,
   filename: string,
   mime: string,
   size: number,
-): Promise<string> {
+): Promise<CreatedPiece> {
   const r2_key = `uploads/${userId}/${crypto.randomUUID()}-${safeName(filename)}`;
   await env.FILES.put(r2_key, body, {
     httpMetadata: { contentType: mime || "application/octet-stream" },
@@ -140,14 +210,10 @@ async function ingestFile(
   const body_md = full.text;
   const title = full.title || filename;
 
-  const uniqueSlug = await ensureUniqueSlug(
-    env.DB,
-    userId,
-    slugify(title || `piece-${Date.now()}`),
-  );
+  const slug = await ensureUniqueSlug(env.DB, userId, slugify(title || `piece-${Date.now()}`));
   const pieceId = await insertOne(env.DB, "pieces", {
     user_id: userId,
-    slug: uniqueSlug,
+    slug,
     title,
     kind: "research-report",
     publication_status: "working-material",
@@ -162,16 +228,7 @@ async function ingestFile(
       classification: extracted.classification,
     }),
   });
-
-  await digest(env, {
-    userId,
-    pieceId,
-    pieceSlug: uniqueSlug,
-    title,
-    body_md,
-    sourceId: extracted.source_id,
-  });
-  return pieceId;
+  return { pieceId, slug, title, body_md, sourceId: extracted.source_id };
 }
 
 function mimeForName(filename: string): string {

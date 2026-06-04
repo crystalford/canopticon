@@ -214,7 +214,7 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
     // skipped — but the handler must still detect the zip, skip __MACOSX junk,
     // and redirect rather than 500.
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toMatch(/^\/op\?ingested=\d+$/);
+    expect(res.headers.get("location")).toMatch(/^\/op\?ingested=\d+&processing=1$/);
   });
 
   it("feed dropzone advertises zip support", async () => {

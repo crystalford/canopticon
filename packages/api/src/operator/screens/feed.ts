@@ -10,7 +10,7 @@
 //   - a live activity log showing the 5-step trail for every digested doc
 
 import { all, one } from "../../lib/d1";
-import { escapeHtml } from "../../public/layout";
+import { escapeAttr, escapeHtml } from "../../public/layout";
 import { resolveOperatorId } from "../data";
 import { renderOpPage } from "../layout";
 
@@ -197,9 +197,9 @@ function ago(iso: string): string {
 
 function dropzone(): string {
   return `<form method="POST" action="/op/feed/upload" enctype="multipart/form-data" id="feed-form">
-  <label class="dropzone" for="feed-file">
+  <label class="dropzone" for="feed-file" id="dz-label">
     <div class="dz-ico">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
         <path d="M8 11V3.5M5 6l3-3 3 3" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M3 11.5v1.5a1 1 0 001 1h8a1 1 0 001-1v-1.5" stroke-linecap="round"/>
       </svg>
@@ -207,9 +207,33 @@ function dropzone(): string {
     <div class="dz-1">Drop research reports here</div>
     <div class="dz-2">Markdown · plain text · PDF (Llama Scout extracts) · .zip of any of these</div>
     <div class="dz-3">Upload is authorization. The system extracts entities, drafts claims, embeds, and detects chains automatically — no confirmation gate. Claims land as draft until the weighting model judges them citable.</div>
-    <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,.zip,text/markdown,text/plain,application/pdf,application/zip,application/x-zip-compressed" required style="display:none" onchange="this.form.submit()" />
+    <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,.zip,text/markdown,text/plain,application/pdf,application/zip,application/x-zip-compressed" required style="display:none" />
   </label>
-</form>`;
+  <div class="dz-uploading" id="dz-uploading" hidden>
+    <span class="dz-spinner"></span>
+    <span class="dz-up-text"><b>Uploading and extracting text…</b> the activity log will pick up the rest. Don't close this tab.</span>
+  </div>
+</form>
+<script>
+(function () {
+  var form = document.getElementById("feed-form");
+  var input = document.getElementById("feed-file");
+  var label = document.getElementById("dz-label");
+  var busy = document.getElementById("dz-uploading");
+  if (!form || !input || !label || !busy) return;
+  input.addEventListener("change", function () {
+    if (!input.files || input.files.length === 0) return;
+    label.setAttribute("hidden", "");
+    busy.removeAttribute("hidden");
+    input.disabled = true;
+    window.addEventListener("beforeunload", function (e) {
+      e.preventDefault();
+      e.returnValue = "";
+    });
+    form.submit();
+  });
+})();
+</script>`;
 }
 
 function digestionTheater(d: RecentDigestion): string {
@@ -322,26 +346,124 @@ function activityLog(events: EventRow[]): string {
   return `<div class="log">${rows}</div>`;
 }
 
+interface ProcessingPiece {
+  id: string;
+  title: string;
+  slug: string;
+}
+
+// Pieces created in the last 5 minutes that haven't finished digesting yet.
+// These get a live row in the processing panel that polls /op/feed/status.
+async function loadProcessing(db: D1Database, userId: string): Promise<ProcessingPiece[]> {
+  return all<ProcessingPiece>(
+    db,
+    `SELECT p.id, p.title, p.slug
+       FROM pieces p
+      WHERE p.user_id = ?
+        AND p.created_at >= datetime('now', '-5 minutes')
+        AND NOT EXISTS (
+          SELECT 1 FROM orchestrator_events e
+           WHERE e.user_id = p.user_id AND e.subject_id = p.id
+             AND (e.event_type = 'feed.detect_chains.completed'
+                  OR e.event_type LIKE 'feed.%.failed')
+        )
+      ORDER BY p.created_at DESC
+      LIMIT 50`,
+    [userId],
+  );
+}
+
+function processingPanel(pieces: ProcessingPiece[]): string {
+  if (pieces.length === 0) return "";
+  const rows = pieces
+    .map(
+      (
+        p,
+      ) => `<div class="proc-row" data-piece="${escapeAttr(p.id)}" data-slug="${escapeAttr(p.slug)}">
+  <span class="proc-spinner"></span>
+  <span class="proc-name">${escapeHtml(p.title || p.slug)}</span>
+  <span class="proc-step mono" data-role="step">queued</span>
+  <span class="proc-claims mono" data-role="claims" hidden></span>
+</div>`,
+    )
+    .join("");
+  return `<div class="proc-card" id="proc-card" style="margin-bottom:18px">
+  <div class="proc-head">
+    <span class="livedot"></span>
+    <span class="proc-h-title">Processing <b>${pieces.length}</b> document${pieces.length === 1 ? "" : "s"}</span>
+    <span class="proc-h-sub mono">extract → entities → claims → embed → chain</span>
+  </div>
+  <div class="proc-list">${rows}</div>
+</div>
+<script>
+(function () {
+  var card = document.getElementById("proc-card");
+  if (!card) return;
+  var rows = Array.from(card.querySelectorAll(".proc-row"));
+  function tick() {
+    var pending = 0;
+    rows.forEach(function (r) {
+      var piece = r.getAttribute("data-piece");
+      if (!piece || r.dataset.done === "1") return;
+      pending++;
+      fetch("/op/feed/status?piece=" + encodeURIComponent(piece), { credentials: "same-origin" })
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (j) {
+          if (!j) return;
+          var stepEl = r.querySelector('[data-role="step"]');
+          var claimsEl = r.querySelector('[data-role="claims"]');
+          if (stepEl) stepEl.textContent = j.step;
+          if (claimsEl && j.claims) {
+            claimsEl.textContent = j.claims + " claim" + (j.claims === 1 ? "" : "s");
+            claimsEl.removeAttribute("hidden");
+          }
+          if (j.done) {
+            r.dataset.done = "1";
+            r.classList.add("proc-row-done");
+            var sp = r.querySelector(".proc-spinner");
+            if (sp) sp.classList.add("done");
+            if (j.step === "failed" && sp) sp.classList.add("failed");
+            var slug = r.getAttribute("data-slug");
+            if (slug && j.step !== "failed") {
+              var name = r.querySelector(".proc-name");
+              if (name) {
+                var a = document.createElement("a");
+                a.href = "/op/library/" + slug;
+                a.textContent = name.textContent;
+                name.replaceWith(a);
+              }
+            }
+          }
+        })
+        .catch(function () {});
+    });
+    if (pending === 0) clearInterval(handle);
+  }
+  var handle = setInterval(tick, 2000);
+  tick();
+})();
+</script>`;
+}
+
 export async function renderFeedScreen(
   env: { DB: D1Database },
   args: {
     focusPieceId?: string | undefined;
     error?: string | undefined;
     ingested?: string | undefined;
+    processing?: string | undefined;
   } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
-  // No operator yet → still render the dropzone (so the brand-new
-  // installation can drop its first doc and bootstrap). The activity log
-  // and focus theatre are just empty.
-  const [activity, focus] = userId
+  const [activity, focus, processing] = userId
     ? await Promise.all([
         loadActivity(env.DB, userId),
         args.focusPieceId
           ? loadRecentDigestion(env.DB, userId, args.focusPieceId)
           : Promise.resolve(null),
+        loadProcessing(env.DB, userId),
       ])
-    : [[] as EventRow[], null as RecentDigestion | null];
+    : [[] as EventRow[], null as RecentDigestion | null, [] as ProcessingPiece[]];
 
   const errorBanner = args.error
     ? `<div class="flag" style="margin-bottom:14px">
@@ -353,7 +475,7 @@ export async function renderFeedScreen(
   const okBanner =
     args.ingested && /^\d+$/.test(args.ingested)
       ? `<div class="okflag" style="margin-bottom:14px">
-  <span class="ftext"><b>Ingested ${escapeHtml(args.ingested)} document${args.ingested === "1" ? "" : "s"}</b> from the archive · digesting into the graph below.</span>
+  <span class="ftext"><b>Ingested ${escapeHtml(args.ingested)} document${args.ingested === "1" ? "" : "s"}</b> · digestion is running in the background. Watch the panel below.</span>
 </div>`
       : "";
 
@@ -361,6 +483,8 @@ export async function renderFeedScreen(
 ${errorBanner}
 ${okBanner}
 ${dropzone()}
+
+${processingPanel(processing)}
 
 ${focus ? `<div style="margin-top:18px">${digestionTheater(focus)}</div>` : ""}
 
