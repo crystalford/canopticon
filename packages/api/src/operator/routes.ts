@@ -23,6 +23,7 @@ import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
 import { insertOne, one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
+import { CMDK_CLIENT_JS } from "./client/cmdk-js";
 import { opHtml } from "./layout";
 import { renderBriefsScreen } from "./screens/briefs";
 import { renderChatScreen } from "./screens/chat";
@@ -177,9 +178,21 @@ async function ensureUniqueSlug(db: D1Database, userId: string, base: string): P
 app.get("/chat", async (c) => opHtml(await renderChatScreen(c.env)));
 app.get("/chat/:id", async (c) => opHtml(await renderChatScreen(c.env, c.req.param("id"))));
 
-// Chat client module (kept for when P3 wires the new design up to it).
+// Chat client module — handles SSE consumption with the new design's
+// chat-msg / chat-q / chat-r-text classes.
 app.get("/chat.js", () => {
   return new Response(CHAT_CLIENT_JS, {
+    headers: {
+      "content-type": "text/javascript; charset=utf-8",
+      "cache-control": "public, max-age=3600",
+    },
+  });
+});
+
+// Command palette client — attached to every operator surface via
+// layout.ts. ⌘K toggles; arrow keys + Enter run.
+app.get("/cmdk.js", () => {
+  return new Response(CMDK_CLIENT_JS, {
     headers: {
       "content-type": "text/javascript; charset=utf-8",
       "cache-control": "public, max-age=3600",
