@@ -47,6 +47,11 @@ export const OPERATOR_CSS = String.raw`
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+/* Make [hidden] always win against any later display: rule. The browser's
+   default [hidden]{display:none} loses to any author display: declaration on
+   the same selector — caught us once with .dz-uploading flashing on every
+   page load. */
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   background: var(--bg); color: var(--ink); font-family: var(--sans);
@@ -251,8 +256,11 @@ svg { flex-shrink: 0; max-width: 100%; }
 .okflag .ftext { flex: 1; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
 .okflag .ftext b { color: var(--c-thesis); font-weight: 600; }
 
-/* dropzone "uploading" state (shown immediately on file select) */
-.dz-uploading {
+/* dropzone "uploading" state (shown immediately on file select).
+   :not([hidden]) is load-bearing — without it, this rule's display:flex
+   beats the user-agent [hidden]{display:none} and the banner shows on
+   every page load even though the element has the hidden attribute. */
+.dz-uploading:not([hidden]) {
   display: flex; align-items: center; gap: 12px; padding: 24px 28px; border-radius: 12px;
   border: 1px solid var(--amber-bd); background: var(--amber-bg);
 }
