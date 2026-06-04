@@ -11,6 +11,10 @@
 //   awaiting_confirm { tool_use_id, name, input }
 //   done          { ok }
 //   error         { message }
+//
+// Classes match the design's chat surface CSS: chat-msg user/system,
+// chat-q (user bubble), chat-r-text (system response), chat-chip
+// (tool/result chips).
 
 export const CHAT_CLIENT_JS = String.raw`
 const boot = JSON.parse(document.getElementById("chat-bootstrap")?.textContent || "{}");
@@ -28,35 +32,65 @@ function setStatus(t){ statusEl.textContent = t || ""; }
 
 function addUserMsg(text){
   const el = document.createElement("div");
-  el.className = "op-msg user";
-  el.innerHTML = '<div class="bubble">' + esc(text) + '</div>';
+  el.className = "chat-msg user";
+  el.innerHTML = '<div class="chat-q">' + esc(text) + '</div>';
   scroll.appendChild(el); scrollDown();
 }
 
 function startAssistant(){
   const el = document.createElement("div");
-  el.className = "op-msg assistant";
+  el.className = "chat-msg system";
+  const inner = document.createElement("div");
+  inner.className = "chat-r";
+  el.appendChild(inner);
   scroll.appendChild(el); scrollDown();
   return el;
 }
 
 function ensureBubble(container){
-  let b = container.querySelector(".bubble.streaming");
+  const inner = container.querySelector(".chat-r");
+  let b = inner.querySelector(".chat-r-text.streaming");
   if(!b){
     b = document.createElement("div");
-    b.className = "bubble streaming";
-    container.appendChild(b);
+    b.className = "chat-r-text streaming";
+    inner.appendChild(b);
   }
   return b;
 }
 
+function ensureChips(container){
+  const inner = container.querySelector(".chat-r");
+  let c = inner.querySelector(".chat-chips");
+  if(!c){
+    c = document.createElement("div");
+    c.className = "chat-chips";
+    inner.appendChild(c);
+  }
+  return c;
+}
+
 function addToolChip(container, name, state){
-  const chip = document.createElement("div");
-  chip.className = "op-toolchip " + (state||"pending");
+  const chips = ensureChips(container);
+  const chip = document.createElement("span");
+  chip.className = "chat-chip ch-pattern " + (state||"pending");
   chip.dataset.tool = name;
-  chip.innerHTML = '<span class="dot"></span>' + esc(name);
-  container.appendChild(chip); scrollDown();
+  chip.innerHTML = '<span class="cc-label">tool</span><span class="cc-val">' + esc(name) + '</span>';
+  chips.appendChild(chip); scrollDown();
   return chip;
+}
+
+function addLoading(container){
+  const inner = container.querySelector(".chat-r");
+  const ld = document.createElement("div");
+  ld.className = "chat-loading";
+  ld.innerHTML = '<span class="chat-dot"></span><span class="chat-dot"></span><span class="chat-dot"></span>';
+  inner.appendChild(ld);
+  return ld;
+}
+
+function removeLoading(container){
+  const ld = container.querySelector(".chat-loading");
+  if (ld) ld.remove();
 }
 
 async function createConversation(){
@@ -78,6 +112,7 @@ async function send(text){
   }
   addUserMsg(text);
   const assistant = startAssistant();
+  addLoading(assistant);
 
   const res = await fetch("/v1/chat/conversations/" + conversationId + "/messages", {
     method:"POST",
@@ -85,7 +120,7 @@ async function send(text){
     credentials:"include",
     body: JSON.stringify({ text })
   });
-  if(!res.ok || !res.body){ setStatus("error"); sendBtn.disabled=false; return; }
+  if(!res.ok || !res.body){ setStatus("error"); sendBtn.disabled=false; removeLoading(assistant); return; }
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -97,11 +132,12 @@ async function send(text){
     let idx;
     while((idx = buffer.indexOf("\n\n")) >= 0){
       const block = buffer.slice(0, idx); buffer = buffer.slice(idx+2);
+      removeLoading(assistant);
       handleEvent(parseBlock(block), assistant);
     }
   }
-  // strip the streaming marker so the next turn starts a fresh bubble
-  const sb = assistant.querySelector(".bubble.streaming");
+  removeLoading(assistant);
+  const sb = assistant.querySelector(".chat-r-text.streaming");
   if(sb) sb.classList.remove("streaming");
   setStatus(""); sendBtn.disabled = false;
 }
@@ -124,10 +160,12 @@ function handleEvent(ev, assistant){
   } else if(ev.event === "tool_call"){
     addToolChip(assistant, ev.data.name, ev.data.confirm ? "pending" : "pending");
   } else if(ev.event === "tool_result"){
-    const name = ev.data && ev.data.name;
-    const chips = assistant.querySelectorAll(".op-toolchip");
+    const chips = assistant.querySelectorAll(".chat-chip");
     const chip = chips[chips.length-1];
-    if(chip) chip.className = "op-toolchip " + (ev.data && ev.data.error ? "err" : "ok");
+    if(chip){
+      chip.classList.remove("pending");
+      chip.classList.add(ev.data && ev.data.error ? "err" : "ok");
+    }
   } else if(ev.event === "awaiting_confirm"){
     setStatus("awaiting confirmation — " + (ev.data && ev.data.name));
   } else if(ev.event === "error"){
@@ -143,6 +181,16 @@ form.addEventListener("submit", (e) => {
   if(!text) return;
   input.value = "";
   send(text).catch((err) => { setStatus("error: " + err.message); sendBtn.disabled=false; });
+});
+
+// Suggestion chips: click to populate + auto-submit.
+document.querySelectorAll(".chat-sg").forEach((b) => {
+  b.addEventListener("click", () => {
+    const sg = b.getAttribute("data-sg") || b.textContent;
+    if (!sg) return;
+    input.value = sg;
+    form.requestSubmit();
+  });
 });
 
 input.addEventListener("keydown", (e) => {
