@@ -123,6 +123,7 @@ function tagFor(eventType: string): { cls: string; label: string } {
   if (eventType === "role.failed") return { cls: "lt-promote", label: "failed" };
   if (eventType.startsWith("cascade.")) return { cls: "lt-ingest", label: "cascade" };
   if (eventType.startsWith("character.")) return { cls: "lt-promote", label: "character" };
+  if (eventType === "worker_error") return { cls: "lt-error", label: "error" };
   return { cls: "lt-ingest", label: "event" };
 }
 
@@ -166,6 +167,15 @@ function describeEvent(row: EventRow): string {
   }
   if (row.event_type === "cascade.completed") {
     return "<b>cascade</b> completed";
+  }
+  if (row.event_type === "worker_error") {
+    const method = escapeHtml(String(payload.method ?? ""));
+    const path = escapeHtml(String(payload.path ?? ""));
+    const msg = escapeHtml(String(payload.message ?? "unknown error"));
+    const name = payload.name
+      ? `<span class="mono" style="color:var(--c-contra)">${escapeHtml(String(payload.name))}</span> `
+      : "";
+    return `${name}<b>${method} ${path}</b> · ${msg}`;
   }
   return escapeHtml(row.event_type);
 }

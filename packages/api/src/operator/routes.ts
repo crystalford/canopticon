@@ -32,6 +32,7 @@ import { renderBriefsScreen } from "./screens/briefs";
 import { renderChatScreen } from "./screens/chat";
 import { renderFeedScreen } from "./screens/feed";
 import { renderLibraryScreen } from "./screens/library";
+import { renderLibraryDocScreen } from "./screens/library-doc";
 import { renderProjectWorkspace, renderStudioScreen } from "./screens/studio";
 import { renderSynthesisScreen } from "./screens/synthesis";
 
@@ -224,6 +225,12 @@ app.post("/synthesis/surface", async (c) => {
 });
 
 app.get("/library", async (c) => opHtml(await renderLibraryScreen(c.env)));
+
+app.get("/library/:slug", async (c) => {
+  const html = await renderLibraryDocScreen(c.env, c.req.param("slug"));
+  if (!html) return c.notFound();
+  return opHtml(html);
+});
 
 app.get("/briefs", async (c) => opHtml(await renderBriefsScreen(c.env)));
 
