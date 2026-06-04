@@ -37,10 +37,11 @@ const ICONS: Record<string, string> = {
   upload: `<path d="M8 11V3.5M5 6l3-3 3 3" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11.5v1.5a1 1 0 001 1h8a1 1 0 001-1v-1.5" stroke-linecap="round"/>`,
 };
 
-export function icon(name: string, opts: { className?: string } = {}): string {
+export function icon(name: string, opts: { className?: string; size?: number } = {}): string {
   const body = ICONS[name] ?? "";
   const cls = opts.className ? ` class="${escapeAttr(opts.className)}"` : "";
-  return `<svg${cls} viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">${body}</svg>`;
+  const size = opts.size ?? 16;
+  return `<svg${cls} width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">${body}</svg>`;
 }
 
 export interface OpNavItem {
