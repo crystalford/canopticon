@@ -17,10 +17,12 @@
 
 import { Hono } from "hono";
 import type { Env } from "../env";
+import { buildBrief } from "../graph/lib/briefs/pipeline";
+import { proposeBriefs } from "../graph/lib/briefs/proposer";
 import { digest } from "../graph/lib/digestion";
 import { extractUpload } from "../graph/lib/extract";
 import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
-import { insertOne, one } from "../lib/d1";
+import { insertOne, one, run } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
@@ -223,6 +225,70 @@ app.post("/synthesis/surface", async (c) => {
 app.get("/library", async (c) => opHtml(await renderLibraryScreen(c.env)));
 
 app.get("/briefs", async (c) => opHtml(await renderBriefsScreen(c.env)));
+
+// Re-run the proposer over the corpus. Idempotent: upserts proposals
+// by slug. Surfaces graph coverage gaps + synthesis-finding-derived
+// Brief shapes.
+app.post("/briefs/propose", async (c) => {
+  try {
+    const userId = await resolveOperatorId(c.env.DB);
+    if (!userId) return c.redirect("/op/briefs?err=no_operator");
+    await proposeBriefs(c.env, userId);
+    return c.redirect("/op/briefs");
+  } catch (err) {
+    return c.redirect(`/op/briefs?err=${encodeURIComponent((err as Error).message)}`);
+  }
+});
+
+// Build a Brief — runs the 4-step pipeline synchronously and persists
+// claims + body. The operator sees the verified draft on the redirect.
+app.post("/briefs/:id/build", async (c) => {
+  try {
+    const userId = await resolveOperatorId(c.env.DB);
+    if (!userId) return c.redirect("/op/briefs?err=no_operator");
+    await buildBrief(c.env, c.req.param("id"), userId);
+    return c.redirect("/op/briefs");
+  } catch (err) {
+    return c.redirect(`/op/briefs?err=${encodeURIComponent((err as Error).message)}`);
+  }
+});
+
+// Publish — promotes a draft Brief to the public /briefs/:slug page.
+app.post("/briefs/:id/publish", async (c) => {
+  try {
+    const userId = await resolveOperatorId(c.env.DB);
+    if (!userId) return c.redirect("/op/briefs?err=no_operator");
+    const now = new Date().toISOString();
+    await run(
+      c.env.DB,
+      `UPDATE briefs SET status = 'published', published_at = COALESCE(published_at, ?),
+                          signed_by = COALESCE(signed_by, 'the operator'),
+                          signed_at = COALESCE(signed_at, ?),
+                          updated_at = ?
+        WHERE id = ? AND user_id = ? AND status = 'draft'`,
+      [now, now, now, c.req.param("id"), userId],
+    );
+    return c.redirect("/op/briefs");
+  } catch (err) {
+    return c.redirect(`/op/briefs?err=${encodeURIComponent((err as Error).message)}`);
+  }
+});
+
+// Discard — moves a draft back to discarded status; operator can re-propose.
+app.post("/briefs/:id/discard", async (c) => {
+  try {
+    const userId = await resolveOperatorId(c.env.DB);
+    if (!userId) return c.redirect("/op/briefs?err=no_operator");
+    await run(
+      c.env.DB,
+      "UPDATE briefs SET status = 'discarded', updated_at = ? WHERE id = ? AND user_id = ?",
+      [new Date().toISOString(), c.req.param("id"), userId],
+    );
+    return c.redirect("/op/briefs");
+  } catch (err) {
+    return c.redirect(`/op/briefs?err=${encodeURIComponent((err as Error).message)}`);
+  }
+});
 
 app.get("/studio", async (c) => opHtml(await renderStudioScreen(c.env)));
 

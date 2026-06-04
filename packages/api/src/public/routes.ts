@@ -11,6 +11,7 @@ import type { Env } from "../env";
 import { getPieceBySlug, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
 import { renderAbout } from "./render/about";
+import { renderBriefPage } from "./render/brief";
 import { renderHome } from "./render/home";
 import { renderInvestigationsIndex, renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
@@ -125,6 +126,17 @@ app.get("/timeline", async (c) => {
 // ---- Library --------------------------------------------------------------
 
 app.get("/library", async (c) => htmlResponse(await renderLibraryIndex(c.env)));
+
+// ---- Briefs (the third projection) -------------------------------------
+//
+// A published Brief renders here as a server-rendered citable page.
+// The trust boundary is mechanical (verbatim-substring + independent
+// judge) not "the operator vouched for it". See briefs/pipeline.ts.
+app.get("/briefs/:slug", async (c) => {
+  const html = await renderBriefPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
 
 // ---- Utility pages (still placeholders until trailing Phase 2) -----------
 
