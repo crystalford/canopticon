@@ -65,6 +65,10 @@ const STEP_ORDER = [
 export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> {
   const result: DigestResult = { steps_completed: [], chain_action: null };
 
+  // Ensure the live operator's claim_extraction role points at the chosen
+  // model (idempotent; the seed only applies to fresh installs).
+  await ensureExtractionRoleModel(env, args.userId);
+
   // Step 1: extract_text — already done before this lib is called.
   // Log the event so the activity log shows the full 5-step trail.
   await emit(env, args, "extract_text", "completed", {
@@ -73,71 +77,92 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
   });
   result.steps_completed.push("extract_text");
 
-  // Step 2: recognize_entities
+  // Steps 2 + 3: extract_claims (chunked) → persist claims + entities.
+  // Entities are derived from each claim's entities_mentioned[] (the reliable
+  // signal); the per-mention entity_resolver role is a P2 upgrade. The two
+  // steps are reported separately for the activity log but computed together.
   await emit(env, args, "recognize_entities", "started", {});
-  try {
-    const roleResult = await runRole(env, {
-      userId: args.userId,
-      roleName: "entity_resolver",
-      payload: {
-        title: args.title,
-        content_text: args.body_md.slice(0, 30000),
-        source_id: args.sourceId,
-        piece_id: args.pieceId,
-      },
-    });
-    if (roleResult.status === "failed") {
-      result.failed_step = "recognize_entities";
-      result.failed_reason = roleResult.error ?? "entity_resolver failed";
-      await emit(env, args, "recognize_entities", "failed", { error: result.failed_reason });
-      return result;
+  await emit(env, args, "extract_claims", "started", {});
+
+  const chunks = chunkText(args.body_md);
+  const accepted: ExtractedClaim[] = [];
+  const claimSeen = new Set<string>();
+  let chunksOk = 0;
+  for (let i = 0; i < chunks.length; i++) {
+    try {
+      const roleResult = await runRole(env, {
+        userId: args.userId,
+        roleName: "claim_extraction",
+        payload: {
+          title: args.title,
+          content_text: chunks[i] ?? "",
+          source_id: args.sourceId,
+          piece_id: args.pieceId,
+          chunk_index: i,
+          chunk_count: chunks.length,
+        },
+        idempotencyKey: `${args.pieceId}:claims:${i}`,
+      });
+      if (roleResult.status === "failed") continue; // skip the chunk, keep going
+      chunksOk++;
+      for (const c of parseClaims(roleResult.output)) {
+        const key = normalizeName(c.claim_text);
+        if (!key || claimSeen.has(key)) continue; // cross-chunk dedup
+        claimSeen.add(key);
+        accepted.push(c);
+      }
+    } catch {
+      // a single bad chunk shouldn't sink the document
     }
-    const proposed = countEntitiesFromOutput(roleResult.output);
-    result.entities_proposed = proposed;
-    await emit(env, args, "recognize_entities", "completed", {
-      invocation_id: roleResult.invocation_id,
-      entities_proposed: proposed,
-    });
-    result.steps_completed.push("recognize_entities");
-  } catch (err) {
-    result.failed_step = "recognize_entities";
-    result.failed_reason = (err as Error).message;
-    await emit(env, args, "recognize_entities", "failed", { error: result.failed_reason });
-    return result;
   }
 
-  // Step 3: extract_claims
-  await emit(env, args, "extract_claims", "started", {});
-  try {
-    const roleResult = await runRole(env, {
-      userId: args.userId,
-      roleName: "claim_extraction",
-      payload: {
-        title: args.title,
-        content_text: args.body_md.slice(0, 30000),
-        source_id: args.sourceId,
-        piece_id: args.pieceId,
-      },
-    });
-    if (roleResult.status === "failed") {
-      result.failed_step = "extract_claims";
-      result.failed_reason = roleResult.error ?? "claim_extraction failed";
-      await emit(env, args, "extract_claims", "failed", { error: result.failed_reason });
-      return result;
-    }
-    const drafted = countClaimsFromOutput(roleResult.output);
-    result.claims_drafted = drafted;
-    await emit(env, args, "extract_claims", "completed", {
-      invocation_id: roleResult.invocation_id,
-      claims_drafted: drafted,
-    });
-    result.steps_completed.push("extract_claims");
-  } catch (err) {
+  // Every chunk failed → the extraction step genuinely failed.
+  if (chunks.length > 0 && chunksOk === 0) {
     result.failed_step = "extract_claims";
-    result.failed_reason = (err as Error).message;
+    result.failed_reason = "claim_extraction failed on every chunk";
     await emit(env, args, "extract_claims", "failed", { error: result.failed_reason });
     return result;
   }
+
+  // Persist claims + derive/link entities. Embedding failures are tolerated
+  // (vectors are recoverable via the /backfill route); a row-write failure
+  // skips that one claim rather than aborting the document.
+  const entitySeen = new Map<string, string>();
+  let claimsPersisted = 0;
+  for (const claim of accepted) {
+    try {
+      const claimId = await persistClaim(
+        env,
+        { userId: args.userId, pieceId: args.pieceId, sourceId: args.sourceId },
+        claim,
+      );
+      claimsPersisted++;
+      for (const name of claim.entities_mentioned) {
+        const entityId = await upsertEntityByName(env, args.userId, name, entitySeen);
+        if (entityId) {
+          await run(
+            env.DB,
+            "INSERT OR IGNORE INTO claim_entities (claim_id, entity_id, user_id) VALUES (?, ?, ?)",
+            [claimId, entityId, args.userId],
+          );
+        }
+      }
+    } catch {
+      // skip this claim; continue with the rest
+    }
+  }
+
+  result.claims_drafted = claimsPersisted;
+  result.entities_proposed = entitySeen.size;
+  await emit(env, args, "extract_claims", "completed", {
+    claims_drafted: claimsPersisted,
+    chunks: chunks.length,
+  });
+  await emit(env, args, "recognize_entities", "completed", {
+    entities_proposed: entitySeen.size,
+  });
+  result.steps_completed.push("recognize_entities");
+  result.steps_completed.push("extract_claims");
 
   // Step 4: embed
   await emit(env, args, "embed", "started", {});
@@ -262,30 +287,269 @@ async function emit(
   });
 }
 
-// Best-effort count of entities from the role's structured output. Roles
-// return varying shapes; we look for the common ones.
-function countEntitiesFromOutput(output: unknown): number {
-  if (!output) return 0;
-  if (Array.isArray(output)) return output.length;
-  if (typeof output === "object" && output !== null) {
-    const obj = output as Record<string, unknown>;
-    for (const key of ["entities", "proposed_entities", "extracted_entities", "items"]) {
-      const v = obj[key];
-      if (Array.isArray(v)) return v.length;
-    }
+// ---------------------------------------------------------------------------
+// Claim extraction model — single config point. The seed sets this for fresh
+// installs; ensureExtractionRoleModel() reconciles the live operator's role.
+// Flip to an Anthropic model + provider="anthropic" (and seed the
+// anthropic.role.claim_extraction cost whitelist) to route to Claude.
+// ---------------------------------------------------------------------------
+const CLAIM_EXTRACTION_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+
+async function ensureExtractionRoleModel(env: Env, userId: string): Promise<void> {
+  try {
+    await run(
+      env.DB,
+      `UPDATE role_definitions SET model = ?
+        WHERE user_id = ? AND name = 'claim_extraction' AND model <> ?`,
+      [CLAIM_EXTRACTION_MODEL, userId, CLAIM_EXTRACTION_MODEL],
+    );
+  } catch {
+    // non-fatal: extraction still runs on whatever model is configured
   }
-  return 0;
 }
 
-function countClaimsFromOutput(output: unknown): number {
-  if (!output) return 0;
-  if (Array.isArray(output)) return output.length;
-  if (typeof output === "object" && output !== null) {
-    const obj = output as Record<string, unknown>;
-    for (const key of ["claims", "drafted_claims", "extracted_claims", "items"]) {
-      const v = obj[key];
-      if (Array.isArray(v)) return v.length;
+// ---------------------------------------------------------------------------
+// Claim parsing — tolerant of every shape the model/runner can hand back:
+// a parsed object, a bare array, a raw JSON string, or null. Malformed claim
+// entries are skipped, not fatal.
+// ---------------------------------------------------------------------------
+const LAYERS = ["factual", "framing", "architectural", "distributive"] as const;
+type Layer = (typeof LAYERS)[number];
+
+export interface ExtractedClaim {
+  data: string;
+  claim_text: string;
+  warrant: string | null;
+  backing: string | null;
+  qualifier: string | null;
+  rebuttal: string | null;
+  layer: Layer;
+  entities_mentioned: string[];
+  source_excerpt: string | undefined;
+}
+
+export function parseClaims(output: unknown): ExtractedClaim[] {
+  let root: unknown = output;
+  if (root == null) return [];
+  if (typeof root === "string") {
+    try {
+      root = JSON.parse(root);
+    } catch {
+      return [];
     }
   }
-  return 0;
+  let arr: unknown[];
+  if (Array.isArray(root)) {
+    arr = root;
+  } else if (typeof root === "object" && root !== null) {
+    const obj = root as Record<string, unknown>;
+    const found = obj.claims ?? obj.drafted_claims ?? obj.extracted_claims ?? obj.items;
+    arr = Array.isArray(found) ? found : [];
+  } else {
+    return [];
+  }
+  const out: ExtractedClaim[] = [];
+  for (const raw of arr) {
+    const c = coerceClaim(raw);
+    if (c) out.push(c);
+  }
+  return out;
+}
+
+function coerceClaim(raw: unknown): ExtractedClaim | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  const claim_text = typeof o.claim_text === "string" ? o.claim_text.trim() : "";
+  if (!claim_text) return null;
+  const layer = (LAYERS as readonly string[]).includes(o.layer as string)
+    ? (o.layer as Layer)
+    : "factual";
+  const data = typeof o.data === "string" && o.data.trim() ? o.data : claim_text;
+  const entities_mentioned = Array.isArray(o.entities_mentioned)
+    ? o.entities_mentioned.filter((e): e is string => typeof e === "string")
+    : [];
+  return {
+    data,
+    claim_text,
+    warrant: typeof o.warrant === "string" ? o.warrant : null,
+    backing: typeof o.backing === "string" ? o.backing : null,
+    qualifier: typeof o.qualifier === "string" ? o.qualifier : null,
+    rebuttal: typeof o.rebuttal === "string" ? o.rebuttal : null,
+    layer,
+    entities_mentioned,
+    source_excerpt: typeof o.source_excerpt === "string" ? o.source_excerpt : undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Persistence — claims + claim_versions + Vectorize.
+// ---------------------------------------------------------------------------
+async function persistClaim(
+  env: Env,
+  args: { userId: string; pieceId: string; sourceId: string | undefined },
+  claim: ExtractedClaim,
+): Promise<string> {
+  // 1. claim shell. evidenced_by_source_ids may ONLY hold external Source IDs —
+  //    never a piece id (spec §2.5 citogenesis invariant).
+  const claimId = await insertOne(env.DB, "claims", {
+    user_id: args.userId,
+    layer: claim.layer,
+    verification_status: "unverified",
+    asserted_in_piece_id: args.pieceId,
+    evidenced_by_source_ids: args.sourceId ? [args.sourceId] : [],
+    metadata: { ingested_via: "feed-digest", source_excerpt: claim.source_excerpt ?? null },
+  });
+  // 2. version 1.
+  const versionId = await insertOne(env.DB, "claim_versions", {
+    claim_id: claimId,
+    version_number: 1,
+    data: claim.data,
+    claim_text: claim.claim_text,
+    warrant: claim.warrant,
+    backing: claim.backing,
+    qualifier: claim.qualifier,
+    rebuttal: claim.rebuttal,
+    change_summary: "initial extraction",
+    created_by_user_id: args.userId,
+  });
+  // 3. back-link the current version.
+  await run(env.DB, "UPDATE claims SET current_version_id = ? WHERE id = ? AND user_id = ?", [
+    versionId,
+    claimId,
+    args.userId,
+  ]);
+  // 4. embed (best-effort; recoverable via /backfill).
+  try {
+    const vec = await embedText(env, claim.claim_text);
+    await upsertVector(env, {
+      id: vectorId("claim", claimId),
+      values: vec,
+      metadata: {
+        user_id: args.userId,
+        kind: "claim",
+        id: claimId,
+        title: claim.claim_text.slice(0, 80),
+      },
+    });
+  } catch {
+    // vectors are eventually consistent; the claim row is the source of truth
+  }
+  return claimId;
+}
+
+// ---------------------------------------------------------------------------
+// Entities — derived from claim.entities_mentioned[]. Dedup in-pipeline (the
+// `seen` map) and against existing rows (case-insensitive canonical_name).
+// ---------------------------------------------------------------------------
+function normalizeName(s: string): string {
+  return s.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function entitySlug(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "entity"
+  );
+}
+
+async function ensureUniqueEntitySlug(db: D1Database, base: string): Promise<string> {
+  let candidate = base;
+  let suffix = 0;
+  while (suffix < 32) {
+    // public_slug is globally UNIQUE (not per-user), so check without user filter.
+    const existing = await one<{ id: string }>(
+      db,
+      "SELECT id FROM entities WHERE public_slug = ?",
+      [candidate],
+    );
+    if (!existing) return candidate;
+    suffix++;
+    candidate = `${base}-${suffix}`;
+  }
+  return `${base}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+async function upsertEntityByName(
+  env: Env,
+  userId: string,
+  surfaceName: string,
+  seen: Map<string, string>,
+): Promise<string | null> {
+  const norm = normalizeName(surfaceName);
+  if (!norm || norm.length < 2) return null;
+  const cached = seen.get(norm);
+  if (cached) return cached;
+
+  const existing = await one<{ id: string }>(
+    env.DB,
+    "SELECT id FROM entities WHERE user_id = ? AND lower(canonical_name) = ? LIMIT 1",
+    [userId, norm],
+  );
+  if (existing) {
+    seen.set(norm, existing.id);
+    return existing.id;
+  }
+
+  // entity_type is CHECK-constrained and can't be reliably inferred from a
+  // surface string at ingest time — default to 'concept'; P2 re-types.
+  const slug = await ensureUniqueEntitySlug(env.DB, entitySlug(surfaceName));
+  const entityId = await insertOne(env.DB, "entities", {
+    user_id: userId,
+    entity_type: "concept",
+    canonical_name: surfaceName.trim(),
+    public_slug: slug,
+    metadata: { provisional: true, created_via: "feed-digest" },
+  });
+  try {
+    const vec = await embedText(env, surfaceName);
+    await upsertVector(env, {
+      id: vectorId("entity", entityId),
+      values: vec,
+      metadata: { user_id: userId, kind: "entity", id: entityId, title: surfaceName.slice(0, 80) },
+    });
+  } catch {
+    // recoverable via /backfill
+  }
+  seen.set(norm, entityId);
+  return entityId;
+}
+
+// ---------------------------------------------------------------------------
+// Chunking — paragraph-greedy windows so long documents aren't truncated.
+// Small docs (the common case) return [text] unchanged.
+// ---------------------------------------------------------------------------
+export function chunkText(
+  text: string,
+  opts: { maxChars?: number; overlapChars?: number } = {},
+): string[] {
+  const maxChars = opts.maxChars ?? 24000;
+  const overlapChars = opts.overlapChars ?? 800;
+  if (text.length <= maxChars) return text.length ? [text] : [];
+
+  const paras = text.split(/\n\n+/);
+  const chunks: string[] = [];
+  let cur = "";
+  const pushCur = () => {
+    if (cur.trim()) chunks.push(cur);
+    // carry a tail of the previous chunk for continuity
+    cur = overlapChars > 0 ? cur.slice(-overlapChars) : "";
+  };
+  for (const para of paras) {
+    if (para.length > maxChars) {
+      // hard-slice an oversized paragraph
+      if (cur.trim()) pushCur();
+      for (let i = 0; i < para.length; i += maxChars) {
+        chunks.push(para.slice(i, i + maxChars));
+      }
+      cur = "";
+      continue;
+    }
+    if (cur.length + para.length + 2 > maxChars) pushCur();
+    cur = cur ? `${cur}\n\n${para}` : para;
+  }
+  if (cur.trim()) chunks.push(cur);
+  return chunks;
 }

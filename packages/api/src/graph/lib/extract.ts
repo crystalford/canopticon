@@ -5,11 +5,38 @@
 // fires automatically.
 
 import type { Env } from "../../env";
-import { insertOne, one, run } from "../../lib/d1";
+import { insertOne, one, parseJson, run } from "../../lib/d1";
 import { callLLM } from "../../llm/index";
 import { embedText, upsertVector, vectorId } from "./embeddings";
 
 const INLINE_TEXT_MAX = 8 * 1024; // 8KB head kept in D1; full text lives in R2
+
+// Read the FULL extracted text for a source — the inline 8KB head plus the R2
+// overflow when the document was larger. Digestion uses this so claim/entity
+// extraction sees the whole document, not just the first ~2 pages.
+export async function readFullExtractedText(
+  env: Env,
+  sourceId: string,
+  userId: string,
+): Promise<{ text: string; title: string }> {
+  const row = await one<{ content_text: string | null; title: string; metadata: string | null }>(
+    env.DB,
+    "SELECT content_text, title, metadata FROM sources WHERE id = ? AND user_id = ?",
+    [sourceId, userId],
+  );
+  if (!row) return { text: "", title: "" };
+  const meta = parseJson<{ extracted_chars?: number; upload_file_id?: string }>(row.metadata, {});
+  let text = row.content_text ?? "";
+  if ((meta.extracted_chars ?? 0) > INLINE_TEXT_MAX && meta.upload_file_id) {
+    try {
+      const obj = await env.FILES.get(`extracted/${meta.upload_file_id}.txt`);
+      if (obj) text = await obj.text();
+    } catch {
+      // fall back to the inline head if R2 read fails
+    }
+  }
+  return { text, title: row.title ?? "" };
+}
 
 interface UploadedFile {
   id: string;

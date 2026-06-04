@@ -161,7 +161,7 @@ svg { flex-shrink: 0; max-width: 100%; }
    FEED
    ======================================================================== */
 .dropzone {
-  border: 1.5px dashed var(--rule-bright); border-radius: 12px; padding: 46px 30px;
+  border: 1px solid var(--rule-2); border-radius: 12px; padding: 46px 30px;
   text-align: center; cursor: pointer; transition: border-color .16s, background .16s, transform .16s;
   background: linear-gradient(180deg, rgba(255,255,255,0.012), transparent);
   position: relative; overflow: hidden;
@@ -212,7 +212,7 @@ svg { flex-shrink: 0; max-width: 100%; }
 .digest-head .dh-status { margin-left: auto; font-size: 11.5px; color: var(--amber); font-family: var(--mono); }
 .digest-head .dh-status.ok { color: var(--c-thesis); }
 .digest-bar { height: 2px; background: var(--rule); position: relative; overflow: hidden; }
-.digest-bar i { position: absolute; inset: 0; background: linear-gradient(90deg, var(--amber), var(--amber-hi)); transform-origin: left; }
+.digest-bar i { position: absolute; inset: 0; display: block; width: 100%; height: 100%; background: linear-gradient(90deg, var(--amber), var(--amber-hi)); transform-origin: left; }
 .digest-steps { padding: 6px 16px 8px; }
 .dstep { display: flex; align-items: center; gap: 11px; padding: 7px 0; font-size: 12.5px; color: var(--faint); transition: color .25s; }
 .dstep.run { color: var(--ink-2); }
