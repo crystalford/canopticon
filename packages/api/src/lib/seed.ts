@@ -22,13 +22,14 @@ const ROLE_DEFAULTS: Array<{ name: string; model: string; allow_anthropic_overri
     allow_anthropic_override: 0,
   },
   {
-    // Llama-4-Scout (17B, 131k ctx) — fast and reliable for structured-output
-    // claim extraction. (Llama-3.3-70B hung the Worker on the structured call.)
-    // allow_anthropic_override:1 lets the operator flip this role to Claude
-    // from role settings; the cost whitelist below is seeded so that flip
-    // doesn't hard-fail the cost gate. Quality upgrades go via Claude, not 70B.
+    // Llama 3.3 70B — Cloudflare's own JSON-mode-supported model (and what
+    // backs Browser Rendering's /json endpoint). Scout was silently dropping
+    // response_format because it's not on the json-mode list (per
+    // cloudflare-docs#27786). 70B was previously suspected of hanging the
+    // Worker, but that was before MAX_CHUNKS=3 + the cron drain landed —
+    // a slow call now fails its chunk and is retried idempotently.
     name: "claim_extraction",
-    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     allow_anthropic_override: 1,
   },
   {

@@ -326,17 +326,52 @@ async function emit(
 }
 
 // ---------------------------------------------------------------------------
-// Claim extraction model — single config point. The seed sets this for fresh
-// installs; ensureExtractionRoleModel() reconciles the live operator's role.
-// Flip to an Anthropic model + provider="anthropic" (and seed the
-// anthropic.role.claim_extraction cost whitelist) to route to Claude.
+// Claim extraction model + prompt — single config point. The seed sets these
+// for fresh installs; ensureExtractionRoleModel() reconciles the live row.
 //
-// NOTE: Llama-4-Scout (fast 17B, 131k ctx) is the proven model here — it
-// completes structured-output extraction reliably and quickly. Llama-3.3-70B
-// was observed to hang the Worker on the structured-output call (request
-// hard-killed mid-extraction, nothing persisted). Quality upgrades go through
-// the Anthropic toggle, not a slower Workers-AI model.
-const CLAIM_EXTRACTION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+// Why Llama 3.3 70B: Cloudflare's own docs list this as a JSON-mode-supported
+// model (and it's what they use to back Browser Rendering's /json endpoint).
+// Llama 4 Scout, by contrast, is NOT on the supported list — Workers AI
+// silently drops response_format on Scout, which is why our extractions were
+// coming back as freeform prose. The previous attempt to use 70B "hung the
+// Worker" but that was before MAX_CHUNKS=3 + ROLE_TIMEOUT_MS=25s + the cron
+// drain landed; a slow call now fails its chunk cleanly and a later tick
+// retries idempotently. (cloudflare-docs#27786, json-mode supported list)
+const CLAIM_EXTRACTION_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+
+// Terse JSON-only prompt with an inline one-shot example. Pattern-matching
+// on the example is far more reliable on Llama-class models than schema
+// descriptions alone. Output of the role MUST be a single JSON object.
+const CLAIM_EXTRACTION_PROMPT = `You extract atomic factual claims from a source document and return them as a strict JSON object. Output ONLY JSON. No prose, no explanation, no markdown fences. Start your reply with { and end with }.
+
+Output schema:
+{
+  "claims": [
+    {
+      "data": string,            // a specific quote, number, or named fact from the source
+      "claim_text": string,      // the atomic assertion (one fact)
+      "warrant": string,         // the rule connecting data to claim
+      "backing": string,         // broader support for the warrant ("" if none)
+      "qualifier": string,       // calibrated language: "high confidence" | "medium confidence" | "likely" | "unverified"
+      "rebuttal": string,        // conditions that would falsify the claim ("" if none)
+      "layer": "factual" | "framing" | "architectural" | "distributive",
+      "entities_mentioned": [string],
+      "source_excerpt": string
+    }
+  ]
+}
+
+Rules:
+- Return 0–10 claims. Zero is valid when the source has no atomic facts worth extracting.
+- Atomic = exactly one fact per claim. "X was appointed and oversaw Y" is two claims.
+- Do NOT extract claims the source merely reports from another source.
+- entities_mentioned is raw surface text only; resolution happens later.
+
+Example. Source: "OSFI Superintendent Peter Routledge said the regulator will require Canadian banks to hold an additional 50bp of capital starting Q1 2026."
+
+{"claims":[{"data":"OSFI will require Canadian banks to hold an additional 50bp of capital starting Q1 2026","claim_text":"OSFI raised the domestic stability buffer by 50bp effective Q1 2026.","warrant":"OSFI sets capital requirements for Canadian banks.","backing":"OSFI's mandate under the Bank Act includes setting prudential capital floors.","qualifier":"high confidence","rebuttal":"Routledge's statement is rescinded before Q1 2026.","layer":"factual","entities_mentioned":["OSFI","Peter Routledge"],"source_excerpt":"OSFI Superintendent Peter Routledge said the regulator will require Canadian banks to hold an additional 50bp of capital starting Q1 2026."}]}
+
+Now do the same for the source below. Reply with the JSON object only.`;
 
 // Bound per-upload work so the request can't be killed mid-flight.
 // Tight budget so a single waitUntil run can finish a typical doc in ~one
@@ -355,16 +390,26 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ]);
 }
 
+// Reconcile the live operator's claim_extraction role to the constants above
+// without needing to re-seed or re-run sync-skills. Idempotent.
 async function ensureExtractionRoleModel(env: Env, userId: string): Promise<void> {
   try {
     await run(
       env.DB,
-      `UPDATE role_definitions SET model = ?
-        WHERE user_id = ? AND name = 'claim_extraction' AND model <> ?`,
-      [CLAIM_EXTRACTION_MODEL, userId, CLAIM_EXTRACTION_MODEL],
+      `UPDATE role_definitions
+          SET model = ?, prompt_template = ?
+        WHERE user_id = ? AND name = 'claim_extraction'
+          AND (model <> ? OR prompt_template <> ?)`,
+      [
+        CLAIM_EXTRACTION_MODEL,
+        CLAIM_EXTRACTION_PROMPT,
+        userId,
+        CLAIM_EXTRACTION_MODEL,
+        CLAIM_EXTRACTION_PROMPT,
+      ],
     );
   } catch {
-    // non-fatal: extraction still runs on whatever model is configured
+    // non-fatal: extraction still runs on whatever is configured
   }
 }
 
