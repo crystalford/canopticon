@@ -133,6 +133,13 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
     });
 
     const failed = !!result.failed_step;
+    // Some failures are deterministic — retrying won't help (e.g. the model
+    // returns prose instead of JSON every time, so every chunk fails to
+    // parse). Short-circuit those to 'failed' instead of burning all 5
+    // attempts and saturating the cron drain.
+    const reason = result.failed_reason ?? "";
+    const deterministic =
+      reason.includes("failed on every chunk") || reason.includes("no extracted text");
     const finishedIso = new Date().toISOString();
     await run(
       env.DB,
@@ -140,10 +147,14 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
           SET status=?, step=?, claims_count=?, last_error=?, heartbeat_at=?, updated_at=?
         WHERE id=?`,
       [
-        failed ? (job.attempts + 1 >= MAX_ATTEMPTS ? "failed" : "queued") : "completed",
+        failed
+          ? deterministic || job.attempts + 1 >= MAX_ATTEMPTS
+            ? "failed"
+            : "queued"
+          : "completed",
         failed ? (result.failed_step ?? "failed") : "completed",
         result.claims_drafted ?? 0,
-        failed ? (result.failed_reason ?? "unknown") : null,
+        failed ? reason || "unknown" : null,
         finishedIso,
         finishedIso,
         jobId,
