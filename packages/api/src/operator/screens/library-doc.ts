@@ -123,7 +123,7 @@ export async function renderLibraryDocScreen(
     isPublic
       ? `<a href="/p/${escapeAttr(piece.slug)}" target="_blank" rel="noopener" class="btn">${icon("external")} View public page</a>`
       : ""
-  }`;
+  }<form method="POST" action="/op/library/delete" style="display:inline" onsubmit="return confirm('Delete this document, its claims, and its sources? This cannot be undone.');"><input type="hidden" name="mode" value="selected" /><input type="hidden" name="piece_ids" value="${escapeAttr(piece.id)}" /><button type="submit" class="btn btn-danger">Delete</button></form>`;
 
   return renderOpPage({
     title: titleOrSlug.length > 48 ? `${titleOrSlug.slice(0, 48)}…` : titleOrSlug,

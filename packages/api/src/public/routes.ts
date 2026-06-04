@@ -24,6 +24,34 @@ import { STYLES_CSS, stylesHash } from "./styles";
 
 const app = new Hono<{ Bindings: Env }>();
 
+// Favicon — a tight monogram in the amber accent. The "canopticon." brand
+// is the wordmark + a dot in --amber; we lean on the dot. Served as SVG
+// (vector, recolors well in dark/light) with an .ico fallback that the
+// browser resolves to the same SVG via the alternate icon hint.
+const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#0c0d10"/>
+  <text x="16" y="22" font-family="Geist,system-ui,sans-serif" font-weight="700" font-size="20" letter-spacing="-1.2" text-anchor="middle" fill="#eceef2">c</text>
+  <circle cx="24.5" cy="22" r="1.9" fill="#e09a3a"/>
+</svg>`;
+
+app.get("/favicon.svg", () => {
+  return new Response(FAVICON_SVG, {
+    headers: {
+      "content-type": "image/svg+xml",
+      "cache-control": "public, max-age=86400",
+    },
+  });
+});
+
+app.get("/favicon.ico", () => {
+  return new Response(FAVICON_SVG, {
+    headers: {
+      "content-type": "image/svg+xml",
+      "cache-control": "public, max-age=86400",
+    },
+  });
+});
+
 // Styles. Long cache; the hash query string busts on content change.
 app.get("/styles.css", () => {
   return new Response(STYLES_CSS, {

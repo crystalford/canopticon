@@ -103,7 +103,7 @@ function skeletonCard(skeleton: SkeletonRow | null): string {
 </div>`,
           )
           .join("")
-      : `<div class="skel-row"><span class="sn">—</span><span class="stext" style="color:var(--mute);font-style:italic">Add beats below to lock your argument skeleton. Each beat is one move in the structure you want every output to follow.</span></div>`;
+      : `<div class="skel-row"><span class="sn">—</span><span class="stext" style="color:var(--mute)">Add beats below to lock your argument skeleton. Each beat is one move in the structure you want every output to follow.</span></div>`;
 
   const neverHtml =
     never.length > 0
@@ -128,7 +128,7 @@ function skeletonCard(skeleton: SkeletonRow | null): string {
       <div class="skel" id="skel-list">${beatsHtml}</div>
       <textarea name="beats" placeholder="One beat per line — they get numbered automatically. Example:&#10;Open with the structural surprise (not the personal story).&#10;Name the pattern in concrete terms.&#10;Show one instance with primary-source evidence.&#10;Generalize to the structure.&#10;Close with the throughline." style="width:100%;min-height:96px;background:var(--bg);border:1px solid var(--rule-2);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--serif);font-size:13.5px;line-height:1.4;resize:vertical">${beats.map((b) => b.text).join("\n")}</textarea>
       ${neverHtml}
-      <textarea name="never" placeholder="Moves to avoid, one per line (optional)" style="width:100%;min-height:48px;background:var(--bg);border:1px solid var(--rule-2);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--serif);font-size:13px;font-style:italic;margin-top:8px;resize:vertical">${never.join("\n")}</textarea>
+      <textarea name="never" placeholder="Moves to avoid, one per line (optional)" style="width:100%;min-height:48px;background:var(--bg);border:1px solid var(--rule-2);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--sans);font-size:13px;margin-top:8px;resize:vertical">${never.join("\n")}</textarea>
       <div class="setup-actions" style="margin-top:12px">
         <button type="submit" class="btn btn-amber" name="action" value="lock">${icon("check")} Lock this skeleton</button>
         ${locked ? `<button type="submit" class="btn" name="action" value="unlock">Unlock</button>` : ""}
