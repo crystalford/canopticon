@@ -22,9 +22,13 @@ const ROLE_DEFAULTS: Array<{ name: string; model: string; allow_anthropic_overri
     allow_anthropic_override: 0,
   },
   {
+    // Llama 3.3 70B — stronger structured-JSON reasoning than Scout 17B, still
+    // free Workers AI. allow_anthropic_override:1 lets the operator flip this
+    // role to Claude from role settings (the cost whitelist below is seeded so
+    // that flip doesn't hard-fail the cost gate).
     name: "claim_extraction",
-    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
-    allow_anthropic_override: 0,
+    model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    allow_anthropic_override: 1,
   },
   {
     name: "argument_mapper",
@@ -127,6 +131,14 @@ const DEFAULT_WHITELISTS: Array<{
     notes: "free image OCR",
   },
   // Anthropic overrides — tight caps; only used when operator opts a role into Claude.
+  {
+    operation_type: "anthropic.role.claim_extraction",
+    enabled: true,
+    per_op_max_cents: 20,
+    daily_max_cents: 300,
+    monthly_max_cents: 4000,
+    notes: "opt-in Claude for claim extraction (per-chunk; mind the daily cap on big PDFs)",
+  },
   {
     operation_type: "anthropic.role.tier_projector",
     enabled: true,

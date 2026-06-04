@@ -20,7 +20,7 @@ import type { Env } from "../env";
 import { buildBrief } from "../graph/lib/briefs/pipeline";
 import { proposeBriefs } from "../graph/lib/briefs/proposer";
 import { digest } from "../graph/lib/digestion";
-import { extractUpload } from "../graph/lib/extract";
+import { extractUpload, readFullExtractedText } from "../graph/lib/extract";
 import { composeScript } from "../graph/lib/studio/compose";
 import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
 import { insertOne, one, run } from "../lib/d1";
@@ -85,16 +85,11 @@ app.post("/feed/upload", async (c) => {
     // 2. Extract text into a sources row.
     const extracted = await extractUpload(c.env, fileId);
 
-    // Read the extracted text back out (extractUpload stashes it inline up
-    // to 8KB and overflows to R2; for digestion we want the inline portion
-    // which is what claim/entity roles operate on).
-    const sourceRow = await one<{ content_text: string | null; title: string }>(
-      c.env.DB,
-      "SELECT content_text, title FROM sources WHERE id = ? AND user_id = ?",
-      [extracted.source_id, userId],
-    );
-    const body_md = sourceRow?.content_text ?? "";
-    const title = sourceRow?.title ?? f.name;
+    // Read the FULL extracted text (inline head + R2 overflow) so digestion
+    // chunks and analyzes the whole document, not just the first 8KB.
+    const full = await readFullExtractedText(c.env, extracted.source_id, userId);
+    const body_md = full.text;
+    const title = full.title || f.name;
 
     // 3. Create a pieces row (status: working-material per the handoff —
     //    claims/confidence are the gate to citable, not bulk publish).
