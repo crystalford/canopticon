@@ -250,6 +250,51 @@ svg { flex-shrink: 0; max-width: 100%; }
 }
 .okflag .ftext { flex: 1; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
 .okflag .ftext b { color: var(--c-thesis); font-weight: 600; }
+
+/* dropzone "uploading" state (shown immediately on file select) */
+.dz-uploading {
+  display: flex; align-items: center; gap: 12px; padding: 24px 28px; border-radius: 12px;
+  border: 1px solid var(--amber-bd); background: var(--amber-bg);
+}
+.dz-uploading .dz-up-text { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+.dz-uploading .dz-up-text b { color: var(--amber-hi); font-weight: 600; }
+.dz-spinner {
+  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--rule-bright); border-top-color: var(--amber);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* live processing panel (one row per in-flight document) */
+.proc-card { border: 1px solid var(--rule-2); border-radius: 10px; background: var(--panel); overflow: hidden; }
+.proc-head {
+  display: flex; align-items: center; gap: 9px; padding: 11px 14px;
+  border-bottom: 1px solid var(--rule); background: var(--surface);
+}
+.proc-h-title { font-size: 12.5px; color: var(--ink-2); }
+.proc-h-title b { color: var(--amber-hi); font-weight: 600; }
+.proc-h-sub { margin-left: auto; font-size: 10.5px; color: var(--faint); letter-spacing: .04em; }
+.proc-list { padding: 4px 0; }
+.proc-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; border-bottom: 1px solid var(--rule); font-size: 12.5px;
+}
+.proc-row:last-child { border-bottom: none; }
+.proc-row-done .proc-spinner { border: 2px solid var(--c-thesis); border-top-color: transparent; animation: none; }
+.proc-spinner {
+  width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--rule-bright); border-top-color: var(--amber);
+  animation: spin 0.9s linear infinite;
+}
+.proc-spinner.done {
+  border-color: var(--c-thesis); border-top-color: var(--c-thesis); animation: none;
+}
+.proc-spinner.failed { border-color: var(--c-contra); border-top-color: var(--c-contra); animation: none; }
+.proc-name { flex: 1; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proc-name a { color: var(--c-pattern); }
+.proc-name a:hover { color: var(--amber-hi); }
+.proc-step { font-size: 10.5px; color: var(--mute); text-transform: lowercase; min-width: 110px; text-align: right; }
+.proc-claims { font-size: 10.5px; color: var(--c-thesis); }
 .flag .fdot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-contra); flex-shrink: 0; box-shadow: 0 0 0 4px var(--c-contra-bg); }
 .flag .ftext { flex: 1; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
 .flag .ftext b { color: var(--ink); font-weight: 600; }

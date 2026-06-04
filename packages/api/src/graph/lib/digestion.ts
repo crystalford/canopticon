@@ -113,7 +113,23 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
       );
       if (roleResult.status === "failed") continue; // skip the chunk, keep going
       chunksOk++;
-      for (const c of parseClaims(roleResult.output)) {
+      const parsed = parseClaims(roleResult.output);
+      // Diagnostic: if the model "succeeded" but parseClaims returned [], the
+      // output shape didn't match the schema we expect. Log a tiny sample so
+      // the operator can see WHY ingest is producing 0 claims.
+      if (parsed.length === 0) {
+        const sample =
+          typeof roleResult.output === "string"
+            ? roleResult.output.slice(0, 240)
+            : JSON.stringify(roleResult.output ?? null).slice(0, 240);
+        await emit(env, args, "extract_claims", "started", {
+          diag: "empty_parse",
+          chunk_index: i,
+          output_kind: typeof roleResult.output,
+          sample,
+        });
+      }
+      for (const c of parsed) {
         const key = normalizeName(c.claim_text);
         if (!key || claimSeen.has(key)) continue; // cross-chunk dedup
         claimSeen.add(key);
@@ -137,6 +153,8 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
   // skips that one claim rather than aborting the document.
   const entitySeen = new Map<string, string>();
   let claimsPersisted = 0;
+  let persistErrors = 0;
+  let lastPersistError: string | null = null;
   for (const claim of accepted) {
     try {
       const claimId = await persistClaim(
@@ -155,11 +173,23 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
           );
         }
       }
-    } catch {
-      // skip this claim; continue with the rest
+    } catch (err) {
+      // skip this claim; continue with the rest — but capture the reason so
+      // we don't get another silent 0-claims-persisted mystery.
+      persistErrors++;
+      lastPersistError = (err as Error).message;
     }
   }
 
+  if (persistErrors > 0) {
+    await emit(env, args, "extract_claims", "started", {
+      diag: "persist_error",
+      persist_errors: persistErrors,
+      last_error: lastPersistError,
+      accepted: accepted.length,
+      persisted: claimsPersisted,
+    });
+  }
   result.claims_drafted = claimsPersisted;
   result.entities_proposed = entitySeen.size;
   await emit(env, args, "extract_claims", "completed", {
