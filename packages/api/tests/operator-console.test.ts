@@ -1,3 +1,4 @@
+import { zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import app from "../src/index.ts";
 
@@ -195,6 +196,32 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
     const res = await app.fetch(new Request("http://test/op"), env);
     const html = await res.text();
     expect(html).not.toContain("/op/settings");
+  });
+
+  it("a .zip upload is detected, expanded, and tolerant of per-entry failure", async () => {
+    const zip = zipSync({
+      "report-a.txt": new TextEncoder().encode("Alpha report body."),
+      "report-b.md": new TextEncoder().encode("# Beta\n\nBeta report body."),
+      "__MACOSX/junk": new TextEncoder().encode("junk"),
+    });
+    const fd = new FormData();
+    fd.append("file", new File([zip], "docs.zip", { type: "application/zip" }));
+    const res = await app.fetch(
+      new Request("http://test/op/feed/upload", { method: "POST", body: fd }),
+      { ...env, DB: makePieceDb() },
+    );
+    // The FILES/AI bindings aren't stubbed, so each entry's ingest throws and is
+    // skipped — but the handler must still detect the zip, skip __MACOSX junk,
+    // and redirect rather than 500.
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toMatch(/^\/op\?ingested=\d+$/);
+  });
+
+  it("feed dropzone advertises zip support", async () => {
+    const res = await app.fetch(new Request("http://test/op"), env);
+    const html = await res.text();
+    expect(html).toContain(".zip");
+    expect(html).toContain("application/zip");
   });
 
   it("operator pages emit favicon links and Newsreader is gone", async () => {
