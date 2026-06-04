@@ -38,9 +38,10 @@ export const OPERATOR_CSS = String.raw`
   --c-thesis:  #5fc6a2;  --c-thesis-bg:  rgba(95,198,162,0.12);   --c-thesis-bd:  rgba(95,198,162,0.28);
   --c-connect: #a99cea;  --c-connect-bg: rgba(169,156,234,0.12);  --c-connect-bd: rgba(169,156,234,0.28);
   --c-gap:     #6a6c77;  --c-gap-bg:     rgba(120,122,134,0.06);
-  /* type */
+  /* type — operator is sans + mono only. --serif is aliased to the sans
+     stack so legacy italic-serif refs collapse to Geist everywhere. */
   --sans:  'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --serif: 'Newsreader', Georgia, serif;
+  --serif: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --mono:  'Geist Mono', ui-monospace, 'SF Mono', monospace;
   --rail-w: 168px;
 }
@@ -447,7 +448,7 @@ svg { flex-shrink: 0; max-width: 100%; }
 .skel-row .stext[contenteditable]:focus { background: var(--raised-2); box-shadow: inset 0 0 0 1px var(--amber-bd); padding: 0 4px; margin: 0 -4px; }
 .skel-never { display: flex; align-items: flex-start; gap: 9px; padding: 9px 10px 4px; }
 .skel-never .nx { color: var(--c-contra); font-size: 12px; font-family: var(--mono); }
-.skel-never .nlist { font-size: 12px; color: var(--mute); font-family: var(--serif); font-style: italic; }
+.skel-never .nlist { font-size: 12px; color: var(--mute); font-family: var(--sans); }
 .setup-actions { display: flex; gap: 8px; }
 .btn {
   font-size: 12.5px; padding: 7px 15px; border-radius: 8px; font-weight: 500; transition: all .14s;
@@ -455,6 +456,11 @@ svg { flex-shrink: 0; max-width: 100%; }
 }
 .btn:hover { border-color: var(--rule-bright); color: var(--ink-2); background: var(--raised); }
 .btn svg { width: 13px; height: 13px; }
+.btn-danger { background: var(--c-contra-bg); border-color: var(--c-contra-bd); color: var(--c-contra); }
+.btn-danger:hover { background: var(--c-contra-bg); border-color: var(--c-contra); color: var(--c-contra); }
+.btn-danger:disabled { opacity: .4; cursor: not-allowed; }
+.btn-danger-ghost { border-color: var(--rule-2); color: var(--mute); }
+.btn-danger-ghost:hover { border-color: var(--c-contra-bd); color: var(--c-contra); }
 .btn-amber { background: var(--amber-bg); border-color: var(--amber-bd); color: var(--amber-hi); flex: 1; justify-content: center; }
 .btn-amber:hover { background: var(--amber-bg-2); border-color: var(--amber); color: var(--amber-hi); }
 .btn-amber.solid { background: var(--amber); color: #1a1206; border-color: var(--amber); }
@@ -529,7 +535,7 @@ svg { flex-shrink: 0; max-width: 100%; }
 .studio-empty .se-link:hover { color: var(--amber); }
 .skel-extract-note {
   font-size: 10.5px; color: var(--mute); margin-top: 7px; font-family: var(--mono);
-  line-height: 1.5; font-style: italic;
+  line-height: 1.5;
 }
 .tray-note {
   font-family: var(--mono); font-size: 10.5px; color: var(--faint);
@@ -815,7 +821,16 @@ svg { flex-shrink: 0; max-width: 100%; }
 .lib-doc-claims { font-family: var(--mono); font-size: 11px; color: var(--mute); min-width: 64px; text-align: right; }
 .lib-doc-date { font-family: var(--mono); font-size: 10.5px; color: var(--faint); min-width: 80px; text-align: right; }
 .lib-doc-arrow { font-size: 11px; color: var(--c-pattern); flex-shrink: 0; }
+.lib-doc-check { display: inline-flex; align-items: center; padding: 0 2px; flex-shrink: 0; }
+.lib-doc-check input { width: 14px; height: 14px; accent-color: var(--amber); cursor: pointer; }
+.lib-doc-name { color: inherit; text-decoration: none; }
+.lib-doc-name:hover { color: var(--amber-hi); }
 .lib-empty { font-family: var(--mono); font-size: 12px; color: var(--mute); padding: 32px; text-align: center; }
+.lib-bulk-bar { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px 14px; border: 1px solid var(--rule-2); border-radius: 9px; background: var(--panel); }
+.lib-bulk-all { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-3); cursor: pointer; }
+.lib-bulk-all input { accent-color: var(--amber); }
+.lib-bulk-count { font-family: var(--mono); font-size: 11px; color: var(--mute); }
+.lib-bulk-bar .btn-danger { margin-left: auto; }
 .crow .crow-arrow { font-size: 11px; color: var(--c-pattern); margin-left: 4px; flex-shrink: 0; }
 
 /* ---- library document detail ---- */

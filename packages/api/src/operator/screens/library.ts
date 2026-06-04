@@ -95,15 +95,16 @@ function pieceRow(p: PieceListRow): string {
   const s = statusInfo(p.publication_status);
   const titleOrSlug = p.title?.trim() || p.slug;
   const searchText = `${titleOrSlug} ${p.kind} ${p.chain_id ?? ""}`.toLowerCase();
-  return `<a href="/op/library/${escapeAttr(p.slug)}" class="lib-doc" data-status="${s.cls}" data-chain="${escapeAttr(p.chain_id ?? "")}" data-search="${escapeAttr(searchText)}">
+  return `<div class="lib-doc" data-status="${s.cls}" data-chain="${escapeAttr(p.chain_id ?? "")}" data-search="${escapeAttr(searchText)}">
+  <label class="lib-doc-check"><input type="checkbox" name="piece_ids" value="${escapeAttr(p.id)}" form="lib-bulk-form" /></label>
   <span class="lib-dot ${s.cls}"></span>
-  <span class="lib-doc-name">${escapeHtml(titleOrSlug)}</span>
+  <a class="lib-doc-name" href="/op/library/${escapeAttr(p.slug)}">${escapeHtml(titleOrSlug)}</a>
   <span class="lib-doc-kind">${escapeHtml(p.kind)}</span>
   <span class="lib-doc-status ${s.cls}">${escapeHtml(s.label)}</span>
   <span class="lib-doc-claims">${p.claim_count} claims</span>
   <span class="lib-doc-date">${escapeHtml(relativeAge(p.published_at ?? p.updated_at))}</span>
-  <span class="mono lib-doc-arrow">→</span>
-</a>`;
+  <a class="mono lib-doc-arrow" href="/op/library/${escapeAttr(p.slug)}">→</a>
+</div>`;
 }
 
 function chainHeader(chainId: string, count: number, claimCount: number): string {
@@ -217,7 +218,15 @@ export async function renderLibraryScreen(env: { DB: D1Database }): Promise<stri
   listInner += standalone.map(pieceRow).join("");
 
   const list = docs.length
-    ? `<div class="lib-list">${listInner}</div>`
+    ? `<form id="lib-bulk-form" method="POST" action="/op/library/delete">
+  <div class="lib-list">${listInner}</div>
+  <div class="lib-bulk-bar" id="lib-bulk-bar">
+    <label class="lib-bulk-all"><input type="checkbox" id="lib-check-all" /> Select all visible</label>
+    <span class="lib-bulk-count" id="lib-bulk-count">0 selected</span>
+    <button type="submit" name="mode" value="selected" class="btn btn-danger" id="lib-bulk-delete" disabled onclick="return confirm('Delete the selected documents? Claims, entities, and sources tied to them will be removed too. This cannot be undone.');">Delete selected</button>
+    <button type="submit" name="mode" value="all" class="btn btn-danger-ghost" onclick="return confirm('Wipe the ENTIRE corpus — every document, claim, entity, source, pattern, and orchestrator event for this operator. The studio skeleton, briefs, and chat history are kept. This cannot be undone.');">Delete all documents</button>
+  </div>
+</form>`
     : `<div class="lib-list"><div class="lib-empty">No documents in the archive yet. Drop research reports in Feed and they appear here as the digestion pipeline catalogues them.</div></div>`;
 
   const topbarActions = `<a href="/op" class="btn"><span style="display:inline-flex;align-items:center;gap:6px">${icon("upload")} Add document</span></a>`;
@@ -226,8 +235,35 @@ export async function renderLibraryScreen(env: { DB: D1Database }): Promise<stri
     title: "Library",
     sub: "the full document archive",
     topbarActions,
-    body: `${statsBar}${search}${filterChips}${list}${LIB_FILTER_JS}`,
+    body: `${statsBar}${search}${filterChips}${list}${LIB_FILTER_JS}${LIB_BULK_JS}`,
     activeNav: "/op/library",
     width: "wide",
   });
 }
+
+// Bulk-selection helper: keeps the count badge live and toggles the
+// "Delete selected" button's disabled state. The "Select all visible"
+// checkbox only ticks rows currently shown (filter-aware).
+const LIB_BULK_JS = `<script>
+(function () {
+  var form = document.getElementById("lib-bulk-form");
+  if (!form) return;
+  var countEl = document.getElementById("lib-bulk-count");
+  var btn = document.getElementById("lib-bulk-delete");
+  var all = document.getElementById("lib-check-all");
+  function refresh() {
+    var n = form.querySelectorAll('input[name="piece_ids"]:checked').length;
+    if (countEl) countEl.textContent = n + " selected";
+    if (btn) btn.disabled = n === 0;
+  }
+  form.addEventListener("change", refresh);
+  if (all) all.addEventListener("change", function () {
+    form.querySelectorAll('input[name="piece_ids"]').forEach(function (cb) {
+      var row = cb.closest(".lib-doc");
+      if (row && row.style.display !== "none") cb.checked = all.checked;
+    });
+    refresh();
+  });
+  refresh();
+})();
+</script>`;

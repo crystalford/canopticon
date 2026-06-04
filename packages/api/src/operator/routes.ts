@@ -232,6 +232,74 @@ app.get("/library/:slug", async (c) => {
   return opHtml(html);
 });
 
+// Bulk-delete from Library. Two modes:
+//   mode=selected — piece_ids[] form values; deletes only those pieces
+//                   (and the claims that were asserted in them).
+//   mode=all      — wipes the operator's full ingest corpus: pieces,
+//                   claims, entities, sources, uploaded_files,
+//                   patterns, and orchestrator_events. Keeps users,
+//                   chat history, studio skeleton+projects, briefs.
+app.post("/library/delete", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/library");
+  const form = await c.req.formData();
+  const mode = String(form.get("mode") ?? "selected");
+
+  if (mode === "all") {
+    // Order matters less because every table cascades on user_id, but
+    // we do the ingest-derived tables explicitly so a future schema add
+    // (with no cascade) doesn't silently leave orphans.
+    const tables = [
+      "claim_entities",
+      "claim_sources",
+      "claim_versions",
+      "claims",
+      "entity_mentions",
+      "entity_relations",
+      "entity_resolution_log",
+      "entity_resolution_queue",
+      "entities",
+      "chain_passes",
+      "topic_pieces",
+      "topic_entities",
+      "patterns",
+      "sources",
+      "uploaded_files",
+      "pieces",
+      "orchestrator_events",
+    ];
+    for (const t of tables) {
+      try {
+        await run(c.env.DB, `DELETE FROM ${t} WHERE user_id = ?`, [userId]);
+      } catch {
+        // Best-effort: a missing optional table shouldn't abort the wipe.
+      }
+    }
+    return c.redirect("/op/library");
+  }
+
+  // Selected mode — collect piece_ids[].
+  const ids = form
+    .getAll("piece_ids")
+    .map((v) => String(v))
+    .filter((v) => v.length > 0);
+  if (ids.length === 0) return c.redirect("/op/library");
+  const placeholders = ids.map(() => "?").join(",");
+  // Drop the claims first (asserted_in_piece_id is SET-NULL, so otherwise
+  // they'd survive as orphans), then the pieces (cascades chain_passes,
+  // topic_pieces).
+  await run(
+    c.env.DB,
+    `DELETE FROM claims WHERE user_id = ? AND asserted_in_piece_id IN (${placeholders})`,
+    [userId, ...ids],
+  );
+  await run(c.env.DB, `DELETE FROM pieces WHERE user_id = ? AND id IN (${placeholders})`, [
+    userId,
+    ...ids,
+  ]);
+  return c.redirect("/op/library");
+});
+
 app.get("/briefs", async (c) => opHtml(await renderBriefsScreen(c.env)));
 
 // Re-run the proposer over the corpus. Idempotent: upserts proposals
