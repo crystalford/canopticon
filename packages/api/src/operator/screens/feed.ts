@@ -225,7 +225,12 @@ function dropzone(): string {
     if (!input.files || input.files.length === 0) return;
     label.setAttribute("hidden", "");
     busy.removeAttribute("hidden");
-    input.disabled = true;
+    // DO NOT disable the input before submit — disabled form controls are
+    // omitted from the form payload, so the server sees no file field.
+    // The label being hidden already prevents a re-click; flag the form
+    // itself to guard against accidental double-submit.
+    if (form.dataset.submitting === "1") return;
+    form.dataset.submitting = "1";
     form.submit();
   });
 })();
