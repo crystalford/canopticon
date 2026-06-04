@@ -339,8 +339,10 @@ async function emit(
 const CLAIM_EXTRACTION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 
 // Bound per-upload work so the request can't be killed mid-flight.
-const MAX_CHUNKS = 4;
-const ROLE_TIMEOUT_MS = 45_000;
+// Tight budget so a single waitUntil run can finish a typical doc in ~one
+// invocation. If we exceed it, the cron drain picks the job up idempotently.
+const MAX_CHUNKS = 3;
+const ROLE_TIMEOUT_MS = 25_000;
 
 // Race a promise against a timeout so a hung model call fails the chunk
 // cleanly instead of freezing the whole request until the Worker is killed.
