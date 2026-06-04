@@ -386,15 +386,41 @@ export interface ExtractedClaim {
   source_excerpt: string | undefined;
 }
 
+// Workers-AI Llama frequently ignores the json_schema and returns the JSON
+// wrapped in ```json fences, prefixed with prose, or as the raw text. Recover
+// the JSON value from any of those shapes before parsing.
+function looseJsonParse(s: string): unknown {
+  const trimmed = s.trim();
+  // 1. Strip a single fenced code block if present.
+  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = (fence?.[1] ?? trimmed).trim();
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    // 2. Fall back to the first balanced object/array substring.
+    const objStart = candidate.indexOf("{");
+    const arrStart = candidate.indexOf("[");
+    const starts = [objStart, arrStart].filter((i) => i >= 0);
+    if (starts.length === 0) return null;
+    const start = Math.min(...starts);
+    const open = candidate[start];
+    const close = open === "{" ? "}" : "]";
+    const end = candidate.lastIndexOf(close);
+    if (end <= start) return null;
+    try {
+      return JSON.parse(candidate.slice(start, end + 1));
+    } catch {
+      return null;
+    }
+  }
+}
+
 export function parseClaims(output: unknown): ExtractedClaim[] {
   let root: unknown = output;
   if (root == null) return [];
   if (typeof root === "string") {
-    try {
-      root = JSON.parse(root);
-    } catch {
-      return [];
-    }
+    root = looseJsonParse(root);
+    if (root == null) return [];
   }
   let arr: unknown[];
   if (Array.isArray(root)) {

@@ -32,6 +32,21 @@ describe("parseClaims — shape tolerance", () => {
     expect(out[0]?.claim_text).toBe("Y");
   });
 
+  it("recovers JSON wrapped in markdown code fences", () => {
+    const fenced = '```json\n{"claims":[{"claim_text":"Fenced claim","layer":"factual"}]}\n```';
+    const out = parseClaims(fenced);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.claim_text).toBe("Fenced claim");
+  });
+
+  it("recovers JSON preceded by model prose", () => {
+    const prose =
+      'Here are the claims I extracted:\n\n{"claims":[{"claim_text":"Prefixed claim"}]}\n\nLet me know!';
+    const out = parseClaims(prose);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.claim_text).toBe("Prefixed claim");
+  });
+
   it("returns [] for null / undefined / junk string", () => {
     expect(parseClaims(null)).toEqual([]);
     expect(parseClaims(undefined)).toEqual([]);
