@@ -13,7 +13,7 @@
 
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import { all, one } from "../lib/d1.ts";
+import { all, one, run } from "../lib/d1.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
@@ -138,5 +138,47 @@ function parsePayload(raw: string): unknown {
     return raw;
   }
 }
+
+// Full graph wipe for the calling operator. Requires ?confirm=1 so a curious
+// GET can't accidentally nuke the corpus. Mirrors the Library mode=all delete
+// (operator/routes.ts) PLUS digest_jobs so the processing panel clears too.
+// Probe-reachable for fast resets without UI clicks.
+const RESET_TABLES = [
+  "claim_entities",
+  "claim_sources",
+  "claim_versions",
+  "claims",
+  "entity_mentions",
+  "entity_relations",
+  "entity_resolution_log",
+  "entity_resolution_queue",
+  "entities",
+  "chain_passes",
+  "topic_pieces",
+  "topic_entities",
+  "patterns",
+  "sources",
+  "uploaded_files",
+  "pieces",
+  "orchestrator_events",
+  "digest_jobs",
+];
+
+app.get("/reset-graph", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const userId = c.get("user_id");
+  const wiped: Record<string, number | string> = {};
+  for (const t of RESET_TABLES) {
+    try {
+      const r = await run(c.env.DB, `DELETE FROM ${t} WHERE user_id = ?`, [userId]);
+      wiped[t] = r.meta.changes ?? 0;
+    } catch (err) {
+      wiped[t] = `error: ${(err as Error).message}`;
+    }
+  }
+  return c.json({ ok: true, wiped });
+});
 
 export default app;

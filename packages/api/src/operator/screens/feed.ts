@@ -211,7 +211,7 @@ function dropzone(): string {
   </label>
   <div class="dz-uploading" id="dz-uploading" hidden>
     <span class="dz-spinner"></span>
-    <span class="dz-up-text"><b>Uploading and extracting text…</b> the activity log will pick up the rest. Don't close this tab.</span>
+    <span class="dz-up-text"><b>Uploading and extracting…</b> you can leave this page — digestion continues in the background.</span>
   </div>
 </form>
 <script>
@@ -226,10 +226,6 @@ function dropzone(): string {
     label.setAttribute("hidden", "");
     busy.removeAttribute("hidden");
     input.disabled = true;
-    window.addEventListener("beforeunload", function (e) {
-      e.preventDefault();
-      e.returnValue = "";
-    });
     form.submit();
   });
 })();
@@ -353,21 +349,19 @@ interface ProcessingPiece {
 }
 
 // Pieces created in the last 5 minutes that haven't finished digesting yet.
-// These get a live row in the processing panel that polls /op/feed/status.
+// Drives the live processing panel. Reads from digest_jobs (the source of
+// truth) rather than guessing from pieces/events. Includes recently-failed
+// jobs (last 10 min) so the operator sees + can retry; jobs older than that
+// fall off automatically. Queued + running jobs always appear.
 async function loadProcessing(db: D1Database, userId: string): Promise<ProcessingPiece[]> {
   return all<ProcessingPiece>(
     db,
-    `SELECT p.id, p.title, p.slug
-       FROM pieces p
-      WHERE p.user_id = ?
-        AND p.created_at >= datetime('now', '-5 minutes')
-        AND NOT EXISTS (
-          SELECT 1 FROM orchestrator_events e
-           WHERE e.user_id = p.user_id AND e.subject_id = p.id
-             AND (e.event_type = 'feed.detect_chains.completed'
-                  OR e.event_type LIKE 'feed.%.failed')
-        )
-      ORDER BY p.created_at DESC
+    `SELECT j.piece_id AS id, j.title, j.slug
+       FROM digest_jobs j
+      WHERE j.user_id = ?
+        AND (j.status IN ('queued','running')
+             OR (j.status = 'failed' AND j.updated_at >= datetime('now', '-10 minutes')))
+      ORDER BY j.created_at DESC
       LIMIT 50`,
     [userId],
   );
@@ -412,19 +406,18 @@ function processingPanel(pieces: ProcessingPiece[]): string {
           if (!j) return;
           var stepEl = r.querySelector('[data-role="step"]');
           var claimsEl = r.querySelector('[data-role="claims"]');
+          var sp = r.querySelector(".proc-spinner");
           if (stepEl) stepEl.textContent = j.step;
           if (claimsEl && j.claims) {
             claimsEl.textContent = j.claims + " claim" + (j.claims === 1 ? "" : "s");
             claimsEl.removeAttribute("hidden");
           }
-          if (j.done) {
+          if (j.state === "completed" || j.state === "failed") {
             r.dataset.done = "1";
             r.classList.add("proc-row-done");
-            var sp = r.querySelector(".proc-spinner");
-            if (sp) sp.classList.add("done");
-            if (j.step === "failed" && sp) sp.classList.add("failed");
+            if (sp) sp.classList.add(j.state === "failed" ? "failed" : "done");
             var slug = r.getAttribute("data-slug");
-            if (slug && j.step !== "failed") {
+            if (slug && j.state === "completed") {
               var name = r.querySelector(".proc-name");
               if (name) {
                 var a = document.createElement("a");
@@ -452,6 +445,7 @@ export async function renderFeedScreen(
     error?: string | undefined;
     ingested?: string | undefined;
     processing?: string | undefined;
+    cleared?: string | undefined;
   } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
@@ -479,10 +473,25 @@ export async function renderFeedScreen(
 </div>`
       : "";
 
+  const clearedBanner = args.cleared
+    ? `<div class="okflag" style="margin-bottom:14px">
+  <span class="ftext"><b>Activity log cleared.</b></span>
+</div>`
+    : "";
+
+  // Strip the transient query params from the URL after a hard render so a
+  // manual reload doesn't resurrect a stale banner or processing flag.
+  const cleanUrlScript =
+    args.error || args.ingested || args.processing || args.cleared
+      ? `<script>history.replaceState(null,'', '/op');</script>`
+      : "";
+
   const body = `
 ${errorBanner}
 ${okBanner}
+${clearedBanner}
 ${dropzone()}
+${cleanUrlScript}
 
 ${processingPanel(processing)}
 

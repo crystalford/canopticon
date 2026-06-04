@@ -177,17 +177,32 @@ app.notFound((c) => {
   return htmlResponse(renderPublicNotFound(path), { status: 404 });
 });
 
+import { drainDigestJobs, runDigestJob } from "./graph/lib/digest-jobs.ts";
 import { runWatcher } from "./graph/lib/watcher.ts";
 import { all as dbAll } from "./lib/d1.ts";
 
-// Cloudflare Cron Trigger handler. Wrangler fires this on the schedule
-// declared in wrangler.toml. For each enabled monitor, we kick off a
-// watcher via ctx.waitUntil so the worker invocation returns quickly
-// while the agent loops run in the background.
-const scheduled: ExportedHandlerScheduledHandler<Env> = async (_controller, env, ctx) => {
-  const monitors = await dbAll<{ id: string }>(env.DB, "SELECT id FROM monitors WHERE enabled = 1");
-  for (const m of monitors) {
-    ctx.waitUntil(runWatcher(env, m.id));
+// Cloudflare Cron Trigger handler. Two crons configured in wrangler.toml:
+//   "* * * * *"   — drain the digest_jobs queue (safety net for ingest)
+//   "0 12 * * 1"  — weekly monitor watchers
+// We branch on controller.cron so the every-minute drain doesn't refire
+// watchers on every tick.
+const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, ctx) => {
+  const cron = controller.cron;
+  if (cron === "0 12 * * 1") {
+    const monitors = await dbAll<{ id: string }>(
+      env.DB,
+      "SELECT id FROM monitors WHERE enabled = 1",
+    );
+    for (const m of monitors) {
+      ctx.waitUntil(runWatcher(env, m.id));
+    }
+    return;
+  }
+  // Default branch (every-minute tick): drain queued + stalled digest jobs.
+  // Each job runs in waitUntil; if it gets killed, a later tick picks it up.
+  const jobIds = await drainDigestJobs(env, 5);
+  for (const id of jobIds) {
+    ctx.waitUntil(runDigestJob(env, id));
   }
 };
 

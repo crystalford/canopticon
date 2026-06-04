@@ -20,11 +20,16 @@ import { Hono } from "hono";
 import type { Env } from "../env";
 import { buildBrief } from "../graph/lib/briefs/pipeline";
 import { proposeBriefs } from "../graph/lib/briefs/proposer";
-import { digest } from "../graph/lib/digestion";
+import {
+  enqueueDigest,
+  ensureJobsTable,
+  jobStatusForPiece,
+  runDigestJob,
+} from "../graph/lib/digest-jobs";
 import { extractUpload, readFullExtractedText } from "../graph/lib/extract";
 import { composeScript } from "../graph/lib/studio/compose";
 import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
-import { all, insertOne, one, run } from "../lib/d1";
+import { insertOne, one, run } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
@@ -47,7 +52,10 @@ app.get("/", async (c) => {
   const error = c.req.query("error");
   const ingested = c.req.query("ingested");
   const processing = c.req.query("processing");
-  return opHtml(await renderFeedScreen(c.env, { focusPieceId, error, ingested, processing }));
+  const cleared = c.req.query("cleared");
+  return opHtml(
+    await renderFeedScreen(c.env, { focusPieceId, error, ingested, processing, cleared }),
+  );
 });
 
 // POST /op/feed/upload — the auto-ingest entry point.
@@ -67,6 +75,7 @@ app.post("/feed/upload", async (c) => {
     if (!userId) {
       return c.redirect(`/op?error=${encodeURIComponent("No operator user")}`);
     }
+    await ensureJobsTable(c.env);
     const form = await c.req.formData();
     const file = form.get("file");
     if (!file || typeof file === "string") {
@@ -107,16 +116,16 @@ app.post("/feed/upload", async (c) => {
             bytes.length,
           );
           pieceIds.push(p.pieceId);
-          c.executionCtx.waitUntil(
-            digest(c.env, {
-              userId,
-              pieceId: p.pieceId,
-              pieceSlug: p.slug,
-              title: p.title,
-              body_md: p.body_md,
-              sourceId: p.sourceId,
-            }),
-          );
+          // Enqueue durable job + kick it off inline for instant start.
+          // The every-minute cron drain is the safety net for kills.
+          const jobId = await enqueueDigest(c.env, {
+            userId,
+            pieceId: p.pieceId,
+            slug: p.slug,
+            title: p.title,
+            sourceId: p.sourceId,
+          });
+          c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
         } catch {
           // skip a bad entry; keep ingesting the rest
         }
@@ -124,19 +133,18 @@ app.post("/feed/upload", async (c) => {
       return c.redirect(`/op?ingested=${pieceIds.length}&processing=1`);
     }
 
-    // Single-file: same pattern. Fast path returns the new piece; digestion
-    // runs in the background via waitUntil so the page returns immediately.
+    // Single-file: enqueue a durable job + kick it off via waitUntil so the
+    // request returns immediately. If the waitUntil gets killed mid-run, the
+    // cron drain picks up the stalled job and finishes it idempotently.
     const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size);
-    c.executionCtx.waitUntil(
-      digest(c.env, {
-        userId,
-        pieceId: p.pieceId,
-        pieceSlug: p.slug,
-        title: p.title,
-        body_md: p.body_md,
-        sourceId: p.sourceId,
-      }),
-    );
+    const jobId = await enqueueDigest(c.env, {
+      userId,
+      pieceId: p.pieceId,
+      slug: p.slug,
+      title: p.title,
+      sourceId: p.sourceId,
+    });
+    c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
     return c.redirect(`/op?piece=${encodeURIComponent(p.pieceId)}&processing=1`);
   } catch (err) {
     return c.redirect(`/op?error=${encodeURIComponent((err as Error).message)}`);
@@ -150,27 +158,32 @@ app.get("/feed/status", async (c) => {
   if (!userId) return c.json({ ok: false, error: "no operator" }, 401);
   const pieceId = c.req.query("piece") ?? "";
   if (!pieceId) return c.json({ ok: false, error: "missing piece" }, 400);
-  const events = await all<{ event_type: string }>(
+  const view = await jobStatusForPiece(c.env, userId, pieceId);
+  if (!view) {
+    return c.json({ ok: true, state: "queued", step: "queued", claims: 0, attempts: 0 });
+  }
+  return c.json({
+    ok: true,
+    state: view.state,
+    step: view.stale ? "retrying" : view.step,
+    claims: view.claims,
+    attempts: view.attempts,
+    error: view.error,
+  });
+});
+
+// Clear the orchestrator_events activity log (and any finished digest_jobs)
+// without touching the corpus. Lightweight self-serve for stale state.
+app.post("/feed/clear", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op");
+  await run(c.env.DB, "DELETE FROM orchestrator_events WHERE user_id = ?", [userId]);
+  await run(
     c.env.DB,
-    "SELECT event_type FROM orchestrator_events WHERE user_id = ? AND subject_id = ? ORDER BY created_at",
-    [userId, pieceId],
+    "DELETE FROM digest_jobs WHERE user_id = ? AND status IN ('completed','failed')",
+    [userId],
   );
-  const types = events.map((e) => e.event_type);
-  const done =
-    types.includes("feed.detect_chains.completed") || types.some((t) => t.endsWith(".failed"));
-  // Coarse step the UI can render.
-  let step = "extracting text";
-  if (types.includes("feed.extract_claims.started")) step = "extracting claims";
-  if (types.includes("feed.extract_claims.completed")) step = "embedding";
-  if (types.includes("feed.embed.completed")) step = "detecting chains";
-  if (types.some((t) => t.endsWith(".failed"))) step = "failed";
-  if (types.includes("feed.detect_chains.completed")) step = "done";
-  const claims = await one<{ n: number }>(
-    c.env.DB,
-    "SELECT COUNT(*) AS n FROM claims WHERE user_id = ? AND asserted_in_piece_id = ?",
-    [userId, pieceId],
-  );
-  return c.json({ ok: true, done, step, claims: claims?.n ?? 0, events: types.length });
+  return c.redirect("/op?cleared=1");
 });
 
 interface CreatedPiece {
