@@ -161,6 +161,10 @@ svg { flex-shrink: 0; max-width: 100%; }
    FEED
    ======================================================================== */
 .dropzone {
+  /* MUST be block: <label> is display:inline by default, and an inline box
+     wrapping the block dz-* children paints its background/border as broken
+     fragments at each line box — that was the stray "blocks" artifact. */
+  display: block;
   border: 1px solid var(--rule-2); border-radius: 12px; padding: 46px 30px;
   text-align: center; cursor: pointer; transition: border-color .16s, background .16s;
   background: var(--panel);
