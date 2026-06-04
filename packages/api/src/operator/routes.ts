@@ -15,6 +15,7 @@
 // build, ingest) were deleted in this commit — their functionality folds
 // into the six new surfaces over phases P1–P5.
 
+import { unzipSync } from "fflate";
 import { Hono } from "hono";
 import type { Env } from "../env";
 import { buildBrief } from "../graph/lib/briefs/pipeline";
@@ -44,7 +45,8 @@ const app = new Hono<{ Bindings: Env }>();
 app.get("/", async (c) => {
   const focusPieceId = c.req.query("piece");
   const error = c.req.query("error");
-  return opHtml(await renderFeedScreen(c.env, { focusPieceId, error }));
+  const ingested = c.req.query("ingested");
+  return opHtml(await renderFeedScreen(c.env, { focusPieceId, error, ingested }));
 });
 
 // POST /op/feed/upload — the auto-ingest entry point.
@@ -54,6 +56,10 @@ app.get("/", async (c) => {
 //   4. Run the digestion pipeline synchronously so the activity log
 //      is populated by the time we redirect.
 // "Upload is authorization" — no preview, no confirmation, no second click.
+// A .zip is expanded and each supported document inside is ingested.
+const ZIP_ENTRY_RE = /\.(md|markdown|txt|pdf)$/i;
+const ZIP_MAX_ENTRIES = 50;
+
 app.post("/feed/upload", async (c) => {
   try {
     const userId = await resolveOperatorId(c.env.DB);
@@ -66,71 +72,114 @@ app.post("/feed/upload", async (c) => {
       return c.redirect(`/op?error=${encodeURIComponent("No file in form data")}`);
     }
     const f = file as unknown as File;
+    const isZip = f.type.includes("zip") || /\.zip$/i.test(f.name);
 
-    // 1. R2 + uploaded_files
-    const r2_key = `uploads/${userId}/${crypto.randomUUID()}-${safeName(f.name)}`;
-    await c.env.FILES.put(r2_key, f.stream(), {
-      httpMetadata: { contentType: f.type || "application/octet-stream" },
-    });
-    const classification = classify(f.type, f.name);
-    const fileId = await insertOne(c.env.DB, "uploaded_files", {
-      user_id: userId,
-      r2_key,
-      original_filename: f.name,
-      mime: f.type || "application/octet-stream",
-      size_bytes: f.size,
-      classification,
-    });
+    if (isZip) {
+      const buf = new Uint8Array(await f.arrayBuffer());
+      let entries: Record<string, Uint8Array>;
+      try {
+        entries = unzipSync(buf, { filter: (e) => ZIP_ENTRY_RE.test(e.name) && e.size > 0 });
+      } catch (err) {
+        return c.redirect(`/op?error=${encodeURIComponent(`Bad zip: ${(err as Error).message}`)}`);
+      }
+      // Skip macOS resource-fork junk (__MACOSX/, dotfiles).
+      const names = Object.keys(entries).filter(
+        (n) => !n.startsWith("__MACOSX/") && !(n.split("/").pop() ?? "").startsWith("."),
+      );
+      if (names.length === 0) {
+        return c.redirect(`/op?error=${encodeURIComponent("No .md/.txt/.pdf files in the zip")}`);
+      }
+      let ok = 0;
+      for (const name of names.slice(0, ZIP_MAX_ENTRIES)) {
+        const bytes = entries[name];
+        if (!bytes) continue;
+        const base = name.split("/").pop() || name;
+        try {
+          await ingestFile(c.env, userId, bytes, base, mimeForName(base), bytes.length);
+          ok++;
+        } catch {
+          // skip a bad entry; keep ingesting the rest
+        }
+      }
+      return c.redirect(`/op?ingested=${ok}`);
+    }
 
-    // 2. Extract text into a sources row.
-    const extracted = await extractUpload(c.env, fileId);
-
-    // Read the FULL extracted text (inline head + R2 overflow) so digestion
-    // chunks and analyzes the whole document, not just the first 8KB.
-    const full = await readFullExtractedText(c.env, extracted.source_id, userId);
-    const body_md = full.text;
-    const title = full.title || f.name;
-
-    // 3. Create a pieces row (status: working-material per the handoff —
-    //    claims/confidence are the gate to citable, not bulk publish).
-    const slug = slugify(title || `piece-${Date.now()}`);
-    // Ensure uniqueness: append a short suffix if the slug already exists.
-    const uniqueSlug = await ensureUniqueSlug(c.env.DB, userId, slug);
-    const pieceId = await insertOne(c.env.DB, "pieces", {
-      user_id: userId,
-      slug: uniqueSlug,
-      title,
-      kind: "research-report",
-      publication_status: "working-material",
-      body_md,
-      byline: "the operator",
-      tags: JSON.stringify([]),
-      metadata: JSON.stringify({
-        ingested_from: "feed-upload",
-        source_id: extracted.source_id,
-        original_filename: f.name,
-        extracted_chars: extracted.extracted_chars,
-        classification: extracted.classification,
-      }),
-    });
-
-    // 4. Run the digestion pipeline. Synchronously so the redirect lands
-    //    on a fully-populated activity log. (P1.1 stretch: SSE-stream the
-    //    steps for the live theater.)
-    await digest(c.env, {
-      userId,
-      pieceId,
-      pieceSlug: uniqueSlug,
-      title,
-      body_md,
-      sourceId: extracted.source_id,
-    });
-
+    const pieceId = await ingestFile(c.env, userId, f.stream(), f.name, f.type, f.size);
     return c.redirect(`/op?piece=${encodeURIComponent(pieceId)}`);
   } catch (err) {
     return c.redirect(`/op?error=${encodeURIComponent((err as Error).message)}`);
   }
 });
+
+// Ingest one document end-to-end: R2 + uploaded_files → extract → full-text
+// read → pieces row → digest. Returns the new piece id. Shared by the
+// single-file and zip-expansion paths.
+async function ingestFile(
+  env: Env,
+  userId: string,
+  body: ReadableStream | Uint8Array,
+  filename: string,
+  mime: string,
+  size: number,
+): Promise<string> {
+  const r2_key = `uploads/${userId}/${crypto.randomUUID()}-${safeName(filename)}`;
+  await env.FILES.put(r2_key, body, {
+    httpMetadata: { contentType: mime || "application/octet-stream" },
+  });
+  const fileId = await insertOne(env.DB, "uploaded_files", {
+    user_id: userId,
+    r2_key,
+    original_filename: filename,
+    mime: mime || "application/octet-stream",
+    size_bytes: size,
+    classification: classify(mime, filename),
+  });
+
+  const extracted = await extractUpload(env, fileId);
+  const full = await readFullExtractedText(env, extracted.source_id, userId);
+  const body_md = full.text;
+  const title = full.title || filename;
+
+  const uniqueSlug = await ensureUniqueSlug(
+    env.DB,
+    userId,
+    slugify(title || `piece-${Date.now()}`),
+  );
+  const pieceId = await insertOne(env.DB, "pieces", {
+    user_id: userId,
+    slug: uniqueSlug,
+    title,
+    kind: "research-report",
+    publication_status: "working-material",
+    body_md,
+    byline: "the operator",
+    tags: JSON.stringify([]),
+    metadata: JSON.stringify({
+      ingested_from: "feed-upload",
+      source_id: extracted.source_id,
+      original_filename: filename,
+      extracted_chars: extracted.extracted_chars,
+      classification: extracted.classification,
+    }),
+  });
+
+  await digest(env, {
+    userId,
+    pieceId,
+    pieceSlug: uniqueSlug,
+    title,
+    body_md,
+    sourceId: extracted.source_id,
+  });
+  return pieceId;
+}
+
+function mimeForName(filename: string): string {
+  const ext = (filename.split(".").pop() ?? "").toLowerCase();
+  if (ext === "pdf") return "application/pdf";
+  if (ext === "md" || ext === "markdown") return "text/markdown";
+  return "text/plain";
+}
 
 function safeName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);

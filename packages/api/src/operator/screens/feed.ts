@@ -205,9 +205,9 @@ function dropzone(): string {
       </svg>
     </div>
     <div class="dz-1">Drop research reports here</div>
-    <div class="dz-2">Markdown · plain text · PDF (Llama Scout extracts)</div>
+    <div class="dz-2">Markdown · plain text · PDF (Llama Scout extracts) · .zip of any of these</div>
     <div class="dz-3">Upload is authorization. The system extracts entities, drafts claims, embeds, and detects chains automatically — no confirmation gate. Claims land as draft until the weighting model judges them citable.</div>
-    <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,text/markdown,text/plain,application/pdf" required style="display:none" onchange="this.form.submit()" />
+    <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,.zip,text/markdown,text/plain,application/pdf,application/zip,application/x-zip-compressed" required style="display:none" onchange="this.form.submit()" />
   </label>
 </form>`;
 }
@@ -324,7 +324,11 @@ function activityLog(events: EventRow[]): string {
 
 export async function renderFeedScreen(
   env: { DB: D1Database },
-  args: { focusPieceId?: string | undefined; error?: string | undefined } = {},
+  args: {
+    focusPieceId?: string | undefined;
+    error?: string | undefined;
+    ingested?: string | undefined;
+  } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   // No operator yet → still render the dropzone (so the brand-new
@@ -346,8 +350,16 @@ export async function renderFeedScreen(
 </div>`
     : "";
 
+  const okBanner =
+    args.ingested && /^\d+$/.test(args.ingested)
+      ? `<div class="okflag" style="margin-bottom:14px">
+  <span class="ftext"><b>Ingested ${escapeHtml(args.ingested)} document${args.ingested === "1" ? "" : "s"}</b> from the archive · digesting into the graph below.</span>
+</div>`
+      : "";
+
   const body = `
 ${errorBanner}
+${okBanner}
 ${dropzone()}
 
 ${focus ? `<div style="margin-top:18px">${digestionTheater(focus)}</div>` : ""}

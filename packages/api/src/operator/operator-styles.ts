@@ -162,12 +162,11 @@ svg { flex-shrink: 0; max-width: 100%; }
    ======================================================================== */
 .dropzone {
   border: 1px solid var(--rule-2); border-radius: 12px; padding: 46px 30px;
-  text-align: center; cursor: pointer; transition: border-color .16s, background .16s, transform .16s;
-  background: linear-gradient(180deg, rgba(255,255,255,0.012), transparent);
-  position: relative; overflow: hidden;
+  text-align: center; cursor: pointer; transition: border-color .16s, background .16s;
+  background: var(--panel);
 }
 .dropzone:hover { border-color: var(--amber-bd); background: var(--amber-bg); }
-.dropzone.over { border-color: var(--amber); background: var(--amber-bg-2); transform: scale(1.006); animation: glowpulse 1.4s ease infinite; }
+.dropzone.over { border-color: var(--amber); background: var(--amber-bg-2); }
 .dz-ico {
   width: 46px; height: 46px; margin: 0 auto 16px; border-radius: 50%;
   border: 1px solid var(--rule-bright); display: flex; align-items: center; justify-content: center;
@@ -241,6 +240,12 @@ svg { flex-shrink: 0; max-width: 100%; }
   animation: risein .3s ease;
 }
 .flag.dismissing { animation: flagout .35s ease forwards; }
+.okflag {
+  display: flex; align-items: center; gap: 12px; padding: 12px 15px; border-radius: 10px;
+  border: 1px solid var(--c-thesis-bd); background: var(--c-thesis-bg); margin-top: 14px;
+}
+.okflag .ftext { flex: 1; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+.okflag .ftext b { color: var(--c-thesis); font-weight: 600; }
 .flag .fdot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-contra); flex-shrink: 0; box-shadow: 0 0 0 4px var(--c-contra-bg); }
 .flag .ftext { flex: 1; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
 .flag .ftext b { color: var(--ink); font-weight: 600; }
