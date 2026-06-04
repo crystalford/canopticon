@@ -22,7 +22,7 @@ export async function embedText(env: Env, text: string): Promise<number[]> {
 
 export interface VectorMeta {
   user_id: string;
-  kind: "entity" | "claim" | "article" | "thesis" | "source";
+  kind: "entity" | "claim" | "article" | "thesis" | "source" | "piece";
   id: string;
   title?: string;
 }
