@@ -21,6 +21,7 @@ import { buildBrief } from "../graph/lib/briefs/pipeline";
 import { proposeBriefs } from "../graph/lib/briefs/proposer";
 import { digest } from "../graph/lib/digestion";
 import { extractUpload } from "../graph/lib/extract";
+import { composeScript } from "../graph/lib/studio/compose";
 import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
 import { insertOne, one, run } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
@@ -31,7 +32,7 @@ import { renderBriefsScreen } from "./screens/briefs";
 import { renderChatScreen } from "./screens/chat";
 import { renderFeedScreen } from "./screens/feed";
 import { renderLibraryScreen } from "./screens/library";
-import { renderStudioScreen } from "./screens/studio";
+import { renderProjectWorkspace, renderStudioScreen } from "./screens/studio";
 import { renderSynthesisScreen } from "./screens/synthesis";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -290,7 +291,132 @@ app.post("/briefs/:id/discard", async (c) => {
   }
 });
 
-app.get("/studio", async (c) => opHtml(await renderStudioScreen(c.env)));
+app.get("/studio", async (c) => {
+  const source = c.req.query("source");
+  return opHtml(await renderStudioScreen(c.env, { source }));
+});
+
+// Per-project workspace (Script tab functional in P5; Audio/Video/Export
+// show "stage not yet built" empty states).
+app.get("/studio/:id", async (c) => {
+  const tab = (c.req.query("tab") ?? "script") as "script" | "audio" | "video" | "export";
+  const html = await renderProjectWorkspace(c.env, c.req.param("id"), tab);
+  if (!html) return c.notFound();
+  return opHtml(html);
+});
+
+// Lock / unlock the operator's argument skeleton. Beats and the Never
+// list arrive as plain text (one per line) from the textareas.
+app.post("/studio/skeleton", async (c) => {
+  try {
+    const userId = await resolveOperatorId(c.env.DB);
+    if (!userId) return c.redirect("/op/studio?err=no_operator");
+    const form = await c.req.formData();
+    const action = form.get("action")?.toString() ?? "lock";
+    const beatsText = form.get("beats")?.toString() ?? "";
+    const neverText = form.get("never")?.toString() ?? "";
+
+    const beats = beatsText
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((text, i) => ({ n: i + 1, text }));
+    const never = neverText
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const existing = await one<{ id: string }>(
+      c.env.DB,
+      "SELECT id FROM studio_skeleton WHERE user_id = ?",
+      [userId],
+    );
+    const now = new Date().toISOString();
+    if (existing) {
+      await run(
+        c.env.DB,
+        `UPDATE studio_skeleton
+            SET beats_json = ?, never_json = ?,
+                locked_at = ?, updated_at = ?
+          WHERE id = ?`,
+        [
+          JSON.stringify(beats),
+          JSON.stringify(never),
+          action === "lock" ? now : null,
+          now,
+          existing.id,
+        ],
+      );
+    } else {
+      await insertOne(c.env.DB, "studio_skeleton", {
+        user_id: userId,
+        beats_json: JSON.stringify(beats),
+        never_json: JSON.stringify(never),
+        examples_json: "[]",
+        locked_at: action === "lock" ? now : null,
+      });
+    }
+    return c.redirect("/op/studio");
+  } catch (err) {
+    return c.redirect(`/op/studio?err=${encodeURIComponent((err as Error).message)}`);
+  }
+});
+
+// Compose — generate a project's beats from a finding + medium + the
+// locked skeleton. Saves as a project on success.
+app.post("/studio/compose", async (c) => {
+  try {
+    const userId = await resolveOperatorId(c.env.DB);
+    if (!userId) return c.redirect("/op/studio?err=no_operator");
+    const form = await c.req.formData();
+    const sourceId = form.get("source")?.toString() ?? "";
+    const medium = form.get("medium")?.toString() ?? "";
+    const title = form.get("title")?.toString().trim() || "Untitled";
+    if (!sourceId || !medium) {
+      return c.redirect("/op/studio?err=missing_source_or_medium");
+    }
+
+    // Pull the source finding from the patterns table for context.
+    const finding = await one<{ id: string; title: string; statement_md: string }>(
+      c.env.DB,
+      "SELECT id, title, statement_md FROM patterns WHERE id = ? AND user_id = ?",
+      [sourceId, userId],
+    );
+    if (!finding) return c.redirect("/op/studio?err=finding_not_found");
+
+    const skeleton = await one<{ id: string; locked_at: string | null }>(
+      c.env.DB,
+      "SELECT id, locked_at FROM studio_skeleton WHERE user_id = ?",
+      [userId],
+    );
+
+    const composed = await composeScript(c.env, {
+      userId,
+      title,
+      medium,
+      sourceTitle: finding.title,
+      sourceBody: finding.statement_md,
+    });
+
+    const projectId = await insertOne(c.env.DB, "studio_projects", {
+      user_id: userId,
+      skeleton_id: skeleton?.id ?? null,
+      source_finding_id: sourceId,
+      title,
+      medium,
+      stage: "script",
+      beats_json: JSON.stringify(composed.beats),
+      recordings_json: "{}",
+      clips_json: "{}",
+      gen_done_json: "{}",
+      assets_json: "[]",
+    });
+
+    return c.redirect(`/op/studio/${projectId}`);
+  } catch (err) {
+    return c.redirect(`/op/studio?err=${encodeURIComponent((err as Error).message)}`);
+  }
+});
 
 // ---- 301 redirects from old screen paths -------------------------------
 // Bookmarks and chat-history references keep working. Each pre-P0 screen
