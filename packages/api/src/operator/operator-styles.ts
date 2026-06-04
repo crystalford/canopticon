@@ -55,7 +55,11 @@ body {
   font-feature-settings: "ss01","cv01";
 }
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; padding: 0; }
+a { color: inherit; text-decoration: none; }
 input, textarea { font: inherit; color: inherit; }
+/* SVG icons are sized explicitly (width/height attrs); this is a defensive
+   floor so a stray icon in an unconstrained flex/grid cell can never balloon. */
+svg { flex-shrink: 0; max-width: 100%; }
 ::selection { background: var(--amber-bg-2); color: var(--amber-hi); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--rule-2); border-radius: 10px; border: 3px solid var(--surface); }
@@ -295,9 +299,9 @@ input, textarea { font: inherit; color: inherit; }
 .lens {
   display: flex; border: 1px solid var(--rule-2); border-radius: 8px; overflow: hidden; padding: 2px; gap: 2px; background: var(--panel);
 }
-.lens button { padding: 4px 13px; font-size: 12.5px; color: var(--mute); border-radius: 6px; transition: background .14s, color .14s; font-weight: 500; }
-.lens button.on { background: var(--raised-2); color: var(--ink); }
-.lens button:not(.on):hover { color: var(--ink-3); }
+.lens button, .lens a { display: inline-block; padding: 4px 13px; font-size: 12.5px; color: var(--mute); border-radius: 6px; transition: background .14s, color .14s; font-weight: 500; }
+.lens button.on, .lens a.on { background: var(--raised-2); color: var(--ink); }
+.lens button:not(.on):hover, .lens a:not(.on):hover { color: var(--ink-3); }
 
 .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .fchip {
@@ -419,6 +423,7 @@ input, textarea { font: inherit; color: inherit; }
 .setup-toggle:hover { color: var(--ink-3); }
 
 .setup-grid { display: grid; grid-template-columns: 0.85fr 1.15fr; }
+.setup-single { display: block; }
 .setup-col { padding: 16px 18px; }
 .setup-col + .setup-col { border-left: 1px solid var(--rule); }
 .setup-col h4 { font-size: 11.5px; font-weight: 500; color: var(--ink-3); margin-bottom: 11px; }
@@ -773,6 +778,7 @@ input, textarea { font: inherit; color: inherit; }
 .ls-l { font-family: var(--mono); font-size: 9.5px; color: var(--mute); letter-spacing: .05em; text-transform: uppercase; margin-top: 3px; }
 .lib-sep { width: 1px; height: 34px; background: var(--rule); }
 .lib-search { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--rule-2); border-radius: 9px; padding: 9px 14px; transition: border-color .14s; }
+.lib-search svg { width: 15px; height: 15px; color: var(--mute); flex-shrink: 0; }
 .lib-search:focus-within { border-color: var(--amber-bd); }
 .lib-search-input { flex: 1; background: none; border: none; outline: none; font-size: 13.5px; color: var(--ink); }
 .lib-search-input::placeholder { color: var(--mute); }

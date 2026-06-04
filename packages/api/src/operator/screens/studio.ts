@@ -122,14 +122,9 @@ function skeletonCard(skeleton: SkeletonRow | null): string {
     </div>
     ${lockBadge}
   </div>
-  <form method="POST" action="/op/studio/skeleton" class="setup-grid">
+  <form method="POST" action="/op/studio/skeleton" class="setup-single">
     <div class="setup-col">
-      <h4><span class="num">01</span>Examples you trust (3–7)</h4>
-      <div class="ex-drop">Drop the writers you want to sound like</div>
-      <div class="skel-extract-note">Drop-target wiring is Stage 1.1 — for now, write the skeleton beats directly on the right.</div>
-    </div>
-    <div class="setup-col">
-      <h4><span class="num">02</span>The skeleton</h4>
+      <h4><span class="num">01</span>The skeleton</h4>
       <div class="skel" id="skel-list">${beatsHtml}</div>
       <textarea name="beats" placeholder="One beat per line — they get numbered automatically. Example:&#10;Open with the structural surprise (not the personal story).&#10;Name the pattern in concrete terms.&#10;Show one instance with primary-source evidence.&#10;Generalize to the structure.&#10;Close with the throughline." style="width:100%;min-height:96px;background:var(--bg);border:1px solid var(--rule-2);border-radius:8px;padding:8px 10px;color:var(--ink);font-family:var(--serif);font-size:13.5px;line-height:1.4;resize:vertical">${beats.map((b) => b.text).join("\n")}</textarea>
       ${neverHtml}
