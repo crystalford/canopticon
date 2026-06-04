@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-06-04T12:50:03Z",
-  "run_id": "26952760255",
+  "requested_at": "2026-06-04T12:50:33Z",
+  "run_id": "26952786744",
   "method": "GET",
-  "path": "/v1/admin/reset-graph?confirm=1",
+  "path": "/v1/admin/runtime",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"wiped\": {\n    \"claim_entities\": 0,\n    \"claim_sources\": 0,\n    \"claim_versions\": \"error: D1_ERROR: no such column: user_id at offset 33: SQLITE_ERROR\",\n    \"claims\": 0,\n    \"entity_mentions\": 0,\n    \"entity_relations\": 0,\n    \"entity_resolution_log\": 0,\n    \"entity_resolution_queue\": 0,\n    \"entities\": 0,\n    \"chain_passes\": 0,\n    \"topic_pieces\": 0,\n    \"topic_entities\": 0,\n    \"patterns\": 0,\n    \"sources\": 20,\n    \"uploaded_files\": 10,\n    \"pieces\": 9,\n    \"orchestrator_events\": 97,\n    \"digest_jobs\": 0\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"generated_at\": \"2026-06-04T12:50:33.003Z\",\n  \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n  \"counts\": {\n    \"pieces\": 0,\n    \"entities\": 0,\n    \"topics\": 0,\n    \"claims\": 0,\n    \"sources\": 0,\n    \"conversations\": 3\n  },\n  \"events\": {\n    \"by_type\": {},\n    \"recent\": []\n  },\n  \"pending_proposals\": [],\n  \"recent_pieces\": []\n}"
 }
