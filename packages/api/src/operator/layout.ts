@@ -1,152 +1,106 @@
-// Operator console shell. Dark-instrument theme (data-mode="operator").
-// Reuses the design build's op-shell / op-side / op-brand / op-nav /
-// op-main / op-content / op-header classes from styles.css.
+// Operator console shell — six-surface IA per the operator-claude-code-handoff.
 //
-// The design used React + onClick handlers on <button>s; we use <a>
-// links styled to match. Icons ported from the design's ICONS map
-// (op-app.jsx) — inlined SVG, currentColor-stroked.
+// Six surfaces in the calm, dark, keyboard-friendly instrument:
+// Feed · Chat · Synthesis · Library · Briefs · Studio
 //
-// Cloudflare Access gates every /op/* route, so these screens are only
-// reachable by the operator. No auth UI needed here.
+// Layout per the design bundle:
+//   168px rail (collapses to 60px under 820px), top bar (52px), surface area
+//   (.wrap max-width 760px, .wrap.wide 920px, padding 26px 26px 80px).
+//
+// CSS lives in operator-styles.ts (lifted verbatim from the design's
+// Operator Console.html). This file emits the shell HTML + icon SVGs.
+//
+// Cloudflare Access gates every /op/* route at the edge, so these screens
+// are only reachable by the operator — no auth UI here.
 
 import { escapeAttr, escapeHtml } from "../public/layout";
-import { stylesHash } from "../public/styles";
+import { OPERATOR_CSS } from "./operator-styles";
 
-// Icon paths ported verbatim from the design build (op-app.jsx ICONS).
+// Icon SVG body fragments ported verbatim from console-ui.jsx ICONS. Each
+// fragment renders inside an <svg viewBox="0 0 16 16" fill="none" stroke=…>
+// wrapper. The design's strokes are currentColor with stroke-width 1.4.
 const ICONS: Record<string, string> = {
-  doc: "M6 2h8l4 4v16H6zM14 2v4h4",
-  layers: "M12 3l9 5-9 5-9-5zM3 13l9 5 9-5",
-  plus: "M12 5v14M5 12h14",
-  arrowUR: "M7 17 17 7M9 7h8v8",
-  edit: "M4 20h4L18 10l-4-4L4 16zM14 6l4 4",
-  play: "M7 5l12 7-12 7z",
-  spark: "M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z",
-  check: "M5 12l4 4 10-10",
-  chevron: "M9 6l6 6-6 6",
-  grid: "M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
-  dot: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z",
-  chat: "M3 5h18v12H7l-4 4z",
+  feed: `<path d="M2 13L6.5 5l3 5.5L12 6l3 5.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+  chat: `<path d="M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H9l-3 3v-3H3a1 1 0 01-1-1V4a1 1 0 011-1z" stroke-linejoin="round"/>`,
+  synthesis: `<rect x="2.2" y="2.2" width="5.2" height="5.2" rx="1.2"/><rect x="9.6" y="2.2" width="5.2" height="5.2" rx="1.2"/><rect x="2.2" y="9.6" width="5.2" height="5.2" rx="1.2"/><rect x="9.6" y="9.6" width="5.2" height="5.2" rx="1.2"/>`,
+  library: `<rect x="2" y="3" width="3" height="10" rx=".5"/><rect x="6.5" y="3" width="3" height="10" rx=".5"/><rect x="11" y="3" width="3" height="10" rx=".5"/>`,
+  briefs: `<path d="M4 2h6l4 4v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v4h4"/><path d="M6 9h5M6 11.5h3" stroke-linecap="round"/>`,
+  studio: `<path d="M4.5 3l9 5-9 5z" stroke-linejoin="round"/>`,
+  search: `<circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14" stroke-linecap="round"/>`,
+  settings: `<circle cx="8" cy="8" r="2.2"/><path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8L3.4 3.4" stroke-linecap="round"/>`,
+  arrow: `<path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+  external: `<path d="M6 3H3.5A1.5 1.5 0 002 4.5v8A1.5 1.5 0 003.5 14h8a1.5 1.5 0 001.5-1.5V10"/><path d="M9.5 2.5H13.5V6.5M13 3L7.5 8.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+  check: `<path d="M3.5 8.5l3 3 6-6.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+  chev: `<path d="M4 6l4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/>`,
+  doc: `<path d="M4 2h5l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M9 2v3h3" stroke-linejoin="round"/>`,
+  spark: `<path d="M8 1.5l1.6 4.4 4.4 1.6-4.4 1.6L8 13.5l-1.6-4.4L2 7.5l4.4-1.6z" stroke-linejoin="round"/>`,
+  upload: `<path d="M8 11V3.5M5 6l3-3 3 3" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11.5v1.5a1 1 0 001 1h8a1 1 0 001-1v-1.5" stroke-linecap="round"/>`,
 };
 
-export function icon(name: string, size = 15, color?: string): string {
-  const d = ICONS[name] ?? "";
-  const filled = name === "dot";
-  const colorAttr = color ? ` style="color:${color}"` : "";
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${filled ? "currentColor" : "none"}" stroke="${filled ? "none" : "currentColor"}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"${colorAttr}><path d="${d}"/></svg>`;
+export function icon(name: string, opts: { className?: string } = {}): string {
+  const body = ICONS[name] ?? "";
+  const cls = opts.className ? ` class="${escapeAttr(opts.className)}"` : "";
+  return `<svg${cls} viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">${body}</svg>`;
 }
 
 export interface OpNavItem {
   href: string;
   label: string;
   icon: string;
-}
-export interface OpNavGroup {
-  group: string;
-  items: OpNavItem[];
+  /** When true, render a pulsing amber nub indicating new activity. */
+  nub?: boolean;
 }
 
-// Screen taxonomy from the PROBE handoff. Groups + ordering mirror
-// the design build's NAV constant.
-export const OP_NAV: OpNavGroup[] = [
-  {
-    group: "Work",
-    items: [
-      { href: "/op", label: "Console", icon: "doc" },
-      { href: "/op/chat", label: "Chat", icon: "chat" },
-      { href: "/op/workbench", label: "Workbench", icon: "layers" },
-    ],
-  },
-  {
-    group: "Intake",
-    items: [
-      { href: "/op/build", label: "Build", icon: "plus" },
-      { href: "/op/ingest", label: "Ingest", icon: "arrowUR" },
-    ],
-  },
-  {
-    group: "Author",
-    items: [
-      { href: "/op/editorial", label: "Editorial", icon: "edit" },
-      { href: "/op/studio", label: "Studio", icon: "play" },
-    ],
-  },
-  {
-    group: "Surface",
-    items: [
-      { href: "/op/leads", label: "Leads", icon: "spark" },
-      { href: "/op/patterns", label: "Patterns", icon: "grid" },
-      { href: "/op/publish", label: "Publish", icon: "check" },
-    ],
-  },
+// The six surfaces, in the design's order. The handoff makes the order
+// itself meaningful: intake (Feed) → interrogate (Chat) → oversee
+// (Synthesis) → archive (Library) → build-citable (Briefs) → produce (Studio).
+export const OP_NAV: OpNavItem[] = [
+  { href: "/op", label: "Feed", icon: "feed" },
+  { href: "/op/chat", label: "Chat", icon: "chat" },
+  { href: "/op/synthesis", label: "Synthesis", icon: "synthesis" },
+  { href: "/op/library", label: "Library", icon: "library" },
+  { href: "/op/briefs", label: "Briefs", icon: "briefs" },
+  { href: "/op/studio", label: "Studio", icon: "studio" },
 ];
 
-// Inline rules for nav-link anchors (design used <button>s) + chat/editorial
-// layout primitives + command bar.
-const OP_INLINE_CSS = `
-.op-shell{min-height:100vh}
-.op-header{padding-top:20px;padding-bottom:18px;position:relative;top:0}
-.op-header-title{font-size:22px !important;letter-spacing:-0.02em !important}
-.op-header-coord{font-size:12px !important;margin-top:2px}
-.op-content{padding-top:32px !important}
-.op-content > .card.soft, .op-content > section > .card.soft{padding:24px 26px}
-.op-nav a.op-nav-link{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:8px 10px;font-size:13.5px;letter-spacing:-0.01em;color:var(--ink-mute);text-decoration:none;border-radius:var(--r-sm);font-weight:500;transition:background .1s,color .1s;gap:8px}
-.op-nav a.op-nav-link:hover{color:var(--ink);background:var(--paper-2)}
-.op-nav a.op-nav-link.is-active{color:var(--ink);background:var(--paper-2)}
-.op-nav a.op-nav-link .nav-icon{color:var(--ink-mute);display:inline-flex;flex-shrink:0}
-.op-nav a.op-nav-link.is-active .nav-icon{color:var(--accent)}
-.op-nav a.op-nav-link .nav-label{flex:1;display:inline-flex;align-items:center;gap:10px}
-.op-header-actions{display:flex;gap:8px;align-items:center}
-.op-chat-wrap{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 27px)}
-.op-chat-list{border-right:1px solid var(--rule);padding:14px 10px;overflow-y:auto}
-.op-chat-list a{display:block;padding:8px 10px;border-radius:var(--r-sm);color:var(--ink-2);text-decoration:none;font-size:13px;line-height:1.4}
-.op-chat-list a:hover{background:var(--paper-2)}
-.op-chat-list a.is-active{background:var(--paper-2);color:var(--ink)}
-.op-chat-main{display:flex;flex-direction:column;min-height:calc(100vh - 27px)}
-.op-chat-scroll{flex:1;overflow-y:auto;padding:24px 28px}
-.op-msg{margin-bottom:20px;max-width:760px}
-.op-msg.user{margin-left:auto}
-.op-msg .bubble{padding:12px 16px;border-radius:var(--r-lg);font-size:14.5px;line-height:1.55}
-.op-msg.user .bubble{background:var(--accent-bg);border:1px solid var(--accent-bd);color:var(--ink)}
-.op-msg.assistant .bubble{background:var(--surface);border:1px solid var(--rule);color:var(--ink-2)}
-.op-toolchip{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;margin:4px 0;border:1px solid var(--rule);border-radius:var(--r);background:var(--paper-2);font-family:var(--mono);font-size:12px;color:var(--ink-3)}
-.op-toolchip .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
-.op-toolchip.ok .dot{background:var(--confirmed)}
-.op-toolchip.err .dot{background:var(--correction)}
-.op-composer{border-top:1px solid var(--rule);padding:16px 28px;background:var(--paper)}
-.op-composer textarea{width:100%;min-height:64px;resize:vertical;background:var(--surface);border:1px solid var(--rule);border-radius:var(--r);padding:12px 14px;color:var(--ink);font-family:var(--sans);font-size:14.5px;line-height:1.5}
-.op-composer .row{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
-.cmdbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-lg);transition:border-color .12s}
-.cmdbar:focus-within{border-color:var(--accent-bd)}
-.cmdbar .prompt{font-family:var(--mono);color:var(--accent);font-size:14px;flex-shrink:0}
-.cmdbar input{flex:1;background:transparent;border:none;outline:none;color:var(--ink);font-family:var(--sans);font-size:14px}
-.cmdbar input::placeholder{color:var(--ink-faint)}
-`;
-
 export interface OpPageArgs {
+  /** Top bar h1 — e.g. "Feed" */
   title: string;
+  /** Top bar subtitle/coord — e.g. "drop research reports · digest into the graph" */
+  sub?: string;
+  /** Right-aligned controls in the top bar (raw HTML). */
+  topbarActions?: string;
+  /** Surface content (raw HTML, goes inside .wrap by default). */
   body: string;
+  /** Matching href for the active nav item. Default: /op (Feed). */
   activeNav?: string;
-  /** Optional client-JS module source attached at the end of body */
+  /** Which nav items should show the activity nub. */
+  nubs?: string[];
+  /** "narrow" (760px max-width, default) or "wide" (920px max-width). */
+  width?: "narrow" | "wide";
+  /** Optional client-JS module attached at the end of body. */
   clientScript?: string;
-  /** Optional JSON bootstrap embedded as a <script type=application/json> */
+  /** Optional JSON bootstrap embedded as a <script type=application/json>. */
   bootstrap?: { id: string; data: unknown };
-  /** When true, the body is the full shell content (chat uses a custom
-   *  two-column layout that replaces op-content). */
+  /** When true, body is the full surface content (no .wrap auto-wrap). */
   fullBleed?: boolean;
 }
 
 export function renderOpPage(args: OpPageArgs): string {
-  const cssHref = `/styles.css?v=${stylesHash()}`;
-  const nav = renderOpNav(args.activeNav);
+  const active = args.activeNav ?? "/op";
+  const nubs = new Set(args.nubs ?? []);
+  const nav = renderRail(active, nubs);
   const bootstrap = args.bootstrap
     ? `<script type="application/json" id="${escapeAttr(args.bootstrap.id)}">${jsonForScript(args.bootstrap.data)}</script>`
     : "";
   const clientScript = args.clientScript
     ? `<script type="module" src="${escapeAttr(args.clientScript)}"></script>`
     : "";
-  const mainInner = args.fullBleed ? args.body : `<div class="op-content">${args.body}</div>`;
+  const wrapClass = args.width === "wide" ? "wrap wide" : "wrap";
+  const surfaceInner = args.fullBleed ? args.body : `<div class="${wrapClass}">${args.body}</div>`;
+
   return `<!doctype html>
-<html lang="en" data-mode="operator" data-zone="op">
+<html lang="en" data-mode="operator">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -154,14 +108,21 @@ export function renderOpPage(args: OpPageArgs): string {
 <meta name="robots" content="noindex" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&display=swap" />
-<link rel="stylesheet" href="${cssHref}" />
-<style>${OP_INLINE_CSS}</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap" />
+<style>${OPERATOR_CSS}</style>
 </head>
 <body>
-<div class="op-shell">
+<div class="app">
   ${nav}
-  <div class="op-main">${mainInner}</div>
+  <div class="stage">
+    <div class="topbar">
+      <h1>${escapeHtml(args.title)}</h1>
+      ${args.sub ? `<span class="sub">${escapeHtml(args.sub)}</span>` : ""}
+      <span class="spacer"></span>
+      ${args.topbarActions ?? ""}
+    </div>
+    <div class="surface">${surfaceInner}</div>
+  </div>
 </div>
 ${bootstrap}
 ${clientScript}
@@ -169,56 +130,76 @@ ${clientScript}
 </html>`;
 }
 
-function renderOpNav(activeHref?: string): string {
-  const groups = OP_NAV.map((g) => {
-    const links = g.items
-      .map((item) => {
-        const isActive =
-          activeHref === item.href ||
-          (item.href !== "/op" && activeHref ? activeHref.startsWith(item.href) : false);
-        return `<a href="${escapeAttr(item.href)}" class="op-nav-link${isActive ? " is-active" : ""}">
-  <span class="nav-label"><span class="nav-icon">${icon(item.icon, 15)}</span>${escapeHtml(item.label)}</span>
+function renderRail(activeHref: string, nubs: Set<string>): string {
+  const items = OP_NAV.map((item) => {
+    const isActive =
+      activeHref === item.href || (item.href !== "/op" && activeHref.startsWith(`${item.href}/`));
+    const nubHtml = nubs.has(item.href) ? `<span class="nub"></span>` : "";
+    return `<a class="rail-item${isActive ? " active" : ""}" href="${escapeAttr(item.href)}">
+  ${icon(item.icon)}
+  <span class="lbl">${escapeHtml(item.label)}</span>
+  ${nubHtml}
 </a>`;
-      })
-      .join("");
-    return `<div class="grp">${escapeHtml(g.group)}</div>${links}`;
   }).join("");
 
-  return `<aside class="op-side">
-  <div class="op-brand">
-    <a href="/op" class="wordmark" style="font-size:20px;text-decoration:none">canopticon<span class="dot">.</span></a>
-    <div class="mono" style="font-size:10.5px;color:var(--ink-mute);margin-top:3px;text-transform:uppercase;letter-spacing:0.08em">operator console</div>
+  return `<nav class="rail">
+  <div class="rail-logo"><span class="word">canopticon</span><span class="dot">.</span></div>
+  <div class="rail-nav">${items}</div>
+  <button class="rail-kbd" type="button" aria-label="Command palette (Cmd+K)">
+    ${icon("search")}
+    <span class="fl">Command</span>
+    <span class="keys"><span class="kkey">⌘</span><span class="kkey">K</span></span>
+  </button>
+  <div class="rail-foot">
+    <a class="rail-foot-item link" href="/" target="_blank" rel="noopener">
+      ${icon("external")}
+      <span class="fl">public site</span>
+    </a>
+    <a class="rail-foot-item" href="/op/settings">
+      ${icon("settings")}
+      <span class="fl">Settings</span>
+    </a>
   </div>
-  <nav class="op-nav">${groups}</nav>
-  <div class="op-side-foot">
-    <a href="/" style="color:var(--ink-mute);text-decoration:none">public site →</a>
-    <span>graph · 1 operator · D1 + Vectorize</span>
-  </div>
-</aside>`;
+</nav>`;
 }
 
-// op-header strip used by content screens (chat manages its own).
-export function opHeader(title: string, coord = "", actions = ""): string {
-  return `<div class="op-header">
-  <div>
-    <div class="op-header-title">${escapeHtml(title)}</div>
-    ${coord ? `<div class="op-header-coord">${escapeHtml(coord)}</div>` : ""}
-  </div>
-  ${actions ? `<div class="op-header-actions">${actions}</div>` : ""}
+// Helper: build a topbar lens toggle (Synthesis "Findings | Corpus"). The
+// `links` shape is [{label, href, active}].
+export function lensToggle(
+  links: Array<{ label: string; href: string; active?: boolean }>,
+): string {
+  return `<div class="lens">
+${links
+  .map(
+    (l) =>
+      `<a class="${l.active ? "on" : ""}" href="${escapeAttr(l.href)}">${escapeHtml(l.label)}</a>`,
+  )
+  .join("")}
 </div>`;
 }
 
-// Command bar (design's top-of-screen agent prompt). Submits to /op/chat
-// with ?q= so the chat screen picks up the first message.
-export function commandBar(placeholder?: string): string {
-  const ph =
-    placeholder ??
-    "Command the record — draft a piece, ingest a document, ask what contradicts this…";
-  return `<form class="cmdbar" action="/op/chat" method="GET" style="margin-bottom:22px">
-  <span class="prompt">›</span>
-  <input name="q" placeholder="${escapeAttr(ph)}" autocomplete="off" />
-  <span class="chip">chat</span>
-</form>`;
+// Eyebrow (mono uppercase label).
+export function eyebrow(text: string): string {
+  return `<div class="eyebrow">${escapeHtml(text)}</div>`;
+}
+
+// Empty-state helper — used by surfaces with no content yet.
+export function emptyState(args: {
+  iconName?: string;
+  title: string;
+  body?: string;
+  action?: { href: string; label: string };
+}): string {
+  return `<div class="studio-empty">
+  ${args.iconName ? `<div class="se-ico">${icon(args.iconName)}</div>` : ""}
+  <div class="se-1">${escapeHtml(args.title)}</div>
+  ${args.body ? `<div class="se-2">${escapeHtml(args.body)}</div>` : ""}
+  ${
+    args.action
+      ? `<a class="se-link" href="${escapeAttr(args.action.href)}">${escapeHtml(args.action.label)} →</a>`
+      : ""
+  }
+</div>`;
 }
 
 function jsonForScript(data: unknown): string {
