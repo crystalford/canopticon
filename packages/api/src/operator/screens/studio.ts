@@ -1,87 +1,74 @@
-// Studio — audio production. The natural terminus of structure-first.
-// Lists scripts (studio_scripts table when enabled); link to the chat
-// to propose a script from a piece. Disabled when STUDIO_ENABLED != true.
+// Studio — the production workspace.
+//
+// P0 ships the workspace shell with placeholder reasoning lock + composer.
+// Stage 1 (reasoning lock, composer with source-finding picker + medium
+// pills + generate-with-skeleton, projects shelf) lands in P5. Stage 2
+// (audio: MediaRecorder + TTS + Web Audio stitching) and Stage 3 (video:
+// Pexels / Kling / FFmpeg) are deferred per the handoff's explicit
+// recommendation not to block launch on media production.
 
-import type { Env } from "../../env";
-import { all } from "../../lib/d1";
-import { escapeHtml } from "../../public/layout";
-import { resolveOperatorId } from "../data";
-import { icon, opHeader, renderOpPage } from "../layout";
+import { emptyState, renderOpPage } from "../layout";
 
-interface ScriptRow {
-  id: string;
-  piece_slug: string;
-  status: string;
-  segment_count: number;
-  created_at: string;
-}
-
-export async function renderStudio(env: Env): Promise<string> {
-  if (env.STUDIO_ENABLED !== "true") return renderDisabled();
-  const userId = await resolveOperatorId(env.DB);
-  if (!userId) return renderEmpty();
-
-  const scripts = await all<ScriptRow>(
-    env.DB,
-    `SELECT s.id, p.slug AS piece_slug, s.status,
-            COALESCE((SELECT COUNT(*) FROM studio_segments WHERE script_id = s.id), 0) AS segment_count,
-            s.created_at
-       FROM studio_scripts s
-       JOIN pieces p ON p.id = s.piece_id
-      WHERE s.user_id = ?
-      ORDER BY s.created_at DESC
-      LIMIT 30`,
-    [userId],
-  ).catch(() => [] as ScriptRow[]);
-
-  const list = scripts.length
-    ? `<div class="col" style="gap:10px">${scripts
-        .map(
-          (s) => `<div class="lead-card">
-  <div class="row between" style="margin-bottom:6px">
-    <span class="row" style="gap:8px"><span class="chip ${s.status === "stitched" ? "confirmed" : "draft"}">${escapeHtml(s.status)}</span><span class="coord">${s.segment_count} segments</span></span>
-    <span class="coord">${escapeHtml(s.id.slice(0, 8))}</span>
-  </div>
-  <div style="font-size:14px"><a href="/p/${escapeHtml(s.piece_slug)}" style="color:var(--ink);text-decoration:none">${escapeHtml(s.piece_slug)}</a></div>
-</div>`,
-        )
-        .join("")}</div>`
-    : `<div class="card soft" style="padding:24px;text-align:center;color:var(--ink-mute);font-size:14px">No scripts yet. Open <a href="/op/chat" style="color:var(--accent)">Chat</a> and say "propose a script from <em>piece-slug</em>" to start one.</div>`;
-
+export async function renderStudioScreen(_env: { DB: D1Database }): Promise<string> {
   const body = `
-${opHeader("Studio", "script → record → stitched audio")}
-<div class="op-content">
-  <p class="muted" style="margin-bottom:22px;font-family:var(--serif);font-size:16px;line-height:1.55;max-width:720px">
-    A signed piece projects into a segmented script — already decomposed into claims and a through-line. Read each segment in your own voice, re-record any one independently, the system stitches them into a finished sequence.
-  </p>
-  ${sectionHead("Scripts", `<a class="btn sm" href="/op/chat" style="text-decoration:none">${icon("play", 13)} Propose new script</a>`)}
-  ${list}
-</div>`;
+<div class="studio-setup">
+  <div class="setup-head">
+    <svg class="sh-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.5" rx="1.2"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/></svg>
+    <div>
+      <div class="sh-title">Reasoning lock</div>
+      <div class="sh-sub">argument structure that every output inherits</div>
+    </div>
+    <span class="setup-toggle">P5</span>
+  </div>
+  <div class="setup-grid">
+    <div class="setup-col">
+      <h4><span class="num">01</span>Examples you trust (3–7)</h4>
+      <div class="ex-drop">Drop the writers you want to sound like</div>
+      <div class="skel-extract-note">P5 extracts an argument skeleton from these and locks it.</div>
+    </div>
+    <div class="setup-col">
+      <h4><span class="num">02</span>The skeleton</h4>
+      <div class="skel">
+        <div class="skel-row"><span class="sn">—</span><span class="stext" style="color:var(--mute);font-style:italic">Beats appear here once you lock a skeleton.</span></div>
+      </div>
+      <div class="setup-actions">
+        <button class="btn btn-amber" disabled>Lock this skeleton</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-  return renderOpPage({ title: "Studio", body, activeNav: "/op/studio", fullBleed: true });
-}
+<div class="composer">
+  <div class="composer-head">
+    <svg class="ch-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5l1.6 4.4 4.4 1.6-4.4 1.6L8 13.5l-1.6-4.4L2 7.5l4.4-1.6z" stroke-linejoin="round"/></svg>
+    <div>
+      <div class="ch-title">New script</div>
+      <div class="ch-sub">generate in the locked skeleton · save as a project</div>
+    </div>
+  </div>
+  <div class="composer-empty">
+    <div class="ce-1">Composer lands in P5.</div>
+    <div class="ce-2">Lock a skeleton, pick a finding as source, choose an output medium (X thread / TikTok / Video essay / Podcast / Meme brief / Book chapter), generate.</div>
+  </div>
+</div>
 
-function sectionHead(label: string, action: string): string {
-  return `<div class="row between" style="border-bottom:1px solid var(--rule);padding-bottom:9px;margin-bottom:16px;gap:16px">
-  <div class="label">${escapeHtml(label)}</div>
-  ${action}
-</div>`;
-}
+<div class="projects-head">
+  <div class="ph-title">Projects</div>
+  <div class="ph-count">0</div>
+  <div class="ph-sub">scripts in production</div>
+</div>
+${emptyState({
+  iconName: "studio",
+  title: "No projects yet.",
+  body: "Save a generated script as a project. Each project carries through Script → Audio → Video → Export and produces real .mp3/.mp4 files. Audio + Video pipelines land later — Stage 1 lands in P5.",
+  action: { href: "/op/synthesis", label: "Find something to write about" },
+})}
+`;
 
-function renderDisabled(): string {
   return renderOpPage({
     title: "Studio",
-    body: `${opHeader("Studio", "audio production")}<div class="op-content"><div class="card soft" style="padding:30px;text-align:center;max-width:560px"><div style="margin-bottom:10px">${icon("play", 28, "var(--ink-faint)")}</div><div class="label" style="margin-bottom:8px">Disabled</div><p style="font-family:var(--serif);font-size:15px;line-height:1.55;color:var(--ink-2);margin:0">Set <code style="font-family:var(--mono);font-size:13px">STUDIO_ENABLED = "true"</code> in <code>wrangler.toml</code> to enable the audio production compartment.</p></div></div>`,
+    sub: "lock reasoning once · generate in any medium",
+    body,
     activeNav: "/op/studio",
-    fullBleed: true,
-  });
-}
-
-function renderEmpty(): string {
-  return renderOpPage({
-    title: "Studio",
-    body: `${opHeader("Studio", "script → record → stitched audio")}<div class="op-content"><div class="card soft" style="padding:30px;text-align:center;color:var(--ink-mute)">${icon("play", 28, "var(--accent)")}<div style="margin-top:12px;font-size:14.5px">No operator yet. Run a deploy first.</div></div></div>`,
-    activeNav: "/op/studio",
-    fullBleed: true,
   });
 }

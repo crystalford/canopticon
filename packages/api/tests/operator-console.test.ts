@@ -34,30 +34,44 @@ const env = {
   DB: makeEmptyDb(),
 };
 
-describe("operator console — Phase 3", () => {
-  it("console screen renders the operator shell (dark mode)", async () => {
+describe("operator console — six-surface IA (P0)", () => {
+  it("/op renders the Feed surface with the dark-amber shell", async () => {
     const res = await app.fetch(new Request("http://test/op"), env);
     expect(res.status).toBe(200);
     const html = await res.text();
+    // New shell: data-mode="operator", no longer "Console" as the home.
     expect(html).toMatch(/<html[^>]*data-mode="operator"/);
-    expect(html).toContain("operator console");
-    expect(html).toContain("Console");
+    expect(html).toContain("Feed");
+    expect(html).toContain("Drop research reports here");
+    // The six-surface rail.
+    expect(html).toContain('class="rail"');
+    for (const lbl of ["Feed", "Chat", "Synthesis", "Library", "Briefs", "Studio"]) {
+      expect(html).toContain(lbl);
+    }
     // noindex so the operator surface never gets crawled.
     expect(html).toContain('name="robots" content="noindex"');
+    // Design tokens loaded.
+    expect(html).toContain("--amber:");
   });
 
-  it("chat screen renders history container + composer + client script", async () => {
-    const res = await app.fetch(new Request("http://test/op/chat"), env);
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain('id="chat-scroll"');
-    expect(html).toContain('id="chat-form"');
-    expect(html).toContain('id="chat-input"');
-    expect(html).toContain('src="/op/chat.js"');
-    expect(html).toContain('id="chat-bootstrap"');
-  });
+  for (const [path, expected] of Object.entries({
+    "/op/chat": "Chat",
+    "/op/synthesis": "Synthesis",
+    "/op/library": "Library",
+    "/op/briefs": "Briefs",
+    "/op/studio": "Studio",
+  })) {
+    it(`${path} renders the ${expected} surface`, async () => {
+      const res = await app.fetch(new Request(`http://test${path}`), env);
+      expect(res.status, `path ${path}`).toBe(200);
+      const html = await res.text();
+      expect(html).toMatch(/<html[^>]*data-mode="operator"/);
+      expect(html).toContain("<h1>");
+      expect(html).toContain(expected);
+    });
+  }
 
-  it("chat.js serves vanilla JS with the SSE consumer", async () => {
+  it("chat.js still serves the vanilla SSE consumer (reused in P3)", async () => {
     const res = await app.fetch(new Request("http://test/op/chat.js"), env);
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toMatch(/javascript/);
@@ -67,29 +81,27 @@ describe("operator console — Phase 3", () => {
     expect(js).toContain("getReader");
   });
 
-  it("each operator screen renders the op shell", async () => {
-    for (const path of [
-      "/op/workbench",
-      "/op/build",
-      "/op/editorial",
-      "/op/leads",
-      "/op/patterns",
-      "/op/publish",
-      "/op/studio",
-    ]) {
-      const res = await app.fetch(new Request(`http://test${path}`), env);
-      expect(res.status, `path ${path}`).toBe(200);
-      const html = await res.text();
-      expect(html).toMatch(/<html[^>]*data-mode="operator"/);
+  it("old screen paths 301-redirect to their new surface", async () => {
+    const expected: Record<string, string> = {
+      "/op/console": "/op",
+      "/op/ingest": "/op",
+      "/op/workbench": "/op/synthesis",
+      "/op/leads": "/op/synthesis",
+      "/op/patterns": "/op/synthesis",
+      "/op/editorial": "/op/studio",
+      "/op/build": "/op/briefs",
+      "/op/publish": "/op/briefs",
+    };
+    for (const [from, to] of Object.entries(expected)) {
+      const res = await app.fetch(new Request(`http://test${from}`), env);
+      expect(res.status, `redirect from ${from}`).toBe(301);
+      expect(res.headers.get("location"), `redirect target for ${from}`).toBe(to);
     }
   });
 
-  it("ingest screen renders the drop-files form", async () => {
-    const res = await app.fetch(new Request("http://test/op/ingest"), env);
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toMatch(/<html[^>]*data-mode="operator"/);
-    expect(html).toContain("Drop a document");
-    expect(html).toContain("/op/ingest/upload");
+  it("old screen sub-paths also redirect", async () => {
+    const res = await app.fetch(new Request("http://test/op/editorial/some-slug"), env);
+    expect(res.status).toBe(301);
+    expect(res.headers.get("location")).toBe("/op/studio");
   });
 });
