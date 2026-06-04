@@ -136,6 +136,14 @@ async function loadCounts(db: D1Database, userId: string): Promise<Record<string
   return out;
 }
 
+// Collapse the raw pattern kinds into the five chip buckets.
+function kindBucket(kind: string): string {
+  if (kind === "contradiction") return "contradiction";
+  if (kind === "connection") return "connection";
+  if (kind === "gap") return "gap";
+  return "pattern"; // recurring-actor, frame, thesis, pattern, etc.
+}
+
 function findingCard(p: PatternRow): string {
   const badge = KIND_BADGE[p.kind] ?? KIND_BADGE.pattern;
   if (!badge) return "";
@@ -146,7 +154,7 @@ function findingCard(p: PatternRow): string {
   const restsLine = `<div class="card-rests"><span class="rk">rests on</span> <span class="rd">${p.piece_count} piece${p.piece_count === 1 ? "" : "s"}</span> · <span class="rd">${p.entity_count} entit${p.entity_count === 1 ? "y" : "ies"}</span></div>`;
   const isSigned = p.status === "signed";
   const useInStudioLabel = isSigned ? "Used in Studio" : "Use in Studio →";
-  return `<div class="card ${cardTypeClass(p.kind)}${isSigned ? " promoted" : ""}">
+  return `<div class="card ${cardTypeClass(p.kind)}${isSigned ? " promoted" : ""}" data-bucket="${escapeAttr(kindBucket(p.kind))}">
   <div class="card-head">
     <span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span>
     <span class="card-meta">${escapeHtml(p.confidence)} confidence${dateRange}</span>
@@ -167,7 +175,7 @@ function findingCard(p: PatternRow): string {
 }
 
 function gapCard(p: PatternRow): string {
-  return `<div class="card-gap">
+  return `<div class="card-gap" data-bucket="gap">
   <span class="badge b-gap">Gap</span>
   <span class="gtext">${escapeHtml(p.title)} — ${renderMarkdown(p.statement_md.slice(0, 240))}${p.statement_md.length > 240 ? "…" : ""}</span>
 </div>`;
@@ -176,11 +184,11 @@ function gapCard(p: PatternRow): string {
 function findingsBody(findings: PatternRow[], counts: Record<string, number>): string {
   const filterCount = (key: string) => counts[key] ?? 0;
   const filters = `<div class="filters">
-  <button class="fchip on"><span class="fcdot" style="background:var(--mute)"></span>All <span class="fccount">${filterCount("all")}</span></button>
-  <button class="fchip"><span class="fcdot" style="background:var(--c-pattern)"></span>Pattern <span class="fccount">${filterCount("recurring-actor")}</span></button>
-  <button class="fchip"><span class="fcdot" style="background:var(--c-contra)"></span>Contradiction <span class="fccount">${filterCount("contradiction")}</span></button>
-  <button class="fchip"><span class="fcdot" style="background:var(--c-connect)"></span>Connection <span class="fccount">${filterCount("connection")}</span></button>
-  <button class="fchip"><span class="fcdot" style="background:var(--c-gap)"></span>Gap <span class="fccount">${filterCount("gap")}</span></button>
+  <button class="fchip on" data-filter="all"><span class="fcdot" style="background:var(--mute)"></span>All <span class="fccount">${filterCount("all")}</span></button>
+  <button class="fchip" data-filter="pattern"><span class="fcdot" style="background:var(--c-pattern)"></span>Pattern <span class="fccount">${filterCount("recurring-actor")}</span></button>
+  <button class="fchip" data-filter="contradiction"><span class="fcdot" style="background:var(--c-contra)"></span>Contradiction <span class="fccount">${filterCount("contradiction")}</span></button>
+  <button class="fchip" data-filter="connection"><span class="fcdot" style="background:var(--c-connect)"></span>Connection <span class="fccount">${filterCount("connection")}</span></button>
+  <button class="fchip" data-filter="gap"><span class="fcdot" style="background:var(--c-gap)"></span>Gap <span class="fccount">${filterCount("gap")}</span></button>
 </div>`;
 
   if (findings.length === 0) {
@@ -195,8 +203,27 @@ ${emptyState({
 
   const cards = findings.map((f) => (f.kind === "gap" ? gapCard(f) : findingCard(f))).join("");
 
-  return `${filters}<div class="cards">${cards}</div>`;
+  return `${filters}<div class="cards">${cards}</div>${FINDINGS_FILTER_JS}`;
 }
+
+// Client-side bucket filter for the findings chips — all cards are rendered;
+// chips toggle visibility by data-bucket.
+const FINDINGS_FILTER_JS = `<script>
+(function () {
+  var chips = document.querySelectorAll(".filters .fchip");
+  var cards = document.querySelectorAll(".cards [data-bucket]");
+  chips.forEach(function (c) {
+    c.addEventListener("click", function () {
+      chips.forEach(function (x) { x.classList.remove("on"); });
+      c.classList.add("on");
+      var f = c.dataset.filter || "all";
+      cards.forEach(function (card) {
+        card.style.display = (f === "all" || card.dataset.bucket === f) ? "" : "none";
+      });
+    });
+  });
+})();
+</script>`;
 
 function corpusBody(groups: CorpusGroup[]): string {
   if (groups.length === 0) {
@@ -244,12 +271,13 @@ function corpusRow(
   indented = false,
 ): string {
   const isPub = p.publication_status === "published" || p.publication_status === "canonical";
-  return `<div class="crow${indented ? " indented" : ""}">
+  return `<a class="crow${indented ? " indented" : ""}" href="/op/library/${escapeAttr(p.slug)}">
   <span class="cstatus ${isPub ? "published" : "working"}"></span>
   <span class="cname">${escapeHtml(p.title || p.slug)}</span>
   <span class="cstat-lbl ${isPub ? "published" : "working"}">${escapeHtml(p.publication_status)}</span>
   <span class="cclaims">${p.claim_count} claims</span>
-</div>`;
+  <span class="mono crow-arrow">→</span>
+</a>`;
 }
 
 export async function renderSynthesisScreen(

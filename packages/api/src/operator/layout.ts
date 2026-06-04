@@ -157,10 +157,6 @@ function renderRail(activeHref: string, nubs: Set<string>): string {
       ${icon("external")}
       <span class="fl">public site</span>
     </a>
-    <a class="rail-foot-item" href="/op/settings">
-      ${icon("settings")}
-      <span class="fl">Settings</span>
-    </a>
   </div>
 </nav>`;
 }

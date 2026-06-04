@@ -273,6 +273,7 @@ svg { flex-shrink: 0; max-width: 100%; }
 .lt-synth { background: var(--c-thesis-bg); color: var(--c-thesis); }
 .lt-chain { background: var(--c-pattern-bg); color: var(--c-pattern); }
 .lt-promote, .lt-published { background: var(--c-connect-bg); color: var(--c-connect); }
+.lt-error { background: var(--c-contra-bg); color: var(--c-contra); }
 .log-undo {
   font-size: 11px; color: var(--mute); opacity: 0; transition: opacity .14s; flex-shrink: 0;
   font-family: var(--mono);
@@ -813,7 +814,36 @@ svg { flex-shrink: 0; max-width: 100%; }
 .lib-doc-status.working { color: var(--amber); }
 .lib-doc-claims { font-family: var(--mono); font-size: 11px; color: var(--mute); min-width: 64px; text-align: right; }
 .lib-doc-date { font-family: var(--mono); font-size: 10.5px; color: var(--faint); min-width: 80px; text-align: right; }
+.lib-doc-arrow { font-size: 11px; color: var(--c-pattern); flex-shrink: 0; }
 .lib-empty { font-family: var(--mono); font-size: 12px; color: var(--mute); padding: 32px; text-align: center; }
+.crow .crow-arrow { font-size: 11px; color: var(--c-pattern); margin-left: 4px; flex-shrink: 0; }
+
+/* ---- library document detail ---- */
+.libdoc-head { margin-bottom: 8px; }
+.libdoc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.libdoc-kind { font-size: 10.5px; color: var(--mute); }
+.libdoc-title { font-family: var(--serif); font-size: 26px; font-weight: 500; letter-spacing: -.01em; color: var(--ink); line-height: 1.2; }
+.libdoc-sub { font-family: var(--serif); font-size: 16px; color: var(--ink-3); margin-top: 6px; }
+.libdoc-section { margin: 26px 0; }
+.libdoc-section-h { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); padding-bottom: 8px; border-bottom: 1px solid var(--rule); margin-bottom: 12px; }
+.libdoc-sib { display: flex; align-items: center; gap: 8px; padding: 7px 0; font-family: var(--mono); font-size: 12.5px; color: var(--c-pattern); }
+.libdoc-sib:hover { color: var(--amber-hi); }
+.libdoc-claim { display: flex; align-items: baseline; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 13.5px; line-height: 1.5; }
+.libdoc-claim:last-child { border-bottom: none; }
+.libdoc-claim-tag { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--amber); min-width: 78px; flex-shrink: 0; }
+.libdoc-claim-text { flex: 1; color: var(--ink-2); }
+.libdoc-claim-vs { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--mute); flex-shrink: 0; }
+.libdoc-body { max-width: 760px; font-family: var(--serif); font-size: 15.5px; line-height: 1.66; color: var(--ink-2); }
+.libdoc-body h1, .libdoc-body h2, .libdoc-body h3 { font-family: var(--sans); color: var(--ink); letter-spacing: -.01em; margin: 22px 0 10px; line-height: 1.25; }
+.libdoc-body h1 { font-size: 21px; }
+.libdoc-body h2 { font-size: 18px; }
+.libdoc-body h3 { font-size: 15px; }
+.libdoc-body p { margin: 0 0 14px; }
+.libdoc-body ul, .libdoc-body ol { margin: 0 0 14px; padding-left: 22px; }
+.libdoc-body li { margin: 0 0 6px; }
+.libdoc-body a { color: var(--c-pattern); text-decoration: underline; text-underline-offset: 2px; }
+.libdoc-body blockquote { border-left: 2px solid var(--rule-bright); padding-left: 14px; color: var(--ink-3); margin: 0 0 14px; }
+.libdoc-body code { font-family: var(--mono); font-size: 13px; background: var(--raised); padding: 1px 5px; border-radius: 4px; }
 
 /* ========================================================================
    BRIEFS

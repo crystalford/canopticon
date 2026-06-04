@@ -105,3 +105,95 @@ describe("operator console — six-surface IA (P0)", () => {
     expect(res.headers.get("location")).toBe("/op/studio");
   });
 });
+
+// A stub that resolves an operator + a single piece so the Library detail
+// route renders its real path (the empty stub would 404 on no-operator).
+function makePieceDb(): D1Database {
+  const makeStmt = (sql: string) => ({
+    bind() {
+      return makeStmt(sql);
+    },
+    async first() {
+      if (/FROM users/i.test(sql)) return { id: "op1" };
+      if (/FROM pieces WHERE user_id = \? AND slug/i.test(sql)) {
+        return {
+          id: "p1",
+          slug: "osfi-stress-test",
+          title: "OSFI Stress Test",
+          subtitle: null,
+          kind: "research-report",
+          subtype: null,
+          publication_status: "working-material",
+          byline: null,
+          published_at: null,
+          signed_by: null,
+          body_md: "## Heading\n\nSome body.",
+          body_html: null,
+          chain_id: null,
+          tags: "[]",
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        };
+      }
+      return null;
+    },
+    async all() {
+      return { results: [] };
+    },
+    async run() {
+      return { results: [], meta: { changes: 0 } };
+    },
+  });
+  return {
+    prepare(sql: string) {
+      return makeStmt(sql) as unknown as D1PreparedStatement;
+    },
+    dump: async () => new ArrayBuffer(0),
+    batch: async () => [],
+    exec: async () => ({ count: 0, duration: 0 }),
+  } as unknown as D1Database;
+}
+
+describe("operator console — Library detail + interactions (pass 2)", () => {
+  it("/op/library/:slug renders the document detail view", async () => {
+    const res = await app.fetch(new Request("http://test/op/library/osfi-stress-test"), {
+      ...env,
+      DB: makePieceDb(),
+    });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toMatch(/<html[^>]*data-mode="operator"/);
+    expect(html).toContain("OSFI Stress Test");
+    expect(html).toContain("← Library");
+    // working-material → no public-page link.
+    expect(html).not.toContain('href="/p/osfi-stress-test"');
+    // body rendered.
+    expect(html).toContain("libdoc-body");
+  });
+
+  it("/op/library/:slug 404s when the piece is missing", async () => {
+    const res = await app.fetch(new Request("http://test/op/library/nope"), {
+      ...env,
+      DB: makeEmptyDb(),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("Library rows are openable links carrying filter data-attrs", async () => {
+    const res = await app.fetch(new Request("http://test/op/library"), env);
+    const html = await res.text();
+    // search input is live (has an id for the filter JS); chips carry data-filter.
+    expect(html).toContain('id="lib-search-input"');
+    expect(html).not.toContain(
+      'class="lib-search-input" type="search" placeholder="Search documents, chains, entities…" disabled',
+    );
+    expect(html).toContain('data-filter="all"');
+    expect(html).toContain("lib-search-input");
+  });
+
+  it("the rail no longer links to the dead /op/settings route", async () => {
+    const res = await app.fetch(new Request("http://test/op"), env);
+    const html = await res.text();
+    expect(html).not.toContain("/op/settings");
+  });
+});

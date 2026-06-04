@@ -94,25 +94,64 @@ function relativeAge(iso: string | null): string {
 function pieceRow(p: PieceListRow): string {
   const s = statusInfo(p.publication_status);
   const titleOrSlug = p.title?.trim() || p.slug;
-  return `<div class="lib-doc">
+  const searchText = `${titleOrSlug} ${p.kind} ${p.chain_id ?? ""}`.toLowerCase();
+  return `<a href="/op/library/${escapeAttr(p.slug)}" class="lib-doc" data-status="${s.cls}" data-chain="${escapeAttr(p.chain_id ?? "")}" data-search="${escapeAttr(searchText)}">
   <span class="lib-dot ${s.cls}"></span>
   <span class="lib-doc-name">${escapeHtml(titleOrSlug)}</span>
   <span class="lib-doc-kind">${escapeHtml(p.kind)}</span>
   <span class="lib-doc-status ${s.cls}">${escapeHtml(s.label)}</span>
   <span class="lib-doc-claims">${p.claim_count} claims</span>
   <span class="lib-doc-date">${escapeHtml(relativeAge(p.published_at ?? p.updated_at))}</span>
-  <a href="/op/library/${escapeAttr(p.slug)}" class="mono" style="font-size:11px;color:var(--c-pattern);text-decoration:none">→</a>
-</div>`;
+  <span class="mono lib-doc-arrow">→</span>
+</a>`;
 }
 
 function chainHeader(chainId: string, count: number, claimCount: number): string {
-  return `<div class="lib-chain-hd">
+  return `<div class="lib-chain-hd" data-chain="${escapeAttr(chainId)}">
   <span class="lch-arrow">↳</span>
   <span class="lch-name">${escapeHtml(chainId)}</span>
   <span class="lch-count">· ${count} doc${count === 1 ? "" : "s"}</span>
   <span class="lch-claims">${claimCount} claims</span>
 </div>`;
 }
+
+// Client-side filter: all docs are already in the DOM (LIMIT 200), so the
+// search box + chips filter rows by data-attrs with no server round-trip.
+const LIB_FILTER_JS = `<script>
+(function () {
+  var q = document.getElementById("lib-search-input");
+  var chips = document.querySelectorAll(".lib-fchip");
+  var rows = document.querySelectorAll(".lib-doc");
+  var heads = document.querySelectorAll(".lib-chain-hd");
+  var active = "all";
+  function apply() {
+    var text = ((q && q.value) || "").trim().toLowerCase();
+    var shown = {};
+    rows.forEach(function (r) {
+      var okFilter =
+        active === "all" ||
+        (active.indexOf("status:") === 0 && r.dataset.status === active.slice(7)) ||
+        (active.indexOf("chain:") === 0 && r.dataset.chain === active.slice(6));
+      var okText = !text || (r.dataset.search || "").indexOf(text) !== -1;
+      var show = okFilter && okText;
+      r.style.display = show ? "" : "none";
+      if (show) shown[r.dataset.chain || ""] = true;
+    });
+    heads.forEach(function (h) {
+      h.style.display = shown[h.dataset.chain || ""] ? "" : "none";
+    });
+  }
+  chips.forEach(function (c) {
+    c.addEventListener("click", function () {
+      chips.forEach(function (x) { x.classList.remove("on"); });
+      c.classList.add("on");
+      active = c.dataset.filter || "all";
+      apply();
+    });
+  });
+  if (q) q.addEventListener("input", apply);
+})();
+</script>`;
 
 export async function renderLibraryScreen(env: { DB: D1Database }): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
@@ -148,19 +187,19 @@ export async function renderLibraryScreen(env: { DB: D1Database }): Promise<stri
 
   const search = `<div class="lib-search" style="margin-bottom:14px">
   ${icon("search")}
-  <input class="lib-search-input" type="search" placeholder="Search documents, chains, entities…" disabled />
+  <input id="lib-search-input" class="lib-search-input" type="search" placeholder="Search documents, chains, entities…" />
 </div>`;
 
   const chainSlugs = [...chained.keys()].sort();
   const filterChips = `<div class="lib-filters" style="margin-bottom:16px">
-  <button class="lib-fchip on">All <span class="mono" style="font-size:10px;color:var(--faint);margin-left:6px">${stats.documents}</span></button>
-  <button class="lib-fchip">Published <span class="mono" style="font-size:10px;color:var(--faint);margin-left:6px">${stats.published}</span></button>
-  <button class="lib-fchip">Working <span class="mono" style="font-size:10px;color:var(--faint);margin-left:6px">${stats.working}</span></button>
+  <button class="lib-fchip on" data-filter="all">All <span class="mono" style="font-size:10px;color:var(--faint);margin-left:6px">${stats.documents}</span></button>
+  <button class="lib-fchip" data-filter="status:published">Published <span class="mono" style="font-size:10px;color:var(--faint);margin-left:6px">${stats.published}</span></button>
+  <button class="lib-fchip" data-filter="status:working">Working <span class="mono" style="font-size:10px;color:var(--faint);margin-left:6px">${stats.working}</span></button>
   ${chainSlugs
     .slice(0, 12)
     .map((chainId) => {
       const c = chained.get(chainId)?.length ?? 0;
-      return `<button class="lib-fchip">${escapeHtml(chainId)} <span class="mono" style="font-size:10px;color:var(--faint);margin-left:6px">${c}</span></button>`;
+      return `<button class="lib-fchip" data-filter="chain:${escapeAttr(chainId)}">${escapeHtml(chainId)} <span class="mono" style="font-size:10px;color:var(--faint);margin-left:6px">${c}</span></button>`;
     })
     .join("")}
 </div>`;
@@ -173,7 +212,7 @@ export async function renderLibraryScreen(env: { DB: D1Database }): Promise<stri
     listInner += group.map(pieceRow).join("");
   }
   if (standalone.length > 0 && chainSlugs.length > 0) {
-    listInner += `<div class="lib-chain-hd"><span class="lch-arrow">↳</span><span class="lch-name">standalone</span><span class="lch-count">· ${standalone.length} doc${standalone.length === 1 ? "" : "s"}</span></div>`;
+    listInner += `<div class="lib-chain-hd" data-chain=""><span class="lch-arrow">↳</span><span class="lch-name">standalone</span><span class="lch-count">· ${standalone.length} doc${standalone.length === 1 ? "" : "s"}</span></div>`;
   }
   listInner += standalone.map(pieceRow).join("");
 
@@ -187,7 +226,7 @@ export async function renderLibraryScreen(env: { DB: D1Database }): Promise<stri
     title: "Library",
     sub: "the full document archive",
     topbarActions,
-    body: `${statsBar}${search}${filterChips}${list}`,
+    body: `${statsBar}${search}${filterChips}${list}${LIB_FILTER_JS}`,
     activeNav: "/op/library",
     width: "wide",
   });
