@@ -19,6 +19,7 @@ import { Hono } from "hono";
 import type { Env } from "../env";
 import { digest } from "../graph/lib/digestion";
 import { extractUpload } from "../graph/lib/extract";
+import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
 import { insertOne, one } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
@@ -189,6 +190,21 @@ app.get("/chat.js", () => {
 app.get("/synthesis", async (c) => {
   const view = c.req.query("view") === "corpus" ? "corpus" : "findings";
   return opHtml(await renderSynthesisScreen(c.env, view));
+});
+
+// Manual re-surface trigger. The handoff treats Synthesis as read-only
+// oversight, but a Re-surface button on the topbar lets the operator
+// force a recompute after a fresh ingest. Idempotent: the surfacer
+// upserts candidate cards by slug, so re-running just updates counts.
+app.post("/synthesis/surface", async (c) => {
+  try {
+    const userId = await resolveOperatorId(c.env.DB);
+    if (!userId) return c.redirect("/op/synthesis?err=no_operator");
+    await runSynthesisSurfacer(c.env, userId);
+    return c.redirect("/op/synthesis");
+  } catch (err) {
+    return c.redirect(`/op/synthesis?err=${encodeURIComponent((err as Error).message)}`);
+  }
 });
 
 app.get("/library", async (c) => opHtml(await renderLibraryScreen(c.env)));
