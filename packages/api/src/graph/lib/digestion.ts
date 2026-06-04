@@ -84,25 +84,33 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
   await emit(env, args, "recognize_entities", "started", {});
   await emit(env, args, "extract_claims", "started", {});
 
-  const chunks = chunkText(args.body_md);
+  // Bound the work per upload: a Cloudflare Worker has a wall-clock /
+  // subrequest budget, and an unbounded chunk×LLM loop will get the request
+  // hard-killed mid-extraction (observed: digestion stuck at
+  // extract_claims.started, nothing persisted). Cap the chunks and put a hard
+  // timeout on every model call so a hung call can never freeze the request.
+  const chunks = chunkText(args.body_md).slice(0, MAX_CHUNKS);
   const accepted: ExtractedClaim[] = [];
   const claimSeen = new Set<string>();
   let chunksOk = 0;
   for (let i = 0; i < chunks.length; i++) {
     try {
-      const roleResult = await runRole(env, {
-        userId: args.userId,
-        roleName: "claim_extraction",
-        payload: {
-          title: args.title,
-          content_text: chunks[i] ?? "",
-          source_id: args.sourceId,
-          piece_id: args.pieceId,
-          chunk_index: i,
-          chunk_count: chunks.length,
-        },
-        idempotencyKey: `${args.pieceId}:claims:${i}`,
-      });
+      const roleResult = await withTimeout(
+        runRole(env, {
+          userId: args.userId,
+          roleName: "claim_extraction",
+          payload: {
+            title: args.title,
+            content_text: chunks[i] ?? "",
+            source_id: args.sourceId,
+            piece_id: args.pieceId,
+            chunk_index: i,
+            chunk_count: chunks.length,
+          },
+          idempotencyKey: `${args.pieceId}:claims:${i}`,
+        }),
+        ROLE_TIMEOUT_MS,
+      );
       if (roleResult.status === "failed") continue; // skip the chunk, keep going
       chunksOk++;
       for (const c of parseClaims(roleResult.output)) {
@@ -292,8 +300,28 @@ async function emit(
 // installs; ensureExtractionRoleModel() reconciles the live operator's role.
 // Flip to an Anthropic model + provider="anthropic" (and seed the
 // anthropic.role.claim_extraction cost whitelist) to route to Claude.
-// ---------------------------------------------------------------------------
-const CLAIM_EXTRACTION_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+//
+// NOTE: Llama-4-Scout (fast 17B, 131k ctx) is the proven model here — it
+// completes structured-output extraction reliably and quickly. Llama-3.3-70B
+// was observed to hang the Worker on the structured-output call (request
+// hard-killed mid-extraction, nothing persisted). Quality upgrades go through
+// the Anthropic toggle, not a slower Workers-AI model.
+const CLAIM_EXTRACTION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
+
+// Bound per-upload work so the request can't be killed mid-flight.
+const MAX_CHUNKS = 4;
+const ROLE_TIMEOUT_MS = 45_000;
+
+// Race a promise against a timeout so a hung model call fails the chunk
+// cleanly instead of freezing the whole request until the Worker is killed.
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`role call exceeded ${ms}ms`)), ms),
+    ),
+  ]);
+}
 
 async function ensureExtractionRoleModel(env: Env, userId: string): Promise<void> {
   try {
@@ -418,22 +446,9 @@ async function persistClaim(
     claimId,
     args.userId,
   ]);
-  // 4. embed (best-effort; recoverable via /backfill).
-  try {
-    const vec = await embedText(env, claim.claim_text);
-    await upsertVector(env, {
-      id: vectorId("claim", claimId),
-      values: vec,
-      metadata: {
-        user_id: args.userId,
-        kind: "claim",
-        id: claimId,
-        title: claim.claim_text.slice(0, 80),
-      },
-    });
-  } catch {
-    // vectors are eventually consistent; the claim row is the source of truth
-  }
+  // Vectors are intentionally NOT embedded inline — embedding every claim
+  // during ingest multiplies subrequests and slows the request. Claim/entity
+  // vectors are backfilled separately; the rows are the source of truth.
   return claimId;
 }
 
@@ -503,16 +518,7 @@ async function upsertEntityByName(
     public_slug: slug,
     metadata: { provisional: true, created_via: "feed-digest" },
   });
-  try {
-    const vec = await embedText(env, surfaceName);
-    await upsertVector(env, {
-      id: vectorId("entity", entityId),
-      values: vec,
-      metadata: { user_id: userId, kind: "entity", id: entityId, title: surfaceName.slice(0, 80) },
-    });
-  } catch {
-    // recoverable via /backfill
-  }
+  // Vectors backfilled separately (see persistClaim note) to keep ingest fast.
   seen.set(norm, entityId);
   return entityId;
 }

@@ -22,12 +22,13 @@ const ROLE_DEFAULTS: Array<{ name: string; model: string; allow_anthropic_overri
     allow_anthropic_override: 0,
   },
   {
-    // Llama 3.3 70B — stronger structured-JSON reasoning than Scout 17B, still
-    // free Workers AI. allow_anthropic_override:1 lets the operator flip this
-    // role to Claude from role settings (the cost whitelist below is seeded so
-    // that flip doesn't hard-fail the cost gate).
+    // Llama-4-Scout (17B, 131k ctx) — fast and reliable for structured-output
+    // claim extraction. (Llama-3.3-70B hung the Worker on the structured call.)
+    // allow_anthropic_override:1 lets the operator flip this role to Claude
+    // from role settings; the cost whitelist below is seeded so that flip
+    // doesn't hard-fail the cost gate. Quality upgrades go via Claude, not 70B.
     name: "claim_extraction",
-    model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
     allow_anthropic_override: 1,
   },
   {
