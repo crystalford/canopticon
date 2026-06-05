@@ -111,7 +111,17 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
         }),
         ROLE_TIMEOUT_MS,
       );
-      if (roleResult.status === "failed") continue; // skip the chunk, keep going
+      if (roleResult.status === "failed") {
+        // Surface the actual role-runner error so we can see WHY chunks fail
+        // instead of swallowing it. Without this, "failed on every chunk" is
+        // all we ever see and there's nothing to diagnose against.
+        await emit(env, args, "extract_claims", "started", {
+          diag: "chunk_role_failed",
+          chunk_index: i,
+          error: roleResult.error ?? "unknown",
+        });
+        continue;
+      }
       chunksOk++;
       const parsed = parseClaims(roleResult.output);
       // Diagnostic: if the model "succeeded" but parseClaims returned [], the
@@ -135,8 +145,17 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
         claimSeen.add(key);
         accepted.push(c);
       }
-    } catch {
-      // a single bad chunk shouldn't sink the document
+    } catch (err) {
+      // a single bad chunk shouldn't sink the document — but log WHY.
+      try {
+        await emit(env, args, "extract_claims", "started", {
+          diag: "chunk_threw",
+          chunk_index: i,
+          error: (err as Error).message ?? "unknown",
+        });
+      } catch {
+        // never let logging fail the chunk loop
+      }
     }
   }
 
@@ -374,10 +393,12 @@ Example. Source: "OSFI Superintendent Peter Routledge said the regulator will re
 Now do the same for the source below. Reply with the JSON object only.`;
 
 // Bound per-upload work so the request can't be killed mid-flight.
-// Tight budget so a single waitUntil run can finish a typical doc in ~one
-// invocation. If we exceed it, the cron drain picks the job up idempotently.
+// 60s per role call is generous enough for Llama 70B's first-token latency
+// (5-15s on Workers AI) + the multi-second structured-output generation.
+// If a chunk exceeds it the cron drain (heartbeat-stale at 2min) re-runs
+// the job idempotently, so erring long here is safe.
 const MAX_CHUNKS = 3;
-const ROLE_TIMEOUT_MS = 25_000;
+const ROLE_TIMEOUT_MS = 60_000;
 
 // Race a promise against a timeout so a hung model call fails the chunk
 // cleanly instead of freezing the whole request until the Worker is killed.
