@@ -7,7 +7,7 @@
 // in the same chain, and the rendered body.
 
 import { renderMarkdown } from "../../cms/lib/render-post";
-import { all } from "../../lib/d1";
+import { all, one } from "../../lib/d1";
 import { getPieceBySlug } from "../../public/data";
 import { escapeAttr, escapeHtml } from "../../public/layout";
 import { resolveOperatorId } from "../data";
@@ -24,6 +24,15 @@ interface SiblingRow {
   slug: string;
   title: string | null;
   publication_status: string;
+}
+
+interface JobRow {
+  status: string;
+  step: string;
+  claims_count: number;
+  attempts: number;
+  last_error: string | null;
+  updated_at: string;
 }
 
 function statusInfo(status: string): { cls: string; label: string } {
@@ -60,6 +69,15 @@ export async function renderLibraryDocScreen(
         [userId, piece.chain_id, piece.id],
       )
     : [];
+
+  // Latest digest_jobs row, if any — drives the Extract/Retry button + status banner.
+  const job = await one<JobRow>(
+    env.DB,
+    `SELECT status, step, claims_count, attempts, last_error, updated_at
+       FROM digest_jobs WHERE user_id = ? AND piece_id = ?
+       ORDER BY created_at DESC LIMIT 1`,
+    [userId, piece.id],
+  );
 
   const s = statusInfo(piece.publication_status);
   const isPublic =
@@ -119,17 +137,45 @@ export async function renderLibraryDocScreen(
 </div>`
     : "";
 
-  const topbarActions = `<a href="/op/library" class="btn">← Library</a>${
+  // Extract / Retry button — surfaces unless the latest job already completed.
+  // Running/queued jobs show a disabled "Extracting…" affordance.
+  const canExtract = !job || job.status === "failed";
+  const extractAction =
+    job && (job.status === "running" || job.status === "queued")
+      ? `<button class="btn" disabled>${icon("spark")} Extracting…</button>`
+      : canExtract
+        ? `<form method="POST" action="/op/library/extract" style="display:inline">
+  <input type="hidden" name="piece_ids" value="${escapeAttr(piece.id)}" />
+  <button type="submit" class="btn btn-amber">${icon("spark")} ${job?.status === "failed" ? "Retry extraction" : "Extract"}</button>
+</form>`
+        : "";
+
+  const topbarActions = `<a href="/op/library" class="btn">← Library</a>${extractAction}${
     isPublic
       ? `<a href="/p/${escapeAttr(piece.slug)}" target="_blank" rel="noopener" class="btn">${icon("external")} View public page</a>`
       : ""
   }<form method="POST" action="/op/library/delete" style="display:inline" onsubmit="return confirm('Delete this document, its claims, and its sources? This cannot be undone.');"><input type="hidden" name="mode" value="selected" /><input type="hidden" name="piece_ids" value="${escapeAttr(piece.id)}" /><button type="submit" class="btn btn-danger">Delete</button></form>`;
 
+  // Extraction state banner — honest about whether this doc has been digested.
+  const extractionBanner = job
+    ? `<div class="libdoc-section">
+  <div class="libdoc-section-h">Extraction</div>
+  <div class="libdoc-claim">
+    <span class="mono libdoc-claim-tag">status</span>
+    <span class="libdoc-claim-text">${escapeHtml(job.status)}${job.step !== job.status ? ` · ${escapeHtml(job.step)}` : ""}${job.attempts > 1 ? ` · attempt ${job.attempts}` : ""}${job.last_error ? ` · ${escapeHtml(job.last_error)}` : ""}</span>
+    <span class="mono libdoc-claim-vs">${escapeHtml(job.updated_at.slice(0, 16).replace("T", " "))}</span>
+  </div>
+</div>`
+    : `<div class="libdoc-section">
+  <div class="libdoc-section-h">Extraction</div>
+  <div class="lib-empty">This document is stored in the Vault but hasn't been extracted yet. Click <b>Extract</b> above to drive claims/entities into the graph.</div>
+</div>`;
+
   return renderOpPage({
     title: titleOrSlug.length > 48 ? `${titleOrSlug.slice(0, 48)}…` : titleOrSlug,
     sub: "library · document detail",
     topbarActions,
-    body: `${header}${chainBlock}${claimsBlock}${bodyHtml}`,
+    body: `${header}${extractionBanner}${chainBlock}${claimsBlock}${bodyHtml}`,
     activeNav: "/op/library",
     width: "wide",
   });

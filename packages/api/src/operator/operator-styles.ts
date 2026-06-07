@@ -883,6 +883,15 @@ svg { flex-shrink: 0; max-width: 100%; }
 .lib-doc-claims { font-family: var(--mono); font-size: 11px; color: var(--mute); min-width: 64px; text-align: right; }
 .lib-doc-date { font-family: var(--mono); font-size: 10.5px; color: var(--faint); min-width: 80px; text-align: right; }
 .lib-doc-arrow { font-size: 11px; color: var(--c-pattern); flex-shrink: 0; }
+/* extraction-status pill (next to publication-status) — honest about whether
+   a Vaulted doc has been digested yet */
+.lib-doc-extract-pill { font-size: 9.5px; padding: 2px 7px; border-radius: 999px; letter-spacing: .04em; text-transform: uppercase; flex-shrink: 0; min-width: 92px; text-align: center; }
+.lib-doc-extract-pill.stored { background: var(--rule); color: var(--ink-3); }
+.lib-doc-extract-pill.extracting { background: var(--amber-bg); color: var(--amber-hi); }
+.lib-doc-extract-pill.extracted { background: var(--c-thesis-bg); color: var(--c-thesis); }
+.lib-doc-extract-pill.failed { background: var(--c-contra-bg); color: var(--c-contra); }
+.lib-doc-extract { padding: 4px 11px; font-size: 11px; flex-shrink: 0; }
+.lib-doc-extract-done { color: var(--c-thesis); width: 28px; text-align: center; flex-shrink: 0; }
 .lib-doc-check { display: inline-flex; align-items: center; padding: 0 2px; flex-shrink: 0; }
 .lib-doc-check input { width: 14px; height: 14px; accent-color: var(--amber); cursor: pointer; }
 .lib-doc-name { color: inherit; text-decoration: none; }

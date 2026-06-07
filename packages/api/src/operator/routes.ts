@@ -29,7 +29,7 @@ import {
 import { extractUpload, readFullExtractedText } from "../graph/lib/extract";
 import { composeScript } from "../graph/lib/studio/compose";
 import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
-import { insertOne, one, run } from "../lib/d1";
+import { all, insertOne, one, run } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
@@ -98,9 +98,10 @@ app.post("/feed/upload", async (c) => {
       if (names.length === 0) {
         return c.redirect(`/op?error=${encodeURIComponent("No .md/.txt/.pdf files in the zip")}`);
       }
-      // For zips: create + extract every entry synchronously (fast), then kick
-      // off each doc's digestion in the background. The redirect happens
-      // immediately so the operator sees the activity log start filling in.
+      // For zips: create + extract every entry synchronously (fast). Documents
+      // land in the Vault; extraction is decoupled — run it from Library when
+      // ready. (Pivot: upload = bank in Vault, extraction is a separate manual
+      // step, no auto-fan-out of LLM work on upload.)
       const pieceIds: string[] = [];
       for (const name of names.slice(0, ZIP_MAX_ENTRIES)) {
         const bytes = entries[name];
@@ -116,36 +117,17 @@ app.post("/feed/upload", async (c) => {
             bytes.length,
           );
           pieceIds.push(p.pieceId);
-          // Enqueue durable job + kick it off inline for instant start.
-          // The every-minute cron drain is the safety net for kills.
-          const jobId = await enqueueDigest(c.env, {
-            userId,
-            pieceId: p.pieceId,
-            slug: p.slug,
-            title: p.title,
-            sourceId: p.sourceId,
-          });
-          c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
         } catch {
           // skip a bad entry; keep ingesting the rest
         }
       }
-      return c.redirect(`/op?ingested=${pieceIds.length}&processing=1`);
+      return c.redirect(`/op?ingested=${pieceIds.length}`);
     }
 
-    // Single-file: enqueue a durable job + kick it off via waitUntil so the
-    // request returns immediately. If the waitUntil gets killed mid-run, the
-    // cron drain picks up the stalled job and finishes it idempotently.
+    // Single-file: store in Vault. Extraction is triggered manually from
+    // Library — the cron drain + durable job infra remain in place for that.
     const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size);
-    const jobId = await enqueueDigest(c.env, {
-      userId,
-      pieceId: p.pieceId,
-      slug: p.slug,
-      title: p.title,
-      sourceId: p.sourceId,
-    });
-    c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
-    return c.redirect(`/op?piece=${encodeURIComponent(p.pieceId)}&processing=1`);
+    return c.redirect(`/op?piece=${encodeURIComponent(p.pieceId)}`);
   } catch (err) {
     return c.redirect(`/op?error=${encodeURIComponent((err as Error).message)}`);
   }
@@ -338,12 +320,79 @@ app.post("/synthesis/surface", async (c) => {
   }
 });
 
-app.get("/library", async (c) => opHtml(await renderLibraryScreen(c.env)));
+app.get("/library", async (c) => {
+  const extracting = c.req.query("extracting");
+  return opHtml(await renderLibraryScreen(c.env, { extracting }));
+});
 
 app.get("/library/:slug", async (c) => {
   const html = await renderLibraryDocScreen(c.env, c.req.param("slug"));
   if (!html) return c.notFound();
   return opHtml(html);
+});
+
+// Manual extraction trigger. The pivot decoupled upload from extraction;
+// this is where the operator actually fires the LLM digestion pipeline.
+//
+// Two modes:
+//   piece_ids[] — extract these pieces only (per-row or detail-page button)
+//   mode=all-unextracted — extract every piece that has no completed
+//     digest_jobs row yet (header batch button)
+// Either way: enqueue durable jobs + kick each off via waitUntil for instant
+// start. The every-minute cron drain catches anything killed mid-run.
+app.post("/library/extract", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/library");
+  await ensureJobsTable(c.env);
+  const form = await c.req.formData();
+  const mode = String(form.get("mode") ?? "selected");
+
+  // Resolve the set of pieces to extract.
+  let pieces: Array<{ id: string; slug: string; title: string; source_id: string | null }>;
+  if (mode === "all-unextracted") {
+    pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
+      c.env.DB,
+      `SELECT p.id, p.slug, p.title,
+              json_extract(p.metadata, '$.source_id') AS source_id
+         FROM pieces p
+        WHERE p.user_id = ?
+          AND NOT EXISTS (
+            SELECT 1 FROM digest_jobs j
+             WHERE j.user_id = p.user_id AND j.piece_id = p.id
+               AND j.status = 'completed'
+          )
+        ORDER BY p.created_at`,
+      [userId],
+    );
+  } else {
+    const ids = form
+      .getAll("piece_ids")
+      .map((v) => String(v))
+      .filter((v) => v.length > 0);
+    if (ids.length === 0) return c.redirect("/op/library");
+    const placeholders = ids.map(() => "?").join(",");
+    pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
+      c.env.DB,
+      `SELECT id, slug, title, json_extract(metadata, '$.source_id') AS source_id
+         FROM pieces WHERE user_id = ? AND id IN (${placeholders})`,
+      [userId, ...ids],
+    );
+  }
+
+  let kicked = 0;
+  for (const p of pieces) {
+    if (!p.source_id) continue; // can't extract without a source row
+    const jobId = await enqueueDigest(c.env, {
+      userId,
+      pieceId: p.id,
+      slug: p.slug,
+      title: p.title,
+      sourceId: p.source_id,
+    });
+    c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
+    kicked++;
+  }
+  return c.redirect(`/op/library?extracting=${kicked}`);
 });
 
 // Bulk-delete from Library. Two modes:
