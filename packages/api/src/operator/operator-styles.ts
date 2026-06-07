@@ -1004,6 +1004,47 @@ svg { flex-shrink: 0; max-width: 100%; }
   .setup-grid { grid-template-columns: 1fr; }
   .setup-col + .setup-col { border-left: none; border-top: 1px solid var(--rule); }
 }
+
+/* ========================================================================
+   BRIEFS COMPOSE (Phase 5) — manual authoring on-ramp
+   ======================================================================== */
+.bc-head { margin-bottom: 26px; }
+.bc-sub { font-family: var(--serif); font-size: 14.5px; color: var(--ink-3); line-height: 1.55; max-width: 720px; margin-top: 8px; }
+.bc-form { max-width: 920px; }
+.bc-section { margin-bottom: 26px; }
+.bc-label {
+  display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--faint); margin-bottom: 9px;
+}
+.bc-help { font-size: 11.5px; color: var(--mute); margin-top: 7px; line-height: 1.5; }
+.bc-input {
+  width: 100%; background: var(--bg); border: 1px solid var(--rule-2); border-radius: 8px;
+  padding: 9px 12px; color: var(--ink); font-family: inherit; font-size: 13.5px;
+  transition: border-color .14s;
+}
+.bc-input:focus { outline: none; border-color: var(--amber-bd); }
+.bc-input.mono { font-family: var(--mono); font-size: 12px; }
+.bc-textarea { font-family: var(--mono); font-size: 12.5px; line-height: 1.55; resize: vertical; }
+.bc-types { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+.bc-type {
+  display: flex; flex-direction: column; gap: 4px; padding: 11px 13px;
+  border: 1px solid var(--rule-2); border-radius: 9px; cursor: pointer; transition: border-color .14s, background .14s;
+}
+.bc-type:hover { border-color: var(--rule-bright); background: var(--raised); }
+.bc-type input { position: absolute; opacity: 0; pointer-events: none; }
+.bc-type:has(input:checked) { border-color: var(--amber); background: var(--amber-bg); }
+.bc-type-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.bc-type-hint { font-size: 11px; color: var(--mute); line-height: 1.45; }
+.bc-type-disabled { opacity: .45; cursor: not-allowed; }
+.bc-type-disabled:hover { background: transparent; border-color: var(--rule-2); }
+.bc-citations { display: flex; flex-direction: column; gap: 9px; margin-bottom: 12px; }
+.bc-citation {
+  display: flex; gap: 8px; padding: 11px 12px; border: 1px solid var(--rule); border-radius: 9px; background: var(--surface);
+}
+.bc-citation-grid { display: grid; grid-template-columns: 1fr; gap: 7px; flex: 1; }
+.bc-citation-remove { padding: 0 10px; font-size: 16px; line-height: 1; color: var(--mute); align-self: flex-start; }
+.bc-citation-remove:hover { color: var(--c-contra); }
+.bc-actions { display: flex; gap: 10px; align-items: center; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--rule); }
 `;
 
 // Deterministic content fingerprint — used so the cache-busting query string

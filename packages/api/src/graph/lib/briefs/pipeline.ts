@@ -26,7 +26,7 @@
 
 import { renderMarkdown } from "../../../cms/lib/render-post";
 import type { Env } from "../../../env";
-import { insertOne, one, run } from "../../../lib/d1";
+import { all, insertOne, one, run } from "../../../lib/d1";
 import { callLLM } from "../../../llm/index";
 
 const GENERATE_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
@@ -415,6 +415,169 @@ async function judge(
     judge_pass: parsed?.pass ? 1 : 0,
     judge_notes: parsed?.notes?.slice(0, 600) ?? "",
   };
+}
+
+// ---------------------------------------------------------------------------
+// Manual-compose verify path — Phase 5 of the architecture pivot.
+//
+// The auto pipeline runs generate → retrieve → verify → judge. Manual
+// composition skips generate entirely (operator wrote the body and supplied
+// each citation), so we just run retrieve → verify → judge → persist on the
+// already-inserted brief_claims rows. Idempotent: re-running re-verifies all
+// claims and refreshes the brief's counts.
+// ---------------------------------------------------------------------------
+export async function verifyManualBrief(
+  env: Env,
+  briefId: string,
+  userId: string,
+): Promise<BuildResult> {
+  const brief = await one<BriefRow>(
+    env.DB,
+    "SELECT id, user_id, slug, title, content_type, why_proposed_md FROM briefs WHERE id = ? AND user_id = ?",
+    [briefId, userId],
+  );
+  if (!brief) throw new Error(`Brief not found: ${briefId}`);
+
+  await emit(env, userId, briefId, "build.started", { brief_slug: brief.slug, mode: "manual" });
+  await run(
+    env.DB,
+    "UPDATE briefs SET status = 'building', build_started_at = ?, updated_at = ? WHERE id = ?",
+    [new Date().toISOString(), new Date().toISOString(), briefId],
+  );
+
+  const claims = await all<{
+    id: string;
+    claim_text: string;
+    source_url: string;
+    source_quote: string;
+  }>(
+    env.DB,
+    `SELECT id, claim_text, source_url, source_quote FROM brief_claims
+      WHERE brief_id = ? AND user_id = ?
+      ORDER BY sort_order ASC`,
+    [briefId, userId],
+  );
+
+  const result: BuildResult = {
+    briefId,
+    claims_total: claims.length,
+    claims_verified: 0,
+    claims_killed: 0,
+    cost_cents: 0,
+  };
+
+  // If the operator composed without citations, just flip to draft.
+  if (claims.length === 0) {
+    await run(
+      env.DB,
+      `UPDATE briefs SET status = 'draft', claims_verified = 0, claims_killed = 0,
+          generate_model = 'manual', judge_model = ?,
+          build_completed_at = ?, updated_at = ?
+        WHERE id = ?`,
+      [JUDGE_MODEL, new Date().toISOString(), new Date().toISOString(), briefId],
+    );
+    await emit(env, userId, briefId, "build.judge.completed", {
+      brief_slug: brief.slug,
+      mode: "manual",
+      passed: 0,
+      total: 0,
+    });
+    return result;
+  }
+
+  // ---- retrieve unique URLs ----
+  const sourceByUrl = new Map<string, { text: string; hash: string }>();
+  const uniqueUrls = [...new Set(claims.map((c) => c.source_url).filter((u) => u))];
+  for (const url of uniqueUrls) {
+    try {
+      const fetched = await retrieveSource(env, userId, url);
+      sourceByUrl.set(url, fetched);
+    } catch {
+      // leave it absent — verify step will kill the claim with a clean reason
+    }
+  }
+
+  // ---- verbatim verify + judge per claim ----
+  for (const c of claims) {
+    const src = sourceByUrl.get(c.source_url);
+    let verified = 0;
+    let killed = 0;
+    let kill_reason: string | null = null;
+    let source_hash: string | null = null;
+    let source_offset: number | null = null;
+    let judge_pass = 0;
+    let judge_notes = "";
+
+    if (!src) {
+      killed = 1;
+      kill_reason = "source URL could not be fetched";
+    } else {
+      const offset = src.text.indexOf(c.source_quote.trim());
+      if (offset < 0) {
+        killed = 1;
+        kill_reason = "verbatim match not found in fetched source — claim dropped";
+      } else {
+        verified = 1;
+        source_hash = src.hash;
+        source_offset = offset;
+        try {
+          const j = await judge(
+            env,
+            {
+              claim_text: c.claim_text,
+              source_url: c.source_url,
+              source_quote: c.source_quote,
+            },
+            userId,
+          );
+          judge_pass = j.judge_pass;
+          judge_notes = j.judge_notes;
+        } catch (err) {
+          judge_pass = 0;
+          judge_notes = `judge call failed: ${(err as Error).message}`;
+        }
+      }
+    }
+
+    await run(
+      env.DB,
+      `UPDATE brief_claims
+          SET verified = ?, killed = ?, kill_reason = ?, source_hash = ?, source_offset = ?,
+              judge_pass = ?, judge_notes = ?
+        WHERE id = ?`,
+      [verified, killed, kill_reason, source_hash, source_offset, judge_pass, judge_notes, c.id],
+    );
+
+    if (verified) result.claims_verified++;
+    if (killed) result.claims_killed++;
+  }
+
+  await run(
+    env.DB,
+    `UPDATE briefs SET
+        status = 'draft',
+        claims_verified = ?, claims_killed = ?,
+        generate_model = 'manual', judge_model = ?,
+        build_completed_at = ?, updated_at = ?
+      WHERE id = ?`,
+    [
+      result.claims_verified,
+      result.claims_killed,
+      JUDGE_MODEL,
+      new Date().toISOString(),
+      new Date().toISOString(),
+      briefId,
+    ],
+  );
+
+  await emit(env, userId, briefId, "build.judge.completed", {
+    brief_slug: brief.slug,
+    mode: "manual",
+    passed: result.claims_verified,
+    killed: result.claims_killed,
+    total: result.claims_total,
+  });
+  return result;
 }
 
 // ---- helpers --------------------------------------------------------------
