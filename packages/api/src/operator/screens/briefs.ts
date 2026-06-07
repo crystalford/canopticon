@@ -175,7 +175,10 @@ function publishedRow(b: BriefRow): string {
 </div>`;
 }
 
-export async function renderBriefsScreen(env: { DB: D1Database }): Promise<string> {
+export async function renderBriefsScreen(
+  env: { DB: D1Database },
+  args: { composed?: string | undefined } = {},
+): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const briefs = userId ? await loadBriefs(env.DB, userId) : [];
 
@@ -192,8 +195,12 @@ export async function renderBriefsScreen(env: { DB: D1Database }): Promise<strin
     }
   }
 
-  const topbarActions = `<form method="POST" action="/op/briefs/propose" style="display:inline">
-    <button class="btn" type="submit" title="Re-run the proposer">${icon("spark")} Re-propose</button>
+  // "Compose Brief" is the primary entry point (manual authoring is the
+  // product per the architecture pivot). Re-propose is secondary — auto
+  // proposals are suggestions, not the main flow.
+  const topbarActions = `<a href="/op/briefs/compose" class="btn btn-amber">${icon("spark")} Compose Brief</a>
+  <form method="POST" action="/op/briefs/propose" style="display:inline">
+    <button class="btn" type="submit" title="Re-scan the graph for auto-proposal suggestions">Re-propose</button>
   </form>`;
 
   const queueHtml = building
@@ -218,7 +225,14 @@ export async function renderBriefsScreen(env: { DB: D1Database }): Promise<strin
         body: "Publishing a verified draft renders it as a citable page at /briefs/:slug (server-rendered, no JS).",
       });
 
+  const composedBanner = args.composed
+    ? `<div class="okflag" style="margin-bottom:14px">
+  <span class="ftext"><b>Brief composed.</b> Citations are being verified now — the draft will appear below in a few seconds.</span>
+</div>`
+    : "";
+
   const body = `
+${composedBanner}
 <div class="briefs-sh">
   <div class="bsh-title">Proposal queue</div>
   <div class="bsh-count">${proposals.length + building.length + drafts.length}</div>

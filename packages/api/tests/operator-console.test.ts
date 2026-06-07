@@ -291,4 +291,26 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
     expect(html).toContain("Documents land in the Vault");
     expect(html).not.toContain("extracts entities, drafts claims");
   });
+
+  it("/op/briefs/compose renders the manual composer form", async () => {
+    const res = await app.fetch(new Request("http://test/op/briefs/compose"), {
+      ...env,
+      DB: makePieceDb(),
+    });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Compose Brief");
+    expect(html).toContain('name="title"');
+    expect(html).toContain('name="content_type"');
+    expect(html).toContain('name="claim_text[]"');
+    expect(html).toContain('name="source_url[]"');
+    expect(html).toContain('name="source_quote[]"');
+  });
+
+  it("/op/briefs has a primary 'Compose Brief' CTA", async () => {
+    const res = await app.fetch(new Request("http://test/op/briefs"), env);
+    const html = await res.text();
+    expect(html).toContain('href="/op/briefs/compose"');
+    expect(html).toContain("Compose Brief");
+  });
 });

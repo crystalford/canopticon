@@ -18,7 +18,7 @@
 import { unzipSync } from "fflate";
 import { Hono } from "hono";
 import type { Env } from "../env";
-import { buildBrief } from "../graph/lib/briefs/pipeline";
+import { buildBrief, verifyManualBrief } from "../graph/lib/briefs/pipeline";
 import { proposeBriefs } from "../graph/lib/briefs/proposer";
 import {
   enqueueDigest,
@@ -35,6 +35,7 @@ import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
 import { opHtml } from "./layout";
 import { renderBriefsScreen } from "./screens/briefs";
+import { renderBriefsComposeScreen } from "./screens/briefs-compose";
 import { renderChatScreen } from "./screens/chat";
 import { renderFeedScreen } from "./screens/feed";
 import { renderLibraryScreen } from "./screens/library";
@@ -463,7 +464,104 @@ app.post("/library/delete", async (c) => {
   return c.redirect("/op/library");
 });
 
-app.get("/briefs", async (c) => opHtml(await renderBriefsScreen(c.env)));
+app.get("/briefs", async (c) => {
+  const composed = c.req.query("composed");
+  return opHtml(await renderBriefsScreen(c.env, { composed }));
+});
+
+// Manual Brief composer — Phase 5 of the architecture pivot. The product
+// is the typed verifiable Brief; this is the on-ramp to author one by hand.
+app.get("/briefs/compose", async (c) => {
+  const html = await renderBriefsComposeScreen(c.env);
+  if (!html) return c.notFound();
+  return opHtml(html);
+});
+
+// POST /op/briefs/compose — create a Brief from operator-supplied body
+// + citation tuples, then run the verify+judge pipeline on each citation.
+// Status flows: proposal → building → draft. Lands on /op/briefs (the
+// existing draft-review surface shows the new draft).
+app.post("/briefs/compose", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/briefs?err=no_operator");
+  const form = await c.req.formData();
+  const title = String(form.get("title") ?? "").trim();
+  const slug = String(form.get("slug") ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120);
+  const content_type = String(form.get("content_type") ?? "faq");
+  const body_md = String(form.get("body_md") ?? "");
+  if (!title || !slug || !body_md) {
+    return c.redirect("/op/briefs?err=missing_fields");
+  }
+  const allowedTypes = new Set(["faq", "definition", "timeline", "stat-roundup"]);
+  const finalType = allowedTypes.has(content_type) ? content_type : "faq";
+
+  // Parse parallel citation arrays. Empty rows are skipped so the operator
+  // can leave the last row blank without that turning into a phantom citation.
+  const claimTexts = form.getAll("claim_text[]").map((v) => String(v).trim());
+  const sourceUrls = form.getAll("source_url[]").map((v) => String(v).trim());
+  const sourceQuotes = form.getAll("source_quote[]").map((v) => String(v).trim());
+  const citations: Array<{ claim_text: string; source_url: string; source_quote: string }> = [];
+  for (let i = 0; i < claimTexts.length; i++) {
+    const ct = claimTexts[i] ?? "";
+    const su = sourceUrls[i] ?? "";
+    const sq = sourceQuotes[i] ?? "";
+    if (ct && su && sq) {
+      citations.push({ claim_text: ct, source_url: su, source_quote: sq });
+    }
+  }
+
+  // Slug uniqueness: append -2, -3... on collision (mirrors ensureUniqueSlug
+  // for pieces). Briefs are also keyed by (user_id, slug) UNIQUE.
+  let uniqueSlug = slug;
+  for (let n = 2; n < 50; n++) {
+    const exists = await one<{ id: string }>(
+      c.env.DB,
+      "SELECT id FROM briefs WHERE user_id = ? AND slug = ?",
+      [userId, uniqueSlug],
+    );
+    if (!exists) break;
+    uniqueSlug = `${slug}-${n}`;
+  }
+
+  const briefId = await insertOne(c.env.DB, "briefs", {
+    user_id: userId,
+    slug: uniqueSlug,
+    title,
+    content_type: finalType,
+    status: "proposal", // verifyManualBrief flips this to building → draft
+    why_proposed_md: "Composed manually by the operator.",
+    body_md,
+    body_html: "",
+    schema_jsonld: "{}",
+  });
+
+  // Insert the operator-supplied citations as brief_claims rows with
+  // verified=0 (verifyManualBrief will update each row in place).
+  let sort = 0;
+  for (const cit of citations) {
+    await insertOne(c.env.DB, "brief_claims", {
+      brief_id: briefId,
+      user_id: userId,
+      claim_text: cit.claim_text,
+      source_url: cit.source_url,
+      source_quote: cit.source_quote,
+      verified: 0,
+      killed: 0,
+      judge_pass: 0,
+      sort_order: sort++,
+    });
+  }
+
+  // Fire verify+judge in the background — the cron drain isn't wired here
+  // (Briefs verify isn't in digest_jobs), so we rely on waitUntil. If it's
+  // killed, the operator can hit a "re-verify" action later. (Not in this PR.)
+  c.executionCtx.waitUntil(verifyManualBrief(c.env, briefId, userId));
+  return c.redirect("/op/briefs?composed=1");
+});
 
 // Re-run the proposer over the corpus. Idempotent: upserts proposals
 // by slug. Surfaces graph coverage gaps + synthesis-finding-derived
