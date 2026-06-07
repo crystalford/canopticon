@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-06-05T14:11:26Z",
-  "run_id": "27019902172",
+  "requested_at": "2026-06-07T23:35:32Z",
+  "run_id": "27108213159",
   "method": "GET",
   "path": "/v1/admin/reset-graph?confirm=1",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"wiped\": {\n    \"claim_entities\": 60,\n    \"claim_sources\": 0,\n    \"claim_versions\": \"error: D1_ERROR: no such column: user_id at offset 33: SQLITE_ERROR\",\n    \"claims\": 68,\n    \"entity_mentions\": 0,\n    \"entity_relations\": 0,\n    \"entity_resolution_log\": 0,\n    \"entity_resolution_queue\": 0,\n    \"entities\": 46,\n    \"chain_passes\": 0,\n    \"topic_pieces\": 0,\n    \"topic_entities\": 0,\n    \"patterns\": 0,\n    \"sources\": 98,\n    \"uploaded_files\": 50,\n    \"pieces\": 49,\n    \"orchestrator_events\": 352,\n    \"digest_jobs\": 49\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"wiped\": {\n    \"claim_entities\": 0,\n    \"claim_sources\": 0,\n    \"claim_versions\": \"error: D1_ERROR: no such column: user_id at offset 33: SQLITE_ERROR\",\n    \"claims\": 0,\n    \"entity_mentions\": 0,\n    \"entity_relations\": 0,\n    \"entity_resolution_log\": 0,\n    \"entity_resolution_queue\": 0,\n    \"entities\": 0,\n    \"chain_passes\": 0,\n    \"topic_pieces\": 0,\n    \"topic_entities\": 0,\n    \"patterns\": 0,\n    \"sources\": 0,\n    \"uploaded_files\": 0,\n    \"pieces\": 0,\n    \"orchestrator_events\": 0,\n    \"digest_jobs\": 0\n  }\n}"
 }
