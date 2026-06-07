@@ -24,6 +24,8 @@ interface PieceListRow {
   body_md: string | null;
   metadata: string | null;
   claim_count: number;
+  // Latest digest_jobs row for this piece, if any. Null when never extracted.
+  digest_status: string | null;
 }
 
 interface Stats {
@@ -62,12 +64,18 @@ async function loadStats(db: D1Database, userId: string): Promise<Stats> {
 }
 
 async function loadDocuments(db: D1Database, userId: string): Promise<PieceListRow[]> {
+  // The digest_status sub-select prefers the latest job's status so a row
+  // accurately reflects "stored / extracting / extracted / failed". When no
+  // digest_jobs row exists yet, status is NULL → rendered as "stored".
   return all<PieceListRow>(
     db,
     `SELECT p.id, p.slug, p.title, p.subtitle, p.kind, p.publication_status,
             p.chain_id, p.byline, p.published_at, p.created_at, p.updated_at,
             p.body_md, p.metadata,
-            (SELECT COUNT(*) FROM claims c WHERE c.asserted_in_piece_id = p.id) AS claim_count
+            (SELECT COUNT(*) FROM claims c WHERE c.asserted_in_piece_id = p.id) AS claim_count,
+            (SELECT j.status FROM digest_jobs j
+              WHERE j.user_id = p.user_id AND j.piece_id = p.id
+              ORDER BY j.created_at DESC LIMIT 1) AS digest_status
        FROM pieces p
       WHERE p.user_id = ?
       ORDER BY p.chain_id IS NULL, p.chain_id, COALESCE(p.published_at, p.updated_at, p.created_at) DESC
@@ -91,8 +99,45 @@ function relativeAge(iso: string | null): string {
   return `${Math.round(sec / 86_400)}d`;
 }
 
+function extractionInfo(status: string | null): { cls: string; label: string } {
+  if (status === "completed") return { cls: "extracted", label: "extracted" };
+  if (status === "running") return { cls: "extracting", label: "extracting…" };
+  if (status === "queued") return { cls: "extracting", label: "queued" };
+  if (status === "failed") return { cls: "failed", label: "failed" };
+  return { cls: "stored", label: "stored" };
+}
+
+// "Extract" button rendered when the piece has no completed digest_jobs row
+// — i.e. it's only in the Vault. The button uses the HTML form= attribute to
+// target a per-row <form> rendered OUTSIDE the bulk-delete form (forms can't
+// nest). All per-row forms are appended together below the list.
+function extractCellFor(p: PieceListRow): string {
+  if (p.digest_status === "completed") return `<span class="lib-doc-extract-done mono">✓</span>`;
+  if (p.digest_status === "running" || p.digest_status === "queued") {
+    return `<span class="lib-doc-extract-done mono">…</span>`;
+  }
+  const label = p.digest_status === "failed" ? "Retry" : "Extract";
+  return `<button type="submit" form="lib-extract-form-${escapeAttr(p.id)}" class="btn btn-amber lib-doc-extract">${label}</button>`;
+}
+
+function extractFormsFor(docs: PieceListRow[]): string {
+  return docs
+    .filter(
+      (d) =>
+        d.digest_status !== "completed" &&
+        d.digest_status !== "running" &&
+        d.digest_status !== "queued",
+    )
+    .map(
+      (d) =>
+        `<form id="lib-extract-form-${escapeAttr(d.id)}" method="POST" action="/op/library/extract" style="display:none"><input type="hidden" name="piece_ids" value="${escapeAttr(d.id)}" /></form>`,
+    )
+    .join("");
+}
+
 function pieceRow(p: PieceListRow): string {
   const s = statusInfo(p.publication_status);
+  const x = extractionInfo(p.digest_status);
   const titleOrSlug = p.title?.trim() || p.slug;
   const searchText = `${titleOrSlug} ${p.kind} ${p.chain_id ?? ""}`.toLowerCase();
   return `<div class="lib-doc" data-status="${s.cls}" data-chain="${escapeAttr(p.chain_id ?? "")}" data-search="${escapeAttr(searchText)}">
@@ -100,9 +145,10 @@ function pieceRow(p: PieceListRow): string {
   <span class="lib-dot ${s.cls}"></span>
   <a class="lib-doc-name" href="/op/library/${escapeAttr(p.slug)}">${escapeHtml(titleOrSlug)}</a>
   <span class="lib-doc-kind">${escapeHtml(p.kind)}</span>
-  <span class="lib-doc-status ${s.cls}">${escapeHtml(s.label)}</span>
+  <span class="lib-doc-extract-pill ${x.cls} mono" title="extraction status">${escapeHtml(x.label)}</span>
   <span class="lib-doc-claims">${p.claim_count} claims</span>
   <span class="lib-doc-date">${escapeHtml(relativeAge(p.published_at ?? p.updated_at))}</span>
+  ${extractCellFor(p)}
   <a class="mono lib-doc-arrow" href="/op/library/${escapeAttr(p.slug)}">→</a>
 </div>`;
 }
@@ -154,7 +200,10 @@ const LIB_FILTER_JS = `<script>
 })();
 </script>`;
 
-export async function renderLibraryScreen(env: { DB: D1Database }): Promise<string> {
+export async function renderLibraryScreen(
+  env: { DB: D1Database },
+  args: { extracting?: string | undefined } = {},
+): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const stats = userId
     ? await loadStats(env.DB, userId)
@@ -229,13 +278,40 @@ export async function renderLibraryScreen(env: { DB: D1Database }): Promise<stri
 </form>`
     : `<div class="lib-list"><div class="lib-empty">No documents in the archive yet. Drop research reports in Feed and they appear here as the digestion pipeline catalogues them.</div></div>`;
 
-  const topbarActions = `<a href="/op" class="btn"><span style="display:inline-flex;align-items:center;gap:6px">${icon("upload")} Add document</span></a>`;
+  const unextractedCount = docs.filter(
+    (d) =>
+      d.digest_status !== "completed" &&
+      d.digest_status !== "running" &&
+      d.digest_status !== "queued",
+  ).length;
+  const extractAllForm =
+    unextractedCount > 0
+      ? `<form method="POST" action="/op/library/extract" style="display:inline">
+  <input type="hidden" name="mode" value="all-unextracted" />
+  <button type="submit" class="btn btn-amber" title="Extract every document that has no completed extraction yet">
+    ${icon("spark")} Extract all (${unextractedCount})
+  </button>
+</form>`
+      : "";
+  const topbarActions = `${extractAllForm}<a href="/op" class="btn"><span style="display:inline-flex;align-items:center;gap:6px">${icon("upload")} Add document</span></a>`;
+
+  // Per-row extract forms sit outside the bulk-delete form (HTML forms can't
+  // nest). The row buttons reference them by id.
+  const extractForms = extractFormsFor(docs);
+
+  // Surface a one-shot "extracting N" banner after the /library/extract POST.
+  const extractingN = args.extracting && /^\d+$/.test(args.extracting) ? args.extracting : null;
+  const extractingBanner = extractingN
+    ? `<div class="okflag" style="margin-bottom:14px">
+  <span class="ftext"><b>Extracting ${escapeHtml(extractingN)} document${extractingN === "1" ? "" : "s"}</b> · the status pills below will update as each completes.</span>
+</div>`
+    : "";
 
   return renderOpPage({
     title: "Library",
-    sub: "the full document archive",
+    sub: "the full document archive · drop in Feed, extract here",
     topbarActions,
-    body: `${statsBar}${search}${filterChips}${list}${LIB_FILTER_JS}${LIB_BULK_JS}`,
+    body: `${extractingBanner}${statsBar}${search}${filterChips}${list}${extractForms}${LIB_FILTER_JS}${LIB_BULK_JS}`,
     activeNav: "/op/library",
     width: "wide",
   });

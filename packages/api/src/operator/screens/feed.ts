@@ -204,14 +204,14 @@ function dropzone(): string {
         <path d="M3 11.5v1.5a1 1 0 001 1h8a1 1 0 001-1v-1.5" stroke-linecap="round"/>
       </svg>
     </div>
-    <div class="dz-1">Drop research reports here</div>
-    <div class="dz-2">Markdown · plain text · PDF (Llama Scout extracts) · .zip of any of these</div>
-    <div class="dz-3">Upload is authorization. The system extracts entities, drafts claims, embeds, and detects chains automatically — no confirmation gate. Claims land as draft until the weighting model judges them citable.</div>
+    <div class="dz-1">Drop documents here</div>
+    <div class="dz-2">Markdown · plain text · PDF · .zip of any of these</div>
+    <div class="dz-3">Documents land in the Vault — safely stored, hashed, and indexed. Run extraction from <a href="/op/library" style="color:var(--amber-hi)">Library</a> when you're ready; nothing fires automatically.</div>
     <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,.zip,text/markdown,text/plain,application/pdf,application/zip,application/x-zip-compressed" required style="display:none" />
   </label>
   <div class="dz-uploading" id="dz-uploading" hidden>
     <span class="dz-spinner"></span>
-    <span class="dz-up-text"><b>Uploading and extracting…</b> you can leave this page — digestion continues in the background.</span>
+    <span class="dz-up-text"><b>Uploading…</b> banking in the Vault. You can leave this page.</span>
   </div>
 </form>
 <script>

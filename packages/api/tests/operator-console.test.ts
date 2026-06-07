@@ -43,7 +43,7 @@ describe("operator console — six-surface IA (P0)", () => {
     // New shell: data-mode="operator", no longer "Console" as the home.
     expect(html).toMatch(/<html[^>]*data-mode="operator"/);
     expect(html).toContain("Feed");
-    expect(html).toContain("Drop research reports here");
+    expect(html).toContain("Drop documents here");
     // The six-surface rail.
     expect(html).toContain('class="rail"');
     for (const lbl of ["Feed", "Chat", "Synthesis", "Library", "Briefs", "Studio"]) {
@@ -214,7 +214,9 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
     // skipped — but the handler must still detect the zip, skip __MACOSX junk,
     // and redirect rather than 500.
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toMatch(/^\/op\?ingested=\d+&processing=1$/);
+    // Pivot: upload no longer auto-fires extraction, so the redirect no
+    // longer carries processing=1 — it's a plain "stored in Vault" landing.
+    expect(res.headers.get("location")).toMatch(/^\/op\?ingested=\d+$/);
   });
 
   it("feed dropzone advertises zip support", async () => {
@@ -266,5 +268,27 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
     // when docs render is covered by the route being wired + the form
     // markup living inside the rendered library template.
     expect(html).toContain("Library");
+  });
+
+  it("/op/library/extract route exists and redirects even with no input", async () => {
+    // POST with no piece_ids and no mode → handler returns redirect to /op/library.
+    // (When operator/run target is real, this is where each piece's runDigestJob
+    // gets kicked. Here we just verify the route is wired and doesn't 500.)
+    const res = await app.fetch(
+      new Request("http://test/op/library/extract", {
+        method: "POST",
+        body: new URLSearchParams({}),
+      }),
+      { ...env, DB: makePieceDb() },
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toMatch(/^\/op\/library/);
+  });
+
+  it("dropzone copy reflects the pivot (Vault, not auto-extract)", async () => {
+    const res = await app.fetch(new Request("http://test/op"), env);
+    const html = await res.text();
+    expect(html).toContain("Documents land in the Vault");
+    expect(html).not.toContain("extracts entities, drafts claims");
   });
 });
