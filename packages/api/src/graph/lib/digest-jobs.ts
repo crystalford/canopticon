@@ -59,7 +59,20 @@ export interface EnqueueArgs {
   sourceId: string | undefined;
 }
 
+// Idempotent enqueue. If this piece already has a `completed` digest job,
+// return that job's id without queuing a new one — clicking Extract on an
+// already-extracted doc should be a free no-op. (Re-running on `failed` or
+// brand-new pieces still enqueues; runDigestJob is itself idempotent on
+// claim re-writes when the cron retries a stalled job.)
 export async function enqueueDigest(env: Env, args: EnqueueArgs): Promise<string> {
+  const existing = await one<{ id: string }>(
+    env.DB,
+    `SELECT id FROM digest_jobs
+       WHERE user_id = ? AND piece_id = ? AND status = 'completed'
+       ORDER BY created_at DESC LIMIT 1`,
+    [args.userId, args.pieceId],
+  );
+  if (existing) return existing.id;
   return insertOne(env.DB, "digest_jobs", {
     user_id: args.userId,
     piece_id: args.pieceId,
