@@ -477,6 +477,41 @@ app.get("/briefs/compose", async (c) => {
   return opHtml(html);
 });
 
+// GET /op/briefs/compose/search?q=…
+//
+// Searches the operator's extracted claims so the composer can seed
+// citations from the grounding layer instead of typing them by hand. SQL
+// LIKE against the latest claim_versions.claim_text + a join back to the
+// asserting piece so the operator sees where each claim came from.
+// Returns JSON {results: [{id, claim_text, piece_title, piece_slug, layer}]}.
+app.get("/briefs/compose/search", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.json({ ok: false, error: "no operator" }, 401);
+  const q = (c.req.query("q") ?? "").trim();
+  if (q.length < 2) return c.json({ ok: true, results: [] });
+  const like = `%${q.replace(/[%_]/g, "\\$&")}%`;
+  const results = await all<{
+    id: string;
+    claim_text: string;
+    layer: string;
+    piece_title: string | null;
+    piece_slug: string | null;
+  }>(
+    c.env.DB,
+    `SELECT c.id, cv.claim_text, c.layer, p.title AS piece_title, p.slug AS piece_slug
+       FROM claims c
+       LEFT JOIN claim_versions cv ON cv.id = c.current_version_id
+       LEFT JOIN pieces p ON p.id = c.asserted_in_piece_id
+      WHERE c.user_id = ?
+        AND cv.claim_text IS NOT NULL
+        AND lower(cv.claim_text) LIKE lower(?) ESCAPE '\\'
+      ORDER BY length(cv.claim_text) ASC
+      LIMIT 25`,
+    [userId, like],
+  );
+  return c.json({ ok: true, results });
+});
+
 // POST /op/briefs/compose — create a Brief from operator-supplied body
 // + citation tuples, then run the verify+judge pipeline on each citation.
 // Status flows: proposal → building → draft. Lands on /op/briefs (the

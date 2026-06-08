@@ -1045,6 +1045,18 @@ svg { flex-shrink: 0; max-width: 100%; }
 .bc-citation-remove { padding: 0 10px; font-size: 16px; line-height: 1; color: var(--mute); align-self: flex-start; }
 .bc-citation-remove:hover { color: var(--c-contra); }
 .bc-actions { display: flex; gap: 10px; align-items: center; margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--rule); }
+
+/* Grounding-layer search panel inside the composer (Phase 5 PR 2). */
+.bc-grounding { padding: 13px 14px; border: 1px solid var(--rule-2); border-radius: 9px; background: var(--surface); margin-bottom: 13px; }
+.bc-grounding-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 9px; }
+.bc-grounding-title { font-family: var(--mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+.bc-grounding-sub { font-size: 11px; color: var(--mute); }
+.bc-grounding-results { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; margin-top: 9px; padding: 4px; background: var(--bg); border: 1px solid var(--rule); border-radius: 7px; }
+.bc-grounding-row { display: flex; flex-direction: column; gap: 3px; padding: 8px 11px; border-radius: 6px; text-align: left; cursor: pointer; transition: background .12s; width: 100%; border: none; background: transparent; }
+.bc-grounding-row:hover { background: var(--raised); }
+.bc-grounding-row .bc-gr-text { font-size: 12.5px; color: var(--ink-2); line-height: 1.4; }
+.bc-grounding-row .bc-gr-meta { font-size: 10px; color: var(--mute); }
+.bc-grounding-empty { padding: 14px; font-family: var(--mono); font-size: 11px; color: var(--mute); text-align: center; }
 `;
 
 // Deterministic content fingerprint — used so the cache-busting query string

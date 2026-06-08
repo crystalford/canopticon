@@ -104,6 +104,16 @@ export async function renderBriefsComposeScreen(env: {
       to grade whether the quote actually supports the assertion. Citations that fail are
       marked killed and don't appear in the published Sources block.
     </div>
+
+    <div class="bc-grounding">
+      <div class="bc-grounding-head">
+        <span class="bc-grounding-title">Search the grounding layer</span>
+        <span class="bc-grounding-sub">click a result to seed a citation's <span class="mono">assertion</span></span>
+      </div>
+      <input id="bc-grounding-q" type="search" placeholder="type to search extracted claims…" class="bc-input" />
+      <div id="bc-grounding-results" class="bc-grounding-results" hidden></div>
+    </div>
+
     <div id="bc-citations" class="bc-citations">
       ${citationRow(0)}
     </div>
@@ -122,17 +132,91 @@ export async function renderBriefsComposeScreen(env: {
   var btn = document.getElementById("bc-add-citation");
   var n = 1;
   if (!box || !btn) return;
-  btn.addEventListener("click", function () {
+  function addRow(prefill) {
     var t = document.createElement("template");
     t.innerHTML = ${JSON.stringify(citationRow("__N__"))};
     var html = t.innerHTML.replace(/__N__/g, String(n++));
     box.insertAdjacentHTML("beforeend", html);
-  });
+    if (prefill) {
+      var added = box.lastElementChild;
+      var ct = added.querySelector('input[name="claim_text[]"]');
+      if (ct && prefill.claim_text) ct.value = prefill.claim_text;
+    }
+    return box.lastElementChild;
+  }
+  btn.addEventListener("click", function () { addRow(null); });
   box.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest(".bc-citation-remove");
     if (!b) return;
     var row = b.closest(".bc-citation");
     if (row && box.querySelectorAll(".bc-citation").length > 1) row.remove();
+  });
+
+  // ---- Grounding-layer search ----
+  // Debounced fetch as the operator types. Click a result to seed a new
+  // citation row's assertion (operator still supplies the external source
+  // URL + verbatim quote — the verifier won't accept the operator's own
+  // doc as evidence per the citogenesis invariant).
+  var q = document.getElementById("bc-grounding-q");
+  var resultsEl = document.getElementById("bc-grounding-results");
+  if (!q || !resultsEl) return;
+  var timer = null;
+  function search(query) {
+    if (!query || query.length < 2) {
+      resultsEl.setAttribute("hidden", "");
+      resultsEl.innerHTML = "";
+      return;
+    }
+    fetch("/op/briefs/compose/search?q=" + encodeURIComponent(query), { credentials: "same-origin" })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (j) {
+        if (!j || !j.results) return;
+        if (j.results.length === 0) {
+          resultsEl.innerHTML = '<div class="bc-grounding-empty">No claims match. Extract some documents in Library first.</div>';
+          resultsEl.removeAttribute("hidden");
+          return;
+        }
+        resultsEl.innerHTML = j.results.map(function (r) {
+          var piece = r.piece_title || r.piece_slug || "—";
+          return '<button type="button" class="bc-grounding-row" data-claim-text="' +
+            String(r.claim_text || "").replace(/"/g, "&quot;") + '">' +
+            '<span class="bc-gr-text">' + escapeText(r.claim_text || "") + '</span>' +
+            '<span class="bc-gr-meta mono">' + escapeText(r.layer || "") + ' · ' + escapeText(piece) + '</span>' +
+            '</button>';
+        }).join("");
+        resultsEl.removeAttribute("hidden");
+      })
+      .catch(function () {});
+  }
+  function escapeText(s) {
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+  q.addEventListener("input", function () {
+    clearTimeout(timer);
+    var v = q.value;
+    timer = setTimeout(function () { search(v); }, 220);
+  });
+  resultsEl.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest(".bc-grounding-row");
+    if (!b) return;
+    var text = b.getAttribute("data-claim-text") || "";
+    // Find an empty citation row to seed; otherwise add a new one.
+    var rows = box.querySelectorAll('.bc-citation');
+    var target = null;
+    for (var i = 0; i < rows.length; i++) {
+      var ct = rows[i].querySelector('input[name="claim_text[]"]');
+      if (ct && !ct.value.trim()) { target = ct; break; }
+    }
+    if (!target) {
+      var added = addRow(null);
+      target = added.querySelector('input[name="claim_text[]"]');
+    }
+    if (target) {
+      target.value = text;
+      target.focus();
+    }
   });
 })();
 </script>`;
