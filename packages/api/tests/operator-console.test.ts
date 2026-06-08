@@ -307,6 +307,29 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
     expect(html).toContain('name="source_quote[]"');
   });
 
+  it("/op/briefs/compose/search returns JSON for a short query", async () => {
+    const res = await app.fetch(new Request("http://test/op/briefs/compose/search?q=x"), {
+      ...env,
+      DB: makePieceDb(),
+    });
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as { ok: boolean; results: unknown[] };
+    expect(j.ok).toBe(true);
+    expect(Array.isArray(j.results)).toBe(true);
+    // Sub-2-char query short-circuits to empty results without hitting D1.
+    expect(j.results.length).toBe(0);
+  });
+
+  it("composer page includes the grounding-search panel", async () => {
+    const res = await app.fetch(new Request("http://test/op/briefs/compose"), {
+      ...env,
+      DB: makePieceDb(),
+    });
+    const html = await res.text();
+    expect(html).toContain('id="bc-grounding-q"');
+    expect(html).toContain("Search the grounding layer");
+  });
+
   it("/op/briefs has a primary 'Compose Brief' CTA", async () => {
     const res = await app.fetch(new Request("http://test/op/briefs"), env);
     const html = await res.text();
