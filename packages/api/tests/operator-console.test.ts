@@ -216,7 +216,7 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
     expect(res.status).toBe(302);
     // Pivot: upload no longer auto-fires extraction, so the redirect no
     // longer carries processing=1 — it's a plain "stored in Vault" landing.
-    expect(res.headers.get("location")).toMatch(/^\/op\?ingested=\d+$/);
+    expect(res.headers.get("location")).toMatch(/^\/op\?ingested=\d+&dupes=\d+$/);
   });
 
   it("feed dropzone advertises zip support", async () => {

@@ -54,8 +54,18 @@ app.get("/", async (c) => {
   const ingested = c.req.query("ingested");
   const processing = c.req.query("processing");
   const cleared = c.req.query("cleared");
+  const dedup = c.req.query("dedup");
+  const dupes = c.req.query("dupes");
   return opHtml(
-    await renderFeedScreen(c.env, { focusPieceId, error, ingested, processing, cleared }),
+    await renderFeedScreen(c.env, {
+      focusPieceId,
+      error,
+      ingested,
+      processing,
+      cleared,
+      dedup,
+      dupes,
+    }),
   );
 });
 
@@ -104,6 +114,7 @@ app.post("/feed/upload", async (c) => {
       // ready. (Pivot: upload = bank in Vault, extraction is a separate manual
       // step, no auto-fan-out of LLM work on upload.)
       const pieceIds: string[] = [];
+      let zipDupes = 0;
       for (const name of names.slice(0, ZIP_MAX_ENTRIES)) {
         const bytes = entries[name];
         if (!bytes) continue;
@@ -118,16 +129,20 @@ app.post("/feed/upload", async (c) => {
             bytes.length,
           );
           pieceIds.push(p.pieceId);
+          if (p.duplicate) zipDupes++;
         } catch {
           // skip a bad entry; keep ingesting the rest
         }
       }
-      return c.redirect(`/op?ingested=${pieceIds.length}`);
+      return c.redirect(`/op?ingested=${pieceIds.length}&dupes=${zipDupes}`);
     }
 
     // Single-file: store in Vault. Extraction is triggered manually from
     // Library — the cron drain + durable job infra remain in place for that.
     const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size);
+    if (p.duplicate) {
+      return c.redirect(`/op?piece=${encodeURIComponent(p.pieceId)}&dedup=1`);
+    }
     return c.redirect(`/op?piece=${encodeURIComponent(p.pieceId)}`);
   } catch (err) {
     return c.redirect(`/op?error=${encodeURIComponent((err as Error).message)}`);
@@ -187,9 +202,40 @@ async function createAndExtract(
   filename: string,
   mime: string,
   size: number,
-): Promise<CreatedPiece> {
+): Promise<CreatedPiece & { duplicate?: boolean }> {
+  // Materialize to bytes so we can hash + put in R2 deterministically.
+  // (Streams can only be consumed once; we need the bytes twice — once
+  // for SHA-256 and once for R2.) Uploads are bounded by the Worker's
+  // request-body limit so this is safe.
+  const bytes: Uint8Array =
+    body instanceof Uint8Array ? body : new Uint8Array(await new Response(body).arrayBuffer());
+  const sha256 = await contentSha256(bytes);
+
+  // Vault dedup: an uploaded_files row with this sha256 already exists →
+  // skip the R2 store + pieces creation and return the existing piece.
+  // Caller surfaces a "already in Vault" banner.
+  const existing = await one<{ piece_id: string; piece_slug: string; piece_title: string }>(
+    env.DB,
+    `SELECT p.id AS piece_id, p.slug AS piece_slug, p.title AS piece_title
+       FROM uploaded_files u
+       JOIN sources s ON s.id = u.created_source_id
+       JOIN pieces p ON json_extract(p.metadata, '$.source_id') = s.id
+      WHERE u.user_id = ? AND u.sha256 = ? LIMIT 1`,
+    [userId, sha256],
+  );
+  if (existing) {
+    return {
+      pieceId: existing.piece_id,
+      slug: existing.piece_slug,
+      title: existing.piece_title,
+      body_md: "",
+      sourceId: "",
+      duplicate: true,
+    };
+  }
+
   const r2_key = `uploads/${userId}/${crypto.randomUUID()}-${safeName(filename)}`;
-  await env.FILES.put(r2_key, body, {
+  await env.FILES.put(r2_key, bytes, {
     httpMetadata: { contentType: mime || "application/octet-stream" },
   });
   const fileId = await insertOne(env.DB, "uploaded_files", {
@@ -198,6 +244,7 @@ async function createAndExtract(
     original_filename: filename,
     mime: mime || "application/octet-stream",
     size_bytes: size,
+    sha256,
     classification: classify(mime, filename),
   });
 
@@ -222,9 +269,17 @@ async function createAndExtract(
       original_filename: filename,
       extracted_chars: extracted.extracted_chars,
       classification: extracted.classification,
+      content_sha256: sha256,
     }),
   });
   return { pieceId, slug, title, body_md, sourceId: extracted.source_id };
+}
+
+async function contentSha256(bytes: Uint8Array): Promise<string> {
+  const out = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(out))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function mimeForName(filename: string): string {

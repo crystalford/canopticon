@@ -451,6 +451,8 @@ export async function renderFeedScreen(
     ingested?: string | undefined;
     processing?: string | undefined;
     cleared?: string | undefined;
+    dedup?: string | undefined;
+    dupes?: string | undefined;
   } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
@@ -471,12 +473,19 @@ export async function renderFeedScreen(
 </div>`
     : "";
 
+  const dupesN = args.dupes && /^\d+$/.test(args.dupes) ? Number(args.dupes) : 0;
   const okBanner =
     args.ingested && /^\d+$/.test(args.ingested)
       ? `<div class="okflag" style="margin-bottom:14px">
-  <span class="ftext"><b>Ingested ${escapeHtml(args.ingested)} document${args.ingested === "1" ? "" : "s"}</b> · digestion is running in the background. Watch the panel below.</span>
+  <span class="ftext"><b>Ingested ${escapeHtml(args.ingested)} document${args.ingested === "1" ? "" : "s"}</b>${dupesN > 0 ? ` <span class="mono" style="color:var(--mute)">· ${dupesN} were already in the Vault and were skipped (content-hash match)</span>` : ""} · go to Library to extract.</span>
 </div>`
       : "";
+
+  const dedupBanner = args.dedup
+    ? `<div class="okflag" style="margin-bottom:14px">
+  <span class="ftext"><b>Already in the Vault.</b> The file you dropped has the same SHA-256 as an existing document — pointing at that one instead of duplicating it.</span>
+</div>`
+    : "";
 
   const clearedBanner = args.cleared
     ? `<div class="okflag" style="margin-bottom:14px">
@@ -487,13 +496,14 @@ export async function renderFeedScreen(
   // Strip the transient query params from the URL after a hard render so a
   // manual reload doesn't resurrect a stale banner or processing flag.
   const cleanUrlScript =
-    args.error || args.ingested || args.processing || args.cleared
+    args.error || args.ingested || args.processing || args.cleared || args.dedup
       ? `<script>history.replaceState(null,'', '/op');</script>`
       : "";
 
   const body = `
 ${errorBanner}
 ${okBanner}
+${dedupBanner}
 ${clearedBanner}
 ${dropzone()}
 ${cleanUrlScript}
