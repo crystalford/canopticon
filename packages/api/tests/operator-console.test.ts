@@ -46,7 +46,9 @@ describe("operator console — six-surface IA (P0)", () => {
     expect(html).toContain("Drop documents here");
     // The six-surface rail.
     expect(html).toContain('class="rail"');
-    for (const lbl of ["Feed", "Chat", "Synthesis", "Library", "Briefs", "Studio"]) {
+    // Per canonical-spec v2.4 Part 1 / Part 11 #11: "Briefs" is deprecated;
+    // the surface is "Outputs".
+    for (const lbl of ["Feed", "Chat", "Synthesis", "Library", "Outputs", "Studio"]) {
       expect(html).toContain(lbl);
     }
     // noindex so the operator surface never gets crawled.
@@ -59,7 +61,7 @@ describe("operator console — six-surface IA (P0)", () => {
     "/op/chat": "Chat",
     "/op/synthesis": "Synthesis",
     "/op/library": "Library",
-    "/op/briefs": "Briefs",
+    "/op/outputs": "Outputs",
     "/op/studio": "Studio",
   })) {
     it(`${path} renders the ${expected} surface`, async () => {
@@ -90,8 +92,10 @@ describe("operator console — six-surface IA (P0)", () => {
       "/op/leads": "/op/synthesis",
       "/op/patterns": "/op/synthesis",
       "/op/editorial": "/op/studio",
-      "/op/build": "/op/briefs",
-      "/op/publish": "/op/briefs",
+      "/op/build": "/op/outputs",
+      "/op/publish": "/op/outputs",
+      // Spec v2.4: "Briefs" renamed to "Outputs"; old path redirects.
+      "/op/briefs": "/op/outputs",
     };
     for (const [from, to] of Object.entries(expected)) {
       const res = await app.fetch(new Request(`http://test${from}`), env);
@@ -292,48 +296,36 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
     expect(html).not.toContain("extracts entities, drafts claims");
   });
 
-  it("/op/briefs/compose renders the manual composer form", async () => {
-    const res = await app.fetch(new Request("http://test/op/briefs/compose"), {
+  // Per canonical-spec v2.4 Part 11 #1: the hand-authoring composer is
+  // deleted outright. Old /op/briefs/compose URLs redirect to /op/outputs
+  // (caught by the sub-path redirect on /op/briefs/:rest); the surface has
+  // no Compose CTA anywhere.
+  it("the manual composer is gone (old composer paths redirect; no Compose CTA)", async () => {
+    const composeGet = await app.fetch(new Request("http://test/op/briefs/compose"), {
       ...env,
       DB: makePieceDb(),
     });
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain("Compose Brief");
-    expect(html).toContain('name="title"');
-    expect(html).toContain('name="content_type"');
-    expect(html).toContain('name="claim_text[]"');
-    expect(html).toContain('name="source_url[]"');
-    expect(html).toContain('name="source_quote[]"');
-  });
+    expect(composeGet.status).toBe(301);
+    expect(composeGet.headers.get("location")).toBe("/op/outputs");
 
-  it("/op/briefs/compose/search returns JSON for a short query", async () => {
-    const res = await app.fetch(new Request("http://test/op/briefs/compose/search?q=x"), {
+    const search = await app.fetch(new Request("http://test/op/briefs/compose/search?q=x"), {
       ...env,
       DB: makePieceDb(),
     });
-    expect(res.status).toBe(200);
-    const j = (await res.json()) as { ok: boolean; results: unknown[] };
-    expect(j.ok).toBe(true);
-    expect(Array.isArray(j.results)).toBe(true);
-    // Sub-2-char query short-circuits to empty results without hitting D1.
-    expect(j.results.length).toBe(0);
+    expect(search.status).toBe(301);
+    expect(search.headers.get("location")).toBe("/op/outputs");
+
+    const outputs = await app.fetch(new Request("http://test/op/outputs"), env);
+    const html = await outputs.text();
+    expect(html).not.toContain("Compose Brief");
+    expect(html).not.toContain("/op/briefs/compose");
+    expect(html).not.toContain("/op/outputs/compose");
   });
 
-  it("composer page includes the grounding-search panel", async () => {
-    const res = await app.fetch(new Request("http://test/op/briefs/compose"), {
-      ...env,
-      DB: makePieceDb(),
-    });
+  it("/op/outputs honesty banner names the canonical-spec v2.4 alignment", async () => {
+    const res = await app.fetch(new Request("http://test/op/outputs"), env);
     const html = await res.text();
-    expect(html).toContain('id="bc-grounding-q"');
-    expect(html).toContain("Search the grounding layer");
-  });
-
-  it("/op/briefs has a primary 'Compose Brief' CTA", async () => {
-    const res = await app.fetch(new Request("http://test/op/briefs"), env);
-    const html = await res.text();
-    expect(html).toContain('href="/op/briefs/compose"');
-    expect(html).toContain("Compose Brief");
+    expect(html).toContain("canonical spec v2.4");
+    expect(html).toContain("proposer-driven");
   });
 });

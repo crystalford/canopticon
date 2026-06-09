@@ -1,7 +1,7 @@
 // Operator console shell — six-surface IA per the operator-claude-code-handoff.
 //
 // Six surfaces in the calm, dark, keyboard-friendly instrument:
-// Feed · Chat · Synthesis · Library · Briefs · Studio
+// Feed · Chat · Synthesis · Library · Outputs · Studio
 //
 // Layout per the design bundle:
 //   168px rail (collapses to 60px under 820px), top bar (52px), surface area
@@ -54,13 +54,13 @@ export interface OpNavItem {
 
 // The six surfaces, in the design's order. The handoff makes the order
 // itself meaningful: intake (Feed) → interrogate (Chat) → oversee
-// (Synthesis) → archive (Library) → build-citable (Briefs) → produce (Studio).
+// (Synthesis) → archive (Library) → build-citable (Outputs) → produce (Studio).
 export const OP_NAV: OpNavItem[] = [
   { href: "/op", label: "Feed", icon: "feed" },
   { href: "/op/chat", label: "Chat", icon: "chat" },
   { href: "/op/synthesis", label: "Synthesis", icon: "synthesis" },
   { href: "/op/library", label: "Library", icon: "library" },
-  { href: "/op/briefs", label: "Briefs", icon: "briefs" },
+  { href: "/op/outputs", label: "Outputs", icon: "briefs" },
   { href: "/op/studio", label: "Studio", icon: "studio" },
 ];
 
