@@ -2,23 +2,22 @@
 // Cloudflare Access gates this whole subtree at the edge — every request
 // that reaches us is the authenticated operator. No auth middleware here.
 //
-// Six surfaces per the operator-claude-code-handoff:
-//   /op           Feed     — drop documents · digest into the graph
-//   /op/chat      Chat     — single never-resetting NL stream
-//   /op/synthesis Synthesis — read-only finding cards (Pattern / Contradiction / …)
-//   /op/library   Library  — full document archive
-//   /op/briefs    Briefs   — proposal-only citable-page builder
-//   /op/studio    Studio   — Script → Audio → Video → Export
+// Six surfaces per canonical-spec v2.4 Part 9:
+//   /op           Feed       — drop documents into Storage (no auto-extraction)
+//   /op/chat      Chat       — single never-resetting NL stream over the graph
+//   /op/synthesis Synthesis  — read-only oversight of surfacer findings + threads
+//   /op/library   Library    — Storage's front end; extraction is triggered here
+//   /op/outputs   Outputs    — proposer-driven; operator approves, never authors
+//   /op/studio    Studio     — distributed content from outputs (Stage 1 = scripts)
 //
-// 301 redirects keep old screen paths from breaking bookmarks. The old
-// screen modules (console, workbench, editorial, leads, patterns, publish,
-// build, ingest) were deleted in this commit — their functionality folds
-// into the six new surfaces over phases P1–P5.
+// 301 redirects keep old screen paths working: /op/briefs and the older
+// pre-pivot paths (console, workbench, editorial, leads, patterns, publish,
+// build, ingest) all redirect to their new surface at the bottom of this file.
 
 import { unzipSync } from "fflate";
 import { Hono } from "hono";
 import type { Env } from "../env";
-import { buildBrief, verifyManualBrief } from "../graph/lib/briefs/pipeline";
+import { buildBrief } from "../graph/lib/briefs/pipeline";
 import { proposeBriefs } from "../graph/lib/briefs/proposer";
 import {
   enqueueDigest,
@@ -34,12 +33,11 @@ import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
 import { opHtml } from "./layout";
-import { renderBriefsScreen } from "./screens/briefs";
-import { renderBriefsComposeScreen } from "./screens/briefs-compose";
 import { renderChatScreen } from "./screens/chat";
 import { renderFeedScreen } from "./screens/feed";
 import { renderLibraryScreen } from "./screens/library";
 import { renderLibraryDocScreen } from "./screens/library-doc";
+import { renderOutputsScreen } from "./screens/outputs";
 import { renderProjectWorkspace, renderStudioScreen } from "./screens/studio";
 import { renderSynthesisScreen } from "./screens/synthesis";
 
@@ -519,172 +517,52 @@ app.post("/library/delete", async (c) => {
   return c.redirect("/op/library");
 });
 
-app.get("/briefs", async (c) => {
-  const composed = c.req.query("composed");
-  return opHtml(await renderBriefsScreen(c.env, { composed }));
-});
-
-// Manual Brief composer — Phase 5 of the architecture pivot. The product
-// is the typed verifiable Brief; this is the on-ramp to author one by hand.
-app.get("/briefs/compose", async (c) => {
-  const html = await renderBriefsComposeScreen(c.env);
-  if (!html) return c.notFound();
-  return opHtml(html);
-});
-
-// GET /op/briefs/compose/search?q=…
+// Outputs — the operator's product surface (canonical spec v2.4, Part 9 / Part 11 #1).
+// Proposer's suggestion cards are the PRIMARY content. No hand-authoring composer.
+// Until the typed-graph extraction + LLM-driven proposer land (later PRs), this
+// surface honestly states what it's showing (the old SQL heuristic).
 //
-// Searches the operator's extracted claims so the composer can seed
-// citations from the grounding layer instead of typing them by hand. SQL
-// LIKE against the latest claim_versions.claim_text + a join back to the
-// asserting piece so the operator sees where each claim came from.
-// Returns JSON {results: [{id, claim_text, piece_title, piece_slug, layer}]}.
-app.get("/briefs/compose/search", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.json({ ok: false, error: "no operator" }, 401);
-  const q = (c.req.query("q") ?? "").trim();
-  if (q.length < 2) return c.json({ ok: true, results: [] });
-  const like = `%${q.replace(/[%_]/g, "\\$&")}%`;
-  const results = await all<{
-    id: string;
-    claim_text: string;
-    layer: string;
-    piece_title: string | null;
-    piece_slug: string | null;
-  }>(
-    c.env.DB,
-    `SELECT c.id, cv.claim_text, c.layer, p.title AS piece_title, p.slug AS piece_slug
-       FROM claims c
-       LEFT JOIN claim_versions cv ON cv.id = c.current_version_id
-       LEFT JOIN pieces p ON p.id = c.asserted_in_piece_id
-      WHERE c.user_id = ?
-        AND cv.claim_text IS NOT NULL
-        AND lower(cv.claim_text) LIKE lower(?) ESCAPE '\\'
-      ORDER BY length(cv.claim_text) ASC
-      LIMIT 25`,
-    [userId, like],
-  );
-  return c.json({ ok: true, results });
+// URL was previously /op/briefs — renamed per spec v2.4 Part 1 (the word "Briefs"
+// is deprecated). Old /op/briefs* paths 301-redirect at the bottom of this file.
+app.get("/outputs", async (c) => {
+  const composed = c.req.query("composed");
+  return opHtml(await renderOutputsScreen(c.env, { composed }));
 });
 
-// POST /op/briefs/compose — create a Brief from operator-supplied body
-// + citation tuples, then run the verify+judge pipeline on each citation.
-// Status flows: proposal → building → draft. Lands on /op/briefs (the
-// existing draft-review surface shows the new draft).
-app.post("/briefs/compose", async (c) => {
-  const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op/briefs?err=no_operator");
-  const form = await c.req.formData();
-  const title = String(form.get("title") ?? "").trim();
-  const slug = String(form.get("slug") ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 120);
-  const content_type = String(form.get("content_type") ?? "faq");
-  const body_md = String(form.get("body_md") ?? "");
-  if (!title || !slug || !body_md) {
-    return c.redirect("/op/briefs?err=missing_fields");
-  }
-  const allowedTypes = new Set(["faq", "definition", "timeline", "stat-roundup"]);
-  const finalType = allowedTypes.has(content_type) ? content_type : "faq";
-
-  // Parse parallel citation arrays. Empty rows are skipped so the operator
-  // can leave the last row blank without that turning into a phantom citation.
-  const claimTexts = form.getAll("claim_text[]").map((v) => String(v).trim());
-  const sourceUrls = form.getAll("source_url[]").map((v) => String(v).trim());
-  const sourceQuotes = form.getAll("source_quote[]").map((v) => String(v).trim());
-  const citations: Array<{ claim_text: string; source_url: string; source_quote: string }> = [];
-  for (let i = 0; i < claimTexts.length; i++) {
-    const ct = claimTexts[i] ?? "";
-    const su = sourceUrls[i] ?? "";
-    const sq = sourceQuotes[i] ?? "";
-    if (ct && su && sq) {
-      citations.push({ claim_text: ct, source_url: su, source_quote: sq });
-    }
-  }
-
-  // Slug uniqueness: append -2, -3... on collision (mirrors ensureUniqueSlug
-  // for pieces). Briefs are also keyed by (user_id, slug) UNIQUE.
-  let uniqueSlug = slug;
-  for (let n = 2; n < 50; n++) {
-    const exists = await one<{ id: string }>(
-      c.env.DB,
-      "SELECT id FROM briefs WHERE user_id = ? AND slug = ?",
-      [userId, uniqueSlug],
-    );
-    if (!exists) break;
-    uniqueSlug = `${slug}-${n}`;
-  }
-
-  const briefId = await insertOne(c.env.DB, "briefs", {
-    user_id: userId,
-    slug: uniqueSlug,
-    title,
-    content_type: finalType,
-    status: "proposal", // verifyManualBrief flips this to building → draft
-    why_proposed_md: "Composed manually by the operator.",
-    body_md,
-    body_html: "",
-    schema_jsonld: "{}",
-  });
-
-  // Insert the operator-supplied citations as brief_claims rows with
-  // verified=0 (verifyManualBrief will update each row in place).
-  let sort = 0;
-  for (const cit of citations) {
-    await insertOne(c.env.DB, "brief_claims", {
-      brief_id: briefId,
-      user_id: userId,
-      claim_text: cit.claim_text,
-      source_url: cit.source_url,
-      source_quote: cit.source_quote,
-      verified: 0,
-      killed: 0,
-      judge_pass: 0,
-      sort_order: sort++,
-    });
-  }
-
-  // Fire verify+judge in the background — the cron drain isn't wired here
-  // (Briefs verify isn't in digest_jobs), so we rely on waitUntil. If it's
-  // killed, the operator can hit a "re-verify" action later. (Not in this PR.)
-  c.executionCtx.waitUntil(verifyManualBrief(c.env, briefId, userId));
-  return c.redirect("/op/briefs?composed=1");
-});
-
-// Re-run the proposer over the corpus. Idempotent: upserts proposals
-// by slug. Surfaces graph coverage gaps + synthesis-finding-derived
-// Brief shapes.
-app.post("/briefs/propose", async (c) => {
+// Re-run the proposer over the corpus. Idempotent: upserts proposals by slug.
+// Today's proposer is a SQL heuristic; spec Part 7 calls for an LLM-driven
+// research-assistant suggester — that's a later PR. The shape of this route
+// stays so the upgrade is in-place.
+app.post("/outputs/propose", async (c) => {
   try {
     const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/briefs?err=no_operator");
+    if (!userId) return c.redirect("/op/outputs?err=no_operator");
     await proposeBriefs(c.env, userId);
-    return c.redirect("/op/briefs");
+    return c.redirect("/op/outputs");
   } catch (err) {
-    return c.redirect(`/op/briefs?err=${encodeURIComponent((err as Error).message)}`);
+    return c.redirect(`/op/outputs?err=${encodeURIComponent((err as Error).message)}`);
   }
 });
 
-// Build a Brief — runs the 4-step pipeline synchronously and persists
-// claims + body. The operator sees the verified draft on the redirect.
-app.post("/briefs/:id/build", async (c) => {
+// Build — runs the 4-step generation pipeline (Part 8 trust model). Operator
+// sees the verified draft on the redirect.
+app.post("/outputs/:id/build", async (c) => {
   try {
     const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/briefs?err=no_operator");
+    if (!userId) return c.redirect("/op/outputs?err=no_operator");
     await buildBrief(c.env, c.req.param("id"), userId);
-    return c.redirect("/op/briefs");
+    return c.redirect("/op/outputs");
   } catch (err) {
-    return c.redirect(`/op/briefs?err=${encodeURIComponent((err as Error).message)}`);
+    return c.redirect(`/op/outputs?err=${encodeURIComponent((err as Error).message)}`);
   }
 });
 
-// Publish — promotes a draft Brief to the public /briefs/:slug page.
-app.post("/briefs/:id/publish", async (c) => {
+// Publish — promotes a draft to the public page (URL kept on the public side
+// for stability; renamed only on the operator side in this PR).
+app.post("/outputs/:id/publish", async (c) => {
   try {
     const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/briefs?err=no_operator");
+    if (!userId) return c.redirect("/op/outputs?err=no_operator");
     const now = new Date().toISOString();
     await run(
       c.env.DB,
@@ -695,25 +573,25 @@ app.post("/briefs/:id/publish", async (c) => {
         WHERE id = ? AND user_id = ? AND status = 'draft'`,
       [now, now, now, c.req.param("id"), userId],
     );
-    return c.redirect("/op/briefs");
+    return c.redirect("/op/outputs");
   } catch (err) {
-    return c.redirect(`/op/briefs?err=${encodeURIComponent((err as Error).message)}`);
+    return c.redirect(`/op/outputs?err=${encodeURIComponent((err as Error).message)}`);
   }
 });
 
-// Discard — moves a draft back to discarded status; operator can re-propose.
-app.post("/briefs/:id/discard", async (c) => {
+// Discard — moves a draft to discarded; operator can re-propose.
+app.post("/outputs/:id/discard", async (c) => {
   try {
     const userId = await resolveOperatorId(c.env.DB);
-    if (!userId) return c.redirect("/op/briefs?err=no_operator");
+    if (!userId) return c.redirect("/op/outputs?err=no_operator");
     await run(
       c.env.DB,
       "UPDATE briefs SET status = 'discarded', updated_at = ? WHERE id = ? AND user_id = ?",
       [new Date().toISOString(), c.req.param("id"), userId],
     );
-    return c.redirect("/op/briefs");
+    return c.redirect("/op/outputs");
   } catch (err) {
-    return c.redirect(`/op/briefs?err=${encodeURIComponent((err as Error).message)}`);
+    return c.redirect(`/op/outputs?err=${encodeURIComponent((err as Error).message)}`);
   }
 });
 
@@ -858,9 +736,11 @@ const redirects: Record<string, string> = {
   "/patterns": "/op/synthesis",
   // authoring
   "/editorial": "/op/studio",
-  "/build": "/op/briefs",
+  "/build": "/op/outputs",
   // publishing
-  "/publish": "/op/briefs",
+  "/publish": "/op/outputs",
+  // canonical-spec v2.4 vocabulary: "Briefs" deprecated → "Outputs"
+  "/briefs": "/op/outputs",
 };
 
 for (const [from, to] of Object.entries(redirects)) {

@@ -1,9 +1,33 @@
+// Outputs surface — the operator's product layer per canonical spec v2.4.
+//
+// Per Part 9 / Part 11 #1 of the spec: the proposer's suggestion cards are the
+// PRIMARY content here. NO hand-authoring composer (deleted in this PR). The
+// operator's main interaction is read proposals → click Build → review the
+// verified draft → Publish or Discard.
+//
+// What this surface SHOULD become (later PRs):
+//   - PR C (LLM-driven proposer): the proposer is rewritten to read the typed
+//     graph + inquiry threads and suggest specific, well-shaped outputs across
+//     both layers (factual arrangements + interpretive intents).
+//   - PR E + F: proposals span both layers; suggestion cards carry layer +
+//     content_type badges.
+//
+// What this surface IS today (be honest about it on screen):
+//   - Reads from the legacy `briefs` table (rename deferred to a later
+//     vocabulary-cleanup PR; URL stability matters more on the public side).
+//   - Proposer is still the SQL heuristic (PR C upgrades it).
+//   - Typed-graph extraction isn't populating data yet (PR B does that).
+//
+// Renamed from `briefs.ts` in the canonical-spec v2.4 alignment PR. The
+// `briefs` D1 table, the `graph/lib/briefs/` library path, and the public
+// `/briefs/:slug` URL all stay for now — covered in a later cleanup PR.
+
 import { all } from "../../lib/d1";
 import { escapeAttr, escapeHtml } from "../../public/layout";
 import { resolveOperatorId } from "../data";
 import { emptyState, icon, renderOpPage } from "../layout";
 
-interface BriefRow {
+interface OutputRow {
   id: string;
   slug: string;
   title: string;
@@ -16,7 +40,7 @@ interface BriefRow {
   updated_at: string;
 }
 
-interface BriefClaimRow {
+interface OutputClaimRow {
   id: string;
   claim_text: string;
   source_url: string;
@@ -37,8 +61,9 @@ const TYPE_META: Record<string, { cls: string; label: string; cite: string }> = 
   "stat-roundup": { cls: "b-pattern", label: "Stat roundup", cite: "52% cite rate" },
 };
 
-async function loadBriefs(db: D1Database, userId: string): Promise<BriefRow[]> {
-  return all<BriefRow>(
+async function loadOutputs(db: D1Database, userId: string): Promise<OutputRow[]> {
+  // Still reads the `briefs` table — rename deferred to a later cleanup PR.
+  return all<OutputRow>(
     db,
     `SELECT id, slug, title, content_type, status, why_proposed_md, body_md,
             claims_verified, claims_killed, updated_at
@@ -57,38 +82,38 @@ async function loadBriefs(db: D1Database, userId: string): Promise<BriefRow[]> {
   );
 }
 
-async function loadClaims(db: D1Database, briefId: string): Promise<BriefClaimRow[]> {
-  return all<BriefClaimRow>(
+async function loadClaims(db: D1Database, outputId: string): Promise<OutputClaimRow[]> {
+  return all<OutputClaimRow>(
     db,
     `SELECT id, claim_text, source_url, source_quote, verified, killed,
             kill_reason, judge_pass, judge_notes, sort_order
        FROM brief_claims
       WHERE brief_id = ?
       ORDER BY sort_order ASC`,
-    [briefId],
+    [outputId],
   );
 }
 
-function proposalCard(b: BriefRow): string {
-  const meta = TYPE_META[b.content_type] ?? TYPE_META.definition;
+function proposalCard(o: OutputRow): string {
+  const meta = TYPE_META[o.content_type] ?? TYPE_META.definition;
   if (!meta) return "";
   return `<div class="brief-proposal">
   <div class="bp-head">
     <span class="bp-type-badge ${meta.cls}">${escapeHtml(meta.label)}</span>
-    <div class="bp-title">${escapeHtml(b.title)}</div>
+    <div class="bp-title">${escapeHtml(o.title)}</div>
     <span class="bp-cite">${escapeHtml(meta.cite)}</span>
   </div>
-  <p class="bp-why">${escapeHtml(b.why_proposed_md)}</p>
+  <p class="bp-why">${escapeHtml(o.why_proposed_md)}</p>
   <div class="bp-actions">
-    <form method="POST" action="/op/briefs/${escapeAttr(b.id)}/build" style="display:inline">
+    <form method="POST" action="/op/outputs/${escapeAttr(o.id)}/build" style="display:inline">
       <button type="submit" class="btn btn-amber">Build →</button>
     </form>
   </div>
 </div>`;
 }
 
-function draftCard(b: BriefRow, claims: BriefClaimRow[]): string {
-  const meta = TYPE_META[b.content_type] ?? TYPE_META.definition;
+function draftCard(o: OutputRow, claims: OutputClaimRow[]): string {
+  const meta = TYPE_META[o.content_type] ?? TYPE_META.definition;
   if (!meta) return "";
   const verified = claims.filter((c) => c.verified === 1 && c.killed === 0);
   const killed = claims.filter((c) => c.killed === 1);
@@ -96,7 +121,7 @@ function draftCard(b: BriefRow, claims: BriefClaimRow[]): string {
   return `<div class="brief-proposal review">
   <div class="bp-head">
     <span class="bp-type-badge ${meta.cls}">${escapeHtml(meta.label)}</span>
-    <div class="bp-title">${escapeHtml(b.title)}</div>
+    <div class="bp-title">${escapeHtml(o.title)}</div>
   </div>
   <div class="bp-draft">
     <div class="bp-draft-bar">
@@ -104,13 +129,13 @@ function draftCard(b: BriefRow, claims: BriefClaimRow[]): string {
       <span>Verification complete</span>
       <span class="bdb-counts">${verified.length} verified${killed.length > 0 ? ` · <span class="bdb-killed">${killed.length} killed</span>` : ""}</span>
     </div>
-    <div class="bp-draft-title">${escapeHtml(b.title)}</div>
+    <div class="bp-draft-title">${escapeHtml(o.title)}</div>
     <div class="bp-claims">${claimsHtml}</div>
     <div class="bp-draft-actions">
-      <form method="POST" action="/op/briefs/${escapeAttr(b.id)}/publish" style="display:inline">
-        <button type="submit" class="btn btn-amber solid">Publish Brief</button>
+      <form method="POST" action="/op/outputs/${escapeAttr(o.id)}/publish" style="display:inline">
+        <button type="submit" class="btn btn-amber solid">Publish</button>
       </form>
-      <form method="POST" action="/op/briefs/${escapeAttr(b.id)}/discard" style="display:inline">
+      <form method="POST" action="/op/outputs/${escapeAttr(o.id)}/discard" style="display:inline">
         <button type="submit" class="btn">Discard</button>
       </form>
       <span class="mono" style="font-size:10.5px;color:var(--faint);margin-left:auto">server-rendered · citable · no JS required</span>
@@ -119,12 +144,12 @@ function draftCard(b: BriefRow, claims: BriefClaimRow[]): string {
 </div>`;
 }
 
-function buildingCard(b: BriefRow): string {
-  const meta = TYPE_META[b.content_type] ?? TYPE_META.definition;
+function buildingCard(o: OutputRow): string {
+  const meta = TYPE_META[o.content_type] ?? TYPE_META.definition;
   if (!meta) return "";
   const steps = [
     { label: "Retrieve source material", sub: "fetch real pages, hash content to R2" },
-    { label: "Draft Brief", sub: "apply content-type template + citation levers" },
+    { label: "Draft body", sub: "apply content-type template + citation levers" },
     {
       label: "Verbatim substring verification",
       sub: "every claim must be a literal substring of a fetched source",
@@ -134,7 +159,7 @@ function buildingCard(b: BriefRow): string {
   return `<div class="brief-proposal building">
   <div class="bp-head">
     <span class="bp-type-badge ${meta.cls}">${escapeHtml(meta.label)}</span>
-    <div class="bp-title">${escapeHtml(b.title)}</div>
+    <div class="bp-title">${escapeHtml(o.title)}</div>
   </div>
   <div class="bp-pipeline">
     ${steps
@@ -152,7 +177,7 @@ function buildingCard(b: BriefRow): string {
 </div>`;
 }
 
-function claimRow(c: BriefClaimRow): string {
+function claimRow(c: OutputClaimRow): string {
   const killed = c.killed === 1;
   return `<div class="bp-claim${killed ? " killed" : ""}">
   <span class="bpc-dot">${killed ? "✕" : "✓"}</span>
@@ -163,45 +188,63 @@ function claimRow(c: BriefClaimRow): string {
 </div>`;
 }
 
-function publishedRow(b: BriefRow): string {
-  const meta = TYPE_META[b.content_type] ?? TYPE_META.definition;
+function publishedRow(o: OutputRow): string {
+  const meta = TYPE_META[o.content_type] ?? TYPE_META.definition;
   if (!meta) return "";
+  // Public URL still /briefs/:slug — rename deferred per scope plan.
   return `<div class="briefs-arc-row">
   <span class="bar-dot" style="background:var(--c-thesis)"></span>
-  <span class="bar-title">${escapeHtml(b.title)}</span>
+  <span class="bar-title">${escapeHtml(o.title)}</span>
   <span class="bar-type">${escapeHtml(meta.label)}</span>
   <span class="bar-when">just now</span>
-  <a class="mono" href="/briefs/${escapeAttr(b.slug)}" target="_blank" style="color:var(--c-pattern);font-size:11px;text-decoration:none">View →</a>
+  <a class="mono" href="/briefs/${escapeAttr(o.slug)}" target="_blank" style="color:var(--c-pattern);font-size:11px;text-decoration:none">View →</a>
 </div>`;
 }
 
-export async function renderBriefsScreen(
+export async function renderOutputsScreen(
   env: { DB: D1Database },
   args: { composed?: string | undefined } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
-  const briefs = userId ? await loadBriefs(env.DB, userId) : [];
+  const outputs = userId ? await loadOutputs(env.DB, userId) : [];
 
-  const proposals = briefs.filter((b) => b.status === "proposal");
-  const drafts = briefs.filter((b) => b.status === "draft");
-  const building = briefs.filter((b) => b.status === "building");
-  const published = briefs.filter((b) => b.status === "published");
+  const proposals = outputs.filter((o) => o.status === "proposal");
+  const drafts = outputs.filter((o) => o.status === "draft");
+  const building = outputs.filter((o) => o.status === "building");
+  const published = outputs.filter((o) => o.status === "published");
 
-  // Load claims only for drafts (avoid the round-trip on every proposal).
-  const draftClaims = new Map<string, BriefClaimRow[]>();
+  const draftClaims = new Map<string, OutputClaimRow[]>();
   if (userId) {
     for (const d of drafts) {
       draftClaims.set(d.id, await loadClaims(env.DB, d.id));
     }
   }
 
-  // "Compose Brief" is the primary entry point (manual authoring is the
-  // product per the architecture pivot). Re-propose is secondary — auto
-  // proposals are suggestions, not the main flow.
-  const topbarActions = `<a href="/op/briefs/compose" class="btn btn-amber">${icon("spark")} Compose Brief</a>
-  <form method="POST" action="/op/briefs/propose" style="display:inline">
-    <button class="btn" type="submit" title="Re-scan the graph for auto-proposal suggestions">Re-propose</button>
+  // Per canonical spec v2.4 Part 11 #1: NO hand-authoring composer entry.
+  // The only topbar action is "Re-propose" (automation trigger, not authoring).
+  // When the proposer is upgraded (later PR), the surface populates from the
+  // graph and even Re-propose may not need to be a manual click.
+  const topbarActions = `<form method="POST" action="/op/outputs/propose" style="display:inline">
+    <button class="btn" type="submit" title="Re-scan the graph for proposal suggestions">${icon("spark")} Re-propose</button>
   </form>`;
+
+  // Honest banner about today's state of the proposer + typed-graph. Spec
+  // v2.4 Part 0 / Part 7 calls for an LLM-driven proposer reading a typed
+  // graph; neither is built yet, so don't pretend.
+  const honestyBanner = `<div class="okflag" style="margin-bottom:14px">
+  <span class="ftext"><b>Outputs surface · canonical spec v2.4 alignment in progress.</b>
+    The hand-authoring composer was deleted per Part 11 #1 — Outputs are proposer-driven, never authored.
+    The proposer today is still the SQL heuristic (entities with many claims → Definition); the LLM-driven
+    research-assistant suggester per Part 7 is a later PR. The typed data model (Part 4) and the
+    rebuilt extraction (Part 16) are also later PRs — proposals you see now reflect the old flat-claim
+    extraction, not the typed graph.</span>
+</div>`;
+
+  const composedBanner = args.composed
+    ? `<div class="okflag" style="margin-bottom:14px">
+  <span class="ftext"><b>Submitted.</b> The pipeline is running in the background.</span>
+</div>`
+    : "";
 
   const queueHtml = building
     .map(buildingCard)
@@ -213,30 +256,25 @@ export async function renderBriefsScreen(
     queueHtml.length > 0
       ? `<div class="briefs-queue">${queueHtml}</div>`
       : `<div class="briefs-empty">
-  No proposals yet. As entities accumulate references across claims, or as Synthesis surfaces concept clusters,
-  the proposer will suggest Briefs to build here. Hit Re-propose to scan the corpus now.
+  No proposals yet. As the typed graph populates (extraction is triggered from Library), the proposer will
+  surface candidate Outputs here. Click Re-propose to scan the current corpus.
 </div>`;
 
   const publishedArc = published.length
     ? `<div class="briefs-arc">${published.map(publishedRow).join("")}</div>`
     : emptyState({
         iconName: "briefs",
-        title: "No Briefs published yet.",
-        body: "Publishing a verified draft renders it as a citable page at /briefs/:slug (server-rendered, no JS).",
+        title: "Nothing published yet.",
+        body: "Publishing a verified draft renders it server-side at /briefs/:slug — citable, no JS required.",
       });
 
-  const composedBanner = args.composed
-    ? `<div class="okflag" style="margin-bottom:14px">
-  <span class="ftext"><b>Brief composed.</b> Citations are being verified now — the draft will appear below in a few seconds.</span>
-</div>`
-    : "";
-
   const body = `
+${honestyBanner}
 ${composedBanner}
 <div class="briefs-sh">
   <div class="bsh-title">Proposal queue</div>
   <div class="bsh-count">${proposals.length + building.length + drafts.length}</div>
-  <div class="bsh-sub">graph coverage gaps · build is always your click · nothing auto-publishes</div>
+  <div class="bsh-sub">proposer-driven · build is always your click · nothing auto-publishes</div>
 </div>
 
 ${queue}
@@ -252,10 +290,10 @@ ${queue}
 `;
 
   return renderOpPage({
-    title: "Briefs",
-    sub: "citable answer-objects · proposal-only · verbatim-verified",
+    title: "Outputs",
+    sub: "proposer-driven · verbatim-verified · operator approves, never authors",
     topbarActions,
     body,
-    activeNav: "/op/briefs",
+    activeNav: "/op/outputs",
   });
 }
