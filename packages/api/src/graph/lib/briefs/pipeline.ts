@@ -1,37 +1,27 @@
-// Brief build pipeline — the trust boundary.
+// Output build pipeline — GRAPH-GROUNDED draft → mechanical verify → judge.
 //
-// Per canopticon-briefs-spec: every factual claim must survive a literal
-// verbatim substring check against actually-fetched source text. If it
-// doesn't, the claim is KILLED (dropped from the publish). A different
-// model then independently judges whether the quote supports the claim.
-// Same-model self-verification is explicitly NOT acceptable — that's
-// theater.
+// v2.4 rewrite. The old pipeline asked the model to invent public-web URLs +
+// quotes and then fetched those URLs to verify — which meant the model had to
+// guess real quotes from memory, and nearly everything died on the verbatim
+// check. The new pipeline grounds generation in the TYPED GRAPH (spec Part 5):
 //
-// Four steps:
-//   1. retrieve  — fetch source pages, sha256 + store in R2, record hash
-//   2. generate  — Workers AI Llama 3.3 70B drafts the Brief in the
-//                  chosen content-type template; the model returns
-//                  structured claims with {claim_text, source_url,
-//                  source_quote}
-//   3. verify    — for each claim, check source_quote is a literal
-//                  substring of the fetched source text (case-sensitive);
-//                  record the offset; mark killed=1 on miss
-//   4. judge     — for each verified claim, ask a DIFFERENT model
-//                  (Workers AI QwQ-32B reasoning model) whether the
-//                  quote actually supports the claim. judge_pass=0 marks
-//                  the claim as failing the independent check.
+//   1. gather    — pull relevant nodes / quotes / assertions for the title
+//   2. generate  — writer role drafts body_md + claims; each claim REFERENCES
+//                  a stored quote by id ([q:...]) instead of inventing one
+//   3. verify    — mechanical: quote id must exist; the server substitutes the
+//                  stored verbatim text + source itself (the model cannot
+//                  fabricate evidence). FIREWALL: assertion-backed claims
+//                  without attribution are KILLED (spec Part 5, Part 10 #5).
+//   4. judge     — independent model (different family) assesses support
+//   5. persist   — brief_claims + briefs row; status -> draft for approval
 //
-// Each step writes an orchestrator_events row. The pipeline runs
-// synchronously inside the request; UI shows the result after redirect.
+// Sources are the operator's stored documents (public Library pages) — the
+// receipts. No self-citing: the source is the document, never a generated page.
 
 import { renderMarkdown } from "../../../cms/lib/render-post";
 import type { Env } from "../../../env";
-import { insertOne, one, run } from "../../../lib/d1";
-import { fetchWithTimeout } from "../../../lib/timeout";
-import { callLLM } from "../../../llm/index";
-
-const GENERATE_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-const JUDGE_MODEL = "@cf/qwen/qwq-32b"; // Reasoning model — different family from generator
+import { all, insertOne, one, run } from "../../../lib/d1";
+import { callRole, modelForRole } from "../../../llm/router";
 
 export interface BuildResult {
   briefId: string;
@@ -49,19 +39,46 @@ interface BriefRow {
   slug: string;
   title: string;
   content_type: string;
+  layer: string;
   why_proposed_md: string;
 }
 
+// What the model returns per claim. quote_id references the grounding pack.
 interface DraftClaim {
   claim_text: string;
-  source_url: string;
-  source_quote: string;
+  quote_id: string;
+  /** 'fact' (neutral) or 'assertion' (attributed/contested). */
+  kind?: string;
+  /** Required for kind='assertion' — who asserts it (the firewall). */
+  asserted_by?: string;
+}
+
+// One grounded quote handed to the model and used for mechanical verification.
+interface GroundingQuote {
+  id: string;
+  verbatim_text: string;
+  byte_offset: number | null;
+  node_label: string;
+  node_kind: string;
+  piece_slug: string | null;
+  piece_title: string | null;
+  /** For assertion nodes: the actor + stance + balance (firewall metadata). */
+  asserted_by: string | null;
+  stance: string | null;
+  evidence_balance: number | null;
+}
+
+interface Grounding {
+  quotes: Map<string, GroundingQuote>;
+  factsBlock: string;
+  assertionsBlock: string;
+  threadsBlock: string;
 }
 
 export async function buildBrief(env: Env, briefId: string, userId: string): Promise<BuildResult> {
   const brief = await one<BriefRow>(
     env.DB,
-    "SELECT id, user_id, slug, title, content_type, why_proposed_md FROM briefs WHERE id = ? AND user_id = ?",
+    "SELECT id, user_id, slug, title, content_type, layer, why_proposed_md FROM briefs WHERE id = ? AND user_id = ?",
     [briefId, userId],
   );
   if (!brief) throw new Error(`Brief not found: ${briefId}`);
@@ -81,14 +98,26 @@ export async function buildBrief(env: Env, briefId: string, userId: string): Pro
     cost_cents: 0,
   };
 
-  let drafted: { body_md: string; claims: DraftClaim[] };
+  // ---- 1. gather grounding from the typed graph ----
+  await emit(env, userId, briefId, "build.gather.started", { brief_slug: brief.slug });
+  const grounding = await gatherGrounding(env, userId, brief.title);
+  if (grounding.quotes.size === 0) {
+    result.failed_step = "gather";
+    result.failed_reason =
+      "no grounded material in the typed graph — extract documents in Library first";
+    await fail(env, userId, briefId, "gather", result.failed_reason);
+    return result;
+  }
+  await emit(env, userId, briefId, "build.gather.completed", {
+    brief_slug: brief.slug,
+    quotes: grounding.quotes.size,
+  });
+
   // ---- 2. generate ----
-  // (We do generate before retrieve because the model proposes which URLs
-  // to fetch; the retrieve step fetches just those.)
   await emit(env, userId, briefId, "build.generate.started", { brief_slug: brief.slug });
+  let drafted: { body_md: string; claims: DraftClaim[] };
   try {
-    drafted = await generate(env, brief, userId);
-    result.cost_cents += 0; // workers_ai is free
+    drafted = await generate(env, brief, grounding, userId);
     await emit(env, userId, briefId, "build.generate.completed", {
       brief_slug: brief.slug,
       claims_drafted: drafted.claims.length,
@@ -102,48 +131,51 @@ export async function buildBrief(env: Env, briefId: string, userId: string): Pro
   }
   result.claims_total = drafted.claims.length;
 
-  // ---- 1. retrieve ----
-  await emit(env, userId, briefId, "build.retrieve.started", {
-    brief_slug: brief.slug,
-    urls: [...new Set(drafted.claims.map((c) => c.source_url))].length,
-  });
-  const sourceByUrl = new Map<string, { text: string; hash: string }>();
-  try {
-    const uniqueUrls = [...new Set(drafted.claims.map((c) => c.source_url).filter((u) => u))];
-    for (const url of uniqueUrls) {
-      const fetched = await retrieveSource(env, userId, url);
-      sourceByUrl.set(url, fetched);
-    }
-    await emit(env, userId, briefId, "build.retrieve.completed", {
-      brief_slug: brief.slug,
-      sources_cached: sourceByUrl.size,
-    });
-  } catch (err) {
-    result.failed_step = "retrieve";
-    result.failed_reason = (err as Error).message;
-    await fail(env, userId, briefId, "retrieve", result.failed_reason);
-    return result;
-  }
-
-  // ---- 3. verbatim verify ----
+  // ---- 3. mechanical verify against STORED quotes ----
+  // The model only references quote ids; the server substitutes the verbatim
+  // text + source. A claim whose quote_id doesn't exist is killed. An
+  // assertion-backed claim with no attribution is killed (FIREWALL).
   await emit(env, userId, briefId, "build.verify.started", { brief_slug: brief.slug });
-  const verifiedClaims: Array<DraftClaim & { offset: number; hash: string }> = [];
-  const killedClaims: Array<DraftClaim & { reason: string }> = [];
+  interface VerifiedClaim {
+    claim_text: string;
+    source_url: string;
+    source_quote: string;
+    offset: number | null;
+    kind: string;
+    asserted_by: string | null;
+  }
+  const verifiedClaims: VerifiedClaim[] = [];
+  const killedClaims: Array<{ claim_text: string; quote_id: string; reason: string }> = [];
   for (const c of drafted.claims) {
-    const src = sourceByUrl.get(c.source_url);
-    if (!src) {
-      killedClaims.push({ ...c, reason: "source URL was not fetched" });
-      continue;
-    }
-    const offset = src.text.indexOf(c.source_quote.trim());
-    if (offset < 0) {
+    const text = (c.claim_text ?? "").trim();
+    if (!text) continue;
+    const q = grounding.quotes.get((c.quote_id ?? "").trim());
+    if (!q) {
       killedClaims.push({
-        ...c,
-        reason: "verbatim match not found in fetched source — claim dropped",
+        claim_text: text,
+        quote_id: c.quote_id ?? "",
+        reason: "quote id not in grounding — claim dropped (model fabricated a reference)",
       });
       continue;
     }
-    verifiedClaims.push({ ...c, offset, hash: src.hash });
+    const isAssertion = q.node_kind === "assertion" || c.kind === "assertion";
+    const attribution = (c.asserted_by ?? q.asserted_by ?? "").trim();
+    if (isAssertion && !attribution) {
+      killedClaims.push({
+        claim_text: text,
+        quote_id: q.id,
+        reason: "FIREWALL: assertion-backed claim without attribution — never rendered as fact",
+      });
+      continue;
+    }
+    verifiedClaims.push({
+      claim_text: isAssertion && !text.includes(attribution) ? `${attribution}: ${text}` : text,
+      source_url: q.piece_slug ? `/library/${q.piece_slug}` : "",
+      source_quote: q.verbatim_text,
+      offset: q.byte_offset,
+      kind: isAssertion ? "assertion" : "fact",
+      asserted_by: isAssertion ? attribution : null,
+    });
   }
   result.claims_verified = verifiedClaims.length;
   result.claims_killed = killedClaims.length;
@@ -154,14 +186,11 @@ export async function buildBrief(env: Env, briefId: string, userId: string): Pro
   });
 
   // ---- 4. independent judge ----
-  // Run claim-by-claim against a different model (QwQ reasoning).
   await emit(env, userId, briefId, "build.judge.started", { brief_slug: brief.slug });
-  const judgedClaims: Array<
-    DraftClaim & { offset: number; hash: string; judge_pass: 0 | 1; judge_notes: string }
-  > = [];
+  const judgedClaims: Array<VerifiedClaim & { judge_pass: 0 | 1; judge_notes: string }> = [];
   for (const v of verifiedClaims) {
     try {
-      const judgement = await judge(env, v, userId);
+      const judgement = await judgeClaim(env, v.claim_text, v.source_quote, userId);
       judgedClaims.push({ ...v, ...judgement });
     } catch (err) {
       judgedClaims.push({
@@ -178,8 +207,7 @@ export async function buildBrief(env: Env, briefId: string, userId: string): Pro
     total: judgedClaims.length,
   });
 
-  // ---- persist claims + finalize Brief ----
-  // Wipe any prior brief_claims (this is an idempotent rebuild).
+  // ---- 5. persist claims + finalize ----
   await run(env.DB, "DELETE FROM brief_claims WHERE brief_id = ?", [briefId]);
   let order = 0;
   for (const v of judgedClaims) {
@@ -189,12 +217,14 @@ export async function buildBrief(env: Env, briefId: string, userId: string): Pro
       claim_text: v.claim_text,
       source_url: v.source_url,
       source_quote: v.source_quote,
-      source_hash: v.hash,
+      source_hash: null,
       source_offset: v.offset,
       verified: 1,
       killed: 0,
       judge_pass: v.judge_pass,
       judge_notes: v.judge_notes,
+      kind: v.kind,
+      asserted_by: v.asserted_by,
       sort_order: order++,
     });
   }
@@ -203,18 +233,19 @@ export async function buildBrief(env: Env, briefId: string, userId: string): Pro
       brief_id: briefId,
       user_id: userId,
       claim_text: k.claim_text,
-      source_url: k.source_url,
-      source_quote: k.source_quote,
+      source_url: "",
+      source_quote: "",
       source_hash: null,
       source_offset: null,
       verified: 0,
       killed: 1,
       kill_reason: k.reason,
+      kind: "fact",
+      asserted_by: null,
       sort_order: order++,
     });
   }
 
-  // Render body_html. Body comes from the generation step.
   await run(
     env.DB,
     `UPDATE briefs SET
@@ -235,8 +266,8 @@ export async function buildBrief(env: Env, briefId: string, userId: string): Pro
       result.claims_verified,
       result.claims_killed,
       result.cost_cents,
-      GENERATE_MODEL,
-      JUDGE_MODEL,
+      modelForRole("writer").model,
+      modelForRole("judge").model,
       new Date().toISOString(),
       new Date().toISOString(),
       briefId,
@@ -253,15 +284,153 @@ export async function buildBrief(env: Env, briefId: string, userId: string): Pro
 
 // ---- step impls ----------------------------------------------------------
 
+/** Pull the grounding pack for a title from the typed graph: matching nodes,
+ *  their stored quotes (with source piece), and the corpus's assertions with
+ *  attribution + stance + evidence balance. */
+async function gatherGrounding(env: Env, userId: string, title: string): Promise<Grounding> {
+  const words = [
+    ...new Set(
+      title
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 3),
+    ),
+  ].slice(0, 8);
+
+  // Matching nodes by label keyword; fall back to most-recent if few match.
+  const likeClauses = words.map(() => "lower(label) LIKE ?").join(" OR ");
+  const likeBinds = words.map((w) => `%${w}%`);
+  let nodes = words.length
+    ? await all<{ id: string; kind: string; label: string; piece_id: string | null }>(
+        env.DB,
+        `SELECT id, kind, label, piece_id FROM nodes
+          WHERE user_id = ? AND kind != 'source' AND (${likeClauses})
+          ORDER BY created_at DESC LIMIT 60`,
+        [userId, ...likeBinds],
+      )
+    : [];
+  if (nodes.length < 5) {
+    nodes = await all(
+      env.DB,
+      `SELECT id, kind, label, piece_id FROM nodes
+        WHERE user_id = ? AND kind != 'source'
+        ORDER BY created_at DESC LIMIT 60`,
+      [userId],
+    );
+  }
+  if (nodes.length === 0) {
+    return { quotes: new Map(), factsBlock: "", assertionsBlock: "", threadsBlock: "" };
+  }
+
+  const nodeIds = nodes.map((n) => n.id);
+  const ph = nodeIds.map(() => "?").join(",");
+
+  // Quotes for those nodes, joined to the piece they came from.
+  const quoteRows = await all<{
+    id: string;
+    node_id: string;
+    verbatim_text: string;
+    byte_offset: number | null;
+  }>(
+    env.DB,
+    `SELECT id, node_id, verbatim_text, byte_offset FROM quotes
+      WHERE user_id = ? AND node_id IN (${ph}) LIMIT 80`,
+    [userId, ...nodeIds],
+  );
+
+  // Assertion metadata (stance, balance, actor label) for assertion nodes.
+  const assertionMeta = await all<{
+    node_id: string;
+    stance: string;
+    evidence_balance: number;
+    actor_label: string | null;
+  }>(
+    env.DB,
+    `SELECT a.node_id, a.stance, a.evidence_balance,
+            (SELECT label FROM nodes WHERE id = a.asserted_by_node_id) AS actor_label
+       FROM assertions a WHERE a.node_id IN (${ph})`,
+    [...nodeIds],
+  );
+  const metaByNode = new Map(assertionMeta.map((m) => [m.node_id, m]));
+
+  // Piece slugs for provenance links.
+  const pieceIds = [...new Set(nodes.map((n) => n.piece_id).filter((x): x is string => !!x))];
+  const pieceRows = pieceIds.length
+    ? await all<{ id: string; slug: string; title: string }>(
+        env.DB,
+        `SELECT id, slug, title FROM pieces WHERE id IN (${pieceIds.map(() => "?").join(",")})`,
+        [...pieceIds],
+      )
+    : [];
+  const pieceById = new Map(pieceRows.map((p) => [p.id, p]));
+  const nodeById = new Map(nodes.map((n) => [n.id, n]));
+
+  const quotes = new Map<string, GroundingQuote>();
+  for (const q of quoteRows) {
+    const n = nodeById.get(q.node_id);
+    if (!n) continue;
+    const piece = n.piece_id ? pieceById.get(n.piece_id) : undefined;
+    const meta = metaByNode.get(q.node_id);
+    quotes.set(q.id, {
+      id: q.id,
+      verbatim_text: q.verbatim_text,
+      byte_offset: q.byte_offset,
+      node_label: n.label,
+      node_kind: n.kind,
+      piece_slug: piece?.slug ?? null,
+      piece_title: piece?.title ?? null,
+      asserted_by: meta?.actor_label ?? null,
+      stance: meta?.stance ?? null,
+      evidence_balance: meta?.evidence_balance ?? null,
+    });
+  }
+
+  // Open inquiry threads (context for interpretive intents).
+  const threads = await all<{ question: string }>(
+    env.DB,
+    "SELECT question FROM inquiry_threads WHERE user_id = ? AND status = 'open' ORDER BY created_at DESC LIMIT 10",
+    [userId],
+  );
+
+  // Serialize for the prompt.
+  const factLines: string[] = [];
+  const assertionLines: string[] = [];
+  for (const q of quotes.values()) {
+    const src = q.piece_title ? ` (source: ${q.piece_title})` : "";
+    if (q.node_kind === "assertion") {
+      assertionLines.push(
+        `[q:${q.id}] ASSERTION by ${q.asserted_by ?? "UNKNOWN ACTOR"} (stance: ${q.stance ?? "neutral"}, evidence balance: ${q.evidence_balance ?? 0}): "${q.node_label}" — quote: "${q.verbatim_text.slice(0, 300)}"${src}`,
+      );
+    } else {
+      factLines.push(
+        `[q:${q.id}] (${q.node_kind}) ${q.node_label} — quote: "${q.verbatim_text.slice(0, 300)}"${src}`,
+      );
+    }
+  }
+  // Nodes without quotes still inform the body (but can't back claims).
+  const unquoted = nodes
+    .filter((n) => ![...quotes.values()].some((q) => q.node_label === n.label))
+    .slice(0, 30)
+    .map((n) => `- (${n.kind}) ${n.label}`);
+
+  return {
+    quotes,
+    factsBlock: `${factLines.join("\n")}\n\nAdditional graph context (no quotes — do NOT base claims on these):\n${unquoted.join("\n")}`,
+    assertionsBlock: assertionLines.join("\n"),
+    threadsBlock: threads.map((t) => `- ${t.question}`).join("\n"),
+  };
+}
+
 async function generate(
   env: Env,
   brief: BriefRow,
+  grounding: Grounding,
   userId: string,
 ): Promise<{ body_md: string; claims: DraftClaim[] }> {
-  const system = systemPromptFor(brief.content_type);
-  const out = await callLLM(env, {
-    provider: "workers_ai",
-    model: GENERATE_MODEL,
+  const system = systemPromptFor(brief.content_type, brief.layer);
+  const out = await callRole(env, "writer", {
+    userId,
     system,
     messages: [
       {
@@ -269,12 +438,33 @@ async function generate(
         content: [
           {
             type: "text",
-            text: `Title: ${brief.title}\n\nContent type: ${brief.content_type}\n\nWhy proposed: ${brief.why_proposed_md}\n\nDraft the Brief. Return a JSON object with two top-level keys:\n  body_md (string, the full markdown body with citation levers)\n  claims  (array of {claim_text, source_url, source_quote})\nEvery claim's source_quote MUST be a literal verbatim substring of a real fetched page at source_url. We will mechanically verify this — fabricated quotes are dropped. Use real public-web URLs; prefer primary sources.`,
+            text: `Title: ${brief.title}
+Content type: ${brief.content_type}
+Why proposed: ${brief.why_proposed_md}
+
+GROUNDED FACTS (each has a quote id you may cite):
+${grounding.factsBlock}
+
+ATTRIBUTED ASSERTIONS (contested material — NEVER state these as neutral fact; always name who asserts them):
+${grounding.assertionsBlock || "(none)"}
+
+OPEN INQUIRY THREADS (context):
+${grounding.threadsBlock || "(none)"}
+
+Draft the output. Return ONLY a JSON object:
+{
+  "body_md": "full markdown body (do NOT include the title as a heading)",
+  "claims": [{ "claim_text": "...", "quote_id": "the id from [q:...]", "kind": "fact" or "assertion", "asserted_by": "actor name (REQUIRED when kind=assertion)" }]
+}
+Rules:
+- Every claim's quote_id MUST be one of the [q:...] ids above. We verify mechanically; invented ids are dropped.
+- Use ONLY the grounded material. Do not import outside knowledge as fact.
+- 5-12 claims. Front-load the direct answer in the first 2 sentences of body_md.`,
           },
         ],
       },
     ],
-    max_tokens: 4000,
+    max_tokens: 3500,
     response_schema: {
       type: "object",
       properties: {
@@ -285,122 +475,80 @@ async function generate(
             type: "object",
             properties: {
               claim_text: { type: "string" },
-              source_url: { type: "string" },
-              source_quote: { type: "string" },
+              quote_id: { type: "string" },
+              kind: { type: "string" },
+              asserted_by: { type: "string" },
             },
-            required: ["claim_text", "source_url", "source_quote"],
+            required: ["claim_text", "quote_id"],
           },
         },
       },
       required: ["body_md", "claims"],
-    },
-    ledger: {
-      user_id: userId,
-      operation_type: "workers_ai.briefs.generate",
     },
   });
 
   const parsed = (out.structured ?? safeJsonParse(out.text)) as {
     body_md?: string;
     claims?: DraftClaim[];
-  };
-  if (!parsed) throw new Error("generate: model returned unparseable output");
+  } | null;
+  if (!parsed || typeof parsed.body_md !== "string") {
+    throw new Error("generate: model returned unparseable output");
+  }
   return {
-    body_md: parsed.body_md ?? "",
+    body_md: parsed.body_md,
     claims: Array.isArray(parsed.claims) ? parsed.claims : [],
   };
 }
 
-function systemPromptFor(contentType: string): string {
-  const base = `You are drafting a CANOPTICON Brief — a neutral, factual, citable answer-object. Hard constraints:
-- Plain English, no opinion (opinions live in Investigations, not Briefs).
-- Cite EXTERNAL sources only — never cite CANOPTICON or any internal page.
-- Facts in the top 30% of the body (~55% of AI Overview citations originate there).
-- 120–180 word section blocks (70% more citations than sub-50-word sections).
-- Statistics density — aim for ≥1 stat per section (biggest single citation lever).
-- Every factual claim MUST carry a verbatim source_quote from a real public web page.`;
-  switch (contentType) {
-    case "definition":
-      return `${base}\n\nThis Brief is a DEFINITION/CONCEPT page. Lead with a canonical 1-paragraph definition. Then sections: Origin, Mechanism, Scale, Status. Cite primary sources (statutes, official reports, named individuals' published statements).`;
-    case "comparison":
-      return `${base}\n\nThis Brief is a COMPARISON MATRIX. Body should be mostly a markdown table comparing the two subjects across structural axes (governance, scope, mandate, etc.). Aim for ~3 tables. The table is the citation magnet.`;
-    case "timeline":
-      return `${base}\n\nThis Brief is a TIMELINE. Body is a chronological list of dated events, each with a verbatim source_quote. Lead with a 1-paragraph framing of why this timeline matters.`;
-    case "faq":
-      return `${base}\n\nThis Brief is a FAQ. Each section is a Q & A. Use the questions humans and machines actually ask. 5-8 Q&As.`;
-    case "stat-roundup":
-      return `${base}\n\nThis Brief is a STAT ROUNDUP. Aim for ≥19 statistics (Princeton GEO paper: 2x citation rate at 19+). Each stat as its own bullet with verbatim source_quote.`;
-    default:
-      return base;
-  }
+function systemPromptFor(contentType: string, layer: string): string {
+  const base = `You draft CANOPTICON outputs — citable reference pages grounded EXCLUSIVELY in the supplied graph material. Hard constraints:
+- THE FIREWALL: an attributed assertion is NEVER stated as neutral fact. Contested material always names who asserts it ("According to X, ..."). Violating this is a stop-work bug.
+- Facts in the top 30% of the body. Front-load a direct 1-2 sentence answer.
+- 120-180 word section blocks. Statistics density where the grounding supports it.
+- Question-shaped headings where natural.
+- Plain English. No outside knowledge presented as fact.`;
+  const interpretive = `
+This is an INTERPRETIVE piece (layer: interpretive) — a SIGNED reading on top of the facts. You may reason, connect, and probe; but every factual anchor still cites a grounded quote, contested material stays attributed, and open questions are stated as open. State your analytical confidence (low/moderate/high) explicitly in the final section.`;
+  const byType: Record<string, string> = {
+    definition:
+      "DEFINITION page. Lead with a canonical 1-paragraph definition (the first sentence IS the answer). Sections: Origin, Mechanism, Scale, Status.",
+    comparison:
+      "COMPARISON MATRIX. Mostly markdown tables comparing the subjects across structural axes. The table is the citation magnet.",
+    timeline:
+      "TIMELINE. A chronological list of dated events from the grounded material, each anchored to a quote id. Lead with 1-paragraph framing.",
+    faq: "FAQ. 5-8 question-and-answer sections using questions humans and machines actually ask.",
+    "stat-roundup":
+      "STAT ROUNDUP. Every quantitative fact in the grounding as its own bullet with its quote id. Aim high on statistics density.",
+    "entity-profile":
+      "ENTITY / ACTOR PROFILE. Who/what the entity is (first sentence = the answer), attributes, relationships, what's asserted about them (attributed!), appearances across sources.",
+    "claim-table":
+      "CLAIM-AND-SOURCE TABLE. Each contested assertion as a row: the claim, who asserts it, stance, supporting/contradicting evidence — shown NEUTRALLY. This page is the firewall made visible.",
+    investigation:
+      "INVESTIGATION — an open skeptical probe. Are the asserted claims sound? What doesn't add up? May conclude OR remain open; unresolved questions are listed explicitly as open threads.",
+    argument:
+      "ARGUMENT / THESIS — a closed case. State the thesis, then build it strictly from grounded facts; engage the strongest counter-assertion (attributed) and answer it.",
+    assessment:
+      "ASSESSMENT — a probabilistic judgment. Enumerate competing explanations, weigh grounded evidence against EACH, conclude with an explicit likelihood + confidence statement.",
+  };
+  return `${base}${layer === "interpretive" ? interpretive : ""}\n\n${byType[contentType] ?? "Reference page over the grounded material."}`;
 }
 
-async function retrieveSource(
+async function judgeClaim(
   env: Env,
-  userId: string,
-  url: string,
-): Promise<{ text: string; hash: string }> {
-  // Hash on the URL only for the cache lookup. (We could also key on
-  // content but URL is good enough for v1.)
-  const urlHash = await sha256(url);
-  const cached = await one<{ hash: string; r2_key: string }>(
-    env.DB,
-    "SELECT hash, r2_key FROM brief_sources WHERE user_id = ? AND url = ? ORDER BY fetched_at DESC LIMIT 1",
-    [userId, url],
-  );
-  if (cached) {
-    const obj = await env.FILES.get(cached.r2_key);
-    if (obj) {
-      return { text: await obj.text(), hash: cached.hash };
-    }
-  }
-  // Fetch fresh.
-  const res = await fetchWithTimeout(
-    url,
-    {
-      headers: {
-        "user-agent": "Canopticon/1.0 (briefs verification)",
-        accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
-      },
-      redirect: "follow",
-    },
-    undefined,
-    `briefs.verify[${new URL(url).hostname}]`,
-  );
-  if (!res.ok) throw new Error(`fetch ${url}: ${res.status}`);
-  const body = await res.text();
-  const text = stripHtml(body);
-  const hash = await sha256(text);
-  const r2_key = `briefs/sources/${hash}.txt`;
-  await env.FILES.put(r2_key, text, { httpMetadata: { contentType: "text/plain" } });
-  await insertOne(env.DB, "brief_sources", {
-    hash,
-    user_id: userId,
-    url,
-    r2_key,
-    byte_length: text.length,
-  });
-  // urlHash unused here; reserved for future content-aware dedup.
-  void urlHash;
-  return { text, hash };
-}
-
-async function judge(
-  env: Env,
-  claim: DraftClaim,
+  claimText: string,
+  sourceQuote: string,
   userId: string,
 ): Promise<{ judge_pass: 0 | 1; judge_notes: string }> {
-  const out = await callLLM(env, {
-    provider: "workers_ai",
-    model: JUDGE_MODEL,
-    system: `You are an independent fact-checker. You are NOT the model that drafted the claim — your job is to assess, neutrally, whether the verbatim quote actually supports the claim. Return JSON only: {pass: boolean, notes: string}. Be strict. A quote that mentions the topic but doesn't substantiate the claim → pass=false.`,
+  const out = await callRole(env, "judge", {
+    userId,
+    system: `You are an independent fact-checker. You are NOT the model that drafted the claim — assess neutrally whether the verbatim quote actually supports the claim. Return JSON only: {"pass": boolean, "notes": string}. Be strict: a quote that mentions the topic but doesn't substantiate the claim → pass=false.`,
     messages: [
       {
         role: "user",
         content: [
           {
             type: "text",
-            text: `Claim:\n${claim.claim_text}\n\nVerbatim source quote (from ${claim.source_url}):\n"${claim.source_quote}"\n\nDoes the quote support the claim?`,
+            text: `Claim:\n${claimText}\n\nVerbatim source quote:\n"${sourceQuote}"\n\nDoes the quote support the claim?`,
           },
         ],
       },
@@ -411,12 +559,11 @@ async function judge(
       properties: { pass: { type: "boolean" }, notes: { type: "string" } },
       required: ["pass", "notes"],
     },
-    ledger: { user_id: userId, operation_type: "workers_ai.briefs.judge" },
   });
   const parsed = (out.structured ?? safeJsonParse(out.text)) as {
     pass?: boolean;
     notes?: string;
-  };
+  } | null;
   return {
     judge_pass: parsed?.pass ? 1 : 0,
     judge_notes: parsed?.notes?.slice(0, 600) ?? "",
@@ -425,33 +572,10 @@ async function judge(
 
 // ---- helpers --------------------------------------------------------------
 
-async function sha256(s: string): Promise<string> {
-  const buf = new TextEncoder().encode(s);
-  const out = await crypto.subtle.digest("SHA-256", buf);
-  return Array.from(new Uint8Array(out))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function safeJsonParse(s: string): unknown {
   try {
     return JSON.parse(s);
   } catch {
-    // Some models return JSON inside a code fence; try to extract.
     const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fence?.[1]) {
       try {
