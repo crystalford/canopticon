@@ -61,7 +61,7 @@ app.get("/", (c) => {
 // "Upload is authorization" — no preview, no confirmation, no second click.
 // A .zip is expanded and each supported document inside is ingested.
 const ZIP_ENTRY_RE = /\.(md|markdown|txt|pdf)$/i;
-const ZIP_MAX_ENTRIES = 50;
+const ZIP_MAX_ENTRIES = 100;
 
 app.post("/feed/upload", async (c) => {
   try {
@@ -498,6 +498,10 @@ app.post("/library/extract", async (c) => {
     );
   }
 
+  // Enqueue everything; kick only the first few inline. Kicking 50 jobs in
+  // one request is a self-DoS (each runs LLM calls via waitUntil); the
+  // every-minute cron drain works through the rest at a steady 8/tick.
+  const INLINE_KICKS = 3;
   let kicked = 0;
   for (const p of pieces) {
     if (!p.source_id) continue; // can't extract without a source row
@@ -508,7 +512,9 @@ app.post("/library/extract", async (c) => {
       title: p.title,
       sourceId: p.source_id,
     });
-    c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
+    if (kicked < INLINE_KICKS) {
+      c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
+    }
     kicked++;
   }
   return c.redirect(`/op/library?extracting=${kicked}`);

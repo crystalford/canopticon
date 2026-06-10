@@ -225,21 +225,30 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
         deterministic,
       });
     }
-    // Surfacing Engine Level 1 + the proposer run after every successful
-    // extraction (spec Part 17 deterministic tier; Part 0 prime directive —
-    // the operator opens Outputs and the proposals are already waiting).
-    // Both best-effort: their failure never marks the extraction failed.
+    // Surfacing Engine L1 + the proposer run when the CORPUS SETTLES — i.e.
+    // this was the last queued/running job. During a 50-document bulk
+    // extraction, re-running them after every single doc would churn the
+    // proposal queue 50 times; waiting for the last job means the proposals
+    // the operator finds reflect the WHOLE corpus (prime directive: the work
+    // is already done when they look). Both best-effort.
     if (!failed) {
-      try {
-        await runSurfacingL1(env, job.user_id);
-      } catch {
-        // findings recompute on the next extraction or manual re-surface
-      }
-      try {
-        const { proposeBriefs } = await import("./briefs/proposer");
-        await proposeBriefs(env, job.user_id);
-      } catch {
-        // Re-propose on /op/outputs covers a failed auto-run
+      const remaining = await one<{ n: number }>(
+        env.DB,
+        "SELECT COUNT(*) AS n FROM digest_jobs WHERE user_id = ? AND status IN ('queued','running') AND id != ?",
+        [job.user_id, jobId],
+      );
+      if ((remaining?.n ?? 0) === 0) {
+        try {
+          await runSurfacingL1(env, job.user_id);
+        } catch {
+          // findings recompute on manual re-surface
+        }
+        try {
+          const { proposeBriefs } = await import("./briefs/proposer");
+          await proposeBriefs(env, job.user_id);
+        } catch {
+          // Re-propose on /op/outputs covers a failed auto-run
+        }
       }
     }
   } catch (err) {

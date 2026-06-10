@@ -69,6 +69,30 @@ async function loadStats(db: D1Database, userId: string): Promise<Stats> {
   return { documents, nodes, quotes, chains, published, working };
 }
 
+interface JobProgress {
+  queued: number;
+  running: number;
+  completed: number;
+  failed: number;
+}
+
+// Live extraction progress for the strip — counts across all digest jobs.
+async function loadJobProgress(db: D1Database, userId: string): Promise<JobProgress> {
+  const rows = await all<{ status: string; n: number }>(
+    db,
+    "SELECT status, COUNT(*) AS n FROM digest_jobs WHERE user_id = ? GROUP BY status",
+    [userId],
+  ).catch(() => []);
+  const out: JobProgress = { queued: 0, running: 0, completed: 0, failed: 0 };
+  for (const r of rows) {
+    if (r.status === "queued") out.queued = r.n;
+    else if (r.status === "running") out.running = r.n;
+    else if (r.status === "completed") out.completed = r.n;
+    else if (r.status === "failed") out.failed = r.n;
+  }
+  return out;
+}
+
 async function loadDocuments(db: D1Database, userId: string): Promise<PieceListRow[]> {
   // The digest_status sub-select prefers the latest job's status so a row
   // accurately reflects "stored / extracting / extracted / failed". When no
@@ -288,6 +312,9 @@ export async function renderLibraryScreen(
     ? await loadStats(env.DB, userId)
     : { documents: 0, nodes: 0, quotes: 0, chains: 0, published: 0, working: 0 };
   const docs = userId ? await loadDocuments(env.DB, userId) : [];
+  const progress = userId
+    ? await loadJobProgress(env.DB, userId)
+    : { queued: 0, running: 0, completed: 0, failed: 0 };
 
   // Group by chain.
   const chained = new Map<string, PieceListRow[]>();
@@ -386,11 +413,23 @@ export async function renderLibraryScreen(
 </div>`
     : "";
 
+  // Extraction-in-progress strip: visible whenever work is pending so a
+  // 50-document bulk run reads as steady progress, not a hang. The cron
+  // drain processes 8 jobs/minute; refresh updates the numbers.
+  const active = progress.queued + progress.running;
+  const progressStrip =
+    active > 0
+      ? `<div class="okflag" style="margin-bottom:14px">
+  <span class="ftext"><b>Extracting…</b> ${progress.running} running · ${progress.queued} queued · ${progress.completed} done${progress.failed > 0 ? ` · ${progress.failed} failed (Retry on the row)` : ""}.
+  The drain works through the queue automatically (~8/min) — safe to leave this page. When the last document finishes, findings and proposals regenerate against the whole corpus.</span>
+</div>`
+      : "";
+
   return renderOpPage({
     title: "Library",
     sub: "drop documents · the full archive · extract into the graph",
     topbarActions,
-    body: `${uploadBanner(args)}${extractingBanner}${dropzone()}${statsBar}${search}${filterChips}${list}${extractForms}${LIB_FILTER_JS}${LIB_BULK_JS}`,
+    body: `${uploadBanner(args)}${progressStrip}${extractingBanner}${dropzone()}${statsBar}${search}${filterChips}${list}${extractForms}${LIB_FILTER_JS}${LIB_BULK_JS}`,
     activeNav: "/op/library",
     width: "wide",
   });

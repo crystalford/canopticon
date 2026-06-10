@@ -278,20 +278,22 @@ Rules:
   }
   const obj = (root ?? {}) as { proposals?: unknown };
   const arr = Array.isArray(obj.proposals) ? obj.proposals : [];
-  return arr
-    .filter((p): p is Record<string, unknown> => typeof p === "object" && p !== null)
-    .map((p) => ({
-      title: String(p.title ?? "").slice(0, 200),
-      slug: String(p.slug ?? ""),
-      content_type: String(p.content_type ?? "").toLowerCase(),
-      layer: "",
-      reasoning_md: String(p.reasoning_md ?? "").slice(0, 2000),
-      novelty: Number(p.novelty ?? 0),
-    }))
-    .filter((p) => p.title && p.content_type)
-    // Novelty floor — the model is told scores below 3 are discarded; hold it
-    // to that mechanically. Missing/invalid scores are treated as failing.
-    .filter((p) => p.novelty >= 3);
+  return (
+    arr
+      .filter((p): p is Record<string, unknown> => typeof p === "object" && p !== null)
+      .map((p) => ({
+        title: String(p.title ?? "").slice(0, 200),
+        slug: String(p.slug ?? ""),
+        content_type: String(p.content_type ?? "").toLowerCase(),
+        layer: "",
+        reasoning_md: String(p.reasoning_md ?? "").slice(0, 2000),
+        novelty: Number(p.novelty ?? 0),
+      }))
+      .filter((p) => p.title && p.content_type)
+      // Novelty floor — the model is told scores below 3 are discarded; hold it
+      // to that mechanically. Missing/invalid scores are treated as failing.
+      .filter((p) => p.novelty >= 3)
+  );
 }
 
 function slugify(s: string): string {

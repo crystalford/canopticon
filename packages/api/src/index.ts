@@ -200,7 +200,7 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
   }
   // Default branch (every-minute tick): drain queued + stalled digest jobs.
   // Each job runs in waitUntil; if it gets killed, a later tick picks it up.
-  const jobIds = await drainDigestJobs(env, 5);
+  const jobIds = await drainDigestJobs(env, 8);
   for (const id of jobIds) {
     ctx.waitUntil(runDigestJob(env, id));
   }
