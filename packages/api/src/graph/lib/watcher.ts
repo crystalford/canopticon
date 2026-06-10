@@ -7,10 +7,12 @@
 import type { Env } from "../../env";
 import { insertOne, one, run } from "../../lib/d1";
 import { callLLM } from "../../llm/index";
+import { modelForRole } from "../../llm/router";
 import type { LlmContent, LlmMessage, LlmToolDef } from "../../llm/types";
 import { TOOLS_BY_NAME, type ToolDef } from "../tools/index";
 
-const WATCHER_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+// Router-resolved — the hardcoded llama-3.3-70b was retired 2026-05-30.
+const WATCHER_MODEL = modelForRole("writer").model;
 const MAX_LOOP_ITERATIONS = 8;
 
 // Curated subset of the chat tool registry. note_finding is the only

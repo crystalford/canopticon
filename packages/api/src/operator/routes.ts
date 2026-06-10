@@ -33,7 +33,6 @@ import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
 import { opHtml } from "./layout";
-import { renderChatScreen } from "./screens/chat";
 import { renderLibraryScreen } from "./screens/library";
 import { renderLibraryDocScreen } from "./screens/library-doc";
 import { renderOutputsScreen } from "./screens/outputs";
@@ -336,9 +335,11 @@ async function ensureUniqueSlug(db: D1Database, userId: string, base: string): P
   return `${base}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
-// Chat — the conversation stream. P0 stub; P3 reskins to the new design.
-app.get("/chat", async (c) => opHtml(await renderChatScreen(c.env)));
-app.get("/chat/:id", async (c) => opHtml(await renderChatScreen(c.env, c.req.param("id"))));
+// Chat — removed from the rail (operator directive: streamline to the
+// functions actually in use). The screen + SSE backend stay in the tree;
+// the surface redirects to Library until/unless Chat earns its place back.
+app.get("/chat", (c) => c.redirect("/op/library", 301));
+app.get("/chat/:id", (c) => c.redirect("/op/library", 301));
 
 // Chat client module — handles SSE consumption with the new design's
 // chat-msg / chat-q / chat-r-text classes.
