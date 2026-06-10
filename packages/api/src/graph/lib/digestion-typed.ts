@@ -31,7 +31,12 @@ import { insertOne, run, serialize } from "../../lib/d1";
 import { callRole } from "../../llm/router";
 import type { AssertionStance, EdgeFamily, NodeKind } from "./typed-graph";
 
-const ROLE_TIMEOUT_MS = 60_000;
+// Per-chunk model-call ceiling. MUST be aggressively SHORTER than the
+// Cloudflare Worker wall-clock budget under waitUntil (~30s of CPU); a longer
+// timeout never fires, the Worker dies first, and the cron drain re-runs the
+// chunk — with the same idempotency_key, so we want the FIRST attempt to either
+// succeed or fail cleanly within budget rather than getting killed mid-call.
+const ROLE_TIMEOUT_MS = 25_000;
 const MAX_CHUNKS = 3;
 
 // ---------------------------------------------------------------------------

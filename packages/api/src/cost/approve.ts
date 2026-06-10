@@ -34,12 +34,13 @@ export async function approvePaidOperation(
   db: D1Database,
   req: CostRequest,
 ): Promise<CostDecision> {
-  // Workers AI is free — short-circuit straight to a $0 ledger row.
-  if (req.provider === "workers_ai" || req.estimated_cost_cents <= 0) {
-    const id = await writeLedger(db, req, 0, true);
-    return { decision: "approved", approval_id: null, cost_ledger_id: id };
-  }
-
+  // Idempotency FIRST — runs for both paid and free paths. cost_ledger has a
+  // UNIQUE (user_id, idempotency_key) constraint, so a retry of any call
+  // (Workers AI included) that re-uses its idempotency_key MUST find the
+  // prior ledger row, not try to insert a new one. The retry path used to
+  // dead-end in a SQLITE_CONSTRAINT_UNIQUE on Workers AI because the free
+  // short-circuit below blindly inserted; that surfaced as
+  // "typed extraction failed on every chunk" on every cron retry.
   if (req.idempotency_key) {
     const existing = await one<{ id: string }>(
       db,
@@ -49,6 +50,12 @@ export async function approvePaidOperation(
     if (existing) {
       return { decision: "approved", approval_id: null, cost_ledger_id: existing.id };
     }
+  }
+
+  // Workers AI is free — short-circuit straight to a $0 ledger row.
+  if (req.provider === "workers_ai" || req.estimated_cost_cents <= 0) {
+    const id = await writeLedger(db, req, 0, true);
+    return { decision: "approved", approval_id: null, cost_ledger_id: id };
   }
 
   const rule = await one<{
