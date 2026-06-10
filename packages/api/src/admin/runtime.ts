@@ -21,7 +21,7 @@ app.use("*", requireAuth());
 app.get("/runtime", async (c) => {
   const userId = c.get("user_id");
 
-  const [counts, events, proposals, recentPieces] = await Promise.all([
+  const [counts, events, proposals, recentPieces, uploads, jobs, typedGraph] = await Promise.all([
     loadCounts(c.env.DB, userId),
     all<{
       id: string;
@@ -73,6 +73,47 @@ app.get("/runtime", async (c) => {
         LIMIT 20`,
       [userId],
     ),
+    // Recent uploads — the failure path stores the real error here
+    // (extraction_status='failed', metadata.error) so we can read WHY an
+    // ingest threw instead of only seeing the UI banner.
+    all<{
+      id: string;
+      original_filename: string | null;
+      classification: string | null;
+      extraction_status: string | null;
+      size_bytes: number | null;
+      metadata: string | null;
+      created_at: string;
+    }>(
+      c.env.DB,
+      `SELECT id, original_filename, classification, extraction_status,
+              size_bytes, metadata, created_at
+         FROM uploaded_files
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 15`,
+      [userId],
+    ).catch(() => []),
+    // Recent digest jobs — last_error/step tell us where typed extraction died.
+    all<{
+      id: string;
+      piece_id: string;
+      status: string;
+      step: string;
+      claims_count: number;
+      attempts: number;
+      last_error: string | null;
+      updated_at: string;
+    }>(
+      c.env.DB,
+      `SELECT id, piece_id, status, step, claims_count, attempts, last_error, updated_at
+         FROM digest_jobs
+        WHERE user_id = ?
+        ORDER BY updated_at DESC
+        LIMIT 15`,
+      [userId],
+    ).catch(() => []),
+    loadTypedGraphCounts(c.env.DB, userId),
   ]);
 
   // Bucket events by type for a quick overview.
@@ -86,6 +127,9 @@ app.get("/runtime", async (c) => {
     generated_at: new Date().toISOString(),
     user_id: userId,
     counts,
+    typed_graph: typedGraph,
+    uploads: uploads.map((u) => ({ ...u, metadata: parsePayload(u.metadata ?? "") })),
+    digest_jobs: jobs,
     events: {
       by_type: eventsByType,
       recent: events.map((e) => ({
@@ -131,6 +175,42 @@ async function loadCounts(db: D1Database, userId: string): Promise<Counts> {
   );
 }
 
+// Typed-graph row counts (migration 0026/0027). Each guarded so a missing
+// table (un-applied migration) reports 0 rather than failing the whole probe.
+async function loadTypedGraphCounts(
+  db: D1Database,
+  userId: string,
+): Promise<Record<string, number | string>> {
+  // nodes / edges / quotes / inquiry_threads carry user_id directly.
+  // assertions + node_props are scoped to the user via their node_id → nodes.
+  const direct = ["nodes", "edges", "quotes", "inquiry_threads"];
+  const viaNode = ["assertions", "node_props"];
+  const out: Record<string, number | string> = {};
+  for (const t of direct) {
+    try {
+      const row = await one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM ${t} WHERE user_id = ?`, [
+        userId,
+      ]);
+      out[t] = row?.n ?? 0;
+    } catch (err) {
+      out[t] = `error: ${(err as Error).message}`;
+    }
+  }
+  for (const t of viaNode) {
+    try {
+      const row = await one<{ n: number }>(
+        db,
+        `SELECT COUNT(*) AS n FROM ${t} WHERE node_id IN (SELECT id FROM nodes WHERE user_id = ?)`,
+        [userId],
+      );
+      out[t] = row?.n ?? 0;
+    } catch (err) {
+      out[t] = `error: ${(err as Error).message}`;
+    }
+  }
+  return out;
+}
+
 function parsePayload(raw: string): unknown {
   try {
     return JSON.parse(raw);
@@ -162,6 +242,11 @@ const RESET_TABLES = [
   "pieces",
   "orchestrator_events",
   "digest_jobs",
+  // Typed graph (migration 0026/0027). Deleting nodes cascades to edges /
+  // quotes / assertions / node_props, so only the user_id-bearing roots are
+  // listed here.
+  "nodes",
+  "inquiry_threads",
 ];
 
 app.get("/reset-graph", async (c) => {
