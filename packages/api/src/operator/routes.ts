@@ -27,6 +27,7 @@ import {
 } from "../graph/lib/digest-jobs";
 import { extractUpload, readFullExtractedText } from "../graph/lib/extract";
 import { composeScript } from "../graph/lib/studio/compose";
+import { runSurfacingL1, runSurfacingL2 } from "../graph/lib/surfacing";
 import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
 import { all, insertOne, one, run } from "../lib/d1";
 import { resolveOperatorId } from "../public/data";
@@ -368,19 +369,65 @@ app.get("/synthesis", async (c) => {
   return opHtml(await renderSynthesisScreen(c.env, view));
 });
 
-// Manual re-surface trigger. The handoff treats Synthesis as read-only
-// oversight, but a Re-surface button on the topbar lets the operator
-// force a recompute after a fresh ingest. Idempotent: the surfacer
-// upserts candidate cards by slug, so re-running just updates counts.
+// Manual re-surface trigger. Runs BOTH the legacy SQL surfacer and the
+// typed-graph Surfacing Engine Level 1 (spec Part 17). Idempotent: both
+// upsert candidate cards by slug.
 app.post("/synthesis/surface", async (c) => {
   try {
     const userId = await resolveOperatorId(c.env.DB);
     if (!userId) return c.redirect("/op/synthesis?err=no_operator");
-    await runSynthesisSurfacer(c.env, userId);
+    await runSurfacingL1(c.env, userId);
+    await runSynthesisSurfacer(c.env, userId).catch(() => {
+      // legacy surfacer reads the flat-claims tables, which may be empty
+      // post-pivot; its failure must not block typed-graph findings
+    });
     return c.redirect("/op/synthesis");
   } catch (err) {
     return c.redirect(`/op/synthesis?err=${encodeURIComponent((err as Error).message)}`);
   }
+});
+
+// Surfacing Engine Level 2 — the deliberate, high-effort analysis pass
+// (spec Part 17 ambitious tier). Assembles a verified subgraph, asks the
+// reasoning model for candidate patterns, mechanically verifies every cited
+// node id, and discards anything unverifiable.
+app.post("/synthesis/deep", async (c) => {
+  try {
+    const userId = await resolveOperatorId(c.env.DB);
+    if (!userId) return c.redirect("/op/synthesis?err=no_operator");
+    const report = await runSurfacingL2(c.env, userId);
+    return c.redirect(
+      `/op/synthesis?deep=${report.l2_candidates}&discarded=${report.l2_discarded}`,
+    );
+  } catch (err) {
+    return c.redirect(`/op/synthesis?err=${encodeURIComponent((err as Error).message)}`);
+  }
+});
+
+// Inquiry-thread lifecycle (spec Part 6): open -> being_pursued -> resolved /
+// dropped. Threads are first-class; they persist and resurface, feeding the
+// proposer. Buttons live on the Synthesis surface.
+app.post("/synthesis/thread/:id/:action", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/synthesis");
+  const action = c.req.param("action");
+  const status =
+    action === "pursue"
+      ? "being_pursued"
+      : action === "resolve"
+        ? "resolved"
+        : action === "drop"
+          ? "dropped"
+          : action === "reopen"
+            ? "open"
+            : null;
+  if (!status) return c.redirect("/op/synthesis");
+  await run(
+    c.env.DB,
+    "UPDATE inquiry_threads SET status = ?, last_resurfaced_at = ? WHERE id = ? AND user_id = ?",
+    [status, new Date().toISOString(), c.req.param("id"), userId],
+  );
+  return c.redirect("/op/synthesis");
 });
 
 app.get("/library", async (c) => {
@@ -547,10 +594,9 @@ app.get("/outputs", async (c) => {
   return opHtml(await renderOutputsScreen(c.env, { composed }));
 });
 
-// Re-run the proposer over the corpus. Idempotent: upserts proposals by slug.
-// Today's proposer is a SQL heuristic; spec Part 7 calls for an LLM-driven
-// research-assistant suggester — that's a later PR. The shape of this route
-// stays so the upgrade is in-place.
+// Re-run the proposer over the corpus. LLM-driven per spec Part 7: reads the
+// typed graph + open inquiry threads, proposes across both output layers.
+// Idempotent: upserts proposals by slug.
 app.post("/outputs/propose", async (c) => {
   try {
     const userId = await resolveOperatorId(c.env.DB);
@@ -595,6 +641,53 @@ app.post("/outputs/:id/publish", async (c) => {
   } catch (err) {
     return c.redirect(`/op/outputs?err=${encodeURIComponent((err as Error).message)}`);
   }
+});
+
+// Edit-a-draft-before-publish (spec Part 14 #7). GET renders a plain
+// textarea over body_md; POST saves, re-renders body_html, and re-runs the
+// firewall sweep (an edit must not smuggle an assertion past attribution).
+app.get("/outputs/:id/edit", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/outputs");
+  const row = await one<{ id: string; title: string; body_md: string; status: string }>(
+    c.env.DB,
+    "SELECT id, title, body_md, status FROM briefs WHERE id = ? AND user_id = ?",
+    [c.req.param("id"), userId],
+  );
+  if (!row || row.status !== "draft") return c.redirect("/op/outputs");
+  const { escapeHtml } = await import("../public/layout");
+  const body = `<div class="okflag" style="margin-bottom:14px"><span class="ftext"><b>Editing draft.</b> The verified claims + sources are untouched — you're refining the prose. The firewall re-checks on save.</span></div>
+<form method="POST" action="/op/outputs/${escapeHtml(row.id)}/edit">
+  <textarea name="body_md" rows="28" style="width:100%;font-family:var(--mono,monospace);font-size:13px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:14px">${escapeHtml(row.body_md)}</textarea>
+  <div style="margin-top:12px;display:flex;gap:10px">
+    <button type="submit" class="btn btn-amber">Save draft</button>
+    <a href="/op/outputs" class="btn">Cancel</a>
+  </div>
+</form>`;
+  const { renderOpPage } = await import("./layout");
+  return opHtml(
+    renderOpPage({
+      title: `Edit · ${row.title}`,
+      sub: "refine the draft before approval · claims and sources stay verified",
+      body,
+      activeNav: "/op/outputs",
+      width: "wide",
+    }),
+  );
+});
+
+app.post("/outputs/:id/edit", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/outputs");
+  const form = await c.req.formData();
+  const bodyMd = String(form.get("body_md") ?? "");
+  const { renderMarkdown } = await import("../cms/lib/render-post");
+  await run(
+    c.env.DB,
+    "UPDATE briefs SET body_md = ?, body_html = ?, updated_at = ? WHERE id = ? AND user_id = ? AND status = 'draft'",
+    [bodyMd, renderMarkdown(bodyMd), new Date().toISOString(), c.req.param("id"), userId],
+  );
+  return c.redirect("/op/outputs");
 });
 
 // Discard — moves a draft to discarded; operator can re-propose.

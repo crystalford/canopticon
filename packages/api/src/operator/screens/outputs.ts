@@ -28,6 +28,7 @@ import { resolveOperatorId } from "../data";
 import { emptyState, icon, renderOpPage } from "../layout";
 
 interface OutputRow {
+  layer: string;
   id: string;
   slug: string;
   title: string;
@@ -54,18 +55,31 @@ interface OutputClaimRow {
 }
 
 const TYPE_META: Record<string, { cls: string; label: string; cite: string }> = {
+  // Factual arrangements (unsigned, neutral)
   definition: { cls: "b-pattern", label: "Definition", cite: "46% cite rate" },
   comparison: { cls: "b-thesis", label: "Comparison", cite: "61% cite rate" },
   timeline: { cls: "b-connection", label: "Timeline", cite: "33% cite rate" },
   faq: { cls: "b-contradiction", label: "FAQ", cite: "58% cite rate" },
   "stat-roundup": { cls: "b-pattern", label: "Stat roundup", cite: "52% cite rate" },
+  "entity-profile": { cls: "b-pattern", label: "Entity profile", cite: "factual" },
+  "claim-table": { cls: "b-contradiction", label: "Claim & source table", cite: "firewall" },
+  // Interpretive intents (signed, confidence-tagged)
+  investigation: { cls: "b-thesis", label: "Investigation", cite: "signed" },
+  argument: { cls: "b-thesis", label: "Argument", cite: "signed" },
+  assessment: { cls: "b-connection", label: "Assessment", cite: "signed" },
 };
+
+function layerBadge(o: OutputRow): string {
+  return o.layer === "interpretive"
+    ? `<span class="mono" style="font-size:9.5px;letter-spacing:.08em;color:var(--amber-hi);border:1px solid var(--amber);border-radius:4px;padding:1px 6px;margin-left:8px">INTERPRETIVE · SIGNED</span>`
+    : "";
+}
 
 async function loadOutputs(db: D1Database, userId: string): Promise<OutputRow[]> {
   // Still reads the `briefs` table — rename deferred to a later cleanup PR.
   return all<OutputRow>(
     db,
-    `SELECT id, slug, title, content_type, status, why_proposed_md, body_md,
+    `SELECT id, slug, title, content_type, status, layer, why_proposed_md, body_md,
             claims_verified, claims_killed, updated_at
        FROM briefs
       WHERE user_id = ?
@@ -100,7 +114,7 @@ function proposalCard(o: OutputRow): string {
   return `<div class="brief-proposal">
   <div class="bp-head">
     <span class="bp-type-badge ${meta.cls}">${escapeHtml(meta.label)}</span>
-    <div class="bp-title">${escapeHtml(o.title)}</div>
+    <div class="bp-title">${escapeHtml(o.title)}${layerBadge(o)}</div>
     <span class="bp-cite">${escapeHtml(meta.cite)}</span>
   </div>
   <p class="bp-why">${escapeHtml(o.why_proposed_md)}</p>
@@ -135,6 +149,7 @@ function draftCard(o: OutputRow, claims: OutputClaimRow[]): string {
       <form method="POST" action="/op/outputs/${escapeAttr(o.id)}/publish" style="display:inline">
         <button type="submit" class="btn btn-amber solid">Publish</button>
       </form>
+      <a href="/op/outputs/${escapeAttr(o.id)}/edit" class="btn">Edit</a>
       <form method="POST" action="/op/outputs/${escapeAttr(o.id)}/discard" style="display:inline">
         <button type="submit" class="btn">Discard</button>
       </form>
@@ -148,11 +163,11 @@ function buildingCard(o: OutputRow): string {
   const meta = TYPE_META[o.content_type] ?? TYPE_META.definition;
   if (!meta) return "";
   const steps = [
-    { label: "Retrieve source material", sub: "fetch real pages, hash content to R2" },
-    { label: "Draft body", sub: "apply content-type template + citation levers" },
+    { label: "Gather grounding", sub: "relevant nodes, stored quotes, attributed assertions" },
+    { label: "Draft body", sub: "writer role; claims reference stored quote ids" },
     {
-      label: "Verbatim substring verification",
-      sub: "every claim must be a literal substring of a fetched source",
+      label: "Mechanical verify + firewall",
+      sub: "quote ids checked; unattributed assertions killed",
     },
     { label: "Independent judgment", sub: "a different model checks quote ↔ claim support" },
   ];
@@ -228,16 +243,12 @@ export async function renderOutputsScreen(
     <button class="btn" type="submit" title="Re-scan the graph for proposal suggestions">${icon("spark")} Re-propose</button>
   </form>`;
 
-  // Honest banner about today's state of the proposer + typed-graph. Spec
-  // v2.4 Part 0 / Part 7 calls for an LLM-driven proposer reading a typed
-  // graph; neither is built yet, so don't pretend.
   const honestyBanner = `<div class="okflag" style="margin-bottom:14px">
-  <span class="ftext"><b>Outputs surface · canonical spec v2.4 alignment in progress.</b>
-    The hand-authoring composer was deleted per Part 11 #1 — Outputs are proposer-driven, never authored.
-    The proposer today is still the SQL heuristic (entities with many claims → Definition); the LLM-driven
-    research-assistant suggester per Part 7 is a later PR. The typed data model (Part 4) and the
-    rebuilt extraction (Part 16) are also later PRs — proposals you see now reflect the old flat-claim
-    extraction, not the typed graph.</span>
+  <span class="ftext"><b>Proposer-driven outputs.</b>
+    The LLM proposer reads the typed graph + open inquiry threads and suggests outputs across both
+    layers — neutral factual arrangements and signed interpretive intents. Hit <b>Re-propose</b> after
+    extracting new documents. Build → review the verified draft → Edit if needed → Publish or Discard.
+    Assertion-backed claims always carry attribution (the firewall); unattributed ones are killed at build.</span>
 </div>`;
 
   const composedBanner = args.composed
