@@ -16,7 +16,11 @@ import { readFullExtractedText } from "./extract";
 
 // Heartbeat staler than this = a running job whose Worker died mid-run.
 const STALE_MS = 2 * 60 * 1000;
-const MAX_ATTEMPTS = 5;
+// Retry budget cut from 5 → 3. The cron drain was happily re-running
+// deterministically-broken jobs to exhaustion (5x of "failed on every chunk"
+// is just five copies of the same failure). 3 is enough headroom for one
+// transient + one self-recovery, then dead-letter.
+const MAX_ATTEMPTS = 3;
 
 // digest_jobs is also created by migration 0025; this guard makes the runtime
 // resilient to a missed/skipped migration step on first deploy.
@@ -150,11 +154,12 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
     const failed = !!result.failed_step;
     // Some failures are deterministic — retrying won't help (e.g. the model
     // returns prose instead of JSON every time, so every chunk fails to
-    // parse). Short-circuit those to 'failed' instead of burning all 5
-    // attempts and saturating the cron drain.
+    // parse). Short-circuit those to 'failed' instead of burning the retry
+    // budget on copies of the same failure.
     const reason = result.failed_reason ?? "";
     const deterministic =
       reason.includes("failed on every chunk") || reason.includes("no extracted text");
+    const willGiveUp = failed && (deterministic || job.attempts + 1 >= MAX_ATTEMPTS);
     const finishedIso = new Date().toISOString();
     await run(
       env.DB,
@@ -162,11 +167,7 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
           SET status=?, step=?, claims_count=?, last_error=?, heartbeat_at=?, updated_at=?
         WHERE id=?`,
       [
-        failed
-          ? deterministic || job.attempts + 1 >= MAX_ATTEMPTS
-            ? "failed"
-            : "queued"
-          : "completed",
+        failed ? (willGiveUp ? "failed" : "queued") : "completed",
         failed ? (result.failed_step ?? "failed") : "completed",
         result.nodes_created ?? 0,
         failed ? reason || "unknown" : null,
@@ -175,11 +176,29 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
         jobId,
       ],
     );
+    // Dead-letter breadcrumb: emit a loud orchestrator_event when retries are
+    // exhausted, so the Feed / runtime probe show WHY this piece stalled
+    // without having to inspect digest_jobs.last_error directly.
+    if (willGiveUp) {
+      await emitJobEvent(env, job, "feed.digest.dead_letter", {
+        reason: reason || "unknown",
+        attempts: job.attempts + 1,
+        deterministic,
+      });
+    }
   } catch (err) {
     const message = (err as Error).message ?? "unknown error";
     const attempts = (job.attempts ?? 0) + 1;
     const giveUp = attempts >= MAX_ATTEMPTS;
     const nowIso2 = new Date().toISOString();
+    if (giveUp) {
+      await emitJobEvent(env, job, "feed.digest.dead_letter", {
+        reason: message,
+        attempts,
+        deterministic: false,
+        threw: true,
+      });
+    }
     await run(
       env.DB,
       `UPDATE digest_jobs
@@ -194,6 +213,29 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
         jobId,
       ],
     );
+  }
+}
+
+// Best-effort orchestrator_events emit from the job runner. Used to surface
+// dead-letter terminations on the Feed activity log without needing to inspect
+// digest_jobs.last_error. Failures here are swallowed — a missing breadcrumb
+// must never mask the underlying job failure.
+async function emitJobEvent(
+  env: Env,
+  job: JobRow,
+  eventType: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await insertOne(env.DB, "orchestrator_events", {
+      user_id: job.user_id,
+      event_type: eventType,
+      subject_kind: "piece",
+      subject_id: job.piece_id,
+      payload: { piece_slug: job.slug, job_id: job.id, ...payload },
+    });
+  } catch {
+    // never let logging fail the job runner
   }
 }
 

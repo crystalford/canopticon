@@ -10,6 +10,7 @@
 // Kept partner-shape detection (Kimi/DeepSeek/OpenAI-compat) so we can
 // route to them via AI Gateway in future without rewriting the adapter.
 
+import { TIMEOUTS, withTimeout } from "../lib/timeout";
 import type {
   LlmCallInput,
   LlmCallOutput,
@@ -89,9 +90,13 @@ function buildBody(input: LlmCallInput): Record<string, unknown> {
 }
 
 export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCallOutput> {
-  const res = (await ai.run(
-    input.model as never,
-    buildBody(input) as never,
+  // Bounded round-trip: a slow/sunset model that never returns would otherwise
+  // hang past the Worker wall-clock and corrupt the surrounding D1 transaction
+  // (see PR fix-cost-ledger-idempotency for the failure mode).
+  const res = (await withTimeout(
+    ai.run(input.model as never, buildBody(input) as never) as Promise<unknown>,
+    TIMEOUTS.LLM_CALL_MS,
+    `workers_ai.run[${input.model}]`,
   )) as WorkersAiChatResponse;
 
   // Llama-style returns {response, tool_calls}. Partner models (Kimi, DeepSeek)
@@ -189,9 +194,10 @@ export async function streamWorkersAi(
   onChunk: (chunk: LlmStreamChunk) => void,
 ): Promise<LlmCallOutput> {
   const body = { ...buildBody(input), stream: true };
-  const streamRes = (await ai.run(
-    input.model as never,
-    body as never,
+  const streamRes = (await withTimeout(
+    ai.run(input.model as never, body as never) as Promise<unknown>,
+    TIMEOUTS.LLM_CALL_MS,
+    `workers_ai.stream.open[${input.model}]`,
   )) as ReadableStream<Uint8Array>;
 
   const reader = streamRes.getReader();
@@ -611,7 +617,11 @@ export async function runWorkersAi<T = unknown>(
   model: string,
   body: Record<string, unknown>,
 ): Promise<T> {
-  return (await ai.run(model as never, body as never)) as T;
+  return (await withTimeout(
+    ai.run(model as never, body as never) as Promise<unknown>,
+    TIMEOUTS.LLM_CALL_MS,
+    `workers_ai.run[${model}]`,
+  )) as T;
 }
 
 // Avoid unused-binding warning when LlmMessage isn't referenced elsewhere.

@@ -14,6 +14,7 @@
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
 import { all, one, run } from "../lib/d1.ts";
+import { type Role, callRole, modelForRole } from "../llm/router.ts";
 
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
@@ -264,6 +265,71 @@ app.get("/reset-graph", async (c) => {
     }
   }
   return c.json({ ok: true, wiped });
+});
+
+// GET /v1/admin/health — model + binding probe.
+//
+// Pings each role in the router with a 5-token request and reports per-role
+// status + latency. The goal: catch a sunset/wedged model the day it breaks
+// instead of the next time the operator uploads a document. Designed to be
+// cheap (Workers AI free; a handful of tiny calls) and safe to hit every
+// deploy. A failed role doesn't fail the whole endpoint — each role is
+// independently captured so a partial outage is visible.
+//
+// Returns:
+//   {
+//     ok: <all roles green>,
+//     generated_at: ISO,
+//     roles: {
+//       bulk_extraction:    { model, status: "ok" | "fail", latency_ms, error? },
+//       hard_extraction:    { ... },
+//       ...
+//     }
+//   }
+const HEALTH_ROLES: Role[] = [
+  "bulk_extraction",
+  "hard_extraction",
+  "surfacing_ambitious",
+  "judge",
+  "large_context",
+];
+
+app.get("/health", async (c) => {
+  const userId = c.get("user_id");
+  const results: Record<string, unknown> = {};
+  let allOk = true;
+  for (const role of HEALTH_ROLES) {
+    const cfg = modelForRole(role);
+    const start = Date.now();
+    try {
+      const out = await callRole(c.env, role, {
+        userId,
+        system: "Reply with exactly: OK",
+        messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
+        max_tokens: 8,
+        idempotency_key: `health:${role}:${Math.floor(start / 60000)}`,
+      });
+      results[role] = {
+        model: cfg.model,
+        status: "ok",
+        latency_ms: Date.now() - start,
+        text_sample: (out.text ?? "").slice(0, 32),
+      };
+    } catch (err) {
+      allOk = false;
+      results[role] = {
+        model: cfg.model,
+        status: "fail",
+        latency_ms: Date.now() - start,
+        error: (err as Error).message ?? "unknown",
+      };
+    }
+  }
+  return c.json({
+    ok: allOk,
+    generated_at: new Date().toISOString(),
+    roles: results,
+  });
 });
 
 export default app;

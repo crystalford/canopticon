@@ -27,6 +27,7 @@
 import { renderMarkdown } from "../../../cms/lib/render-post";
 import type { Env } from "../../../env";
 import { insertOne, one, run } from "../../../lib/d1";
+import { fetchWithTimeout } from "../../../lib/timeout";
 import { callLLM } from "../../../llm/index";
 
 const GENERATE_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
@@ -354,13 +355,18 @@ async function retrieveSource(
     }
   }
   // Fetch fresh.
-  const res = await fetch(url, {
-    headers: {
-      "user-agent": "Canopticon/1.0 (briefs verification)",
-      accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
+  const res = await fetchWithTimeout(
+    url,
+    {
+      headers: {
+        "user-agent": "Canopticon/1.0 (briefs verification)",
+        accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
+      },
+      redirect: "follow",
     },
-    redirect: "follow",
-  });
+    undefined,
+    `briefs.verify[${new URL(url).hostname}]`,
+  );
   if (!res.ok) throw new Error(`fetch ${url}: ${res.status}`);
   const body = await res.text();
   const text = stripHtml(body);

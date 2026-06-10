@@ -1,3 +1,5 @@
+import { TIMEOUTS, withTimeout } from "./timeout";
+
 // Anthropic API wrapper.
 //
 // Every call to Anthropic flows through this module. Two reasons:
@@ -172,15 +174,19 @@ export class AnthropicClient {
       };
     }
 
-    const res = await this.fetch(ANTHROPIC_API, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": this.apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-      },
-      body: JSON.stringify(body),
-    });
+    const res = await withTimeout(
+      this.fetch(ANTHROPIC_API, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": this.apiKey,
+          "anthropic-version": ANTHROPIC_VERSION,
+        },
+        body: JSON.stringify(body),
+      }),
+      TIMEOUTS.LLM_CALL_MS,
+      `anthropic.messages[${body.model}]`,
+    );
 
     const json = (await res.json()) as Record<string, unknown>;
 
