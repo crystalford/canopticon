@@ -13,13 +13,21 @@
 // medium effort.
 //
 // Idempotency — spec Part 19: re-extraction supersedes prior typed-graph
-// rows for the same piece. Before persisting a new run, all nodes whose
-// metadata JSON references the piece's id are deleted (cascades to edges,
-// quotes, assertions, node_props). The raw `pieces` row + the R2 doc are
-// untouched — they're the durable asset.
+// rows for the same piece. Before persisting a new run, all nodes carrying
+// the piece's id (indexed `piece_id` column, migration 0027) are deleted
+// (cascades to edges, quotes, assertions, node_props). The raw `pieces` row
+// + the R2 doc are untouched — they're the durable asset.
+//
+// Write strategy: a rich document produces hundreds of rows. Persisting them
+// one awaited INSERT at a time blows D1's storage-operation time budget (the
+// object-reset timeout). So we pre-generate all ids in JS, build the lid→id
+// map up front, queue every row as a prepared statement, and submit them via
+// env.DB.batch() in groups of BATCH_SIZE — a handful of roundtrips, not
+// hundreds. Node inserts are queued before any edge/quote/assertion that
+// references them, so ordering within the batch satisfies foreign keys.
 
 import type { Env } from "../../env";
-import { insertOne, run } from "../../lib/d1";
+import { insertOne, run, serialize } from "../../lib/d1";
 import { callRole } from "../../llm/router";
 import type { AssertionStance, EdgeFamily, NodeKind } from "./typed-graph";
 
@@ -335,6 +343,10 @@ function normalizeEntityType(t: string | undefined): string {
   return valid.includes(lower) ? lower : "concept";
 }
 
+// D1 batch size — keep each batch well under any per-batch statement ceiling
+// and short enough that a single batch never approaches the storage timeout.
+const BATCH_SIZE = 50;
+
 export async function persistTypedExtraction(
   env: Env,
   args: PersistArgs,
@@ -349,74 +361,89 @@ export async function persistTypedExtraction(
     killed_quotes: 0,
   };
 
-  // lid → DB id maps so cross-references in the extraction (relationships /
+  // lid → DB id map so cross-references in the extraction (relationships /
   // evidential / temporal / assertion.asserted_by_lid) resolve to real ids.
+  // Ids are generated in JS up front so edges/quotes can reference nodes
+  // without a roundtrip. Nodes are queued before the rows that reference them.
   const lidToId = new Map<string, string>();
+  const stmts: D1PreparedStatement[] = [];
 
   // Entities — node kind 'entity'. Type goes in metadata.
   for (const e of extraction.entities) {
-    const id = await insertNode(env, args, "entity", e.label, {
+    const { id, stmt } = nodeInsert(env.DB, args, "entity", e.label, {
       entity_type: normalizeEntityType(e.type),
     });
     lidToId.set(e.lid, id);
+    stmts.push(stmt);
     stats.nodes++;
   }
 
   // Events — node kind 'event'. Date is a property + metadata mirror so
   // SQL can sort by it cheaply.
   for (const e of extraction.events) {
-    const id = await insertNode(env, args, "event", e.label, { event_date: e.date ?? null });
+    const { id, stmt } = nodeInsert(env.DB, args, "event", e.label, {
+      event_date: e.date ?? null,
+    });
     lidToId.set(e.lid, id);
+    stmts.push(stmt);
     stats.nodes++;
     if (e.date) {
-      await insertNodeProp(env.DB, id, "event_date", e.date);
+      stmts.push(propInsert(env.DB, id, "event_date", e.date));
     }
     if (e.source_quote) {
-      const ok = await tryInsertQuote(env, args, id, e.source_quote);
-      if (ok) stats.quotes++;
-      else stats.killed_quotes++;
+      const q = quoteInsert(env.DB, args, id, e.source_quote);
+      if (q) {
+        stmts.push(q);
+        stats.quotes++;
+      } else {
+        stats.killed_quotes++;
+      }
     }
   }
 
   // Neutral facts.
   for (const f of extraction.neutral_facts) {
-    const id = await insertNode(env, args, "neutral_fact", f.text, {});
+    const { id, stmt } = nodeInsert(env.DB, args, "neutral_fact", f.text, {});
     lidToId.set(f.lid, id);
+    stmts.push(stmt);
     stats.nodes++;
     if (f.source_quote) {
-      const ok = await tryInsertQuote(env, args, id, f.source_quote);
-      if (ok) stats.quotes++;
-      else stats.killed_quotes++;
+      const q = quoteInsert(env.DB, args, id, f.source_quote);
+      if (q) {
+        stmts.push(q);
+        stats.quotes++;
+      } else {
+        stats.killed_quotes++;
+      }
     }
   }
 
   // Assertions — node + assertions row (stance, asserted_by). The actor is
-  // resolved via the lidToId map; if not yet known we leave it null.
+  // resolved via the lidToId map; entities were queued first, so by here all
+  // entity lids are known.
   for (const a of extraction.assertions) {
-    const nodeId = await insertNode(env, args, "assertion", a.text, {});
+    const { id: nodeId, stmt } = nodeInsert(env.DB, args, "assertion", a.text, {});
     lidToId.set(a.lid, nodeId);
+    stmts.push(stmt);
     stats.nodes++;
     const stance: AssertionStance = VALID_STANCES.has(a.stance as AssertionStance)
       ? (a.stance as AssertionStance)
       : "neutral";
     const actorNodeId = a.asserted_by_lid ? (lidToId.get(a.asserted_by_lid) ?? null) : null;
-    await insertOne(env.DB, "assertions", {
-      node_id: nodeId,
-      asserted_by_node_id: actorNodeId,
-      stance,
-      // rank is computed by the Surfacing Engine Level 1 (Part 17); seed as 'normal'.
-      rank: "normal",
-      evidence_balance: 0.0,
-    });
+    stmts.push(assertionInsert(env.DB, nodeId, actorNodeId, stance));
     stats.assertions++;
     if (a.source_quote) {
-      const ok = await tryInsertQuote(env, args, nodeId, a.source_quote);
-      if (ok) stats.quotes++;
-      else stats.killed_quotes++;
+      const q = quoteInsert(env.DB, args, nodeId, a.source_quote);
+      if (q) {
+        stmts.push(q);
+        stats.quotes++;
+      } else {
+        stats.killed_quotes++;
+      }
     }
     // Attribution edge: assertion --asserted_by--> actor (Attribution family).
     if (actorNodeId) {
-      await insertEdge(env, args, nodeId, actorNodeId, "asserted_by", "attribution");
+      stmts.push(edgeInsert(env.DB, args, nodeId, actorNodeId, "asserted_by", "attribution"));
       stats.edges++;
     }
   }
@@ -427,7 +454,7 @@ export async function persistTypedExtraction(
     const dst = lidToId.get(r.dst_lid);
     if (!src || !dst) continue;
     const type = VALID_RELATIONSHIP_TYPES.has(r.type) ? r.type : "other";
-    await insertEdge(env, args, src, dst, type, "relationship");
+    stmts.push(edgeInsert(env.DB, args, src, dst, type, "relationship"));
     stats.edges++;
   }
 
@@ -438,7 +465,7 @@ export async function persistTypedExtraction(
     const dst = lidToId.get(e.dst_lid);
     if (!src || !dst) continue;
     if (!VALID_EVIDENTIAL_TYPES.has(e.type)) continue;
-    await insertEdge(env, args, src, dst, e.type, "evidential");
+    stmts.push(edgeInsert(env.DB, args, src, dst, e.type, "evidential"));
     stats.edges++;
   }
 
@@ -448,7 +475,7 @@ export async function persistTypedExtraction(
     const dst = lidToId.get(t.dst_lid);
     if (!src || !dst) continue;
     if (!VALID_TEMPORAL_TYPES.has(t.type)) continue;
-    await insertEdge(env, args, src, dst, t.type, "temporal");
+    stmts.push(edgeInsert(env.DB, args, src, dst, t.type, "temporal"));
     stats.edges++;
   }
 
@@ -457,13 +484,15 @@ export async function persistTypedExtraction(
     const relatedNodeIds = (t.related_lids ?? [])
       .map((lid) => lidToId.get(lid))
       .filter((x): x is string => !!x);
-    await insertOne(env.DB, "inquiry_threads", {
-      user_id: args.userId,
-      question: t.question,
-      status: "open",
-      related_node_ids: JSON.stringify(relatedNodeIds),
-    });
+    stmts.push(threadInsert(env.DB, args.userId, t.question, JSON.stringify(relatedNodeIds)));
     stats.threads++;
+  }
+
+  // Submit in batches. Statements run in array order within each batch and
+  // batches run sequentially, so a node always commits before any row that
+  // references it.
+  for (let i = 0; i < stmts.length; i += BATCH_SIZE) {
+    await env.DB.batch(stmts.slice(i, i + BATCH_SIZE));
   }
 
   return stats;
@@ -474,18 +503,18 @@ export async function persistTypedExtraction(
 // ---------------------------------------------------------------------------
 
 /** Make sure a Source-kind node exists for this piece and return its id.
- *  Lazily upserts on first call inside a digest run. */
+ *  Lazily upserts on first call inside a digest run. Keyed by the indexed
+ *  `piece_id` column (migration 0027), so the lookup is an index hit, not a
+ *  json_extract full scan. */
 export async function ensureSourceNode(
   env: Env,
   userId: string,
   pieceId: string,
   title: string,
 ): Promise<string> {
-  // Source nodes are keyed by metadata.piece_id; query through json_extract.
   const existing = await env.DB.prepare(
     `SELECT id FROM nodes
-       WHERE user_id = ? AND kind = 'source'
-         AND json_extract(metadata, '$.piece_id') = ?
+       WHERE user_id = ? AND piece_id = ? AND kind = 'source'
        LIMIT 1`,
   )
     .bind(userId, pieceId)
@@ -493,6 +522,7 @@ export async function ensureSourceNode(
   if (existing) return existing.id;
   return insertOne(env.DB, "nodes", {
     user_id: userId,
+    piece_id: pieceId,
     kind: "source",
     label: title,
     metadata: JSON.stringify({ piece_id: pieceId }),
@@ -502,8 +532,9 @@ export async function ensureSourceNode(
 /** Delete all typed-graph rows associated with a piece. Idempotent
  *  re-extraction calls this before persisting a new run, so the typed graph
  *  for a piece is always a single coherent extraction (no double-counting,
- *  spec Part 19 "supersede, not migrate"). Cascades handle edges/quotes/
- *  assertions/node_props referencing the deleted nodes.
+ *  spec Part 19 "supersede, not migrate"). Deletes by the indexed `piece_id`
+ *  column; cascades handle edges/quotes/assertions/node_props referencing the
+ *  deleted nodes.
  *
  *  Inquiry threads are intentionally NOT purged here. The current schema
  *  ties threads to user_id + related_node_ids (JSON), not to piece_id, so a
@@ -516,82 +547,123 @@ export async function purgeTypedGraphForPiece(
   userId: string,
   pieceId: string,
 ): Promise<void> {
-  await run(
-    env.DB,
-    `DELETE FROM nodes
-       WHERE user_id = ? AND json_extract(metadata, '$.piece_id') = ?`,
-    [userId, pieceId],
-  );
+  await run(env.DB, "DELETE FROM nodes WHERE user_id = ? AND piece_id = ?", [userId, pieceId]);
 }
 
-async function insertNode(
-  env: Env,
+// ---------------------------------------------------------------------------
+// Statement builders — generate a row id in JS and return a prepared INSERT
+// so the caller can batch many of them in one roundtrip. `serialize` matches
+// insertOne's column coercion (booleans → 0/1, objects → JSON, undefined →
+// null) so the rows are identical to the single-insert path.
+// ---------------------------------------------------------------------------
+function buildInsert(
+  db: D1Database,
+  table: string,
+  values: Record<string, unknown>,
+): { id: string; stmt: D1PreparedStatement } {
+  const id = (values.id as string | undefined) ?? crypto.randomUUID();
+  const row: Record<string, unknown> = { ...values, id };
+  const cols = Object.keys(row);
+  const placeholders = cols.map(() => "?").join(", ");
+  const sql = `INSERT INTO ${table} (${cols.join(", ")}) VALUES (${placeholders})`;
+  const stmt = db.prepare(sql).bind(...cols.map((c) => serialize(row[c])));
+  return { id, stmt };
+}
+
+function nodeInsert(
+  db: D1Database,
   args: PersistArgs,
   kind: NodeKind,
   label: string,
   extraMetadata: Record<string, unknown>,
-): Promise<string> {
-  return insertOne(env.DB, "nodes", {
+): { id: string; stmt: D1PreparedStatement } {
+  return buildInsert(db, "nodes", {
     user_id: args.userId,
+    piece_id: args.pieceId,
     kind,
     label,
     metadata: JSON.stringify({ piece_id: args.pieceId, ...extraMetadata }),
   });
 }
 
-async function insertNodeProp(
+function propInsert(
   db: D1Database,
   nodeId: string,
   key: string,
   value: string,
-): Promise<void> {
-  await insertOne(db, "node_props", {
-    node_id: nodeId,
-    key,
-    value,
-  });
+): D1PreparedStatement {
+  return buildInsert(db, "node_props", { node_id: nodeId, key, value }).stmt;
 }
 
-async function insertEdge(
-  env: Env,
+function edgeInsert(
+  db: D1Database,
   args: PersistArgs,
   srcNodeId: string,
   dstNodeId: string,
   edgeType: string,
   family: EdgeFamily,
-): Promise<void> {
-  await insertOne(env.DB, "edges", {
+): D1PreparedStatement {
+  return buildInsert(db, "edges", {
     user_id: args.userId,
     src_node_id: srcNodeId,
     dst_node_id: dstNodeId,
     edge_type: edgeType,
     family,
     metadata: JSON.stringify({ piece_id: args.pieceId }),
-  });
+  }).stmt;
 }
 
-/** Verbatim check + insert. Returns true if persisted, false if the quote
- *  didn't match (killed). The firewall mandate: quotes that aren't literal
- *  substrings of the chunk text don't get persisted. */
-async function tryInsertQuote(
-  env: Env,
+function assertionInsert(
+  db: D1Database,
+  nodeId: string,
+  actorNodeId: string | null,
+  stance: AssertionStance,
+): D1PreparedStatement {
+  return buildInsert(db, "assertions", {
+    node_id: nodeId,
+    asserted_by_node_id: actorNodeId,
+    stance,
+    // rank is computed by the Surfacing Engine Level 1 (Part 17); seed 'normal'.
+    rank: "normal",
+    evidence_balance: 0.0,
+  }).stmt;
+}
+
+function threadInsert(
+  db: D1Database,
+  userId: string,
+  question: string,
+  relatedNodeIdsJson: string,
+): D1PreparedStatement {
+  return buildInsert(db, "inquiry_threads", {
+    user_id: userId,
+    question,
+    status: "open",
+    related_node_ids: relatedNodeIdsJson,
+  }).stmt;
+}
+
+/** Verbatim check + statement build. Returns a prepared INSERT if the quote
+ *  is a literal substring of the chunk text, or null if it isn't (killed).
+ *  The firewall mandate: quotes that aren't literal substrings don't persist. */
+function quoteInsert(
+  db: D1Database,
   args: PersistArgs,
   nodeId: string,
   quote: string,
-): Promise<boolean> {
+): D1PreparedStatement | null {
   const trimmed = quote.trim();
-  if (!trimmed) return false;
+  if (!trimmed) return null;
   const offset = args.chunkText.indexOf(trimmed);
-  if (offset < 0) return false;
-  await insertOne(env.DB, "quotes", {
+  if (offset < 0) return null;
+  return buildInsert(db, "quotes", {
     user_id: args.userId,
     source_id: args.sourceNodeId,
     node_id: nodeId,
     verbatim_text: trimmed,
     byte_offset: offset,
     byte_length: trimmed.length,
-  });
-  return true;
+  }).stmt;
 }
 
 export const TYPED_EXTRACTION_LIMITS = {
