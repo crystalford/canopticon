@@ -6,6 +6,7 @@
 
 import type { Env } from "../../env";
 import { insertOne, one, parseJson, run } from "../../lib/d1";
+import { fetchWithTimeout } from "../../lib/timeout";
 import { callLLM } from "../../llm/index";
 import { embedText, upsertVector, vectorId } from "./embeddings";
 
@@ -99,13 +100,18 @@ export async function extractUpload(env: Env, fileId: string): Promise<ExtractRe
 }
 
 export async function extractUrl(env: Env, userId: string, url: string): Promise<ExtractResult> {
-  const res = await fetch(url, {
-    headers: {
-      "user-agent": "Canopticon/1.0 (operator intake)",
-      accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
+  const res = await fetchWithTimeout(
+    url,
+    {
+      headers: {
+        "user-agent": "Canopticon/1.0 (operator intake)",
+        accept: "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5",
+      },
+      redirect: "follow",
     },
-    redirect: "follow",
-  });
+    undefined,
+    `extractUrl[${new URL(url).hostname}]`,
+  );
   if (!res.ok) throw new Error(`Fetch ${url} returned ${res.status}`);
   const body = await res.text();
   const text = stripHtml(body).slice(0, 200_000);

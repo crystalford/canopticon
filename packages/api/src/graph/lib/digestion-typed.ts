@@ -28,15 +28,10 @@
 
 import type { Env } from "../../env";
 import { insertOne, run, serialize } from "../../lib/d1";
+import { TIMEOUTS, withTimeout } from "../../lib/timeout";
 import { callRole } from "../../llm/router";
 import type { AssertionStance, EdgeFamily, NodeKind } from "./typed-graph";
 
-// Per-chunk model-call ceiling. MUST be aggressively SHORTER than the
-// Cloudflare Worker wall-clock budget under waitUntil (~30s of CPU); a longer
-// timeout never fires, the Worker dies first, and the cron drain re-runs the
-// chunk — with the same idempotency_key, so we want the FIRST attempt to either
-// succeed or fail cleanly within budget rather than getting killed mid-call.
-const ROLE_TIMEOUT_MS = 25_000;
 const MAX_CHUNKS = 3;
 
 // ---------------------------------------------------------------------------
@@ -274,14 +269,6 @@ function emptyExtraction(): TypedExtraction {
 // LLM call — single chunk through the router. The cap on chunks lives in the
 // caller (digestion.ts), not here, so this module is pure extract-and-parse.
 // ---------------------------------------------------------------------------
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`role call exceeded ${ms}ms`)), ms),
-    ),
-  ]);
-}
 
 export async function extractTypedChunk(
   env: Env,
@@ -303,7 +290,8 @@ export async function extractTypedChunk(
       max_tokens: 4000,
       idempotency_key: `${pieceId}:typed:${chunkIndex}`,
     }),
-    ROLE_TIMEOUT_MS,
+    TIMEOUTS.LLM_CALL_MS,
+    `extractTypedChunk[${chunkIndex}]`,
   );
   return parseTypedExtraction(out.structured ?? out.text);
 }
@@ -673,5 +661,4 @@ function quoteInsert(
 
 export const TYPED_EXTRACTION_LIMITS = {
   MAX_CHUNKS,
-  ROLE_TIMEOUT_MS,
 } as const;
