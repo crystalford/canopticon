@@ -200,12 +200,18 @@ async function llmPropose(env: Env, userId: string, graphSummary: string): Promi
 FACTUAL arrangements (neutral, unsigned): definition | comparison | timeline | faq | stat-roundup | entity-profile | claim-table
 INTERPRETIVE intents (signed readings): investigation | argument | assessment
 
+VALUE CRITERIA (every proposal must pass ALL of these):
+1. THE CITATION TEST: propose only pages an AI engine or researcher would cite OVER existing general sources. Use your own knowledge of the world as the baseline — if the answer is already well-established public knowledge (a famous politician's signature policy stance, a widely-reported fact), do NOT propose it. The reader gains nothing; the page earns no citations.
+2. EXCEPTION: if the graph contains material that COMPLICATES or CONTRADICTS the established public account, propose THAT tension explicitly ("X is known for Y — but the record shows Z").
+3. INVESTIGATIONS target a genuine unresolved tension IN THE GRAPH: contradicting assertions, a gap between what an actor asserts and what the facts show, or an open inquiry thread. "What is X's stance on Y?" is a lookup, not an investigation — never propose it as one.
+4. PUT THE QUESTION WHERE THE TENSION IS. If actor A claims they neutralized actor B's attack, the question is "did A actually neutralize it?" — not "what is B's position?".
+
 Rules:
 - Each proposal must be grounded in the ACTUAL graph material shown — name the entities/assertions/threads it builds on in your reasoning.
 - A claim-table proposal is warranted whenever there are attributed assertions (it makes the contested material visible neutrally).
-- An investigation proposal is warranted when assertions or open threads suggest something doesn't add up.
-- Titles are reader-facing ("What is X?", "Timeline: ...", "Does Y's stated rationale hold up?").
-- Return ONLY JSON: {"proposals":[{"title","slug","content_type","reasoning_md"}]}. slug = lowercase-hyphenated.`,
+- Titles are reader-facing ("Timeline: ...", "Does Y's stated rationale hold up?").
+- Score each proposal's "novelty" 1-5: 5 = nothing like this exists publicly and the graph uniquely supports it; 1 = the answer is common knowledge. Be harsh — proposals scoring below 3 are discarded mechanically.
+- Return ONLY JSON: {"proposals":[{"title","slug","content_type","reasoning_md","novelty"}]}. slug = lowercase-hyphenated.`,
     messages: [{ role: "user", content: [{ type: "text", text: graphSummary }] }],
     max_tokens: 2500,
     response_schema: {
