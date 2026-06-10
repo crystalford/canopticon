@@ -34,7 +34,6 @@ import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
 import { opHtml } from "./layout";
 import { renderChatScreen } from "./screens/chat";
-import { renderFeedScreen } from "./screens/feed";
 import { renderLibraryScreen } from "./screens/library";
 import { renderLibraryDocScreen } from "./screens/library-doc";
 import { renderOutputsScreen } from "./screens/outputs";
@@ -45,26 +44,12 @@ const app = new Hono<{ Bindings: Env }>();
 
 // ---- six surfaces -------------------------------------------------------
 
-// Feed is the home — drop the doc, watch the digestion theater.
-app.get("/", async (c) => {
-  const focusPieceId = c.req.query("piece");
-  const error = c.req.query("error");
-  const ingested = c.req.query("ingested");
-  const processing = c.req.query("processing");
-  const cleared = c.req.query("cleared");
-  const dedup = c.req.query("dedup");
-  const dupes = c.req.query("dupes");
-  return opHtml(
-    await renderFeedScreen(c.env, {
-      focusPieceId,
-      error,
-      ingested,
-      processing,
-      cleared,
-      dedup,
-      dupes,
-    }),
-  );
+// Feed was folded into Library — one surface for drop + archive + extract.
+// /op now redirects to /op/library, preserving any upload-result query params
+// so the banner still renders after an upload.
+app.get("/", (c) => {
+  const qs = new URL(c.req.url).search;
+  return c.redirect(`/op/library${qs}`);
 });
 
 // POST /op/feed/upload — the auto-ingest entry point.
@@ -82,13 +67,13 @@ app.post("/feed/upload", async (c) => {
   try {
     const userId = await resolveOperatorId(c.env.DB);
     if (!userId) {
-      return c.redirect(`/op?error=${encodeURIComponent("No operator user")}`);
+      return c.redirect(`/op/library?error=${encodeURIComponent("No operator user")}`);
     }
     await ensureJobsTable(c.env);
     const form = await c.req.formData();
     const file = form.get("file");
     if (!file || typeof file === "string") {
-      return c.redirect(`/op?error=${encodeURIComponent("No file in form data")}`);
+      return c.redirect(`/op/library?error=${encodeURIComponent("No file in form data")}`);
     }
     const f = file as unknown as File;
     const isZip = f.type.includes("zip") || /\.zip$/i.test(f.name);
@@ -99,13 +84,17 @@ app.post("/feed/upload", async (c) => {
       try {
         entries = unzipSync(buf, { filter: (e) => ZIP_ENTRY_RE.test(e.name) && e.size > 0 });
       } catch (err) {
-        return c.redirect(`/op?error=${encodeURIComponent(`Bad zip: ${(err as Error).message}`)}`);
+        return c.redirect(
+          `/op/library?error=${encodeURIComponent(`Bad zip: ${(err as Error).message}`)}`,
+        );
       }
       const names = Object.keys(entries).filter(
         (n) => !n.startsWith("__MACOSX/") && !(n.split("/").pop() ?? "").startsWith("."),
       );
       if (names.length === 0) {
-        return c.redirect(`/op?error=${encodeURIComponent("No .md/.txt/.pdf files in the zip")}`);
+        return c.redirect(
+          `/op/library?error=${encodeURIComponent("No .md/.txt/.pdf files in the zip")}`,
+        );
       }
       // For zips: create + extract every entry synchronously (fast). Documents
       // land in the Vault; extraction is decoupled — run it from Library when
@@ -132,16 +121,16 @@ app.post("/feed/upload", async (c) => {
           // skip a bad entry; keep ingesting the rest
         }
       }
-      return c.redirect(`/op?ingested=${pieceIds.length}&dupes=${zipDupes}`);
+      return c.redirect(`/op/library?ingested=${pieceIds.length}&dupes=${zipDupes}`);
     }
 
     // Single-file: store in Vault. Extraction is triggered manually from
     // Library — the cron drain + durable job infra remain in place for that.
     const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size);
     if (p.duplicate) {
-      return c.redirect(`/op?piece=${encodeURIComponent(p.pieceId)}&dedup=1`);
+      return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}&dedup=1`);
     }
-    return c.redirect(`/op?piece=${encodeURIComponent(p.pieceId)}`);
+    return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}`);
   } catch (err) {
     const message = (err as Error).message ?? "unknown error";
     // Durable breadcrumb: the failure path otherwise leaves nothing readable
@@ -162,7 +151,7 @@ app.post("/feed/upload", async (c) => {
     } catch {
       // never let the breadcrumb mask the original error
     }
-    return c.redirect(`/op?error=${encodeURIComponent(message)}`);
+    return c.redirect(`/op/library?error=${encodeURIComponent(message)}`);
   }
 });
 
@@ -191,14 +180,14 @@ app.get("/feed/status", async (c) => {
 // without touching the corpus. Lightweight self-serve for stale state.
 app.post("/feed/clear", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.redirect("/op");
+  if (!userId) return c.redirect("/op/library");
   await run(c.env.DB, "DELETE FROM orchestrator_events WHERE user_id = ?", [userId]);
   await run(
     c.env.DB,
     "DELETE FROM digest_jobs WHERE user_id = ? AND status IN ('completed','failed')",
     [userId],
   );
-  return c.redirect("/op?cleared=1");
+  return c.redirect("/op/library?cleared=1");
 });
 
 interface CreatedPiece {
@@ -394,8 +383,17 @@ app.post("/synthesis/surface", async (c) => {
 });
 
 app.get("/library", async (c) => {
-  const extracting = c.req.query("extracting");
-  return opHtml(await renderLibraryScreen(c.env, { extracting }));
+  return opHtml(
+    await renderLibraryScreen(c.env, {
+      extracting: c.req.query("extracting"),
+      piece: c.req.query("piece"),
+      dedup: c.req.query("dedup"),
+      ingested: c.req.query("ingested"),
+      dupes: c.req.query("dupes"),
+      error: c.req.query("error"),
+      cleared: c.req.query("cleared"),
+    }),
+  );
 });
 
 app.get("/library/:slug", async (c) => {

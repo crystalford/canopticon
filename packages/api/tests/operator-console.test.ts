@@ -36,21 +36,29 @@ const env = {
 };
 
 describe("operator console — six-surface IA (P0)", () => {
-  it("/op renders the Feed surface with the dark-amber shell", async () => {
+  it("/op redirects to the Library home (Feed folded in)", async () => {
     const res = await app.fetch(new Request("http://test/op"), env);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/op/library");
+  });
+
+  it("/op/library renders the dark-amber shell with the dropzone", async () => {
+    const res = await app.fetch(new Request("http://test/op/library"), env);
     expect(res.status).toBe(200);
     const html = await res.text();
     // New shell: data-mode="operator", no longer "Console" as the home.
     expect(html).toMatch(/<html[^>]*data-mode="operator"/);
-    expect(html).toContain("Feed");
+    expect(html).toContain("Library");
     expect(html).toContain("Drop documents here");
-    // The six-surface rail.
+    // The surface rail.
     expect(html).toContain('class="rail"');
-    // Per canonical-spec v2.4 Part 1 / Part 11 #11: "Briefs" is deprecated;
-    // the surface is "Outputs".
-    for (const lbl of ["Feed", "Chat", "Synthesis", "Library", "Outputs", "Studio"]) {
+    // Feed is folded into Library — the five remaining surfaces. "Briefs" is
+    // deprecated (spec Part 1 / Part 11 #11); the surface is "Outputs".
+    for (const lbl of ["Library", "Chat", "Synthesis", "Outputs", "Studio"]) {
       expect(html).toContain(lbl);
     }
+    // Feed is no longer a nav destination.
+    expect(html).not.toContain(">Feed<");
     // noindex so the operator surface never gets crawled.
     expect(html).toContain('name="robots" content="noindex"');
     // Design tokens loaded.
@@ -197,7 +205,7 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
   });
 
   it("the rail no longer links to the dead /op/settings route", async () => {
-    const res = await app.fetch(new Request("http://test/op"), env);
+    const res = await app.fetch(new Request("http://test/op/library"), env);
     const html = await res.text();
     expect(html).not.toContain("/op/settings");
   });
@@ -220,18 +228,18 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
     expect(res.status).toBe(302);
     // Pivot: upload no longer auto-fires extraction, so the redirect no
     // longer carries processing=1 — it's a plain "stored in Vault" landing.
-    expect(res.headers.get("location")).toMatch(/^\/op\?ingested=\d+&dupes=\d+$/);
+    expect(res.headers.get("location")).toMatch(/^\/op\/library\?ingested=\d+&dupes=\d+$/);
   });
 
-  it("feed dropzone advertises zip support", async () => {
-    const res = await app.fetch(new Request("http://test/op"), env);
+  it("the Library dropzone advertises zip support", async () => {
+    const res = await app.fetch(new Request("http://test/op/library"), env);
     const html = await res.text();
     expect(html).toContain(".zip");
     expect(html).toContain("application/zip");
   });
 
   it("operator pages emit favicon links and Newsreader is gone", async () => {
-    const res = await app.fetch(new Request("http://test/op"), env);
+    const res = await app.fetch(new Request("http://test/op/library"), env);
     const html = await res.text();
     expect(html).toContain('href="/favicon.svg"');
     // The Google Fonts URL must no longer request Newsreader.
@@ -290,9 +298,9 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
   });
 
   it("dropzone copy reflects the pivot (Vault, not auto-extract)", async () => {
-    const res = await app.fetch(new Request("http://test/op"), env);
+    const res = await app.fetch(new Request("http://test/op/library"), env);
     const html = await res.text();
-    expect(html).toContain("Documents land in the Vault");
+    expect(html).toContain("bank into the Vault");
     expect(html).not.toContain("extracts entities, drafts claims");
   });
 

@@ -56,10 +56,11 @@ export interface OpNavItem {
 // itself meaningful: intake (Feed) → interrogate (Chat) → oversee
 // (Synthesis) → archive (Library) → build-citable (Outputs) → produce (Studio).
 export const OP_NAV: OpNavItem[] = [
-  { href: "/op", label: "Feed", icon: "feed" },
+  // Feed was folded into Library — the dropzone now lives at the top of the
+  // Library surface, so there's one place for drop + archive + extract.
+  { href: "/op/library", label: "Library", icon: "library" },
   { href: "/op/chat", label: "Chat", icon: "chat" },
   { href: "/op/synthesis", label: "Synthesis", icon: "synthesis" },
-  { href: "/op/library", label: "Library", icon: "library" },
   { href: "/op/outputs", label: "Outputs", icon: "briefs" },
   { href: "/op/studio", label: "Studio", icon: "studio" },
 ];
