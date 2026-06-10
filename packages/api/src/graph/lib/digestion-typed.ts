@@ -287,7 +287,10 @@ export async function extractTypedChunk(
           content: [{ type: "text", text: chunkText }],
         },
       ],
-      max_tokens: 4000,
+      // Smaller chunks (6KB) need far less output. Capping at 2000 keeps
+      // generation time under the 25s call ceiling — the old 4000 on a 24KB
+      // chunk is what blew the budget.
+      max_tokens: 2000,
       idempotency_key: `${pieceId}:typed:${chunkIndex}`,
     }),
     TIMEOUTS.LLM_CALL_MS,
