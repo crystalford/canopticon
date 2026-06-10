@@ -143,7 +143,26 @@ app.post("/feed/upload", async (c) => {
     }
     return c.redirect(`/op?piece=${encodeURIComponent(p.pieceId)}`);
   } catch (err) {
-    return c.redirect(`/op?error=${encodeURIComponent((err as Error).message)}`);
+    const message = (err as Error).message ?? "unknown error";
+    // Durable breadcrumb: the failure path otherwise leaves nothing readable
+    // (in-flight writes can roll back on a D1 object reset). Best-effort — a
+    // fresh statement after the failure usually lands even if the prior op
+    // was reset. Lets /v1/admin/runtime show WHY an upload threw.
+    try {
+      const uid = await resolveOperatorId(c.env.DB);
+      if (uid) {
+        await insertOne(c.env.DB, "orchestrator_events", {
+          user_id: uid,
+          event_type: "feed.upload.failed",
+          subject_kind: "upload",
+          subject_id: null,
+          payload: JSON.stringify({ error: message }),
+        });
+      }
+    } catch {
+      // never let the breadcrumb mask the original error
+    }
+    return c.redirect(`/op?error=${encodeURIComponent(message)}`);
   }
 });
 
