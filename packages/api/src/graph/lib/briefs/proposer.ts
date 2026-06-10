@@ -206,9 +206,7 @@ Rules:
 - An investigation proposal is warranted when assertions or open threads suggest something doesn't add up.
 - Titles are reader-facing ("What is X?", "Timeline: ...", "Does Y's stated rationale hold up?").
 - Return ONLY JSON: {"proposals":[{"title","slug","content_type","reasoning_md"}]}. slug = lowercase-hyphenated.`,
-    messages: [
-      { role: "user", content: [{ type: "text", text: graphSummary }] },
-    ],
+    messages: [{ role: "user", content: [{ type: "text", text: graphSummary }] }],
     max_tokens: 2500,
     response_schema: {
       type: "object",

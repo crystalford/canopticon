@@ -54,7 +54,7 @@ describe("operator console — six-surface IA (P0)", () => {
     expect(html).toContain('class="rail"');
     // Feed is folded into Library — the five remaining surfaces. "Briefs" is
     // deprecated (spec Part 1 / Part 11 #11); the surface is "Outputs".
-    for (const lbl of ["Library", "Chat", "Synthesis", "Outputs", "Studio"]) {
+    for (const lbl of ["Library", "Synthesis", "Outputs", "Studio"]) {
       expect(html).toContain(lbl);
     }
     // Feed is no longer a nav destination.
@@ -66,7 +66,6 @@ describe("operator console — six-surface IA (P0)", () => {
   });
 
   for (const [path, expected] of Object.entries({
-    "/op/chat": "Chat",
     "/op/synthesis": "Synthesis",
     "/op/library": "Library",
     "/op/outputs": "Outputs",
@@ -330,10 +329,25 @@ describe("operator console — Library detail + interactions (pass 2)", () => {
     expect(html).not.toContain("/op/outputs/compose");
   });
 
-  it("/op/outputs honesty banner names the canonical-spec v2.4 alignment", async () => {
+  it("/op/outputs banner describes the proposer-driven flow", async () => {
     const res = await app.fetch(new Request("http://test/op/outputs"), env);
     const html = await res.text();
-    expect(html).toContain("canonical spec v2.4");
-    expect(html).toContain("proposer-driven");
+    expect(html).toContain("Proposer-driven outputs");
+    expect(html).toContain("firewall");
+  });
+
+  it("/op/chat redirects to Library (Chat removed from the rail)", async () => {
+    const res = await app.fetch(new Request("http://test/op/chat"), env);
+    expect(res.status).toBe(301);
+    expect(res.headers.get("location")).toBe("/op/library");
+  });
+
+  it("public /record and /patterns dissolve into Topics/Investigations (Part 18)", async () => {
+    const rec = await app.fetch(new Request("http://test/record"), env);
+    expect(rec.status).toBe(301);
+    expect(rec.headers.get("location")).toBe("/topics");
+    const pat = await app.fetch(new Request("http://test/patterns"), env);
+    expect(pat.status).toBe(301);
+    expect(pat.headers.get("location")).toBe("/investigations");
   });
 });
