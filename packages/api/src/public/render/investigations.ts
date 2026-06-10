@@ -13,30 +13,103 @@ import {
 import { escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
 
-export async function renderInvestigationsIndex(env: PublicEnv): Promise<string> {
+// Reader-facing intent labels for published outputs (spec Part 18.2: intents
+// are badges and filters, not nav).
+const INTENT_LABELS: Record<string, string> = {
+  investigation: "Investigation",
+  argument: "Argument",
+  assessment: "Assessment",
+  definition: "Definition",
+  comparison: "Comparison",
+  timeline: "Timeline",
+  faq: "FAQ",
+  "stat-roundup": "Statistics",
+  "entity-profile": "Profile",
+  "claim-table": "Claims & sources",
+};
+
+export async function renderInvestigationsIndex(
+  env: PublicEnv,
+  intentFilter?: string,
+): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const pieces = userId ? await listInvestigations(env.DB, userId) : [];
 
+  // Published outputs (graph-derived, operator-approved). Interpretive
+  // pieces are SIGNED; factual arrangements are neutral.
+  const { all } = await import("../../lib/d1");
+  const outputs = userId
+    ? await all<{
+        slug: string;
+        title: string;
+        content_type: string;
+        layer: string;
+        published_at: string | null;
+        signed_by: string | null;
+      }>(
+        env.DB,
+        `SELECT slug, title, content_type, layer, published_at, signed_by
+           FROM briefs WHERE user_id = ? AND status = 'published'
+          ORDER BY published_at DESC LIMIT 60`,
+        [userId],
+      ).catch(() => [])
+    : [];
+  const shownOutputs = intentFilter
+    ? outputs.filter((o) => o.content_type === intentFilter)
+    : outputs;
+
+  const presentTypes = [...new Set(outputs.map((o) => o.content_type))];
+  const filterRow = presentTypes.length
+    ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
+  <a href="/investigations" class="chip" style="text-decoration:none${intentFilter ? "" : ";border-color:var(--accent)"}">All</a>
+  ${presentTypes
+    .map(
+      (t) =>
+        `<a href="/investigations?intent=${escapeHtml(t)}" class="chip" style="text-decoration:none${intentFilter === t ? ";border-color:var(--accent)" : ""}">${escapeHtml(INTENT_LABELS[t] ?? t)}</a>`,
+    )
+    .join("")}
+</div>`
+    : "";
+
+  const outputCards = shownOutputs.length
+    ? `<div style="margin-bottom:28px">${shownOutputs
+        .map(
+          (o) => `<div style="padding:14px 0;border-bottom:1px solid var(--rule)">
+  <span class="chip">${escapeHtml(INTENT_LABELS[o.content_type] ?? o.content_type)}</span>
+  ${o.layer === "interpretive" ? `<span class="chip" title="A signed reading — not neutral fact">signed${o.signed_by ? ` · ${escapeHtml(o.signed_by)}` : ""}</span>` : ""}
+  <div style="margin-top:6px"><a class="ac" href="/briefs/${escapeHtml(o.slug)}" style="font-family:var(--serif);font-size:20px">${escapeHtml(o.title)}</a></div>
+  ${o.published_at ? `<p class="coord" style="margin-top:4px">${escapeHtml(formatDate(o.published_at))}</p>` : ""}
+</div>`,
+        )
+        .join("")}</div>`
+    : "";
+
   const list = pieces.length
     ? `<div class="cards-row">${pieces.map((p) => pieceCard(p)).join("")}</div>`
-    : emptyState(
-        "No published investigations yet. The signed analysis layer fills as pieces publish.",
-      );
+    : "";
+
+  const empty =
+    !outputCards && !pieces.length
+      ? emptyState(
+          "No published investigations yet. The signed analysis layer fills as outputs publish.",
+        )
+      : "";
 
   const body = `
 <section style="margin-bottom:24px">
   <div class="kicker" style="margin-bottom:16px"><span class="live"></span> Signed analysis</div>
   <h1 style="font-family:var(--serif);font-size:40px;line-height:1.12;letter-spacing:-0.015em;margin:0 0 12px;color:var(--ink)">Investigations</h1>
   <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
-    The figure cut across the facts. Theses, research reports, and briefs —
-    every load-bearing assertion tied back to the external evidence it rests on.
+    The figure cut across the facts. Every piece wears its intent as a badge;
+    every load-bearing assertion ties back to the evidence it rests on.
   </p>
 </section>
-<section>${list}</section>
+${filterRow}
+<section>${outputCards}${list}${empty}</section>
 `;
   return renderPage({
     title: "Investigations",
-    description: "Signed analysis on Canadian power — theses, research reports, briefs.",
+    description: "Signed analysis on Canadian power — investigations, arguments, assessments.",
     body,
     activeNav: "/investigations",
     zone: "investigations",

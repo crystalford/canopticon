@@ -307,7 +307,9 @@ function threadsBlock(threads: ThreadRow[]): string {
   if (threads.length === 0) return "";
   const rows = threads
     .map(
-      (t) => `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+      (
+        t,
+      ) => `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
   <span class="mono" style="font-size:9.5px;letter-spacing:.06em;color:${t.status === "being_pursued" ? "var(--amber-hi)" : "var(--faint)"};min-width:86px">${t.status === "being_pursued" ? "PURSUING" : "OPEN"}</span>
   <span style="flex:1;font-size:13px">${escapeHtml(t.question)}</span>
   ${
