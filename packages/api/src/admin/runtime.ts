@@ -332,4 +332,46 @@ app.get("/health", async (c) => {
   });
 });
 
+// GET /v1/admin/debug-model?model=...&prompt=...
+//
+// Calls env.AI.run DIRECTLY (bypassing our callWorkersAi normalizer) and
+// returns the raw response so we can see the exact output shape a model
+// produces. Diagnoses "the model replied but we parsed nothing" — i.e. the
+// adapter is reading the wrong field. Defaults to the bulk-extraction model.
+app.get("/debug-model", async (c) => {
+  const model = c.req.query("model") ?? modelForRole("bulk_extraction").model;
+  const prompt =
+    c.req.query("prompt") ??
+    'Extract JSON from this text. Output ONLY JSON: {"entities":[{"name":"..."}]}. Text: OSFI raised the domestic stability buffer to 4.0% in 2026.';
+  const start = Date.now();
+  try {
+    const raw = (await c.env.AI.run(
+      model as never,
+      {
+        messages: [
+          { role: "system", content: "You output JSON only. No prose." },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: 512,
+      } as never,
+    )) as unknown as Record<string, unknown> | string;
+    const isObj = typeof raw === "object" && raw !== null;
+    return c.json({
+      ok: true,
+      model,
+      latency_ms: Date.now() - start,
+      raw_type: typeof raw,
+      raw_keys: isObj ? Object.keys(raw as Record<string, unknown>) : null,
+      raw,
+    });
+  } catch (err) {
+    return c.json({
+      ok: false,
+      model,
+      latency_ms: Date.now() - start,
+      error: (err as Error).message ?? "unknown",
+    });
+  }
+});
+
 export default app;
