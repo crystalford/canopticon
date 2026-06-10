@@ -62,9 +62,9 @@ interface RoleConfig {
 const ROUTES: Record<Role, RoleConfig> = {
   bulk_extraction: {
     provider: "workers_ai",
-    model: "@cf/google/gemma-4-26b-a4b-it",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
     operation_type: "workers_ai.extract.bulk",
-    why: "Cheap-strong baseline with JSON mode; high-volume entity/event/fact extraction.",
+    why: "Fast non-reasoning extractor that returns clean parsed-JSON in `response`. Replaced gemma-4-26b-a4b, a REASONING model that burned the token budget on chain-of-thought and TRUNCATED the JSON answer (verified 2026-06-10 via /v1/admin/debug-model: gemma finish_reason='length' with cut-off content at ~4s; scout returned a complete parsed object in 754ms).",
   },
   hard_extraction: {
     provider: "workers_ai",

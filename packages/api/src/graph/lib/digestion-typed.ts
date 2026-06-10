@@ -287,10 +287,11 @@ export async function extractTypedChunk(
           content: [{ type: "text", text: chunkText }],
         },
       ],
-      // Smaller chunks (6KB) need far less output. Capping at 2000 keeps
-      // generation time under the 25s call ceiling — the old 4000 on a 24KB
-      // chunk is what blew the budget.
-      max_tokens: 2000,
+      // Room for a full typed-graph JSON over a 6KB chunk. Scout is a fast
+      // non-reasoning model, so 3000 generates well inside the 25s ceiling
+      // (the old budget problem was a 24KB chunk + a reasoning model, both
+      // since fixed).
+      max_tokens: 3000,
       idempotency_key: `${pieceId}:typed:${chunkIndex}`,
     }),
     TIMEOUTS.LLM_CALL_MS,
