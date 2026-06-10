@@ -15,14 +15,49 @@ import { renderBriefPage } from "./render/brief";
 import { renderHome } from "./render/home";
 import { renderInvestigationsIndex, renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
-import { renderPatternsIndex } from "./render/patterns";
 import { renderPiece } from "./render/piece-template";
 import { renderNotFound, renderPlaceholder } from "./render/placeholder";
-import { renderEntityPage, renderRecordIndex } from "./render/record";
+import { renderEntityPage } from "./render/record";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
 import { STYLES_CSS, stylesHash } from "./styles";
 
 const app = new Hono<{ Bindings: Env }>();
+
+// ---- citation tracker (spec Part 14 #10) ----------------------------------
+// AI crawlers fetching public pages = the leading indicator of citation.
+// Best-effort fire-and-forget logging; never blocks or fails a render.
+const AI_BOTS: Array<[RegExp, string]> = [
+  [/GPTBot/i, "gptbot"],
+  [/OAI-SearchBot/i, "oai-search"],
+  [/ChatGPT-User/i, "chatgpt-user"],
+  [/ClaudeBot|Claude-Web|anthropic-ai/i, "claudebot"],
+  [/PerplexityBot/i, "perplexity"],
+  [/Google-Extended/i, "google-extended"],
+  [/Bytespider/i, "bytespider"],
+  [/CCBot/i, "ccbot"],
+  [/Amazonbot/i, "amazonbot"],
+  [/cohere-ai/i, "cohere"],
+];
+
+app.use("*", async (c, next) => {
+  await next();
+  try {
+    const ua = c.req.header("user-agent") ?? "";
+    if (!ua) return;
+    const hit = AI_BOTS.find(([re]) => re.test(ua));
+    if (!hit) return;
+    const path = new URL(c.req.url).pathname;
+    if (path === "/styles.css" || path.startsWith("/favicon")) return;
+    c.executionCtx.waitUntil(
+      c.env.DB.prepare("INSERT INTO citation_hits (id, path, bot, user_agent) VALUES (?, ?, ?, ?)")
+        .bind(crypto.randomUUID(), path, hit[1], ua.slice(0, 300))
+        .run()
+        .then(() => {}),
+    );
+  } catch {
+    // tracking must never affect a public response
+  }
+});
 
 // Favicon — a tight monogram in the amber accent. The "canopticon." brand
 // is the wordmark + a dot in --amber; we lean on the dot. Served as SVG
@@ -77,7 +112,9 @@ app.get("/topics/:slug", async (c) => {
 
 // ---- Investigations -------------------------------------------------------
 
-app.get("/investigations", async (c) => htmlResponse(await renderInvestigationsIndex(c.env)));
+app.get("/investigations", async (c) =>
+  htmlResponse(await renderInvestigationsIndex(c.env, c.req.query("intent"))),
+);
 
 app.get("/investigations/:slug", async (c) => {
   const html = await renderPiece(c.env, c.req.param("slug"));
@@ -122,7 +159,10 @@ app.get("/library/:slug", async (c) => {
 
 // ---- The Record -----------------------------------------------------------
 
-app.get("/record", async (c) => htmlResponse(await renderRecordIndex(c.env)));
+// Part 18: "The Record" dissolves as a destination — the index redirects to
+// Topics (the one browsable doorway). Entity DETAIL pages stay addressable
+// below as unmarked factual substrate.
+app.get("/record", (c) => c.redirect("/topics", 301));
 
 app.get("/record/:slug", async (c) => {
   const html = await renderEntityPage(c.env, c.req.param("slug"));
@@ -132,7 +172,9 @@ app.get("/record/:slug", async (c) => {
 
 // ---- Patterns / gaps / timeline (the lighthouse) -------------------------
 
-app.get("/patterns", async (c) => htmlResponse(await renderPatternsIndex(c.env)));
+// Part 18: "Patterns" dissolves as a destination — pattern pieces surface
+// inside Investigations (intent badges). Detail pages stay addressable.
+app.get("/patterns", (c) => c.redirect("/investigations", 301));
 
 app.get("/patterns/:slug", async (c) => {
   const { renderPatternDetail } = await import("./render/pattern-detail");

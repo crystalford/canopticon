@@ -42,7 +42,8 @@ export type Role =
   | "hard_extraction" // assertions, stance, typed relations, evidential links
   | "surfacing_ambitious" // Level 2 surfacing engine (pattern discovery, ACH)
   | "judge" // independent verification — MUST differ from the generator
-  | "large_context"; // graph reasoning over very wide context (fallback)
+  | "large_context" // graph reasoning over very wide context (fallback)
+  | "writer"; // output drafting: proposals, arrangements, intents, scripts
 
 interface RoleConfig {
   provider: "workers_ai" | "anthropic";
@@ -91,6 +92,12 @@ const ROUTES: Record<Role, RoleConfig> = {
     model: "@cf/nvidia/nemotron-3-120b-a12b",
     operation_type: "workers_ai.large_context",
     why: "256k context window in + out; fallback for whole-corpus reasoning where chunking would lose signal.",
+  },
+  writer: {
+    provider: "workers_ai",
+    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    operation_type: "workers_ai.writer",
+    why: "Output drafting (proposals, arrangements, intents, studio scripts). Scout: fast, non-reasoning, returns parsed-JSON objects — production-verified 2026-06-10. Replaces the retired llama-3.3-70b that buildBrief/composeScript were pinned to. Near launch this single line re-points generation at a frontier model (spec Part 14 #9).",
   },
 };
 

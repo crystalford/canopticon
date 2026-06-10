@@ -280,6 +280,53 @@ function corpusRow(
 </a>`;
 }
 
+// ---- inquiry threads (spec Part 6) ----------------------------------------
+// First-class open questions: persist across sessions, feed the proposer,
+// resurface on new evidence. Lifecycle: open -> being_pursued -> resolved /
+// dropped (operator buttons).
+
+interface ThreadRow {
+  id: string;
+  question: string;
+  status: string;
+  created_at: string;
+}
+
+async function loadThreads(db: D1Database, userId: string): Promise<ThreadRow[]> {
+  return all<ThreadRow>(
+    db,
+    `SELECT id, question, status, created_at FROM inquiry_threads
+      WHERE user_id = ? AND status IN ('open','being_pursued')
+      ORDER BY CASE status WHEN 'being_pursued' THEN 0 ELSE 1 END, created_at DESC
+      LIMIT 25`,
+    [userId],
+  ).catch(() => []);
+}
+
+function threadsBlock(threads: ThreadRow[]): string {
+  if (threads.length === 0) return "";
+  const rows = threads
+    .map(
+      (
+        t,
+      ) => `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)">
+  <span class="mono" style="font-size:9.5px;letter-spacing:.06em;color:${t.status === "being_pursued" ? "var(--amber-hi)" : "var(--faint)"};min-width:86px">${t.status === "being_pursued" ? "PURSUING" : "OPEN"}</span>
+  <span style="flex:1;font-size:13px">${escapeHtml(t.question)}</span>
+  ${
+    t.status === "open"
+      ? `<form method="POST" action="/op/synthesis/thread/${escapeAttr(t.id)}/pursue" style="display:inline"><button class="btn" style="font-size:11px;padding:3px 9px">Pursue</button></form>`
+      : `<form method="POST" action="/op/synthesis/thread/${escapeAttr(t.id)}/resolve" style="display:inline"><button class="btn" style="font-size:11px;padding:3px 9px">Resolve</button></form>`
+  }
+  <form method="POST" action="/op/synthesis/thread/${escapeAttr(t.id)}/drop" style="display:inline"><button class="btn" style="font-size:11px;padding:3px 9px;color:var(--faint)">Drop</button></form>
+</div>`,
+    )
+    .join("");
+  return `<div style="margin-bottom:22px">
+  <div class="mono" style="font-size:10px;letter-spacing:.12em;color:var(--faint);margin-bottom:6px">INQUIRY THREADS · open questions the corpus raised</div>
+  ${rows}
+</div>`;
+}
+
 export async function renderSynthesisScreen(
   env: { DB: D1Database },
   view: "findings" | "corpus" = "findings",
@@ -291,7 +338,10 @@ export async function renderSynthesisScreen(
     { label: "Corpus", href: "/op/synthesis?view=corpus", active: view === "corpus" },
   ])}
   <form method="POST" action="/op/synthesis/surface" style="display:inline;margin-left:8px">
-    <button class="btn" type="submit" title="Re-run the synthesis surfacer over the corpus">${icon("spark")} Re-surface</button>
+    <button class="btn" type="submit" title="Re-run deterministic surfacing (Level 1) over the typed graph">${icon("spark")} Re-surface</button>
+  </form>
+  <form method="POST" action="/op/synthesis/deep" style="display:inline;margin-left:6px">
+    <button class="btn btn-amber" type="submit" title="Level 2: high-effort reasoning over a verified subgraph — candidate patterns, mechanically verified citations">${icon("spark")} Deep analysis</button>
   </form>`;
 
   let body: string;
@@ -302,11 +352,12 @@ export async function renderSynthesisScreen(
       body: "Run the deploy workflow to seed.",
     });
   } else if (view === "findings") {
-    const [findings, counts] = await Promise.all([
+    const [findings, counts, threads] = await Promise.all([
       loadFindings(env.DB, userId),
       loadCounts(env.DB, userId),
+      loadThreads(env.DB, userId),
     ]);
-    body = findingsBody(findings, counts);
+    body = threadsBlock(threads) + findingsBody(findings, counts);
   } else {
     const groups = await loadCorpus(env.DB, userId);
     body = corpusBody(groups);

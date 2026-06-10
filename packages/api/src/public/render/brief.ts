@@ -15,6 +15,9 @@ interface BriefRow {
   slug: string;
   title: string;
   content_type: string;
+  layer: string;
+  confidence: string | null;
+  signed_by: string | null;
   body_md: string;
   body_html: string;
   claims_verified: number;
@@ -28,6 +31,8 @@ interface ClaimRow {
   claim_text: string;
   source_url: string;
   source_quote: string;
+  kind: string;
+  asserted_by: string | null;
 }
 
 const SCHEMA_TYPE: Record<string, string> = {
@@ -36,6 +41,11 @@ const SCHEMA_TYPE: Record<string, string> = {
   timeline: "Article",
   faq: "FAQPage",
   "stat-roundup": "Dataset",
+  "entity-profile": "Article",
+  "claim-table": "Article",
+  investigation: "Article",
+  argument: "Article",
+  assessment: "Article",
 };
 
 export async function renderBriefPage(
@@ -46,7 +56,8 @@ export async function renderBriefPage(
   if (!userId) return null;
   const brief = await one<BriefRow>(
     env.DB,
-    `SELECT id, slug, title, content_type, body_md, body_html, claims_verified,
+    `SELECT id, slug, title, content_type, layer, confidence, signed_by,
+            body_md, body_html, claims_verified,
             claims_killed, judge_model, published_at, updated_at
        FROM briefs WHERE user_id = ? AND slug = ? AND status = 'published'`,
     [userId, slug],
@@ -55,7 +66,7 @@ export async function renderBriefPage(
 
   const claims = await all<ClaimRow>(
     env.DB,
-    `SELECT claim_text, source_url, source_quote FROM brief_claims
+    `SELECT claim_text, source_url, source_quote, kind, asserted_by FROM brief_claims
       WHERE brief_id = ? AND verified = 1 AND killed = 0 AND judge_pass = 1
       ORDER BY sort_order ASC`,
     [brief.id],
@@ -73,7 +84,7 @@ export async function renderBriefPage(
     .map(
       (c, i) => `<div class="srclog-row">
   <div class="srclog-main">
-    <span class="srclog-title">${escapeHtml(c.claim_text)}</span>
+    <span class="srclog-title">${c.kind === "assertion" ? `<span class="chip" title="An attributed assertion — contested material, not neutral fact">asserted by ${escapeHtml(c.asserted_by ?? "unknown")}</span> ` : ""}${escapeHtml(c.claim_text)}</span>
     <span class="srclog-meta">"${escapeHtml(c.source_quote.slice(0, 200))}${c.source_quote.length > 200 ? "…" : ""}" — <a href="${escapeAttr(c.source_url)}" rel="external nofollow noopener" target="_blank">${escapeHtml(displayDomain(c.source_url))}</a></span>
   </div>
   <span class="srclog-kind">${String(i + 1).padStart(2, "0")}</span>
@@ -87,17 +98,23 @@ export async function renderBriefPage(
 
   const ld = jsonLd(brief, claims);
 
+  const signatureLine =
+    brief.layer === "interpretive"
+      ? `<div class="coord" style="margin-top:8px;padding:8px 12px;border:1px solid var(--rule);border-radius:6px">SIGNED INTERPRETIVE PIECE — a reading on top of the facts, by ${escapeHtml(brief.signed_by ?? "the operator")}.${brief.confidence ? ` Analytical confidence: <b>${escapeHtml(brief.confidence)}</b>.` : ""} The grounded facts it stands on are listed under Sources; contested assertions are attributed, never stated as fact.</div>`
+      : "";
+
   const body = `
 <article class="container reading" style="max-width:760px">
-  <div class="kicker" style="margin-bottom:14px">Brief · ${escapeHtml(contentTypeLabel(brief.content_type))}</div>
+  <div class="kicker" style="margin-bottom:14px">${brief.layer === "interpretive" ? "Analysis" : "Reference"} · ${escapeHtml(contentTypeLabel(brief.content_type))}</div>
   <h1>${escapeHtml(brief.title)}</h1>
   ${updatedLine}
   ${verificationLine}
+  ${signatureLine}
   <div class="prose" style="margin-top:28px">${bodyHtml}</div>
   ${sourcesBlock}
   <div class="piece-note" style="margin-top:36px">
     <span class="dr-h">How this Brief was built</span>
-    <p>Every factual claim in this Brief survived a literal verbatim substring check against an actually-fetched external source. A different model than the one that drafted the Brief independently judged whether each quote supports its claim. The trust boundary is mechanical, not editorial.</p>
+    <p>Every claim on this page is anchored to a verbatim quote from a stored source document in the public Library, verified mechanically (the drafting model can only reference stored quotes — it cannot fabricate evidence). A different model independently judged whether each quote supports its claim. Attributed assertions are always shown with who asserts them. The trust boundary is mechanical, not editorial.</p>
   </div>
 </article>
 <script type="application/ld+json">${ld}</script>
@@ -120,11 +137,17 @@ function contentTypeLabel(t: string): string {
       timeline: "Timeline",
       faq: "FAQ",
       "stat-roundup": "Stat roundup",
+      "entity-profile": "Entity profile",
+      "claim-table": "Claims & sources",
+      investigation: "Investigation",
+      argument: "Argument",
+      assessment: "Assessment",
     }[t] ?? t
   );
 }
 
 function displayDomain(url: string): string {
+  if (url.startsWith("/library/")) return "Library source";
   try {
     return new URL(url).host;
   } catch {

@@ -17,20 +17,23 @@ export interface NavItem {
   label: string;
 }
 
+// Lean nav per canonical-spec v2.4 Part 18: Investigations (the signed
+// front door) · Topics (the browsable doorway into the factual substrate) ·
+// Library (the receipts) · About. "The Record" and "Patterns" are DISSOLVED
+// as destinations — their pages stay addressable (unmarked substrate),
+// reached via links, search, and citation rather than nav.
 export const PRIMARY_NAV: NavItem[] = [
-  { href: "/topics", label: "Topics" },
   { href: "/investigations", label: "Investigations" },
-  { href: "/record", label: "The Record" },
-  { href: "/patterns", label: "Patterns" },
+  { href: "/topics", label: "Topics" },
   { href: "/library", label: "Library" },
+  { href: "/about", label: "About" },
 ];
 
 const FOOTER_EXPLORE: NavItem[] = [
-  { href: "/topics", label: "Topics" },
   { href: "/investigations", label: "Investigations" },
-  { href: "/record", label: "The Record" },
-  { href: "/patterns", label: "Patterns" },
+  { href: "/topics", label: "Topics" },
   { href: "/library", label: "Library" },
+  { href: "/methodology", label: "Methodology" },
 ];
 
 const FOOTER_ABOUT: NavItem[] = [

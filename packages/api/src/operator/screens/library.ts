@@ -23,14 +23,16 @@ interface PieceListRow {
   updated_at: string;
   body_md: string | null;
   metadata: string | null;
-  claim_count: number;
+  // Typed-graph rows extracted from this piece (nodes.piece_id, kind!='source').
+  node_count: number;
   // Latest digest_jobs row for this piece, if any. Null when never extracted.
   digest_status: string | null;
 }
 
 interface Stats {
   documents: number;
-  claims: number;
+  nodes: number;
+  quotes: number;
   chains: number;
   published: number;
   working: number;
@@ -41,12 +43,16 @@ async function loadStats(db: D1Database, userId: string): Promise<Stats> {
     const row = await db
       .prepare(sql)
       .bind(...binds)
-      .first<{ n: number }>();
+      .first<{ n: number }>()
+      .catch(() => null);
     return row?.n ?? 0;
   };
-  const [documents, claims, chains, published, working] = await Promise.all([
+  const [documents, nodes, quotes, chains, published, working] = await Promise.all([
     scalar("SELECT count(*) AS n FROM pieces WHERE user_id = ?", [userId]),
-    scalar("SELECT count(*) AS n FROM claims WHERE user_id = ?", [userId]),
+    // Typed-graph extraction output (spec Part 4) — the real measure of what
+    // the system has understood. Source-kind nodes are bookkeeping, not signal.
+    scalar("SELECT count(*) AS n FROM nodes WHERE user_id = ? AND kind != 'source'", [userId]),
+    scalar("SELECT count(*) AS n FROM quotes WHERE user_id = ?", [userId]),
     scalar(
       "SELECT count(DISTINCT chain_id) AS n FROM pieces WHERE user_id = ? AND chain_id IS NOT NULL",
       [userId],
@@ -60,7 +66,7 @@ async function loadStats(db: D1Database, userId: string): Promise<Stats> {
       [userId],
     ),
   ]);
-  return { documents, claims, chains, published, working };
+  return { documents, nodes, quotes, chains, published, working };
 }
 
 async function loadDocuments(db: D1Database, userId: string): Promise<PieceListRow[]> {
@@ -72,7 +78,8 @@ async function loadDocuments(db: D1Database, userId: string): Promise<PieceListR
     `SELECT p.id, p.slug, p.title, p.subtitle, p.kind, p.publication_status,
             p.chain_id, p.byline, p.published_at, p.created_at, p.updated_at,
             p.body_md, p.metadata,
-            (SELECT COUNT(*) FROM claims c WHERE c.asserted_in_piece_id = p.id) AS claim_count,
+            (SELECT COUNT(*) FROM nodes n
+              WHERE n.piece_id = p.id AND n.kind != 'source') AS node_count,
             (SELECT j.status FROM digest_jobs j
               WHERE j.user_id = p.user_id AND j.piece_id = p.id
               ORDER BY j.created_at DESC LIMIT 1) AS digest_status
@@ -146,7 +153,7 @@ function pieceRow(p: PieceListRow): string {
   <a class="lib-doc-name" href="/op/library/${escapeAttr(p.slug)}">${escapeHtml(titleOrSlug)}</a>
   <span class="lib-doc-kind">${escapeHtml(p.kind)}</span>
   <span class="lib-doc-extract-pill ${x.cls} mono" title="extraction status">${escapeHtml(x.label)}</span>
-  <span class="lib-doc-claims">${p.claim_count} claims</span>
+  <span class="lib-doc-claims">${p.node_count} nodes</span>
   <span class="lib-doc-date">${escapeHtml(relativeAge(p.published_at ?? p.updated_at))}</span>
   ${extractCellFor(p)}
   <a class="mono lib-doc-arrow" href="/op/library/${escapeAttr(p.slug)}">→</a>
@@ -158,7 +165,7 @@ function chainHeader(chainId: string, count: number, claimCount: number): string
   <span class="lch-arrow">↳</span>
   <span class="lch-name">${escapeHtml(chainId)}</span>
   <span class="lch-count">· ${count} doc${count === 1 ? "" : "s"}</span>
-  <span class="lch-claims">${claimCount} claims</span>
+  <span class="lch-claims">${claimCount} nodes</span>
 </div>`;
 }
 
@@ -279,7 +286,7 @@ export async function renderLibraryScreen(
   const userId = await resolveOperatorId(env.DB);
   const stats = userId
     ? await loadStats(env.DB, userId)
-    : { documents: 0, claims: 0, chains: 0, published: 0, working: 0 };
+    : { documents: 0, nodes: 0, quotes: 0, chains: 0, published: 0, working: 0 };
   const docs = userId ? await loadDocuments(env.DB, userId) : [];
 
   // Group by chain.
@@ -298,7 +305,7 @@ export async function renderLibraryScreen(
   const statsBar = `<div class="lib-stats">
   <div class="lib-stat"><div class="ls-n">${stats.documents}</div><div class="ls-l">Documents</div></div>
   <div class="lib-sep"></div>
-  <div class="lib-stat"><div class="ls-n">${stats.claims}</div><div class="ls-l">Claims</div></div>
+  <div class="lib-stat"><div class="ls-n">${stats.nodes}</div><div class="ls-l">Graph nodes</div></div>\n  <div class="lib-sep"></div>\n  <div class="lib-stat"><div class="ls-n">${stats.quotes}</div><div class="ls-l">Quotes</div></div>
   <div class="lib-sep"></div>
   <div class="lib-stat"><div class="ls-n">${stats.chains}</div><div class="ls-l">Chains</div></div>
   <div class="lib-sep"></div>
@@ -329,7 +336,7 @@ export async function renderLibraryScreen(
   let listInner = "";
   for (const chainId of chainSlugs) {
     const group = chained.get(chainId) ?? [];
-    const claimSum = group.reduce((s, p) => s + p.claim_count, 0);
+    const claimSum = group.reduce((s, p) => s + p.node_count, 0);
     listInner += chainHeader(chainId, group.length, claimSum);
     listInner += group.map(pieceRow).join("");
   }

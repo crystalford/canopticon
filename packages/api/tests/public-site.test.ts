@@ -57,8 +57,6 @@ describe("public site — Phase 1 skeleton", () => {
     const expectedHeading: Record<string, string> = {
       "/topics": "Topics",
       "/investigations": "Investigations",
-      "/record": "The Record",
-      "/patterns": "Patterns",
       "/library": "Library",
     };
     for (const [path, heading] of Object.entries(expectedHeading)) {

@@ -7,8 +7,11 @@
 import type { Env } from "../../../env";
 import { one } from "../../../lib/d1";
 import { callLLM } from "../../../llm/index";
+import { modelForRole } from "../../../llm/router";
 
-const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+// Writer role from the router — llama-3.3-70b was retired by Cloudflare
+// 2026-05-30; this constant kept compose silently broken until rewired.
+const MODEL = modelForRole("writer").model;
 
 const MEDIUM_GUIDE: Record<string, string> = {
   "x-thread":
