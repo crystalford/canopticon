@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-06-10T22:00:11Z",
-  "run_id": "27309122452",
+  "requested_at": "2026-06-10T22:00:45Z",
+  "run_id": "27309150611",
   "method": "GET",
-  "path": "/v1/admin/debug-model?model=@cf/meta/llama-4-scout-17b-16e-instruct&prompt=Output ONLY this JSON with no other text: {\"entities\":[{\"name\":\"OSFI\"},{\"name\":\"buffer\"}]}",
-  "status": "",
-  "body": ""
+  "path": "/v1/admin/debug-model?model=@cf/meta/llama-4-scout-17b-16e-instruct",
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"model\": \"@cf/meta/llama-4-scout-17b-16e-instruct\",\n  \"latency_ms\": 824,\n  \"raw_type\": \"object\",\n  \"raw_keys\": [\n    \"response\",\n    \"tool_calls\",\n    \"usage\"\n  ],\n  \"raw\": {\n    \"response\": {\n      \"entities\": [\n        {\n          \"name\": \"OSFI\"\n        },\n        {\n          \"name\": \"4.0%\"\n        },\n        {\n          \"name\": \"2026\"\n        }\n      ]\n    },\n    \"tool_calls\": [],\n    \"usage\": {\n      \"prompt_tokens\": 64,\n      \"completion_tokens\": 22,\n      \"total_tokens\": 86,\n      \"prompt_tokens_details\": {\n        \"cached_tokens\": 0\n      }\n    }\n  }\n}"
 }
