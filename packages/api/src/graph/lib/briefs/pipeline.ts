@@ -149,7 +149,12 @@ export async function buildBrief(env: Env, briefId: string, userId: string): Pro
   for (const c of drafted.claims) {
     const text = (c.claim_text ?? "").trim();
     if (!text) continue;
-    const q = grounding.quotes.get((c.quote_id ?? "").trim());
+    const qid = (c.quote_id ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/^\[|\]$/g, "")
+      .replace(/^q[:\s]+/, "q");
+    const q = grounding.quotes.get(qid);
     if (!q) {
       killedClaims.push({
         claim_text: text,
@@ -366,14 +371,21 @@ async function gatherGrounding(env: Env, userId: string, title: string): Promise
   const pieceById = new Map(pieceRows.map((p) => [p.id, p]));
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
+  // Quotes are keyed by SHORT ids (q1, q2, ...) in both the map and the
+  // prompt. Small models cannot reliably echo back 36-char UUIDs — the first
+  // live build killed all 5 claims on fabricated references because Scout
+  // mangled the UUIDs. Short ids copy faithfully.
   const quotes = new Map<string, GroundingQuote>();
+  let qn = 0;
   for (const q of quoteRows) {
     const n = nodeById.get(q.node_id);
     if (!n) continue;
     const piece = n.piece_id ? pieceById.get(n.piece_id) : undefined;
     const meta = metaByNode.get(q.node_id);
-    quotes.set(q.id, {
-      id: q.id,
+    qn += 1;
+    const shortId = `q${qn}`;
+    quotes.set(shortId, {
+      id: shortId,
       verbatim_text: q.verbatim_text,
       byte_offset: q.byte_offset,
       node_label: n.label,
@@ -400,11 +412,11 @@ async function gatherGrounding(env: Env, userId: string, title: string): Promise
     const src = q.piece_title ? ` (source: ${q.piece_title})` : "";
     if (q.node_kind === "assertion") {
       assertionLines.push(
-        `[q:${q.id}] ASSERTION by ${q.asserted_by ?? "UNKNOWN ACTOR"} (stance: ${q.stance ?? "neutral"}, evidence balance: ${q.evidence_balance ?? 0}): "${q.node_label}" — quote: "${q.verbatim_text.slice(0, 300)}"${src}`,
+        `[${q.id}] ASSERTION by ${q.asserted_by ?? "UNKNOWN ACTOR"} (stance: ${q.stance ?? "neutral"}, evidence balance: ${q.evidence_balance ?? 0}): "${q.node_label}" — quote: "${q.verbatim_text.slice(0, 300)}"${src}`,
       );
     } else {
       factLines.push(
-        `[q:${q.id}] (${q.node_kind}) ${q.node_label} — quote: "${q.verbatim_text.slice(0, 300)}"${src}`,
+        `[${q.id}] (${q.node_kind}) ${q.node_label} — quote: "${q.verbatim_text.slice(0, 300)}"${src}`,
       );
     }
   }
@@ -454,10 +466,10 @@ ${grounding.threadsBlock || "(none)"}
 Draft the output. Return ONLY a JSON object:
 {
   "body_md": "full markdown body (do NOT include the title as a heading)",
-  "claims": [{ "claim_text": "...", "quote_id": "the id from [q:...]", "kind": "fact" or "assertion", "asserted_by": "actor name (REQUIRED when kind=assertion)" }]
+  "claims": [{ "claim_text": "...", "quote_id": "e.g. q3 — an id from the grounded facts", "kind": "fact" or "assertion", "asserted_by": "actor name (REQUIRED when kind=assertion)" }]
 }
 Rules:
-- Every claim's quote_id MUST be one of the [q:...] ids above. We verify mechanically; invented ids are dropped.
+- Every claim's quote_id MUST be one of the bracketed ids above (q1, q2, ...). We verify mechanically; invented ids are dropped.
 - Use ONLY the grounded material. Do not import outside knowledge as fact.
 - 5-12 claims. Front-load the direct answer in the first 2 sentences of body_md.`,
           },
