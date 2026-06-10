@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-06-10T14:53:56Z",
-  "run_id": "27284987407",
+  "requested_at": "2026-06-10T15:01:43Z",
+  "run_id": "27285499751",
   "method": "GET",
   "path": "/v1/admin/runtime",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"generated_at\": \"2026-06-10T14:53:56.244Z\",\n  \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n  \"counts\": {\n    \"pieces\": 0,\n    \"entities\": 0,\n    \"topics\": 0,\n    \"claims\": 0,\n    \"sources\": 0,\n    \"conversations\": 3\n  },\n  \"events\": {\n    \"by_type\": {},\n    \"recent\": []\n  },\n  \"pending_proposals\": [],\n  \"recent_pieces\": []\n}"
+  "body": "{\n  \"ok\": true,\n  \"generated_at\": \"2026-06-10T15:01:43.588Z\",\n  \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n  \"counts\": {\n    \"pieces\": 0,\n    \"entities\": 0,\n    \"topics\": 0,\n    \"claims\": 0,\n    \"sources\": 0,\n    \"conversations\": 3\n  },\n  \"typed_graph\": {\n    \"nodes\": 0,\n    \"edges\": 0,\n    \"quotes\": 0,\n    \"inquiry_threads\": 0,\n    \"assertions\": 0,\n    \"node_props\": 0\n  },\n  \"uploads\": [\n    {\n      \"id\": \"495b949f-5bc3-48bd-84ac-ff4523dfa783\",\n      \"original_filename\": \"compass_artifact_wf-facec16e-8872-4a9f-a905-feabce4b8aa9_text_markdown.md\",\n      \"classification\": \"markdown\",\n      \"extraction_status\": \"pending\",\n      \"size_bytes\": 16253,\n      \"metadata\": {},\n      \"created_at\": \"2026-06-10T14:49:43.551Z\"\n    },\n    {\n      \"id\": \"233a7254-a770-412c-84b5-520860079305\",\n      \"original_filename\": \"compass_artifact_wf-facec16e-8872-4a9f-a905-feabce4b8aa9_text_markdown.md\",\n      \"classification\": \"markdown\",\n      \"extraction_status\": \"pending\",\n      \"size_bytes\": 16253,\n      \"metadata\": {},\n      \"created_at\": \"2026-06-10T12:13:05.694Z\"\n    }\n  ],\n  \"digest_jobs\": [],\n  \"events\": {\n    \"by_type\": {},\n    \"recent\": []\n  },\n  \"pending_proposals\": [],\n  \"recent_pieces\": []\n}"
 }
