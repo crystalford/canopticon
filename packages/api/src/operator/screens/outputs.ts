@@ -122,6 +122,9 @@ function proposalCard(o: OutputRow): string {
     <form method="POST" action="/op/outputs/${escapeAttr(o.id)}/build" style="display:inline">
       <button type="submit" class="btn btn-amber">Build →</button>
     </form>
+    <form method="POST" action="/op/outputs/${escapeAttr(o.id)}/discard" style="display:inline;margin-left:8px">
+      <button type="submit" class="btn" title="Not worth building — dismiss this proposal">Dismiss</button>
+    </form>
   </div>
 </div>`;
 }

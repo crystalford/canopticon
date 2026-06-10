@@ -35,6 +35,7 @@ interface Proposal {
   content_type: string;
   layer: string;
   reasoning_md: string;
+  novelty: number;
 }
 
 export async function proposeBriefs(env: Env, userId: string): Promise<ProposerReport> {
@@ -57,6 +58,7 @@ export async function proposeBriefs(env: Env, userId: string): Promise<ProposerR
   }
 
   // ---- upsert as proposal-status outputs ----
+  const refreshedSlugs: string[] = [];
   for (const p of proposals) {
     try {
       const layer = INTERPRETIVE_TYPES.has(p.content_type) ? "interpretive" : "factual";
@@ -68,6 +70,7 @@ export async function proposeBriefs(env: Env, userId: string): Promise<ProposerR
         "SELECT id, status FROM briefs WHERE user_id = ? AND slug = ?",
         [userId, slug],
       );
+      refreshedSlugs.push(slug);
       if (existing) {
         if (existing.status === "proposal") {
           await env.DB.prepare(
@@ -104,6 +107,23 @@ export async function proposeBriefs(env: Env, userId: string): Promise<ProposerR
     }
   }
 
+  // Queue hygiene: proposals are ephemeral suggestions. Any still-unbuilt
+  // proposal NOT refreshed by this run is superseded (discarded) so duds
+  // don't accumulate — the operator curates a live queue, not a backlog.
+  try {
+    if (refreshedSlugs.length > 0) {
+      const ph = refreshedSlugs.map(() => "?").join(",");
+      await env.DB.prepare(
+        `UPDATE briefs SET status = 'discarded', updated_at = ?
+          WHERE user_id = ? AND status = 'proposal' AND slug NOT IN (${ph})`,
+      )
+        .bind(new Date().toISOString(), userId, ...refreshedSlugs)
+        .run();
+    }
+  } catch (err) {
+    report.errors.push(`supersede: ${(err as Error).message}`);
+  }
+
   return report;
 }
 
@@ -121,13 +141,18 @@ async function summarizeGraph(env: Env, userId: string): Promise<GraphSummary> {
   const totalNodes = counts.reduce((s, c) => s + c.n, 0);
   if (totalNodes === 0) return { totalNodes: 0, text: "" };
 
-  // Top entities by degree (edges touching them) — the corpus's protagonists.
-  const topEntities = await all<{ label: string; degree: number }>(
+  // Top entities by degree + DOCUMENT SPAN. Cross-document presence is the
+  // highest-value proposer signal: an entity asserted about differently in
+  // two sources is where the tensions live.
+  const topEntities = await all<{ label: string; degree: number; doc_span: number }>(
     env.DB,
-    `SELECT n.label, COUNT(e.id) AS degree
-       FROM nodes n LEFT JOIN edges e ON (e.src_node_id = n.id OR e.dst_node_id = n.id)
+    `SELECT n.label, COUNT(DISTINCT e.id) AS degree,
+            COUNT(DISTINCT n2.piece_id) AS doc_span
+       FROM nodes n
+       LEFT JOIN edges e ON (e.src_node_id = n.id OR e.dst_node_id = n.id)
+       LEFT JOIN nodes n2 ON lower(n2.label) = lower(n.label) AND n2.user_id = n.user_id
       WHERE n.user_id = ? AND n.kind = 'entity'
-      GROUP BY n.id ORDER BY degree DESC LIMIT 15`,
+      GROUP BY lower(n.label) ORDER BY doc_span DESC, degree DESC LIMIT 15`,
     [userId],
   );
 
@@ -174,8 +199,8 @@ async function summarizeGraph(env: Env, userId: string): Promise<GraphSummary> {
 SOURCE DOCUMENTS:
 ${pieces.map((p) => `- ${p.title}`).join("\n")}
 
-TOP ENTITIES (by connectedness):
-${topEntities.map((e) => `- ${e.label} (${e.degree} edges)`).join("\n")}
+TOP ENTITIES (by document span + connectedness — cross-document tensions are the most valuable):
+${topEntities.map((e) => `- ${e.label} (${e.doc_span} document${e.doc_span === 1 ? "" : "s"}, ${e.degree} edges)`).join("\n")}
 
 DATED EVENTS:
 ${events.map((e) => `- ${e.label}`).join("\n") || "(none)"}
@@ -226,8 +251,9 @@ Rules:
               slug: { type: "string" },
               content_type: { type: "string" },
               reasoning_md: { type: "string" },
+              novelty: { type: "number" },
             },
-            required: ["title", "slug", "content_type", "reasoning_md"],
+            required: ["title", "slug", "content_type", "reasoning_md", "novelty"],
           },
         },
       },
@@ -260,8 +286,12 @@ Rules:
       content_type: String(p.content_type ?? "").toLowerCase(),
       layer: "",
       reasoning_md: String(p.reasoning_md ?? "").slice(0, 2000),
+      novelty: Number(p.novelty ?? 0),
     }))
-    .filter((p) => p.title && p.content_type);
+    .filter((p) => p.title && p.content_type)
+    // Novelty floor — the model is told scores below 3 are discarded; hold it
+    // to that mechanically. Missing/invalid scores are treated as failing.
+    .filter((p) => p.novelty >= 3);
 }
 
 function slugify(s: string): string {

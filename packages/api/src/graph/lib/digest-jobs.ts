@@ -225,14 +225,21 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
         deterministic,
       });
     }
-    // Surfacing Engine Level 1 runs after every successful extraction (spec
-    // Part 17: deterministic tier, on every ingest). Best-effort — a surfacing
-    // failure must never mark the completed extraction as failed.
+    // Surfacing Engine Level 1 + the proposer run after every successful
+    // extraction (spec Part 17 deterministic tier; Part 0 prime directive —
+    // the operator opens Outputs and the proposals are already waiting).
+    // Both best-effort: their failure never marks the extraction failed.
     if (!failed) {
       try {
         await runSurfacingL1(env, job.user_id);
       } catch {
         // findings recompute on the next extraction or manual re-surface
+      }
+      try {
+        const { proposeBriefs } = await import("./briefs/proposer");
+        await proposeBriefs(env, job.user_id);
+      } catch {
+        // Re-propose on /op/outputs covers a failed auto-run
       }
     }
   } catch (err) {
