@@ -78,6 +78,13 @@ function buildBody(input: LlmCallInput): Record<string, unknown> {
   if (input.response_schema) {
     body.response_format = { type: "json_schema", json_schema: input.response_schema };
   }
+  // reasoning_effort is the gpt-oss / Responses-API dial (canonical-spec
+  // v2.4 Part 16 rule #1). Other models ignore unknown fields, so this is
+  // safe to pass through unconditionally — but only do so if the model is
+  // gpt-oss to keep the request body clean and avoid partner-model 8004s.
+  if (input.reasoning_effort && /^@cf\/openai\/gpt-oss/i.test(input.model)) {
+    body.reasoning_effort = input.reasoning_effort;
+  }
   return body;
 }
 

@@ -1,37 +1,42 @@
 // Feed digestion pipeline — the auto-ingest engine.
 //
-// Per the operator-claude-code-handoff: "Upload is authorization; the
-// system does the work; the operator oversees rather than manages." Each
-// uploaded piece runs through five steps automatically — no confirmation
-// gates. Claims land at draft confidence; promotion to citable is governed
-// by the weighting model (P2), not by bulk publish.
+// Per canonical spec v2.4 Part 2 + Part 4 + Part 16:
+//   - Storage / Extraction / Outputs are decoupled (Part 2 medallion).
+//   - Extraction emits the TYPED graph (Part 4): nodes + edges + quotes +
+//     assertions + open threads — not flat atomic claims.
+//   - Model strategy uses the per-role router (Part 16) — bulk extraction
+//     runs on the cheap-strong baseline (Gemma 4 26B A4B); hard extraction
+//     dials up to gpt-oss-120b medium effort (follow-up).
 //
-// Steps:
-//   1. extract_text         — done by extract.ts before this runs; the
-//                              body_md is passed in. Logged for completeness.
-//   2. recognize_entities   — runRole(entity_resolver) on the body. The role
-//                              returns proposed entity slugs/labels; we record
-//                              the output for later resolution in P2.
-//   3. extract_claims       — runRole(claim_extraction) populating
-//                              asserted_in_piece_id (the new model from
-//                              migration 0016). evidenced_by_source_ids stays
-//                              empty — the spec invariant: never an internal
-//                              piece id. Confidence defaults to draft.
-//   4. embed                — embedText(body) + upsertVector with kind="piece".
-//   5. detect_chains        — searchVectors near-duplicate band. Per spec §6.5:
-//                              >0.95 duplicate, 0.80–0.95 new pass of chain,
-//                              0.65–0.80 related. New pass assigns chain_id;
-//                              the operator sees it surface in Synthesis (P2).
+// Steps emitted as orchestrator_events (the activity log):
+//   1. extract_text         — body_md was extracted before this lib runs.
+//   2. recognize_entities   — typed extraction produces entity nodes (plus
+//                              event/neutral_fact/assertion); reported as a
+//                              single step for the existing activity log.
+//   3. extract_claims       — event name kept for surfaces that already read
+//                              orchestrator_events; the diag payload names
+//                              typed-graph counts (nodes/edges/quotes/...).
+//   4. embed                — piece-level vector for chain detection.
+//   5. detect_chains        — spec §6.5 near-duplicate bands. Flat-vector
+//                              based; the typed graph augments this in
+//                              the Surfacing Engine PRs, it doesn't replace it.
 //
-// Every step writes an orchestrator_events row so the Feed activity log
-// (read-only surface) has a single source of truth. Failures emit
-// feed.<step>.failed and the pipeline returns; the dropzone shows a
-// conflict flag (P1 ships the event; P2 wires the flag to Synthesis).
+// Idempotency — spec Part 19: re-runs supersede prior typed-graph rows for
+// the same piece. purgeTypedGraphForPiece() before the chunk loop guarantees
+// this. The raw bytes in R2 + the pieces row stay; the typed projection is
+// regenerated. The legacy `claims` table is no longer written here; existing
+// flat rows stay read-only until a later cleanup PR retires them.
 
 import type { Env } from "../../env";
 import { insertOne, one, run } from "../../lib/d1";
+import {
+  TYPED_EXTRACTION_LIMITS,
+  ensureSourceNode,
+  extractTypedChunk,
+  persistTypedExtraction,
+  purgeTypedGraphForPiece,
+} from "./digestion-typed";
 import { embedText, searchVectors, upsertVector, vectorId } from "./embeddings";
-import { runRole } from "./role-runner";
 
 export interface DigestArgs {
   userId: string;
@@ -39,8 +44,7 @@ export interface DigestArgs {
   pieceSlug: string;
   title: string;
   body_md: string;
-  /** Optional source row id (when extract.ts created one). Used so the
-   *  existing role pipeline can hook to either piece_id or source_id. */
+  /** Optional source row id (when extract.ts created one). */
   sourceId?: string | undefined;
 }
 
@@ -48,8 +52,14 @@ export interface DigestResult {
   steps_completed: string[];
   failed_step?: string;
   failed_reason?: string;
-  entities_proposed?: number;
-  claims_drafted?: number;
+  /** Number of typed-graph nodes created across all chunks. Persisted into
+   *  digest_jobs.claims_count (legacy column name) as the headline count. */
+  nodes_created?: number;
+  edges_created?: number;
+  quotes_created?: number;
+  assertions_created?: number;
+  threads_created?: number;
+  killed_quotes?: number;
   chain_id?: string;
   chain_action?: "extends" | "new" | "duplicate" | "related" | null;
 }
@@ -62,91 +72,78 @@ const STEP_ORDER = [
   "detect_chains",
 ] as const;
 
+const MAX_CHUNKS = TYPED_EXTRACTION_LIMITS.MAX_CHUNKS;
+
 export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> {
   const result: DigestResult = { steps_completed: [], chain_action: null };
 
-  // Ensure the live operator's claim_extraction role points at the chosen
-  // model (idempotent; the seed only applies to fresh installs).
-  await ensureExtractionRoleModel(env, args.userId);
-
   // Step 1: extract_text — already done before this lib is called.
-  // Log the event so the activity log shows the full 5-step trail.
   await emit(env, args, "extract_text", "completed", {
     chars: args.body_md.length,
     title: args.title,
   });
   result.steps_completed.push("extract_text");
 
-  // Steps 2 + 3: extract_claims (chunked) → persist claims + entities.
-  // Entities are derived from each claim's entities_mentioned[] (the reliable
-  // signal); the per-mention entity_resolver role is a P2 upgrade. The two
-  // steps are reported separately for the activity log but computed together.
+  // Steps 2 + 3: typed-graph extraction (chunked). Entity recognition and
+  // claim extraction happen together in one pass; reported as two events
+  // for backwards compatibility with the existing Feed activity log.
   await emit(env, args, "recognize_entities", "started", {});
   await emit(env, args, "extract_claims", "started", {});
 
-  // Bound the work per upload: a Cloudflare Worker has a wall-clock /
-  // subrequest budget, and an unbounded chunk×LLM loop will get the request
-  // hard-killed mid-extraction (observed: digestion stuck at
-  // extract_claims.started, nothing persisted). Cap the chunks and put a hard
-  // timeout on every model call so a hung call can never freeze the request.
+  // Idempotency (spec Part 19): purge prior typed-graph rows for this piece
+  // BEFORE persisting, so re-extracts supersede instead of double-counting.
+  await purgeTypedGraphForPiece(env, args.userId, args.pieceId);
+  // Source node — one per piece, reused across chunks. The Quote rows
+  // produced inside persistTypedExtraction reference this id.
+  const sourceNodeId = await ensureSourceNode(env, args.userId, args.pieceId, args.title);
+
   const chunks = chunkText(args.body_md).slice(0, MAX_CHUNKS);
-  const accepted: ExtractedClaim[] = [];
-  const claimSeen = new Set<string>();
+  const totals = { nodes: 0, edges: 0, quotes: 0, assertions: 0, threads: 0, killed_quotes: 0 };
   let chunksOk = 0;
+
   for (let i = 0; i < chunks.length; i++) {
     try {
-      const roleResult = await withTimeout(
-        runRole(env, {
-          userId: args.userId,
-          roleName: "claim_extraction",
-          payload: {
-            title: args.title,
-            content_text: chunks[i] ?? "",
-            source_id: args.sourceId,
-            piece_id: args.pieceId,
-            chunk_index: i,
-            chunk_count: chunks.length,
-          },
-          idempotencyKey: `${args.pieceId}:claims:${i}`,
-        }),
-        ROLE_TIMEOUT_MS,
+      const extraction = await extractTypedChunk(
+        env,
+        args.userId,
+        args.pieceId,
+        i,
+        chunks[i] ?? "",
       );
-      if (roleResult.status === "failed") {
-        // Surface the actual role-runner error so we can see WHY chunks fail
-        // instead of swallowing it. Without this, "failed on every chunk" is
-        // all we ever see and there's nothing to diagnose against.
+      const isEmpty =
+        extraction.entities.length === 0 &&
+        extraction.events.length === 0 &&
+        extraction.neutral_facts.length === 0 &&
+        extraction.assertions.length === 0;
+      if (isEmpty) {
+        // Empty is valid per the prompt; log so 0-node runs don't look like
+        // silent failures during the model-catalog transition.
         await emit(env, args, "extract_claims", "started", {
-          diag: "chunk_role_failed",
+          diag: "empty_extraction",
           chunk_index: i,
-          error: roleResult.error ?? "unknown",
         });
+        chunksOk++;
         continue;
       }
+      const stats = await persistTypedExtraction(
+        env,
+        {
+          userId: args.userId,
+          pieceId: args.pieceId,
+          chunkText: chunks[i] ?? "",
+          sourceNodeId,
+        },
+        extraction,
+      );
+      totals.nodes += stats.nodes;
+      totals.edges += stats.edges;
+      totals.quotes += stats.quotes;
+      totals.assertions += stats.assertions;
+      totals.threads += stats.threads;
+      totals.killed_quotes += stats.killed_quotes;
       chunksOk++;
-      const parsed = parseClaims(roleResult.output);
-      // Diagnostic: if the model "succeeded" but parseClaims returned [], the
-      // output shape didn't match the schema we expect. Log a tiny sample so
-      // the operator can see WHY ingest is producing 0 claims.
-      if (parsed.length === 0) {
-        const sample =
-          typeof roleResult.output === "string"
-            ? roleResult.output.slice(0, 240)
-            : JSON.stringify(roleResult.output ?? null).slice(0, 240);
-        await emit(env, args, "extract_claims", "started", {
-          diag: "empty_parse",
-          chunk_index: i,
-          output_kind: typeof roleResult.output,
-          sample,
-        });
-      }
-      for (const c of parsed) {
-        const key = normalizeName(c.claim_text);
-        if (!key || claimSeen.has(key)) continue; // cross-chunk dedup
-        claimSeen.add(key);
-        accepted.push(c);
-      }
     } catch (err) {
-      // a single bad chunk shouldn't sink the document — but log WHY.
+      // a bad chunk shouldn't sink the document — but log WHY.
       try {
         await emit(env, args, "extract_claims", "started", {
           diag: "chunk_threw",
@@ -159,64 +156,34 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
     }
   }
 
-  // Every chunk failed → the extraction step genuinely failed.
+  // Every chunk failed → the extraction step genuinely failed. The
+  // deterministic-failure detection in digest-jobs.ts matches on
+  // "failed on every chunk", so keep that phrase.
   if (chunks.length > 0 && chunksOk === 0) {
     result.failed_step = "extract_claims";
-    result.failed_reason = "claim_extraction failed on every chunk";
+    result.failed_reason = "typed extraction failed on every chunk";
     await emit(env, args, "extract_claims", "failed", { error: result.failed_reason });
     return result;
   }
 
-  // Persist claims + derive/link entities. Embedding failures are tolerated
-  // (vectors are recoverable via the /backfill route); a row-write failure
-  // skips that one claim rather than aborting the document.
-  const entitySeen = new Map<string, string>();
-  let claimsPersisted = 0;
-  let persistErrors = 0;
-  let lastPersistError: string | null = null;
-  for (const claim of accepted) {
-    try {
-      const claimId = await persistClaim(
-        env,
-        { userId: args.userId, pieceId: args.pieceId, sourceId: args.sourceId },
-        claim,
-      );
-      claimsPersisted++;
-      for (const name of claim.entities_mentioned) {
-        const entityId = await upsertEntityByName(env, args.userId, name, entitySeen);
-        if (entityId) {
-          await run(
-            env.DB,
-            "INSERT OR IGNORE INTO claim_entities (claim_id, entity_id, user_id) VALUES (?, ?, ?)",
-            [claimId, entityId, args.userId],
-          );
-        }
-      }
-    } catch (err) {
-      // skip this claim; continue with the rest — but capture the reason so
-      // we don't get another silent 0-claims-persisted mystery.
-      persistErrors++;
-      lastPersistError = (err as Error).message;
-    }
-  }
+  result.nodes_created = totals.nodes;
+  result.edges_created = totals.edges;
+  result.quotes_created = totals.quotes;
+  result.assertions_created = totals.assertions;
+  result.threads_created = totals.threads;
+  result.killed_quotes = totals.killed_quotes;
 
-  if (persistErrors > 0) {
-    await emit(env, args, "extract_claims", "started", {
-      diag: "persist_error",
-      persist_errors: persistErrors,
-      last_error: lastPersistError,
-      accepted: accepted.length,
-      persisted: claimsPersisted,
-    });
-  }
-  result.claims_drafted = claimsPersisted;
-  result.entities_proposed = entitySeen.size;
   await emit(env, args, "extract_claims", "completed", {
-    claims_drafted: claimsPersisted,
+    nodes: totals.nodes,
+    edges: totals.edges,
+    quotes: totals.quotes,
+    assertions: totals.assertions,
+    threads: totals.threads,
+    killed_quotes: totals.killed_quotes,
     chunks: chunks.length,
   });
   await emit(env, args, "recognize_entities", "completed", {
-    entities_proposed: entitySeen.size,
+    nodes: totals.nodes,
   });
   result.steps_completed.push("recognize_entities");
   result.steps_completed.push("extract_claims");
@@ -255,7 +222,6 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
       topK: 5,
       kinds: ["piece"],
     });
-    // Filter out self-match.
     const self = vectorId("piece", args.pieceId);
     const neighbours = hits.filter((h) => h.id !== self);
     const best = neighbours[0];
@@ -267,15 +233,12 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
         score: best.score,
       });
     } else if (best && best.score >= 0.8) {
-      // "New pass of an existing chain" — link to the neighbour's chain_id
-      // (or create a fresh chain anchored on the neighbour) and assign it.
       const neighbourRow = await one<{ chain_id: string | null; id: string }>(
         env.DB,
         "SELECT id, chain_id FROM pieces WHERE id = ? AND user_id = ?",
         [best.metadata.id, args.userId],
       );
       const chainId = neighbourRow?.chain_id ?? `chain-${best.metadata.id.slice(0, 8)}`;
-      // Link the neighbour itself into the chain if it wasn't already.
       if (neighbourRow && neighbourRow.chain_id == null) {
         await run(env.DB, "UPDATE pieces SET chain_id = ? WHERE id = ? AND user_id = ?", [
           chainId,
@@ -283,7 +246,6 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
           args.userId,
         ]);
       }
-      // Assign chain to the new piece.
       await run(env.DB, "UPDATE pieces SET chain_id = ? WHERE id = ? AND user_id = ?", [
         chainId,
         args.pieceId,
@@ -322,7 +284,6 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
   return result;
 }
 
-// Step constraint — TypeScript guards against typos in event_type names.
 type Step = (typeof STEP_ORDER)[number];
 
 async function emit(
@@ -342,309 +303,6 @@ async function emit(
       ...payload,
     },
   });
-}
-
-// ---------------------------------------------------------------------------
-// Claim extraction model + prompt — single config point. The seed sets these
-// for fresh installs; ensureExtractionRoleModel() reconciles the live row.
-//
-// Why Llama 3.3 70B: Cloudflare's own docs list this as a JSON-mode-supported
-// model (and it's what they use to back Browser Rendering's /json endpoint).
-// Llama 4 Scout, by contrast, is NOT on the supported list — Workers AI
-// silently drops response_format on Scout, which is why our extractions were
-// coming back as freeform prose. The previous attempt to use 70B "hung the
-// Worker" but that was before MAX_CHUNKS=3 + ROLE_TIMEOUT_MS=25s + the cron
-// drain landed; a slow call now fails its chunk cleanly and a later tick
-// retries idempotently. (cloudflare-docs#27786, json-mode supported list)
-const CLAIM_EXTRACTION_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-
-// Terse JSON-only prompt with an inline one-shot example. Pattern-matching
-// on the example is far more reliable on Llama-class models than schema
-// descriptions alone. Output of the role MUST be a single JSON object.
-const CLAIM_EXTRACTION_PROMPT = `You extract atomic factual claims from a source document and return them as a strict JSON object. Output ONLY JSON. No prose, no explanation, no markdown fences. Start your reply with { and end with }.
-
-Output schema:
-{
-  "claims": [
-    {
-      "data": string,            // a specific quote, number, or named fact from the source
-      "claim_text": string,      // the atomic assertion (one fact)
-      "warrant": string,         // the rule connecting data to claim
-      "backing": string,         // broader support for the warrant ("" if none)
-      "qualifier": string,       // calibrated language: "high confidence" | "medium confidence" | "likely" | "unverified"
-      "rebuttal": string,        // conditions that would falsify the claim ("" if none)
-      "layer": "factual" | "framing" | "architectural" | "distributive",
-      "entities_mentioned": [string],
-      "source_excerpt": string
-    }
-  ]
-}
-
-Rules:
-- Return 0–10 claims. Zero is valid when the source has no atomic facts worth extracting.
-- Atomic = exactly one fact per claim. "X was appointed and oversaw Y" is two claims.
-- Do NOT extract claims the source merely reports from another source.
-- entities_mentioned is raw surface text only; resolution happens later.
-
-Example. Source: "OSFI Superintendent Peter Routledge said the regulator will require Canadian banks to hold an additional 50bp of capital starting Q1 2026."
-
-{"claims":[{"data":"OSFI will require Canadian banks to hold an additional 50bp of capital starting Q1 2026","claim_text":"OSFI raised the domestic stability buffer by 50bp effective Q1 2026.","warrant":"OSFI sets capital requirements for Canadian banks.","backing":"OSFI's mandate under the Bank Act includes setting prudential capital floors.","qualifier":"high confidence","rebuttal":"Routledge's statement is rescinded before Q1 2026.","layer":"factual","entities_mentioned":["OSFI","Peter Routledge"],"source_excerpt":"OSFI Superintendent Peter Routledge said the regulator will require Canadian banks to hold an additional 50bp of capital starting Q1 2026."}]}
-
-Now do the same for the source below. Reply with the JSON object only.`;
-
-// Bound per-upload work so the request can't be killed mid-flight.
-// 60s per role call is generous enough for Llama 70B's first-token latency
-// (5-15s on Workers AI) + the multi-second structured-output generation.
-// If a chunk exceeds it the cron drain (heartbeat-stale at 2min) re-runs
-// the job idempotently, so erring long here is safe.
-const MAX_CHUNKS = 3;
-const ROLE_TIMEOUT_MS = 60_000;
-
-// Race a promise against a timeout so a hung model call fails the chunk
-// cleanly instead of freezing the whole request until the Worker is killed.
-function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`role call exceeded ${ms}ms`)), ms),
-    ),
-  ]);
-}
-
-// Reconcile the live operator's claim_extraction role to the constants above
-// without needing to re-seed or re-run sync-skills. Idempotent.
-async function ensureExtractionRoleModel(env: Env, userId: string): Promise<void> {
-  try {
-    await run(
-      env.DB,
-      `UPDATE role_definitions
-          SET model = ?, prompt_template = ?
-        WHERE user_id = ? AND name = 'claim_extraction'
-          AND (model <> ? OR prompt_template <> ?)`,
-      [
-        CLAIM_EXTRACTION_MODEL,
-        CLAIM_EXTRACTION_PROMPT,
-        userId,
-        CLAIM_EXTRACTION_MODEL,
-        CLAIM_EXTRACTION_PROMPT,
-      ],
-    );
-  } catch {
-    // non-fatal: extraction still runs on whatever is configured
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Claim parsing — tolerant of every shape the model/runner can hand back:
-// a parsed object, a bare array, a raw JSON string, or null. Malformed claim
-// entries are skipped, not fatal.
-// ---------------------------------------------------------------------------
-const LAYERS = ["factual", "framing", "architectural", "distributive"] as const;
-type Layer = (typeof LAYERS)[number];
-
-export interface ExtractedClaim {
-  data: string;
-  claim_text: string;
-  warrant: string | null;
-  backing: string | null;
-  qualifier: string | null;
-  rebuttal: string | null;
-  layer: Layer;
-  entities_mentioned: string[];
-  source_excerpt: string | undefined;
-}
-
-// Workers-AI Llama frequently ignores the json_schema and returns the JSON
-// wrapped in ```json fences, prefixed with prose, or as the raw text. Recover
-// the JSON value from any of those shapes before parsing.
-function looseJsonParse(s: string): unknown {
-  const trimmed = s.trim();
-  // 1. Strip a single fenced code block if present.
-  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = (fence?.[1] ?? trimmed).trim();
-  try {
-    return JSON.parse(candidate);
-  } catch {
-    // 2. Fall back to the first balanced object/array substring.
-    const objStart = candidate.indexOf("{");
-    const arrStart = candidate.indexOf("[");
-    const starts = [objStart, arrStart].filter((i) => i >= 0);
-    if (starts.length === 0) return null;
-    const start = Math.min(...starts);
-    const open = candidate[start];
-    const close = open === "{" ? "}" : "]";
-    const end = candidate.lastIndexOf(close);
-    if (end <= start) return null;
-    try {
-      return JSON.parse(candidate.slice(start, end + 1));
-    } catch {
-      return null;
-    }
-  }
-}
-
-export function parseClaims(output: unknown): ExtractedClaim[] {
-  let root: unknown = output;
-  if (root == null) return [];
-  if (typeof root === "string") {
-    root = looseJsonParse(root);
-    if (root == null) return [];
-  }
-  let arr: unknown[];
-  if (Array.isArray(root)) {
-    arr = root;
-  } else if (typeof root === "object" && root !== null) {
-    const obj = root as Record<string, unknown>;
-    const found = obj.claims ?? obj.drafted_claims ?? obj.extracted_claims ?? obj.items;
-    arr = Array.isArray(found) ? found : [];
-  } else {
-    return [];
-  }
-  const out: ExtractedClaim[] = [];
-  for (const raw of arr) {
-    const c = coerceClaim(raw);
-    if (c) out.push(c);
-  }
-  return out;
-}
-
-function coerceClaim(raw: unknown): ExtractedClaim | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  const o = raw as Record<string, unknown>;
-  const claim_text = typeof o.claim_text === "string" ? o.claim_text.trim() : "";
-  if (!claim_text) return null;
-  const layer = (LAYERS as readonly string[]).includes(o.layer as string)
-    ? (o.layer as Layer)
-    : "factual";
-  const data = typeof o.data === "string" && o.data.trim() ? o.data : claim_text;
-  const entities_mentioned = Array.isArray(o.entities_mentioned)
-    ? o.entities_mentioned.filter((e): e is string => typeof e === "string")
-    : [];
-  return {
-    data,
-    claim_text,
-    warrant: typeof o.warrant === "string" ? o.warrant : null,
-    backing: typeof o.backing === "string" ? o.backing : null,
-    qualifier: typeof o.qualifier === "string" ? o.qualifier : null,
-    rebuttal: typeof o.rebuttal === "string" ? o.rebuttal : null,
-    layer,
-    entities_mentioned,
-    source_excerpt: typeof o.source_excerpt === "string" ? o.source_excerpt : undefined,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Persistence — claims + claim_versions + Vectorize.
-// ---------------------------------------------------------------------------
-async function persistClaim(
-  env: Env,
-  args: { userId: string; pieceId: string; sourceId: string | undefined },
-  claim: ExtractedClaim,
-): Promise<string> {
-  // 1. claim shell. evidenced_by_source_ids may ONLY hold external Source IDs —
-  //    never a piece id (spec §2.5 citogenesis invariant).
-  const claimId = await insertOne(env.DB, "claims", {
-    user_id: args.userId,
-    layer: claim.layer,
-    verification_status: "unverified",
-    asserted_in_piece_id: args.pieceId,
-    evidenced_by_source_ids: args.sourceId ? [args.sourceId] : [],
-    metadata: { ingested_via: "feed-digest", source_excerpt: claim.source_excerpt ?? null },
-  });
-  // 2. version 1.
-  const versionId = await insertOne(env.DB, "claim_versions", {
-    claim_id: claimId,
-    version_number: 1,
-    data: claim.data,
-    claim_text: claim.claim_text,
-    warrant: claim.warrant,
-    backing: claim.backing,
-    qualifier: claim.qualifier,
-    rebuttal: claim.rebuttal,
-    change_summary: "initial extraction",
-    created_by_user_id: args.userId,
-  });
-  // 3. back-link the current version.
-  await run(env.DB, "UPDATE claims SET current_version_id = ? WHERE id = ? AND user_id = ?", [
-    versionId,
-    claimId,
-    args.userId,
-  ]);
-  // Vectors are intentionally NOT embedded inline — embedding every claim
-  // during ingest multiplies subrequests and slows the request. Claim/entity
-  // vectors are backfilled separately; the rows are the source of truth.
-  return claimId;
-}
-
-// ---------------------------------------------------------------------------
-// Entities — derived from claim.entities_mentioned[]. Dedup in-pipeline (the
-// `seen` map) and against existing rows (case-insensitive canonical_name).
-// ---------------------------------------------------------------------------
-function normalizeName(s: string): string {
-  return s.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
-function entitySlug(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 80) || "entity"
-  );
-}
-
-async function ensureUniqueEntitySlug(db: D1Database, base: string): Promise<string> {
-  let candidate = base;
-  let suffix = 0;
-  while (suffix < 32) {
-    // public_slug is globally UNIQUE (not per-user), so check without user filter.
-    const existing = await one<{ id: string }>(
-      db,
-      "SELECT id FROM entities WHERE public_slug = ?",
-      [candidate],
-    );
-    if (!existing) return candidate;
-    suffix++;
-    candidate = `${base}-${suffix}`;
-  }
-  return `${base}-${crypto.randomUUID().slice(0, 8)}`;
-}
-
-async function upsertEntityByName(
-  env: Env,
-  userId: string,
-  surfaceName: string,
-  seen: Map<string, string>,
-): Promise<string | null> {
-  const norm = normalizeName(surfaceName);
-  if (!norm || norm.length < 2) return null;
-  const cached = seen.get(norm);
-  if (cached) return cached;
-
-  const existing = await one<{ id: string }>(
-    env.DB,
-    "SELECT id FROM entities WHERE user_id = ? AND lower(canonical_name) = ? LIMIT 1",
-    [userId, norm],
-  );
-  if (existing) {
-    seen.set(norm, existing.id);
-    return existing.id;
-  }
-
-  // entity_type is CHECK-constrained and can't be reliably inferred from a
-  // surface string at ingest time — default to 'concept'; P2 re-types.
-  const slug = await ensureUniqueEntitySlug(env.DB, entitySlug(surfaceName));
-  const entityId = await insertOne(env.DB, "entities", {
-    user_id: userId,
-    entity_type: "concept",
-    canonical_name: surfaceName.trim(),
-    public_slug: slug,
-    metadata: { provisional: true, created_via: "feed-digest" },
-  });
-  // Vectors backfilled separately (see persistClaim note) to keep ingest fast.
-  seen.set(norm, entityId);
-  return entityId;
 }
 
 // ---------------------------------------------------------------------------

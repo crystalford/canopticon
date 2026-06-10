@@ -116,8 +116,10 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
   );
 
   try {
-    // Idempotency: nuke any claims this piece accumulated on a previous attempt
-    // so we never double-count. claim_versions cascade-deletes from claims.
+    // Idempotency: typed-graph rows for this piece are purged inside digest()
+    // before persisting (purgeTypedGraphForPiece). The legacy flat-claims
+    // delete is kept so re-extraction also clears any read-only flat rows
+    // still attributed to this piece from before the typed-graph cutover.
     await run(env.DB, "DELETE FROM claims WHERE user_id = ? AND asserted_in_piece_id = ?", [
       job.user_id,
       job.piece_id,
@@ -166,7 +168,7 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
             : "queued"
           : "completed",
         failed ? (result.failed_step ?? "failed") : "completed",
-        result.claims_drafted ?? 0,
+        result.nodes_created ?? 0,
         failed ? reason || "unknown" : null,
         finishedIso,
         finishedIso,

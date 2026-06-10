@@ -40,6 +40,12 @@ export interface LlmCallInput {
   repetition_penalty?: number | undefined;
   /** Request JSON output that matches this schema. Only honoured by Anthropic. */
   response_schema?: Record<string, unknown> | undefined;
+  /** Workers AI Responses-API reasoning dial. Only the gpt-oss family
+   *  honours this; other models silently ignore it. Spec v2.4 Part 16:
+   *  reasoning effort is a dial, NOT a default — bulk extraction runs
+   *  on low/non-reasoning models; high effort is reserved for the
+   *  Surfacing Engine Level 2 tier. */
+  reasoning_effort?: "low" | "medium" | "high" | undefined;
   /** When set, the call ledgers itself under this operation_type and user. */
   ledger?: {
     user_id: string;
