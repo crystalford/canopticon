@@ -13,6 +13,7 @@ import type { Env } from "../../env";
 import { all, insertOne, one, run } from "../../lib/d1";
 import { digest } from "./digestion";
 import { readFullExtractedText } from "./extract";
+import { runSurfacingL1 } from "./surfacing";
 
 // Heartbeat staler than this = a running job whose Worker died mid-run.
 const STALE_MS = 2 * 60 * 1000;
@@ -223,6 +224,16 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
         attempts: job.attempts + 1,
         deterministic,
       });
+    }
+    // Surfacing Engine Level 1 runs after every successful extraction (spec
+    // Part 17: deterministic tier, on every ingest). Best-effort — a surfacing
+    // failure must never mark the completed extraction as failed.
+    if (!failed) {
+      try {
+        await runSurfacingL1(env, job.user_id);
+      } catch {
+        // findings recompute on the next extraction or manual re-surface
+      }
     }
   } catch (err) {
     const message = (err as Error).message ?? "unknown error";
