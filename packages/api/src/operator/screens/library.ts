@@ -200,9 +200,81 @@ const LIB_FILTER_JS = `<script>
 })();
 </script>`;
 
+// Dropzone — moved here from the old Feed surface. Uploads POST to
+// /op/feed/upload (route unchanged) and redirect back to /op/library with a
+// result banner. Documents bank into the Vault; extraction is triggered from
+// the list below.
+function dropzone(): string {
+  return `<form method="POST" action="/op/feed/upload" enctype="multipart/form-data" id="feed-form" style="margin-bottom:16px">
+  <label class="dropzone" for="feed-file" id="dz-label">
+    <div class="dz-ico">
+      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4">
+        <path d="M8 11V3.5M5 6l3-3 3 3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M3 11.5v1.5a1 1 0 001 1h8a1 1 0 001-1v-1.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="dz-1">Drop documents here</div>
+    <div class="dz-2">Markdown · plain text · PDF · .zip of any of these</div>
+    <div class="dz-3">Documents bank into the Vault — stored, hashed, indexed. Then hit <b>Extract</b> on a row below to build the graph.</div>
+    <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,.zip,text/markdown,text/plain,application/pdf,application/zip,application/x-zip-compressed" required style="display:none" />
+  </label>
+  <div class="dz-uploading" id="dz-uploading" hidden>
+    <span class="dz-spinner"></span>
+    <span class="dz-up-text"><b>Uploading…</b> banking in the Vault. You can leave this page.</span>
+  </div>
+</form>
+<script>
+(function () {
+  var form = document.getElementById("feed-form");
+  var input = document.getElementById("feed-file");
+  var label = document.getElementById("dz-label");
+  var busy = document.getElementById("dz-uploading");
+  if (!form || !input || !label || !busy) return;
+  input.addEventListener("change", function () {
+    if (!input.files || input.files.length === 0) return;
+    label.setAttribute("hidden", "");
+    busy.removeAttribute("hidden");
+    if (form.dataset.submitting === "1") return;
+    form.dataset.submitting = "1";
+    form.submit();
+  });
+})();
+</script>`;
+}
+
+// Banner for the upload result query params that the /feed/upload route
+// redirects back with (piece / dedup / ingested / error / cleared).
+function uploadBanner(args: LibraryArgs): string {
+  if (args.error) {
+    return `<div class="flag" style="margin-bottom:14px"><span class="fdot"></span><span class="ftext"><b>Upload failed:</b> ${escapeHtml(args.error)}</span></div>`;
+  }
+  if (args.dedup && args.piece) {
+    return `<div class="okflag" style="margin-bottom:14px"><span class="ftext"><b>Already in the Vault.</b> That file has the same SHA-256 as an existing document — pointing at that one instead of duplicating it.</span></div>`;
+  }
+  if (args.piece) {
+    return `<div class="okflag" style="margin-bottom:14px"><span class="ftext"><b>Banked.</b> Document stored in the Vault — hit <b>Extract</b> on its row to build the graph.</span></div>`;
+  }
+  if (args.ingested && /^\d+$/.test(args.ingested)) {
+    const dupes =
+      args.dupes && /^\d+$/.test(args.dupes) ? ` · ${args.dupes} duplicate(s) skipped` : "";
+    return `<div class="okflag" style="margin-bottom:14px"><span class="ftext"><b>Banked ${escapeHtml(args.ingested)} document(s).</b>${dupes} Extract them below.</span></div>`;
+  }
+  return "";
+}
+
+interface LibraryArgs {
+  extracting?: string | undefined;
+  piece?: string | undefined;
+  dedup?: string | undefined;
+  ingested?: string | undefined;
+  dupes?: string | undefined;
+  error?: string | undefined;
+  cleared?: string | undefined;
+}
+
 export async function renderLibraryScreen(
   env: { DB: D1Database },
-  args: { extracting?: string | undefined } = {},
+  args: LibraryArgs = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const stats = userId
@@ -276,7 +348,7 @@ export async function renderLibraryScreen(
     <button type="submit" name="mode" value="all" class="btn btn-danger-ghost" onclick="return confirm('Wipe the ENTIRE corpus — every document, claim, entity, source, pattern, and orchestrator event for this operator. The studio skeleton, briefs, and chat history are kept. This cannot be undone.');">Delete all documents</button>
   </div>
 </form>`
-    : `<div class="lib-list"><div class="lib-empty">No documents in the archive yet. Drop research reports in Feed and they appear here as the digestion pipeline catalogues them.</div></div>`;
+    : `<div class="lib-list"><div class="lib-empty">No documents yet. Drop research reports in the box above — they bank into the Vault, then you extract them into the graph.</div></div>`;
 
   const unextractedCount = docs.filter(
     (d) =>
@@ -293,7 +365,7 @@ export async function renderLibraryScreen(
   </button>
 </form>`
       : "";
-  const topbarActions = `${extractAllForm}<a href="/op" class="btn"><span style="display:inline-flex;align-items:center;gap:6px">${icon("upload")} Add document</span></a>`;
+  const topbarActions = extractAllForm;
 
   // Per-row extract forms sit outside the bulk-delete form (HTML forms can't
   // nest). The row buttons reference them by id.
@@ -309,9 +381,9 @@ export async function renderLibraryScreen(
 
   return renderOpPage({
     title: "Library",
-    sub: "the full document archive · drop in Feed, extract here",
+    sub: "drop documents · the full archive · extract into the graph",
     topbarActions,
-    body: `${extractingBanner}${statsBar}${search}${filterChips}${list}${extractForms}${LIB_FILTER_JS}${LIB_BULK_JS}`,
+    body: `${uploadBanner(args)}${extractingBanner}${dropzone()}${statsBar}${search}${filterChips}${list}${extractForms}${LIB_FILTER_JS}${LIB_BULK_JS}`,
     activeNav: "/op/library",
     width: "wide",
   });
