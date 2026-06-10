@@ -34,6 +34,7 @@ import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
 import { opHtml } from "./layout";
+import { renderDesignMock } from "./screens/design-mock";
 import { renderLibraryScreen } from "./screens/library";
 import { renderLibraryDocScreen } from "./screens/library-doc";
 import { renderOutputsScreen } from "./screens/outputs";
@@ -429,6 +430,10 @@ app.post("/synthesis/thread/:id/:action", async (c) => {
   );
   return c.redirect("/op/synthesis");
 });
+
+// DESIGN PROTOTYPE — unlinked, throwaway. The artifact for the app reframe;
+// see screens/design-mock.ts. Remove when the real redesign lands.
+app.get("/design", (c) => c.html(renderDesignMock()));
 
 app.get("/library", async (c) => {
   return opHtml(
