@@ -13,6 +13,7 @@
 
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import { enqueueDigest, ensureJobsTable, runDigestJob } from "../graph/lib/digest-jobs.ts";
 import { all, one, run } from "../lib/d1.ts";
 import { type Role, callRole, modelForRole } from "../llm/router.ts";
 
@@ -265,6 +266,45 @@ app.get("/reset-graph", async (c) => {
     }
   }
   return c.json({ ok: true, wiped });
+});
+
+// GET /v1/admin/reextract?confirm=1
+//
+// Re-run typed extraction for every piece the operator has. Clears any
+// existing digest jobs for each piece (so a fresh resumable run starts at
+// chunk 0) and kicks the job inline. Probe-reachable so extraction can be
+// triggered + verified without UI clicks. Returns the jobs it started.
+app.get("/reextract", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const userId = c.get("user_id");
+  await ensureJobsTable(c.env);
+  const pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
+    c.env.DB,
+    `SELECT id, slug, title, json_extract(metadata, '$.source_id') AS source_id
+       FROM pieces WHERE user_id = ? ORDER BY created_at`,
+    [userId],
+  );
+  const started: Array<{ piece: string; job_id: string }> = [];
+  for (const p of pieces) {
+    if (!p.source_id) continue;
+    // Clear prior jobs for this piece so enqueue starts a fresh chunk-0 run.
+    await run(c.env.DB, "DELETE FROM digest_jobs WHERE user_id = ? AND piece_id = ?", [
+      userId,
+      p.id,
+    ]);
+    const jobId = await enqueueDigest(c.env, {
+      userId,
+      pieceId: p.id,
+      slug: p.slug,
+      title: p.title,
+      sourceId: p.source_id,
+    });
+    c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
+    started.push({ piece: p.slug, job_id: jobId });
+  }
+  return c.json({ ok: true, pieces: pieces.length, started });
 });
 
 // GET /v1/admin/health — model + binding probe.

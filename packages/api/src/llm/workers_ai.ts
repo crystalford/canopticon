@@ -21,8 +21,10 @@ import type {
 } from "./types";
 
 interface WorkersAiChatResponse {
-  // Llama-style normalized shape that Workers AI returns for most catalog models.
-  response?: string;
+  // Llama-style normalized shape that Workers AI returns for most catalog
+  // models. `response` is usually a string, but when the model emits JSON some
+  // models (e.g. Llama 4 Scout) return it already PARSED as an object.
+  response?: string | Record<string, unknown>;
   tool_calls?: Array<{
     id?: string;
     name: string;
@@ -101,11 +103,20 @@ export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCal
 
   // Llama-style returns {response, tool_calls}. Partner models (Kimi, DeepSeek)
   // return OpenAI shape {choices: [{message: {content, tool_calls}}]}.
+  // `response` may be a STRING or — when the model emits JSON — an already
+  // PARSED OBJECT (Llama 4 Scout does this). Capture the object so callers
+  // that want structured output get it directly instead of an empty string.
   const openAiMsg = res.choices?.[0]?.message;
-  const rawText =
-    typeof res.response === "string" && res.response.length > 0
-      ? res.response
-      : (openAiMsg?.content ?? "");
+  let objectResponse: Record<string, unknown> | null = null;
+  let rawText: string;
+  if (typeof res.response === "string" && res.response.length > 0) {
+    rawText = res.response;
+  } else if (res.response && typeof res.response === "object") {
+    objectResponse = res.response as Record<string, unknown>;
+    rawText = JSON.stringify(res.response);
+  } else {
+    rawText = openAiMsg?.content ?? "";
+  }
   const text = stripFiller(rawText);
 
   const rawToolCalls = res.tool_calls ?? [];
@@ -155,8 +166,10 @@ export async function callWorkersAi(ai: Ai, input: LlmCallInput): Promise<LlmCal
     output_tokens: res.usage?.completion_tokens ?? res.usage?.output_tokens ?? 0,
   };
 
-  let structured: unknown = null;
-  if (input.response_schema && finalText) {
+  // Structured output: an object-valued `response` IS the structured result.
+  // Otherwise, parse the text when the caller asked for a schema.
+  let structured: unknown = objectResponse;
+  if (structured == null && input.response_schema && finalText) {
     try {
       structured = JSON.parse(finalText);
     } catch {
