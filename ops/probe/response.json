@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-06-10T22:00:45Z",
-  "run_id": "27309150611",
+  "requested_at": "2026-06-10T22:08:49Z",
+  "run_id": "27309541662",
   "method": "GET",
-  "path": "/v1/admin/debug-model?model=@cf/meta/llama-4-scout-17b-16e-instruct",
+  "path": "/v1/admin/reextract?confirm=1",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"model\": \"@cf/meta/llama-4-scout-17b-16e-instruct\",\n  \"latency_ms\": 824,\n  \"raw_type\": \"object\",\n  \"raw_keys\": [\n    \"response\",\n    \"tool_calls\",\n    \"usage\"\n  ],\n  \"raw\": {\n    \"response\": {\n      \"entities\": [\n        {\n          \"name\": \"OSFI\"\n        },\n        {\n          \"name\": \"4.0%\"\n        },\n        {\n          \"name\": \"2026\"\n        }\n      ]\n    },\n    \"tool_calls\": [],\n    \"usage\": {\n      \"prompt_tokens\": 64,\n      \"completion_tokens\": 22,\n      \"total_tokens\": 86,\n      \"prompt_tokens_details\": {\n        \"cached_tokens\": 0\n      }\n    }\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"pieces\": 1,\n  \"started\": [\n    {\n      \"piece\": \"compass-artifact-wf-facec16e-8872-4a9f-a905-feabce4b8aa9-text-markdown\",\n      \"job_id\": \"be911307-9d4f-45e2-912a-d421266afd10\"\n    }\n  ]\n}"
 }
