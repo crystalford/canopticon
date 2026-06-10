@@ -39,12 +39,24 @@ export async function ensureJobsTable(env: Env): Promise<void> {
         step TEXT NOT NULL DEFAULT 'queued',
         claims_count INTEGER NOT NULL DEFAULT 0,
         attempts INTEGER NOT NULL DEFAULT 0,
+        chunks_done INTEGER NOT NULL DEFAULT 0,
+        chunk_count INTEGER NOT NULL DEFAULT 0,
         last_error TEXT,
         heartbeat_at TEXT,
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
       )`,
     );
+    // Older databases created before migration 0028 won't have the resumable
+    // columns; add them best-effort so the runtime guard matches the schema.
+    await run(
+      env.DB,
+      "ALTER TABLE digest_jobs ADD COLUMN chunks_done INTEGER NOT NULL DEFAULT 0",
+    ).catch(() => {});
+    await run(
+      env.DB,
+      "ALTER TABLE digest_jobs ADD COLUMN chunk_count INTEGER NOT NULL DEFAULT 0",
+    ).catch(() => {});
     await run(
       env.DB,
       "CREATE INDEX IF NOT EXISTS digest_jobs_user_status_idx ON digest_jobs (user_id, status, created_at)",
@@ -97,37 +109,41 @@ interface JobRow {
   source_id: string | null;
   status: string;
   attempts: number;
+  chunks_done: number;
 }
 
-// Run one job end-to-end. Idempotent: clears any prior claims for the piece so
-// a retry never double-inserts. Updates the job row's heartbeat/status/step
-// throughout so the Feed UI shows real progress.
+// Run one job for one tick. Resumable: extraction processes chunks starting
+// from chunks_done and pauses at a soft time budget, checkpointing progress so
+// a slow document finishes over multiple cron ticks with no lost work.
+// `attempts` counts only FAILED ticks — a tick that makes forward progress
+// resets it, so a long-but-healthy document never exhausts the retry budget.
 export async function runDigestJob(env: Env, jobId: string): Promise<void> {
   const job = await one<JobRow>(
     env.DB,
-    "SELECT id, user_id, piece_id, slug, title, source_id, status, attempts FROM digest_jobs WHERE id = ?",
+    "SELECT id, user_id, piece_id, slug, title, source_id, status, attempts, chunks_done FROM digest_jobs WHERE id = ?",
     [jobId],
   );
   if (!job) return;
   if (job.status === "completed") return;
 
-  // Claim the job.
+  // Claim the job (no attempt increment here — that only counts failures).
   const nowIso = new Date().toISOString();
   await run(
     env.DB,
-    "UPDATE digest_jobs SET status='running', step='preparing', heartbeat_at=?, attempts=attempts+1, updated_at=? WHERE id=?",
+    "UPDATE digest_jobs SET status='running', step='digesting', heartbeat_at=?, updated_at=? WHERE id=?",
     [nowIso, nowIso, jobId],
   );
 
   try {
-    // Idempotency: typed-graph rows for this piece are purged inside digest()
-    // before persisting (purgeTypedGraphForPiece). The legacy flat-claims
-    // delete is kept so re-extraction also clears any read-only flat rows
-    // still attributed to this piece from before the typed-graph cutover.
-    await run(env.DB, "DELETE FROM claims WHERE user_id = ? AND asserted_in_piece_id = ?", [
-      job.user_id,
-      job.piece_id,
-    ]);
+    // First tick only: clear legacy flat claims for the piece. Typed-graph
+    // rows are purged inside digest() on chunk 0. On a resume tick we must NOT
+    // re-purge — that would wipe the chunks we already persisted.
+    if (job.chunks_done === 0) {
+      await run(env.DB, "DELETE FROM claims WHERE user_id = ? AND asserted_in_piece_id = ?", [
+        job.user_id,
+        job.piece_id,
+      ]);
+    }
 
     // Pull the full text (inline head + R2 overflow) for digestion.
     if (!job.source_id) {
@@ -136,49 +152,71 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
     const full = await readFullExtractedText(env, job.source_id, job.user_id);
     if (!full.text) throw new Error("source has no extracted text");
 
-    await run(
-      env.DB,
-      "UPDATE digest_jobs SET step='digesting', heartbeat_at=?, updated_at=? WHERE id=?",
-      [new Date().toISOString(), new Date().toISOString(), jobId],
+    const result = await digest(
+      env,
+      {
+        userId: job.user_id,
+        pieceId: job.piece_id,
+        pieceSlug: job.slug,
+        title: full.title || job.title,
+        body_md: full.text,
+        sourceId: job.source_id,
+      },
+      {
+        startChunk: job.chunks_done,
+        // Checkpoint chunks_done + node count + heartbeat after every chunk so
+        // a mid-tick crash resumes cleanly and the cron never sees us as stale
+        // while we're actually working.
+        onProgress: async (chunksDone, chunkCount, nodeCount) => {
+          const ts = new Date().toISOString();
+          await run(
+            env.DB,
+            `UPDATE digest_jobs
+                SET chunks_done=?, chunk_count=?, claims_count=?, step=?, heartbeat_at=?, updated_at=?
+              WHERE id=?`,
+            [chunksDone, chunkCount, nodeCount, `chunk ${chunksDone}/${chunkCount}`, ts, ts, jobId],
+          );
+        },
+      },
     );
 
-    const result = await digest(env, {
-      userId: job.user_id,
-      pieceId: job.piece_id,
-      pieceSlug: job.slug,
-      title: full.title || job.title,
-      body_md: full.text,
-      sourceId: job.source_id,
-    });
+    const finishedIso = new Date().toISOString();
+
+    // Paused with more chunks remaining → re-queue for the next tick. This is
+    // progress, not a failure: reset attempts so a long doc can't dead-letter.
+    if (result.more_chunks) {
+      await run(
+        env.DB,
+        `UPDATE digest_jobs
+            SET status='queued', step=?, attempts=0, heartbeat_at=?, updated_at=?
+          WHERE id=?`,
+        [`chunk ${result.chunks_done}/${result.chunk_count}`, finishedIso, finishedIso, jobId],
+      );
+      return;
+    }
 
     const failed = !!result.failed_step;
-    // Some failures are deterministic — retrying won't help (e.g. the model
-    // returns prose instead of JSON every time, so every chunk fails to
-    // parse). Short-circuit those to 'failed' instead of burning the retry
-    // budget on copies of the same failure.
     const reason = result.failed_reason ?? "";
+    // Deterministic failures won't recover on retry — short-circuit to failed.
     const deterministic =
       reason.includes("failed on every chunk") || reason.includes("no extracted text");
     const willGiveUp = failed && (deterministic || job.attempts + 1 >= MAX_ATTEMPTS);
-    const finishedIso = new Date().toISOString();
     await run(
       env.DB,
       `UPDATE digest_jobs
-          SET status=?, step=?, claims_count=?, last_error=?, heartbeat_at=?, updated_at=?
+          SET status=?, step=?, claims_count=?, attempts=?, last_error=?, heartbeat_at=?, updated_at=?
         WHERE id=?`,
       [
         failed ? (willGiveUp ? "failed" : "queued") : "completed",
         failed ? (result.failed_step ?? "failed") : "completed",
         result.nodes_created ?? 0,
+        failed ? job.attempts + 1 : job.attempts,
         failed ? reason || "unknown" : null,
         finishedIso,
         finishedIso,
         jobId,
       ],
     );
-    // Dead-letter breadcrumb: emit a loud orchestrator_event when retries are
-    // exhausted, so the Feed / runtime probe show WHY this piece stalled
-    // without having to inspect digest_jobs.last_error directly.
     if (willGiveUp) {
       await emitJobEvent(env, job, "feed.digest.dead_letter", {
         reason: reason || "unknown",
@@ -202,11 +240,12 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
     await run(
       env.DB,
       `UPDATE digest_jobs
-          SET status=?, step=?, last_error=?, heartbeat_at=?, updated_at=?
+          SET status=?, step=?, attempts=?, last_error=?, heartbeat_at=?, updated_at=?
         WHERE id=?`,
       [
         giveUp ? "failed" : "queued",
         giveUp ? "failed" : "queued",
+        attempts,
         message,
         nowIso2,
         nowIso2,

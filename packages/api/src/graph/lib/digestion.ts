@@ -30,7 +30,6 @@
 import type { Env } from "../../env";
 import { insertOne, one, run } from "../../lib/d1";
 import {
-  TYPED_EXTRACTION_LIMITS,
   ensureSourceNode,
   extractTypedChunk,
   persistTypedExtraction,
@@ -62,6 +61,24 @@ export interface DigestResult {
   killed_quotes?: number;
   chain_id?: string;
   chain_action?: "extends" | "new" | "duplicate" | "related" | null;
+  /** Resumable-extraction progress. `more_chunks` true means the run paused
+   *  with chunks remaining and should be resumed at `chunks_done`. */
+  chunks_done?: number;
+  chunk_count?: number;
+  more_chunks?: boolean;
+}
+
+export interface DigestOptions {
+  /** Resume extraction from this chunk index (0 = fresh run). */
+  startChunk?: number;
+  /** Soft wall-clock budget for this invocation. After finishing a chunk, if
+   *  elapsed exceeds this AND chunks remain, the run pauses and returns
+   *  more_chunks=true so the caller can re-queue. Kept under the Worker
+   *  wall-clock so we always checkpoint before being killed. */
+  softBudgetMs?: number;
+  /** Called after each chunk persists, with the cumulative node count for the
+   *  piece. Lets the job runner checkpoint chunks_done + claims_count. */
+  onProgress?: (chunksDone: number, chunkCount: number, nodeCount: number) => Promise<void>;
 }
 
 const STEP_ORDER = [
@@ -72,36 +89,60 @@ const STEP_ORDER = [
   "detect_chains",
 ] as const;
 
-const MAX_CHUNKS = TYPED_EXTRACTION_LIMITS.MAX_CHUNKS;
+// Smaller chunks than the old 24KB: a full typed-graph JSON for 24KB of text
+// is thousands of output tokens and blows the per-call model timeout. 6KB
+// keeps each extraction call comfortably inside the 25s ceiling. MAX_CHUNKS is
+// generous because extraction is now resumable (one or two chunks per tick),
+// so a long document finishes over multiple cron ticks instead of truncating.
+const CHUNK_CHARS = 6000;
+const MAX_CHUNKS = 16;
+const DEFAULT_SOFT_BUDGET_MS = 20_000;
 
-export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> {
+/** Count typed-graph nodes for a piece (cumulative across chunks/ticks). */
+async function countPieceNodes(env: Env, userId: string, pieceId: string): Promise<number> {
+  const row = await one<{ n: number }>(
+    env.DB,
+    "SELECT COUNT(*) AS n FROM nodes WHERE user_id = ? AND piece_id = ?",
+    [userId, pieceId],
+  );
+  return row?.n ?? 0;
+}
+
+export async function digest(
+  env: Env,
+  args: DigestArgs,
+  opts: DigestOptions = {},
+): Promise<DigestResult> {
   const result: DigestResult = { steps_completed: [], chain_action: null };
+  const startChunk = opts.startChunk ?? 0;
+  const softBudget = opts.softBudgetMs ?? DEFAULT_SOFT_BUDGET_MS;
+  const t0 = Date.now();
 
-  // Step 1: extract_text — already done before this lib is called.
-  await emit(env, args, "extract_text", "completed", {
-    chars: args.body_md.length,
-    title: args.title,
-  });
+  const chunks = chunkText(args.body_md, { maxChars: CHUNK_CHARS }).slice(0, MAX_CHUNKS);
+  result.chunk_count = chunks.length;
+
+  // First tick only: log extract_text, open the step, and purge prior graph.
+  if (startChunk === 0) {
+    await emit(env, args, "extract_text", "completed", {
+      chars: args.body_md.length,
+      title: args.title,
+      chunks: chunks.length,
+    });
+    await emit(env, args, "recognize_entities", "started", {});
+    await emit(env, args, "extract_claims", "started", {});
+    // Idempotency (spec Part 19): purge prior typed-graph rows for this piece
+    // BEFORE persisting the first chunk, so re-extracts supersede.
+    await purgeTypedGraphForPiece(env, args.userId, args.pieceId);
+  }
   result.steps_completed.push("extract_text");
 
-  // Steps 2 + 3: typed-graph extraction (chunked). Entity recognition and
-  // claim extraction happen together in one pass; reported as two events
-  // for backwards compatibility with the existing Feed activity log.
-  await emit(env, args, "recognize_entities", "started", {});
-  await emit(env, args, "extract_claims", "started", {});
-
-  // Idempotency (spec Part 19): purge prior typed-graph rows for this piece
-  // BEFORE persisting, so re-extracts supersede instead of double-counting.
-  await purgeTypedGraphForPiece(env, args.userId, args.pieceId);
-  // Source node — one per piece, reused across chunks. The Quote rows
-  // produced inside persistTypedExtraction reference this id.
+  // Source node — one per piece, reused across chunks/ticks (idempotent).
   const sourceNodeId = await ensureSourceNode(env, args.userId, args.pieceId, args.title);
 
-  const chunks = chunkText(args.body_md).slice(0, MAX_CHUNKS);
   const totals = { nodes: 0, edges: 0, quotes: 0, assertions: 0, threads: 0, killed_quotes: 0 };
   let chunksOk = 0;
-
-  for (let i = 0; i < chunks.length; i++) {
+  let i = startChunk;
+  for (; i < chunks.length; i++) {
     try {
       const extraction = await extractTypedChunk(
         env,
@@ -115,33 +156,35 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
         extraction.events.length === 0 &&
         extraction.neutral_facts.length === 0 &&
         extraction.assertions.length === 0;
-      if (isEmpty) {
-        // Empty is valid per the prompt; log so 0-node runs don't look like
-        // silent failures during the model-catalog transition.
+      if (!isEmpty) {
+        const stats = await persistTypedExtraction(
+          env,
+          {
+            userId: args.userId,
+            pieceId: args.pieceId,
+            chunkText: chunks[i] ?? "",
+            sourceNodeId,
+          },
+          extraction,
+        );
+        totals.nodes += stats.nodes;
+        totals.edges += stats.edges;
+        totals.quotes += stats.quotes;
+        totals.assertions += stats.assertions;
+        totals.threads += stats.threads;
+        totals.killed_quotes += stats.killed_quotes;
+      } else {
         await emit(env, args, "extract_claims", "started", {
           diag: "empty_extraction",
           chunk_index: i,
         });
-        chunksOk++;
-        continue;
       }
-      const stats = await persistTypedExtraction(
-        env,
-        {
-          userId: args.userId,
-          pieceId: args.pieceId,
-          chunkText: chunks[i] ?? "",
-          sourceNodeId,
-        },
-        extraction,
-      );
-      totals.nodes += stats.nodes;
-      totals.edges += stats.edges;
-      totals.quotes += stats.quotes;
-      totals.assertions += stats.assertions;
-      totals.threads += stats.threads;
-      totals.killed_quotes += stats.killed_quotes;
       chunksOk++;
+      // Checkpoint after every chunk so a later crash never re-does work.
+      if (opts.onProgress) {
+        const nodeCount = await countPieceNodes(env, args.userId, args.pieceId);
+        await opts.onProgress(i + 1, chunks.length, nodeCount);
+      }
     } catch (err) {
       // a bad chunk shouldn't sink the document — but log WHY.
       try {
@@ -153,13 +196,29 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
       } catch {
         // never let logging fail the chunk loop
       }
+      // Still advance the checkpoint so a chronically-slow chunk doesn't trap
+      // the whole document — we skip it and move on next tick.
+      if (opts.onProgress) {
+        const nodeCount = await countPieceNodes(env, args.userId, args.pieceId);
+        await opts.onProgress(i + 1, chunks.length, nodeCount);
+      }
+    }
+
+    // Soft budget: if more chunks remain and we're out of time this tick,
+    // pause and let the caller re-queue. Work so far is already checkpointed.
+    if (i + 1 < chunks.length && Date.now() - t0 > softBudget) {
+      result.nodes_created = totals.nodes;
+      result.more_chunks = true;
+      result.chunks_done = i + 1;
+      return result;
     }
   }
 
-  // Every chunk failed → the extraction step genuinely failed. The
-  // deterministic-failure detection in digest-jobs.ts matches on
-  // "failed on every chunk", so keep that phrase.
-  if (chunks.length > 0 && chunksOk === 0) {
+  // All chunks processed. If the FIRST tick processed zero chunks successfully
+  // and produced nothing, treat it as a genuine extraction failure (keep the
+  // "failed on every chunk" phrase the job runner matches on).
+  const cumulativeNodes = await countPieceNodes(env, args.userId, args.pieceId);
+  if (startChunk === 0 && chunksOk === 0 && cumulativeNodes === 0 && chunks.length > 0) {
     result.failed_step = "extract_claims";
     result.failed_reason = "typed extraction failed on every chunk";
     await emit(env, args, "extract_claims", "failed", { error: result.failed_reason });
@@ -172,18 +231,16 @@ export async function digest(env: Env, args: DigestArgs): Promise<DigestResult> 
   result.assertions_created = totals.assertions;
   result.threads_created = totals.threads;
   result.killed_quotes = totals.killed_quotes;
+  result.chunks_done = chunks.length;
+  result.more_chunks = false;
 
   await emit(env, args, "extract_claims", "completed", {
-    nodes: totals.nodes,
-    edges: totals.edges,
-    quotes: totals.quotes,
-    assertions: totals.assertions,
-    threads: totals.threads,
-    killed_quotes: totals.killed_quotes,
+    nodes_this_tick: totals.nodes,
+    nodes_total: cumulativeNodes,
     chunks: chunks.length,
   });
   await emit(env, args, "recognize_entities", "completed", {
-    nodes: totals.nodes,
+    nodes: cumulativeNodes,
   });
   result.steps_completed.push("recognize_entities");
   result.steps_completed.push("extract_claims");
