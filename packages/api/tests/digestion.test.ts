@@ -1,6 +1,61 @@
 import { describe, expect, it } from "vitest";
-import { parseTypedExtraction } from "../src/graph/lib/digestion-typed.ts";
+import {
+  type TypedExtraction,
+  parseTypedExtraction,
+  persistTypedExtraction,
+} from "../src/graph/lib/digestion-typed.ts";
 import { chunkText } from "../src/graph/lib/digestion.ts";
+
+// Capturing D1 stub: records every prepared INSERT and every batch() call so
+// we can assert the persister batches its writes (the D1-timeout fix) instead
+// of issuing one awaited roundtrip per row.
+function makeBatchCaptureDb(): {
+  db: D1Database;
+  batches: string[][];
+  runCalls: number;
+  totalStatements: number;
+} {
+  const batches: string[][] = [];
+  let runCalls = 0;
+  const tableOf = (sql: string) => sql.match(/^INSERT INTO (\w+)/)?.[1] ?? sql.slice(0, 12);
+  const db = {
+    prepare(sql: string) {
+      const stmt = {
+        __sql: tableOf(sql.replace(/\s+/g, " ").trim()),
+        bind() {
+          return stmt;
+        },
+        async first<T>() {
+          return null as T | null;
+        },
+        async all<T>() {
+          return { results: [] as T[] };
+        },
+        async run() {
+          runCalls++;
+          return { results: [], meta: { changes: 1 } };
+        },
+      };
+      return stmt as unknown as D1PreparedStatement;
+    },
+    async batch(stmts: D1PreparedStatement[]) {
+      batches.push(stmts.map((s) => (s as unknown as { __sql: string }).__sql));
+      return stmts.map(() => ({ results: [], meta: { changes: 1 } }));
+    },
+    dump: async () => new ArrayBuffer(0),
+    exec: async () => ({ count: 0, duration: 0 }),
+  } as unknown as D1Database;
+  return {
+    db,
+    batches,
+    get runCalls() {
+      return runCalls;
+    },
+    get totalStatements() {
+      return batches.reduce((n, b) => n + b.length, 0);
+    },
+  };
+}
 
 describe("parseTypedExtraction — shape tolerance", () => {
   it("reads the canonical typed-graph object shape", () => {
@@ -86,6 +141,101 @@ describe("parseTypedExtraction — shape tolerance", () => {
     expect(out.events).toEqual([]);
     expect(out.relationships).toEqual([]);
     expect(out.open_threads).toEqual([]);
+  });
+});
+
+describe("persistTypedExtraction — batched writes", () => {
+  const chunkText = "OSFI raised the buffer. Critics say it is too high. The change took effect.";
+  const extraction: TypedExtraction = {
+    entities: [
+      { lid: "e1", label: "OSFI", type: "institution" },
+      { lid: "e2", label: "Critics", type: "concept" },
+    ],
+    events: [
+      {
+        lid: "ev1",
+        label: "buffer raise",
+        date: "2026-01",
+        source_quote: "The change took effect.",
+      },
+    ],
+    neutral_facts: [
+      { lid: "f1", text: "buffer was raised", source_quote: "OSFI raised the buffer." },
+    ],
+    assertions: [
+      {
+        lid: "a1",
+        text: "the buffer is too high",
+        stance: "critical",
+        asserted_by_lid: "e2",
+        source_quote: "Critics say it is too high.",
+      },
+    ],
+    relationships: [{ src_lid: "e1", dst_lid: "e2", type: "other" }],
+    evidential: [{ src_lid: "f1", dst_lid: "a1", type: "supports" }],
+    temporal: [{ src_lid: "ev1", dst_lid: "ev1", type: "before" }],
+    open_threads: [{ question: "How high is too high?", related_lids: ["a1"] }],
+  };
+
+  it("routes every write through batch() — no per-row run() roundtrips", async () => {
+    const cap = makeBatchCaptureDb();
+    const env = { DB: cap.db } as unknown as Parameters<typeof persistTypedExtraction>[0];
+    const stats = await persistTypedExtraction(
+      env,
+      { userId: "u1", pieceId: "p1", chunkText, sourceNodeId: "src1" },
+      extraction,
+    );
+
+    expect(cap.batches.length).toBeGreaterThan(0);
+    expect(cap.runCalls).toBe(0); // nothing persisted one-at-a-time
+    // 4 nodes (2 entity + 1 event + 1 fact) + 1 assertion node = 5 nodes
+    expect(stats.nodes).toBe(5);
+    expect(stats.assertions).toBe(1);
+    expect(stats.threads).toBe(1);
+    // edges: relationship + evidential + temporal + attribution(a1→e2) = 4
+    expect(stats.edges).toBe(4);
+    // all 3 source_quotes are literal substrings of chunkText → 3 quotes, 0 killed
+    expect(stats.quotes).toBe(3);
+    expect(stats.killed_quotes).toBe(0);
+  });
+
+  it("drops quotes that aren't literal substrings (firewall) without a row", async () => {
+    const cap = makeBatchCaptureDb();
+    const env = { DB: cap.db } as unknown as Parameters<typeof persistTypedExtraction>[0];
+    const stats = await persistTypedExtraction(
+      env,
+      { userId: "u1", pieceId: "p1", chunkText: "totally unrelated text", sourceNodeId: "src1" },
+      {
+        ...extraction,
+        events: [],
+        relationships: [],
+        evidential: [],
+        temporal: [],
+        open_threads: [],
+        assertions: [],
+        neutral_facts: [{ lid: "f1", text: "x", source_quote: "not present in chunk" }],
+        entities: [],
+      },
+    );
+    expect(stats.quotes).toBe(0);
+    expect(stats.killed_quotes).toBe(1);
+    // the fact node still persists even though its quote was killed
+    expect(stats.nodes).toBe(1);
+  });
+
+  it("queues node statements before the edges that reference them", async () => {
+    const cap = makeBatchCaptureDb();
+    const env = { DB: cap.db } as unknown as Parameters<typeof persistTypedExtraction>[0];
+    await persistTypedExtraction(
+      env,
+      { userId: "u1", pieceId: "p1", chunkText, sourceNodeId: "src1" },
+      extraction,
+    );
+    const flat = cap.batches.flat();
+    const firstEdge = flat.indexOf("edges");
+    const lastNode = flat.lastIndexOf("nodes");
+    // every node insert precedes the first edge insert (FK-safe ordering)
+    expect(firstEdge).toBeGreaterThan(lastNode);
   });
 });
 
