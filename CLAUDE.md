@@ -134,4 +134,24 @@ thesis pulling the facts into order.
 Bindings: DB (D1) · FILES (R2) · EMBEDDINGS (Vectorize) · AI (Workers AI)
 Secrets:  ANTHROPIC_API_KEY (optional) · CRON_SECRET
           CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (admin probe)
+          SESSION_SECRET (operator session cookie — set this when the
+                          one-site permission model lands)
 ```
+
+## Operator setup post-merge — do these once after the one-site PR deploys
+
+1. **Set the session secret.** Any long random string; the Worker uses it
+   to sign the operator's session cookie.
+   ```
+   wrangler secret put SESSION_SECRET
+   ```
+2. **Configure Cloudflare Access on `/auth/*`.** Add `/auth/*` to the
+   same Access application that already gates `/op/*`. The Worker reads
+   the JWT Access adds to the request to mint the session cookie.
+3. **Visit `https://canopticon.com/auth/login` once.** Access challenges,
+   the Worker drops the `canopticon_op` cookie, every public URL
+   recognises you from then on. Logout: `/auth/logout`.
+
+Until those land, the public site continues to serve anonymous viewers
+correctly (no regression); the operator just sees the public view of
+every page.

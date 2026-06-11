@@ -90,12 +90,17 @@ const STEP_ORDER = [
 ] as const;
 
 // Smaller chunks than the old 24KB: a full typed-graph JSON for 24KB of text
-// is thousands of output tokens and blows the per-call model timeout. 6KB
-// keeps each extraction call comfortably inside the 25s ceiling. MAX_CHUNKS is
-// generous because extraction is now resumable (one or two chunks per tick),
-// so a long document finishes over multiple cron ticks instead of truncating.
-const CHUNK_CHARS = 6000;
-const MAX_CHUNKS = 16;
+// is thousands of output tokens and blows the per-call model timeout. 3000
+// chars per chunk keeps each extraction call comfortably inside the 25s
+// ceiling even when Workers AI is under burst load. With dual-resolution
+// chunking (spec v2.5 Part 22, deferred), the bulk pass will shrink further
+// to ~512 tokens; the hard pass widens to ~1500. For this PR both passes
+// share this chunk size.
+const CHUNK_CHARS = 3000;
+// Per-doc cap. With smaller chunks more chunks per document — bumped from 16
+// to 32 so the legacy corpus's longer reports (~67KB) finish in one pass
+// instead of being truncated.
+const MAX_CHUNKS = 32;
 const DEFAULT_SOFT_BUDGET_MS = 20_000;
 // Within-document parallelism: how many chunks extract concurrently. The cron
 // drain already runs multiple DOCUMENTS in parallel (waitUntil per job); this
@@ -104,7 +109,7 @@ const DEFAULT_SOFT_BUDGET_MS = 20_000;
 // Capped low so the burst doesn't overwhelm Workers AI when several documents
 // are draining at once. Spec v2.5 Part 22 calls for a full Queues + Async
 // Batch architecture; that's the next PR. This is the contained first step.
-const CHUNK_CONCURRENCY = 3;
+const CHUNK_CONCURRENCY = 4;
 
 /** Count typed-graph nodes for a piece (cumulative across chunks/ticks). */
 async function countPieceNodes(env: Env, userId: string, pieceId: string): Promise<number> {
