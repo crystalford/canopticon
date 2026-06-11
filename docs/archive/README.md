@@ -14,3 +14,13 @@ built system.
 If anything in this folder contradicts those three, the archive is wrong — it
 describes a system that has been replaced. Kept because the methodology canon,
 glossary, and entity-resolution notes still contain useful thinking.
+
+## Contents
+
+- top-level `*-v1.0.md` / `*.html` — the v1.0 thesis-platform spec set and its
+  prototypes (Feb–May 2026).
+- `v1.0-final/` — a later "docs-final" refinement of the same v1.0 era (the
+  `canopticon-system / interfaces / output / thinking / glossary / changelog`
+  set plus the operator/public prototype HTMLs). This was the old top-level
+  `NEW DOCS/` folder; moved here so nothing stale sits at the repo root. Same
+  superseded era — same caveat.
