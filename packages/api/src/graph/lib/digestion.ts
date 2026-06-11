@@ -97,6 +97,14 @@ const STEP_ORDER = [
 const CHUNK_CHARS = 6000;
 const MAX_CHUNKS = 16;
 const DEFAULT_SOFT_BUDGET_MS = 20_000;
+// Within-document parallelism: how many chunks extract concurrently. The cron
+// drain already runs multiple DOCUMENTS in parallel (waitUntil per job); this
+// adds parallelism WITHIN a doc so a 16-chunk document doesn't process 16
+// chunks serially when most of the per-chunk time is waiting on the model.
+// Capped low so the burst doesn't overwhelm Workers AI when several documents
+// are draining at once. Spec v2.5 Part 22 calls for a full Queues + Async
+// Batch architecture; that's the next PR. This is the contained first step.
+const CHUNK_CONCURRENCY = 3;
 
 /** Count typed-graph nodes for a piece (cumulative across chunks/ticks). */
 async function countPieceNodes(env: Env, userId: string, pieceId: string): Promise<number> {
@@ -141,75 +149,95 @@ export async function digest(
 
   const totals = { nodes: 0, edges: 0, quotes: 0, assertions: 0, threads: 0, killed_quotes: 0 };
   let chunksOk = 0;
+  // Process chunks in WAVES of CHUNK_CONCURRENCY. Each wave runs in parallel;
+  // the soft budget is checked between waves so a long-running wave can't be
+  // pre-empted (Workers AI calls aren't cancellable) but a slow document
+  // never holds the whole job past the wall-clock budget. Persist still
+  // happens per chunk (independent D1 batches) — only the LLM calls overlap.
   let i = startChunk;
-  for (; i < chunks.length; i++) {
-    try {
-      const extraction = await extractTypedChunk(
-        env,
-        args.userId,
-        args.pieceId,
-        i,
-        chunks[i] ?? "",
-      );
-      const isEmpty =
-        extraction.entities.length === 0 &&
-        extraction.events.length === 0 &&
-        extraction.neutral_facts.length === 0 &&
-        extraction.assertions.length === 0;
-      if (!isEmpty) {
-        const stats = await persistTypedExtraction(
-          env,
-          {
-            userId: args.userId,
-            pieceId: args.pieceId,
-            chunkText: chunks[i] ?? "",
-            sourceNodeId,
-          },
-          extraction,
-        );
-        totals.nodes += stats.nodes;
-        totals.edges += stats.edges;
-        totals.quotes += stats.quotes;
-        totals.assertions += stats.assertions;
-        totals.threads += stats.threads;
-        totals.killed_quotes += stats.killed_quotes;
+  for (; i < chunks.length; i += CHUNK_CONCURRENCY) {
+    const waveStart = i;
+    const waveEnd = Math.min(i + CHUNK_CONCURRENCY, chunks.length);
+    const waveIndices = Array.from({ length: waveEnd - waveStart }, (_, k) => waveStart + k);
+
+    const waveResults = await Promise.all(
+      waveIndices.map(async (idx) => {
+        try {
+          const extraction = await extractTypedChunk(
+            env,
+            args.userId,
+            args.pieceId,
+            idx,
+            chunks[idx] ?? "",
+          );
+          const isEmpty =
+            extraction.entities.length === 0 &&
+            extraction.events.length === 0 &&
+            extraction.neutral_facts.length === 0 &&
+            extraction.assertions.length === 0;
+          if (isEmpty) {
+            return { idx, ok: true, empty: true } as const;
+          }
+          const stats = await persistTypedExtraction(
+            env,
+            {
+              userId: args.userId,
+              pieceId: args.pieceId,
+              chunkText: chunks[idx] ?? "",
+              sourceNodeId,
+            },
+            extraction,
+          );
+          return { idx, ok: true, empty: false, stats } as const;
+        } catch (err) {
+          return { idx, ok: false, error: (err as Error).message ?? "unknown" } as const;
+        }
+      }),
+    );
+
+    // Accumulate per-chunk results AFTER the wave settles. Sequential within
+    // the accumulator so totals are deterministic.
+    for (const r of waveResults) {
+      if (r.ok) {
+        chunksOk++;
+        if (r.empty) {
+          await emit(env, args, "extract_claims", "started", {
+            diag: "empty_extraction",
+            chunk_index: r.idx,
+          }).catch(() => {});
+        } else {
+          totals.nodes += r.stats.nodes;
+          totals.edges += r.stats.edges;
+          totals.quotes += r.stats.quotes;
+          totals.assertions += r.stats.assertions;
+          totals.threads += r.stats.threads;
+          totals.killed_quotes += r.stats.killed_quotes;
+        }
       } else {
-        await emit(env, args, "extract_claims", "started", {
-          diag: "empty_extraction",
-          chunk_index: i,
-        });
-      }
-      chunksOk++;
-      // Checkpoint after every chunk so a later crash never re-does work.
-      if (opts.onProgress) {
-        const nodeCount = await countPieceNodes(env, args.userId, args.pieceId);
-        await opts.onProgress(i + 1, chunks.length, nodeCount);
-      }
-    } catch (err) {
-      // a bad chunk shouldn't sink the document — but log WHY.
-      try {
-        await emit(env, args, "extract_claims", "started", {
-          diag: "chunk_threw",
-          chunk_index: i,
-          error: (err as Error).message ?? "unknown",
-        });
-      } catch {
-        // never let logging fail the chunk loop
-      }
-      // Still advance the checkpoint so a chronically-slow chunk doesn't trap
-      // the whole document — we skip it and move on next tick.
-      if (opts.onProgress) {
-        const nodeCount = await countPieceNodes(env, args.userId, args.pieceId);
-        await opts.onProgress(i + 1, chunks.length, nodeCount);
+        try {
+          await emit(env, args, "extract_claims", "started", {
+            diag: "chunk_threw",
+            chunk_index: r.idx,
+            error: r.error,
+          });
+        } catch {
+          // never let logging fail the wave
+        }
       }
     }
 
-    // Soft budget: if more chunks remain and we're out of time this tick,
-    // pause and let the caller re-queue. Work so far is already checkpointed.
-    if (i + 1 < chunks.length && Date.now() - t0 > softBudget) {
+    // Checkpoint once per wave. The whole wave is complete on disk by here.
+    if (opts.onProgress) {
+      const nodeCount = await countPieceNodes(env, args.userId, args.pieceId);
+      await opts.onProgress(waveEnd, chunks.length, nodeCount);
+    }
+
+    // Soft budget: if more chunks remain and we're out of time, pause and let
+    // the caller re-queue. The next tick resumes at waveEnd.
+    if (waveEnd < chunks.length && Date.now() - t0 > softBudget) {
       result.nodes_created = totals.nodes;
       result.more_chunks = true;
-      result.chunks_done = i + 1;
+      result.chunks_done = waveEnd;
       return result;
     }
   }
