@@ -169,8 +169,12 @@ async function renderNeutral(
   const connectionsBlock = renderConnectionsBlock(connections);
   const provenanceBlock = renderProvenance(sourceCount, hasSignedReading, page);
   const modeBand = renderModeBand(page.slug, "neutral", hasSignedReading, page);
+  // GEO/citability: a schema.org JSON-LD graph so AI engines can cite the
+  // page and its blocks. The subject's schema type follows its kind.
+  const jsonLd = buildSubjectJsonLd(subject, page, established, events);
 
   const body = `
+<script type="application/ld+json">${jsonLd}</script>
 <article class="subject-page">
   ${modeBand}
   <header class="subject-head">
@@ -249,11 +253,12 @@ async function renderNeutral(
 // SIGNED MODE — the operator's reading, prose with anchored facts
 // ===========================================================================
 async function renderSigned(
-  _env: PublicEnv,
+  env: PublicEnv,
   subject: SubjectRow,
   page: PageRow,
   hasSignedReading: boolean,
 ): Promise<string> {
+  const userId = await resolveOperatorId(env.DB);
   const bodyHtml = page.body_html || (page.body_md ? renderMarkdown(page.body_md) : "");
   const modeBand = renderModeBand(page.slug, "signed", hasSignedReading, page);
 
@@ -262,6 +267,28 @@ async function renderSigned(
   if (page.signed_at) meta.push(escapeHtml(page.signed_at.slice(0, 10)));
   if (page.confidence) meta.push(`confidence · ${escapeHtml(page.confidence)}`);
   if (page.claims_verified) meta.push(`${page.claims_verified} claims verified`);
+
+  // The firewall, made visible IN the reading: any contested assertion this
+  // subject carries MUST be shown, by rule, not by the writer's choice. This
+  // is what makes a signed reading trustworthy — it cannot hide the facts
+  // that complicate it.
+  const contested = userId
+    ? (await loadContestedAssertions(env, userId, subject.node_id)).filter(
+        (a) => a.rank === "contested" || (a.evidence_balance ?? 0) < 1,
+      )
+    : [];
+  const complicateBox = contested.length
+    ? `<div class="complicate">
+  <div class="ch">What complicates this reading — shown by rule, not choice</div>
+  ${contested
+    .slice(0, 4)
+    .map(
+      (a) =>
+        `<p><i>"${escapeHtml(a.label)}"</i> — ${a.actor ? `asserted by ${escapeHtml(a.actor)}; ` : ""}${a.rank === "contested" ? "contested" : "weakly supported"} in the record${a.piece_slug ? ` (<a href="/library/${escapeAttr(a.piece_slug)}">source</a>)` : ""}. This reading must engage it, not omit it.</p>`,
+    )
+    .join("")}
+</div>`
+    : "";
 
   const body = `
 <article class="subject-page">
@@ -273,11 +300,13 @@ async function renderSigned(
     ${meta.length ? `<div class="signed-meta">${meta.join(" · ")}</div>` : ""}
   </header>
   <div class="prose signed-body">${bodyHtml}</div>
+  ${complicateBox}
   <div class="prov" style="margin-top:32px">
     The operator drafted and signed this reading. Every load-bearing fact links down to a quote in a stored
     source document. Contested material appears attributed; the firewall kills any assertion-backed claim
     without attribution before publish.
   </div>
+  <p style="margin-top:18px"><a href="/p/${escapeAttr(page.slug)}" style="color:var(--accent);text-decoration:none">↩ See the neutral facts this reading stands on</a></p>
 </article>
 
 <style>
@@ -295,6 +324,12 @@ async function renderSigned(
   .signed-body { font-family:var(--serif); font-size:18px; line-height:1.62; color:var(--ink-2); }
   .signed-body p { margin-bottom:18px; }
   .signed-body sup { color:var(--accent); font-size:11px; }
+  .signed-body .factref { background:var(--panel-2, rgba(0,0,0,.18)); border-bottom:1px solid var(--accent); padding:0 2px; cursor:pointer; }
+  .complicate { border:1px solid var(--accent); background:var(--panel-2, rgba(0,0,0,.18)); border-radius:9px; padding:14px 18px; margin:24px 0; }
+  .complicate .ch { font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; font-weight:600; }
+  .complicate p { font-family:var(--sans); font-size:14px; line-height:1.55; color:var(--ink-3); margin-bottom:8px; }
+  .complicate p:last-child { margin-bottom:0; }
+  .complicate a { color:var(--accent); text-decoration:none; }
   .prov { padding:14px 16px; background:var(--panel-2, rgba(0,0,0,.15)); border:1px solid var(--rule); border-radius:9px; font-size:12.5px; color:var(--ink-3); }
 </style>
 `;
@@ -586,7 +621,7 @@ function renderEstablishedBlock(facts: FactRow[]): string {
         `<div class="fact-row${i === facts.length - 1 ? " last" : ""}"><b>${escapeHtml(f.label)}</b>${f.quote_id ? ` <sup title="${escapeAttr(f.quote_text?.slice(0, 120) ?? "")}">${i + 1}</sup>` : ""}${f.piece_title ? ` <span style="color:var(--faint);font-size:12.5px"> · <a href="/library/${escapeAttr(f.piece_slug ?? "")}" style="color:var(--faint)">${escapeHtml(f.piece_title.slice(0, 40))}</a></span>` : ""}</div>`,
     )
     .join("");
-  return `<div class="sec-k">Established</div>${rows}`;
+  return `<section id="established" data-schema="ItemList"><div class="sec-k">Established</div>${rows}</section>`;
 }
 
 function renderContestedBlock(rows: AssertionRow[]): string {
@@ -613,7 +648,7 @@ function renderContestedBlock(rows: AssertionRow[]): string {
 </div>`;
     })
     .join("");
-  return `<div class="sec-k">Contested — shown as contested</div>${cards}`;
+  return `<section id="contested" data-schema="Claim"><div class="sec-k">Contested — shown as contested</div>${cards}</section>`;
 }
 
 function renderTimelineBlock(events: EventRow[]): string {
@@ -624,7 +659,7 @@ function renderTimelineBlock(events: EventRow[]): string {
       return `<div class="tl-row${i === events.length - 1 ? " last" : ""}"><span class="when">${escapeHtml(when)}</span> <span>${escapeHtml(e.label)}${e.piece_slug ? ` <a href="/library/${escapeAttr(e.piece_slug)}" style="color:var(--accent);font-size:12px">↗</a>` : ""}</span></div>`;
     })
     .join("");
-  return `<div class="sec-k">Timeline</div>${rows}`;
+  return `<section id="timeline" data-schema="Event"><div class="sec-k">Timeline</div>${rows}</section>`;
 }
 
 function renderConnectionsBlock(conns: ConnectionRow[]): string {
@@ -635,7 +670,7 @@ function renderConnectionsBlock(conns: ConnectionRow[]): string {
         `<div class="conn-row"><a href="/topics/${escapeAttr(slugifyConnection(c.other_label))}">${escapeHtml(c.other_label)}</a><span class="why">${escapeHtml(c.edge_type)}${c.family !== "relationship" ? ` · ${c.family}` : ""}</span></div>`,
     )
     .join("");
-  return `<div class="sec-k">Connections</div>${rows}`;
+  return `<section id="connections" data-schema="OwnershipInfo"><div class="sec-k">Connections</div>${rows}</section>`;
 }
 
 function renderProvenance(sourceCount: number, hasSigned: boolean, page: PageRow): string {
@@ -682,6 +717,45 @@ function renderModeBand(
 // ===========================================================================
 // helpers
 // ===========================================================================
+
+// schema.org JSON-LD for the subject page. The @type follows the subject
+// kind; timeline events become a hasPart ItemList. Built defensively — only
+// fields we actually have. This is the citability payoff (Princeton GEO):
+// AI engines cite schema-tagged, sourced pages over general sources.
+function buildSubjectJsonLd(
+  subject: SubjectRow,
+  page: PageRow,
+  facts: FactRow[],
+  events: EventRow[],
+): string {
+  const typeMap: Record<string, string> = {
+    entity: "Thing",
+    event: "Event",
+    theme: "CreativeWork",
+  };
+  const graph: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": typeMap[subject.kind] ?? "Thing",
+    name: subject.label,
+    url: `/s/${page.slug}`,
+  };
+  if (page.signed_at) graph.dateModified = page.signed_at.slice(0, 10);
+  if (facts.length > 0) {
+    graph.description = facts
+      .slice(0, 3)
+      .map((f) => f.label)
+      .join(". ");
+  }
+  if (events.length > 0) {
+    graph.subjectOf = events.slice(0, 12).map((e) => ({
+      "@type": "Event",
+      name: e.label,
+      ...(e.event_date ? { startDate: e.event_date } : {}),
+    }));
+  }
+  // Escape </script> to keep the JSON-LD from breaking out of its tag.
+  return JSON.stringify(graph).replace(/<\/script/gi, "<\\/script");
+}
 
 function subjectKindLabel(kind: string): string {
   switch (kind) {
