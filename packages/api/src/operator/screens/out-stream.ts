@@ -55,9 +55,15 @@ interface GraphPulse {
 }
 
 const INTENT_LABEL: Record<string, string> = {
+  // Seven intents from spec v2.5 Part 5 — the canonical signed-reading kinds.
   investigation: "Investigation",
   argument: "Argument",
+  pattern: "Pattern",
+  hypothesis: "Hypothesis",
   assessment: "Assessment",
+  critique: "Critique",
+  explanation: "Explanation",
+  // Legacy factual arrangement labels still in circulation on briefs.
   definition: "Definition",
   comparison: "Comparison",
   timeline: "Timeline",
@@ -131,7 +137,8 @@ export async function renderOutStream(
 async function loadDrafts(db: D1Database, userId: string): Promise<DraftRow[]> {
   return all<DraftRow>(
     db,
-    `SELECT p.id, p.slug, n.label AS title, 'investigation' AS content_type,
+    `SELECT p.id, p.slug, n.label AS title,
+            COALESCE(p.intent, 'investigation') AS content_type,
             'interpretive' AS layer, p.thesis, p.body_md,
             p.claims_verified, p.claims_killed, p.confidence
        FROM pages p JOIN nodes n ON n.id = p.subject_node_id

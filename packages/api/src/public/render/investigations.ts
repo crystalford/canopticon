@@ -14,11 +14,17 @@ import { escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
 
 // Reader-facing intent labels for published outputs (spec Part 18.2: intents
-// are badges and filters, not nav).
+// are badges and filters, not nav). The first seven are the canonical signed
+// reading intents (spec v2.5 Part 5); the rest are factual arrangement
+// types from the older briefs era still in circulation.
 const INTENT_LABELS: Record<string, string> = {
   investigation: "Investigation",
   argument: "Argument",
+  pattern: "Pattern",
+  hypothesis: "Hypothesis",
   assessment: "Assessment",
+  critique: "Critique",
+  explanation: "Explanation",
   definition: "Definition",
   comparison: "Comparison",
   timeline: "Timeline",
@@ -62,12 +68,13 @@ export async function renderInvestigationsIndex(
         label: string;
         kind: string;
         thesis: string | null;
+        intent: string | null;
         signed_by: string | null;
         signed_at: string | null;
         confidence: string | null;
       }>(
         env.DB,
-        `SELECT p.slug, n.label, n.kind, p.thesis, p.signed_by, p.signed_at, p.confidence
+        `SELECT p.slug, n.label, n.kind, p.thesis, p.intent, p.signed_by, p.signed_at, p.confidence
            FROM pages p JOIN nodes n ON n.id = p.subject_node_id
           WHERE p.user_id = ? AND p.signed_status = 'published'
           ORDER BY p.signed_at DESC LIMIT 40`,
@@ -79,22 +86,32 @@ export async function renderInvestigationsIndex(
     ? outputs.filter((o) => o.content_type === intentFilter)
     : outputs;
 
-  const readingCards =
-    readings.length && !intentFilter
-      ? `<div style="margin-bottom:28px">${readings
-          .map(
-            (r) => `<div style="padding:14px 0;border-bottom:1px solid var(--rule)">
-  <span class="chip" title="A signed reading of a subject">Signed reading${r.signed_by ? ` · ${escapeHtml(r.signed_by)}` : ""}</span>
+  // Apply the intent filter to readings too — clicking an intent badge
+  // narrows BOTH layers (factual outputs and signed readings).
+  const shownReadings = intentFilter ? readings.filter((r) => r.intent === intentFilter) : readings;
+  const readingCards = shownReadings.length
+    ? `<div style="margin-bottom:28px">${shownReadings
+        .map(
+          (r) => `<div style="padding:14px 0;border-bottom:1px solid var(--rule)">
+  ${r.intent ? `<span class="intent-badge intent-${escapeHtml(r.intent)}">${escapeHtml(INTENT_LABELS[r.intent] ?? r.intent)}</span>` : `<span class="chip">Signed reading</span>`}
+  ${r.signed_by ? `<span class="chip">signed · ${escapeHtml(r.signed_by)}</span>` : ""}
   ${r.confidence ? `<span class="chip">${escapeHtml(r.confidence)} confidence</span>` : ""}
   <div style="margin-top:6px"><a class="ac" href="/s/${escapeHtml(r.slug)}?mode=signed" style="font-family:var(--serif);font-size:20px">${escapeHtml(r.label)}</a></div>
   ${r.thesis ? `<p style="font-family:var(--serif);font-style:italic;color:var(--ink-2);margin-top:5px;max-width:620px">${escapeHtml(r.thesis.slice(0, 180))}</p>` : ""}
   ${r.signed_at ? `<p class="coord" style="margin-top:4px">${escapeHtml(formatDate(r.signed_at))}</p>` : ""}
 </div>`,
-          )
-          .join("")}</div>`
-      : "";
+        )
+        .join("")}</div>`
+    : "";
 
-  const presentTypes = [...new Set(outputs.map((o) => o.content_type))];
+  // Filter row collects intents from BOTH signed readings (pages.intent) and
+  // legacy outputs (briefs.content_type). Click an intent to narrow.
+  const presentTypes = [
+    ...new Set([
+      ...outputs.map((o) => o.content_type),
+      ...readings.map((r) => r.intent).filter((i): i is string => !!i),
+    ]),
+  ];
   const filterRow = presentTypes.length
     ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
   <a href="/investigations" class="chip" style="text-decoration:none${intentFilter ? "" : ";border-color:var(--accent)"}">All</a>
@@ -104,7 +121,18 @@ export async function renderInvestigationsIndex(
         `<a href="/investigations?intent=${escapeHtml(t)}" class="chip" style="text-decoration:none${intentFilter === t ? ";border-color:var(--accent)" : ""}">${escapeHtml(INTENT_LABELS[t] ?? t)}</a>`,
     )
     .join("")}
-</div>`
+</div>
+<style>
+  .intent-badge { display:inline-block; font-size:10px; padding:2px 9px; border-radius:4px;
+    font-weight:600; letter-spacing:.04em; margin-right:6px; }
+  .intent-investigation { background:#e6efe9; color:#1d6a5e; }
+  .intent-argument { background:#f4e9e6; color:#8a3324; }
+  .intent-pattern { background:#e8eef7; color:#33567e; }
+  .intent-hypothesis { background:#ece6f2; color:#5a4a7e; }
+  .intent-assessment { background:#f1ead9; color:#7a6324; }
+  .intent-critique { background:#f4e3e0; color:#964434; }
+  .intent-explanation { background:#e4ecef; color:#3a6a7e; }
+</style>`
     : "";
 
   const outputCards = shownOutputs.length

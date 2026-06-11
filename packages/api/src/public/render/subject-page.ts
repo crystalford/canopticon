@@ -28,10 +28,23 @@ interface SubjectRow {
   metadata: string;
 }
 
+// Intent labels (spec v2.5 Part 5). The seven epistemic stances a signed
+// reading can wear as a badge.
+const INTENT_LABELS: Record<string, string> = {
+  investigation: "Investigation",
+  argument: "Argument",
+  pattern: "Pattern",
+  hypothesis: "Hypothesis",
+  assessment: "Assessment",
+  critique: "Critique",
+  explanation: "Explanation",
+};
+
 interface PageRow {
   id: string;
   slug: string;
   thesis: string | null;
+  intent: string | null;
   body_md: string | null;
   body_html: string | null;
   signed_status: string;
@@ -102,7 +115,7 @@ export async function renderSubjectPage(
     PageRow & { node_id: string; kind: string; label: string; metadata: string }
   >(
     env.DB,
-    `SELECT p.id, p.slug, p.thesis, p.body_md, p.body_html, p.signed_status,
+    `SELECT p.id, p.slug, p.thesis, p.intent, p.body_md, p.body_html, p.signed_status,
             p.signed_by, p.signed_at, p.confidence, p.claims_verified, p.judge_model,
             n.id AS node_id, n.kind, n.label, n.metadata
        FROM pages p
@@ -371,12 +384,17 @@ async function renderSigned(
 </div>`
     : "";
 
+  const intentLabel = page.intent ? (INTENT_LABELS[page.intent] ?? page.intent) : "";
+  const intentBadge = page.intent
+    ? `<span class="intent-badge intent-${escapeAttr(page.intent)}">${escapeHtml(intentLabel)}</span>`
+    : "";
+
   const body = `
 <article class="subject-page">
   ${modeBand}
   ${opSignedAff}
   <header class="signed-head">
-    <div class="kicker">${escapeHtml(subjectKindLabel(subject.kind))} · the operator's reading</div>
+    <div class="kicker">${escapeHtml(subjectKindLabel(subject.kind))} · the operator's reading ${intentBadge}</div>
     <h1>${escapeHtml(subject.label)}</h1>
     ${page.thesis ? `<p class="thesis">${escapeHtml(page.thesis)}</p>` : ""}
     ${meta.length ? `<div class="signed-meta">${meta.join(" · ")}</div>` : ""}
@@ -400,7 +418,16 @@ async function renderSigned(
   .mode-band a { color:var(--accent); text-decoration:none; font-weight:600; }
   .mode-band .here { color:var(--ink); }
   .signed-head { margin-bottom:28px; }
-  .signed-head .kicker { font-size:11px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase; margin-bottom:10px; }
+  .signed-head .kicker { font-size:11px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .intent-badge { font-size:10px; padding:2px 9px; border-radius:4px; font-weight:600;
+    letter-spacing:.04em; }
+  .intent-investigation { background:#e6efe9; color:#1d6a5e; }
+  .intent-argument { background:#f4e9e6; color:#8a3324; }
+  .intent-pattern { background:#e8eef7; color:#33567e; }
+  .intent-hypothesis { background:#ece6f2; color:#5a4a7e; }
+  .intent-assessment { background:#f1ead9; color:#7a6324; }
+  .intent-critique { background:#f4e3e0; color:#964434; }
+  .intent-explanation { background:#e4ecef; color:#3a6a7e; }
   .signed-head h1 { font-family:var(--serif); font-size:42px; line-height:1.1; letter-spacing:-.02em; font-weight:600; margin-bottom:16px; }
   .signed-head .thesis { font-family:var(--serif); font-size:22px; line-height:1.45; color:var(--ink); font-style:italic; margin-bottom:12px; }
   .signed-head .signed-meta { font-size:12.5px; color:var(--faint); letter-spacing:.04em; text-transform:uppercase; }

@@ -164,9 +164,20 @@ HARD RULES:
 - 4-8 short paragraphs. Open with the thing nobody quite says. Don't pad.
 - Plain, sharp prose. No throat-clearing intro, no "in conclusion."${voiceLine}
 
+INTENT — classify the reading's epistemic stance (spec v2.5 Part 5):
+- "investigation"  : open skeptical probe — may not conclude; surfaces what's open
+- "argument"       : closed case — thesis with a verdict, persuades
+- "pattern"        : recurring structure across instances — describes, may not assign cause
+- "hypothesis"     : candidate explanation, explicitly provisional
+- "assessment"     : judgment with a confidence band (likelihood stated)
+- "critique"       : attacks a specific assertion or argument
+- "explanation"    : connects the dots, low advocacy
+Pick the one that matches what you actually wrote. Match the stance of the prose; don't aspire.
+
 Return ONLY JSON:
 {
   "thesis": "one sharp sentence — the reading's claim",
+  "intent": "investigation" | "argument" | "pattern" | "hypothesis" | "assessment" | "critique" | "explanation",
   "confidence": "low" | "moderate" | "high",
   "body_md": "the full markdown reading, with [qN] markers on load-bearing facts",
   "claims": [{ "quote_id": "qN", "kind": "fact" | "assertion", "asserted_by": "actor (required if assertion)" }]
@@ -195,6 +206,7 @@ Draft the signed reading. Find the thesis the facts actually support.`,
       type: "object",
       properties: {
         thesis: { type: "string" },
+        intent: { type: "string" },
         confidence: { type: "string" },
         body_md: { type: "string" },
         claims: {
@@ -216,6 +228,7 @@ Draft the signed reading. Find the thesis the facts actually support.`,
 
   const parsed = (out.structured ?? safeParse(out.text)) as {
     thesis?: string;
+    intent?: string;
     confidence?: string;
     body_md?: string;
     claims?: Array<{ quote_id?: string; kind?: string; asserted_by?: string }>;
@@ -262,17 +275,31 @@ Draft the signed reading. Find the thesis the facts actually support.`,
   const confidence = ["low", "moderate", "high"].includes(parsed.confidence ?? "")
     ? parsed.confidence
     : "moderate";
+  // Intent classification (spec Part 5). Validate against the seven kinds;
+  // anything else falls to "investigation" as the most honest default for an
+  // unsorted reading.
+  const VALID_INTENTS = [
+    "investigation",
+    "argument",
+    "pattern",
+    "hypothesis",
+    "assessment",
+    "critique",
+    "explanation",
+  ];
+  const intent = VALID_INTENTS.includes(parsed.intent ?? "") ? parsed.intent : "investigation";
   const { renderMarkdown } = await import("../../cms/lib/render-post");
   const now = new Date().toISOString();
 
   await run(
     env.DB,
-    `UPDATE pages SET thesis = ?, body_md = ?, body_html = ?, confidence = ?,
+    `UPDATE pages SET thesis = ?, intent = ?, body_md = ?, body_html = ?, confidence = ?,
         signed_status = 'draft', claims_verified = ?, claims_killed = ?,
         generate_model = ?, judge_model = ?, updated_at = ?
       WHERE id = ?`,
     [
       parsed.thesis.slice(0, 400),
+      intent,
       parsed.body_md,
       renderMarkdown(parsed.body_md),
       confidence,
