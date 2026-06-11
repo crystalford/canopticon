@@ -198,10 +198,64 @@ export async function renderPiecePage(env: PublicEnv, slug: string): Promise<str
 
 // Library — the raw research layer. Lists everything (incl. working-
 // material) with an honest status tag.
-export async function renderLibraryIndex(env: PublicEnv): Promise<string> {
+export async function renderLibraryIndex(
+  env: PublicEnv,
+  opts: { isOperator?: boolean } = {},
+): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const { listLibrary } = await import("../data");
   const pieces = userId ? await listLibrary(env.DB, userId) : [];
+
+  // Operator affordance strip — only rendered when logged in. Surfaces the
+  // bulk extract action (the work behind it lives at POST /op/library/extract
+  // and is unchanged). Spec v2.5 Part 9: same URL, controls woven in. Visual
+  // treatment is deliberately minimal — a band, two buttons. The handoff doc
+  // says "implement the model and leave the exact visual treatment for review".
+  let opStrip = "";
+  if (opts.isOperator && userId) {
+    const { one } = await import("../../lib/d1");
+    const counts = await one<{ total: number; unextracted: number }>(
+      env.DB,
+      `SELECT
+         (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS total,
+         (SELECT COUNT(*) FROM pieces p
+            WHERE p.user_id = ? AND NOT EXISTS (
+              SELECT 1 FROM digest_jobs j
+               WHERE j.user_id = p.user_id AND j.piece_id = p.id AND j.status = 'completed')
+         ) AS unextracted`,
+      [userId, userId],
+    ).catch(() => null);
+    const total = counts?.total ?? 0;
+    const unextracted = counts?.unextracted ?? 0;
+    const extractBtn =
+      unextracted > 0
+        ? `<form method="POST" action="/op/library/extract" style="display:inline;margin-right:8px">
+  <input type="hidden" name="mode" value="all-unextracted" />
+  <button type="submit" class="op-strip-btn op-strip-btn-primary">Extract all (${unextracted})</button>
+</form>`
+        : "";
+    const reextractBtn =
+      total > 0
+        ? `<form method="POST" action="/op/library/extract" style="display:inline" onsubmit="return confirm('Re-extract all ${total} documents?');">
+  <input type="hidden" name="mode" value="all" />
+  <button type="submit" class="op-strip-btn">Re-extract all (${total})</button>
+</form>`
+        : "";
+    opStrip = `<div class="op-strip">
+  <div class="op-strip-label">Operator</div>
+  <div class="op-strip-actions">${extractBtn}${reextractBtn}</div>
+</div>
+<style>
+  .op-strip { display:flex; align-items:center; gap:14px; padding:10px 14px; margin:0 0 18px;
+    border:1px solid var(--rule); border-radius:8px; background:rgba(0,0,0,.03); }
+  .op-strip-label { font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:600; }
+  .op-strip-actions { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+  .op-strip-btn { font-size:12.5px; padding:6px 14px; border-radius:6px; cursor:pointer;
+    border:1px solid var(--rule); background:#fff; color:var(--ink); }
+  .op-strip-btn-primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+</style>`;
+  }
 
   const rows = pieces.length
     ? pieces
@@ -251,6 +305,7 @@ export async function renderLibraryIndex(env: PublicEnv): Promise<string> {
     deposit claims into the record but don't get their own public page.
   </p>
 </section>
+${opStrip}
 <section>${sectionHeader(`All material (${pieces.length})`)}${table}</section>
 `;
   return renderPage({

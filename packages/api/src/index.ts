@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { AuthContext } from "./auth/middleware.ts";
+import { type AuthContext, attachAuthState } from "./auth/middleware.ts";
+import authRoutes from "./auth/routes.ts";
 import postsRoutes from "./cms/routes/api-posts.ts";
 import type { Env } from "./env.ts";
 // Graph compartment routes.
@@ -163,7 +164,20 @@ import { htmlResponse } from "./public/layout.ts";
 // Public site — server-rendered HTML at canopticon.com. Mounted last so
 // /v1, /op, and /health take precedence on overlapping paths.
 import publicSiteRoutes, { renderNotFound as renderPublicNotFound } from "./public/routes.ts";
-app.route("/", publicSiteRoutes);
+
+// /auth/* — the operator's bootstrap into the one-site permission model
+// (spec v2.5 Part 9). Cloudflare Access gates this subtree at the edge so
+// only the operator can mint a session cookie.
+app.route("/auth", authRoutes);
+
+// Auth-state middleware: every public request gets is_operator + operator_id
+// in the Hono context. Anonymous = false/null; renderers read these to reveal
+// affordances. Mounted on the public catch-all only (the API + operator
+// routes have their own auth posture).
+const publicShell = new Hono<App>();
+publicShell.use("*", attachAuthState());
+publicShell.route("/", publicSiteRoutes);
+app.route("/", publicShell);
 
 // Unified notFound: JSON for the API surface, styled HTML for public.
 app.notFound((c) => {

@@ -7,7 +7,7 @@
 // the surfaces work before the seed corpus lands.
 
 import { Hono } from "hono";
-import type { Env } from "../env";
+import type { AuthContext } from "../auth/middleware";
 import { getPieceBySlug, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
 import { renderAbout } from "./render/about";
@@ -21,7 +21,12 @@ import { renderEntityPage } from "./render/record";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
 import { STYLES_CSS, stylesHash } from "./styles";
 
-const app = new Hono<{ Bindings: Env }>();
+// The public site reads is_operator / operator_id from the Hono context
+// (set by attachAuthState in index.ts) so renderers can reveal logged-in
+// affordances on the SAME URLs that serve anonymous readers. AuthContext
+// happens to carry the same shape; we don't enforce its email/user_id
+// fields here — those are only set by the hard-auth path on /v1/* routes.
+const app = new Hono<AuthContext>();
 
 // ---- citation tracker (spec Part 14 #10) ----------------------------------
 // AI crawlers fetching public pages = the leading indicator of citation.
@@ -98,7 +103,18 @@ app.get("/styles.css", () => {
   });
 });
 
-app.get("/", async (c) => htmlResponse(await renderHome(c.env)));
+// `/` — one URL, two faces. The anonymous reader sees the public activity
+// feed. The logged-in operator sees the stream (the system's briefing +
+// drafts awaiting signature + findings + open threads), wired in directly
+// instead of bouncing them off to /op/out. Spec v2.5 Part 9 — the logged-in
+// home IS the stream; the stream has no public analogue.
+app.get("/", async (c) => {
+  if (c.get("is_operator")) {
+    const { renderOutStream } = await import("../operator/screens/out-stream");
+    return htmlResponse(await renderOutStream(c.env));
+  }
+  return htmlResponse(await renderHome(c.env));
+});
 
 // ---- Topics ---------------------------------------------------------------
 
@@ -139,7 +155,9 @@ app.get("/p/:slug", async (c) => {
   // Fall through to subject pages. mode=signed reveals the operator's reading.
   const { renderSubjectPage } = await import("./render/subject-page");
   const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
-  const subject = await renderSubjectPage(c.env, slug, mode);
+  const subject = await renderSubjectPage(c.env, slug, mode, {
+    isOperator: c.get("is_operator"),
+  });
   if (subject) return htmlResponse(subject);
   return htmlResponse(renderNotFound(c.req.path), { status: 404 });
 });
@@ -149,7 +167,9 @@ app.get("/p/:slug", async (c) => {
 app.get("/s/:slug", async (c) => {
   const { renderSubjectPage } = await import("./render/subject-page");
   const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
-  const html = await renderSubjectPage(c.env, c.req.param("slug"), mode);
+  const html = await renderSubjectPage(c.env, c.req.param("slug"), mode, {
+    isOperator: c.get("is_operator"),
+  });
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
 });
@@ -218,7 +238,9 @@ app.get("/timeline", async (c) => {
 
 // ---- Library --------------------------------------------------------------
 
-app.get("/library", async (c) => htmlResponse(await renderLibraryIndex(c.env)));
+app.get("/library", async (c) =>
+  htmlResponse(await renderLibraryIndex(c.env, { isOperator: c.get("is_operator") })),
+);
 
 // ---- Briefs (the third projection) -------------------------------------
 //

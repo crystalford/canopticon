@@ -12,8 +12,15 @@ export interface Env {
   ANTHROPIC_API_KEY: string;
 
   // The single operator's email — Cloudflare Access gates the operator
-  // app to this email. Public site is unauthenticated.
+  // app to this email. Public site is unauthenticated for readers; the
+  // operator is recognised on public URLs via a session cookie (see below).
   OPERATOR_EMAIL: string;
+
+  // HMAC secret used to sign the operator session cookie minted by
+  // /auth/login. Set as a Worker secret. When unset, the public site can
+  // still serve anonymous traffic — only the operator login flow is
+  // disabled. (Spec v2.5 Part 9 — the one-site permission model.)
+  SESSION_SECRET?: string;
 
   // openparliament.ca user-agent (only used if cron ingestion enabled).
   OPENPARLIAMENT_USER_AGENT?: string;

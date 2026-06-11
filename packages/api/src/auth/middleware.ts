@@ -11,15 +11,25 @@ import type { MiddlewareHandler } from "hono";
 import type { Env } from "../env.ts";
 import { forbidden, unauthorized } from "../lib/errors.ts";
 import { getOrSeedOperator } from "../lib/seed.ts";
+import { readSessionCookie, verifySession } from "./session.ts";
 
 export interface AuthVariables {
   email: string;
   user_id: string;
 }
 
+/** Variables every route can read: whether THIS request is the operator and,
+ *  if so, their user_id. attachAuthState (below) sets them on every request;
+ *  anonymous = false/null. Lets renderers reveal logged-in affordances without
+ *  changing routing. */
+export interface SiteAuthVariables {
+  is_operator: boolean;
+  operator_id: string | null;
+}
+
 export type AuthContext = {
   Bindings: Env;
-  Variables: AuthVariables & { trace_id: string };
+  Variables: AuthVariables & SiteAuthVariables & { trace_id: string };
 };
 
 function decodeJwtEmail(jwt: string): string | null {
@@ -115,3 +125,28 @@ function decodeJwtCommonNameFromHeaders(c: {
   if (!jwt) return null;
   return decodeJwtCommonName(jwt);
 }
+
+/** Optional auth: looks at the session cookie (set by /auth/login after
+ *  Cloudflare Access challenges) and decides if THIS request is the operator.
+ *  Anonymous viewers pass through with `is_operator=false`. Routes that
+ *  conditionally reveal affordances read `c.get("is_operator")`.
+ *
+ *  Mounted on the public site (the one-site permission model — spec v2.5
+ *  Part 9). NEVER throws: a bad/missing/expired cookie is silently anonymous,
+ *  not an error. */
+export const attachAuthState = (): MiddlewareHandler<AuthContext> => async (c, next) => {
+  const secret = c.env.SESSION_SECRET;
+  const cookie = readSessionCookie(c.req.header("cookie"));
+  let isOperator = false;
+  let operatorId: string | null = null;
+  if (secret && cookie) {
+    const payload = await verifySession(cookie, secret);
+    if (payload) {
+      isOperator = true;
+      operatorId = payload.uid;
+    }
+  }
+  c.set("is_operator", isOperator);
+  c.set("operator_id", operatorId);
+  await next();
+};

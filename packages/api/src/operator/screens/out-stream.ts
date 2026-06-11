@@ -5,7 +5,7 @@
 //
 //   1. The morning brief    — a plain-language paragraph: what changed
 //   2. Awaiting your signature — finished drafts, read & sign / edit / discard
-//   3. The wiki grew        — pages that grew, no action needed
+//   3. The record grew      — pages that grew, no action needed
 //   4. Worth your attention — a FEW findings, each carrying its evidence
 //   5. Still chasing        — open inquiry threads
 //   6. Silence              — the substance gate, visible
@@ -99,7 +99,7 @@ export async function renderOutStream(
 
   const brief = renderBrief(pulse, drafts, findings, threads);
   const draftsBlock = renderDrafts(drafts);
-  const wikiBlock = renderWikiGrew(pulse);
+  const corpusBlock = renderCorpusGrew(pulse);
   const attentionBlock = renderAttention(findings);
   const threadsBlock = renderThreads(threads);
 
@@ -112,7 +112,7 @@ export async function renderOutStream(
     <button class="btn" type="submit" title="Re-read the corpus: re-surface findings, re-name themes, re-propose, auto-draft">↻ Re-read</button>
   </form>`;
 
-  const body = `${okBanner}${errBanner}${brief}${draftsBlock}${wikiBlock}${attentionBlock}${threadsBlock}${OUT_STYLES}`;
+  const body = `${okBanner}${errBanner}${brief}${draftsBlock}${corpusBlock}${attentionBlock}${threadsBlock}${OUT_STYLES}`;
 
   return renderOpPage({
     title: "OUT",
@@ -187,11 +187,11 @@ function renderBrief(
 ): string {
   if (pulse.pages === 0) {
     return `<div class="brief"><div class="who">canopticon</div>
-  <p>Nothing read yet. Drop research reports in <a href="/op/library">IN</a> — the system reads them, builds the wiki, and brings finished things here. You read and decide.</p></div>`;
+  <p>Nothing read yet. Drop research reports in the <a href="/library">Library</a> — the system reads them, builds the record, and brings finished things here. You read and decide.</p></div>`;
   }
   const bits: string[] = [];
   bits.push(
-    `The wiki holds <b>${pulse.pages} page${pulse.pages === 1 ? "" : "s"}</b> built from <b>${pulse.facts} sourced fact${pulse.facts === 1 ? "" : "s"}</b>.`,
+    `The record holds <b>${pulse.pages} page${pulse.pages === 1 ? "" : "s"}</b> built from <b>${pulse.facts} sourced fact${pulse.facts === 1 ? "" : "s"}</b>.`,
   );
   if (pulse.themes > 0)
     bits.push(
@@ -238,14 +238,14 @@ function renderDrafts(drafts: DraftRow[]): string {
   return `<div class="sect">Awaiting your signature — drafted by the system, verified, yours to approve</div>${cards}`;
 }
 
-function renderWikiGrew(pulse: GraphPulse): string {
+function renderCorpusGrew(pulse: GraphPulse): string {
   if (pulse.pages === 0) return "";
   const newLine =
     pulse.newPages > 0
       ? `<b style="color:var(--teal,#4fb59a)">+${pulse.newPages} new page${pulse.newPages === 1 ? "" : "s"}</b> in the last day · `
       : "";
-  return `<div class="sect">The wiki grew — no action needed</div>
-<div class="grew">${newLine}<b>${pulse.pages}</b> subject pages · <b>${pulse.contested}</b> contested claims shown as contested · <a href="/topics" target="_blank">browse the wiki →</a></div>`;
+  return `<div class="sect">The record grew — no action needed</div>
+<div class="grew">${newLine}<b>${pulse.pages}</b> subject pages · <b>${pulse.contested}</b> contested claims shown as contested · <a href="/topics" target="_blank">browse the record →</a></div>`;
 }
 
 function renderAttention(findings: FindingRow[]): string {
@@ -261,7 +261,7 @@ function renderAttention(findings: FindingRow[]): string {
     })
     .join("");
   return `<div class="sect">Worth your attention — each carries its evidence</div><div class="cardrow">${cards}</div>
-<div class="silence">Lower-signal observations stayed quiet — the wiki absorbs them silently. <a href="/op/synthesis">See all findings</a></div>`;
+<div class="silence">Lower-signal observations stayed quiet — the record absorbs them silently. <a href="/op/synthesis">See all findings</a></div>`;
 }
 
 function renderThreads(threads: ThreadRow[]): string {

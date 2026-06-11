@@ -44,15 +44,32 @@ import { renderSynthesisScreen } from "./screens/synthesis";
 
 const app = new Hono<{ Bindings: Env }>();
 
-// ---- six surfaces -------------------------------------------------------
-
-// Phase 2: OUT is the home — the system writes, the operator reads. Upload
-// banners (which carry query params) still land on Library/IN, so only the
-// bare root goes to OUT.
-app.get("/", (c) => {
-  const qs = new URL(c.req.url).search;
-  return c.redirect(qs ? `/op/library${qs}` : "/op/out");
-});
+// ---- one site, permission layers (spec v2.5 Part 9) ---------------------
+//
+// PR 1 dissolves the /op/* console as a destination. The operator now lives
+// on the public URLs; /auth/login mints a session cookie, public renderers
+// surface operator affordances inline. These GET redirects bounce the old
+// console URLs to their public equivalents so external links keep working.
+//
+// POST endpoints below (extract, sign, edit, discard, etc.) are the ACTION
+// endpoints the public-side affordances post to — those stay mounted. Only
+// the GET screens (which rendered the dark-themed parallel console) redirect.
+const OP_GET_REDIRECTS: Array<[string, string]> = [
+  ["/", "/"],
+  ["/out", "/"],
+  ["/synthesis", "/"],
+  ["/studio", "/"],
+  ["/outputs", "/investigations"],
+  ["/library", "/library"],
+];
+for (const [from, to] of OP_GET_REDIRECTS) {
+  app.get(from, (c) => {
+    const qs = new URL(c.req.url).search;
+    return c.redirect(`${to}${qs}`, 302);
+  });
+}
+// /op/library/:slug → /library/:slug (preserve the slug)
+app.get("/library/:slug", (c) => c.redirect(`/library/${c.req.param("slug")}`, 302));
 
 // POST /op/feed/upload — the auto-ingest entry point.
 //   1. Store file in R2 + uploaded_files row

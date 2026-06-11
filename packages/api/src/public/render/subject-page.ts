@@ -3,7 +3,8 @@
 // One template, two modes, three subject kinds:
 //
 //   Subjects: entity | event | theme
-//   Modes:    neutral (the wiki view) | signed (the operator's reading)
+//   Modes:    neutral (the Record — facts, receipts, contested as contested)
+//             | signed (the operator's reading)
 //
 // A subject page in NEUTRAL mode is the knowledge graph rendered — facts
 // with receipts, contested claims attributed, timeline, connections.
@@ -91,6 +92,7 @@ export async function renderSubjectPage(
   env: PublicEnv,
   slug: string,
   mode: "neutral" | "signed" = "neutral",
+  opts: { isOperator?: boolean } = {},
 ): Promise<string | null> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return null;
@@ -125,9 +127,9 @@ export async function renderSubjectPage(
   };
 
   if (resolvedMode === "signed") {
-    return renderSigned(env, subject, page, hasSignedReading);
+    return renderSigned(env, subject, page, hasSignedReading, !!opts.isOperator);
   }
-  return renderNeutral(env, subject, page, hasSignedReading);
+  return renderNeutral(env, subject, page, hasSignedReading, !!opts.isOperator);
 }
 
 // ===========================================================================
@@ -138,6 +140,7 @@ async function renderNeutral(
   subject: SubjectRow,
   page: PageRow,
   hasSignedReading: boolean,
+  isOperator: boolean,
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return renderPage({ title: subject.label, body: "", description: "" });
@@ -150,7 +153,7 @@ async function renderNeutral(
       "SELECT received_account, convergence_count FROM themes WHERE node_id = ?",
       [subject.node_id],
     );
-    return renderThemePageNeutral(env, subject, page, theme, hasSignedReading);
+    return renderThemePageNeutral(env, subject, page, theme, hasSignedReading, isOperator);
   }
 
   // Pull the four neutral-mode sections in parallel.
@@ -169,6 +172,21 @@ async function renderNeutral(
   const connectionsBlock = renderConnectionsBlock(connections);
   const provenanceBlock = renderProvenance(sourceCount, hasSignedReading, page);
   const modeBand = renderModeBand(page.slug, "neutral", hasSignedReading, page);
+
+  // Operator affordance: a Record is "thin" when there's almost nothing on it.
+  // Logged-in operator sees an "Expand this Record" prompt — the click that
+  // will (in a follow-up PR) trigger Brave Search + the same extraction
+  // pipeline used on uploaded documents. For PR 1 the affordance is wired but
+  // the action is stubbed (Part 23 ships its own PR).
+  const isThin = established.length + events.length + contested.length < 5;
+  const opAffordance =
+    isOperator && isThin
+      ? `<div class="op-aff">
+  <span class="op-aff-label">Operator</span>
+  <button class="op-aff-btn" type="button" disabled title="Brave Search + record-building lands in a later PR">Expand this Record →</button>
+  <span class="op-aff-hint">few facts here yet — the click-to-expand action arrives with the record-building PR</span>
+</div>`
+      : "";
   // GEO/citability: a schema.org JSON-LD graph so AI engines can cite the
   // page and its blocks. The subject's schema type follows its kind.
   const jsonLd = buildSubjectJsonLd(subject, page, established, events);
@@ -177,6 +195,7 @@ async function renderNeutral(
 <script type="application/ld+json">${jsonLd}</script>
 <article class="subject-page">
   ${modeBand}
+  ${opAffordance}
   <header class="subject-head">
     <div class="kicker">${escapeHtml(subjectKindLabel(subject.kind))}</div>
     <h1>${escapeHtml(subject.label)}</h1>
@@ -235,6 +254,13 @@ async function renderNeutral(
     border-radius:11px; padding:16px 20px; margin-bottom:22px; }
   .signed-band a { color:var(--accent); font-weight:600; text-decoration:none; }
   .signed-band .meta { color:var(--ink-3); font-size:12.5px; margin-top:4px; }
+  .op-aff { display:flex; align-items:center; gap:12px; margin-bottom:18px; padding:9px 14px;
+    border:1px dashed var(--rule); border-radius:8px; background:rgba(0,0,0,.02); flex-wrap:wrap; }
+  .op-aff-label { font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:600; }
+  .op-aff-btn { font-size:12.5px; padding:5px 12px; border-radius:6px; border:1px solid var(--rule);
+    background:#fff; color:var(--ink); cursor:not-allowed; opacity:.6; }
+  .op-aff-hint { font-size:12px; color:var(--ink-3); }
 </style>
 `;
 
@@ -257,6 +283,7 @@ async function renderSigned(
   subject: SubjectRow,
   page: PageRow,
   hasSignedReading: boolean,
+  isOperator: boolean,
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const bodyHtml = page.body_html || (page.body_md ? renderMarkdown(page.body_md) : "");
@@ -290,9 +317,25 @@ async function renderSigned(
 </div>`
     : "";
 
+  // Operator affordances on a signed reading: Edit (open the existing
+  // /op/out/:id/edit screen), Re-sign placeholder, Discard. The handler
+  // routes are already mounted under /op/out — PR 1 surfaces them inline
+  // on the public URL the operator landed on, instead of bouncing them
+  // through a separate console.
+  const opSignedAff = isOperator
+    ? `<div class="op-aff">
+  <span class="op-aff-label">Operator</span>
+  <a class="op-aff-btn op-aff-btn-action" href="/op/out/${escapeAttr(page.id)}/edit">Edit reading</a>
+  <form method="POST" action="/op/out/${escapeAttr(page.id)}/discard" style="display:inline" onsubmit="return confirm('Discard this signed reading?');">
+    <button class="op-aff-btn op-aff-btn-action" type="submit">Discard</button>
+  </form>
+</div>`
+    : "";
+
   const body = `
 <article class="subject-page">
   ${modeBand}
+  ${opSignedAff}
   <header class="signed-head">
     <div class="kicker">${escapeHtml(subjectKindLabel(subject.kind))} · the operator's reading</div>
     <h1>${escapeHtml(subject.label)}</h1>
@@ -331,6 +374,13 @@ async function renderSigned(
   .complicate p:last-child { margin-bottom:0; }
   .complicate a { color:var(--accent); text-decoration:none; }
   .prov { padding:14px 16px; background:var(--panel-2, rgba(0,0,0,.15)); border:1px solid var(--rule); border-radius:9px; font-size:12.5px; color:var(--ink-3); }
+  .op-aff { display:flex; align-items:center; gap:12px; margin-bottom:18px; padding:9px 14px;
+    border:1px dashed var(--rule); border-radius:8px; background:rgba(0,0,0,.02); flex-wrap:wrap; }
+  .op-aff-label { font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:600; }
+  .op-aff-btn { font-size:12.5px; padding:5px 12px; border-radius:6px; border:1px solid var(--rule);
+    background:#fff; color:var(--ink); text-decoration:none; cursor:pointer; }
+  .op-aff-btn-action { cursor:pointer; opacity:1; }
 </style>
 `;
 
@@ -352,6 +402,7 @@ async function renderThemePageNeutral(
   page: PageRow,
   theme: ThemeRow | null,
   hasSignedReading: boolean,
+  _isOperator: boolean,
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId || !theme) {
