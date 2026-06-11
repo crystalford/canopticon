@@ -5,14 +5,16 @@
 // type-level shape land together. The extraction rewrite (next PR) will be
 // the first consumer; the LLM-driven proposer (after that) consumes them too.
 
-/** The 6 node-kinds per spec Part 4. */
+/** The 7 node-kinds. Theme is the v2.4-Phase-1 addition: a received account
+ *  the corpus is engaging with — what the documents are arguing against. */
 export type NodeKind =
   | "entity" // a person, company, org, place, asset that persists
   | "attribute" // a stable property — what something IS
   | "event" // a dated occurrence — what HAPPENED
   | "neutral_fact" // a sourced, established, uncontested proposition
   | "assertion" // what an ACTOR claims (pro/critical/disputed)
-  | "source"; // the external artifact a fact rests on
+  | "source" // the external artifact a fact rests on
+  | "theme"; // a received account the corpus engages with (the orientation primitive)
 
 /** The 6 edge-families per spec Part 4. */
 export type EdgeFamily =

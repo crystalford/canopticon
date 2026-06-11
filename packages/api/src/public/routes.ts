@@ -125,8 +125,31 @@ app.get("/investigations/:slug", async (c) => {
 // Universal piece page — any kind, as long as it's published or canonical.
 // Editor and Publish screens link here; treat as the canonical short URL
 // for a piece. Working-material stays private.
+//
+// IMPORTANT: this route ALSO tries to resolve the slug as a SUBJECT PAGE
+// (entity / event / theme — the unified fabric). The reader doesn't know
+// which they're clicking into; the renderer figures it out. Pieces win on
+// slug collision (they were the original /p/ tenant); subject pages fall
+// back to a /s/ alias below for unambiguous links.
 app.get("/p/:slug", async (c) => {
-  const html = await renderPiece(c.env, c.req.param("slug"));
+  const slug = c.req.param("slug");
+  // Try the piece renderer first (original semantics).
+  const html = await renderPiece(c.env, slug);
+  if (html) return htmlResponse(html);
+  // Fall through to subject pages. mode=signed reveals the operator's reading.
+  const { renderSubjectPage } = await import("./render/subject-page");
+  const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
+  const subject = await renderSubjectPage(c.env, slug, mode);
+  if (subject) return htmlResponse(subject);
+  return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+});
+
+// /s/:slug — unambiguous subject-page alias (entity / event / theme). Used in
+// internal links where we know the target is a subject, not a piece.
+app.get("/s/:slug", async (c) => {
+  const { renderSubjectPage } = await import("./render/subject-page");
+  const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
+  const html = await renderSubjectPage(c.env, c.req.param("slug"), mode);
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
 });

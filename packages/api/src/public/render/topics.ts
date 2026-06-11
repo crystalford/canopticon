@@ -7,7 +7,6 @@ import {
   type PublicEnv,
   entitiesForTopic,
   getTopic,
-  listTopics,
   piecesForTopic,
   resolveOperatorId,
 } from "../data";
@@ -16,37 +15,98 @@ import { emptyState, entityCard, pieceCard, sectionHeader } from "./components";
 
 export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
-  const topics = userId ? await listTopics(env.DB, userId) : [];
+  if (!userId) {
+    return renderPage({
+      title: "Topics",
+      description: "Browse subjects in the knowledge graph.",
+      body: emptyState("No operator yet."),
+      activeNav: "/topics",
+      zone: "topics",
+    });
+  }
 
-  const cards = topics.length
-    ? `<div class="cards-3">${topics
-        .map(
-          (t) => `<a class="cardlink" href="/topics/${escapeHtml(t.slug)}">
-  <div class="card-type t-topic">Topic</div>
-  <div class="card-title">${escapeHtml(t.label)}</div>
-  <div class="card-dek">${escapeHtml(firstLine(t.overview_md))}</div>
-</a>`,
-        )
-        .join("")}</div>`
-    : emptyState(
-        "No topics yet. The seed corpus (and its six subject hubs) imports in a later phase.",
-      );
+  // Subject pages from the fabric — entities, events, themes — grouped by kind.
+  // Each subject is a page that grew from extraction; nobody wrote them.
+  const { all } = await import("../../lib/d1");
+  const subjects = await all<{
+    slug: string;
+    label: string;
+    kind: string;
+    signed_status: string;
+    source_count: number;
+  }>(
+    env.DB,
+    `SELECT p.slug, n.label, n.kind, p.signed_status,
+            (SELECT COUNT(DISTINCT piece_id) FROM nodes
+              WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS source_count
+       FROM pages p
+       JOIN nodes n ON n.id = p.subject_node_id
+      WHERE p.user_id = ?
+      ORDER BY n.kind, source_count DESC, n.label
+      LIMIT 300`,
+    [userId, userId],
+  ).catch(() => []);
+
+  if (subjects.length === 0) {
+    return renderPage({
+      title: "Topics",
+      description: "Browse subjects in the knowledge graph.",
+      body: emptyState(
+        "No subjects yet. Drop research reports in IN — pages grow as documents are read.",
+      ),
+      activeNav: "/topics",
+      zone: "topics",
+    });
+  }
+
+  const themes = subjects.filter((s) => s.kind === "theme");
+  const entities = subjects.filter((s) => s.kind === "entity");
+  const events = subjects.filter((s) => s.kind === "event");
+
+  const subjectCard = (s: (typeof subjects)[number], kindLabel: string): string => {
+    const isSigned = s.signed_status === "signed" || s.signed_status === "published";
+    return `<a class="cardlink" href="/s/${escapeHtml(s.slug)}">
+  <div class="card-type t-${escapeHtml(s.kind)}">${escapeHtml(kindLabel)}${isSigned ? " · signed" : ""}</div>
+  <div class="card-title">${escapeHtml(s.label)}</div>
+  <div class="card-dek">${s.source_count} source${s.source_count === 1 ? "" : "s"}</div>
+</a>`;
+  };
+
+  const section = (
+    heading: string,
+    kicker: string,
+    list: typeof subjects,
+    kindLabel: string,
+  ): string => {
+    if (list.length === 0) return "";
+    return `<section style="margin-bottom:36px">
+  <div class="kicker" style="margin-bottom:10px">${escapeHtml(kicker)}</div>
+  <h2 style="font-family:var(--serif);font-size:24px;margin-bottom:14px;color:var(--ink)">${escapeHtml(heading)}</h2>
+  <div class="cards-3">${list
+    .slice(0, 60)
+    .map((s) => subjectCard(s, kindLabel))
+    .join("")}</div>
+</section>`;
+  };
 
   const body = `
 <section style="margin-bottom:24px">
-  <div class="kicker" style="margin-bottom:16px"><span class="live"></span> Browse by subject</div>
+  <div class="kicker" style="margin-bottom:16px"><span class="live"></span> The fabric</div>
   <h1 style="font-family:var(--serif);font-size:40px;line-height:1.12;letter-spacing:-0.015em;margin:0 0 12px;color:var(--ink)">Topics</h1>
   <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
-    Each topic is a pillar: a signed overview, every relevant investigation and report,
-    the people and organizations involved, and what the corpus reveals across them.
+    Subjects in the knowledge graph — entities, events, and the received accounts the corpus engages with.
+    Nobody wrote these pages; they grew as documents were read. Each page carries its receipts.
   </p>
 </section>
-<section>${cards}</section>
+${section("Themes", "What the corpus is engaging with", themes, "Theme")}
+${section("Entities", "People, organizations, places", entities, "Entity")}
+${section("Events", "Dated occurrences", events, "Event")}
 `;
+
   return renderPage({
     title: "Topics",
     description:
-      "Subject pillars — explore Canadian power by what's happening, not who's running it.",
+      "Browse the knowledge graph — entities, events, and themes the corpus engages with.",
     body,
     activeNav: "/topics",
     zone: "topics",
