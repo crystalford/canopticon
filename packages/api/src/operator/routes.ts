@@ -37,6 +37,7 @@ import { opHtml } from "./layout";
 import { renderDesignMock } from "./screens/design-mock";
 import { renderLibraryScreen } from "./screens/library";
 import { renderLibraryDocScreen } from "./screens/library-doc";
+import { renderOutStream } from "./screens/out-stream";
 import { renderOutputsScreen } from "./screens/outputs";
 import { renderProjectWorkspace, renderStudioScreen } from "./screens/studio";
 import { renderSynthesisScreen } from "./screens/synthesis";
@@ -45,12 +46,12 @@ const app = new Hono<{ Bindings: Env }>();
 
 // ---- six surfaces -------------------------------------------------------
 
-// Feed was folded into Library — one surface for drop + archive + extract.
-// /op now redirects to /op/library, preserving any upload-result query params
-// so the banner still renders after an upload.
+// Phase 2: OUT is the home — the system writes, the operator reads. Upload
+// banners (which carry query params) still land on Library/IN, so only the
+// bare root goes to OUT.
 app.get("/", (c) => {
   const qs = new URL(c.req.url).search;
-  return c.redirect(`/op/library${qs}`);
+  return c.redirect(qs ? `/op/library${qs}` : "/op/out");
 });
 
 // POST /op/feed/upload — the auto-ingest entry point.
@@ -365,6 +366,126 @@ app.get("/cmdk.js", () => {
   });
 });
 
+// OUT — the single operator stream (Phase 2). Replaces Synthesis + Outputs
+// as the home: the system writes, the operator reads and decides.
+app.get("/out", async (c) =>
+  opHtml(
+    await renderOutStream(c.env, {
+      signed: c.req.query("signed"),
+      err: c.req.query("err"),
+    }),
+  ),
+);
+
+// Re-read the corpus: re-surface findings, re-name themes, re-propose, and
+// auto-draft signed readings. The whole settle pipeline, on demand.
+app.post("/out/refresh", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/out?err=no_operator");
+  try {
+    const { runSurfacingL1 } = await import("../graph/lib/surfacing");
+    const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
+    const { autoseedPages } = await import("../graph/lib/autoseed-pages");
+    const { proposeBriefs } = await import("../graph/lib/briefs/proposer");
+    const { draftReadings } = await import("../graph/lib/draft-reading");
+    await runSurfacingL1(c.env, userId).catch(() => {});
+    await runThemeSurfacer(c.env, userId).catch(() => {});
+    await autoseedPages(c.env, userId).catch(() => {});
+    await proposeBriefs(c.env, userId).catch(() => {});
+    await draftReadings(c.env, userId).catch(() => {});
+    return c.redirect("/op/out");
+  } catch (err) {
+    return c.redirect(`/op/out?err=${encodeURIComponent((err as Error).message)}`);
+  }
+});
+
+// Sign & publish a drafted reading — the operator's one act of judgment.
+app.post("/out/:id/sign", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/out?err=no_operator");
+  const now = new Date().toISOString();
+  const page = await one<{ slug: string }>(
+    c.env.DB,
+    "SELECT slug FROM pages WHERE id = ? AND user_id = ? AND signed_status = 'draft'",
+    [c.req.param("id"), userId],
+  );
+  await run(
+    c.env.DB,
+    `UPDATE pages SET signed_status = 'published',
+        signed_by = COALESCE(signed_by, 'the operator'), signed_at = ?, updated_at = ?
+      WHERE id = ? AND user_id = ? AND signed_status = 'draft'`,
+    [now, now, c.req.param("id"), userId],
+  );
+  return c.redirect(page ? `/op/out?signed=${encodeURIComponent(page.slug)}` : "/op/out");
+});
+
+// Edit a drafted reading before signing.
+app.get("/out/:id/edit", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/out");
+  const row = await one<{ id: string; thesis: string | null; body_md: string | null }>(
+    c.env.DB,
+    "SELECT id, thesis, body_md FROM pages WHERE id = ? AND user_id = ? AND signed_status = 'draft'",
+    [c.req.param("id"), userId],
+  );
+  if (!row) return c.redirect("/op/out");
+  const { escapeHtml } = await import("../public/layout");
+  const { renderOpPage } = await import("./layout");
+  const body = `<form method="POST" action="/op/out/${escapeHtml(row.id)}/edit">
+  <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Thesis</label>
+  <input name="thesis" value="${escapeHtml(row.thesis ?? "")}" style="width:100%;background:#15181f;color:#e8eaef;border:1px solid #2e2e38;border-radius:7px;padding:10px 13px;font-size:14px;margin-bottom:16px" />
+  <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Reading (markdown)</label>
+  <textarea name="body_md" rows="26" style="width:100%;background:#15181f;color:#e8eaef;border:1px solid #2e2e38;border-radius:7px;padding:13px;font-family:ui-monospace,monospace;font-size:13px">${escapeHtml(row.body_md ?? "")}</textarea>
+  <div style="margin-top:12px;display:flex;gap:10px">
+    <button type="submit" class="btn primary" style="background:#d9a441;color:#1c1608;font-weight:600;padding:9px 20px;border-radius:7px;border:none;cursor:pointer">Save draft</button>
+    <a href="/op/out" class="btn" style="padding:9px 20px;border:1px solid #2e2e38;border-radius:7px;color:#c8c5bd;text-decoration:none">Cancel</a>
+  </div>
+</form>`;
+  return opHtml(
+    renderOpPage({
+      title: "Edit reading",
+      sub: "refine before you sign · the firewall re-checks on save",
+      body,
+      activeNav: "/op/out",
+    }),
+  );
+});
+
+app.post("/out/:id/edit", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/out");
+  const form = await c.req.formData();
+  const { renderMarkdown } = await import("../cms/lib/render-post");
+  const bodyMd = String(form.get("body_md") ?? "");
+  await run(
+    c.env.DB,
+    "UPDATE pages SET thesis = ?, body_md = ?, body_html = ?, updated_at = ? WHERE id = ? AND user_id = ? AND signed_status = 'draft'",
+    [
+      String(form.get("thesis") ?? "").slice(0, 400),
+      bodyMd,
+      renderMarkdown(bodyMd),
+      new Date().toISOString(),
+      c.req.param("id"),
+      userId,
+    ],
+  );
+  return c.redirect("/op/out");
+});
+
+// Discard a drafted reading — back to neutral-only.
+app.post("/out/:id/discard", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/op/out");
+  await run(
+    c.env.DB,
+    "UPDATE pages SET signed_status = 'none', thesis = NULL, body_md = NULL, body_html = NULL, updated_at = ? WHERE id = ? AND user_id = ?",
+    [new Date().toISOString(), c.req.param("id"), userId],
+  );
+  return c.redirect("/op/out");
+});
+
+// /op/synthesis stays as the full findings/corpus oversight view (linked from
+// OUT's "see all findings"); it's no longer a primary nav destination.
 app.get("/synthesis", async (c) => {
   const view = c.req.query("view") === "corpus" ? "corpus" : "findings";
   return opHtml(await renderSynthesisScreen(c.env, view));

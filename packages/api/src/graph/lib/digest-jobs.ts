@@ -266,6 +266,15 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
         } catch {
           // Re-propose on /op/outputs covers a failed auto-run
         }
+        // Auto-draft signed readings for subjects that crossed the threshold
+        // (Phase 3) — the drafts are waiting when the operator opens OUT. The
+        // prime directive: the work is already done when they look.
+        try {
+          const { draftReadings } = await import("./draft-reading");
+          await draftReadings(env, job.user_id);
+        } catch {
+          // Re-read on /op/out covers a failed auto-run
+        }
       }
     }
   } catch (err) {
