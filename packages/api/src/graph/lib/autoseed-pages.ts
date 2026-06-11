@@ -40,7 +40,7 @@ export async function autoseedPages(env: Env, userId: string): Promise<{ created
   // into an already-seeded longer one.
   const existingLabels = await all<{ label: string }>(
     env.DB,
-    `SELECT DISTINCT n.label FROM pages p JOIN nodes n ON n.id = p.subject_node_id WHERE p.user_id = ?`,
+    "SELECT DISTINCT n.label FROM pages p JOIN nodes n ON n.id = p.subject_node_id WHERE p.user_id = ?",
     [userId],
   ).catch(() => []);
 
