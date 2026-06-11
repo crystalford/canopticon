@@ -44,4 +44,13 @@ export interface Env {
   // with `Browser Rendering Edit` permission.
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
+
+  // Brave Search API key — optional. Powers record-building on click
+  // (spec v2.5 Part 23): when the logged-in operator clicks a thin Record,
+  // the worker calls Brave Search for the subject name, fetches the found
+  // pages, and runs the same extraction pipeline over them. Without this
+  // key, the "Expand this Record" affordance is visible but inert (shows
+  // a "key not configured" notice). Set with `wrangler secret put
+  // BRAVE_SEARCH_API_KEY`.
+  BRAVE_SEARCH_API_KEY?: string;
 }

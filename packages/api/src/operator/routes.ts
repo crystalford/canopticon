@@ -520,6 +520,51 @@ app.post("/out/:id/discard", async (c) => {
   return c.redirect("/op/out");
 });
 
+// Record-building on click (spec v2.5 Part 23). The "Expand this Record"
+// affordance on a thin subject page POSTs here. Fires the expansion in the
+// background and redirects back so the operator's page render is instant.
+// Without BRAVE_SEARCH_API_KEY this still wires cleanly — it logs that the
+// key is missing and no-ops, so the affordance is functional UI on day one.
+app.post("/records/:slug/expand", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const slug = c.req.param("slug");
+  const subject = await one<{ label: string }>(
+    c.env.DB,
+    `SELECT n.label FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+      WHERE p.user_id = ? AND p.slug = ?`,
+    [userId, slug],
+  );
+  if (!subject) return c.redirect("/");
+  const { expandRecord } = await import("../graph/lib/record-builder");
+  c.executionCtx.waitUntil(expandRecord(c.env, userId, subject.label));
+  return c.redirect(`/s/${slug}?expanding=1`);
+});
+
+// Re-render a single face on a signed reading. Triggered from the face's
+// "Retry" affordance on the signed subject page when a face is in failed
+// state (a Workers AI hiccup, a transient timeout). Fires the render in the
+// background and redirects back to the reading.
+app.post("/faces/:pageId/:kind/render", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const pageId = c.req.param("pageId");
+  const kind = c.req.param("kind");
+  const VALID = new Set(["thread", "script", "meme", "chapter"]);
+  if (!VALID.has(kind)) return c.redirect("/");
+  const page = await one<{ slug: string }>(
+    c.env.DB,
+    "SELECT slug FROM pages WHERE id = ? AND user_id = ?",
+    [pageId, userId],
+  );
+  if (!page) return c.redirect("/");
+  const { generateSingleFace } = await import("../graph/lib/face-renderer");
+  c.executionCtx.waitUntil(
+    generateSingleFace(c.env, userId, pageId, kind as "thread" | "script" | "meme" | "chapter"),
+  );
+  return c.redirect(`/s/${page.slug}?mode=signed`);
+});
+
 // /op/synthesis stays as the full findings/corpus oversight view (linked from
 // OUT's "see all findings"); it's no longer a primary nav destination.
 app.get("/synthesis", async (c) => {

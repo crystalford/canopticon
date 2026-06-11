@@ -195,19 +195,20 @@ async function renderNeutral(
 </section>`
     : "";
 
-  // Operator affordance: a Record is "thin" when there's almost nothing on it.
-  // Logged-in operator sees an "Expand this Record" prompt — the click that
-  // will (in a follow-up PR) trigger Brave Search + the same extraction
-  // pipeline used on uploaded documents. For PR 1 the affordance is wired but
-  // the action is stubbed (Part 23 ships its own PR).
+  // Operator affordance: a Record is "thin" when there's almost nothing on
+  // it. Logged-in operator sees an "Expand this Record" prompt that POSTs
+  // to /op/records/:slug/expand — kicks off Brave Search + the same
+  // extraction pipeline used on uploads (spec v2.5 Part 23). Without
+  // BRAVE_SEARCH_API_KEY set as a Worker secret, the action no-ops and logs
+  // an event saying so — the affordance is real even before the key lands.
   const isThin = established.length + events.length + contested.length < 5;
   const opAffordance =
     isOperator && isThin
-      ? `<div class="op-aff">
+      ? `<form method="POST" action="/op/records/${escapeAttr(page.slug)}/expand" class="op-aff" style="display:flex">
   <span class="op-aff-label">Operator</span>
-  <button class="op-aff-btn" type="button" disabled title="Brave Search + record-building lands in a later PR">Expand this Record →</button>
-  <span class="op-aff-hint">few facts here yet — the click-to-expand action arrives with the record-building PR</span>
-</div>`
+  <button class="op-aff-btn op-aff-btn-action" type="submit">Expand this Record →</button>
+  <span class="op-aff-hint">few facts here yet — click to search the web for ${escapeHtml(subject.label)} and extract new sources into the graph</span>
+</form>`
       : "";
   // GEO/citability: a schema.org JSON-LD graph so AI engines can cite the
   // page and its blocks. The subject's schema type follows its kind.
@@ -323,8 +324,9 @@ async function renderSigned(
   // Faces (spec v2.5 Part 24) — the four formats of this reading. Pre-rendered
   // on signing; appear as tabs at the bottom of the page. Each face is either
   // ready, rendering, queued, or failed; the renderer reflects the state.
+  // Operator gets per-face Re-render buttons when faces aren't ready.
   const faces = await loadFaces(env, page.id);
-  const facesBlock = renderFacesBlock(faces);
+  const facesBlock = renderFacesBlock(faces, page.id, isOperator);
 
   const meta: string[] = [];
   if (page.signed_by) meta.push(`signed · ${escapeHtml(page.signed_by)}`);
@@ -915,7 +917,7 @@ const FACE_HINTS: Record<string, string> = {
   chapter: "The reading's structure expanded for long-form treatment.",
 };
 
-function renderFacesBlock(faces: FaceRow[]): string {
+function renderFacesBlock(faces: FaceRow[], pageId?: string, isOperator?: boolean): string {
   if (faces.length === 0) return "";
   // The first ready face is opened by default; the rest are headed but
   // collapsed (server-rendered, no-JS — just <details>).
@@ -930,12 +932,23 @@ function renderFacesBlock(faces: FaceRow[]): string {
       const hint = FACE_HINTS[kind] ?? "";
       const open = !firstReadyShown && f.status === "ready";
       if (open) firstReadyShown = true;
+      // The operator's per-face Retry affordance — surfaces when the face
+      // failed or stayed queued/rendering past a fresh sign. Public readers
+      // never see it (it's a POST against an /op/* action endpoint).
+      const retryBtn =
+        isOperator &&
+        pageId &&
+        (f.status === "failed" || f.status === "rendering" || f.status === "queued")
+          ? `<form method="POST" action="/op/faces/${escapeAttr(pageId)}/${escapeAttr(kind)}/render" style="display:inline">
+  <button class="face-retry" type="submit">Re-render</button>
+</form>`
+          : "";
       const inner =
         f.status === "ready"
           ? `<div class="face-body">${f.body_html ?? escapeHtml(f.body_md ?? "")}</div>`
           : f.status === "failed"
-            ? `<div class="face-fail">Render failed${f.error ? `: ${escapeHtml(f.error)}` : ""}. Re-sign the reading to retry.</div>`
-            : `<div class="face-pending">Rendering — this face is being generated in the background. Reload in a moment.</div>`;
+            ? `<div class="face-fail">Render failed${f.error ? `: ${escapeHtml(f.error)}` : ""}.${retryBtn ? "" : " Re-sign the reading to retry."}${retryBtn}</div>`
+            : `<div class="face-pending">Rendering — this face is being generated in the background. Reload in a moment.${retryBtn}</div>`;
       const statusChip =
         f.status === "ready"
           ? `<span class="face-chip face-ready">ready</span>`
@@ -985,6 +998,9 @@ function renderFacesBlock(faces: FaceRow[]): string {
     background:var(--correction-bg, #f6e4df); color:var(--correction, #b0402c); font-size:13px; }
   .face-pending { margin-top:10px; padding:9px 12px; border-radius:6px;
     background:rgba(0,0,0,.04); color:var(--ink-3); font-size:13px; font-style:italic; }
+  .face-retry { font-size:11.5px; padding:4px 11px; margin-left:9px; border-radius:5px;
+    border:1px solid var(--rule); background:#fff; color:var(--ink); cursor:pointer; }
+  .face-retry:hover { background:var(--accent-bg, #e8ecf3); }
   @media(max-width:680px) { .face-hint { text-align:left; min-width:0; flex-basis:100%; margin-left:0; } }
 </style>`;
 }
