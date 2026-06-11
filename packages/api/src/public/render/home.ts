@@ -55,7 +55,14 @@ const PILLARS: PillarSpec[] = [
   },
 ];
 
-export function renderHome(): string {
+// Live fabric feed: recently active subjects + signed readings. The home is
+// the doorway INTO the fabric, not a list of nav pillars.
+export async function renderHome(env?: { DB: D1Database }): Promise<string> {
+  if (env) {
+    const feed = await renderActivityFeed(env).catch(() => "");
+    if (feed) return feed;
+  }
+  // Fallback (no env / empty corpus): the pillar masthead.
   const cards = PILLARS.map(
     (p) => `<a class="cardlink" href="${p.href}">
   <div class="card-type ${p.typeClass}">${escapeHtml(p.typeLabel)}</div>
@@ -89,6 +96,83 @@ export function renderHome(): string {
     title: "",
     description:
       "Forensic intelligence. Sourced, structured, permanent. Mapping the architecture of systems and institutions through sourced claims and signed analysis.",
+    body,
+    activeNav: "/",
+    zone: "home",
+  });
+}
+
+async function renderActivityFeed(env: { DB: D1Database }): Promise<string> {
+  const { all, one } = await import("../../lib/d1");
+  const { resolveOperatorId } = await import("../data");
+  const userId = await resolveOperatorId(env.DB);
+  if (!userId) return "";
+
+  // Recently active subjects: pages ordered by recency, signed first.
+  const subjects = await all<{
+    slug: string;
+    label: string;
+    kind: string;
+    signed_status: string;
+    thesis: string | null;
+    sources: number;
+  }>(
+    env.DB,
+    `SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis,
+            (SELECT COUNT(DISTINCT piece_id) FROM nodes
+              WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources
+       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+      WHERE p.user_id = ?
+      ORDER BY (p.signed_status = 'published') DESC, p.updated_at DESC
+      LIMIT 12`,
+    [userId, userId],
+  ).catch(() => []);
+  if (subjects.length === 0) return "";
+
+  const counts = await one<{ subjects: number; themes: number; docs: number }>(
+    env.DB,
+    `SELECT
+       (SELECT COUNT(*) FROM pages WHERE user_id = ?) AS subjects,
+       (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind = 'theme') AS themes,
+       (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs`,
+    [userId, userId, userId],
+  ).catch(() => null);
+
+  const cards = subjects
+    .map((s) => {
+      const signed = s.signed_status === "published";
+      const kindLabel = s.kind === "theme" ? "THEME" : s.kind === "event" ? "EVENT" : "SUBJECT";
+      const badge = signed
+        ? `<span class="chip" style="background:#f4e9e6;color:#8a3324;border:none">SIGNED READING</span>`
+        : "";
+      const dek =
+        signed && s.thesis
+          ? escapeHtml(s.thesis.slice(0, 130))
+          : `${s.sources} source${s.sources === 1 ? "" : "s"}`;
+      return `<a class="cardlink" href="/s/${escapeHtml(s.slug)}${signed ? "?mode=signed" : ""}">
+  <div class="card-type">${kindLabel} ${badge}</div>
+  <div class="card-title">${escapeHtml(s.label)}</div>
+  <div class="card-dek">${dek}</div>
+</a>`;
+    })
+    .join("");
+
+  const body = `
+<section style="margin-bottom:18px">
+  <div class="kicker" style="margin-bottom:18px"><span class="live"></span> A forensic record of Canadian power — facts first, readings signed</div>
+  <h1 style="font-family:var(--serif);font-size:44px;line-height:1.1;letter-spacing:-0.02em;margin:0 0 16px;color:var(--ink)">How things actually work, beneath the official account.</h1>
+  <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
+    Recently active across the fabric. <b>${counts?.subjects ?? subjects.length} subjects</b> · <b>${counts?.themes ?? 0} themes</b> · <b>${counts?.docs ?? 0} source documents</b> — every claim carries its receipt.
+  </p>
+</section>
+<section style="margin-bottom:40px">
+  <div class="cards-3">${cards}</div>
+</section>`;
+
+  return renderPage({
+    title: "",
+    description:
+      "A forensic record of Canadian power — facts first, readings signed. Recently active subjects and themes across the fabric.",
     body,
     activeNav: "/",
     zone: "home",

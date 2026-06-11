@@ -98,7 +98,7 @@ app.get("/styles.css", () => {
   });
 });
 
-app.get("/", () => htmlResponse(renderHome()));
+app.get("/", async (c) => htmlResponse(await renderHome(c.env)));
 
 // ---- Topics ---------------------------------------------------------------
 
