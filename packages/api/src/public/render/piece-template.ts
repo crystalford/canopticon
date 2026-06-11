@@ -35,10 +35,12 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
 
   const topics = await topicsForPiece(env.DB, userId, piece.id);
   const related = await listInvestigations(env.DB, userId);
+  const fed = await loadWhatItFed(env, userId, piece.id);
 
   const body = renderPieceBody(piece, {
     topics: topics.map((t) => ({ slug: t.slug, label: t.label })),
     related: related.filter((r) => r.id !== piece.id).slice(0, 6),
+    fed,
   });
 
   return renderPage({
@@ -52,9 +54,62 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
 
 // ---- main composer -----------------------------------------------------
 
+interface FedSummary {
+  facts: number;
+  assertions: number;
+  contested: number;
+  subjects: Array<{ label: string; slug: string }>;
+}
+
 interface PieceCtx {
   topics: Array<{ slug: string; label: string }>;
   related: PieceSummary[];
+  fed?: FedSummary;
+}
+
+// "This document fed the fabric" — the receipt loop. Counts the typed-graph
+// rows this piece contributed and the subject pages they feed. Closes the
+// loop: facts climb up to pages; the document shows what it gave.
+async function loadWhatItFed(env: PublicEnv, userId: string, pieceId: string): Promise<FedSummary> {
+  const { all, one } = await import("../../lib/d1");
+  const counts = await one<{ facts: number; assertions: number; contested: number }>(
+    env.DB,
+    `SELECT
+       COALESCE(SUM(CASE WHEN kind = 'neutral_fact' THEN 1 ELSE 0 END), 0) AS facts,
+       COALESCE(SUM(CASE WHEN kind = 'assertion' THEN 1 ELSE 0 END), 0) AS assertions,
+       COALESCE(SUM(CASE WHEN kind = 'assertion' AND id IN
+         (SELECT node_id FROM assertions WHERE rank = 'contested') THEN 1 ELSE 0 END), 0) AS contested
+     FROM nodes WHERE user_id = ? AND piece_id = ?`,
+    [userId, pieceId],
+  ).catch(() => null);
+
+  const subjects = await all<{ label: string; slug: string }>(
+    env.DB,
+    `SELECT DISTINCT n.label, pg.slug
+       FROM nodes n
+       JOIN pages pg ON pg.subject_node_id = n.id
+      WHERE n.user_id = ? AND n.piece_id = ? AND n.kind IN ('entity', 'event')
+      LIMIT 8`,
+    [userId, pieceId],
+  ).catch(() => []);
+
+  return {
+    facts: counts?.facts ?? 0,
+    assertions: counts?.assertions ?? 0,
+    contested: counts?.contested ?? 0,
+    subjects,
+  };
+}
+
+function renderWhatItFed(fed: FedSummary | undefined): string {
+  if (!fed || (fed.facts === 0 && fed.assertions === 0)) return "";
+  const subjectLinks = fed.subjects.length
+    ? ` → ${fed.subjects.map((s) => `<a href="/s/${escapeAttr(s.slug)}" class="ac">${escapeHtml(s.label)}</a>`).join(" · ")}`
+    : "";
+  return `<div class="piece-note" style="margin-top:30px">
+  <span class="dr-h">This document fed the fabric</span>
+  <p><b>${fed.facts}</b> fact${fed.facts === 1 ? "" : "s"} · <b>${fed.assertions}</b> assertion${fed.assertions === 1 ? "" : "s"}${fed.contested > 0 ? ` (${fed.contested} contested)` : ""}${subjectLinks}. Every one is a verbatim span; nothing was paraphrased into the graph.</p>
+</div>`;
 }
 
 function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
@@ -66,6 +121,7 @@ ${renderBreadcrumbs(piece)}
 ${renderPageHead(piece)}
 ${renderDownloadBar(piece)}
 ${renderBodyForKind(piece, sections, ctx)}
+${renderWhatItFed(ctx.fed)}
 ${renderDepositNote(piece, ctx.topics)}
 ${renderOnward(piece, ctx)}
 </div>`;
