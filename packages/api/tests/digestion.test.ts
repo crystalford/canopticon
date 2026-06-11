@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type TypedExtraction,
+  locateVerbatim,
   parseTypedExtraction,
   persistTypedExtraction,
 } from "../src/graph/lib/digestion-typed.ts";
@@ -144,6 +145,54 @@ describe("parseTypedExtraction — shape tolerance", () => {
   });
 });
 
+describe("parseTypedExtraction — aboutness", () => {
+  it("parses the 'about' entity-lid list on facts, events, and assertions", () => {
+    const out = parseTypedExtraction({
+      entities: [{ lid: "e1", label: "OSFI" }],
+      neutral_facts: [{ lid: "f1", text: "buffer raised", about: ["e1"] }],
+      events: [{ lid: "ev1", label: "raise", about: ["e1", "bad", 7] }],
+      assertions: [{ lid: "a1", text: "too high", about: ["e1"] }],
+    });
+    expect(out.neutral_facts[0]?.about).toEqual(["e1"]);
+    expect(out.events[0]?.about).toEqual(["e1", "bad"]); // non-strings dropped
+    expect(out.assertions[0]?.about).toEqual(["e1"]);
+  });
+
+  it("leaves 'about' undefined when absent or empty", () => {
+    const out = parseTypedExtraction({
+      neutral_facts: [{ lid: "f1", text: "x" }],
+      events: [{ lid: "ev1", label: "y", about: [] }],
+    });
+    expect(out.neutral_facts[0]?.about).toBeUndefined();
+    expect(out.events[0]?.about).toBeUndefined();
+  });
+});
+
+describe("locateVerbatim — whitespace-tolerant quote matching", () => {
+  const chunk = "OSFI raised\nthe domestic   stability buffer to 4.0% in 2026.";
+
+  it("matches an exact substring", () => {
+    const r = locateVerbatim(chunk, "stability buffer to 4.0%");
+    expect(r?.text).toBe("stability buffer to 4.0%");
+  });
+
+  it("matches across newline/whitespace differences and returns the ORIGINAL span", () => {
+    // model normalized the newline + the double space to single spaces
+    const r = locateVerbatim(chunk, "OSFI raised the domestic stability buffer");
+    expect(r).not.toBeNull();
+    // the stored text is the real document bytes, not the model's version
+    expect(r?.text).toBe("OSFI raised\nthe domestic   stability buffer");
+  });
+
+  it("kills a true paraphrase (different words)", () => {
+    expect(locateVerbatim(chunk, "OSFI lowered the buffer")).toBeNull();
+  });
+
+  it("kills a too-short fragment", () => {
+    expect(locateVerbatim(chunk, "OSFI")).toBeNull();
+  });
+});
+
 describe("persistTypedExtraction — batched writes", () => {
   const chunkText = "OSFI raised the buffer. Critics say it is too high. The change took effect.";
   const extraction: TypedExtraction = {
@@ -221,6 +270,35 @@ describe("persistTypedExtraction — batched writes", () => {
     expect(stats.killed_quotes).toBe(1);
     // the fact node still persists even though its quote was killed
     expect(stats.nodes).toBe(1);
+  });
+
+  it("creates an aboutness edge for each entity a fact/event/assertion is about", async () => {
+    const cap = makeBatchCaptureDb();
+    const env = { DB: cap.db } as unknown as Parameters<typeof persistTypedExtraction>[0];
+    const stats = await persistTypedExtraction(
+      env,
+      { userId: "u1", pieceId: "p1", chunkText, sourceNodeId: "src1" },
+      {
+        ...extraction,
+        relationships: [],
+        evidential: [],
+        temporal: [],
+        // f1 about e1; ev1 about e1; a1 about e1,e2 → 4 aboutness edges
+        neutral_facts: [{ lid: "f1", text: "buffer was raised", about: ["e1"] }],
+        events: [{ lid: "ev1", label: "buffer raise", date: null, about: ["e1"] }],
+        assertions: [
+          {
+            lid: "a1",
+            text: "the buffer is too high",
+            stance: "critical",
+            asserted_by_lid: "e2",
+            about: ["e1", "e2"],
+          },
+        ],
+      },
+    );
+    // 4 aboutness + 1 attribution (a1→e2) = 5 edges
+    expect(stats.edges).toBe(5);
   });
 
   it("queues node statements before the edges that reference them", async () => {

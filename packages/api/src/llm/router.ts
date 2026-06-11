@@ -63,9 +63,9 @@ interface RoleConfig {
 const ROUTES: Record<Role, RoleConfig> = {
   bulk_extraction: {
     provider: "workers_ai",
-    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
+    model: "@cf/google/gemma-4-26b-a4b-it",
     operation_type: "workers_ai.extract.bulk",
-    why: "Fast non-reasoning extractor that returns clean parsed-JSON in `response`. Replaced gemma-4-26b-a4b, a REASONING model that burned the token budget on chain-of-thought and TRUNCATED the JSON answer (verified 2026-06-10 via /v1/admin/debug-model: gemma finish_reason='length' with cut-off content at ~4s; scout returned a complete parsed object in 754ms).",
+    why: "The researched bulk pick (spec Part 16): cheapest strong model with JSON mode, optimized for QUALITY not cost within the cheap tier. NOTE on history: a 2026-06-10 session swapped this to llama-4-scout after gemma came back finish_reason='length' truncated — but that test (/v1/admin/debug-model) ran gemma at max_tokens:512, a budget ~6x too small to finish a full typed-graph JSON. That was an unfair benchmark, not a gemma weakness; scout (Index 14, same tier as the retired llama-3.3-70b) produced clean JSON but shallow graphs (entities only, no relations/assertions). Restored to gemma with a real token budget (see EXTRACTION_MAX_TOKENS in digestion-typed.ts).",
   },
   hard_extraction: {
     provider: "workers_ai",

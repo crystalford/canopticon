@@ -34,33 +34,62 @@ import type { AssertionStance, EdgeFamily, NodeKind } from "./typed-graph";
 
 const MAX_CHUNKS = 3;
 
+// Bulk extraction needs room to finish a full typed-graph JSON. The earlier
+// regression that wrongly blamed Gemma ran it at 512 tokens — a budget far
+// too small to complete one extraction. 4000 lets the factual layer finish.
+const EXTRACTION_MAX_TOKENS = 4000;
+const HARD_MAX_TOKENS = 2600;
+
 // ---------------------------------------------------------------------------
-// Prompt — terse, JSON-only, with shape sketch. The router model (Gemma 4
-// 26B A4B) is strong with JSON mode; defensive parsing below tolerates the
-// usual model-output drift.
+// PASS 1 — bulk extraction (Gemma, spec Part 16). The high-volume FACTUAL
+// layer: entities, events, neutral facts, attributed assertions, and — the
+// piece that was missing — ABOUTNESS: which entities each fact/event/assertion
+// is about. Without aboutness, facts never attach to a subject page, so the
+// graph is a disconnected bag. This pass is what makes pages come alive.
 // ---------------------------------------------------------------------------
-const TYPED_EXTRACTION_PROMPT = `You extract a TYPED graph from a research document. Output ONLY a JSON object — no prose, no markdown fences. Start with { and end with }.
+const BULK_EXTRACTION_PROMPT = `You extract the FACTUAL layer of a typed graph from a research document. Output ONLY a JSON object — no prose, no markdown fences. Start with { and end with }.
 
 Schema:
 {
   "entities":      [{ "lid": "e1", "label": "...", "type": "person|organization|institution|location|concept|asset|other" }],
-  "events":        [{ "lid": "ev1", "label": "...", "date": "YYYY[-MM[-DD]] or null", "source_quote": "..." }],
-  "neutral_facts": [{ "lid": "f1", "text": "...", "source_quote": "..." }],
-  "assertions":    [{ "lid": "a1", "text": "...", "stance": "pro|critical|neutral", "asserted_by_lid": "e1 or null", "source_quote": "..." }],
-  "relationships": [{ "src_lid": "e1", "dst_lid": "e2", "type": "owns|funded|appointed|employed_by|controls|member_of|other", "source_quote": "..." }],
-  "evidential":    [{ "src_lid": "f1 or a1", "dst_lid": "a1", "type": "supports|contradicts|corroborates|rebuts|undercuts" }],
-  "temporal":      [{ "src_lid": "ev1", "dst_lid": "ev2", "type": "before|after|during|coincides_with" }],
+  "events":        [{ "lid": "ev1", "label": "...", "date": "YYYY[-MM[-DD]] or null", "about": ["e1"], "source_quote": "..." }],
+  "neutral_facts": [{ "lid": "f1", "text": "...", "about": ["e1","e2"], "source_quote": "..." }],
+  "assertions":    [{ "lid": "a1", "text": "...", "stance": "pro|critical|neutral", "asserted_by_lid": "e1 or null", "about": ["e2"], "source_quote": "..." }],
   "open_threads":  [{ "question": "...", "related_lids": ["e1", "f1"] }]
 }
 
 Rules:
 - "lid" is a LOCAL id (e.g. "e1", "f1") used only WITHIN this response to link items. The system generates real ids when persisting.
-- "source_quote" MUST be a LITERAL substring of the document below. Quotes that aren't literal substrings will be killed by the verifier and dropped. Do NOT paraphrase quotes.
-- A NEUTRAL FACT is what is established. An ASSERTION is what someone CLAIMS (pro / critical / neutral). Do NOT label a contested claim as a neutral fact — that violates the firewall.
-- OPEN THREADS are unfinished directions the document opens but doesn't pursue ("4 more we could chase"). They surface as inquiry threads.
-- Omit any array that has no entries. Be conservative — quality > quantity. Empty output is valid.
+- "about" lists the entity lids the fact/event/assertion CONCERNS. ALWAYS fill it — a fact about nobody is invisible to the reader. Reference entities you put in "entities".
+- "source_quote" MUST be a LITERAL substring of the document below — copy it character for character, do NOT paraphrase or fix punctuation. Quotes that aren't found verbatim are dropped.
+- A NEUTRAL FACT is what is established and uncontested. An ASSERTION is what someone CLAIMS (and may be contested) — give its stance and who asserts it. Do NOT label a contested claim as a neutral fact; that violates the firewall.
+- OPEN THREADS are unfinished directions the document opens but doesn't pursue. They surface as inquiry threads.
+- Omit any array that has no entries. Be thorough on entities + facts; that is the backbone.
 
 Document:`;
+
+// ---------------------------------------------------------------------------
+// PASS 2 — hard extraction (gpt-oss-120b medium effort, spec Part 16). The
+// relational REASONING the cheap model can't do well: typed relationships
+// between entities, evidential support/contradiction (the firewall's
+// contested signal), and temporal ordering. Given the node menu pass 1 found,
+// so its lids line up. This pass is ADDITIVE and non-fatal: if it fails, the
+// factual layer from pass 1 still persists.
+// ---------------------------------------------------------------------------
+const HARD_EXTRACTION_PROMPT = `You read a research document plus a MENU of nodes already extracted from it, and output the RELATIONAL layer that connects them. Output ONLY a JSON object — no prose, no fences. Start with { and end with }.
+
+Schema:
+{
+  "relationships": [{ "src_lid": "e1", "dst_lid": "e2", "type": "owns|funded|appointed|employed_by|controls|member_of|other", "source_quote": "..." }],
+  "evidential":    [{ "src_lid": "f1", "dst_lid": "a1", "type": "supports|contradicts|corroborates|rebuts|undercuts" }],
+  "temporal":      [{ "src_lid": "ev1", "dst_lid": "ev2", "type": "before|after|during|coincides_with" }]
+}
+
+Rules:
+- Use ONLY the lids from the MENU. Do not invent new nodes.
+- relationships connect two ENTITIES. evidential connects a fact/assertion to an assertion it supports or contradicts (contradiction is the contested-claim signal — find these). temporal connects two events.
+- "source_quote" on relationships MUST be a literal substring of the document. Omit it rather than paraphrase.
+- Omit any array with no entries. Quality over quantity — only assert a link the document actually supports.`;
 
 // ---------------------------------------------------------------------------
 // Model-output shape (matches the prompt above; all fields optional + tolerant).
@@ -74,11 +103,13 @@ interface ExtractedEvent {
   lid: string;
   label: string;
   date?: string | null | undefined;
+  about?: string[] | undefined;
   source_quote?: string | undefined;
 }
 interface ExtractedFact {
   lid: string;
   text: string;
+  about?: string[] | undefined;
   source_quote?: string | undefined;
 }
 interface ExtractedAssertion {
@@ -86,6 +117,7 @@ interface ExtractedAssertion {
   text: string;
   stance?: string | undefined;
   asserted_by_lid?: string | null | undefined;
+  about?: string[] | undefined;
   source_quote?: string | undefined;
 }
 interface ExtractedRelationship {
@@ -180,6 +212,12 @@ function asObjArray(v: unknown): Record<string, unknown>[] {
 function asArray<T = unknown>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
 }
+/** Parse an "about"/"related_lids" field to a clean string[] of local ids. */
+function asStringArray(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out = v.filter((x): x is string => typeof x === "string" && x.length > 0);
+  return out.length > 0 ? out : undefined;
+}
 
 export function parseTypedExtraction(raw: unknown): TypedExtraction {
   let root: unknown = raw;
@@ -202,6 +240,7 @@ export function parseTypedExtraction(raw: unknown): TypedExtraction {
         lid: asString(e.lid),
         label: asString(e.label),
         date: typeof e.date === "string" ? e.date : null,
+        about: asStringArray(e.about),
         source_quote: asString(e.source_quote) || undefined,
       }))
       .filter((e) => e.lid && e.label),
@@ -209,6 +248,7 @@ export function parseTypedExtraction(raw: unknown): TypedExtraction {
       .map((f) => ({
         lid: asString(f.lid),
         text: asString(f.text),
+        about: asStringArray(f.about),
         source_quote: asString(f.source_quote) || undefined,
       }))
       .filter((f) => f.lid && f.text),
@@ -218,6 +258,7 @@ export function parseTypedExtraction(raw: unknown): TypedExtraction {
         text: asString(a.text),
         stance: asString(a.stance) || undefined,
         asserted_by_lid: typeof a.asserted_by_lid === "string" ? a.asserted_by_lid : null,
+        about: asStringArray(a.about),
         source_quote: asString(a.source_quote) || undefined,
       }))
       .filter((a) => a.lid && a.text),
@@ -277,27 +318,67 @@ export async function extractTypedChunk(
   chunkIndex: number,
   chunkText: string,
 ): Promise<TypedExtraction> {
-  const out = await withTimeout(
+  // PASS 1 — bulk (Gemma): the factual layer + aboutness. This is the
+  // backbone; if it fails the chunk is empty.
+  const bulkOut = await withTimeout(
     callRole(env, "bulk_extraction", {
       userId,
-      system: TYPED_EXTRACTION_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: [{ type: "text", text: chunkText }],
-        },
-      ],
-      // Room for a full typed-graph JSON over a 6KB chunk. Scout is a fast
-      // non-reasoning model, so 3000 generates well inside the 25s ceiling
-      // (the old budget problem was a 24KB chunk + a reasoning model, both
-      // since fixed).
-      max_tokens: 3000,
-      idempotency_key: `${pieceId}:typed:${chunkIndex}`,
+      system: BULK_EXTRACTION_PROMPT,
+      messages: [{ role: "user", content: [{ type: "text", text: chunkText }] }],
+      max_tokens: EXTRACTION_MAX_TOKENS,
+      idempotency_key: `${pieceId}:bulk:${chunkIndex}`,
     }),
     TIMEOUTS.LLM_CALL_MS,
-    `extractTypedChunk[${chunkIndex}]`,
+    `extractTypedChunk.bulk[${chunkIndex}]`,
   );
-  return parseTypedExtraction(out.structured ?? out.text);
+  const extraction = parseTypedExtraction(bulkOut.structured ?? bulkOut.text);
+
+  // PASS 2 — hard (gpt-oss-120b): the relational layer over the nodes pass 1
+  // found. ADDITIVE and non-fatal — a timeout/parse failure here must not lose
+  // the factual layer, so it's wrapped and its result merged on success only.
+  const menu = buildNodeMenu(extraction);
+  if (menu.length > 0) {
+    try {
+      const hardOut = await withTimeout(
+        callRole(env, "hard_extraction", {
+          userId,
+          system: HARD_EXTRACTION_PROMPT,
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: `MENU (lid → node):\n${menu}\n\nDocument:\n${chunkText}` },
+              ],
+            },
+          ],
+          max_tokens: HARD_MAX_TOKENS,
+          idempotency_key: `${pieceId}:hard:${chunkIndex}`,
+        }),
+        TIMEOUTS.LLM_CALL_MS,
+        `extractTypedChunk.hard[${chunkIndex}]`,
+      );
+      const hard = parseTypedExtraction(hardOut.structured ?? hardOut.text);
+      // Merge ONLY the relational arrays; pass 1 owns the nodes.
+      extraction.relationships = hard.relationships;
+      extraction.evidential = hard.evidential;
+      extraction.temporal = hard.temporal;
+    } catch {
+      // Hard pass failed — keep the factual layer. Relations fill in on a
+      // later re-extract; the pages still come alive from pass 1 + aboutness.
+    }
+  }
+  return extraction;
+}
+
+/** A compact lid→label menu of the nodes pass 1 found, so the hard pass can
+ *  reference them without re-deriving. Capped to keep the prompt tight. */
+function buildNodeMenu(ext: TypedExtraction): string {
+  const lines: string[] = [];
+  for (const e of ext.entities) lines.push(`${e.lid} = entity: ${e.label}`);
+  for (const ev of ext.events) lines.push(`${ev.lid} = event: ${ev.label}`);
+  for (const f of ext.neutral_facts) lines.push(`${f.lid} = fact: ${f.text.slice(0, 80)}`);
+  for (const a of ext.assertions) lines.push(`${a.lid} = assertion: ${a.text.slice(0, 80)}`);
+  return lines.slice(0, 80).join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -365,6 +446,24 @@ export async function persistTypedExtraction(
   const lidToId = new Map<string, string>();
   const stmts: D1PreparedStatement[] = [];
 
+  // Aboutness edges: link a fact/event/assertion to each entity it concerns
+  // (src = the fact node, dst = the entity), family='aboutness'. This is what
+  // attaches material to a subject page — the renderer joins facts to a
+  // subject through these edges. Entities are queued first, so their lids are
+  // already resolved by the time we reach the items that reference them.
+  const pushAboutness = (itemNodeId: string, about: string[] | undefined): void => {
+    if (!about) return;
+    const seen = new Set<string>();
+    for (const lid of about) {
+      const dst = lidToId.get(lid);
+      if (dst && dst !== itemNodeId && !seen.has(dst)) {
+        seen.add(dst);
+        stmts.push(edgeInsert(env.DB, args, itemNodeId, dst, "about", "aboutness"));
+        stats.edges++;
+      }
+    }
+  };
+
   // Entities — node kind 'entity'. Type goes in metadata.
   for (const e of extraction.entities) {
     const { id, stmt } = nodeInsert(env.DB, args, "entity", e.label, {
@@ -387,6 +486,7 @@ export async function persistTypedExtraction(
     if (e.date) {
       stmts.push(propInsert(env.DB, id, "event_date", e.date));
     }
+    pushAboutness(id, e.about);
     if (e.source_quote) {
       const q = quoteInsert(env.DB, args, id, e.source_quote);
       if (q) {
@@ -404,6 +504,7 @@ export async function persistTypedExtraction(
     lidToId.set(f.lid, id);
     stmts.push(stmt);
     stats.nodes++;
+    pushAboutness(id, f.about);
     if (f.source_quote) {
       const q = quoteInsert(env.DB, args, id, f.source_quote);
       if (q) {
@@ -429,6 +530,7 @@ export async function persistTypedExtraction(
     const actorNodeId = a.asserted_by_lid ? (lidToId.get(a.asserted_by_lid) ?? null) : null;
     stmts.push(assertionInsert(env.DB, nodeId, actorNodeId, stance));
     stats.assertions++;
+    pushAboutness(nodeId, a.about);
     if (a.source_quote) {
       const q = quoteInsert(env.DB, args, nodeId, a.source_quote);
       if (q) {
@@ -641,26 +743,73 @@ function threadInsert(
 }
 
 /** Verbatim check + statement build. Returns a prepared INSERT if the quote
- *  is a literal substring of the chunk text, or null if it isn't (killed).
- *  The firewall mandate: quotes that aren't literal substrings don't persist. */
+ *  can be located in the chunk, or null if it can't (killed).
+ *
+ *  The firewall mandate is that a stored quote is genuinely text from the
+ *  source — but a strict character-for-character indexOf is too brittle: models
+ *  routinely differ only in whitespace (a normalized space for a newline, a
+ *  collapsed run of spaces) and an exact match then drops a quote that IS in
+ *  the document. So we locate the quote by WHITESPACE-NORMALIZED match and
+ *  store the ORIGINAL chunk span we matched — the stored text is always real
+ *  document bytes, never the model's paraphrase. A true paraphrase (different
+ *  words) still finds nothing and is correctly killed. */
 function quoteInsert(
   db: D1Database,
   args: PersistArgs,
   nodeId: string,
   quote: string,
 ): D1PreparedStatement | null {
-  const trimmed = quote.trim();
-  if (!trimmed) return null;
-  const offset = args.chunkText.indexOf(trimmed);
-  if (offset < 0) return null;
+  const located = locateVerbatim(args.chunkText, quote);
+  if (!located) return null;
   return buildInsert(db, "quotes", {
     user_id: args.userId,
     source_id: args.sourceNodeId,
     node_id: nodeId,
-    verbatim_text: trimmed,
-    byte_offset: offset,
-    byte_length: trimmed.length,
+    verbatim_text: located.text,
+    byte_offset: located.offset,
+    byte_length: located.text.length,
   }).stmt;
+}
+
+/** Find a quote in the chunk, tolerant to whitespace differences. Returns the
+ *  ORIGINAL chunk substring (so the stored quote is real document text) plus
+ *  its offset, or null if the words aren't present in order. */
+export function locateVerbatim(
+  chunk: string,
+  quote: string,
+): { text: string; offset: number } | null {
+  const trimmed = quote.trim();
+  if (trimmed.length < 8) return null;
+  // Fast path: exact substring.
+  const exact = chunk.indexOf(trimmed);
+  if (exact >= 0) return { text: trimmed, offset: exact };
+  // Whitespace-normalized path: collapse runs of whitespace in both, map the
+  // normalized match back to original-chunk offsets.
+  const norm = (s: string) => s.replace(/\s+/g, " ");
+  const normQuote = norm(trimmed);
+  // Build normalized chunk + an index map (normalized pos -> original pos).
+  const map: number[] = [];
+  let normChunk = "";
+  let prevSpace = false;
+  for (let i = 0; i < chunk.length; i++) {
+    const ch = chunk[i] ?? "";
+    if (/\s/.test(ch)) {
+      if (prevSpace) continue;
+      normChunk += " ";
+      map.push(i);
+      prevSpace = true;
+    } else {
+      normChunk += ch;
+      map.push(i);
+      prevSpace = false;
+    }
+  }
+  const npos = normChunk.indexOf(normQuote);
+  if (npos < 0) return null;
+  const startOrig = map[npos] ?? 0;
+  const endNorm = npos + normQuote.length - 1;
+  const endOrig = (map[endNorm] ?? startOrig) + 1;
+  return { text: chunk.slice(startOrig, endOrig), offset: startOrig };
 }
 
 export const TYPED_EXTRACTION_LIMITS = {
