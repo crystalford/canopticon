@@ -13,14 +13,19 @@ interface PillarSpec {
   blurb: string;
 }
 
+// The four ways into the fabric. Matches the public nav (spec v2.5 Part 10):
+// Investigations · Topics · Library · About-Methodology. The old "Record" and
+// "Patterns" pillars dissolved with v2.4 — those URLs 301-redirect into the
+// surfaces below; this fallback used to list them as live entries, which was
+// a stale-link debt.
 const PILLARS: PillarSpec[] = [
   {
     href: "/topics",
     label: "Topics",
-    typeLabel: "Subject pillars",
+    typeLabel: "The index",
     typeClass: "t-topic",
     blurb:
-      "The corpus by subject — the structures, networks, and institutions the work is pointed at.",
+      "Subjects in the knowledge graph — entities, events, and the received accounts the corpus engages with. Each page grows from extraction; nobody wrote it.",
   },
   {
     href: "/investigations",
@@ -28,30 +33,23 @@ const PILLARS: PillarSpec[] = [
     typeLabel: "Signed analysis",
     typeClass: "t-essay",
     blurb:
-      "The signed read on the substrate. Theses, research reports, briefs — every assertion tied back to the evidence it rests on.",
-  },
-  {
-    href: "/record",
-    label: "The Record",
-    typeLabel: "Reference",
-    typeClass: "t-entity",
-    blurb:
-      "People, organizations, programs. Look up an entity and see every claim, source, and pattern that touches them.",
-  },
-  {
-    href: "/patterns",
-    label: "Patterns",
-    typeLabel: "The lighthouse",
-    typeClass: "t-pattern",
-    blurb:
-      "What the whole corpus reveals — signed by the operator. Patterns no single document contains; gaps the corpus surfaces; the timeline cast across documents.",
+      "The signed reading on the substrate. Each piece wears its intent as a badge; every load-bearing assertion ties back to the evidence it rests on.",
   },
   {
     href: "/library",
     label: "Library",
     typeLabel: "The raw research",
     typeClass: "t-research-report",
-    blurb: "The working material the rest is built on — kept whole, kept honest, downloadable.",
+    blurb:
+      "Every source document the rest is built on — kept whole, kept honest. Each shows what it fed into the fabric.",
+  },
+  {
+    href: "/methodology",
+    label: "Methodology",
+    typeLabel: "How this works",
+    typeClass: "t-pattern",
+    blurb:
+      "The trust model — verbatim verification, independent judging, the firewall between neutral fact and attributed assertion. Why citations from this site are mechanical, not vouched.",
   },
 ];
 
@@ -87,7 +85,7 @@ export async function renderHome(env?: { DB: D1Database }): Promise<string> {
 
 <section style="margin-bottom:40px">
   <div class="row between" style="border-bottom:1px solid var(--rule);padding-bottom:9px;margin-bottom:16px">
-    <div class="label">Five ways in</div>
+    <div class="label">Four ways in</div>
   </div>
   <div class="cards-3">${cards}</div>
 </section>
@@ -157,7 +155,40 @@ async function renderActivityFeed(env: { DB: D1Database }): Promise<string> {
     })
     .join("");
 
+  // Home JSON-LD: WebSite (SearchAction) + Organization. The richer per-page
+  // schema lives on subject / brief renderers; this gives AI engines the
+  // canopticon-the-publication graph node so citations have a publisher to
+  // attribute. (Princeton GEO research: schema-tagged pages outcite untagged
+  // by ~30-40% in answer engines.)
+  const jsonLd = JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://canopticon.com/#site",
+        url: "https://canopticon.com/",
+        name: "CANOPTICON",
+        description:
+          "A forensic intelligence publication system. Sourced claims, signed analysis, a typed graph of verified facts. Every assertion ties back to a verbatim quote from a stored source document.",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: "https://canopticon.com/search?q={query}",
+          "query-input": "required name=query",
+        },
+        publisher: { "@id": "https://canopticon.com/#org" },
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://canopticon.com/#org",
+        name: "CANOPTICON",
+        url: "https://canopticon.com/",
+        sameAs: ["https://twitter.com/canoptics"],
+      },
+    ],
+  }).replace(/<\/script/gi, "<\\/script");
+
   const body = `
+<script type="application/ld+json">${jsonLd}</script>
 <section style="margin-bottom:18px">
   <div class="kicker" style="margin-bottom:18px"><span class="live"></span> A forensic record of Canadian power — facts first, readings signed</div>
   <h1 style="font-family:var(--serif);font-size:44px;line-height:1.1;letter-spacing:-0.02em;margin:0 0 16px;color:var(--ink)">How things actually work, beneath the official account.</h1>
