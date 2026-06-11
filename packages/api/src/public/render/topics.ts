@@ -52,7 +52,7 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
       title: "Topics",
       description: "Browse subjects in the knowledge graph.",
       body: emptyState(
-        "No subjects yet. Drop research reports in IN — pages grow as documents are read.",
+        "No subjects yet. Drop research reports in the Library — pages grow as documents are read.",
       ),
       activeNav: "/topics",
       zone: "topics",
@@ -72,20 +72,27 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
 </a>`;
   };
 
+  // Section helper. When a section is empty, render the heading + one line
+  // explaining what fills it — so the reader sees the SHAPE of the index even
+  // before themes or events surface (the Feels Like Brief: empty states say
+  // what goes here, never look like a shell).
   const section = (
     heading: string,
     kicker: string,
     list: typeof subjects,
     kindLabel: string,
+    emptyExplainer: string,
   ): string => {
-    if (list.length === 0) return "";
+    const cards = list.length
+      ? `<div class="cards-3">${list
+          .slice(0, 60)
+          .map((s) => subjectCard(s, kindLabel))
+          .join("")}</div>`
+      : `<p style="font-family:var(--serif);font-size:15px;line-height:1.55;color:var(--ink-3);max-width:640px;font-style:italic">${escapeHtml(emptyExplainer)}</p>`;
     return `<section style="margin-bottom:36px">
   <div class="kicker" style="margin-bottom:10px">${escapeHtml(kicker)}</div>
   <h2 style="font-family:var(--serif);font-size:24px;margin-bottom:14px;color:var(--ink)">${escapeHtml(heading)}</h2>
-  <div class="cards-3">${list
-    .slice(0, 60)
-    .map((s) => subjectCard(s, kindLabel))
-    .join("")}</div>
+  ${cards}
 </section>`;
   };
 
@@ -98,9 +105,27 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
     Nobody wrote these pages; they grew as documents were read. Each page carries its receipts.
   </p>
 </section>
-${section("Themes", "What the corpus is engaging with", themes, "Theme")}
-${section("Entities", "People, organizations, places", entities, "Entity")}
-${section("Events", "Dated occurrences", events, "Event")}
+${section(
+  "Themes",
+  "What the corpus is engaging with",
+  themes,
+  "Theme",
+  "A theme is a received account the corpus pushes back on — surfaced automatically when three or more documents converge on contradicting the same proposition. None have crossed the threshold yet.",
+)}
+${section(
+  "Entities",
+  "People, organizations, places",
+  entities,
+  "Entity",
+  "Entities the corpus has recognised but hasn't yet seeded into pages.",
+)}
+${section(
+  "Events",
+  "Dated occurrences",
+  events,
+  "Event",
+  "Dated occurrences — extracted with their source quotes. No event pages yet.",
+)}
 `;
 
   return renderPage({

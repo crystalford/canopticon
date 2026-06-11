@@ -173,6 +173,28 @@ async function renderNeutral(
   const provenanceBlock = renderProvenance(sourceCount, hasSignedReading, page);
   const modeBand = renderModeBand(page.slug, "neutral", hasSignedReading, page);
 
+  // When all four content blocks are empty, the page still says what FILLS
+  // each section, so the reader sees the SHAPE of the Record (Established,
+  // Contested, Timeline, Connections) rather than landing on a near-blank
+  // page. The Feels Like Brief: never look like a shell.
+  const isEmpty =
+    established.length === 0 &&
+    contested.length === 0 &&
+    events.length === 0 &&
+    connections.length === 0;
+  const shapeBlock = isEmpty
+    ? `<section class="shape-block" aria-label="What this page will contain">
+  <div class="sec-k">What this Record carries</div>
+  <ul>
+    <li><b>Established</b> — neutral facts about ${escapeHtml(subject.label)}, each linked to a verbatim source span.</li>
+    <li><b>Contested</b> — attributed assertions where the evidence is split or rebutted, shown gray, never silently as fact.</li>
+    <li><b>Timeline</b> — dated events involving this subject, ordered.</li>
+    <li><b>Connections</b> — typed relationships to other entities (ownership, employment, funding, membership).</li>
+  </ul>
+  <p>Nothing has been extracted yet that fills these. Documents in the Library are read into a typed graph; this page grows from that graph automatically.</p>
+</section>`
+    : "";
+
   // Operator affordance: a Record is "thin" when there's almost nothing on it.
   // Logged-in operator sees an "Expand this Record" prompt — the click that
   // will (in a follow-up PR) trigger Brave Search + the same extraction
@@ -204,6 +226,7 @@ async function renderNeutral(
 
   <div class="subject-grid">
     <div class="subject-main">
+      ${shapeBlock}
       ${establishedBlock}
       ${contestedBlock}
       ${timelineBlock}
@@ -261,6 +284,15 @@ async function renderNeutral(
   .op-aff-btn { font-size:12.5px; padding:5px 12px; border-radius:6px; border:1px solid var(--rule);
     background:#fff; color:var(--ink); cursor:not-allowed; opacity:.6; }
   .op-aff-hint { font-size:12px; color:var(--ink-3); }
+  .shape-block { padding:20px 22px; border:1px solid var(--rule); border-radius:9px;
+    background:var(--panel-soft, rgba(0,0,0,.02)); margin-bottom:24px; }
+  .shape-block .sec-k { margin-top:0; }
+  .shape-block ul { list-style:none; padding:0; margin:10px 0 14px; }
+  .shape-block li { font-size:14.5px; line-height:1.6; color:var(--ink-2); padding:7px 0;
+    border-top:1px solid var(--rule); }
+  .shape-block li:first-child { border-top:none; }
+  .shape-block li b { color:var(--ink); font-weight:600; }
+  .shape-block p { font-size:13.5px; color:var(--ink-3); font-style:italic; margin:0; }
 </style>
 `;
 
@@ -648,12 +680,13 @@ async function loadSourceCount(env: PublicEnv, userId: string, subjectId: string
 // Block renderers
 // ===========================================================================
 
-function buildLede(subject: SubjectRow, facts: FactRow[]): string {
+function buildLede(_subject: SubjectRow, facts: FactRow[]): string {
   // Take up to two leading neutral facts and weave them into a lede sentence.
-  // Each fact gets its quote receipt as a superscript link.
-  if (facts.length === 0) {
-    return `<em>${escapeHtml(subject.label)}</em> — facts on this subject will appear as documents that mention it are extracted.`;
-  }
+  // Each fact gets its quote receipt as a superscript link. When no facts
+  // have been extracted yet, the lede is intentionally absent — the shape
+  // block below tells the reader what will fill the page. (Cleaner than a
+  // placeholder sentence pretending to be a lede.)
+  if (facts.length === 0) return "";
   const top = facts.slice(0, 2);
   const joined = top
     .map(
