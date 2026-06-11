@@ -36,10 +36,10 @@ const env = {
 };
 
 describe("operator console — six-surface IA (P0)", () => {
-  it("/op redirects to the Library home (Feed folded in)", async () => {
+  it("/op redirects to the OUT home (the system writes; you read)", async () => {
     const res = await app.fetch(new Request("http://test/op"), env);
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("/op/library");
+    expect(res.headers.get("location")).toBe("/op/out");
   });
 
   it("/op/library renders the dark-amber shell with the dropzone", async () => {
@@ -54,10 +54,11 @@ describe("operator console — six-surface IA (P0)", () => {
     expect(html).toContain('class="rail"');
     // Feed is folded into Library — the five remaining surfaces. "Briefs" is
     // deprecated (spec Part 1 / Part 11 #11); the surface is "Outputs".
-    for (const lbl of ["Library", "Synthesis", "Outputs", "Studio"]) {
+    // Phase 2: the rail is IN · OUT · Studio.
+    for (const lbl of [">IN<", ">OUT<", ">Studio<"]) {
       expect(html).toContain(lbl);
     }
-    // Feed is no longer a nav destination.
+    // Feed and standalone Synthesis/Outputs are no longer nav destinations.
     expect(html).not.toContain(">Feed<");
     // noindex so the operator surface never gets crawled.
     expect(html).toContain('name="robots" content="noindex"');

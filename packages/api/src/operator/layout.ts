@@ -55,15 +55,13 @@ export interface OpNavItem {
 // The six surfaces, in the design's order. The handoff makes the order
 // itself meaningful: archive+intake (Library) → oversee (Synthesis) →
 // build-citable (Outputs) → produce (Studio).
+// Phase 2: the console is IN · OUT · Studio. OUT is the single stream where
+// the system surfaces what it wrote (Synthesis + Outputs folded into it). IN
+// is Library (drop + archive + extract). Synthesis/Outputs routes still exist
+// for deep oversight but are no longer primary destinations.
 export const OP_NAV: OpNavItem[] = [
-  // Feed was folded into Library — the dropzone now lives at the top of the
-  // Library surface, so there's one place for drop + archive + extract.
-  { href: "/op/library", label: "Library", icon: "library" },
-  // Chat removed from the rail (operator: "I'm not going to be using the
-  // chat — keep things streamlined to the actual functions we use"). The
-  // backend routes stay; /op/chat redirects to /op/library.
-  { href: "/op/synthesis", label: "Synthesis", icon: "synthesis" },
-  { href: "/op/outputs", label: "Outputs", icon: "briefs" },
+  { href: "/op/library", label: "IN", icon: "library" },
+  { href: "/op/out", label: "OUT", icon: "briefs" },
   { href: "/op/studio", label: "Studio", icon: "studio" },
 ];
 

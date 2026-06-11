@@ -54,9 +54,45 @@ export async function renderInvestigationsIndex(
         [userId],
       ).catch(() => [])
     : [];
+  // Signed readings from the fabric (pages.signed_status='published'). These
+  // are the Phase-3 auto-drafted, operator-signed readings of subjects.
+  const readings = userId
+    ? await all<{
+        slug: string;
+        label: string;
+        kind: string;
+        thesis: string | null;
+        signed_by: string | null;
+        signed_at: string | null;
+        confidence: string | null;
+      }>(
+        env.DB,
+        `SELECT p.slug, n.label, n.kind, p.thesis, p.signed_by, p.signed_at, p.confidence
+           FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+          WHERE p.user_id = ? AND p.signed_status = 'published'
+          ORDER BY p.signed_at DESC LIMIT 40`,
+        [userId],
+      ).catch(() => [])
+    : [];
+
   const shownOutputs = intentFilter
     ? outputs.filter((o) => o.content_type === intentFilter)
     : outputs;
+
+  const readingCards =
+    readings.length && !intentFilter
+      ? `<div style="margin-bottom:28px">${readings
+          .map(
+            (r) => `<div style="padding:14px 0;border-bottom:1px solid var(--rule)">
+  <span class="chip" title="A signed reading of a subject">Signed reading${r.signed_by ? ` · ${escapeHtml(r.signed_by)}` : ""}</span>
+  ${r.confidence ? `<span class="chip">${escapeHtml(r.confidence)} confidence</span>` : ""}
+  <div style="margin-top:6px"><a class="ac" href="/s/${escapeHtml(r.slug)}?mode=signed" style="font-family:var(--serif);font-size:20px">${escapeHtml(r.label)}</a></div>
+  ${r.thesis ? `<p style="font-family:var(--serif);font-style:italic;color:var(--ink-2);margin-top:5px;max-width:620px">${escapeHtml(r.thesis.slice(0, 180))}</p>` : ""}
+  ${r.signed_at ? `<p class="coord" style="margin-top:4px">${escapeHtml(formatDate(r.signed_at))}</p>` : ""}
+</div>`,
+          )
+          .join("")}</div>`
+      : "";
 
   const presentTypes = [...new Set(outputs.map((o) => o.content_type))];
   const filterRow = presentTypes.length
@@ -105,7 +141,7 @@ export async function renderInvestigationsIndex(
   </p>
 </section>
 ${filterRow}
-<section>${outputCards}${list}${empty}</section>
+<section>${readingCards}${outputCards}${list}${empty}</section>
 `;
   return renderPage({
     title: "Investigations",
