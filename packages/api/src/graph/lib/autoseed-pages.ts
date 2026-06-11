@@ -36,27 +36,39 @@ export async function autoseedPages(env: Env, userId: string): Promise<{ created
     byCanonical.set(key, list);
   }
 
+  // Existing page labels (from prior seed runs) so new short names can fold
+  // into an already-seeded longer one.
+  const existingLabels = await all<{ label: string }>(
+    env.DB,
+    "SELECT DISTINCT n.label FROM pages p JOIN nodes n ON n.id = p.subject_node_id WHERE p.user_id = ?",
+    [userId],
+  ).catch(() => []);
+
+  // Seed longest names first so "Mark Carney" wins before "Carney" is seen;
+  // a shorter name that is a whole-word subset of an already-seeded longer
+  // name folds into it (no separate page).
+  const ordered = [...byCanonical.entries()].sort((a, b) => b[0].length - a[0].length);
+  const seededCanon: string[] = existingLabels.map((r) => canonicalize(r.label));
+
   let created = 0;
-  for (const [canonical, group] of byCanonical) {
-    // The "canonical" node is the first in the group; rest become aliases
-    // (still seedable but they share the same page slug — collisions are
-    // tolerated by the unique index on subject_node_id, not on canonical).
+  for (const [canonical, group] of ordered) {
     const primary = group[0];
     if (!primary) continue;
 
-    // Check if a page with this canonical slug already exists (from a prior
-    // seed run that hit the canonical-name space).
+    // Fold a short name into a longer already-seeded name (entity dedup).
+    // "carney" folds into "mark carney"; events are never folded (dates differ).
+    if (primary.kind === "entity" && seededCanon.some((s) => isAliasOf(canonical, s))) {
+      continue;
+    }
+
     const baseSlug = slugify(canonical);
     const existing = await one<{ id: string }>(
       env.DB,
       "SELECT id FROM pages WHERE user_id = ? AND slug = ?",
       [userId, baseSlug],
     );
-
     if (existing) {
-      // The canonical page exists; do nothing. Other group members get their
-      // own pages-per-node (the unique index allows it) but the operator's
-      // entry point is the canonical one.
+      seededCanon.push(canonical);
       continue;
     }
 
@@ -67,6 +79,7 @@ export async function autoseedPages(env: Env, userId: string): Promise<{ created
         slug: baseSlug,
         signed_status: "none",
       });
+      seededCanon.push(canonical);
       created++;
     } catch {
       // unique violation = race; skip
@@ -74,6 +87,20 @@ export async function autoseedPages(env: Env, userId: string): Promise<{ created
   }
 
   return { created };
+}
+
+// True when `short` is a whole-word subset of `long` (so "carney" folds into
+// "mark carney", "poilievre" into "pierre poilievre"). Requires the short
+// name to be at least one full word AND every one of its words to appear in
+// the longer name — avoids folding "bank of canada" into "bank of england".
+function isAliasOf(short: string, long: string): boolean {
+  if (short === long || short.length >= long.length) return false;
+  const longWords = new Set(long.split(/\s+/).filter(Boolean));
+  const shortWords = short.split(/\s+/).filter(Boolean);
+  if (shortWords.length === 0 || shortWords.length >= longWords.size) return false;
+  // Single-word short names must be a "significant" surname-length token.
+  if (shortWords.length === 1 && (shortWords[0]?.length ?? 0) < 4) return false;
+  return shortWords.every((w) => longWords.has(w));
 }
 
 function canonicalize(label: string): string {

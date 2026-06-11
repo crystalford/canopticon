@@ -378,25 +378,35 @@ app.get("/out", async (c) =>
 );
 
 // Re-read the corpus: re-surface findings, re-name themes, re-propose, and
-// auto-draft signed readings. The whole settle pipeline, on demand.
+// auto-draft signed readings. The cheap DETERMINISTIC steps (autoseed pages,
+// L1) run inline so the page is correct on redirect; the expensive LLM steps
+// (theme-naming, proposing, drafting) run in waitUntil so the request can't
+// blow the Worker wall-clock — the OUT stream fills in over the next minute.
 app.post("/out/refresh", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/op/out?err=no_operator");
-  try {
-    const { runSurfacingL1 } = await import("../graph/lib/surfacing");
-    const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
-    const { autoseedPages } = await import("../graph/lib/autoseed-pages");
-    const { proposeBriefs } = await import("../graph/lib/briefs/proposer");
-    const { draftReadings } = await import("../graph/lib/draft-reading");
-    await runSurfacingL1(c.env, userId).catch(() => {});
-    await runThemeSurfacer(c.env, userId).catch(() => {});
-    await autoseedPages(c.env, userId).catch(() => {});
-    await proposeBriefs(c.env, userId).catch(() => {});
-    await draftReadings(c.env, userId).catch(() => {});
-    return c.redirect("/op/out");
-  } catch (err) {
-    return c.redirect(`/op/out?err=${encodeURIComponent((err as Error).message)}`);
-  }
+  const { autoseedPages } = await import("../graph/lib/autoseed-pages");
+  const { runSurfacingL1 } = await import("../graph/lib/surfacing");
+  // Inline: fast, deterministic, no LLM.
+  await autoseedPages(c.env, userId).catch(() => {});
+  await runSurfacingL1(c.env, userId).catch(() => {});
+  // Background: the LLM-heavy passes. waitUntil keeps them alive past the
+  // response without risking a wall-clock kill of the redirect.
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
+        const { proposeBriefs } = await import("../graph/lib/briefs/proposer");
+        const { draftReadings } = await import("../graph/lib/draft-reading");
+        await runThemeSurfacer(c.env, userId).catch(() => {});
+        await proposeBriefs(c.env, userId).catch(() => {});
+        await draftReadings(c.env, userId).catch(() => {});
+      } catch {
+        // best-effort; another Re-read retries
+      }
+    })(),
+  );
+  return c.redirect("/op/out?refreshing=1");
 });
 
 // Sign & publish a drafted reading — the operator's one act of judgment.
