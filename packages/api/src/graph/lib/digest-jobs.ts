@@ -200,7 +200,9 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
     const reason = result.failed_reason ?? "";
     // Deterministic failures won't recover on retry — short-circuit to failed.
     const deterministic =
-      reason.includes("failed on every chunk") || reason.includes("no extracted text");
+      reason.includes("failed on every chunk") ||
+      reason.includes("no extracted text") ||
+      reason.includes("hollow extraction");
     const willGiveUp = failed && (deterministic || job.attempts + 1 >= MAX_ATTEMPTS);
     await run(
       env.DB,

@@ -390,6 +390,12 @@ export async function renderLibraryScreen(
       d.digest_status !== "running" &&
       d.digest_status !== "queued",
   ).length;
+  const totalCount = docs.length;
+  // Always offer a way to (re-)extract. When there are untouched docs, the
+  // primary action is "Extract all (N)" for the unextracted. When everything's
+  // already marked extracted, the operator still needs a way to redo the run
+  // (the prior pass may have completed-but-hollow under timeouts), so the
+  // button stays — labelled "Re-extract all" and posting mode=all.
   const extractAllForm =
     unextractedCount > 0
       ? `<form method="POST" action="/op/library/extract" style="display:inline">
@@ -398,7 +404,14 @@ export async function renderLibraryScreen(
     ${icon("spark")} Extract all (${unextractedCount})
   </button>
 </form>`
-      : "";
+      : totalCount > 0
+        ? `<form method="POST" action="/op/library/extract" style="display:inline" onsubmit="return confirm('Re-extract all ${totalCount} documents? This re-runs the typed-graph pipeline from scratch — useful when the prior run left an incomplete graph.');">
+  <input type="hidden" name="mode" value="all" />
+  <button type="submit" class="btn btn-ghost" title="Re-run extraction on every document, replacing the prior typed graph">
+    ${icon("spark")} Re-extract all (${totalCount})
+  </button>
+</form>`
+        : "";
   const topbarActions = extractAllForm;
 
   // Per-row extract forms sit outside the bulk-delete form (HTML forms can't

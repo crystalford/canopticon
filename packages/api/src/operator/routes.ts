@@ -589,10 +589,13 @@ app.get("/library/:slug", async (c) => {
 // Manual extraction trigger. The pivot decoupled upload from extraction;
 // this is where the operator actually fires the LLM digestion pipeline.
 //
-// Two modes:
+// Three modes:
 //   piece_ids[] — extract these pieces only (per-row or detail-page button)
 //   mode=all-unextracted — extract every piece that has no completed
 //     digest_jobs row yet (header batch button)
+//   mode=all — re-extract every piece regardless of prior status, clearing
+//     existing digest_jobs so each run starts fresh at chunk 0 (used after
+//     a pipeline change to refill the typed graph; mirrors /v1/admin/reextract)
 // Either way: enqueue durable jobs + kick each off via waitUntil for instant
 // start. The every-minute cron drain catches anything killed mid-run.
 app.post("/library/extract", async (c) => {
@@ -619,6 +622,16 @@ app.post("/library/extract", async (c) => {
         ORDER BY p.created_at`,
       [userId],
     );
+  } else if (mode === "all") {
+    pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
+      c.env.DB,
+      `SELECT id, slug, title, json_extract(metadata, '$.source_id') AS source_id
+         FROM pieces WHERE user_id = ? ORDER BY created_at`,
+      [userId],
+    );
+    // Clear prior jobs so enqueue starts each piece fresh at chunk 0 (the
+    // prior run may have completed-but-hollow; we want a real do-over).
+    await run(c.env.DB, "DELETE FROM digest_jobs WHERE user_id = ?", [userId]);
   } else {
     const ids = form
       .getAll("piece_ids")

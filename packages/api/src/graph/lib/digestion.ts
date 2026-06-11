@@ -224,6 +224,27 @@ export async function digest(
     await emit(env, args, "extract_claims", "failed", { error: result.failed_reason });
     return result;
   }
+  // Hollow-run guard: a run that produced node LABELS but no edges AND no
+  // quotes is structurally useless — every subject page renders empty against
+  // it. Mark it failed (deterministic, won't retry uselessly) so the doc shows
+  // as needing re-extract instead of pretending to be done. Bypass only when
+  // the document genuinely has no extractable content (nothing at all came
+  // out of any chunk, handled above).
+  if (
+    startChunk === 0 &&
+    totals.nodes > 0 &&
+    totals.edges === 0 &&
+    totals.quotes === 0 &&
+    chunks.length > 0
+  ) {
+    result.failed_step = "extract_claims";
+    result.failed_reason = "hollow extraction: nodes without edges or quotes";
+    await emit(env, args, "extract_claims", "failed", {
+      error: result.failed_reason,
+      nodes: totals.nodes,
+    });
+    return result;
+  }
 
   result.nodes_created = totals.nodes;
   result.edges_created = totals.edges;
