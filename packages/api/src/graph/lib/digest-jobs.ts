@@ -243,6 +243,23 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
         } catch {
           // findings recompute on manual re-surface
         }
+        // Theme surfacer — find what the corpus is engaging with. Runs
+        // BEFORE the proposer so any newly-named themes are visible to it.
+        try {
+          const { runThemeSurfacer } = await import("./theme-surfacer");
+          await runThemeSurfacer(env, job.user_id);
+        } catch {
+          // Themes resurface on the next corpus settle
+        }
+        // Page autoseeder — every entity, event, and theme node deserves a
+        // page row. Catches up extraction's output so subject pages are
+        // reachable the moment the corpus settles.
+        try {
+          const { autoseedPages } = await import("./autoseed-pages");
+          await autoseedPages(env, job.user_id);
+        } catch {
+          // Safety net: also runs on /op/library page load
+        }
         try {
           const { proposeBriefs } = await import("./briefs/proposer");
           await proposeBriefs(env, job.user_id);
