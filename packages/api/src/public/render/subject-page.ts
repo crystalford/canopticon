@@ -320,6 +320,11 @@ async function renderSigned(
   const userId = await resolveOperatorId(env.DB);
   const bodyHtml = page.body_html || (page.body_md ? renderMarkdown(page.body_md) : "");
   const modeBand = renderModeBand(page.slug, "signed", hasSignedReading, page);
+  // Faces (spec v2.5 Part 24) — the four formats of this reading. Pre-rendered
+  // on signing; appear as tabs at the bottom of the page. Each face is either
+  // ready, rendering, queued, or failed; the renderer reflects the state.
+  const faces = await loadFaces(env, page.id);
+  const facesBlock = renderFacesBlock(faces);
 
   const meta: string[] = [];
   if (page.signed_by) meta.push(`signed · ${escapeHtml(page.signed_by)}`);
@@ -376,6 +381,7 @@ async function renderSigned(
   </header>
   <div class="prose signed-body">${bodyHtml}</div>
   ${complicateBox}
+  ${facesBlock}
   <div class="prov" style="margin-top:32px">
     The operator drafted and signed this reading. Every load-bearing fact links down to a quote in a stored
     source document. Contested material appears attributed; the firewall kills any assertion-backed claim
@@ -864,4 +870,121 @@ function slugifyConnection(label: string): string {
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").trim();
+}
+
+// ===========================================================================
+// FACES (spec v2.5 Part 24) — thread / script / meme / chapter rendered into
+// the signed reading. No generate buttons, no Studio destination; faces are
+// pre-rendered on signing (operator/routes.ts:/out/:id/sign queues them via
+// waitUntil) and surface here as a tab strip. Each face is either ready,
+// rendering, queued, or failed — the renderer reflects state honestly.
+// ===========================================================================
+
+interface FaceRow {
+  kind: string;
+  body_html: string | null;
+  body_md: string | null;
+  status: string;
+  error: string | null;
+  updated_at: string;
+}
+
+async function loadFaces(env: PublicEnv, pageId: string): Promise<FaceRow[]> {
+  return all<FaceRow>(
+    env.DB,
+    `SELECT kind, body_html, body_md, status, error, updated_at
+       FROM page_faces WHERE page_id = ?
+      ORDER BY CASE kind
+                  WHEN 'thread' THEN 0 WHEN 'script' THEN 1
+                  WHEN 'meme' THEN 2 WHEN 'chapter' THEN 3 ELSE 9 END`,
+    [pageId],
+  ).catch(() => []);
+}
+
+const FACE_LABELS: Record<string, string> = {
+  thread: "Thread",
+  script: "Video script",
+  meme: "Meme",
+  chapter: "Chapter outline",
+};
+
+const FACE_HINTS: Record<string, string> = {
+  thread: "Thesis + the four most cutting facts, one per post.",
+  script: "Locked reasoning skeleton for a 3–4 minute video — structure, not voice.",
+  meme: "Thesis over the single most damning fact.",
+  chapter: "The reading's structure expanded for long-form treatment.",
+};
+
+function renderFacesBlock(faces: FaceRow[]): string {
+  if (faces.length === 0) return "";
+  // The first ready face is opened by default; the rest are headed but
+  // collapsed (server-rendered, no-JS — just <details>).
+  const orderedKinds = ["thread", "script", "meme", "chapter"];
+  const byKind = new Map<string, FaceRow>(faces.map((f) => [f.kind, f]));
+  let firstReadyShown = false;
+  const items = orderedKinds
+    .map((kind) => {
+      const f = byKind.get(kind);
+      if (!f) return "";
+      const label = FACE_LABELS[kind] ?? kind;
+      const hint = FACE_HINTS[kind] ?? "";
+      const open = !firstReadyShown && f.status === "ready";
+      if (open) firstReadyShown = true;
+      const inner =
+        f.status === "ready"
+          ? `<div class="face-body">${f.body_html ?? escapeHtml(f.body_md ?? "")}</div>`
+          : f.status === "failed"
+            ? `<div class="face-fail">Render failed${f.error ? `: ${escapeHtml(f.error)}` : ""}. Re-sign the reading to retry.</div>`
+            : `<div class="face-pending">Rendering — this face is being generated in the background. Reload in a moment.</div>`;
+      const statusChip =
+        f.status === "ready"
+          ? `<span class="face-chip face-ready">ready</span>`
+          : f.status === "failed"
+            ? `<span class="face-chip face-fail-chip">failed</span>`
+            : `<span class="face-chip face-pending-chip">${escapeHtml(f.status)}</span>`;
+      return `<details class="face" ${open ? "open" : ""}>
+  <summary>
+    <span class="face-label">${escapeHtml(label)}</span>
+    ${statusChip}
+    <span class="face-hint">${escapeHtml(hint)}</span>
+  </summary>
+  ${inner}
+</details>`;
+    })
+    .join("");
+  return `<section class="faces" aria-label="Faces of this reading">
+  <div class="faces-head">
+    <div class="faces-k">Faces of this reading</div>
+    <div class="faces-sub">Selection, not regeneration — the reading carries all truth claims; these formats re-arrange them.</div>
+  </div>
+  ${items}
+</section>
+<style>
+  .faces { margin:36px 0 8px; padding:18px 20px; border:1px solid var(--rule);
+    border-radius:11px; background:var(--panel-soft, rgba(0,0,0,.02)); }
+  .faces-head { margin-bottom:12px; }
+  .faces-k { font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:600; margin-bottom:4px; }
+  .faces-sub { font-size:12.5px; color:var(--ink-3); font-style:italic; }
+  .face { border-top:1px solid var(--rule); padding:11px 0; }
+  .face:first-of-type { border-top:none; }
+  .face summary { cursor:pointer; display:flex; align-items:center; gap:10px;
+    flex-wrap:wrap; list-style:none; user-select:none; }
+  .face summary::-webkit-details-marker { display:none; }
+  .face-label { font-family:var(--serif); font-size:16px; color:var(--ink); }
+  .face-chip { font-size:9.5px; letter-spacing:.08em; padding:2px 7px; border-radius:3px;
+    text-transform:uppercase; font-weight:600; }
+  .face-ready { background:var(--confirmed-bg, #e7f0e6); color:var(--confirmed, #2f7d52); }
+  .face-fail-chip { background:var(--correction-bg, #f6e4df); color:var(--correction, #b0402c); }
+  .face-pending-chip { background:rgba(0,0,0,.06); color:var(--ink-3); }
+  .face-hint { font-size:12px; color:var(--ink-3); margin-left:auto; flex:1; text-align:right; min-width:200px; }
+  .face-body { margin-top:12px; font-size:14.5px; line-height:1.65; color:var(--ink-2); }
+  .face-body p { margin-bottom:10px; }
+  .face-body strong { color:var(--ink); }
+  .face-fail { margin-top:10px; padding:9px 12px; border-radius:6px;
+    background:var(--correction-bg, #f6e4df); color:var(--correction, #b0402c); font-size:13px; }
+  .face-pending { margin-top:10px; padding:9px 12px; border-radius:6px;
+    background:rgba(0,0,0,.04); color:var(--ink-3); font-size:13px; font-style:italic; }
+  @media(max-width:680px) { .face-hint { text-align:left; min-width:0; flex-basis:100%; margin-left:0; } }
+</style>`;
 }

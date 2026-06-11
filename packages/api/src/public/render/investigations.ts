@@ -124,11 +124,20 @@ export async function renderInvestigationsIndex(
     ? `<div class="cards-row">${pieces.map((p) => pieceCard(p)).join("")}</div>`
     : "";
 
-  const empty =
-    !outputCards && !pieces.length
-      ? emptyState(
-          "No published investigations yet. The signed analysis layer fills as outputs publish.",
-        )
+  // The fabric-era ledger: signed readings of subjects/themes. When no
+  // readings exist yet — and we only have legacy briefs (or nothing) —
+  // explain the SHAPE that fills this page rather than show a dead empty.
+  const shapeBlock =
+    readings.length === 0
+      ? `<section class="shape-block" aria-label="What this page will contain">
+  <div class="sec-k">What lands here</div>
+  <ul>
+    <li><b>Signed readings</b> — the system auto-drafts a reading of any subject (entity, event, or theme) the corpus has enough material on; the operator reads and signs. Each carries a thesis, a confidence band, and a mandatory box of facts that complicate it.</li>
+    <li><b>Intent badges</b> — every signed piece wears its kind: Investigation · Argument · Pattern · Assessment · Critique · Explanation. Filter above when there are enough to filter.</li>
+    <li><b>Receipts</b> — every load-bearing assertion ties back to a verbatim quote from a stored source document.</li>
+  </ul>
+  ${pieces.length > 0 ? `<p>Showing ${pieces.length} legacy investigation${pieces.length === 1 ? "" : "s"} from before the fabric era below. Fabric-era signed readings have not begun yet — the auto-drafter runs when the corpus settles after extraction.</p>` : "<p>The auto-drafter runs when the corpus settles after extraction. No readings yet.</p>"}
+</section>`
       : "";
 
   const body = `
@@ -140,8 +149,21 @@ export async function renderInvestigationsIndex(
     every load-bearing assertion ties back to the evidence it rests on.
   </p>
 </section>
+${shapeBlock}
 ${filterRow}
-<section>${readingCards}${outputCards}${list}${empty}</section>
+<section>${readingCards}${outputCards}${list}</section>
+<style>
+  .shape-block { padding:20px 22px; border:1px solid var(--rule); border-radius:9px;
+    background:var(--panel-soft, rgba(0,0,0,.02)); margin-bottom:28px; }
+  .shape-block .sec-k { font-size:11px; letter-spacing:.14em; color:var(--ink-3);
+    text-transform:uppercase; font-weight:600; margin:0 0 12px; }
+  .shape-block ul { list-style:none; padding:0; margin:0 0 14px; }
+  .shape-block li { font-size:14.5px; line-height:1.6; color:var(--ink-2); padding:7px 0;
+    border-top:1px solid var(--rule); }
+  .shape-block li:first-child { border-top:none; }
+  .shape-block li b { color:var(--ink); font-weight:600; }
+  .shape-block p { font-size:13.5px; color:var(--ink-3); font-style:italic; margin:0; }
+</style>
 `;
   return renderPage({
     title: "Investigations",

@@ -431,18 +431,27 @@ app.post("/out/:id/sign", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/op/out?err=no_operator");
   const now = new Date().toISOString();
+  const pageId = c.req.param("id");
   const page = await one<{ slug: string }>(
     c.env.DB,
     "SELECT slug FROM pages WHERE id = ? AND user_id = ? AND signed_status = 'draft'",
-    [c.req.param("id"), userId],
+    [pageId, userId],
   );
   await run(
     c.env.DB,
     `UPDATE pages SET signed_status = 'published',
         signed_by = COALESCE(signed_by, 'the operator'), signed_at = ?, updated_at = ?
       WHERE id = ? AND user_id = ? AND signed_status = 'draft'`,
-    [now, now, c.req.param("id"), userId],
+    [now, now, pageId, userId],
   );
+  // Faces-on-signing (spec v2.5 Part 24): the moment a reading is signed,
+  // queue all four faces (thread / script / meme / chapter) in the
+  // background. By the time the operator goes to share, the formats are
+  // already rendered — no generate buttons, no Studio destination.
+  if (page) {
+    const { generateAllFaces } = await import("../graph/lib/face-renderer");
+    c.executionCtx.waitUntil(generateAllFaces(c.env, userId, pageId));
+  }
   return c.redirect(page ? `/op/out?signed=${encodeURIComponent(page.slug)}` : "/op/out");
 });
 
