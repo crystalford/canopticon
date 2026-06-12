@@ -545,7 +545,12 @@ This is an INTERPRETIVE piece (layer: interpretive) — a SIGNED reading on top 
   return `${base}${layer === "interpretive" ? interpretive : ""}\n\n${byType[contentType] ?? "Reference page over the grounded material."}`;
 }
 
-async function judgeClaim(
+/** Independent judge — a model in a different family than every generator
+ *  role assesses whether the verbatim quote actually supports the claim.
+ *  Spec Part 8 + Part 10 #4 hard constraint: self-verification is forbidden.
+ *  Exported so the signed-reading drafter (draft-reading.ts) calls the SAME
+ *  judge after its own verbatim check, mirroring the briefs pipeline. */
+export async function judgeClaim(
   env: Env,
   claimText: string,
   sourceQuote: string,
