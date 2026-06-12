@@ -2,7 +2,7 @@
 
 **Version 2.6 · Supersedes ALL prior versions including the v2.5 chat draft. This is the only document that matters. Read it top to bottom before building anything.**
 
-**The headline reframe:** canopticon is a **rendering system**, not a generation system. The graph is the truth. Pages are renderings. URLs are rendering identities. Every projection of the graph — a timeline, a thread, a video script, a meme — is a re-arrangement of the same underlying facts, not a new generation. The only places where generation legitimately happens are (a) extracting graph data from raw documents and (b) writing the signed reading body itself. Everything else is rendering.
+**The headline reframe:** canopticon is a **rendering system**, not a generation system. The graph is the truth. Pages are renderings. URLs are rendering identities. Every projection of the graph — a timeline, a thread, a video script, a card — is a re-arrangement of the same underlying facts, not a new generation. The only places where generation legitimately happens are (a) extracting graph data from raw documents and (b) writing the signed reading body itself. Everything else is rendering.
 
 **What changed since v2.5:**
 
@@ -21,7 +21,7 @@ CANOPTICON is a **forensic intelligence publication system**. A single operator 
 
 It is not a CMS. It is not a wiki. It is not a note-taking app. The closest analogy: an automated, citation-grade reference publication where structured graph data fans out into every format the publication needs to ship, with the operator as editor-in-chief approving what goes live.
 
-**The one-sentence product:** operator drops research → system extracts a typed graph of facts → system grows citable pages (Records · timelines · networks · stats) from the graph → system drafts signed Investigations on top → operator approves → every published thing is automatically available in every face (thread, script, meme, chapter, video) — selection, not generation.
+**The one-sentence product:** operator drops research → system extracts a typed graph of facts → system grows citable pages (Records · timelines · networks · stats) from the graph → system drafts signed Investigations on top → operator approves → every published thing is automatically available in every face (thread, script, card, chapter, video) — selection, not generation.
 
 ## The prime directive
 
@@ -40,7 +40,7 @@ These words are load-bearing. Misreading one can invert the system.
 - **"Record"** — the canonical term for a subject or theme page in its neutral mode. A Record is the citable, neutral, sourced account of what IS about a subject. The Carney record, the Bell Media record, the Sharon Kaur record. It accumulates, it deepens, it never closes. DO NOT call these pages "wiki pages" — the word "wiki" triggers MediaWiki thinking and has caused drift before. DO NOT call them "profiles" (too shallow) or "dossiers" (implies prosecution).
 - **"Arrangement"** — a content type that projects the graph in a specific shape: Timeline, Network, Stats, FAQ, Comparison, Ledger, Document-of-record, Claim-and-source table, Mechanism explainer, Who's-who roster, Definition, Entity profile. Each arrangement is BOTH a section that can be embedded inside a Record AND a standalone addressable page with its own URL and JSON-LD.
 - **"Investigation"** — a signed, interpretive piece. The operator's reading laid over the facts. Badged by intent (Investigation, Argument, Pattern, Hypothesis, Assessment, Critique, Explanation). This is the flagship signed product.
-- **"Face"** — one format of any published thing. Thread, video script, meme, chapter outline (today) — TikTok script, voiceover, animation, more (later). Faces are renderings, not regenerations. The truth claims live on the source (signed reading, Record, timeline); the face re-arranges. See Part 8.
+- **"Face"** — one format of any published thing. Thread, video script, card, chapter outline (today) — TikTok script, voiceover, animation, more (later). Faces are renderings, not regenerations. The truth claims live on the source (signed reading, Record, timeline); the face re-arranges. See Part 8. "Card" replaces the v2.5 name "meme" — same thing, less ambiguous.
 - **"Studio"** — NOT a generation destination. The production room where rendered content meets operator voice meets visuals meets export. See Part 27.
 - **"Briefs"** — DEPRECATED. Never use. The factual layer is Arrangements; the interpretive layer is Investigations. There is no separate Briefs surface.
 - **"Wiki"** — DO NOT USE. Use Record.
@@ -90,7 +90,7 @@ This is the part of the spec that didn't exist before and that the rest now depe
 
 Examples:
 
-- **A meme** = thesis line + the single highest-evidence-balance fact + receipt URL. Template + query. No LLM at render time.
+- **A card** = thesis line + the single highest-evidence-balance fact + receipt URL, composed as one shareable image. Template + query. No LLM at render time. (The PNG export — for actually posting it — is a separate Studio Produce step, Part 27. The face itself is the styled HTML composition.)
 - **A 4-post thread** = thesis + the four highest-rank quotes about the subject, sorted by relevance. Template + query. No LLM at render time.
 - **A timeline** = `SELECT events WHERE subject = X ORDER BY date`. Template + query.
 - **A network map** = graph traversal of relationship edges from the subject. Template + query.
@@ -106,7 +106,7 @@ Where LLM seasoning genuinely earns its place:
 
 What does NOT need LLM seasoning even though earlier versions of canopticon used it:
 
-- A meme caption. (Pick the highest-balance fact; lay it out. No LLM.)
+- A card composition. (Pick the highest-balance fact; lay it out. No LLM.)
 - A thread. (Top N quotes by relevance, sorted. No LLM.)
 - A stat-roundup-as-TikTok-script. (Numbers + template. No LLM.)
 - An FAQ page. (Q-shaped facts queried and laid out. No LLM.)
@@ -128,7 +128,7 @@ Before v2.6, faces were regenerated by the writer LLM on signing — ~30-60 seco
 
 - New folder: `packages/api/src/public/render/arrangements/` — one renderer per arrangement type. Each is a function that takes (env, subject_slug) and returns HTML.
 - New folder: `packages/api/src/public/render/faces/` — one renderer per face kind. Most are pure template + query; the few that need LLM seasoning have a build step that persists their `body_md` on sign and a render step that reads it.
-- The `page_faces` table stays. For LLM-seasoned faces (video script, chapter outline), the body_md is persisted on sign and rendered thereafter. For template + query faces (thread, meme, stat-TikTok), there's no persistence — the render IS the query.
+- The `page_faces` table stays. For LLM-seasoned faces (video script, chapter outline), the body_md is persisted on sign and rendered thereafter. For template + query faces (thread, card, stat-TikTok), there's no persistence — the render IS the query.
 
 -----
 
@@ -233,7 +233,7 @@ Each standalone URL renders the SAME data the embedded section renders, plus:
 - A short masthead explaining what this arrangement IS (so a first-time reader landing here knows)
 - Its own schema.org JSON-LD per arrangement type
 - A back-link to the subject's full Record
-- A "faces of this arrangement" strip (yes — even a timeline can have its own thread / TikTok script / meme)
+- A "faces of this arrangement" strip (yes — even a timeline can have its own thread / TikTok script / card)
 
 ## Why standalone URLs matter
 
@@ -278,7 +278,7 @@ Faces are projections of any addressable graph thing — a Record, a signed read
 ## Face kinds (today)
 
 - **Thread** — thesis + the highest-rank facts as 4 posts. Template + query (no LLM).
-- **Meme** — thesis line + the single highest-balance fact + receipt URL. Template + query (no LLM).
+- **Card** — thesis line + the single highest-balance fact + receipt URL, composed as one shareable image. Template + query (no LLM). Was called "meme" in v2.5 — same face, less ambiguous name. The PNG export is a separate Studio Produce step (Part 27).
 - **TikTok script** (NEW) — thesis + 6-10 dated facts in spoken-rhythm format. Template + query (no LLM).
 - **Stat card / stat thread** (NEW) — numeric facts laid out in stat-card grid. Template + query (no LLM).
 - **Video essay script** — locked reasoning skeleton in BEAT format. ONE LLM call on sign, persisted, rendered thereafter.
@@ -477,11 +477,11 @@ The factual layer's proud collective name remains deliberately absent. Its neutr
 - Subject pages (neutral with court-record contested cards + vertical-rail timeline + shape block; signed with dramatised thesis + signature line + proud complicating-facts box).
 - Quote receipt page `/q/:id` with schema.org Quotation JSON-LD.
 - Methodology + About substantively explain the verification mechanics.
-- Faces-on-signing (thread/script/meme/chapter) — but currently regenerated each time. See "fix" below.
+- Faces-on-signing (thread/script/card/chapter) — but currently regenerated each time. See "fix" below.
 
 **Fix (wrong per v2.6):**
 
-- Faces are currently regenerated by the writer LLM. Per Part 3 + Part 8 the template + query faces (thread, meme) should be pure renderings; only argumentative faces (video script, chapter) should be LLM-seasoned. Refactor faces into `packages/api/src/public/render/faces/` with one renderer per kind.
+- Faces are currently regenerated by the writer LLM. Per Part 3 + Part 8 the template + query faces (thread, card) should be pure renderings; only argumentative faces (video script, chapter) should be LLM-seasoned. Refactor faces into `packages/api/src/public/render/faces/` with one renderer per kind.
 - Arrangements only exist as embedded sections inside subject pages. Per Part 6 each should ALSO have a standalone URL with its own renderer and JSON-LD.
 - Briefs surface (`/briefs/:slug`) still serves pages. Per the deprecation in Part 1, redirect or freeze for citation stability.
 - `/search` is a placeholder; remove the SearchAction from home JSON-LD until it ships (already done in the v2.6 build) and either implement search or remove the nav entry.
@@ -489,7 +489,7 @@ The factual layer's proud collective name remains deliberately absent. Its neutr
 **Build (missing — the v2.6 frontier):**
 
 - Per-arrangement renderers + URLs (Part 6).
-- Faces refactor: template + query for thread/meme/TikTok/stat-card; LLM-seasoned for video/chapter.
+- Faces refactor: template + query for thread/card/TikTok/stat-card; LLM-seasoned for video/chapter.
 - Record-building Phase 2 — the fetch + extract loop behind "Expand this Record" (Part 26). Currently search half done, fetch+extract stubbed.
 - Studio as production pipeline (Part 27).
 - Concurrent extraction architecture — Cloudflare Queues + Workers AI Async Batch + Durable Object WebSocket for live extraction log (Part 25). Needs operator's CF account setup.
@@ -502,7 +502,7 @@ The factual layer's proud collective name remains deliberately absent. Its neutr
 The build follows the rendering-system reframe. Order is binding.
 
 1. **Per-arrangement URLs + renderers.** Twelve renderers; one URL each. Each gets JSON-LD. Embedded sections on subject pages start using the same renderers.
-2. **Faces refactor.** Template + query for thread/meme/TikTok/stat. LLM-seasoned for video script + chapter outline (one writer call on sign, persisted, rendered thereafter). Drop the writer call from template + query faces entirely.
+2. **Faces refactor.** Template + query for thread/card/TikTok/stat. LLM-seasoned for video script + chapter outline (one writer call on sign, persisted, rendered thereafter). Drop the writer call from template + query faces entirely.
 3. **Record-building Phase 2** — finish the fetch + extract loop. Operator clicks thin Record → Brave Search → fetch found pages → run typed extraction over them. Live progress narration in the page banner.
 4. **Concurrent extraction architecture** — Cloudflare Queues + Workers AI Async Batch + Durable Object WebSocket. Speed benchmarks enforced. (Needs operator's CF account setup; parked until queue + DO bindings exist.)
 5. **Studio as production pipeline.**
@@ -587,7 +587,7 @@ Surfacing re-checks only the AFFECTED NEIGHBORHOOD (1-2 hops + Vectorize topK). 
 2. Operator clicks "Extract all (5)". Each piece goes through extraction → typed graph rows land.
 3. The settle gate runs: L1 surfacing → theme surfacer → autoseed-pages → proposer → draft-reading.
 4. Operator visits `/` (logged in). Sees: system briefing aside ("5 new pieces, 247 new facts, 1 reading drafted and waiting for your signature"), Carney draft card above the lead, findings strip, threads.
-5. Operator clicks the Carney draft. Lands on `/s/mark-carney?mode=signed`. The signed reading has a thesis, an intent badge (Argument), a confidence band, the complicating-facts box, and four face tabs (thread / video script / meme / chapter).
+5. Operator clicks the Carney draft. Lands on `/s/mark-carney?mode=signed`. The signed reading has a thesis, an intent badge (Argument), a confidence band, the complicating-facts box, and four face tabs (thread / video script / card / chapter).
 6. Operator clicks the thread tab. **Instant render** (template + query). Operator copies, posts to Twitter.
 7. Operator clicks the timeline section on the Record. Lands on `/t/mark-carney`. Standalone timeline page with its own JSON-LD. The timeline page ALSO has face tabs (a timeline can become a thread). Operator clicks "thread of this timeline". Instant render.
 8. Operator clicks "Expand this Record" on Carney's Record. Brave Search fires; pages fetched; extraction runs. The Record fills in over ~3 minutes; the live progress banner narrates. After completion, all signed reading faces and arrangement pages re-render automatically with the richer graph.
@@ -723,35 +723,73 @@ Earlier specs implied Studio should die. v2.6 corrects that: Studio is real, but
 
 ## What Studio IS
 
-The production pipeline that turns a rendered face into a finished asset.
+The production pipeline that turns a rendered face into a finished, distributable asset.
 
-- **Voice profile** — operator records voice samples; system characterises tone, pace, register. Persisted.
-- **Record voice over a script** — the operator opens the video script face; Studio shows it in chunked form (one bullet per chunk); operator records each chunk. System captures audio per chunk.
-- **Stitch** — system stitches the recorded chunks into a continuous voiceover. Crossfades, trim silences.
-- **Match visuals** — the script's beats specify B-roll cues; operator drops visuals against each beat. System assembles a timeline.
-- **Export** — final audio file, final video file, final TikTok cut. Downloadable.
+The faces (Part 8) are the in-publication renderings — they live on `/s/:slug?mode=signed` as tabs and render in the operator's browser. Producing them as actual assets (PNG, MP3, MP4, EPUB, etc.) is what Studio does. **The face is the design; production is the export.**
+
+## The output catalog
+
+Ten output formats. Each is "produced" from a face (or directly from the signed reading body) via a Studio pipeline. The catalog is closed for v2.6 — anything beyond it gets added by amending this section, not by ad-hoc additions.
+
+| # | Format | Source face | Production step | Final asset |
+|---|---|---|---|---|
+| 1 | **Thread** | thread face | render → split into 4 PNG cards (one per post) via Browser Rendering | 4 × PNG + plain-text version |
+| 2 | **Card** | card face | render → Browser Rendering at 1200×630 (X) and 1080×1080 (IG) | 2 × PNG |
+| 3 | **Carousel** | (new) carousel face | render N slides → Browser Rendering at 1080×1350 each | N × PNG (zipped) |
+| 4 | **Short video** | script face (BEAT 1–2 only, ≤90s) | voice profile → per-chunk record → stitch → vertical visual matcher → export | 1080×1920 MP4 |
+| 5 | **Video essay** | script face (full BEATs) | voice profile → per-chunk record → stitch → horizontal visual matcher → export | 1920×1080 MP4 |
+| 6 | **Documentary** | chapter face | structured shoot list → per-section record → stitch → multi-source visual assembly → export | 1920×1080 MP4 (long-form) |
+| 7 | **Audio brief** | script face (≤3 min) | voice profile → per-chunk record → stitch (no visuals) | MP3 |
+| 8 | **Podcast episode** | chapter face | NotebookLM-style two-voice conversation API → render → audio post-process | MP3 |
+| 9 | **Newsletter** | signed reading body | render → email-safe HTML → attach receipts → push to mailing list | HTML email + plain text |
+| 10 | **Written long-form** | chapter face | render markdown → length knob (essay ↔ chapter) → typography pass | Markdown + EPUB (for chapter length) |
+
+Notes on the catalog:
+
+- **Card and carousel are visually different products.** A card is one image that you see at a glance; a carousel is a swipe-through sequence (IG, LinkedIn). They share design vocabulary but use different production pipelines.
+- **Short video and video essay share a script face** (the BEAT structure). Short uses BEAT 1–2 only and renders vertical; video essay uses all BEATs and renders horizontal. Both go through the same voice-profile + stitch + match pipeline.
+- **Podcast uses an external API** (NotebookLM-style conversational TTS). Workers AI doesn't have a two-voice conversational model yet; the podcast pipeline calls out. Audio brief, in contrast, is a single-voice operator recording — same pipeline as short/video essay, audio-only export.
+- **Written long-form is one face with a length knob.** Essay (~1500 words) ↔ chapter (~10000 words). Same chapter face, different rendering envelope.
+- **Newsletter is not a face** — it's a different distribution of the signed reading body itself. No re-arrangement; same body, email-safe markup.
+
+## The Produce flow
+
+Every face tab on a signed reading carries a **Produce →** affordance (visible to the operator, hidden from anonymous readers). Clicking it lands on `/studio/:pageId/:faceKind`, which is the production interface for that face.
+
+The Studio interface depends on the format:
+
+- **Static formats** (card, thread, carousel) — instant render of the asset (Browser Rendering API), preview pane, download button. No multi-step interaction.
+- **Audio formats** (audio brief, podcast) — per-chunk record-and-accept UI for operator recordings; preview-and-retry for podcast API output; assembled audio download.
+- **Video formats** (short, video essay, documentary) — per-chunk record + visual-matcher drop-zones (one per BEAT) + preview + export.
+- **Written formats** (newsletter, long-form) — preview pane, edit-receipts affordance, distribution push (newsletter) or download (long-form).
 
 ## Architecture
 
-Studio's data lives in two new tables (to be added):
+Studio's data lives in tables added incrementally as each production pipeline ships:
 
-- `voice_profile(user_id, samples_url, characterisation, updated_at)` — one row per operator.
-- `studio_projects(id, user_id, source_face_id, status, audio_url, video_url, ...)` — one row per assembly project.
+- `voice_profile(user_id, samples_url, characterisation, updated_at)` — one row per operator. Required for any audio/video pipeline.
+- `studio_projects(id, user_id, source_page_id, source_face_kind, output_format, status, asset_url, ...)` — one row per assembly project.
+- `studio_chunks(project_id, beat_index, audio_url, accepted_at)` — per-recording chunk state (for audio/video).
+- `studio_distributions(project_id, channel, posted_at, external_url)` — record of where each asset ended up (X, IG, mailing list, YouTube).
 
-The production pipeline is a queue of jobs (record → stitch → match → export). Each job runs in waitUntil; the operator's view polls for status. Stage 1 (skeleton + compose) already exists in code as scaffolding for this; it should be kept and absorbed into the production-pipeline architecture, not deleted.
+The production pipeline is a queue of jobs (render → record → stitch → match → export → distribute). Each job runs in `waitUntil`; the operator's view polls for status. Stage 1 (skeleton + compose) already exists in code as scaffolding for the studio compose layer; it should be kept and absorbed, not deleted.
+
+## Build sequence (within Studio)
+
+Studio ships in stages. The order is binding because each stage depends on infrastructure the previous stage establishes.
+
+- **Stage A — static formats** (card, thread, carousel, newsletter). Browser Rendering API + email-safe markup. Shippable now — no audio, no video, no voice profile required.
+- **Stage B — audio formats** (audio brief). Voice profile + per-chunk record UI + stitch. First audio pipeline; everything Stage C needs lives here.
+- **Stage C — video formats** (short video, video essay). Adds visual-matcher UI and video export. Reuses Stage B's audio chain.
+- **Stage D — long-form video** (documentary). Adds multi-source assembly and longer-form export.
+- **Stage E — external-API formats** (podcast). NotebookLM-style API integration.
+- **Stage F — written long-form** (essay ↔ chapter). Markdown rendering + length knob + EPUB export.
 
 ## When Studio is built
 
-Studio is the LAST item on the build sequence (Part 18). It's the production frontier. It depends on a working rendering system + faces refactor + record-building on click. Without those, Studio has nothing real to assemble.
+Studio is the LAST item on the high-level build sequence (Part 18). It depends on a working rendering system + faces refactor + record-building on click. Without those, Studio has nothing real to assemble.
 
-## What Stage 1 (deferred to a later phase but namable now)
-
-- Operator's voice profile: capture, characterise, version.
-- The recording UI: per-chunk record + redo + accept.
-- The stitcher: cross-fade, trim, normalise.
-- The visual matcher: drop-zones per beat, preview, export.
-
-This part is a roadmap, not a build commitment. It lives in v2.6 so when we DO build it, we build against this shape, not a fresh interpretation.
+Within Studio itself, Stage A is the earliest shippable piece — Browser Rendering doesn't require a voice profile or any audio infrastructure, so it can land before the rest of the production chain exists. The remaining stages follow the order above.
 
 -----
 

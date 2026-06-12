@@ -112,7 +112,7 @@ export async function renderOutStream(
   const facesBlock = renderFaceStatus(faceStatus);
 
   const okBanner = args.signed
-    ? `<div class="okline">✓ Signed and published — <a href="/s/${escapeAttr(args.signed)}?mode=signed" target="_blank">view the public reading →</a>. Faces (thread · script · meme · chapter) are rendering in the background.</div>`
+    ? `<div class="okline">✓ Signed and published — <a href="/s/${escapeAttr(args.signed)}?mode=signed" target="_blank">view the public reading →</a>. Faces (thread · script · card · chapter) are rendering in the background.</div>`
     : "";
   const errBanner = args.err ? `<div class="errline">${escapeHtml(args.err)}</div>` : "";
 
@@ -300,7 +300,7 @@ function renderFaceStatus(rows: FaceStatusRow[]): string {
 </div>`;
     })
     .join("");
-  return `<div class="sect">Faces rendering — thread · script · meme · chapter</div>
+  return `<div class="sect">Faces rendering — thread · script · card · chapter</div>
 <div class="faces-status">${items}</div>`;
 }
 

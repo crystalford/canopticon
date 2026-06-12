@@ -58,7 +58,7 @@ export function renderAbout(): string {
       <div class="about-distinct-k">Faces of a reading</div>
       <p>
         When the operator signs a reading, the system pre-renders four formats
-        of it — a thread, a video script, a meme, and a chapter outline. These
+        of it — a thread, a video script, a card, and a chapter outline. These
         aren't new generation. They're selections from the signed piece. The
         truth claims live on the reading; the faces re-arrange.
       </p>

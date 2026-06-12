@@ -83,7 +83,7 @@ const PAGE = {
 };
 
 describe("generateAllFaces — only LLM-seasoned faces pre-render on signing (v2.6 Part 8)", () => {
-  it("queues only script + chapter (thread + meme are template+query, rendered at view time)", async () => {
+  it("queues only script + chapter (thread + card are template+query, rendered at view time)", async () => {
     const { env, runs } = makeEnv({ pageRow: PAGE });
     const report = await generateAllFaces(env, "u1", "page1");
     expect(report.queued).toEqual(["script", "chapter"]);

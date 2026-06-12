@@ -1,10 +1,14 @@
-// Face renderer — pre-render the four faces of a signed reading
-// (spec v2.5 Part 24).
+// Face renderer — pre-render the LLM-seasoned faces of a signed reading
+// (spec v2.6 Part 8).
 //
 // When the operator clicks Sign & Publish on a reading, the system
-// immediately queues ALL four faces as background jobs (thread, script,
-// meme, chapter). They appear as tabs on the signed reading view; by the
-// time the operator wants to share something, it's already rendered.
+// queues the LLM-seasoned faces as background jobs (script, chapter).
+// They appear as tabs on the signed reading view; by the time the
+// operator wants to share something, it's already rendered.
+//
+// The other two faces (thread, card) are TEMPLATE + QUERY — pure
+// renderings that live in packages/api/src/public/render/faces/. No LLM,
+// no persistence, no queue.
 //
 // SELECTION, not regeneration. The signed reading carries all truth
 // claims. The faces select / reformat — they never introduce a new
@@ -15,9 +19,9 @@ import type { Env } from "../../env";
 import { insertOne, one, run } from "../../lib/d1";
 import { callRole, modelForRole } from "../../llm/router";
 
-export type FaceKind = "thread" | "script" | "meme" | "chapter";
+export type FaceKind = "thread" | "script" | "card" | "chapter";
 
-// v2.6 Part 8: faces are RENDERINGS, not regenerations. Thread + meme are
+// v2.6 Part 8: faces are RENDERINGS, not regenerations. Thread + card are
 // template + query and render at view time (no LLM, <100ms) — see
 // packages/api/src/public/render/faces/. Only script + chapter genuinely
 // need argumentative sequencing; those still get the writer LLM on sign
@@ -223,19 +227,13 @@ HARD RULES:
     userTail: "Produce the reasoning skeleton now.",
     maxTokens: 900,
   },
-  meme: {
-    system: `You select the SINGLE most damning fact from a signed reading and produce a meme caption.
-
-OUTPUT FORMAT (exactly two lines):
-TOP: <the thesis as a sentence>
-BOTTOM: <the single most damning specific fact, with source>
-
-HARD RULES:
-- Two lines. No more.
-- The bottom line is a fact already in the reading — never invented.
-- Specific (dates, dollar amounts, named people / orgs) beats vague every time.`,
-    userTail: "Produce the two-line meme caption now.",
-    maxTokens: 200,
+  card: {
+    // Dead path (v2.6): the card face is pure rendering. Kept only so the
+    // PROMPTS map satisfies Record<FaceKind, FacePrompt>. LLM_FACES drives
+    // what actually runs.
+    system: "",
+    userTail: "",
+    maxTokens: 0,
   },
   chapter: {
     system: `You expand a signed reading into a CHAPTER OUTLINE for long-form treatment. Sections + bullets + research direction notes.

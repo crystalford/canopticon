@@ -36,7 +36,7 @@ SUBJECTS & THEMES → PAGES
        signed   = the operator's reading (thesis + the SAME facts re-sequenced + mandatory complicating box)
    • a theme = a "received account the corpus engages with" — surfaced when 3+ docs converge on contradicting it
    ↓ reshape (selection, not regeneration — partly built)
-TRANSFORMS  (thread · video script · meme · chapter — Studio)
+TRANSFORMS  (thread · video script · card · chapter — Studio)
 ```
 
 The investigation is **not** a separate object — it is the same page with a

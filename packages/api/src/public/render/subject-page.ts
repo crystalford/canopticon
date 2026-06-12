@@ -511,25 +511,25 @@ async function renderSigned(
   const bodyHtml = page.body_html || (page.body_md ? renderMarkdown(page.body_md) : "");
   const modeBand = renderModeBand(page.slug, "signed", hasSignedReading, page);
   // Faces (spec v2.6 Part 8) — formats of this reading rendered as tabs.
-  // Thread + meme are TEMPLATE + QUERY, rendered live at view time from
+  // Thread + card are TEMPLATE + QUERY, rendered live at view time from
   // the page's thesis + page_claims (no LLM, <100ms). Script + chapter
   // are LLM-seasoned and pre-rendered on signing into page_faces.
   // The signed page renderer pulls both: persisted faces from page_faces +
   // live faces from the faces/ renderers.
-  const [persistedFaces, liveThread, liveMeme] = await Promise.all([
+  const [persistedFaces, liveThread, liveCard] = await Promise.all([
     loadFaces(env, page.id),
     (async () => {
       const { renderThreadFace } = await import("./faces/thread");
       return renderThreadFace(env.DB, page);
     })(),
     (async () => {
-      const { renderMemeFace } = await import("./faces/meme");
-      return renderMemeFace(env.DB, page);
+      const { renderCardFace } = await import("./faces/card");
+      return renderCardFace(env.DB, page);
     })(),
   ]);
   const facesBlock = renderFacesBlock(persistedFaces, page.id, isOperator, {
     thread: liveThread,
-    meme: liveMeme,
+    card: liveCard,
   });
 
   // A real signature, not a chip strip. The "— signed by" line in serif
@@ -1216,11 +1216,12 @@ function formatLongDate(iso: string): string {
 }
 
 // ===========================================================================
-// FACES (spec v2.5 Part 24) — thread / script / meme / chapter rendered into
-// the signed reading. No generate buttons, no Studio destination; faces are
-// pre-rendered on signing (operator/routes.ts:/out/:id/sign queues them via
-// waitUntil) and surface here as a tab strip. Each face is either ready,
-// rendering, queued, or failed — the renderer reflects state honestly.
+// FACES (spec v2.6 Part 8) — thread / script / card / chapter rendered into
+// the signed reading. No generate buttons; Studio (Part 27) is a PRODUCE step,
+// not a destination. Thread + card render live (template + query); script +
+// chapter pre-render on signing (operator/routes.ts:/out/:id/sign queues them
+// via waitUntil). Each persisted face is ready, rendering, queued, or failed —
+// the renderer reflects state honestly.
 // ===========================================================================
 
 interface FaceRow {
@@ -1239,7 +1240,7 @@ async function loadFaces(env: PublicEnv, pageId: string): Promise<FaceRow[]> {
        FROM page_faces WHERE page_id = ?
       ORDER BY CASE kind
                   WHEN 'thread' THEN 0 WHEN 'script' THEN 1
-                  WHEN 'meme' THEN 2 WHEN 'chapter' THEN 3 ELSE 9 END`,
+                  WHEN 'card' THEN 2 WHEN 'chapter' THEN 3 ELSE 9 END`,
     [pageId],
   ).catch(() => []);
 }
@@ -1247,14 +1248,14 @@ async function loadFaces(env: PublicEnv, pageId: string): Promise<FaceRow[]> {
 const FACE_LABELS: Record<string, string> = {
   thread: "Thread",
   script: "Video script",
-  meme: "Meme",
+  card: "Card",
   chapter: "Chapter outline",
 };
 
 const FACE_HINTS: Record<string, string> = {
   thread: "Thesis + the four most cutting facts, one per post.",
   script: "Locked reasoning skeleton for a 3–4 minute video — structure, not voice.",
-  meme: "Thesis over the single most damning fact.",
+  card: "One shareable image: thesis on top, the most damning fact below, receipt in the corner.",
   chapter: "The reading's structure expanded for long-form treatment.",
 };
 
@@ -1262,23 +1263,23 @@ function renderFacesBlock(
   faces: FaceRow[],
   pageId?: string,
   isOperator?: boolean,
-  liveFaces: { thread?: string; meme?: string } = {},
+  liveFaces: { thread?: string; card?: string } = {},
 ): string {
-  // Faces always render when there's a thesis — thread + meme are
+  // Faces always render when there's a thesis — thread + card are
   // template+query and have no DB state. Only script + chapter come from
   // page_faces. Always show all four tabs.
   // The first ready face is opened by default; the rest are headed but
   // collapsed (server-rendered, no-JS — just <details>).
-  const orderedKinds = ["thread", "script", "meme", "chapter"];
+  const orderedKinds = ["thread", "script", "card", "chapter"];
   const byKind = new Map<string, FaceRow>(faces.map((f) => [f.kind, f]));
   let firstReadyShown = false;
   const items = orderedKinds
     .map((kind) => {
       const label = FACE_LABELS[kind] ?? kind;
       const hint = FACE_HINTS[kind] ?? "";
-      // Thread + meme: rendered live; always ready.
-      if (kind === "thread" || kind === "meme") {
-        const liveBody = kind === "thread" ? liveFaces.thread : liveFaces.meme;
+      // Thread + card: rendered live; always ready.
+      if (kind === "thread" || kind === "card") {
+        const liveBody = kind === "thread" ? liveFaces.thread : liveFaces.card;
         const open = !firstReadyShown && !!liveBody;
         if (open) firstReadyShown = true;
         return `<details class="face" ${open ? "open" : ""}>

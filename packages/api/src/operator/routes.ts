@@ -444,10 +444,10 @@ app.post("/out/:id/sign", async (c) => {
       WHERE id = ? AND user_id = ? AND signed_status = 'draft'`,
     [now, now, pageId, userId],
   );
-  // Faces-on-signing (spec v2.5 Part 24): the moment a reading is signed,
-  // queue all four faces (thread / script / meme / chapter) in the
-  // background. By the time the operator goes to share, the formats are
-  // already rendered — no generate buttons, no Studio destination.
+  // Faces-on-signing (spec v2.6 Part 8): the moment a reading is signed,
+  // queue the LLM-seasoned faces (script, chapter) in the background.
+  // Thread + card render live at view time (template + query). Studio
+  // (Part 27) is a per-face Produce step, not a destination.
   if (page) {
     const { generateAllFaces } = await import("../graph/lib/face-renderer");
     c.executionCtx.waitUntil(generateAllFaces(c.env, userId, pageId));
@@ -550,7 +550,7 @@ app.post("/faces/:pageId/:kind/render", async (c) => {
   if (!userId) return c.redirect("/");
   const pageId = c.req.param("pageId");
   const kind = c.req.param("kind");
-  const VALID = new Set(["thread", "script", "meme", "chapter"]);
+  const VALID = new Set(["thread", "script", "card", "chapter"]);
   if (!VALID.has(kind)) return c.redirect("/");
   const page = await one<{ slug: string }>(
     c.env.DB,
@@ -560,7 +560,7 @@ app.post("/faces/:pageId/:kind/render", async (c) => {
   if (!page) return c.redirect("/");
   const { generateSingleFace } = await import("../graph/lib/face-renderer");
   c.executionCtx.waitUntil(
-    generateSingleFace(c.env, userId, pageId, kind as "thread" | "script" | "meme" | "chapter"),
+    generateSingleFace(c.env, userId, pageId, kind as "thread" | "script" | "card" | "chapter"),
   );
   return c.redirect(`/s/${page.slug}?mode=signed`);
 });

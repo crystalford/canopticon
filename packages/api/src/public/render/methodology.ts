@@ -146,7 +146,7 @@ export function renderMethodology(): string {
   <p>
     When the operator signs a reading, the system pre-renders four formats of it:
     a <b>thread</b> (4 posts), a <b>video script</b> (locked reasoning skeleton),
-    a <b>meme</b> (thesis + the single most damning fact), and a <b>chapter</b>
+    a <b>card</b> (thesis + the single most damning fact, as one shareable image), and a <b>chapter</b>
     outline. These aren't new generation — they're selections from the signed
     piece. The truth claims live on the reading; the faces re-arrange them.
   </p>
