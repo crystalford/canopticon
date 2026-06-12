@@ -1,0 +1,225 @@
+// Search — semantic search over the corpus (spec v2.6 Part 18 #6).
+//
+// Uses the existing Vectorize index (canopticon-embeddings, 1024-dim
+// cosine) that already holds embeddings for entities, claims, pieces,
+// theses, sources, and signed readings. The query embeds via Workers AI
+// bge-large-en-v1.5 (same model used at upsert time) and queries
+// Vectorize for the top matches.
+//
+// Results are resolved to public URLs by kind:
+//   entity  → /s/<slug>          (Record page)
+//   claim   → /s/<slug>#claim    (host page anchor)
+//   piece   → /library/<slug>    (source document)
+//   thesis  → /s/<slug>?mode=signed
+//   article → /investigations/<slug>
+//   source  → /q/<id>            (quote receipt)
+//
+// Empty query renders the search shell with no results panel — same URL
+// for results and empty state so `/search?q=` is a valid landing.
+
+import type { Env } from "../../env";
+import { type VectorMeta, searchVectors } from "../../graph/lib/embeddings";
+import { one } from "../../lib/d1";
+import { resolveOperatorId } from "../data";
+import { escapeAttr, escapeHtml, renderPage } from "../layout";
+
+interface ResolvedHit {
+  url: string;
+  kind: VectorMeta["kind"];
+  title: string;
+  snippet: string;
+  score: number;
+}
+
+const KIND_LABEL: Record<VectorMeta["kind"], string> = {
+  entity: "Record",
+  claim: "Claim",
+  piece: "Source document",
+  thesis: "Reading",
+  article: "Investigation",
+  source: "Quote",
+};
+
+export async function renderSearchPage(env: Env, q: string): Promise<string> {
+  const query = q.trim();
+  const userId = await resolveOperatorId(env.DB);
+  let resultsBlock = "";
+  let summary = "";
+
+  if (query.length > 0 && userId) {
+    const hits = await searchVectors(env, { query, userId, topK: 25 }).catch(() => []);
+    const resolved = await resolveHits(env, hits);
+    if (resolved.length === 0) {
+      summary = `No matches for <b>${escapeHtml(query)}</b> in the corpus yet.`;
+      resultsBlock = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
+    } else {
+      summary = `<b>${resolved.length}</b> matches for <b>${escapeHtml(query)}</b>.`;
+      resultsBlock = `<ol class="search-hits">${resolved
+        .map(
+          (h) => `<li class="search-hit">
+  <a class="search-link" href="${escapeAttr(h.url)}">
+    <span class="search-kind">${escapeHtml(KIND_LABEL[h.kind] ?? h.kind)}</span>
+    <span class="search-title">${escapeHtml(h.title)}</span>
+  </a>
+  ${h.snippet ? `<div class="search-snippet">${escapeHtml(h.snippet)}</div>` : ""}
+  <div class="search-score">${(h.score * 100).toFixed(1)}% match</div>
+</li>`,
+        )
+        .join("")}</ol>`;
+    }
+  } else if (query.length === 0) {
+    summary = "Search semantic — phrase queries work as well as keywords.";
+    resultsBlock = "";
+  } else {
+    summary = "Corpus not yet populated.";
+    resultsBlock = "";
+  }
+
+  const body = `<section class="search-section">
+  <h1 class="search-h1">Search the corpus</h1>
+  <form class="search-form" method="GET" action="/search">
+    <input
+      class="search-input"
+      type="search"
+      name="q"
+      value="${escapeAttr(query)}"
+      placeholder="A subject, a claim, a phrase…"
+      autofocus
+    >
+    <button class="search-go" type="submit">Search</button>
+  </form>
+  <div class="search-summary">${summary}</div>
+  ${resultsBlock}
+</section>
+<style>
+  .search-section { max-width: 760px; margin: 32px auto; padding: 0 24px 80px; }
+  .search-h1 { font-family: var(--serif); font-size: 28px; margin: 0 0 18px; color: var(--ink); }
+  .search-form { display: flex; gap: 10px; margin-bottom: 14px; }
+  .search-input { flex: 1; padding: 12px 16px; font-family: var(--serif); font-size: 16px;
+    border: 1px solid var(--rule); border-radius: 8px; background: #fff; color: var(--ink); }
+  .search-input:focus { outline: 2px solid var(--ink); outline-offset: 0; }
+  .search-go { padding: 12px 22px; font-family: var(--mono); font-size: 13px;
+    background: var(--ink); color: var(--paper); border: none; border-radius: 8px; cursor: pointer; }
+  .search-go:hover { background: #1a1c20; }
+  .search-summary { font-family: var(--serif); font-style: italic; font-size: 14px;
+    color: var(--ink-3); margin-bottom: 22px; }
+  .search-hits { list-style: none; padding: 0; margin: 0; }
+  .search-hit { padding: 14px 0; border-top: 1px solid #f0ece2; }
+  .search-link { display: flex; align-items: baseline; gap: 12px; text-decoration: none; color: var(--ink); }
+  .search-kind { font-family: var(--mono); font-size: 10.5px; padding: 2px 7px; border-radius: 3px;
+    background: #f6f3ec; color: var(--ink-3); letter-spacing: .04em; }
+  .search-title { font-family: var(--serif); font-size: 17px; line-height: 1.3; flex: 1; }
+  .search-link:hover .search-title { text-decoration: underline; text-decoration-color: var(--ink-3); text-underline-offset: 4px; }
+  .search-snippet { font-family: var(--serif); font-size: 13.5px; color: var(--ink-3);
+    margin-top: 6px; line-height: 1.5; }
+  .search-score { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+    margin-top: 4px; letter-spacing: .03em; }
+  .search-empty { font-family: var(--serif); font-style: italic; color: var(--ink-3);
+    font-size: 14.5px; padding: 16px 0; }
+</style>`;
+
+  return renderPage({
+    title: query ? `Search · "${query}" · canopticon` : "Search · canopticon",
+    description: "Search the canopticon corpus.",
+    body,
+    activeNav: "/search",
+  });
+}
+
+async function resolveHits(
+  env: Env,
+  hits: Array<{ id: string; score: number; metadata: VectorMeta }>,
+): Promise<ResolvedHit[]> {
+  // Resolve in parallel — each kind has its own lookup. Most lookups are
+  // a single SELECT.
+  const resolved = await Promise.all(hits.map((h) => resolveOneHit(env, h)));
+  return resolved.filter((r): r is ResolvedHit => r !== null);
+}
+
+async function resolveOneHit(
+  env: Env,
+  hit: { id: string; score: number; metadata: VectorMeta },
+): Promise<ResolvedHit | null> {
+  const md = hit.metadata;
+  if (!md.kind) return null;
+  try {
+    if (md.kind === "entity") {
+      const row = await one<{ slug: string; label: string }>(
+        env.DB,
+        `SELECT p.slug, n.label
+           FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+          WHERE n.id = ? LIMIT 1`,
+        [md.id],
+      );
+      if (!row) return null;
+      return {
+        url: `/s/${row.slug}`,
+        kind: "entity",
+        title: row.label ?? md.title ?? md.id,
+        snippet: "",
+        score: hit.score,
+      };
+    }
+    if (md.kind === "piece") {
+      const row = await one<{ slug: string; title: string; excerpt: string | null }>(
+        env.DB,
+        `SELECT slug, title, substr(body_md, 1, 220) AS excerpt
+           FROM pieces WHERE id = ? LIMIT 1`,
+        [md.id],
+      );
+      if (!row) return null;
+      return {
+        url: `/library/${row.slug}`,
+        kind: "piece",
+        title: row.title ?? md.title ?? md.id,
+        snippet: (row.excerpt ?? "").replace(/\s+/g, " ").trim(),
+        score: hit.score,
+      };
+    }
+    if (md.kind === "claim") {
+      const row = await one<{ claim_text: string; page_slug: string | null }>(
+        env.DB,
+        `SELECT pc.claim_text,
+                (SELECT p.slug FROM pages p WHERE p.id = pc.page_id) AS page_slug
+           FROM page_claims pc WHERE pc.id = ? LIMIT 1`,
+        [md.id],
+      );
+      if (!row || !row.page_slug) return null;
+      return {
+        url: `/s/${row.page_slug}?mode=signed`,
+        kind: "claim",
+        title: row.claim_text.slice(0, 140),
+        snippet: "",
+        score: hit.score,
+      };
+    }
+    if (md.kind === "thesis" || md.kind === "article") {
+      const row = await one<{ slug: string; thesis: string | null }>(
+        env.DB,
+        "SELECT slug, thesis FROM pages WHERE id = ? LIMIT 1",
+        [md.id],
+      );
+      if (!row) return null;
+      const kind: VectorMeta["kind"] = md.kind;
+      return {
+        url: kind === "article" ? `/investigations/${row.slug}` : `/s/${row.slug}?mode=signed`,
+        kind,
+        title: row.thesis ?? md.title ?? md.id,
+        snippet: "",
+        score: hit.score,
+      };
+    }
+    if (md.kind === "source") {
+      return {
+        url: `/q/${md.id}`,
+        kind: "source",
+        title: md.title ?? "Quote",
+        snippet: "",
+        score: hit.score,
+      };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}

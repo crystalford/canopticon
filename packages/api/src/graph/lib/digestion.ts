@@ -257,21 +257,28 @@ export async function digest(
     await emit(env, args, "extract_claims", "failed", { error: result.failed_reason });
     return result;
   }
-  // Hollow-run guard: a run that produced node LABELS but no edges AND no
-  // quotes is structurally useless — every subject page renders empty against
-  // it. Mark it failed (deterministic, won't retry uselessly) so the doc shows
-  // as needing re-extract instead of pretending to be done. Bypass only when
-  // the document genuinely has no extractable content (nothing at all came
-  // out of any chunk, handled above).
+  // Hollow-run guard: a run that produced node LABELS but no edges, no
+  // quotes, AND no assertions is structurally useless — every subject
+  // page renders empty against it. Mark it failed (deterministic, won't
+  // retry uselessly) so the doc shows as needing re-extract instead of
+  // pretending to be done.
+  //
+  // v2.6 loosens this guard. Previously it fired on (edges=0 AND
+  // quotes=0), which killed docs whose pass 2 (relational LLM) timed out
+  // but whose pass 1 (factual + attributed-assertions) succeeded. Those
+  // docs DO have information — attributed claims fed by the firewall as
+  // assertions, even without supporting quotes. Now the guard fires only
+  // when pass 1 produced nothing of substance either.
   if (
     startChunk === 0 &&
     totals.nodes > 0 &&
     totals.edges === 0 &&
     totals.quotes === 0 &&
+    totals.assertions === 0 &&
     chunks.length > 0
   ) {
     result.failed_step = "extract_claims";
-    result.failed_reason = "hollow extraction: nodes without edges or quotes";
+    result.failed_reason = "hollow extraction: nodes without edges, quotes, or assertions";
     await emit(env, args, "extract_claims", "failed", {
       error: result.failed_reason,
       nodes: totals.nodes,

@@ -12,12 +12,14 @@ import { getPieceBySlug, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
 import { renderAbout } from "./render/about";
 import { renderBriefPage } from "./render/brief";
+import { renderCitationsPage } from "./render/citations";
 import { renderHome } from "./render/home";
 import { renderInvestigationsIndex, renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
 import { renderPiece } from "./render/piece-template";
 import { renderNotFound, renderPlaceholder } from "./render/placeholder";
 import { renderEntityPage } from "./render/record";
+import { renderSearchPage } from "./render/search";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
 import studioRoutes from "./studio/routes";
 import { STYLES_CSS, stylesHash } from "./styles";
@@ -384,22 +386,27 @@ app.get("/sources", () =>
   ),
 );
 
-app.get("/search", () =>
-  htmlResponse(
-    renderPlaceholder({
-      title: "Search",
-      description: "Find a claim, entity, or piece.",
-      activeNav: "/search",
-      whatsHere: "Search lands after the core surfaces are real.",
-    }),
-  ),
-);
+// Search — semantic search over the corpus (v2.6 Part 18 #6). Uses the
+// existing Vectorize index that already holds entity / claim / piece /
+// thesis / source embeddings. Public; results are read-only.
+app.get("/search", async (c) => {
+  const q = c.req.query("q") ?? "";
+  return htmlResponse(await renderSearchPage(c.env, q));
+});
 
 // Studio Stage A — the Produce flow for static formats (v2.6 Part 27).
 // Operator-only; routes redirect anonymous viewers home. Mounts at
 // /studio/:slug/:kind for the preview page and
 // /studio/:pageId/:kind/produce for the PNG download.
 app.route("/studio", studioRoutes);
+
+// Citations — operator-only view of AI-crawler hits on public pages
+// (v2.6 Part 14 #10). The middleware at the top of this file already
+// captures the hits into citation_hits; this surfaces them.
+app.get("/citations", async (c) => {
+  if (!c.var.is_operator) return c.redirect("/");
+  return htmlResponse(await renderCitationsPage(c.env));
+});
 
 // 404 handling lives at the parent (Worker) level so /v1/* misses can
 // return JSON while /* misses get the styled HTML page. See index.ts.
