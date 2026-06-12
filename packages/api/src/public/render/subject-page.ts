@@ -516,7 +516,7 @@ async function renderSigned(
   // are LLM-seasoned and pre-rendered on signing into page_faces.
   // The signed page renderer pulls both: persisted faces from page_faces +
   // live faces from the faces/ renderers.
-  const [persistedFaces, liveThread, liveCard] = await Promise.all([
+  const [persistedFaces, liveThread, liveCard, liveCarousel] = await Promise.all([
     loadFaces(env, page.id),
     (async () => {
       const { renderThreadFace } = await import("./faces/thread");
@@ -526,12 +526,16 @@ async function renderSigned(
       const { renderCardFace } = await import("./faces/card");
       return renderCardFace(env.DB, page);
     })(),
+    (async () => {
+      const { renderCarouselFace } = await import("./faces/carousel");
+      return renderCarouselFace(env.DB, page);
+    })(),
   ]);
   const facesBlock = renderFacesBlock(
     persistedFaces,
     page.id,
     isOperator,
-    { thread: liveThread, card: liveCard },
+    { thread: liveThread, card: liveCard, carousel: liveCarousel },
     page.slug,
   );
 
@@ -1252,6 +1256,7 @@ const FACE_LABELS: Record<string, string> = {
   thread: "Thread",
   script: "Video script",
   card: "Card",
+  carousel: "Carousel",
   chapter: "Chapter outline",
 };
 
@@ -1259,6 +1264,7 @@ const FACE_HINTS: Record<string, string> = {
   thread: "Thesis + the four most cutting facts, one per post.",
   script: "Locked reasoning skeleton for a 3–4 minute video — structure, not voice.",
   card: "One shareable image: thesis on top, the most damning fact below, receipt in the corner.",
+  carousel: "Six-slide swipe-through for Instagram / LinkedIn.",
   chapter: "The reading's structure expanded for long-form treatment.",
 };
 
@@ -1266,31 +1272,37 @@ function renderFacesBlock(
   faces: FaceRow[],
   pageId?: string,
   isOperator?: boolean,
-  liveFaces: { thread?: string; card?: string } = {},
+  liveFaces: { thread?: string; card?: string; carousel?: string } = {},
   pageSlugForFaces?: string,
 ): string {
-  // Faces always render when there's a thesis — thread + card are
-  // template+query and have no DB state. Only script + chapter come from
-  // page_faces. Always show all four tabs.
+  // Faces always render when there's a thesis — thread + card + carousel
+  // are template+query and have no DB state. Only script + chapter come
+  // from page_faces. Always show every tab.
   // The first ready face is opened by default; the rest are headed but
   // collapsed (server-rendered, no-JS — just <details>).
-  const orderedKinds = ["thread", "script", "card", "chapter"];
+  const orderedKinds = ["thread", "card", "carousel", "script", "chapter"];
+  const LIVE_KINDS = new Set(["thread", "card", "carousel"]);
   const byKind = new Map<string, FaceRow>(faces.map((f) => [f.kind, f]));
   let firstReadyShown = false;
   const items = orderedKinds
     .map((kind) => {
       const label = FACE_LABELS[kind] ?? kind;
       const hint = FACE_HINTS[kind] ?? "";
-      // Stage A Produce → link for the static formats (card, thread).
-      // Operator-only; spec v2.6 Part 27. Points at the slug-based Studio
-      // preview page, which has the download buttons.
+      // Stage A Produce → link for the static formats (card, thread,
+      // carousel). Operator-only; spec v2.6 Part 27. Points at the
+      // slug-based Studio preview page, which has the download buttons.
       const produceLink =
-        isOperator && pageId && (kind === "card" || kind === "thread")
+        isOperator && pageId && LIVE_KINDS.has(kind)
           ? `<a class="face-produce" href="/studio/${escapeAttr(pageSlugForFaces ?? "")}/${kind}">Produce →</a>`
           : "";
-      // Thread + card: rendered live; always ready.
-      if (kind === "thread" || kind === "card") {
-        const liveBody = kind === "thread" ? liveFaces.thread : liveFaces.card;
+      // Thread + card + carousel: rendered live; always ready.
+      if (LIVE_KINDS.has(kind)) {
+        const liveBody =
+          kind === "thread"
+            ? liveFaces.thread
+            : kind === "card"
+              ? liveFaces.card
+              : liveFaces.carousel;
         const open = !firstReadyShown && !!liveBody;
         if (open) firstReadyShown = true;
         return `<details class="face" ${open ? "open" : ""}>
