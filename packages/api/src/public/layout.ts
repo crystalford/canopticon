@@ -38,9 +38,8 @@ const FOOTER_EXPLORE: NavItem[] = [
 
 const FOOTER_ABOUT: NavItem[] = [
   { href: "/about", label: "How this works" },
-  { href: "/sources", label: "Sources & corrections" },
   { href: "/methodology", label: "Methodology" },
-  { href: "/feed", label: "Feed (RSS)" },
+  { href: "/library", label: "Source documents" },
 ];
 
 export interface RenderPageArgs {
@@ -91,22 +90,44 @@ ${renderPubNav(args.activeNav)}
 ${args.body}
 </div></div>
 </div>
+${mode === "public" ? renderTrustStrip() : ""}
 ${renderFooter()}
 </body>
 </html>`;
 }
 
+// The trust strip — what makes this site honest, in two lines.
+// Sits between the body and the footer on every public page. Plain
+// language, no jargon. This is the firewall made legible to a reader
+// who has never heard of "the firewall".
+function renderTrustStrip(): string {
+  return `<aside class="trust-strip" aria-label="How this site verifies">
+  <div class="trust-inner">
+    <div class="trust-line">
+      <span class="trust-mark" aria-hidden="true">✓</span>
+      <p>
+        Every fact you read here is a verbatim quote from a real document we have stored.
+        Contested claims are shown as contested. An attributed assertion is never silently rendered as a neutral fact.
+        <a href="/methodology">How verification works →</a>
+      </p>
+    </div>
+  </div>
+</aside>`;
+}
+
 function renderTopStrip(mode: "public" | "operator"): string {
-  const opLink =
-    mode === "public"
-      ? `<a class="op-link" href="/op">operator console →</a>`
-      : `<a class="op-link" href="/">public site →</a>`;
+  // Operator drops to public via this strip; public viewers see no
+  // mention of an "operator console" — that destination dissolved in
+  // PR 1 (spec v2.5 Part 9 — one site, permission layers). The session
+  // cookie reveals operator affordances inline on public pages; the
+  // strip is just the live-mark.
+  const right = mode === "operator" ? `<a class="op-link" href="/">public site →</a>` : "";
   return `<div class="top-strip">
 <div class="ts-left">
   <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent)"></span>
   <span>live · kept current</span>
 </div>
-<div class="ts-right">${opLink}</div>
+<div class="ts-right">${right}</div>
 </div>`;
 }
 

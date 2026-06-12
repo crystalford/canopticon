@@ -411,8 +411,47 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px;
 }
 
+/* Trust strip — the firewall, made legible on every public page.
+   Sits between the body and the footer. Plain language only; no jargon
+   leaks like "the firewall" or "neutral_fact". The check-mark is a real
+   character, not an icon, so it survives no-JS / no-CSS / RSS readers. */
+.trust-strip {
+  margin-top: 56px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+.trust-strip .trust-inner {
+  max-width: 880px; margin: 0 auto; padding: 22px 32px;
+}
+.trust-strip .trust-line {
+  display: flex; gap: 14px; align-items: flex-start;
+}
+.trust-strip .trust-mark {
+  flex-shrink: 0;
+  display: inline-flex; justify-content: center; align-items: center;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--confirmed-bg, #e7f0e6);
+  color: var(--confirmed, #2f7d52);
+  font-size: 15px; font-weight: 700;
+  margin-top: 1px;
+}
+.trust-strip p {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 14.5px; line-height: 1.6;
+  color: var(--ink-2);
+  max-width: 740px;
+}
+.trust-strip a {
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.trust-strip a:hover { text-decoration: underline; }
+
 .pub-footer {
-  border-top: 1px solid var(--rule); margin-top: 40px;
+  border-top: 1px solid var(--rule); margin-top: 0;
   padding: 40px 32px; background: var(--paper-2);
 }
 .pub-footer .inner { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; gap: 40px; flex-wrap: wrap; }

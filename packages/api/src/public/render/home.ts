@@ -106,60 +106,137 @@ async function renderActivityFeed(env: { DB: D1Database }): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return "";
 
-  // Recently active subjects: pages ordered by recency, signed first.
+  // Recently active subjects with intent so the home can wear intent badges.
+  // Signed-published readings rise to the top; the lead spot goes to the
+  // most-recently-signed piece — this is the editor's call. Without it the
+  // home is just a recency dump.
   const subjects = await all<{
     slug: string;
     label: string;
     kind: string;
     signed_status: string;
     thesis: string | null;
+    intent: string | null;
+    signed_at: string | null;
     sources: number;
   }>(
     env.DB,
-    `SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis,
+    `SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
             (SELECT COUNT(DISTINCT piece_id) FROM nodes
               WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources
        FROM pages p JOIN nodes n ON n.id = p.subject_node_id
       WHERE p.user_id = ?
-      ORDER BY (p.signed_status = 'published') DESC, p.updated_at DESC
-      LIMIT 12`,
+      ORDER BY (p.signed_status = 'published') DESC,
+               COALESCE(p.signed_at, p.updated_at) DESC
+      LIMIT 14`,
     [userId, userId],
   ).catch(() => []);
   if (subjects.length === 0) return "";
 
-  const counts = await one<{ subjects: number; themes: number; docs: number }>(
+  const counts = await one<{
+    subjects: number;
+    themes: number;
+    docs: number;
+    signed: number;
+    contested: number;
+  }>(
     env.DB,
     `SELECT
        (SELECT COUNT(*) FROM pages WHERE user_id = ?) AS subjects,
        (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind = 'theme') AS themes,
-       (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs`,
-    [userId, userId, userId],
+       (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs,
+       (SELECT COUNT(*) FROM pages WHERE user_id = ? AND signed_status = 'published') AS signed,
+       (SELECT COUNT(*) FROM assertions a JOIN nodes n ON n.id = a.node_id
+          WHERE n.user_id = ? AND a.rank = 'contested') AS contested`,
+    [userId, userId, userId, userId, userId],
   ).catch(() => null);
 
-  const cards = subjects
+  const INTENT_LABEL: Record<string, string> = {
+    investigation: "Investigation",
+    argument: "Argument",
+    pattern: "Pattern",
+    hypothesis: "Hypothesis",
+    assessment: "Assessment",
+    critique: "Critique",
+    explanation: "Explanation",
+  };
+
+  // Editorial hierarchy: pick a lead, two secondaries, then a tail grid.
+  // Lead is the most recently signed piece; if nothing is signed yet, the
+  // most recently active subject leads.
+  const lead = subjects[0];
+  const secondaries = subjects.slice(1, 3);
+  const tail = subjects.slice(3);
+
+  const buildHref = (s: NonNullable<typeof lead>): string =>
+    `/s/${escapeHtml(s.slug)}${s.signed_status === "published" ? "?mode=signed" : ""}`;
+
+  const intentChip = (intent: string | null): string =>
+    intent
+      ? `<span class="intent-badge intent-${escapeHtml(intent)}">${escapeHtml(INTENT_LABEL[intent] ?? intent)}</span>`
+      : "";
+
+  const kindLine = (s: NonNullable<typeof lead>): string => {
+    const kindLabel = s.kind === "theme" ? "Theme" : s.kind === "event" ? "Event" : "Subject";
+    const signed = s.signed_status === "published";
+    return `${kindLabel}${signed ? " · the operator's reading" : ""}`;
+  };
+
+  // The LEAD — a full-width editorial card. Bigger type, thesis prominent,
+  // intent badge first. When unsigned, the lede comes from the source count.
+  const leadCard = lead
+    ? `<a class="lead-card" href="${buildHref(lead)}">
+  <div class="lead-kicker">
+    ${intentChip(lead.intent)}
+    <span class="lead-meta">${escapeHtml(kindLine(lead))}</span>
+  </div>
+  <h2 class="lead-title">${escapeHtml(lead.label)}</h2>
+  ${
+    lead.thesis
+      ? `<p class="lead-thesis">${escapeHtml(lead.thesis.slice(0, 200))}</p>`
+      : `<p class="lead-thesis lead-thesis-quiet">Reading the corpus on this subject — ${lead.sources} source${lead.sources === 1 ? "" : "s"} so far.</p>`
+  }
+</a>`
+    : "";
+
+  // SECONDARIES — two medium cards side by side. Less type, less weight.
+  const secondaryCards = secondaries
+    .map(
+      (s) => `<a class="secondary-card" href="${buildHref(s)}">
+  <div class="secondary-kicker">${intentChip(s.intent)}<span class="secondary-meta">${escapeHtml(kindLine(s))}</span></div>
+  <h3 class="secondary-title">${escapeHtml(s.label)}</h3>
+  ${
+    s.thesis
+      ? `<p class="secondary-thesis">${escapeHtml(s.thesis.slice(0, 130))}</p>`
+      : `<p class="secondary-thesis secondary-thesis-quiet">${s.sources} source${s.sources === 1 ? "" : "s"}</p>`
+  }
+</a>`,
+    )
+    .join("");
+
+  // TAIL — the existing 3-column grid for everything else. Smaller cards,
+  // less prose, more index-y.
+  const tailCards = tail
     .map((s) => {
       const signed = s.signed_status === "published";
-      const kindLabel = s.kind === "theme" ? "THEME" : s.kind === "event" ? "EVENT" : "SUBJECT";
-      const badge = signed
-        ? `<span class="chip" style="background:#f4e9e6;color:#8a3324;border:none">SIGNED READING</span>`
-        : "";
       const dek =
         signed && s.thesis
-          ? escapeHtml(s.thesis.slice(0, 130))
+          ? escapeHtml(s.thesis.slice(0, 110))
           : `${s.sources} source${s.sources === 1 ? "" : "s"}`;
-      return `<a class="cardlink" href="/s/${escapeHtml(s.slug)}${signed ? "?mode=signed" : ""}">
-  <div class="card-type">${kindLabel} ${badge}</div>
+      return `<a class="cardlink" href="${buildHref(s)}">
+  <div class="card-type">${intentChip(s.intent)}<span style="margin-left:6px">${escapeHtml(kindLine(s))}</span></div>
   <div class="card-title">${escapeHtml(s.label)}</div>
   <div class="card-dek">${dek}</div>
 </a>`;
     })
     .join("");
 
-  // Home JSON-LD: WebSite (SearchAction) + Organization. The richer per-page
-  // schema lives on subject / brief renderers; this gives AI engines the
-  // canopticon-the-publication graph node so citations have a publisher to
-  // attribute. (Princeton GEO research: schema-tagged pages outcite untagged
-  // by ~30-40% in answer engines.)
+  // Home JSON-LD: WebSite + Organization. (No SearchAction yet — /search is a
+  // placeholder. Adding it back when search actually ships avoids pointing AI
+  // engines at a dead endpoint.) Per-page schema (Article, ItemList, Event,
+  // CreativeWork) lives on subject / brief renderers; this gives AI engines
+  // the canopticon-the-publication graph node so citations have a publisher
+  // to attribute.
   const jsonLd = JSON.stringify({
     "@context": "https://schema.org",
     "@graph": [
@@ -170,11 +247,6 @@ async function renderActivityFeed(env: { DB: D1Database }): Promise<string> {
         name: "CANOPTICON",
         description:
           "A forensic intelligence publication system. Sourced claims, signed analysis, a typed graph of verified facts. Every assertion ties back to a verbatim quote from a stored source document.",
-        potentialAction: {
-          "@type": "SearchAction",
-          target: "https://canopticon.com/search?q={query}",
-          "query-input": "required name=query",
-        },
         publisher: { "@id": "https://canopticon.com/#org" },
       },
       {
@@ -187,18 +259,191 @@ async function renderActivityFeed(env: { DB: D1Database }): Promise<string> {
     ],
   }).replace(/<\/script/gi, "<\\/script");
 
+  // Stats line under the masthead. Two key numbers, sized and worded so a
+  // reader skims them as the proof of weight: "this is a real record" vs
+  // "this is a side project".
+  const stats = counts
+    ? `<div class="home-stats">
+  <span><b>${counts.docs}</b> source documents</span>
+  <span><b>${counts.subjects}</b> subject pages</span>
+  ${counts.themes > 0 ? `<span><b>${counts.themes}</b> themes</span>` : ""}
+  ${counts.signed > 0 ? `<span><b>${counts.signed}</b> signed readings</span>` : ""}
+  ${counts.contested > 0 ? `<span><b>${counts.contested}</b> contested claims</span>` : ""}
+</div>`
+    : "";
+
   const body = `
 <script type="application/ld+json">${jsonLd}</script>
-<section style="margin-bottom:18px">
-  <div class="kicker" style="margin-bottom:18px"><span class="live"></span> A forensic record of Canadian power — facts first, readings signed</div>
-  <h1 style="font-family:var(--serif);font-size:44px;line-height:1.1;letter-spacing:-0.02em;margin:0 0 16px;color:var(--ink)">How things actually work, beneath the official account.</h1>
-  <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
-    Recently active across the fabric. <b>${counts?.subjects ?? subjects.length} subjects</b> · <b>${counts?.themes ?? 0} themes</b> · <b>${counts?.docs ?? 0} source documents</b> — every claim carries its receipt.
-  </p>
+<section class="home-masthead">
+  <div class="kicker"><span class="live"></span> A forensic record of Canadian power — facts first, readings signed</div>
+  <h1 class="home-hero">How things actually work, beneath the official account.</h1>
+  ${stats}
 </section>
-<section style="margin-bottom:40px">
-  <div class="cards-3">${cards}</div>
-</section>`;
+
+${
+  leadCard
+    ? `<section class="home-lead">
+  <div class="section-label">The lead</div>
+  ${leadCard}
+</section>`
+    : ""
+}
+
+${
+  secondaryCards
+    ? `<section class="home-secondaries">
+  <div class="section-label">Also developing</div>
+  <div class="secondary-grid">${secondaryCards}</div>
+</section>`
+    : ""
+}
+
+${
+  tailCards
+    ? `<section class="home-tail">
+  <div class="section-label">Across the fabric</div>
+  <div class="cards-3">${tailCards}</div>
+</section>`
+    : ""
+}
+
+<style>
+  .home-masthead { margin-bottom: 40px; }
+  .home-masthead .kicker { margin-bottom: 18px; }
+  .home-hero {
+    font-family: var(--serif);
+    font-size: 48px; line-height: 1.08;
+    letter-spacing: -0.025em;
+    margin: 0 0 22px;
+    color: var(--ink);
+    max-width: 880px;
+  }
+  .home-stats {
+    display: flex; flex-wrap: wrap; gap: 14px 28px;
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--ink-3);
+  }
+  .home-stats span b {
+    color: var(--ink);
+    font-size: 20px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .section-label {
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+  .home-lead { margin-bottom: 36px; }
+  .lead-card {
+    display: block;
+    text-decoration: none;
+    padding: 30px 32px;
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    background: var(--surface, #fff);
+    transition: border-color .12s;
+  }
+  .lead-card:hover { border-color: #c9bfa9; }
+  .lead-kicker {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .lead-meta {
+    font-size: 12.5px;
+    color: var(--ink-3);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .lead-title {
+    font-family: var(--serif);
+    font-size: 36px;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: 0 0 14px;
+  }
+  .lead-thesis {
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    font-style: italic;
+    max-width: 760px;
+    margin: 0;
+  }
+  .lead-thesis-quiet { font-style: normal; color: var(--ink-3); }
+  .home-secondaries { margin-bottom: 40px; }
+  .secondary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .secondary-card {
+    display: block;
+    text-decoration: none;
+    padding: 22px 24px;
+    border: 1px solid var(--rule);
+    border-radius: 11px;
+    background: var(--surface, #fff);
+    transition: border-color .12s;
+  }
+  .secondary-card:hover { border-color: #c9bfa9; }
+  .secondary-kicker {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .secondary-meta {
+    font-size: 11.5px;
+    color: var(--ink-3);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .secondary-title {
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1.22;
+    color: var(--ink);
+    margin: 0 0 10px;
+  }
+  .secondary-thesis {
+    font-family: var(--serif);
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: var(--ink-2);
+    margin: 0;
+  }
+  .secondary-thesis-quiet { color: var(--ink-3); }
+  .home-tail { margin-bottom: 40px; }
+  .intent-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 9px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: .04em;
+  }
+  .intent-investigation { background: #e6efe9; color: #1d6a5e; }
+  .intent-argument { background: #f4e9e6; color: #8a3324; }
+  .intent-pattern { background: #e8eef7; color: #33567e; }
+  .intent-hypothesis { background: #ece6f2; color: #5a4a7e; }
+  .intent-assessment { background: #f1ead9; color: #7a6324; }
+  .intent-critique { background: #f4e3e0; color: #964434; }
+  .intent-explanation { background: #e4ecef; color: #3a6a7e; }
+  @media (max-width: 720px) {
+    .home-hero { font-size: 36px; }
+    .lead-title { font-size: 28px; }
+    .lead-thesis { font-size: 17px; }
+    .secondary-grid { grid-template-columns: 1fr; }
+  }
+</style>
+`;
 
   return renderPage({
     title: "",
