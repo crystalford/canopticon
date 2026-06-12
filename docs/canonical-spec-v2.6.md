@@ -501,14 +501,14 @@ The factual layer's proud collective name remains deliberately absent. Its neutr
 
 The build follows the rendering-system reframe. Order is binding.
 
-1. **Per-arrangement URLs + renderers.** Twelve renderers; one URL each. Each gets JSON-LD. Embedded sections on subject pages start using the same renderers.
-2. **Faces refactor.** Template + query for thread/card/TikTok/stat. LLM-seasoned for video script + chapter outline (one writer call on sign, persisted, rendered thereafter). Drop the writer call from template + query faces entirely.
-3. **Record-building Phase 2** — finish the fetch + extract loop. Operator clicks thin Record → Brave Search → fetch found pages → run typed extraction over them. Live progress narration in the page banner.
-4. **Concurrent extraction architecture** — Cloudflare Queues + Workers AI Async Batch + Durable Object WebSocket. Speed benchmarks enforced. (Needs operator's CF account setup; parked until queue + DO bindings exist.)
-5. **Studio as production pipeline.**
-6. **Search.** Implementation TBD; the "Ask the corpus" framing from v2.5 may or may not survive into v2.6 — see Part 17.
-7. **Frontier model near launch + result-caching.** One line in the router; result-caching content-hash keyed.
-8. **Citation tracker.** AI-bot hit logging is already in place; surfacing it as a "who's citing us" report comes later.
+1. **Per-arrangement URLs + renderers.** ✅ SHIPPED. Twelve renderers; one URL each. Each gets JSON-LD. Embedded sections on subject pages share the same renderers. Routes: `/t/:slug` timeline, `/n/:slug` network, `/stat/:slug`, `/ct/:slug` claim-table, `/d/:slug` definition, `/w/:slug` who's-who, `/m/:slug` mechanism, `/f/:slug` FAQ, `/c/:slug` comparison, `/l/:slug` ledger, `/profile/:slug` entity profile, `/q/:id` quote receipt.
+2. **Faces refactor.** ✅ SHIPPED. Template + query for thread/card/carousel. LLM-seasoned for video script + chapter outline (one writer call on sign, persisted, rendered thereafter). The writer call is dropped from template + query faces entirely.
+3. **Record-building Phase 2** ✅ SHIPPED. The fetch + extract loop behind "Expand this Record" — Brave Search → fetch → strip HTML → typed extraction → live progress events. Operator visible in the page banner.
+4. **Concurrent extraction architecture** — Cloudflare Queues + Workers AI Async Batch + Durable Object WebSocket. Speed benchmarks enforced. ⏸ PARKED on operator's CF account setup (Queues + DO bindings).
+5. **Studio as production pipeline.** ✅ STAGE A SHIPPED — card / thread / carousel → PNG via Cloudflare Browser Rendering; newsletter → email-safe HTML + plain text; long-form → Markdown with optional chapter outline. Stage B (voice profile + per-chunk recording UI + audio stitcher) and Stage C (visual matcher + MP4 export) are the next stages.
+6. **Search.** ✅ SHIPPED. Vectorize-backed semantic search on `/search?q=` — embeds the query with the same bge-large-en-v1.5 model used at upsert, resolves matches to public URLs by kind (entity / claim / piece / thesis / source).
+7. **Frontier model near launch + result-caching.** ⏸ NOT YET. One line in the router (`packages/api/src/llm/router.ts`); result-caching content-hash keyed. Intentionally deferred — the existing Workers AI tier is sufficient for the build phase; the swap to Claude near launch is a config edit, not a refactor.
+8. **Citation tracker.** ✅ SHIPPED. AI-bot hit logging was already in place (middleware in `packages/api/src/public/routes.ts`); the surfacing page is at `/citations` (operator-only).
 
 -----
 
