@@ -86,23 +86,61 @@ export async function renderInvestigationsIndex(
     ? outputs.filter((o) => o.content_type === intentFilter)
     : outputs;
 
-  // Apply the intent filter to readings too — clicking an intent badge
-  // narrows BOTH layers (factual outputs and signed readings).
+  // Apply the intent filter to readings — clicking an intent badge narrows
+  // both layers (factual outputs and signed readings).
   const shownReadings = intentFilter ? readings.filter((r) => r.intent === intentFilter) : readings;
-  const readingCards = shownReadings.length
-    ? `<div style="margin-bottom:28px">${shownReadings
+
+  // Editorial hierarchy: a LEAD reading + secondary cards row + the rest as
+  // a compact ordered list. A real investigations page foregrounds the
+  // strongest piece instead of treating every reading as equal.
+  const leadReading = shownReadings[0];
+  const secondaryReadings = shownReadings.slice(1, 3);
+  const tailReadings = shownReadings.slice(3);
+
+  const intentChip = (intent: string | null | undefined): string =>
+    intent
+      ? `<span class="intent-badge intent-${escapeHtml(intent)}">${escapeHtml(INTENT_LABELS[intent] ?? intent)}</span>`
+      : `<span class="chip">Signed reading</span>`;
+
+  const leadReadingCard = leadReading
+    ? `<a class="inv-lead" href="/s/${escapeHtml(leadReading.slug)}?mode=signed">
+  <div class="inv-lead-kicker">
+    ${intentChip(leadReading.intent)}
+    ${leadReading.confidence ? `<span class="inv-meta">${escapeHtml(leadReading.confidence)} confidence</span>` : ""}
+    ${leadReading.signed_by ? `<span class="inv-meta">signed · ${escapeHtml(leadReading.signed_by)}</span>` : ""}
+    ${leadReading.signed_at ? `<span class="inv-meta inv-date">${escapeHtml(formatDate(leadReading.signed_at))}</span>` : ""}
+  </div>
+  <h2 class="inv-lead-title">${escapeHtml(leadReading.label)}</h2>
+  ${leadReading.thesis ? `<p class="inv-lead-thesis">${escapeHtml(leadReading.thesis.slice(0, 220))}</p>` : ""}
+</a>`
+    : "";
+
+  const secondaryReadingsRow = secondaryReadings.length
+    ? `<div class="inv-secondaries">${secondaryReadings
         .map(
-          (r) => `<div style="padding:14px 0;border-bottom:1px solid var(--rule)">
-  ${r.intent ? `<span class="intent-badge intent-${escapeHtml(r.intent)}">${escapeHtml(INTENT_LABELS[r.intent] ?? r.intent)}</span>` : `<span class="chip">Signed reading</span>`}
-  ${r.signed_by ? `<span class="chip">signed · ${escapeHtml(r.signed_by)}</span>` : ""}
-  ${r.confidence ? `<span class="chip">${escapeHtml(r.confidence)} confidence</span>` : ""}
-  <div style="margin-top:6px"><a class="ac" href="/s/${escapeHtml(r.slug)}?mode=signed" style="font-family:var(--serif);font-size:20px">${escapeHtml(r.label)}</a></div>
-  ${r.thesis ? `<p style="font-family:var(--serif);font-style:italic;color:var(--ink-2);margin-top:5px;max-width:620px">${escapeHtml(r.thesis.slice(0, 180))}</p>` : ""}
-  ${r.signed_at ? `<p class="coord" style="margin-top:4px">${escapeHtml(formatDate(r.signed_at))}</p>` : ""}
+          (r) => `<a class="inv-secondary" href="/s/${escapeHtml(r.slug)}?mode=signed">
+  <div class="inv-secondary-kicker">${intentChip(r.intent)}${r.confidence ? ` <span class="inv-meta">${escapeHtml(r.confidence)} confidence</span>` : ""}</div>
+  <h3 class="inv-secondary-title">${escapeHtml(r.label)}</h3>
+  ${r.thesis ? `<p class="inv-secondary-thesis">${escapeHtml(r.thesis.slice(0, 130))}</p>` : ""}
+  ${r.signed_at ? `<div class="inv-meta inv-date">${escapeHtml(formatDate(r.signed_at))}</div>` : ""}
+</a>`,
+        )
+        .join("")}</div>`
+    : "";
+
+  const tailReadingsList = tailReadings.length
+    ? `<div class="inv-tail-list">${tailReadings
+        .map(
+          (r) => `<div class="inv-row">
+  ${intentChip(r.intent)}
+  <a class="inv-row-link" href="/s/${escapeHtml(r.slug)}?mode=signed">${escapeHtml(r.label)}</a>
+  ${r.signed_at ? `<span class="inv-meta inv-date">${escapeHtml(formatDate(r.signed_at))}</span>` : ""}
 </div>`,
         )
         .join("")}</div>`
     : "";
+
+  const readingCards = leadReadingCard + secondaryReadingsRow + tailReadingsList;
 
   // Filter row collects intents from BOTH signed readings (pages.intent) and
   // legacy outputs (briefs.content_type). Click an intent to narrow.
@@ -191,6 +229,79 @@ ${filterRow}
   .shape-block li:first-child { border-top:none; }
   .shape-block li b { color:var(--ink); font-weight:600; }
   .shape-block p { font-size:13.5px; color:var(--ink-3); font-style:italic; margin:0; }
+
+  /* Investigations editorial hierarchy — lead piece, two secondaries,
+     compact tail list. Matches the home pattern so the reader's mental
+     model carries across surfaces. */
+  .inv-lead {
+    display: block; text-decoration: none;
+    padding: 28px 32px; margin-bottom: 24px;
+    border: 1px solid var(--rule); border-radius: 13px;
+    background: var(--surface, #fff);
+    transition: border-color .12s;
+  }
+  .inv-lead:hover { border-color: #c9bfa9; }
+  .inv-lead-kicker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .inv-lead-title {
+    font-family: var(--serif);
+    font-size: 32px; line-height: 1.16;
+    letter-spacing: -0.018em;
+    color: var(--ink);
+    margin: 0 0 12px;
+  }
+  .inv-lead-thesis {
+    font-family: var(--serif);
+    font-size: 18px; line-height: 1.55;
+    font-style: italic;
+    color: var(--ink-2);
+    margin: 0;
+    max-width: 720px;
+  }
+  .inv-secondaries { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 28px; }
+  .inv-secondary {
+    display: block; text-decoration: none;
+    padding: 20px 22px;
+    border: 1px solid var(--rule); border-radius: 10px;
+    background: var(--surface, #fff);
+    transition: border-color .12s;
+  }
+  .inv-secondary:hover { border-color: #c9bfa9; }
+  .inv-secondary-kicker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 9px; }
+  .inv-secondary-title {
+    font-family: var(--serif);
+    font-size: 20px; line-height: 1.22;
+    color: var(--ink);
+    margin: 0 0 8px;
+  }
+  .inv-secondary-thesis {
+    font-family: var(--serif);
+    font-size: 14px; line-height: 1.5;
+    color: var(--ink-2);
+    margin: 0 0 10px;
+  }
+  .inv-tail-list { margin-top: 16px; }
+  .inv-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 0; border-top: 1px solid var(--rule);
+  }
+  .inv-row:first-child { border-top: none; }
+  .inv-row-link {
+    font-family: var(--serif); font-size: 17px;
+    color: var(--ink); text-decoration: none;
+    flex: 1;
+  }
+  .inv-row-link:hover { color: var(--accent); }
+  .inv-meta {
+    font-size: 12px;
+    color: var(--ink-3);
+    letter-spacing: .03em;
+  }
+  .inv-date { font-family: var(--mono); font-size: 11.5px; }
+  @media (max-width: 720px) {
+    .inv-secondaries { grid-template-columns: 1fr; }
+    .inv-lead-title { font-size: 26px; }
+    .inv-lead-thesis { font-size: 16px; }
+  }
 </style>
 `;
   return renderPage({
