@@ -19,14 +19,19 @@ import type { Env } from "../../env";
 import { insertOne, one, run } from "../../lib/d1";
 import { callRole, modelForRole } from "../../llm/router";
 
-export type FaceKind = "thread" | "script" | "card" | "chapter";
+export type FaceKind = "thread" | "card" | "carousel" | "script" | "chapter";
 
-// v2.6 Part 8: faces are RENDERINGS, not regenerations. Thread + card are
-// template + query and render at view time (no LLM, <100ms) — see
-// packages/api/src/public/render/faces/. Only script + chapter genuinely
-// need argumentative sequencing; those still get the writer LLM on sign
-// and persist to page_faces.
-const LLM_FACES: FaceKind[] = ["script", "chapter"];
+// v2.6 Part 8: faces are RENDERINGS, not regenerations. Thread + card +
+// carousel are template + query and render at view time (no LLM, <100ms)
+// — see packages/api/src/public/render/faces/. Only script + chapter
+// genuinely need argumentative sequencing; those still get the writer
+// LLM on sign and persist to page_faces.
+const LLM_FACES = ["script", "chapter"] as const;
+type LlmFaceKind = (typeof LLM_FACES)[number];
+
+function isLlmFace(kind: FaceKind): kind is LlmFaceKind {
+  return (LLM_FACES as readonly FaceKind[]).includes(kind);
+}
 
 interface PageRow {
   id: string;
@@ -80,13 +85,16 @@ export async function generateAllFaces(
 }
 
 /** Re-render a single face on demand. Used by the operator's "rerender"
- *  affordance and by retries. */
+ *  affordance and by retries. No-op for template+query faces (thread,
+ *  card, carousel) — those render live at view time, there's nothing to
+ *  pre-render. */
 export async function generateSingleFace(
   env: Env,
   userId: string,
   pageId: string,
   kind: FaceKind,
 ): Promise<void> {
+  if (!isLlmFace(kind)) return;
   const page = await loadPage(env, userId, pageId);
   if (!page || !page.body_md || !page.thesis) return;
   await renderFace(env, userId, pageId, kind, page);
@@ -109,7 +117,7 @@ async function renderFace(
   env: Env,
   userId: string,
   pageId: string,
-  kind: FaceKind,
+  kind: LlmFaceKind,
   page: PageRow,
 ): Promise<void> {
   await upsertFaceStatus(env, userId, pageId, kind, "rendering");
@@ -185,23 +193,11 @@ interface FacePrompt {
   maxTokens: number;
 }
 
-// Each face's prompt. Selection, not regeneration: the reading carries the
-// truth; the face only re-arranges. Constraints enforced in the prompt.
-const PROMPTS: Record<FaceKind, FacePrompt> = {
-  thread: {
-    system: `You convert a signed reading into a 4-post THREAD. Output only the thread itself, numbered 1/, 2/, 3/, 4/.
-
-HARD RULES:
-- Post 1 opens with the thing nobody quite says — the thesis as a hook.
-- Posts 2–3 anchor it: the two most cutting specific facts, one per post, each with its receipt.
-- Post 4 lands the implication, sharply.
-- Each post is under 280 characters.
-- Select facts that already appear in the reading body — never introduce new claims.
-- Quote inline citations as [source] where the source is named in the reading.
-- No throat-clearing, no hashtags, no @-mentions.`,
-    userTail: "Produce the 4-post thread now.",
-    maxTokens: 800,
-  },
+// Per-face writer-LLM prompts. Only LLM_FACES (script + chapter) are
+// keyed here — thread + card + carousel are pure template+query renderers
+// living in packages/api/src/public/render/faces/, no LLM. Selection, not
+// regeneration: the reading carries the truth; the face re-arranges.
+const PROMPTS: Record<LlmFaceKind, FacePrompt> = {
   script: {
     system: `You convert a signed reading into a LOCKED REASONING SKELETON for a 3–4 minute video script. STRUCTURE, NOT VOICE — the operator reads the structure aloud in their own register.
 
@@ -226,14 +222,6 @@ HARD RULES:
 - Total length: under 250 words.`,
     userTail: "Produce the reasoning skeleton now.",
     maxTokens: 900,
-  },
-  card: {
-    // Dead path (v2.6): the card face is pure rendering. Kept only so the
-    // PROMPTS map satisfies Record<FaceKind, FacePrompt>. LLM_FACES drives
-    // what actually runs.
-    system: "",
-    userTail: "",
-    maxTokens: 0,
   },
   chapter: {
     system: `You expand a signed reading into a CHAPTER OUTLINE for long-form treatment. Sections + bullets + research direction notes.

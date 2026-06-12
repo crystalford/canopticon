@@ -234,13 +234,28 @@ to `main`.
 
 ## What's deferred (not yet built)
 
-- **Transforms** beyond Studio Stage-1 scripts (thread / card / video assembly).
-- **Surfacing Engine L2** is wired but lightly exercised.
+- **Studio Stage B (voice)** — voice profile training (MiniMax Speech 2.8 HD
+  cloning, ~5 min of samples → reusable voice id), single-take recording UI,
+  Descript-style transcript-aligned editor for trimming mistakes, stitch + MP3
+  export. Audio brief is the first format. Needs operator at a computer for
+  browser-side MediaRecorder testing.
+- **Studio Stage C (video)** — per-beat Flux Schnell still → Wan 2.7 animate →
+  MiniMax voiceover → stitch + MP4. All Workers AI, no third-party models.
+- **Studio Stage D (long-form video)** — multi-source assembly pulling stills
+  from cited document pages alongside Flux-generated frames.
+- **Studio Stage E (podcast)** — parked until Workers AI ships a NotebookLM-
+  style two-voice conversational TTS model.
+- **Studio Stage F (distribution polish)** — platform deep-link strip per
+  asset + `studio_distributions` table for the "where did this end up" log.
+- **Concurrent extraction stack** — Cloudflare Queues + Workers AI Async
+  Batch + Durable Object WebSocket. Parked on operator's CF account setup
+  (Queues + DO bindings).
 - **Frontier-model wire-up** (Anthropic top tier via the router) — one line,
   near launch — plus result-caching.
-- **The operator voice file** (`operator_voice`) exists in schema and the
-  drafter uses it, but there's no UI to set it yet.
-- **Citation tracker** logs AI-crawler hits; no reporting surface yet.
+- **Character portrait layer (v2.7)** — visual description as an extracted
+  node attribute (verbatim spans from sources, operator-approved), plus
+  Workers AI image generation per entity. Parked from this session.
+- **Surfacing Engine L2** is wired but lightly exercised.
 
 ---
 

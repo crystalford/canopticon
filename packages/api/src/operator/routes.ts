@@ -550,7 +550,7 @@ app.post("/faces/:pageId/:kind/render", async (c) => {
   if (!userId) return c.redirect("/");
   const pageId = c.req.param("pageId");
   const kind = c.req.param("kind");
-  const VALID = new Set(["thread", "script", "card", "chapter"]);
+  const VALID = new Set(["thread", "card", "carousel", "script", "chapter"]);
   if (!VALID.has(kind)) return c.redirect("/");
   const page = await one<{ slug: string }>(
     c.env.DB,
@@ -560,7 +560,12 @@ app.post("/faces/:pageId/:kind/render", async (c) => {
   if (!page) return c.redirect("/");
   const { generateSingleFace } = await import("../graph/lib/face-renderer");
   c.executionCtx.waitUntil(
-    generateSingleFace(c.env, userId, pageId, kind as "thread" | "script" | "card" | "chapter"),
+    generateSingleFace(
+      c.env,
+      userId,
+      pageId,
+      kind as "thread" | "card" | "carousel" | "script" | "chapter",
+    ),
   );
   return c.redirect(`/s/${page.slug}?mode=signed`);
 });

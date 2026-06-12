@@ -114,11 +114,22 @@ describe("generateAllFaces — only LLM-seasoned faces pre-render on signing (v2
 });
 
 describe("generateSingleFace — operator re-render path", () => {
-  it("renders one face without touching the others", async () => {
+  it("renders one LLM face (script) without touching the others", async () => {
     const { env, runs } = makeEnv({ pageRow: PAGE });
-    await generateSingleFace(env, "u1", "page1", "thread");
+    await generateSingleFace(env, "u1", "page1", "script");
     // Single render: status=rendering then ready, no queueing wave.
     const readyUpdates = runs.filter((r) => /status\s*=\s*'ready'/i.test(r.sql));
     expect(readyUpdates.length).toBe(1);
+  });
+
+  it("is a no-op for template+query faces (thread / card / carousel)", async () => {
+    // Thread / card / carousel render live at view time — there's nothing
+    // to pre-render in page_faces, so the re-render path bails out clean.
+    const { env, runs } = makeEnv({ pageRow: PAGE });
+    await generateSingleFace(env, "u1", "page1", "thread");
+    await generateSingleFace(env, "u1", "page1", "card");
+    await generateSingleFace(env, "u1", "page1", "carousel");
+    const readyUpdates = runs.filter((r) => /status\s*=\s*'ready'/i.test(r.sql));
+    expect(readyUpdates.length).toBe(0);
   });
 });
