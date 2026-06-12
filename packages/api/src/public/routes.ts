@@ -233,6 +233,30 @@ app.get("/profile/:slug", async (c) => {
   return htmlResponse(html);
 });
 
+// `/n/:slug` — Network map (ItemList of Role JSON-LD).
+app.get("/n/:slug", async (c) => {
+  const { renderNetworkPage } = await import("./render/arrangements/network");
+  const html = await renderNetworkPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/stat/:slug` — Statistics roundup (Dataset + PropertyValue JSON-LD).
+app.get("/stat/:slug", async (c) => {
+  const { renderStatsPage } = await import("./render/arrangements/stats");
+  const html = await renderStatsPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/ct/:slug` — Claim-and-source table (ClaimReview per row).
+app.get("/ct/:slug", async (c) => {
+  const { renderClaimTablePage } = await import("./render/arrangements/claim-table");
+  const html = await renderClaimTablePage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
 // ---- The Record -----------------------------------------------------------
 
 // Part 18: "The Record" dissolves as a destination — the index redirects to
