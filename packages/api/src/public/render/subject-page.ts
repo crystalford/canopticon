@@ -527,10 +527,13 @@ async function renderSigned(
       return renderCardFace(env.DB, page);
     })(),
   ]);
-  const facesBlock = renderFacesBlock(persistedFaces, page.id, isOperator, {
-    thread: liveThread,
-    card: liveCard,
-  });
+  const facesBlock = renderFacesBlock(
+    persistedFaces,
+    page.id,
+    isOperator,
+    { thread: liveThread, card: liveCard },
+    page.slug,
+  );
 
   // A real signature, not a chip strip. The "— signed by" line in serif
   // italic; the date in mono on a second line; the confidence + verified-
@@ -1264,6 +1267,7 @@ function renderFacesBlock(
   pageId?: string,
   isOperator?: boolean,
   liveFaces: { thread?: string; card?: string } = {},
+  pageSlugForFaces?: string,
 ): string {
   // Faces always render when there's a thesis — thread + card are
   // template+query and have no DB state. Only script + chapter come from
@@ -1277,6 +1281,13 @@ function renderFacesBlock(
     .map((kind) => {
       const label = FACE_LABELS[kind] ?? kind;
       const hint = FACE_HINTS[kind] ?? "";
+      // Stage A Produce → link for the static formats (card, thread).
+      // Operator-only; spec v2.6 Part 27. Points at the slug-based Studio
+      // preview page, which has the download buttons.
+      const produceLink =
+        isOperator && pageId && (kind === "card" || kind === "thread")
+          ? `<a class="face-produce" href="/studio/${escapeAttr(pageSlugForFaces ?? "")}/${kind}">Produce →</a>`
+          : "";
       // Thread + card: rendered live; always ready.
       if (kind === "thread" || kind === "card") {
         const liveBody = kind === "thread" ? liveFaces.thread : liveFaces.card;
@@ -1287,6 +1298,7 @@ function renderFacesBlock(
     <span class="face-label">${escapeHtml(label)}</span>
     <span class="face-chip face-ready">live</span>
     <span class="face-hint">${escapeHtml(hint)}</span>
+    ${produceLink}
   </summary>
   <div class="face-body">${liveBody ?? ""}</div>
 </details>`;
@@ -1374,6 +1386,10 @@ function renderFacesBlock(
   .face-retry { font-size:11.5px; padding:4px 11px; margin-left:9px; border-radius:5px;
     border:1px solid var(--rule); background:#fff; color:var(--ink); cursor:pointer; }
   .face-retry:hover { background:var(--accent-bg, #e8ecf3); }
+  .face-produce { font-family:var(--mono); font-size:11px; padding:4px 9px; margin-left:9px;
+    border-radius:5px; border:1px solid var(--ink); background:var(--ink); color:var(--paper, #faf6ef);
+    text-decoration:none; letter-spacing:.04em; }
+  .face-produce:hover { background:#1a1c20; }
   @media(max-width:680px) { .face-hint { text-align:left; min-width:0; flex-basis:100%; margin-left:0; } }
 </style>`;
 }

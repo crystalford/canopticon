@@ -19,6 +19,7 @@ import { renderPiece } from "./render/piece-template";
 import { renderNotFound, renderPlaceholder } from "./render/placeholder";
 import { renderEntityPage } from "./render/record";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
+import studioRoutes from "./studio/routes";
 import { STYLES_CSS, stylesHash } from "./styles";
 
 // The public site reads is_operator / operator_id from the Hono context
@@ -393,6 +394,12 @@ app.get("/search", () =>
     }),
   ),
 );
+
+// Studio Stage A — the Produce flow for static formats (v2.6 Part 27).
+// Operator-only; routes redirect anonymous viewers home. Mounts at
+// /studio/:slug/:kind for the preview page and
+// /studio/:pageId/:kind/produce for the PNG download.
+app.route("/studio", studioRoutes);
 
 // 404 handling lives at the parent (Worker) level so /v1/* misses can
 // return JSON while /* misses get the styled HTML page. See index.ts.
