@@ -169,20 +169,73 @@ async function renderNeutral(
     return renderThemePageNeutral(env, subject, page, theme, hasSignedReading, isOperator);
   }
 
-  // Pull the four neutral-mode sections in parallel.
-  const [established, contested, events, connections, sourceCount] = await Promise.all([
+  // Pull the four neutral-mode sections in parallel. The timeline section
+  // calls the SAME loader + renderer that backs the /t/:slug standalone
+  // arrangement (spec v2.6 Part 6 — one renderer, two contexts). The other
+  // sections keep their inline subject-page-specific treatments because
+  // their visual context differs (contested cards are dramatised here;
+  // connections are compact for the sidebar).
+  const { loadEvents: loadArrangementEvents, renderTimelineBlock: renderArrangementTimeline } =
+    await import("./arrangements/timeline");
+  const arrangementSubject = {
+    userId,
+    nodeId: subject.node_id,
+    kind: subject.kind,
+    label: subject.label,
+    slug: page.slug,
+    signed_status: page.signed_status,
+    thesis: page.thesis,
+    signed_at: page.signed_at,
+  };
+  const [established, contested, arrangementEvents, connections, sourceCount] = await Promise.all([
     loadEstablishedFacts(env, userId, subject.node_id),
     loadContestedAssertions(env, userId, subject.node_id),
-    loadTimelineEvents(env, userId, subject.node_id),
+    loadArrangementEvents(env, arrangementSubject),
     loadConnections(env, userId, subject.node_id),
     loadSourceCount(env, userId, subject.node_id),
   ]);
+  // Legacy events shape — kept for buildLede + the empty-section count.
+  const events = arrangementEvents.map((e) => ({
+    id: e.id,
+    label: e.label,
+    event_date: e.event_date,
+    quote_text: null,
+    piece_slug: e.piece_slug,
+  }));
 
   const lede = buildLede(subject, established);
   const establishedBlock = renderEstablishedBlock(established);
   const contestedBlock = renderContestedBlock(contested);
-  const timelineBlock = renderTimelineBlock(events);
+  // Timeline uses the arrangement renderer. The standalone /t/:slug link
+  // sits beneath the section so readers can deep-link the chronology.
+  const timelineBlock = arrangementEvents.length
+    ? `<section id="timeline" data-schema="Event">
+  <div class="sec-k">Timeline <a class="sec-standalone" href="/t/${escapeAttr(page.slug)}">see standalone →</a></div>
+  ${renderArrangementTimeline(arrangementEvents)}
+</section>`
+    : "";
   const connectionsBlock = renderConnectionsBlock(connections);
+  // Where the embedded section maps to a standalone arrangement URL, add a
+  // small "see standalone" affordance. AI engines + readers both benefit
+  // from the deep link to the per-arrangement page with its own JSON-LD.
+  const connectionsBlockWithStandalone = connections.length
+    ? connectionsBlock.replace(
+        `<div class="sec-k">Connections</div>`,
+        `<div class="sec-k">Connections <a class="sec-standalone" href="/n/${escapeAttr(page.slug)}">see standalone →</a></div>`,
+      )
+    : connectionsBlock;
+  const establishedBlockWithStandalone = established.length
+    ? establishedBlock.replace(
+        `<div class="sec-k">Established</div>`,
+        `<div class="sec-k">Established <a class="sec-standalone" href="/profile/${escapeAttr(page.slug)}">see profile →</a></div>`,
+      )
+    : establishedBlock;
+  const contestedBlockWithStandalone = contested.length
+    ? contestedBlock.replace(
+        `<div class="sec-k">Contested — shown as contested, by rule, not choice</div>`,
+        `<div class="sec-k">Contested — shown as contested, by rule, not choice <a class="sec-standalone" href="/ct/${escapeAttr(page.slug)}">see standalone →</a></div>`,
+      )
+    : contestedBlock;
   const provenanceBlock = renderProvenance(sourceCount, hasSignedReading, page);
   const modeBand = renderModeBand(page.slug, "neutral", hasSignedReading, page);
 
@@ -241,12 +294,12 @@ async function renderNeutral(
   <div class="subject-grid">
     <div class="subject-main">
       ${shapeBlock}
-      ${establishedBlock}
-      ${contestedBlock}
+      ${establishedBlockWithStandalone}
+      ${contestedBlockWithStandalone}
       ${timelineBlock}
     </div>
     <aside class="subject-side">
-      ${connectionsBlock}
+      ${connectionsBlockWithStandalone}
       ${provenanceBlock}
     </aside>
   </div>
@@ -266,8 +319,17 @@ async function renderNeutral(
   .subject-lede sup { color:var(--accent); font-size:11px; }
   .subject-grid { display:grid; grid-template-columns: 1fr 260px; gap:42px; }
   @media (max-width: 760px) { .subject-grid { grid-template-columns: 1fr; } }
-  .sec-k { font-size:11px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin:30px 0 12px; }
+  .sec-k { font-size:11px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin:30px 0 12px; display:flex; gap:14px; align-items:baseline; }
   .sec-k:first-child { margin-top:0; }
+  .sec-standalone {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+  .sec-standalone:hover { text-decoration: underline; }
   .fact-row { padding:13px 0; border-top:1px solid var(--rule); font-size:15.5px; color:var(--ink-2); }
   .fact-row b { color:var(--ink); font-weight:600; }
   .fact-row.last { border-bottom:1px solid var(--rule); }
@@ -862,26 +924,8 @@ async function loadContestedAssertions(
   ).catch(() => []);
 }
 
-async function loadTimelineEvents(
-  env: PublicEnv,
-  userId: string,
-  subjectId: string,
-): Promise<EventRow[]> {
-  return all<EventRow>(
-    env.DB,
-    `SELECT n.id, n.label,
-            json_extract(n.metadata, '$.event_date') AS event_date,
-            (SELECT verbatim_text FROM quotes WHERE node_id = n.id LIMIT 1) AS quote_text,
-            (SELECT slug FROM pieces WHERE id = n.piece_id) AS piece_slug
-       FROM nodes n
-      WHERE n.user_id = ? AND n.kind = 'event'
-        AND (EXISTS (SELECT 1 FROM edges e WHERE e.src_node_id = n.id AND e.dst_node_id = ?)
-             OR EXISTS (SELECT 1 FROM edges e WHERE e.dst_node_id = n.id AND e.src_node_id = ?))
-      ORDER BY json_extract(n.metadata, '$.event_date') ASC
-      LIMIT 12`,
-    [userId, subjectId, subjectId],
-  ).catch(() => []);
-}
+// loadTimelineEvents removed — the timeline section now calls the
+// arrangement renderer's loadEvents directly (spec v2.6 Part 6).
 
 async function loadConnections(
   env: PublicEnv,
@@ -993,27 +1037,11 @@ ${cards}
 </section>`;
 }
 
-function renderTimelineBlock(events: EventRow[]): string {
-  if (events.length === 0) return "";
-  // Vertical rail with dots — the prototype shape. Date in mono on the left,
-  // event description in larger serif to the right. Each row has a circle
-  // dot positioned on the rail. Renders cleanly with no JS.
-  const rows = events
-    .map((e) => {
-      const when = e.event_date?.slice(0, 7) ?? "—";
-      return `<div class="tl-item">
-  <div class="tl-when">${escapeHtml(when)}</div>
-  <div class="tl-body">
-    <div class="tl-label">${escapeHtml(e.label)}</div>
-    ${e.piece_slug ? `<a class="tl-src" href="/library/${escapeAttr(e.piece_slug)}">source ↗</a>` : ""}
-  </div>
-</div>`;
-    })
-    .join("");
-  return `<section id="timeline" data-schema="Event"><div class="sec-k">Timeline</div>
-<div class="tl-rail">${rows}</div>
-</section>`;
-}
+// The timeline section now uses the arrangement renderer directly (see
+// renderNeutral above). The inline renderTimelineBlock helper that lived
+// here is gone — its job moved to arrangements/timeline.ts, which is the
+// canonical renderer used both standalone (/t/:slug) and embedded here.
+// Spec v2.6 Part 6.
 
 function renderConnectionsBlock(conns: ConnectionRow[]): string {
   if (conns.length === 0) return "";

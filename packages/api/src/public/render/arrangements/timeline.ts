@@ -23,8 +23,11 @@ interface EventRow {
   quote_id: string | null;
 }
 
-/** Load events about a subject, sorted by date ascending. */
-async function loadEvents(env: PublicEnv, subject: SubjectContext): Promise<EventRow[]> {
+/** Load events about a subject, sorted by date ascending. Exported so the
+ *  subject page can embed the timeline arrangement's inner block using the
+ *  same data shape that the standalone /t/:slug uses. (Spec v2.6 Part 6 —
+ *  one renderer, two contexts.) */
+export async function loadEvents(env: PublicEnv, subject: SubjectContext): Promise<EventRow[]> {
   return all<EventRow>(
     env.DB,
     `SELECT n.id, n.label,
