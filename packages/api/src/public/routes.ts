@@ -257,6 +257,60 @@ app.get("/ct/:slug", async (c) => {
   return htmlResponse(html);
 });
 
+// `/d/:slug` — Definition (DefinedTerm JSON-LD).
+app.get("/d/:slug", async (c) => {
+  const { renderDefinitionPage } = await import("./render/arrangements/definition");
+  const html = await renderDefinitionPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/w/:slug` — Who's-who roster (ItemList of Person JSON-LD).
+app.get("/w/:slug", async (c) => {
+  const { renderWhosWhoPage } = await import("./render/arrangements/whos-who");
+  const html = await renderWhosWhoPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/m/:slug` — Mechanism explainer (HowTo + HowToStep JSON-LD).
+app.get("/m/:slug", async (c) => {
+  const { renderMechanismPage } = await import("./render/arrangements/mechanism");
+  const html = await renderMechanismPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/f/:slug` — FAQ / Q&A hub (FAQPage + Question + Answer JSON-LD).
+app.get("/f/:slug", async (c) => {
+  const { renderFaqPage } = await import("./render/arrangements/faq");
+  const html = await renderFaqPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/c/:slug` — Comparison matrix (Table JSON-LD; scaffold rendering).
+app.get("/c/:slug", async (c) => {
+  const { renderComparisonPage } = await import("./render/arrangements/comparison");
+  const html = await renderComparisonPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/l/:slug` — Ledger of flows (Dataset + MonetaryAmount JSON-LD).
+app.get("/l/:slug", async (c) => {
+  const { renderLedgerPage } = await import("./render/arrangements/ledger");
+  const html = await renderLedgerPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/doc/:slug` — Document-of-record. This IS the source document; the
+// existing /library/:slug renderer already serves it with the receipt-loop
+// section ("this document fed the fabric"). Alias the URL so the v2.6
+// arrangement table is complete and external citations resolve.
+app.get("/doc/:slug", (c) => c.redirect(`/library/${c.req.param("slug")}`, 301));
+
 // ---- The Record -----------------------------------------------------------
 
 // Part 18: "The Record" dissolves as a destination — the index redirects to
