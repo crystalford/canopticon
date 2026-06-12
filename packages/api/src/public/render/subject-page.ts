@@ -272,6 +272,9 @@ async function renderNeutral(
   .fact-row b { color:var(--ink); font-weight:600; }
   .fact-row.last { border-bottom:1px solid var(--rule); }
   .fact-row sup { color:var(--accent); font-size:11px; cursor:pointer; }
+  .qref { text-decoration: none; }
+  .qref sup { color: var(--accent); font-size: 11px; font-weight: 600; padding: 0 2px; }
+  .qref:hover sup { text-decoration: underline; }
   /* Contested as court evidence — the firewall, made visually obvious.
      Warm-tan background, big block-quote, attribution caps, source
      footer. Readers register "contested" without reading the label. */
@@ -934,7 +937,7 @@ function buildLede(_subject: SubjectRow, facts: FactRow[]): string {
   const joined = top
     .map(
       (f, i) =>
-        `${escapeHtml(f.label)}${f.quote_id ? `<sup title="${escapeAttr(f.quote_text?.slice(0, 120) ?? "")}">${i + 1}</sup>` : ""}`,
+        `${escapeHtml(f.label)}${f.quote_id ? `<a class="qref" href="/q/${escapeAttr(f.quote_id)}" title="${escapeAttr(f.quote_text?.slice(0, 120) ?? "")}"><sup>${i + 1}</sup></a>` : ""}`,
     )
     .join(". ");
   return `${joined}.`;
@@ -945,7 +948,7 @@ function renderEstablishedBlock(facts: FactRow[]): string {
   const rows = facts
     .map(
       (f, i) =>
-        `<div class="fact-row${i === facts.length - 1 ? " last" : ""}"><b>${escapeHtml(f.label)}</b>${f.quote_id ? ` <sup title="${escapeAttr(f.quote_text?.slice(0, 120) ?? "")}">${i + 1}</sup>` : ""}${f.piece_title ? ` <span style="color:var(--faint);font-size:12.5px"> · <a href="/library/${escapeAttr(f.piece_slug ?? "")}" style="color:var(--faint)">${escapeHtml(f.piece_title.slice(0, 40))}</a></span>` : ""}</div>`,
+        `<div class="fact-row${i === facts.length - 1 ? " last" : ""}"><b>${escapeHtml(f.label)}</b>${f.quote_id ? ` <a class="qref" href="/q/${escapeAttr(f.quote_id)}" title="${escapeAttr(f.quote_text?.slice(0, 120) ?? "")}"><sup>${i + 1}</sup></a>` : ""}${f.piece_title ? ` <span style="color:var(--faint);font-size:12.5px"> · <a href="/library/${escapeAttr(f.piece_slug ?? "")}" style="color:var(--faint)">${escapeHtml(f.piece_title.slice(0, 40))}</a></span>` : ""}</div>`,
     )
     .join("");
   return `<section id="established" data-schema="ItemList"><div class="sec-k">Established</div>${rows}</section>`;

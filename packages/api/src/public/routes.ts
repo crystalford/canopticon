@@ -200,6 +200,16 @@ app.get("/library/:slug", async (c) => {
   return htmlResponse(html);
 });
 
+// /q/:id — the verbatim quote receipt. Deep-linkable citation for every
+// superscript in the publication. Schema.org Quotation JSON-LD so AI
+// answer engines can cite the exact quote with attribution.
+app.get("/q/:id", async (c) => {
+  const { renderQuoteReceipt } = await import("./render/quote-receipt");
+  const html = await renderQuoteReceipt(c.env, c.req.param("id"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
 // ---- The Record -----------------------------------------------------------
 
 // Part 18: "The Record" dissolves as a destination — the index redirects to
