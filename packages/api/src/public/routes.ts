@@ -157,6 +157,7 @@ app.get("/p/:slug", async (c) => {
   const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
   const subject = await renderSubjectPage(c.env, slug, mode, {
     isOperator: c.get("is_operator"),
+    expanding: c.req.query("expanding") === "1",
   });
   if (subject) return htmlResponse(subject);
   return htmlResponse(renderNotFound(c.req.path), { status: 404 });
@@ -169,6 +170,7 @@ app.get("/s/:slug", async (c) => {
   const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
   const html = await renderSubjectPage(c.env, c.req.param("slug"), mode, {
     isOperator: c.get("is_operator"),
+    expanding: c.req.query("expanding") === "1",
   });
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);

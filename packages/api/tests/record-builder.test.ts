@@ -68,23 +68,35 @@ describe("expandRecord — without BRAVE_SEARCH_API_KEY", () => {
 });
 
 describe("expandRecord — with BRAVE_SEARCH_API_KEY", () => {
-  it("hits the Brave Search endpoint and emits source_seen per result", async () => {
+  it("hits Brave Search, emits source_fetching per result, fails fetch on each (no per-URL stub)", async () => {
     const { db, events } = makeDb();
-    // Stub global fetch to return 3 fake Brave results.
+    // Stub global fetch: Brave Search returns 3 results; the per-source
+    // fetches afterward fail (no body) so the loop emits source_failed and
+    // moves on. We assert the EVENT TYPES match the v2.6 record-builder
+    // pipeline shape, not that any source got banked (that needs an HTML
+    // stub the test doesn't currently provide).
+    let calls = 0;
     const original = globalThis.fetch;
-    globalThis.fetch = (async () =>
-      new Response(
-        JSON.stringify({
-          web: {
-            results: [
-              { title: "A", url: "https://a.example", description: "" },
-              { title: "B", url: "https://b.example", description: "" },
-              { title: "C", url: "https://c.example", description: "" },
-            ],
-          },
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      )) as unknown as typeof fetch;
+    globalThis.fetch = (async () => {
+      calls++;
+      if (calls === 1) {
+        return new Response(
+          JSON.stringify({
+            web: {
+              results: [
+                { title: "A", url: "https://a.example", description: "" },
+                { title: "B", url: "https://b.example", description: "" },
+                { title: "C", url: "https://c.example", description: "" },
+              ],
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      // Per-source fetches: simulate a 500 so the source loop catches and
+      // emits source_failed.
+      return new Response("nope", { status: 500 });
+    }) as unknown as typeof fetch;
     try {
       const env = { DB: db, BRAVE_SEARCH_API_KEY: "fake-key" } as unknown as Parameters<
         typeof expandRecord
@@ -95,7 +107,12 @@ describe("expandRecord — with BRAVE_SEARCH_API_KEY", () => {
       const types = events.map((e) => e.event_type);
       expect(types).toContain("record.expand.started");
       expect(types).toContain("record.expand.search_done");
-      expect(types.filter((t) => t === "record.expand.source_seen").length).toBe(3);
+      // One source_fetching per result, then a source_failed because the
+      // per-URL fetch returned 500. The full success path (source_banked +
+      // source_extracted) requires an HTML stub which the test doesn't
+      // currently provide.
+      expect(types.filter((t) => t === "record.expand.source_fetching").length).toBe(3);
+      expect(types.filter((t) => t === "record.expand.source_failed").length).toBe(3);
       expect(types).toContain("record.expand.completed");
     } finally {
       globalThis.fetch = original;

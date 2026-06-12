@@ -105,7 +105,7 @@ export async function renderSubjectPage(
   env: PublicEnv,
   slug: string,
   mode: "neutral" | "signed" = "neutral",
-  opts: { isOperator?: boolean } = {},
+  opts: { isOperator?: boolean; expanding?: boolean } = {},
 ): Promise<string | null> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return null;
@@ -142,7 +142,7 @@ export async function renderSubjectPage(
   if (resolvedMode === "signed") {
     return renderSigned(env, subject, page, hasSignedReading, !!opts.isOperator);
   }
-  return renderNeutral(env, subject, page, hasSignedReading, !!opts.isOperator);
+  return renderNeutral(env, subject, page, hasSignedReading, !!opts.isOperator, !!opts.expanding);
 }
 
 // ===========================================================================
@@ -154,6 +154,7 @@ async function renderNeutral(
   page: PageRow,
   hasSignedReading: boolean,
   isOperator: boolean,
+  expanding = false,
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return renderPage({ title: subject.label, body: "", description: "" });
@@ -280,10 +281,21 @@ async function renderNeutral(
   // page and its blocks. The subject's schema type follows its kind.
   const jsonLd = buildSubjectJsonLd(subject, page, established, events);
 
+  // Expanding banner (spec v2.6 Part 26). Renders when ?expanding=1 is on
+  // the URL — the operator just clicked "Expand this Record" or refreshed
+  // mid-expansion. The banner reads recent record.expand.* events for this
+  // subject from orchestrator_events and narrates the latest stage in
+  // plain English. Also sets a meta refresh so the page auto-reloads every
+  // 5 seconds until the operator removes ?expanding=1 (i.e. the
+  // expansion is done).
+  const expandBanner = expanding ? await renderExpandBanner(env, userId, subject.label) : "";
+
   const body = `
 <script type="application/ld+json">${jsonLd}</script>
+${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
 <article class="subject-page">
   ${modeBand}
+  ${expandBanner}
   ${opAffordance}
   <header class="subject-head">
     <div class="kicker">${escapeHtml(subjectKindLabel(subject.kind))}</div>
@@ -1364,3 +1376,150 @@ function renderFacesBlock(
   @media(max-width:680px) { .face-hint { text-align:left; min-width:0; flex-basis:100%; margin-left:0; } }
 </style>`;
 }
+
+// ===========================================================================
+// EXPAND BANNER — live narration of record-building on click (spec v2.6 Part 26)
+// ===========================================================================
+
+interface ExpandEvent {
+  event_type: string;
+  payload: string;
+  created_at: string;
+}
+
+/** Render the live "expanding…" banner. Reads recent record.expand.* events
+ *  for the subject from orchestrator_events and narrates the latest stage.
+ *  Page-level meta refresh (in the body) drives the live-update effect
+ *  without any JS — same shape as the "operator pulls down to refresh"
+ *  pattern used in the OUT stream. */
+async function renderExpandBanner(
+  env: PublicEnv,
+  userId: string,
+  subjectLabel: string,
+): Promise<string> {
+  const events = await all<ExpandEvent>(
+    env.DB,
+    `SELECT event_type, payload, created_at
+       FROM orchestrator_events
+      WHERE user_id = ?
+        AND event_type LIKE 'record.expand.%'
+        AND json_extract(payload, '$.subject') = ?
+        AND created_at > datetime('now','-15 minutes')
+      ORDER BY created_at DESC
+      LIMIT 50`,
+    [userId, subjectLabel],
+  ).catch(() => []);
+
+  if (events.length === 0) {
+    return `<aside class="expand-banner expand-banner-warming" aria-label="Record expansion status">
+  <div class="expand-band">
+    <span class="expand-dot"></span>
+    <span class="expand-text">Expanding this Record — searching the web for ${escapeHtml(subjectLabel)}…</span>
+  </div>
+</aside>
+${EXPAND_BANNER_STYLES}`;
+  }
+
+  // Compose a narration line from the most recent event.
+  const latest = events[0] as ExpandEvent;
+  const completed = events.find((e) => e.event_type === "record.expand.completed");
+  const failed = events.find((e) => e.event_type === "record.expand.failed");
+  const skipped = events.find((e) => e.event_type === "record.expand.skipped");
+  const sourceSeen = events.filter((e) => e.event_type === "record.expand.source_fetching").length;
+  const sourceBanked = events.filter((e) => e.event_type === "record.expand.source_banked").length;
+  const sourceExtracted = events.filter(
+    (e) => e.event_type === "record.expand.source_extracted",
+  ).length;
+
+  let line: string;
+  let dotClass = "";
+  if (skipped) {
+    const reason = parsePayloadField(skipped.payload, "reason") ?? "unconfigured";
+    line = `Expansion skipped — ${reason}. Set BRAVE_SEARCH_API_KEY to enable web record-building.`;
+    dotClass = "expand-dot-warn";
+  } else if (failed) {
+    const error = parsePayloadField(failed.payload, "error") ?? "unknown";
+    line = `Expansion failed — ${error}`;
+    dotClass = "expand-dot-warn";
+  } else if (completed) {
+    const facts = parsePayloadField(completed.payload, "facts_added") ?? "0";
+    const extracted = parsePayloadField(completed.payload, "extracted") ?? "0";
+    line = `Record expanded — ${facts} facts added from ${extracted} sources. <a href="?">Reload without the banner →</a>`;
+    dotClass = "expand-dot-done";
+  } else {
+    const stage = latest.event_type.replace("record.expand.", "");
+    if (stage === "started") line = `Starting expansion for ${escapeHtml(subjectLabel)}…`;
+    else if (stage === "search_done") line = "Search done — fetching sources…";
+    else if (stage === "source_fetching")
+      line = `Fetching source ${sourceSeen} — ${escapeHtml(parsePayloadField(latest.payload, "title") ?? "")}`;
+    else if (stage === "source_banked")
+      line = `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} · extracting…`;
+    else if (stage === "source_extracted")
+      line = `Extracted ${sourceExtracted} source${sourceExtracted === 1 ? "" : "s"} into the graph…`;
+    else if (stage === "source_duplicate") line = "Already had that source · moving on…";
+    else line = "Working…";
+  }
+
+  return `<aside class="expand-banner${completed ? " expand-banner-done" : ""}${failed || skipped ? " expand-banner-warn" : ""}" aria-label="Record expansion status">
+  <div class="expand-band">
+    <span class="expand-dot ${dotClass}"></span>
+    <span class="expand-text">${line}</span>
+  </div>
+</aside>
+${EXPAND_BANNER_STYLES}`;
+}
+
+function parsePayloadField(payload: string, key: string): string | null {
+  try {
+    const obj = JSON.parse(payload) as Record<string, unknown>;
+    const v = obj[key];
+    if (v == null) return null;
+    return typeof v === "string" ? v : String(v);
+  } catch {
+    return null;
+  }
+}
+
+const EXPAND_BANNER_STYLES = `<style>
+  .expand-banner {
+    margin: 0 0 22px;
+    padding: 12px 16px;
+    border: 1px solid var(--accent-bd, #c4d1e3);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent-bg, #e8ecf3);
+  }
+  .expand-banner-done {
+    background: var(--confirmed-bg, #e7f0e6);
+    border-color: var(--confirmed-bd, #bcd6bd);
+    border-left-color: var(--confirmed, #2f7d52);
+  }
+  .expand-banner-warn {
+    background: var(--correction-bg, #f6e4df);
+    border-color: var(--correction-bd, #e2bdb2);
+    border-left-color: var(--correction, #b0402c);
+  }
+  .expand-band {
+    display: flex; align-items: center; gap: 11px;
+    font-family: var(--serif);
+    font-size: 14.5px;
+    color: var(--ink-2);
+  }
+  .expand-text a { color: var(--accent); text-decoration: none; }
+  .expand-text a:hover { text-decoration: underline; }
+  .expand-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    animation: expand-pulse 1.4s ease-in-out infinite;
+  }
+  .expand-dot.expand-dot-done {
+    background: var(--confirmed, #2f7d52);
+    animation: none;
+  }
+  .expand-dot.expand-dot-warn {
+    background: var(--correction, #b0402c);
+    animation: none;
+  }
+  @keyframes expand-pulse { 50% { opacity: .4; } }
+</style>`;
