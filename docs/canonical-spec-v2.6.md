@@ -736,21 +736,35 @@ Ten output formats. Each is "produced" from a face (or directly from the signed 
 | 1 | **Thread** | thread face | render → split into 4 PNG cards (one per post) via Browser Rendering | 4 × PNG + plain-text version |
 | 2 | **Card** | card face | render → Browser Rendering at 1200×630 (X) and 1080×1080 (IG) | 2 × PNG |
 | 3 | **Carousel** | (new) carousel face | render N slides → Browser Rendering at 1080×1350 each | N × PNG (zipped) |
-| 4 | **Short video** | script face (BEAT 1–2 only, ≤90s) | voice profile → per-chunk record → stitch → vertical visual matcher → export | 1080×1920 MP4 |
-| 5 | **Video essay** | script face (full BEATs) | voice profile → per-chunk record → stitch → horizontal visual matcher → export | 1920×1080 MP4 |
-| 6 | **Documentary** | chapter face | structured shoot list → per-section record → stitch → multi-source visual assembly → export | 1920×1080 MP4 (long-form) |
-| 7 | **Audio brief** | script face (≤3 min) | voice profile → per-chunk record → stitch (no visuals) | MP3 |
-| 8 | **Podcast episode** | chapter face | NotebookLM-style two-voice conversation API → render → audio post-process | MP3 |
+| 4 | **Short video** | script face (BEAT 1–2 only, ≤90s) | per beat: Flux still → Wan 2.7 animate → MiniMax voiceover (clone or take) → stitch vertical | 1080×1920 MP4 |
+| 5 | **Video essay** | script face (full BEATs) | per beat: Flux still → Wan 2.7 animate → MiniMax voiceover (clone or take) → stitch horizontal | 1920×1080 MP4 |
+| 6 | **Documentary** | chapter face | per section: Flux still → Wan 2.7 animate → MiniMax voiceover → multi-source assembly → stitch | 1920×1080 MP4 (long-form) |
+| 7 | **Audio brief** | script face (≤3 min) | single-take operator recording → Descript-style transcript trim → MiniMax-cloned voice fallback → export | MP3 |
+| 8 | **Podcast episode** | chapter face | two-voice conversational TTS (deferred — Workers AI model TBD) | MP3 |
 | 9 | **Newsletter** | signed reading body | render → email-safe HTML → attach receipts → push to mailing list | HTML email + plain text |
 | 10 | **Written long-form** | chapter face | render markdown → length knob (essay ↔ chapter) → typography pass | Markdown + EPUB (for chapter length) |
 
 Notes on the catalog:
 
 - **Card and carousel are visually different products.** A card is one image that you see at a glance; a carousel is a swipe-through sequence (IG, LinkedIn). They share design vocabulary but use different production pipelines.
-- **Short video and video essay share a script face** (the BEAT structure). Short uses BEAT 1–2 only and renders vertical; video essay uses all BEATs and renders horizontal. Both go through the same voice-profile + stitch + match pipeline.
-- **Podcast uses an external API** (NotebookLM-style conversational TTS). Workers AI doesn't have a two-voice conversational model yet; the podcast pipeline calls out. Audio brief, in contrast, is a single-voice operator recording — same pipeline as short/video essay, audio-only export.
+- **Short video and video essay share a script face** (the BEAT structure). Short uses BEAT 1–2 only and renders vertical; video essay uses all BEATs and renders horizontal. Both go through the same image-still + animate + voiceover + stitch pipeline.
+- **Audio brief = single-take, edited.** The operator reads the BEAT bullets straight through (teleprompter), then trims mistakes in a Descript-style waveform-plus-transcript editor — click a sentence to delete it. The voice clone (MiniMax) is the fallback: type the bullets, the clone reads them, no recording needed.
+- **Podcast (two-voice conversation) is parked.** Workers AI doesn't yet have a NotebookLM-style two-voice conversational model. Revisit when one ships on the platform.
 - **Written long-form is one face with a length knob.** Essay (~1500 words) ↔ chapter (~10000 words). Same chapter face, different rendering envelope.
 - **Newsletter is not a face** — it's a different distribution of the signed reading body itself. No re-arrangement; same body, email-safe markup.
+
+## Models (all Workers AI, no third parties)
+
+The operator's hard constraint for Studio: every model runs on Cloudflare. No separate signups, no separate bills, no API tokens for outside providers. Workers AI's 2026 catalog covers every Stage B/C need.
+
+| Job | Model | Why |
+|---|---|---|
+| Voice cloning + TTS | **MiniMax Speech 2.8 HD** | Studio-grade voice cloning, emotion control, 40+ languages. The clone is trained once from ~5 minutes of operator samples and reused indefinitely. |
+| Voice TTS (fast draft) | **MiniMax Speech 2.8 Turbo** | Same family, faster, for iteration drafts before the HD final cut. |
+| Still image generation (video frame source) | **Flux 1 Schnell** | Cheap, fast, good enough for the starting frame of each beat clip. SDXL is the fallback if quality matters more than speed for a given beat. |
+| Image-to-video animation | **Alibaba Wan 2.7** | Pure Workers AI (no AI Gateway proxy, no third-party margin). Animates the Flux still into a 5–10s clip per beat. |
+
+Excluded by the constraint: Runway Gen-3, ElevenLabs, Luma, fal.ai pipelines — all great, all third-party, all out of scope.
 
 ## The Produce flow
 
@@ -759,37 +773,47 @@ Every face tab on a signed reading carries a **Produce →** affordance (visible
 The Studio interface depends on the format:
 
 - **Static formats** (card, thread, carousel) — instant render of the asset (Browser Rendering API), preview pane, download button. No multi-step interaction.
-- **Audio formats** (audio brief, podcast) — per-chunk record-and-accept UI for operator recordings; preview-and-retry for podcast API output; assembled audio download.
-- **Video formats** (short, video essay, documentary) — per-chunk record + visual-matcher drop-zones (one per BEAT) + preview + export.
+- **Audio formats** (audio brief) — two paths: (1) operator records a single take reading the BEAT bullets aloud, then trims mistakes in a Descript-style transcript-aligned editor (click sentence, delete); (2) the trained voice clone reads the bullets, no recording needed. Either path produces an MP3.
+- **Video formats** (short, video essay, documentary) — per BEAT, the system runs Flux to generate a still from the beat text, then Wan 2.7 to animate it, then MiniMax to voice it (clone or operator recording). Operator can swap any still / re-roll any clip / re-read any voiceover. Final stitch produces the MP4.
 - **Written formats** (newsletter, long-form) — preview pane, edit-receipts affordance, distribution push (newsletter) or download (long-form).
+
+## Publishing (Stage A onward)
+
+Once an asset is produced, Studio gives the operator two affordances. Auto-publishing via platform APIs is deferred indefinitely — too much OAuth surface and too much risk of accidental posts.
+
+1. **Download** — the asset file (PNG, MP3, MP4, HTML, Markdown). Always available.
+2. **Platform deep-links** — buttons that open each platform's upload page in a new tab (YouTube Studio upload, TikTok upload, Instagram upload, LinkedIn upload, X compose). The operator drags the downloaded file into the platform's web uploader. No OAuth, no auto-publish, no posting from inside canopticon.
+
+This keeps Studio strictly a production room. The decision to post — and the choice of caption, schedule, audience — stays with the operator on each platform's own surface.
 
 ## Architecture
 
 Studio's data lives in tables added incrementally as each production pipeline ships:
 
-- `voice_profile(user_id, samples_url, characterisation, updated_at)` — one row per operator. Required for any audio/video pipeline.
+- `voice_profile(user_id, samples_url, miniMax_voice_id, characterisation, updated_at)` — one row per operator. Holds the MiniMax voice id once the clone is trained.
 - `studio_projects(id, user_id, source_page_id, source_face_kind, output_format, status, asset_url, ...)` — one row per assembly project.
-- `studio_chunks(project_id, beat_index, audio_url, accepted_at)` — per-recording chunk state (for audio/video).
-- `studio_distributions(project_id, channel, posted_at, external_url)` — record of where each asset ended up (X, IG, mailing list, YouTube).
+- `studio_takes(project_id, beat_index, source, audio_url, transcript, accepted_ranges, accepted_at)` — per-beat (or per-recording) audio capture state. `source` is `"recording"` or `"clone"`; `accepted_ranges` is the Descript-style trimmed-segments array.
+- `studio_clips(project_id, beat_index, still_url, clip_url, model, accepted_at)` — per-beat video state (Flux still + Wan 2.7 clip).
+- `studio_distributions(project_id, channel, posted_at, external_url)` — record of where each asset ended up (operator fills this in manually after posting; gives us "what got published, where").
 
-The production pipeline is a queue of jobs (render → record → stitch → match → export → distribute). Each job runs in `waitUntil`; the operator's view polls for status. Stage 1 (skeleton + compose) already exists in code as scaffolding for the studio compose layer; it should be kept and absorbed, not deleted.
+The production pipeline is a queue of jobs (render → still → animate → voice → stitch → export). Each job runs in `waitUntil`; the operator's view polls for status. Stage 1 (skeleton + compose) already exists in code as scaffolding for the studio compose layer; it should be kept and absorbed, not deleted.
 
 ## Build sequence (within Studio)
 
 Studio ships in stages. The order is binding because each stage depends on infrastructure the previous stage establishes.
 
-- **Stage A — static formats** (card, thread, carousel, newsletter). Browser Rendering API + email-safe markup. Shippable now — no audio, no video, no voice profile required.
-- **Stage B — audio formats** (audio brief). Voice profile + per-chunk record UI + stitch. First audio pipeline; everything Stage C needs lives here.
-- **Stage C — video formats** (short video, video essay). Adds visual-matcher UI and video export. Reuses Stage B's audio chain.
-- **Stage D — long-form video** (documentary). Adds multi-source assembly and longer-form export.
-- **Stage E — external-API formats** (podcast). NotebookLM-style API integration.
-- **Stage F — written long-form** (essay ↔ chapter). Markdown rendering + length knob + EPUB export.
+- **Stage A — static formats** (card, thread, carousel, newsletter, long-form). ✅ SHIPPED. Browser Rendering API + email-safe markup + Markdown export. Required no audio, no video, no voice profile.
+- **Stage B — audio formats** (audio brief). Voice profile training surface (operator records 5 min of samples → MiniMax clone). Per-take single-shot recording + Descript-style transcript-aligned editor for trimming. Stitch + MP3 export.
+- **Stage C — video formats** (short video, video essay). Per-beat Flux still → Wan 2.7 animate → MiniMax voiceover → stitch + MP4 export. Reuses Stage B's voice profile + clone.
+- **Stage D — long-form video** (documentary). Multi-source assembly: pulls stills from cited document pages as well as Flux-generated frames. Longer-form export.
+- **Stage E — podcast.** Parked until Workers AI ships a two-voice conversational TTS model.
+- **Stage F — distribution polish.** Adds the platform deep-link strip on every produced asset; adds the `studio_distributions` table for the operator's "where did this end up" log.
 
 ## When Studio is built
 
 Studio is the LAST item on the high-level build sequence (Part 18). It depends on a working rendering system + faces refactor + record-building on click. Without those, Studio has nothing real to assemble.
 
-Within Studio itself, Stage A is the earliest shippable piece — Browser Rendering doesn't require a voice profile or any audio infrastructure, so it can land before the rest of the production chain exists. The remaining stages follow the order above.
+Stage A is shipped. Stage B (audio) is the next session's work — requires browser-side MediaRecorder JS and the MiniMax clone training surface, both best-built with the operator present to test recording quality in real time.
 
 -----
 
