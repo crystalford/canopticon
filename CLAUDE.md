@@ -3,7 +3,7 @@
 > **If you are an AI reading this to understand the project: this file is the
 > source of truth for what Canopticon *currently is*. Everything in
 > `docs/archive/` describes SUPERSEDED systems — do not design against it. The
-> current vision spec is `docs/canonical-spec-v2.4.md`; the version lineage is
+> current vision spec is `docs/canonical-spec-v2.6.md`; the version lineage is
 > `docs/LINEAGE.md`; the current built architecture is below.**
 
 ## What it is

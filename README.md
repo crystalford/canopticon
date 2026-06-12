@@ -7,7 +7,7 @@ of the facts, and the operator approves. **The operator approves; the operator
 never authors.**
 
 > **Orientation:** the current architecture is in [`CLAUDE.md`](CLAUDE.md). The
-> vision spec is [`docs/canonical-spec-v2.4.md`](docs/canonical-spec-v2.4.md).
+> vision spec is [`docs/canonical-spec-v2.6.md`](docs/canonical-spec-v2.6.md).
 > The full version history — how the project evolved from a chat-first CMS to
 > the current fabric — is traced in [`docs/LINEAGE.md`](docs/LINEAGE.md).
 > Older specs live in [`docs/archive/`](docs/archive/) and are superseded.
