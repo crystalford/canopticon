@@ -272,16 +272,115 @@ async function renderNeutral(
   .fact-row b { color:var(--ink); font-weight:600; }
   .fact-row.last { border-bottom:1px solid var(--rule); }
   .fact-row sup { color:var(--accent); font-size:11px; cursor:pointer; }
-  .contested-card { background:var(--panel-2, rgba(0,0,0,.15)); border:1px solid var(--rule);
-    border-radius:11px; padding:18px 20px; margin-bottom:10px; }
-  .contested-card .body { font-size:15.5px; color:var(--ink-2); margin-bottom:11px; }
-  .contested-card .body b { color:var(--ink); font-weight:600; }
-  .contested-meta { display:flex; gap:7px; flex-wrap:wrap; }
-  .contested-meta .chip { font-size:11px; letter-spacing:.05em; padding:2px 9px;
-    border:1px solid var(--rule); border-radius:99px; color:var(--ink-3); text-transform:uppercase; }
-  .contested-meta .chip.balance { background:var(--panel-2, rgba(0,0,0,.2)); }
-  .tl-row { display:flex; gap:14px; padding:11px 0; border-top:1px solid var(--rule); font-size:14.5px; color:var(--ink-2); }
-  .tl-row .when { color:var(--faint); font-family:var(--mono); font-size:12px; min-width:84px; }
+  /* Contested as court evidence — the firewall, made visually obvious.
+     Warm-tan background, big block-quote, attribution caps, source
+     footer. Readers register "contested" without reading the label. */
+  .contested-card {
+    background: #f3eed8;
+    border: 1px solid #c9bfa9;
+    border-left: 4px solid #b8a878;
+    border-radius: 9px;
+    padding: 22px 24px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .contested-stamp {
+    font-family: var(--serif);
+    font-size: 11px; letter-spacing: .18em;
+    text-transform: uppercase;
+    color: #7a5a1a;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .contested-quote {
+    font-family: var(--serif);
+    font-size: 18px; line-height: 1.45;
+    color: var(--ink);
+    font-style: italic;
+    margin: 0 0 12px;
+    padding: 0;
+  }
+  .contested-attribution {
+    font-size: 13px; line-height: 1.55;
+    color: var(--ink-2);
+    margin-bottom: 6px;
+    letter-spacing: .02em;
+  }
+  .contested-attribution b { color: var(--ink); font-weight: 600; }
+  .contested-balance {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    letter-spacing: .03em;
+    margin-bottom: 8px;
+  }
+  .contested-src {
+    font-size: 12.5px;
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .contested-src:hover { text-decoration: underline; }
+
+  /* Timeline as a vertical rail with dots — court-record shape from the
+     prototype. Each event row has a circle on the rail, mono date at
+     the left, serif label at the right. */
+  .tl-rail {
+    position: relative;
+    padding-left: 14px;
+    margin-top: 4px;
+  }
+  .tl-rail::before {
+    content: '';
+    position: absolute;
+    left: 6px; top: 8px; bottom: 8px;
+    width: 2px;
+    background: var(--rule);
+  }
+  .tl-item {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 18px;
+    padding: 14px 0;
+    border-top: 1px solid transparent;
+    position: relative;
+  }
+  .tl-item::before {
+    content: '';
+    position: absolute;
+    left: -14px; top: 22px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--paper, #fff);
+    border: 2px solid #b8a878;
+  }
+  .tl-item:first-child::before { background: var(--accent); border-color: var(--accent); }
+  .tl-when {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--ink-3);
+    letter-spacing: .03em;
+    padding-top: 2px;
+  }
+  .tl-body {}
+  .tl-label {
+    font-family: var(--serif);
+    font-size: 15.5px;
+    line-height: 1.45;
+    color: var(--ink);
+  }
+  .tl-src {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: .03em;
+  }
+  .tl-src:hover { text-decoration: underline; }
+  @media (max-width: 560px) {
+    .tl-item { grid-template-columns: 1fr; gap: 4px; }
+    .tl-when { padding-top: 0; }
+  }
   .conn-row { padding:11px 0; border-top:1px solid var(--rule); font-size:13.5px; color:var(--ink-2); }
   .conn-row a { color:var(--accent); text-decoration:none; }
   .conn-row .why { display:block; color:var(--ink-3); font-size:12.5px; margin-top:2px; }
@@ -341,11 +440,20 @@ async function renderSigned(
   const faces = await loadFaces(env, page.id);
   const facesBlock = renderFacesBlock(faces, page.id, isOperator);
 
-  const meta: string[] = [];
-  if (page.signed_by) meta.push(`signed · ${escapeHtml(page.signed_by)}`);
-  if (page.signed_at) meta.push(escapeHtml(page.signed_at.slice(0, 10)));
-  if (page.confidence) meta.push(`confidence · ${escapeHtml(page.confidence)}`);
-  if (page.claims_verified) meta.push(`${page.claims_verified} claims verified`);
+  // A real signature, not a chip strip. The "— signed by" line in serif
+  // italic; the date in mono on a second line; the confidence + verified-
+  // claims count as a small muted footer line. Reads like signing a
+  // document, not labelling metadata.
+  const signatureLine = page.signed_by
+    ? `<div class="signature">— ${escapeHtml(page.signed_by)}</div>`
+    : `<div class="signature">— the operator</div>`;
+  const signatureMeta: string[] = [];
+  if (page.signed_at) signatureMeta.push(escapeHtml(formatLongDate(page.signed_at)));
+  if (page.confidence) signatureMeta.push(`${escapeHtml(page.confidence)} confidence`);
+  if (page.claims_verified)
+    signatureMeta.push(
+      `${page.claims_verified} claim${page.claims_verified === 1 ? "" : "s"} verified`,
+    );
 
   // The firewall, made visible IN the reading: any contested assertion this
   // subject carries MUST be shown, by rule, not by the writer's choice. This
@@ -356,17 +464,27 @@ async function renderSigned(
         (a) => a.rank === "contested" || (a.evidence_balance ?? 0) < 1,
       )
     : [];
+  // The complicating-facts box — the proudest box on the signed page.
+  // This is the FIREWALL made visible in the reading itself: the system
+  // forces the reader's eye onto the facts that complicate the thesis.
+  // Heavier border, bigger header, block-quote treatment for each
+  // complication. The reading cannot bury what doesn't fit.
   const complicateBox = contested.length
-    ? `<div class="complicate">
-  <div class="ch">What complicates this reading — shown by rule, not choice</div>
+    ? `<aside class="complicate">
+  <div class="complicate-stamp">What complicates this reading</div>
+  <div class="complicate-sub">Shown by rule, not the writer's choice. The reading must engage these facts; it cannot omit them.</div>
   ${contested
     .slice(0, 4)
     .map(
-      (a) =>
-        `<p><i>"${escapeHtml(a.label)}"</i> — ${a.actor ? `asserted by ${escapeHtml(a.actor)}; ` : ""}${a.rank === "contested" ? "contested" : "weakly supported"} in the record${a.piece_slug ? ` (<a href="/library/${escapeAttr(a.piece_slug)}">source</a>)` : ""}. This reading must engage it, not omit it.</p>`,
+      (a) => `<div class="complicate-item">
+  <blockquote class="complicate-quote">"${escapeHtml(a.label)}"</blockquote>
+  <div class="complicate-attribution">
+    ${a.actor ? `Asserted by <b>${escapeHtml(a.actor)}</b>` : "Unattributed assertion"} · ${a.rank === "contested" ? "contested in the record" : "weakly supported"}${a.piece_slug ? ` · <a href="/library/${escapeAttr(a.piece_slug)}">source ↗</a>` : ""}
+  </div>
+</div>`,
     )
     .join("")}
-</div>`
+</aside>`
     : "";
 
   // Operator affordances on a signed reading: Edit (open the existing
@@ -390,20 +508,23 @@ async function renderSigned(
     : "";
 
   const body = `
-<article class="subject-page">
+<article class="subject-page subject-page-signed">
   ${modeBand}
   ${opSignedAff}
   <header class="signed-head">
-    <div class="kicker">${escapeHtml(subjectKindLabel(subject.kind))} · the operator's reading ${intentBadge}</div>
+    <div class="kicker">${intentBadge} <span class="kicker-meta">${escapeHtml(subjectKindLabel(subject.kind))} · The operator's reading on</span></div>
     <h1>${escapeHtml(subject.label)}</h1>
-    ${page.thesis ? `<p class="thesis">${escapeHtml(page.thesis)}</p>` : ""}
-    ${meta.length ? `<div class="signed-meta">${meta.join(" · ")}</div>` : ""}
+    ${page.thesis ? `<blockquote class="thesis-block">"${escapeHtml(page.thesis)}"</blockquote>` : ""}
+    <div class="signature-block">
+      ${signatureLine}
+      ${signatureMeta.length ? `<div class="signature-meta">${signatureMeta.join(" · ")}</div>` : ""}
+    </div>
   </header>
   <div class="prose signed-body">${bodyHtml}</div>
   ${complicateBox}
   ${facesBlock}
   <div class="prov" style="margin-top:32px">
-    The operator drafted and signed this reading. Every load-bearing fact links down to a quote in a stored
+    The operator drafted and signed this reading. Every load-bearing fact links down to a verbatim quote in a stored
     source document. Contested material appears attributed; the firewall kills any assertion-backed claim
     without attribution before publish.
   </div>
@@ -417,28 +538,115 @@ async function renderSigned(
     font-size:13.5px; color:var(--ink-3); }
   .mode-band a { color:var(--accent); text-decoration:none; font-weight:600; }
   .mode-band .here { color:var(--ink); }
-  .signed-head { margin-bottom:28px; }
-  .signed-head .kicker { font-size:11px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase; margin-bottom:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .intent-badge { font-size:10px; padding:2px 9px; border-radius:4px; font-weight:600;
-    letter-spacing:.04em; }
-  .intent-investigation { background:#e6efe9; color:#1d6a5e; }
-  .intent-argument { background:#f4e9e6; color:#8a3324; }
-  .intent-pattern { background:#e8eef7; color:#33567e; }
-  .intent-hypothesis { background:#ece6f2; color:#5a4a7e; }
-  .intent-assessment { background:#f1ead9; color:#7a6324; }
-  .intent-critique { background:#f4e3e0; color:#964434; }
-  .intent-explanation { background:#e4ecef; color:#3a6a7e; }
-  .signed-head h1 { font-family:var(--serif); font-size:42px; line-height:1.1; letter-spacing:-.02em; font-weight:600; margin-bottom:16px; }
-  .signed-head .thesis { font-family:var(--serif); font-size:22px; line-height:1.45; color:var(--ink); font-style:italic; margin-bottom:12px; }
-  .signed-head .signed-meta { font-size:12.5px; color:var(--faint); letter-spacing:.04em; text-transform:uppercase; }
-  .signed-body { font-family:var(--serif); font-size:18px; line-height:1.62; color:var(--ink-2); }
-  .signed-body p { margin-bottom:18px; }
-  .signed-body sup { color:var(--accent); font-size:11px; }
-  .signed-body .factref { background:var(--panel-2, rgba(0,0,0,.18)); border-bottom:1px solid var(--accent); padding:0 2px; cursor:pointer; }
-  .complicate { border:1px solid var(--accent); background:var(--panel-2, rgba(0,0,0,.18)); border-radius:9px; padding:14px 18px; margin:24px 0; }
-  .complicate .ch { font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; font-weight:600; }
-  .complicate p { font-family:var(--sans); font-size:14px; line-height:1.55; color:var(--ink-3); margin-bottom:8px; }
-  .complicate p:last-child { margin-bottom:0; }
+  .signed-head { margin-bottom: 40px; }
+  .signed-head .kicker {
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    font-weight: 600;
+  }
+  .kicker-meta { color: var(--ink-3); font-weight: 400; }
+  .intent-badge {
+    font-size: 11px; padding: 3px 11px; border-radius: 4px;
+    font-weight: 600; letter-spacing: .04em;
+  }
+  .intent-investigation { background: #e6efe9; color: #1d6a5e; }
+  .intent-argument { background: #f4e9e6; color: #8a3324; }
+  .intent-pattern { background: #e8eef7; color: #33567e; }
+  .intent-hypothesis { background: #ece6f2; color: #5a4a7e; }
+  .intent-assessment { background: #f1ead9; color: #7a6324; }
+  .intent-critique { background: #f4e3e0; color: #964434; }
+  .intent-explanation { background: #e4ecef; color: #3a6a7e; }
+  .signed-head h1 {
+    font-family: var(--serif);
+    font-size: 46px; line-height: 1.06; letter-spacing: -.022em;
+    font-weight: 600; margin-bottom: 28px;
+    color: var(--ink);
+  }
+  /* Thesis as a court ruling: serif italic, big, with a left rule. */
+  .thesis-block {
+    font-family: var(--serif);
+    font-size: 26px; line-height: 1.4;
+    color: var(--ink);
+    font-style: italic;
+    margin: 0 0 24px;
+    padding: 4px 0 4px 22px;
+    border-left: 3px solid var(--accent);
+    max-width: 720px;
+  }
+  /* Signature as a signature — not a metadata strip. */
+  .signature-block { margin-top: 18px; }
+  .signature {
+    font-family: var(--serif);
+    font-size: 18px;
+    color: var(--ink);
+    font-style: italic;
+    margin-bottom: 6px;
+  }
+  .signature-meta {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .signed-body { font-family: var(--serif); font-size: 18px; line-height: 1.65; color: var(--ink-2); }
+  .signed-body p { margin-bottom: 20px; }
+  .signed-body sup { color: var(--accent); font-size: 11px; }
+  .signed-body .factref { background: var(--panel-2, rgba(0,0,0,.18)); border-bottom: 1px solid var(--accent); padding: 0 2px; cursor: pointer; }
+
+  /* Complicating-facts box — the proudest box on the signed page.
+     This is the firewall, made visible inside the reading itself. */
+  .complicate {
+    margin: 36px 0;
+    padding: 26px 28px;
+    border: 1px solid #d8cba9;
+    border-left: 4px solid var(--accent);
+    border-radius: 11px;
+    background: #f8f1df;
+  }
+  .complicate-stamp {
+    font-family: var(--serif);
+    font-size: 12.5px; letter-spacing: .14em;
+    text-transform: uppercase;
+    color: #7a5a1a;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .complicate-sub {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    color: #6a5a3a;
+    margin-bottom: 18px;
+    line-height: 1.5;
+  }
+  .complicate-item {
+    padding: 14px 0;
+    border-top: 1px solid #d8cba9;
+  }
+  .complicate-item:first-of-type { padding-top: 0; border-top: none; }
+  .complicate-quote {
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--ink);
+    font-style: italic;
+    margin: 0 0 8px;
+    padding-left: 14px;
+    border-left: 2px solid #b8a878;
+  }
+  .complicate-attribution {
+    font-size: 13.5px;
+    color: var(--ink-2);
+    line-height: 1.5;
+  }
+  .complicate-attribution b { color: var(--ink); }
+  .complicate-attribution a { color: var(--accent); text-decoration: none; }
+  @media (max-width: 720px) {
+    .signed-head h1 { font-size: 34px; }
+    .thesis-block { font-size: 21px; }
+  }
   .complicate a { color:var(--accent); text-decoration:none; }
   .prov { padding:14px 16px; background:var(--panel-2, rgba(0,0,0,.15)); border:1px solid var(--rule); border-radius:9px; font-size:12.5px; color:var(--ink-3); }
   .op-aff { display:flex; align-items:center; gap:12px; margin-bottom:18px; padding:9px 14px;
@@ -745,40 +953,63 @@ function renderEstablishedBlock(facts: FactRow[]): string {
 
 function renderContestedBlock(rows: AssertionRow[]): string {
   if (rows.length === 0) return "";
+  // Contested-as-proud-gray: the firewall, rendered as evidence. Each card
+  // looks like court evidence labeled CONTESTED. Block-quote treatment on
+  // the assertion text; attribution on its own line in caps; evidence
+  // balance as a small numerical line. The proudest box on the neutral
+  // page after the established list — readers should immediately register
+  // "this is contested" without reading any label.
   const cards = rows
     .map((a) => {
       const balance = a.evidence_balance ?? 0;
-      const balanceChip =
+      const balanceLine =
         a.rank === "contested"
-          ? `<span class="chip balance">contested · ${balance >= 0 ? "+" : ""}${balance.toFixed(1)}</span>`
+          ? `Evidence balance ${balance >= 0 ? "+" : ""}${balance.toFixed(1)} · contested in the record`
           : balance > 0
-            ? `<span class="chip balance">+${balance.toFixed(1)} support</span>`
+            ? `Evidence balance +${balance.toFixed(1)} · weakly supported`
             : balance < 0
-              ? `<span class="chip balance">${balance.toFixed(1)} support</span>`
-              : "";
+              ? `Evidence balance ${balance.toFixed(1)} · weakly supported`
+              : "Stance attributed; balance unscored";
+      const sourceLink = a.piece_title
+        ? `<a class="contested-src" href="/library/${escapeAttr(a.piece_slug ?? "")}">${escapeHtml(a.piece_title.slice(0, 60))} ↗</a>`
+        : "";
       return `<div class="contested-card">
-  <div class="body"><i>"${escapeHtml(a.label)}"</i></div>
-  <div class="contested-meta">
-    ${a.actor ? `<span class="chip">asserted by · ${escapeHtml(a.actor)}</span>` : `<span class="chip">unattributed</span>`}
-    <span class="chip">stance · ${escapeHtml(a.stance)}</span>
-    ${balanceChip}
-    ${a.piece_title ? `<span class="chip"><a href="/library/${escapeAttr(a.piece_slug ?? "")}" style="color:inherit;text-decoration:none">source</a></span>` : ""}
+  <div class="contested-stamp">Contested</div>
+  <blockquote class="contested-quote">"${escapeHtml(a.label)}"</blockquote>
+  <div class="contested-attribution">
+    ${a.actor ? `Asserted by <b>${escapeHtml(a.actor)}</b>` : "Unattributed assertion"} · stance: ${escapeHtml(a.stance)}
   </div>
+  <div class="contested-balance">${balanceLine}</div>
+  ${sourceLink}
 </div>`;
     })
     .join("");
-  return `<section id="contested" data-schema="Claim"><div class="sec-k">Contested — shown as contested</div>${cards}</section>`;
+  return `<section id="contested" data-schema="Claim">
+<div class="sec-k">Contested — shown as contested, by rule, not choice</div>
+${cards}
+</section>`;
 }
 
 function renderTimelineBlock(events: EventRow[]): string {
   if (events.length === 0) return "";
+  // Vertical rail with dots — the prototype shape. Date in mono on the left,
+  // event description in larger serif to the right. Each row has a circle
+  // dot positioned on the rail. Renders cleanly with no JS.
   const rows = events
-    .map((e, i) => {
+    .map((e) => {
       const when = e.event_date?.slice(0, 7) ?? "—";
-      return `<div class="tl-row${i === events.length - 1 ? " last" : ""}"><span class="when">${escapeHtml(when)}</span> <span>${escapeHtml(e.label)}${e.piece_slug ? ` <a href="/library/${escapeAttr(e.piece_slug)}" style="color:var(--accent);font-size:12px">↗</a>` : ""}</span></div>`;
+      return `<div class="tl-item">
+  <div class="tl-when">${escapeHtml(when)}</div>
+  <div class="tl-body">
+    <div class="tl-label">${escapeHtml(e.label)}</div>
+    ${e.piece_slug ? `<a class="tl-src" href="/library/${escapeAttr(e.piece_slug)}">source ↗</a>` : ""}
+  </div>
+</div>`;
     })
     .join("");
-  return `<section id="timeline" data-schema="Event"><div class="sec-k">Timeline</div>${rows}</section>`;
+  return `<section id="timeline" data-schema="Event"><div class="sec-k">Timeline</div>
+<div class="tl-rail">${rows}</div>
+</section>`;
 }
 
 function renderConnectionsBlock(conns: ConnectionRow[]): string {
@@ -899,6 +1130,31 @@ function slugifyConnection(label: string): string {
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").trim();
+}
+
+// Long-form date for the signature line — "11 June 2026" reads as a date
+// on a signed document, not a sortable timestamp.
+function formatLongDate(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return iso;
+  const [, y, mo, d] = m;
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const monthIdx = Number(mo) - 1;
+  const month = months[monthIdx] ?? mo;
+  return `${Number(d)} ${month} ${y}`;
 }
 
 // ===========================================================================
