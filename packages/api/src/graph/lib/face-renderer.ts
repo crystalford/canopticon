@@ -17,7 +17,12 @@ import { callRole, modelForRole } from "../../llm/router";
 
 export type FaceKind = "thread" | "script" | "meme" | "chapter";
 
-const ALL_FACES: FaceKind[] = ["thread", "script", "meme", "chapter"];
+// v2.6 Part 8: faces are RENDERINGS, not regenerations. Thread + meme are
+// template + query and render at view time (no LLM, <100ms) — see
+// packages/api/src/public/render/faces/. Only script + chapter genuinely
+// need argumentative sequencing; those still get the writer LLM on sign
+// and persist to page_faces.
+const LLM_FACES: FaceKind[] = ["script", "chapter"];
 
 interface PageRow {
   id: string;
@@ -52,7 +57,7 @@ export async function generateAllFaces(
   }
 
   // Mark every face as queued up-front. Upserts so re-signs replace old.
-  for (const kind of ALL_FACES) {
+  for (const kind of LLM_FACES) {
     await upsertFaceStatus(env, userId, pageId, kind, "queued").catch(() => {});
     report.queued.push(kind);
   }
@@ -60,10 +65,10 @@ export async function generateAllFaces(
   // Render in parallel; each face is independent. Errors are captured
   // per-face — one timeout doesn't kill the others.
   const results = await Promise.allSettled(
-    ALL_FACES.map((kind) => renderFace(env, userId, pageId, kind, page)),
+    LLM_FACES.map((kind) => renderFace(env, userId, pageId, kind, page)),
   );
   results.forEach((r, i) => {
-    const kind = ALL_FACES[i] as FaceKind;
+    const kind = LLM_FACES[i] as FaceKind;
     if (r.status === "fulfilled") report.rendered.push(kind);
     else report.failed.push({ kind, error: (r.reason as Error)?.message ?? "unknown" });
   });

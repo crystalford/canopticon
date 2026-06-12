@@ -82,17 +82,16 @@ const PAGE = {
   confidence: "high",
 };
 
-describe("generateAllFaces — pre-render on signing", () => {
-  it("queues all four faces before rendering and renders each", async () => {
+describe("generateAllFaces — only LLM-seasoned faces pre-render on signing (v2.6 Part 8)", () => {
+  it("queues only script + chapter (thread + meme are template+query, rendered at view time)", async () => {
     const { env, runs } = makeEnv({ pageRow: PAGE });
     const report = await generateAllFaces(env, "u1", "page1");
-    expect(report.queued).toEqual(["thread", "script", "meme", "chapter"]);
-    expect(report.rendered.length).toBe(4);
+    expect(report.queued).toEqual(["script", "chapter"]);
+    expect(report.rendered.length).toBe(2);
     expect(report.failed.length).toBe(0);
-    // Every face goes through queued → rendering → ready. The exact sequence
-    // is: 4 queued-upserts, 4 rendering-updates, 4 ready-updates with body.
+    // Each LLM face goes through queued → rendering → ready. Two ready-updates.
     const readyUpdates = runs.filter((r) => /status\s*=\s*'ready'/i.test(r.sql));
-    expect(readyUpdates.length).toBe(4);
+    expect(readyUpdates.length).toBe(2);
   });
 
   it("returns empty queued list when the page has no signed body", async () => {
@@ -103,13 +102,13 @@ describe("generateAllFaces — pre-render on signing", () => {
   });
 
   it("captures per-face errors without sinking the others", async () => {
-    // The AI stub always fails — every face errors. The renderer still
-    // attempts all four (Promise.allSettled) and reports each failure
+    // The AI stub always fails. Both LLM faces error; the renderer still
+    // attempts both (Promise.allSettled) and reports each failure
     // separately, not as one global error.
     const { env } = makeEnv({ fail: true, pageRow: PAGE });
     const report = await generateAllFaces(env, "u1", "page1");
-    expect(report.queued).toEqual(["thread", "script", "meme", "chapter"]);
-    expect(report.failed.length).toBe(4);
+    expect(report.queued).toEqual(["script", "chapter"]);
+    expect(report.failed.length).toBe(2);
     expect(report.rendered).toEqual([]);
   });
 });

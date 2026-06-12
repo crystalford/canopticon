@@ -498,12 +498,27 @@ async function renderSigned(
   const userId = await resolveOperatorId(env.DB);
   const bodyHtml = page.body_html || (page.body_md ? renderMarkdown(page.body_md) : "");
   const modeBand = renderModeBand(page.slug, "signed", hasSignedReading, page);
-  // Faces (spec v2.5 Part 24) — the four formats of this reading. Pre-rendered
-  // on signing; appear as tabs at the bottom of the page. Each face is either
-  // ready, rendering, queued, or failed; the renderer reflects the state.
-  // Operator gets per-face Re-render buttons when faces aren't ready.
-  const faces = await loadFaces(env, page.id);
-  const facesBlock = renderFacesBlock(faces, page.id, isOperator);
+  // Faces (spec v2.6 Part 8) — formats of this reading rendered as tabs.
+  // Thread + meme are TEMPLATE + QUERY, rendered live at view time from
+  // the page's thesis + page_claims (no LLM, <100ms). Script + chapter
+  // are LLM-seasoned and pre-rendered on signing into page_faces.
+  // The signed page renderer pulls both: persisted faces from page_faces +
+  // live faces from the faces/ renderers.
+  const [persistedFaces, liveThread, liveMeme] = await Promise.all([
+    loadFaces(env, page.id),
+    (async () => {
+      const { renderThreadFace } = await import("./faces/thread");
+      return renderThreadFace(env.DB, page);
+    })(),
+    (async () => {
+      const { renderMemeFace } = await import("./faces/meme");
+      return renderMemeFace(env.DB, page);
+    })(),
+  ]);
+  const facesBlock = renderFacesBlock(persistedFaces, page.id, isOperator, {
+    thread: liveThread,
+    meme: liveMeme,
+  });
 
   // A real signature, not a chip strip. The "— signed by" line in serif
   // italic; the date in mono on a second line; the confidence + verified-
@@ -1231,8 +1246,15 @@ const FACE_HINTS: Record<string, string> = {
   chapter: "The reading's structure expanded for long-form treatment.",
 };
 
-function renderFacesBlock(faces: FaceRow[], pageId?: string, isOperator?: boolean): string {
-  if (faces.length === 0) return "";
+function renderFacesBlock(
+  faces: FaceRow[],
+  pageId?: string,
+  isOperator?: boolean,
+  liveFaces: { thread?: string; meme?: string } = {},
+): string {
+  // Faces always render when there's a thesis — thread + meme are
+  // template+query and have no DB state. Only script + chapter come from
+  // page_faces. Always show all four tabs.
   // The first ready face is opened by default; the rest are headed but
   // collapsed (server-rendered, no-JS — just <details>).
   const orderedKinds = ["thread", "script", "meme", "chapter"];
@@ -1240,10 +1262,34 @@ function renderFacesBlock(faces: FaceRow[], pageId?: string, isOperator?: boolea
   let firstReadyShown = false;
   const items = orderedKinds
     .map((kind) => {
-      const f = byKind.get(kind);
-      if (!f) return "";
       const label = FACE_LABELS[kind] ?? kind;
       const hint = FACE_HINTS[kind] ?? "";
+      // Thread + meme: rendered live; always ready.
+      if (kind === "thread" || kind === "meme") {
+        const liveBody = kind === "thread" ? liveFaces.thread : liveFaces.meme;
+        const open = !firstReadyShown && !!liveBody;
+        if (open) firstReadyShown = true;
+        return `<details class="face" ${open ? "open" : ""}>
+  <summary>
+    <span class="face-label">${escapeHtml(label)}</span>
+    <span class="face-chip face-ready">live</span>
+    <span class="face-hint">${escapeHtml(hint)}</span>
+  </summary>
+  <div class="face-body">${liveBody ?? ""}</div>
+</details>`;
+      }
+      // Script + chapter: from page_faces.
+      const f = byKind.get(kind);
+      if (!f) {
+        return `<details class="face">
+  <summary>
+    <span class="face-label">${escapeHtml(label)}</span>
+    <span class="face-chip face-pending-chip">queued</span>
+    <span class="face-hint">${escapeHtml(hint)}</span>
+  </summary>
+  <div class="face-pending">This face renders on the next sign. Re-sign the reading to queue it.</div>
+</details>`;
+      }
       const open = !firstReadyShown && f.status === "ready";
       if (open) firstReadyShown = true;
       // The operator's per-face Retry affordance — surfaces when the face
