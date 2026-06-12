@@ -210,6 +210,29 @@ app.get("/q/:id", async (c) => {
   return htmlResponse(html);
 });
 
+// ---- Arrangements as standalone renderings (spec v2.6 Part 6) -----------
+// Each arrangement is BOTH a section embedded inside a subject page AND a
+// standalone addressable page with its own URL + JSON-LD. Pure rendering:
+// template + query, no LLM at render time.
+//
+// `/t/:slug` — Timeline (ItemList + Event JSON-LD)
+app.get("/t/:slug", async (c) => {
+  const { renderTimelinePage } = await import("./render/arrangements/timeline");
+  const html = await renderTimelinePage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/profile/:slug` — Entity / Actor profile (Person | Organization | Event |
+// CreativeWork JSON-LD per subject kind). Word-form prefix avoids the
+// collision with the legacy `/p/:slug` piece-fallback route.
+app.get("/profile/:slug", async (c) => {
+  const { renderProfilePage } = await import("./render/arrangements/profile");
+  const html = await renderProfilePage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
 // ---- The Record -----------------------------------------------------------
 
 // Part 18: "The Record" dissolves as a destination — the index redirects to

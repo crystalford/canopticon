@@ -216,7 +216,7 @@ Every arrangement type is BOTH a section embedded inside a Record AND a standalo
 |---|---|---|---|
 | Definition / Glossary | `/d/:slug` | DefinedTerm | graph-derived |
 | Timeline | `/t/:slug` | ItemList + Event | graph-derived |
-| Entity / Actor profile | `/p/:slug` | Person / Organization | graph-derived |
+| Entity / Actor profile | `/profile/:slug` | Person / Organization | graph-derived |
 | Ownership / network map | `/n/:slug` | OwnershipInfo | graph-derived |
 | Who's-who roster | `/w/:slug` | ItemList of Person | graph-derived |
 | Comparison matrix | `/c/:slug` | Table + ClaimReview | graph-derived |
@@ -227,7 +227,7 @@ Every arrangement type is BOTH a section embedded inside a Record AND a standalo
 | Document-of-record | `/doc/:slug` | CreativeWork / Legislation | graph-derived |
 | Claim-and-source table | `/ct/:slug` | Claim + ClaimReview | graph-derived |
 
-(URL prefixes are first-pass picks. They should be short enough to read in a tweet — `/t/mark-carney` for "timeline of Mark Carney" — and distinct enough not to collide with `/s/` for Subject or `/p/` for the legacy piece URL. Final URLs subject to revision once collisions are checked.)
+(URL prefixes are short enough to read in a tweet — `/t/mark-carney` reads as "timeline of Mark Carney" — and distinct from `/s/` for Subject and `/p/` for the legacy piece URL. `/profile/:slug` uses the full word to avoid the `/p/` collision.)
 
 Each standalone URL renders the SAME data the embedded section renders, plus:
 - A short masthead explaining what this arrangement IS (so a first-time reader landing here knows)
@@ -493,7 +493,7 @@ The factual layer's proud collective name remains deliberately absent. Its neutr
 - Record-building Phase 2 — the fetch + extract loop behind "Expand this Record" (Part 26). Currently search half done, fetch+extract stubbed.
 - Studio as production pipeline (Part 27).
 - Concurrent extraction architecture — Cloudflare Queues + Workers AI Async Batch + Durable Object WebSocket for live extraction log (Part 25). Needs operator's CF account setup.
-- "Ask the corpus" — the conversational interrogation surface, when search lands.
+- "Ask the corpus" — STATUS NOT DECIDED. v2.5 framed it as a conversational interrogation surface (the operator types a question; the system answers from the graph with citations). In v2.6 it's no longer part of any home or stream because OUT collapsed. Whether it lands as a chat-style surface, as the search UI, or as a third thing entirely is open. Revisit before building.
 
 -----
 
@@ -506,7 +506,7 @@ The build follows the rendering-system reframe. Order is binding.
 3. **Record-building Phase 2** — finish the fetch + extract loop. Operator clicks thin Record → Brave Search → fetch found pages → run typed extraction over them. Live progress narration in the page banner.
 4. **Concurrent extraction architecture** — Cloudflare Queues + Workers AI Async Batch + Durable Object WebSocket. Speed benchmarks enforced. (Needs operator's CF account setup; parked until queue + DO bindings exist.)
 5. **Studio as production pipeline.**
-6. **"Ask the corpus" / search.** Built once the rendering system supports it.
+6. **Search.** Implementation TBD; the "Ask the corpus" framing from v2.5 may or may not survive into v2.6 — see Part 17.
 7. **Frontier model near launch + result-caching.** One line in the router; result-caching content-hash keyed.
 8. **Citation tracker.** AI-bot hit logging is already in place; surfacing it as a "who's citing us" report comes later.
 
@@ -757,7 +757,9 @@ This part is a roadmap, not a build commitment. It lives in v2.6 so when we DO b
 
 # PART 28 — INPUT TYPES
 
-The system accepts five input types. All enter through Storage (upload). Nothing is published as-is except source documents in the Library.
+**STATUS: not finalised.** v2.5 listed five input types; v2.6 carries them forward as a working list but the operator wants to revisit whether all five are real categories or whether some collapse. Treat the table below as descriptive of what the build currently handles, not as binding.
+
+The system accepts inputs through Storage (upload) and through Record-building on click (Part 26). Nothing is published as-is except source documents in the Library.
 
 | Input type | What it is | How it's processed |
 |---|---|---|
@@ -766,6 +768,8 @@ The system accepts five input types. All enter through Storage (upload). Nothing
 | **Wrap-up package** | structured end-of-chat capture (intent, findings, threads, candidate angles) | treated as input to proposer and inquiry-thread creation; not a competing proposer |
 | **Primary source** | a bill, transcript, contract, memo | extracted + published as document-of-record pages |
 | **Web-fetched content** | pages fetched by record-building on click (Part 26) | extracted same as research reports; source URL is the provenance |
+
+**Open questions:** are "research report" and "primary source" really two categories, or one category with a flag? Does "essay" need its own pipeline or is it just a research report tagged as the operator's? Does "wrap-up package" survive in a world where the conversational interrogation surface ("Ask the corpus") is itself the structured-capture mechanism? Revisit when the rendering-system work has shipped enough that the input shape matters.
 
 -----
 
