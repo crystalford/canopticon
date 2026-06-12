@@ -307,9 +307,54 @@ export async function renderLibraryIndex(
 </style>`;
   }
 
+  // Library weight — the proof-of-work line. Documents read, facts extracted,
+  // subjects fed, contested claims surfaced. Numbers come straight from the
+  // typed graph; if extraction hasn't run, the line shrinks honestly.
+  const { one, all: allRows } = await import("../../lib/d1");
+  const weight = userId
+    ? await one<{
+        docs: number;
+        facts: number;
+        subjects: number;
+        contested: number;
+        threads: number;
+      }>(
+        env.DB,
+        `SELECT
+           (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs,
+           (SELECT COUNT(*) FROM nodes WHERE user_id = ?
+              AND kind IN ('neutral_fact', 'event', 'entity', 'assertion')) AS facts,
+           (SELECT COUNT(DISTINCT subject_node_id) FROM pages WHERE user_id = ?) AS subjects,
+           (SELECT COUNT(*) FROM assertions a JOIN nodes n ON n.id = a.node_id
+              WHERE n.user_id = ? AND a.rank = 'contested') AS contested,
+           (SELECT COUNT(*) FROM inquiry_threads WHERE user_id = ?) AS threads`,
+        [userId, userId, userId, userId, userId],
+      ).catch(() => null)
+    : null;
+
+  // Per-piece "what it fed" — one query, indexed by piece_id. Renders in the
+  // table row so the operator can see at a glance which docs are pulling
+  // weight and which are dead. Includes node count and distinct-subjects count.
+  const fedRows = userId
+    ? await allRows<{ piece_id: string; nodes: number; subjects: number }>(
+        env.DB,
+        `SELECT n.piece_id,
+                COUNT(*) AS nodes,
+                COUNT(DISTINCT e.dst_node_id) AS subjects
+           FROM nodes n
+           LEFT JOIN edges e ON e.src_node_id = n.id AND e.family = 'aboutness'
+          WHERE n.user_id = ? AND n.piece_id IS NOT NULL
+            AND n.kind IN ('neutral_fact', 'event', 'assertion')
+          GROUP BY n.piece_id`,
+        [userId],
+      ).catch(() => [])
+    : [];
+  const fedByPiece = new Map(fedRows.map((r) => [r.piece_id, r] as const));
+
   const rows = pieces.length
     ? pieces
         .map((p) => {
+          const fed = fedByPiece.get(p.id);
           const status =
             p.publication_status === "working-material"
               ? `<span class="chip">working material</span>`
@@ -317,15 +362,18 @@ export async function renderLibraryIndex(
                 ? `<span class="chip">canonical</span>`
                 : `<span class="chip">published</span>`;
           const href =
-            p.publication_status === "working-material"
-              ? ""
-              : `/investigations/${escapeHtml(p.slug)}`;
+            p.publication_status === "working-material" ? "" : `/library/${escapeHtml(p.slug)}`;
           const title = href
             ? `<a href="${href}" class="ac">${escapeHtml(p.title)}</a>`
             : escapeHtml(p.title);
+          const fedCell =
+            fed && fed.nodes > 0
+              ? `<span><b>${fed.nodes}</b> fact${fed.nodes === 1 ? "" : "s"}${fed.subjects > 0 ? ` · ${fed.subjects} subject${fed.subjects === 1 ? "" : "s"}` : ""}</span>`
+              : `<span class="lib-fed-quiet">not extracted</span>`;
           return `<tr>
   <td>${title}</td>
   <td class="coord">${escapeHtml(kindLabel(p.kind))}</td>
+  <td class="lib-fed">${fedCell}</td>
   <td>${status}</td>
   <td class="coord">${p.published_at ? escapeHtml(formatDate(p.published_at)) : "—"}</td>
 </tr>`;
@@ -334,33 +382,82 @@ export async function renderLibraryIndex(
     : "";
 
   const table = pieces.length
-    ? `<table class="lib-table" style="width:100%;border-collapse:collapse;margin-top:8px">
+    ? `<table class="lib-table">
   <thead><tr>
-    <th style="text-align:left;padding:8px 0;border-bottom:1px solid var(--rule)" class="label">Title</th>
-    <th style="text-align:left;padding:8px 0;border-bottom:1px solid var(--rule)" class="label">Kind</th>
-    <th style="text-align:left;padding:8px 0;border-bottom:1px solid var(--rule)" class="label">Status</th>
-    <th style="text-align:left;padding:8px 0;border-bottom:1px solid var(--rule)" class="label">Date</th>
+    <th class="label">Title</th>
+    <th class="label">Kind</th>
+    <th class="label">Fed the fabric</th>
+    <th class="label">Status</th>
+    <th class="label">Date</th>
   </tr></thead>
   <tbody>${rows}</tbody>
 </table>`
-    : emptyState("The library is empty. The 65-report seed corpus imports in a later phase.");
+    : emptyState(
+        "No documents yet. Once research reports are dropped into the Library, every one will land here with what it fed showing in its row.",
+      );
+
+  // The research-weight band — proof-of-work line that sits between the lede
+  // and the table. Sized for skim: large numerals, plain English on the labels.
+  const weightBand =
+    weight && weight.docs > 0
+      ? `<div class="lib-weight">
+  <div class="lw-cell"><b>${weight.docs}</b><span>source document${weight.docs === 1 ? "" : "s"}</span></div>
+  ${weight.facts > 0 ? `<div class="lw-cell"><b>${weight.facts.toLocaleString()}</b><span>facts extracted</span></div>` : ""}
+  ${weight.subjects > 0 ? `<div class="lw-cell"><b>${weight.subjects}</b><span>subject page${weight.subjects === 1 ? "" : "s"} fed</span></div>` : ""}
+  ${weight.contested > 0 ? `<div class="lw-cell"><b>${weight.contested}</b><span>contested claim${weight.contested === 1 ? "" : "s"}</span></div>` : ""}
+  ${weight.threads > 0 ? `<div class="lw-cell"><b>${weight.threads}</b><span>open thread${weight.threads === 1 ? "" : "s"}</span></div>` : ""}
+</div>`
+      : "";
 
   const body = `
-<section style="margin-bottom:24px">
+<section style="margin-bottom:18px">
   <div class="kicker" style="margin-bottom:16px"><span class="live"></span> The raw research</div>
   <h1 style="font-family:var(--serif);font-size:40px;line-height:1.12;letter-spacing:-0.015em;margin:0 0 12px;color:var(--ink)">Library</h1>
   <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
-    The working material the rest is built on, kept whole. Research reports and
-    documented records. Interior chain passes are marked working material — they
-    deposit claims into the record but don't get their own public page.
+    Every document the rest is built on, kept whole. Each row shows what it fed the fabric —
+    facts extracted, subjects it touched. Working material deposits into the typed graph but
+    doesn't get its own public page.
   </p>
 </section>
+${weightBand}
 ${opStrip}
 <section>${sectionHeader(`All material (${pieces.length})`)}${table}</section>
+<style>
+  .lib-weight {
+    display: flex; flex-wrap: wrap;
+    gap: 20px 36px;
+    padding: 22px 24px;
+    margin: 0 0 28px;
+    border: 1px solid var(--rule);
+    border-radius: 11px;
+    background: var(--surface, #fff);
+  }
+  .lw-cell { display: flex; flex-direction: column; gap: 2px; }
+  .lw-cell b {
+    font-family: var(--serif);
+    font-size: 28px; line-height: 1;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .lw-cell span {
+    font-size: 12.5px;
+    color: var(--ink-3);
+    letter-spacing: .02em;
+  }
+  .lib-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-family: var(--serif); }
+  .lib-table th { text-align: left; padding: 10px 14px 10px 0; border-bottom: 1px solid var(--rule); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+  .lib-table td { padding: 14px 14px 14px 0; border-bottom: 1px solid var(--rule-soft, var(--rule)); vertical-align: top; font-size: 15px; line-height: 1.4; }
+  .lib-table td.coord { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); }
+  .lib-table tr:hover td { background: rgba(0,0,0,0.015); }
+  .lib-fed { color: var(--ink-2); font-size: 13.5px; }
+  .lib-fed b { color: var(--ink); font-weight: 600; }
+  .lib-fed-quiet { color: var(--ink-3); font-style: italic; font-size: 13px; }
+</style>
 `;
   return renderPage({
     title: "Library",
-    description: "The raw research corpus — every report the analysis is built on.",
+    description:
+      "Every source document the rest is built on. Each row shows what it fed the fabric — facts extracted, subjects it touched.",
     body,
     activeNav: "/library",
     zone: "library",
