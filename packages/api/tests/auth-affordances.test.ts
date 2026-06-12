@@ -85,16 +85,20 @@ describe("attachAuthState — the one-site permission middleware", () => {
     expect(html).not.toContain('class="op-strip"');
   });
 
-  it("a valid cookie flips / to the stream and /library adds the operator strip", async () => {
+  it("a valid cookie reveals operator affordances on the SAME public page", async () => {
     const dbWithOperator = makeEmptyDb({ withOperator: true });
     const envWithOp = { ...env, DB: dbWithOperator };
 
-    // Home: operator sees the stream (data-mode="operator"), not the
-    // anonymous activity feed.
+    // Home: still data-mode="public" — the operator browses the same site
+    // everyone reads, with affordances woven in. NO separate dark dashboard.
+    // (Operator-overlay sections only populate when there's content; the
+    // empty-DB stub means no drafts/findings/threads — we just assert the
+    // chrome stays public.)
     const home = await app.fetch(await loggedInRequest("/"), envWithOp);
     expect(home.status).toBe(200);
     const homeHtml = await home.text();
-    expect(homeHtml).toContain('data-mode="operator"');
+    expect(homeHtml).toContain('data-mode="public"');
+    expect(homeHtml).not.toContain('data-mode="operator"');
 
     // Library: operator sees the same paper page, plus the op-strip with the
     // bulk-extract actions. The operator strip only renders when the

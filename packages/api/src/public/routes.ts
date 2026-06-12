@@ -103,18 +103,18 @@ app.get("/styles.css", () => {
   });
 });
 
-// `/` — one URL, two faces. The anonymous reader sees the public activity
-// feed. The logged-in operator sees the stream (the system's briefing +
-// drafts awaiting signature + findings + open threads), wired in directly
-// instead of bouncing them off to /op/out. Spec v2.5 Part 9 — the logged-in
-// home IS the stream; the stream has no public analogue.
-app.get("/", async (c) => {
-  if (c.get("is_operator")) {
-    const { renderOutStream } = await import("../operator/screens/out-stream");
-    return htmlResponse(await renderOutStream(c.env));
-  }
-  return htmlResponse(await renderHome(c.env));
-});
+// `/` — one URL, one page. The operator browses the publication; the
+// graph grows from what they DO on it (drop documents in the Library,
+// sign readings from the subject page, expand thin Records on click).
+// There is no separate OUT dashboard. Logged-in viewers get operator
+// affordances WOVEN INTO this same page (system briefing, drafts
+// awaiting signature, findings strip, open threads) — not a parallel
+// dashboard. Spec v2.5 Part 9 retired the separate console; the OUT
+// surface was IN/OUT scaffolding that survived the rename and is
+// now gone too.
+app.get("/", async (c) =>
+  htmlResponse(await renderHome(c.env, { isOperator: c.get("is_operator") })),
+);
 
 // ---- Topics ---------------------------------------------------------------
 
