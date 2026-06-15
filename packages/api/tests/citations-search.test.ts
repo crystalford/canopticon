@@ -7,12 +7,14 @@ const SECRET = "test-secret-citations-search";
 // Reusable DB stub. citation_hits queries return the supplied rows; the
 // users lookup returns the operator id when withOperator=true (so
 // resolveOperatorId in render/search.ts resolves).
-function makeDb(opts: {
-  withOperator?: boolean;
-  citationSummary?: Array<{ bot: string; hits: number; days_active: number }>;
-  citationTopPaths?: Array<{ path: string; hits: number; bots: number }>;
-  citationRecent?: Array<{ path: string; bot: string; created_at: string }>;
-} = {}): D1Database {
+function makeDb(
+  opts: {
+    withOperator?: boolean;
+    citationSummary?: Array<{ bot: string; hits: number; days_active: number }>;
+    citationTopPaths?: Array<{ path: string; hits: number; bots: number }>;
+    citationRecent?: Array<{ path: string; bot: string; created_at: string }>;
+  } = {},
+): D1Database {
   const summary = opts.citationSummary ?? [];
   const topPaths = opts.citationTopPaths ?? [];
   const recent = opts.citationRecent ?? [];

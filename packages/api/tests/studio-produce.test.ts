@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import type { AuthContext } from "../src/auth/middleware.ts";
-import studioRoutes, { renderStudioShell } from "../src/public/studio/routes.ts";
 import {
   renderLongFormMarkdown,
   renderNewsletterHtml,
@@ -10,13 +9,14 @@ import {
   wrapFaceForProduce,
 } from "../src/public/studio/produce.ts";
 import { renderHtmlToPng } from "../src/public/studio/render-png.ts";
+import studioRoutes, { renderStudioShell } from "../src/public/studio/routes.ts";
 
 // Tiny D1 stub that returns the configured page row from any
 // `SELECT ... FROM pages WHERE slug = ?` or `WHERE id = ?` lookup. Every
 // other query no-ops so the face renderers' page_claims SELECTs don't
 // throw.
 function makeDb(pageRow: Record<string, unknown> | null) {
-  const stmt = (sql: string, binds: unknown[] = []) => ({
+  const stmt = (sql: string, _binds: unknown[] = []) => ({
     bind(...vs: unknown[]) {
       return stmt(sql, vs);
     },
@@ -326,7 +326,9 @@ describe("Newsletter and long-form produce — download responses", () => {
     );
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
-    expect(res.headers.get("content-disposition") ?? "").toContain(`filename="${PAGE.slug}-newsletter.html"`);
+    expect(res.headers.get("content-disposition") ?? "").toContain(
+      `filename="${PAGE.slug}-newsletter.html"`,
+    );
   });
 
   it("newsletter text download returns text/plain", async () => {
