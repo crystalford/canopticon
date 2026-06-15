@@ -12,10 +12,25 @@ interface QueueArgs {
 
 export function renderQueuePage(args: QueueArgs): Response {
   const { candidates } = args;
+  const castCount = candidates.filter((c) => c.cast_template != null).length;
   const inner = candidates.length === 0 ? renderEmpty() : renderTable(candidates);
+  const briefAction =
+    castCount >= 2
+      ? `<form method="POST" action="/queue/brief" style="margin:0 0 18px;display:inline">
+  <button class="btn" type="submit" style="background:#fff;color:var(--ink);border:1px solid var(--rule)">
+    Build today's brief — ${castCount} stories →
+  </button>
+</form>`
+      : "";
+  const pollAction = `<form method="POST" action="/queue/poll" style="margin:0 0 18px;display:inline;margin-left:8px">
+  <button class="btn" type="submit" style="background:#fff;color:var(--ink);border:1px solid var(--rule)">
+    Refresh radar
+  </button>
+</form>`;
   const body = `
   <div class="h1">Today's candidates — the daily radar</div>
-  <div class="sub">phase 1 cockpit · gdelt surface + workers-ai rubric · ${candidates.length} candidate${candidates.length === 1 ? "" : "s"} from the last 48h</div>
+  <div class="sub">phase 1 cockpit · gdelt + brave radars · workers-ai rubric · ${candidates.length} candidate${candidates.length === 1 ? "" : "s"} from the last 48h</div>
+  <div>${briefAction}${pollAction}</div>
   ${inner}
   <div class="card" style="margin-top:24px">
     <div class="k">how this works</div>

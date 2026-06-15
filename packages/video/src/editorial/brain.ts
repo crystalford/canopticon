@@ -125,7 +125,12 @@ Write the segment JSON.`;
 /** Deterministic skeleton — used when the LLM call fails. Produces a
  *  valid §7b Segment scaffolded from the candidate's headline + excerpt,
  *  with TODO markers in the VO lines so the operator sees clearly that
- *  the brain didn't run. */
+ *  the brain didn't run.
+ *
+ *  Critical Phase 1B detail: the cold_open beat carries the candidate's
+ *  clip_url. The renderer's orchestrator (Container) sees the https://
+ *  src and fetches it via yt-dlp before bundling Remotion — so the
+ *  render runs against today's actual broadcast footage, not a fixture. */
 function buildSkeletonSegment(candidate: CandidateRow, template: string): Segment {
   const title = candidate.headline.slice(0, 80);
   const tag = candidate.entities[0] ?? "the principal";
@@ -145,8 +150,11 @@ function buildSkeletonSegment(candidate: CandidateRow, template: string): Segmen
         t_out_s: 4,
         type: "cold_open",
         vo: null,
-        clip: null,
-        chrome: [{ kind: "caption", text: tag.slice(0, 80) }],
+        // The candidate's broadcast URL — yt-dlp downloads in the
+        // Container. in_s/out_s = 0/4 means "first 4 seconds of the
+        // clip"; the operator can refine these in a Phase 2 trim UI.
+        clip: { src: candidate.clip_url, in_s: 0, out_s: 4, audio: "surface" },
+        chrome: [{ kind: "lower_third", speaker: tag.slice(0, 60), network: candidate.network }],
         source: candidate.network,
       },
       {

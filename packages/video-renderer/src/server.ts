@@ -63,7 +63,9 @@ app.post("/render", async (req, reply) => {
     .header("content-type", "video/mp4")
     .header("x-walltime-ms", String(result.walltime_ms))
     .header("x-est-cost-cents", cost.toFixed(4))
-    .header("x-chunks", String(result.chunks));
+    .header("x-chunks", String(result.chunks))
+    .header("x-clips-fetched", String(result.clips_fetched))
+    .header("x-captions-aligned", String(result.captions_aligned));
   return result.mp4;
 });
 

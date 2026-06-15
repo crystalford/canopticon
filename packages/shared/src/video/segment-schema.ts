@@ -14,12 +14,14 @@
 
 import { z } from "zod";
 
-/** Three editorial templates from the handoff (Part IV). Each is a
- *  beat skeleton, not a visual style. */
+/** Four editorial templates. Three from the handoff (Part IV) — each
+ *  is a beat skeleton, not a visual style — plus the compilation
+ *  format the operator asked for in Phase 1B. */
 export const TemplateKindSchema = z.enum([
   "claim_vs_ground", // Claim vs. The Ground — fact-check a statement against the record
   "buried_number", // The Buried Number — one shocking datapoint, scaled
   "reversal", // The Reversal — official story inverted by the receipts
+  "daily_brief", // 3-5 stories of the day in one ~75-90s compilation
 ]);
 
 export const VariantSchema = z.enum([

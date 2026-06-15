@@ -15,6 +15,7 @@
 import { Hono } from "hono";
 import { type AuthState, requireOperator } from "../auth";
 import { draftSegment } from "../editorial/brain";
+import { buildDailyBrief } from "../editorial/compilation";
 import { castTemplate, scoreCandidate } from "../editorial/rubric";
 import type { Env } from "../env";
 import { renderQueuePage } from "../pages/queue";
@@ -59,6 +60,33 @@ app.post("/poll", async (c) => {
   return c.redirect("/queue", 302);
 });
 
+// Build today's compilation from the top N cast candidates. Stitches
+// them into one daily_brief segment; the operator approves on
+// /queue/brief-:date.
+app.post("/brief", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const rows = await listRecent(c.env.DB, 48, 50).catch(() => []);
+  const usable = rows.filter((r) => r.cast_template != null).slice(0, 5);
+  if (usable.length < 2) {
+    return new Response(
+      "need at least 2 cast candidates to build a daily brief — poll the radar first",
+      { status: 400 },
+    );
+  }
+  const date = new Date().toISOString().slice(0, 10);
+  try {
+    const segment = buildDailyBrief(usable, { date });
+    await insertDraftedSegment(c.env.DB, segment);
+    // Mark the underlying candidates promoted so they don't get
+    // re-promoted individually.
+    for (const cand of usable) await markPromoted(c.env.DB, cand.id);
+    return c.redirect(`/queue/brief-${date}`, 302);
+  } catch (e) {
+    return new Response(`brief failed: ${(e as Error).message}`, { status: 500 });
+  }
+});
+
 app.post("/:id/promote", async (c) => {
   const gate = await requireOperator(c);
   if (gate) return gate;
@@ -78,20 +106,27 @@ app.post("/:id/promote", async (c) => {
   return c.redirect(`/queue/${encodeURIComponent(id)}`, 302);
 });
 
-// Review surface — operator edits forensic_turn.
+// Review surface — operator edits forensic_turn. Handles both
+// candidate-backed segments (seg-cand-xxx) and compilation segments
+// (seg-brief-YYYY-MM-DD).
 app.get("/:id", async (c) => {
   const gate = await requireOperator(c);
   if (gate) return gate;
-  const candId = c.req.param("id");
-  const candidate = await loadCandidate(c.env.DB, candId);
-  if (!candidate) return new Response("candidate not found", { status: 404 });
-  const segmentId = `seg-${candId}`;
+  const id = c.req.param("id");
+  const segmentId = `seg-${id}`;
   const segment = await loadSegment(c.env.DB, segmentId);
   if (!segment) {
     return new Response("segment not drafted yet — promote the candidate first", {
       status: 404,
     });
   }
+  // For compilation briefs there's no single candidate — synthesise a
+  // provenance card from the segment's beats / sources roll-up so the
+  // review page renders.
+  const candidate = id.startsWith("brief-")
+    ? syntheticBriefCandidate(id, segment)
+    : await loadCandidate(c.env.DB, id);
+  if (!candidate) return new Response("candidate not found", { status: 404 });
   const message = c.req.query("msg");
   return renderReviewPage({
     candidate,
@@ -100,6 +135,28 @@ app.get("/:id", async (c) => {
     ...(message ? { message } : {}),
   });
 });
+
+function syntheticBriefCandidate(
+  id: string,
+  segment: import("@canopticon/shared/video/segment-schema").Segment,
+) {
+  const storyCount = segment.beats.filter((b) => b.type === "cold_open").length;
+  return {
+    id,
+    network: "COMPILATION",
+    clip_url: "",
+    captured_at: new Date().toISOString(),
+    headline: segment.title,
+    excerpt: `Daily brief stitching ${storyCount} of today's top-scoring stories into one ~${segment.length_s}s compilation.`,
+    entities: segment.sources.slice(0, 6),
+    source: "stub" as const,
+    rubric_score: null,
+    rubric_json: null,
+    cast_template: "daily_brief",
+    status: "promoted",
+    created_at: new Date().toISOString(),
+  };
+}
 
 // Approve / save-draft.
 app.post("/:id/approve", async (c) => {
