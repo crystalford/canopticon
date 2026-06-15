@@ -1,20 +1,23 @@
-// Container client — wraps the Durable-Object-style fetcher Cloudflare
-// exposes for [[containers]] bindings.
+// Container client — wraps the Cloudflare Container binding fetcher.
 //
-// The renderer is a Node HTTP service listening on :8080 inside the
-// Container; the Worker calls it via env.RENDER_CONTAINER.get(id) and
-// `.fetch(request)` like any Durable Object stub. Phase 0 spawns one
-// instance per render. Phase 3 fan-out raises max_instances and routes
-// each variant to its own stub.
+// Contract (Phase 0):
+//   POST /render
+//     Content-Type: application/json
+//     Body: §7b Segment JSON
+//   →
+//     200 + Content-Type: video/mp4
+//        + X-Walltime-Ms, X-Est-Cost-Cents, X-Chunks headers
+//        + body = MP4 bytes
+//     5xx + JSON { ok: false, error: string }
 //
-// The contract IS the §7b segment JSON — both sides import the same
-// zod schema from @canopticon/shared/video/segment-schema.
+// The Worker reads the MP4 bytes from the response body and writes them
+// to R2 itself. No long-lived R2 credentials inside the Container.
 
 import type { Segment } from "@canopticon/shared/video/segment-schema";
 
 export interface RenderResult {
   ok: boolean;
-  r2_key?: string;
+  mp4?: ArrayBuffer;
   walltime_ms?: number;
   est_cost_cents?: number;
   chunks?: number;
@@ -30,9 +33,6 @@ export async function renderSegment(
   containerNs: DurableObjectNamespace,
   segment: Segment,
 ): Promise<RenderResult> {
-  // Each segment id gets its own Container instance (deterministic
-  // routing — the same segment always renders on the same instance so
-  // repeated calls can short-circuit when the cache is warm).
   const ns = containerNs as unknown as ContainerNamespaceLike;
   const id = ns.idFromName(segment.id);
   const stub = ns.get(id);
@@ -48,7 +48,14 @@ export async function renderSegment(
       const text = await res.text();
       return { ok: false, error: `renderer returned ${res.status}: ${text.slice(0, 300)}` };
     }
-    return (await res.json()) as RenderResult;
+    const mp4 = await res.arrayBuffer();
+    return {
+      ok: true,
+      mp4,
+      walltime_ms: Number(res.headers.get("x-walltime-ms") ?? 0),
+      est_cost_cents: Number(res.headers.get("x-est-cost-cents") ?? 0),
+      chunks: Number(res.headers.get("x-chunks") ?? 1),
+    };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
   }
