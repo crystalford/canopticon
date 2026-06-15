@@ -26,7 +26,7 @@ import type { Env } from "./env.ts";
 import { loadDailyMetrics, loadMetrics, renderMetricsPage } from "./pages/metrics.ts";
 import authRoutes from "./routes/auth.ts";
 import healthRoutes from "./routes/health.ts";
-import queueRoutes, { runDailyPoll } from "./routes/queue.ts";
+import queueRoutes from "./routes/queue.ts";
 import spikeRoutes from "./routes/spike.ts";
 import statusRoutes from "./routes/status.ts";
 import voiceRoutes from "./voice/routes.ts";
@@ -95,16 +95,17 @@ app.get("/assets/:key", async (c) => {
   });
 });
 
-// Scheduled handler — daily noon UTC. Polls GDELT, scores each
-// candidate through the rubric, casts the highest into a template.
-// The operator promotes the top candidate manually on /queue —
-// nothing auto-publishes.
-const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, ctx) => {
-  console.log(`canopticon-video cron ${controller.cron} fired at ${new Date().toISOString()}`);
-  ctx.waitUntil(runDailyPoll(env));
-};
+// NOTE: cron is intentionally not registered here. The Worker is
+// HTTP-only for now — the operator runs the radar by clicking
+// "Refresh radar" on /queue (which POSTs to /queue/poll and calls
+// runDailyPoll). When the manual flow is settled, re-enable the
+// scheduled handler below + uncomment [triggers] in wrangler.toml.
+//
+// const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, ctx) => {
+//   console.log(`canopticon-video cron ${controller.cron} fired at ${new Date().toISOString()}`);
+//   ctx.waitUntil(runDailyPoll(env));
+// };
 
 export default {
   fetch: app.fetch,
-  scheduled,
 } satisfies ExportedHandler<Env>;

@@ -29,7 +29,7 @@ export function renderQueuePage(args: QueueArgs): Response {
 </form>`;
   const body = `
   <div class="h1">Today's candidates — the daily radar</div>
-  <div class="sub">phase 1 cockpit · gdelt + brave radars · workers-ai rubric · ${candidates.length} candidate${candidates.length === 1 ? "" : "s"} from the last 48h</div>
+  <div class="sub">phase 1 cockpit · gdelt + brave radars · workers-ai rubric · ${candidates.length} candidate${candidates.length === 1 ? "" : "s"} from the last 48h · <span class="pill" style="background:#fff5e6;color:#5c4413">manual mode · cron disabled</span></div>
   <div style="font-family:var(--mono);font-size:11px;margin:0 0 16px">
     <a href="/" style="color:var(--ink-3);text-decoration:none;margin-right:14px">status →</a>
     <a href="/queue" style="color:var(--ink);text-decoration:none;margin-right:14px;border-bottom:2px solid var(--amber)">queue</a>

@@ -45,11 +45,13 @@ image = "../video-renderer"
 instance_type = "standard-4"
 max_instances = 1
 
-# Cron — daily noon UTC. Phase 0 logs "daily cron heartbeat" only so we
-# can verify the wiring before Phase 1's editorial brain fills in the
-# actual story-of-the-day pipeline.
-[triggers]
-crons = ["0 12 * * *"]
+# Cron — DISABLED. The operator is running this manually for now
+# via the "Refresh radar" button on /queue (POST /queue/poll). Re-
+# enable by uncommenting the [triggers] block below once the deploy
+# is settled and the operator has run a few end-to-end renders by
+# hand.
+# [triggers]
+# crons = ["0 12 * * *"]
 
 [vars]
 LOG_LEVEL = "info"
