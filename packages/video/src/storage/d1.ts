@@ -42,6 +42,85 @@ export async function loadSegmentRow(db: D1Database, id: string): Promise<Segmen
   return db.prepare("SELECT * FROM segments WHERE id = ? LIMIT 1").bind(id).first<SegmentRow>();
 }
 
+/** Insert a freshly-drafted segment from the editorial brain. Lifecycle
+ *  starts at 'awaiting_approval' — the operator's /queue/:id review
+ *  edits the forensic_turn and flips status to 'approved' (at which
+ *  point the renderer fires). */
+export async function insertDraftedSegment(db: D1Database, segment: Segment): Promise<void> {
+  await db
+    .prepare(
+      `INSERT OR REPLACE INTO segments (
+         id, status, source_rubric_score, template, forensic_turn, needs_human, payload_json, created_at
+       ) VALUES (?, 'awaiting_approval', ?, ?, ?, 1, ?, ?)`,
+    )
+    .bind(
+      segment.id,
+      null,
+      segment.template,
+      segment.forensic_turn.text,
+      JSON.stringify(segment),
+      new Date().toISOString(),
+    )
+    .run();
+}
+
+/** Operator-approved: update the forensic_turn text, flip needs_human
+ *  to 0, flip status to 'approved'. The render is fired by the route
+ *  handler immediately after this in waitUntil. */
+export async function approveSegment(
+  db: D1Database,
+  id: string,
+  forensicTurn: string,
+): Promise<Segment | null> {
+  const current = await loadSegment(db, id);
+  if (!current) return null;
+  const updated: Segment = {
+    ...current,
+    forensic_turn: {
+      ...current.forensic_turn,
+      text: forensicTurn,
+      needs_human: false,
+      approved_at: new Date().toISOString(),
+    },
+  };
+  await db
+    .prepare(
+      `UPDATE segments
+          SET status = 'approved',
+              forensic_turn = ?,
+              needs_human = 0,
+              payload_json = ?
+        WHERE id = ?`,
+    )
+    .bind(forensicTurn, JSON.stringify(updated), id)
+    .run();
+  return updated;
+}
+
+/** Save-draft: update forensic_turn text without approving. Used by
+ *  the review page's "Save draft" button so the operator can refine
+ *  the line over multiple visits before clicking Approve. */
+export async function saveSegmentDraft(
+  db: D1Database,
+  id: string,
+  forensicTurn: string,
+): Promise<void> {
+  const current = await loadSegment(db, id);
+  if (!current) return;
+  const updated: Segment = {
+    ...current,
+    forensic_turn: { ...current.forensic_turn, text: forensicTurn },
+  };
+  await db
+    .prepare("UPDATE segments SET forensic_turn = ?, payload_json = ? WHERE id = ?")
+    .bind(forensicTurn, JSON.stringify(updated), id)
+    .run();
+}
+
+export async function markSegmentRendered(db: D1Database, id: string): Promise<void> {
+  await db.prepare("UPDATE segments SET status = 'rendered' WHERE id = ?").bind(id).run();
+}
+
 export async function createRenderJob(db: D1Database, segment: Segment): Promise<string> {
   const id = crypto.randomUUID();
   await db

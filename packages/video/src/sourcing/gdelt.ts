@@ -31,10 +31,9 @@ export interface Candidate {
   excerpt: string;
   /** Detected entities — politicians, agencies, companies mentioned. */
   entities: string[];
-  /** Where this came from — "gdelt" for live, "stub" when the API was
-   *  unreachable. The operator sees this in the queue so they know
-   *  whether to retry. */
-  source: "gdelt" | "stub";
+  /** Where this came from. The operator sees this tag in the queue so
+   *  they know which radar caught the story. */
+  source: "gdelt" | "brave" | "rss" | "stub";
 }
 
 interface GdeltApiArgs {
