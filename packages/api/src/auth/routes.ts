@@ -89,17 +89,17 @@ app.get("/login", async (c) => {
   return new Response(null, {
     status: 302,
     headers: {
-      "Set-Cookie": buildSessionCookie(cookie),
+      "Set-Cookie": buildSessionCookie(cookie, c.env.SESSION_COOKIE_DOMAIN),
       Location: safeNext,
     },
   });
 });
 
-app.get("/logout", () => {
+app.get("/logout", (c) => {
   return new Response(null, {
     status: 302,
     headers: {
-      "Set-Cookie": buildClearSessionCookie(),
+      "Set-Cookie": buildClearSessionCookie(c.env.SESSION_COOKIE_DOMAIN),
       Location: "/",
     },
   });

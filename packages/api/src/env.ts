@@ -22,6 +22,14 @@ export interface Env {
   // disabled. (Spec v2.5 Part 9 — the one-site permission model.)
   SESSION_SECRET?: string;
 
+  // Domain attribute on the operator session cookie. In production this
+  // is ".canopticon.com" so the cookie is recognised on both
+  // canopticon.com (publication) and video.canopticon.com (daily video
+  // engine — separate Worker, same SESSION_SECRET). Left undefined in
+  // local dev / tests so Set-Cookie doesn't carry a Domain attribute
+  // the test harness can't satisfy.
+  SESSION_COOKIE_DOMAIN?: string;
+
   // openparliament.ca user-agent (only used if cron ingestion enabled).
   OPENPARLIAMENT_USER_AGENT?: string;
 
