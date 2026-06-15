@@ -1,14 +1,21 @@
 // canopticon-video — daily forensic video engine Worker.
 //
-// Phase 0 cockpit: the operator can fire a single render of the seeded
-// Carney "It Looks Like Teslas" segment via POST /spike, watch the
-// status page (polled every 3s), and play the resulting MP4 inline.
-// Cron is a heartbeat-only log until Phase 1 wires the editorial brain.
+// Phase 1 cockpit: the daily cron polls GDELT for Canadian-politics
+// clips, scores each through the editorial rubric (Workers AI), casts
+// the highest-scoring into one of three templates, and surfaces them
+// on /queue. The operator promotes one candidate per day to a segment
+// that Phase 1 chunk B's editorial brain writes a script for.
+//
+// Phase 0 path (operator can still trigger): POST /spike renders the
+// seeded "It Looks Like Teslas" segment against the Container.
 //
 // Routes:
-//   GET  /                — operator-only status page (auth-gated)
-//   POST /spike           — operator-only render trigger
-//   GET  /assets/:key     — operator-only R2 proxy for the rendered MP4
+//   GET  /                — status page (latest render_job)
+//   GET  /queue           — daily-radar candidates
+//   POST /queue/poll      — manual GDELT poll (same as the cron)
+//   POST /queue/:id/promote — promote a candidate to a segment
+//   POST /spike           — render the Phase 0 seed segment
+//   GET  /assets/:key     — operator-only R2 proxy
 //   GET  /auth/login      — 302 to canopticon.com/auth/login?next=...
 //   GET  /auth/logout     — 302 to canopticon.com/auth/logout
 //   GET  /health          — public JSON liveness
@@ -18,6 +25,7 @@ import { type AuthState, requireOperator } from "./auth.ts";
 import type { Env } from "./env.ts";
 import authRoutes from "./routes/auth.ts";
 import healthRoutes from "./routes/health.ts";
+import queueRoutes, { runDailyPoll } from "./routes/queue.ts";
 import spikeRoutes from "./routes/spike.ts";
 import statusRoutes from "./routes/status.ts";
 
@@ -40,6 +48,7 @@ app.onError((err, c) => {
 
 app.route("/", statusRoutes);
 app.route("/", spikeRoutes);
+app.route("/queue", queueRoutes);
 app.route("/auth", authRoutes);
 app.route("/health", healthRoutes);
 
@@ -61,10 +70,13 @@ app.get("/assets/:key", async (c) => {
   });
 });
 
-// Scheduled handler — Phase 0 heartbeat only. Phase 1 swaps this for
-// the GDELT poll → rubric → editorial-brain → enqueue-render chain.
-const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, _env, _ctx) => {
+// Scheduled handler — daily noon UTC. Polls GDELT, scores each
+// candidate through the rubric, casts the highest into a template.
+// The operator promotes the top candidate manually on /queue —
+// nothing auto-publishes.
+const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, ctx) => {
   console.log(`canopticon-video cron ${controller.cron} fired at ${new Date().toISOString()}`);
+  ctx.waitUntil(runDailyPoll(env));
 };
 
 export default {
