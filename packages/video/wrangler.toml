@@ -39,7 +39,7 @@ binding = "AI"
 # CPU-only Container Cloudflare offers (4 vCPU / 12 GiB). Phase 0 proves
 # the render fits inside this envelope; Phase 1+ may raise max_instances
 # for fan-out rendering of multiple variants in parallel.
-[[containers]]
+[containers]
 class_name = "RenderContainer"
 image = "../video-renderer"
 instance_type = "standard-4"
