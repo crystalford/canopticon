@@ -30,6 +30,12 @@ export function renderQueuePage(args: QueueArgs): Response {
   const body = `
   <div class="h1">Today's candidates — the daily radar</div>
   <div class="sub">phase 1 cockpit · gdelt + brave radars · workers-ai rubric · ${candidates.length} candidate${candidates.length === 1 ? "" : "s"} from the last 48h</div>
+  <div style="font-family:var(--mono);font-size:11px;margin:0 0 16px">
+    <a href="/" style="color:var(--ink-3);text-decoration:none;margin-right:14px">status →</a>
+    <a href="/queue" style="color:var(--ink);text-decoration:none;margin-right:14px;border-bottom:2px solid var(--amber)">queue</a>
+    <a href="/voice" style="color:var(--ink-3);text-decoration:none;margin-right:14px">voice clone →</a>
+    <a href="/metrics" style="color:var(--ink-3);text-decoration:none">metrics →</a>
+  </div>
   <div>${briefAction}${pollAction}</div>
   ${inner}
   <div class="card" style="margin-top:24px">

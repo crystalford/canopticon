@@ -66,6 +66,23 @@ function renderJobCard(job: RenderJobRow, videoUrl: string | null): string {
       ? `<video controls src="${escapeAttr(videoUrl)}"></video>`
       : "";
 
+  // Platform deep-links — Download MP4 + buttons that open each
+  // platform's web upload page. The operator drags the downloaded
+  // file into the platform's uploader. No OAuth, no auto-publish.
+  // Mirrors the Studio Stage F pattern from the publication.
+  const publish =
+    job.status === "succeeded" && videoUrl
+      ? `<div class="row" style="margin-top:14px;flex-wrap:wrap;gap:8px">
+  <a class="btn" href="${escapeAttr(videoUrl)}" download style="background:var(--ink);color:var(--paper)">⬇ Download MP4</a>
+  <a class="btn" href="https://studio.youtube.com/channel/UC/videos/upload" target="_blank" rel="noopener" style="background:#fff;color:var(--ink);border:1px solid var(--rule)">YouTube Studio →</a>
+  <a class="btn" href="https://www.tiktok.com/upload" target="_blank" rel="noopener" style="background:#fff;color:var(--ink);border:1px solid var(--rule)">TikTok upload →</a>
+  <a class="btn" href="https://www.instagram.com/" target="_blank" rel="noopener" style="background:#fff;color:var(--ink);border:1px solid var(--rule)">Instagram →</a>
+  <a class="btn" href="https://twitter.com/compose/tweet" target="_blank" rel="noopener" style="background:#fff;color:var(--ink);border:1px solid var(--rule)">X compose →</a>
+  <a class="btn" href="https://www.linkedin.com/" target="_blank" rel="noopener" style="background:#fff;color:var(--ink);border:1px solid var(--rule)">LinkedIn →</a>
+</div>
+<div style="font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:6px">deep-links open each platform's web uploader · drag the downloaded mp4 in · no oauth, no auto-publish</div>`
+      : "";
+
   return `<div class="card">
   <div class="row">
     <div><div class="k">status</div><div class="v">${status}</div></div>
@@ -82,5 +99,6 @@ function renderJobCard(job: RenderJobRow, videoUrl: string | null): string {
   </div>
   ${error}
   ${video ? `<div style="margin-top:18px">${video}</div>` : ""}
+  ${publish}
 </div>`;
 }

@@ -65,7 +65,9 @@ app.post("/render", async (req, reply) => {
     .header("x-est-cost-cents", cost.toFixed(4))
     .header("x-chunks", String(result.chunks))
     .header("x-clips-fetched", String(result.clips_fetched))
-    .header("x-captions-aligned", String(result.captions_aligned));
+    .header("x-captions-aligned", String(result.captions_aligned))
+    .header("x-narrator-seconds", result.narrator_seconds.toFixed(2))
+    .header("x-beats-snapped", String(result.beats_snapped));
   return result.mp4;
 });
 

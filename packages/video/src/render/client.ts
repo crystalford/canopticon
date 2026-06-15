@@ -21,6 +21,10 @@ export interface RenderResult {
   walltime_ms?: number;
   est_cost_cents?: number;
   chunks?: number;
+  clips_fetched?: number;
+  captions_aligned?: number;
+  narrator_seconds?: number;
+  beats_snapped?: number;
   error?: string;
 }
 
@@ -55,6 +59,10 @@ export async function renderSegment(
       walltime_ms: Number(res.headers.get("x-walltime-ms") ?? 0),
       est_cost_cents: Number(res.headers.get("x-est-cost-cents") ?? 0),
       chunks: Number(res.headers.get("x-chunks") ?? 1),
+      clips_fetched: Number(res.headers.get("x-clips-fetched") ?? 0),
+      captions_aligned: Number(res.headers.get("x-captions-aligned") ?? 0),
+      narrator_seconds: Number(res.headers.get("x-narrator-seconds") ?? 0),
+      beats_snapped: Number(res.headers.get("x-beats-snapped") ?? 0),
     };
   } catch (err) {
     return { ok: false, error: (err as Error).message };

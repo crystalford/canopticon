@@ -23,11 +23,13 @@
 import { Hono } from "hono";
 import { type AuthState, requireOperator } from "./auth.ts";
 import type { Env } from "./env.ts";
+import { loadDailyMetrics, loadMetrics, renderMetricsPage } from "./pages/metrics.ts";
 import authRoutes from "./routes/auth.ts";
 import healthRoutes from "./routes/health.ts";
 import queueRoutes, { runDailyPoll } from "./routes/queue.ts";
 import spikeRoutes from "./routes/spike.ts";
 import statusRoutes from "./routes/status.ts";
+import voiceRoutes from "./voice/routes.ts";
 
 type App = { Bindings: Env; Variables: AuthState };
 
@@ -49,8 +51,31 @@ app.onError((err, c) => {
 app.route("/", statusRoutes);
 app.route("/", spikeRoutes);
 app.route("/queue", queueRoutes);
+app.route("/voice", voiceRoutes);
 app.route("/auth", authRoutes);
 app.route("/health", healthRoutes);
+
+// GET /metrics — operator-only render-cost dashboard.
+app.get("/metrics", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const [metrics, daily] = await Promise.all([
+    loadMetrics(c.env.DB).catch(() => null),
+    loadDailyMetrics(c.env.DB).catch(() => []),
+  ]);
+  return renderMetricsPage({
+    metrics: metrics ?? {
+      total_renders: 0,
+      succeeded: 0,
+      failed: 0,
+      total_cost_cents: 0,
+      avg_walltime_ms: 0,
+      avg_cost_cents: 0,
+      most_recent_at: null,
+    },
+    daily,
+  });
+});
 
 // GET /assets/:key — operator-only proxy that streams the rendered MP4
 // out of R2. Cheaper than minting signed URLs for the Phase 0 status
