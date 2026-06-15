@@ -135,11 +135,17 @@ function buildSkeletonSegment(candidate: CandidateRow, template: string): Segmen
   const title = candidate.headline.slice(0, 80);
   const tag = candidate.entities[0] ?? "the principal";
 
+  // 75s default — the upper end of the handoff's 35-75s working band.
+  // Each beat gets real room: 6s cold-open, 9s thesis, 22s evidence,
+  // 16s forensic_turn (the line that does the work, so the most room),
+  // 18s implication, 4s tag. Story-specific renders can ask the LLM
+  // to compress to 45-60s when the content is thin; the skeleton
+  // errs on the side of breathing room.
   return {
     id: `seg-${candidate.id}`,
     title,
     template: template as Segment["template"],
-    length_s: 60,
+    length_s: 75,
     forensic_turn: {
       text: "[OPERATOR: write the line that reveals the gap]",
       needs_human: true,
@@ -147,19 +153,19 @@ function buildSkeletonSegment(candidate: CandidateRow, template: string): Segmen
     beats: [
       {
         t_in_s: 0,
-        t_out_s: 4,
+        t_out_s: 6,
         type: "cold_open",
         vo: null,
         // The candidate's broadcast URL — yt-dlp downloads in the
-        // Container. in_s/out_s = 0/4 means "first 4 seconds of the
+        // Container. in_s/out_s = 0/6 means "first 6 seconds of the
         // clip"; the operator can refine these in a Phase 2 trim UI.
-        clip: { src: candidate.clip_url, in_s: 0, out_s: 4, audio: "surface" },
+        clip: { src: candidate.clip_url, in_s: 0, out_s: 6, audio: "surface" },
         chrome: [{ kind: "lower_third", speaker: tag.slice(0, 60), network: candidate.network }],
         source: candidate.network,
       },
       {
-        t_in_s: 4,
-        t_out_s: 10,
+        t_in_s: 6,
+        t_out_s: 15,
         type: "thesis",
         vo: `[OPERATOR: thesis line opening the gap on "${candidate.headline.slice(0, 80)}"]`,
         clip: null,
@@ -167,17 +173,17 @@ function buildSkeletonSegment(candidate: CandidateRow, template: string): Segmen
         source: null,
       },
       {
-        t_in_s: 10,
-        t_out_s: 32,
+        t_in_s: 15,
+        t_out_s: 37,
         type: "evidence",
-        vo: candidate.excerpt.slice(0, 200),
+        vo: candidate.excerpt.slice(0, 350),
         clip: null,
         chrome: [{ kind: "callout", text: tag.slice(0, 60), emphasis: "strong" }],
         source: candidate.clip_url,
       },
       {
-        t_in_s: 32,
-        t_out_s: 46,
+        t_in_s: 37,
+        t_out_s: 53,
         type: "forensic_turn",
         vo: "[OPERATOR: edit the forensic_turn line, then approve]",
         clip: null,
@@ -185,8 +191,8 @@ function buildSkeletonSegment(candidate: CandidateRow, template: string): Segmen
         source: candidate.clip_url,
       },
       {
-        t_in_s: 46,
-        t_out_s: 56,
+        t_in_s: 53,
+        t_out_s: 71,
         type: "implication",
         vo: "[OPERATOR: implication — why it matters in one line]",
         clip: null,
@@ -194,8 +200,8 @@ function buildSkeletonSegment(candidate: CandidateRow, template: string): Segmen
         source: null,
       },
       {
-        t_in_s: 56,
-        t_out_s: 60,
+        t_in_s: 71,
+        t_out_s: 75,
         type: "tag",
         vo: null,
         clip: null,
@@ -203,7 +209,7 @@ function buildSkeletonSegment(candidate: CandidateRow, template: string): Segmen
         source: null,
       },
     ],
-    music: { bed: "forensic_low", drop_at_s: 32 },
+    music: { bed: "forensic_low", drop_at_s: 37 },
     voice: { provider: "minimax", voice_id: "operator-clone" },
     sources: [candidate.network, candidate.clip_url],
     variants: ["1080x1920"],

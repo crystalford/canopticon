@@ -44,6 +44,10 @@ describe("draftSegment — editorial brain", () => {
     // so the review surface knows the LLM didn't run.
     expect(r.segment?.forensic_turn.text).toContain("[OPERATOR:");
     expect(r.segment?.beats.length).toBeGreaterThanOrEqual(3);
+    // Skeleton default lands at the upper end of the working band
+    // (75s) so each beat has real breathing room. The LLM is allowed
+    // to compress to 45s when warranted; the skeleton does not.
+    expect(r.segment?.length_s).toBe(75);
   });
 
   it("uses the LLM when the AI binding returns valid JSON", async () => {

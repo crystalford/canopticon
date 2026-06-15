@@ -1,45 +1,56 @@
 // Compilation segment — the "daily brief" format the operator asked
 // for: 3-5 of the day's top-scoring candidates stitched into one
-// ~75-90s vertical short.
+// ~110-180s vertical short.
 //
-// Structure: each mini-segment is a 15-18s self-contained beat-block
-// (cold_open clip → one-line VO thesis → callout → bumper). The full
-// composition runs:
-//   [0–4s]     intro card — date, topic count
-//   [4–22s]    story 1
-//   [22–40s]   story 2
-//   [40–58s]   story 3
+// Per-story is 35s — long enough that each story gets a real cold-open
+// clip, a full thesis VO, a forensic_turn line with room to land, and
+// a transition bumper. Tighter than that and the compilation reads as
+// a teaser, not a brief. The schema's 180s ceiling still applies; five
+// 35s stories + intro + outro lands at 185s if uncapped — buildDailyBrief
+// caps at 5 stories AND honours the 180s ceiling, so the actual maximum
+// length is 174s with a 4s intro and 4s outro × 5 stories of 33s each
+// when capped. For typical 3-story briefs the math is comfortable.
+//
+// Structure:
+//   [0–6s]      intro card — date, topic count
+//   [6–41s]     story 1 (35s)
+//   [41–76s]    story 2 (35s)
+//   [76–111s]   story 3 (35s)
 //   ...
-//   [N–N+4s]   outro card — canopticon mark + source list
+//   [N–N+6s]    outro card — canopticon mark + source list
 //
 // Each story's forensic_turn is a single line — the operator reviews
-// all 3-5 turns at once on the daily-brief review page (Phase 1C, not
-// implemented in this commit). For now the brain produces a skeleton
-// the operator can promote, then approve one turn at a time.
+// all 3-5 turns + the umbrella line on the brief review page.
 
 import type { Beat, Segment } from "@canopticon/shared/video/segment-schema";
 import type { CandidateRow } from "../sourcing/candidates";
 
-const INTRO_S = 4;
-const STORY_S = 18;
-const OUTRO_S = 4;
+const INTRO_S = 6;
+const STORY_S = 35;
+const OUTRO_S = 6;
+// Schema caps length_s at 180. With INTRO_S=6 + OUTRO_S=6 = 12, that
+// leaves 168s for stories. 168 / STORY_S = 4.8 → 4 full 35s stories,
+// or 5 stories at the slightly compressed COMPRESSED_STORY_S below.
+const MAX_STORIES = 5;
+const COMPRESSED_STORY_S = 33; // 5 × 33 + 12 = 177s ≤ 180
 
 /** Build a daily_brief segment from the top N candidates. Each story
- *  contributes one cold_open + one thesis + one evidence + one
- *  forensic_turn beat (4 beats × N stories). Total length scales with
- *  the candidate count: 4 + 18*N + 4 seconds. */
+ *  contributes one cold_open clip + one thesis VO + one forensic_turn
+ *  + one micro-tag (4 beats × N stories). Per-story length 35s default,
+ *  compressed to 33s when 5 stories are present to stay inside the
+ *  180s schema ceiling. */
 export function buildDailyBrief(
   candidates: CandidateRow[],
   args: { date: string } = { date: new Date().toISOString().slice(0, 10) },
 ): Segment {
-  const usable = candidates.filter((c) => c.cast_template != null).slice(0, 5);
+  const usable = candidates.filter((c) => c.cast_template != null).slice(0, MAX_STORIES);
   if (usable.length < 2) {
     throw new Error("daily_brief needs at least 2 cast candidates");
   }
-  const length_s = INTRO_S + STORY_S * usable.length + OUTRO_S;
+  const storyS = usable.length >= 5 ? COMPRESSED_STORY_S : STORY_S;
+  const length_s = INTRO_S + storyS * usable.length + OUTRO_S;
   const beats: Beat[] = [];
   const sources = new Set<string>();
-  const cards: string[] = [];
 
   // Intro card — date + topic count.
   beats.push({
@@ -59,23 +70,26 @@ export function buildDailyBrief(
     source: null,
   });
 
-  // Per-story block: 18s, four beats (cold-open clip / thesis VO /
-  // forensic_turn / micro-tag). The forensic_turn is the only line
-  // the operator edits.
+  // Per-story block: storyS seconds, four beats with the proportions
+  // tuned so the forensic_turn gets the most room (it's the line that
+  // does the work).
+  const COLD_S = Math.round(storyS * 0.17); // ~6s of 35
+  const THESIS_S = Math.round(storyS * 0.34); // ~12s of 35
+  const TURN_S = Math.round(storyS * 0.4); // ~14s of 35
+  // micro_tag = storyS - (cold + thesis + turn)
   usable.forEach((c, i) => {
-    const block_t0 = INTRO_S + STORY_S * i;
+    const block_t0 = INTRO_S + storyS * i;
     const tag = c.entities[0] ?? "the principal";
     sources.add(c.network);
     sources.add(c.clip_url);
-    cards.push(`${i + 1}. ${c.headline.slice(0, 80)} — ${c.network}`);
 
-    // 4s cold-open clip — yt-dlp fetches in the Container.
+    // ~6s cold-open clip — yt-dlp fetches in the Container.
     beats.push({
       t_in_s: block_t0,
-      t_out_s: block_t0 + 4,
+      t_out_s: block_t0 + COLD_S,
       type: "cold_open",
       vo: null,
-      clip: { src: c.clip_url, in_s: 0, out_s: 4, audio: "surface" },
+      clip: { src: c.clip_url, in_s: 0, out_s: COLD_S, audio: "surface" },
       chrome: [
         {
           kind: "lower_third",
@@ -87,21 +101,24 @@ export function buildDailyBrief(
       source: c.network,
     });
 
-    // 6s thesis VO — narrator reads the story-of-the-day.
+    // ~12s thesis VO — narrator reads enough context for the story
+    // to make sense to a viewer who hasn't been following it.
     beats.push({
-      t_in_s: block_t0 + 4,
-      t_out_s: block_t0 + 10,
+      t_in_s: block_t0 + COLD_S,
+      t_out_s: block_t0 + COLD_S + THESIS_S,
       type: "thesis",
-      vo: c.excerpt.slice(0, 180),
+      vo: c.excerpt.slice(0, 320),
       clip: null,
       chrome: [{ kind: "caption", text: c.headline.slice(0, 90) }],
       source: null,
     });
 
-    // 6s forensic_turn — the line the operator edits per story.
+    // ~14s forensic_turn — the line the operator edits per story.
+    // Most room of any beat: this is where the gap gets revealed and
+    // landed, with a beat of silence after the damning fact.
     beats.push({
-      t_in_s: block_t0 + 10,
-      t_out_s: block_t0 + 16,
+      t_in_s: block_t0 + COLD_S + THESIS_S,
+      t_out_s: block_t0 + COLD_S + THESIS_S + TURN_S,
       type: "forensic_turn",
       vo: `[OPERATOR ${i + 1}: edit the forensic_turn for "${c.headline.slice(0, 60)}"]`,
       clip: null,
@@ -109,21 +126,28 @@ export function buildDailyBrief(
       source: c.clip_url,
     });
 
-    // 2s micro-tag — story number + bumper.
+    // Remaining seconds → micro-tag + transition bumper to the next
+    // story (or the outro for the last one).
     beats.push({
-      t_in_s: block_t0 + 16,
-      t_out_s: block_t0 + 18,
+      t_in_s: block_t0 + COLD_S + THESIS_S + TURN_S,
+      t_out_s: block_t0 + storyS,
       type: "tag",
       vo: null,
       clip: null,
-      chrome: [{ kind: "callout", text: `→ story ${i + 2}`, emphasis: "normal" }],
+      chrome: [
+        {
+          kind: "callout",
+          text: i < usable.length - 1 ? `→ story ${i + 2}` : "→ outro",
+          emphasis: "normal",
+        },
+      ],
       source: null,
     });
   });
 
   // Outro card — canopticon mark, sources roll-up.
   beats.push({
-    t_in_s: INTRO_S + STORY_S * usable.length,
+    t_in_s: INTRO_S + storyS * usable.length,
     t_out_s: length_s,
     type: "tag",
     vo: null,
@@ -144,9 +168,8 @@ export function buildDailyBrief(
     length_s,
     forensic_turn: {
       // The compilation's umbrella forensic_turn — usually a one-liner
-      // tying the day together. The operator can leave it blank by
-      // approving with no edit, in which case the outro carries the
-      // weight alone.
+      // tying the day together. Burned into the outro card and read by
+      // the narrator under the closing bumper if non-empty.
       text: `[OPERATOR: write the one-line frame for ${args.date} — what ties these ${usable.length} stories together?]`,
       needs_human: true,
     },

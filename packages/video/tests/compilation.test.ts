@@ -44,7 +44,7 @@ describe("buildDailyBrief — compilation segment", () => {
     expect(seg.forensic_turn.needs_human).toBe(true);
   });
 
-  it("scales length with story count: 4 + 18*N + 4", () => {
+  it("scales length with story count: 6 + 35*N + 6 (compressed to 33s/story at 5)", () => {
     const three = buildDailyBrief(
       [
         cand("a", "Story A first", "CBC"),
@@ -53,7 +53,7 @@ describe("buildDailyBrief — compilation segment", () => {
       ],
       { date: "2026-06-15" },
     );
-    expect(three.length_s).toBe(4 + 18 * 3 + 4); // 62
+    expect(three.length_s).toBe(6 + 35 * 3 + 6); // 117s ≈ 2 min
     const five = buildDailyBrief(
       [
         cand("a", "A", "CBC"),
@@ -64,7 +64,10 @@ describe("buildDailyBrief — compilation segment", () => {
       ],
       { date: "2026-06-15" },
     );
-    expect(five.length_s).toBe(4 + 18 * 5 + 4); // 98
+    // 5 stories compresses per-story to 33s to stay inside the 180s
+    // schema ceiling: 6 + 33*5 + 6 = 177s ≤ 180.
+    expect(five.length_s).toBe(6 + 33 * 5 + 6);
+    expect(five.length_s).toBeLessThanOrEqual(180);
   });
 
   it("caps at 5 stories even if more are supplied", () => {
@@ -85,5 +88,23 @@ describe("buildDailyBrief — compilation segment", () => {
     expect(coldOpens.length).toBe(2);
     expect(coldOpens[0]?.clip?.src).toBe("https://example.com/a");
     expect(coldOpens[1]?.clip?.src).toBe("https://example.com/b");
+  });
+
+  it("forensic_turn beat is the longest within each story block", () => {
+    const seg = buildDailyBrief(
+      [cand("a", "Story A", "CBC"), cand("b", "Story B", "CTV"), cand("c", "Story C", "GLOBAL")],
+      { date: "2026-06-15" },
+    );
+    // Each story's beats live in groups of 4 (cold_open / thesis /
+    // forensic_turn / micro_tag). The forensic_turn should be the
+    // single longest beat within each story.
+    const turns = seg.beats.filter((b) => b.type === "forensic_turn");
+    expect(turns.length).toBe(3);
+    for (const turn of turns) {
+      const dur = turn.t_out_s - turn.t_in_s;
+      // 14s of 35s = 40% of the story block, longest of the four beats
+      expect(dur).toBeGreaterThanOrEqual(12);
+      expect(dur).toBeLessThanOrEqual(16);
+    }
   });
 });
