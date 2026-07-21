@@ -47,3 +47,7 @@ jobs:
         working-directory: packages/video
         run: pnpm exec wrangler deploy --dry-run
 
+      - name: Blindspot Worker bundle (wrangler dry-run)
+        working-directory: packages/blindspot
+        run: pnpm exec wrangler deploy --dry-run
+
