@@ -31,6 +31,22 @@ The system reads, notices, drafts, verifies. The operator clicks Approve or Disc
 
 -----
 
+# PART 0a — THE THREE ARMS
+
+CANOPTICON is one system with **three product arms**. They share one Cloudflare account, one GitHub monorepo, and one operator identity (a single session cookie scoped to `.canopticon.com` recognises the operator across all three). They do not share data models — each arm carries its own storage, its own ingest, its own UI. The shared package `@canopticon/shared` holds only the cookie verifier and cross-arm contracts.
+
+1. **The publication** — `canopticon.com`. The forensic intelligence system described by the rest of this spec: research in → typed graph → citable pages → signed readings → the operator approves. This is the trust anchor; the other two arms authenticate against its `/auth/*` flow.
+
+2. **The daily forensic video engine** — `video.canopticon.com` (`packages/video`). A render pipeline that turns the day's radar into short forensic video segments. Shipped. Manual mode (cron disabled); the operator drives it push-button.
+
+3. **Instruments** — a new arm of standalone, code-built **measurement tools**, each on its own subdomain. An instrument makes visible something the official measurement structurally cannot, and ships with three layers: a **method paper** that proves it, a live **instrument** that shows it, and a **content layer** (publication pieces or video segments) that spreads it. Instruments are indexed at `canopticon.com/instruments`.
+
+   The first instrument is **The Blind Spot** (`blindspot.canopticon.com`, `packages/blindspot`): Canada's three official methods of estimating top-tail wealth disagree most at the very top; the instrument renders the disagreement as the subject and quantifies it as the **Invisibility Index**. Every instrument is a new package + new subdomain + new deploy workflow + new migration tree — no mono-instrument, no silent coupling.
+
+The rules that govern the publication govern the instruments too: **the operator approves, never authors; verification is mechanical, not vouched; simplicity above all.** An instrument's every published number is traceable to a stored snapshot of a real public statistic, and its method paper is honest about what it cannot resolve.
+
+-----
+
 # PART 1 — GLOSSARY (binding — read before any other section)
 
 These words are load-bearing. Misreading one can invert the system.

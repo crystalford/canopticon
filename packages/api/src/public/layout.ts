@@ -26,6 +26,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: "/investigations", label: "Investigations" },
   { href: "/topics", label: "Topics" },
   { href: "/library", label: "Library" },
+  { href: "/instruments", label: "Instruments" },
   { href: "/about", label: "About" },
 ];
 
@@ -33,6 +34,7 @@ const FOOTER_EXPLORE: NavItem[] = [
   { href: "/investigations", label: "Investigations" },
   { href: "/topics", label: "Topics" },
   { href: "/library", label: "Library" },
+  { href: "/instruments", label: "Instruments" },
   { href: "/methodology", label: "Methodology" },
 ];
 

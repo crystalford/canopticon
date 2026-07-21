@@ -14,6 +14,7 @@ import { renderAbout } from "./render/about";
 import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
 import { renderHome } from "./render/home";
+import { renderInstrumentsIndex } from "./render/instruments";
 import { renderInvestigationsIndex, renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
 import { renderPiece } from "./render/piece-template";
@@ -122,6 +123,11 @@ app.get("/", async (c) =>
 // ---- Topics ---------------------------------------------------------------
 
 app.get("/topics", async (c) => htmlResponse(await renderTopicsIndex(c.env)));
+
+// ---- Instruments ----------------------------------------------------------
+// The third product arm's doorway. Instruments live on their own
+// subdomains; this page is the machine-citable index into them.
+app.get("/instruments", () => htmlResponse(renderInstrumentsIndex()));
 
 app.get("/topics/:slug", async (c) => {
   const html = await renderTopicHub(c.env, c.req.param("slug"));
