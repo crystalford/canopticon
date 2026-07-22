@@ -302,48 +302,52 @@ async function loadActiveFiles(db: D1Database, userId: string): Promise<ActiveFi
   ).catch(() => []);
   if (candidates.length === 0) return [];
 
-  const out: ActiveFile[] = [];
-  for (const c of candidates) {
-    const stats = await one<{ facts: number; disputed: number; sources: number }>(
-      db,
-      `SELECT
-         (SELECT COUNT(*) FROM nodes f WHERE f.user_id = ? AND f.kind IN ('neutral_fact','event')
-           AND EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND e.family='aboutness'
-             AND e.src_node_id = f.id AND e.dst_node_id = ?)) AS facts,
-         (SELECT COUNT(*) FROM assertions a JOIN nodes an ON an.id = a.node_id
-           WHERE an.user_id = ? AND a.rank = 'contested'
-             AND EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
-               (e.src_node_id = an.id AND e.dst_node_id = ?) OR (e.dst_node_id = an.id AND e.src_node_id = ?)))) AS disputed,
-         (SELECT COUNT(DISTINCT piece_id) FROM nodes np WHERE np.user_id = ? AND np.piece_id IS NOT NULL
-           AND (np.id = ? OR EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
-             (e.src_node_id = np.id AND e.dst_node_id = ?) OR (e.dst_node_id = np.id AND e.src_node_id = ?))))) AS sources`,
-      [
-        userId,
-        userId,
-        c.node_id,
-        userId,
-        userId,
-        c.node_id,
-        c.node_id,
-        userId,
-        c.node_id,
-        userId,
-        c.node_id,
-        c.node_id,
-      ],
-    ).catch(() => null);
-    out.push({
-      slug: c.slug,
-      label: c.label,
-      kind: c.kind,
-      signed_status: c.signed_status,
-      recent_facts: c.recent_facts,
-      facts: stats?.facts ?? 0,
-      disputed: stats?.disputed ?? 0,
-      sources: stats?.sources ?? 0,
-    });
-  }
-  return out;
+  // Per-candidate stats are independent of each other — fire them together
+  // rather than one at a time. Serial round-trips here (bounded to 4, but
+  // each with three correlated EXISTS subqueries) were the actual cause of
+  // the live homepage timing out at Cloudflare's 30s request ceiling.
+  const statsList = await Promise.all(
+    candidates.map((c) =>
+      one<{ facts: number; disputed: number; sources: number }>(
+        db,
+        `SELECT
+           (SELECT COUNT(*) FROM nodes f WHERE f.user_id = ? AND f.kind IN ('neutral_fact','event')
+             AND EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND e.family='aboutness'
+               AND e.src_node_id = f.id AND e.dst_node_id = ?)) AS facts,
+           (SELECT COUNT(*) FROM assertions a JOIN nodes an ON an.id = a.node_id
+             WHERE an.user_id = ? AND a.rank = 'contested'
+               AND EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
+                 (e.src_node_id = an.id AND e.dst_node_id = ?) OR (e.dst_node_id = an.id AND e.src_node_id = ?)))) AS disputed,
+           (SELECT COUNT(DISTINCT piece_id) FROM nodes np WHERE np.user_id = ? AND np.piece_id IS NOT NULL
+             AND (np.id = ? OR EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
+               (e.src_node_id = np.id AND e.dst_node_id = ?) OR (e.dst_node_id = np.id AND e.src_node_id = ?))))) AS sources`,
+        [
+          userId,
+          userId,
+          c.node_id,
+          userId,
+          userId,
+          c.node_id,
+          c.node_id,
+          userId,
+          c.node_id,
+          userId,
+          c.node_id,
+          c.node_id,
+        ],
+      ).catch(() => null),
+    ),
+  );
+  return candidates.map((c, i) => ({
+    slug: c.slug,
+    label: c.label,
+    kind: c.kind,
+    signed_status: c.signed_status,
+    recent_facts: c.recent_facts,
+    facts: statsList[i]?.facts ?? 0,
+    disputed: statsList[i]?.disputed ?? 0,
+    sources: statsList[i]?.sources ?? 0,
+  }));
 }
 
 interface EvidenceRow {
@@ -367,24 +371,25 @@ async function loadLatestEvidence(db: D1Database, userId: string): Promise<Evide
       ORDER BY created_at DESC LIMIT 3`,
     [userId],
   ).catch(() => []);
-  const out: EvidenceRow[] = [];
-  for (const p of pieces) {
-    const stat = await one<{ facts: number; subjects: number }>(
-      db,
-      `SELECT
-         (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND piece_id = ? AND kind IN ('neutral_fact','event','assertion')) AS facts,
-         (SELECT COUNT(DISTINCT e.dst_node_id) FROM edges e JOIN nodes f ON f.id = e.src_node_id
-           WHERE e.user_id = ? AND e.family = 'aboutness' AND f.piece_id = ?) AS subjects`,
-      [userId, p.piece_id, userId, p.piece_id],
-    ).catch(() => null);
-    out.push({
-      piece_slug: p.slug,
-      title: p.title,
-      created_at: p.created_at,
-      facts_fed: stat?.facts ?? 0,
-      subjects_fed: stat?.subjects ?? 0,
-    });
-  }
+  const stats = await Promise.all(
+    pieces.map((p) =>
+      one<{ facts: number; subjects: number }>(
+        db,
+        `SELECT
+           (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND piece_id = ? AND kind IN ('neutral_fact','event','assertion')) AS facts,
+           (SELECT COUNT(DISTINCT e.dst_node_id) FROM edges e JOIN nodes f ON f.id = e.src_node_id
+             WHERE e.user_id = ? AND e.family = 'aboutness' AND f.piece_id = ?) AS subjects`,
+        [userId, p.piece_id, userId, p.piece_id],
+      ).catch(() => null),
+    ),
+  );
+  const out: EvidenceRow[] = pieces.map((p, i) => ({
+    piece_slug: p.slug,
+    title: p.title,
+    created_at: p.created_at,
+    facts_fed: stats[i]?.facts ?? 0,
+    subjects_fed: stats[i]?.subjects ?? 0,
+  }));
   return out.filter((e) => e.facts_fed > 0);
 }
 
@@ -396,7 +401,10 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
 
   // Operator overlays — only loaded when the viewer is the operator. These
   // weave into the same activity feed everyone reads. No separate dashboard.
-  const opOverlays = isOperator ? await loadOperatorOverlays(env.DB, userId) : null;
+  // Independent of the block below — fired together, not awaited first.
+  const opOverlaysPromise = isOperator
+    ? loadOperatorOverlays(env.DB, userId)
+    : Promise.resolve(null);
 
   // Recently active subjects with intent so the home can wear intent badges.
   // Signed-published readings rise to the top; the lead spot goes to the
@@ -411,67 +419,73 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
   // concrete unit of evidence this schema has — before a subject is eligible
   // to be featured here. Published readings are exempt: they're already
   // vetted by definition, however few quotes ground them.
-  const subjects = await all<{
-    slug: string;
-    label: string;
-    kind: string;
-    signed_status: string;
-    thesis: string | null;
-    intent: string | null;
-    signed_at: string | null;
-    sources: number;
-    opened_at: string;
-    updated_at: string;
-  }>(
-    env.DB,
-    `SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
-            (SELECT COUNT(DISTINCT piece_id) FROM nodes
-              WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources,
-            p.created_at AS opened_at, p.updated_at
-       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
-      WHERE p.user_id = ?
-        AND (
-          p.signed_status = 'published'
-          OR (
-            SELECT COUNT(*) FROM quotes q WHERE q.user_id = ?
-              AND (q.node_id = n.id OR EXISTS (
-                SELECT 1 FROM edges e WHERE
-                  (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
-                  (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
-              ))
-          ) >= 2
-        )
-      ORDER BY (p.signed_status = 'published') DESC,
-               COALESCE(p.signed_at, p.updated_at) DESC
-      LIMIT 14`,
-    [userId, userId, userId],
-  ).catch(() => []);
+  // These four are independent of each other and of opOverlays above — run
+  // them concurrently rather than as four sequential round-trip groups.
+  // Sequential awaits here (plus the serial per-row loops inside
+  // loadActiveFiles/loadLatestEvidence) were what pushed the live homepage
+  // past Cloudflare's request timeout after this section grew.
+  const [opOverlays, subjects, counts, activeFiles, latestEvidence] = await Promise.all([
+    opOverlaysPromise,
+    all<{
+      slug: string;
+      label: string;
+      kind: string;
+      signed_status: string;
+      thesis: string | null;
+      intent: string | null;
+      signed_at: string | null;
+      sources: number;
+      opened_at: string;
+      updated_at: string;
+    }>(
+      env.DB,
+      `SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
+              (SELECT COUNT(DISTINCT piece_id) FROM nodes
+                WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources,
+              p.created_at AS opened_at, p.updated_at
+         FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+        WHERE p.user_id = ?
+          AND (
+            p.signed_status = 'published'
+            OR (
+              SELECT COUNT(*) FROM quotes q WHERE q.user_id = ?
+                AND (q.node_id = n.id OR EXISTS (
+                  SELECT 1 FROM edges e WHERE
+                    (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
+                    (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
+                ))
+            ) >= 2
+          )
+        ORDER BY (p.signed_status = 'published') DESC,
+                 COALESCE(p.signed_at, p.updated_at) DESC
+        LIMIT 14`,
+      [userId, userId, userId],
+    ).catch(() => []),
+    one<{
+      subjects: number;
+      themes: number;
+      docs: number;
+      signed: number;
+      facts: number;
+      contested: number;
+      killed: number;
+    }>(
+      env.DB,
+      `SELECT
+         (SELECT COUNT(*) FROM pages WHERE user_id = ?) AS subjects,
+         (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind = 'theme') AS themes,
+         (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs,
+         (SELECT COUNT(*) FROM pages WHERE user_id = ? AND signed_status = 'published') AS signed,
+         (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind IN ('neutral_fact','event')) AS facts,
+         (SELECT COUNT(*) FROM assertions a JOIN nodes n ON n.id = a.node_id
+            WHERE n.user_id = ? AND a.rank = 'contested') AS contested,
+         (SELECT COALESCE(SUM(claims_killed), 0) FROM pages WHERE user_id = ?) AS killed`,
+      [userId, userId, userId, userId, userId, userId, userId],
+    ).catch(() => null),
+    loadActiveFiles(env.DB, userId),
+    loadLatestEvidence(env.DB, userId),
+  ]);
   if (subjects.length === 0) return "";
-
-  const counts = await one<{
-    subjects: number;
-    themes: number;
-    docs: number;
-    signed: number;
-    facts: number;
-    contested: number;
-    killed: number;
-  }>(
-    env.DB,
-    `SELECT
-       (SELECT COUNT(*) FROM pages WHERE user_id = ?) AS subjects,
-       (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind = 'theme') AS themes,
-       (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs,
-       (SELECT COUNT(*) FROM pages WHERE user_id = ? AND signed_status = 'published') AS signed,
-       (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind IN ('neutral_fact','event')) AS facts,
-       (SELECT COUNT(*) FROM assertions a JOIN nodes n ON n.id = a.node_id
-          WHERE n.user_id = ? AND a.rank = 'contested') AS contested,
-       (SELECT COALESCE(SUM(claims_killed), 0) FROM pages WHERE user_id = ?) AS killed`,
-    [userId, userId, userId, userId, userId, userId, userId],
-  ).catch(() => null);
-
-  const activeFiles = await loadActiveFiles(env.DB, userId);
-  const latestEvidence = await loadLatestEvidence(env.DB, userId);
 
   const INTENT_LABEL: Record<string, string> = {
     investigation: "Investigation",
