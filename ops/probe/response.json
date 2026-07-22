@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T21:21:19Z",
-  "run_id": "29958855372",
+  "requested_at": "2026-07-22T21:24:03Z",
+  "run_id": "29959030912",
   "method": "GET",
-  "path": "/v1/admin/resettle?confirm=1&step=entity_resolution",
+  "path": "/v1/admin/resettle?confirm=1&step=draft_readings",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"started\": true,\n  \"step\": \"entity_resolution\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"started\": true,\n  \"step\": \"draft_readings\"\n}"
 }
