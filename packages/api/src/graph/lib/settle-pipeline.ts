@@ -109,10 +109,24 @@ export async function advanceSettleOneStep(env: Env, userId: string): Promise<vo
   const idx = SETTLE_STEPS_ORDER.indexOf(step);
   const nextStep = SETTLE_STEPS_ORDER[(idx + 1) % SETTLE_STEPS_ORDER.length];
   const now = new Date().toISOString();
-  await run(
-    env.DB,
-    `INSERT INTO settle_state (user_id, next_step, last_advanced_at) VALUES (?, ?, ?)
-       ON CONFLICT(user_id) DO UPDATE SET next_step = excluded.next_step, last_advanced_at = excluded.last_advanced_at`,
-    [userId, nextStep, now],
-  );
+  try {
+    await run(
+      env.DB,
+      `INSERT INTO settle_state (user_id, next_step, last_advanced_at) VALUES (?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET next_step = excluded.next_step, last_advanced_at = excluded.last_advanced_at`,
+      [userId, nextStep, now],
+    );
+  } catch (err) {
+    // If this write fails silently (this whole function runs inside a
+    // waitUntil — an unhandled rejection here has nowhere else to surface)
+    // the pipeline gets stuck re-running the same step forever, which is
+    // exactly the bug this event log exists to catch.
+    await insertOne(env.DB, "orchestrator_events", {
+      user_id: userId,
+      event_type: "settle_advance_write_failed",
+      subject_kind: "corpus",
+      subject_id: userId,
+      payload: { step, nextStep, error: (err as Error).message ?? "unknown error" },
+    }).catch(() => {});
+  }
 }
