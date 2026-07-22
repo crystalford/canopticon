@@ -606,59 +606,39 @@ app.get("/debug-model", async (c) => {
 
 // GET /v1/admin/debug-brave-answers?q=...
 //
-// One-off diagnostic — calls the real two-step Brave Summarizer flow (web
-// search with summary=1 using BRAVE_SEARCH_API_KEY, then summarizer/search
-// using BRAVE_ANSWERS_API_KEY) and returns the raw JSON from both steps.
-// Exists to see the actual response shape before writing any parsing code
-// against it, rather than guessing field names against undocumented (to us)
-// API responses — the same reason debug-model exists above.
+// One-off diagnostic — calls Brave's AI Grounding endpoint
+// (POST /res/v1/chat/completions, OpenAI-chat-completions-compatible, with
+// enable_citations) and returns the raw JSON. The classic two-step
+// Summarizer flow (web search summary=1 -> summarizer/search) returned no
+// summarizer.key with either key, so BRAVE_ANSWERS_API_KEY is for this
+// separate AI Grounding product instead. Exists to see the actual response
+// shape — specifically how citations are represented — before writing any
+// parsing code against it, same reason debug-model exists above.
 app.get("/debug-brave-answers", async (c) => {
-  const q = c.req.query("q") ?? "Melanie Joly";
-  const searchKey = c.env.BRAVE_SEARCH_API_KEY;
+  const q = c.req.query("q") ?? "Who is Melanie Joly?";
   const answersKey = c.env.BRAVE_ANSWERS_API_KEY;
-  if (!searchKey || !answersKey) {
-    return c.json(
-      { ok: false, error: "BRAVE_SEARCH_API_KEY or BRAVE_ANSWERS_API_KEY not set" },
-      400,
-    );
+  if (!answersKey) {
+    return c.json({ ok: false, error: "BRAVE_ANSWERS_API_KEY not set" }, 400);
   }
-  // Step 1 with BRAVE_SEARCH_API_KEY came back with no summarizer.key —
-  // possibly the base Search subscription isn't entitled to summarization
-  // and it's actually the separate Answers subscription that grants it.
-  // ?step1_key=answers tries step 1 with BRAVE_ANSWERS_API_KEY instead.
-  const step1Key = c.req.query("step1_key") === "answers" ? answersKey : searchKey;
-  const searchUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&summary=1`;
-  const searchRes = await fetch(searchUrl, {
-    headers: { Accept: "application/json", "X-Subscription-Token": step1Key },
+  const res = await fetch("https://api.search.brave.com/res/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Subscription-Token": answersKey,
+    },
+    body: JSON.stringify({
+      stream: false,
+      enable_citations: true,
+      messages: [{ role: "user", content: q }],
+    }),
   });
-  const searchJson = (await searchRes.json().catch(() => null)) as Record<string, unknown> | null;
-  const summarizerKey = (searchJson?.summarizer as Record<string, unknown> | undefined)?.key as
-    | string
-    | undefined;
-  if (!summarizerKey) {
-    return c.json({
-      ok: true,
-      step1_status: searchRes.status,
-      step1_keys: searchJson ? Object.keys(searchJson) : null,
-      step1: searchJson,
-      step2: null,
-      note: "no summarizer.key in step 1 response — query may not be eligible for summarization",
-    });
-  }
-  const sumUrl = `https://api.search.brave.com/res/v1/summarizer/search?key=${encodeURIComponent(summarizerKey)}&entity_info=1`;
-  const sumRes = await fetch(sumUrl, {
-    headers: { Accept: "application/json", "X-Subscription-Token": answersKey },
-  });
-  const sumJson = await sumRes.json().catch(() => null);
+  const json = await res.json().catch(() => null);
   return c.json({
     ok: true,
-    step1_status: searchRes.status,
-    step2_status: sumRes.status,
-    step2_keys:
-      sumJson && typeof sumJson === "object"
-        ? Object.keys(sumJson as Record<string, unknown>)
-        : null,
-    step2: sumJson,
+    status: res.status,
+    top_level_keys:
+      json && typeof json === "object" ? Object.keys(json as Record<string, unknown>) : null,
+    body: json,
   });
 });
 
