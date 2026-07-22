@@ -374,10 +374,6 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
     text-transform: uppercase;
   }
   .sec-standalone:hover { text-decoration: underline; }
-  .fact-row { padding:13px 0; border-top:1px solid var(--rule); font-size:15.5px; color:var(--ink-2); }
-  .fact-row b { color:var(--ink); font-weight:600; }
-  .fact-row.last { border-bottom:1px solid var(--rule); }
-  .fact-row sup { color:var(--accent); font-size:11px; cursor:pointer; }
   .qref { text-decoration: none; }
   .qref sup { color: var(--accent); font-size: 11px; font-weight: 600; padding: 0 2px; }
   .qref:hover sup { text-decoration: underline; }
@@ -1105,13 +1101,38 @@ function buildLede(_subject: SubjectRow, facts: FactRow[]): string {
   return `${joined}.`;
 }
 
+// Each fact renders as a receipt chip (approved product design): the fact
+// line, and a collapsed <details> that opens to the exact quote + source
+// in place — no navigation away to read the receipt. "VERIFIED" states
+// only what is mechanically true here (locateVerbatim: a word-for-word
+// match against the stored source bytes) — it does NOT claim an
+// independent judge pass, which established facts don't get (only
+// signed-reading claims run the judge). Never overclaim the gauntlet.
 function renderEstablishedBlock(facts: FactRow[]): string {
   if (facts.length === 0) return "";
   const rows = facts
-    .map(
-      (f, i) =>
-        `<div class="fact-row${i === facts.length - 1 ? " last" : ""}"><b>${escapeHtml(f.label)}</b>${f.quote_id ? ` <a class="qref" href="/q/${escapeAttr(f.quote_id)}" title="${escapeAttr(f.quote_text?.slice(0, 120) ?? "")}"><sup>${i + 1}</sup></a>` : ""}${f.piece_title ? ` <span style="color:var(--faint);font-size:12.5px"> · <a href="/library/${escapeAttr(f.piece_slug ?? "")}" style="color:var(--faint)">${escapeHtml(f.piece_title.slice(0, 40))}</a></span>` : ""}</div>`,
-    )
+    .map((f) => {
+      const docLabel = f.piece_title ? f.piece_title.slice(0, 60) : "stored source";
+      const receipt =
+        f.quote_id && f.quote_text
+          ? `<details class="rcpt">
+  <summary><span class="rdoc">${escapeHtml(docLabel)}</span></summary>
+  <div class="rcpt-body">
+    <div class="rcpt-q">“${escapeHtml(f.quote_text.slice(0, 400))}${f.quote_text.length > 400 ? "…" : ""}”</div>
+    <div class="rcpt-src"><span>SOURCE</span>${
+      f.piece_slug
+        ? `<a href="/library/${escapeAttr(f.piece_slug)}">${escapeHtml(docLabel)}</a>`
+        : `<span>${escapeHtml(docLabel)}</span>`
+    }<span class="sep">·</span><span>stored copy on file</span></div>
+    <div class="rcpt-v">VERIFIED — a word-for-word match in the stored source</div>
+  </div>
+</details>`
+          : "";
+      return `<div class="fact" id="fact-${escapeAttr(f.id)}">
+  <div class="fact-line"><p class="fact-text">${escapeHtml(f.label)}</p></div>
+  ${receipt}
+</div>`;
+    })
     .join("");
   return `<section id="on-the-record" data-schema="ItemList"><div class="sec-k">On the record</div>${rows}</section>`;
 }
