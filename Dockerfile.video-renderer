@@ -64,10 +64,17 @@ COPY packages/video-renderer/package.json packages/video-renderer/package.json
 COPY packages/video-renderer/tsconfig.json packages/video-renderer/tsconfig.json
 COPY packages/video-renderer/src packages/video-renderer/src
 
-# --filter ...@canopticon/video-renderer installs the target package
-# plus its workspace dependencies (@canopticon/shared) without needing
-# every other package in the monorepo present.
-RUN pnpm install --filter "...@canopticon/video-renderer" --prod=false --no-frozen-lockfile
+# A plain (unfiltered) install, not `pnpm install --filter
+# "...@canopticon/video-renderer"`. The COPY set above already trims the
+# workspace down to exactly the two packages this image needs, so an
+# unfiltered install covers the same ground — but `--filter "...@X"`
+# has a real quirk (confirmed by reproducing it locally): it does NOT
+# create a node_modules folder inside packages the filter selector
+# pulls in transitively (like @canopticon/shared here), so shared's own
+# `zod` dependency never gets symlinked and tsc fails with "Cannot find
+# module 'zod'" when compiling shared/src via the video-renderer build.
+# A full install does not have this gap.
+RUN pnpm install --prod=false --no-frozen-lockfile
 RUN pnpm --filter @canopticon/video-renderer build
 
 # Remotion expects a Chrome browser path. The Debian package is at

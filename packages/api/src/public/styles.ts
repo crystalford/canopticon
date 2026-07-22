@@ -69,9 +69,9 @@ export const STYLES_CSS = `/* ==================================================
   --correction-bd-d:#5a261b;
 
   /* ---- Type ----------------------------------------------------------- */
-  --sans:  'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --sans:  'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
-  --mono:  'Geist Mono', ui-monospace, 'SF Mono', monospace;
+  --mono:  'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
 
   /* ---- Geometry ------------------------------------------------------- */
   --r-sm: 4px;
@@ -1225,6 +1225,7 @@ details.more > summary:hover { color: var(--accent); }
 .kicker .live {
   width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
   animation: pulse 1.8s ease-in-out infinite; flex-shrink: 0;
+  box-shadow: 0 0 6px 1px rgba(93,139,198,.6);
 }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 
@@ -1237,6 +1238,12 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   border-bottom: 1px solid var(--rule);
   background: color-mix(in srgb, var(--paper) 86%, transparent);
   backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
+  position: relative;
+}
+.nav::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-bd), transparent);
+  opacity: .6;
 }
 .nav-inner {
   max-width: 1060px; margin: 0 auto; padding: 13px 20px;
@@ -1246,7 +1253,7 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   font-weight: 650; font-size: 16px; letter-spacing: -0.02em;
   display: inline-flex; align-items: baseline; gap: 9px; white-space: nowrap;
 }
-.wordmark .dot { color: var(--accent); }
+.wordmark .dot { color: var(--accent); text-shadow: 0 0 7px rgba(93,139,198,.6); }
 .wordmark-sub {
   font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em;
   color: var(--ink-mute); text-transform: uppercase; font-weight: 400;
@@ -1272,7 +1279,7 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
 main { max-width: 1060px; margin: 0 auto; padding: 34px 20px 70px; }
 #app.in { animation: fadeUp .3s cubic-bezier(.22,.61,.36,1) both; }
 @keyframes fadeUp { from { opacity: .35; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { #app.in { animation: none; } .redact span { animation: none !important; color: inherit !important; background: transparent !important; } }
+@media (prefers-reduced-motion: reduce) { #app.in { animation: none; } .redact span { animation: none !important; color: inherit !important; background: transparent !important; } .redact-bar::after { animation: none !important; } }
 
 .sec { margin-top: 46px; }
 .sec-h {
@@ -1285,16 +1292,27 @@ main { max-width: 1060px; margin: 0 auto; padding: 34px 20px 70px; }
 /* ---- redaction bar motif (one motif, used sparingly) ---- */
 .redact span {
   background: var(--ink-2); color: transparent; border-radius: 2px;
-  animation: unredact .01s linear both; animation-timeline: none;
+  animation: unredact .24s ease-out both;
 }
-@keyframes unredact { to { background: transparent; color: inherit; } }
-.redact span:nth-child(1) { animation: unredact .01s .45s both; }
-.redact span:nth-child(2) { animation: unredact .01s .85s both; }
-.redact span:nth-child(3) { animation: unredact .01s 1.25s both; }
+@keyframes unredact {
+  0% { background: var(--ink-2); color: transparent; box-shadow: none; }
+  70% { background: var(--ink-2); color: transparent; box-shadow: 0 0 16px 2px var(--accent); }
+  100% { background: transparent; color: inherit; box-shadow: none; }
+}
+.redact span:nth-child(1) { animation-delay: .45s; }
+.redact span:nth-child(2) { animation-delay: .85s; }
+.redact span:nth-child(3) { animation-delay: 1.25s; }
 .redact-bar {
   display: inline-block; height: 0.85em; border-radius: 2px;
   background: var(--paper-3); vertical-align: baseline;
+  position: relative; overflow: hidden;
 }
+.redact-bar::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent);
+  animation: barsweep 2.4s ease-in-out infinite;
+}
+@keyframes barsweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
 /* ---- home ---- */
 .hero { padding: 26px 0 8px; }
@@ -1315,7 +1333,7 @@ main { max-width: 1060px; margin: 0 auto; padding: 34px 20px 70px; }
   background: var(--surface); transition: all .12s; white-space: nowrap;
 }
 .btn:hover { background: var(--paper-2); border-color: var(--rule-bright); }
-.btn.primary { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent-2); }
+.btn.primary { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent-2); box-shadow: 0 10px 26px -14px rgba(93,139,198,.55); }
 .btn.primary:hover { border-color: var(--accent); color: var(--ink); }
 .btn .arr { font-family: var(--mono); color: var(--accent); }
 
@@ -1323,6 +1341,7 @@ main { max-width: 1060px; margin: 0 auto; padding: 34px 20px 70px; }
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
   background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-lg);
   overflow: hidden; margin-top: 38px;
+  box-shadow: 0 24px 48px -28px rgba(0,0,0,.7);
 }
 @media (max-width: 640px) { .depth { grid-template-columns: 1fr 1fr; } }
 .depth .cell { background: var(--surface); padding: 16px 18px 14px; }
@@ -1366,7 +1385,7 @@ main { max-width: 1060px; margin: 0 auto; padding: 34px 20px 70px; }
 .ev-row .efed .n { font-family: var(--mono); color: var(--accent-2); }
 
 /* ---- dossier stamp ---- */
-.stamp { border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.stamp { border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; box-shadow: 0 24px 52px -28px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.02); position: relative; }
 .stamp-top {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   padding: 9px 18px; border-bottom: 1px solid var(--rule); background: var(--paper-2);
@@ -1498,6 +1517,7 @@ details.seam-file:not([open]) .open-tag .when-open { display: none; }
 .reading {
   margin-top: 26px; border: 1px solid var(--rule); border-left: 2px solid var(--accent);
   border-radius: var(--r-lg); background: var(--paper-2); padding: 26px 22px 24px;
+  box-shadow: 0 24px 52px -28px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.02);
 }
 @media (min-width: 700px) { .reading { padding: 32px 34px 30px; } }
 .reading .byline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
@@ -1547,7 +1567,7 @@ details.seam-file:not([open]) .open-tag .when-open { display: none; }
 .inv-body { margin-top: 34px; }
 .inv-body .rtext { font-size: 17.5px; }
 .inv-body h3 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent-2); font-weight: 500; margin: 30px 0 14px; }
-.foundation { margin-top: 48px; border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.foundation { margin-top: 48px; border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; box-shadow: 0 24px 48px -28px rgba(0,0,0,.7); }
 .foundation .fh { padding: 11px 18px; border-bottom: 1px solid var(--rule); background: var(--paper-2); display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .foundation .fs { padding: 16px 18px; border-bottom: 1px solid var(--rule); }
 .foundation .fs:last-child { border-bottom: none; }
@@ -1587,7 +1607,7 @@ details.seam-file:not([open]) .open-tag .when-open { display: none; }
 .res-none { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); padding: 26px 2px; }
 
 /* ---- method ---- */
-.chain { border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.chain { border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; box-shadow: 0 24px 48px -28px rgba(0,0,0,.7); }
 .chain-step { display: flex; gap: 15px; padding: 15px 18px; border-bottom: 1px solid var(--rule); }
 .chain-step:last-child { border-bottom: none; }
 .chain-step .cn {
