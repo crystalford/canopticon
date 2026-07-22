@@ -53,6 +53,8 @@ interface PageRow {
   confidence: string | null;
   claims_verified: number;
   judge_model: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface FactRow {
@@ -91,6 +93,14 @@ interface ConnectionRow {
   other_node_id: string;
   other_label: string;
   other_kind: string;
+  /** metadata.entity_type on the other node ("person", "organization", …),
+   *  null when the other node isn't an entity or has none set. The one
+   *  real signal we have for "is this a person" — see digestion-typed.ts
+   *  normalizeEntityType. Never fabricated beyond what extraction wrote. */
+  other_entity_type: string | null;
+  /** The other subject's own file, when it has one — lets People/Appears-in
+   *  rows link to a real file instead of a guessed slug. */
+  other_page_slug: string | null;
   edge_type: string;
   family: string;
   weight: number;
@@ -121,6 +131,7 @@ export async function renderSubjectPage(
     env.DB,
     `SELECT p.id, p.slug, p.thesis, p.intent, p.body_md, p.body_html, p.signed_status,
             p.signed_by, p.signed_at, p.confidence, p.claims_verified, p.judge_model,
+            p.created_at, p.updated_at,
             n.id AS node_id, n.kind, n.label, n.metadata
        FROM pages p
        JOIN nodes n ON n.id = p.subject_node_id
@@ -208,9 +219,19 @@ async function renderNeutral(
     piece_slug: e.piece_slug,
   }));
 
+  // The one real signal for "is this subject a person" — see
+  // digestion-typed.ts normalizeEntityType, written at extraction time.
+  const subjectMeta = parseJson<{ entity_type?: string }>(subject.metadata, {});
+  const isPerson = subjectMeta.entity_type === "person";
+
   const lede = buildLede(subject, established);
   const establishedBlock = renderEstablishedBlock(established);
   const contestedBlock = renderContestedBlock(contested);
+  // People connected to this file (folded out of Connections below). On a
+  // person's own file, the inverse view — "appears in N files" — replaces
+  // it; that's the cross-file accumulation that makes a person the story.
+  const peopleBlock = isPerson ? "" : renderPeopleBlock(connections);
+  const appearsInBlock = isPerson ? renderAppearsInBlock(connections) : "";
   // Timeline uses the arrangement renderer. The standalone /t/:slug link
   // sits beneath the section so readers can deep-link the chronology.
   const timelineBlock = arrangementEvents.length
@@ -278,8 +299,8 @@ async function renderNeutral(
     isOperator && isThin
       ? `<form method="POST" action="/op/records/${escapeAttr(page.slug)}/expand" class="op-aff" style="display:flex">
   <span class="op-aff-label">Operator</span>
-  <button class="op-aff-btn op-aff-btn-action" type="submit">Expand this Record →</button>
-  <span class="op-aff-hint">few facts here yet — click to search the web for ${escapeHtml(subject.label)} and extract new sources into the graph</span>
+  <button class="op-aff-btn op-aff-btn-action" type="submit">Expand this file →</button>
+  <span class="op-aff-hint">not much on file yet — click to search the web for ${escapeHtml(subject.label)} and read new sources into the record</span>
 </form>`
       : "";
   // GEO/citability: a schema.org JSON-LD graph so AI engines can cite the
@@ -303,9 +324,17 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
   ${expandBanner}
   ${opAffordance}
   <header class="subject-head">
-    <div class="kicker">${escapeHtml(subjectKindLabel(subject.kind))}</div>
-    <h1>${escapeHtml(subject.label)}</h1>
-    ${lede ? `<p class="subject-lede">${lede}</p>` : ""}
+    ${renderFileStamp({
+      label: subject.label,
+      kindLabel: subjectKindLabel(subject.kind, subjectMeta.entity_type),
+      desig: lede,
+      factCount: established.length,
+      disputedCount: contested.length,
+      sourceCount,
+      openedAt: page.created_at,
+      updatedAt: page.updated_at,
+      signedHref: hasSignedReading ? `/p/${escapeAttr(page.slug)}?mode=signed` : null,
+    })}
   </header>
 
   <div class="subject-grid">
@@ -314,8 +343,10 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
       ${establishedBlockWithStandalone}
       ${contestedBlockWithStandalone}
       ${timelineBlock}
+      ${peopleBlock}
     </div>
     <aside class="subject-side">
+      ${appearsInBlock}
       ${connectionsBlockWithStandalone}
       ${provenanceBlock}
     </aside>
@@ -330,10 +361,6 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
   .mode-band a { color:var(--accent); text-decoration:none; font-weight:600; }
   .mode-band .here { color:var(--ink); }
   .subject-head { margin-bottom:32px; }
-  .subject-head .kicker { font-size:11px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin-bottom:10px; }
-  .subject-head h1 { font-family:var(--serif); font-size:42px; line-height:1.1; letter-spacing:-.02em; font-weight:600; margin-bottom:14px; }
-  .subject-lede { font-family:var(--serif); font-size:19px; line-height:1.5; color:var(--ink-2); max-width:660px; }
-  .subject-lede sup { color:var(--accent); font-size:11px; }
   .subject-grid { display:grid; grid-template-columns: 1fr 260px; gap:42px; }
   @media (max-width: 760px) { .subject-grid { grid-template-columns: 1fr; } }
   .sec-k { font-size:11px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin:30px 0 12px; display:flex; gap:14px; align-items:baseline; }
@@ -358,9 +385,9 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
      Warm-tan background, big block-quote, attribution caps, source
      footer. Readers register "contested" without reading the label. */
   .contested-card {
-    background: #f3eed8;
-    border: 1px solid #c9bfa9;
-    border-left: 4px solid #b8a878;
+    background: var(--cont-bg);
+    border: 1px solid var(--cont-bd);
+    border-left: 4px solid var(--contested);
     border-radius: 9px;
     padding: 22px 24px;
     margin-bottom: 14px;
@@ -370,7 +397,7 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
     font-family: var(--serif);
     font-size: 11px; letter-spacing: .18em;
     text-transform: uppercase;
-    color: #7a5a1a;
+    color: var(--contested);
     font-weight: 700;
     margin-bottom: 12px;
   }
@@ -433,7 +460,7 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
     width: 12px; height: 12px;
     border-radius: 50%;
     background: var(--paper, #fff);
-    border: 2px solid #b8a878;
+    border: 2px solid var(--contested);
   }
   .tl-item:first-child::before { background: var(--accent); border-color: var(--accent); }
   .tl-when {
@@ -477,7 +504,7 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
   .op-aff-label { font-size:10px; letter-spacing:.12em; text-transform:uppercase;
     color:var(--ink-3); font-weight:600; }
   .op-aff-btn { font-size:12.5px; padding:5px 12px; border-radius:6px; border:1px solid var(--rule);
-    background:#fff; color:var(--ink); cursor:not-allowed; opacity:.6; }
+    background:var(--surface); color:var(--ink); cursor:not-allowed; opacity:.6; }
   .op-aff-hint { font-size:12px; color:var(--ink-3); }
   .shape-block { padding:20px 22px; border:1px solid var(--rule); border-radius:9px;
     background:var(--panel-soft, rgba(0,0,0,.02)); margin-bottom:24px; }
@@ -550,7 +577,7 @@ async function renderSigned(
   // document, not labelling metadata.
   const signatureLine = page.signed_by
     ? `<div class="signature">— ${escapeHtml(page.signed_by)}</div>`
-    : `<div class="signature">— the operator</div>`;
+    : `<div class="signature">— signed</div>`;
   const signatureMeta: string[] = [];
   if (page.signed_at) signatureMeta.push(escapeHtml(formatLongDate(page.signed_at)));
   if (page.confidence) signatureMeta.push(`${escapeHtml(page.confidence)} confidence`);
@@ -616,7 +643,7 @@ async function renderSigned(
   ${modeBand}
   ${opSignedAff}
   <header class="signed-head">
-    <div class="kicker">${intentBadge} <span class="kicker-meta">${escapeHtml(subjectKindLabel(subject.kind))} · The operator's reading on</span></div>
+    <div class="kicker">${intentBadge} <span class="kicker-meta">Analysis · Signed</span></div>
     <h1>${escapeHtml(subject.label)}</h1>
     ${page.thesis ? `<blockquote class="thesis-block">"${escapeHtml(page.thesis)}"</blockquote>` : ""}
     <div class="signature-block">
@@ -628,11 +655,11 @@ async function renderSigned(
   ${complicateBox}
   ${facesBlock}
   <div class="prov" style="margin-top:32px">
-    The operator drafted and signed this reading. Every load-bearing fact links down to a verbatim quote in a stored
-    source document. Contested material appears attributed; the firewall kills any assertion-backed claim
-    without attribution before publish.
+    This analysis was drafted and signed by hand. Every load-bearing fact links down to a word-for-word quote
+    in a stored source document. Disputed material is shown as disputed; any claim without a named source is
+    removed before publishing.
   </div>
-  <p style="margin-top:18px"><a href="/p/${escapeAttr(page.slug)}" style="color:var(--accent);text-decoration:none">↩ See the neutral facts this reading stands on</a></p>
+  <p style="margin-top:18px"><a href="/p/${escapeAttr(page.slug)}" style="color:var(--accent);text-decoration:none">↩ See the record this analysis stands on</a></p>
 </article>
 
 <style>
@@ -713,7 +740,7 @@ async function renderSigned(
     font-family: var(--serif);
     font-size: 12.5px; letter-spacing: .14em;
     text-transform: uppercase;
-    color: #7a5a1a;
+    color: var(--contested);
     font-weight: 700;
     margin-bottom: 8px;
   }
@@ -738,7 +765,7 @@ async function renderSigned(
     font-style: italic;
     margin: 0 0 8px;
     padding-left: 14px;
-    border-left: 2px solid #b8a878;
+    border-left: 2px solid var(--contested);
   }
   .complicate-attribution {
     font-size: 13.5px;
@@ -758,14 +785,14 @@ async function renderSigned(
   .op-aff-label { font-size:10px; letter-spacing:.12em; text-transform:uppercase;
     color:var(--ink-3); font-weight:600; }
   .op-aff-btn { font-size:12.5px; padding:5px 12px; border-radius:6px; border:1px solid var(--rule);
-    background:#fff; color:var(--ink); text-decoration:none; cursor:pointer; }
+    background:var(--surface); color:var(--ink); text-decoration:none; cursor:pointer; }
   .op-aff-btn-action { cursor:pointer; opacity:1; }
 </style>
 `;
 
   return renderPage({
-    title: `${subject.label} — the operator's reading`,
-    description: page.thesis?.slice(0, 200) ?? `Signed reading of ${subject.label}.`,
+    title: `${subject.label} — signed analysis`,
+    description: page.thesis?.slice(0, 200) ?? `Signed analysis on ${subject.label}.`,
     body,
     activeNav: "/topics",
     zone: "topics",
@@ -963,6 +990,10 @@ async function loadContestedAssertions(
 // loadTimelineEvents removed — the timeline section now calls the
 // arrangement renderer's loadEvents directly (spec v2.6 Part 6).
 
+// Both the People block and Connections block (and, on a person's own
+// file, "Appears in N files") read from this one query — the typed edges
+// touching the subject, joined out to the other node's kind, entity_type
+// (the person/organization signal), and its own page slug if it has one.
 async function loadConnections(
   env: PublicEnv,
   userId: string,
@@ -976,6 +1007,10 @@ async function loadConnections(
          CASE WHEN e.src_node_id = ? THEN e.dst_node_id ELSE e.src_node_id END) AS other_label,
        (SELECT kind FROM nodes WHERE id =
          CASE WHEN e.src_node_id = ? THEN e.dst_node_id ELSE e.src_node_id END) AS other_kind,
+       (SELECT json_extract(metadata, '$.entity_type') FROM nodes WHERE id =
+         CASE WHEN e.src_node_id = ? THEN e.dst_node_id ELSE e.src_node_id END) AS other_entity_type,
+       (SELECT slug FROM pages WHERE subject_node_id =
+         CASE WHEN e.src_node_id = ? THEN e.dst_node_id ELSE e.src_node_id END LIMIT 1) AS other_page_slug,
        e.edge_type, e.family, e.weight
      FROM edges e
      WHERE e.user_id = ?
@@ -983,9 +1018,56 @@ async function loadConnections(
        AND e.family IN ('relationship', 'aboutness')
      GROUP BY other_node_id
      ORDER BY e.weight DESC
-     LIMIT 8`,
-    [subjectId, subjectId, subjectId, userId, subjectId, subjectId],
+     LIMIT 16`,
+    [subjectId, subjectId, subjectId, subjectId, subjectId, userId, subjectId, subjectId],
   ).catch(() => []);
+}
+
+/** Plain-words role from an edge_type: mechanical, never invented — just
+ *  the extraction-written edge label with underscores turned to spaces.
+ *  "employed_by" -> "employed by", "director_of" -> "director of". */
+function humanizeEdgeType(edgeType: string): string {
+  return edgeType.replace(/_/g, " ").trim() || "connected to";
+}
+
+function isPersonConnection(c: ConnectionRow): boolean {
+  return c.other_kind === "entity" && c.other_entity_type === "person";
+}
+
+/** The People block: named humans connected to a company/event/theme
+ *  file, each with a plain-words role and a link to their own file when
+ *  one exists (falls back to a slug guess, same as Connections). */
+function renderPeopleBlock(rows: ConnectionRow[]): string {
+  const people = rows.filter(isPersonConnection);
+  if (people.length === 0) return "";
+  const list = people
+    .slice(0, 8)
+    .map((p) => {
+      const href = p.other_page_slug
+        ? `/s/${escapeAttr(p.other_page_slug)}`
+        : `/topics/${escapeAttr(slugifyConnection(p.other_label))}`;
+      return `<div class="conn-row"><a href="${href}">${escapeHtml(p.other_label)}</a><span class="why">${escapeHtml(humanizeEdgeType(p.edge_type))}</span></div>`;
+    })
+    .join("");
+  return `<section id="people"><div class="sec-k">People</div>${list}</section>`;
+}
+
+/** On a PERSON's own file: the inverse of the People block — every other
+ *  file this person is linked to, and their role there. This is the
+ *  cross-file accumulation the design calls "the story": the person who
+ *  keeps showing up across unrelated files. Only rows with their own page
+ *  count (a file has to exist to "appear in" it). */
+function renderAppearsInBlock(rows: ConnectionRow[]): string {
+  const files = rows.filter((r) => r.other_page_slug);
+  if (files.length === 0) return "";
+  const list = files
+    .slice(0, 10)
+    .map(
+      (f) =>
+        `<div class="conn-row"><a href="/s/${escapeAttr(f.other_page_slug ?? "")}">${escapeHtml(f.other_label)}</a><span class="why">${escapeHtml(humanizeEdgeType(f.edge_type))}</span></div>`,
+    )
+    .join("");
+  return `<section id="appears-in"><div class="sec-k">Appears in ${files.length} file${files.length === 1 ? "" : "s"}</div>${list}</section>`;
 }
 
 async function loadSourceCount(env: PublicEnv, userId: string, subjectId: string): Promise<number> {
@@ -1080,12 +1162,17 @@ ${cards}
 // Spec v2.6 Part 6.
 
 function renderConnectionsBlock(conns: ConnectionRow[]): string {
-  if (conns.length === 0) return "";
-  const rows = conns
-    .map(
-      (c) =>
-        `<div class="conn-row"><a href="/topics/${escapeAttr(slugifyConnection(c.other_label))}">${escapeHtml(c.other_label)}</a><span class="why">${escapeHtml(c.edge_type)}${c.family !== "relationship" ? ` · ${c.family}` : ""}</span></div>`,
-    )
+  // People are folded out into their own block — this is everything else
+  // (organizations, statutes, other events/themes).
+  const rest = conns.filter((c) => !isPersonConnection(c));
+  if (rest.length === 0) return "";
+  const rows = rest
+    .map((c) => {
+      const href = c.other_page_slug
+        ? `/s/${escapeAttr(c.other_page_slug)}`
+        : `/topics/${escapeAttr(slugifyConnection(c.other_label))}`;
+      return `<div class="conn-row"><a href="${href}">${escapeHtml(c.other_label)}</a><span class="why">${escapeHtml(humanizeEdgeType(c.edge_type))}</span></div>`;
+    })
     .join("");
   return `<section id="connections" data-schema="OwnershipInfo"><div class="sec-k">Connections</div>${rows}</section>`;
 }
@@ -1101,7 +1188,7 @@ function renderProvenance(sourceCount: number, hasSigned: boolean, page: PageRow
     lines.push("No signed analysis of this subject yet.");
   }
   lines.push("Nobody wrote this page — it is built from the record, automatically.");
-  return `<div class="prov">${lines.join("<br/>")}</div>`;
+  return `<div id="on-file" class="prov">${lines.join("<br/>")}</div>`;
 }
 
 function renderModeBand(
@@ -1112,8 +1199,8 @@ function renderModeBand(
 ): string {
   if (current === "signed") {
     return `<div class="mode-band signed-band">
-  <span class="here">You are reading the operator's signed reading.</span>
-  <a href="/p/${escapeAttr(slug)}">See the neutral page →</a>
+  <span class="here">You are reading a signed analysis.</span>
+  <a href="/p/${escapeAttr(slug)}">See the file this stands on →</a>
 </div>`;
   }
   if (!hasSigned) {
@@ -1121,9 +1208,9 @@ function renderModeBand(
   }
   const thesisPreview = page.thesis
     ? `"${escapeHtml(page.thesis.slice(0, 140))}${page.thesis.length > 140 ? "…" : ""}"`
-    : "the operator's reading of this subject";
+    : "a signed analysis of this subject";
   return `<div class="mode-band signed-band">
-  <span class="here">The operator has signed a reading:</span>
+  <span class="here">A signed analysis is on file:</span>
   <a href="/p/${escapeAttr(slug)}?mode=signed">Read it →</a>
   <div class="meta" style="flex-basis:100%;margin-top:4px">${thesisPreview}</div>
 </div>`;
@@ -1172,16 +1259,77 @@ function buildSubjectJsonLd(
   return JSON.stringify(graph).replace(/<\/script/gi, "<\\/script");
 }
 
-function subjectKindLabel(kind: string): string {
+// The file-cover stamp header (approved product design). Fewer numbers,
+// plain words, provenance first — and every number is a real anchor link
+// to the section it counts. No kill counts here; those live on /method
+// and on the home depth stats, never on a file header.
+function renderFileStamp(args: {
+  label: string;
+  kindLabel: string;
+  desig: string;
+  factCount: number;
+  disputedCount: number;
+  sourceCount: number;
+  openedAt: string;
+  updatedAt: string;
+  signedHref: string | null;
+}): string {
+  const coordParts: string[] = [];
+  if (args.sourceCount > 0) {
+    coordParts.push(
+      `<a class="jump" href="#on-file">${args.sourceCount} SOURCE${args.sourceCount === 1 ? "" : "S"}</a>`,
+    );
+  }
+  coordParts.push(
+    `<a class="jump" href="#on-the-record">${args.factCount} DOCUMENTED FACT${args.factCount === 1 ? "" : "S"}</a>`,
+  );
+  if (args.disputedCount > 0) {
+    coordParts.push(`<a class="jump" href="#disputed">${args.disputedCount} DISPUTED</a>`);
+  }
+  coordParts.push(`OPENED ${escapeHtml(formatShortDate(args.openedAt))}`);
+  coordParts.push(`UPDATED <span class="hi">${escapeHtml(formatShortDate(args.updatedAt))}</span>`);
+  if (args.signedHref) {
+    coordParts.push(
+      `<a class="jump ac" href="${escapeAttr(args.signedHref)}">SIGNED ANALYSIS ON FILE</a>`,
+    );
+  }
+  const coordLine = coordParts.join(` <span class="sep">·</span> `);
+
+  return `<div class="stamp">
+  <div class="stamp-top"><span class="fileno">FILE ON ${escapeHtml(args.label.toUpperCase())}</span><span class="kindchip">${escapeHtml(args.kindLabel)}</span></div>
+  <div class="stamp-body">
+    <h1>${escapeHtml(args.label)}</h1>
+    ${args.desig ? `<p class="desig">${args.desig}</p>` : ""}
+  </div>
+  <div class="stamp-foot"><div class="coord">${coordLine}</div></div>
+</div>`;
+}
+
+/** ISO timestamp -> "2026-07-22", the compact mono-coordinate date used in
+ *  the stamp line. */
+function formatShortDate(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+function subjectKindLabel(kind: string, entityType?: string): string {
+  if (kind === "entity") {
+    switch (entityType) {
+      case "person":
+        return "Person";
+      case "organization":
+      case "institution":
+        return "Company";
+      default:
+        return "Entity";
+    }
+  }
   switch (kind) {
-    case "entity":
-      return "Reference · Entity";
     case "event":
-      return "Reference · Event";
+      return "Event";
     case "theme":
-      return "Reference · Theme";
+      return "Theme";
     default:
-      return "Reference";
+      return "File";
   }
 }
 
@@ -1396,7 +1544,7 @@ function renderFacesBlock(
   .face-pending { margin-top:10px; padding:9px 12px; border-radius:6px;
     background:rgba(0,0,0,.04); color:var(--ink-3); font-size:13px; font-style:italic; }
   .face-retry { font-size:11.5px; padding:4px 11px; margin-left:9px; border-radius:5px;
-    border:1px solid var(--rule); background:#fff; color:var(--ink); cursor:pointer; }
+    border:1px solid var(--rule); background:var(--surface); color:var(--ink); cursor:pointer; }
   .face-retry:hover { background:var(--accent-bg, #e8ecf3); }
   .face-produce { font-family:var(--mono); font-size:11px; padding:4px 9px; margin-left:9px;
     border-radius:5px; border:1px solid var(--ink); background:var(--ink); color:var(--paper, #faf6ef);
