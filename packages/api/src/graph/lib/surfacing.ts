@@ -50,6 +50,13 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
 
   // ---- evidence balance per assertion ----
   // supports/corroborates = +weight; contradicts/rebuts/undercuts = -weight.
+  //
+  // No LIMIT here used to mean one sequential UPDATE per assertion in the
+  // WHOLE graph — 1357+ on this corpus, easily enough to exceed the
+  // execution ceiling on its own (the same class of bug fixed in
+  // entity-resolution.ts's mergeNode loop). Bounded to a rotating batch,
+  // oldest-updated first, so repeated invocations eventually cover
+  // everything instead of one call trying to do it all and dying mid-loop.
   try {
     const balances = await all<{ node_id: string; balance: number; pos: number; neg: number }>(
       env.DB,
@@ -61,7 +68,9 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
          FROM assertions a
          LEFT JOIN edges e ON e.dst_node_id = a.node_id AND e.family = 'evidential'
         WHERE a.node_id IN (SELECT id FROM nodes WHERE user_id = ?)
-        GROUP BY a.node_id`,
+        GROUP BY a.node_id
+        ORDER BY a.updated_at ASC
+        LIMIT 300`,
       [userId],
     );
     for (const b of balances) {
