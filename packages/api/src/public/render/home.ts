@@ -3,7 +3,7 @@
 // + `card-dek` classes directly so the page is polished from day one.
 // Phase 2 swaps the static blurbs for live lead/recent/topic data.
 
-import { PRIMARY_NAV, escapeHtml, renderPage } from "../layout";
+import { PRIMARY_NAV, escapeAttr, escapeHtml, renderPage } from "../layout";
 
 interface PillarSpec {
   href: string;
@@ -71,8 +71,16 @@ interface OperatorOverlays {
     title: string;
     statement_md: string;
     confidence: string;
+    linked_slug: string | null;
+    lead_label: string | null;
   }>;
-  threads: Array<{ id: string; question: string; status: string }>;
+  threads: Array<{
+    id: string;
+    question: string;
+    status: string;
+    linked_slug: string | null;
+    lead_label: string | null;
+  }>;
   pulse: { newPages: number; newFacts: number };
 }
 
@@ -95,18 +103,39 @@ async function loadOperatorOverlays(db: D1Database, userId: string): Promise<Ope
         ORDER BY p.updated_at DESC LIMIT 6`,
       [userId],
     ).catch(() => []),
-    all<{ id: string; kind: string; title: string; statement_md: string; confidence: string }>(
+    all<{
+      id: string;
+      kind: string;
+      title: string;
+      statement_md: string;
+      confidence: string;
+      linked_slug: string | null;
+      lead_label: string | null;
+    }>(
       db,
-      `SELECT id, kind, title, statement_md, confidence FROM patterns
-        WHERE user_id = ? AND status = 'candidate' AND length(statement_md) > 80
-        ORDER BY (confidence = 'high') DESC, updated_at DESC LIMIT 4`,
+      `SELECT p.id, p.kind, p.title, p.statement_md, p.confidence,
+              pg.slug AS linked_slug, n.label AS lead_label
+         FROM patterns p
+         LEFT JOIN nodes n ON n.id = p.primary_node_id
+         LEFT JOIN pages pg ON pg.subject_node_id = p.primary_node_id
+        WHERE p.user_id = ? AND p.status = 'candidate' AND length(p.statement_md) > 80
+        ORDER BY (p.confidence = 'high') DESC, p.updated_at DESC LIMIT 4`,
       [userId],
     ).catch(() => []),
-    all<{ id: string; question: string; status: string }>(
+    all<{
+      id: string;
+      question: string;
+      status: string;
+      linked_slug: string | null;
+      lead_label: string | null;
+    }>(
       db,
-      `SELECT id, question, status FROM inquiry_threads
-        WHERE user_id = ? AND status IN ('open','being_pursued')
-        ORDER BY CASE status WHEN 'being_pursued' THEN 0 ELSE 1 END, created_at DESC LIMIT 6`,
+      `SELECT t.id, t.question, t.status, pg.slug AS linked_slug, n.label AS lead_label
+         FROM inquiry_threads t
+         LEFT JOIN nodes n ON n.id = (SELECT value FROM json_each(t.related_node_ids) LIMIT 1)
+         LEFT JOIN pages pg ON pg.subject_node_id = n.id
+        WHERE t.user_id = ? AND t.status IN ('open','being_pursued')
+        ORDER BY CASE t.status WHEN 'being_pursued' THEN 0 ELSE 1 END, t.created_at DESC LIMIT 6`,
       [userId],
     ).catch(() => []),
     one<{ newPages: number; newFacts: number }>(
@@ -452,13 +481,25 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
   <div class="section-label">Worth your eye</div>
   <div class="op-findings-grid">
     ${opOverlays.findings
-      .map(
-        (f) => `<div class="op-finding">
-  <div class="op-finding-kicker">${escapeHtml(f.kind)} · ${escapeHtml(f.confidence)} confidence</div>
+      .map((f) => {
+        const body = `<div class="op-finding-kicker">${escapeHtml(f.kind)} · ${escapeHtml(f.confidence)} confidence</div>
   <div class="op-finding-title">${escapeHtml(f.title)}</div>
-  <p class="op-finding-body">${escapeHtml(f.statement_md.slice(0, 240))}</p>
-</div>`,
-      )
+  <p class="op-finding-body">${escapeHtml(f.statement_md.slice(0, 240))}</p>`;
+        if (f.linked_slug) {
+          return `<a class="op-finding op-finding-linked" href="/s/${escapeAttr(f.linked_slug)}">
+  ${body}
+  <div class="op-finding-cta">Open file →</div>
+</a>`;
+        }
+        const researchQuery = f.lead_label ?? f.title;
+        return `<div class="op-finding">
+  ${body}
+  <form class="op-finding-research" method="POST" action="/op/search/research">
+    <input type="hidden" name="q" value="${escapeAttr(researchQuery)}">
+    <button class="op-finding-research-go" type="submit">Research this →</button>
+  </form>
+</div>`;
+      })
       .join("")}
   </div>
 </section>`
@@ -470,12 +511,25 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
   <div class="section-label">Still chasing — open questions the record raised</div>
   <div class="op-threads-list">
     ${opOverlays.threads
-      .map(
-        (t) => `<div class="op-thread">
-  <span class="op-thread-status${t.status === "being_pursued" ? " pursuing" : ""}">${t.status === "being_pursued" ? "Pursuing" : "Open"}</span>
+      .map((t) => {
+        const statusBadge = `<span class="op-thread-status${t.status === "being_pursued" ? " pursuing" : ""}">${t.status === "being_pursued" ? "Pursuing" : "Open"}</span>`;
+        if (t.linked_slug) {
+          return `<a class="op-thread op-thread-linked" href="/s/${escapeAttr(t.linked_slug)}">
+  ${statusBadge}
   <span class="op-thread-q">${escapeHtml(t.question)}</span>
-</div>`,
-      )
+  <span class="op-thread-cta">Open file →</span>
+</a>`;
+        }
+        const researchQuery = t.lead_label ?? t.question;
+        return `<div class="op-thread">
+  ${statusBadge}
+  <span class="op-thread-q">${escapeHtml(t.question)}</span>
+  <form class="op-thread-research" method="POST" action="/op/search/research">
+    <input type="hidden" name="q" value="${escapeAttr(researchQuery)}">
+    <button class="op-thread-research-go" type="submit">Research this →</button>
+  </form>
+</div>`;
+      })
       .join("")}
   </div>
 </section>`
@@ -745,19 +799,42 @@ ${opThreads}
     margin-bottom: 6px;
   }
   .op-finding-body {
-    margin: 0;
+    margin: 0 0 10px;
     font-size: 13.5px; line-height: 1.55;
     color: var(--ink-2);
+  }
+  a.op-finding-linked {
+    display: block; text-decoration: none; color: inherit;
+    transition: border-color .15s;
+  }
+  a.op-finding-linked:hover { border-color: var(--ink-3); }
+  .op-finding-cta, .op-thread-cta {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+  }
+  .op-finding-research, .op-thread-research { margin-top: 4px; }
+  .op-finding-research-go, .op-thread-research-go {
+    padding: 6px 12px; font-family: var(--mono); font-size: 11px;
+    background: transparent; color: var(--accent);
+    border: 1px solid var(--accent-bd, var(--rule)); border-radius: 5px; cursor: pointer;
+  }
+  .op-finding-research-go:hover, .op-thread-research-go:hover {
+    background: var(--accent); color: var(--paper);
   }
 
   .op-threads { margin-bottom: 36px; }
   .op-threads-list { display: flex; flex-direction: column; }
   .op-thread {
-    display: flex; gap: 14px; align-items: baseline;
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
     padding: 10px 0;
     border-top: 1px solid var(--rule);
   }
-  .op-thread:first-child { border-top: none; }
+  a.op-thread-linked {
+    display: flex; gap: 14px; align-items: baseline;
+    text-decoration: none; color: inherit;
+    padding: 10px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .op-thread:first-child, a.op-thread-linked:first-child { border-top: none; }
   .op-thread-status {
     flex-shrink: 0;
     font-size: 10.5px; letter-spacing: .08em;
@@ -770,6 +847,7 @@ ${opThreads}
     font-family: var(--serif);
     font-size: 15px; line-height: 1.5;
     color: var(--ink-2);
+    flex: 1;
   }
 
   @media (max-width: 720px) {

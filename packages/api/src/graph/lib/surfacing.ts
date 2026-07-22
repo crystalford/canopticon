@@ -114,6 +114,7 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
         title: `Contradiction: "${c.src_label.slice(0, 60)}" vs "${c.dst_label.slice(0, 60)}"`,
         statement_md: `The graph holds contradicting material:\n\n- **A:** ${c.src_label}\n- **B:** ${c.dst_label}\n\nSurfaced deterministically from an evidential \`contradicts\` edge (Level 1). Verify the underlying quotes before treating either side as settled.`,
         confidence: "medium",
+        primaryNodeId: c.src_id,
       });
       if (upserted) report.contradictions++;
     }
@@ -123,9 +124,9 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
 
   // ---- connection detection: entities spanning >=2 pieces ----
   try {
-    const connections = await all<{ label: string; pieces: number }>(
+    const connections = await all<{ label: string; pieces: number; node_id: string }>(
       env.DB,
-      `SELECT label, COUNT(DISTINCT piece_id) AS pieces
+      `SELECT label, COUNT(DISTINCT piece_id) AS pieces, MIN(id) AS node_id
          FROM nodes
         WHERE user_id = ? AND kind = 'entity' AND piece_id IS NOT NULL
         GROUP BY lower(label)
@@ -141,6 +142,7 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
         title: `Cross-document presence: ${c.label}`,
         statement_md: `**${c.label}** appears in ${c.pieces} separate source documents — a structural bridge in the corpus. Worth an entity profile or an investigation into its role across contexts.`,
         confidence: c.pieces >= 4 ? "high" : "medium",
+        primaryNodeId: c.node_id,
       });
       if (upserted) report.connections++;
     }
@@ -295,7 +297,14 @@ HARD RULE: cite evidence ONLY as node ids from the NODES list. Insights citing i
 async function upsertPattern(
   env: Env,
   userId: string,
-  p: { slug: string; kind: string; title: string; statement_md: string; confidence: string },
+  p: {
+    slug: string;
+    kind: string;
+    title: string;
+    statement_md: string;
+    confidence: string;
+    primaryNodeId?: string;
+  },
 ): Promise<boolean> {
   const existing = await one<{ id: string; status: string }>(
     env.DB,
@@ -306,8 +315,15 @@ async function upsertPattern(
     if (existing.status === "candidate") {
       await run(
         env.DB,
-        "UPDATE patterns SET title = ?, statement_md = ?, confidence = ?, updated_at = ? WHERE id = ?",
-        [p.title, p.statement_md, p.confidence, new Date().toISOString(), existing.id],
+        "UPDATE patterns SET title = ?, statement_md = ?, confidence = ?, primary_node_id = ?, updated_at = ? WHERE id = ?",
+        [
+          p.title,
+          p.statement_md,
+          p.confidence,
+          p.primaryNodeId ?? null,
+          new Date().toISOString(),
+          existing.id,
+        ],
       );
     }
     return false;
@@ -319,6 +335,7 @@ async function upsertPattern(
     title: p.title,
     statement_md: p.statement_md,
     confidence: p.confidence,
+    primary_node_id: p.primaryNodeId ?? null,
     status: "candidate",
   });
   return true;
