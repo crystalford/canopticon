@@ -406,24 +406,47 @@ app.get("/resettle", async (c) => {
   };
   c.executionCtx.waitUntil(
     (async () => {
-      const { runSurfacingL1 } = await import("../graph/lib/surfacing");
-      await step("surfacing_l1", () => runSurfacingL1(env, userId));
-      await step("theme_surfacer", async () => {
-        const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
-        return runThemeSurfacer(env, userId);
-      });
-      await step("autoseed_pages", async () => {
-        const { autoseedPages } = await import("../graph/lib/autoseed-pages");
-        return autoseedPages(env, userId);
-      });
-      await step("propose_briefs", async () => {
-        const { proposeBriefs } = await import("../graph/lib/briefs/proposer");
-        return proposeBriefs(env, userId);
-      });
-      await step("draft_readings", async () => {
-        const { draftReadings } = await import("../graph/lib/draft-reading");
-        return draftReadings(env, userId);
-      });
+      // Diagnostic breadcrumb: written before any real work, unconditionally
+      // — a manual /resettle run against the live corpus previously produced
+      // ZERO new orchestrator_events at all after several minutes, meaning
+      // either waitUntil's promise never actually got scheduled/awaited by
+      // the platform, or something above threw before step()'s own
+      // try/catch could ever run. This confirms which one it is.
+      await insertOne(env.DB, "orchestrator_events", {
+        user_id: userId,
+        event_type: "resettle_started",
+        subject_kind: "corpus",
+        subject_id: userId,
+        payload: JSON.stringify({ at: new Date().toISOString() }),
+      }).catch(() => {});
+      try {
+        const { runSurfacingL1 } = await import("../graph/lib/surfacing");
+        await step("surfacing_l1", () => runSurfacingL1(env, userId));
+        await step("theme_surfacer", async () => {
+          const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
+          return runThemeSurfacer(env, userId);
+        });
+        await step("autoseed_pages", async () => {
+          const { autoseedPages } = await import("../graph/lib/autoseed-pages");
+          return autoseedPages(env, userId);
+        });
+        await step("propose_briefs", async () => {
+          const { proposeBriefs } = await import("../graph/lib/briefs/proposer");
+          return proposeBriefs(env, userId);
+        });
+        await step("draft_readings", async () => {
+          const { draftReadings } = await import("../graph/lib/draft-reading");
+          return draftReadings(env, userId);
+        });
+      } catch (err) {
+        await insertOne(env.DB, "orchestrator_events", {
+          user_id: userId,
+          event_type: "resettle_crashed",
+          subject_kind: "corpus",
+          subject_id: userId,
+          payload: JSON.stringify({ error: (err as Error).message ?? "unknown error" }),
+        }).catch(() => {});
+      }
     })(),
   );
   return c.json({ ok: true, started: true });
