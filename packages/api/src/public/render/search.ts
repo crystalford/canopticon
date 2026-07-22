@@ -32,7 +32,7 @@ interface ResolvedHit {
 }
 
 const KIND_LABEL: Record<VectorMeta["kind"], string> = {
-  entity: "Record",
+  entity: "File",
   claim: "Claim",
   piece: "Source document",
   thesis: "Reading",
@@ -50,7 +50,7 @@ export async function renderSearchPage(env: Env, q: string): Promise<string> {
     const hits = await searchVectors(env, { query, userId, topK: 25 }).catch(() => []);
     const resolved = await resolveHits(env, hits);
     if (resolved.length === 0) {
-      summary = `No matches for <b>${escapeHtml(query)}</b> in the corpus yet.`;
+      summary = `No matches for <b>${escapeHtml(query)}</b> in the record yet.`;
       resultsBlock = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
     } else {
       summary = `<b>${resolved.length}</b> matches for <b>${escapeHtml(query)}</b>.`;
@@ -68,15 +68,15 @@ export async function renderSearchPage(env: Env, q: string): Promise<string> {
         .join("")}</ol>`;
     }
   } else if (query.length === 0) {
-    summary = "Search semantic — phrase queries work as well as keywords.";
+    summary = "Phrase queries work as well as keywords.";
     resultsBlock = "";
   } else {
-    summary = "Corpus not yet populated.";
+    summary = "The record is empty so far.";
     resultsBlock = "";
   }
 
   const body = `<section class="search-section">
-  <h1 class="search-h1">Search the corpus</h1>
+  <h1 class="search-h1">Ask the record</h1>
   <form class="search-form" method="GET" action="/search">
     <input
       class="search-input"
@@ -96,18 +96,18 @@ export async function renderSearchPage(env: Env, q: string): Promise<string> {
   .search-h1 { font-family: var(--serif); font-size: 28px; margin: 0 0 18px; color: var(--ink); }
   .search-form { display: flex; gap: 10px; margin-bottom: 14px; }
   .search-input { flex: 1; padding: 12px 16px; font-family: var(--serif); font-size: 16px;
-    border: 1px solid var(--rule); border-radius: 8px; background: #fff; color: var(--ink); }
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--ink); }
   .search-input:focus { outline: 2px solid var(--ink); outline-offset: 0; }
   .search-go { padding: 12px 22px; font-family: var(--mono); font-size: 13px;
     background: var(--ink); color: var(--paper); border: none; border-radius: 8px; cursor: pointer; }
-  .search-go:hover { background: #1a1c20; }
+  .search-go:hover { background: var(--accent-2); color: var(--paper); }
   .search-summary { font-family: var(--serif); font-style: italic; font-size: 14px;
     color: var(--ink-3); margin-bottom: 22px; }
   .search-hits { list-style: none; padding: 0; margin: 0; }
-  .search-hit { padding: 14px 0; border-top: 1px solid #f0ece2; }
+  .search-hit { padding: 14px 0; border-top: 1px solid var(--rule-soft); }
   .search-link { display: flex; align-items: baseline; gap: 12px; text-decoration: none; color: var(--ink); }
   .search-kind { font-family: var(--mono); font-size: 10.5px; padding: 2px 7px; border-radius: 3px;
-    background: #f6f3ec; color: var(--ink-3); letter-spacing: .04em; }
+    background: var(--paper-2); color: var(--ink-3); letter-spacing: .04em; }
   .search-title { font-family: var(--serif); font-size: 17px; line-height: 1.3; flex: 1; }
   .search-link:hover .search-title { text-decoration: underline; text-decoration-color: var(--ink-3); text-underline-offset: 4px; }
   .search-snippet { font-family: var(--serif); font-size: 13.5px; color: var(--ink-3);
@@ -120,7 +120,8 @@ export async function renderSearchPage(env: Env, q: string): Promise<string> {
 
   return renderPage({
     title: query ? `Search · "${query}" · canopticon` : "Search · canopticon",
-    description: "Search the canopticon corpus.",
+    description:
+      "Ask the record — search documented facts, disputed claims, signed analyses, and sources.",
     body,
     activeNav: "/search",
   });

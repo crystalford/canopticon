@@ -110,7 +110,7 @@ describe("/search — public semantic search", () => {
     const res = await app.fetch(new Request("http://test/search"), env);
     expect(res.status).toBe(200);
     const html = await res.text();
-    expect(html).toContain("Search the corpus");
+    expect(html).toContain("Ask the record");
     expect(html).toContain('name="q"');
     // No results panel on an empty query.
     expect(html).not.toContain("matches for");
