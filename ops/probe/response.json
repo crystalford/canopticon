@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T23:56:05Z",
-  "run_id": "29967604252",
+  "requested_at": "2026-07-22T23:57:12Z",
+  "run_id": "29967654963",
   "method": "GET",
-  "path": "/v1/admin/debug-home-timing?which=activeFiles.candidates",
-  "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"which\": \"activeFiles.candidates\",\n  \"ms\": 114,\n  \"result\": [\n    {\n      \"node_id\": \"656e3e01-7f40-4166-a67c-a23102dffce0\",\n      \"slug\": \"mark-carney\",\n      \"label\": \"Mark Carney\",\n      \"kind\": \"entity\",\n      \"signed_status\": \"draft\",\n      \"recent_facts\": 329\n    },\n    {\n      \"node_id\": \"f8bb6bc6-27e7-4397-b50c-2ab3c08e777a\",\n      \"slug\": \"gfanz\",\n      \"label\": \"GFANZ\",\n      \"kind\": \"entity\",\n      \"signed_status\": \"draft\",\n      \"recent_facts\": 46\n    },\n    {\n      \"node_id\": \"7aa44c5c-d0be-454d-87ea-e1e9ad2050a1\",\n      \"slug\": \"bank-of-canada\",\n      \"label\": \"Bank of Canada\",\n      \"kind\": \"entity\",\n      \"signed_status\": \"none\",\n      \"recent_facts\": 44\n    },\n    {\n      \"node_id\": \"6c272003-82bf-45e0-9f02-3efb5e3fb6c9\",\n      \"slug\": \"mcluhan\",\n      \"label\": \"McLuhan\",\n      \"kind\": \"entity\",\n      \"signed_status\": \"draft\",\n      \"recent_facts\": 43\n    }\n  ]\n}"
+  "path": "/v1/admin/debug-home-timing?which=activeFiles.stats&node_id=656e3e01-7f40-4166-a67c-a23102dffce0",
+  "status": 500,
+  "body": "{\n  \"error\": {\n    \"code\": \"internal_error\",\n    \"message\": \"Internal server error\",\n    \"trace_id\": \"4fa2484f-2926-4527-9475-a2227b276251\"\n  }\n}"
 }
