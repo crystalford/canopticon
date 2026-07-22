@@ -5,6 +5,7 @@ import {
   renderLongFormMarkdown,
   renderNewsletterHtml,
   renderNewsletterPlainText,
+  renderPaperMarkdown,
   wrapCarouselSlideForProduce,
   wrapFaceForProduce,
 } from "../src/public/studio/produce.ts";
@@ -290,6 +291,102 @@ describe("Long-form Markdown export", () => {
     });
     expect(md).toContain("## Chapter outline");
     expect(md).toContain("**1. Section**");
+  });
+});
+
+describe("renderPaperMarkdown — multi-subject composer", () => {
+  it("composes an abstract, numbered sections, and a deduped bibliography", () => {
+    const md = renderPaperMarkdown({
+      title: "Two readings of the housing file",
+      sections: [
+        {
+          label: "Meridian Crest",
+          slug: "meridian-crest",
+          thesis: "The acceleration money built land value, not housing.",
+          bodyMd: "Section one body.",
+          signedBy: "Christopher Telford",
+          signedAt: "2026-06-01T10:00:00Z",
+        },
+        {
+          label: "The Dunmore Lands",
+          slug: "dunmore-lands",
+          thesis: "The zoning order revalued the land before a shovel moved.",
+          bodyMd: "Section two body.",
+          signedBy: "Christopher Telford",
+          signedAt: "2026-06-02T10:00:00Z",
+        },
+      ],
+      references: [
+        { index: 1, pieceTitle: "Value-for-Money Review", pieceSlug: "value-for-money-review" },
+        { index: 2, pieceTitle: "Standing Committee transcript", pieceSlug: null },
+      ],
+    });
+    expect(md.startsWith("# Two readings of the housing file")).toBe(true);
+    expect(md).toContain("Compiled from 2 signed subjects on file");
+    expect(md).toContain("## Abstract");
+    expect(md).toContain("The acceleration money built land value, not housing.");
+    expect(md).toContain("The zoning order revalued the land before a shovel moved.");
+    expect(md).toContain("## 1. Meridian Crest");
+    expect(md).toContain("## 2. The Dunmore Lands");
+    expect(md).toContain("Section one body.");
+    expect(md).toContain("Section two body.");
+    expect(md).toContain("## Sources");
+    expect(md).toContain(
+      "1. Value-for-Money Review — https://canopticon.com/library/value-for-money-review",
+    );
+    expect(md).toContain("2. Standing Committee transcript");
+  });
+
+  it("omits the Sources section when nothing was cited", () => {
+    const md = renderPaperMarkdown({
+      title: "Solo reading",
+      sections: [
+        {
+          label: "A Subject",
+          slug: "a-subject",
+          thesis: "A thesis.",
+          bodyMd: "Body.",
+          signedBy: null,
+          signedAt: null,
+        },
+      ],
+      references: [],
+    });
+    expect(md).not.toContain("## Sources");
+    expect(md).toContain("Compiled from 1 signed subject on file");
+  });
+});
+
+describe("GET/POST /studio/paper — operator gating", () => {
+  function mount(isOperator: boolean) {
+    const app = new Hono<AuthContext>();
+    app.use("*", async (c, next) => {
+      c.set("is_operator", isOperator);
+      c.set("operator_id", isOperator ? "op-1" : null);
+      c.set("user_id", isOperator ? "op-1" : "");
+      await next();
+    });
+    app.route("/studio", studioRoutes);
+    return app;
+  }
+
+  it("redirects anonymous viewers away from the picker", async () => {
+    const app = mount(false);
+    const env = { DB: makeDb(null) } as unknown as Parameters<typeof studioRoutes.fetch>[1];
+    const res = await app.fetch(new Request("http://x/studio/paper"), env);
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/");
+  });
+
+  it("redirects anonymous viewers away from the compose action", async () => {
+    const app = mount(false);
+    const env = { DB: makeDb(null) } as unknown as Parameters<typeof studioRoutes.fetch>[1];
+    const res = await app.fetch(
+      new Request("http://x/studio/paper/produce", { method: "POST" }),
+      env,
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/");
   });
 });
 

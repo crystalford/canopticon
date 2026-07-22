@@ -14,17 +14,20 @@
 
 import { Hono } from "hono";
 import type { AuthContext } from "../../auth/middleware";
-import { one } from "../../lib/d1";
+import { all, one } from "../../lib/d1";
 import { renderCardFace } from "../render/faces/card";
 import { renderCarouselFace, renderCarouselSlide } from "../render/faces/carousel";
 import { renderThreadFace } from "../render/faces/thread";
 import {
   CARD_TARGETS,
   CAROUSEL_SLIDE_VIEWPORT,
+  type PaperReference,
+  type PaperSection,
   THREAD_POST_TARGET,
   renderLongFormMarkdown,
   renderNewsletterHtml,
   renderNewsletterPlainText,
+  renderPaperMarkdown,
   wrapCarouselSlideForProduce,
   wrapFaceForProduce,
 } from "./produce";
@@ -232,11 +235,198 @@ app.get("/:slug", async (c) => {
     shellWrap({
       title: "Studio — Produce",
       slug: page.slug,
-      inner: `<div class="studio-index">${cards}</div>`,
+      inner: `<div class="studio-index">${cards}</div>
+<p style="margin-top:20px"><a class="studio-back" href="/studio/paper">Compose a long-form paper from multiple signed subjects →</a></p>`,
     }),
     { headers: { "content-type": "text/html; charset=utf-8" } },
   );
 });
+
+interface PaperPickerRow {
+  id: string;
+  slug: string;
+  label: string;
+  thesis: string | null;
+  signed_at: string | null;
+}
+
+async function loadPublishedPagesForPaper(
+  db: D1Database,
+  userId: string,
+): Promise<PaperPickerRow[]> {
+  return all<PaperPickerRow>(
+    db,
+    `SELECT p.id, p.slug, n.label, p.thesis, p.signed_at
+       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+      WHERE p.user_id = ? AND p.signed_status = 'published'
+      ORDER BY p.signed_at DESC`,
+    [userId],
+  ).catch(() => []);
+}
+
+function renderPaperPicker(pages: PaperPickerRow[], message?: string): string {
+  const msg = message ? `<div class="produce-msg">${escapeAttr(message)}</div>` : "";
+  const rows = pages
+    .map(
+      (p) => `<label class="paper-row">
+  <input type="checkbox" name="page_ids" value="${escapeAttr(p.id)}">
+  <span class="paper-row-label">${escapeAttr(p.label)}</span>
+  <span class="paper-row-thesis">${escapeAttr(p.thesis ?? "")}</span>
+</label>`,
+    )
+    .join("\n");
+  const inner = pages.length
+    ? `<form method="POST" action="/studio/paper/produce">
+  <input type="text" name="title" placeholder="Paper title" class="paper-title-input" required>
+  <div class="paper-picker">${rows}</div>
+  <button class="produce-go" type="submit" style="margin-top:14px">Compose paper</button>
+</form>`
+    : "<p>No signed subjects published yet — sign a reading first, then come back here to compose a paper across several of them.</p>";
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Studio — Compose a paper · canopticon</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    body { background: var(--paper, #faf6ef); }
+    .studio-shell { max-width: 820px; margin: 24px auto; padding: 0 24px 80px; }
+    .studio-head { display:flex; align-items:baseline; justify-content:space-between; padding-bottom:16px; border-bottom:1px solid #e7e2d6; }
+    .studio-h1 { font-family: var(--serif); font-size: 26px; margin: 0; }
+    .studio-back { font-family: var(--mono); font-size: 12px; color: var(--ink-3, #8a867c); text-decoration: none; }
+    .studio-back:hover { color: var(--ink, #0c0d10); }
+    .produce-msg { padding: 12px 14px; background: #fff5e6; border: 1px solid #e3c89a; border-radius: 8px; font-family: var(--mono); font-size: 12px; margin: 16px 0; color: #5c4413; }
+    .paper-title-input { width: 100%; box-sizing: border-box; font-family: var(--serif); font-size: 18px; padding: 12px 14px; border: 1px solid #e7e2d6; border-radius: 8px; margin: 18px 0; }
+    .paper-picker { display: flex; flex-direction: column; gap: 10px; }
+    .paper-row { display: flex; align-items: baseline; gap: 10px; padding: 12px 14px; background: #fff; border: 1px solid #e7e2d6; border-radius: 8px; cursor: pointer; }
+    .paper-row-label { font-family: var(--serif); font-size: 15px; color: var(--ink, #0c0d10); flex-shrink: 0; }
+    .paper-row-thesis { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3, #8a867c); }
+    .produce-go { font-family: var(--mono); font-size: 13px; padding: 10px 16px; background: var(--ink, #0c0d10); color: var(--paper, #faf6ef); border: none; border-radius: 8px; cursor: pointer; }
+    .produce-go:hover { background: #1a1c20; }
+  </style>
+</head>
+<body>
+<div class="studio-shell">
+  <div class="studio-head">
+    <h1 class="studio-h1">Compose a paper</h1>
+    <a class="studio-back" href="/investigations">← investigations</a>
+  </div>
+  ${msg}
+  <p style="font-family:var(--mono);font-size:11.5px;color:var(--ink-3,#8a867c);margin:8px 0 20px;">
+    Pick two or more signed subjects. Nothing is drafted here — each section is the exact thesis + body you already signed, sequenced under one title with a compiled source list.
+  </p>
+  ${inner}
+</div>
+</body>
+</html>`;
+}
+
+// GET /studio/paper — picker: choose signed subjects to compose into one document.
+app.get("/paper", async (c) => {
+  if (!c.var.is_operator) return c.redirect("/");
+  const userId = c.get("user_id");
+  const pages = await loadPublishedPagesForPaper(c.env.DB, userId);
+  const message = c.req.query("err");
+  return new Response(renderPaperPicker(pages, message), {
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+});
+
+// POST /studio/paper/produce — compose the selected pages' already-signed
+// content into one long-form document and stream it back as Markdown.
+// Mechanical recomposition only: theses and bodies are reused verbatim,
+// the bibliography is compiled from each page's page_claims — nothing is
+// regenerated or reworded, keeping this inside "the operator approves,
+// never authors."
+app.post("/paper/produce", async (c) => {
+  if (!c.var.is_operator) return c.redirect("/");
+  const userId = c.get("user_id");
+  const form = await c.req.formData();
+  const pageIds = form
+    .getAll("page_ids")
+    .map((v) => String(v))
+    .filter(Boolean);
+  const title = String(form.get("title") ?? "").trim() || "Untitled paper";
+  if (pageIds.length === 0) {
+    return c.redirect(
+      `/studio/paper?err=${encodeURIComponent("Pick at least one signed subject")}`,
+    );
+  }
+
+  const sections: PaperSection[] = [];
+  const references: PaperReference[] = [];
+  const seenPieces = new Set<string>();
+
+  for (const id of pageIds) {
+    const row = await one<{
+      id: string;
+      slug: string;
+      label: string;
+      thesis: string | null;
+      body_md: string | null;
+      signed_by: string | null;
+      signed_at: string | null;
+    }>(
+      c.env.DB,
+      `SELECT p.id, p.slug, n.label, p.thesis, p.body_md, p.signed_by, p.signed_at
+         FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+        WHERE p.id = ? AND p.user_id = ? AND p.signed_status = 'published'`,
+      [id, userId],
+    );
+    if (!row || !row.thesis || !row.body_md) continue;
+    sections.push({
+      label: row.label,
+      slug: row.slug,
+      thesis: row.thesis,
+      bodyMd: row.body_md,
+      signedBy: row.signed_by,
+      signedAt: row.signed_at,
+    });
+    const claims = await all<{ piece_slug: string | null; piece_title: string | null }>(
+      c.env.DB,
+      `SELECT DISTINCT p.slug AS piece_slug, p.title AS piece_title
+         FROM page_claims c
+         JOIN quotes q ON q.id = c.quote_id
+         LEFT JOIN nodes src ON src.id = q.source_id
+         LEFT JOIN pieces p ON p.id = src.piece_id
+        WHERE c.page_id = ? AND c.user_id = ?`,
+      [row.id, userId],
+    ).catch(() => []);
+    for (const claim of claims) {
+      const key = claim.piece_slug ?? claim.piece_title ?? "";
+      if (!key || seenPieces.has(key)) continue;
+      seenPieces.add(key);
+      references.push({
+        index: references.length + 1,
+        pieceTitle: claim.piece_title ?? "stored source",
+        pieceSlug: claim.piece_slug,
+      });
+    }
+  }
+
+  if (sections.length === 0) {
+    return c.redirect(
+      `/studio/paper?err=${encodeURIComponent("None of the selected subjects are publishable")}`,
+    );
+  }
+
+  const md = renderPaperMarkdown({ title, sections, references });
+  const filename = `${slugifyTitle(title)}.md`;
+  return new Response(md, {
+    headers: {
+      "content-type": "text/markdown; charset=utf-8",
+      "content-disposition": `attachment; filename="${filename}"`,
+    },
+  });
+});
+
+function slugifyTitle(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "paper";
+}
 
 // GET /studio/:slug/:kind — focused preview + download buttons.
 app.get("/:slug/:kind", async (c) => {

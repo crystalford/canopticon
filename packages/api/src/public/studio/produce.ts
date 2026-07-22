@@ -195,6 +195,67 @@ export function renderLongFormMarkdown(args: {
   return `${front}${body}\n`;
 }
 
+export interface PaperSection {
+  label: string;
+  slug: string;
+  thesis: string;
+  bodyMd: string;
+  signedBy: string | null;
+  signedAt: string | null;
+}
+
+export interface PaperReference {
+  index: number;
+  pieceTitle: string;
+  pieceSlug: string | null;
+}
+
+/** Paper export: composes N already-signed pages into one long-form
+ *  document — abstract (the theses, verbatim), a numbered section per
+ *  subject (the already-approved body_md, untouched), and a compiled
+ *  bibliography built from every page's page_claims. Nothing here is
+ *  drafted or reworded — this is Studio's reshape principle applied to
+ *  more than one page at once: recomposition of already-approved
+ *  content, not new authorship. */
+export function renderPaperMarkdown(args: {
+  title: string;
+  sections: PaperSection[];
+  references: PaperReference[];
+}): string {
+  const { title, sections, references } = args;
+  const abstract = sections
+    .map((s) => s.thesis.trim())
+    .filter(Boolean)
+    .join("\n\n");
+  const body = sections
+    .map((s, i) => {
+      const byline = [s.signedBy, s.signedAt ? s.signedAt.slice(0, 10) : null]
+        .filter(Boolean)
+        .join(" — ");
+      return `## ${i + 1}. ${s.label}\n\n${byline ? `*${byline}*\n\n` : ""}${s.bodyMd.trim()}`;
+    })
+    .join("\n\n---\n\n");
+  const refs = references.length
+    ? `\n\n## Sources\n\n${references
+        .map(
+          (r) =>
+            `${r.index}. ${r.pieceTitle}${r.pieceSlug ? ` — https://canopticon.com/library/${r.pieceSlug}` : ""}`,
+        )
+        .join("\n")}`
+    : "";
+  const subjectCount = sections.length;
+  return `# ${title}
+
+*Compiled from ${subjectCount} signed subject${subjectCount === 1 ? "" : "s"} on file · canopticon.com*
+
+## Abstract
+
+${abstract}
+
+${body}${refs}
+`;
+}
+
 function escapeHtmlAttr(s: string): string {
   return s
     .replace(/&/g, "&amp;")

@@ -107,5 +107,25 @@ describe("attachAuthState — the one-site permission middleware", () => {
     expect(lib.status).toBe(200);
     const libHtml = await lib.text();
     expect(libHtml).toContain('class="op-strip"');
+
+    // The upload dropzone itself — the actual backend/upload affordance the
+    // op-strip exists to surface. Regression guard: an earlier "dissolve
+    // /op/* as a destination" pass carried the extract buttons over to this
+    // page but left the upload form behind on the dead /op/library screen,
+    // so there was no reachable way to add a document at all.
+    expect(libHtml).toContain('action="/op/feed/upload"');
+    expect(libHtml).toContain('type="file"');
+
+    // Every page also gets a small nav link back into /op/library once
+    // logged in — otherwise the only way to find the console is knowing
+    // the URL by heart.
+    expect(homeHtml).toContain('href="/op/library"');
+  });
+
+  it("anonymous pages never show the upload form or the operator nav link", async () => {
+    const res = await app.fetch(new Request("http://test/library"), env);
+    const html = await res.text();
+    expect(html).not.toContain('action="/op/feed/upload"');
+    expect(html).not.toContain('href="/op/library"');
   });
 });

@@ -67,6 +67,32 @@ app.use("*", async (c, next) => {
   }
 });
 
+// Operator-visibility. Every one of the ~20 renderPage() call sites across
+// public/render/*.ts builds its own args without an isOperator flag — nav
+// (layout.ts renderNav) never had a way to point back at /op/*, so once
+// logged in, the only path into the operator console was already knowing
+// to type the URL. Rather than thread isOperator through every render
+// function's signature, this rewrites the rendered nav in one place: when
+// the session cookie resolves to the operator, splice an "operator" link
+// in ahead of the search affordance. No-ops (and costs one extra
+// html.includes check) on every anonymous request.
+app.use("*", async (c, next) => {
+  await next();
+  if (!c.get("is_operator")) return;
+  const res = c.res;
+  if (!res || !(res.headers.get("content-type") ?? "").includes("text/html")) return;
+  const html = await res.text();
+  if (!html.includes('class="nav-search"')) {
+    c.res = new Response(html, { status: res.status, headers: res.headers });
+    return;
+  }
+  const injected = html.replace(
+    '<a href="/search" class="nav-search">',
+    '<a href="/op/library" class="nav-search" style="color:var(--accent,#5d8bc6)">operator →</a>\n      <a href="/search" class="nav-search">',
+  );
+  c.res = new Response(injected, { status: res.status, headers: res.headers });
+});
+
 // Favicon — a tight monogram in the amber accent. The "canopticon." brand
 // is the wordmark + a dot in --amber; we lean on the dot. Served as SVG
 // (vector, recolors well in dark/light) with an .ico fallback that the
@@ -360,9 +386,17 @@ app.get("/timeline", async (c) => {
 
 // ---- Library --------------------------------------------------------------
 
-app.get("/library", async (c) =>
-  htmlResponse(await renderLibraryIndex(c.env, { isOperator: c.get("is_operator") })),
-);
+app.get("/library", async (c) => {
+  const ingested = c.req.query("ingested");
+  const error = c.req.query("error");
+  return htmlResponse(
+    await renderLibraryIndex(c.env, {
+      isOperator: c.get("is_operator"),
+      ...(ingested ? { ingested } : {}),
+      ...(error ? { error } : {}),
+    }),
+  );
+});
 
 // ---- Briefs (the third projection) -------------------------------------
 //

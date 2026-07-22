@@ -376,11 +376,17 @@ function looksLikeMachineFilename(title: string): boolean {
 
 export async function renderLibraryIndex(
   env: PublicEnv,
-  opts: { isOperator?: boolean } = {},
+  opts: { isOperator?: boolean; ingested?: string; error?: string } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const { listLibrary } = await import("../data");
   const pieces = userId ? await listLibrary(env.DB, userId) : [];
+
+  const uploadBanner = opts.error
+    ? `<div class="op-banner op-banner-error">${escapeHtml(opts.error)}</div>`
+    : opts.ingested
+      ? `<div class="op-banner">Uploaded ${escapeHtml(opts.ingested)} document${opts.ingested === "1" ? "" : "s"} — extraction started automatically.</div>`
+      : "";
 
   // Operator affordance strip — only rendered when logged in. Surfaces the
   // bulk extract action (the work behind it lives at POST /op/library/extract
@@ -417,19 +423,68 @@ export async function renderLibraryIndex(
   <button type="submit" class="op-strip-btn">Re-extract all (${total})</button>
 </form>`
         : "";
+    // The upload dropzone. This existed only on the old /op/library screen
+    // (operator/screens/library.ts's dropzone()) before that screen was
+    // redirected away into this same public page — the extract/re-extract
+    // buttons made the trip over, the upload form never did, leaving no
+    // reachable way to add a document at all. Same backend (POST
+    // /op/feed/upload, unchanged), same auto-submit-on-choose behaviour.
+    const dropzone = `<form method="POST" action="/op/feed/upload" enctype="multipart/form-data" id="feed-form" class="op-dropzone-form">
+  <label class="op-dropzone" for="feed-file" id="op-dz-label">
+    <div class="op-dz-1">Drop a document here, or click to choose</div>
+    <div class="op-dz-2">Markdown · plain text · PDF · a .zip of any of these</div>
+    <input type="file" id="feed-file" name="file" accept=".md,.txt,.pdf,.zip,text/markdown,text/plain,application/pdf,application/zip,application/x-zip-compressed" required style="display:none" />
+  </label>
+  <div class="op-dz-uploading" id="op-dz-uploading" hidden>Uploading — banking into the Library. You can leave this page.</div>
+</form>
+<script>
+(function () {
+  var form = document.getElementById("feed-form");
+  var input = document.getElementById("feed-file");
+  var label = document.getElementById("op-dz-label");
+  var busy = document.getElementById("op-dz-uploading");
+  if (!form || !input || !label || !busy) return;
+  input.addEventListener("change", function () {
+    if (!input.files || input.files.length === 0) return;
+    label.setAttribute("hidden", "");
+    busy.removeAttribute("hidden");
+    if (form.dataset.submitting === "1") return;
+    form.dataset.submitting = "1";
+    form.submit();
+  });
+})();
+</script>`;
     opStrip = `<div class="op-strip">
-  <div class="op-strip-label">Operator</div>
-  <div class="op-strip-actions">${extractBtn}${reextractBtn}</div>
+  <div class="op-strip-top">
+    <div class="op-strip-label">Operator</div>
+    <div class="op-strip-actions">${extractBtn}${reextractBtn}</div>
+  </div>
+  ${dropzone}
 </div>
 <style>
-  .op-strip { display:flex; align-items:center; gap:14px; padding:10px 14px; margin:0 0 18px;
+  .op-strip { padding:14px 16px; margin:0 0 18px;
     border:1px solid var(--rule); border-radius:8px; background:rgba(0,0,0,.03); }
+  .op-strip-top { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
   .op-strip-label { font-size:11px; letter-spacing:.12em; text-transform:uppercase;
     color:var(--ink-3); font-weight:600; }
   .op-strip-actions { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
   .op-strip-btn { font-size:12.5px; padding:6px 14px; border-radius:6px; cursor:pointer;
     border:1px solid var(--rule); background:var(--surface); color:var(--ink); }
   .op-strip-btn-primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .op-dropzone-form { margin:0; }
+  .op-dropzone {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:4px; padding:22px 16px; border:1px dashed var(--rule-bright, var(--rule));
+    border-radius:8px; background:var(--surface); cursor:pointer; text-align:center;
+    transition: border-color .12s, background .12s;
+  }
+  .op-dropzone:hover { border-color: var(--accent); background: var(--accent-bg, var(--surface)); }
+  .op-dz-1 { font-size:13.5px; color:var(--ink); font-weight:500; }
+  .op-dz-2 { font-size:11.5px; color:var(--ink-3); }
+  .op-dz-uploading { padding:14px; text-align:center; font-size:12.5px; color:var(--ink-3); }
+  .op-banner { padding:11px 14px; margin:0 0 16px; border-radius:8px; font-size:13px;
+    border:1px solid var(--conf-bd, var(--rule)); background:var(--conf-bg, var(--surface)); color:var(--ink); }
+  .op-banner-error { border-color:var(--corr-bd, var(--rule)); background:var(--corr-bg, var(--surface)); }
 </style>`;
   }
 
@@ -551,6 +606,7 @@ export async function renderLibraryIndex(
   </p>
 </section>
 ${weightBand}
+${uploadBanner}
 ${opStrip}
 <section>${sectionHeader(`All material (${pieces.length})`)}${table}</section>
 <style>
