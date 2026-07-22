@@ -58,6 +58,19 @@ interface EntityNode {
   created_at: string;
 }
 
+// Each merge is 7 sequential D1 writes (mergeNode below). On a large graph
+// (this corpus: 14,000+ nodes) a single run can find hundreds of merge
+// candidates, and hundreds of merges' worth of sequential D1 round trips is
+// enough on its own to exceed the execution ceiling — confirmed live: the
+// settle pipeline's own "advance to the next step" write never ran because
+// resolveEntities itself never finished, invocation after invocation
+// (node count kept dropping between checks, meaning real merge work WAS
+// happening, just never completing). Capped like every other settle step
+// now: do a bounded batch, return, let the next invocation pick up the
+// rest — the candidate query re-scans fresh each time so nothing is lost,
+// only deferred.
+const MAX_MERGES_PER_RUN = 40;
+
 export async function resolveEntities(env: Env, userId: string): Promise<EntityResolutionReport> {
   const report: EntityResolutionReport = { examined: 0, merged: 0, errors: [] };
 
@@ -85,11 +98,12 @@ export async function resolveEntities(env: Env, userId: string): Promise<EntityR
 
   // Rule 1 — exact duplicates. Oldest node in the group survives as
   // canonical (it's the one most likely already linked from elsewhere).
-  for (const [, group] of groups) {
+  outer: for (const [, group] of groups) {
     if (group.length < 2) continue;
     const canonical = group[0];
     if (!canonical) continue;
     for (const alias of group.slice(1)) {
+      if (report.merged >= MAX_MERGES_PER_RUN) break outer;
       try {
         await mergeNode(env, userId, canonical.id, canonical.label, alias, "exact-duplicate");
         report.merged++;
@@ -98,6 +112,7 @@ export async function resolveEntities(env: Env, userId: string): Promise<EntityR
       }
     }
   }
+  if (report.merged >= MAX_MERGES_PER_RUN) return report;
 
   // One representative node per surviving canonical label, for rules 2+3.
   const survivors = [...groups.entries()]
@@ -110,6 +125,7 @@ export async function resolveEntities(env: Env, userId: string): Promise<EntityR
   const byLengthDesc = [...survivors].sort((a, b) => b.key.length - a.key.length);
   const merged = new Set<string>(); // canonical keys already folded away
   for (const { key: shortKey, node: aliasNode } of byLengthDesc) {
+    if (report.merged >= MAX_MERGES_PER_RUN) break;
     if (merged.has(shortKey)) continue;
     const candidates = byLengthDesc.filter(
       (c) => !merged.has(c.key) && c.key !== shortKey && isAliasOf(shortKey, c.key),
@@ -125,10 +141,12 @@ export async function resolveEntities(env: Env, userId: string): Promise<EntityR
       report.errors.push(`${aliasNode.label} -> ${target.node.label}: ${(err as Error).message}`);
     }
   }
+  if (report.merged >= MAX_MERGES_PER_RUN) return report;
 
   // Rule 3 — acronym match, over whatever survived rules 1+2.
   const remaining = survivors.filter((s) => !merged.has(s.key));
   for (const { key: acronymKey, node: aliasNode } of remaining) {
+    if (report.merged >= MAX_MERGES_PER_RUN) break;
     if (!looksLikeAcronym(aliasNode.label)) continue;
     const letters = aliasNode.label.trim().toUpperCase();
     const candidates = remaining.filter(
