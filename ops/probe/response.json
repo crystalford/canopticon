@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T23:47:42Z",
-  "run_id": "29967192006",
+  "requested_at": "2026-07-22T23:50:03Z",
+  "run_id": "29967279375",
   "method": "GET",
   "path": "/v1/admin/debug-home-timing",
-  "status": 404,
-  "body": "{\n  \"error\": {\n    \"code\": \"not_found\",\n    \"message\": \"Not found\",\n    \"trace_id\": \"3be291b8-7387-4dec-86e6-48645f72bf70\"\n  }\n}"
+  "status": 0,
+  "body": ""
 }
