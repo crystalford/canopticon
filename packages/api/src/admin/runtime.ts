@@ -628,7 +628,6 @@ app.get("/debug-brave-answers", async (c) => {
     },
     body: JSON.stringify({
       stream: false,
-      enable_citations: true,
       messages: [{ role: "user", content: q }],
     }),
   });
