@@ -40,6 +40,15 @@ const COOLDOWN_MS = 24 * 60 * 60 * 1000; // don't re-sweep a subject inside 24h
 const THIN_FACT_THRESHOLD = 5; // mirrors subject-page.ts's isThin
 const CANDIDATE_POOL = 50; // bound the ranking query; re-ranked by edge_degree below
 
+// Beats (operator-declared standing coverage areas) get first refusal on
+// the sweep's one slot per tick — they're an explicit priority, not a
+// detected gap, so they don't need to compete on edge_degree. A 3-day
+// cooldown keeps any one beat from monopolising the shared slot away from
+// genuine thin-subject gap-filling. Crucially: beats do NOT add a new cron
+// trigger or extra Brave spend — they only change what the existing slot
+// picks.
+const BEAT_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000;
+
 export interface SweepReport {
   configured: boolean;
   candidates_considered: number;
@@ -55,6 +64,11 @@ interface ThinCandidate {
   edge_degree: number;
 }
 
+interface DueBeat {
+  id: string;
+  label: string;
+}
+
 export async function sweepThinSubjects(env: Env, userId: string): Promise<SweepReport> {
   const report: SweepReport = {
     configured: !!env.BRAVE_SEARCH_API_KEY,
@@ -64,6 +78,29 @@ export async function sweepThinSubjects(env: Env, userId: string): Promise<Sweep
   };
 
   if (!env.BRAVE_SEARCH_API_KEY) return report;
+
+  const beat = await pickDueBeat(env, userId);
+  if (beat) {
+    await emit(env, userId, "autonomous.sweep.started", {
+      source: "beat",
+      picked: [{ label: beat.label }],
+    });
+    try {
+      await run(env.DB, "UPDATE beats SET last_swept_at = ? WHERE id = ?", [
+        new Date().toISOString(),
+        beat.id,
+      ]);
+      await expandRecord(env, userId, beat.label);
+      report.subjects_swept.push(beat.label);
+    } catch (err) {
+      report.errors.push(`${beat.label}: ${(err as Error).message}`);
+    }
+    await emit(env, userId, "autonomous.sweep.completed", {
+      swept: report.subjects_swept,
+      errors: report.errors,
+    });
+    return report;
+  }
 
   const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS).toISOString();
   const rows = await all<ThinCandidate>(
@@ -121,6 +158,19 @@ export async function sweepThinSubjects(env: Env, userId: string): Promise<Sweep
   });
 
   return report;
+}
+
+async function pickDueBeat(env: Env, userId: string): Promise<DueBeat | null> {
+  const cutoff = new Date(Date.now() - BEAT_COOLDOWN_MS).toISOString();
+  const rows = await all<DueBeat>(
+    env.DB,
+    `SELECT id, label FROM beats
+      WHERE user_id = ? AND (last_swept_at IS NULL OR last_swept_at < ?)
+      ORDER BY COALESCE(last_swept_at, '') ASC
+      LIMIT 1`,
+    [userId, cutoff],
+  ).catch(() => []);
+  return rows[0] ?? null;
 }
 
 async function emit(

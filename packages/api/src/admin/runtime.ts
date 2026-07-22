@@ -641,4 +641,34 @@ app.get("/debug-brave-answers", async (c) => {
   });
 });
 
+// GET /v1/admin/beats — list standing coverage areas (newsroom phase 3).
+app.get("/beats", async (c) => {
+  const userId = c.get("user_id");
+  const beats = await all<{
+    id: string;
+    label: string;
+    created_at: string;
+    last_swept_at: string | null;
+  }>(
+    c.env.DB,
+    "SELECT id, label, created_at, last_swept_at FROM beats WHERE user_id = ? ORDER BY created_at ASC",
+    [userId],
+  ).catch(() => []);
+  return c.json({ ok: true, beats });
+});
+
+// GET /v1/admin/beats/add?confirm=1&label=... — add one beat. Idempotent:
+// the unique (user_id, label) index means adding the same label twice is a
+// no-op, not an error.
+app.get("/beats/add", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const label = (c.req.query("label") ?? "").trim();
+  if (!label) return c.json({ ok: false, error: "missing ?label=" }, 400);
+  const userId = c.get("user_id");
+  await insertOne(c.env.DB, "beats", { user_id: userId, label }).catch(() => {});
+  return c.json({ ok: true, label });
+});
+
 export default app;
