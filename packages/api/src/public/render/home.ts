@@ -21,11 +21,11 @@ interface PillarSpec {
 const PILLARS: PillarSpec[] = [
   {
     href: "/topics",
-    label: "Topics",
+    label: "Browse the record",
     typeLabel: "The index",
     typeClass: "t-topic",
     blurb:
-      "Subjects in the knowledge graph — entities, events, and the received accounts the corpus engages with. Each page grows from extraction; nobody wrote it.",
+      "Every file in the record — people, companies, events, and the widely-held stories the documents push back on. Nobody wrote these pages; they grew as sources were read.",
   },
   {
     href: "/investigations",
@@ -33,23 +33,22 @@ const PILLARS: PillarSpec[] = [
     typeLabel: "Signed analysis",
     typeClass: "t-essay",
     blurb:
-      "The signed reading on the substrate. Each piece wears its intent as a badge; every load-bearing assertion ties back to the evidence it rests on.",
+      "The signed analyses. Each one wears its intent as a badge; every load-bearing claim ties back to the file it stands on.",
   },
   {
     href: "/library",
     label: "Library",
     typeLabel: "The raw research",
     typeClass: "t-research-report",
-    blurb:
-      "Every source document the rest is built on — kept whole, kept honest. Each shows what it fed into the fabric.",
+    blurb: "Every source document the record is built on — kept whole, kept honest.",
   },
   {
-    href: "/methodology",
-    label: "Methodology",
+    href: "/method",
+    label: "Method",
     typeLabel: "How this works",
     typeClass: "t-pattern",
     blurb:
-      "The trust model — verbatim verification, independent judging, the firewall between neutral fact and attributed assertion. Why citations from this site are mechanical, not vouched.",
+      "How verification works: word-for-word quotes, independent judging, and disputed material shown as disputed, never quietly as fact.",
   },
 ];
 
@@ -158,7 +157,7 @@ export async function renderHome(
   <div class="kicker" style="margin-bottom:18px">
     <span class="live"></span> Forensic intelligence · sourced, structured, permanent
   </div>
-  <h1 style="font-family:var(--serif);font-size:48px;line-height:1.1;letter-spacing:-0.02em;margin:0 0 18px;color:var(--ink)">How things actually work, beneath the official account.</h1>
+  <h1 style="font-family:var(--serif);font-size:48px;line-height:1.1;letter-spacing:-0.02em;margin:0 0 18px;color:var(--ink)">Canopticon keeps files on power.</h1>
   <p style="font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--ink-2);max-width:680px">
     A forensic intelligence system — mapping the architecture of systems and
     institutions through sourced claims, signed analysis, and a growing graph of
@@ -226,6 +225,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
     docs: number;
     signed: number;
     contested: number;
+    killed: number;
   }>(
     env.DB,
     `SELECT
@@ -234,8 +234,9 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
        (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs,
        (SELECT COUNT(*) FROM pages WHERE user_id = ? AND signed_status = 'published') AS signed,
        (SELECT COUNT(*) FROM assertions a JOIN nodes n ON n.id = a.node_id
-          WHERE n.user_id = ? AND a.rank = 'contested') AS contested`,
-    [userId, userId, userId, userId, userId],
+          WHERE n.user_id = ? AND a.rank = 'contested') AS contested,
+       (SELECT COALESCE(SUM(claims_killed), 0) FROM pages WHERE user_id = ?) AS killed`,
+    [userId, userId, userId, userId, userId, userId],
   ).catch(() => null);
 
   const INTENT_LABEL: Record<string, string> = {
@@ -266,7 +267,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
   const kindLine = (s: NonNullable<typeof lead>): string => {
     const kindLabel = s.kind === "theme" ? "Theme" : s.kind === "event" ? "Event" : "Subject";
     const signed = s.signed_status === "published";
-    return `${kindLabel}${signed ? " · the operator's reading" : ""}`;
+    return `${kindLabel}${signed ? " · signed analysis" : ""}`;
   };
 
   // The LEAD — a full-width editorial card. Bigger type, thesis prominent,
@@ -349,13 +350,15 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
   // Stats line under the masthead. Two key numbers, sized and worded so a
   // reader skims them as the proof of weight: "this is a real record" vs
   // "this is a side project".
+  // Depth-of-record numbers. Plain words, self-explanatory to a first-time
+  // reader — the stamp-line rule applies here too. No raw jargon nouns.
   const stats = counts
     ? `<div class="home-stats">
-  <span><b>${counts.docs}</b> source documents</span>
-  <span><b>${counts.subjects}</b> subject pages</span>
-  ${counts.themes > 0 ? `<span><b>${counts.themes}</b> themes</span>` : ""}
-  ${counts.signed > 0 ? `<span><b>${counts.signed}</b> signed readings</span>` : ""}
-  ${counts.contested > 0 ? `<span><b>${counts.contested}</b> contested claims</span>` : ""}
+  <span><b>${counts.subjects}</b> subjects on file</span>
+  <span><b>${counts.docs}</b> source documents stored</span>
+  ${counts.signed > 0 ? `<span><b>${counts.signed}</b> signed analyses</span>` : ""}
+  ${counts.contested > 0 ? `<span><b>${counts.contested}</b> disputed claims</span>` : ""}
+  ${counts.killed > 0 ? `<span><b>${counts.killed}</b> claims removed — failed verification</span>` : ""}
 </div>`
     : "";
 
@@ -400,7 +403,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
           );
         }
         if (bits.length === 0) {
-          return `<aside class="op-briefing"><div class="op-briefing-kicker">From the system, this morning</div><p>The corpus is quiet. Nothing new since yesterday.</p></aside>`;
+          return `<aside class="op-briefing"><div class="op-briefing-kicker">From the system, this morning</div><p>Quiet. Nothing new since yesterday.</p></aside>`;
         }
         return `<aside class="op-briefing"><div class="op-briefing-kicker">From the system, this morning</div><p>${bits.join(" · ")}.</p></aside>`;
       })()
@@ -444,7 +447,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
   const opThreads =
     opOverlays && opOverlays.threads.length > 0
       ? `<section class="op-threads">
-  <div class="section-label">Still chasing — open questions the corpus raised</div>
+  <div class="section-label">Still chasing — open questions the record raised</div>
   <div class="op-threads-list">
     ${opOverlays.threads
       .map(
@@ -461,8 +464,8 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
   const body = `
 <script type="application/ld+json">${jsonLd}</script>
 <section class="home-masthead">
-  <div class="kicker"><span class="live"></span> A forensic record of Canadian power — facts first, readings signed</div>
-  <h1 class="home-hero">How things actually work, beneath the official account.</h1>
+  <div class="kicker"><span class="live"></span> A forensic record of power — facts on file, analysis signed</div>
+  <h1 class="home-hero">Canopticon keeps files on power.</h1>
   ${stats}
 </section>
 
@@ -540,7 +543,7 @@ ${opThreads}
     background: var(--surface, #fff);
     transition: border-color .12s;
   }
-  .lead-card:hover { border-color: #c9bfa9; }
+  .lead-card:hover { border-color: var(--accent-bd); }
   .lead-kicker {
     display: flex; align-items: center; gap: 10px;
     flex-wrap: wrap;
@@ -585,7 +588,7 @@ ${opThreads}
     background: var(--surface, #fff);
     transition: border-color .12s;
   }
-  .secondary-card:hover { border-color: #c9bfa9; }
+  .secondary-card:hover { border-color: var(--accent-bd); }
   .secondary-kicker {
     display: flex; align-items: center; gap: 8px;
     flex-wrap: wrap;
@@ -762,7 +765,7 @@ ${opThreads}
   return renderPage({
     title: "",
     description:
-      "A forensic record of Canadian power — facts first, readings signed. Recently active subjects and themes across the fabric.",
+      "Canopticon keeps files on power — documented facts with their receipts, disputes shown as disputes, and signed analysis.",
     body,
     activeNav: "/",
     zone: "home",
