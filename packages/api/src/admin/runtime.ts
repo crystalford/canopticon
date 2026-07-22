@@ -405,13 +405,20 @@ app.get("/settle-advance", async (c) => {
   }
   const userId = c.get("user_id");
   const env = c.env;
-  c.executionCtx.waitUntil(
-    (async () => {
-      const { advanceSettleOneStep } = await import("../graph/lib/settle-pipeline.ts");
-      await advanceSettleOneStep(env, userId);
-    })(),
+  const before = await one(env.DB, "SELECT * FROM settle_state WHERE user_id = ?", [userId]).catch(
+    (err) => ({ error: (err as Error).message }),
   );
-  return c.json({ ok: true, started: true });
+  const { advanceSettleOneStep } = await import("../graph/lib/settle-pipeline.ts");
+  let advanceError: string | null = null;
+  try {
+    await advanceSettleOneStep(env, userId);
+  } catch (err) {
+    advanceError = (err as Error).message ?? "unknown error";
+  }
+  const after = await one(env.DB, "SELECT * FROM settle_state WHERE user_id = ?", [userId]).catch(
+    (err) => ({ error: (err as Error).message }),
+  );
+  return c.json({ ok: true, before, advanceError, after });
 });
 
 // GET /v1/admin/settle-state — diagnostic: what does settle_state actually
