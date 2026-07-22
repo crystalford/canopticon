@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T21:52:09Z",
-  "run_id": "29960778571",
+  "requested_at": "2026-07-22T21:53:03Z",
+  "run_id": "29960855402",
   "method": "GET",
   "path": "/v1/admin/settle-advance?confirm=1",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"before\": null,\n  \"advanceError\": null,\n  \"after\": {\n    \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n    \"next_step\": \"surfacing_l1\",\n    \"last_advanced_at\": \"2026-07-22T21:52:09.792Z\"\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"before\": {\n    \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n    \"next_step\": \"surfacing_l1\",\n    \"last_advanced_at\": \"2026-07-22T21:52:49.230Z\"\n  },\n  \"advanceError\": null,\n  \"after\": {\n    \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n    \"next_step\": \"surfacing_l1\",\n    \"last_advanced_at\": \"2026-07-22T21:52:49.230Z\"\n  }\n}"
 }
