@@ -31,17 +31,23 @@ bucket_name = "canopticon-video-assets"
 binding = "AI"
 
 # Cloudflare Container — the renderer (ffmpeg + Remotion + Chrome
-# Headless Shell). The image is built and published from
-# packages/video-renderer by `wrangler containers push` in the deploy
-# workflow before this Worker binds to it.
+# Headless Shell). Built from the Dockerfile in packages/video-renderer
+# and pushed automatically as part of `wrangler deploy` (Wrangler 4.x;
+# there is no separate manual push step — see deploy-video.yml).
+#
+# [[containers]] — array-of-tables (double brackets). wrangler 4's
+# stricter config validation rejects a single-bracket [containers]
+# table here; earlier Wrangler versions silently accepted the wrong
+# shape and never actually read it (Containers support didn't exist in
+# the 3.x line this repo originally pinned).
 #
 # instance_type capped at standard-4 per the v2.6 spec — the largest
 # CPU-only Container Cloudflare offers (4 vCPU / 12 GiB). Phase 0 proves
 # the render fits inside this envelope; Phase 1+ may raise max_instances
 # for fan-out rendering of multiple variants in parallel.
-[containers]
+[[containers]]
 class_name = "RenderContainer"
-image = "../video-renderer"
+image = "../video-renderer/Dockerfile"
 instance_type = "standard-4"
 max_instances = 1
 

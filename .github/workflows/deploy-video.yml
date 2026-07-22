@@ -91,13 +91,17 @@ jobs:
           fi
           set -e
 
-      # --- Container image push ---------------------------------------
-      # Builds the Dockerfile in packages/video-renderer and pushes the
-      # image to Cloudflare's Container registry under the name the
-      # Worker's [[containers]] binding references.
-      - name: Build & push Container image
-        working-directory: packages/video-renderer
-        run: pnpm exec wrangler containers push canopticon-video-renderer
+      # NOTE: there is no separate "build & push container image" step.
+      # `wrangler containers push` doesn't exist in Wrangler 3.x (this
+      # workflow's first version pinned ^3.86.0, before Cloudflare
+      # Containers shipped in the CLI) and in 4.x it expects the TAG of
+      # an already-built local image, not an app name — it's for pushing
+      # a raw image directly, not for building from a Worker's
+      # [[containers]] config. The correct, modern path (Wrangler 4.x)
+      # is `wrangler deploy` on the Worker itself: it builds the image
+      # from the Dockerfile the [[containers]] block points at
+      # (packages/video-renderer) and pushes it as part of deploying,
+      # gated by --containers-rollout below.
 
       # --- Worker secrets ---------------------------------------------
       - name: Push Worker secrets
@@ -124,10 +128,16 @@ jobs:
         run: |
           sed -i "s|OPERATOR_EMAIL = \"\"|OPERATOR_EMAIL = \"${{ secrets.OPERATOR_EMAIL }}\"|" wrangler.toml
 
-      # --- Deploy Worker ----------------------------------------------
+      # --- Deploy Worker ------------------------------------------------
+      # Builds + pushes the container image (from the [[containers]]
+      # block's `image = "../video-renderer"`) as part of this deploy.
+      # --containers-rollout immediate rolls the container out to 100%
+      # in one step rather than gradual percentage steps — correct for
+      # a first deploy / CI, where there's no existing traffic to ease
+      # into.
       - name: Deploy Worker
         working-directory: packages/video
-        run: pnpm exec wrangler deploy
+        run: pnpm exec wrangler deploy --containers-rollout immediate
 
       # NOTE: video.canopticon.com custom domain is configured in the
       # Cloudflare dashboard one-time after the first deploy. The
