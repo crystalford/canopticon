@@ -1,0 +1,44 @@
+// Bindings + secrets the daily video Worker reads.
+
+export interface Env {
+  /** D1 — canopticon-video. Separate from the publication's DB. */
+  DB: D1Database;
+  /** R2 — broadcast clip cache + final MP4s. */
+  ASSETS: R2Bucket;
+  /** Workers AI — Phase 1 uses Whisper + the editorial brain. Phase 0
+   *  doesn't call it; the binding is here so Phase 1 inherits the
+   *  scaffolding. */
+  AI: Ai;
+  /** The Container running ffmpeg + Remotion (packages/video-renderer).
+   *  Worker calls env.RENDER_CONTAINER.fetch("/render", { ... }) with
+   *  the §7b segment JSON; the Container responds with the MP4's R2
+   *  key plus timing/cost metrics. */
+  RENDER_CONTAINER: DurableObjectNamespace;
+
+  /** Shared HMAC secret. Same value as the publication's Worker so
+   *  one session cookie recognises the operator on both subdomains.
+   *  Set via `wrangler secret put SESSION_SECRET`. */
+  SESSION_SECRET?: string;
+  /** ElevenLabs API key — Phase 1, opt-in per segment. */
+  ELEVENLABS_API_KEY?: string;
+  /** MiniMax API key — Phase 1, default voice provider. (If the
+   *  Workers AI binding for MiniMax is enabled instead, this can stay
+   *  unset.) */
+  MINIMAX_API_KEY?: string;
+  /** GDELT v3 API key — Phase 1, if required. */
+  GDELT_API_KEY?: string;
+  /** Brave Search API key — Phase 1B's second sourcing radar. The api
+   *  Worker already uses this for record-building on click; the video
+   *  Worker reuses the same key. ~$3/1000 queries on the paid tier. */
+  BRAVE_SEARCH_API_KEY?: string;
+
+  /** The publication's URL (canopticon.com). Used by /auth/login to
+   *  redirect there for the Access challenge. */
+  PUBLIC_BASE: string;
+  /** This Worker's URL (video.canopticon.com). Used as the `next` param
+   *  in the auth redirect. */
+  VIDEO_BASE: string;
+
+  LOG_LEVEL: string;
+  OPERATOR_EMAIL: string;
+}

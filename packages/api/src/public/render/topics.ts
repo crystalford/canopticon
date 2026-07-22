@@ -17,8 +17,8 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) {
     return renderPage({
-      title: "Topics",
-      description: "Browse subjects in the knowledge graph.",
+      title: "Browse the record",
+      description: "Every file in the record — people, companies, events, and themes.",
       body: emptyState("No operator yet."),
       activeNav: "/topics",
       zone: "topics",
@@ -32,11 +32,13 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
     slug: string;
     label: string;
     kind: string;
+    entity_type: string | null;
     signed_status: string;
     source_count: number;
   }>(
     env.DB,
-    `SELECT p.slug, n.label, n.kind, p.signed_status,
+    `SELECT p.slug, n.label, n.kind, json_extract(n.metadata, '$.entity_type') AS entity_type,
+            p.signed_status,
             (SELECT COUNT(DISTINCT piece_id) FROM nodes
               WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS source_count
        FROM pages p
@@ -49,10 +51,10 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
 
   if (subjects.length === 0) {
     return renderPage({
-      title: "Topics",
-      description: "Browse subjects in the knowledge graph.",
+      title: "Browse the record",
+      description: "Every file in the record — people, companies, events, and themes.",
       body: emptyState(
-        "No subjects yet. Drop research reports in IN — pages grow as documents are read.",
+        "No subjects yet. Drop research reports in the Library — pages grow as documents are read.",
       ),
       activeNav: "/topics",
       zone: "topics",
@@ -60,8 +62,36 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   }
 
   const themes = subjects.filter((s) => s.kind === "theme");
-  const entities = subjects.filter((s) => s.kind === "entity");
   const events = subjects.filter((s) => s.kind === "event");
+  // People get their own section — same real signal as the file page
+  // (metadata.entity_type, written at extraction time). Companies and
+  // everything else that isn't a person stay in the general Entities
+  // bucket rather than guessing a finer split we can't back with data.
+  const people = subjects.filter((s) => s.kind === "entity" && s.entity_type === "person");
+  const entities = subjects.filter((s) => s.kind === "entity" && s.entity_type !== "person");
+
+  // Themes get hero treatment — fetch the received_account text so each card
+  // can carry the *thing* the corpus is pushing back on, not just a label.
+  // Themes are the most novel concept here; without the quote a theme card
+  // is just an opaque title.
+  const themeRows = themes.length
+    ? await all<{
+        slug: string;
+        label: string;
+        received_account: string;
+        convergence_count: number;
+        signed_status: string;
+      }>(
+        env.DB,
+        `SELECT p.slug, n.label, t.received_account, t.convergence_count, p.signed_status
+           FROM pages p
+           JOIN nodes n ON n.id = p.subject_node_id
+           JOIN themes t ON t.node_id = n.id
+          WHERE p.user_id = ? AND n.kind = 'theme'
+          ORDER BY t.convergence_count DESC, p.updated_at DESC`,
+        [userId],
+      ).catch(() => [])
+    : [];
 
   const subjectCard = (s: (typeof subjects)[number], kindLabel: string): string => {
     const isSigned = s.signed_status === "signed" || s.signed_status === "published";
@@ -72,41 +102,176 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
 </a>`;
   };
 
-  const section = (
+  // Theme cards: hero treatment when themes exist. The received-account quote
+  // is the editorial payload — italic, restrained, the thing the corpus is
+  // engaging with. Convergence count is the proof-of-weight ("3 documents
+  // push back on this") so readers know it's not someone's hunch.
+  const themeCard = (t: (typeof themeRows)[number]): string => {
+    const signed = t.signed_status === "signed" || t.signed_status === "published";
+    return `<a class="theme-card" href="/s/${escapeHtml(t.slug)}${signed ? "?mode=signed" : ""}">
+  <div class="theme-kicker">Theme${signed ? " · signed analysis" : ""}</div>
+  <h3 class="theme-label">${escapeHtml(t.label)}</h3>
+  <p class="theme-quote">"${escapeHtml(t.received_account)}"</p>
+  <div class="theme-meta">${t.convergence_count} document${t.convergence_count === 1 ? "" : "s"} push back on this account</div>
+</a>`;
+  };
+
+  // The themes section — leads the page when any theme has surfaced. Empty
+  // state explains what themes ARE so a first-time reader understands what
+  // they'd see here once the threshold's met.
+  const themesSection =
+    themeRows.length > 0
+      ? `<section class="topics-themes">
+  <div class="topics-section-kicker">What the documents push back on</div>
+  <h2 class="topics-section-h">Themes</h2>
+  <p class="topics-section-lede">Widely-held accounts the documents contradict — surfaced automatically when three or more separate sources converge on the same pushback.</p>
+  <div class="theme-grid">${themeRows.map((t) => themeCard(t)).join("")}</div>
+</section>`
+      : `<section class="topics-themes topics-themes-empty">
+  <div class="topics-section-kicker">What the documents push back on</div>
+  <h2 class="topics-section-h">Themes</h2>
+  <p class="topics-section-lede">A theme is a widely-held account the documents contradict — surfaced automatically when three or more separate sources converge on the same pushback. None have crossed that threshold yet.</p>
+</section>`;
+
+  // Entities + events render as plain card grids below — they're the
+  // backbone, not the editorial spine. Themes lead.
+  const plainSection = (
     heading: string,
     kicker: string,
     list: typeof subjects,
     kindLabel: string,
+    emptyExplainer: string,
   ): string => {
-    if (list.length === 0) return "";
-    return `<section style="margin-bottom:36px">
-  <div class="kicker" style="margin-bottom:10px">${escapeHtml(kicker)}</div>
-  <h2 style="font-family:var(--serif);font-size:24px;margin-bottom:14px;color:var(--ink)">${escapeHtml(heading)}</h2>
-  <div class="cards-3">${list
-    .slice(0, 60)
-    .map((s) => subjectCard(s, kindLabel))
-    .join("")}</div>
+    const cards = list.length
+      ? `<div class="cards-3">${list
+          .slice(0, 60)
+          .map((s) => subjectCard(s, kindLabel))
+          .join("")}</div>`
+      : `<p class="topics-empty-line">${escapeHtml(emptyExplainer)}</p>`;
+    return `<section class="topics-section">
+  <div class="topics-section-kicker">${escapeHtml(kicker)}</div>
+  <h2 class="topics-section-h">${escapeHtml(heading)}</h2>
+  ${cards}
 </section>`;
   };
 
   const body = `
-<section style="margin-bottom:24px">
-  <div class="kicker" style="margin-bottom:16px"><span class="live"></span> The fabric</div>
-  <h1 style="font-family:var(--serif);font-size:40px;line-height:1.12;letter-spacing:-0.015em;margin:0 0 12px;color:var(--ink)">Topics</h1>
-  <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
-    Subjects in the knowledge graph — entities, events, and the received accounts the corpus engages with.
-    Nobody wrote these pages; they grew as documents were read. Each page carries its receipts.
+<section class="topics-masthead">
+  <div class="kicker"><span class="live"></span> Browse the record</div>
+  <h1 class="topics-hero">Browse the record</h1>
+  <p class="topics-lede">
+    Every file in the record — the widely-held stories the documents push back on, the people
+    and companies named, the events on the timeline. Nobody wrote these pages; they grew as
+    documents were read. Each one carries its receipts.
   </p>
 </section>
-${section("Themes", "What the corpus is engaging with", themes, "Theme")}
-${section("Entities", "People, organizations, places", entities, "Entity")}
-${section("Events", "Dated occurrences", events, "Event")}
+${themesSection}
+${plainSection("People", "The named people in the record", people, "Person", "No people have been read into the record yet.")}
+${plainSection("Companies & other", "Organizations, places, and other subjects", entities, "Entity", "Nothing recognised here yet — files grow as documents are read.")}
+${plainSection("Events", "Dated occurrences", events, "Event", "Dated occurrences, extracted with their source quotes. No event files yet.")}
+
+<style>
+  .topics-masthead { margin-bottom: 32px; }
+  .topics-masthead .kicker { margin-bottom: 16px; }
+  .topics-hero {
+    font-family: var(--serif);
+    font-size: 40px; line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0 0 12px;
+    color: var(--ink);
+  }
+  .topics-lede {
+    font-family: var(--serif);
+    font-size: 18px; line-height: 1.55;
+    color: var(--ink-2);
+    max-width: 680px;
+  }
+  .topics-themes { margin-bottom: 40px; padding-bottom: 36px; border-bottom: 1px solid var(--rule); }
+  .topics-themes-empty { padding-bottom: 28px; }
+  .topics-section { margin-bottom: 36px; }
+  .topics-section-kicker {
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .topics-section-h {
+    font-family: var(--serif);
+    font-size: 28px; line-height: 1.15;
+    margin: 0 0 14px;
+    color: var(--ink);
+  }
+  .topics-section-lede {
+    font-family: var(--serif);
+    font-size: 15px; line-height: 1.55;
+    color: var(--ink-3);
+    max-width: 640px;
+    margin: 0 0 18px;
+  }
+  .topics-empty-line {
+    font-family: var(--serif);
+    font-size: 15px; line-height: 1.55;
+    color: var(--ink-3);
+    max-width: 640px;
+    font-style: italic;
+  }
+  .theme-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .theme-card {
+    display: block;
+    text-decoration: none;
+    padding: 24px 26px;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    background: var(--surface);
+    transition: border-color .12s;
+  }
+  .theme-card:hover { border-color: var(--accent-bd); }
+  .theme-kicker {
+    font-size: 11.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-bottom: 10px;
+  }
+  .theme-label {
+    font-family: var(--serif);
+    font-size: 22px;
+    line-height: 1.22;
+    color: var(--ink);
+    margin: 0 0 12px;
+  }
+  .theme-quote {
+    font-family: var(--serif);
+    font-size: 16px;
+    line-height: 1.5;
+    font-style: italic;
+    color: var(--ink-2);
+    margin: 0 0 14px;
+    padding-left: 14px;
+    border-left: 2px solid var(--accent);
+  }
+  .theme-meta {
+    font-size: 12.5px;
+    color: var(--ink-3);
+    letter-spacing: .03em;
+  }
+  @media (max-width: 720px) {
+    .theme-grid { grid-template-columns: 1fr; }
+    .topics-hero { font-size: 32px; }
+  }
+</style>
 `;
 
   return renderPage({
-    title: "Topics",
+    title: "Browse the record",
     description:
-      "Browse the knowledge graph — entities, events, and themes the corpus engages with.",
+      "Every file in the record — the people and companies named, the events on the timeline, and the widely-held stories the documents push back on.",
     body,
     activeNav: "/topics",
     zone: "topics",

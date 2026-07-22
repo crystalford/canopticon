@@ -1,0 +1,109 @@
+name: Deploy The Blind Spot to Cloudflare
+
+# Deploys the Blind Spot instrument (packages/blindspot) to Cloudflare.
+# Mirrors deploy-video.yml shape: idempotent D1 + R2 creation, migration
+# apply, secret push, worker deploy. No Container step — this instrument
+# is Worker + D1 + R2 only.
+#
+# Required GitHub secrets (shared with the other Workers):
+#   CLOUDFLARE_API_TOKEN
+#   CLOUDFLARE_ACCOUNT_ID
+#   SESSION_SECRET          (same value as the api Worker — one operator
+#                            session across all subdomains)
+#   OPERATOR_EMAIL
+#
+# Triggered only when Blind Spot paths change so the publication +
+# video deploys aren't coupled to it.
+
+# TABLED: The Blind Spot is parked (operator decision, 2026-07-22).
+# The code stays in the repo; the deploy fires ONLY on manual dispatch
+# so merging core-product work to main never deploys this Worker as a
+# side effect. Restore the push trigger when the instrument is
+# un-tabled.
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # --- D1 database (canopticon-blindspot) -------------------------
+      - name: Ensure D1 database
+        working-directory: packages/blindspot
+        run: |
+          set +e
+          output=$(pnpm exec wrangler d1 create canopticon-blindspot 2>&1)
+          code=$?
+          echo "$output"
+          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|already created|duplicate"; then
+            exit $code
+          fi
+          set -e
+
+      - name: Resolve D1 database_id and patch wrangler.toml
+        working-directory: packages/blindspot
+        run: |
+          DB_ID=$(pnpm exec wrangler d1 list --json | jq -r '.[] | select(.name=="canopticon-blindspot") | .uuid')
+          if [ -z "$DB_ID" ] || [ "$DB_ID" = "null" ]; then
+            echo "Failed to resolve D1 database_id for canopticon-blindspot"; exit 1
+          fi
+          echo "Using D1 database_id=$DB_ID"
+          sed -i "s/PLACEHOLDER_FILLED_BY_DEPLOY_WORKFLOW/$DB_ID/" wrangler.toml
+
+      - name: Run D1 migrations
+        working-directory: packages/blindspot
+        run: pnpm exec wrangler d1 migrations apply canopticon-blindspot --remote
+
+      # --- R2 bucket (canopticon-blindspot-assets) --------------------
+      - name: Ensure R2 bucket
+        working-directory: packages/blindspot
+        run: |
+          set +e
+          output=$(pnpm exec wrangler r2 bucket create canopticon-blindspot-assets 2>&1)
+          code=$?
+          echo "$output"
+          if [ $code -ne 0 ] && ! echo "$output" | grep -qiE "already exists|already own it"; then
+            exit $code
+          fi
+          set -e
+
+      # --- Worker secrets ---------------------------------------------
+      - name: Push Worker secrets
+        working-directory: packages/blindspot
+        run: |
+          echo "${{ secrets.SESSION_SECRET }}" | pnpm exec wrangler secret put SESSION_SECRET
+
+      # --- Set OPERATOR_EMAIL var -------------------------------------
+      - name: Patch OPERATOR_EMAIL into wrangler.toml
+        working-directory: packages/blindspot
+        run: |
+          sed -i "s|OPERATOR_EMAIL = \"\"|OPERATOR_EMAIL = \"${{ secrets.OPERATOR_EMAIL }}\"|" wrangler.toml
+
+      # --- Deploy Worker ----------------------------------------------
+      - name: Deploy Worker
+        working-directory: packages/blindspot
+        run: pnpm exec wrangler deploy
+
+      # NOTE: blindspot.canopticon.com custom domain is configured in
+      # the Cloudflare dashboard one-time after the first deploy. The
+      # deploy token doesn't have Workers Routes Edit on the zone.

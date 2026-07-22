@@ -1,0 +1,57 @@
+name = "canopticon-blindspot"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Custom domain `blindspot.canopticon.com` is configured in the
+# Cloudflare dashboard (Workers & Pages → canopticon-blindspot →
+# Settings → Domains & Routes) one-time after the first deploy. The
+# deploy token doesn't have Workers Routes Edit on the zone, so we
+# don't declare routes here (same posture as the video Worker).
+
+# D1 database — created by the deploy workflow with
+# `wrangler d1 create canopticon-blindspot`; the id is patched in.
+# Migrations live under supabase/migrations-blindspot/ to keep them
+# separate from the publication's + video's migration numbering.
+[[d1_databases]]
+binding = "DB"
+database_name = "canopticon-blindspot"
+database_id = "PLACEHOLDER_FILLED_BY_DEPLOY_WORKFLOW"
+migrations_dir = "../../supabase/migrations-blindspot"
+
+# R2 bucket — raw source snapshots (the provenance store). Every fact
+# row carries the R2 key of the snapshot it was read from. Created by
+# the deploy workflow with `wrangler r2 bucket create
+# canopticon-blindspot-assets`.
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "canopticon-blindspot-assets"
+
+# Workers AI — reserved for future use (e.g. summarising a source
+# release note). v1 ingest is pure fetch + parse; the binding is here
+# so later phases inherit the scaffolding.
+[ai]
+binding = "AI"
+
+# Cron — DISABLED. This instrument runs in push-button mode: the
+# operator clicks "Refresh sources" (POST /refresh) when they want to
+# re-pull the official statistics. No scheduled ingest. Re-enable by
+# uncommenting the [triggers] block once the manual flow is settled.
+# [triggers]
+# crons = ["0 13 * * 1"]
+
+[vars]
+LOG_LEVEL = "info"
+OPERATOR_EMAIL = ""
+# Bases for cross-Worker redirects. /refresh and /auth/login redirect
+# to PUBLIC_BASE/auth/login?next=<BLINDSPOT_BASE + path> so the operator
+# hits Cloudflare Access on the apex once and the cookie comes back
+# scoped to .canopticon.com.
+PUBLIC_BASE = "https://canopticon.com"
+BLINDSPOT_BASE = "https://blindspot.canopticon.com"
+# PBO high-net-worth family database download URL. Until the operator
+# confirms the live URL, the PBO adapter ships a hardcoded 2023 fallback
+# (top 1% = 23.8%, $7.4M threshold, 169,400 families). Set this as a
+# Worker var to switch to live pulls.
+PBO_HNW_URL = ""

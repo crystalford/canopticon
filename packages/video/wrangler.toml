@@ -1,0 +1,65 @@
+name = "canopticon-video"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Custom domain `video.canopticon.com` is configured in the Cloudflare
+# dashboard (Workers & Pages → canopticon-video → Settings → Domains &
+# Routes). The deploy token doesn't have Workers Routes Edit on the zone,
+# so we don't try to declare routes here.
+
+# D1 database — created by the deploy workflow with
+# `wrangler d1 create canopticon-video` then the id is patched in.
+# Migrations live under supabase/migrations-video/ to keep them separate
+# from the publication's migration numbering.
+[[d1_databases]]
+binding = "DB"
+database_name = "canopticon-video"
+database_id = "PLACEHOLDER_FILLED_BY_DEPLOY_WORKFLOW"
+migrations_dir = "../../supabase/migrations-video"
+
+# R2 bucket — broadcast clip cache + final MP4s. Created by the deploy
+# workflow with `wrangler r2 bucket create canopticon-video-assets`.
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "canopticon-video-assets"
+
+# Workers AI — used Phase 1 onward for Whisper transcripts + the
+# editorial brain (gpt-oss-120b for scoring, llama-4-scout for writing).
+[ai]
+binding = "AI"
+
+# Cloudflare Container — the renderer (ffmpeg + Remotion + Chrome
+# Headless Shell). The image is built and published from
+# packages/video-renderer by `wrangler containers push` in the deploy
+# workflow before this Worker binds to it.
+#
+# instance_type capped at standard-4 per the v2.6 spec — the largest
+# CPU-only Container Cloudflare offers (4 vCPU / 12 GiB). Phase 0 proves
+# the render fits inside this envelope; Phase 1+ may raise max_instances
+# for fan-out rendering of multiple variants in parallel.
+[containers]
+class_name = "RenderContainer"
+image = "../video-renderer"
+instance_type = "standard-4"
+max_instances = 1
+
+# Cron — DISABLED. The operator is running this manually for now
+# via the "Refresh radar" button on /queue (POST /queue/poll). Re-
+# enable by uncommenting the [triggers] block below once the deploy
+# is settled and the operator has run a few end-to-end renders by
+# hand.
+# [triggers]
+# crons = ["0 12 * * *"]
+
+[vars]
+LOG_LEVEL = "info"
+OPERATOR_EMAIL = ""
+# Bases for cross-Worker redirects. The video Worker's /auth/login
+# redirects to PUBLIC_BASE/auth/login?next=<VIDEO_BASE + path> so the
+# operator hits Cloudflare Access on the apex once and the cookie comes
+# back scoped to .canopticon.com (see packages/api/wrangler.toml's
+# SESSION_COOKIE_DOMAIN).
+PUBLIC_BASE = "https://canopticon.com"
+VIDEO_BASE = "https://video.canopticon.com"

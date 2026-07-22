@@ -1,12 +1,11 @@
 // Layout — the outer HTML shell for every public page.
 // Pure string concatenation; no JSX, no templating library.
 //
-// Uses the class system from the PROBE design build directly:
-//   data-mode="public"     · the warm-paper theme (default)
-//   data-mode="operator"   · the dark-instrument theme (for /op/*)
-//   .top-strip · .pub-nav · .container · .pub-footer
-// All defined in styles.ts (lifted verbatim from the design build's
-// site/styles.css), so the Phase 1 shell renders polished immediately.
+// THE RECORD shell (approved product design, design/the-record-mockup.html):
+// one dark register for everyone — the brand is the instrument. Nav is three
+// doors + the search affordance. The words on every public surface follow
+// the plain-words rule (docs/site-design.md): no internal vocabulary, every
+// term self-explanatory to a first-time reader.
 //
 // Strict no-JS contract: nothing here requires JavaScript to read.
 
@@ -17,52 +16,39 @@ export interface NavItem {
   label: string;
 }
 
-// Lean nav per canonical-spec v2.4 Part 18: Investigations (the signed
-// front door) · Topics (the browsable doorway into the factual substrate) ·
-// Library (the receipts) · About. "The Record" and "Patterns" are DISSOLVED
-// as destinations — their pages stay addressable (unmarked substrate),
-// reached via links, search, and citation rather than nav.
+// Three doors. The Record (home IS the front of the record), the signed
+// Investigations, and Method (how verification works — absorbs About).
+// Everything else is reached by walking the web, not by nav.
 export const PRIMARY_NAV: NavItem[] = [
+  { href: "/", label: "Record" },
   { href: "/investigations", label: "Investigations" },
-  { href: "/topics", label: "Topics" },
-  { href: "/library", label: "Library" },
-  { href: "/about", label: "About" },
-];
-
-const FOOTER_EXPLORE: NavItem[] = [
-  { href: "/investigations", label: "Investigations" },
-  { href: "/topics", label: "Topics" },
-  { href: "/library", label: "Library" },
-  { href: "/methodology", label: "Methodology" },
-];
-
-const FOOTER_ABOUT: NavItem[] = [
-  { href: "/about", label: "How this works" },
-  { href: "/sources", label: "Sources & corrections" },
-  { href: "/methodology", label: "Methodology" },
-  { href: "/feed", label: "Feed (RSS)" },
+  { href: "/method", label: "Method" },
 ];
 
 export interface RenderPageArgs {
   title: string;
   description?: string;
   body: string;
-  /** Matching href to highlight in the nav, e.g. "/topics" */
+  /** Matching href to highlight in the nav, e.g. "/investigations" */
   activeNav?: string;
-  /** "public" (default) or "operator" — picks the theme via data-mode */
+  /** "public" (default) or "operator" — same register now; kept for
+   *  operator-screen markup compatibility. */
   mode?: "public" | "operator";
-  /** "topics" | "investigations" | "record" | "patterns" | "library" | "home" | "op" */
   zone?: string;
   canonical?: string;
+  /** Record-design pages manage their own section widths (.hero/.sec/…)
+   *  and render bare. Legacy renderers (not yet rebuilt) keep the old
+   *  .container wrapper by default. */
+  bare?: boolean;
 }
 
 export function renderPage(args: RenderPageArgs): string {
   const fullTitle = args.title
-    ? `${escapeHtml(args.title)} — Canopticon`
-    : "CANOPTICON — Forensic intelligence";
+    ? `${escapeHtml(args.title)} — CANOPTICON`
+    : "CANOPTICON — The standing record";
   const description = escapeHtml(
     args.description ??
-      "Forensic intelligence. Sourced, structured, permanent. Mapping the architecture of systems and institutions through sourced claims and signed analysis.",
+      "CANOPTICON keeps files on power. Documented facts with their receipts, disputes shown as disputes, and signed analysis — every claim traceable to a stored source.",
   );
   const mode = args.mode ?? "public";
   const zone = args.zone ?? "home";
@@ -84,78 +70,66 @@ ${canonical ? `<link rel="canonical" href="${escapeAttr(canonical)}" />` : ""}
 <link rel="alternate icon" href="/favicon.ico" />
 </head>
 <body>
-${renderTopStrip(mode)}
-${renderPubNav(args.activeNav)}
-<div class="app-shell" style="display:block">
-<div><div class="container">
-${args.body}
-</div></div>
-</div>
+${renderNav(args.activeNav)}
+<main class="record-main">
+${args.bare ? args.body : `<div class="container">${args.body}</div>`}
+</main>
+${mode === "public" ? renderTrustStrip() : ""}
 ${renderFooter()}
 </body>
 </html>`;
 }
 
-function renderTopStrip(mode: "public" | "operator"): string {
-  const opLink =
-    mode === "public"
-      ? `<a class="op-link" href="/op">operator console →</a>`
-      : `<a class="op-link" href="/">public site →</a>`;
-  return `<div class="top-strip">
-<div class="ts-left">
-  <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent)"></span>
-  <span>live · kept current</span>
-</div>
-<div class="ts-right">${opLink}</div>
-</div>`;
+function renderNav(activeHref?: string): string {
+  const items = PRIMARY_NAV.map((item) => {
+    const isActive =
+      item.href === "/"
+        ? activeHref === "/"
+        : activeHref === item.href || activeHref?.startsWith(`${item.href}/`);
+    return `<a href="${escapeAttr(item.href)}"${isActive ? ` class="active"` : ""}>${escapeHtml(item.label)}</a>`;
+  }).join("\n      ");
+  return `<nav class="nav">
+  <div class="nav-inner">
+    <a href="/" class="wordmark">CANOPTICON<span class="dot">·</span><span class="wordmark-sub">The standing record</span></a>
+    <div class="nav-links">
+      ${items}
+      <a href="/search" class="nav-search"><span class="q">/</span> ask the record</a>
+    </div>
+  </div>
+</nav>`;
 }
 
-function renderPubNav(activeHref?: string): string {
-  const items = PRIMARY_NAV.map((item) => {
-    const isActive = activeHref === item.href || activeHref?.startsWith(`${item.href}/`);
-    return `<a href="${escapeAttr(item.href)}" class="${isActive ? "active" : ""}">${escapeHtml(item.label)}</a>`;
-  }).join("");
-  return `<div class="pub-nav">
-<a href="/" style="display:flex;align-items:center">
-  <div class="wordmark">canopticon<span class="dot">.</span><span class="wordmark-sub">forensic intelligence</span></div>
-</a>
-<div class="pub-nav-links">${items}</div>
-<a href="/search" class="pub-nav-search">
-  <span style="display:flex;align-items:center;gap:8px">Search the record</span>
-  <kbd>/</kbd>
-</a>
-</div>`;
+// The trust strip — what makes this site honest, in plain words. Sits
+// between the body and the footer on every public page.
+function renderTrustStrip(): string {
+  return `<aside class="trust" aria-label="How this site verifies">
+  <div class="trust-inner">
+    <span class="trust-mark" aria-hidden="true">✓</span>
+    <p>
+      Every documented fact on this site is backed by a word-for-word quote
+      from a source document we have stored — checked by machine, not vouched
+      for. Disputed claims are shown as disputed. Claims that fail
+      verification are removed, and we say so.
+      <a href="/method">How verification works →</a>
+    </p>
+  </div>
+</aside>`;
 }
 
 function renderFooter(): string {
-  const explore = FOOTER_EXPLORE.map(
-    (i) => `<a href="${escapeAttr(i.href)}">${escapeHtml(i.label)}</a>`,
-  ).join("");
-  const about = FOOTER_ABOUT.map(
-    (i) => `<a href="${escapeAttr(i.href)}">${escapeHtml(i.label)}</a>`,
-  ).join("");
-  return `<footer class="pub-footer">
-<div class="inner foot-cols">
-<div style="max-width:340px">
-  <div class="wordmark">canopticon<span class="dot">.</span></div>
-  <p class="muted" style="font-size:13px;margin-top:12px;line-height:1.55;font-family:var(--serif)">CANOPTICON is a forensic intelligence system — mapping the architecture of systems and institutions through sourced claims, signed analysis, and a growing graph of verified connections. The facts are the foundation. The patterns are the point.</p>
-</div>
-<div>
-  <div class="label" style="margin-bottom:12px">Explore</div>
-  <div class="pub-footer-links" style="flex-direction:column;gap:9px">${explore}</div>
-</div>
-<div>
-  <div class="label" style="margin-bottom:12px">About</div>
-  <div class="pub-footer-links" style="flex-direction:column;gap:9px">${about}</div>
-</div>
-<div>
-  <div class="label" style="margin-bottom:12px">This page</div>
-  <div class="coord" style="flex-direction:column;align-items:flex-start;gap:6px">
-    <span>Living URL · kept current</span>
-    <span class="dim">Dated editions retained</span>
+  return `<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <a href="/" class="wordmark">CANOPTICON<span class="dot">·</span></a>
+      <div class="coord" style="margin-top:8px">THE STANDING RECORD <span class="sep">·</span> canopticon.com <span class="sep">·</span> @canoptics</div>
+    </div>
+    <div class="foot-links">
+      <a href="/">The Record</a>
+      <a href="/investigations">Investigations</a>
+      <a href="/method">Method</a>
+      <a href="/search">Search</a>
+    </div>
   </div>
-</div>
-</div>
 </footer>`;
 }
 

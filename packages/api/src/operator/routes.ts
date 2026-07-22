@@ -44,15 +44,32 @@ import { renderSynthesisScreen } from "./screens/synthesis";
 
 const app = new Hono<{ Bindings: Env }>();
 
-// ---- six surfaces -------------------------------------------------------
-
-// Phase 2: OUT is the home — the system writes, the operator reads. Upload
-// banners (which carry query params) still land on Library/IN, so only the
-// bare root goes to OUT.
-app.get("/", (c) => {
-  const qs = new URL(c.req.url).search;
-  return c.redirect(qs ? `/op/library${qs}` : "/op/out");
-});
+// ---- one site, permission layers (spec v2.5 Part 9) ---------------------
+//
+// PR 1 dissolves the /op/* console as a destination. The operator now lives
+// on the public URLs; /auth/login mints a session cookie, public renderers
+// surface operator affordances inline. These GET redirects bounce the old
+// console URLs to their public equivalents so external links keep working.
+//
+// POST endpoints below (extract, sign, edit, discard, etc.) are the ACTION
+// endpoints the public-side affordances post to — those stay mounted. Only
+// the GET screens (which rendered the dark-themed parallel console) redirect.
+const OP_GET_REDIRECTS: Array<[string, string]> = [
+  ["/", "/"],
+  ["/out", "/"],
+  ["/synthesis", "/"],
+  ["/studio", "/"],
+  ["/outputs", "/investigations"],
+  ["/library", "/library"],
+];
+for (const [from, to] of OP_GET_REDIRECTS) {
+  app.get(from, (c) => {
+    const qs = new URL(c.req.url).search;
+    return c.redirect(`${to}${qs}`, 302);
+  });
+}
+// /op/library/:slug → /library/:slug (preserve the slug)
+app.get("/library/:slug", (c) => c.redirect(`/library/${c.req.param("slug")}`, 302));
 
 // POST /op/feed/upload — the auto-ingest entry point.
 //   1. Store file in R2 + uploaded_files row
@@ -98,12 +115,17 @@ app.post("/feed/upload", async (c) => {
           `/op/library?error=${encodeURIComponent("No .md/.txt/.pdf files in the zip")}`,
         );
       }
-      // For zips: create + extract every entry synchronously (fast). Documents
-      // land in the Vault; extraction is decoupled — run it from Library when
-      // ready. (Pivot: upload = bank in Vault, extraction is a separate manual
-      // step, no auto-fan-out of LLM work on upload.)
+      // For zips: create + bank every entry synchronously (fast), then
+      // enqueue each new piece into the typed-graph digest queue — the
+      // drop itself starts reading the document into the record, rather
+      // than requiring a second manual "Extract" click in Library
+      // (previously the only trigger). Kick a few jobs inline via
+      // waitUntil so the first pieces of a batch don't wait for the next
+      // cron tick; the rest drain on the every-minute cron as before.
+      const ZIP_INLINE_KICKS = 3;
       const pieceIds: string[] = [];
       let zipDupes = 0;
+      let zipKicked = 0;
       for (const name of names.slice(0, ZIP_MAX_ENTRIES)) {
         const bytes = entries[name];
         if (!bytes) continue;
@@ -118,7 +140,21 @@ app.post("/feed/upload", async (c) => {
             bytes.length,
           );
           pieceIds.push(p.pieceId);
-          if (p.duplicate) zipDupes++;
+          if (p.duplicate) {
+            zipDupes++;
+          } else if (p.sourceId) {
+            const jobId = await enqueueDigest(c.env, {
+              userId,
+              pieceId: p.pieceId,
+              slug: p.slug,
+              title: p.title,
+              sourceId: p.sourceId,
+            });
+            if (zipKicked < ZIP_INLINE_KICKS) {
+              zipKicked++;
+              c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
+            }
+          }
         } catch {
           // skip a bad entry; keep ingesting the rest
         }
@@ -126,11 +162,24 @@ app.post("/feed/upload", async (c) => {
       return c.redirect(`/op/library?ingested=${pieceIds.length}&dupes=${zipDupes}`);
     }
 
-    // Single-file: store in Vault. Extraction is triggered manually from
-    // Library — the cron drain + durable job infra remain in place for that.
+    // Single-file: store in Vault, then enqueue the typed-graph digest
+    // immediately (kicked inline via waitUntil) — the drop is the trigger,
+    // not a separate Extract click. A duplicate upload is already banked
+    // and was either extracted before or is queued from that earlier drop;
+    // don't double-enqueue it.
     const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size);
     if (p.duplicate) {
       return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}&dedup=1`);
+    }
+    if (p.sourceId) {
+      const jobId = await enqueueDigest(c.env, {
+        userId,
+        pieceId: p.pieceId,
+        slug: p.slug,
+        title: p.title,
+        sourceId: p.sourceId,
+      });
+      c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
     }
     return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}`);
   } catch (err) {
@@ -269,7 +318,10 @@ async function createAndExtract(
     kind: "research-report",
     publication_status: "working-material",
     body_md,
-    byline: "the operator",
+    // No byline default — "the operator" is internal vocabulary and this
+    // string renders directly on public piece pages ("By the operator").
+    // An uploaded source document has no author to credit; leave it unset
+    // rather than write a placeholder into a field readers see.
     tags: JSON.stringify([]),
     metadata: JSON.stringify({
       ingested_from: "feed-upload",
@@ -414,18 +466,29 @@ app.post("/out/:id/sign", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/op/out?err=no_operator");
   const now = new Date().toISOString();
+  const pageId = c.req.param("id");
   const page = await one<{ slug: string }>(
     c.env.DB,
     "SELECT slug FROM pages WHERE id = ? AND user_id = ? AND signed_status = 'draft'",
-    [c.req.param("id"), userId],
+    [pageId, userId],
   );
+  // signed_by is left as-is (NULL when never set) rather than defaulted
+  // to a placeholder — the public byline renders "— signed" for a null
+  // signed_by (subject-page.ts), never internal vocabulary.
   await run(
     c.env.DB,
-    `UPDATE pages SET signed_status = 'published',
-        signed_by = COALESCE(signed_by, 'the operator'), signed_at = ?, updated_at = ?
+    `UPDATE pages SET signed_status = 'published', signed_at = ?, updated_at = ?
       WHERE id = ? AND user_id = ? AND signed_status = 'draft'`,
-    [now, now, c.req.param("id"), userId],
+    [now, now, pageId, userId],
   );
+  // Faces-on-signing (spec v2.6 Part 8): the moment a reading is signed,
+  // queue the LLM-seasoned faces (script, chapter) in the background.
+  // Thread + card render live at view time (template + query). Studio
+  // (Part 27) is a per-face Produce step, not a destination.
+  if (page) {
+    const { generateAllFaces } = await import("../graph/lib/face-renderer");
+    c.executionCtx.waitUntil(generateAllFaces(c.env, userId, pageId));
+  }
   return c.redirect(page ? `/op/out?signed=${encodeURIComponent(page.slug)}` : "/op/out");
 });
 
@@ -454,13 +517,23 @@ app.get("/out/:id/edit", async (c) => {
   return opHtml(
     renderOpPage({
       title: "Edit reading",
-      sub: "refine before you sign · the firewall re-checks on save",
+      sub: "refine before you sign · hand-edited text is no longer machine-verified",
       body,
       activeNav: "/op/out",
     }),
   );
 });
 
+// Free-text edit of a drafted reading. INTEGRITY: this form has no
+// structured claim/quote list to re-run the verbatim-substring check or
+// the independent judge against — it's a raw markdown textarea, and the
+// gauntlet only runs on the auto-drafter's structured claims. So we do
+// NOT claim to re-verify. Instead we tell the truth: editing clears the
+// machine-verified badge (claims_verified/judge_model reset), so a
+// hand-edited reading can never carry a stale "N claims verified" count
+// it no longer earned. See docs/canopticon-renovation.md — "the operator
+// approves, never authors" has one unguarded seam, and this is it; the
+// honest fix is to stop the false claim, not to fake a re-check.
 app.post("/out/:id/edit", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/op/out");
@@ -469,7 +542,9 @@ app.post("/out/:id/edit", async (c) => {
   const bodyMd = String(form.get("body_md") ?? "");
   await run(
     c.env.DB,
-    "UPDATE pages SET thesis = ?, body_md = ?, body_html = ?, updated_at = ? WHERE id = ? AND user_id = ? AND signed_status = 'draft'",
+    `UPDATE pages SET thesis = ?, body_md = ?, body_html = ?,
+        claims_verified = 0, judge_model = NULL, updated_at = ?
+      WHERE id = ? AND user_id = ? AND signed_status = 'draft'`,
     [
       String(form.get("thesis") ?? "").slice(0, 400),
       bodyMd,
@@ -492,6 +567,56 @@ app.post("/out/:id/discard", async (c) => {
     [new Date().toISOString(), c.req.param("id"), userId],
   );
   return c.redirect("/op/out");
+});
+
+// Record-building on click (spec v2.5 Part 23). The "Expand this Record"
+// affordance on a thin subject page POSTs here. Fires the expansion in the
+// background and redirects back so the operator's page render is instant.
+// Without BRAVE_SEARCH_API_KEY this still wires cleanly — it logs that the
+// key is missing and no-ops, so the affordance is functional UI on day one.
+app.post("/records/:slug/expand", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const slug = c.req.param("slug");
+  const subject = await one<{ label: string }>(
+    c.env.DB,
+    `SELECT n.label FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+      WHERE p.user_id = ? AND p.slug = ?`,
+    [userId, slug],
+  );
+  if (!subject) return c.redirect("/");
+  const { expandRecord } = await import("../graph/lib/record-builder");
+  c.executionCtx.waitUntil(expandRecord(c.env, userId, subject.label));
+  return c.redirect(`/s/${slug}?expanding=1`);
+});
+
+// Re-render a single face on a signed reading. Triggered from the face's
+// "Retry" affordance on the signed subject page when a face is in failed
+// state (a Workers AI hiccup, a transient timeout). Fires the render in the
+// background and redirects back to the reading.
+app.post("/faces/:pageId/:kind/render", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const pageId = c.req.param("pageId");
+  const kind = c.req.param("kind");
+  const VALID = new Set(["thread", "card", "carousel", "script", "chapter"]);
+  if (!VALID.has(kind)) return c.redirect("/");
+  const page = await one<{ slug: string }>(
+    c.env.DB,
+    "SELECT slug FROM pages WHERE id = ? AND user_id = ?",
+    [pageId, userId],
+  );
+  if (!page) return c.redirect("/");
+  const { generateSingleFace } = await import("../graph/lib/face-renderer");
+  c.executionCtx.waitUntil(
+    generateSingleFace(
+      c.env,
+      userId,
+      pageId,
+      kind as "thread" | "card" | "carousel" | "script" | "chapter",
+    ),
+  );
+  return c.redirect(`/s/${page.slug}?mode=signed`);
 });
 
 // /op/synthesis stays as the full findings/corpus oversight view (linked from
@@ -783,10 +908,11 @@ app.post("/outputs/:id/publish", async (c) => {
     const userId = await resolveOperatorId(c.env.DB);
     if (!userId) return c.redirect("/op/outputs?err=no_operator");
     const now = new Date().toISOString();
+    // signed_by is left NULL when never set — no internal-vocabulary
+    // placeholder written into a field that renders on a public page.
     await run(
       c.env.DB,
       `UPDATE briefs SET status = 'published', published_at = COALESCE(published_at, ?),
-                          signed_by = COALESCE(signed_by, 'the operator'),
                           signed_at = COALESCE(signed_at, ?),
                           updated_at = ?
         WHERE id = ? AND user_id = ? AND status = 'draft'`,
@@ -811,7 +937,7 @@ app.get("/outputs/:id/edit", async (c) => {
   );
   if (!row || row.status !== "draft") return c.redirect("/op/outputs");
   const { escapeHtml } = await import("../public/layout");
-  const body = `<div class="okflag" style="margin-bottom:14px"><span class="ftext"><b>Editing draft.</b> The verified claims + sources are untouched — you're refining the prose. The firewall re-checks on save.</span></div>
+  const body = `<div class="okflag" style="margin-bottom:14px"><span class="ftext"><b>Editing draft.</b> Hand-edited text is no longer machine-verified — saving clears the verified-claims count.</span></div>
 <form method="POST" action="/op/outputs/${escapeHtml(row.id)}/edit">
   <textarea name="body_md" rows="28" style="width:100%;font-family:var(--mono,monospace);font-size:13px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:14px">${escapeHtml(row.body_md)}</textarea>
   <div style="margin-top:12px;display:flex;gap:10px">
@@ -823,7 +949,7 @@ app.get("/outputs/:id/edit", async (c) => {
   return opHtml(
     renderOpPage({
       title: `Edit · ${row.title}`,
-      sub: "refine the draft before approval · claims and sources stay verified",
+      sub: "refine the draft before approval · editing clears machine verification",
       body,
       activeNav: "/op/outputs",
       width: "wide",
@@ -831,6 +957,9 @@ app.get("/outputs/:id/edit", async (c) => {
   );
 });
 
+// Same integrity fix as /out/:id/edit above: a free-text edit has no
+// structured claims to re-verify, so we don't pretend to — we reset the
+// verified-claims provenance instead of leaving a stale count.
 app.post("/outputs/:id/edit", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/op/outputs");
@@ -839,7 +968,9 @@ app.post("/outputs/:id/edit", async (c) => {
   const { renderMarkdown } = await import("../cms/lib/render-post");
   await run(
     c.env.DB,
-    "UPDATE briefs SET body_md = ?, body_html = ?, updated_at = ? WHERE id = ? AND user_id = ? AND status = 'draft'",
+    `UPDATE briefs SET body_md = ?, body_html = ?,
+        claims_verified = 0, judge_model = NULL, updated_at = ?
+      WHERE id = ? AND user_id = ? AND status = 'draft'`,
     [bodyMd, renderMarkdown(bodyMd), new Date().toISOString(), c.req.param("id"), userId],
   );
   return c.redirect("/op/outputs");

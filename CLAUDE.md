@@ -3,7 +3,7 @@
 > **If you are an AI reading this to understand the project: this file is the
 > source of truth for what Canopticon *currently is*. Everything in
 > `docs/archive/` describes SUPERSEDED systems — do not design against it. The
-> current vision spec is `docs/canonical-spec-v2.4.md`; the version lineage is
+> current vision spec is `docs/canonical-spec-v2.6.md`; the version lineage is
 > `docs/LINEAGE.md`; the current built architecture is below.**
 
 ## What it is
@@ -36,7 +36,7 @@ SUBJECTS & THEMES → PAGES
        signed   = the operator's reading (thesis + the SAME facts re-sequenced + mandatory complicating box)
    • a theme = a "received account the corpus engages with" — surfaced when 3+ docs converge on contradicting it
    ↓ reshape (selection, not regeneration — partly built)
-TRANSFORMS  (thread · video script · meme · chapter — Studio)
+TRANSFORMS  (thread · video script · card · chapter — Studio)
 ```
 
 The investigation is **not** a separate object — it is the same page with a
@@ -134,4 +134,24 @@ thesis pulling the facts into order.
 Bindings: DB (D1) · FILES (R2) · EMBEDDINGS (Vectorize) · AI (Workers AI)
 Secrets:  ANTHROPIC_API_KEY (optional) · CRON_SECRET
           CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (admin probe)
+          SESSION_SECRET (operator session cookie — set this when the
+                          one-site permission model lands)
 ```
+
+## Operator setup post-merge — do these once after the one-site PR deploys
+
+1. **Set the session secret.** Any long random string; the Worker uses it
+   to sign the operator's session cookie.
+   ```
+   wrangler secret put SESSION_SECRET
+   ```
+2. **Configure Cloudflare Access on `/auth/*`.** Add `/auth/*` to the
+   same Access application that already gates `/op/*`. The Worker reads
+   the JWT Access adds to the request to mint the session cookie.
+3. **Visit `https://canopticon.com/auth/login` once.** Access challenges,
+   the Worker drops the `canopticon_op` cookie, every public URL
+   recognises you from then on. Logout: `/auth/logout`.
+
+Until those land, the public site continues to serve anonymous viewers
+correctly (no regression); the operator just sees the public view of
+every page.

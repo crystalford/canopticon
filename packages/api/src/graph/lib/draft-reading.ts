@@ -17,6 +17,7 @@
 import type { Env } from "../../env";
 import { all, insertOne, one, run } from "../../lib/d1";
 import { callRole, modelForRole } from "../../llm/router";
+import { judgeClaim } from "./briefs/pipeline";
 
 const TOP_N_PER_RUN = 3;
 const MIN_QUOTES = 4;
@@ -164,9 +165,20 @@ HARD RULES:
 - 4-8 short paragraphs. Open with the thing nobody quite says. Don't pad.
 - Plain, sharp prose. No throat-clearing intro, no "in conclusion."${voiceLine}
 
+INTENT — classify the reading's epistemic stance (spec v2.5 Part 5):
+- "investigation"  : open skeptical probe — may not conclude; surfaces what's open
+- "argument"       : closed case — thesis with a verdict, persuades
+- "pattern"        : recurring structure across instances — describes, may not assign cause
+- "hypothesis"     : candidate explanation, explicitly provisional
+- "assessment"     : judgment with a confidence band (likelihood stated)
+- "critique"       : attacks a specific assertion or argument
+- "explanation"    : connects the dots, low advocacy
+Pick the one that matches what you actually wrote. Match the stance of the prose; don't aspire.
+
 Return ONLY JSON:
 {
   "thesis": "one sharp sentence — the reading's claim",
+  "intent": "investigation" | "argument" | "pattern" | "hypothesis" | "assessment" | "critique" | "explanation",
   "confidence": "low" | "moderate" | "high",
   "body_md": "the full markdown reading, with [qN] markers on load-bearing facts",
   "claims": [{ "quote_id": "qN", "kind": "fact" | "assertion", "asserted_by": "actor (required if assertion)" }]
@@ -195,6 +207,7 @@ Draft the signed reading. Find the thesis the facts actually support.`,
       type: "object",
       properties: {
         thesis: { type: "string" },
+        intent: { type: "string" },
         confidence: { type: "string" },
         body_md: { type: "string" },
         claims: {
@@ -216,6 +229,7 @@ Draft the signed reading. Find the thesis the facts actually support.`,
 
   const parsed = (out.structured ?? safeParse(out.text)) as {
     thesis?: string;
+    intent?: string;
     confidence?: string;
     body_md?: string;
     claims?: Array<{ quote_id?: string; kind?: string; asserted_by?: string }>;
@@ -259,20 +273,66 @@ Draft the signed reading. Find the thesis the facts actually support.`,
   // A reading needs at least some verified grounding to be worth drafting.
   if (verified < 2) return false;
 
+  // INDEPENDENT JUDGE — spec Part 8 + Part 10 #4 hard constraint. The
+  // verbatim check + the firewall ran above; now an independent model
+  // (a different family than the writer) reads the sentence the writer
+  // built around each [qN] citation and answers "does this quote
+  // actually support what the writer wrote?" Parallelized via Promise.all
+  // because a draft with 6+ claims would otherwise serially queue judge
+  // calls. judgeClaim is the same helper buildBrief uses; the prompt is
+  // shared so the bar is the same on both pipelines.
+  const judgments = await Promise.all(
+    verifiedClaims.map((vc) => {
+      const claimSentence = extractClaimSentence(parsed.body_md ?? "", vc.quote_id) || vc.text;
+      return judgeClaim(env, claimSentence, vc.text, userId).catch((err) => ({
+        judge_pass: 0 as 0 | 1,
+        judge_notes: `judge call failed: ${(err as Error).message}`,
+      }));
+    }),
+  );
+  const judgedClaims = verifiedClaims.map((vc, i) => ({
+    ...vc,
+    judge_pass: judgments[i]?.judge_pass ?? 0,
+    judge_notes: judgments[i]?.judge_notes ?? "",
+  }));
+  const judgePassed = judgedClaims.filter((c) => c.judge_pass === 1);
+  const judgeKilled = verified - judgePassed.length;
+  killed += judgeKilled;
+
+  // Re-gate on the JUDGE-PASSED count, not just the verbatim count. A
+  // reading whose claims uniformly fail independent judgment isn't worth
+  // drafting — the writer wrote prose that the quotes don't actually
+  // substantiate.
+  if (judgePassed.length < 2) return false;
+
   const confidence = ["low", "moderate", "high"].includes(parsed.confidence ?? "")
     ? parsed.confidence
     : "moderate";
+  // Intent classification (spec Part 5). Validate against the seven kinds;
+  // anything else falls to "investigation" as the most honest default for an
+  // unsorted reading.
+  const VALID_INTENTS = [
+    "investigation",
+    "argument",
+    "pattern",
+    "hypothesis",
+    "assessment",
+    "critique",
+    "explanation",
+  ];
+  const intent = VALID_INTENTS.includes(parsed.intent ?? "") ? parsed.intent : "investigation";
   const { renderMarkdown } = await import("../../cms/lib/render-post");
   const now = new Date().toISOString();
 
   await run(
     env.DB,
-    `UPDATE pages SET thesis = ?, body_md = ?, body_html = ?, confidence = ?,
+    `UPDATE pages SET thesis = ?, intent = ?, body_md = ?, body_html = ?, confidence = ?,
         signed_status = 'draft', claims_verified = ?, claims_killed = ?,
         generate_model = ?, judge_model = ?, updated_at = ?
       WHERE id = ?`,
     [
       parsed.thesis.slice(0, 400),
+      intent,
       parsed.body_md,
       renderMarkdown(parsed.body_md),
       confidence,
@@ -285,13 +345,14 @@ Draft the signed reading. Find the thesis the facts actually support.`,
     ],
   );
 
-  // Store the claims for the receipt trail.
+  // Store the claims for the receipt trail. Only judge-passed claims persist
+  // — the failures are counted into claims_killed above and dropped here so
+  // the page never displays a claim the judge rejected. This is the spec's
+  // hard-constraint shape: the publication carries only what survived the
+  // verbatim + firewall + judge gauntlet.
   await run(env.DB, "DELETE FROM page_claims WHERE page_id = ?", [pageId]).catch(() => {});
   let order = 0;
-  for (const vc of verifiedClaims) {
-    // page_claims.quote_id references quotes.id — but we used short ids; map
-    // back is unnecessary because we only need the text + kind for display.
-    // Store the short id is invalid FK, so we look up the real quote id.
+  for (const vc of judgePassed) {
     await insertOne(env.DB, "page_claims", {
       page_id: pageId,
       user_id: userId,
@@ -300,6 +361,7 @@ Draft the signed reading. Find the thesis the facts actually support.`,
       kind: vc.kind,
       asserted_by: vc.asserted_by,
       judge_pass: 1,
+      judge_notes: vc.judge_notes.slice(0, 600),
       sort_order: order++,
     }).catch(() => {
       // FK miss on quote_id is non-fatal; the reading body still holds
@@ -314,6 +376,41 @@ function realQuoteId(
   text: string,
 ): string {
   return rawQuotes.find((r) => r.verbatim_text === text)?.quote_id ?? rawQuotes[0]?.quote_id ?? "";
+}
+
+/** Pull the sentence the writer built around a [qN] citation, so the
+ *  independent judge can evaluate whether the quote supports what the
+ *  writer wrote (not just whether the quote exists). Sentence boundary is
+ *  the nearest paragraph break, period, or 200-char window. Falls back to
+ *  empty so the caller can use the quote itself if nothing useful is found. */
+function extractClaimSentence(bodyMd: string, shortId: string): string {
+  if (!bodyMd || !shortId) return "";
+  // Match [q3] or [Q3] or [ q3 ] — short ids are case-insensitive in the
+  // writer prompt and the verifier already normalised them.
+  const re = new RegExp(`\\[\\s*${shortId.toLowerCase()}\\s*\\]`, "i");
+  const m = bodyMd.search(re);
+  if (m < 0) return "";
+  // Find the sentence boundary backwards (period, paragraph break, start).
+  let start = m;
+  for (let i = m; i > 0 && m - i < 320; i--) {
+    const c = bodyMd[i - 1] ?? "";
+    if (c === "." || c === "\n" || c === "!" || c === "?") {
+      start = i;
+      break;
+    }
+    start = i - 1;
+  }
+  // Sentence boundary forward.
+  let end = m;
+  for (let i = m; i < bodyMd.length && i - m < 320; i++) {
+    const c = bodyMd[i] ?? "";
+    if (c === "." || c === "\n" || c === "!" || c === "?") {
+      end = i + 1;
+      break;
+    }
+    end = i + 1;
+  }
+  return bodyMd.slice(start, end).trim();
 }
 
 function safeParse(s: string): unknown {

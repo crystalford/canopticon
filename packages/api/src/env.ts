@@ -12,8 +12,23 @@ export interface Env {
   ANTHROPIC_API_KEY: string;
 
   // The single operator's email — Cloudflare Access gates the operator
-  // app to this email. Public site is unauthenticated.
+  // app to this email. Public site is unauthenticated for readers; the
+  // operator is recognised on public URLs via a session cookie (see below).
   OPERATOR_EMAIL: string;
+
+  // HMAC secret used to sign the operator session cookie minted by
+  // /auth/login. Set as a Worker secret. When unset, the public site can
+  // still serve anonymous traffic — only the operator login flow is
+  // disabled. (Spec v2.5 Part 9 — the one-site permission model.)
+  SESSION_SECRET?: string;
+
+  // Domain attribute on the operator session cookie. In production this
+  // is ".canopticon.com" so the cookie is recognised on both
+  // canopticon.com (publication) and video.canopticon.com (daily video
+  // engine — separate Worker, same SESSION_SECRET). Left undefined in
+  // local dev / tests so Set-Cookie doesn't carry a Domain attribute
+  // the test harness can't satisfy.
+  SESSION_COOKIE_DOMAIN?: string;
 
   // openparliament.ca user-agent (only used if cron ingestion enabled).
   OPENPARLIAMENT_USER_AGENT?: string;
@@ -37,4 +52,13 @@ export interface Env {
   // with `Browser Rendering Edit` permission.
   CLOUDFLARE_ACCOUNT_ID?: string;
   CLOUDFLARE_API_TOKEN?: string;
+
+  // Brave Search API key — optional. Powers record-building on click
+  // (spec v2.5 Part 23): when the logged-in operator clicks a thin Record,
+  // the worker calls Brave Search for the subject name, fetches the found
+  // pages, and runs the same extraction pipeline over them. Without this
+  // key, the "Expand this Record" affordance is visible but inert (shows
+  // a "key not configured" notice). Set with `wrangler secret put
+  // BRAVE_SEARCH_API_KEY`.
+  BRAVE_SEARCH_API_KEY?: string;
 }

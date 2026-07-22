@@ -6,13 +6,16 @@
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/types/index.ts",
-    "./constants": "./src/constants/index.ts"
+    "./constants": "./src/constants/index.ts",
+    "./auth": "./src/auth.ts",
+    "./video/segment-schema": "./src/video/segment-schema.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260425.1",
     "@types/node": "^22.9.0",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"

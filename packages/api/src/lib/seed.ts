@@ -173,6 +173,42 @@ const DEFAULT_WHITELISTS: Array<{
     monthly_max_cents: null,
     notes: "free image OCR",
   },
+  // Studio Stage B/C model whitelist (v2.6 Part 27). Disabled by default
+  // until the production pipelines land; the cost ledger row is here so
+  // when Stage B / Stage C ship there's a known operation_type to bill
+  // against.
+  {
+    operation_type: "workers_ai.studio.voice_clone",
+    enabled: false,
+    per_op_max_cents: 5,
+    daily_max_cents: 100,
+    monthly_max_cents: 1000,
+    notes: "Studio Stage B: MiniMax Speech 2.8 HD voice cloning + narration",
+  },
+  {
+    operation_type: "workers_ai.studio.voice_turbo",
+    enabled: false,
+    per_op_max_cents: 2,
+    daily_max_cents: 50,
+    monthly_max_cents: 500,
+    notes: "Studio Stage B: MiniMax Speech 2.8 Turbo for fast iteration drafts",
+  },
+  {
+    operation_type: "workers_ai.studio.image_still",
+    enabled: false,
+    per_op_max_cents: 1,
+    daily_max_cents: 50,
+    monthly_max_cents: 500,
+    notes: "Studio Stage C: Flux 1 Schnell — per-beat still images for video pipeline",
+  },
+  {
+    operation_type: "workers_ai.studio.video_animate",
+    enabled: false,
+    per_op_max_cents: 25,
+    daily_max_cents: 500,
+    monthly_max_cents: 4000,
+    notes: "Studio Stage C: Alibaba Wan 2.7 — per-beat still → 5–10s clip animation",
+  },
   // Anthropic overrides — tight caps; only used when operator opts a role into Claude.
   {
     operation_type: "anthropic.role.claim_extraction",

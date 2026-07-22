@@ -5,7 +5,7 @@
 //
 //   1. The morning brief    — a plain-language paragraph: what changed
 //   2. Awaiting your signature — finished drafts, read & sign / edit / discard
-//   3. The wiki grew        — pages that grew, no action needed
+//   3. The record grew      — pages that grew, no action needed
 //   4. Worth your attention — a FEW findings, each carrying its evidence
 //   5. Still chasing        — open inquiry threads
 //   6. Silence              — the substance gate, visible
@@ -55,9 +55,15 @@ interface GraphPulse {
 }
 
 const INTENT_LABEL: Record<string, string> = {
+  // Seven intents from spec v2.5 Part 5 — the canonical signed-reading kinds.
   investigation: "Investigation",
   argument: "Argument",
+  pattern: "Pattern",
+  hypothesis: "Hypothesis",
   assessment: "Assessment",
+  critique: "Critique",
+  explanation: "Explanation",
+  // Legacy factual arrangement labels still in circulation on briefs.
   definition: "Definition",
   comparison: "Comparison",
   timeline: "Timeline",
@@ -90,21 +96,23 @@ export async function renderOutStream(
     });
   }
 
-  const [drafts, findings, threads, pulse] = await Promise.all([
+  const [drafts, findings, threads, pulse, faceStatus] = await Promise.all([
     loadDrafts(env.DB, userId),
     loadFindings(env.DB, userId),
     loadThreads(env.DB, userId),
     loadPulse(env.DB, userId),
+    loadFaceStatus(env.DB, userId),
   ]);
 
   const brief = renderBrief(pulse, drafts, findings, threads);
   const draftsBlock = renderDrafts(drafts);
-  const wikiBlock = renderWikiGrew(pulse);
+  const corpusBlock = renderCorpusGrew(pulse);
   const attentionBlock = renderAttention(findings);
   const threadsBlock = renderThreads(threads);
+  const facesBlock = renderFaceStatus(faceStatus);
 
   const okBanner = args.signed
-    ? `<div class="okline">✓ Signed and published — <a href="/s/${escapeAttr(args.signed)}?mode=signed" target="_blank">view the public reading →</a></div>`
+    ? `<div class="okline">✓ Signed and published — <a href="/s/${escapeAttr(args.signed)}?mode=signed" target="_blank">view the public reading →</a>. Faces (thread · script · card · chapter) are rendering in the background.</div>`
     : "";
   const errBanner = args.err ? `<div class="errline">${escapeHtml(args.err)}</div>` : "";
 
@@ -112,7 +120,7 @@ export async function renderOutStream(
     <button class="btn" type="submit" title="Re-read the corpus: re-surface findings, re-name themes, re-propose, auto-draft">↻ Re-read</button>
   </form>`;
 
-  const body = `${okBanner}${errBanner}${brief}${draftsBlock}${wikiBlock}${attentionBlock}${threadsBlock}${OUT_STYLES}`;
+  const body = `${okBanner}${errBanner}${brief}${draftsBlock}${facesBlock}${corpusBlock}${attentionBlock}${threadsBlock}${OUT_STYLES}`;
 
   return renderOpPage({
     title: "OUT",
@@ -129,7 +137,8 @@ export async function renderOutStream(
 async function loadDrafts(db: D1Database, userId: string): Promise<DraftRow[]> {
   return all<DraftRow>(
     db,
-    `SELECT p.id, p.slug, n.label AS title, 'investigation' AS content_type,
+    `SELECT p.id, p.slug, n.label AS title,
+            COALESCE(p.intent, 'investigation') AS content_type,
             'interpretive' AS layer, p.thesis, p.body_md,
             p.claims_verified, p.claims_killed, p.confidence
        FROM pages p JOIN nodes n ON n.id = p.subject_node_id
@@ -161,6 +170,38 @@ async function loadThreads(db: D1Database, userId: string): Promise<ThreadRow[]>
   ).catch(() => []);
 }
 
+interface FaceStatusRow {
+  page_slug: string;
+  page_label: string;
+  ready: number;
+  rendering: number;
+  queued: number;
+  failed: number;
+}
+
+// Face status across signed readings — pages that have at least one face
+// row, with counts by status. Visible only while faces are still finishing
+// (any not-ready face) so the panel disappears once everything has rendered.
+async function loadFaceStatus(db: D1Database, userId: string): Promise<FaceStatusRow[]> {
+  return all<FaceStatusRow>(
+    db,
+    `SELECT p.slug AS page_slug, n.label AS page_label,
+            SUM(CASE WHEN f.status = 'ready' THEN 1 ELSE 0 END) AS ready,
+            SUM(CASE WHEN f.status = 'rendering' THEN 1 ELSE 0 END) AS rendering,
+            SUM(CASE WHEN f.status = 'queued' THEN 1 ELSE 0 END) AS queued,
+            SUM(CASE WHEN f.status = 'failed' THEN 1 ELSE 0 END) AS failed
+       FROM page_faces f
+       JOIN pages p ON p.id = f.page_id
+       JOIN nodes n ON n.id = p.subject_node_id
+      WHERE f.user_id = ? AND p.signed_status = 'published'
+      GROUP BY p.id
+      HAVING (queued + rendering + failed) > 0
+      ORDER BY p.signed_at DESC NULLS LAST
+      LIMIT 4`,
+    [userId],
+  ).catch(() => []);
+}
+
 async function loadPulse(db: D1Database, userId: string): Promise<GraphPulse> {
   const row = await one<GraphPulse>(
     db,
@@ -187,11 +228,11 @@ function renderBrief(
 ): string {
   if (pulse.pages === 0) {
     return `<div class="brief"><div class="who">canopticon</div>
-  <p>Nothing read yet. Drop research reports in <a href="/op/library">IN</a> — the system reads them, builds the wiki, and brings finished things here. You read and decide.</p></div>`;
+  <p>Nothing read yet. Drop research reports in the <a href="/library">Library</a> — the system reads them, builds the record, and brings finished things here. You read and decide.</p></div>`;
   }
   const bits: string[] = [];
   bits.push(
-    `The wiki holds <b>${pulse.pages} page${pulse.pages === 1 ? "" : "s"}</b> built from <b>${pulse.facts} sourced fact${pulse.facts === 1 ? "" : "s"}</b>.`,
+    `The record holds <b>${pulse.pages} page${pulse.pages === 1 ? "" : "s"}</b> built from <b>${pulse.facts} sourced fact${pulse.facts === 1 ? "" : "s"}</b>.`,
   );
   if (pulse.themes > 0)
     bits.push(
@@ -238,14 +279,39 @@ function renderDrafts(drafts: DraftRow[]): string {
   return `<div class="sect">Awaiting your signature — drafted by the system, verified, yours to approve</div>${cards}`;
 }
 
-function renderWikiGrew(pulse: GraphPulse): string {
+function renderFaceStatus(rows: FaceStatusRow[]): string {
+  if (rows.length === 0) return "";
+  const items = rows
+    .map((r) => {
+      const total = r.ready + r.rendering + r.queued + r.failed;
+      const dots = (n: number, cls: string) =>
+        Array.from({ length: n })
+          .map(() => `<span class="fdot fdot-${cls}"></span>`)
+          .join("");
+      const status = r.failed
+        ? `<span class="fstat fstat-warn">${r.failed} failed</span>`
+        : r.rendering + r.queued > 0
+          ? `<span class="fstat">${r.ready}/${total} ready</span>`
+          : `<span class="fstat fstat-ok">all ${total} ready</span>`;
+      return `<div class="frow">
+  <a class="ftitle" href="/s/${escapeAttr(r.page_slug)}?mode=signed" target="_blank">${escapeHtml(r.page_label)}</a>
+  <div class="fdots">${dots(r.ready, "ready")}${dots(r.rendering, "go")}${dots(r.queued, "wait")}${dots(r.failed, "warn")}</div>
+  ${status}
+</div>`;
+    })
+    .join("");
+  return `<div class="sect">Faces rendering — thread · script · card · chapter</div>
+<div class="faces-status">${items}</div>`;
+}
+
+function renderCorpusGrew(pulse: GraphPulse): string {
   if (pulse.pages === 0) return "";
   const newLine =
     pulse.newPages > 0
       ? `<b style="color:var(--teal,#4fb59a)">+${pulse.newPages} new page${pulse.newPages === 1 ? "" : "s"}</b> in the last day · `
       : "";
-  return `<div class="sect">The wiki grew — no action needed</div>
-<div class="grew">${newLine}<b>${pulse.pages}</b> subject pages · <b>${pulse.contested}</b> contested claims shown as contested · <a href="/topics" target="_blank">browse the wiki →</a></div>`;
+  return `<div class="sect">The record grew — no action needed</div>
+<div class="grew">${newLine}<b>${pulse.pages}</b> subject pages · <b>${pulse.contested}</b> contested claims shown as contested · <a href="/topics" target="_blank">browse the record →</a></div>`;
 }
 
 function renderAttention(findings: FindingRow[]): string {
@@ -261,7 +327,7 @@ function renderAttention(findings: FindingRow[]): string {
     })
     .join("");
   return `<div class="sect">Worth your attention — each carries its evidence</div><div class="cardrow">${cards}</div>
-<div class="silence">Lower-signal observations stayed quiet — the wiki absorbs them silently. <a href="/op/synthesis">See all findings</a></div>`;
+<div class="silence">Lower-signal observations stayed quiet — the record absorbs them silently. <a href="/op/synthesis">See all findings</a></div>`;
 }
 
 function renderThreads(threads: ThreadRow[]): string {
@@ -319,4 +385,20 @@ const OUT_STYLES = `<style>
   .tstatus.pursuing { color:var(--amber,#d9a441); }
   .tq { flex:1; font-size:13px; color:#c8c5bd; }
   .tbtn { font-size:11px; padding:3px 10px; }
+  .faces-status { background:var(--dark2,#1e1e24); border:1px solid var(--dline,#2e2e38);
+    border-radius:9px; padding:11px 14px; max-width:720px; }
+  .frow { display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px solid var(--dline,#2e2e38); }
+  .frow:first-child { border-top:none; }
+  .ftitle { flex:1; font-size:13px; color:#e0dcd2; text-decoration:none; }
+  .ftitle:hover { color:var(--amber,#d9a441); }
+  .fdots { display:flex; gap:4px; }
+  .fdot { width:8px; height:8px; border-radius:50%; }
+  .fdot-ready { background:var(--teal,#4fb59a); }
+  .fdot-go { background:var(--amber,#d9a441); animation:fpulse 1.4s ease-in-out infinite; }
+  .fdot-wait { background:#3a3a46; }
+  .fdot-warn { background:var(--red,#c4584a); }
+  @keyframes fpulse { 50% { opacity:.4; } }
+  .fstat { font-size:11px; color:var(--dmut,#6e6a62); min-width:90px; text-align:right; }
+  .fstat-ok { color:var(--teal,#4fb59a); }
+  .fstat-warn { color:var(--red,#c4584a); }
 </style>`;

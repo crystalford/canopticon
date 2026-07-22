@@ -7,21 +7,29 @@
 // the surfaces work before the seed corpus lands.
 
 import { Hono } from "hono";
-import type { Env } from "../env";
+import type { AuthContext } from "../auth/middleware";
 import { getPieceBySlug, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
-import { renderAbout } from "./render/about";
 import { renderBriefPage } from "./render/brief";
+import { renderCitationsPage } from "./render/citations";
 import { renderHome } from "./render/home";
+import { renderInstrumentsIndex } from "./render/instruments";
 import { renderInvestigationsIndex, renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
 import { renderPiece } from "./render/piece-template";
 import { renderNotFound, renderPlaceholder } from "./render/placeholder";
 import { renderEntityPage } from "./render/record";
+import { renderSearchPage } from "./render/search";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
+import studioRoutes from "./studio/routes";
 import { STYLES_CSS, stylesHash } from "./styles";
 
-const app = new Hono<{ Bindings: Env }>();
+// The public site reads is_operator / operator_id from the Hono context
+// (set by attachAuthState in index.ts) so renderers can reveal logged-in
+// affordances on the SAME URLs that serve anonymous readers. AuthContext
+// happens to carry the same shape; we don't enforce its email/user_id
+// fields here — those are only set by the hard-auth path on /v1/* routes.
+const app = new Hono<AuthContext>();
 
 // ---- citation tracker (spec Part 14 #10) ----------------------------------
 // AI crawlers fetching public pages = the leading indicator of citation.
@@ -98,11 +106,27 @@ app.get("/styles.css", () => {
   });
 });
 
-app.get("/", async (c) => htmlResponse(await renderHome(c.env)));
+// `/` — one URL, one page. The operator browses the publication; the
+// graph grows from what they DO on it (drop documents in the Library,
+// sign readings from the subject page, expand thin Records on click).
+// There is no separate OUT dashboard. Logged-in viewers get operator
+// affordances WOVEN INTO this same page (system briefing, drafts
+// awaiting signature, findings strip, open threads) — not a parallel
+// dashboard. Spec v2.5 Part 9 retired the separate console; the OUT
+// surface was IN/OUT scaffolding that survived the rename and is
+// now gone too.
+app.get("/", async (c) =>
+  htmlResponse(await renderHome(c.env, { isOperator: c.get("is_operator") })),
+);
 
 // ---- Topics ---------------------------------------------------------------
 
 app.get("/topics", async (c) => htmlResponse(await renderTopicsIndex(c.env)));
+
+// ---- Instruments ----------------------------------------------------------
+// The third product arm's doorway. Instruments live on their own
+// subdomains; this page is the machine-citable index into them.
+app.get("/instruments", () => htmlResponse(renderInstrumentsIndex()));
 
 app.get("/topics/:slug", async (c) => {
   const html = await renderTopicHub(c.env, c.req.param("slug"));
@@ -139,7 +163,10 @@ app.get("/p/:slug", async (c) => {
   // Fall through to subject pages. mode=signed reveals the operator's reading.
   const { renderSubjectPage } = await import("./render/subject-page");
   const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
-  const subject = await renderSubjectPage(c.env, slug, mode);
+  const subject = await renderSubjectPage(c.env, slug, mode, {
+    isOperator: c.get("is_operator"),
+    expanding: c.req.query("expanding") === "1",
+  });
   if (subject) return htmlResponse(subject);
   return htmlResponse(renderNotFound(c.req.path), { status: 404 });
 });
@@ -149,7 +176,10 @@ app.get("/p/:slug", async (c) => {
 app.get("/s/:slug", async (c) => {
   const { renderSubjectPage } = await import("./render/subject-page");
   const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
-  const html = await renderSubjectPage(c.env, c.req.param("slug"), mode);
+  const html = await renderSubjectPage(c.env, c.req.param("slug"), mode, {
+    isOperator: c.get("is_operator"),
+    expanding: c.req.query("expanding") === "1",
+  });
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
 });
@@ -180,12 +210,124 @@ app.get("/library/:slug", async (c) => {
   return htmlResponse(html);
 });
 
+// /q/:id — the verbatim quote receipt. Deep-linkable citation for every
+// superscript in the publication. Schema.org Quotation JSON-LD so AI
+// answer engines can cite the exact quote with attribution.
+app.get("/q/:id", async (c) => {
+  const { renderQuoteReceipt } = await import("./render/quote-receipt");
+  const html = await renderQuoteReceipt(c.env, c.req.param("id"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// ---- Arrangements as standalone renderings (spec v2.6 Part 6) -----------
+// Each arrangement is BOTH a section embedded inside a subject page AND a
+// standalone addressable page with its own URL + JSON-LD. Pure rendering:
+// template + query, no LLM at render time.
+//
+// `/t/:slug` — Timeline (ItemList + Event JSON-LD)
+app.get("/t/:slug", async (c) => {
+  const { renderTimelinePage } = await import("./render/arrangements/timeline");
+  const html = await renderTimelinePage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/profile/:slug` — Entity / Actor profile (Person | Organization | Event |
+// CreativeWork JSON-LD per subject kind). Word-form prefix avoids the
+// collision with the legacy `/p/:slug` piece-fallback route.
+app.get("/profile/:slug", async (c) => {
+  const { renderProfilePage } = await import("./render/arrangements/profile");
+  const html = await renderProfilePage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/n/:slug` — Network map (ItemList of Role JSON-LD).
+app.get("/n/:slug", async (c) => {
+  const { renderNetworkPage } = await import("./render/arrangements/network");
+  const html = await renderNetworkPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/stat/:slug` — Statistics roundup (Dataset + PropertyValue JSON-LD).
+app.get("/stat/:slug", async (c) => {
+  const { renderStatsPage } = await import("./render/arrangements/stats");
+  const html = await renderStatsPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/ct/:slug` — Claim-and-source table (ClaimReview per row).
+app.get("/ct/:slug", async (c) => {
+  const { renderClaimTablePage } = await import("./render/arrangements/claim-table");
+  const html = await renderClaimTablePage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/d/:slug` — Definition (DefinedTerm JSON-LD).
+app.get("/d/:slug", async (c) => {
+  const { renderDefinitionPage } = await import("./render/arrangements/definition");
+  const html = await renderDefinitionPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/w/:slug` — Who's-who roster (ItemList of Person JSON-LD).
+app.get("/w/:slug", async (c) => {
+  const { renderWhosWhoPage } = await import("./render/arrangements/whos-who");
+  const html = await renderWhosWhoPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/m/:slug` — Mechanism explainer (HowTo + HowToStep JSON-LD).
+app.get("/m/:slug", async (c) => {
+  const { renderMechanismPage } = await import("./render/arrangements/mechanism");
+  const html = await renderMechanismPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/f/:slug` — FAQ / Q&A hub (FAQPage + Question + Answer JSON-LD).
+app.get("/f/:slug", async (c) => {
+  const { renderFaqPage } = await import("./render/arrangements/faq");
+  const html = await renderFaqPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/c/:slug` — Comparison matrix (Table JSON-LD; scaffold rendering).
+app.get("/c/:slug", async (c) => {
+  const { renderComparisonPage } = await import("./render/arrangements/comparison");
+  const html = await renderComparisonPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/l/:slug` — Ledger of flows (Dataset + MonetaryAmount JSON-LD).
+app.get("/l/:slug", async (c) => {
+  const { renderLedgerPage } = await import("./render/arrangements/ledger");
+  const html = await renderLedgerPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/doc/:slug` — Document-of-record. This IS the source document; the
+// existing /library/:slug renderer already serves it with the receipt-loop
+// section ("this document fed the fabric"). Alias the URL so the v2.6
+// arrangement table is complete and external citations resolve.
+app.get("/doc/:slug", (c) => c.redirect(`/library/${c.req.param("slug")}`, 301));
+
 // ---- The Record -----------------------------------------------------------
 
 // Part 18: "The Record" dissolves as a destination — the index redirects to
 // Topics (the one browsable doorway). Entity DETAIL pages stay addressable
 // below as unmarked factual substrate.
-app.get("/record", (c) => c.redirect("/topics", 301));
+// Home IS the front of the Record.
+app.get("/record", (c) => c.redirect("/", 301));
 
 app.get("/record/:slug", async (c) => {
   const html = await renderEntityPage(c.env, c.req.param("slug"));
@@ -218,7 +360,9 @@ app.get("/timeline", async (c) => {
 
 // ---- Library --------------------------------------------------------------
 
-app.get("/library", async (c) => htmlResponse(await renderLibraryIndex(c.env)));
+app.get("/library", async (c) =>
+  htmlResponse(await renderLibraryIndex(c.env, { isOperator: c.get("is_operator") })),
+);
 
 // ---- Briefs (the third projection) -------------------------------------
 //
@@ -233,9 +377,11 @@ app.get("/briefs/:slug", async (c) => {
 
 // ---- Utility pages (still placeholders until trailing Phase 2) -----------
 
-app.get("/about", () => htmlResponse(renderAbout()));
+// Method — how verification works, in plain words. Absorbs About.
+app.get("/method", () => htmlResponse(renderMethodology()));
+app.get("/about", (c) => c.redirect("/method", 301));
 
-app.get("/methodology", () => htmlResponse(renderMethodology()));
+app.get("/methodology", (c) => c.redirect("/method", 301));
 
 app.get("/sources", () =>
   htmlResponse(
@@ -248,16 +394,27 @@ app.get("/sources", () =>
   ),
 );
 
-app.get("/search", () =>
-  htmlResponse(
-    renderPlaceholder({
-      title: "Search",
-      description: "Find a claim, entity, or piece.",
-      activeNav: "/search",
-      whatsHere: "Search lands after the core surfaces are real.",
-    }),
-  ),
-);
+// Search — semantic search over the corpus (v2.6 Part 18 #6). Uses the
+// existing Vectorize index that already holds entity / claim / piece /
+// thesis / source embeddings. Public; results are read-only.
+app.get("/search", async (c) => {
+  const q = c.req.query("q") ?? "";
+  return htmlResponse(await renderSearchPage(c.env, q));
+});
+
+// Studio Stage A — the Produce flow for static formats (v2.6 Part 27).
+// Operator-only; routes redirect anonymous viewers home. Mounts at
+// /studio/:slug/:kind for the preview page and
+// /studio/:pageId/:kind/produce for the PNG download.
+app.route("/studio", studioRoutes);
+
+// Citations — operator-only view of AI-crawler hits on public pages
+// (v2.6 Part 14 #10). The middleware at the top of this file already
+// captures the hits into citation_hits; this surfaces them.
+app.get("/citations", async (c) => {
+  if (!c.var.is_operator) return c.redirect("/");
+  return htmlResponse(await renderCitationsPage(c.env));
+});
 
 // 404 handling lives at the parent (Worker) level so /v1/* misses can
 // return JSON while /* misses get the styled HTML page. See index.ts.

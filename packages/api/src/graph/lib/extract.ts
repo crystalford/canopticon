@@ -7,7 +7,6 @@
 import type { Env } from "../../env";
 import { insertOne, one, parseJson, run } from "../../lib/d1";
 import { fetchWithTimeout } from "../../lib/timeout";
-import { callLLM } from "../../llm/index";
 import { embedText, upsertVector, vectorId } from "./embeddings";
 
 const INLINE_TEXT_MAX = 8 * 1024; // 8KB head kept in D1; full text lives in R2
@@ -139,58 +138,33 @@ export async function extractUrl(env: Env, userId: string, url: string): Promise
   return persistExtraction(env, file, text, summary, { url });
 }
 
+// FAIL CLOSED (integrity fix, 2026-07): the Workers AI chat adapter
+// (llm/workers_ai.ts serializeContent) does NOT forward document/image
+// bytes to the model — it substitutes a placeholder string, so the model
+// fabricates text it never saw. For a forensic-record system that means a
+// PDF drop would produce a graph of invented "facts" with fake receipts.
+// Until real multimodal extraction is wired (Cloudflare `env.AI.toMarkdown`
+// for documents / a true vision model for images), we refuse rather than
+// fabricate. The upload is banked in R2 and marked failed with a clear,
+// operator-facing reason; nothing enters the graph.
 async function extractPdf(
-  env: Env,
-  userId: string,
-  obj: R2ObjectBody,
+  _env: Env,
+  _userId: string,
+  _obj: R2ObjectBody,
 ): Promise<{ text: string; summary: string }> {
-  const bytes = await obj.arrayBuffer();
-  const base64 = arrayBufferToBase64(bytes);
-  const out = await callLLM(env, {
-    provider: "workers_ai",
-    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
-    system:
-      "You are extracting clean reading text from a document. Return ONLY the extracted text — no commentary, no headings you invent.",
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "document", mime: "application/pdf", base64 },
-          {
-            type: "text",
-            text: "Extract the document's text. Then on a final line starting with 'SUMMARY: ' write a 1-sentence summary.",
-          },
-        ],
-      },
-    ],
-    max_tokens: 4000,
-    ledger: { user_id: userId, operation_type: "workers_ai.extract.pdf" },
-  });
-  return splitSummary(out.text);
+  throw new Error(
+    "PDF extraction is not yet supported — the model cannot read the file bytes, and we will not add invented text to the record. Paste the document text (or a .txt/.md/.html export) instead.",
+  );
 }
 
 async function extractImage(
-  env: Env,
-  userId: string,
-  obj: R2ObjectBody,
+  _env: Env,
+  _userId: string,
+  _obj: R2ObjectBody,
 ): Promise<{ text: string; summary: string }> {
-  const bytes = await obj.arrayBuffer();
-  const base64 = arrayBufferToBase64(bytes);
-  const out = await callLLM(env, {
-    provider: "workers_ai",
-    model: "@cf/meta/llama-4-scout-17b-16e-instruct",
-    system:
-      "Describe this image and OCR any visible text. Output the description first, then 'OCR:' followed by the transcribed text.",
-    messages: [
-      {
-        role: "user",
-        content: [{ type: "image", mime: obj.httpMetadata?.contentType ?? "image/png", base64 }],
-      },
-    ],
-    max_tokens: 1500,
-    ledger: { user_id: userId, operation_type: "workers_ai.extract.image" },
-  });
-  return { text: out.text, summary: out.text.slice(0, 300) };
+  throw new Error(
+    "Image extraction is not yet supported — the model cannot read the image bytes, and we will not add invented text to the record. Provide the text of the document instead.",
+  );
 }
 
 async function persistExtraction(
@@ -254,12 +228,6 @@ async function persistExtraction(
   };
 }
 
-function splitSummary(text: string): { text: string; summary: string } {
-  const m = text.match(/\n\s*SUMMARY:\s*(.+)\s*$/i);
-  if (!m || m.index === undefined || !m[1]) return { text, summary: text.slice(0, 300) };
-  return { text: text.slice(0, m.index).trim(), summary: m[1].trim() };
-}
-
 function stripHtml(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -277,11 +245,4 @@ function stripHtml(html: string): string {
 function extractTitle(html: string): string | null {
   const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   return m?.[1] ? m[1].trim() : null;
-}
-
-function arrayBufferToBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let bin = "";
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0);
-  return btoa(bin);
 }

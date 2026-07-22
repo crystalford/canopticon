@@ -208,7 +208,7 @@ function renderDepositNote(piece: PieceDetail, topics: PieceCtx["topics"]): stri
     )
     .join(", ");
   const topicSentence = topicLinks
-    ? ` Filed under ${topicLinks}. Reading it deposits its claims onto the corpus — each still pointing outward to the external sources named in the piece.`
+    ? ` Filed under ${topicLinks}. Its claims feed the record — each one still pointing outward to the external sources named in the piece.`
     : "";
   return `<div class="piece-note">
   <span class="dr-h">How this connects to the record</span>
