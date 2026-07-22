@@ -383,6 +383,12 @@ app.get("/debug-model", async (c) => {
   const prompt =
     c.req.query("prompt") ??
     'Extract JSON from this text. Output ONLY JSON: {"entities":[{"name":"..."}]}. Text: OSFI raised the domestic stability buffer to 4.0% in 2026.';
+  // Defaults to 512 (a quick sanity ping); pass ?max_tokens= to reproduce a
+  // real caller's budget, e.g. digestion-typed.ts's EXTRACTION_MAX_TOKENS —
+  // needed to diagnose reasoning-capable models that spend the whole budget
+  // on reasoning_content and never reach the actual answer.
+  const maxTokensParam = Number.parseInt(c.req.query("max_tokens") ?? "512", 10);
+  const maxTokens = Number.isFinite(maxTokensParam) && maxTokensParam > 0 ? maxTokensParam : 512;
   const start = Date.now();
   try {
     const raw = (await c.env.AI.run(
@@ -392,13 +398,14 @@ app.get("/debug-model", async (c) => {
           { role: "system", content: "You output JSON only. No prose." },
           { role: "user", content: prompt },
         ],
-        max_tokens: 512,
+        max_tokens: maxTokens,
       } as never,
     )) as unknown as Record<string, unknown> | string;
     const isObj = typeof raw === "object" && raw !== null;
     return c.json({
       ok: true,
       model,
+      max_tokens: maxTokens,
       latency_ms: Date.now() - start,
       raw_type: typeof raw,
       raw_keys: isObj ? Object.keys(raw as Record<string, unknown>) : null,
@@ -408,6 +415,7 @@ app.get("/debug-model", async (c) => {
     return c.json({
       ok: false,
       model,
+      max_tokens: maxTokens,
       latency_ms: Date.now() - start,
       error: (err as Error).message ?? "unknown",
     });
