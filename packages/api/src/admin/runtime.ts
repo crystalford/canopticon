@@ -696,88 +696,77 @@ app.get("/beats/add", async (c) => {
   return c.json({ ok: true, label });
 });
 
-// GET /v1/admin/debug-home-timing — times each of the D1 queries home.ts's
-// renderActivityFeed fires, individually, so a slow single query can be
-// told apart from "too many round trips." Temporary diagnostic for the
-// live GET / timeout investigation — safe to leave (read-only, gated).
+// GET /v1/admin/debug-home-timing?which=<label> — runs exactly ONE of
+// home.ts's renderActivityFeed queries and times it. Deliberately ONE
+// query per request (not all in a loop) because the all-in-one version
+// itself hung when a single query was pathologically slow — with only
+// one query per request, a hang is isolated to that specific probe
+// instead of blocking every other measurement behind it. Temporary
+// diagnostic for the live GET / timeout investigation.
 app.get("/debug-home-timing", async (c) => {
   const userId = c.get("user_id");
-  const timings: Record<string, number> = {};
-  const errors: Record<string, string> = {};
-  const time = async (label: string, fn: () => Promise<unknown>) => {
-    const t0 = Date.now();
-    try {
-      await fn();
-    } catch (err) {
-      errors[label] = String(err);
-    } finally {
-      timings[label] = Date.now() - t0;
-    }
-  };
+  const which = c.req.query("which") ?? "subjects";
+  const t0 = Date.now();
 
-  await time("subjects", () =>
-    all(
-      c.env.DB,
-      `SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
-              (SELECT COUNT(DISTINCT piece_id) FROM nodes
-                WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources,
-              p.created_at AS opened_at, p.updated_at
-         FROM pages p JOIN nodes n ON n.id = p.subject_node_id
-        WHERE p.user_id = ?
-          AND (
-            p.signed_status = 'published'
-            OR (
-              SELECT COUNT(*) FROM quotes q WHERE q.user_id = ?
-                AND (q.node_id = n.id OR EXISTS (
-                  SELECT 1 FROM edges e WHERE
-                    (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
-                    (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
-                ))
-            ) >= 2
-          )
-        ORDER BY (p.signed_status = 'published') DESC,
-                 COALESCE(p.signed_at, p.updated_at) DESC
-        LIMIT 14`,
-      [userId, userId, userId],
-    ),
-  );
+  const raw = c.req.query("node_id");
+  const rawPiece = c.req.query("piece_id");
 
-  await time("counts", () =>
-    one(
-      c.env.DB,
-      `SELECT
-         (SELECT COUNT(*) FROM pages WHERE user_id = ?) AS subjects,
-         (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind = 'theme') AS themes,
-         (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs,
-         (SELECT COUNT(*) FROM pages WHERE user_id = ? AND signed_status = 'published') AS signed,
-         (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind IN ('neutral_fact','event')) AS facts,
-         (SELECT COUNT(*) FROM assertions a JOIN nodes n ON n.id = a.node_id
-            WHERE n.user_id = ? AND a.rank = 'contested') AS contested,
-         (SELECT COALESCE(SUM(claims_killed), 0) FROM pages WHERE user_id = ?) AS killed`,
-      [userId, userId, userId, userId, userId, userId, userId],
-    ),
-  );
-
-  let candidates: Array<{ node_id: string }> = [];
-  await time("activeFiles.candidates", async () => {
-    candidates = await all(
-      c.env.DB,
-      `SELECT n.id AS node_id, p.slug, n.label, n.kind, p.signed_status, COUNT(f.id) AS recent_facts
-         FROM pages p
-         JOIN nodes n ON n.id = p.subject_node_id
-         JOIN edges e ON e.dst_node_id = n.id AND e.family = 'aboutness' AND e.user_id = p.user_id
-         JOIN nodes f ON f.id = e.src_node_id AND f.user_id = p.user_id
-          AND f.kind IN ('neutral_fact','event') AND f.created_at > datetime('now','-7 days')
-        WHERE p.user_id = ?
-        GROUP BY n.id
-        ORDER BY recent_facts DESC
-        LIMIT 4`,
-      [userId],
-    );
-  });
-  if (candidates[0]) {
-    const nodeId = candidates[0].node_id;
-    await time("activeFiles.stats[0]", () =>
+  const queries: Record<string, () => Promise<unknown>> = {
+    subjects: () =>
+      all(
+        c.env.DB,
+        `SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
+                (SELECT COUNT(DISTINCT piece_id) FROM nodes
+                  WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources,
+                p.created_at AS opened_at, p.updated_at
+           FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+          WHERE p.user_id = ?
+            AND (
+              p.signed_status = 'published'
+              OR (
+                SELECT COUNT(*) FROM quotes q WHERE q.user_id = ?
+                  AND (q.node_id = n.id OR EXISTS (
+                    SELECT 1 FROM edges e WHERE
+                      (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
+                      (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
+                  ))
+              ) >= 2
+            )
+          ORDER BY (p.signed_status = 'published') DESC,
+                   COALESCE(p.signed_at, p.updated_at) DESC
+          LIMIT 14`,
+        [userId, userId, userId],
+      ),
+    counts: () =>
+      one(
+        c.env.DB,
+        `SELECT
+           (SELECT COUNT(*) FROM pages WHERE user_id = ?) AS subjects,
+           (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind = 'theme') AS themes,
+           (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs,
+           (SELECT COUNT(*) FROM pages WHERE user_id = ? AND signed_status = 'published') AS signed,
+           (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind IN ('neutral_fact','event')) AS facts,
+           (SELECT COUNT(*) FROM assertions a JOIN nodes n ON n.id = a.node_id
+              WHERE n.user_id = ? AND a.rank = 'contested') AS contested,
+           (SELECT COALESCE(SUM(claims_killed), 0) FROM pages WHERE user_id = ?) AS killed`,
+        [userId, userId, userId, userId, userId, userId, userId],
+      ),
+    "activeFiles.candidates": () =>
+      all(
+        c.env.DB,
+        `SELECT n.id AS node_id, p.slug, n.label, n.kind, p.signed_status, COUNT(f.id) AS recent_facts
+           FROM pages p
+           JOIN nodes n ON n.id = p.subject_node_id
+           JOIN edges e ON e.dst_node_id = n.id AND e.family = 'aboutness' AND e.user_id = p.user_id
+           JOIN nodes f ON f.id = e.src_node_id AND f.user_id = p.user_id
+            AND f.kind IN ('neutral_fact','event') AND f.created_at > datetime('now','-7 days')
+          WHERE p.user_id = ?
+          GROUP BY n.id
+          ORDER BY recent_facts DESC
+          LIMIT 4`,
+        [userId],
+      ),
+    "activeFiles.stats": () =>
       one(
         c.env.DB,
         `SELECT
@@ -791,66 +780,49 @@ app.get("/debug-home-timing", async (c) => {
            (SELECT COUNT(DISTINCT piece_id) FROM nodes np WHERE np.user_id = ? AND np.piece_id IS NOT NULL
              AND (np.id = ? OR EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
                (e.src_node_id = np.id AND e.dst_node_id = ?) OR (e.dst_node_id = np.id AND e.src_node_id = ?))))) AS sources`,
-        [
-          userId,
-          userId,
-          nodeId,
-          userId,
-          userId,
-          nodeId,
-          nodeId,
-          userId,
-          nodeId,
-          userId,
-          nodeId,
-          nodeId,
-        ],
+        [userId, userId, raw, userId, userId, raw, raw, userId, raw, userId, raw, raw],
       ),
-    );
-  }
-
-  let pieces: Array<{ piece_id: string }> = [];
-  await time("latestEvidence.pieces", async () => {
-    pieces = await all(
-      c.env.DB,
-      `SELECT slug, title, created_at, id AS piece_id FROM pieces
-        WHERE user_id = ? AND publication_status = 'published'
-        ORDER BY created_at DESC LIMIT 3`,
-      [userId],
-    );
-  });
-  if (pieces[0]) {
-    const pieceId = pieces[0].piece_id;
-    await time("latestEvidence.stat[0]", () =>
+    "latestEvidence.pieces": () =>
+      all(
+        c.env.DB,
+        `SELECT slug, title, created_at, id AS piece_id FROM pieces
+          WHERE user_id = ? AND publication_status = 'published'
+          ORDER BY created_at DESC LIMIT 3`,
+        [userId],
+      ),
+    "latestEvidence.stat": () =>
       one(
         c.env.DB,
         `SELECT
            (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND piece_id = ? AND kind IN ('neutral_fact','event','assertion')) AS facts,
            (SELECT COUNT(DISTINCT e.dst_node_id) FROM edges e JOIN nodes f ON f.id = e.src_node_id
              WHERE e.user_id = ? AND e.family = 'aboutness' AND f.piece_id = ?) AS subjects`,
-        [userId, pieceId, userId, pieceId],
+        [userId, rawPiece, userId, rawPiece],
       ),
+    "opOverlays.drafts": () =>
+      all(
+        c.env.DB,
+        `SELECT p.id AS page_id, p.slug, n.label, p.intent, p.thesis, p.confidence, p.claims_verified
+           FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+          WHERE p.user_id = ? AND p.signed_status = 'draft' AND p.body_md IS NOT NULL
+          ORDER BY p.updated_at DESC LIMIT 6`,
+        [userId],
+      ),
+    "pages.count": () =>
+      one(c.env.DB, "SELECT COUNT(*) AS n FROM pages WHERE user_id = ?", [userId]),
+    "edges.count": () =>
+      one(c.env.DB, "SELECT COUNT(*) AS n FROM edges WHERE user_id = ?", [userId]),
+  };
+
+  const fn = queries[which];
+  if (!fn) {
+    return c.json(
+      { ok: false, error: `unknown which=${which}`, available: Object.keys(queries) },
+      400,
     );
   }
-
-  await time("opOverlays.drafts", () =>
-    all(
-      c.env.DB,
-      `SELECT p.id AS page_id, p.slug, n.label, p.intent, p.thesis, p.confidence, p.claims_verified
-         FROM pages p JOIN nodes n ON n.id = p.subject_node_id
-        WHERE p.user_id = ? AND p.signed_status = 'draft' AND p.body_md IS NOT NULL
-        ORDER BY p.updated_at DESC LIMIT 6`,
-      [userId],
-    ),
-  );
-
-  return c.json({
-    ok: true,
-    candidates: candidates.length,
-    pieces: pieces.length,
-    timings,
-    errors,
-  });
+  const result = await fn();
+  return c.json({ ok: true, which, ms: Date.now() - t0, result });
 });
 
 export default app;
