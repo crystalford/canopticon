@@ -10,6 +10,7 @@
 
 import { Hono } from "hono";
 import { type AuthState, requireOperator } from "../auth.ts";
+import { runIngest } from "../data/ingest.ts";
 import type { Env } from "../env.ts";
 
 const app = new Hono<{ Bindings: Env; Variables: AuthState }>();
@@ -18,12 +19,18 @@ app.post("/", async (c) => {
   const gate = await requireOperator(c);
   if (gate) return gate;
 
-  // Commit 4 wires the ingest orchestrator here:
-  //   c.executionCtx.waitUntil(runIngest(c.env));
-  // For now the button is live but the pipeline is a no-op; the
-  // operator lands back on the instrument.
+  // Ingest is fast (fetch + snapshot + a handful of D1 upserts), so we
+  // await it and land the operator back on a freshly-painted instrument.
+  // Any failure is recorded in update_log inside runIngest; the operator
+  // still gets redirected rather than a raw error.
   const stamp = Date.now();
-  return c.redirect(`/?refreshed=${stamp}`, 302);
+  try {
+    const summary = await runIngest(c.env);
+    const status = summary.errors.length ? "partial" : "ok";
+    return c.redirect(`/?refreshed=${stamp}&status=${status}`, 302);
+  } catch {
+    return c.redirect(`/?refreshed=${stamp}&status=error`, 302);
+  }
 });
 
 export default app;
