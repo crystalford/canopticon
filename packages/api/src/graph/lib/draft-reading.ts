@@ -11,15 +11,22 @@
 // independent model judges. The output is prose with a thesis — a reading,
 // not a list.
 //
-// Runs when the corpus settles. Bounded (TOP_N per run) so a 50-document
-// bulk extraction drafts a handful, not fifty.
+// Runs when the corpus settles, one candidate per call. Each candidate
+// already costs a writer LLM call plus N parallel judge calls — three of
+// those chained sequentially (the old TOP_N_PER_RUN) was enough on its own
+// to exceed Cloudflare's execution ceiling with no catchable error, even
+// called in isolation via the admin resettle endpoint (confirmed live: a
+// "resettle_step_started" breadcrumb for draft_readings alone, then
+// nothing — no completion, no crash event, for minutes). Throughput now
+// comes from how often the settle pipeline reaches this step (settle-
+// pipeline.ts), not from batching inside one call.
 
 import type { Env } from "../../env";
 import { all, insertOne, one, run } from "../../lib/d1";
 import { callRole, modelForRole } from "../../llm/router";
 import { judgeClaim } from "./briefs/pipeline";
 
-const TOP_N_PER_RUN = 3;
+const TOP_N_PER_RUN = 1;
 const MIN_QUOTES = 4;
 
 export interface DraftReadingReport {
