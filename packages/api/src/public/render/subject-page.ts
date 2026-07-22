@@ -142,8 +142,22 @@ export async function renderSubjectPage(
 
   // Mode resolution: if the operator asked for signed but no signed body
   // exists, fall back to neutral (and the band at top still offers nothing).
+  //
+  // A draft counts too, but ONLY for the operator — this is the entire
+  // review step. The old dark console (operator/screens/out-stream.ts,
+  // retired by the "one site" refactor) had "Sign & publish / Edit /
+  // Preview / Discard" buttons directly on a draft row; the public page
+  // that replaced it never got an equivalent, so a drafted reading had a
+  // real backend action (POST /op/out/:id/sign, still mounted, still
+  // works) with no reachable UI at all — the "Read & sign →" link on the
+  // homepage's "awaiting your signature" card led here and showed nothing,
+  // because this exact check excluded 'draft'. A draft must never be
+  // visible to an anonymous viewer, so the operator gate here is load-
+  // bearing, not cosmetic.
+  const isDraftPreview = opts.isOperator === true && page.signed_status === "draft";
   const hasSignedReading =
-    (page.signed_status === "signed" || page.signed_status === "published") && !!page.body_md;
+    (page.signed_status === "signed" || page.signed_status === "published" || isDraftPreview) &&
+    !!page.body_md;
   const resolvedMode: "neutral" | "signed" =
     mode === "signed" && hasSignedReading ? "signed" : "neutral";
 
@@ -627,13 +641,30 @@ async function renderSigned(
   // routes are already mounted under /op/out — PR 1 surfaces them inline
   // on the public URL the operator landed on, instead of bouncing them
   // through a separate console.
+  const isDraft = page.signed_status === "draft";
   const opSignedAff = isOperator
     ? `<div class="op-aff">
   <span class="op-aff-label">Operator</span>
+  ${
+    isDraft
+      ? `<form method="POST" action="/op/out/${escapeAttr(page.id)}/sign" style="display:inline">
+    <button class="op-aff-btn op-aff-btn-primary" type="submit">Sign &amp; publish</button>
+  </form>`
+      : ""
+  }
   <a class="op-aff-btn op-aff-btn-action" href="/op/out/${escapeAttr(page.id)}/edit">Edit analysis</a>
   <form method="POST" action="/op/out/${escapeAttr(page.id)}/discard" style="display:inline" onsubmit="return confirm('Discard this analysis?');">
     <button class="op-aff-btn op-aff-btn-action" type="submit">Discard</button>
   </form>
+</div>`
+    : "";
+  // The draft banner is the whole point: it's the only thing that tells the
+  // operator "this isn't live yet, you're the only one who can see it, and
+  // signing is the act that publishes it." Without it the page reads
+  // identically to an already-published reading.
+  const draftBanner = isDraft
+    ? `<div class="draft-banner">
+  <b>Draft — not published.</b> The system wrote this from your documents; nobody else can see it. Signing publishes it under your name exactly as it reads below. Editing lets you change the wording first. Discarding deletes it.
 </div>`
     : "";
 
@@ -645,6 +676,7 @@ async function renderSigned(
   const body = `
 <article class="subject-page subject-page-signed">
   ${modeBand}
+  ${draftBanner}
   ${opSignedAff}
   <header class="signed-head">
     <div class="kicker">${intentBadge} <span class="kicker-meta">Analysis · Signed</span></div>
@@ -686,13 +718,13 @@ async function renderSigned(
     font-size: 11px; padding: 3px 11px; border-radius: 4px;
     font-weight: 600; letter-spacing: .04em;
   }
-  .intent-investigation { background: #e6efe9; color: #1d6a5e; }
-  .intent-argument { background: #f4e9e6; color: #8a3324; }
-  .intent-pattern { background: #e8eef7; color: #33567e; }
-  .intent-hypothesis { background: #ece6f2; color: #5a4a7e; }
-  .intent-assessment { background: #f1ead9; color: #7a6324; }
-  .intent-critique { background: #f4e3e0; color: #964434; }
-  .intent-explanation { background: #e4ecef; color: #3a6a7e; }
+  .intent-investigation { background: rgba(77,156,111,.16); color: #4d9c6f; }
+  .intent-argument { background: rgba(201,106,83,.16); color: #c96a53; }
+  .intent-pattern { background: rgba(126,166,216,.16); color: #7ea6d8; }
+  .intent-hypothesis { background: rgba(183,158,224,.16); color: #b79ee0; }
+  .intent-assessment { background: rgba(209,171,92,.16); color: #d1ab5c; }
+  .intent-critique { background: rgba(196,123,152,.16); color: #c47b98; }
+  .intent-explanation { background: rgba(126,200,227,.16); color: #7ec8e3; }
   .signed-head h1 {
     font-family: var(--serif);
     font-size: 46px; line-height: 1.06; letter-spacing: -.022em;
@@ -792,6 +824,14 @@ async function renderSigned(
   .op-aff-btn { font-size:12.5px; padding:5px 12px; border-radius:6px; border:1px solid var(--rule);
     background:var(--surface); color:var(--ink); text-decoration:none; cursor:pointer; }
   .op-aff-btn-action { cursor:pointer; opacity:1; }
+  .op-aff-btn-primary { background:var(--ink); color:var(--paper); border-color:var(--ink); font-weight:600; }
+  .draft-banner {
+    margin-bottom: 18px; padding: 14px 16px;
+    border: 1px solid var(--accent-bd); border-left: 3px solid var(--accent);
+    border-radius: 8px; background: var(--accent-bg, rgba(58,99,160,.08));
+    font-size: 13.5px; line-height: 1.55; color: var(--ink-2);
+  }
+  .draft-banner b { color: var(--ink); }
 </style>
 `;
 
@@ -1347,9 +1387,14 @@ function renderModeBand(
   hasSigned: boolean,
   page: PageRow,
 ): string {
+  // A draft is only ever reachable here as the operator (subject-page.ts's
+  // hasSignedReading gate) — but the copy still has to say "draft," not
+  // "signed," or the one person reviewing it can't tell what they're
+  // looking at from the page itself.
+  const isDraft = page.signed_status === "draft";
   if (current === "signed") {
     return `<div class="mode-band signed-band">
-  <span class="here">You are reading a signed analysis.</span>
+  <span class="here">${isDraft ? "You are previewing an unpublished draft." : "You are reading a signed analysis."}</span>
   <a href="/p/${escapeAttr(slug)}">See the file this stands on →</a>
 </div>`;
   }
@@ -1358,10 +1403,12 @@ function renderModeBand(
   }
   const thesisPreview = page.thesis
     ? `"${escapeHtml(page.thesis.slice(0, 140))}${page.thesis.length > 140 ? "…" : ""}"`
-    : "a signed analysis of this subject";
+    : isDraft
+      ? "a drafted analysis awaiting your signature"
+      : "a signed analysis of this subject";
   return `<div class="mode-band signed-band">
-  <span class="here">A signed analysis is on file:</span>
-  <a href="/p/${escapeAttr(slug)}?mode=signed">Read it →</a>
+  <span class="here">${isDraft ? "A draft is waiting for your signature:" : "A signed analysis is on file:"}</span>
+  <a href="/p/${escapeAttr(slug)}?mode=signed">${isDraft ? "Review it →" : "Read it →"}</a>
   <div class="meta" style="flex-basis:100%;margin-top:4px">${thesisPreview}</div>
 </div>`;
 }
