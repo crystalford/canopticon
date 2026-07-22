@@ -15,140 +15,156 @@ export function renderMethodology(): string {
     name: "How CANOPTICON works",
     about: ["forensic verification", "knowledge graph", "citation methodology"],
     description:
-      "How CANOPTICON verifies, structures, and publishes claims. Mechanical trust: every quote a literal substring of a stored source document. Independent judgment. The fact / interpretation firewall.",
+      "How CANOPTICON verifies, structures, and publishes claims. Every quote is a word-for-word match in a stored source document, checked twice, before it reaches a page.",
     publisher: { "@id": "https://canopticon.com/#org" },
-    url: "https://canopticon.com/methodology",
+    url: "https://canopticon.com/method",
   }).replace(/<\/script/gi, "<\\/script");
 
   const body = `
 <script type="application/ld+json">${jsonLd}</script>
 
 <section class="meth-masthead">
-  <div class="kicker"><span class="live"></span> Methodology</div>
-  <h1 class="meth-h1">How CANOPTICON works.</h1>
+  <div class="kicker"><span class="live"></span> Method</div>
+  <h1 class="meth-h1">How the record is kept.</h1>
   <p class="meth-lede">
-    Two things together: the editorial stance — what we're trying to do — and the
-    mechanical standard — how the publication verifies what it puts on the page.
-    Citation from this site is trustworthy because both are visible and both can be
-    checked.
+    Two things together: what canopticon is trying to do, and how it checks what it
+    puts on a page. A claim from this site is trustworthy because both are visible,
+    and both can be checked.
   </p>
 </section>
 
 <section class="meth-section">
   <h2 class="meth-h2">The standard</h2>
   <p>
-    Every claim rests on an external source. Analysis is signed and kept separate from
-    fact. Confidence is shown, not hidden — a claim that is uncertain says so. Nothing
-    is asserted that cannot be grounded. The record is permanent and correctable:
-    errors are logged, not erased.
+    Every documented fact rests on a real source. Analysis is signed and kept separate
+    from fact. Confidence is shown, not hidden — an uncertain claim says so. Nothing is
+    stated that can't be traced back to a document. The record is permanent and
+    correctable: mistakes are logged, not erased.
   </p>
 </section>
 
 <section class="meth-section meth-section-trust">
   <div class="meth-stamp">How verification works</div>
-  <h2 class="meth-h2">Mechanical trust, not vouched trust.</h2>
+  <h2 class="meth-h2">Checked by machine, not vouched for.</h2>
   <p>
-    The publication's claims are trusted because of <b>what it does</b>, not because
-    of who wrote them. Three checks run on every published page:
+    A claim on this site is trusted because of <b>what happened to it before it was
+    published</b>, not because of who wrote it. Every documented fact runs a chain of
+    checks:
   </p>
 
   <div class="meth-checks">
     <div class="meth-check">
       <div class="meth-check-n">1</div>
       <div>
-        <div class="meth-check-h">Verbatim substring</div>
+        <div class="meth-check-h">Stored, then read</div>
         <p>
-          Every quote on every page is a <b>literal substring</b> of a real document we
-          have stored. The document is preserved at upload time in object storage; the
-          quote is a byte-offset span inside it. Whitespace differences are tolerated.
-          Word substitutions are not. A quote that fails this check never reaches a
-          public page.
+          A source document is stored first, exactly as received. Facts are then read
+          out of it, each one carrying the exact quote it came from.
         </p>
       </div>
     </div>
     <div class="meth-check">
       <div class="meth-check-n">2</div>
       <div>
-        <div class="meth-check-h">Independent judgment</div>
+        <div class="meth-check-h">A word-for-word match</div>
         <p>
-          A different model than the one that drafted the page reads each load-bearing
-          claim and answers: does the quote actually support this claim? Self-verification
-          is forbidden by the publication's rules — the judge must be a different model
-          family from every generator that touches the writing.
+          Every quote on every page is a <b>literal match</b> against the stored
+          document — checked by machine, byte for byte. Whitespace differences are
+          tolerated; word substitutions are not. A quote that fails this check never
+          reaches a page.
         </p>
       </div>
     </div>
     <div class="meth-check">
       <div class="meth-check-n">3</div>
       <div>
-        <div class="meth-check-h">The firewall</div>
+        <div class="meth-check-h">A second, independent judge</div>
         <p>
-          An attributed assertion ("X claimed Y") is <b>never silently rendered</b>
-          as a neutral fact. Contested claims are stored as contested and shown
-          gray. The system cannot bury what doesn't fit — every signed reading
-          is required to display the facts that complicate it.
+          Before a signed analysis publishes, a different model than the one that
+          drafted it reads each claim and answers one question: does the quote
+          actually support this? The judge is always a different model family from
+          whatever wrote the page — self-checking is not allowed.
+        </p>
+      </div>
+    </div>
+    <div class="meth-check">
+      <div class="meth-check-n">4</div>
+      <div>
+        <div class="meth-check-h">Failures are removed, visibly</div>
+        <p>
+          A claim that fails either check is removed before publishing — never
+          silently kept. Where it's useful to show, a removed claim stays visible on
+          its file with a plain note: <b>failed verification — removed</b>.
         </p>
       </div>
     </div>
   </div>
 
   <p>
-    Every superscript on every page links to the quote receipt — the verbatim text,
-    the source document, the byte offset, the date extracted. Citations from this
-    site are deep-linkable to their evidence.
+    Every receipt on every page opens to the verbatim text, the source document, and
+    when it was read. Claims on this site are deep-linkable to their evidence.
+  </p>
+</section>
+
+<section class="meth-section">
+  <h2 class="meth-h2">Disputed stays disputed</h2>
+  <p>
+    A claim someone made ("X said Y") is <b>never silently shown</b> as an
+    established fact. Disputed material is stored as disputed and shown as disputed.
+    A signed analysis is required to show the facts that complicate its own case — it
+    can't leave out what doesn't fit.
   </p>
 </section>
 
 <section class="meth-section">
   <h2 class="meth-h2">The stance</h2>
   <p>
-    Forensic, not journalistic. The goal is not to report what happened but to map what
-    is — the structure beneath the event, the pattern beneath the story, the architecture
-    beneath the policy. Individual facts matter because they reveal structure. Structure
-    is the finding.
+    Forensic, not journalistic. The goal isn't to report what happened but to map
+    what is — the structure beneath the event, the pattern beneath the story, the
+    architecture beneath the policy. Individual facts matter because they reveal
+    structure. Structure is the finding.
   </p>
 </section>
 
 <section class="meth-section meth-section-shape">
-  <h2 class="meth-h2">What the system actually does</h2>
+  <h2 class="meth-h2">What's actually in the record</h2>
   <p>
-    The publication grows from a typed graph of extracted facts. Documents are read into:
+    Every file grows from a typed record of facts read out of source documents:
   </p>
   <ul class="meth-list">
-    <li><b>Entities</b> — people, organisations, places that persist.</li>
+    <li><b>People and companies</b> — the persistent subjects a file is opened on.</li>
     <li><b>Events</b> — dated occurrences with verbatim quotes.</li>
-    <li><b>Neutral facts</b> — sourced, established, uncontested propositions.</li>
-    <li><b>Attributed assertions</b> — what an actor CLAIMS, with stance and rank, kept distinct from neutral fact.</li>
-    <li><b>Sources</b> — the documents themselves; the quote-receipts pin every fact to them.</li>
-    <li><b>Themes</b> — received accounts the corpus engages with, surfaced when three or more documents converge on contradicting the same proposition.</li>
+    <li><b>Documented facts</b> — sourced, established, undisputed statements.</li>
+    <li><b>Disputed claims</b> — what someone claims, with who said it and their stance, kept distinct from documented fact.</li>
+    <li><b>Sources</b> — the documents themselves; every fact's receipt points back to one.</li>
+    <li><b>Official stories</b> — widely-held accounts flagged when three or more separate documents push back on them.</li>
   </ul>
   <p>
-    Edges between these are typed too: aboutness, relationship, temporal, evidential,
-    causal, attribution. The graph is queryable; the publication's pages are renderings
-    of it.
+    The links between all of these are typed too — who's connected to what, when,
+    and how. The record is queryable; every page is a rendering of it.
   </p>
 </section>
 
 <section class="meth-section">
-  <h2 class="meth-h2">One subject, one page, two modes</h2>
+  <h2 class="meth-h2">One file, two views</h2>
   <p>
-    Every subject — a person, an event, a theme — has a single page in two modes:
-    a <b>Reference</b> (neutral facts with receipts, contested shown as contested,
-    timeline, connections) and the operator's <b>Reading</b> (a signed argument
-    over the same facts, with intent badge, confidence band, and the mandatory
-    complicating-facts box). The investigation is not a separate object — it's
-    the same page with a thesis pulling the facts into order.
+    Every subject — a person, a company, an event, a widely-held story — has a
+    single file with two views: <b>on the record</b> (documented facts with
+    receipts, disputes shown as disputes, a timeline, connections) and, once one
+    exists, a <b>signed analysis</b> — an argument over the same facts, with an
+    intent badge, a confidence level, and the mandatory box showing what complicates
+    it. The analysis isn't a separate document — it's the same file with a thesis
+    pulling the facts into order.
   </p>
 </section>
 
 <section class="meth-section">
-  <h2 class="meth-h2">Faces of a reading</h2>
+  <h2 class="meth-h2">Formats of a signed analysis</h2>
   <p>
-    When the operator signs a reading, the system pre-renders four formats of it:
-    a <b>thread</b> (4 posts), a <b>video script</b> (locked reasoning skeleton),
-    a <b>card</b> (thesis + the single most damning fact, as one shareable image), and a <b>chapter</b>
-    outline. These aren't new generation — they're selections from the signed
-    piece. The truth claims live on the reading; the faces re-arrange them.
+    Once an analysis is signed, it's rendered into a few formats: a short thread, a
+    video script, a shareable card with the single strongest fact, and a chapter
+    outline. None of these are new writing — they're selections from the signed
+    piece. The claims live on the analysis; the formats just re-arrange them.
   </p>
 </section>
 
@@ -176,10 +192,10 @@ export function renderMethodology(): string {
 <section class="meth-section">
   <h2 class="meth-h2">The discipline</h2>
   <p>
-    The operator owns every verdict. The system surfaces reasons for and against — it
-    never decides. Patterns are hypotheses until verified and signed. Disconfirming
-    evidence is shown, not buried. The analysis is the moat precisely because it can
-    be wrong, and says so when it might be.
+    A person owns every verdict. The system surfaces reasons for and against — it
+    never decides. Patterns are hypotheses until verified and signed. Evidence that
+    cuts against a claim is shown, not buried. The analysis is worth reading
+    precisely because it can be wrong, and says so when it might be.
   </p>
 </section>
 
@@ -228,16 +244,16 @@ export function renderMethodology(): string {
 
   .meth-section-trust {
     padding: 30px 32px;
-    border: 1px solid #d8cba9;
+    border: 1px solid var(--accent-bd);
     border-left: 4px solid var(--accent);
     border-radius: 11px;
-    background: #f8f1df;
+    background: var(--accent-bg);
   }
   .meth-stamp {
     font-family: var(--serif);
     font-size: 12px; letter-spacing: .16em;
     text-transform: uppercase;
-    color: #7a5a1a;
+    color: var(--accent-2);
     font-weight: 700;
     margin-bottom: 10px;
   }
@@ -247,7 +263,7 @@ export function renderMethodology(): string {
     grid-template-columns: 40px 1fr;
     gap: 16px;
     padding: 16px 0;
-    border-top: 1px solid #d8cba9;
+    border-top: 1px solid var(--accent-bd);
   }
   .meth-check:first-child { border-top: none; }
   .meth-check-n {
@@ -305,11 +321,11 @@ export function renderMethodology(): string {
 </style>
 `;
   return renderPage({
-    title: "Methodology",
+    title: "Method",
     description:
-      "How CANOPTICON conducts analysis: mechanical trust, the firewall, the typed graph, the lenses, and the discipline of the work.",
+      "How canopticon verifies what it publishes: word-for-word quotes, a second independent check, disputed material shown as disputed, and failures removed visibly.",
     body,
-    activeNav: "/methodology",
-    zone: "home",
+    activeNav: "/method",
+    zone: "method",
   });
 }
