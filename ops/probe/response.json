@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T23:50:03Z",
-  "run_id": "29967279375",
+  "requested_at": "2026-07-22T23:52:54Z",
+  "run_id": "29967448321",
   "method": "GET",
-  "path": "/v1/admin/debug-home-timing",
-  "status": 0,
-  "body": ""
+  "path": "/v1/admin/debug-home-timing?which=pages.count",
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"which\": \"pages.count\",\n  \"ms\": 33,\n  \"result\": {\n    \"n\": 624\n  }\n}"
 }
