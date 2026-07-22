@@ -260,6 +260,134 @@ export async function renderHome(
   });
 }
 
+interface ActiveFile {
+  slug: string;
+  label: string;
+  kind: string;
+  signed_status: string;
+  recent_facts: number;
+  facts: number;
+  disputed: number;
+  sources: number;
+}
+
+// "Active files — what grew": subjects with real, dated new fact/event
+// nodes in the last 7 days — not a fabricated narrative, an actual count
+// of aboutness-linked nodes created recently. Two-step: first find WHICH
+// subjects grew (one grouped query), then compute full current stats only
+// for that bounded handful — the same "cheap filter, then a few bounded
+// per-row queries" shape subject-page.ts already uses safely.
+async function loadActiveFiles(db: D1Database, userId: string): Promise<ActiveFile[]> {
+  const { all, one } = await import("../../lib/d1");
+  const candidates = await all<{
+    node_id: string;
+    slug: string;
+    label: string;
+    kind: string;
+    signed_status: string;
+    recent_facts: number;
+  }>(
+    db,
+    `SELECT n.id AS node_id, p.slug, n.label, n.kind, p.signed_status, COUNT(f.id) AS recent_facts
+       FROM pages p
+       JOIN nodes n ON n.id = p.subject_node_id
+       JOIN edges e ON e.dst_node_id = n.id AND e.family = 'aboutness' AND e.user_id = p.user_id
+       JOIN nodes f ON f.id = e.src_node_id AND f.user_id = p.user_id
+        AND f.kind IN ('neutral_fact','event') AND f.created_at > datetime('now','-7 days')
+      WHERE p.user_id = ?
+      GROUP BY n.id
+      ORDER BY recent_facts DESC
+      LIMIT 4`,
+    [userId],
+  ).catch(() => []);
+  if (candidates.length === 0) return [];
+
+  const out: ActiveFile[] = [];
+  for (const c of candidates) {
+    const stats = await one<{ facts: number; disputed: number; sources: number }>(
+      db,
+      `SELECT
+         (SELECT COUNT(*) FROM nodes f WHERE f.user_id = ? AND f.kind IN ('neutral_fact','event')
+           AND EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND e.family='aboutness'
+             AND e.src_node_id = f.id AND e.dst_node_id = ?)) AS facts,
+         (SELECT COUNT(*) FROM assertions a JOIN nodes an ON an.id = a.node_id
+           WHERE an.user_id = ? AND a.rank = 'contested'
+             AND EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
+               (e.src_node_id = an.id AND e.dst_node_id = ?) OR (e.dst_node_id = an.id AND e.src_node_id = ?)))) AS disputed,
+         (SELECT COUNT(DISTINCT piece_id) FROM nodes np WHERE np.user_id = ? AND np.piece_id IS NOT NULL
+           AND (np.id = ? OR EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
+             (e.src_node_id = np.id AND e.dst_node_id = ?) OR (e.dst_node_id = np.id AND e.src_node_id = ?))))) AS sources`,
+      [
+        userId,
+        userId,
+        c.node_id,
+        userId,
+        userId,
+        c.node_id,
+        c.node_id,
+        userId,
+        c.node_id,
+        userId,
+        c.node_id,
+        c.node_id,
+      ],
+    ).catch(() => null);
+    out.push({
+      slug: c.slug,
+      label: c.label,
+      kind: c.kind,
+      signed_status: c.signed_status,
+      recent_facts: c.recent_facts,
+      facts: stats?.facts ?? 0,
+      disputed: stats?.disputed ?? 0,
+      sources: stats?.sources ?? 0,
+    });
+  }
+  return out;
+}
+
+interface EvidenceRow {
+  piece_slug: string;
+  title: string;
+  created_at: string;
+  facts_fed: number;
+  subjects_fed: number;
+}
+
+// "Latest evidence": recently published source documents and what they
+// actually fed into the graph — real counts (nodes carrying that
+// piece_id; distinct subjects those nodes connect to), not placeholder
+// copy. Same bounded two-step shape as loadActiveFiles.
+async function loadLatestEvidence(db: D1Database, userId: string): Promise<EvidenceRow[]> {
+  const { all, one } = await import("../../lib/d1");
+  const pieces = await all<{ slug: string; title: string; created_at: string; piece_id: string }>(
+    db,
+    `SELECT slug, title, created_at, id AS piece_id FROM pieces
+      WHERE user_id = ? AND publication_status = 'published'
+      ORDER BY created_at DESC LIMIT 3`,
+    [userId],
+  ).catch(() => []);
+  const out: EvidenceRow[] = [];
+  for (const p of pieces) {
+    const stat = await one<{ facts: number; subjects: number }>(
+      db,
+      `SELECT
+         (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND piece_id = ? AND kind IN ('neutral_fact','event','assertion')) AS facts,
+         (SELECT COUNT(DISTINCT e.dst_node_id) FROM edges e JOIN nodes f ON f.id = e.src_node_id
+           WHERE e.user_id = ? AND e.family = 'aboutness' AND f.piece_id = ?) AS subjects`,
+      [userId, p.piece_id, userId, p.piece_id],
+    ).catch(() => null);
+    out.push({
+      piece_slug: p.slug,
+      title: p.title,
+      created_at: p.created_at,
+      facts_fed: stat?.facts ?? 0,
+      subjects_fed: stat?.subjects ?? 0,
+    });
+  }
+  return out.filter((e) => e.facts_fed > 0);
+}
+
 async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean): Promise<string> {
   const { all, one } = await import("../../lib/d1");
   const { resolveOperatorId } = await import("../data");
@@ -292,11 +420,14 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
     intent: string | null;
     signed_at: string | null;
     sources: number;
+    opened_at: string;
+    updated_at: string;
   }>(
     env.DB,
     `SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
             (SELECT COUNT(DISTINCT piece_id) FROM nodes
-              WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources
+              WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources,
+            p.created_at AS opened_at, p.updated_at
        FROM pages p JOIN nodes n ON n.id = p.subject_node_id
       WHERE p.user_id = ?
         AND (
@@ -322,6 +453,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
     themes: number;
     docs: number;
     signed: number;
+    facts: number;
     contested: number;
     killed: number;
   }>(
@@ -331,11 +463,15 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
        (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind = 'theme') AS themes,
        (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs,
        (SELECT COUNT(*) FROM pages WHERE user_id = ? AND signed_status = 'published') AS signed,
+       (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind IN ('neutral_fact','event')) AS facts,
        (SELECT COUNT(*) FROM assertions a JOIN nodes n ON n.id = a.node_id
           WHERE n.user_id = ? AND a.rank = 'contested') AS contested,
        (SELECT COALESCE(SUM(claims_killed), 0) FROM pages WHERE user_id = ?) AS killed`,
-    [userId, userId, userId, userId, userId, userId],
+    [userId, userId, userId, userId, userId, userId, userId],
   ).catch(() => null);
+
+  const activeFiles = await loadActiveFiles(env.DB, userId);
+  const latestEvidence = await loadLatestEvidence(env.DB, userId);
 
   const INTENT_LABEL: Record<string, string> = {
     investigation: "Investigation",
@@ -347,12 +483,9 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
     explanation: "Explanation",
   };
 
-  // Editorial hierarchy: pick a lead, two secondaries, then a tail grid.
-  // Lead is the most recently signed piece; if nothing is signed yet, the
-  // most recently active subject leads.
+  // Lead: the most recently signed piece; if nothing is signed yet, the
+  // most recently active subject.
   const lead = subjects[0];
-  const secondaries = subjects.slice(1, 3);
-  const tail = subjects.slice(3);
 
   const buildHref = (s: NonNullable<typeof lead>): string =>
     `/s/${escapeHtml(s.slug)}${s.signed_status === "published" ? "?mode=signed" : ""}`;
@@ -362,60 +495,92 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
       ? `<span class="intent-badge intent-${escapeHtml(intent)}">${escapeHtml(INTENT_LABEL[intent] ?? intent)}</span>`
       : "";
 
-  const kindLine = (s: NonNullable<typeof lead>): string => {
-    const kindLabel = s.kind === "theme" ? "Theme" : s.kind === "event" ? "Event" : "Subject";
-    const signed = s.signed_status === "published";
-    return `${kindLabel}${signed ? " · signed analysis" : ""}`;
-  };
+  const kindChip = (kind: string): string =>
+    kind === "theme" ? "THEME" : kind === "event" ? "EVENT" : "SUBJECT";
 
-  // The LEAD — a full-width editorial card. Bigger type, thesis prominent,
-  // intent badge first. When unsigned, the lede comes from the source count.
-  const leadCard = lead
-    ? `<a class="lead-card" href="${buildHref(lead)}">
-  <div class="lead-kicker">
-    ${intentChip(lead.intent)}
-    <span class="lead-meta">${escapeHtml(kindLine(lead))}</span>
-  </div>
-  <h2 class="lead-title">${escapeHtml(lead.label)}</h2>
-  ${
+  // ---- Hero: "the open file" — the single most prominent thing on record ----
+  const hero = lead
+    ? `<div class="hero">
+  <span class="kicker"><span class="live"></span>THE STANDING RECORD — LIVE</span>
+  <h1><a href="${buildHref(lead)}">${escapeHtml(lead.label)}</a></h1>
+  <p class="thesis">${
     lead.thesis
-      ? `<p class="lead-thesis">${escapeHtml(lead.thesis.slice(0, 200))}</p>`
-      : `<p class="lead-thesis lead-thesis-quiet">Reading the corpus on this subject — ${lead.sources} source${lead.sources === 1 ? "" : "s"} so far.</p>`
-  }
-</a>`
+      ? escapeHtml(lead.thesis.slice(0, 240))
+      : `Reading the corpus on this subject — ${lead.sources} source${lead.sources === 1 ? "" : "s"} so far.`
+  }</p>
+  <div class="coord">${escapeHtml(kindChip(lead.kind))}${lead.signed_status === "published" ? " · SIGNED ANALYSIS ON FILE" : ""}</div>
+  <div class="hero-cta">
+    <a class="btn primary" href="${buildHref(lead)}">${lead.signed_status === "published" ? "Read the signed analysis" : "Open the file"} <span class="arr">→</span></a>
+    <a class="btn" href="/topics">Browse the record <span class="arr">→</span></a>
+  </div>
+</div>`
     : "";
 
-  // SECONDARIES — two medium cards side by side. Less type, less weight.
-  const secondaryCards = secondaries
+  // ---- Depth stats — four real counts, no jargon nouns ----
+  const depthCells = counts
+    ? `<div class="depth">
+  <div class="cell"><div class="n">${counts.subjects}</div><div class="k label">Subjects on file</div></div>
+  <div class="cell"><div class="n">${counts.docs}</div><div class="k label">Source documents stored</div></div>
+  <div class="cell"><div class="n">${counts.facts}</div><div class="k label">Documented facts, each with its quote</div></div>
+  <div class="cell killed"><div class="n">${counts.killed}</div><div class="k label">Claims removed — failed verification</div></div>
+</div>`
+    : "";
+
+  // ---- Active files — what grew (real deltas, last 7 days) ----
+  const activeFilesBlock =
+    activeFiles.length > 0
+      ? `<div class="sec">
+  <div class="sec-h"><span class="label">Active files — what grew</span><span class="coord">LAST 7 DAYS</span></div>
+  <div class="file-list active">
+    ${activeFiles
+      .map(
+        (
+          f,
+        ) => `<a class="file-row" href="/s/${escapeAttr(f.slug)}${f.signed_status === "published" ? "?mode=signed" : ""}">
+  <div><div class="fname">${escapeHtml(f.label)}<span class="kind">${escapeHtml(kindChip(f.kind))}</span></div>
+  <div class="coord fcoord">${f.sources} SOURCE${f.sources === 1 ? "" : "S"} <span class="sep">·</span> ${f.facts} DOCUMENTED FACT${f.facts === 1 ? "" : "S"}${f.disputed > 0 ? ` <span class="sep">·</span> ${f.disputed} DISPUTED` : ""}</div></div>
+  <div class="grew"><span class="plus">+${f.recent_facts} fact${f.recent_facts === 1 ? "" : "s"}</span> added in the last 7 days</div>
+</a>`,
+      )
+      .join("")}
+  </div>
+</div>`
+      : "";
+
+  // ---- Latest evidence — recent documents and what they actually fed ----
+  const evidenceBlock =
+    latestEvidence.length > 0
+      ? `<div class="sec">
+  <div class="sec-h"><span class="label">Latest evidence</span><span class="coord">MOST RECENT FIRST</span></div>
+  ${latestEvidence
     .map(
-      (s) => `<a class="secondary-card" href="${buildHref(s)}">
-  <div class="secondary-kicker">${intentChip(s.intent)}<span class="secondary-meta">${escapeHtml(kindLine(s))}</span></div>
-  <h3 class="secondary-title">${escapeHtml(s.label)}</h3>
-  ${
-    s.thesis
-      ? `<p class="secondary-thesis">${escapeHtml(s.thesis.slice(0, 130))}</p>`
-      : `<p class="secondary-thesis secondary-thesis-quiet">${s.sources} source${s.sources === 1 ? "" : "s"}</p>`
-  }
+      (e) => `<a class="ev-row" href="/library/${escapeAttr(e.piece_slug)}">
+  <div><div class="et">${escapeHtml(e.title)}</div><div class="eo">ADDED ${escapeHtml(e.created_at.slice(0, 10))}</div></div>
+  <div class="efed">fed <span class="n">${e.facts_fed} fact${e.facts_fed === 1 ? "" : "s"}</span> into ${e.subjects_fed} file${e.subjects_fed === 1 ? "" : "s"}</div>
 </a>`,
     )
-    .join("");
+    .join("")}
+</div>`
+      : "";
 
-  // TAIL — the existing 3-column grid for everything else. Smaller cards,
-  // less prose, more index-y.
-  const tailCards = tail
-    .map((s) => {
-      const signed = s.signed_status === "published";
-      const dek =
-        signed && s.thesis
-          ? escapeHtml(s.thesis.slice(0, 110))
-          : `${s.sources} source${s.sources === 1 ? "" : "s"}`;
-      return `<a class="cardlink" href="${buildHref(s)}">
-  <div class="card-type">${intentChip(s.intent)}<span style="margin-left:6px">${escapeHtml(kindLine(s))}</span></div>
-  <div class="card-title">${escapeHtml(s.label)}</div>
-  <div class="card-dek">${dek}</div>
-</a>`;
-    })
-    .join("");
+  // ---- Browse the record — the full index, plain rows ----
+  const browseBlock =
+    subjects.length > 0
+      ? `<div class="sec">
+  <div class="sec-h"><span class="label">Browse the record</span><span class="coord">${subjects.length} SUBJECT${subjects.length === 1 ? "" : "S"} <span class="sep">·</span> <a href="/search" class="plain" style="font-family:var(--mono)">ASK THE RECORD →</a></span></div>
+  <div class="file-list">
+    ${subjects
+      .map(
+        (s) => `<a class="file-row" href="${buildHref(s)}">
+  <div><div class="fname">${escapeHtml(s.label)}<span class="kind">${escapeHtml(kindChip(s.kind))}</span></div>
+  <div class="coord fcoord">OPENED ${escapeHtml(s.opened_at.slice(0, 10))} <span class="sep">·</span> UPDATED ${escapeHtml(s.updated_at.slice(0, 10))}</div></div>
+  <div class="grew">${intentChip(s.intent)}${s.thesis ? escapeHtml(s.thesis.slice(0, 90)) : `${s.sources} source${s.sources === 1 ? "" : "s"}`}</div>
+</a>`,
+      )
+      .join("")}
+  </div>
+</div>`
+      : "";
 
   // Home JSON-LD: WebSite + Organization. (No SearchAction yet — /search is a
   // placeholder. Adding it back when search actually ships avoids pointing AI
@@ -444,21 +609,6 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
       },
     ],
   }).replace(/<\/script/gi, "<\\/script");
-
-  // Stats line under the masthead. Two key numbers, sized and worded so a
-  // reader skims them as the proof of weight: "this is a real record" vs
-  // "this is a side project".
-  // Depth-of-record numbers. Plain words, self-explanatory to a first-time
-  // reader — the stamp-line rule applies here too. No raw jargon nouns.
-  const stats = counts
-    ? `<div class="home-stats">
-  <span><b>${counts.subjects}</b> subjects on file</span>
-  <span><b>${counts.docs}</b> source documents stored</span>
-  ${counts.signed > 0 ? `<span><b>${counts.signed}</b> signed analyses</span>` : ""}
-  ${counts.contested > 0 ? `<span><b>${counts.contested}</b> disputed claims</span>` : ""}
-  ${counts.killed > 0 ? `<span><b>${counts.killed}</b> claims removed — failed verification</span>` : ""}
-</div>`
-    : "";
 
   // ---- OPERATOR OVERLAYS — woven into the same page everyone reads -------
   // These render ONLY when the operator is logged in. Their position is
@@ -646,42 +796,16 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
 
   const body = `
 <script type="application/ld+json">${jsonLd}</script>
-<section class="home-masthead">
-  <div class="kicker"><span class="live"></span> A forensic record of power — facts on file, analysis signed</div>
-  <h1 class="home-hero">Canopticon keeps files on power.</h1>
-  ${stats}
-</section>
+${hero}
+${depthCells}
 
 ${opBriefing}
 ${opToday}
 ${opDrafts}
 
-${
-  leadCard
-    ? `<section class="home-lead">
-  <div class="section-label">The lead</div>
-  ${leadCard}
-</section>`
-    : ""
-}
-
-${
-  secondaryCards
-    ? `<section class="home-secondaries">
-  <div class="section-label">Also developing</div>
-  <div class="secondary-grid">${secondaryCards}</div>
-</section>`
-    : ""
-}
-
-${
-  tailCards
-    ? `<section class="home-tail">
-  <div class="section-label">Across the fabric</div>
-  <div class="cards-3">${tailCards}</div>
-</section>`
-    : ""
-}
+${activeFilesBlock}
+${evidenceBlock}
+${browseBlock}
 
 ${opFindings}
 ${opThreads}
