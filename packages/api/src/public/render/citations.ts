@@ -145,12 +145,12 @@ export async function renderCitationsPage(env: PublicEnv): Promise<string> {
   .cit-h2 { font-family: var(--serif); font-size: 20px; margin: 36px 0 10px; color: var(--ink); }
   .cit-sub { font-family: var(--serif); font-style: italic; font-size: 15px; color: var(--ink-3); margin: 0 0 22px; }
   .cit-stats { display: flex; gap: 18px; margin: 22px 0; }
-  .cit-stat { padding: 14px 22px; background: #fff; border: 1px solid #e7e2d6; border-radius: 10px; }
+  .cit-stat { padding: 14px 22px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; }
   .cit-stat-n { font-family: var(--serif); font-size: 28px; font-weight: 600; color: var(--ink); }
   .cit-stat-k { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: .04em; margin-top: 2px; }
-  .cit-table { width: 100%; border-collapse: collapse; margin-top: 6px; background: #fff; border: 1px solid #e7e2d6; border-radius: 8px; overflow: hidden; }
-  .cit-table th { font-family: var(--mono); font-size: 11px; text-align: left; padding: 10px 14px; background: #f6f3ec; color: var(--ink-3); letter-spacing: .04em; border-bottom: 1px solid #e7e2d6; }
-  .cit-table td { padding: 9px 14px; font-size: 13.5px; border-bottom: 1px solid #f0ece2; color: var(--ink); }
+  .cit-table { width: 100%; border-collapse: collapse; margin-top: 6px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+  .cit-table th { font-family: var(--mono); font-size: 11px; text-align: left; padding: 10px 14px; background: var(--paper-2); color: var(--ink-3); letter-spacing: .04em; border-bottom: 1px solid var(--rule); }
+  .cit-table td { padding: 9px 14px; font-size: 13.5px; border-bottom: 1px solid var(--rule-soft); color: var(--ink); }
   .cit-table tr:last-child td { border-bottom: none; }
   .cit-table .num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
   .cit-table .mono { font-family: var(--mono); }

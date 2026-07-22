@@ -240,7 +240,7 @@ ${filterRow}
     background: var(--surface, #fff);
     transition: border-color .12s;
   }
-  .inv-lead:hover { border-color: #c9bfa9; }
+  .inv-lead:hover { border-color: var(--accent-bd); }
   .inv-lead-kicker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
   .inv-lead-title {
     font-family: var(--serif);
@@ -265,7 +265,7 @@ ${filterRow}
     background: var(--surface, #fff);
     transition: border-color .12s;
   }
-  .inv-secondary:hover { border-color: #c9bfa9; }
+  .inv-secondary:hover { border-color: var(--accent-bd); }
   .inv-secondary-kicker { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 9px; }
   .inv-secondary-title {
     font-family: var(--serif);

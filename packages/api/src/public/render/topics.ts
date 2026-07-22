@@ -231,7 +231,7 @@ ${plainSection("Events", "Dated occurrences", events, "Event", "Dated occurrence
     background: var(--surface);
     transition: border-color .12s;
   }
-  .theme-card:hover { border-color: #c9bfa9; }
+  .theme-card:hover { border-color: var(--accent-bd); }
   .theme-kicker {
     font-size: 11.5px;
     letter-spacing: .12em;

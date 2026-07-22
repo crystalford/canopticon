@@ -727,10 +727,10 @@ async function renderSigned(
   .complicate {
     margin: 36px 0;
     padding: 26px 28px;
-    border: 1px solid #d8cba9;
+    border: 1px solid var(--cont-bd);
     border-left: 4px solid var(--accent);
     border-radius: 11px;
-    background: #f8f1df;
+    background: var(--cont-bg);
   }
   .complicate-stamp {
     font-family: var(--serif);
@@ -744,13 +744,13 @@ async function renderSigned(
     font-family: var(--serif);
     font-style: italic;
     font-size: 14px;
-    color: #6a5a3a;
+    color: var(--ink-3);
     margin-bottom: 18px;
     line-height: 1.5;
   }
   .complicate-item {
     padding: 14px 0;
-    border-top: 1px solid #d8cba9;
+    border-top: 1px solid var(--cont-bd);
   }
   .complicate-item:first-of-type { padding-top: 0; border-top: none; }
   .complicate-quote {

@@ -102,8 +102,8 @@ export function renderTimelineBlock(events: EventRow[]): string {
     left: -14px; top: 22px;
     width: 12px; height: 12px;
     border-radius: 50%;
-    background: var(--paper, #fff);
-    border: 2px solid #b8a878;
+    background: var(--paper);
+    border: 2px solid var(--rule-bright);
   }
   .tl-item:first-child::before { background: var(--accent); border-color: var(--accent); }
   .tl-when {

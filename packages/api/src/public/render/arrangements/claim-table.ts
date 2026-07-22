@@ -125,7 +125,7 @@ export function renderClaimTableBlock(claims: ClaimRow[]): string {
     color: var(--ink);
   }
   .ct-row-contested td {
-    background: #f3eed8;
+    background: var(--cont-bg);
   }
   .ct-claim { max-width: 360px; }
   .ct-actor { font-style: italic; color: var(--ink-2); font-size: 14px; }
@@ -136,8 +136,8 @@ export function renderClaimTableBlock(claims: ClaimRow[]): string {
     text-transform: uppercase;
     letter-spacing: .04em;
   }
-  .ct-stance-pro { color: #2c6a4e; }
-  .ct-stance-critical { color: #8a3324; }
+  .ct-stance-pro { color: var(--confirmed); }
+  .ct-stance-critical { color: var(--correction); }
   .ct-stance-neutral { color: var(--ink-3); }
   .ct-balance {
     font-family: var(--mono);
@@ -145,7 +145,7 @@ export function renderClaimTableBlock(claims: ClaimRow[]): string {
     color: var(--ink-2);
     letter-spacing: .03em;
   }
-  .ct-balance.ct-contested { color: #7a5a1a; font-weight: 600; }
+  .ct-balance.ct-contested { color: var(--contested); font-weight: 600; }
   .ct-balance.ct-zero { color: var(--ink-3); }
   .ct-table a { color: var(--accent); text-decoration: none; }
   .ct-table a:hover { text-decoration: underline; }
