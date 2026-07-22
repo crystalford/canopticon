@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T20:12:52Z",
-  "run_id": "29954181473",
-  "method": "POST",
-  "path": "/op/records/joly/expand",
-  "status": 302,
-  "body": ""
+  "requested_at": "2026-07-22T20:13:33Z",
+  "run_id": "29954206579",
+  "method": "GET",
+  "path": "/v1/admin/runtime",
+  "status": 500,
+  "body": "{\n  \"error\": {\n    \"code\": \"internal_error\",\n    \"message\": \"Internal server error\",\n    \"trace_id\": \"e33a7e81-02d0-4057-8cb2-bfdb71978307\"\n  }\n}"
 }
