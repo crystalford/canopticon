@@ -307,6 +307,66 @@ app.get("/reextract", async (c) => {
   return c.json({ ok: true, pieces: pieces.length, started });
 });
 
+// GET /v1/admin/backfill-library?confirm=1
+//
+// One-time repair for pieces created before two bugs were fixed:
+//   1. Every upload defaulted to publication_status='working-material'
+//      with no route anywhere that ever promoted it — so no uploaded
+//      document could ever get a public page. New uploads now default to
+//      'published'; this catches up everything ingested before that.
+//   2. File uploads never derived a title from the document's own content
+//      — every one showed the raw uploaded filename (hidden behind
+//      "Untitled research document" on the Library page). New uploads now
+//      pull the first markdown heading/line; this re-derives a title for
+//      already-stored pieces from their own body_md where the current
+//      title still looks like a machine filename.
+// Probe-reachable, matches the reset-graph/reextract pattern.
+const MACHINE_FILENAME_RE =
+  /(\.(md|txt|pdf|html?|docx?|csv|json)$|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4})/i;
+
+app.get("/backfill-library", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const userId = c.get("user_id");
+  const nowIso = new Date().toISOString();
+
+  const publishResult = await run(
+    c.env.DB,
+    `UPDATE pieces SET publication_status = 'published', published_at = ?
+      WHERE user_id = ? AND publication_status = 'working-material'`,
+    [nowIso, userId],
+  );
+
+  const pieces = await all<{ id: string; title: string; body_md: string | null }>(
+    c.env.DB,
+    "SELECT id, title, body_md FROM pieces WHERE user_id = ?",
+    [userId],
+  );
+  const retitled: Array<{ id: string; from: string; to: string }> = [];
+  for (const p of pieces) {
+    if (!p.body_md || !MACHINE_FILENAME_RE.test(p.title) || /\s/.test(p.title)) continue;
+    const heading = p.body_md.match(/^#{1,2}\s+(.+)$/m);
+    const firstLine = p.body_md
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.length > 0);
+    const newTitle =
+      heading?.[1]?.trim().slice(0, 200) ||
+      (firstLine && firstLine.length <= 200 ? firstLine : null);
+    if (!newTitle || newTitle === p.title) continue;
+    await run(c.env.DB, "UPDATE pieces SET title = ? WHERE id = ?", [newTitle, p.id]);
+    retitled.push({ id: p.id, from: p.title, to: newTitle });
+  }
+
+  return c.json({
+    ok: true,
+    published: publishResult.meta.changes ?? 0,
+    retitled_count: retitled.length,
+    retitled,
+  });
+});
+
 // GET /v1/admin/health — model + binding probe.
 //
 // Pings each role in the router with a 5-token request and reports per-role

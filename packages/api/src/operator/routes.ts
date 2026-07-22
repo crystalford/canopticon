@@ -311,12 +311,22 @@ async function createAndExtract(
   const title = full.title || filename;
 
   const slug = await ensureUniqueSlug(env.DB, userId, slugify(title || `piece-${Date.now()}`));
+  const nowIso = new Date().toISOString();
   const pieceId = await insertOne(env.DB, "pieces", {
     user_id: userId,
     slug,
     title,
     kind: "research-report",
-    publication_status: "working-material",
+    // "working-material" (the table's own default) was built for chained
+    // multi-pass research where only the final synthesis gets a public URL
+    // (see supabase/migrations/0015_pieces.sql) — a plain upload is never
+    // part of a chain, and no route anywhere ever promotes a piece out of
+    // working-material, so defaulting to it here meant every uploaded
+    // document was permanently unclickable. "Upload is authorization. No
+    // confirmation gauntlets" (CLAUDE.md) — the upload itself is the
+    // publish decision.
+    publication_status: "published",
+    published_at: nowIso,
     body_md,
     // No byline default — "the operator" is internal vocabulary and this
     // string renders directly on public piece pages ("By the operator").

@@ -87,7 +87,15 @@ export async function extractUpload(env: Env, fileId: string): Promise<ExtractRe
       summary = text.slice(0, 300);
     }
 
-    return await persistExtraction(env, file, text, summary);
+    // Derive a real title from content for anything that isn't already
+    // pre-titled (the URL path sets original_filename to its <title> tag
+    // before calling extractUpload's sibling, extractUrl — html uploads and
+    // plain text/markdown never had that). A shallow copy keeps the true
+    // filename intact in uploaded_files itself; only the in-memory value
+    // persistExtraction reads for sources.title changes.
+    const derivedTitle = file.classification !== "html" ? extractTitleFromMarkdown(text) : null;
+    const titledFile = derivedTitle ? { ...file, original_filename: derivedTitle } : file;
+    return await persistExtraction(env, titledFile, text, summary);
   } catch (err) {
     await run(
       env.DB,
@@ -245,4 +253,22 @@ function stripHtml(html: string): string {
 function extractTitle(html: string): string | null {
   const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
   return m?.[1] ? m[1].trim() : null;
+}
+
+// File uploads never had this: persistExtraction always fell back to the
+// raw uploaded filename (e.g. "compass_artifact_wf-c96cfa7c-...md"), so
+// every uploaded document's title on the public Library was the ugly
+// filename, which the frontend then had to detect and hide behind
+// "Untitled research document." Pull a real title from the document's own
+// first markdown heading or first line instead — same idea as extractTitle
+// above, just for content the browser never parsed as HTML.
+function extractTitleFromMarkdown(text: string): string | null {
+  const heading = text.match(/^#{1,2}\s+(.+)$/m);
+  if (heading?.[1]) return heading[1].trim().slice(0, 200);
+  const firstLine = text
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
+  if (firstLine && firstLine.length <= 200) return firstLine;
+  return null;
 }
