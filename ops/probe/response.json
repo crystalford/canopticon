@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T23:52:54Z",
-  "run_id": "29967448321",
+  "requested_at": "2026-07-22T23:53:45Z",
+  "run_id": "29967490485",
   "method": "GET",
-  "path": "/v1/admin/debug-home-timing?which=pages.count",
+  "path": "/v1/admin/debug-home-timing?which=edges.count",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"which\": \"pages.count\",\n  \"ms\": 33,\n  \"result\": {\n    \"n\": 624\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"which\": \"edges.count\",\n  \"ms\": 38,\n  \"result\": {\n    \"n\": 11990\n  }\n}"
 }
