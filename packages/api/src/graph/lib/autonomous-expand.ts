@@ -126,6 +126,50 @@ export async function sweepThinSubjects(env: Env, userId: string): Promise<Sweep
     return report;
   }
 
+  const rows = await pickThinCandidates(env, userId, CANDIDATE_POOL);
+  const thin = rows.slice(0, BATCH_SIZE);
+  report.candidates_considered = rows.length;
+  if (thin.length === 0) return report;
+
+  await emit(env, userId, "autonomous.sweep.started", {
+    candidates: rows.length,
+    picked: thin.map((t) => ({
+      label: t.label,
+      edge_degree: t.edge_degree,
+      self_generated_lead: t.has_lead > 0,
+    })),
+  });
+
+  for (const candidate of thin) {
+    try {
+      await run(env.DB, "UPDATE pages SET auto_expand_at = ? WHERE id = ?", [
+        new Date().toISOString(),
+        candidate.page_id,
+      ]);
+      await expandRecord(env, userId, candidate.label);
+      report.subjects_swept.push(candidate.label);
+    } catch (err) {
+      report.errors.push(`${candidate.label}: ${(err as Error).message}`);
+    }
+  }
+
+  await emit(env, userId, "autonomous.sweep.completed", {
+    swept: report.subjects_swept,
+    errors: report.errors,
+  });
+
+  return report;
+}
+
+// Exported so the operator's manual "expand thinnest N" bulk action
+// (operator/routes.ts) ranks candidates with the exact same sniper logic
+// as the autonomous sweep, instead of a second, potentially-diverging
+// copy of this query.
+export async function pickThinCandidates(
+  env: Env,
+  userId: string,
+  limit: number,
+): Promise<ThinCandidate[]> {
   const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS).toISOString();
   const rows = await all<ThinCandidate>(
     env.DB,
@@ -161,44 +205,13 @@ export async function sweepThinSubjects(env: Env, userId: string): Promise<Sweep
     [userId, cooldownCutoff],
   ).catch(() => []);
 
-  const thin = rows
+  return rows
     .filter((r) => r.fact_count < THIN_FACT_THRESHOLD)
     .sort(
       (a, b) =>
         (b.has_lead > 0 ? 1 : 0) - (a.has_lead > 0 ? 1 : 0) || b.edge_degree - a.edge_degree,
     )
-    .slice(0, BATCH_SIZE);
-  report.candidates_considered = rows.length;
-  if (thin.length === 0) return report;
-
-  await emit(env, userId, "autonomous.sweep.started", {
-    candidates: rows.length,
-    picked: thin.map((t) => ({
-      label: t.label,
-      edge_degree: t.edge_degree,
-      self_generated_lead: t.has_lead > 0,
-    })),
-  });
-
-  for (const candidate of thin) {
-    try {
-      await run(env.DB, "UPDATE pages SET auto_expand_at = ? WHERE id = ?", [
-        new Date().toISOString(),
-        candidate.page_id,
-      ]);
-      await expandRecord(env, userId, candidate.label);
-      report.subjects_swept.push(candidate.label);
-    } catch (err) {
-      report.errors.push(`${candidate.label}: ${(err as Error).message}`);
-    }
-  }
-
-  await emit(env, userId, "autonomous.sweep.completed", {
-    swept: report.subjects_swept,
-    errors: report.errors,
-  });
-
-  return report;
+    .slice(0, limit);
 }
 
 async function pickDueBeat(env: Env, userId: string): Promise<DueBeat | null> {

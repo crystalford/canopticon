@@ -486,6 +486,25 @@ app.get("/search", async (c) => {
   );
 });
 
+// Bulk expand result — operator-only. The trigger is a POST at
+// /op/records/bulk-expand (operator/routes.ts); this GET just shows what
+// came of it. Anonymous viewers never see this (no link to it exists
+// outside the operator overlay), but gate it directly anyway rather than
+// relying on obscurity.
+app.get("/bulk-expand", async (c) => {
+  if (!c.get("is_operator")) return c.redirect("/");
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const subjectsParam = c.req.query("subjects") ?? "";
+  const subjects = subjectsParam
+    .split("|")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const { renderBulkExpandEmpty, renderBulkExpandResult } = await import("./render/bulk-expand");
+  if (subjects.length === 0) return htmlResponse(renderBulkExpandEmpty());
+  return htmlResponse(await renderBulkExpandResult(c.env, userId, subjects));
+});
+
 // Studio Stage A — the Produce flow for static formats (v2.6 Part 27).
 // Operator-only; routes redirect anonymous viewers home. Mounts at
 // /studio/:slug/:kind for the preview page and

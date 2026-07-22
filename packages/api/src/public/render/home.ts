@@ -531,7 +531,14 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
           t.activeJobs > 0
             ? ` · ${t.activeJobs} job${t.activeJobs === 1 ? "" : "s"} running now`
             : "";
-        return `<aside class="op-today"><div class="op-briefing-kicker">Today, unattended</div><p>${activity}${jobs}.</p></aside>`;
+        return `<aside class="op-today">
+  <div class="op-today-row">
+    <div><div class="op-briefing-kicker">Today, unattended</div><p>${activity}${jobs}.</p></div>
+    <form method="POST" action="/op/records/bulk-expand">
+      <button class="op-bulk-expand-go" type="submit">Expand thinnest 3 now →</button>
+    </form>
+  </div>
+</aside>`;
       })()
     : "";
 
@@ -841,6 +848,14 @@ ${opSearchMisses}
     border-radius: 4px;
   }
   .op-today p { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+  .op-today-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .op-bulk-expand-go {
+    flex-shrink: 0;
+    padding: 7px 14px; font-family: var(--mono); font-size: 11.5px;
+    background: transparent; color: var(--accent);
+    border: 1px solid var(--accent-bd, var(--rule)); border-radius: 5px; cursor: pointer;
+  }
+  .op-bulk-expand-go:hover { background: var(--accent); color: var(--paper); }
 
   .op-drafts { margin-bottom: 36px; }
   .op-draft {

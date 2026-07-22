@@ -600,6 +600,37 @@ app.post("/records/:slug/expand", async (c) => {
   return c.redirect(`/s/${slug}?expanding=1`);
 });
 
+// Bulk "expand the thinnest subjects now" — task #25. Deliberately small
+// (3, not "all") and reuses the exact same sniper ranking the autonomous
+// sweep uses (pickThinCandidates), just firing that many at once instead
+// of the sweep's one-per-tick. Each expand runs as its own independent
+// waitUntil (not chained sequentially) — the lesson from the settle-
+// pipeline bug hunt was that CHAINING real work in one execution dies
+// silently; three independent background tasks from one request don't
+// have that problem, they just run concurrently.
+const BULK_EXPAND_N = 3;
+
+app.post("/records/bulk-expand", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const { pickThinCandidates } = await import("../graph/lib/autonomous-expand");
+  const { expandRecord } = await import("../graph/lib/record-builder");
+  const { run } = await import("../lib/d1");
+  const candidates = await pickThinCandidates(c.env, userId, BULK_EXPAND_N);
+  if (candidates.length === 0) return c.redirect("/?bulk=none");
+  const now = new Date().toISOString();
+  for (const candidate of candidates) {
+    c.executionCtx.waitUntil(
+      run(c.env.DB, "UPDATE pages SET auto_expand_at = ? WHERE id = ?", [
+        now,
+        candidate.page_id,
+      ]).then(() => expandRecord(c.env, userId, candidate.label)),
+    );
+  }
+  const subjects = candidates.map((cand) => cand.label).join("|");
+  return c.redirect(`/bulk-expand?subjects=${encodeURIComponent(subjects)}`);
+});
+
 // "Research this for real" — the operator-only follow-through on a search
 // miss's AI-generated preview (public/render/search.ts). The preview text
 // itself never enters the graph (it's Brave's synthesis, not a quote from a
