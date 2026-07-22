@@ -151,13 +151,24 @@ describe("/auth/login — operator session bootstrap", () => {
 });
 
 describe("public site is byte-stable for anonymous viewers (no regression)", () => {
-  it("/record and /patterns still redirect into the unified surfaces (Part 18)", async () => {
+  it("/record and /patterns still redirect into the unified surfaces", async () => {
+    // Home IS the front of the Record in the approved product design.
     const rec = await app.fetch(new Request("http://test/record"), env);
     expect(rec.status).toBe(301);
-    expect(rec.headers.get("location")).toBe("/topics");
+    expect(rec.headers.get("location")).toBe("/");
     const pat = await app.fetch(new Request("http://test/patterns"), env);
     expect(pat.status).toBe(301);
     expect(pat.headers.get("location")).toBe("/investigations");
+  });
+
+  it("retired destinations 301 into Method (About/Methodology absorbed)", async () => {
+    for (const path of ["/about", "/methodology"]) {
+      const res = await app.fetch(new Request(`http://test${path}`), env);
+      expect(res.status, path).toBe(301);
+      expect(res.headers.get("location"), path).toBe("/method");
+    }
+    const method = await app.fetch(new Request("http://test/method"), env);
+    expect(method.status).toBe(200);
   });
 
   it("public site serves the favicon", async () => {

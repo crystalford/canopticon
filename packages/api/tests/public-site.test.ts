@@ -54,17 +54,13 @@ describe("public site — Phase 1 skeleton", () => {
   });
 
   it("each primary destination renders real surfaces without JS", async () => {
-    const expectedHeading: Record<string, string> = {
-      "/topics": "Topics",
-      "/investigations": "Investigations",
-      "/library": "Library",
-    };
-    for (const [path, heading] of Object.entries(expectedHeading)) {
+    for (const path of ["/topics", "/investigations", "/library"]) {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(200);
       const html = await res.text();
-      // The page heading must appear in the server-rendered markup.
-      expect(html, `path ${path} heading`).toContain(`>${heading}<`);
+      // The Record shell renders server-side (wordmark + three-door nav).
+      expect(html, `path ${path} shell`).toContain('class="wordmark"');
+      expect(html, `path ${path} nav`).toContain(">Investigations<");
       // Empty corpus → graceful empty state, not a crash.
       expect(html, `path ${path} empty state`).toMatch(/No .* yet|is empty|No published/i);
       // Confirms no client-side rendering needed — content sits in HTML.

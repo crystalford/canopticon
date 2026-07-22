@@ -10,7 +10,6 @@ import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
 import { getPieceBySlug, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
-import { renderAbout } from "./render/about";
 import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
 import { renderHome } from "./render/home";
@@ -327,7 +326,8 @@ app.get("/doc/:slug", (c) => c.redirect(`/library/${c.req.param("slug")}`, 301))
 // Part 18: "The Record" dissolves as a destination — the index redirects to
 // Topics (the one browsable doorway). Entity DETAIL pages stay addressable
 // below as unmarked factual substrate.
-app.get("/record", (c) => c.redirect("/topics", 301));
+// Home IS the front of the Record.
+app.get("/record", (c) => c.redirect("/", 301));
 
 app.get("/record/:slug", async (c) => {
   const html = await renderEntityPage(c.env, c.req.param("slug"));
@@ -377,9 +377,11 @@ app.get("/briefs/:slug", async (c) => {
 
 // ---- Utility pages (still placeholders until trailing Phase 2) -----------
 
-app.get("/about", () => htmlResponse(renderAbout()));
+// Method — how verification works, in plain words. Absorbs About.
+app.get("/method", () => htmlResponse(renderMethodology()));
+app.get("/about", (c) => c.redirect("/method", 301));
 
-app.get("/methodology", () => htmlResponse(renderMethodology()));
+app.get("/methodology", (c) => c.redirect("/method", 301));
 
 app.get("/sources", () =>
   htmlResponse(
