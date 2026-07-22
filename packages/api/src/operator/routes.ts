@@ -600,6 +600,23 @@ app.post("/records/:slug/expand", async (c) => {
   return c.redirect(`/s/${slug}?expanding=1`);
 });
 
+// "Research this for real" — the operator-only follow-through on a search
+// miss's AI-generated preview (public/render/search.ts). The preview text
+// itself never enters the graph (it's Brave's synthesis, not a quote from a
+// stored document); this button is what actually does: runs the SAME
+// search -> fetch -> verbatim-extract pipeline as expandRecord, keyed off
+// the raw query instead of an existing subject's label.
+app.post("/search/research", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/search");
+  const form = await c.req.parseBody();
+  const q = typeof form.q === "string" ? form.q.trim() : "";
+  if (!q) return c.redirect("/search");
+  const { expandRecord } = await import("../graph/lib/record-builder");
+  c.executionCtx.waitUntil(expandRecord(c.env, userId, q));
+  return c.redirect(`/search?q=${encodeURIComponent(q)}&researching=1`);
+});
+
 // Re-render a single face on a signed reading. Triggered from the face's
 // "Retry" affordance on the signed subject page when a face is in failed
 // state (a Workers AI hiccup, a transient timeout). Fires the render in the

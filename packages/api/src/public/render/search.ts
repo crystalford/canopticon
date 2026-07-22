@@ -18,10 +18,12 @@
 // for results and empty state so `/search?q=` is a valid landing.
 
 import type { Env } from "../../env";
+import { getAnswerPreview } from "../../graph/lib/answers-preview";
 import { type VectorMeta, searchVectors } from "../../graph/lib/embeddings";
-import { one } from "../../lib/d1";
+import { insertOne, one } from "../../lib/d1";
 import { resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
+import { renderExpandBanner } from "./subject-page";
 
 interface ResolvedHit {
   url: string;
@@ -40,7 +42,11 @@ const KIND_LABEL: Record<VectorMeta["kind"], string> = {
   source: "Quote",
 };
 
-export async function renderSearchPage(env: Env, q: string): Promise<string> {
+export async function renderSearchPage(
+  env: Env,
+  q: string,
+  opts: { isOperator?: boolean; researching?: boolean } = {},
+): Promise<string> {
   const query = q.trim();
   const userId = await resolveOperatorId(env.DB);
   let resultsBlock = "";
@@ -50,8 +56,42 @@ export async function renderSearchPage(env: Env, q: string): Promise<string> {
     const hits = await searchVectors(env, { query, userId, topK: 25 }).catch(() => []);
     const resolved = await resolveHits(env, hits);
     if (resolved.length === 0) {
+      // A real miss — log it (cheap; feeds the future "what readers are
+      // asking for" research signal) and, if configured, show a fast
+      // AI-generated preview. That preview is Brave's own synthesis, not a
+      // quote from any stored document, so it can never become a fact —
+      // it's shown clearly labeled, purely to help decide whether the
+      // question is worth real (verified) research.
+      await insertOne(env.DB, "orchestrator_events", {
+        user_id: userId,
+        event_type: "search.miss",
+        subject_kind: "search",
+        subject_id: null,
+        payload: JSON.stringify({ query }),
+      }).catch(() => {});
+
       summary = `No matches for <b>${escapeHtml(query)}</b> in the record yet.`;
-      resultsBlock = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
+      resultsBlock = opts.researching
+        ? await renderExpandBanner(env, userId, query)
+        : `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
+
+      const preview =
+        env.BRAVE_ANSWERS_API_KEY && !opts.researching
+          ? await getAnswerPreview(env, query).catch(() => null)
+          : null;
+      if (preview) {
+        const researchForm = opts.isOperator
+          ? `<form class="search-research-form" method="POST" action="/op/search/research">
+               <input type="hidden" name="q" value="${escapeAttr(query)}">
+               <button class="search-research-go" type="submit">Research this for real →</button>
+             </form>`
+          : "";
+        resultsBlock += `<div class="search-preview">
+  <div class="search-preview-label">AI-generated preview — not verified against any stored document. Not a fact.</div>
+  <div class="search-preview-body">${escapeHtml(preview).replace(/\n/g, "<br>")}</div>
+  ${researchForm}
+</div>`;
+      }
     } else {
       summary = `<b>${resolved.length}</b> matches for <b>${escapeHtml(query)}</b>.`;
       resultsBlock = `<ol class="search-hits">${resolved
@@ -75,7 +115,8 @@ export async function renderSearchPage(env: Env, q: string): Promise<string> {
     resultsBlock = "";
   }
 
-  const body = `<section class="search-section">
+  const body = `${opts.researching ? '<meta http-equiv="refresh" content="5">' : ""}
+<section class="search-section">
   <h1 class="search-h1">Ask the record</h1>
   <form class="search-form" method="GET" action="/search">
     <input
@@ -116,6 +157,15 @@ export async function renderSearchPage(env: Env, q: string): Promise<string> {
     margin-top: 4px; letter-spacing: .03em; }
   .search-empty { font-family: var(--serif); font-style: italic; color: var(--ink-3);
     font-size: 14.5px; padding: 16px 0; }
+  .search-preview { margin-top: 10px; padding: 16px 18px; border: 1px dashed var(--rule);
+    border-radius: 8px; background: var(--paper-2, var(--surface)); }
+  .search-preview-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+  .search-preview-body { font-family: var(--serif); font-size: 14.5px; line-height: 1.6; color: var(--ink); }
+  .search-research-form { margin-top: 14px; }
+  .search-research-go { padding: 9px 16px; font-family: var(--mono); font-size: 12px;
+    background: var(--ink); color: var(--paper); border: none; border-radius: 6px; cursor: pointer; }
+  .search-research-go:hover { background: var(--accent-2); color: var(--paper); }
 </style>`;
 
   return renderPage({

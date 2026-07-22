@@ -1766,7 +1766,7 @@ interface ExpandEvent {
  *  Page-level meta refresh (in the body) drives the live-update effect
  *  without any JS — same shape as the "operator pulls down to refresh"
  *  pattern used in the OUT stream. */
-async function renderExpandBanner(
+export async function renderExpandBanner(
   env: PublicEnv,
   userId: string,
   subjectLabel: string,

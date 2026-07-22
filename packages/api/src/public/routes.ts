@@ -478,7 +478,12 @@ app.get("/sources", () =>
 // thesis / source embeddings. Public; results are read-only.
 app.get("/search", async (c) => {
   const q = c.req.query("q") ?? "";
-  return htmlResponse(await renderSearchPage(c.env, q));
+  return htmlResponse(
+    await renderSearchPage(c.env, q, {
+      isOperator: c.get("is_operator"),
+      researching: c.req.query("researching") === "1",
+    }),
+  );
 });
 
 // Studio Stage A — the Produce flow for static formats (v2.6 Part 27).
