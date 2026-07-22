@@ -55,28 +55,52 @@ export function renderTimelineBlock(events: EventRow[]): string {
   .tl-empty p { font-family: var(--serif); font-size: 15px; color: var(--ink-3); font-style: italic; max-width: 640px; margin: 0; }
 </style>`;
   }
-  const rows = events
-    .map((e) => {
-      const when = e.event_date?.slice(0, 7) ?? "—";
-      const receipt = e.quote_id
-        ? `<a class="tl-receipt" href="/q/${escapeAttr(e.quote_id)}">receipt ↗</a>`
-        : "";
-      const source = e.piece_slug
-        ? `<a class="tl-src" href="/library/${escapeAttr(e.piece_slug)}">source ↗</a>`
-        : "";
-      return `<div class="tl-item">
+  const renderItem = (e: EventRow) => {
+    const when = formatEventWhen(e.event_date);
+    const receipt = e.quote_id
+      ? `<a class="tl-receipt" href="/q/${escapeAttr(e.quote_id)}">receipt ↗</a>`
+      : "";
+    const source = e.piece_slug
+      ? `<a class="tl-src" href="/library/${escapeAttr(e.piece_slug)}">source ↗</a>`
+      : "";
+    return `<div class="tl-item">
   <div class="tl-when">${escapeHtml(when)}</div>
   <div class="tl-body">
     <div class="tl-label">${escapeHtml(e.label)}</div>
     <div class="tl-meta">${receipt}${receipt && source ? " · " : ""}${source}</div>
   </div>
 </div>`;
-    })
-    .join("");
+  };
+
+  // A subject with dozens of extracted events reads as noise, not signal,
+  // if every one gets equal weight in a flat list. No reliable
+  // "significance" field exists yet on typed-graph event nodes, so this
+  // caps what's shown by default (most recent first is already the load
+  // order upstream) and folds the rest behind a plain <details> — no JS,
+  // the reader controls whether they want the long tail.
+  const VISIBLE_CAP = 10;
+  const head = events.slice(0, VISIBLE_CAP);
+  const rest = events.slice(VISIBLE_CAP);
+  const rows = head.map(renderItem).join("");
+  const restBlock = rest.length
+    ? `<details class="tl-more">
+  <summary>Show ${rest.length} more event${rest.length === 1 ? "" : "s"}</summary>
+  <div class="tl-rail">${rest.map(renderItem).join("")}</div>
+</details>`
+    : "";
   return `<section data-schema="ItemList" data-schema-item="Event">
   <div class="tl-rail">${rows}</div>
+  ${restBlock}
 </section>
 <style>
+  .tl-more { margin-top: 6px; }
+  .tl-more summary {
+    cursor: pointer; font-family: var(--mono); font-size: 12px;
+    color: var(--accent); padding: 8px 0; list-style: none;
+  }
+  .tl-more summary::-webkit-details-marker { display: none; }
+  .tl-more summary::before { content: '+ '; }
+  .tl-more[open] summary::before { content: '– '; }
   .tl-rail {
     position: relative;
     padding-left: 14px;
@@ -91,7 +115,7 @@ export function renderTimelineBlock(events: EventRow[]): string {
   }
   .tl-item {
     display: grid;
-    grid-template-columns: 92px 1fr;
+    grid-template-columns: 120px 1fr;
     gap: 18px;
     padding: 14px 0;
     position: relative;
@@ -135,6 +159,21 @@ export function renderTimelineBlock(events: EventRow[]): string {
     .tl-when { padding-top: 0; }
   }
 </style>`;
+}
+
+/** event_date isn't reliably ISO — extraction sometimes stores a natural-
+ *  language date ("November 15, 2025") instead of "2025-11-15". Blindly
+ *  slicing to 7 chars (the old code) mangled those into "Novembe",
+ *  "Septemb", "Dec 31," — exactly the truncation bug found live. Only
+ *  shorten a real ISO date to YYYY-MM; anything else is shown whole (or
+ *  lightly truncated with an ellipsis, never mid-word). */
+function formatEventWhen(raw: string | null): string {
+  if (!raw) return "—";
+  const iso = raw.match(/^(\d{4})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}`;
+  const yearOnly = raw.match(/^\d{4}$/);
+  if (yearOnly) return raw;
+  return raw.length > 24 ? `${raw.slice(0, 23)}…` : raw;
 }
 
 /** The standalone `/t/:slug` page. Wraps the inner-block in the arrangement

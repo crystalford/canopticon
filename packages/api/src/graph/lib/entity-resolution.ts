@@ -167,6 +167,58 @@ export async function resolveEntities(env: Env, userId: string): Promise<EntityR
   return report;
 }
 
+// Event dedup — the same "exact-duplicate" rule from resolveEntities
+// (rule 1 only; alias-fold and acronym-matching assume person/org name
+// shapes and don't apply to event titles), scoped to kind='event' nodes.
+// This is what the operator's live example caught: "2025 Election" and
+// "Carbon-tax reversal" each showing up twice on a timeline — the same
+// real-world event extracted from two different documents, never pooled
+// onto one node. Deliberately conservative like everything else here:
+// only literal (normalized) label matches merge, never a fuzzy guess at
+// "these are probably the same event."
+export async function resolveDuplicateEvents(
+  env: Env,
+  userId: string,
+): Promise<EntityResolutionReport> {
+  const report: EntityResolutionReport = { examined: 0, merged: 0, errors: [] };
+
+  const nodes = await all<EntityNode>(
+    env.DB,
+    `SELECT id, label, created_at FROM nodes
+      WHERE user_id = ? AND kind = 'event' AND label IS NOT NULL AND label != ''
+      ORDER BY created_at ASC`,
+    [userId],
+  ).catch(() => []);
+  report.examined = nodes.length;
+  if (nodes.length < 2) return report;
+
+  const groups = new Map<string, EntityNode[]>();
+  for (const n of nodes) {
+    const key = canonicalize(n.label);
+    if (!key) continue;
+    const list = groups.get(key) ?? [];
+    list.push(n);
+    groups.set(key, list);
+  }
+
+  outer: for (const [, group] of groups) {
+    if (group.length < 2) continue;
+    const canonical = group[0];
+    if (!canonical) continue;
+    for (const alias of group.slice(1)) {
+      if (report.merged >= MAX_MERGES_PER_RUN) break outer;
+      try {
+        await mergeNode(env, userId, canonical.id, canonical.label, alias, "exact-duplicate-event");
+        report.merged++;
+      } catch (err) {
+        report.errors.push(`${alias.label} -> ${canonical.label}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  return report;
+}
+
 async function mergeNode(
   env: Env,
   userId: string,

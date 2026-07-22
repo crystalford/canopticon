@@ -1,29 +1,30 @@
 // The corpus-settle pipeline — one step at a time, always.
 //
-// Six steps run, in order, whenever the corpus needs to catch up: entity
-// resolution -> surfacing -> theme detection -> page autoseeding -> brief
-// proposals -> signed-reading drafts. These used to run chained together
-// in one execution context every time the corpus went idle. Confirmed
-// live (twice, on the standalone admin /resettle endpoint before this
-// module existed) that chaining real LLM-calling steps this way reliably
-// exceeds Cloudflare's aggregate wall-clock/CPU budget for a single
-// waitUntil, with no catchable error — the platform tears down the
-// execution context outright. advanceSettleOneStep is the fix applied
-// everywhere the pipeline fires: run exactly ONE step, persist which one
-// ran via settle_state (migration 0037), move on next time. Two triggers
-// keep it moving:
+// Seven steps run, in order, whenever the corpus needs to catch up: entity
+// resolution -> event dedup -> surfacing -> theme detection -> page
+// autoseeding -> brief proposals -> signed-reading drafts. These used to
+// run chained together in one execution context every time the corpus
+// went idle. Confirmed live (twice, on the standalone admin /resettle
+// endpoint before this module existed) that chaining real LLM-calling
+// steps this way reliably exceeds Cloudflare's aggregate wall-clock/CPU
+// budget for a single waitUntil, with no catchable error — the platform
+// tears down the execution context outright. advanceSettleOneStep is the
+// fix applied everywhere the pipeline fires: run exactly ONE step,
+// persist which one ran via settle_state (migration 0037), move on next
+// time. Two triggers keep it moving:
 //   1. digest-jobs.ts calls it once when the corpus goes idle (the last
 //      queued job finishes) — the common case, right after an upload.
 //   2. index.ts's every-minute cron calls it too (self-throttled below to
-//      at most once per ~90s) so the full six-step cycle keeps completing
-//      even without new uploads — otherwise draft_readings, last in the
-//      cycle, only ever gets a turn when someone happens to upload again.
+//      at most once per ~90s) so the full cycle keeps completing even
+//      without new uploads — otherwise draft_readings, last in the cycle,
+//      only ever gets a turn when someone happens to upload again.
 
 import type { Env } from "../../env";
 import { insertOne, one, run } from "../../lib/d1";
 
 export const SETTLE_STEPS_ORDER = [
   "entity_resolution",
+  "event_dedup",
   "surfacing_l1",
   "theme_surfacer",
   "autoseed_pages",
@@ -40,6 +41,10 @@ export const SETTLE_STEP_RUNNERS: Record<
   entity_resolution: async (env, userId) => {
     const { resolveEntities } = await import("./entity-resolution");
     return resolveEntities(env, userId);
+  },
+  event_dedup: async (env, userId) => {
+    const { resolveDuplicateEvents } = await import("./entity-resolution");
+    return resolveDuplicateEvents(env, userId);
   },
   surfacing_l1: async (env, userId) => {
     const { runSurfacingL1 } = await import("./surfacing");
