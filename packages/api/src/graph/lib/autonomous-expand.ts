@@ -23,7 +23,11 @@
 // edge_degree but few verified facts is exactly the gap worth spending a
 // real search+fetch+extract on: the corpus keeps bringing it up, but
 // nothing has gone and gotten the receipts yet. A subject nobody links to
-// is just thin, not urgent, so it waits.
+// is just thin, not urgent, so it waits. Subjects flagged as a self-
+// generated lead (the target of a contradiction or connection the system
+// already surfaced — see has_lead below) outrank pure edge_degree: the
+// system isn't just noticing a gap, it's noticing a gap it already has a
+// specific reason to care about.
 
 import type { Env } from "../../env";
 import { all, insertOne, run } from "../../lib/d1";
@@ -63,6 +67,7 @@ interface ThinCandidate {
   label: string;
   fact_count: number;
   edge_degree: number;
+  has_lead: number;
 }
 
 interface DueBeat {
@@ -136,7 +141,17 @@ export async function sweepThinSubjects(env: Env, userId: string): Promise<Sweep
             (SELECT COUNT(*) FROM edges e2
               WHERE e2.user_id = p.user_id
                 AND (e2.src_node_id = n.id OR e2.dst_node_id = n.id)
-            ) AS edge_degree
+            ) AS edge_degree,
+            -- Self-generated lead: this subject is what an unresolved
+            -- contradiction or cross-document connection the system
+            -- already surfaced (surfacing.ts, patterns.primary_node_id)
+            -- is ABOUT. Newsroom phase 4 — a finding doesn't just sit on
+            -- the homepage waiting to be clicked, it can outrank a purely
+            -- edge_degree-ranked candidate for the sweep's one slot.
+            (SELECT COUNT(*) FROM patterns pt
+              WHERE pt.user_id = p.user_id AND pt.status = 'candidate'
+                AND pt.primary_node_id = n.id
+            ) AS has_lead
        FROM pages p
        JOIN nodes n ON n.id = p.subject_node_id
       WHERE p.user_id = ?
@@ -148,14 +163,21 @@ export async function sweepThinSubjects(env: Env, userId: string): Promise<Sweep
 
   const thin = rows
     .filter((r) => r.fact_count < THIN_FACT_THRESHOLD)
-    .sort((a, b) => b.edge_degree - a.edge_degree)
+    .sort(
+      (a, b) =>
+        (b.has_lead > 0 ? 1 : 0) - (a.has_lead > 0 ? 1 : 0) || b.edge_degree - a.edge_degree,
+    )
     .slice(0, BATCH_SIZE);
   report.candidates_considered = rows.length;
   if (thin.length === 0) return report;
 
   await emit(env, userId, "autonomous.sweep.started", {
     candidates: rows.length,
-    picked: thin.map((t) => ({ label: t.label, edge_degree: t.edge_degree })),
+    picked: thin.map((t) => ({
+      label: t.label,
+      edge_degree: t.edge_degree,
+      self_generated_lead: t.has_lead > 0,
+    })),
   });
 
   for (const candidate of thin) {
