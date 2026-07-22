@@ -63,23 +63,60 @@ format or arm.**
 
 ---
 
-## 2. Proposed center (Fable: pressure-test this; operator: confirm or correct)
+## 2. The center (operator-corrected — this is the locked north star)
 
-> This is a *proposed* north star, synthesized from the operator's own words. It is the
-> single decision that drives every keep/cut. State agreement or propose a sharper center.
+**Canopticon is a personal investigative-media brand with a dark, mysterious, forensic
+vibe, producing two CO-EQUAL products from one living investigation:**
 
-**Canopticon is a personal investigative-media brand with a distinct dark/forensic vibe.
-The product is the video essay. The written essay and the living graph/wiki are the same
-investigation rendered at shallower depths — the credibility-and-discovery substrate that
-makes the videos trustworthy and findable (GEO). It is not three products in a chain; it
-is one investigation, rendered at three depths. Brand-first, output-first: the substrate
-serves the video, it does not gate it.**
+1. **The video essay** — the peak synthesis, the content-creation flagship.
+2. **The living reference site itself** — a *next-generation wiki*: the comprehensive,
+   graph-rendered, instantly-loading, deeply-interlinked SEO→GEO architecture that is
+   *categorically better than a CMS or a wiki*. Profiles, structure, receipts, cohesion.
+   This is not substrate serving the video — it is a product in its own right, and the
+   operator's original ambition ("we discussed this AT LENGTH") that never materialized
+   on screen.
 
-The "chain" instinct is what turned "make video essays" into "spend six months on
-extraction infrastructure." The operator's own spec already says as much — v2.6's thesis
-is literally *"a rendering system, not a generation system: the graph is the truth,
-everything else is a re-arrangement of the same facts."* The renovation is, in part,
-finally *believing* that.
+**One investigation, two co-equal faces — the site is the standing record, the video is
+the broadcast.** The written essays/investigations live inside the site product as its
+editorial voice. It is NOT a three-step chain; the chain framing is retired.
+
+The operator's verdict on what got built (July 2026, looking at the live site): *"it's
+all disconnected… it just feels empty and not a full vision of a product… it turned out
+even worse than a decent CMS and it is supposed to be the next-gen version of a CMS…
+none of it looks right to me, it's not a cohesive product."* That verdict — not the
+30-part spec — is the design brief. Do not backtrack into why; produce the fresh vision.
+
+## 2a. The felt reality (what the operator actually sees — evidence for the gap)
+
+Screenshots of the live site, July 2026, in the operator's hands:
+
+- **Four disconnected nav destinations** (Investigations / Topics / Library / About) that
+  read as separate lists, not one product. No home gravity, no through-line.
+- **Library** = a table of 50 raw upload filenames (`compass_artifact_wf-…_text_markdown.md`),
+  all "working material," no dates. The test corpus rendered as if it were product. "Like
+  it's just all the documents I uploaded? What the fuck is this?"
+- **Topics** = entity cards extracted from that junk corpus: *BLUF (Bottom Line Up
+  Front)*, *Claims table*, *Evidence table*, *Gen Z*, *CANOPTICON itself* — each "1
+  source." The graph has never eaten a real corpus; the wiki is displaying its own
+  scaffolding as content.
+- **The vibe contradiction:** the built design system is warm-paper beige archival. The
+  operator's stated brand is **dark, mysterious, cool, relevant**. These are opposites.
+  (An operator-console dark theme exists in the tokens but the public face is beige.)
+- Note (context, not excuse): the live deploy is the June-11 snapshot; the unmerged
+  branch adds unified subject pages, 13 arrangement URLs, and search. Richer — but still
+  not the cohesive next-gen-wiki product, and the operator's verdict stands either way.
+
+**What was promised at length and never manifested:** entity profiles worth the name; a
+wiki structure a reader can *inhabit* (not card grids); instantaneous graph-rendered
+pages; the sense of one comprehensive, authoritative, citable machine — the SEO→GEO
+bedrock as an *experienced product*, not a schema.org tag. Backend pieces that may
+support this exist (typed graph, arrangements, JSON-LD, receipts); the *product
+experience* was never designed. That's the renovation.
+
+The old chain instinct — "make video essays" becoming "six months of extraction infra" —
+remains the failure mode to avoid. The spec's own thesis (v2.6: *"a rendering system,
+not a generation system"*) was right; the renovation is finally *believing* it and
+designing the two products it implies.
 
 ---
 
@@ -161,21 +198,30 @@ not a spec. No new grand architecture.
 1. **What canopticon is, in one paragraph** a stranger immediately gets — identity, not
    feature list. Then a one-sentence version.
 2. **The brand/app identity, made concrete.** The vibe (dark, mysterious, forensic, cool,
-   relevant) turned into something buildable: what it *feels* like to land on canopticon
-   and what it *feels* like to operate it. The "app" the operator says it's missing.
-   Name/tone/visual direction, the reader's first 10 seconds, the operator's home screen.
-3. **Keep / Freeze / Cut.** A ruthless verdict on §5's surface area against the center.
-   For each: keep (serves the video-essay-with-receipts loop), freeze (real but not now),
-   cut (delete or ignore). Bias hard toward freeze/cut. Justify the keeps.
-4. **The operator's daily practice** — the vision of *use*. Concretely: what does he do
-   with this on a Tuesday, start to finish, to move an investigation toward a published
-   video essay? This is the thing the 30-part spec never described.
-5. **The reader's experience** — who lands on canopticon, what they get that they can't get
-   elsewhere, why they come back. Ground the SEO/GEO "bedrock" purpose in an actual person.
-6. **The first-production path** — the concrete route to **ONE real video essay, end to
-   end**, on a topic the operator cares about, in the next 1–2 weeks, using the machine
-   that already exists. What's the minimum that must be true; what gets used; what gets
-   ignored. This is the deliverable that matters most.
+   relevant) turned into something buildable — and reconciled with the current warm-beige
+   design system (keep? invert? two registers?). What it *feels* like to land on
+   canopticon and what it *feels* like to operate it. Name/tone/visual direction, the
+   reader's first 10 seconds, the operator's home screen.
+3. **The site as a product: the next-gen-wiki vision (§2a's missing half).** The part
+   that never materialized. What does "categorically better than a CMS/wiki" actually
+   look like on screen? Design the experience: the home that has gravity, the entity
+   profile worth the name, the page a reader inhabits (receipts, timeline, connections,
+   contested-as-contested), how 4 disconnected nav lists become ONE coherent product,
+   what makes it the reference machine GEO/AI-search will cite. Concrete page-level
+   vision, buildable on the existing renderer — not a new stack.
+4. **Keep / Freeze / Cut.** A ruthless verdict on §5's surface area against the center.
+   For each: keep (serves one of the two products), freeze (real but not now), cut
+   (delete or ignore). Bias hard toward freeze/cut. Justify the keeps.
+5. **The operator's daily practice + the reader's experience.** What the operator does
+   with this on a Tuesday, start to finish, to move an investigation toward both faces
+   (site + video). Who lands on canopticon, what they get that they can't get anywhere
+   else, why they come back. The thing the 30-part spec never described.
+6. **The first-production path** — the concrete route to **ONE real investigation shipped
+   on BOTH faces**: a real corpus ingested, a real set of living pages worth citing, and
+   ONE video essay, end to end, in the next 1–2 weeks, using the machine that already
+   exists (plus the §4 integrity fixes and the §3 experience renovation, sequenced).
+   What's the minimum that must be true; what gets used; what gets ignored. This is the
+   deliverable that matters most.
 
 ---
 
