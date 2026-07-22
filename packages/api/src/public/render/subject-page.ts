@@ -538,6 +538,14 @@ async function renderSigned(
   const userId = await resolveOperatorId(env.DB);
   const bodyHtml = page.body_html || (page.body_md ? renderMarkdown(page.body_md) : "");
   const modeBand = renderModeBand(page.slug, "signed", hasSignedReading, page);
+  const [pageClaims, signedConnections] = userId
+    ? await Promise.all([
+        loadPageClaims(env, userId, page.id),
+        loadConnections(env, userId, subject.node_id),
+      ])
+    : [[], []];
+  const claimsBlock = renderClaimsBlock(pageClaims);
+  const foundationBlock = renderFoundationBlock(pageClaims, signedConnections, page.slug);
   // Faces (spec v2.6 Part 8) — formats of this reading rendered as tabs.
   // Thread + card are TEMPLATE + QUERY, rendered live at view time from
   // the page's thesis + page_claims (no LLM, <100ms). Script + chapter
@@ -598,8 +606,8 @@ async function renderSigned(
   // complication. The reading cannot bury what doesn't fit.
   const complicateBox = contested.length
     ? `<aside class="complicate">
-  <div class="complicate-stamp">What complicates this reading</div>
-  <div class="complicate-sub">Shown by rule, not the writer's choice. The reading must engage these facts; it cannot omit them.</div>
+  <div class="complicate-stamp">What complicates this analysis</div>
+  <div class="complicate-sub">Shown by rule, not by choice. The analysis must engage these facts; it cannot leave them out.</div>
   ${contested
     .slice(0, 4)
     .map(
@@ -622,8 +630,8 @@ async function renderSigned(
   const opSignedAff = isOperator
     ? `<div class="op-aff">
   <span class="op-aff-label">Operator</span>
-  <a class="op-aff-btn op-aff-btn-action" href="/op/out/${escapeAttr(page.id)}/edit">Edit reading</a>
-  <form method="POST" action="/op/out/${escapeAttr(page.id)}/discard" style="display:inline" onsubmit="return confirm('Discard this signed reading?');">
+  <a class="op-aff-btn op-aff-btn-action" href="/op/out/${escapeAttr(page.id)}/edit">Edit analysis</a>
+  <form method="POST" action="/op/out/${escapeAttr(page.id)}/discard" style="display:inline" onsubmit="return confirm('Discard this analysis?');">
     <button class="op-aff-btn op-aff-btn-action" type="submit">Discard</button>
   </form>
 </div>`
@@ -649,13 +657,14 @@ async function renderSigned(
   </header>
   <div class="prose signed-body">${bodyHtml}</div>
   ${complicateBox}
+  ${claimsBlock}
   ${facesBlock}
   <div class="prov" style="margin-top:32px">
     This analysis was drafted and signed by hand. Every load-bearing fact links down to a word-for-word quote
     in a stored source document. Disputed material is shown as disputed; any claim without a named source is
     removed before publishing.
   </div>
-  <p style="margin-top:18px"><a href="/p/${escapeAttr(page.slug)}" style="color:var(--accent);text-decoration:none">↩ See the record this analysis stands on</a></p>
+  ${foundationBlock}
 </article>
 
 <style>
@@ -1080,6 +1089,126 @@ async function loadSourceCount(env: PublicEnv, userId: string, subjectId: string
   return row?.n ?? 0;
 }
 
+interface PageClaimRow {
+  id: string;
+  claim_text: string;
+  kind: string;
+  asserted_by: string | null;
+  quote_text: string;
+  piece_slug: string | null;
+  piece_title: string | null;
+}
+
+/** The structured claims a signed analysis actually stands on —
+ *  page_claims, each grounded to its verbatim quote and source. Written
+ *  by the drafter (draft-reading.ts) but never previously read back on
+ *  the public page: the signed prose rendered without ever showing its
+ *  own receipts. This is what makes "every load-bearing claim resolves
+ *  to a receipt" true on the analysis itself, not just on the file. */
+async function loadPageClaims(
+  env: PublicEnv,
+  userId: string,
+  pageId: string,
+): Promise<PageClaimRow[]> {
+  return all<PageClaimRow>(
+    env.DB,
+    `SELECT c.id, c.claim_text, c.kind, c.asserted_by,
+            q.verbatim_text AS quote_text,
+            p.slug AS piece_slug, p.title AS piece_title
+       FROM page_claims c
+       JOIN quotes q ON q.id = c.quote_id
+       LEFT JOIN nodes src ON src.id = q.source_id
+       LEFT JOIN pieces p ON p.id = src.piece_id
+      WHERE c.page_id = ? AND c.user_id = ?
+      ORDER BY c.sort_order ASC`,
+    [pageId, userId],
+  ).catch(() => []);
+}
+
+// Claims & receipts — reuses the exact .fact/.rcpt classes from the file
+// page's "On the record" so a receipt opens identically everywhere. An
+// assertion-kind claim ('X claimed Y') carries its attribution inline
+// rather than being shown as plain fact — the firewall, honored here too.
+function renderClaimsBlock(claims: PageClaimRow[]): string {
+  if (claims.length === 0) return "";
+  const rows = claims
+    .map((c) => {
+      const docLabel = c.piece_title ? c.piece_title.slice(0, 60) : "stored source";
+      const attribution =
+        c.kind === "assertion"
+          ? `<p class="fact-text" style="margin-top:2px"><i>${c.asserted_by ? `Claimed by ${escapeHtml(c.asserted_by)}` : "Attributed claim"}</i></p>`
+          : "";
+      return `<div class="fact" id="claim-${escapeAttr(c.id)}">
+  <div class="fact-line"><p class="fact-text">${escapeHtml(c.claim_text)}</p></div>
+  ${attribution}
+  <details class="rcpt">
+  <summary><span class="rdoc">${escapeHtml(docLabel)}</span></summary>
+  <div class="rcpt-body">
+    <div class="rcpt-q">“${escapeHtml(c.quote_text.slice(0, 400))}${c.quote_text.length > 400 ? "…" : ""}”</div>
+    <div class="rcpt-src"><span>SOURCE</span>${
+      c.piece_slug
+        ? `<a href="/library/${escapeAttr(c.piece_slug)}">${escapeHtml(docLabel)}</a>`
+        : `<span>${escapeHtml(docLabel)}</span>`
+    }<span class="sep">·</span><span>stored copy on file</span></div>
+    <div class="rcpt-v">VERIFIED — a word-for-word match in the stored source</div>
+  </div>
+</details>
+</div>`;
+    })
+    .join("");
+  return `<section id="claims" class="signed-claims">
+  <div class="sec-k">Claims &amp; receipts</div>
+  ${rows}
+</section>`;
+}
+
+// The foundation — every investigation ends here per the approved
+// design: the files it stands on, and the sources behind them. Reuses
+// the mockup's .fh/.fs/.conns/.conn-pill/.src-row structure exactly so
+// it reads identically to the mockup's own foundation block.
+function renderFoundationBlock(
+  claims: PageClaimRow[],
+  connections: ConnectionRow[],
+  subjectSlug: string,
+): string {
+  const seenSources = new Map<string, { title: string }>();
+  for (const c of claims) {
+    if (c.piece_slug && !seenSources.has(c.piece_slug)) {
+      seenSources.set(c.piece_slug, { title: c.piece_title ?? "stored source" });
+    }
+  }
+
+  const filesRow = connections.length
+    ? `<div class="fs"><span class="label">Files</span><div class="conns">${connections
+        .slice(0, 8)
+        .map((c) => {
+          const href = c.other_page_slug
+            ? `/s/${escapeAttr(c.other_page_slug)}`
+            : `/topics/${escapeAttr(slugifyConnection(c.other_label))}`;
+          const rel = isPersonConnection(c) ? "person" : humanizeEdgeType(c.edge_type);
+          return `<a class="conn-pill" href="${href}"><span class="rel">${escapeHtml(rel)}</span>${escapeHtml(c.other_label)}</a>`;
+        })
+        .join("")}</div></div>`
+    : "";
+
+  const sourcesRow =
+    seenSources.size > 0
+      ? `<div class="fs"><span class="label">Sources behind them</span>${[...seenSources.entries()]
+          .map(
+            ([slug, s]) =>
+              `<div class="src-row"><a class="st" href="/library/${escapeAttr(slug)}">${escapeHtml(s.title)}</a></div>`,
+          )
+          .join("")}</div>`
+      : `<div class="fs"><span class="label">Sources behind them</span><p style="font-family:var(--serif);color:var(--ink-3);font-size:14px">No structured claims are on file for this analysis yet.</p></div>`;
+
+  return `<div class="foundation" id="foundation">
+  <div class="fh"><span class="label">The foundation — what this analysis stands on</span><span class="coord">${claims.length} CLAIM${claims.length === 1 ? "" : "S"} · ${seenSources.size} SOURCE${seenSources.size === 1 ? "" : "S"}</span></div>
+  ${filesRow}
+  ${sourcesRow}
+  <div class="fs"><a href="/p/${escapeAttr(subjectSlug)}" style="color:var(--accent-2)">↩ See the file this analysis stands on</a></div>
+</div>`;
+}
+
 // ===========================================================================
 // Block renderers
 // ===========================================================================
@@ -1493,7 +1622,7 @@ function renderFacesBlock(
     <span class="face-chip face-pending-chip">queued</span>
     <span class="face-hint">${escapeHtml(hint)}</span>
   </summary>
-  <div class="face-pending">This face renders on the next sign. Re-sign the reading to queue it.</div>
+  <div class="face-pending">This format renders on the next sign. Re-sign the analysis to queue it.</div>
 </details>`;
       }
       const open = !firstReadyShown && f.status === "ready";
@@ -1513,7 +1642,7 @@ function renderFacesBlock(
         f.status === "ready"
           ? `<div class="face-body">${f.body_html ?? escapeHtml(f.body_md ?? "")}</div>`
           : f.status === "failed"
-            ? `<div class="face-fail">Render failed${f.error ? `: ${escapeHtml(f.error)}` : ""}.${retryBtn ? "" : " Re-sign the reading to retry."}${retryBtn}</div>`
+            ? `<div class="face-fail">Render failed${f.error ? `: ${escapeHtml(f.error)}` : ""}.${retryBtn ? "" : " Re-sign the analysis to retry."}${retryBtn}</div>`
             : `<div class="face-pending">Rendering — this face is being generated in the background. Reload in a moment.${retryBtn}</div>`;
       const statusChip =
         f.status === "ready"
@@ -1531,10 +1660,10 @@ function renderFacesBlock(
 </details>`;
     })
     .join("");
-  return `<section class="faces" aria-label="Faces of this reading">
+  return `<section class="faces" aria-label="Formats of this analysis">
   <div class="faces-head">
-    <div class="faces-k">Faces of this reading</div>
-    <div class="faces-sub">Selection, not regeneration — the reading carries all truth claims; these formats re-arrange them.</div>
+    <div class="faces-k">Formats of this analysis</div>
+    <div class="faces-sub">Selection, not new writing — the analysis carries every claim; these formats just re-arrange them.</div>
   </div>
   ${items}
 </section>
