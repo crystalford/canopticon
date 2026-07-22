@@ -86,7 +86,7 @@ export async function sweepThinSubjects(env: Env, userId: string): Promise<Sweep
       picked: [{ label: beat.label }],
     });
     try {
-      await run(env.DB, "UPDATE beats SET last_swept_at = ? WHERE id = ?", [
+      await run(env.DB, "UPDATE coverage_beats SET last_swept_at = ? WHERE id = ?", [
         new Date().toISOString(),
         beat.id,
       ]);
@@ -164,7 +164,7 @@ async function pickDueBeat(env: Env, userId: string): Promise<DueBeat | null> {
   const cutoff = new Date(Date.now() - BEAT_COOLDOWN_MS).toISOString();
   const rows = await all<DueBeat>(
     env.DB,
-    `SELECT id, label FROM beats
+    `SELECT id, label FROM coverage_beats
       WHERE user_id = ? AND (last_swept_at IS NULL OR last_swept_at < ?)
       ORDER BY COALESCE(last_swept_at, '') ASC
       LIMIT 1`,

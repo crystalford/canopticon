@@ -651,7 +651,7 @@ app.get("/beats", async (c) => {
     last_swept_at: string | null;
   }>(
     c.env.DB,
-    "SELECT id, label, created_at, last_swept_at FROM beats WHERE user_id = ? ORDER BY created_at ASC",
+    "SELECT id, label, created_at, last_swept_at FROM coverage_beats WHERE user_id = ? ORDER BY created_at ASC",
     [userId],
   ).catch(() => []);
   return c.json({ ok: true, beats });
@@ -667,7 +667,7 @@ app.get("/beats/add", async (c) => {
   const label = (c.req.query("label") ?? "").trim();
   if (!label) return c.json({ ok: false, error: "missing ?label=" }, 400);
   const userId = c.get("user_id");
-  await insertOne(c.env.DB, "beats", { user_id: userId, label }).catch(() => {});
+  await insertOne(c.env.DB, "coverage_beats", { user_id: userId, label }).catch(() => {});
   return c.json({ ok: true, label });
 });
 
