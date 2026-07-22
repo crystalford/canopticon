@@ -82,11 +82,19 @@ interface OperatorOverlays {
     lead_label: string | null;
   }>;
   pulse: { newPages: number; newFacts: number };
+  searchMisses: Array<{ query: string; count: number; lastAsked: string }>;
+  today: {
+    sweeps: number;
+    sourcesBanked: number;
+    readingsDrafted: number;
+    entitiesMerged: number;
+    activeJobs: number;
+  };
 }
 
 async function loadOperatorOverlays(db: D1Database, userId: string): Promise<OperatorOverlays> {
   const { all, one } = await import("../../lib/d1");
-  const [drafts, findings, threads, pulse] = await Promise.all([
+  const [drafts, findings, threads, pulse, searchMisses, today] = await Promise.all([
     all<{
       page_id: string;
       slug: string;
@@ -146,12 +154,53 @@ async function loadOperatorOverlays(db: D1Database, userId: string): Promise<Ope
             AND created_at > datetime('now','-1 day')) AS newFacts`,
       [userId, userId],
     ).catch(() => null),
+    // Search misses — real reader interest the record can't answer yet.
+    // Grouped so a question asked five times outranks one asked once.
+    all<{ query: string; count: number; lastAsked: string }>(
+      db,
+      `SELECT json_extract(payload, '$.query') AS query, COUNT(*) AS count, MAX(created_at) AS lastAsked
+         FROM orchestrator_events
+        WHERE user_id = ? AND event_type = 'search.miss'
+          AND created_at > datetime('now','-14 days')
+          AND json_extract(payload, '$.query') IS NOT NULL
+        GROUP BY lower(trim(json_extract(payload, '$.query')))
+        ORDER BY count DESC, lastAsked DESC
+        LIMIT 6`,
+      [userId],
+    ).catch(() => []),
+    // "Today" rhythm — what the standing sweep/settle machinery actually
+    // did on its own, so the operator isn't left wondering whether
+    // anything is happening between visits.
+    one<{
+      sweeps: number;
+      sourcesBanked: number;
+      readingsDrafted: number;
+      entitiesMerged: number;
+      activeJobs: number;
+    }>(
+      db,
+      `SELECT
+         (SELECT COUNT(*) FROM orchestrator_events WHERE user_id = ? AND event_type = 'autonomous.sweep.completed' AND created_at > datetime('now','-1 day')) AS sweeps,
+         (SELECT COUNT(*) FROM orchestrator_events WHERE user_id = ? AND event_type = 'record.expand.source_banked' AND created_at > datetime('now','-1 day')) AS sourcesBanked,
+         (SELECT COALESCE(SUM(CAST(json_extract(payload, '$.drafted') AS INTEGER)), 0) FROM orchestrator_events WHERE user_id = ? AND event_type = 'readings.drafted' AND created_at > datetime('now','-1 day')) AS readingsDrafted,
+         (SELECT COUNT(*) FROM entity_merges WHERE user_id = ? AND created_at > datetime('now','-1 day')) AS entitiesMerged,
+         (SELECT COUNT(*) FROM digest_jobs WHERE user_id = ? AND status IN ('queued','running')) AS activeJobs`,
+      [userId, userId, userId, userId, userId],
+    ).catch(() => null),
   ]);
   return {
     drafts,
     findings,
     threads,
     pulse: pulse ?? { newPages: 0, newFacts: 0 },
+    searchMisses,
+    today: today ?? {
+      sweeps: 0,
+      sourcesBanked: 0,
+      readingsDrafted: 0,
+      entitiesMerged: 0,
+      activeJobs: 0,
+    },
   };
 }
 
@@ -458,6 +507,34 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
       })()
     : "";
 
+  // What the standing machinery (autonomous sweep, settle pipeline) did on
+  // its OWN today — separate from opBriefing above, which is about new
+  // pages/facts/drafts regardless of source. This is specifically "is the
+  // unattended part actually running," the exact question that prompted
+  // building it: "i have no idea if it is even still working on stuff."
+  const opToday = opOverlays
+    ? (() => {
+        const t = opOverlays.today;
+        const bits: string[] = [];
+        if (t.sweeps > 0) bits.push(`${t.sweeps} sweep${t.sweeps === 1 ? "" : "s"} run`);
+        if (t.sourcesBanked > 0) {
+          bits.push(`${t.sourcesBanked} source${t.sourcesBanked === 1 ? "" : "s"} banked`);
+        }
+        if (t.readingsDrafted > 0) {
+          bits.push(`${t.readingsDrafted} reading${t.readingsDrafted === 1 ? "" : "s"} drafted`);
+        }
+        if (t.entitiesMerged > 0) {
+          bits.push(`${t.entitiesMerged} duplicate${t.entitiesMerged === 1 ? "" : "s"} merged`);
+        }
+        const activity = bits.length > 0 ? bits.join(" · ") : "no autonomous activity yet today";
+        const jobs =
+          t.activeJobs > 0
+            ? ` · ${t.activeJobs} job${t.activeJobs === 1 ? "" : "s"} running now`
+            : "";
+        return `<aside class="op-today"><div class="op-briefing-kicker">Today, unattended</div><p>${activity}${jobs}.</p></aside>`;
+      })()
+    : "";
+
   const opDrafts =
     opOverlays && opOverlays.drafts.length > 0
       ? `<section class="op-drafts">
@@ -535,6 +612,31 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
 </section>`
       : "";
 
+  // Real reader interest the record can't answer yet — search.miss events
+  // (public/render/search.ts) grouped by question. Assignment-desk logic:
+  // what people are asking about steers what gets researched next, the
+  // same "Research this" action as everywhere else on the page.
+  const opSearchMisses =
+    opOverlays && opOverlays.searchMisses.length > 0
+      ? `<section class="op-threads op-search-misses">
+  <div class="section-label">What readers are asking that the record can't answer yet</div>
+  <div class="op-threads-list">
+    ${opOverlays.searchMisses
+      .map(
+        (m) => `<div class="op-thread">
+  <span class="op-thread-status">${m.count}×</span>
+  <span class="op-thread-q">${escapeHtml(m.query)}</span>
+  <form class="op-thread-research" method="POST" action="/op/search/research">
+    <input type="hidden" name="q" value="${escapeAttr(m.query)}">
+    <button class="op-thread-research-go" type="submit">Research this →</button>
+  </form>
+</div>`,
+      )
+      .join("")}
+  </div>
+</section>`
+      : "";
+
   const body = `
 <script type="application/ld+json">${jsonLd}</script>
 <section class="home-masthead">
@@ -544,6 +646,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
 </section>
 
 ${opBriefing}
+${opToday}
 ${opDrafts}
 
 ${
@@ -575,6 +678,7 @@ ${
 
 ${opFindings}
 ${opThreads}
+${opSearchMisses}
 
 <style>
   .home-masthead { margin-bottom: 40px; }
@@ -728,6 +832,15 @@ ${opThreads}
     color: var(--ink-2);
   }
   .op-briefing p b { color: var(--ink); font-weight: 600; }
+
+  .op-today {
+    margin: -14px 0 28px;
+    padding: 10px 22px;
+    border-left: 3px solid var(--rule-bright, var(--rule));
+    background: var(--paper-2, var(--surface));
+    border-radius: 4px;
+  }
+  .op-today p { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
 
   .op-drafts { margin-bottom: 36px; }
   .op-draft {
