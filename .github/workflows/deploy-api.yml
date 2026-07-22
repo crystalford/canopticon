@@ -9,6 +9,11 @@ name: Deploy to Cloudflare
 #   CLOUDFLARE_ACCOUNT_ID
 #   ANTHROPIC_API_KEY
 #   OPERATOR_EMAIL          (the email Cloudflare Access will gate to)
+#
+# Optional GitHub secrets (pushed to the Worker when present; features
+# stay visible-but-inert without them):
+#   BRAVE_SEARCH_API_KEY    (record-building on click — "Expand this file")
+#   BRAVE_ANSWERS_API_KEY   (operator-only research triage preview)
 
 on:
   push:
@@ -99,6 +104,12 @@ jobs:
         working-directory: packages/api
         run: |
           echo "${{ secrets.ANTHROPIC_API_KEY }}" | pnpm exec wrangler secret put ANTHROPIC_API_KEY
+          if [ -n "${{ secrets.BRAVE_SEARCH_API_KEY }}" ]; then
+            echo "${{ secrets.BRAVE_SEARCH_API_KEY }}" | pnpm exec wrangler secret put BRAVE_SEARCH_API_KEY
+          fi
+          if [ -n "${{ secrets.BRAVE_ANSWERS_API_KEY }}" ]; then
+            echo "${{ secrets.BRAVE_ANSWERS_API_KEY }}" | pnpm exec wrangler secret put BRAVE_ANSWERS_API_KEY
+          fi
 
       # --- Set OPERATOR_EMAIL var ------------------------------------
       - name: Patch OPERATOR_EMAIL into wrangler.toml
