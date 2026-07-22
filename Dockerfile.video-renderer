@@ -1,5 +1,15 @@
 # Cloudflare Container image for the canopticon-video renderer.
 #
+# Lives at the REPO ROOT, not packages/video-renderer/. wrangler's
+# Container build uses the directory containing this Dockerfile as the
+# Docker build context (there is no separate --context flag) — and
+# packages/video-renderer depends on the sibling workspace package
+# @canopticon/shared (workspace:*), which only resolves if pnpm can see
+# the whole monorepo. A build context scoped to packages/video-renderer/
+# alone can never satisfy that dependency. Referenced from
+# packages/video/wrangler.toml's [[containers]] image field as
+# "../../Dockerfile.video-renderer".
+#
 # Phase 0 target: a 60-75s 1080×1920 Remotion render at standard-4
 # (4 vCPU / 12 GiB / CPU-only) inside the 5-min wall-clock budget. The
 # image installs the Node + Remotion + ffmpeg stack plus WhisperX +
@@ -42,15 +52,23 @@ WORKDIR /app
 # rest of the monorepo.
 RUN corepack enable
 
-# Copy the workspace manifests for the renderer + shared. The Dockerfile
-# is expected to be built with the BUILD CONTEXT at packages/video-renderer/
-# (which is how Cloudflare's `wrangler containers push` does it by
-# default), so paths are relative to that directory.
-COPY package.json ./
-COPY tsconfig.json ./
-COPY src ./src
+# The full workspace context pnpm needs to resolve
+# @canopticon/shared: workspace:* — just the two packages actually
+# involved (shared has no build step; its package.json exports point
+# straight at .ts source), plus the manifests pnpm's workspace
+# resolution and TypeScript's `extends` chain both need.
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/shared/src packages/shared/src
+COPY packages/video-renderer/package.json packages/video-renderer/package.json
+COPY packages/video-renderer/tsconfig.json packages/video-renderer/tsconfig.json
+COPY packages/video-renderer/src packages/video-renderer/src
 
-RUN pnpm install --prod=false --no-frozen-lockfile && pnpm build
+# --filter ...@canopticon/video-renderer installs the target package
+# plus its workspace dependencies (@canopticon/shared) without needing
+# every other package in the monorepo present.
+RUN pnpm install --filter "...@canopticon/video-renderer" --prod=false --no-frozen-lockfile
+RUN pnpm --filter @canopticon/video-renderer build
 
 # Remotion expects a Chrome browser path. The Debian package is at
 # /usr/bin/chromium; we tell Remotion explicitly and disable GPU because
@@ -59,5 +77,6 @@ ENV CHROME_EXECUTABLE_PATH=/usr/bin/chromium
 ENV REMOTION_CHROMIUM_DISABLE_GPU=true
 ENV NODE_ENV=production
 
+WORKDIR /app/packages/video-renderer
 EXPOSE 8080
 CMD ["node", "dist/server.js"]
