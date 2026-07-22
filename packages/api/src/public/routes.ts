@@ -8,6 +8,7 @@
 
 import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
+import { one } from "../lib/d1";
 import { getPieceBySlug, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
 import { renderBriefPage } from "./render/brief";
@@ -76,6 +77,14 @@ app.use("*", async (c, next) => {
 // the session cookie resolves to the operator, splice an "operator" link
 // in ahead of the search affordance. No-ops (and costs one extra
 // html.includes check) on every anonymous request.
+//
+// Same pass also splices in a live work-status badge — "the record has no
+// idea whether it's still doing anything" was a direct complaint: extraction
+// and the settle pipeline all run in the background with zero UI signal, so
+// the only way to tell was asking me to query the admin API by hand all
+// session. digest_jobs already tracks queued/running/completed with
+// timestamps; this just reads it. Operator-only, same reasoning as the nav
+// link — this is operational state, not editorial content for readers.
 app.use("*", async (c, next) => {
   await next();
   if (!c.get("is_operator")) return;
@@ -86,12 +95,48 @@ app.use("*", async (c, next) => {
     c.res = new Response(html, { status: res.status, headers: res.headers });
     return;
   }
+  const statusBadge = await renderWorkStatusBadge(c.env.DB).catch(() => "");
   const injected = html.replace(
     '<a href="/search" class="nav-search">',
-    '<a href="/op/library" class="nav-search" style="color:var(--accent,#5d8bc6)">operator →</a>\n      <a href="/search" class="nav-search">',
+    `${statusBadge}<a href="/op/library" class="nav-search" style="color:var(--accent,#5d8bc6)">operator →</a>\n      <a href="/search" class="nav-search">`,
   );
   c.res = new Response(injected, { status: res.status, headers: res.headers });
 });
+
+async function renderWorkStatusBadge(db: D1Database): Promise<string> {
+  const userId = await resolveOperatorId(db);
+  if (!userId) return "";
+  const active = await one<{ n: number }>(
+    db,
+    "SELECT COUNT(*) AS n FROM digest_jobs WHERE user_id = ? AND status IN ('queued','running')",
+    [userId],
+  ).catch(() => null);
+  const activeCount = active?.n ?? 0;
+  if (activeCount > 0) {
+    return `<span class="nav-search" style="color:var(--accent,#5d8bc6)" title="digest jobs currently queued or running">⟳ working — ${activeCount} in progress</span>\n      `;
+  }
+  const last = await one<{ updated_at: string | null }>(
+    db,
+    "SELECT MAX(updated_at) AS updated_at FROM digest_jobs WHERE user_id = ?",
+    [userId],
+  ).catch(() => null);
+  if (!last?.updated_at) return "";
+  const ago = formatRelativeTime(last.updated_at);
+  return `<span class="nav-search" style="color:var(--ink-mute,#666873)" title="nothing queued or running right now">idle — ${ago}</span>\n      `;
+}
+
+function formatRelativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const diffMs = Date.now() - then;
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 // Favicon — a tight monogram in the amber accent. The "canopticon." brand
 // is the wordmark + a dot in --amber; we lean on the dot. Served as SVG
