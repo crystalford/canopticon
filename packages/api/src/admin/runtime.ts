@@ -622,9 +622,14 @@ app.get("/debug-brave-answers", async (c) => {
       400,
     );
   }
+  // Step 1 with BRAVE_SEARCH_API_KEY came back with no summarizer.key —
+  // possibly the base Search subscription isn't entitled to summarization
+  // and it's actually the separate Answers subscription that grants it.
+  // ?step1_key=answers tries step 1 with BRAVE_ANSWERS_API_KEY instead.
+  const step1Key = c.req.query("step1_key") === "answers" ? answersKey : searchKey;
   const searchUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&summary=1`;
   const searchRes = await fetch(searchUrl, {
-    headers: { Accept: "application/json", "X-Subscription-Token": searchKey },
+    headers: { Accept: "application/json", "X-Subscription-Token": step1Key },
   });
   const searchJson = (await searchRes.json().catch(() => null)) as Record<string, unknown> | null;
   const summarizerKey = (searchJson?.summarizer as Record<string, unknown> | undefined)?.key as
