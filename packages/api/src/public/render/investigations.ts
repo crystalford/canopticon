@@ -163,13 +163,13 @@ export async function renderInvestigationsIndex(
 <style>
   .intent-badge { display:inline-block; font-size:10px; padding:2px 9px; border-radius:4px;
     font-weight:600; letter-spacing:.04em; margin-right:6px; }
-  .intent-investigation { background:#e6efe9; color:#1d6a5e; }
-  .intent-argument { background:#f4e9e6; color:#8a3324; }
-  .intent-pattern { background:#e8eef7; color:#33567e; }
-  .intent-hypothesis { background:#ece6f2; color:#5a4a7e; }
-  .intent-assessment { background:#f1ead9; color:#7a6324; }
-  .intent-critique { background:#f4e3e0; color:#964434; }
-  .intent-explanation { background:#e4ecef; color:#3a6a7e; }
+  .intent-investigation { background:rgba(77,156,111,.16); color:#4d9c6f; }
+  .intent-argument { background:rgba(201,106,83,.16); color:#c96a53; }
+  .intent-pattern { background:rgba(126,166,216,.16); color:#7ea6d8; }
+  .intent-hypothesis { background:rgba(183,158,224,.16); color:#b79ee0; }
+  .intent-assessment { background:rgba(209,171,92,.16); color:#d1ab5c; }
+  .intent-critique { background:rgba(196,123,152,.16); color:#c47b98; }
+  .intent-explanation { background:rgba(126,200,227,.16); color:#7ec8e3; }
 </style>`
     : "";
 
@@ -359,6 +359,21 @@ export async function renderPiecePage(env: PublicEnv, slug: string): Promise<str
 
 // Library — the raw research layer. Lists everything (incl. working-
 // material) with an honest status tag.
+// A stored piece's title is sometimes the raw upload filename — e.g.
+// "compass_artifact_wf-c96cfa7c-3f5d-…_text_markdown.md" — when the
+// operator dropped a file whose name was never meant to be read. Showing
+// that verbatim as a page title reads as broken, not honest. Detect the
+// machine-filename shape (long, no spaces, a file extension or a uuid-ish
+// segment) and show a plain placeholder with the real filename kept
+// visible underneath in mono, never hidden.
+function looksLikeMachineFilename(title: string): boolean {
+  if (/\s/.test(title)) return false;
+  if (title.length < 20) return false;
+  const hasExt = /\.(md|txt|pdf|html?|docx?|csv|json)$/i.test(title);
+  const hasUuidish = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(title);
+  return hasExt || hasUuidish;
+}
+
 export async function renderLibraryIndex(
   env: PublicEnv,
   opts: { isOperator?: boolean } = {},
@@ -413,7 +428,7 @@ export async function renderLibraryIndex(
     color:var(--ink-3); font-weight:600; }
   .op-strip-actions { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
   .op-strip-btn { font-size:12.5px; padding:6px 14px; border-radius:6px; cursor:pointer;
-    border:1px solid var(--rule); background:#fff; color:var(--ink); }
+    border:1px solid var(--rule); background:var(--surface); color:var(--ink); }
   .op-strip-btn-primary { background:var(--ink); color:#fff; border-color:var(--ink); }
 </style>`;
   }
@@ -474,9 +489,14 @@ export async function renderLibraryIndex(
                 : `<span class="chip">published</span>`;
           const href =
             p.publication_status === "working-material" ? "" : `/library/${escapeHtml(p.slug)}`;
+          const isRawFilename = looksLikeMachineFilename(p.title);
+          const displayTitle = isRawFilename ? "Untitled research document" : p.title;
+          const rawFilenameLine = isRawFilename
+            ? `<div class="lib-title-raw">${escapeHtml(p.title)}</div>`
+            : "";
           const title = href
-            ? `<a href="${href}" class="ac">${escapeHtml(p.title)}</a>`
-            : escapeHtml(p.title);
+            ? `<a href="${href}" class="ac">${escapeHtml(displayTitle)}</a>${rawFilenameLine}`
+            : `${escapeHtml(displayTitle)}${rawFilenameLine}`;
           const fedCell =
             fed && fed.nodes > 0
               ? `<span><b>${fed.nodes}</b> fact${fed.nodes === 1 ? "" : "s"}${fed.subjects > 0 ? ` · ${fed.subjects} subject${fed.subjects === 1 ? "" : "s"}` : ""}</span>`
@@ -525,8 +545,8 @@ export async function renderLibraryIndex(
   <div class="kicker" style="margin-bottom:16px"><span class="live"></span> The raw research</div>
   <h1 style="font-family:var(--serif);font-size:40px;line-height:1.12;letter-spacing:-0.015em;margin:0 0 12px;color:var(--ink)">Library</h1>
   <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
-    Every document the rest is built on, kept whole. Each row shows what it fed the fabric —
-    facts extracted, subjects it touched. Working material deposits into the typed graph but
+    Every document the rest is built on, kept whole. Each row shows what it fed the record —
+    facts extracted, subjects it touched. Working material feeds the record but
     doesn't get its own public page.
   </p>
 </section>
@@ -563,12 +583,13 @@ ${opStrip}
   .lib-fed { color: var(--ink-2); font-size: 13.5px; }
   .lib-fed b { color: var(--ink); font-weight: 600; }
   .lib-fed-quiet { color: var(--ink-3); font-style: italic; font-size: 13px; }
+  .lib-title-raw { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); margin-top: 3px; word-break: break-all; }
 </style>
 `;
   return renderPage({
     title: "Library",
     description:
-      "Every source document the rest is built on. Each row shows what it fed the fabric — facts extracted, subjects it touched.",
+      "Every source document the rest is built on. Each row shows what it fed the record — facts extracted, subjects it touched.",
     body,
     activeNav: "/library",
     zone: "library",
