@@ -223,7 +223,14 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
       WHERE p.user_id = ?
         AND (
           p.signed_status = 'published'
-          OR (SELECT COUNT(*) FROM quotes q WHERE q.user_id = ? AND q.node_id = n.id) >= 2
+          OR (
+            SELECT COUNT(*) FROM quotes q WHERE q.user_id = ?
+              AND (q.node_id = n.id OR EXISTS (
+                SELECT 1 FROM edges e WHERE
+                  (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
+                  (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
+              ))
+          ) >= 2
         )
       ORDER BY (p.signed_status = 'published') DESC,
                COALESCE(p.signed_at, p.updated_at) DESC
