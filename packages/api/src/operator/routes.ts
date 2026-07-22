@@ -437,10 +437,12 @@ app.post("/out/:id/sign", async (c) => {
     "SELECT slug FROM pages WHERE id = ? AND user_id = ? AND signed_status = 'draft'",
     [pageId, userId],
   );
+  // signed_by is left as-is (NULL when never set) rather than defaulted
+  // to a placeholder — the public byline renders "— signed" for a null
+  // signed_by (subject-page.ts), never internal vocabulary.
   await run(
     c.env.DB,
-    `UPDATE pages SET signed_status = 'published',
-        signed_by = COALESCE(signed_by, 'the operator'), signed_at = ?, updated_at = ?
+    `UPDATE pages SET signed_status = 'published', signed_at = ?, updated_at = ?
       WHERE id = ? AND user_id = ? AND signed_status = 'draft'`,
     [now, now, pageId, userId],
   );
@@ -480,13 +482,23 @@ app.get("/out/:id/edit", async (c) => {
   return opHtml(
     renderOpPage({
       title: "Edit reading",
-      sub: "refine before you sign · the firewall re-checks on save",
+      sub: "refine before you sign · hand-edited text is no longer machine-verified",
       body,
       activeNav: "/op/out",
     }),
   );
 });
 
+// Free-text edit of a drafted reading. INTEGRITY: this form has no
+// structured claim/quote list to re-run the verbatim-substring check or
+// the independent judge against — it's a raw markdown textarea, and the
+// gauntlet only runs on the auto-drafter's structured claims. So we do
+// NOT claim to re-verify. Instead we tell the truth: editing clears the
+// machine-verified badge (claims_verified/judge_model reset), so a
+// hand-edited reading can never carry a stale "N claims verified" count
+// it no longer earned. See docs/canopticon-renovation.md — "the operator
+// approves, never authors" has one unguarded seam, and this is it; the
+// honest fix is to stop the false claim, not to fake a re-check.
 app.post("/out/:id/edit", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/op/out");
@@ -495,7 +507,9 @@ app.post("/out/:id/edit", async (c) => {
   const bodyMd = String(form.get("body_md") ?? "");
   await run(
     c.env.DB,
-    "UPDATE pages SET thesis = ?, body_md = ?, body_html = ?, updated_at = ? WHERE id = ? AND user_id = ? AND signed_status = 'draft'",
+    `UPDATE pages SET thesis = ?, body_md = ?, body_html = ?,
+        claims_verified = 0, judge_model = NULL, updated_at = ?
+      WHERE id = ? AND user_id = ? AND signed_status = 'draft'`,
     [
       String(form.get("thesis") ?? "").slice(0, 400),
       bodyMd,
@@ -859,10 +873,11 @@ app.post("/outputs/:id/publish", async (c) => {
     const userId = await resolveOperatorId(c.env.DB);
     if (!userId) return c.redirect("/op/outputs?err=no_operator");
     const now = new Date().toISOString();
+    // signed_by is left NULL when never set — no internal-vocabulary
+    // placeholder written into a field that renders on a public page.
     await run(
       c.env.DB,
       `UPDATE briefs SET status = 'published', published_at = COALESCE(published_at, ?),
-                          signed_by = COALESCE(signed_by, 'the operator'),
                           signed_at = COALESCE(signed_at, ?),
                           updated_at = ?
         WHERE id = ? AND user_id = ? AND status = 'draft'`,
@@ -887,7 +902,7 @@ app.get("/outputs/:id/edit", async (c) => {
   );
   if (!row || row.status !== "draft") return c.redirect("/op/outputs");
   const { escapeHtml } = await import("../public/layout");
-  const body = `<div class="okflag" style="margin-bottom:14px"><span class="ftext"><b>Editing draft.</b> The verified claims + sources are untouched — you're refining the prose. The firewall re-checks on save.</span></div>
+  const body = `<div class="okflag" style="margin-bottom:14px"><span class="ftext"><b>Editing draft.</b> Hand-edited text is no longer machine-verified — saving clears the verified-claims count.</span></div>
 <form method="POST" action="/op/outputs/${escapeHtml(row.id)}/edit">
   <textarea name="body_md" rows="28" style="width:100%;font-family:var(--mono,monospace);font-size:13px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:14px">${escapeHtml(row.body_md)}</textarea>
   <div style="margin-top:12px;display:flex;gap:10px">
@@ -899,7 +914,7 @@ app.get("/outputs/:id/edit", async (c) => {
   return opHtml(
     renderOpPage({
       title: `Edit · ${row.title}`,
-      sub: "refine the draft before approval · claims and sources stay verified",
+      sub: "refine the draft before approval · editing clears machine verification",
       body,
       activeNav: "/op/outputs",
       width: "wide",
@@ -907,6 +922,9 @@ app.get("/outputs/:id/edit", async (c) => {
   );
 });
 
+// Same integrity fix as /out/:id/edit above: a free-text edit has no
+// structured claims to re-verify, so we don't pretend to — we reset the
+// verified-claims provenance instead of leaving a stale count.
 app.post("/outputs/:id/edit", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/op/outputs");
@@ -915,7 +933,9 @@ app.post("/outputs/:id/edit", async (c) => {
   const { renderMarkdown } = await import("../cms/lib/render-post");
   await run(
     c.env.DB,
-    "UPDATE briefs SET body_md = ?, body_html = ?, updated_at = ? WHERE id = ? AND user_id = ? AND status = 'draft'",
+    `UPDATE briefs SET body_md = ?, body_html = ?,
+        claims_verified = 0, judge_model = NULL, updated_at = ?
+      WHERE id = ? AND user_id = ? AND status = 'draft'`,
     [bodyMd, renderMarkdown(bodyMd), new Date().toISOString(), c.req.param("id"), userId],
   );
   return c.redirect("/op/outputs");
