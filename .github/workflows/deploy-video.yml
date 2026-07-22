@@ -24,6 +24,7 @@ on:
       - "packages/video-renderer/**"
       - "packages/shared/**"
       - "supabase/migrations-video/**"
+      - "Dockerfile.video-renderer"
       - ".github/workflows/deploy-video.yml"
   workflow_dispatch:
 
