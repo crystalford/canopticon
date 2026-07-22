@@ -27,6 +27,7 @@
 
 import type { Env } from "../../env";
 import { all, insertOne, run } from "../../lib/d1";
+import { synthesizeDueBeatReport } from "./deep-research";
 import { expandRecord } from "./record-builder";
 
 // One subject per tick, deliberately. expandRecord() already runs one full
@@ -79,6 +80,20 @@ export async function sweepThinSubjects(env: Env, userId: string): Promise<Sweep
 
   if (!env.BRAVE_SEARCH_API_KEY) return report;
 
+  // Finishing a beat's research (writing up what its last expand banked)
+  // gets first refusal on the tick, ahead of even starting a new expand —
+  // it's one bounded LLM call against already-fetched text, no new Brave
+  // spend, and it's "pending work" rather than "more work." Mutually
+  // exclusive with everything below: one bounded unit per tick, same
+  // budget as always.
+  const synthesis = await synthesizeDueBeatReport(env, userId).catch(
+    (err) => ({ synthesized: false, reason: (err as Error).message }) as const,
+  );
+  if (synthesis.synthesized) {
+    report.subjects_swept.push(`${synthesis.beatLabel} (research brief)`);
+    return report;
+  }
+
   const beat = await pickDueBeat(env, userId);
   if (beat) {
     await emit(env, userId, "autonomous.sweep.started", {
@@ -90,7 +105,11 @@ export async function sweepThinSubjects(env: Env, userId: string): Promise<Sweep
         new Date().toISOString(),
         beat.id,
       ]);
-      await expandRecord(env, userId, beat.label);
+      const expandReport = await expandRecord(env, userId, beat.label);
+      await run(env.DB, "UPDATE coverage_beats SET last_banked_piece_ids = ? WHERE id = ?", [
+        JSON.stringify(expandReport.banked_piece_ids),
+        beat.id,
+      ]);
       report.subjects_swept.push(beat.label);
     } catch (err) {
       report.errors.push(`${beat.label}: ${(err as Error).message}`);

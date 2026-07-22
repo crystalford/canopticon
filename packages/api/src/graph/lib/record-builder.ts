@@ -42,6 +42,7 @@ export interface ExpandReport {
   sources_extracted: number;
   facts_added: number;
   errors: string[];
+  banked_piece_ids: string[];
 }
 
 /** The single entry point. Called from the /op/records/:slug/expand handler
@@ -61,6 +62,7 @@ export async function expandRecord(
     sources_extracted: 0,
     facts_added: 0,
     errors: [],
+    banked_piece_ids: [],
   };
 
   await emit(env, userId, "record.expand.started", { subject: subjectLabel });
@@ -118,6 +120,7 @@ export async function expandRecord(
         continue;
       }
       report.sources_banked++;
+      report.banked_piece_ids.push(banked.pieceId);
       await emit(env, userId, "record.expand.source_banked", {
         subject: subjectLabel,
         url: r.url,
