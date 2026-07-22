@@ -22,28 +22,38 @@ verified · claims killed), and the doorway to browse. The feeling on landing: *
 machine is watching, accumulating, and shows its receipts.* One screen of gravity,
 then browse.
 
-### 2. `/s/:slug` — the Dossier (THE core artifact)
-One per entity / event / theme. This is the "profile worth the name." Anatomy, top
-to bottom:
+### 2. `/s/:slug` — the File (THE core artifact)
+One per person / company / event / theme. This is the "profile worth the name."
+Header pattern: **"FILE ON MERIDIAN CREST"** — the file-cover stamp. Anatomy:
 
-- **Identity strip** — name, kind, aliases, one-line designation, file metadata
-  (opened, last updated, sources count). Reads like the cover of a file.
-- **The established record** — facts with receipts. Every fact carries its inline
-  citation chip; the chip opens the verbatim quote + source without leaving the page
-  (details element — no JS needed to read).
-- **The contested layer** — attributed assertions, visibly separated, who-said-what
-  with stance. Never blended into the established record. This *is* the firewall,
-  rendered.
-- **Timeline** — the subject's events in time, each dated and receipted.
-- **Connections** — the typed edges, as navigation: employer-of, funded-by,
-  contradicts, party-to… each one a link to another dossier. This is how the web
-  is *walked*, and what makes it a graph product instead of a page list.
-- **On file** — the sources feeding this dossier, each linking to its source page.
-- **The reading (seam)** — when the operator has signed a reading on this subject,
-  it appears behind a visible seam: the neutral record above, the signed
-  interpretation below, typographically distinct, with the mandatory
-  what-complicates-this box. Unsigned subjects simply show the record.
-- Every block has a stable anchor + JSON-LD. The dossier is the citable atom.
+- **Identity stamp** — name, kind (PERSON / COMPANY / EVENT / THEME), one-line
+  designation, and the coordinate line. **Stamp-line rule (binding):** fewer
+  numbers, plain words, provenance first — `12 sources · 41 documented facts ·
+  6 disputed · OPENED · UPDATED` — and **every number is an anchor link** to the
+  section it counts. Numbers are navigation or they're off the page. Kill counts
+  never appear on a file header (they live on Method + home, plainly worded).
+- **On the record** — the documented facts. Every fact carries its inline receipt
+  chip; the chip opens the verbatim quote + source in place (details element).
+- **Disputed** — who says what, against what. Visibly separate, never blended
+  into the record. (The firewall, rendered — but the word "firewall" never
+  appears on a public surface.)
+- **Timeline** — the subject's events in time, dated and receipted.
+- **People** — on every company/event/theme file: the named humans, each with
+  their role in plain words ("director of", "lobbied for", "chief of staff to"),
+  a receipt count, and a link to their own file. Person edges live here, not
+  buried in Connections. On a PERSON file the signature block is the inverse:
+  **"Appears in N files"** — the person's role in every file they feature in.
+  Cross-file accumulation is the product: the person who keeps showing up is
+  the story. This is what a wiki infobox cannot do.
+- **Connections** — the remaining typed edges (org-to-org, event, statute) as
+  navigation. How the web is *walked*.
+- **On file** — the sources feeding this file, each linking to its source page.
+- **Analysis — signed** — when a reading is signed on this subject it sits
+  behind a visible seam: the neutral record above, the signed analysis below
+  (byline + date), typographically distinct, with the what-complicates-this box.
+  A killed claim stays visible in place: KILLED stamp + "failed verification —
+  removed."
+- Every block has a stable anchor + JSON-LD. The file is the citable atom.
 
 ### 3. `/investigations` + `/i/:slug` — the signed layer
 The editorial voice. An investigation is the operator's signed reading rendered as
@@ -89,6 +99,26 @@ walking the web.
 5. **Instant** — server-rendered from the graph, no client framework, sub-100ms.
 6. **Citable by machines** — JSON-LD + stable anchors on every block; built to be
    the thing AI answers cite.
+
+## Language (binding — the plain-words rule)
+
+**The atmosphere lives in the design; the words stay as plain as possible.** The
+internal model vocabulary never leaks onto a public surface. A first-time reader
+owes us nothing: every term and every number either explains itself in plain
+words or gets off the page.
+
+| Internal / code | Public surface |
+|---|---|
+| dossier | **the file** ("FILE ON …") |
+| established record | **On the record** |
+| contested layer / assertions | **Disputed** · statements |
+| signed reading | **Analysis — signed** |
+| corpus | the sources / the record |
+| received account (theme) | **The official story** (vs. what the documents show) |
+| killed | KILLED stamp + "failed verification — removed" |
+| entity | PERSON / COMPANY / STATUTE (the actual kind) |
+| ingested / last fed | ADDED / UPDATED |
+| firewall, fabric, aboutness, settle, intents, operator | never on a public surface |
 
 ## Register
 
