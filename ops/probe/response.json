@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T21:10:22Z",
-  "run_id": "29958145162",
+  "requested_at": "2026-07-22T21:10:56Z",
+  "run_id": "29958180340",
   "method": "GET",
-  "path": "/v1/admin/beats/add?confirm=1&label=CRTC%20streaming%20regulation",
+  "path": "/v1/admin/beats/add?confirm=1&label=Melanie%20Joly",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"label\": \"CRTC streaming regulation\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"label\": \"Melanie Joly\"\n}"
 }
