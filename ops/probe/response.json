@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T19:56:41Z",
-  "run_id": "29953066476",
+  "requested_at": "2026-07-22T19:56:59Z",
+  "run_id": "29953085320",
   "method": "GET",
-  "path": "/v1/admin/resettle?confirm=1&step=autoseed_pages",
+  "path": "/v1/admin/resettle?confirm=1&step=draft_readings",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"started\": true,\n  \"step\": \"autoseed_pages\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"started\": true,\n  \"step\": \"draft_readings\"\n}"
 }
