@@ -624,13 +624,13 @@ ${opThreads}
     font-weight: 600;
     letter-spacing: .04em;
   }
-  .intent-investigation { background: #e6efe9; color: #1d6a5e; }
-  .intent-argument { background: #f4e9e6; color: #8a3324; }
-  .intent-pattern { background: #e8eef7; color: #33567e; }
-  .intent-hypothesis { background: #ece6f2; color: #5a4a7e; }
-  .intent-assessment { background: #f1ead9; color: #7a6324; }
-  .intent-critique { background: #f4e3e0; color: #964434; }
-  .intent-explanation { background: #e4ecef; color: #3a6a7e; }
+  .intent-investigation { background: rgba(77,156,111,.16); color: #4d9c6f; }
+  .intent-argument { background: rgba(201,106,83,.16); color: #c96a53; }
+  .intent-pattern { background: rgba(126,166,216,.16); color: #7ea6d8; }
+  .intent-hypothesis { background: rgba(183,158,224,.16); color: #b79ee0; }
+  .intent-assessment { background: rgba(209,171,92,.16); color: #d1ab5c; }
+  .intent-critique { background: rgba(196,123,152,.16); color: #c47b98; }
+  .intent-explanation { background: rgba(126,200,227,.16); color: #7ec8e3; }
 
   /* Operator overlays — visible only when the session cookie is set.
      Woven into the same page everyone reads; no parallel dashboard. */
@@ -661,10 +661,10 @@ ${opThreads}
     text-decoration: none;
     padding: 22px 24px;
     margin-bottom: 12px;
-    border: 1px solid #d6c8a8;
+    border: 1px solid var(--rule);
     border-left: 3px solid var(--accent);
     border-radius: 10px;
-    background: #faf4e4;
+    background: var(--paper-2, var(--surface));
     transition: border-color .12s;
   }
   .op-draft:hover { border-color: var(--accent); }
