@@ -345,12 +345,18 @@ async function upsertTheme(
     label: named.title,
     metadata: JSON.stringify({ centroid: candidate.centroid }),
   });
-  await insertOne(env.DB, "themes", {
-    node_id: nodeId,
-    received_account: named.received_account,
-    convergence_count: pieceCount,
-    evidence_quote_ids: JSON.stringify(quoteIds),
-  });
+  // insertOne always injects an auto-generated `id` column (lib/d1.ts) — but
+  // themes (supabase/migrations/0030_themes_and_pages.sql) is keyed by
+  // node_id as its PRIMARY KEY, with no `id` column at all. Every call here
+  // was throwing "table themes has no column named id", silently zeroing
+  // themes_surfaced on every settle run since the table was added. Insert
+  // directly instead of through the id-assuming helper.
+  await run(
+    env.DB,
+    `INSERT INTO themes (node_id, received_account, convergence_count, evidence_quote_ids)
+     VALUES (?, ?, ?, ?)`,
+    [nodeId, named.received_account, pieceCount, JSON.stringify(quoteIds)],
+  );
   // Page row for the theme (so the unified renderer can find it).
   await insertOne(env.DB, "pages", {
     user_id: userId,

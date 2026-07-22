@@ -14,7 +14,7 @@
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
 import { enqueueDigest, ensureJobsTable, runDigestJob } from "../graph/lib/digest-jobs.ts";
-import { all, one, run } from "../lib/d1.ts";
+import { all, insertOne, one, run } from "../lib/d1.ts";
 import { type Role, callRole, modelForRole } from "../llm/router.ts";
 
 const app = new Hono<AuthContext>();
@@ -365,6 +365,59 @@ app.get("/backfill-library", async (c) => {
     retitled_count: retitled.length,
     retitled,
   });
+});
+
+// GET /v1/admin/resettle?confirm=1
+//
+// Manually re-runs the corpus-settle gate (surfacing L1 → theme surfacer →
+// autoseed pages → propose briefs → draft readings) without needing a new
+// digest job to trigger it — digest-jobs.ts only fires this automatically
+// when the LAST queued/running job finishes, so a bug fix to one of these
+// steps (e.g. theme-surfacer's insertOne/themes schema mismatch) has no way
+// to re-run against an already-settled corpus short of re-extracting
+// everything. Mirrors digest-jobs.ts's settle block exactly, including the
+// same non-fatal-but-visible error handling.
+app.get("/resettle", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const userId = c.get("user_id");
+  const results: Record<string, { ok: boolean; error?: string; result?: unknown }> = {};
+  const step = async (name: string, fn: () => Promise<unknown>) => {
+    try {
+      const result = await fn();
+      results[name] = { ok: true, result };
+    } catch (err) {
+      const error = (err as Error).message ?? "unknown error";
+      results[name] = { ok: false, error };
+      await insertOne(c.env.DB, "orchestrator_events", {
+        user_id: userId,
+        event_type: "settle_step_failed",
+        subject_kind: "corpus",
+        subject_id: userId,
+        payload: JSON.stringify({ step: name, error }),
+      }).catch(() => {});
+    }
+  };
+  const { runSurfacingL1 } = await import("../graph/lib/surfacing");
+  await step("surfacing_l1", () => runSurfacingL1(c.env, userId));
+  await step("theme_surfacer", async () => {
+    const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
+    return runThemeSurfacer(c.env, userId);
+  });
+  await step("autoseed_pages", async () => {
+    const { autoseedPages } = await import("../graph/lib/autoseed-pages");
+    return autoseedPages(c.env, userId);
+  });
+  await step("propose_briefs", async () => {
+    const { proposeBriefs } = await import("../graph/lib/briefs/proposer");
+    return proposeBriefs(c.env, userId);
+  });
+  await step("draft_readings", async () => {
+    const { draftReadings } = await import("../graph/lib/draft-reading");
+    return draftReadings(c.env, userId);
+  });
+  return c.json({ ok: true, results });
 });
 
 // GET /v1/admin/health — model + binding probe.
