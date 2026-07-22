@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T20:58:49Z",
-  "run_id": "29957358802",
+  "requested_at": "2026-07-22T20:59:30Z",
+  "run_id": "29957401122",
   "method": "GET",
-  "path": "/v1/admin/auto-expand?confirm=1",
-  "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"started\": true\n}"
+  "path": "/v1/admin/runtime",
+  "status": 500,
+  "body": "{\n  \"error\": {\n    \"code\": \"internal_error\",\n    \"message\": \"Internal server error\",\n    \"trace_id\": \"135b2546-a4de-4c16-be3b-15e4ee2824d2\"\n  }\n}"
 }
