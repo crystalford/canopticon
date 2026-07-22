@@ -98,7 +98,7 @@ app.use("*", async (c, next) => {
   const statusBadge = await renderWorkStatusBadge(c.env.DB).catch(() => "");
   const injected = html.replace(
     '<a href="/search" class="nav-search">',
-    `${statusBadge}<a href="/op/library" class="nav-search" style="color:var(--accent,#5d8bc6)">operator →</a>\n      <a href="/search" class="nav-search">`,
+    `${statusBadge}<a href="/op/library" class="nav-search" style="color:var(--accent,#5d8bc6)">operator →</a>\n      <a href="/how-it-works" class="nav-search">how this works</a>\n      <a href="/search" class="nav-search">`,
   );
   c.res = new Response(injected, { status: res.status, headers: res.headers });
 });
@@ -461,6 +461,14 @@ app.get("/method", () => htmlResponse(renderMethodology()));
 app.get("/about", (c) => c.redirect("/method", 301));
 
 app.get("/methodology", (c) => c.redirect("/method", 301));
+
+// How this works — the operator orientation page: what runs on its own
+// between visits, what each operator action does. Public (nothing
+// sensitive), written for the operator.
+app.get("/how-it-works", async () => {
+  const { renderHowItWorks } = await import("./render/how-it-works");
+  return htmlResponse(renderHowItWorks());
+});
 
 app.get("/sources", () =>
   htmlResponse(
