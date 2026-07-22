@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T23:34:18Z",
-  "run_id": "29966507235",
+  "requested_at": "2026-07-22T23:39:12Z",
+  "run_id": "29966771414",
   "method": "GET",
-  "path": "/",
-  "status": 0,
-  "body": ""
+  "path": "/v1/admin/health",
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"generated_at\": \"2026-07-22T23:39:11.983Z\",\n  \"roles\": {\n    \"bulk_extraction\": {\n      \"model\": \"@cf/meta/llama-4-scout-17b-16e-instruct\",\n      \"status\": \"ok\",\n      \"latency_ms\": 626,\n      \"text_sample\": \"OK\"\n    },\n    \"hard_extraction\": {\n      \"model\": \"@cf/openai/gpt-oss-120b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 474,\n      \"text_sample\": \"\"\n    },\n    \"surfacing_ambitious\": {\n      \"model\": \"@cf/openai/gpt-oss-120b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 452,\n      \"text_sample\": \"\"\n    },\n    \"judge\": {\n      \"model\": \"@cf/qwen/qwq-32b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 510,\n      \"text_sample\": \"Okay, the user sent \\\"ping\\\".\"\n    },\n    \"large_context\": {\n      \"model\": \"@cf/nvidia/nemotron-3-120b-a12b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 433,\n      \"text_sample\": \"\"\n    }\n  }\n}"
 }
