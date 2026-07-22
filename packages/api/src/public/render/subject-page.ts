@@ -99,6 +99,10 @@ interface ConnectionRow {
 interface ThemeRow {
   received_account: string;
   convergence_count: number;
+  /** JSON array of quote ids — the contradicting evidence the theme was
+   *  surfaced from. Must be SELECTed or the "what the documents show"
+   *  block silently renders empty. */
+  evidence_quote_ids: string;
 }
 
 export async function renderSubjectPage(
@@ -164,7 +168,7 @@ async function renderNeutral(
   if (subject.kind === "theme") {
     const theme = await one<ThemeRow>(
       env.DB,
-      "SELECT received_account, convergence_count FROM themes WHERE node_id = ?",
+      "SELECT received_account, convergence_count, evidence_quote_ids FROM themes WHERE node_id = ?",
       [subject.node_id],
     );
     return renderThemePageNeutral(env, subject, page, theme, hasSignedReading, isOperator);
@@ -227,14 +231,14 @@ async function renderNeutral(
     : connectionsBlock;
   const establishedBlockWithStandalone = established.length
     ? establishedBlock.replace(
-        `<div class="sec-k">Established</div>`,
-        `<div class="sec-k">Established <a class="sec-standalone" href="/profile/${escapeAttr(page.slug)}">see profile →</a></div>`,
+        `<div class="sec-k">On the record</div>`,
+        `<div class="sec-k">On the record <a class="sec-standalone" href="/profile/${escapeAttr(page.slug)}">see profile →</a></div>`,
       )
     : establishedBlock;
   const contestedBlockWithStandalone = contested.length
     ? contestedBlock.replace(
-        `<div class="sec-k">Contested — shown as contested, by rule, not choice</div>`,
-        `<div class="sec-k">Contested — shown as contested, by rule, not choice <a class="sec-standalone" href="/ct/${escapeAttr(page.slug)}">see standalone →</a></div>`,
+        `<div class="sec-k">Disputed — who says what, against what</div>`,
+        `<div class="sec-k">Disputed — who says what, against what <a class="sec-standalone" href="/ct/${escapeAttr(page.slug)}">see standalone →</a></div>`,
       )
     : contestedBlock;
   const provenanceBlock = renderProvenance(sourceCount, hasSignedReading, page);
@@ -251,14 +255,15 @@ async function renderNeutral(
     connections.length === 0;
   const shapeBlock = isEmpty
     ? `<section class="shape-block" aria-label="What this page will contain">
-  <div class="sec-k">What this Record carries</div>
+  <div class="sec-k">What this file will hold</div>
   <ul>
-    <li><b>Established</b> — neutral facts about ${escapeHtml(subject.label)}, each linked to a verbatim source span.</li>
-    <li><b>Contested</b> — attributed assertions where the evidence is split or rebutted, shown gray, never silently as fact.</li>
-    <li><b>Timeline</b> — dated events involving this subject, ordered.</li>
-    <li><b>Connections</b> — typed relationships to other entities (ownership, employment, funding, membership).</li>
+    <li><b>On the record</b> — documented facts about ${escapeHtml(subject.label)}, each backed by a word-for-word quote from a source.</li>
+    <li><b>Disputed</b> — claims where the evidence is split or rebutted, shown as disputed, never quietly as fact.</li>
+    <li><b>Timeline</b> — dated events involving this subject, in order.</li>
+    <li><b>People</b> — the named people connected to it, and their role.</li>
+    <li><b>Connections</b> — links to other files (ownership, employment, funding, membership).</li>
   </ul>
-  <p>Nothing has been extracted yet that fills these. Documents in the Library are read into a typed graph; this page grows from that graph automatically.</p>
+  <p>Nothing has been read into this file yet. Source documents are read into the record automatically; this page grows from that.</p>
 </section>`
     : "";
 
@@ -785,10 +790,7 @@ async function renderThemePageNeutral(
 
   // The complicating evidence is the contradicting assertions the theme was
   // surfaced from. Read the evidence_quote_ids list and resolve each.
-  const evidenceQuoteIds: string[] = parseJson(
-    theme["evidence_quote_ids" as keyof ThemeRow] ?? "[]",
-    [],
-  );
+  const evidenceQuoteIds: string[] = parseJson(theme.evidence_quote_ids ?? "[]", []);
   let evidence: Array<{
     verbatim_text: string;
     piece_slug: string | null;
@@ -819,7 +821,7 @@ async function renderThemePageNeutral(
 
   const modeBand = renderModeBand(page.slug, "neutral", hasSignedReading, page);
   const evidenceBlock = evidence.length
-    ? `<div class="sec-k">How the corpus complicates it</div>
+    ? `<div class="sec-k">What the documents show</div>
 ${evidence
   .map(
     (e) => `<div class="evidence-card">
@@ -834,20 +836,20 @@ ${evidence
 <article class="subject-page">
   ${modeBand}
   <header class="subject-head">
-    <div class="kicker">Theme · what the corpus is engaging with</div>
+    <div class="kicker">The official story</div>
     <h1>${escapeHtml(subject.label)}</h1>
     <div class="received">
-      <div class="received-k">The received account</div>
+      <div class="received-k">What is commonly said</div>
       <p>${escapeHtml(theme.received_account)}</p>
     </div>
-    <p class="convergence">Surfaced from ${theme.convergence_count} independent source documents that push back on this account.</p>
+    <p class="convergence">Flagged because ${theme.convergence_count} separate source documents push back on this account.</p>
   </header>
 
   ${evidenceBlock}
 
   <div class="prov" style="margin-top:32px">
-    Themes are surfaced deterministically — the system only NAMES the received account. The convergence
-    of contradicting evidence across multiple sources is what makes a theme real. ${hasSignedReading ? "" : "Nobody has signed a reading of this theme yet."}
+    This page is flagged automatically: when several separate documents contradict the same widely-held
+    account, it is surfaced here with the contradicting evidence attached. ${hasSignedReading ? "" : "No signed analysis of this yet."}
   </div>
 </article>
 
@@ -1029,7 +1031,7 @@ function renderEstablishedBlock(facts: FactRow[]): string {
         `<div class="fact-row${i === facts.length - 1 ? " last" : ""}"><b>${escapeHtml(f.label)}</b>${f.quote_id ? ` <a class="qref" href="/q/${escapeAttr(f.quote_id)}" title="${escapeAttr(f.quote_text?.slice(0, 120) ?? "")}"><sup>${i + 1}</sup></a>` : ""}${f.piece_title ? ` <span style="color:var(--faint);font-size:12.5px"> · <a href="/library/${escapeAttr(f.piece_slug ?? "")}" style="color:var(--faint)">${escapeHtml(f.piece_title.slice(0, 40))}</a></span>` : ""}</div>`,
     )
     .join("");
-  return `<section id="established" data-schema="ItemList"><div class="sec-k">Established</div>${rows}</section>`;
+  return `<section id="on-the-record" data-schema="ItemList"><div class="sec-k">On the record</div>${rows}</section>`;
 }
 
 function renderContestedBlock(rows: AssertionRow[]): string {
@@ -1055,7 +1057,7 @@ function renderContestedBlock(rows: AssertionRow[]): string {
         ? `<a class="contested-src" href="/library/${escapeAttr(a.piece_slug ?? "")}">${escapeHtml(a.piece_title.slice(0, 60))} ↗</a>`
         : "";
       return `<div class="contested-card">
-  <div class="contested-stamp">Contested</div>
+  <div class="contested-stamp">Disputed</div>
   <blockquote class="contested-quote">"${escapeHtml(a.label)}"</blockquote>
   <div class="contested-attribution">
     ${a.actor ? `Asserted by <b>${escapeHtml(a.actor)}</b>` : "Unattributed assertion"} · stance: ${escapeHtml(a.stance)}
@@ -1065,8 +1067,8 @@ function renderContestedBlock(rows: AssertionRow[]): string {
 </div>`;
     })
     .join("");
-  return `<section id="contested" data-schema="Claim">
-<div class="sec-k">Contested — shown as contested, by rule, not choice</div>
+  return `<section id="disputed" data-schema="Claim">
+<div class="sec-k">Disputed — who says what, against what</div>
 ${cards}
 </section>`;
 }
@@ -1091,16 +1093,14 @@ function renderConnectionsBlock(conns: ConnectionRow[]): string {
 function renderProvenance(sourceCount: number, hasSigned: boolean, page: PageRow): string {
   const lines: string[] = [];
   if (sourceCount > 0) {
-    lines.push(
-      `Appears in ${sourceCount} source document${sourceCount === 1 ? "" : "s"} in the Library.`,
-    );
+    lines.push(`Built from ${sourceCount} source document${sourceCount === 1 ? "" : "s"} on file.`);
   }
   if (hasSigned && page.signed_status !== "none") {
-    lines.push("<b>The operator has signed a reading of this subject.</b>");
+    lines.push("<b>A signed analysis of this subject is on file.</b>");
   } else {
-    lines.push("Nobody has signed a reading of this subject yet.");
+    lines.push("No signed analysis of this subject yet.");
   }
-  lines.push("This page is not written — it is the knowledge graph, rendered.");
+  lines.push("Nobody wrote this page — it is built from the record, automatically.");
   return `<div class="prov">${lines.join("<br/>")}</div>`;
 }
 
