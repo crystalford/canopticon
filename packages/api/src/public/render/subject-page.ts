@@ -344,7 +344,7 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
       desig: lede,
       factCount: established.length,
       disputedCount: contested.length,
-      sourceCount,
+      sourceCount: sourceCount.count,
       openedAt: page.created_at,
       updatedAt: page.updated_at,
       signedHref: hasSignedReading ? `/p/${escapeAttr(page.slug)}?mode=signed` : null,
@@ -1115,18 +1115,37 @@ function renderAppearsInBlock(rows: ConnectionRow[]): string {
   return `<section id="appears-in"><div class="sec-k">Appears in ${files.length} file${files.length === 1 ? "" : "s"}</div>${list}</section>`;
 }
 
-async function loadSourceCount(env: PublicEnv, userId: string, subjectId: string): Promise<number> {
-  const row = await one<{ n: number }>(
+interface SourceStats {
+  count: number;
+  // Distinct pieces.byline values among those sources — for web-fetched
+  // pieces this is the hostname (record-builder.ts sets it that way); for
+  // manual uploads it's whatever the operator gave it, or blank (each
+  // blank-byline piece counts as its own outlet rather than collapsing
+  // together, so it never UNDERcounts diversity). A subject can look
+  // "well-sourced" by raw count while really just being one site quoted
+  // ten times — this is what tells the difference.
+  distinctOutlets: number;
+}
+
+async function loadSourceCount(
+  env: PublicEnv,
+  userId: string,
+  subjectId: string,
+): Promise<SourceStats> {
+  const row = await one<{ n: number; outlets: number }>(
     env.DB,
-    `SELECT COUNT(DISTINCT piece_id) AS n FROM nodes
-      WHERE user_id = ? AND piece_id IS NOT NULL
-        AND (id = ? OR EXISTS (
+    `SELECT COUNT(DISTINCT p.id) AS n,
+            COUNT(DISTINCT COALESCE(NULLIF(TRIM(p.byline), ''), p.id)) AS outlets
+       FROM nodes
+       JOIN pieces p ON p.id = nodes.piece_id
+      WHERE nodes.user_id = ? AND nodes.piece_id IS NOT NULL
+        AND (nodes.id = ? OR EXISTS (
           SELECT 1 FROM edges e
           WHERE (e.src_node_id = nodes.id AND e.dst_node_id = ?)
              OR (e.dst_node_id = nodes.id AND e.src_node_id = ?)))`,
     [userId, subjectId, subjectId, subjectId],
   ).catch(() => null);
-  return row?.n ?? 0;
+  return { count: row?.n ?? 0, distinctOutlets: row?.outlets ?? 0 };
 }
 
 interface PageClaimRow {
@@ -1367,10 +1386,18 @@ function renderConnectionsBlock(conns: ConnectionRow[]): string {
   return `<section id="connections" data-schema="OwnershipInfo"><div class="sec-k">Connections</div>${rows}</section>`;
 }
 
-function renderProvenance(sourceCount: number, hasSigned: boolean, page: PageRow): string {
+function renderProvenance(sourceCount: SourceStats, hasSigned: boolean, page: PageRow): string {
   const lines: string[] = [];
-  if (sourceCount > 0) {
-    lines.push(`Built from ${sourceCount} source document${sourceCount === 1 ? "" : "s"} on file.`);
+  if (sourceCount.count > 0) {
+    const base = `Built from ${sourceCount.count} source document${sourceCount.count === 1 ? "" : "s"} on file`;
+    // Only worth saying when it's actually informative: a diversity count
+    // equal to the raw count means every source already reads as its own
+    // outlet, so there's nothing extra to learn from restating it.
+    lines.push(
+      sourceCount.distinctOutlets > 0 && sourceCount.distinctOutlets < sourceCount.count
+        ? `${base}, from ${sourceCount.distinctOutlets} distinct outlet${sourceCount.distinctOutlets === 1 ? "" : "s"}.`
+        : `${base}.`,
+    );
   }
   if (hasSigned && page.signed_status !== "none") {
     lines.push("<b>A signed analysis of this subject is on file.</b>");
