@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T21:08:49Z",
-  "run_id": "29958040252",
+  "requested_at": "2026-07-22T21:09:49Z",
+  "run_id": "29958108326",
   "method": "GET",
-  "path": "/v1/admin/beats/add?confirm=1&label=Chrystia%20Freeland",
+  "path": "/v1/admin/beats/add?confirm=1&label=Bank%20for%20International%20Settlements",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"label\": \"Chrystia Freeland\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"label\": \"Bank for International Settlements\"\n}"
 }
