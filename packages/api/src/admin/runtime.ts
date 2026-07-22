@@ -391,6 +391,21 @@ app.get("/backfill-library", async (c) => {
 // between calls.
 const RESETTLE_STEPS = SETTLE_STEP_RUNNERS;
 
+// GET /v1/admin/settle-state — diagnostic: what does settle_state actually
+// hold right now. Exists because the every-minute cron nudge kept
+// re-running entity_resolution instead of advancing — need to see the raw
+// row to know whether next_step is stuck or the read/write itself is
+// failing silently (a waitUntil'd promise rejection has nowhere to surface).
+app.get("/settle-state", async (c) => {
+  const userId = c.get("user_id");
+  const row = await one<{ user_id: string; next_step: string; last_advanced_at: string | null }>(
+    c.env.DB,
+    "SELECT user_id, next_step, last_advanced_at FROM settle_state WHERE user_id = ?",
+    [userId],
+  ).catch((err) => ({ error: (err as Error).message }) as never);
+  return c.json({ ok: true, row });
+});
+
 app.get("/resettle", async (c) => {
   if (c.req.query("confirm") !== "1") {
     return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
