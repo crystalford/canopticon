@@ -391,6 +391,29 @@ app.get("/backfill-library", async (c) => {
 // between calls.
 const RESETTLE_STEPS = SETTLE_STEP_RUNNERS;
 
+// GET /v1/admin/settle-advance?confirm=1 — diagnostic: call
+// advanceSettleOneStep from a normal fetch-triggered request instead of
+// the every-minute cron. If this reliably advances next_step where the
+// cron-triggered call doesn't, that confirms scheduled()-handler waitUntil
+// work runs under a tighter execution budget than fetch-triggered
+// waitUntil work — a real, documented Cloudflare Workers distinction, not
+// a code bug — and the fix is to have the cron self-fetch instead of
+// calling the heavy step directly.
+app.get("/settle-advance", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const userId = c.get("user_id");
+  const env = c.env;
+  c.executionCtx.waitUntil(
+    (async () => {
+      const { advanceSettleOneStep } = await import("../graph/lib/settle-pipeline.ts");
+      await advanceSettleOneStep(env, userId);
+    })(),
+  );
+  return c.json({ ok: true, started: true });
+});
+
 // GET /v1/admin/settle-state — diagnostic: what does settle_state actually
 // hold right now. Exists because the every-minute cron nudge kept
 // re-running entity_resolution instead of advancing — need to see the raw
