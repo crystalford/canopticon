@@ -73,3 +73,50 @@ describe("shell — design tokens + trust strip + brand", () => {
     expect(html).toContain("canopticon.com/instruments");
   });
 });
+
+describe("method paper", () => {
+  it("renders the numbered sections with a sticky TOC", async () => {
+    const res = await app.fetch(new Request("https://blindspot.canopticon.test/method"), env);
+    const html = await res.text();
+    expect(html).toContain("The Proposition");
+    expect(html).toContain("The Invisibility Index");
+    expect(html).toContain("The Recovery Ratio");
+    // Sticky TOC + deep-link anchors.
+    expect(html).toContain("bs-method-toc");
+    expect(html).toContain('id="proposition"');
+    expect(html).toContain('href="#index"');
+  });
+
+  it("shows the honesty boxes (the firewall made legible)", async () => {
+    const res = await app.fetch(new Request("https://blindspot.canopticon.test/method"), env);
+    const html = await res.text();
+    expect(html).toContain("bs-honesty");
+    expect(html).toContain("CANOPTICON construction");
+    expect(html).toContain("scope mismatch");
+  });
+
+  it("interpolates the stated channel shares so prose can't drift from params", async () => {
+    const res = await app.fetch(new Request("https://blindspot.canopticon.test/method"), env);
+    const html = await res.text();
+    // unrealizedShare 0.55 → "55%"
+    expect(html).toContain("55%");
+  });
+});
+
+describe("sources catalog", () => {
+  it("lists the official series with deep-link anchors", async () => {
+    const res = await app.fetch(new Request("https://blindspot.canopticon.test/sources"), env);
+    const html = await res.text();
+    expect(html).toContain("Survey of Financial Security");
+    expect(html).toContain("Parliamentary Budget Officer");
+    expect(html).toContain('id="sfs"');
+    expect(html).toContain('id="pbo-hnw"');
+  });
+
+  it("separates official series from academic grounding", async () => {
+    const res = await app.fetch(new Request("https://blindspot.canopticon.test/sources"), env);
+    const html = await res.text();
+    expect(html).toContain("official series");
+    expect(html).toContain("academic grounding");
+  });
+});
