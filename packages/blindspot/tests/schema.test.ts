@@ -8,13 +8,15 @@ const env = {
   PUBLIC_BASE: "https://canopticon.test",
   BLINDSPOT_BASE: "https://blindspot.canopticon.test",
   DB: {
-    prepare: () => ({
-      bind: () => ({
+    prepare: () => {
+      const stmt: Record<string, unknown> = {
+        bind: () => stmt,
         first: async () => null,
         all: async () => ({ results: [] }),
         run: async () => ({ results: [], meta: { changes: 0 } }),
-      }),
-    }),
+      };
+      return stmt;
+    },
   },
   ASSETS: { get: async () => null, head: async () => null },
   AI: {},
@@ -71,6 +73,23 @@ describe("shell — design tokens + trust strip + brand", () => {
     const res = await app.fetch(new Request("https://blindspot.canopticon.test/"), env);
     const html = await res.text();
     expect(html).toContain("canopticon.com/instruments");
+  });
+});
+
+describe("the landing composes the four movements", () => {
+  it("renders all four movement sections even with an empty database", async () => {
+    const res = await app.fetch(new Request("https://blindspot.canopticon.test/"), env);
+    const html = await res.text();
+    expect(html).toContain("The Spread");
+    expect(html).toContain("The Invisibility Index");
+    expect(html).toContain("The Behavior Strip");
+    expect(html).toContain("Where do you stand?");
+  });
+
+  it("degrades each movement to a 'no data yet' slot with an empty DB", async () => {
+    const res = await app.fetch(new Request("https://blindspot.canopticon.test/"), env);
+    const html = await res.text();
+    expect(html).toContain("No data yet");
   });
 });
 

@@ -12,13 +12,15 @@ function makeEnv() {
     PUBLIC_BASE: "https://canopticon.test",
     BLINDSPOT_BASE: "https://blindspot.canopticon.test",
     DB: {
-      prepare: () => ({
-        bind: () => ({
+      prepare: () => {
+        const stmt: Record<string, unknown> = {
+          bind: () => stmt,
           first: async () => null,
           all: async () => ({ results: [] }),
           run: async () => ({ results: [], meta: { changes: 0 } }),
-        }),
-      }),
+        };
+        return stmt;
+      },
     },
     ASSETS: { get: async () => null, head: async () => null },
     AI: {},
