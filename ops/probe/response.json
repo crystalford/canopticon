@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T21:09:49Z",
-  "run_id": "29958108326",
+  "requested_at": "2026-07-22T21:10:22Z",
+  "run_id": "29958145162",
   "method": "GET",
-  "path": "/v1/admin/beats/add?confirm=1&label=Bank%20for%20International%20Settlements",
+  "path": "/v1/admin/beats/add?confirm=1&label=CRTC%20streaming%20regulation",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"label\": \"Bank for International Settlements\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"label\": \"CRTC streaming regulation\"\n}"
 }
