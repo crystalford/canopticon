@@ -17,8 +17,8 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) {
     return renderPage({
-      title: "Topics",
-      description: "Browse subjects in the knowledge graph.",
+      title: "Browse the record",
+      description: "Every file in the record — people, companies, events, and themes.",
       body: emptyState("No operator yet."),
       activeNav: "/topics",
       zone: "topics",
@@ -32,11 +32,13 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
     slug: string;
     label: string;
     kind: string;
+    entity_type: string | null;
     signed_status: string;
     source_count: number;
   }>(
     env.DB,
-    `SELECT p.slug, n.label, n.kind, p.signed_status,
+    `SELECT p.slug, n.label, n.kind, json_extract(n.metadata, '$.entity_type') AS entity_type,
+            p.signed_status,
             (SELECT COUNT(DISTINCT piece_id) FROM nodes
               WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS source_count
        FROM pages p
@@ -49,8 +51,8 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
 
   if (subjects.length === 0) {
     return renderPage({
-      title: "Topics",
-      description: "Browse subjects in the knowledge graph.",
+      title: "Browse the record",
+      description: "Every file in the record — people, companies, events, and themes.",
       body: emptyState(
         "No subjects yet. Drop research reports in the Library — pages grow as documents are read.",
       ),
@@ -60,8 +62,13 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   }
 
   const themes = subjects.filter((s) => s.kind === "theme");
-  const entities = subjects.filter((s) => s.kind === "entity");
   const events = subjects.filter((s) => s.kind === "event");
+  // People get their own section — same real signal as the file page
+  // (metadata.entity_type, written at extraction time). Companies and
+  // everything else that isn't a person stay in the general Entities
+  // bucket rather than guessing a finer split we can't back with data.
+  const people = subjects.filter((s) => s.kind === "entity" && s.entity_type === "person");
+  const entities = subjects.filter((s) => s.kind === "entity" && s.entity_type !== "person");
 
   // Themes get hero treatment — fetch the received_account text so each card
   // can carry the *thing* the corpus is pushing back on, not just a label.
@@ -102,7 +109,7 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   const themeCard = (t: (typeof themeRows)[number]): string => {
     const signed = t.signed_status === "signed" || t.signed_status === "published";
     return `<a class="theme-card" href="/s/${escapeHtml(t.slug)}${signed ? "?mode=signed" : ""}">
-  <div class="theme-kicker">Theme${signed ? " · the operator's reading" : ""}</div>
+  <div class="theme-kicker">Theme${signed ? " · signed analysis" : ""}</div>
   <h3 class="theme-label">${escapeHtml(t.label)}</h3>
   <p class="theme-quote">"${escapeHtml(t.received_account)}"</p>
   <div class="theme-meta">${t.convergence_count} document${t.convergence_count === 1 ? "" : "s"} push back on this account</div>
@@ -115,15 +122,15 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   const themesSection =
     themeRows.length > 0
       ? `<section class="topics-themes">
-  <div class="topics-section-kicker">What the corpus is engaging with</div>
+  <div class="topics-section-kicker">What the documents push back on</div>
   <h2 class="topics-section-h">Themes</h2>
-  <p class="topics-section-lede">Received accounts the corpus pushes back on. Surfaced automatically when three or more documents converge on contradicting the same proposition.</p>
+  <p class="topics-section-lede">Widely-held accounts the documents contradict — surfaced automatically when three or more separate sources converge on the same pushback.</p>
   <div class="theme-grid">${themeRows.map((t) => themeCard(t)).join("")}</div>
 </section>`
       : `<section class="topics-themes topics-themes-empty">
-  <div class="topics-section-kicker">What the corpus is engaging with</div>
+  <div class="topics-section-kicker">What the documents push back on</div>
   <h2 class="topics-section-h">Themes</h2>
-  <p class="topics-section-lede">A theme is a received account the corpus pushes back on — surfaced automatically when three or more documents converge on contradicting the same proposition. None have crossed the threshold yet.</p>
+  <p class="topics-section-lede">A theme is a widely-held account the documents contradict — surfaced automatically when three or more separate sources converge on the same pushback. None have crossed that threshold yet.</p>
 </section>`;
 
   // Entities + events render as plain card grids below — they're the
@@ -150,16 +157,18 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
 
   const body = `
 <section class="topics-masthead">
-  <div class="kicker"><span class="live"></span> The fabric</div>
-  <h1 class="topics-hero">Topics</h1>
+  <div class="kicker"><span class="live"></span> Browse the record</div>
+  <h1 class="topics-hero">Browse the record</h1>
   <p class="topics-lede">
-    Subjects in the knowledge graph — themes the corpus engages with, entities, and events.
-    Nobody wrote these pages; they grew as documents were read. Each page carries its receipts.
+    Every file in the record — the widely-held stories the documents push back on, the people
+    and companies named, the events on the timeline. Nobody wrote these pages; they grew as
+    documents were read. Each one carries its receipts.
   </p>
 </section>
 ${themesSection}
-${plainSection("Entities", "People, organizations, places", entities, "Entity", "Entities the corpus has recognised but hasn't yet seeded into pages.")}
-${plainSection("Events", "Dated occurrences", events, "Event", "Dated occurrences — extracted with their source quotes. No event pages yet.")}
+${plainSection("People", "The named people in the record", people, "Person", "No people have been read into the record yet.")}
+${plainSection("Companies & other", "Organizations, places, and other subjects", entities, "Entity", "Nothing recognised here yet — files grow as documents are read.")}
+${plainSection("Events", "Dated occurrences", events, "Event", "Dated occurrences, extracted with their source quotes. No event files yet.")}
 
 <style>
   .topics-masthead { margin-bottom: 32px; }
@@ -219,7 +228,7 @@ ${plainSection("Events", "Dated occurrences", events, "Event", "Dated occurrence
     padding: 24px 26px;
     border: 1px solid var(--rule);
     border-radius: 12px;
-    background: var(--surface, #fff);
+    background: var(--surface);
     transition: border-color .12s;
   }
   .theme-card:hover { border-color: #c9bfa9; }
@@ -260,9 +269,9 @@ ${plainSection("Events", "Dated occurrences", events, "Event", "Dated occurrence
 `;
 
   return renderPage({
-    title: "Topics",
+    title: "Browse the record",
     description:
-      "Browse the knowledge graph — entities, events, and themes the corpus engages with.",
+      "Every file in the record — the people and companies named, the events on the timeline, and the widely-held stories the documents push back on.",
     body,
     activeNav: "/topics",
     zone: "topics",
