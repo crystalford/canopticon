@@ -196,6 +196,15 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
   // Signed-published readings rise to the top; the lead spot goes to the
   // most-recently-signed piece — this is the editor's call. Without it the
   // home is just a recency dump.
+  // Substance gate: autoseed-pages.ts creates a page for every entity/event
+  // node the moment it's extracted, including a bare acronym or surname
+  // mentioned once in passing — that page is real (it exists so the record
+  // can grow into it later) but it has nothing on it yet, and surfacing it
+  // on the homepage next to actually-developed subjects reads as broken, not
+  // "growing." Require at least a couple of real verbatim quotes — the
+  // concrete unit of evidence this schema has — before a subject is eligible
+  // to be featured here. Published readings are exempt: they're already
+  // vetted by definition, however few quotes ground them.
   const subjects = await all<{
     slug: string;
     label: string;
@@ -212,10 +221,14 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
               WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources
        FROM pages p JOIN nodes n ON n.id = p.subject_node_id
       WHERE p.user_id = ?
+        AND (
+          p.signed_status = 'published'
+          OR (SELECT COUNT(*) FROM quotes q WHERE q.user_id = ? AND q.node_id = n.id) >= 2
+        )
       ORDER BY (p.signed_status = 'published') DESC,
                COALESCE(p.signed_at, p.updated_at) DESC
       LIMIT 14`,
-    [userId, userId],
+    [userId, userId, userId],
   ).catch(() => []);
   if (subjects.length === 0) return "";
 

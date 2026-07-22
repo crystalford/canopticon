@@ -34,6 +34,15 @@ export async function draftReadings(env: Env, userId: string): Promise<DraftRead
   // Candidate subjects: pages with no signed reading yet, ranked by how much
   // there is to SAY — contested assertions + connected facts. A subject worth
   // a reading has tension, not just facts.
+  //
+  // The quote-count filter matters as much as the ranking: without it, a
+  // subject that's merely well-connected (many aboutness edges from being
+  // mentioned across documents — exactly the shape of a bare acronym or
+  // surname that never got resolved to a full entity) can out-score a subject
+  // with real grounding but fewer edges, filling the LIMIT 12 pool with
+  // candidates draftOne's own MIN_QUOTES check (below) was always going to
+  // reject. Pre-filtering to the same >= MIN_QUOTES bar draftOne enforces
+  // means every candidate this query returns can actually be drafted.
   const candidates = await all<{ page_id: string; node_id: string; label: string; score: number }>(
     env.DB,
     `SELECT p.id AS page_id, n.id AS node_id, n.label,
@@ -46,9 +55,18 @@ export async function draftReadings(env: Env, userId: string): Promise<DraftRead
        FROM pages p JOIN nodes n ON n.id = p.subject_node_id
       WHERE p.user_id = ? AND p.signed_status = 'none'
         AND n.kind IN ('entity', 'theme')
+        AND (
+          SELECT COUNT(*) FROM quotes q
+           WHERE q.user_id = ?
+             AND (q.node_id = n.id OR EXISTS (
+               SELECT 1 FROM edges e WHERE
+                 (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
+                 (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
+             ))
+        ) >= ${MIN_QUOTES}
       ORDER BY score DESC
       LIMIT 12`,
-    [userId, userId],
+    [userId, userId, userId],
   ).catch(() => []);
 
   // Load the operator's voice once (register for all drafts).
