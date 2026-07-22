@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T21:08:37Z",
-  "run_id": "29958031661",
+  "requested_at": "2026-07-22T21:08:49Z",
+  "run_id": "29958040252",
   "method": "GET",
-  "path": "/v1/admin/beats/add?confirm=1&label=Mark%20Carney",
+  "path": "/v1/admin/beats/add?confirm=1&label=Chrystia%20Freeland",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"label\": \"Mark Carney\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"label\": \"Chrystia Freeland\"\n}"
 }
