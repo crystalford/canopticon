@@ -245,7 +245,6 @@ export function renderMethodology(): string {
   .meth-section-trust {
     padding: 30px 32px;
     border: 1px solid var(--accent-bd);
-    border-left: 4px solid var(--accent);
     border-radius: 11px;
     background: var(--accent-bg);
   }

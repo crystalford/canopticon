@@ -397,7 +397,6 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
   .contested-card {
     background: var(--cont-bg);
     border: 1px solid var(--cont-bd);
-    border-left: 4px solid var(--contested);
     border-radius: 9px;
     padding: 22px 24px;
     margin-bottom: 14px;
@@ -769,7 +768,6 @@ async function renderSigned(
     margin: 36px 0;
     padding: 26px 28px;
     border: 1px solid var(--cont-bd);
-    border-left: 4px solid var(--accent);
     border-radius: 11px;
     background: var(--cont-bg);
   }
@@ -827,7 +825,7 @@ async function renderSigned(
   .op-aff-btn-primary { background:var(--ink); color:var(--paper); border-color:var(--ink); font-weight:600; }
   .draft-banner {
     margin-bottom: 18px; padding: 14px 16px;
-    border: 1px solid var(--accent-bd); border-left: 3px solid var(--accent);
+    border: 1px solid var(--accent-bd);
     border-radius: 8px; background: var(--accent-bg, rgba(58,99,160,.08));
     font-size: 13.5px; line-height: 1.55; color: var(--ink-2);
   }
@@ -933,8 +931,8 @@ ${evidence
   .mode-band .here { color:var(--ink); }
   .subject-head .kicker { font-size:11px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase; margin-bottom:10px; }
   .subject-head h1 { font-family:var(--serif); font-size:36px; line-height:1.15; letter-spacing:-.02em; font-weight:600; margin-bottom:24px; }
-  .received { background:var(--panel-2, rgba(0,0,0,.15)); border-left:3px solid var(--accent);
-    padding:16px 20px; margin-bottom:18px; }
+  .received { background:var(--panel-2, rgba(0,0,0,.15)); border:1px solid var(--rule);
+    padding:16px 20px; margin-bottom:18px; border-radius:9px; }
   .received-k { font-size:10.5px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin-bottom:6px; }
   .received p { font-family:var(--serif); font-size:20px; line-height:1.45; color:var(--ink); font-style:italic; }
   .convergence { font-size:13.5px; color:var(--ink-3); }
@@ -1886,19 +1884,16 @@ const EXPAND_BANNER_STYLES = `<style>
     margin: 0 0 22px;
     padding: 12px 16px;
     border: 1px solid var(--accent-bd, #c4d1e3);
-    border-left: 3px solid var(--accent);
     border-radius: 8px;
     background: var(--accent-bg, #e8ecf3);
   }
   .expand-banner-done {
     background: var(--confirmed-bg, #e7f0e6);
     border-color: var(--confirmed-bd, #bcd6bd);
-    border-left-color: var(--confirmed, #2f7d52);
   }
   .expand-banner-warn {
     background: var(--correction-bg, #f6e4df);
     border-color: var(--correction-bd, #e2bdb2);
-    border-left-color: var(--correction, #b0402c);
   }
   .expand-band {
     display: flex; align-items: center; gap: 11px;

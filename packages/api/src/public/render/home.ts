@@ -822,9 +822,9 @@ ${opSearchMisses}
   .op-briefing {
     margin: 0 0 28px;
     padding: 18px 22px;
-    border-left: 3px solid var(--accent);
+    border: 1px solid var(--accent-bd, var(--rule));
     background: var(--accent-bg, rgba(58, 99, 160, 0.06));
-    border-radius: 4px;
+    border-radius: 8px;
   }
   .op-briefing-kicker {
     font-size: 11px; letter-spacing: .12em;
@@ -843,9 +843,9 @@ ${opSearchMisses}
   .op-today {
     margin: -14px 0 28px;
     padding: 10px 22px;
-    border-left: 3px solid var(--rule-bright, var(--rule));
+    border: 1px solid var(--rule);
     background: var(--paper-2, var(--surface));
-    border-radius: 4px;
+    border-radius: 8px;
   }
   .op-today p { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
   .op-today-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
@@ -864,7 +864,6 @@ ${opSearchMisses}
     padding: 22px 24px;
     margin-bottom: 12px;
     border: 1px solid var(--rule);
-    border-left: 3px solid var(--accent);
     border-radius: 10px;
     background: var(--paper-2, var(--surface));
     transition: border-color .12s;

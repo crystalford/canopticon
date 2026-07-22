@@ -142,7 +142,7 @@ export function renderHowItWorks(): string {
   .hiw-section p { font-family: var(--serif); font-size: 15.5px; line-height: 1.65; color: var(--ink-2); }
   .hiw-section code { font-family: var(--mono); font-size: 13px; background: var(--paper-2, var(--surface)); padding: 1px 5px; border-radius: 3px; }
   .hiw-list { display: flex; flex-direction: column; gap: 18px; margin: 16px 0; }
-  .hiw-item { padding: 14px 18px; border-left: 3px solid var(--rule-bright, var(--rule)); background: var(--paper-2, var(--surface)); border-radius: 4px; }
+  .hiw-item { padding: 14px 18px; border: 1px solid var(--rule); background: var(--paper-2, var(--surface)); border-radius: 8px; }
   .hiw-item-h { font-family: var(--mono); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
   .hiw-item p { margin: 0; font-size: 14.5px; }
 </style>`,

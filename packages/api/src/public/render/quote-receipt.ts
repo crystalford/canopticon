@@ -189,7 +189,6 @@ export async function renderQuoteReceipt(env: PublicEnv, quoteId: string): Promi
     margin: 0 0 36px;
     padding: 24px 28px;
     border: 1px solid var(--rule);
-    border-left: 4px solid var(--accent);
     border-radius: 9px;
     background: var(--surface, #fff);
   }
