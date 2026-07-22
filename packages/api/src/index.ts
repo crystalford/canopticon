@@ -195,11 +195,12 @@ import { drainDigestJobs, runDigestJob } from "./graph/lib/digest-jobs.ts";
 import { runWatcher } from "./graph/lib/watcher.ts";
 import { all as dbAll } from "./lib/d1.ts";
 
-// Cloudflare Cron Trigger handler. Two crons configured in wrangler.toml:
+// Cloudflare Cron Trigger handler. Three crons configured in wrangler.toml:
 //   "* * * * *"   — drain the digest_jobs queue (safety net for ingest)
 //   "0 12 * * 1"  — weekly monitor watchers
+//   "0 * * * *"   — hourly autonomous expand sweep (one thin subject/tick)
 // We branch on controller.cron so the every-minute drain doesn't refire
-// watchers on every tick.
+// watchers or the sweep on every tick.
 const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, ctx) => {
   const cron = controller.cron;
   if (cron === "0 12 * * 1") {
@@ -210,6 +211,13 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
     for (const m of monitors) {
       ctx.waitUntil(runWatcher(env, m.id));
     }
+    return;
+  }
+  if (cron === "0 * * * *") {
+    const { resolveOperatorId } = await import("./public/data.ts");
+    const { sweepThinSubjects } = await import("./graph/lib/autonomous-expand.ts");
+    const userId = await resolveOperatorId(env.DB);
+    if (userId) ctx.waitUntil(sweepThinSubjects(env, userId));
     return;
   }
   // Default branch (every-minute tick): drain queued + stalled digest jobs.

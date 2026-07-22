@@ -458,6 +458,37 @@ app.get("/resettle", async (c) => {
   return c.json({ ok: true, started: true, step: stepName });
 });
 
+// GET /v1/admin/auto-expand — manually fire one autonomous-sweep tick, for
+// testing/observing without waiting for the cron. Same budget cap as the
+// cron path (graph/lib/autonomous-expand.ts) — this does NOT bypass the
+// per-subject cooldown or batch size, it just runs the same logic on demand.
+app.get("/auto-expand", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const userId = c.get("user_id");
+  const env = c.env;
+  // Same reason /resettle fires via waitUntil: a batch of real searches +
+  // fetches + extraction runs long enough to risk the platform's execution
+  // ceiling if awaited inline. Poll /v1/admin/runtime for autonomous.sweep.*
+  // orchestrator_events instead.
+  c.executionCtx.waitUntil(
+    (async () => {
+      const { sweepThinSubjects } = await import("../graph/lib/autonomous-expand.ts");
+      await sweepThinSubjects(env, userId).catch((err) => {
+        return insertOne(env.DB, "orchestrator_events", {
+          user_id: userId,
+          event_type: "autonomous.sweep.failed",
+          subject_kind: "sweep",
+          subject_id: null,
+          payload: JSON.stringify({ error: (err as Error).message ?? "unknown error" }),
+        });
+      });
+    })(),
+  );
+  return c.json({ ok: true, started: true });
+});
+
 // GET /v1/admin/health — model + binding probe.
 //
 // Pings each role in the router with a 5-token request and reports per-role

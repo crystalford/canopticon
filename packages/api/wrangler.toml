@@ -43,7 +43,9 @@ binding = "AI"
 [triggers]
 # every minute: drain stuck/queued digest_jobs (the safety net under ingest)
 # monday 12:00 UTC: run the weekly monitor watchers
-crons = ["* * * * *", "0 12 * * 1"]
+# hourly: autonomous expand sweep — one thin subject per tick (see
+# graph/lib/autonomous-expand.ts for why one-per-tick, not a bigger batch)
+crons = ["* * * * *", "0 12 * * 1", "0 * * * *"]
 
 [vars]
 LOG_LEVEL = "info"
