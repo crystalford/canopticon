@@ -1,0 +1,1235 @@
+<title>The Record — Canopticon</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ============================================================================
+   CANOPTICON — "The Record" · clickable product mockup
+   The operator-dark tokens (styles.ts) promoted to the public ground.
+   Three voices: sans = the instrument · serif = the signed voice · mono = coordinates.
+   One deliberate theme: the dark instrument. This is the brand, not a skin.
+   ============================================================================ */
+:root {
+  color-scheme: dark;
+  --paper:      #0d0e11;
+  --paper-2:    #16171c;
+  --paper-3:    #212229;
+  --surface:    #131419;
+  --ink:        #eceef2;
+  --ink-2:      #ccced6;
+  --ink-3:      #93959f;
+  --ink-mute:   #666873;
+  --ink-faint:  #484a54;
+  --rule:       #242630;
+  --rule-bright:#353844;
+  --accent:     #5d8bc6;
+  --accent-2:   #7ea6d8;
+  --accent-bg:  #101c2b;
+  --accent-bd:  #28425f;
+  --confirmed:  #4d9c6f;
+  --conf-bg:    #11251a;
+  --conf-bd:    #234d34;
+  --contested:  #c47b98;
+  --cont-bg:    #241219;
+  --cont-bd:    #4b2734;
+  --correction: #c96a53;
+  --corr-bg:    #2a120c;
+  --corr-bd:    #5a261b;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", system-ui, ui-sans-serif, Arial, sans-serif;
+  --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --r-sm: 4px; --r: 7px; --r-lg: 11px;
+  --measure: 660px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+html, body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--sans); font-size: 15px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  min-height: 100vh; overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+input { font: inherit; color: inherit; }
+::selection { background: var(--accent-bg); color: var(--accent-2); }
+
+/* ---- type utilities ---- */
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.coord {
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute);
+  font-variant-numeric: tabular-nums; line-height: 1.7;
+  display: flex; align-items: baseline; gap: 4px 9px; flex-wrap: wrap;
+}
+.coord .sep { color: var(--ink-faint); }
+.coord .hi { color: var(--ink-2); }
+.coord .ac { color: var(--accent); }
+.coord .warn { color: var(--correction); }
+.label {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.kicker {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--ink-mute);
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.kicker .live {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  animation: pulse 1.8s ease-in-out infinite; flex-shrink: 0;
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+
+h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+.serif { font-family: var(--serif); }
+
+/* ---- nav ---- */
+.nav {
+  position: sticky; top: 0; z-index: 60;
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
+}
+.nav-inner {
+  max-width: 1060px; margin: 0 auto; padding: 13px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+}
+.wordmark {
+  font-weight: 650; font-size: 16px; letter-spacing: -0.02em;
+  display: inline-flex; align-items: baseline; gap: 9px; white-space: nowrap;
+}
+.wordmark .dot { color: var(--accent); }
+.wordmark-sub {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em;
+  color: var(--ink-mute); text-transform: uppercase; font-weight: 400;
+}
+@media (max-width: 480px) { .wordmark-sub { display: none; } }
+.nav-links {
+  display: flex; align-items: center; gap: 4px 20px;
+  font-size: 13.5px; letter-spacing: -0.01em; color: var(--ink-mute); font-weight: 500;
+}
+.nav-links a { padding: 3px 0; border-bottom: 1px solid transparent; transition: color .12s; }
+.nav-links a:hover { color: var(--ink); }
+.nav-links a.active { color: var(--ink); border-bottom-color: var(--accent); }
+.nav-search {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+  border: 1px solid var(--rule); border-radius: var(--r-sm);
+  padding: 5px 11px; background: var(--surface); transition: all .12s;
+}
+.nav-search:hover { color: var(--ink-2); border-color: var(--rule-bright); }
+.nav-search .q { color: var(--accent); }
+
+/* ---- shell ---- */
+main { max-width: 1060px; margin: 0 auto; padding: 34px 20px 70px; }
+#app.in { animation: fadeUp .3s cubic-bezier(.22,.61,.36,1) both; }
+@keyframes fadeUp { from { opacity: .35; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #app.in { animation: none; } .redact span { animation: none !important; color: inherit !important; background: transparent !important; } }
+
+.sec { margin-top: 46px; }
+.sec-h {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  border-bottom: 1px solid var(--rule); padding-bottom: 9px; margin-bottom: 18px;
+}
+.sec-h .label { color: var(--ink-3); }
+.sec-h .coord { font-size: 10.5px; }
+
+/* ---- redaction bar motif (one motif, used sparingly) ---- */
+.redact span {
+  background: var(--ink-2); color: transparent; border-radius: 2px;
+  animation: unredact .01s linear both; animation-timeline: none;
+}
+@keyframes unredact { to { background: transparent; color: inherit; } }
+.redact span:nth-child(1) { animation: unredact .01s .45s both; }
+.redact span:nth-child(2) { animation: unredact .01s .85s both; }
+.redact span:nth-child(3) { animation: unredact .01s 1.25s both; }
+.redact-bar {
+  display: inline-block; height: 0.85em; border-radius: 2px;
+  background: var(--paper-3); vertical-align: baseline;
+}
+
+/* ---- home ---- */
+.hero { padding: 26px 0 8px; }
+.hero .openfile { margin: 14px 0 10px; }
+.hero h1 {
+  font-size: clamp(36px, 7vw, 62px); letter-spacing: -0.035em; line-height: 1.02;
+  text-wrap: balance;
+}
+.hero .thesis {
+  font-family: var(--serif); font-size: clamp(16.5px, 2.4vw, 19px); line-height: 1.55;
+  color: var(--ink-2); max-width: 620px; margin: 16px 0 14px; text-wrap: pretty;
+}
+.hero-cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13.5px; font-weight: 500; letter-spacing: -0.01em;
+  padding: 9px 16px; border: 1px solid var(--rule); border-radius: var(--r-sm);
+  background: var(--surface); transition: all .12s; white-space: nowrap;
+}
+.btn:hover { background: var(--paper-2); border-color: var(--rule-bright); }
+.btn.primary { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent-2); }
+.btn.primary:hover { border-color: var(--accent); color: var(--ink); }
+.btn .arr { font-family: var(--mono); color: var(--accent); }
+
+.depth {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+  background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-lg);
+  overflow: hidden; margin-top: 38px;
+}
+@media (max-width: 640px) { .depth { grid-template-columns: 1fr 1fr; } }
+.depth .cell { background: var(--surface); padding: 16px 18px 14px; }
+.depth .n {
+  font-family: var(--mono); font-size: clamp(24px, 3.4vw, 32px); font-weight: 500;
+  color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.depth .cell.killed .n { color: var(--correction); }
+.depth .k { margin-top: 5px; }
+
+/* ---- file rows (the cabinet, not cards) ---- */
+.file-list { border-top: 1px solid var(--rule); }
+.file-row {
+  display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 6px 26px; padding: 15px 4px; border-bottom: 1px solid var(--rule);
+  align-items: baseline; transition: background .12s;
+}
+.file-row:hover { background: var(--paper-2); }
+@media (max-width: 660px) { .file-row { grid-template-columns: 1fr; } }
+.file-row .fname { font-size: 15.5px; font-weight: 550; letter-spacing: -0.015em; color: var(--ink); line-height: 1.3; }
+.file-row .fname .kind {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em; color: var(--ink-mute);
+  border: 1px solid var(--rule); border-radius: 3px; padding: 1px 6px; margin-left: 9px;
+  vertical-align: 2px; text-transform: uppercase;
+}
+.file-row .fcoord { margin-top: 3px; }
+.file-row .grew { font-size: 12.5px; color: var(--ink-3); line-height: 1.45; }
+.file-row .grew .plus { font-family: var(--mono); color: var(--confirmed); }
+.file-row .grew .fed { font-family: var(--mono); font-size: 10.5px; color: var(--ink-mute); display: block; margin-top: 2px; }
+
+/* ---- evidence rows ---- */
+.ev-row {
+  display: grid; grid-template-columns: minmax(0,1.45fr) minmax(0,1fr); gap: 6px 26px;
+  padding: 14px 4px; border-bottom: 1px solid var(--rule); transition: background .12s;
+}
+.ev-row:hover { background: var(--paper-2); }
+@media (max-width: 660px) { .ev-row { grid-template-columns: 1fr; } }
+.ev-row .et { font-family: var(--serif); font-size: 15.5px; color: var(--ink); line-height: 1.4; }
+.ev-row .eo { font-family: var(--mono); font-size: 10.5px; color: var(--ink-mute); margin-top: 3px; }
+.ev-row .efed { font-size: 12.5px; color: var(--ink-3); line-height: 1.5; }
+.ev-row .efed .n { font-family: var(--mono); color: var(--accent-2); }
+
+/* ---- dossier stamp ---- */
+.stamp { border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.stamp-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 18px; border-bottom: 1px solid var(--rule); background: var(--paper-2);
+}
+.stamp-top .fileno { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--ink-mute); }
+.stamp-top .kindchip {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent-2); border: 1px solid var(--accent-bd); background: var(--accent-bg);
+  border-radius: 3px; padding: 2px 8px;
+}
+.stamp-body { padding: 22px 18px 20px; }
+.stamp-body h1 { font-size: clamp(27px, 5vw, 42px); letter-spacing: -0.03em; line-height: 1.05; text-wrap: balance; }
+.stamp-body .aka { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); margin-top: 8px; }
+.stamp-body .desig { font-family: var(--serif); font-size: 16.5px; line-height: 1.55; color: var(--ink-2); margin-top: 13px; max-width: 640px; text-wrap: pretty; }
+.stamp-foot { padding: 11px 18px; border-top: 1px solid var(--rule); background: var(--paper-2); }
+
+/* ---- facts + receipts ---- */
+.fact { padding: 13px 2px 12px; border-bottom: 1px solid var(--rule); }
+.fact-line { display: flex; align-items: baseline; gap: 14px; justify-content: space-between; }
+.fact-text { font-size: 14.5px; line-height: 1.55; color: var(--ink-2); max-width: var(--measure); }
+.fact-text b { color: var(--ink); font-weight: 550; }
+.fact-id { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); flex-shrink: 0; }
+.more-note { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); padding: 12px 2px 0; }
+
+details.rcpt { margin-top: 8px; }
+details.rcpt > summary {
+  list-style: none; display: inline-flex; align-items: baseline; gap: 7px;
+  font-size: 11.5px; color: var(--ink-3); cursor: pointer; padding: 3px 10px 4px;
+  background: var(--paper-2); border: 1px solid var(--rule); border-radius: 5px;
+  transition: all .12s; line-height: 1.35; max-width: 100%;
+}
+details.rcpt > summary::-webkit-details-marker { display: none; }
+details.rcpt > summary::before {
+  content: ""; align-self: center; flex: none; width: 4px; height: 4px;
+  border-radius: 50%; background: var(--accent);
+}
+details.rcpt > summary:hover { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--ink-2); }
+details.rcpt > summary .rdoc { font-family: var(--serif); font-weight: 500; color: var(--ink-2); }
+details.rcpt > summary .rloc { font-family: var(--mono); font-size: 9.5px; color: var(--ink-mute); white-space: nowrap; }
+details.rcpt[open] > summary { border-color: var(--accent-bd); background: var(--accent-bg); color: var(--accent-2); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.rcpt-body {
+  border: 1px solid var(--accent-bd); border-radius: 0 5px 5px 5px;
+  background: var(--surface); padding: 14px 16px; max-width: var(--measure);
+}
+.rcpt-q {
+  font-family: var(--serif); font-style: italic; font-size: 15px; line-height: 1.6;
+  color: var(--ink); border-left: 2px solid var(--accent); padding-left: 13px;
+}
+.rcpt-src { margin-top: 11px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-family: var(--mono); font-size: 10.5px; color: var(--ink-mute); }
+.rcpt-src a { color: var(--accent-2); border-bottom: 1px solid var(--accent-bd); }
+.rcpt-src a:hover { color: var(--ink); border-bottom-color: var(--accent); }
+.rcpt-v { margin-top: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; color: var(--confirmed); }
+.rcpt-v::before { content: "✓ "; }
+
+/* ---- contested layer ---- */
+.contested-block {
+  border: 1px solid var(--cont-bd); border-left: 3px solid var(--contested);
+  border-radius: var(--r); background: var(--cont-bg); padding: 4px 18px 8px; margin-top: 4px;
+}
+.contested-block .cb-note { font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; color: var(--contested); padding: 11px 0 2px; text-transform: uppercase; }
+.assert { padding: 13px 0; border-bottom: 1px solid var(--cont-bd); }
+.assert:last-child { border-bottom: none; }
+.assert-who { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-bottom: 6px; }
+.assert-who .who { font-size: 13px; font-weight: 550; color: var(--ink); }
+.assert-who a.who { border-bottom: 1px solid var(--cont-bd); }
+.assert-who a.who:hover { color: var(--contested); }
+.assert-who .stance {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--contested); border: 1px solid var(--cont-bd); border-radius: 3px; padding: 1px 6px;
+}
+.assert-claim { font-family: var(--serif); font-style: italic; font-size: 15px; line-height: 1.55; color: var(--ink-2); max-width: var(--measure); }
+.assert-vs { font-size: 12px; color: var(--ink-3); margin-top: 6px; max-width: var(--measure); }
+.assert-vs .vs { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.07em; color: var(--ink-mute); text-transform: uppercase; margin-right: 6px; }
+
+/* ---- timeline ---- */
+.tl { border-left: 1px solid var(--rule-bright); margin-left: 5px; padding-left: 0; }
+.tl-item { position: relative; padding: 0 0 18px 24px; }
+.tl-item:last-child { padding-bottom: 4px; }
+.tl-item::before {
+  content: ""; position: absolute; left: -4px; top: 6px; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--paper-3); border: 1px solid var(--rule-bright);
+}
+.tl-item.key::before { background: var(--accent); border-color: var(--accent); }
+.tl-d { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+.tl-t { font-size: 14px; line-height: 1.5; color: var(--ink-2); margin-top: 2px; max-width: var(--measure); }
+.tl-t b { color: var(--ink); font-weight: 550; }
+
+/* ---- connections ---- */
+.conns { display: flex; flex-wrap: wrap; gap: 8px; }
+.conn-pill {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  font-size: 13px; padding: 6px 13px; border: 1px solid var(--rule); border-radius: 999px;
+  color: var(--ink-2); background: var(--surface); transition: all .12s; line-height: 1.3;
+}
+.conn-pill:hover { border-color: var(--accent-bd); color: var(--accent-2); background: var(--accent-bg); }
+.conn-pill .rel { color: var(--ink-mute); font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
+.conn-pill .rel::after { content: " →"; color: var(--accent); }
+.conn-pill.contra .rel::after { color: var(--contested); }
+
+/* ---- on file (sources) ---- */
+.src-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px 20px; padding: 12px 2px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.src-row .st { font-family: var(--serif); font-size: 15px; color: var(--ink); line-height: 1.4; }
+.src-row a.st { border-bottom: 1px solid var(--accent-bd); }
+.src-row a.st:hover { color: var(--accent-2); }
+.src-row .sm { font-family: var(--mono); font-size: 10.5px; color: var(--ink-mute); }
+
+/* ---- the seam + the reading ---- */
+details.seam-file { margin-top: 50px; }
+details.seam-file > summary { list-style: none; cursor: pointer; }
+details.seam-file > summary::-webkit-details-marker { display: none; }
+.seam {
+  display: flex; align-items: center; gap: 16px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.seam::before, .seam::after { content: ""; flex: 1; height: 1px; background: var(--rule-bright); }
+.seam .open-tag { color: var(--accent-2); border: 1px solid var(--accent-bd); background: var(--accent-bg); border-radius: 3px; padding: 2px 9px; letter-spacing: 0.08em; }
+details.seam-file > summary:hover .open-tag { color: var(--ink); border-color: var(--accent); }
+details.seam-file[open] .open-tag .when-closed { display: none; }
+details.seam-file:not([open]) .open-tag .when-open { display: none; }
+.reading {
+  margin-top: 26px; border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+  border-radius: var(--r-lg); background: var(--paper-2); padding: 26px 22px 24px;
+}
+@media (min-width: 700px) { .reading { padding: 32px 34px 30px; } }
+.reading .byline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
+.reading .byline .sig { font-family: var(--serif); font-style: italic; font-size: 17px; color: var(--ink); }
+.reading .intent {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--accent-2); border: 1px solid var(--accent-bd); border-radius: 999px; padding: 2px 9px; background: var(--accent-bg);
+}
+.reading h2.rthesis { font-family: var(--serif); font-weight: 500; font-size: clamp(20px, 3.4vw, 26px); line-height: 1.3; letter-spacing: -0.01em; margin-bottom: 16px; max-width: var(--measure); text-wrap: balance; }
+.rtext { font-family: var(--serif); font-size: 17px; line-height: 1.66; color: var(--ink-2); max-width: var(--measure); }
+.rtext p { margin-bottom: 1.05em; text-wrap: pretty; }
+.rtext p:last-child { margin-bottom: 0; }
+
+/* inline claim chip (in signed prose) */
+.cc {
+  display: inline-flex; align-items: baseline; gap: 5px; vertical-align: baseline;
+  font-family: var(--sans); font-size: 0.72em; font-style: normal; font-weight: 500;
+  color: var(--accent-2); background: var(--accent-bg); border: 1px solid var(--accent-bd);
+  border-radius: 4px; padding: 1px 7px 2px; white-space: nowrap; transition: all .12s;
+  position: relative; top: -1px;
+}
+.cc:hover { color: var(--ink); border-color: var(--accent); }
+.cc .n { font-family: var(--mono); font-size: 0.86em; color: var(--accent); }
+
+/* complicating box */
+.complicates {
+  margin-top: 26px; border: 1px solid var(--corr-bd); border-radius: var(--r);
+  background: var(--corr-bg); padding: 16px 18px; max-width: var(--measure);
+}
+.complicates .ch { font-family: var(--mono); font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--correction); margin-bottom: 11px; }
+.complicates li { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); margin: 0 0 9px 16px; }
+.complicates li:last-child { margin-bottom: 0; }
+.complicates li::marker { color: var(--correction); }
+
+/* killed claim */
+.killed {
+  border: 1px dashed var(--corr-bd); border-radius: var(--r); padding: 13px 16px;
+  max-width: var(--measure); background: transparent;
+}
+.killed .kt { font-family: var(--serif); font-size: 14.5px; font-style: italic; color: var(--ink-mute); text-decoration: line-through; text-decoration-color: var(--correction); line-height: 1.55; }
+.killed .km { font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; color: var(--correction); margin-top: 7px; text-transform: uppercase; }
+
+/* ---- investigation ---- */
+.inv-head { padding: 10px 0 4px; }
+.inv-head h1 { font-size: clamp(32px, 6vw, 54px); letter-spacing: -0.035em; line-height: 1.04; text-wrap: balance; }
+.inv-dek { font-family: var(--serif); font-size: clamp(16.5px, 2.4vw, 19px); line-height: 1.55; color: var(--ink-2); max-width: 620px; margin-top: 16px; text-wrap: pretty; }
+.inv-body { margin-top: 34px; }
+.inv-body .rtext { font-size: 17.5px; }
+.inv-body h3 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent-2); font-weight: 500; margin: 30px 0 14px; }
+.foundation { margin-top: 48px; border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.foundation .fh { padding: 11px 18px; border-bottom: 1px solid var(--rule); background: var(--paper-2); display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.foundation .fs { padding: 16px 18px; border-bottom: 1px solid var(--rule); }
+.foundation .fs:last-child { border-bottom: none; }
+.foundation .fs .label { display: block; margin-bottom: 11px; }
+
+.inv-row { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(0,1fr); gap: 6px 26px; padding: 17px 4px; border-bottom: 1px solid var(--rule); transition: background .12s; }
+.inv-row:hover { background: var(--paper-2); }
+@media (max-width: 660px) { .inv-row { grid-template-columns: 1fr; } }
+.inv-row .it { font-size: 17px; font-weight: 550; letter-spacing: -0.015em; color: var(--ink); line-height: 1.3; }
+.inv-row .idek { font-family: var(--serif); font-size: 14px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; max-width: 520px; }
+.inv-row .status-draft { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); border: 1px dashed var(--ink-faint); border-radius: 3px; padding: 2px 7px; }
+
+/* ---- doc page ---- */
+.doc-head { border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--surface); padding: 20px 18px; }
+.doc-head .dk { display: flex; gap: 9px; align-items: baseline; flex-wrap: wrap; margin-bottom: 10px; }
+.doc-head h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(21px, 3.6vw, 29px); line-height: 1.25; letter-spacing: -0.01em; text-wrap: balance; }
+.doc-head .dcoord { margin-top: 13px; }
+.fed-item { display: flex; gap: 12px; align-items: baseline; padding: 11px 2px; border-bottom: 1px solid var(--rule); }
+.fed-item .fk { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; flex-shrink: 0; width: 74px; color: var(--confirmed); padding-top: 2px; }
+.fed-item.assert .fk { color: var(--contested); }
+.fed-item.doss .fk { color: var(--accent-2); }
+.fed-item .fv { font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.fed-item .fv a { color: var(--ink); border-bottom: 1px solid var(--accent-bd); }
+.fed-item .fv a:hover { color: var(--accent-2); }
+
+/* ---- search ---- */
+.searchbar {
+  display: flex; align-items: center; gap: 12px; border: 1px solid var(--rule);
+  border-radius: var(--r); background: var(--surface); padding: 14px 18px; margin-top: 18px;
+}
+.searchbar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.searchbar .pr { font-family: var(--mono); color: var(--accent); font-size: 16px; }
+.searchbar input { flex: 1; background: none; border: none; outline: none; font-size: 16.5px; min-width: 0; }
+.searchbar input::placeholder { color: var(--ink-faint); }
+.res-group { margin-top: 30px; }
+.res-fact { padding: 12px 2px; border-bottom: 1px solid var(--rule); }
+.res-none { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); padding: 26px 2px; }
+
+/* ---- method ---- */
+.chain { border: 1px solid var(--rule); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.chain-step { display: flex; gap: 15px; padding: 15px 18px; border-bottom: 1px solid var(--rule); }
+.chain-step:last-child { border-bottom: none; }
+.chain-step .cn {
+  font-family: var(--mono); font-size: 11px; color: var(--accent); flex-shrink: 0;
+  width: 26px; height: 26px; border: 1px solid var(--accent-bd); border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center; background: var(--accent-bg);
+}
+.chain-step .ct b { display: block; font-size: 14px; color: var(--ink); font-weight: 550; margin-bottom: 3px; }
+.chain-step .ct { font-size: 13.5px; color: var(--ink-3); line-height: 1.55; max-width: 600px; }
+.method-quote {
+  font-family: var(--serif); font-size: 17px; line-height: 1.62; color: var(--ink-2);
+  border-left: 2px solid var(--accent); padding-left: 16px; max-width: var(--measure); text-wrap: pretty;
+}
+
+/* ---- where this leads ---- */
+.leads { margin-top: 52px; border-top: 1px solid var(--rule-bright); padding-top: 14px; }
+.leads .label { display: block; margin-bottom: 13px; }
+.leads .conns { }
+
+/* ---- trust strip + footer ---- */
+.trust { border-top: 1px solid var(--rule); background: var(--surface); }
+.trust-inner { max-width: 1060px; margin: 0 auto; padding: 20px; display: flex; gap: 13px; align-items: flex-start; }
+.trust-mark {
+  flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; margin-top: 1px;
+  background: var(--conf-bg); color: var(--confirmed); border: 1px solid var(--conf-bd);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+}
+.trust p { font-family: var(--serif); font-size: 13.5px; line-height: 1.6; color: var(--ink-3); max-width: 700px; }
+.trust a { color: var(--accent-2); white-space: nowrap; }
+.trust a:hover { text-decoration: underline; }
+.foot { border-top: 1px solid var(--rule); background: var(--paper-2); }
+.foot-inner { max-width: 1060px; margin: 0 auto; padding: 26px 20px 34px; display: flex; justify-content: space-between; gap: 16px 40px; flex-wrap: wrap; }
+.foot .coord { font-size: 10.5px; }
+.foot-links { display: flex; gap: 6px 22px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-mute); }
+.foot-links a:hover { color: var(--ink); }
+.fiction { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-top: 10px; letter-spacing: 0.03em; }
+
+/* misc */
+.thin-note {
+  border: 1px dashed var(--ink-faint); border-radius: var(--r); padding: 13px 16px;
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); line-height: 1.7; max-width: var(--measure);
+}
+.thin-note .redact-bar { margin: 0 3px; }
+a.plain { border-bottom: 1px solid var(--accent-bd); color: var(--ink-2); }
+a.plain:hover { color: var(--accent-2); }
+</style>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#/" class="wordmark">CANOPTICON<span class="dot">·</span><span class="wordmark-sub">The standing record</span></a>
+    <div class="nav-links">
+      <a href="#/" data-nav="record">Record</a>
+      <a href="#/investigations" data-nav="inv">Investigations</a>
+      <a href="#/method" data-nav="method">Method</a>
+      <a href="#/search" data-nav="search" class="nav-search"><span class="q">/</span> ask the record</a>
+    </div>
+  </div>
+</nav>
+
+<main><div id="app"></div></main>
+
+<div class="trust">
+  <div class="trust-inner">
+    <span class="trust-mark">✓</span>
+    <p>Every quoted line on this site is a machine-checked, character-for-character substring of a stored copy of its source document. Claims that fail the check are killed and stay visibly dead. Nobody wrote these files — they grew from the sources. <a href="#/method">How verification works →</a></p>
+  </div>
+</div>
+<footer class="foot">
+  <div class="foot-inner">
+    <div>
+      <a href="#/" class="wordmark">CANOPTICON<span class="dot">·</span></a>
+      <div class="coord" style="margin-top:8px">THE STANDING RECORD <span class="sep">·</span> canopticon.com <span class="sep">·</span> @canoptics</div>
+      <div class="fiction">DESIGN MOCKUP · DEMONSTRATION CORPUS — ALL NAMED PERSONS, COMPANIES AND DOCUMENTS ARE FICTIONAL</div>
+    </div>
+    <div class="foot-links">
+      <a href="#/">The Record</a>
+      <a href="#/investigations">Investigations</a>
+      <a href="#/method">Method</a>
+      <a href="#/search">Search</a>
+      <a href="#/doc/pao-audit-2025">Sources on file</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ==========================================================================
+   Hash router + page renderers. Mockup only — production is server-rendered.
+   ========================================================================== */
+
+function rcpt(docHref, docShort, loc, quote, docFull) {
+  return '<details class="rcpt"><summary><span class="rdoc">' + docShort + '</span><span class="rloc">' + loc + '</span></summary>'
+    + '<div class="rcpt-body">'
+    + '<div class="rcpt-q">“' + quote + '”</div>'
+    + '<div class="rcpt-src"><span>SOURCE</span><a href="' + docHref + '">' + docFull + '</a><span class="sep">·</span><span>stored copy on file</span></div>'
+    + '<div class="rcpt-v">VERIFIED — literal substring of the stored source · judged independently</div>'
+    + '</div></details>';
+}
+
+function fact(id, text, receipt) {
+  return '<div class="fact" id="' + id + '">'
+    + '<div class="fact-line"><p class="fact-text">' + text + '</p><span class="fact-id">' + id + '</span></div>'
+    + receipt + '</div>';
+}
+
+function secH(label, coordRight) {
+  return '<div class="sec-h"><span class="label">' + label + '</span>'
+    + (coordRight ? '<span class="coord">' + coordRight + '</span>' : '') + '</div>';
+}
+
+function pill(href, rel, name, contra) {
+  return '<a class="conn-pill' + (contra ? ' contra' : '') + '" href="' + href + '"><span class="rel">' + rel + '</span><span>' + name + '</span></a>';
+}
+
+function leads(items) {
+  return '<div class="leads"><span class="label">Where this leads</span><div class="conns">' + items.join('') + '</div></div>';
+}
+
+function cc(href, id, text) {
+  return '<a class="cc" href="' + href + '"><span class="n">' + id + '</span>' + text + '</a>';
+}
+
+/* ---------- source metadata (shared) ---------- */
+var DOCS = {
+  audit: { href: '#/doc/pao-audit-2025', short: 'Audit 2025', full: 'Value-for-Money Review, Housing Acceleration Stream — Provincial Audit Office, 2025-11-04' },
+  registry: { href: '#/doc/lobby-registry-2024', short: 'Lobby registry', full: 'Registry of Lobbyists — registration 2023-09-021 + communication reports, extracted 2024-03-08' },
+  committee: { href: '#/doc/committee-transcript', short: 'Committee transcript', full: 'Standing Committee on Housing Policy — hearing transcript, 2026-02-18' }
+};
+
+/* ==========================================================================
+   HOME — the front of the Record
+   ========================================================================== */
+function pageHome() {
+  return ''
+  + '<div class="hero">'
+  +   '<span class="kicker"><span class="live"></span>THE STANDING RECORD — LIVE · LAST FED 2026-07-19</span>'
+  +   '<div class="openfile sec-h" style="margin-top:22px"><span class="label" style="color:var(--accent-2)">The open file</span><span class="coord">INVESTIGATION I-003 <span class="sep">·</span> SIGNED 2026-07-12</span></div>'
+  +   '<h1><a href="#/i/paper-shovels">Paper Shovels</a></h1>'
+  +   '<p class="thesis redact"><span>The acceleration money was paid out to speed construction.</span> <span>On the Dunmore Lands it settled into land value instead —</span> <span>$48.2M in, zero housing starts out.</span></p>'
+  +   '<div class="coord">41 FACTS CITED <span class="sep">·</span> <span class="hi">6 CONTESTED</span> <span class="sep">·</span> 12 SOURCES <span class="sep">·</span> <span class="warn">1 CLAIM KILLED</span></div>'
+  +   '<div class="hero-cta">'
+  +     '<a class="btn primary" href="#/i/paper-shovels">Open the investigation <span class="arr">→</span></a>'
+  +     '<a class="btn" href="#/s/meridian-crest">The file on Meridian Crest <span class="arr">→</span></a>'
+  +   '</div>'
+  + '</div>'
+
+  + '<div class="depth">'
+  +   '<div class="cell"><div class="n">14</div><div class="k label">Subjects tracked</div></div>'
+  +   '<div class="cell"><div class="n">41</div><div class="k label">Sources on file</div></div>'
+  +   '<div class="cell"><div class="n">312</div><div class="k label">Claims verified</div></div>'
+  +   '<div class="cell killed"><div class="n">9</div><div class="k label">Claims killed</div></div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  +   secH('Active files — what grew', 'SORTED BY ALIVENESS')
+  +   '<div class="file-list">'
+  +   fileRow('#/s/meridian-crest', 'Meridian Crest Developments', 'ENTITY', 'E-0007 · 34 FACTS · 6 CONTESTED · 12 SOURCES', '<span class="plus">+3 facts · +1 contested</span> — the audit’s payment schedule and the ministry’s response entered the file<span class="fed">FED 2026-07-19 · VALUE-FOR-MONEY REVIEW</span>')
+  +   fileRow('#/s/dunmore-lands', 'The Dunmore Lands zoning order', 'EVENT', 'V-0012 · 22 FACTS · 3 CONTESTED · 9 SOURCES', '<span class="plus">+2 timeline entries</span> — the appraisal date and the second fund payment now sit in sequence<span class="fed">FED 2026-07-19 · VALUE-FOR-MONEY REVIEW</span>')
+  +   fileRow('#/s/acceleration-account', '“Acceleration money builds homes”', 'THEME', 'T-0003 · 11 FACTS · 4 SOURCES CONVERGE', '<span class="plus">+1 contradicting source</span> — a fourth document now cuts against the received account<span class="fed">FED 2026-07-16 · COMMITTEE TRANSCRIPT</span>')
+  +   fileRow('#/s/marcus-delling', 'Marcus Delling', 'ENTITY', 'E-0011 · 9 FACTS · 2 CONTESTED · 5 SOURCES', '<span class="plus">+2 facts</span> — communication reports nos. 11–14 verified against the registry extract<span class="fed">FED 2026-07-11 · LOBBY REGISTRY</span>')
+  +   '</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  +   secH('Latest evidence', 'MOST RECENT FIRST')
+  +   '<a class="ev-row" href="#/doc/pao-audit-2025"><div><div class="et">Value-for-Money Review: Housing Acceleration Stream</div><div class="eo">PROVINCIAL AUDIT OFFICE · 2025-11-04 · INGESTED 2026-07-19</div></div><div class="efed">fed <span class="n">14 facts</span> and <span class="n">2 assertions</span> into 4 files, including Meridian Crest and the Dunmore Lands</div></a>'
+  +   '<a class="ev-row" href="#/doc/committee-transcript"><div><div class="et">Standing Committee on Housing Policy — hearing transcript</div><div class="eo">HANSARD TRANSCRIPT · 2026-02-18 · INGESTED 2026-07-16</div></div><div class="efed">fed <span class="n">5 assertions</span> — the who-said-what of the contested layer — into 3 files</div></a>'
+  +   '<a class="ev-row" href="#/doc/lobby-registry-2024"><div><div class="et">Registry of Lobbyists — registration 2023-09-021 + communication reports</div><div class="eo">REGISTRY EXTRACT · 2024-03-08 · INGESTED 2026-07-11</div></div><div class="efed">fed <span class="n">8 facts</span> into the files on Marcus Delling and Meridian Crest</div></a>'
+  + '</div>'
+
+  + '<div class="sec">'
+  +   secH('Browse the record', '14 SUBJECTS · <a href="#/search" class="plain" style="font-family:var(--mono)">ASK THE RECORD →</a>')
+  +   '<div class="file-list">'
+  +   fileRow('#/s/meridian-crest', 'Meridian Crest Developments', 'ENTITY', 'E-0007 · OPENED 2026-03-14 · LAST FED 2026-07-19', 'Oakville land developer at the centre of the Dunmore assembly')
+  +   fileRow('#/s/dunmore-lands', 'The Dunmore Lands zoning order', 'EVENT', 'V-0012 · OPENED 2026-03-14 · LAST FED 2026-07-19', 'A ministerial zoning order, and the 410 acres it revalued')
+  +   fileRow('#/s/acceleration-account', '“Acceleration money builds homes”', 'THEME', 'T-0003 · OPENED 2026-04-02 · LAST FED 2026-07-16', 'The received account four documents now cut against')
+  +   fileRow('#/s/marcus-delling', 'Marcus Delling', 'ENTITY', 'E-0011 · OPENED 2026-03-20 · LAST FED 2026-07-11', 'Consultant lobbyist; former ministry chief of staff')
+  +   fileRow('#/s/onward-capital', 'Onward Capital Partners', 'ENTITY', 'E-0014 · OPENED 2026-04-11 · LAST FED 2026-07-02', 'Private lender behind the land assembly')
+  +   fileRow('#/s/build-faster-act', 'The Build Faster Act, 2023', 'ENTITY', 'E-0009 · OPENED 2026-03-15 · LAST FED 2026-06-28', 'The statute that created the acceleration stream and widened zoning orders')
+  +   '</div>'
+  + '</div>';
+}
+
+function fileRow(href, name, kind, coordLine, grew) {
+  return '<a class="file-row" href="' + href + '">'
+    + '<div><div class="fname">' + name + '<span class="kind">' + kind + '</span></div>'
+    + '<div class="coord fcoord">' + coordLine + '</div></div>'
+    + '<div class="grew">' + grew + '</div></a>';
+}
+
+/* ==========================================================================
+   DOSSIERS
+   ========================================================================== */
+function stamp(fileno, kind, name, aka, desig, coordLine) {
+  return '<div class="stamp">'
+    + '<div class="stamp-top"><span class="fileno">FILE ' + fileno + '</span><span class="kindchip">' + kind + '</span></div>'
+    + '<div class="stamp-body"><h1>' + name + '</h1>'
+    + (aka ? '<div class="aka">' + aka + '</div>' : '')
+    + '<p class="desig">' + desig + '</p></div>'
+    + '<div class="stamp-foot"><div class="coord">' + coordLine + '</div></div>'
+    + '</div>';
+}
+
+function dossierMeridian() {
+  return stamp('E-0007', 'ENTITY · CORPORATION',
+    'Meridian Crest Developments',
+    'ALSO ON FILE AS: Meridian Crest Developments Ltd. · MCD Holdings (2019) Inc.',
+    'An Oakville, Ontario land developer whose 410-acre assembly outside the Dunmore settlement boundary was rezoned by ministerial order and funded by the provincial acceleration stream — and on which, as of mid-2026, no housing start is recorded.',
+    'OPENED 2026-03-14 <span class="sep">·</span> LAST FED <span class="hi">2026-07-19</span> <span class="sep">·</span> 34 FACTS <span class="sep">·</span> <span class="hi">6 CONTESTED</span> <span class="sep">·</span> 12 SOURCES <span class="sep">·</span> READING <span class="ac">SIGNED</span>')
+
+  + '<div class="sec">'
+  + secH('The established record', 'EVERY LINE CARRIES ITS RECEIPT')
+  + fact('F-0102', 'Incorporated in Ontario on <b>2011-06-08</b>; principal business residential land development; head office Oakville.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.14', 'Meridian Crest Developments Ltd., incorporated in Ontario on June 8, 2011, is a residential land developer headquartered in Oakville.', DOCS.audit.full))
+  + fact('F-0114', 'Assembled <b>410 acres</b> of agricultural land adjoining the Dunmore settlement boundary in <b>nine transactions</b> between August 2023 and February 2024, for a combined <b>$91.4M</b>.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.17', 'Between August 2023 and February 2024 the proponent completed nine acquisitions totalling approximately 410 acres for aggregate consideration of $91.4 million.', DOCS.audit.full))
+  + fact('F-0121', 'Retained consultant lobbyist <b>Marcus Delling</b>, registration filed <b>2023-09-12</b>, subject matters “housing policy; land use designation.”',
+      rcpt(DOCS.registry.href, DOCS.registry.short, 'reg. 2023-09-021', 'Registration 2023-09-021: Delling, Marcus — consultant. Client: Meridian Crest Developments Ltd. Subject matters: housing policy; land use designation.', DOCS.registry.full))
+  + fact('F-0138', 'Received <b>$48.2M</b> from the Housing Acceleration Stream in two payments — $23.1M (2024-06) and $25.1M (2025-01) — designated for “servicing and enabling works.”',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.31', 'The proponent received $23.1 million in June 2024 and $25.1 million in January 2025 under the servicing and enabling works envelope, for a program total of $48.2 million.', DOCS.audit.full))
+  + fact('F-0145', 'A September 2024 refinancing filing appraised the rezoned lands at <b>$712M</b> — roughly 7.8× the assembly cost.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.33', 'An appraisal prepared for the September 2024 refinancing values the subject lands, as rezoned, at $712 million.', DOCS.audit.full))
+  + fact('F-0152', 'Program milestones were <b>self-certified</b>; the audit found no independent verification of servicing progress before either payment.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.36', 'Milestone attestations were provided by the proponent and were not independently verified prior to disbursement.', DOCS.audit.full))
+  + fact('F-0231', 'As of <b>2026-06-30</b>, <b>zero housing starts</b> are recorded on the Dunmore Lands.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.41', 'As of June 30, 2026, no housing start had been recorded on the subject lands.', DOCS.audit.full))
+  + '<div class="more-note">+ 27 FURTHER FACTS ON FILE · ORDERED BY LOAD — <a class="plain" href="#/search">ASK THE RECORD</a></div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('The contested layer', 'ATTRIBUTED — NEVER BLENDED INTO THE RECORD')
+  + '<div class="contested-block">'
+  + '<div class="cb-note">Who said what · shown as said, held as contested</div>'
+  + '<div class="assert"><div class="assert-who"><span class="who">Meridian Crest Developments</span><span class="stance">ASSERTS</span></div>'
+  +   '<p class="assert-claim">“The Dunmore program was initiated in 2022, well before the acceleration stream existed, and is proceeding through site plan approval on a normal course.”</p>'
+  +   '<p class="assert-vs"><span class="vs">Against</span>the record’s F-0114: the first registered acquisition is dated August 2023. No 2022 planning filing is on file.</p>'
+  +   rcpt(DOCS.committee.href, DOCS.committee.short, 'l.412', 'I want to be clear that the Dunmore program was initiated in 2022, well before the acceleration stream existed, and is proceeding through site plan approval on a normal course.', DOCS.committee.full)
+  + '</div>'
+  + '<div class="assert"><div class="assert-who"><span class="who">Ministry of Municipal Affairs and Housing (spokesperson)</span><span class="stance">ASSERTS</span></div>'
+  +   '<p class="assert-claim">“All acceleration decisions followed the standard evaluation framework.”</p>'
+  +   '<p class="assert-vs"><span class="vs">Against</span>the audit’s finding that no scoring records for the Dunmore allocation were retained (F-0152 adjacent, Audit p.29).</p>'
+  +   rcpt(DOCS.committee.href, DOCS.committee.short, 'l.688', 'All acceleration decisions followed the standard evaluation framework applied to every applicant.', DOCS.committee.full)
+  + '</div>'
+  + '<div class="assert"><div class="assert-who"><a class="who" href="#/s/marcus-delling">Marcus Delling</a><span class="stance">DENIES</span></div>'
+  +   '<p class="assert-claim">“Every communication I made on this file was registered, on the record, and about policy — not parcels.”</p>'
+  +   '<p class="assert-vs"><span class="vs">Against</span>a former regional planner’s assertion (on the Dunmore file) that the boundary language matched the applicant’s draft.</p>'
+  +   rcpt(DOCS.committee.href, DOCS.committee.short, 'l.1024', 'Every communication I made on this file was registered, on the record, and about policy — not parcels.', DOCS.committee.full)
+  + '</div>'
+  + '</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('Timeline', 'RECEIPTED ENTRIES ONLY')
+  + '<div class="tl">'
+  + tlItem('2023-06-08', 'The <b>Build Faster Act, 2023</b> receives royal assent; the Housing Acceleration Stream and widened ministerial zoning orders come into force.', false)
+  + tlItem('2023-08-17', 'First Dunmore parcel acquired (68 acres, $14.2M).', false)
+  + tlItem('2023-09-12', '<b>Marcus Delling</b> registers to lobby for Meridian Crest.', true)
+  + tlItem('2023-10 → 2024-02', '<b>14 registered communications</b> with the ministry, monthly reports nos. 1–14.', false)
+  + tlItem('2024-03-21', 'Ministerial zoning order <b>O.Reg 214/24</b> rezones the 410 acres residential.', true)
+  + tlItem('2024-06-30', 'First acceleration payment: <b>$23.1M</b>.', false)
+  + tlItem('2024-09-12', 'Refinancing appraisal: <b>$712M</b>.', true)
+  + tlItem('2025-01-15', 'Second acceleration payment: <b>$25.1M</b>.', false)
+  + tlItem('2025-11-04', 'Provincial Audit Office publishes the value-for-money review.', false)
+  + tlItem('2026-06-30', '<b>Zero housing starts</b> recorded on the lands.', true)
+  + '</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('Connections', 'TYPED EDGES · EVERY PILL IS A DOOR')
+  + '<div class="conns">'
+  + pill('#/s/marcus-delling', 'retained', 'Marcus Delling')
+  + pill('#/s/dunmore-lands', 'party to', 'The Dunmore Lands zoning order')
+  + pill('#/s/onward-capital', 'financed by', 'Onward Capital Partners')
+  + pill('#/s/build-faster-act', 'funded under', 'The Build Faster Act, 2023')
+  + pill('#/s/acceleration-account', 'complicates', '“Acceleration money builds homes”', true)
+  + '</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('On file', 'SOURCES FEEDING THIS DOSSIER')
+  + srcRow(DOCS.audit.href, 'Value-for-Money Review: Housing Acceleration Stream', 'PROVINCIAL AUDIT OFFICE · FED 14 FACTS · 2 ASSERTIONS')
+  + srcRow(DOCS.registry.href, 'Registry of Lobbyists — registration 2023-09-021', 'REGISTRY EXTRACT · FED 8 FACTS')
+  + srcRow(DOCS.committee.href, 'Standing Committee on Housing Policy — transcript', 'HANSARD TRANSCRIPT · FED 5 ASSERTIONS')
+  + '<div class="more-note">+ 9 FURTHER SOURCES ON FILE</div>'
+  + '</div>'
+
+  /* ---- the seam ---- */
+  + '<details class="seam-file">'
+  + '<summary><div class="seam"><span>The neutral record ends here</span><span class="open-tag"><span class="when-closed">A READING IS ON FILE — OPEN IT</span><span class="when-open">CLOSE THE READING</span></span></div></summary>'
+  + '<div class="reading">'
+  +   '<div class="byline"><span class="intent">SIGNED READING · CASE</span><span>SIGNED 2026-07-12</span><span class="sep">·</span><span class="sig">— the operator</span></div>'
+  +   '<h2 class="rthesis">Meridian Crest’s Dunmore business was appreciation, not construction — and the public money followed the appreciation.</h2>'
+  +   '<div class="rtext">'
+  +   '<p>Read the record in sequence and the shape is hard to miss. The land was assembled ' + cc('#F-0114', 'F-0114', '$91.4M, nine deals') + ' in the six months <em>after</em> the acceleration stream became law and <em>before</em> the zoning order that made it valuable. The lobbying registration ' + cc('#F-0121', 'F-0121', 'filed 2023-09-12') + ' sits exactly inside that window, and fourteen registered communications run right up to the month of the order.</p>'
+  +   '<p>Then the money moves. Not from buyers of homes — there are none — but from the province: ' + cc('#F-0138', 'F-0138', '$48.2M in two payments') + ' for servicing work that was ' + cc('#F-0152', 'F-0152', 'self-certified') + ' and never independently checked. Meanwhile the same rezoned acres were appraised at ' + cc('#F-0145', 'F-0145', '$712M') + ' for a private refinancing. The acceleration stream did accelerate something: the balance sheet.</p>'
+  +   '<p>What it did not accelerate is housing. Thirty-four months after the first parcel closed, the record shows ' + cc('#F-0231', 'F-0231', 'zero starts') + '. A program named for speed produced, on this file, a faster path from farmland to collateral.</p>'
+  +   '</div>'
+  +   '<div class="complicates"><div class="ch">What complicates this reading</div><ul>'
+  +   '<li>Meridian Crest asserts the Dunmore program began in 2022, before the stream existed. No 2022 filing is on file — but absence from this corpus is not absence in the world.</li>'
+  +   '<li>Servicing and enabling works are legitimately pre-construction; a lag between funding and starts is normal in the industry. The record does not establish what lag is abnormal.</li>'
+  +   '<li>Nothing in the record establishes unlawful conduct by any party. The zoning order and the payments were made under authorities the Build Faster Act provides.</li>'
+  +   '</ul></div>'
+  +   '<div class="sec" style="margin-top:24px">'
+  +   '<span class="label" style="color:var(--correction)">Killed in drafting — kept visible</span>'
+  +   '<div class="killed" style="margin-top:10px"><p class="kt">The draft claimed Delling personally attended the 2024-02-06 ministry meeting at which the order was finalized.</p><div class="km">KILLED 2026-07-10 — quote not found in any stored source · verification failed</div></div>'
+  +   '</div>'
+  + '</div>'
+  + '</details>'
+
+  + leads([
+      pill('#/i/paper-shovels', 'read', 'Paper Shovels — the signed investigation'),
+      pill('#/s/dunmore-lands', 'follow the event', 'The Dunmore Lands zoning order'),
+      pill('#/doc/pao-audit-2025', 'open the source', 'The value-for-money review')
+    ]);
+}
+
+function tlItem(d, t, key) {
+  return '<div class="tl-item' + (key ? ' key' : '') + '"><div class="tl-d">' + d + '</div><div class="tl-t">' + t + '</div></div>';
+}
+function srcRow(href, title, meta) {
+  return '<div class="src-row"><a class="st" href="' + href + '">' + title + '</a><span class="sm">' + meta + '</span></div>';
+}
+
+function dossierDunmore() {
+  return stamp('V-0012', 'EVENT · DECISION',
+    'The Dunmore Lands zoning order',
+    'O.REG 214/24 · MINISTERIAL ZONING ORDER · ISSUED 2024-03-21',
+    'A ministerial zoning order that moved 410 acres of farmland outside the Dunmore settlement boundary into residential designation — multiplying its appraised value roughly eightfold and anchoring the province’s largest acceleration-stream allocation.',
+    'OPENED 2026-03-14 <span class="sep">·</span> LAST FED <span class="hi">2026-07-19</span> <span class="sep">·</span> 22 FACTS <span class="sep">·</span> <span class="hi">3 CONTESTED</span> <span class="sep">·</span> 9 SOURCES')
+
+  + '<div class="sec">'
+  + secH('The established record', 'EVERY LINE CARRIES ITS RECEIPT')
+  + fact('F-0301', 'Order <b>O.Reg 214/24</b> issued <b>2024-03-21</b>, redesignating 410 acres adjoining the Dunmore settlement boundary from prime agricultural to residential.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.22', 'O.Reg 214/24, issued March 21, 2024, redesignated approximately 410 acres of prime agricultural land adjoining the Dunmore settlement boundary for residential use.', DOCS.audit.full))
+  + fact('F-0308', 'The order was issued <b>without a public comment period</b>, under the expedited authority of the Build Faster Act, 2023.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.23', 'The order proceeded under the expedited authority of the Act and was not subject to a public comment period.', DOCS.audit.full))
+  + fact('F-0315', 'The ministry retained <b>no scoring records</b> for the Dunmore allocation; the audit could not reconstruct how the site was selected.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.29', 'No evaluation scoring records for the Dunmore allocation were retained. The Office was unable to reconstruct the basis of site selection.', DOCS.audit.full))
+  + fact('F-0319', 'Fourteen registered lobbying communications on “land use designation” precede the order, October 2023 through February 2024.',
+      rcpt(DOCS.registry.href, DOCS.registry.short, 'reports 1–14', 'Communication reports 1 through 14, filed monthly from October 2023 to February 2024, each list land use designation among the subject matters discussed.', DOCS.registry.full))
+  + '<div class="more-note">+ 18 FURTHER FACTS ON FILE</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('The contested layer', 'ATTRIBUTED — NEVER BLENDED INTO THE RECORD')
+  + '<div class="contested-block">'
+  + '<div class="cb-note">Who said what · shown as said, held as contested</div>'
+  + '<div class="assert"><div class="assert-who"><span class="who">Former regional planner (testifying)</span><span class="stance">ASSERTS</span></div>'
+  +   '<p class="assert-claim">“The boundary description in the final order matched the applicant’s draft submission to the letter.”</p>'
+  +   '<p class="assert-vs"><span class="vs">Against</span>the ministry’s position that the order was drafted internally. The applicant’s draft is not on file; the assertion stands attributed, not established.</p>'
+  +   rcpt(DOCS.committee.href, DOCS.committee.short, 'l.1201', 'The boundary description in the final order matched the applicant’s draft submission to the letter.', DOCS.committee.full)
+  + '</div>'
+  + '<div class="assert"><div class="assert-who"><span class="who">Ministry of Municipal Affairs and Housing (spokesperson)</span><span class="stance">DISPUTES</span></div>'
+  +   '<p class="assert-claim">“Orders are drafted by ministry counsel on ministry instruction. External drafts play no role.”</p>'
+  +   '<p class="assert-vs"><span class="vs">Against</span>the planner’s assertion above. Both stand; neither is established.</p>'
+  +   rcpt(DOCS.committee.href, DOCS.committee.short, 'l.1246', 'Orders are drafted by ministry counsel on ministry instruction. External drafts play no role in that process.', DOCS.committee.full)
+  + '</div>'
+  + '</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('Timeline', 'RECEIPTED ENTRIES ONLY')
+  + '<div class="tl">'
+  + tlItem('2023-06-08', 'Expedited order authority created by the <b>Build Faster Act, 2023</b>.', false)
+  + tlItem('2023-08 → 2024-02', 'The 410 acres are assembled by <b>Meridian Crest</b> in nine transactions.', false)
+  + tlItem('2023-10 → 2024-02', '14 registered communications on “land use designation.”', true)
+  + tlItem('2024-03-21', '<b>O.Reg 214/24 issued.</b> No public comment period.', true)
+  + tlItem('2024-09-12', 'Rezoned lands appraised at <b>$712M</b>.', true)
+  + tlItem('2025-11-04', 'Audit: no scoring records retained for the allocation.', false)
+  + '</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('Connections', 'TYPED EDGES · EVERY PILL IS A DOOR')
+  + '<div class="conns">'
+  + pill('#/s/meridian-crest', 'benefits', 'Meridian Crest Developments')
+  + pill('#/s/build-faster-act', 'authorized under', 'The Build Faster Act, 2023')
+  + pill('#/s/marcus-delling', 'preceded by lobbying of', 'Marcus Delling')
+  + pill('#/s/acceleration-account', 'contradicts', '“Acceleration money builds homes”', true)
+  + '</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('On file', 'SOURCES FEEDING THIS DOSSIER')
+  + srcRow(DOCS.audit.href, 'Value-for-Money Review: Housing Acceleration Stream', 'PROVINCIAL AUDIT OFFICE · FED 9 FACTS')
+  + srcRow(DOCS.registry.href, 'Registry of Lobbyists — registration 2023-09-021', 'REGISTRY EXTRACT · FED 4 FACTS')
+  + srcRow(DOCS.committee.href, 'Standing Committee on Housing Policy — transcript', 'HANSARD TRANSCRIPT · FED 2 ASSERTIONS')
+  + '</div>'
+
+  + leads([
+      pill('#/s/meridian-crest', 'the beneficiary', 'Meridian Crest Developments'),
+      pill('#/i/paper-shovels', 'read', 'Paper Shovels — the signed investigation'),
+      pill('#/s/acceleration-account', 'the account it cuts against', '“Acceleration money builds homes”', true)
+    ]);
+}
+
+function dossierTheme() {
+  return stamp('T-0003', 'THEME · RECEIVED ACCOUNT',
+    '“Acceleration money builds homes”',
+    'THE ACCOUNT AS RECEIVED: FAST-TRACK FUNDING SHORTENS THE PATH FROM APPROVAL TO OCCUPANCY',
+    'The claim that acceleration-stream funding speeds housing construction. Four documents in the corpus now bear on this account; each one, on the Dunmore file, cuts against it. The record holds the account as contested — it does not adjudicate it.',
+    'OPENED 2026-04-02 <span class="sep">·</span> LAST FED <span class="hi">2026-07-16</span> <span class="sep">·</span> 11 FACTS BEAR ON THIS <span class="sep">·</span> <span class="hi">4 SOURCES CONVERGE</span>')
+
+  + '<div class="sec">'
+  + secH('The account, as stated', 'WHO CARRIES IT')
+  + '<div class="contested-block">'
+  + '<div class="cb-note">Received account · held as an account, not a fact</div>'
+  + '<div class="assert"><div class="assert-who"><span class="who">Ministry of Municipal Affairs and Housing</span><span class="stance">STATES</span></div>'
+  +   '<p class="assert-claim">“The Housing Acceleration Stream gets shovels in the ground faster — full stop.”</p>'
+  +   rcpt(DOCS.committee.href, DOCS.committee.short, 'l.201', 'The Housing Acceleration Stream gets shovels in the ground faster — full stop.', DOCS.committee.full)
+  + '</div>'
+  + '</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('What the corpus shows', 'FACTS THAT BEAR ON THE ACCOUNT')
+  + fact('F-0501', 'On the stream’s largest allocation, <b>$48.2M</b> was disbursed against self-certified milestones — and <b>zero starts</b> followed within two years.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.41', 'As of June 30, 2026, no housing start had been recorded on the subject lands.', DOCS.audit.full))
+  + fact('F-0502', 'Across the stream’s ten largest allocations, the audit found starts on <b>three</b>; land transactions followed funding on <b>eight</b>.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.44', 'Of the ten largest allocations, three sites recorded housing starts within the review period, while eight recorded land transactions subsequent to funding.', DOCS.audit.full))
+  + fact('F-0503', 'The program’s own reporting counts “units enabled,” a projection — not starts, an observation.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.46', 'Program reporting is denominated in units enabled, a forward projection, rather than housing starts.', DOCS.audit.full))
+  + '<div class="more-note">+ 8 FURTHER FACTS BEAR ON THIS ACCOUNT</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('Connections', 'TYPED EDGES · EVERY PILL IS A DOOR')
+  + '<div class="conns">'
+  + pill('#/s/dunmore-lands', 'contradicted by', 'The Dunmore Lands zoning order', true)
+  + pill('#/s/meridian-crest', 'engaged by the file on', 'Meridian Crest Developments')
+  + pill('#/s/build-faster-act', 'account attaches to', 'The Build Faster Act, 2023')
+  + pill('#/i/paper-shovels', 'read against it', 'Paper Shovels')
+  + '</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('On file', 'SOURCES FEEDING THIS DOSSIER')
+  + srcRow(DOCS.audit.href, 'Value-for-Money Review: Housing Acceleration Stream', 'PROVINCIAL AUDIT OFFICE · FED 7 FACTS')
+  + srcRow(DOCS.committee.href, 'Standing Committee on Housing Policy — transcript', 'HANSARD TRANSCRIPT · FED 2 ASSERTIONS')
+  + '</div>'
+
+  + leads([
+      pill('#/i/paper-shovels', 'the reading built on this tension', 'Paper Shovels'),
+      pill('#/s/meridian-crest', 'the central file', 'Meridian Crest Developments')
+    ]);
+}
+
+/* ---- stub dossiers ---- */
+function stubDossier(fileno, kind, name, desig, coordLine, facts, conns) {
+  return stamp(fileno, kind, name, '', desig, coordLine)
+    + '<div class="sec">' + secH('The established record', 'EVERY LINE CARRIES ITS RECEIPT') + facts
+    + '<div class="thin-note" style="margin-top:18px">THIS FILE IS THIN — <span class="redact-bar" style="width:64px"></span> <span class="redact-bar" style="width:38px"></span> <span class="redact-bar" style="width:82px"></span><br>the record grows as sources are fed; nothing is written to fill the gaps</div>'
+    + '</div>'
+    + '<div class="sec">' + secH('Connections', 'TYPED EDGES · EVERY PILL IS A DOOR') + '<div class="conns">' + conns + '</div></div>'
+    + leads([pill('#/s/meridian-crest', 'the central file', 'Meridian Crest Developments'), pill('#/i/paper-shovels', 'read', 'Paper Shovels')]);
+}
+
+function dossierDelling() {
+  return stubDossier('E-0011', 'ENTITY · PERSON', 'Marcus Delling',
+    'Consultant lobbyist, principal of Delling Public Strategy. Chief of staff to the Minister of Municipal Affairs and Housing, 2019–2022. Registered for Meridian Crest twelve days after the firm’s first Dunmore acquisition.',
+    'OPENED 2026-03-20 <span class="sep">·</span> LAST FED <span class="hi">2026-07-11</span> <span class="sep">·</span> 9 FACTS <span class="sep">·</span> <span class="hi">2 CONTESTED</span> <span class="sep">·</span> 5 SOURCES',
+    fact('F-0410', 'Served as <b>chief of staff</b> in the housing ministry, 2019–2022.',
+      rcpt(DOCS.registry.href, DOCS.registry.short, 'reg. 2023-09-021', 'Public offices held: Chief of Staff, Ministry of Municipal Affairs and Housing, 2019 to 2022.', DOCS.registry.full))
+    + fact('F-0412', 'Filed <b>14 monthly communication reports</b> for Meridian Crest, October 2023 through February 2024, each listing “land use designation.”',
+      rcpt(DOCS.registry.href, DOCS.registry.short, 'reports 1–14', 'Communication reports 1 through 14, filed monthly from October 2023 to February 2024, each list land use designation among the subject matters discussed.', DOCS.registry.full)),
+    pill('#/s/meridian-crest', 'retained by', 'Meridian Crest Developments')
+    + pill('#/s/dunmore-lands', 'lobbied ahead of', 'The Dunmore Lands zoning order'));
+}
+
+function dossierOnward() {
+  return stubDossier('E-0014', 'ENTITY · CORPORATION', 'Onward Capital Partners',
+    'Toronto private credit fund. Financed the Dunmore assembly at 11.5% with the lands pledged as security, then led the September 2024 refinancing against the post-order appraisal.',
+    'OPENED 2026-04-11 <span class="sep">·</span> LAST FED <span class="hi">2026-07-02</span> <span class="sep">·</span> 6 FACTS <span class="sep">·</span> 3 SOURCES',
+    fact('F-0440', 'Extended a <b>$78M facility at 11.5%</b> for the assembly, secured against the Dunmore parcels.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.33', 'The assembly was financed through a $78 million facility bearing interest at 11.5 percent, secured against the subject parcels.', DOCS.audit.full))
+    + fact('F-0442', 'Led the <b>September 2024 refinancing</b> priced against the $712M post-order appraisal.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.34', 'The September 2024 refinancing, led by the incumbent lender, was priced against the post-order appraisal.', DOCS.audit.full)),
+    pill('#/s/meridian-crest', 'lender to', 'Meridian Crest Developments')
+    + pill('#/s/dunmore-lands', 'exposure to', 'The Dunmore Lands zoning order'));
+}
+
+function dossierAct() {
+  return stubDossier('E-0009', 'ENTITY · STATUTE', 'The Build Faster Act, 2023',
+    'Provincial statute, royal assent 2023-06-08. Created the Housing Acceleration Stream and expanded ministerial zoning-order authority to proceed without public comment.',
+    'OPENED 2026-03-15 <span class="sep">·</span> LAST FED <span class="hi">2026-06-28</span> <span class="sep">·</span> 8 FACTS <span class="sep">·</span> 4 SOURCES',
+    fact('F-0460', 'Created the <b>Housing Acceleration Stream</b> with a $2.1B envelope over four years.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.9', 'The Act established the Housing Acceleration Stream with a commitment of $2.1 billion over four years.', DOCS.audit.full))
+    + fact('F-0463', 'Authorized zoning orders to proceed <b>without a public comment period</b> where the minister certifies urgency.',
+      rcpt(DOCS.audit.href, DOCS.audit.short, 'p.11', 'Where the Minister certifies urgency, an order may proceed without a public comment period.', DOCS.audit.full)),
+    pill('#/s/dunmore-lands', 'authorized', 'The Dunmore Lands zoning order')
+    + pill('#/s/acceleration-account', 'account attaches', '“Acceleration money builds homes”', true));
+}
+
+/* ==========================================================================
+   INVESTIGATIONS
+   ========================================================================== */
+function pageInvIndex() {
+  return '<div class="inv-head">'
+  + '<span class="kicker">INVESTIGATIONS — THE SIGNED LAYER</span>'
+  + '<h1 style="margin-top:14px">Readings the operator has signed.</h1>'
+  + '<p class="inv-dek">Interpretation, marked as interpretation — argued in the operator’s voice, standing on the neutral record, with every load-bearing claim one click from its receipt and the complications shown.</p>'
+  + '</div>'
+  + '<div class="sec">'
+  + '<div class="file-list">'
+  + '<a class="inv-row" href="#/i/paper-shovels"><div><div class="it">Paper Shovels</div><p class="idek">Where the acceleration money settled: a $2.1B program named for speed, a 410-acre land bank, and zero starts.</p></div><div><div class="coord">I-003 <span class="sep">·</span> SIGNED 2026-07-12 <span class="sep">·</span> 41 FACTS <span class="sep">·</span> <span class="hi">6 CONTESTED</span> <span class="sep">·</span> <span class="warn">1 KILLED</span></div></div></a>'
+  + '<div class="inv-row" style="cursor:default"><div><div class="it" style="color:var(--ink-3)">The self-certification economy</div><p class="idek">Drafted by the machine from the audit corpus. Awaiting the operator’s signature — unsigned readings are never published.</p></div><div><span class="status-draft">DRAFT · UNSIGNED · NOT ON THE RECORD</span></div></div>'
+  + '</div>'
+  + '</div>'
+  + leads([
+      pill('#/s/meridian-crest', 'the central file', 'Meridian Crest Developments'),
+      pill('#/method', 'how signing works', 'Method')
+    ]);
+}
+
+function pageInvestigation() {
+  return '<div class="inv-head">'
+  + '<span class="kicker">INVESTIGATION I-003 · <span style="color:var(--accent-2)">SIGNED READING</span></span>'
+  + '<h1 style="margin-top:14px">Paper Shovels</h1>'
+  + '<p class="inv-dek">Where the acceleration money settled: a $2.1B program named for speed, a 410-acre land bank, and zero starts.</p>'
+  + '<div class="coord" style="margin-top:16px">SIGNED 2026-07-12 <span class="sep">·</span> <span class="sig serif" style="font-style:italic;color:var(--ink)">— the operator</span> <span class="sep">·</span> 41 FACTS CITED <span class="sep">·</span> <span class="hi">6 CONTESTED</span> <span class="sep">·</span> 12 SOURCES <span class="sep">·</span> <span class="warn">1 CLAIM KILLED IN DRAFTING</span></div>'
+  + '</div>'
+
+  + '<div class="inv-body">'
+  + '<div class="rtext">'
+  + '<h3>I. A program named for speed</h3>'
+  + '<p>In June 2023 the province passed the Build Faster Act and attached ' + cc('#/s/build-faster-act', 'F-0460', 'a $2.1B envelope') + ' to a single promise: money would move faster than process, and homes would follow. The ministry still states the account plainly — ' + cc('#/s/acceleration-account', 'T-0003', '“shovels in the ground faster — full stop”') + '. This investigation reads the program’s largest file against that promise.</p>'
+  + '<h3>II. The window</h3>'
+  + '<p>The file belongs to Meridian Crest Developments. Between August 2023 and February 2024 — after the Act, before the order — the firm assembled ' + cc('#/s/meridian-crest', 'F-0114', '410 acres for $91.4M') + ' outside the Dunmore settlement boundary, farmland it had no entitlement to build on. Twelve days after the first parcel closed, a former ministry chief of staff ' + cc('#/s/marcus-delling', 'F-0121', 'registered to lobby') + ' on “land use designation,” and filed ' + cc('#/s/marcus-delling', 'F-0412', 'fourteen monthly reports') + ' running to the month the order landed.</p>'
+  + '<h3>III. The order</h3>'
+  + '<p>On March 21, 2024, ' + cc('#/s/dunmore-lands', 'F-0301', 'O.Reg 214/24') + ' rezoned all 410 acres residential — issued ' + cc('#/s/dunmore-lands', 'F-0308', 'without a public comment period') + ' under the Act’s urgency authority. The ministry ' + cc('#/s/dunmore-lands', 'F-0315', 'retained no scoring records') + '; the auditors could not reconstruct why this site, of all sites, was chosen. Six months later a refinancing appraisal put the same acres at ' + cc('#/s/meridian-crest', 'F-0145', '$712M') + ' — roughly eight times what the assembly cost.</p>'
+  + '<h3>IV. Where the money settled</h3>'
+  + '<p>Public money followed. ' + cc('#/s/meridian-crest', 'F-0138', '$48.2M in two payments') + ' for “servicing and enabling works,” released against milestones the recipient ' + cc('#/s/meridian-crest', 'F-0152', 'certified itself') + '. The pattern is not unique to this file: across the stream’s ten largest allocations, the audit found starts on three and ' + cc('#/s/acceleration-account', 'F-0502', 'post-funding land transactions on eight') + '. The program measures itself in ' + cc('#/s/acceleration-account', 'F-0503', '“units enabled” — a projection') + '. The record measures in starts. On the Dunmore Lands, thirty-four months in, that number is ' + cc('#/s/meridian-crest', 'F-0231', 'zero') + '.</p>'
+  + '<p>The reading, signed: the acceleration stream, on its largest file, functioned as a land-value instrument. The shovels were paper. Whether that was the program’s failure or its design is the open question the record cannot yet answer — and the reason this file stays open.</p>'
+  + '</div>'
+
+  + '<div class="foundation">'
+  + '<div class="fh"><span class="label">The foundation — what this reading stands on</span><span class="coord">EVERY CLAIM ABOVE RESOLVES HERE</span></div>'
+  + '<div class="fs"><span class="label">Dossiers</span><div class="conns">'
+  + pill('#/s/meridian-crest', 'entity', 'Meridian Crest Developments')
+  + pill('#/s/dunmore-lands', 'event', 'The Dunmore Lands zoning order')
+  + pill('#/s/acceleration-account', 'theme', '“Acceleration money builds homes”')
+  + pill('#/s/marcus-delling', 'entity', 'Marcus Delling')
+  + pill('#/s/build-faster-act', 'statute', 'The Build Faster Act, 2023')
+  + '</div></div>'
+  + '<div class="fs"><span class="label">Sources behind them</span>'
+  + srcRow(DOCS.audit.href, 'Value-for-Money Review: Housing Acceleration Stream', 'PROVINCIAL AUDIT OFFICE · 2025-11-04')
+  + srcRow(DOCS.registry.href, 'Registry of Lobbyists — registration 2023-09-021', 'REGISTRY EXTRACT · 2024-03-08')
+  + srcRow(DOCS.committee.href, 'Standing Committee on Housing Policy — transcript', 'HANSARD · 2026-02-18')
+  + '</div>'
+  + '<div class="fs"><span class="label" style="color:var(--contested)">What remains contested</span>'
+  + '<div class="fed-item assert"><span class="fk">ASSERTED</span><span class="fv">Meridian Crest: the Dunmore program began in 2022, before the stream existed — no 2022 filing is on file, and the claim stands attributed, not established. <a href="#/s/meridian-crest">See the contested layer →</a></span></div>'
+  + '<div class="fed-item assert"><span class="fk">ASSERTED</span><span class="fv">A former regional planner: the order’s boundary language matched the applicant’s draft. The ministry disputes it; both receipts are on file. <a href="#/s/dunmore-lands">See the contested layer →</a></span></div>'
+  + '</div>'
+  + '<div class="fs"><span class="label" style="color:var(--correction)">Killed in drafting — kept visible</span>'
+  + '<div class="killed"><p class="kt">The draft claimed Delling personally attended the 2024-02-06 ministry meeting at which the order was finalized.</p><div class="km">KILLED 2026-07-10 — quote not found in any stored source · verification failed</div></div>'
+  + '</div>'
+  + '</div>'
+  + '</div>'
+
+  + leads([
+      pill('#/s/meridian-crest', 'open the central file', 'Meridian Crest Developments'),
+      pill('#/investigations', 'all signed readings', 'Investigations'),
+      pill('#/method', 'how claims survive', 'Method')
+    ]);
+}
+
+/* ==========================================================================
+   SOURCE PAGES
+   ========================================================================== */
+function docPage(kicker, title, coordLine, about, fedItems, leadItems) {
+  return '<div class="doc-head">'
+  + '<div class="dk"><span class="kindchip" style="font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2);border:1px solid var(--accent-bd);background:var(--accent-bg);border-radius:3px;padding:2px 8px">' + kicker + '</span></div>'
+  + '<h1>' + title + '</h1>'
+  + '<div class="coord dcoord">' + coordLine + '</div>'
+  + '</div>'
+  + '<div class="sec"><p class="method-quote">' + about + '</p></div>'
+  + '<div class="sec">'
+  + secH('What this fed the record', 'THE SIGNATURE MOVE — PROVENANCE, FORWARD')
+  + fedItems
+  + '</div>'
+  + leads(leadItems);
+}
+
+function pageDocAudit() {
+  return docPage('PRIMARY SOURCE · REPORT',
+    'Value-for-Money Review: Housing Acceleration Stream',
+    'DOC S-0038 <span class="sep">·</span> PROVINCIAL AUDIT OFFICE <span class="sep">·</span> PUBLISHED 2025-11-04 <span class="sep">·</span> INGESTED 2026-07-19 <span class="sep">·</span> 96 PP · TEXT <span class="sep">·</span> SHA-256 9f41…c2ae <span class="sep">·</span> STORED COPY ON FILE',
+    'The provincial auditor’s review of the acceleration stream’s first two years: disbursement controls, milestone verification, site-selection records, and outcomes across the ten largest allocations. The single richest feed in this corpus.',
+    '<div class="fed-item"><span class="fk">FACT</span><span class="fv">The $91.4M, nine-transaction Dunmore assembly (F-0114) → <a href="#/s/meridian-crest">Meridian Crest Developments</a></span></div>'
+    + '<div class="fed-item"><span class="fk">FACT</span><span class="fv">$48.2M disbursed in two payments against self-certified milestones (F-0138, F-0152) → <a href="#/s/meridian-crest">Meridian Crest Developments</a></span></div>'
+    + '<div class="fed-item"><span class="fk">FACT</span><span class="fv">No scoring records retained for the Dunmore allocation (F-0315) → <a href="#/s/dunmore-lands">The Dunmore Lands zoning order</a></span></div>'
+    + '<div class="fed-item"><span class="fk">FACT</span><span class="fv">Starts on three of ten largest allocations; land transactions on eight (F-0502) → <a href="#/s/acceleration-account">“Acceleration money builds homes”</a></span></div>'
+    + '<div class="fed-item"><span class="fk">FACT</span><span class="fv">The $78M / 11.5% credit facility and the $712M refinancing appraisal (F-0440, F-0442, F-0145) → <a href="#/s/onward-capital">Onward Capital Partners</a></span></div>'
+    + '<div class="fed-item assert"><span class="fk">ASSERTED</span><span class="fv">Ministry management response: controls were “appropriate to the program’s urgency” — held in the contested layer, not the record</span></div>'
+    + '<div class="fed-item doss"><span class="fk">DOSSIERS</span><span class="fv">Fed 4 files: <a href="#/s/meridian-crest">Meridian Crest</a> · <a href="#/s/dunmore-lands">Dunmore Lands</a> · <a href="#/s/acceleration-account">the received account</a> · <a href="#/s/onward-capital">Onward Capital</a></span></div>'
+    + '<div class="more-note">14 FACTS · 2 ASSERTIONS VERIFIED FROM THIS SOURCE · 0 KILLED</div>',
+    [pill('#/s/meridian-crest', 'richest file it fed', 'Meridian Crest Developments'),
+     pill('#/i/paper-shovels', 'the reading it anchors', 'Paper Shovels')]);
+}
+
+function pageDocRegistry() {
+  return docPage('PRIMARY SOURCE · REGISTRY EXTRACT',
+    'Registry of Lobbyists — registration 2023-09-021 and communication reports 1–14',
+    'DOC S-0021 <span class="sep">·</span> REGISTRY EXTRACT <span class="sep">·</span> EXPORTED 2024-03-08 <span class="sep">·</span> INGESTED 2026-07-11 <span class="sep">·</span> TEXT <span class="sep">·</span> SHA-256 4d17…88b0 <span class="sep">·</span> STORED COPY ON FILE',
+    'The registration filed by Marcus Delling for Meridian Crest Developments, with the fourteen monthly communication reports that map the lobbying window — October 2023 to February 2024 — onto the months between assembly and order.',
+    '<div class="fed-item"><span class="fk">FACT</span><span class="fv">Registration 2023-09-021, subject matters “housing policy; land use designation” (F-0121) → <a href="#/s/meridian-crest">Meridian Crest Developments</a></span></div>'
+    + '<div class="fed-item"><span class="fk">FACT</span><span class="fv">Public offices held: chief of staff, housing ministry, 2019–2022 (F-0410) → <a href="#/s/marcus-delling">Marcus Delling</a></span></div>'
+    + '<div class="fed-item"><span class="fk">FACT</span><span class="fv">14 monthly communication reports, Oct 2023 – Feb 2024 (F-0412, F-0319) → <a href="#/s/marcus-delling">Marcus Delling</a> · <a href="#/s/dunmore-lands">The Dunmore Lands zoning order</a></span></div>'
+    + '<div class="fed-item doss"><span class="fk">DOSSIERS</span><span class="fv">Fed 3 files: <a href="#/s/marcus-delling">Marcus Delling</a> · <a href="#/s/meridian-crest">Meridian Crest</a> · <a href="#/s/dunmore-lands">Dunmore Lands</a></span></div>'
+    + '<div class="more-note">8 FACTS VERIFIED FROM THIS SOURCE · 1 KILLED — SEE <a class="plain" href="#/method">METHOD</a></div>',
+    [pill('#/s/marcus-delling', 'the registrant', 'Marcus Delling'),
+     pill('#/s/dunmore-lands', 'the decision downstream', 'The Dunmore Lands zoning order')]);
+}
+
+function pageDocCommittee() {
+  return docPage('PRIMARY SOURCE · TRANSCRIPT',
+    'Standing Committee on Housing Policy — hearing transcript',
+    'DOC S-0040 <span class="sep">·</span> HANSARD TRANSCRIPT <span class="sep">·</span> HEARING 2026-02-18 <span class="sep">·</span> INGESTED 2026-07-16 <span class="sep">·</span> TEXT <span class="sep">·</span> SHA-256 b3c9…114e <span class="sep">·</span> STORED COPY ON FILE',
+    'The February 2026 hearing on the audit’s findings. Almost everything this document fed is attributed speech — which is exactly how the record holds it: in the contested layer, as who-said-what, never as fact.',
+    '<div class="fed-item assert"><span class="fk">ASSERTED</span><span class="fv">Meridian Crest: “the Dunmore program was initiated in 2022” → contested layer, <a href="#/s/meridian-crest">Meridian Crest Developments</a></span></div>'
+    + '<div class="fed-item assert"><span class="fk">ASSERTED</span><span class="fv">Ministry: “all acceleration decisions followed the standard evaluation framework” → contested layer, <a href="#/s/meridian-crest">Meridian Crest Developments</a></span></div>'
+    + '<div class="fed-item assert"><span class="fk">ASSERTED</span><span class="fv">Former regional planner: “the boundary description… matched the applicant’s draft” → contested layer, <a href="#/s/dunmore-lands">The Dunmore Lands zoning order</a></span></div>'
+    + '<div class="fed-item assert"><span class="fk">ASSERTED</span><span class="fv">Delling: “every communication… was registered, on the record” → contested layer, <a href="#/s/marcus-delling">Marcus Delling</a></span></div>'
+    + '<div class="fed-item assert"><span class="fk">ASSERTED</span><span class="fv">Ministry: “shovels in the ground faster — full stop” → the account itself, <a href="#/s/acceleration-account">“Acceleration money builds homes”</a></span></div>'
+    + '<div class="fed-item doss"><span class="fk">DOSSIERS</span><span class="fv">Fed the contested layers of 3 files and the theme file</span></div>'
+    + '<div class="more-note">5 ASSERTIONS VERIFIED FROM THIS SOURCE · ALL HELD AS ATTRIBUTED SPEECH</div>',
+    [pill('#/s/dunmore-lands', 'the sharpest dispute', 'The Dunmore Lands zoning order'),
+     pill('#/method', 'why speech never becomes fact', 'Method')]);
+}
+
+/* ==========================================================================
+   SEARCH
+   ========================================================================== */
+var INDEX = [
+  { t: 'dossier', title: 'Meridian Crest Developments', sub: 'ENTITY · E-0007 · 34 FACTS · 6 CONTESTED', href: '#/s/meridian-crest', k: 'meridian crest developments oakville dunmore developer land' },
+  { t: 'dossier', title: 'The Dunmore Lands zoning order', sub: 'EVENT · V-0012 · 22 FACTS · 3 CONTESTED', href: '#/s/dunmore-lands', k: 'dunmore lands zoning order mzo o.reg 214/24 event boundary' },
+  { t: 'dossier', title: '“Acceleration money builds homes”', sub: 'THEME · T-0003 · 4 SOURCES CONVERGE', href: '#/s/acceleration-account', k: 'acceleration money builds homes theme received account housing stream' },
+  { t: 'dossier', title: 'Marcus Delling', sub: 'ENTITY · E-0011 · 9 FACTS · 2 CONTESTED', href: '#/s/marcus-delling', k: 'marcus delling lobbyist chief of staff registry' },
+  { t: 'dossier', title: 'Onward Capital Partners', sub: 'ENTITY · E-0014 · 6 FACTS', href: '#/s/onward-capital', k: 'onward capital partners lender private credit financing' },
+  { t: 'dossier', title: 'The Build Faster Act, 2023', sub: 'ENTITY · E-0009 · 8 FACTS', href: '#/s/build-faster-act', k: 'build faster act statute 2023 stream authority' },
+  { t: 'fact', title: 'Assembled 410 acres in nine transactions for $91.4M, Aug 2023 – Feb 2024', sub: 'F-0114 · FILE E-0007 · RECEIPT: AUDIT p.17', href: '#/s/meridian-crest', k: 'dunmore 410 acres assembly 91.4 nine transactions meridian farmland' },
+  { t: 'fact', title: 'Zero housing starts recorded on the Dunmore Lands as of 2026-06-30', sub: 'F-0231 · FILE E-0007 · RECEIPT: AUDIT p.41', href: '#/s/meridian-crest', k: 'zero housing starts dunmore 2026 meridian' },
+  { t: 'fact', title: 'O.Reg 214/24 issued without a public comment period', sub: 'F-0308 · FILE V-0012 · RECEIPT: AUDIT p.23', href: '#/s/dunmore-lands', k: 'dunmore order no public comment period urgency zoning' },
+  { t: 'fact', title: '14 registered communications on “land use designation” precede the order', sub: 'F-0319 · FILE V-0012 · RECEIPT: REGISTRY reports 1–14', href: '#/s/dunmore-lands', k: 'dunmore fourteen communications lobbying registry delling land use designation' },
+  { t: 'inv', title: 'Paper Shovels', sub: 'I-003 · SIGNED 2026-07-12 · 41 FACTS · 1 KILLED', href: '#/i/paper-shovels', k: 'paper shovels investigation acceleration dunmore signed reading meridian' },
+  { t: 'doc', title: 'Value-for-Money Review: Housing Acceleration Stream', sub: 'S-0038 · PROVINCIAL AUDIT OFFICE · FED 14 FACTS', href: '#/doc/pao-audit-2025', k: 'audit value for money review acceleration stream provincial' },
+  { t: 'doc', title: 'Registry of Lobbyists — registration 2023-09-021', sub: 'S-0021 · REGISTRY EXTRACT · FED 8 FACTS', href: '#/doc/lobby-registry-2024', k: 'registry lobbyists delling registration communication reports' },
+  { t: 'doc', title: 'Standing Committee on Housing Policy — transcript', sub: 'S-0040 · HANSARD · FED 5 ASSERTIONS', href: '#/doc/committee-transcript', k: 'committee transcript hearing hansard testimony dunmore' }
+];
+
+function pageSearch() {
+  return '<div class="inv-head">'
+  + '<span class="kicker">ASK THE RECORD</span>'
+  + '<h1 style="margin-top:14px">One box. The whole record.</h1>'
+  + '<p class="inv-dek">Results are dossiers, facts with their receipts, signed readings, and sources. The same surface machines walk in through.</p>'
+  + '</div>'
+  + '<div class="searchbar"><span class="pr">/</span><input id="searchbox" type="search" placeholder="a name, a parcel, a number, a claim…" value="dunmore" autocomplete="off"></div>'
+  + '<div id="results"></div>';
+}
+
+function renderResults(q) {
+  var el = document.getElementById('results');
+  if (!el) return;
+  q = (q || '').trim().toLowerCase();
+  var hits = q ? INDEX.filter(function (r) { return (r.title + ' ' + r.k).toLowerCase().indexOf(q) !== -1; }) : [];
+  if (!q) { el.innerHTML = '<div class="res-none">TYPE TO ASK — TRY “DUNMORE”, “DELLING”, “ZERO STARTS”</div>'; return; }
+  if (!hits.length) { el.innerHTML = '<div class="res-none">NOTHING ON FILE FOR “' + q.toUpperCase() + '” — THE RECORD SAYS SO RATHER THAN GUESSING</div>'; return; }
+  var groups = [['dossier', 'Dossiers'], ['fact', 'Facts — each carries its receipt'], ['inv', 'Signed readings'], ['doc', 'Sources on file']];
+  var html = '';
+  groups.forEach(function (g) {
+    var rows = hits.filter(function (r) { return r.t === g[0]; });
+    if (!rows.length) return;
+    html += '<div class="res-group">' + secH(g[1], rows.length + (rows.length === 1 ? ' RESULT' : ' RESULTS'));
+    rows.forEach(function (r) {
+      html += '<a class="res-fact fact-line" style="display:flex" href="' + r.href + '"><div><div class="fact-text" style="color:var(--ink)">' + r.title + '</div><div class="coord" style="margin-top:3px">' + r.sub + '</div></div><span class="fact-id">→</span></a>';
+    });
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
+/* ==========================================================================
+   METHOD
+   ========================================================================== */
+function pageMethod() {
+  return '<div class="inv-head">'
+  + '<span class="kicker">METHOD — THE TRUST PAGE</span>'
+  + '<h1 style="margin-top:14px">How a claim earns its place here.</h1>'
+  + '<p class="inv-dek">Canopticon is a machine that keeps files on power. Nobody writes the files. This page is the contract — in language a person, or a machine, can quote.</p>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('The contract', 'PLAIN LANGUAGE · QUOTABLE')
+  + '<p class="method-quote">Every published claim on this site resolves, in one click, to a verbatim quote that is a character-for-character substring of a stored copy of a primary source. The check is mechanical, not vouched. Claims that fail are killed, publicly and permanently. Attributed speech is never promoted to fact. Interpretation appears only behind a signature, above its own complications.</p>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('The chain every claim survives', 'OR IS KILLED BY')
+  + '<div class="chain">'
+  + '<div class="chain-step"><span class="cn">01</span><div class="ct"><b>The source is stored</b>Documents enter the record whole — hashed, deduplicated, kept. Receipts point at the stored copy, never at a link that can rot.</div></div>'
+  + '<div class="chain-step"><span class="cn">02</span><div class="ct"><b>The machine extracts, verbatim</b>Facts are extracted with their exact supporting span. If the quote is not a literal substring of the stored text, the claim does not exist.</div></div>'
+  + '<div class="chain-step"><span class="cn">03</span><div class="ct"><b>The firewall sorts fact from speech</b>What a document establishes becomes the record. What someone <em>said</em> stays attributed — who, when, against what — in the contested layer. The two never blend.</div></div>'
+  + '<div class="chain-step"><span class="cn">04</span><div class="ct"><b>An independent judge re-checks</b>Before anything is published or signed, a second, separate check re-verifies every quote against the stored source. Verification is mechanical, not vouched.</div></div>'
+  + '<div class="chain-step"><span class="cn">05</span><div class="ct"><b>Publish — or kill, visibly</b>Claims that fail are killed: struck from the record, kept on display where they fell. The kill list is part of the product, not a changelog.</div></div>'
+  + '</div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('What “contested” means here', 'THE FIREWALL, RENDERED')
+  + '<p class="method-quote" style="border-left-color:var(--contested)">A rose-ruled block on a dossier means: someone asserted this, and the record holds it as an assertion. You will always see who said it, what stance they took, and what it runs against — with both receipts. Disagreement is rendered as disagreement. It is never averaged into a fact.</p>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('What “killed” means here', '9 CLAIMS KILLED TO DATE')
+  + '<p class="method-quote" style="border-left-color:var(--correction);margin-bottom:18px">A killed claim failed verification — its quote could not be found, character for character, in any stored source, or an independent judge rejected the pairing. Kills are permanent and public. A record you can trust must show you what it refused to say.</p>'
+  + '<div class="killed"><p class="kt">The draft claimed Delling personally attended the 2024-02-06 ministry meeting at which the order was finalized.</p><div class="km">KILLED 2026-07-10 — quote not found in any stored source · struck from “Paper Shovels” in drafting</div></div>'
+  + '</div>'
+
+  + '<div class="sec">'
+  + secH('Who writes this site', 'NOBODY, AND ONE PERSON')
+  + '<p class="method-quote" style="border-left-color:var(--rule-bright)">The dossiers are grown by the machine from the sources — nobody authors them, and they say so. The one human voice on the site is the signed reading: interpretation in serif, behind a visible seam, over a mandatory account of what complicates it. The operator approves; the operator never authors the record.</p>'
+  + '</div>'
+
+  + leads([
+      pill('#/s/meridian-crest', 'see it working', 'The file on Meridian Crest'),
+      pill('#/i/paper-shovels', 'a signed reading', 'Paper Shovels'),
+      pill('#/doc/pao-audit-2025', 'a stored source', 'The value-for-money review')
+    ]);
+}
+
+/* ==========================================================================
+   ROUTER
+   ========================================================================== */
+var ROUTES = {
+  '/': pageHome,
+  '/investigations': pageInvIndex,
+  '/i/paper-shovels': pageInvestigation,
+  '/s/meridian-crest': dossierMeridian,
+  '/s/dunmore-lands': dossierDunmore,
+  '/s/acceleration-account': dossierTheme,
+  '/s/marcus-delling': dossierDelling,
+  '/s/onward-capital': dossierOnward,
+  '/s/build-faster-act': dossierAct,
+  '/doc/pao-audit-2025': pageDocAudit,
+  '/doc/lobby-registry-2024': pageDocRegistry,
+  '/doc/committee-transcript': pageDocCommittee,
+  '/search': pageSearch,
+  '/method': pageMethod
+};
+
+function navKey(path) {
+  if (path === '/investigations' || path.indexOf('/i/') === 0) return 'inv';
+  if (path === '/method') return 'method';
+  if (path === '/search') return 'search';
+  return 'record';
+}
+
+function render() {
+  var hash = location.hash || '#/';
+  var path = hash.slice(1).split('?')[0] || '/';
+  var anchor = null;
+  if (path.indexOf('#') !== -1) { var seg = path.split('#'); path = seg[0]; anchor = seg[1]; }
+  if (/^\/?F-\d+$/.test(path)) { path = '/'; }
+  var page = ROUTES[path];
+  var app = document.getElementById('app');
+  if (!page) {
+    app.innerHTML = '<div class="thin-note" style="margin-top:30px">NO FILE AT THIS ADDRESS — <a class="plain" href="#/">RETURN TO THE RECORD</a></div>';
+    return;
+  }
+  app.classList.remove('in');
+  app.innerHTML = page();
+  void app.offsetWidth;
+  app.classList.add('in');
+  var key = navKey(path);
+  document.querySelectorAll('[data-nav]').forEach(function (a) {
+    a.classList.toggle('active', a.getAttribute('data-nav') === key);
+  });
+  window.scrollTo(0, 0);
+  var sb = document.getElementById('searchbox');
+  if (sb) {
+    renderResults(sb.value);
+    sb.addEventListener('input', function () { renderResults(sb.value); });
+    sb.focus();
+  }
+}
+
+/* in-page fact anchors (claim chips inside the signed reading) —
+   scroll and flash the fact row without touching the route */
+document.addEventListener('click', function (e) {
+  var a = e.target.closest ? e.target.closest('a[href^="#F-"]') : null;
+  if (!a) return;
+  e.preventDefault();
+  var el = document.getElementById(a.getAttribute('href').slice(1));
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.style.transition = 'background .4s';
+    el.style.background = 'var(--accent-bg)';
+    setTimeout(function () { el.style.background = ''; }, 1600);
+  }
+});
+
+window.addEventListener('hashchange', render);
+render();
+</script>
