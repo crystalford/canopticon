@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T21:41:37Z",
-  "run_id": "29960159246",
+  "requested_at": "2026-07-22T21:42:17Z",
+  "run_id": "29960203548",
   "method": "GET",
-  "path": "/v1/admin/settle-advance?confirm=1",
+  "path": "/v1/admin/settle-state",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"started\": true\n}"
+  "body": "{\n  \"ok\": true,\n  \"row\": null\n}"
 }
