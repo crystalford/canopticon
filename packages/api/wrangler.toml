@@ -43,9 +43,11 @@ binding = "AI"
 [triggers]
 # every minute: drain stuck/queued digest_jobs (the safety net under ingest)
 # monday 12:00 UTC: run the weekly monitor watchers
-# hourly: autonomous expand sweep — one thin subject per tick (see
-# graph/lib/autonomous-expand.ts for why one-per-tick, not a bigger batch)
-crons = ["* * * * *", "0 12 * * 1", "0 * * * *"]
+# every 4 hours: autonomous expand sweep — one thin subject per tick,
+# ranked by edge_degree not staleness (see graph/lib/autonomous-expand.ts).
+# Kept deliberately infrequent — each tick spends real, metered Brave
+# Search + Workers AI + D1 cost, not just idle compute.
+crons = ["* * * * *", "0 12 * * 1", "0 */4 * * *"]
 
 [vars]
 LOG_LEVEL = "info"

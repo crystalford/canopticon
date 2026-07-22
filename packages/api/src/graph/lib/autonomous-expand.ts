@@ -10,9 +10,20 @@
 //
 // Budget discipline matters here specifically because it spends a metered,
 // rate-limited third-party API (Brave Search) without a human initiating
-// each call. BATCH_SIZE and COOLDOWN_MS below are deliberately small; widen
-// them only with the actual Brave quota in mind, not the pipeline's
-// capacity.
+// each call, and because Workers AI inference + D1 time inside each sweep
+// are themselves billed — this is real spend, not a free background task.
+// BATCH_SIZE, COOLDOWN_MS, and the cron cadence in wrangler.toml are all
+// deliberately conservative; widen them only against actual observed cost,
+// not the pipeline's raw capacity.
+//
+// Sniper, not shotgun: candidates aren't picked by staleness alone. Each
+// thin candidate's edge_degree (how many edges in the typed graph already
+// touch it — mentions, relationships, causal links) is a cheap proxy for
+// "how much the corpus already cares about this." A subject with a high
+// edge_degree but few verified facts is exactly the gap worth spending a
+// real search+fetch+extract on: the corpus keeps bringing it up, but
+// nothing has gone and gotten the receipts yet. A subject nobody links to
+// is just thin, not urgent, so it waits.
 
 import type { Env } from "../../env";
 import { all, insertOne, run } from "../../lib/d1";
@@ -27,6 +38,7 @@ import { expandRecord } from "./record-builder";
 const BATCH_SIZE = 1; // subjects expanded per sweep tick
 const COOLDOWN_MS = 24 * 60 * 60 * 1000; // don't re-sweep a subject inside 24h
 const THIN_FACT_THRESHOLD = 5; // mirrors subject-page.ts's isThin
+const CANDIDATE_POOL = 50; // bound the ranking query; re-ranked by edge_degree below
 
 export interface SweepReport {
   configured: boolean;
@@ -40,6 +52,7 @@ interface ThinCandidate {
   node_id: string;
   label: string;
   fact_count: number;
+  edge_degree: number;
 }
 
 export async function sweepThinSubjects(env: Env, userId: string): Promise<SweepReport> {
@@ -63,23 +76,30 @@ export async function sweepThinSubjects(env: Env, userId: string): Promise<Sweep
                    WHERE e.user_id = p.user_id AND e.family = 'aboutness'
                      AND e.src_node_id = f.id AND e.dst_node_id = n.id
                 )
-            ) AS fact_count
+            ) AS fact_count,
+            (SELECT COUNT(*) FROM edges e2
+              WHERE e2.user_id = p.user_id
+                AND (e2.src_node_id = n.id OR e2.dst_node_id = n.id)
+            ) AS edge_degree
        FROM pages p
        JOIN nodes n ON n.id = p.subject_node_id
       WHERE p.user_id = ?
         AND (p.auto_expand_at IS NULL OR p.auto_expand_at < ?)
       ORDER BY COALESCE(p.auto_expand_at, '') ASC
-      LIMIT 50`,
+      LIMIT ${CANDIDATE_POOL}`,
     [userId, cooldownCutoff],
   ).catch(() => []);
 
-  const thin = rows.filter((r) => r.fact_count < THIN_FACT_THRESHOLD).slice(0, BATCH_SIZE);
+  const thin = rows
+    .filter((r) => r.fact_count < THIN_FACT_THRESHOLD)
+    .sort((a, b) => b.edge_degree - a.edge_degree)
+    .slice(0, BATCH_SIZE);
   report.candidates_considered = rows.length;
   if (thin.length === 0) return report;
 
   await emit(env, userId, "autonomous.sweep.started", {
     candidates: rows.length,
-    picked: thin.map((t) => t.label),
+    picked: thin.map((t) => ({ label: t.label, edge_degree: t.edge_degree })),
   });
 
   for (const candidate of thin) {
