@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T22:04:58Z",
-  "run_id": "29961593684",
+  "requested_at": "2026-07-22T22:09:50Z",
+  "run_id": "29961879840",
   "method": "GET",
   "path": "/v1/admin/settle-state",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"row\": {\n    \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n    \"next_step\": \"autoseed_pages\",\n    \"last_advanced_at\": \"2026-07-22T22:02:58.218Z\"\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"row\": {\n    \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n    \"next_step\": \"draft_readings\",\n    \"last_advanced_at\": \"2026-07-22T22:08:32.345Z\"\n  }\n}"
 }
