@@ -13,6 +13,7 @@
 
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
+import type { Env } from "../env.ts";
 import { enqueueDigest, ensureJobsTable, runDigestJob } from "../graph/lib/digest-jobs.ts";
 import { all, insertOne, one, run } from "../lib/d1.ts";
 import { type Role, callRole, modelForRole } from "../llm/router.ts";
@@ -367,89 +368,90 @@ app.get("/backfill-library", async (c) => {
   });
 });
 
-// GET /v1/admin/resettle?confirm=1
+// GET /v1/admin/resettle?confirm=1&step=<name>
 //
-// Manually re-runs the corpus-settle gate (surfacing L1 → theme surfacer →
-// autoseed pages → propose briefs → draft readings) without needing a new
-// digest job to trigger it — digest-jobs.ts only fires this automatically
-// when the LAST queued/running job finishes, so a bug fix to one of these
-// steps (e.g. theme-surfacer's insertOne/themes schema mismatch) has no way
-// to re-run against an already-settled corpus short of re-extracting
-// everything. Mirrors digest-jobs.ts's settle block, including the same
-// non-fatal-but-visible error handling.
+// Manually re-runs ONE step of the corpus-settle gate (surfacing_l1 →
+// theme_surfacer → autoseed_pages → propose_briefs → draft_readings)
+// without needing a new digest job to trigger it — digest-jobs.ts only
+// fires the settle gate automatically when the LAST queued/running job
+// finishes, so a bug fix to one of these steps has no way to re-run
+// against an already-settled corpus short of re-extracting everything.
 //
-// Fired via waitUntil, NOT awaited inline — all five steps in sequence make
-// real LLM calls and easily exceed both the probe's 30s curl timeout and a
-// synchronous Worker request's own execution ceiling (confirmed: the first,
-// synchronous version of this endpoint got killed mid-run with an empty
-// response and no orchestrator_events ever written). Poll /runtime's
-// events.by_type afterward to see it land, same as /reextract.
+// ONE step per call, not all five chained — confirmed live that chaining
+// them (each step can make several real LLM calls) reliably exceeds
+// whatever aggregate CPU/wall-clock budget Cloudflare gives a single
+// waitUntil execution: two consecutive attempts logged a "resettle_started"
+// breadcrumb and then nothing else at all — not even the try/catch's own
+// "resettle_crashed" breadcrumb, meaning the platform tore down the
+// execution context outright rather than the code throwing a catchable
+// error. Call this five times, once per step name below, to run the whole
+// gate; poll /runtime's events.by_type between calls.
+const RESETTLE_STEPS: Record<string, (env: Env, userId: string) => Promise<unknown>> = {
+  surfacing_l1: async (env, userId) => {
+    const { runSurfacingL1 } = await import("../graph/lib/surfacing");
+    return runSurfacingL1(env, userId);
+  },
+  theme_surfacer: async (env, userId) => {
+    const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
+    return runThemeSurfacer(env, userId);
+  },
+  autoseed_pages: async (env, userId) => {
+    const { autoseedPages } = await import("../graph/lib/autoseed-pages");
+    return autoseedPages(env, userId);
+  },
+  propose_briefs: async (env, userId) => {
+    const { proposeBriefs } = await import("../graph/lib/briefs/proposer");
+    return proposeBriefs(env, userId);
+  },
+  draft_readings: async (env, userId) => {
+    const { draftReadings } = await import("../graph/lib/draft-reading");
+    return draftReadings(env, userId);
+  },
+};
+
 app.get("/resettle", async (c) => {
   if (c.req.query("confirm") !== "1") {
     return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
   }
+  const stepName = c.req.query("step") ?? "";
+  const stepFn = RESETTLE_STEPS[stepName];
+  if (!stepFn) {
+    return c.json(
+      {
+        ok: false,
+        error: `missing or unknown ?step= — one of: ${Object.keys(RESETTLE_STEPS).join(", ")}`,
+      },
+      400,
+    );
+  }
   const userId = c.get("user_id");
   const env = c.env;
-  const step = async (name: string, fn: () => Promise<unknown>) => {
-    try {
-      await fn();
-    } catch (err) {
-      const error = (err as Error).message ?? "unknown error";
-      await insertOne(env.DB, "orchestrator_events", {
-        user_id: userId,
-        event_type: "settle_step_failed",
-        subject_kind: "corpus",
-        subject_id: userId,
-        payload: JSON.stringify({ step: name, error }),
-      }).catch(() => {});
-    }
-  };
   c.executionCtx.waitUntil(
     (async () => {
-      // Diagnostic breadcrumb: written before any real work, unconditionally
-      // — a manual /resettle run against the live corpus previously produced
-      // ZERO new orchestrator_events at all after several minutes, meaning
-      // either waitUntil's promise never actually got scheduled/awaited by
-      // the platform, or something above threw before step()'s own
-      // try/catch could ever run. This confirms which one it is.
       await insertOne(env.DB, "orchestrator_events", {
         user_id: userId,
-        event_type: "resettle_started",
+        event_type: "resettle_step_started",
         subject_kind: "corpus",
         subject_id: userId,
-        payload: JSON.stringify({ at: new Date().toISOString() }),
+        payload: JSON.stringify({ step: stepName, at: new Date().toISOString() }),
       }).catch(() => {});
       try {
-        const { runSurfacingL1 } = await import("../graph/lib/surfacing");
-        await step("surfacing_l1", () => runSurfacingL1(env, userId));
-        await step("theme_surfacer", async () => {
-          const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
-          return runThemeSurfacer(env, userId);
-        });
-        await step("autoseed_pages", async () => {
-          const { autoseedPages } = await import("../graph/lib/autoseed-pages");
-          return autoseedPages(env, userId);
-        });
-        await step("propose_briefs", async () => {
-          const { proposeBriefs } = await import("../graph/lib/briefs/proposer");
-          return proposeBriefs(env, userId);
-        });
-        await step("draft_readings", async () => {
-          const { draftReadings } = await import("../graph/lib/draft-reading");
-          return draftReadings(env, userId);
-        });
+        await stepFn(env, userId);
       } catch (err) {
         await insertOne(env.DB, "orchestrator_events", {
           user_id: userId,
-          event_type: "resettle_crashed",
+          event_type: "settle_step_failed",
           subject_kind: "corpus",
           subject_id: userId,
-          payload: JSON.stringify({ error: (err as Error).message ?? "unknown error" }),
+          payload: JSON.stringify({
+            step: stepName,
+            error: (err as Error).message ?? "unknown error",
+          }),
         }).catch(() => {});
       }
     })(),
   );
-  return c.json({ ok: true, started: true });
+  return c.json({ ok: true, started: true, step: stepName });
 });
 
 // GET /v1/admin/health — model + binding probe.
