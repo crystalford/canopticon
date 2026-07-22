@@ -51,6 +51,19 @@ image = "../video-renderer/Dockerfile"
 instance_type = "standard-4"
 max_instances = 1
 
+# The Durable Object backing the container above. RenderContainer is
+# exported from src/index.ts (extends Container from @cloudflare/
+# containers, which itself extends DurableObject). SQLite-backed
+# storage (new_sqlite_classes, not the legacy new_classes) because the
+# Container base class keeps its own internal state via SQL.
+[[durable_objects.bindings]]
+name = "RENDER_CONTAINER"
+class_name = "RenderContainer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RenderContainer"]
+
 # Cron — DISABLED. The operator is running this manually for now
 # via the "Refresh radar" button on /queue (POST /queue/poll). Re-
 # enable by uncommenting the [triggers] block below once the deploy

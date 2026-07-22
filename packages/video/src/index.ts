@@ -31,6 +31,11 @@ import spikeRoutes from "./routes/spike.ts";
 import statusRoutes from "./routes/status.ts";
 import voiceRoutes from "./voice/routes.ts";
 
+// The Durable Object class backing the RENDER_CONTAINER binding. Must be
+// a named export from this module (wrangler.toml's `main`) — Cloudflare
+// resolves the class referenced in [[durable_objects.bindings]] here.
+export { RenderContainer } from "./render/container.ts";
+
 type App = { Bindings: Env; Variables: AuthState };
 
 const app = new Hono<App>();
