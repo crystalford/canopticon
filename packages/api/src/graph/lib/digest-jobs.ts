@@ -254,6 +254,17 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
             });
           }
         };
+        // Entity resolution runs FIRST — before anything else reads the
+        // graph. Extraction creates a separate node per mention, so the
+        // same real-world entity is fragmented across many under-quoted
+        // node rows; every downstream step (autoseed's page-per-subject,
+        // draft-reading's quote-count eligibility check) sees a truer,
+        // consolidated picture once evidence is pooled onto one canonical
+        // node per thing instead of scattered across its aliases.
+        await settleStep("entity_resolution", async () => {
+          const { resolveEntities } = await import("./entity-resolution");
+          await resolveEntities(env, job.user_id);
+        });
         await settleStep("surfacing_l1", () => runSurfacingL1(env, job.user_id));
         // Theme surfacer — find what the corpus is engaging with. Runs
         // BEFORE the proposer so any newly-named themes are visible to it.

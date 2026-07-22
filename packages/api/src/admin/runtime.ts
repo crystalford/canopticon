@@ -387,6 +387,10 @@ app.get("/backfill-library", async (c) => {
 // error. Call this five times, once per step name below, to run the whole
 // gate; poll /runtime's events.by_type between calls.
 const RESETTLE_STEPS: Record<string, (env: Env, userId: string) => Promise<unknown>> = {
+  entity_resolution: async (env, userId) => {
+    const { resolveEntities } = await import("../graph/lib/entity-resolution");
+    return resolveEntities(env, userId);
+  },
   surfacing_l1: async (env, userId) => {
     const { runSurfacingL1 } = await import("../graph/lib/surfacing");
     return runSurfacingL1(env, userId);
