@@ -115,12 +115,17 @@ app.post("/feed/upload", async (c) => {
           `/op/library?error=${encodeURIComponent("No .md/.txt/.pdf files in the zip")}`,
         );
       }
-      // For zips: create + extract every entry synchronously (fast). Documents
-      // land in the Vault; extraction is decoupled — run it from Library when
-      // ready. (Pivot: upload = bank in Vault, extraction is a separate manual
-      // step, no auto-fan-out of LLM work on upload.)
+      // For zips: create + bank every entry synchronously (fast), then
+      // enqueue each new piece into the typed-graph digest queue — the
+      // drop itself starts reading the document into the record, rather
+      // than requiring a second manual "Extract" click in Library
+      // (previously the only trigger). Kick a few jobs inline via
+      // waitUntil so the first pieces of a batch don't wait for the next
+      // cron tick; the rest drain on the every-minute cron as before.
+      const ZIP_INLINE_KICKS = 3;
       const pieceIds: string[] = [];
       let zipDupes = 0;
+      let zipKicked = 0;
       for (const name of names.slice(0, ZIP_MAX_ENTRIES)) {
         const bytes = entries[name];
         if (!bytes) continue;
@@ -135,7 +140,21 @@ app.post("/feed/upload", async (c) => {
             bytes.length,
           );
           pieceIds.push(p.pieceId);
-          if (p.duplicate) zipDupes++;
+          if (p.duplicate) {
+            zipDupes++;
+          } else if (p.sourceId) {
+            const jobId = await enqueueDigest(c.env, {
+              userId,
+              pieceId: p.pieceId,
+              slug: p.slug,
+              title: p.title,
+              sourceId: p.sourceId,
+            });
+            if (zipKicked < ZIP_INLINE_KICKS) {
+              zipKicked++;
+              c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
+            }
+          }
         } catch {
           // skip a bad entry; keep ingesting the rest
         }
@@ -143,11 +162,24 @@ app.post("/feed/upload", async (c) => {
       return c.redirect(`/op/library?ingested=${pieceIds.length}&dupes=${zipDupes}`);
     }
 
-    // Single-file: store in Vault. Extraction is triggered manually from
-    // Library — the cron drain + durable job infra remain in place for that.
+    // Single-file: store in Vault, then enqueue the typed-graph digest
+    // immediately (kicked inline via waitUntil) — the drop is the trigger,
+    // not a separate Extract click. A duplicate upload is already banked
+    // and was either extracted before or is queued from that earlier drop;
+    // don't double-enqueue it.
     const p = await createAndExtract(c.env, userId, f.stream(), f.name, f.type, f.size);
     if (p.duplicate) {
       return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}&dedup=1`);
+    }
+    if (p.sourceId) {
+      const jobId = await enqueueDigest(c.env, {
+        userId,
+        pieceId: p.pieceId,
+        slug: p.slug,
+        title: p.title,
+        sourceId: p.sourceId,
+      });
+      c.executionCtx.waitUntil(runDigestJob(c.env, jobId));
     }
     return c.redirect(`/op/library?piece=${encodeURIComponent(p.pieceId)}`);
   } catch (err) {
@@ -286,7 +318,10 @@ async function createAndExtract(
     kind: "research-report",
     publication_status: "working-material",
     body_md,
-    byline: "the operator",
+    // No byline default — "the operator" is internal vocabulary and this
+    // string renders directly on public piece pages ("By the operator").
+    // An uploaded source document has no author to credit; leave it unset
+    // rather than write a placeholder into a field readers see.
     tags: JSON.stringify([]),
     metadata: JSON.stringify({
       ingested_from: "feed-upload",
