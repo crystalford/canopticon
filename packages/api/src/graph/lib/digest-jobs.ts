@@ -240,43 +240,44 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
         [job.user_id, jobId],
       );
       if ((remaining?.n ?? 0) === 0) {
-        try {
-          await runSurfacingL1(env, job.user_id);
-        } catch {
-          // findings recompute on manual re-surface
-        }
+        // The corpus-settle gate. Each step has a manual re-run fallback,
+        // but a failure here must be VISIBLE, not silent — otherwise the
+        // corpus "settles successfully" with no page growth and nobody
+        // knows. Every catch now leaves a breadcrumb on the activity log.
+        const settleStep = async (step: string, run: () => Promise<unknown>) => {
+          try {
+            await run();
+          } catch (err) {
+            await emitJobEvent(env, job, "settle_step_failed", {
+              step,
+              error: (err as Error).message ?? "unknown error",
+            });
+          }
+        };
+        await settleStep("surfacing_l1", () => runSurfacingL1(env, job.user_id));
         // Theme surfacer — find what the corpus is engaging with. Runs
         // BEFORE the proposer so any newly-named themes are visible to it.
-        try {
+        await settleStep("theme_surfacer", async () => {
           const { runThemeSurfacer } = await import("./theme-surfacer");
           await runThemeSurfacer(env, job.user_id);
-        } catch {
-          // Themes resurface on the next corpus settle
-        }
+        });
         // Page autoseeder — every entity, event, and theme node deserves a
         // page row. Catches up extraction's output so subject pages are
         // reachable the moment the corpus settles.
-        try {
+        await settleStep("autoseed_pages", async () => {
           const { autoseedPages } = await import("./autoseed-pages");
           await autoseedPages(env, job.user_id);
-        } catch {
-          // Safety net: also runs on /op/library page load
-        }
-        try {
+        });
+        await settleStep("propose_briefs", async () => {
           const { proposeBriefs } = await import("./briefs/proposer");
           await proposeBriefs(env, job.user_id);
-        } catch {
-          // Re-propose on /op/outputs covers a failed auto-run
-        }
+        });
         // Auto-draft signed readings for subjects that crossed the threshold
-        // (Phase 3) — the drafts are waiting when the operator opens OUT. The
-        // prime directive: the work is already done when they look.
-        try {
+        // — the drafts are waiting when the operator looks.
+        await settleStep("draft_readings", async () => {
           const { draftReadings } = await import("./draft-reading");
           await draftReadings(env, job.user_id);
-        } catch {
-          // Re-read on /op/out covers a failed auto-run
-        }
+        });
       }
     }
   } catch (err) {

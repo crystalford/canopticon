@@ -15,14 +15,12 @@ name: Deploy The Blind Spot to Cloudflare
 # Triggered only when Blind Spot paths change so the publication +
 # video deploys aren't coupled to it.
 
+# TABLED: The Blind Spot is parked (operator decision, 2026-07-22).
+# The code stays in the repo; the deploy fires ONLY on manual dispatch
+# so merging core-product work to main never deploys this Worker as a
+# side effect. Restore the push trigger when the instrument is
+# un-tabled.
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - "packages/blindspot/**"
-      - "packages/shared/**"
-      - "supabase/migrations-blindspot/**"
-      - ".github/workflows/deploy-blindspot.yml"
   workflow_dispatch:
 
 jobs:
