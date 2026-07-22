@@ -604,4 +604,57 @@ app.get("/debug-model", async (c) => {
   }
 });
 
+// GET /v1/admin/debug-brave-answers?q=...
+//
+// One-off diagnostic — calls the real two-step Brave Summarizer flow (web
+// search with summary=1 using BRAVE_SEARCH_API_KEY, then summarizer/search
+// using BRAVE_ANSWERS_API_KEY) and returns the raw JSON from both steps.
+// Exists to see the actual response shape before writing any parsing code
+// against it, rather than guessing field names against undocumented (to us)
+// API responses — the same reason debug-model exists above.
+app.get("/debug-brave-answers", async (c) => {
+  const q = c.req.query("q") ?? "Melanie Joly";
+  const searchKey = c.env.BRAVE_SEARCH_API_KEY;
+  const answersKey = c.env.BRAVE_ANSWERS_API_KEY;
+  if (!searchKey || !answersKey) {
+    return c.json(
+      { ok: false, error: "BRAVE_SEARCH_API_KEY or BRAVE_ANSWERS_API_KEY not set" },
+      400,
+    );
+  }
+  const searchUrl = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&summary=1`;
+  const searchRes = await fetch(searchUrl, {
+    headers: { Accept: "application/json", "X-Subscription-Token": searchKey },
+  });
+  const searchJson = (await searchRes.json().catch(() => null)) as Record<string, unknown> | null;
+  const summarizerKey = (searchJson?.summarizer as Record<string, unknown> | undefined)?.key as
+    | string
+    | undefined;
+  if (!summarizerKey) {
+    return c.json({
+      ok: true,
+      step1_status: searchRes.status,
+      step1_keys: searchJson ? Object.keys(searchJson) : null,
+      step1: searchJson,
+      step2: null,
+      note: "no summarizer.key in step 1 response — query may not be eligible for summarization",
+    });
+  }
+  const sumUrl = `https://api.search.brave.com/res/v1/summarizer/search?key=${encodeURIComponent(summarizerKey)}&entity_info=1`;
+  const sumRes = await fetch(sumUrl, {
+    headers: { Accept: "application/json", "X-Subscription-Token": answersKey },
+  });
+  const sumJson = await sumRes.json().catch(() => null);
+  return c.json({
+    ok: true,
+    step1_status: searchRes.status,
+    step2_status: sumRes.status,
+    step2_keys:
+      sumJson && typeof sumJson === "object"
+        ? Object.keys(sumJson as Record<string, unknown>)
+        : null,
+    step2: sumJson,
+  });
+});
+
 export default app;
