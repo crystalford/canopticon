@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-22T21:56:15Z",
-  "run_id": "29961051691",
+  "requested_at": "2026-07-22T21:59:52Z",
+  "run_id": "29961268872",
   "method": "GET",
-  "path": "/v1/admin/settle-state",
+  "path": "/v1/admin/settle-advance?confirm=1",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"row\": {\n    \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n    \"next_step\": \"surfacing_l1\",\n    \"last_advanced_at\": \"2026-07-22T21:52:49.230Z\"\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"before\": {\n    \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n    \"next_step\": \"theme_surfacer\",\n    \"last_advanced_at\": \"2026-07-22T21:59:22.365Z\"\n  },\n  \"advanceError\": null,\n  \"after\": {\n    \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n    \"next_step\": \"theme_surfacer\",\n    \"last_advanced_at\": \"2026-07-22T21:59:22.365Z\"\n  }\n}"
 }
