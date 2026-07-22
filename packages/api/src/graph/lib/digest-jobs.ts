@@ -13,7 +13,6 @@ import type { Env } from "../../env";
 import { all, insertOne, one, run } from "../../lib/d1";
 import { digest } from "./digestion";
 import { readFullExtractedText } from "./extract";
-import { runSurfacingL1 } from "./surfacing";
 
 // Heartbeat staler than this = a running job whose Worker died mid-run.
 const STALE_MS = 2 * 60 * 1000;
@@ -227,12 +226,16 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
         deterministic,
       });
     }
-    // Surfacing Engine L1 + the proposer run when the CORPUS SETTLES — i.e.
-    // this was the last queued/running job. During a 50-document bulk
-    // extraction, re-running them after every single doc would churn the
-    // proposal queue 50 times; waiting for the last job means the proposals
-    // the operator finds reflect the WHOLE corpus (prime directive: the work
-    // is already done when they look). Both best-effort.
+    // Advance the corpus-settle pipeline by ONE step when the CORPUS
+    // SETTLES — i.e. this was the last queued/running job. During a
+    // 50-document bulk extraction, advancing after every single doc would
+    // churn it 50 times over; waiting for the last job means each step
+    // sees the state of the WHOLE batch. See settle-pipeline.ts for why
+    // this only ever runs one step per call — chaining all six here (the
+    // old shape) reliably died under Cloudflare's execution ceiling with
+    // no catchable error once real LLM work was involved. The every-minute
+    // cron (index.ts) advances it further even without new uploads, so the
+    // full cycle keeps completing.
     if (!failed) {
       const remaining = await one<{ n: number }>(
         env.DB,
@@ -240,55 +243,8 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
         [job.user_id, jobId],
       );
       if ((remaining?.n ?? 0) === 0) {
-        // The corpus-settle gate. Each step has a manual re-run fallback,
-        // but a failure here must be VISIBLE, not silent — otherwise the
-        // corpus "settles successfully" with no page growth and nobody
-        // knows. Every catch now leaves a breadcrumb on the activity log.
-        const settleStep = async (step: string, run: () => Promise<unknown>) => {
-          try {
-            await run();
-          } catch (err) {
-            await emitJobEvent(env, job, "settle_step_failed", {
-              step,
-              error: (err as Error).message ?? "unknown error",
-            });
-          }
-        };
-        // Entity resolution runs FIRST — before anything else reads the
-        // graph. Extraction creates a separate node per mention, so the
-        // same real-world entity is fragmented across many under-quoted
-        // node rows; every downstream step (autoseed's page-per-subject,
-        // draft-reading's quote-count eligibility check) sees a truer,
-        // consolidated picture once evidence is pooled onto one canonical
-        // node per thing instead of scattered across its aliases.
-        await settleStep("entity_resolution", async () => {
-          const { resolveEntities } = await import("./entity-resolution");
-          await resolveEntities(env, job.user_id);
-        });
-        await settleStep("surfacing_l1", () => runSurfacingL1(env, job.user_id));
-        // Theme surfacer — find what the corpus is engaging with. Runs
-        // BEFORE the proposer so any newly-named themes are visible to it.
-        await settleStep("theme_surfacer", async () => {
-          const { runThemeSurfacer } = await import("./theme-surfacer");
-          await runThemeSurfacer(env, job.user_id);
-        });
-        // Page autoseeder — every entity, event, and theme node deserves a
-        // page row. Catches up extraction's output so subject pages are
-        // reachable the moment the corpus settles.
-        await settleStep("autoseed_pages", async () => {
-          const { autoseedPages } = await import("./autoseed-pages");
-          await autoseedPages(env, job.user_id);
-        });
-        await settleStep("propose_briefs", async () => {
-          const { proposeBriefs } = await import("./briefs/proposer");
-          await proposeBriefs(env, job.user_id);
-        });
-        // Auto-draft signed readings for subjects that crossed the threshold
-        // — the drafts are waiting when the operator looks.
-        await settleStep("draft_readings", async () => {
-          const { draftReadings } = await import("./draft-reading");
-          await draftReadings(env, job.user_id);
-        });
+        const { advanceSettleOneStep } = await import("./settle-pipeline");
+        await advanceSettleOneStep(env, job.user_id);
       }
     }
   } catch (err) {

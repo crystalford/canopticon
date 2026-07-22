@@ -13,8 +13,8 @@
 
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
-import type { Env } from "../env.ts";
 import { enqueueDigest, ensureJobsTable, runDigestJob } from "../graph/lib/digest-jobs.ts";
+import { SETTLE_STEP_RUNNERS } from "../graph/lib/settle-pipeline.ts";
 import { all, insertOne, one, run } from "../lib/d1.ts";
 import { type Role, callRole, modelForRole } from "../llm/router.ts";
 
@@ -377,48 +377,28 @@ app.get("/backfill-library", async (c) => {
 // finishes, so a bug fix to one of these steps has no way to re-run
 // against an already-settled corpus short of re-extracting everything.
 //
-// ONE step per call, not all five chained — confirmed live that chaining
+// ONE step per call, not all six chained — confirmed live that chaining
 // them (each step can make several real LLM calls) reliably exceeds
 // whatever aggregate CPU/wall-clock budget Cloudflare gives a single
 // waitUntil execution: two consecutive attempts logged a "resettle_started"
 // breadcrumb and then nothing else at all — not even the try/catch's own
 // "resettle_crashed" breadcrumb, meaning the platform tore down the
 // execution context outright rather than the code throwing a catchable
-// error. Call this five times, once per step name below, to run the whole
-// gate; poll /runtime's events.by_type between calls.
-const RESETTLE_STEPS: Record<string, (env: Env, userId: string) => Promise<unknown>> = {
-  entity_resolution: async (env, userId) => {
-    const { resolveEntities } = await import("../graph/lib/entity-resolution");
-    return resolveEntities(env, userId);
-  },
-  surfacing_l1: async (env, userId) => {
-    const { runSurfacingL1 } = await import("../graph/lib/surfacing");
-    return runSurfacingL1(env, userId);
-  },
-  theme_surfacer: async (env, userId) => {
-    const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
-    return runThemeSurfacer(env, userId);
-  },
-  autoseed_pages: async (env, userId) => {
-    const { autoseedPages } = await import("../graph/lib/autoseed-pages");
-    return autoseedPages(env, userId);
-  },
-  propose_briefs: async (env, userId) => {
-    const { proposeBriefs } = await import("../graph/lib/briefs/proposer");
-    return proposeBriefs(env, userId);
-  },
-  draft_readings: async (env, userId) => {
-    const { draftReadings } = await import("../graph/lib/draft-reading");
-    return draftReadings(env, userId);
-  },
-};
+// error. Reuses the same step map the automatic pipeline runs
+// (graph/lib/settle-pipeline.ts) so a manual override here can never drift
+// from what actually runs on its own. Call this six times, once per step
+// name below, to run the whole gate; poll /runtime's events.by_type
+// between calls.
+const RESETTLE_STEPS = SETTLE_STEP_RUNNERS;
 
 app.get("/resettle", async (c) => {
   if (c.req.query("confirm") !== "1") {
     return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
   }
   const stepName = c.req.query("step") ?? "";
-  const stepFn = RESETTLE_STEPS[stepName];
+  const stepFn = (
+    RESETTLE_STEPS as Record<string, (typeof RESETTLE_STEPS)[keyof typeof RESETTLE_STEPS]>
+  )[stepName];
   if (!stepFn) {
     return c.json(
       {
