@@ -691,6 +691,24 @@ app.get("/search-miss-log", async (c) => {
   });
 });
 
+// GET /v1/admin/backfill-citation-markers?confirm=1
+//
+// One-time cleanup: readings drafted before applyCitationMarkers existed
+// (draft-reading.ts) have raw [qN] bracket text baked into their stored
+// body_md/body_html — fixing draftOne only stops NEW drafts from getting
+// this. Confirmed live at canopticon.com/p/larry-fink?mode=signed before
+// this endpoint ran. Safe to re-run; pages with nothing left to fix are
+// no-ops.
+app.get("/backfill-citation-markers", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const userId = c.get("user_id");
+  const { backfillCitationMarkers } = await import("../graph/lib/draft-reading.ts");
+  const report = await backfillCitationMarkers(c.env, userId);
+  return c.json({ ok: true, ...report });
+});
+
 // GET /v1/admin/expand-status?subject=X — reads getExpandStatus() for a
 // subject, the same function the live banner/search page use to decide
 // what to show and whether to keep polling. Safe, read-only — kept as a

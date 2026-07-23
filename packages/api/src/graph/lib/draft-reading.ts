@@ -423,6 +423,84 @@ function realQuoteId(
  *  text. Numbers are assigned in first-appearance order. Markdown passes
  *  inline HTML through untouched, so this runs on body_md before
  *  renderMarkdown() and the links survive into body_html for free. */
+export interface CitationBackfillReport {
+  scanned: number;
+  fixed: number;
+  errors: string[];
+}
+
+/** One-time cleanup for readings drafted before applyCitationMarkers
+ *  existed — their stored body_md/body_html still has raw [qN] bracket
+ *  text baked in (fixing draftOne only prevents the bug in NEW drafts).
+ *  Reconstructs the same short-id -> real-quote-id mapping draftOne used
+ *  by re-running its grounding query against the subject, then only
+ *  trusts a reconstructed id if it's also in that page's own page_claims
+ *  (the actual record of what passed verification) — anything that
+ *  doesn't cross-check gets its marker stripped, never wrong-linked.
+ *  Safe to run more than once: pages with nothing left to fix are
+ *  no-ops. */
+export async function backfillCitationMarkers(
+  env: Env,
+  userId: string,
+): Promise<CitationBackfillReport> {
+  const { renderMarkdown } = await import("../../cms/lib/render-post");
+  const report: CitationBackfillReport = { scanned: 0, fixed: 0, errors: [] };
+
+  const candidates = await all<{ id: string; subject_node_id: string; body_md: string }>(
+    env.DB,
+    `SELECT id, subject_node_id, body_md FROM pages
+      WHERE user_id = ? AND signed_status IN ('draft', 'signed', 'published')
+        AND body_md IS NOT NULL AND body_md LIKE '%[q%'`,
+    [userId],
+  ).catch(() => []);
+  report.scanned = candidates.length;
+
+  for (const page of candidates) {
+    try {
+      const rawQuotes = await all<{ quote_id: string }>(
+        env.DB,
+        `SELECT q.id AS quote_id
+           FROM quotes q
+           JOIN nodes n ON n.id = q.node_id
+          WHERE q.user_id = ?
+            AND (n.id = ? OR EXISTS (SELECT 1 FROM edges e WHERE
+                  (e.src_node_id = n.id AND e.dst_node_id = ?) OR
+                  (e.dst_node_id = n.id AND e.src_node_id = ?)))
+          LIMIT 40`,
+        [userId, page.subject_node_id, page.subject_node_id, page.subject_node_id],
+      ).catch(() => []);
+      const shortToReal = new Map<string, string>();
+      rawQuotes.forEach((r, i) => shortToReal.set(`q${i + 1}`, r.quote_id));
+
+      const claimRows = await all<{ quote_id: string | null }>(
+        env.DB,
+        "SELECT quote_id FROM page_claims WHERE page_id = ?",
+        [page.id],
+      ).catch(() => []);
+      const allowedReal = new Set(claimRows.map((c) => c.quote_id).filter(Boolean));
+
+      const passedShort = new Set(
+        Array.from(shortToReal.entries())
+          .filter(([, real]) => allowedReal.has(real))
+          .map(([short]) => short),
+      );
+
+      const newBodyMd = applyCitationMarkers(page.body_md, shortToReal, passedShort);
+      if (newBodyMd === page.body_md) continue;
+
+      await run(env.DB, "UPDATE pages SET body_md = ?, body_html = ? WHERE id = ?", [
+        newBodyMd,
+        renderMarkdown(newBodyMd),
+        page.id,
+      ]);
+      report.fixed++;
+    } catch (err) {
+      report.errors.push(`${page.id}: ${(err as Error).message}`);
+    }
+  }
+  return report;
+}
+
 export function applyCitationMarkers(
   bodyMd: string,
   shortToReal: Map<string, string>,
