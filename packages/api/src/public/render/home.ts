@@ -437,14 +437,16 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
       updated_at: string;
     }>(
       env.DB,
-      // Substance gate, rewritten: the old version ran a correlated
-      // "COUNT quotes supporting this page" subquery — with an OR'd
-      // bidirectional EXISTS against edges — once per page row (measured
-      // at 12.4s live with 625 pages). A quote "supports" a node if it's
-      // directly on that node OR one edge-hop away; that support relation
-      // is the same for every page, so compute it ONCE as a CTE (one pass
-      // over quotes, joined outward through indexed edges lookups) and
-      // join pages to the precomputed counts instead of recomputing per row.
+      // Substance gate, rewritten: the old version ran two different
+      // correlated-per-page subqueries — a quote-support count with an
+      // OR'd bidirectional EXISTS against edges, and a "sources" count
+      // matching lower(label) against every node — measured live at
+      // 12.4s and ~9.4s respectively across 625 pages, EVEN WITH an
+      // index on lower(label): the per-call overhead of a correlated
+      // subquery evaluated once per outer row dominates regardless of
+      // indexing. Both relations are the same for every page, so each is
+      // computed ONCE as a CTE (a single GROUP BY / join pass) and pages
+      // LEFT JOIN the precomputed result instead of recomputing per row.
       `WITH support AS (
          SELECT q.id AS quote_id, q.node_id AS supported_node FROM quotes q WHERE q.user_id = ?
          UNION
@@ -458,20 +460,25 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
        ),
        support_counts AS (
          SELECT supported_node, COUNT(DISTINCT quote_id) AS qcount FROM support GROUP BY supported_node
+       ),
+       label_sources AS (
+         SELECT lower(label) AS ll, COUNT(DISTINCT piece_id) AS scount
+           FROM nodes WHERE user_id = ? AND piece_id IS NOT NULL
+          GROUP BY lower(label)
        )
        SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
-              (SELECT COUNT(DISTINCT piece_id) FROM nodes
-                WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources,
+              COALESCE(ls.scount, 0) AS sources,
               p.created_at AS opened_at, p.updated_at
          FROM pages p
          JOIN nodes n ON n.id = p.subject_node_id
          LEFT JOIN support_counts sc ON sc.supported_node = n.id
+         LEFT JOIN label_sources ls ON ls.ll = lower(n.label)
         WHERE p.user_id = ?
           AND (p.signed_status = 'published' OR COALESCE(sc.qcount, 0) >= 2)
         ORDER BY (p.signed_status = 'published') DESC,
                  COALESCE(p.signed_at, p.updated_at) DESC
         LIMIT 14`,
-      [userId, userId, userId, userId, userId, userId, userId],
+      [userId, userId, userId, userId, userId, userId, userId, userId],
     ).catch(() => []),
     one<{
       subjects: number;

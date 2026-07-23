@@ -728,20 +728,25 @@ app.get("/debug-home-timing", async (c) => {
          ),
          support_counts AS (
            SELECT supported_node, COUNT(DISTINCT quote_id) AS qcount FROM support GROUP BY supported_node
+         ),
+         label_sources AS (
+           SELECT lower(label) AS ll, COUNT(DISTINCT piece_id) AS scount
+             FROM nodes WHERE user_id = ? AND piece_id IS NOT NULL
+            GROUP BY lower(label)
          )
          SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
-                (SELECT COUNT(DISTINCT piece_id) FROM nodes
-                  WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources,
+                COALESCE(ls.scount, 0) AS sources,
                 p.created_at AS opened_at, p.updated_at
            FROM pages p
            JOIN nodes n ON n.id = p.subject_node_id
            LEFT JOIN support_counts sc ON sc.supported_node = n.id
+           LEFT JOIN label_sources ls ON ls.ll = lower(n.label)
           WHERE p.user_id = ?
             AND (p.signed_status = 'published' OR COALESCE(sc.qcount, 0) >= 2)
           ORDER BY (p.signed_status = 'published') DESC,
                    COALESCE(p.signed_at, p.updated_at) DESC
           LIMIT 14`,
-        [userId, userId, userId, userId, userId, userId, userId],
+        [userId, userId, userId, userId, userId, userId, userId, userId],
       ),
     counts: () =>
       one(
