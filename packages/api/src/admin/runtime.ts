@@ -866,7 +866,15 @@ app.get("/debug-home-timing", async (c) => {
       400,
     );
   }
-  const result = await fn();
+  let result: unknown;
+  try {
+    result = await fn();
+  } catch (err) {
+    return c.json(
+      { ok: false, which, ms: Date.now() - t0, error: String((err as Error)?.message ?? err) },
+      500,
+    );
+  }
   return c.json({ ok: true, which, ms: Date.now() - t0, result });
 });
 
