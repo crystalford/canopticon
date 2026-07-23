@@ -63,11 +63,11 @@ export async function renderSearchPage(
     const resolved = await resolveHits(env, hits);
     if (resolved.length === 0) {
       // A real miss — log it (cheap; feeds the future "what readers are
-      // asking for" research signal) and, if configured, show a fast
-      // AI-generated preview. That preview is Brave's own synthesis, not a
-      // quote from any stored document, so it can never become a fact —
-      // it's shown clearly labeled, purely to help decide whether the
-      // question is worth real (verified) research.
+      // asking for" research signal) and, for the operator only, show a
+      // fast AI-generated preview to help triage the miss. That preview is
+      // the model's own synthesis, not a quote from any stored document, so
+      // it can never become a fact — it's shown clearly labeled, purely to
+      // help decide whether the question is worth real (verified) research.
       await insertOne(env.DB, "orchestrator_events", {
         user_id: userId,
         event_type: "search.miss",
@@ -87,8 +87,8 @@ export async function renderSearchPage(
       }
 
       const preview =
-        env.BRAVE_ANSWERS_API_KEY && !opts.researching
-          ? await getAnswerPreview(env, query).catch(() => null)
+        opts.isOperator && userId && !opts.researching
+          ? await getAnswerPreview(env, userId, query).catch(() => null)
           : null;
       if (preview) {
         const researchForm = opts.isOperator

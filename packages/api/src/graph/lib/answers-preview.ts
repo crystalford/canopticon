@@ -1,39 +1,38 @@
-// Brave Answers (AI Grounding) preview — never a fact source.
+// Search-miss "quick take" preview — operator-only research triage.
 //
-// POST /res/v1/chat/completions (Brave's AI Grounding product, OpenAI-
-// chat-completions-compatible) returns a synthesized, LLM-written answer.
-// It is NOT a verbatim quote from any stored document, so per the firewall
-// this text can never enter the typed graph as a fact. It exists only to
-// give a fast, clearly-labeled "here's roughly what's out there" preview
-// while the real pipeline (Brave Search -> fetch -> verbatim extraction,
-// the same one expandRecord/"Expand this file" already uses) does the
-// actual verified work — see graph/lib/record-builder.ts.
-
+// A fast, clearly-labeled "here's roughly what's out there" preview shown
+// when an operator's search comes up empty, to help decide whether it's
+// worth a full expand (Search + fetch + verbatim extraction). It is an
+// LLM's own synthesis, NOT a verbatim quote from any stored document, so
+// per the firewall this text can never enter the typed graph as a fact —
+// see graph/lib/record-builder.ts for the real, verified pipeline.
+//
+// Previously called Brave's "Answers" (AI Grounding) product — a separate
+// metered 3rd-party API from Brave Search. That billed per call with no
+// visible payoff (the preview isn't shown to public visitors, only
+// operators triaging a miss) and blew through its monthly cap in days.
+// Workers AI is already the account's inference bill for everything else
+// this system does — same "writer" role used for output drafting — so
+// this is one Cloudflare invoice instead of an assortment of vendor ones.
 import type { Env } from "../../env";
-import { TIMEOUTS, fetchWithTimeout } from "../../lib/timeout";
+import { callRole } from "../../llm/router";
 
-const GROUNDING_ENDPOINT = "https://api.search.brave.com/res/v1/chat/completions";
-
-export async function getAnswerPreview(env: Env, query: string): Promise<string | null> {
-  if (!env.BRAVE_ANSWERS_API_KEY) return null;
+export async function getAnswerPreview(
+  env: Env,
+  userId: string,
+  query: string,
+): Promise<string | null> {
   try {
-    const res = await fetchWithTimeout(
-      GROUNDING_ENDPOINT,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Subscription-Token": env.BRAVE_ANSWERS_API_KEY,
-        },
-        body: JSON.stringify({ stream: false, messages: [{ role: "user", content: query }] }),
-      },
-      TIMEOUTS.WEB_FETCH_MS,
-      `brave-answers[${query}]`,
-    );
-    if (!res.ok) return null;
-    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = json.choices?.[0]?.message?.content?.trim();
-    return content || null;
+    const result = await callRole(env, "writer", {
+      userId,
+      system:
+        "Answer the user's question in 2-4 plain sentences from general knowledge. " +
+        "No citations, no markdown, no hedging disclaimers — just the answer.",
+      messages: [{ role: "user", content: [{ type: "text", text: query }] }],
+      max_tokens: 300,
+      idempotency_key: `search-preview:${userId}:${query}`,
+    });
+    return result.text?.trim() || null;
   } catch {
     return null;
   }

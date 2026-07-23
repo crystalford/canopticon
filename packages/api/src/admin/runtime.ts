@@ -629,43 +629,6 @@ app.get("/debug-model", async (c) => {
   }
 });
 
-// GET /v1/admin/debug-brave-answers?q=...
-//
-// One-off diagnostic — calls Brave's AI Grounding endpoint
-// (POST /res/v1/chat/completions, OpenAI-chat-completions-compatible, with
-// enable_citations) and returns the raw JSON. The classic two-step
-// Summarizer flow (web search summary=1 -> summarizer/search) returned no
-// summarizer.key with either key, so BRAVE_ANSWERS_API_KEY is for this
-// separate AI Grounding product instead. Exists to see the actual response
-// shape — specifically how citations are represented — before writing any
-// parsing code against it, same reason debug-model exists above.
-app.get("/debug-brave-answers", async (c) => {
-  const q = c.req.query("q") ?? "Who is Melanie Joly?";
-  const answersKey = c.env.BRAVE_ANSWERS_API_KEY;
-  if (!answersKey) {
-    return c.json({ ok: false, error: "BRAVE_ANSWERS_API_KEY not set" }, 400);
-  }
-  const res = await fetch("https://api.search.brave.com/res/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Subscription-Token": answersKey,
-    },
-    body: JSON.stringify({
-      stream: false,
-      messages: [{ role: "user", content: q }],
-    }),
-  });
-  const json = await res.json().catch(() => null);
-  return c.json({
-    ok: true,
-    status: res.status,
-    top_level_keys:
-      json && typeof json === "object" ? Object.keys(json as Record<string, unknown>) : null,
-    body: json,
-  });
-});
-
 // GET /v1/admin/beats — list standing coverage areas (newsroom phase 3).
 app.get("/beats", async (c) => {
   const userId = c.get("user_id");
@@ -694,6 +657,38 @@ app.get("/beats/add", async (c) => {
   const userId = c.get("user_id");
   await insertOne(c.env.DB, "coverage_beats", { user_id: userId, label }).catch(() => {});
   return c.json({ ok: true, label });
+});
+
+// GET /v1/admin/search-miss-log — the raw orchestrator_events rows behind
+// every "search.miss" (logged on every /search hit with zero corpus
+// matches, from public.render/search.ts). Existed to answer one concrete
+// question after the Brave Answers product blew through its $5/mo cap in
+// days: was that public-visitor traffic, or repeated live-testing during
+// this session? The query text + timestamps settle it either way — kept
+// as a permanent diagnostic since "why did a metered call spike" will
+// come up again.
+app.get("/search-miss-log", async (c) => {
+  const userId = c.get("user_id");
+  const rows = await all<{ payload: string; created_at: string }>(
+    c.env.DB,
+    `SELECT payload, created_at FROM orchestrator_events
+     WHERE user_id = ? AND event_type = 'search.miss'
+     ORDER BY created_at DESC LIMIT 300`,
+    [userId],
+  ).catch(() => []);
+  return c.json({
+    ok: true,
+    count: rows.length,
+    events: rows.map((r) => {
+      let query: string | null = null;
+      try {
+        query = (JSON.parse(r.payload) as { query?: string }).query ?? null;
+      } catch {
+        query = null;
+      }
+      return { query, created_at: r.created_at };
+    }),
+  });
 });
 
 // GET /v1/admin/expand-status?subject=X — reads getExpandStatus() for a

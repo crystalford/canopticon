@@ -61,14 +61,4 @@ export interface Env {
   // a "key not configured" notice). Set with `wrangler secret put
   // BRAVE_SEARCH_API_KEY`.
   BRAVE_SEARCH_API_KEY?: string;
-
-  // Brave Answers API key — optional, separate product/limit from Search.
-  // Operator-only research triage: a fast, clearly-labeled "external quick
-  // take" preview on a thin subject or open question, shown to help decide
-  // whether it's worth a full expand (Search + fetch + extraction). Never
-  // enters the typed graph — Brave's synthesized answer is not a verbatim
-  // quote from a stored document, so treating it as a fact would break the
-  // one rule this whole system rests on. Set with `wrangler secret put
-  // BRAVE_ANSWERS_API_KEY`.
-  BRAVE_ANSWERS_API_KEY?: string;
 }

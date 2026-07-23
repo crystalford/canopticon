@@ -466,9 +466,9 @@ app.get("/methodology", (c) => c.redirect("/method", 301));
 // How this works — the operator orientation page: what runs on its own
 // between visits, what each operator action does. Public (nothing
 // sensitive), written for the operator.
-app.get("/how-it-works", async () => {
+app.get("/how-it-works", async (c) => {
   const { renderHowItWorks } = await import("./render/how-it-works");
-  return htmlResponse(renderHowItWorks());
+  return htmlResponse(await renderHowItWorks(c.env));
 });
 
 // /sources was a placeholder stub that never got built — /library already
