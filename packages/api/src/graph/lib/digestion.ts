@@ -109,7 +109,14 @@ const DEFAULT_SOFT_BUDGET_MS = 20_000;
 // Capped low so the burst doesn't overwhelm Workers AI when several documents
 // are draining at once. Spec v2.5 Part 22 calls for a full Queues + Async
 // Batch architecture; that's the next PR. This is the contained first step.
-const CHUNK_CONCURRENCY = 4;
+// Dropped 4 -> 2 after live D1_ERROR "exceeded its CPU time limit and was
+// reset" events traced to this account's shared, per-account D1 CPU budget
+// being exhausted by concurrent background work (this + the settle
+// pipeline + autonomous sweeps all firing in the same window) — a burst
+// of 4 docs x 4 chunks = 16 simultaneous D1-touching calls was too much
+// pressure at once. Halving both this and DOCS_PER_TICK below is a
+// conservative, easily-reversible knob, not a redesign.
+const CHUNK_CONCURRENCY = 2;
 
 /** Count typed-graph nodes for a piece (cumulative across chunks/ticks). */
 async function countPieceNodes(env: Env, userId: string, pieceId: string): Promise<number> {

@@ -207,12 +207,23 @@ import { runWatcher } from "./graph/lib/watcher.ts";
 import { all as dbAll } from "./lib/d1.ts";
 
 // Cloudflare Cron Trigger handler. Three crons configured in wrangler.toml:
-//   "* * * * *"    — drain the digest_jobs queue (safety net for ingest)
+//   "*/2 * * * *"  — drain the digest_jobs queue (safety net for ingest)
 //   "0 12 * * 1"   — weekly monitor watchers
 //   "0 */4 * * *"  — autonomous expand sweep every 4h (one thin subject/tick,
 //                    ranked by edge_degree — see graph/lib/autonomous-expand.ts)
-// We branch on controller.cron so the every-minute drain doesn't refire
-// watchers or the sweep on every tick.
+// We branch on controller.cron so the drain tick doesn't refire watchers or
+// the sweep on every tick.
+//
+// The drain tick was every-minute until live D1_ERROR "exceeded its CPU
+// time limit and was reset" events (see draft-reading.ts / profile-
+// generator.ts's candidate queries, and reports of the site itself loading
+// slowly) traced to this account's shared D1 CPU budget getting exhausted
+// by everything running concurrently — this drain, the settle pipeline,
+// and the autonomous sweep all competing for the same pool at once.
+// Halved to every 2 minutes as a conservative, reversible knob alongside
+// halving CHUNK_CONCURRENCY and the per-tick doc count below — not a
+// redesign, just less pressure per unit time. Revisit if ingest throughput
+// becomes the bottleneck instead.
 const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, ctx) => {
   const cron = controller.cron;
   if (cron === "0 12 * * 1") {
@@ -232,22 +243,22 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
     if (userId) ctx.waitUntil(sweepThinSubjects(env, userId));
     return;
   }
-  // Default branch (every-minute tick): drain queued + stalled digest jobs.
-  // Each job runs in waitUntil; if it gets killed, a later tick picks it up.
-  // 4 docs per tick × 4 chunks-in-flight per doc (CHUNK_CONCURRENCY) = 16
-  // concurrent LLM calls peak, which Workers AI handles without throttling.
-  // Bumping above this risks the rate-limit timeouts that bit us yesterday.
-  const jobIds = await drainDigestJobs(env, 4);
+  // Default branch (every-2-minute tick): drain queued + stalled digest
+  // jobs. Each job runs in waitUntil; if it gets killed, a later tick picks
+  // it up. 2 docs per tick × 2 chunks-in-flight per doc (CHUNK_CONCURRENCY)
+  // = 4 concurrent LLM/D1-touching calls peak from this source, down from
+  // 16 — see the D1 CPU budget note above.
+  const jobIds = await drainDigestJobs(env, 2);
   for (const id of jobIds) {
     ctx.waitUntil(runDigestJob(env, id));
   }
   // Also nudge the corpus-settle pipeline forward every tick (self-
   // throttled to ~90s inside advanceSettleOneStep — see settle-
   // pipeline.ts). digest-jobs.ts already advances it once whenever a
-  // batch of uploads finishes; this is what keeps the six-step cycle
-  // moving even when nothing new has been uploaded, so draft_readings
-  // (last in the cycle) reliably gets its own turn instead of only firing
-  // right after an upload.
+  // batch of uploads finishes; this is what keeps the seven-step cycle
+  // moving even when nothing new has been uploaded, so draft_readings and
+  // generate_profiles (last in the cycle) reliably get their own turn
+  // instead of only firing right after an upload.
   const { resolveOperatorId } = await import("./public/data.ts");
   const { advanceSettleOneStep } = await import("./graph/lib/settle-pipeline.ts");
   const settleUserId = await resolveOperatorId(env.DB);

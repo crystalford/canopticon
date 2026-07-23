@@ -41,13 +41,17 @@ binding = "AI"
 # monitors and kicks off the agent for each. Add more cron lines for
 # different cadences as the monitor cluster grows.
 [triggers]
-# every minute: drain stuck/queued digest_jobs (the safety net under ingest)
+# every 2 minutes: drain stuck/queued digest_jobs (the safety net under
+# ingest). Was every minute; halved after live D1_ERROR "exceeded its CPU
+# time limit and was reset" events traced to this account's shared D1 CPU
+# budget getting exhausted by concurrent background work (index.ts's
+# scheduled() has the full account).
 # monday 12:00 UTC: run the weekly monitor watchers
 # every 4 hours: autonomous expand sweep — one thin subject per tick,
 # ranked by edge_degree not staleness (see graph/lib/autonomous-expand.ts).
 # Kept deliberately infrequent — each tick spends real, metered Brave
 # Search + Workers AI + D1 cost, not just idle compute.
-crons = ["* * * * *", "0 12 * * 1", "0 */4 * * *"]
+crons = ["*/2 * * * *", "0 12 * * 1", "0 */4 * * *"]
 
 [vars]
 LOG_LEVEL = "info"
