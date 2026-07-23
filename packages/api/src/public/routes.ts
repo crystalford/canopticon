@@ -18,7 +18,7 @@ import { renderInstrumentsIndex } from "./render/instruments";
 import { renderInvestigationsIndex, renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
 import { renderPiece } from "./render/piece-template";
-import { renderNotFound, renderPlaceholder } from "./render/placeholder";
+import { renderNotFound } from "./render/placeholder";
 import { renderEntityPage } from "./render/record";
 import { renderSearchPage } from "./render/search";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
@@ -294,7 +294,11 @@ app.get("/q/:id", async (c) => {
 // ---- Arrangements as standalone renderings (spec v2.6 Part 6) -----------
 // Each arrangement is BOTH a section embedded inside a subject page AND a
 // standalone addressable page with its own URL + JSON-LD. Pure rendering:
-// template + query, no LLM at render time.
+// template + query, no LLM at render time. Of the original dozen, only the
+// four below ever got a real inbound link (the subject page's own "see
+// standalone →" affordances); the rest (stat/definition/who's-who/
+// mechanism/faq/comparison/ledger) sat unlinked and were removed as dead
+// weight — the site cleanup pass, not this file's original design.
 //
 // `/t/:slug` — Timeline (ItemList + Event JSON-LD)
 app.get("/t/:slug", async (c) => {
@@ -322,66 +326,10 @@ app.get("/n/:slug", async (c) => {
   return htmlResponse(html);
 });
 
-// `/stat/:slug` — Statistics roundup (Dataset + PropertyValue JSON-LD).
-app.get("/stat/:slug", async (c) => {
-  const { renderStatsPage } = await import("./render/arrangements/stats");
-  const html = await renderStatsPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
 // `/ct/:slug` — Claim-and-source table (ClaimReview per row).
 app.get("/ct/:slug", async (c) => {
   const { renderClaimTablePage } = await import("./render/arrangements/claim-table");
   const html = await renderClaimTablePage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/d/:slug` — Definition (DefinedTerm JSON-LD).
-app.get("/d/:slug", async (c) => {
-  const { renderDefinitionPage } = await import("./render/arrangements/definition");
-  const html = await renderDefinitionPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/w/:slug` — Who's-who roster (ItemList of Person JSON-LD).
-app.get("/w/:slug", async (c) => {
-  const { renderWhosWhoPage } = await import("./render/arrangements/whos-who");
-  const html = await renderWhosWhoPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/m/:slug` — Mechanism explainer (HowTo + HowToStep JSON-LD).
-app.get("/m/:slug", async (c) => {
-  const { renderMechanismPage } = await import("./render/arrangements/mechanism");
-  const html = await renderMechanismPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/f/:slug` — FAQ / Q&A hub (FAQPage + Question + Answer JSON-LD).
-app.get("/f/:slug", async (c) => {
-  const { renderFaqPage } = await import("./render/arrangements/faq");
-  const html = await renderFaqPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/c/:slug` — Comparison matrix (Table JSON-LD; scaffold rendering).
-app.get("/c/:slug", async (c) => {
-  const { renderComparisonPage } = await import("./render/arrangements/comparison");
-  const html = await renderComparisonPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-// `/l/:slug` — Ledger of flows (Dataset + MonetaryAmount JSON-LD).
-app.get("/l/:slug", async (c) => {
-  const { renderLedgerPage } = await import("./render/arrangements/ledger");
-  const html = await renderLedgerPage(c.env, c.req.param("slug"));
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
 });
@@ -406,28 +354,17 @@ app.get("/record/:slug", async (c) => {
   return htmlResponse(html);
 });
 
-// ---- Patterns / gaps / timeline (the lighthouse) -------------------------
-
+// ---- Patterns (the lighthouse) --------------------------------------------
+// The old flat-SQL "lighthouse" system (patterns/gaps/timeline as content,
+// distinct from the live `patterns` table that still feeds Home's "Worth
+// your eye" panel). Fully superseded by the typed graph's equivalents
+// (themes, /t/:slug). The detail page and its two sibling indexes had zero
+// inbound links anywhere on the site — removed as dead weight; the
+// underlying tables are untouched.
+//
 // Part 18: "Patterns" dissolves as a destination — pattern pieces surface
-// inside Investigations (intent badges). Detail pages stay addressable.
+// inside Investigations (intent badges).
 app.get("/patterns", (c) => c.redirect("/investigations", 301));
-
-app.get("/patterns/:slug", async (c) => {
-  const { renderPatternDetail } = await import("./render/pattern-detail");
-  const html = await renderPatternDetail(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
-
-app.get("/gaps", async (c) => {
-  const { renderGapsIndex } = await import("./render/gaps");
-  return htmlResponse(await renderGapsIndex(c.env));
-});
-
-app.get("/timeline", async (c) => {
-  const { renderTimelineIndex } = await import("./render/timeline");
-  return htmlResponse(await renderTimelineIndex(c.env));
-});
 
 // ---- Library --------------------------------------------------------------
 
@@ -470,16 +407,10 @@ app.get("/how-it-works", async () => {
   return htmlResponse(renderHowItWorks());
 });
 
-app.get("/sources", () =>
-  htmlResponse(
-    renderPlaceholder({
-      title: "Sources",
-      description: "Every external document the claims rest on.",
-      activeNav: "/sources",
-      whatsHere: "Sources index lands alongside the record's claim footprints.",
-    }),
-  ),
-);
+// /sources was a placeholder stub that never got built — /library already
+// does everything it was meant to (a real index, per-document extraction
+// stats). Redirect instead of building a second one.
+app.get("/sources", (c) => c.redirect("/library", 301));
 
 // Search — semantic search over the corpus (v2.6 Part 18 #6). Uses the
 // existing Vectorize index that already holds entity / claim / piece /

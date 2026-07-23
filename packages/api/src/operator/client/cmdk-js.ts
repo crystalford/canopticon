@@ -15,7 +15,7 @@ export const CMDK_CLIENT_JS = String.raw`
     { sec: "Go to", label: "Chat",       href: "/op/chat" },
     { sec: "Go to", label: "Synthesis",  href: "/op/synthesis" },
     { sec: "Go to", label: "Library",    href: "/op/library" },
-    { sec: "Go to", label: "Briefs",     href: "/op/briefs" },
+    { sec: "Go to", label: "Investigations", href: "/investigations" },
     { sec: "Go to", label: "Studio",     href: "/op/studio" },
     { sec: "Do",    label: "Re-surface synthesis", action: "post", href: "/op/synthesis/surface", hint: "POST" },
     { sec: "Do",    label: "Public site",          href: "/", hint: "↗" },

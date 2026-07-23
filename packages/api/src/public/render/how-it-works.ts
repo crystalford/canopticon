@@ -75,10 +75,10 @@ export function renderHowItWorks(): string {
     </div>
     <div class="hiw-item">
       <div class="hiw-item-h">The settle pipeline</div>
-      <p>After documents come in, six steps run in the background to turn raw
+      <p>After documents come in, five steps run in the background to turn raw
       extraction into a usable record: merging duplicate entities and events, scoring
       contested evidence, surfacing themes and cross-document patterns, seeding pages,
-      proposing briefs, and drafting signed readings. One step runs per tick — chaining
+      and drafting signed readings. One step runs per tick — chaining
       them all at once is exactly what silently broke this for a while; splitting it up
       is what fixed it.</p>
     </div>

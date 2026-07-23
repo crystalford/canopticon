@@ -1088,7 +1088,7 @@ function renderPeopleBlock(rows: ConnectionRow[]): string {
     .map((p) => {
       const href = p.other_page_slug
         ? `/s/${escapeAttr(p.other_page_slug)}`
-        : `/topics/${escapeAttr(slugifyConnection(p.other_label))}`;
+        : `/search?q=${escapeAttr(p.other_label)}`;
       return `<div class="conn-row"><a href="${href}">${escapeHtml(p.other_label)}</a><span class="why">${escapeHtml(humanizeEdgeType(p.edge_type))}</span></div>`;
     })
     .join("");
@@ -1241,7 +1241,7 @@ function renderFoundationBlock(
         .map((c) => {
           const href = c.other_page_slug
             ? `/s/${escapeAttr(c.other_page_slug)}`
-            : `/topics/${escapeAttr(slugifyConnection(c.other_label))}`;
+            : `/search?q=${escapeAttr(c.other_label)}`;
           const rel = isPersonConnection(c) ? "person" : humanizeEdgeType(c.edge_type);
           return `<a class="conn-pill" href="${href}"><span class="rel">${escapeHtml(rel)}</span>${escapeHtml(c.other_label)}</a>`;
         })
@@ -1377,7 +1377,7 @@ function renderConnectionsBlock(conns: ConnectionRow[]): string {
     .map((c) => {
       const href = c.other_page_slug
         ? `/s/${escapeAttr(c.other_page_slug)}`
-        : `/topics/${escapeAttr(slugifyConnection(c.other_label))}`;
+        : `/search?q=${escapeAttr(c.other_label)}`;
       return `<div class="conn-row"><a href="${href}">${escapeHtml(c.other_label)}</a><span class="why">${escapeHtml(humanizeEdgeType(c.edge_type))}</span></div>`;
     })
     .join("");
@@ -1553,14 +1553,6 @@ function subjectKindLabel(kind: string, entityType?: string): string {
     default:
       return "File";
   }
-}
-
-function slugifyConnection(label: string): string {
-  return label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
 }
 
 function stripHtml(html: string): string {

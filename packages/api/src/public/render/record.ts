@@ -1,64 +1,16 @@
-// The Record — entity index (grouped by kind) + the entity page.
-// The entity page is the reference layer: bio, role, and the pieces
-// that mention them ("appears in" footprint). Claims + relations +
-// patterns wire in across Phase 2/4.
+// The Record — the entity page (/record/:slug). The reference layer:
+// bio, role, and the pieces that mention them ("appears in" footprint).
+// The index of all entities lives at /topics, not here.
 
 import { renderMarkdown } from "../../cms/lib/render-post";
 import {
-  type EntitySummary,
   type PublicEnv,
   getEntityBySlug,
-  listEntities,
   piecesMentioningEntity,
   resolveOperatorId,
 } from "../data";
 import { escapeHtml, renderPage } from "../layout";
-import { emptyState, entityCard, entityKindLabel, pieceCard, sectionHeader } from "./components";
-
-export async function renderRecordIndex(env: PublicEnv): Promise<string> {
-  const userId = await resolveOperatorId(env.DB);
-  const entities = userId ? await listEntities(env.DB, userId) : [];
-
-  // Group by the broad kind buckets the design uses.
-  const groups = new Map<string, EntitySummary[]>();
-  for (const e of entities) {
-    const bucket = entityKindLabel(e.kind ?? e.entity_type);
-    if (!groups.has(bucket)) groups.set(bucket, []);
-    groups.get(bucket)?.push(e);
-  }
-
-  const sections = entities.length
-    ? [...groups.entries()]
-        .map(
-          ([bucket, list]) => `<section style="margin-bottom:36px">
-  ${sectionHeader(`${bucket} (${list.length})`)}
-  <div class="cards-row">${list.map((e) => entityCard(e)).join("")}</div>
-</section>`,
-        )
-        .join("")
-    : emptyState(
-        "The record is empty. Entities populate as the seed corpus and ingestion fill the substrate.",
-      );
-
-  const body = `
-<section style="margin-bottom:24px">
-  <div class="kicker" style="margin-bottom:16px"><span class="live"></span> Reference</div>
-  <h1 style="font-family:var(--serif);font-size:40px;line-height:1.12;letter-spacing:-0.015em;margin:0 0 12px;color:var(--ink)">The Record</h1>
-  <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
-    People, organizations, and concepts. Look up an entity and see every claim,
-    source, and pattern that touches them — and, honestly, where coverage is thin.
-  </p>
-</section>
-${sections}
-`;
-  return renderPage({
-    title: "The Record",
-    description: "The standing reference — people and organizations in the Canadian power record.",
-    body,
-    activeNav: "/record",
-    zone: "record",
-  });
-}
+import { emptyState, entityKindLabel, pieceCard, sectionHeader } from "./components";
 
 export async function renderEntityPage(env: PublicEnv, slug: string): Promise<string | null> {
   const userId = await resolveOperatorId(env.DB);

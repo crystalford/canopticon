@@ -1,15 +1,8 @@
-// Investigations — the signed-analysis index + the piece page.
-// The piece page is the public face of a research thread: title, dek,
-// byline, the rendered body, and a "filed under" topic line.
+// Investigations — the signed-analysis index + the Library (raw research
+// archive). The piece page itself is rendered by piece-template.ts, not
+// here — see that file for the public face of a single document.
 
-import { renderMarkdown } from "../../cms/lib/render-post";
-import {
-  type PublicEnv,
-  getPieceBySlug,
-  listInvestigations,
-  resolveOperatorId,
-  topicsForPiece,
-} from "../data";
+import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
 import { escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
 
@@ -307,50 +300,6 @@ ${filterRow}
   return renderPage({
     title: "Investigations",
     description: "Signed analysis on Canadian power — investigations, arguments, assessments.",
-    body,
-    activeNav: "/investigations",
-    zone: "investigations",
-  });
-}
-
-export async function renderPiecePage(env: PublicEnv, slug: string): Promise<string | null> {
-  const userId = await resolveOperatorId(env.DB);
-  if (!userId) return null;
-  const piece = await getPieceBySlug(env.DB, userId, slug);
-  if (!piece) return null;
-  // Working-material chain passes are not publicly reachable (spec §2.6).
-  if (piece.publication_status === "working-material") return null;
-
-  const topics = await topicsForPiece(env.DB, userId, piece.id);
-  const bodyHtml = piece.body_html ?? (piece.body_md ? renderMarkdown(piece.body_md) : "");
-
-  const metaBits = [
-    piece.published_at ? formatDate(piece.published_at) : "",
-    kindLabel(piece.kind),
-    piece.byline ? `by ${piece.byline}` : "",
-  ]
-    .filter(Boolean)
-    .map((m) => escapeHtml(m))
-    .join(" · ");
-
-  const filedUnder = topics.length
-    ? `<p class="coord" style="margin-top:14px">Filed under ${topics
-        .map((t) => `<a href="/topics/${escapeHtml(t.slug)}" class="ac">${escapeHtml(t.label)}</a>`)
-        .join(" · ")}</p>`
-    : "";
-
-  const body = `
-<article style="max-width:var(--reading-width);margin:0 auto">
-  <p class="kicker" style="margin-bottom:14px">CANOPTICON · ${metaBits}</p>
-  <h1 style="font-family:var(--serif);font-size:44px;line-height:1.08;letter-spacing:-0.02em;margin:0 0 14px;color:var(--ink)">${escapeHtml(piece.title)}</h1>
-  ${piece.subtitle ? `<p style="font-family:var(--serif);font-size:20px;font-style:italic;line-height:1.4;color:var(--ink-3);margin:0 0 8px">${escapeHtml(piece.subtitle)}</p>` : ""}
-  ${filedUnder}
-  <div class="prose" style="margin-top:28px">${bodyHtml}</div>
-</article>
-`;
-  return renderPage({
-    title: piece.title,
-    description: piece.subtitle ?? `${piece.title} — a Canopticon investigation.`,
     body,
     activeNav: "/investigations",
     zone: "investigations",
