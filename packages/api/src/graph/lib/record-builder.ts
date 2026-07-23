@@ -30,9 +30,11 @@
 //     no-ops. The affordance is visible; the action is wired; the secret
 //     is the missing piece.
 
+import { approvePaidOperation } from "../../cost/approve";
 import type { Env } from "../../env";
 import { all, insertOne, one, run } from "../../lib/d1";
 import { TIMEOUTS, fetchWithTimeout } from "../../lib/timeout";
+import { BROWSER_RENDERING_PER_PAGE_CENTS, callBrowserRendering } from "../tools/web_research";
 import { enqueueDigest } from "./digest-jobs";
 
 const BRAVE_SEARCH_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
@@ -446,6 +448,42 @@ interface BankResult {
   duplicate: boolean;
 }
 
+/** Plain fetch first; falls back to Cloudflare Browser Rendering (a real
+ *  headless browser, executes JS) when the plain fetch fails outright or
+ *  yields too little text — the WEF case that motivated LOW_YIELD_DOMAINS
+ *  above: the org's OWN site 403'd a plain fetch even though it's not one
+ *  of the known-dead social platforms. Gated by the cost ledger, not an
+ *  operator confirm card — this runs unattended from a cron sweep, so the
+ *  "browser_rendering.fetch" whitelist cap (lib/seed.ts) IS the approval;
+ *  see cost/approve.ts. If the account isn't configured or the cap is hit,
+ *  this just returns null and the caller's existing plain-fetch failure
+ *  stands — never a hard error from the fallback itself. */
+async function fetchViaRenderingFallback(
+  env: Env,
+  userId: string,
+  url: string,
+): Promise<{ title: string; text: string } | null> {
+  if (!env.CLOUDFLARE_ACCOUNT_ID || !env.CLOUDFLARE_API_TOKEN) return null;
+  const decision = await approvePaidOperation(env.DB, {
+    user_id: userId,
+    operation_type: "browser_rendering.fetch",
+    provider: "cloudflare_browser_rendering",
+    estimated_cost_cents: BROWSER_RENDERING_PER_PAGE_CENTS,
+    reason: `record-builder fetch-fallback: ${url}`,
+    idempotency_key: undefined,
+  }).catch(() => null);
+  if (!decision || decision.decision !== "approved") return null;
+  const r = await callBrowserRendering(env, "content", { url }).catch((err) => ({
+    ok: false as const,
+    error: (err as Error).message,
+  }));
+  if (!r.ok) return null;
+  const html = String(r.data ?? "");
+  const { title, text } = stripHtmlToText(html);
+  if (text.length < MIN_TEXT_CHARS) return null;
+  return { title, text };
+}
+
 /** Fetch a URL, strip the HTML to plain text, bank it as a source document
  *  + piece. Mirrors createAndExtract in operator/routes.ts but tuned for
  *  web-fetched content (no PDF extraction, no R2 byte store — the text
@@ -457,27 +495,47 @@ async function fetchAndBank(
   url: string,
   fallbackTitle: string,
 ): Promise<BankResult | null> {
-  const res = await fetchWithTimeout(
-    url,
-    {
-      headers: {
-        // Many sites block default user-agents. Identify ourselves honestly.
-        "User-Agent":
-          "CanopticonBot/1.0 (+https://canopticon.com; record-building on click; contact @canoptics)",
-        Accept: "text/html,application/xhtml+xml",
+  let title: string;
+  let text: string;
+  let viaFallback = false;
+  try {
+    const res = await fetchWithTimeout(
+      url,
+      {
+        headers: {
+          // Many sites block default user-agents. Identify ourselves honestly.
+          "User-Agent":
+            "CanopticonBot/1.0 (+https://canopticon.com; record-building on click; contact @canoptics)",
+          Accept: "text/html,application/xhtml+xml",
+        },
       },
-    },
-    TIMEOUTS.WEB_FETCH_MS,
-    `expand-fetch[${url}]`,
-  );
-  if (!res.ok) throw new Error(`http ${res.status}`);
-  const ct = (res.headers.get("content-type") ?? "").toLowerCase();
-  if (!ct.includes("html") && !ct.includes("text")) {
-    throw new Error(`unsupported content-type ${ct}`);
+      TIMEOUTS.WEB_FETCH_MS,
+      `expand-fetch[${url}]`,
+    );
+    if (!res.ok) throw new Error(`http ${res.status}`);
+    const ct = (res.headers.get("content-type") ?? "").toLowerCase();
+    if (!ct.includes("html") && !ct.includes("text")) {
+      throw new Error(`unsupported content-type ${ct}`);
+    }
+    const html = await res.text();
+    const stripped = stripHtmlToText(html);
+    if (stripped.text.length < MIN_TEXT_CHARS) {
+      const rendered = await fetchViaRenderingFallback(env, userId, url);
+      if (!rendered) return null;
+      title = rendered.title;
+      text = rendered.text;
+      viaFallback = true;
+    } else {
+      title = stripped.title;
+      text = stripped.text;
+    }
+  } catch (err) {
+    const rendered = await fetchViaRenderingFallback(env, userId, url);
+    if (!rendered) throw err;
+    title = rendered.title;
+    text = rendered.text;
+    viaFallback = true;
   }
-  const html = await res.text();
-  const { title, text } = stripHtmlToText(html);
-  if (text.length < MIN_TEXT_CHARS) return null;
   const sha256 = await sha256Hex(text);
 
   // Dedup by content hash — if we've banked the same fetched text before
@@ -535,6 +593,7 @@ async function fetchAndBank(
       source_url: url,
       content_sha256: sha256,
       fetched_at: new Date().toISOString(),
+      via: viaFallback ? "browser_rendering" : "plain_fetch",
     }),
   });
   return { pieceId, slug, title: finalTitle, sourceId, chars: text.length, duplicate: false };

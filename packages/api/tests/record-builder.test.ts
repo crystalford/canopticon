@@ -4,13 +4,22 @@ import { expandRecord } from "../src/graph/lib/record-builder.ts";
 // DB stub that captures every orchestrator_events insert so we can assert the
 // progress narration is correct (started → search_done → source_seen ×N →
 // completed, or started → skipped when the key is missing).
-function makeDb(): { db: D1Database; events: Array<{ event_type: string; payload: string }> } {
+function makeDb(opts: { browserRenderingWhitelisted?: boolean } = {}): {
+  db: D1Database;
+  events: Array<{ event_type: string; payload: string }>;
+} {
   const events: Array<{ event_type: string; payload: string }> = [];
   const stmt = (sql: string, binds: unknown[] = []) => ({
     bind(...vs: unknown[]) {
       return stmt(sql, vs);
     },
     async first() {
+      // approvePaidOperation's whitelist lookup (cost/approve.ts) — the
+      // browser-rendering fallback needs this to say "approved" for tests
+      // that exercise it; every other first() stays a plain miss.
+      if (opts.browserRenderingWhitelisted && /FROM cost_whitelists/i.test(sql)) {
+        return { enabled: 1, per_op_max_cents: 1, daily_max_cents: 50, monthly_max_cents: 300 };
+      }
       return null;
     },
     async all() {
@@ -133,6 +142,81 @@ describe("expandRecord — with BRAVE_SEARCH_API_KEY", () => {
       const types = events.map((e) => e.event_type);
       expect(types).toContain("record.expand.failed");
       expect(types).not.toContain("record.expand.completed");
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});
+
+describe("expandRecord — Browser Rendering fetch-fallback", () => {
+  it("banks a source via the fallback when the plain fetch 403s and the cost gate approves", async () => {
+    const { db, events } = makeDb({ browserRenderingWhitelisted: true });
+    const article = `<html><head><title>WEF Article</title></head><body><p>${"Rendered content only a headless browser could fetch. ".repeat(20)}</p></body></html>`;
+    let calls = 0;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      calls++;
+      const url = typeof input === "string" ? input : (input as URL).toString();
+      if (calls === 1) {
+        // Brave Search — one result.
+        return new Response(
+          JSON.stringify({
+            web: { results: [{ title: "WEF", url: "https://weforum.org/x", description: "" }] },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("browser-rendering")) {
+        return new Response(JSON.stringify({ success: true, result: article }), { status: 200 });
+      }
+      // Plain fetch of the WEF page — bot-blocked.
+      return new Response("forbidden", { status: 403 });
+    }) as unknown as typeof fetch;
+    try {
+      const env = {
+        DB: db,
+        BRAVE_SEARCH_API_KEY: "fake-key",
+        CLOUDFLARE_ACCOUNT_ID: "acct",
+        CLOUDFLARE_API_TOKEN: "token",
+      } as unknown as Parameters<typeof expandRecord>[0];
+      const report = await expandRecord(env, "u1", "World Economic Forum");
+      expect(report.sources_banked).toBe(1);
+      expect(report.errors).toEqual([]);
+      const types = events.map((e) => e.event_type);
+      expect(types).toContain("record.expand.source_banked");
+      expect(types).not.toContain("record.expand.source_failed");
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("falls through to the original failure when the cost gate is not whitelisted", async () => {
+    const { db, events } = makeDb({ browserRenderingWhitelisted: false });
+    let calls = 0;
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      calls++;
+      if (calls === 1) {
+        return new Response(
+          JSON.stringify({
+            web: { results: [{ title: "WEF", url: "https://weforum.org/x", description: "" }] },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("forbidden", { status: 403 });
+    }) as unknown as typeof fetch;
+    try {
+      const env = {
+        DB: db,
+        BRAVE_SEARCH_API_KEY: "fake-key",
+        CLOUDFLARE_ACCOUNT_ID: "acct",
+        CLOUDFLARE_API_TOKEN: "token",
+      } as unknown as Parameters<typeof expandRecord>[0];
+      const report = await expandRecord(env, "u1", "World Economic Forum");
+      expect(report.sources_banked).toBe(0);
+      const types = events.map((e) => e.event_type);
+      expect(types).toContain("record.expand.source_failed");
     } finally {
       globalThis.fetch = original;
     }

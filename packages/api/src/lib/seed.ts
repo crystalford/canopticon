@@ -91,7 +91,7 @@ const ROLE_DEFAULTS: Array<{ name: string; model: string; allow_anthropic_overri
 // Workers AI is free — auto-approve every workers_ai.* operation. The
 // per_op cap is symbolic ($0). Anthropic overrides keep tight caps in
 // case the operator flips a role to Claude.
-const DEFAULT_WHITELISTS: Array<{
+export const DEFAULT_WHITELISTS: Array<{
   operation_type: string;
   enabled: boolean;
   per_op_max_cents: number | null;
@@ -173,6 +173,26 @@ const DEFAULT_WHITELISTS: Array<{
     monthly_max_cents: null,
     notes: "free image OCR",
   },
+  // Cloudflare Browser Rendering, called unattended from record-builder.ts's
+  // fetchAndBank fallback (autonomous sweep + click-to-expand) when a plain
+  // HTTP fetch 403s or yields too little text to be a real article — the
+  // exact WEF-site failure mode that motivated this. Unlike the chat tool's
+  // web_search/web_fetch_rendered (confirm:true, a human approves each
+  // call), this path runs with nobody watching, so the whitelist IS the
+  // safety net: enabled with a tight per-op/daily/monthly cap instead of a
+  // confirm card. ~$0.005/call (BROWSER_RENDERING_PER_PAGE_CENTS in
+  // graph/tools/web_research.ts) — daily_max_cents=50 covers roughly 100
+  // fallback fetches/day, far more than a 1-subject/4h sweep would ever
+  // need; monthly cap mirrors the same order of caution as the Brave
+  // Answers $5/mo cap this session already hit once.
+  {
+    operation_type: "browser_rendering.fetch",
+    enabled: true,
+    per_op_max_cents: 1,
+    daily_max_cents: 50,
+    monthly_max_cents: 300,
+    notes: "unattended fetch-fallback for JS-rendered/bot-blocked pages (record-builder.ts)",
+  },
   // Studio Stage B/C model whitelist (v2.6 Part 27). Disabled by default
   // until the production pipelines land; the cost ledger row is here so
   // when Stage B / Stage C ship there's a known operation_type to bill
@@ -245,7 +265,19 @@ const DEFAULT_WHITELISTS: Array<{
 ];
 
 /** Ensure a users row exists for the given email, plus 18 role_definitions
- *  and the default cost-whitelist rules. Idempotent. */
+ *  and the default cost-whitelist rules. Idempotent.
+ *
+ *  NOTE: for an already-seeded account, an operation_type added to
+ *  DEFAULT_WHITELISTS after the fact (like browser_rendering.fetch) will
+ *  NOT reach it through this function — getOrSeedOperator below, the real
+ *  hot path called on every request, short-circuits to the existing user
+ *  row without ever calling this. Deliberately NOT fixed by looping the
+ *  whitelist backfill in here or in getOrSeedOperator: that path runs on
+ *  every single page view sitewide, and adding up to 18 extra D1 writes
+ *  per request is exactly the kind of load this session spent real effort
+ *  cutting (index.ts's cron/CHUNK_CONCURRENCY reductions). A new whitelist
+ *  entry needs an explicit one-time backfill instead — see
+ *  admin/runtime.ts's /backfill-cost-whitelists. */
 export async function seedOperator(db: D1Database, email: string): Promise<string> {
   const existing = await one<{ id: string }>(db, "SELECT id FROM users WHERE email = ?", [email]);
   if (existing) return existing.id;

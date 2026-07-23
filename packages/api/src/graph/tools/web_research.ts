@@ -18,7 +18,7 @@
 
 import type { ToolDef } from "./index";
 
-const BROWSER_RENDERING_PER_PAGE_CENTS = 0.5; // ~$0.005
+export const BROWSER_RENDERING_PER_PAGE_CENTS = 0.5; // ~$0.005
 
 // ---------------------------------------------------------------------------
 // Wikipedia — free, auto
@@ -153,7 +153,12 @@ export const wikipediaLookup: ToolDef = {
 // Cloudflare Browser Rendering — paid, confirm-required
 // ---------------------------------------------------------------------------
 
-async function callBrowserRendering(
+/** Exported for reuse by record-builder.ts's autonomous fetch-fallback path —
+ *  same client, different caller (a cron sweep instead of a confirmed chat
+ *  tool call), gated by the cost ledger instead of an operator confirm
+ *  card. See cost/approve.ts + the "browser_rendering.fetch" whitelist
+ *  entry in lib/seed.ts for the unattended-use cost containment. */
+export async function callBrowserRendering(
   env: { CLOUDFLARE_ACCOUNT_ID?: string; CLOUDFLARE_API_TOKEN?: string },
   endpoint: "content" | "scrape" | "json",
   body: Record<string, unknown>,

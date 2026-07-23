@@ -875,4 +875,50 @@ app.get("/expand-status", async (c) => {
   return c.json({ ok: true, status });
 });
 
+// GET /v1/admin/backfill-cost-whitelists?confirm=1 — one-time sync: insert
+// any DEFAULT_WHITELISTS (lib/seed.ts) entry the operator's account is
+// missing. Needed because seedOperator only writes the whitelist once, at
+// account creation — an operation_type added later (like
+// browser_rendering.fetch, added for record-builder.ts's autonomous
+// fetch-fallback) never reaches an already-seeded account on its own, and
+// the cost gate (cost/approve.ts) treats a missing whitelist row as
+// unauthorized. Deliberately NOT folded into the hot-path
+// getOrSeedOperator, which runs on every request — see the comment on
+// seedOperator in lib/seed.ts. Safe to re-run: INSERT OR IGNORE against
+// the UNIQUE(user_id, operation_type) constraint.
+app.get("/backfill-cost-whitelists", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const userId = c.get("user_id");
+  const { DEFAULT_WHITELISTS } = await import("../lib/seed.ts");
+  let inserted = 0;
+  for (const w of DEFAULT_WHITELISTS) {
+    const before = await one<{ id: string }>(
+      c.env.DB,
+      "SELECT id FROM cost_whitelists WHERE user_id = ? AND operation_type = ?",
+      [userId, w.operation_type],
+    ).catch(() => null);
+    if (before) continue;
+    await run(
+      c.env.DB,
+      `INSERT OR IGNORE INTO cost_whitelists
+         (id, user_id, operation_type, enabled, per_op_max_cents, daily_max_cents, monthly_max_cents, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        crypto.randomUUID(),
+        userId,
+        w.operation_type,
+        w.enabled ? 1 : 0,
+        w.per_op_max_cents,
+        w.daily_max_cents,
+        w.monthly_max_cents,
+        w.notes,
+      ],
+    );
+    inserted++;
+  }
+  return c.json({ ok: true, checked: DEFAULT_WHITELISTS.length, inserted });
+});
+
 export default app;
