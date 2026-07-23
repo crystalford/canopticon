@@ -696,4 +696,34 @@ app.get("/beats/add", async (c) => {
   return c.json({ ok: true, label });
 });
 
+// GET /v1/admin/expand-test?subject=X&confirm=1 — runs expandRecord()
+// synchronously (awaited, not waitUntil) and returns its report directly.
+// Safe to await now that expandRecord only searches+fetches+banks+enqueues
+// (no inline LLM extraction) — this is exactly the live-verification tool
+// used to confirm that fix actually works, rather than trusting the code
+// read. Temporary diagnostic for the research-flow investigation.
+app.get("/expand-test", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const subject = c.req.query("subject");
+  if (!subject) return c.json({ ok: false, error: "missing ?subject=" }, 400);
+  const userId = c.get("user_id");
+  const { expandRecord } = await import("../graph/lib/record-builder.ts");
+  const report = await expandRecord(c.env, userId, subject);
+  return c.json({ ok: true, report });
+});
+
+// GET /v1/admin/expand-status?subject=X — reads getExpandStatus() for a
+// subject, same function the live banner/search page use. Lets us poll
+// extraction progress after /expand-test without waiting on the UI.
+app.get("/expand-status", async (c) => {
+  const subject = c.req.query("subject");
+  if (!subject) return c.json({ ok: false, error: "missing ?subject=" }, 400);
+  const userId = c.get("user_id");
+  const { getExpandStatus } = await import("../graph/lib/record-builder.ts");
+  const status = await getExpandStatus(c.env, userId, subject);
+  return c.json({ ok: true, status });
+});
+
 export default app;
