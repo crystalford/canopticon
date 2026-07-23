@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-23T20:20:34Z",
-  "run_id": "30041677586",
+  "requested_at": "2026-07-23T20:21:39Z",
+  "run_id": "30041749993",
   "method": "GET",
-  "path": "/v1/admin/event-log?type=profiles.generated",
+  "path": "/v1/admin/profiles-state",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"type\": \"profiles.generated\",\n  \"count\": 1,\n  \"events\": [\n    {\n      \"id\": \"993dc56f-0c14-48bd-ba8a-c445fa76bdd9\",\n      \"payload\": \"{\\\"generated\\\":0,\\\"skipped\\\":0,\\\"errors\\\":[]}\",\n      \"subject_kind\": \"graph\",\n      \"subject_id\": null,\n      \"created_at\": \"2026-07-23T20:06:10.121Z\"\n    }\n  ]\n}"
+  "body": "{\n  \"ok\": true,\n  \"rows\": []\n}"
 }
