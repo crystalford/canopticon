@@ -278,6 +278,26 @@ async function renderNeutral(
     : contestedBlock;
   const provenanceBlock = renderProvenance(sourceCount, hasSignedReading, page);
   const modeBand = renderModeBand(page.slug, "neutral", hasSignedReading, page);
+  // The remaining eight arrangement types (spec v2.6 Part 6) don't have a
+  // bespoke embedded section on this page the way established/contested/
+  // timeline/connections do — but per Part 13 they're still meant to be
+  // "reached through the subject page they belong to," not just by search
+  // or citation. A compact links row is the honest minimum: every
+  // arrangement gets a real inbound link from here, even the ones without
+  // a rich embedded preview. Each target renders its own graceful empty
+  // state when the graph doesn't have that shape of data for this subject.
+  const moreViewsBlock = `<section class="more-views">
+  <div class="sec-k">More views of this file</div>
+  <div class="mv-links">
+    <a href="/d/${escapeAttr(page.slug)}">Definition</a>
+    <a href="/w/${escapeAttr(page.slug)}">Who's-who</a>
+    <a href="/stat/${escapeAttr(page.slug)}">Statistics</a>
+    <a href="/f/${escapeAttr(page.slug)}">FAQ</a>
+    <a href="/l/${escapeAttr(page.slug)}">Ledger</a>
+    <a href="/m/${escapeAttr(page.slug)}">Mechanism</a>
+    <a href="/c/${escapeAttr(page.slug)}">Comparison</a>
+  </div>
+</section>`;
 
   // When all four content blocks are empty, the page still says what FILLS
   // each section, so the reader sees the SHAPE of the Record (Established,
@@ -363,6 +383,7 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
       ${appearsInBlock}
       ${connectionsBlockWithStandalone}
       ${provenanceBlock}
+      ${moreViewsBlock}
     </aside>
   </div>
 </article>
@@ -388,6 +409,19 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
     text-transform: uppercase;
   }
   .sec-standalone:hover { text-decoration: underline; }
+  .more-views { margin-top: 30px; }
+  .mv-links { display: flex; flex-direction: column; gap: 2px; }
+  .mv-links a {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .02em;
+    color: var(--ink-3);
+    text-decoration: none;
+    padding: 5px 0;
+    border-top: 1px solid var(--rule);
+  }
+  .mv-links a:first-child { border-top: none; }
+  .mv-links a:hover { color: var(--accent); }
   .qref { text-decoration: none; }
   .qref sup { color: var(--accent); font-size: 11px; font-weight: 600; padding: 0 2px; }
   .qref:hover sup { text-decoration: underline; }

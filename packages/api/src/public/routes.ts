@@ -293,13 +293,26 @@ app.get("/q/:id", async (c) => {
 
 // ---- Arrangements as standalone renderings (spec v2.6 Part 6) -----------
 // Each arrangement is BOTH a section embedded inside a subject page AND a
-// standalone addressable page with its own URL + JSON-LD. Pure rendering:
-// template + query, no LLM at render time. Of the original dozen, only the
-// four below ever got a real inbound link (the subject page's own "see
-// standalone →" affordances); the rest (stat/definition/who's-who/
-// mechanism/faq/comparison/ledger) sat unlinked and were removed as dead
-// weight — the site cleanup pass, not this file's original design.
+// standalone addressable page with its own URL + JSON-LD — deliberately,
+// for GEO: a fine-grained citable URL with specific schema.org markup
+// out-cites a subject page that merely has the same content as one
+// section. These are NOT meant to be reached by internal site nav — Part
+// 13 is explicit that they "don't appear in nav — they're reached through
+// the subject page they belong to, through search, and through
+// citations." All twelve were restored here after an earlier cleanup pass
+// wrongly read "no internal nav link" as "dead code" for 7 of them; the
+// real, still-open bug is that subject-page.ts only ever wired "see
+// standalone →" embed links for 4 of the 12 (t/profile/n/ct below) — see
+// the fix alongside this restore for the other 8.
 //
+// `/d/:slug` — Definition (DefinedTerm JSON-LD).
+app.get("/d/:slug", async (c) => {
+  const { renderDefinitionPage } = await import("./render/arrangements/definition");
+  const html = await renderDefinitionPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
 // `/t/:slug` — Timeline (ItemList + Event JSON-LD)
 app.get("/t/:slug", async (c) => {
   const { renderTimelinePage } = await import("./render/arrangements/timeline");
@@ -318,7 +331,7 @@ app.get("/profile/:slug", async (c) => {
   return htmlResponse(html);
 });
 
-// `/n/:slug` — Network map (ItemList of Role JSON-LD).
+// `/n/:slug` — Ownership / network map (OwnershipInfo JSON-LD).
 app.get("/n/:slug", async (c) => {
   const { renderNetworkPage } = await import("./render/arrangements/network");
   const html = await renderNetworkPage(c.env, c.req.param("slug"));
@@ -326,7 +339,58 @@ app.get("/n/:slug", async (c) => {
   return htmlResponse(html);
 });
 
-// `/ct/:slug` — Claim-and-source table (ClaimReview per row).
+// `/w/:slug` — Who's-who roster (ItemList of Person JSON-LD).
+app.get("/w/:slug", async (c) => {
+  const { renderWhosWhoPage } = await import("./render/arrangements/whos-who");
+  const html = await renderWhosWhoPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/c/:slug` — Comparison matrix (Table + ClaimReview JSON-LD). Scaffold
+// rendering only — the graph isn't yet tagged with comparison-shaped data,
+// so this currently always renders its honest empty state. Real query
+// logic is still an open build item, not something this restore fixes.
+app.get("/c/:slug", async (c) => {
+  const { renderComparisonPage } = await import("./render/arrangements/comparison");
+  const html = await renderComparisonPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/f/:slug` — FAQ / Q&A hub (FAQPage JSON-LD).
+app.get("/f/:slug", async (c) => {
+  const { renderFaqPage } = await import("./render/arrangements/faq");
+  const html = await renderFaqPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/stat/:slug` — Statistics roundup (Dataset JSON-LD).
+app.get("/stat/:slug", async (c) => {
+  const { renderStatsPage } = await import("./render/arrangements/stats");
+  const html = await renderStatsPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/l/:slug` — Ledger of flows (Dataset + MonetaryAmount JSON-LD).
+app.get("/l/:slug", async (c) => {
+  const { renderLedgerPage } = await import("./render/arrangements/ledger");
+  const html = await renderLedgerPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/m/:slug` — Mechanism explainer (HowTo / Article JSON-LD).
+app.get("/m/:slug", async (c) => {
+  const { renderMechanismPage } = await import("./render/arrangements/mechanism");
+  const html = await renderMechanismPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/ct/:slug` — Claim-and-source table (Claim + ClaimReview JSON-LD).
 app.get("/ct/:slug", async (c) => {
   const { renderClaimTablePage } = await import("./render/arrangements/claim-table");
   const html = await renderClaimTablePage(c.env, c.req.param("slug"));
