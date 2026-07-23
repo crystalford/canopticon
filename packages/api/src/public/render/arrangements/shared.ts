@@ -77,10 +77,10 @@ export function renderArrangementStandalone(args: {
 <script type="application/ld+json">${args.jsonLd}</script>
 <article class="arr-page">
   <header class="arr-head">
-    <div class="kicker">${escapeHtml(args.arrangementLabel)} · arrangement</div>
+    <div class="kicker">${escapeHtml(args.arrangementLabel)}</div>
     <h1 class="arr-h1">${escapeHtml(args.subject.label)}</h1>
     <p class="arr-sub">
-      An arrangement of the graph: ${escapeHtml(args.arrangementLabel.toLowerCase())} for ${escapeHtml(args.subject.label)}.
+      ${escapeHtml(args.arrangementLabel)} for ${escapeHtml(args.subject.label)}.
       Every fact below is a verbatim quote from a real document we have stored.
       <a class="arr-back" href="/s/${escapeAttr(args.subject.slug)}">↩ See the full Record</a>
     </p>

@@ -16,12 +16,15 @@ export interface NavItem {
   label: string;
 }
 
-// Three doors. The Record (home IS the front of the record), the signed
-// Investigations, and Method (how verification works — absorbs About).
-// Everything else is reached by walking the web, not by nav.
+// Four doors. The Record (home IS the front of the record), the signed
+// Investigations, Watchlist (the standing-research engine, given a real
+// surface instead of living only behind /v1/admin/beats), and Method (how
+// verification works — absorbs About). Everything else is reached by
+// walking the web, not by nav.
 export const PRIMARY_NAV: NavItem[] = [
   { href: "/", label: "Record" },
   { href: "/investigations", label: "Investigations" },
+  { href: "/watchlist", label: "Watchlist" },
   { href: "/method", label: "Method" },
 ];
 
@@ -48,7 +51,7 @@ export function renderPage(args: RenderPageArgs): string {
     : "CANOPTICON — The standing record";
   const description = escapeHtml(
     args.description ??
-      "CANOPTICON keeps files on power. Documented facts with their receipts, disputes shown as disputes, and signed analysis — every claim traceable to a stored source.",
+      "CANOPTICON keeps files on the stories we're told. Documented facts with their receipts, disputes shown as disputes, and signed analysis — every claim traceable to a stored source.",
   );
   const mode = args.mode ?? "public";
   const zone = args.zone ?? "home";
@@ -88,9 +91,16 @@ function renderNav(activeHref?: string): string {
         : activeHref === item.href || activeHref?.startsWith(`${item.href}/`);
     return `<a href="${escapeAttr(item.href)}"${isActive ? ` class="active"` : ""}>${escapeHtml(item.label)}</a>`;
   }).join("\n      ");
+  // Mobile nav: a checkbox-hack toggle, not client JS — the shell's own
+  // comment says "nothing here requires JavaScript to read" and a real
+  // small-screen menu shouldn't be the exception. :checked drives the
+  // dropdown purely in CSS (see .nav-toggle / .nav-burger / .nav-links in
+  // styles.ts under the max-width:680px block).
   return `<nav class="nav">
   <div class="nav-inner">
     <a href="/" class="wordmark">CANOPTICON<span class="dot">·</span><span class="wordmark-sub">The standing record</span></a>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle" />
+    <label for="nav-toggle" class="nav-burger" aria-label="Menu"><span></span></label>
     <div class="nav-links">
       ${items}
       <a href="/search" class="nav-search"><span class="q">/</span> ask the record</a>

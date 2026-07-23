@@ -45,8 +45,12 @@ export const STYLES_CSS = `/* ==================================================
   --op-surface:   #131419;
   --op-ink:       #eceef2;
   --op-ink-2:     #ccced6;
-  --op-ink-3:     #93959f;
-  --op-ink-mute:  #666873;
+  /* Lightened one step from #93959f/#666873 — the originals failed WCAG AA
+     (~3.6-3.9:1) for body-copy weight against --op-paper. Same relative
+     offset between the two preserved; hierarchy (mute quieter than -3,
+     both quieter than -2) is unchanged, they just both now clear 4.5:1. */
+  --op-ink-3:     #a5a8b3;
+  --op-ink-mute:  #787b86;
   --op-ink-faint: #484a54;
   --op-rule:      #242630;
   --op-rule-bright:#353844;
@@ -1272,6 +1276,34 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   border: 1px solid var(--rule); border-radius: var(--r-sm);
   padding: 5px 11px; background: var(--surface); transition: all .12s;
 }
+
+/* ---- mobile nav: checkbox-hack toggle, no client JS ---- */
+.nav-toggle { position: absolute; opacity: 0; pointer-events: none; }
+.nav-burger { display: none; }
+@media (max-width: 680px) {
+  .nav-inner { position: relative; }
+  .nav-burger {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border: 1px solid var(--rule); border-radius: var(--r-sm);
+    background: var(--surface); cursor: pointer; flex-shrink: 0; position: relative;
+  }
+  .nav-burger span, .nav-burger span::before, .nav-burger span::after {
+    content: ""; position: absolute; left: 8px; right: 8px; height: 1.5px; background: var(--ink-2);
+  }
+  .nav-burger span { top: 15px; }
+  .nav-burger span::before { top: -5px; }
+  .nav-burger span::after { top: 5px; }
+  .nav-toggle:focus-visible ~ .nav-burger { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .nav-links {
+    display: none; flex-direction: column; align-items: flex-start; gap: 2px;
+    position: absolute; top: calc(100% + 1px); left: 0; right: 0;
+    padding: 8px 20px 16px; background: var(--paper); border-bottom: 1px solid var(--rule);
+    z-index: 61;
+  }
+  .nav-links a { padding: 9px 4px; width: 100%; }
+  .nav-links .nav-search { margin-top: 4px; width: 100%; justify-content: space-between; }
+  .nav-toggle:checked ~ .nav-links { display: flex; }
+}
 .nav-search:hover { color: var(--ink-2); border-color: var(--rule-bright); }
 .nav-search .q { color: var(--accent); }
 
@@ -1371,6 +1403,11 @@ main { max-width: 1060px; margin: 0 auto; padding: 34px 20px 70px; }
 .file-row .grew { font-size: 12.5px; color: var(--ink-3); line-height: 1.45; }
 .file-row .grew .plus { font-family: var(--mono); color: var(--confirmed); }
 .file-row .grew .fed { font-family: var(--mono); font-size: 10.5px; color: var(--ink-mute); display: block; margin-top: 2px; }
+.teaser-more {
+  display: block; margin-top: 10px; padding: 8px 2px;
+  font-family: var(--mono); font-size: 11.5px; color: var(--accent-2);
+}
+.teaser-more:hover { color: var(--accent); }
 .file-row.thin, .cardlink.thin { opacity: .6; transition: opacity .12s; }
 .file-row.thin:hover, .cardlink.thin:hover { opacity: 1; }
 .file-row .fname .chip.draft, .card-type .chip.draft { margin-left: 8px; vertical-align: middle; }
@@ -1655,6 +1692,49 @@ details.seam-file:not([open]) .open-tag .when-open { display: none; }
   margin-top: 16px;
 }
 .thin-note .redact-bar { margin: 0 3px; }
+
+/* ---- thin-file card: "still developing," not "broken" ---- */
+.thin-card {
+  border-style: solid; padding: 15px 18px 14px; position: relative; overflow: hidden;
+}
+.thin-card::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(115deg, transparent, transparent 26px, rgba(93,139,198,.03) 26px, rgba(93,139,198,.03) 27px);
+}
+.thin-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; position: relative; }
+.thin-badge { display: inline-flex; align-items: center; gap: 7px; color: var(--accent-2); letter-spacing: .08em; }
+.thin-badge-b {
+  width: 14px; height: 8px; border-radius: 2px; overflow: hidden; position: relative; background: var(--paper-3);
+}
+.thin-badge-b::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(93,139,198,.4), transparent);
+  animation: barsweep 2.2s ease-in-out infinite;
+}
+.thin-cad { color: var(--ink-mute); }
+.thin-body { position: relative; margin: 0; }
+
+/* ---- the reveal: a real tab bar, not a link dressed as prose ---- */
+.reveal-tabs {
+  display: flex; border: 1px solid var(--rule); border-radius: var(--r-lg);
+  overflow: hidden; margin-bottom: 22px;
+  box-shadow: 0 24px 48px -28px rgba(0,0,0,.7);
+}
+.reveal-tab {
+  flex: 1; padding: 13px 18px; text-align: center;
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--ink-mute); background: var(--paper-2); position: relative;
+  transition: color .15s, background .15s;
+}
+.reveal-tab + .reveal-tab { border-left: 1px solid var(--rule); }
+.reveal-tab:hover { color: var(--ink-2); }
+.reveal-tab.on { color: var(--ink); background: var(--surface); }
+.reveal-tab.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); }
+.reveal-draft-note {
+  margin: -14px 0 22px; padding: 10px 16px; border-radius: var(--r);
+  border: 1px solid var(--corr-bd); background: var(--corr-bg); color: var(--correction);
+  font-family: var(--mono); font-size: 12px;
+}
 a.plain { border-bottom: 1px solid var(--accent-bd); color: var(--ink-2); }
 a.plain:hover { color: var(--accent-2); }
 

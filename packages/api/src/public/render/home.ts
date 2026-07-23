@@ -235,11 +235,12 @@ export async function renderHome(
   <div class="kicker" style="margin-bottom:18px">
     <span class="live"></span> Forensic intelligence · sourced, structured, permanent
   </div>
-  <h1 style="font-family:var(--serif);font-size:48px;line-height:1.1;letter-spacing:-0.02em;margin:0 0 18px;color:var(--ink)">Canopticon keeps files on power.</h1>
+  <h1 style="font-family:var(--serif);font-size:48px;line-height:1.1;letter-spacing:-0.02em;margin:0 0 18px;color:var(--ink)">Canopticon keeps files on the stories we're told.</h1>
   <p style="font-family:var(--serif);font-size:19px;line-height:1.55;color:var(--ink-2);max-width:680px">
-    A forensic intelligence system — mapping the architecture of systems and
-    institutions through sourced claims, signed analysis, and a growing graph of
-    verified connections. The facts are the foundation. The patterns are the point.
+    A machine reads primary sources and pulls out facts it can check, one by one, against
+    the exact words on the page. Wherever more is said about something than has ever
+    actually been checked — about power, the mind, the planet, an argument — it's in scope.
+    The facts are the foundation. The patterns are the point.
   </p>
 </section>
 
@@ -422,7 +423,14 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
   // Sequential awaits here (plus the serial per-row loops inside
   // loadActiveFiles/loadLatestEvidence) were what pushed the live homepage
   // past Cloudflare's request timeout after this section grew.
-  const [opOverlays, subjects, counts, activeFiles, latestEvidence] = await Promise.all([
+  const watchlistPromise = all<{ label: string; last_swept_at: string | null }>(
+    env.DB,
+    `SELECT label, last_swept_at FROM coverage_beats WHERE user_id = ?
+      ORDER BY COALESCE(last_swept_at, created_at) DESC LIMIT 4`,
+    [userId],
+  ).catch(() => []);
+
+  const [opOverlays, subjects, counts, activeFiles, latestEvidence, watchlist] = await Promise.all([
     opOverlaysPromise,
     all<{
       slug: string;
@@ -503,6 +511,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
     ).catch(() => null),
     loadActiveFiles(env.DB, userId),
     loadLatestEvidence(env.DB, userId),
+    watchlistPromise,
   ]);
   if (subjects.length === 0) return "";
 
@@ -596,13 +605,37 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
 </div>`
       : "";
 
-  // ---- Browse the record — the full index, plain rows ----
+  // ---- Watchlist — running unattended, a teaser toward /watchlist ----
+  const watchlistBlock =
+    watchlist.length > 0
+      ? `<div class="sec">
+  <div class="sec-h"><span class="label">On the watchlist — running unattended</span><span class="coord"><a href="/watchlist" class="plain" style="font-family:var(--mono)">SEE ALL →</a></span></div>
+  <div class="file-list">
+    ${watchlist
+      .map(
+        (m) => `<div class="file-row" style="cursor:default">
+  <div class="fname">${escapeHtml(m.label)}</div>
+  <div class="grew">${m.last_swept_at ? `last checked ${escapeHtml(m.last_swept_at.slice(0, 10))}` : "not checked yet"}</div>
+</div>`,
+      )
+      .join("")}
+  </div>
+</div>`
+      : "";
+
+  // ---- Browse the record — a TEASER, not a second copy of /topics.
+  // Home used to render up to 14 rows under the same "Browse the record"
+  // label /topics uses for its own full, facet-filterable index — the two
+  // pages shared nothing but density. Now Home shows 5 and points at the
+  // real index; /topics is the one place that isn't capped. ----
+  const HOME_TEASER_CAP = 5;
+  const teaserSubjects = subjects.slice(0, HOME_TEASER_CAP);
   const browseBlock =
     subjects.length > 0
       ? `<div class="sec">
-  <div class="sec-h"><span class="label">Browse the record</span><span class="coord">${subjects.length} SUBJECT${subjects.length === 1 ? "" : "S"} <span class="sep">·</span> <a href="/search" class="plain" style="font-family:var(--mono)">ASK THE RECORD →</a></span></div>
+  <div class="sec-h"><span class="label">Recently active</span><span class="coord"><a href="/search" class="plain" style="font-family:var(--mono)">ASK THE RECORD →</a></span></div>
   <div class="file-list">
-    ${subjects
+    ${teaserSubjects
       .map((s) => {
         const thin = s.sources <= 1;
         return `<a class="file-row${thin ? " thin" : ""}" href="${buildHref(s)}">
@@ -613,6 +646,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
       })
       .join("")}
   </div>
+  <a href="/topics" class="teaser-more">see the full record →</a>
 </div>`
       : "";
 
@@ -839,6 +873,7 @@ ${opDrafts}
 
 ${activeFilesBlock}
 ${evidenceBlock}
+${watchlistBlock}
 ${browseBlock}
 
 ${opFindings}
@@ -1148,7 +1183,7 @@ ${opSearchMisses}
   return renderPage({
     title: "",
     description:
-      "Canopticon keeps files on power — documented facts with their receipts, disputes shown as disputes, and signed analysis.",
+      "Canopticon keeps files on the stories we're told — documented facts with their receipts, disputes shown as disputes, and signed analysis.",
     body,
     activeNav: "/",
     zone: "home",

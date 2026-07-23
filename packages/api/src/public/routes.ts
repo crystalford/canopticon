@@ -22,6 +22,7 @@ import { renderNotFound } from "./render/placeholder";
 import { renderEntityPage } from "./render/record";
 import { renderSearchPage } from "./render/search";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
+import { renderWatchlistPage } from "./render/watchlist";
 import studioRoutes from "./studio/routes";
 import { STYLES_CSS, stylesHash } from "./styles";
 
@@ -246,6 +247,11 @@ app.get("/", async (c) =>
 // ---- Topics ---------------------------------------------------------------
 
 app.get("/topics", async (c) => htmlResponse(await renderTopicsIndex(c.env)));
+
+// Watchlist — the public surface for coverage_beats (previously only
+// reachable as the operator via /v1/admin/beats). Not "/monitors" —
+// graph/routes/monitors.ts is a separate, older, unrelated system.
+app.get("/watchlist", async (c) => htmlResponse(await renderWatchlistPage(c.env)));
 
 // ---- Instruments ----------------------------------------------------------
 // The third product arm's doorway. Instruments live on their own

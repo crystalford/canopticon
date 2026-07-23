@@ -47,7 +47,7 @@ describe("public site — Phase 1 skeleton", () => {
     expect(html).toMatch(/<!doctype html>/i);
     expect(html).toMatch(/<title>CANOPTICON[^<]*<\/title>/);
     expect(html).toContain("canopticon");
-    expect(html).toContain("Canopticon keeps files on power.");
+    expect(html).toContain("Canopticon keeps files on the stories we're told.");
     expect(html).toMatch(/\/styles\.css\?v=/);
     // The design build's data-mode toggle is on the root <html>
     expect(html).toMatch(/<html[^>]*data-mode="public"/);

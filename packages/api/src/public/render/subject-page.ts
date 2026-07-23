@@ -334,8 +334,30 @@ async function renderNeutral(
   // is that something — honest about how little is on file yet, using the
   // redaction-bar motif (the one sanctioned decorative device) to signal
   // "still filling in" rather than "broken" or "empty by mistake."
+  // If this subject is on the watchlist, say so honestly with its REAL
+  // last-checked time — not a fabricated "checks weekly" cadence. The
+  // schema has no per-item schedule (coverage_beats has none); every
+  // watched subject shares one sweep slot on a shared cooldown. Say
+  // what's true.
+  const watchForThin = isThin
+    ? await one<{ last_swept_at: string | null }>(
+        env.DB,
+        "SELECT last_swept_at FROM coverage_beats WHERE user_id = ? AND label = ? LIMIT 1",
+        [userId, subject.label],
+      ).catch(() => null)
+    : null;
   const thinNote = isThin
-    ? `<div class="thin-note">This file is still developing — ${sourceCount.count} source${sourceCount.count === 1 ? "" : "s"} on record so far <span class="redact-bar" style="width:64px"></span> more may surface as the record grows.</div>`
+    ? `<div class="thin-note thin-card">
+  <div class="thin-top">
+    <span class="thin-badge"><span class="thin-badge-b"></span>DEVELOPING FILE</span>
+    ${
+      watchForThin
+        ? `<span class="thin-cad">ON THE WATCHLIST <span class="sep">·</span> ${watchForThin.last_swept_at ? `LAST CHECKED ${escapeHtml(watchForThin.last_swept_at.slice(0, 10))}` : "NOT CHECKED YET"}</span>`
+        : ""
+    }
+  </div>
+  <p class="thin-body">This file has ${sourceCount.count} source${sourceCount.count === 1 ? "" : "s"} on record so far <span class="redact-bar" style="width:60px"></span> more may surface as the record grows.</p>
+</div>`
     : "";
   const opAffordance =
     isOperator && isThin
@@ -399,11 +421,6 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
 
 <style>
   .subject-page { max-width: 920px; margin: 0 auto; padding: 28px 0 80px; }
-  .mode-band { display:flex; align-items:center; gap:14px; margin-bottom:22px;
-    padding:12px 16px; border:1px solid var(--rule); border-radius:9px;
-    background:var(--panel-soft, transparent); font-size:13.5px; color:var(--ink-3); }
-  .mode-band a { color:var(--accent); text-decoration:none; font-weight:600; }
-  .mode-band .here { color:var(--ink); }
   .subject-head { margin-bottom:32px; }
   .subject-grid { display:grid; grid-template-columns: 1fr 260px; gap:42px; }
   @media (max-width: 760px) { .subject-grid { grid-template-columns: 1fr; } }
@@ -547,10 +564,6 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
   .conn-row .why { display:block; color:var(--ink-3); font-size:12.5px; margin-top:2px; }
   .prov { padding:14px 16px; background:var(--panel-2, rgba(0,0,0,.15));
     border:1px solid var(--rule); border-radius:9px; font-size:12.5px; color:var(--ink-3); margin-top:18px; }
-  .signed-band { background:var(--panel-2, rgba(0,0,0,.2)); border:1px solid var(--accent);
-    border-radius:11px; padding:16px 20px; margin-bottom:22px; }
-  .signed-band a { color:var(--accent); font-weight:600; text-decoration:none; }
-  .signed-band .meta { color:var(--ink-3); font-size:12.5px; margin-top:4px; }
   .op-aff { display:flex; align-items:center; gap:12px; margin-bottom:18px; padding:9px 14px;
     border:1px dashed var(--rule); border-radius:8px; background:rgba(0,0,0,.02); flex-wrap:wrap; }
   .op-aff-label { font-size:10px; letter-spacing:.12em; text-transform:uppercase;
@@ -743,11 +756,6 @@ async function renderSigned(
 
 <style>
   .subject-page { max-width: 760px; margin: 0 auto; padding: 28px 0 80px; }
-  .mode-band { display:flex; align-items:center; gap:14px; margin-bottom:22px;
-    padding:12px 16px; border:1px solid var(--rule); border-radius:9px;
-    font-size:13.5px; color:var(--ink-3); }
-  .mode-band a { color:var(--accent); text-decoration:none; font-weight:600; }
-  .mode-band .here { color:var(--ink); }
   .signed-head { margin-bottom: 40px; }
   .signed-head .kicker {
     font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
@@ -968,10 +976,6 @@ ${evidence
 
 <style>
   .subject-page { max-width: 760px; margin: 0 auto; padding: 28px 0 80px; }
-  .mode-band { display:flex; align-items:center; gap:14px; margin-bottom:22px;
-    padding:12px 16px; border:1px solid var(--rule); border-radius:9px; font-size:13.5px; color:var(--ink-3); }
-  .mode-band a { color:var(--accent); text-decoration:none; font-weight:600; }
-  .mode-band .here { color:var(--ink); }
   .subject-head .kicker { font-size:11px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase; margin-bottom:10px; }
   .subject-head h1 { font-family:var(--serif); font-size:36px; line-height:1.15; letter-spacing:-.02em; font-weight:600; margin-bottom:24px; }
   .received { background:var(--panel-2, rgba(0,0,0,.15)); border:1px solid var(--rule);
@@ -1449,36 +1453,34 @@ function renderProvenance(sourceCount: SourceStats, hasSigned: boolean, page: Pa
   return `<div id="on-file" class="prov">${lines.join("<br/>")}</div>`;
 }
 
+// The reveal, as a real toggle — not "?mode=signed dressed as prose." Both
+// tabs are always real links (full page nav, not a client-side swap) so
+// this stays SSR-simple and readable with no JS; the tab bar is just the
+// same mode switch that already existed, given the visual weight of a
+// choice instead of a quiet aside. A draft is only ever reachable here as
+// the operator (subject-page.ts's hasSignedReading gate), so the tab
+// label still has to say "draft," not "signed" — the one person
+// reviewing it needs to be able to tell what they're looking at from the
+// page itself.
 function renderModeBand(
   slug: string,
   current: "neutral" | "signed",
   hasSigned: boolean,
   page: PageRow,
 ): string {
-  // A draft is only ever reachable here as the operator (subject-page.ts's
-  // hasSignedReading gate) — but the copy still has to say "draft," not
-  // "signed," or the one person reviewing it can't tell what they're
-  // looking at from the page itself.
+  if (!hasSigned) return "";
   const isDraft = page.signed_status === "draft";
-  if (current === "signed") {
-    return `<div class="mode-band signed-band">
-  <span class="here">${isDraft ? "You are previewing an unpublished draft." : "You are reading a signed analysis."}</span>
-  <a href="/p/${escapeAttr(slug)}">See the file this stands on →</a>
-</div>`;
-  }
-  if (!hasSigned) {
-    return "";
-  }
-  const thesisPreview = page.thesis
-    ? `"${escapeHtml(page.thesis.slice(0, 140))}${page.thesis.length > 140 ? "…" : ""}"`
-    : isDraft
-      ? "a drafted analysis awaiting your signature"
-      : "a signed analysis of this subject";
-  return `<div class="mode-band signed-band">
-  <span class="here">${isDraft ? "A draft is waiting for your signature:" : "A signed analysis is on file:"}</span>
-  <a href="/p/${escapeAttr(slug)}?mode=signed">${isDraft ? "Review it →" : "Read it →"}</a>
-  <div class="meta" style="flex-basis:100%;margin-top:4px">${thesisPreview}</div>
-</div>`;
+  const neutralHref = `/p/${escapeAttr(slug)}`;
+  const signedHref = `/p/${escapeAttr(slug)}?mode=signed`;
+  const draftNote =
+    isDraft && current === "signed"
+      ? `<div class="reveal-draft-note">You are previewing an unpublished draft — not visible to public readers yet.</div>`
+      : "";
+  return `<div class="reveal-tabs" role="tablist" aria-label="Neutral record or signed reading">
+  <a class="reveal-tab${current === "neutral" ? " on" : ""}" href="${neutralHref}" role="tab" aria-selected="${current === "neutral"}">On the record</a>
+  <a class="reveal-tab${current === "signed" ? " on" : ""}" href="${signedHref}" role="tab" aria-selected="${current === "signed"}">${isDraft ? "The reading — draft" : "The reading"}</a>
+</div>
+${draftNote}`;
 }
 
 // ===========================================================================

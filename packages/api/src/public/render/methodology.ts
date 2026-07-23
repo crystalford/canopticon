@@ -41,6 +41,12 @@ export function renderMethodology(): string {
     stated that can't be traced back to a document. The record is permanent and
     correctable: mistakes are logged, not erased.
   </p>
+  <p>
+    What's in scope isn't a topic list — it's a question: is more said about this than
+    has ever actually been checked? Wherever that's true, it applies, whether the subject
+    is a politician's record, whether a therapy actually works, or whether a species is
+    really recovering.
+  </p>
 </section>
 
 <section class="meth-section meth-section-trust">

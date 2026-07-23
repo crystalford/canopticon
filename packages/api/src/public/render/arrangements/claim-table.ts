@@ -192,6 +192,6 @@ export async function renderClaimTablePage(env: PublicEnv, slug: string): Promis
     inner,
     jsonLd,
     title: `Claims & sources · ${subject.label}`,
-    description: `Attributed assertions about ${subject.label} — stance, evidence balance, source per row. The firewall made visible at table grain.`,
+    description: `Attributed assertions about ${subject.label} — stance, evidence balance, and source per row. Nothing here counts as settled fact until it's checked.`,
   });
 }

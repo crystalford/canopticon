@@ -122,7 +122,7 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   // they'd see here once the threshold's met.
   const themesSection =
     themeRows.length > 0
-      ? `<section class="topics-themes">
+      ? `<section class="topics-themes" id="themes">
   <div class="topics-section-kicker">What the documents push back on</div>
   <h2 class="topics-section-h">Themes</h2>
   <p class="topics-section-lede">Widely-held accounts the documents contradict — surfaced automatically when three or more separate sources converge on the same pushback.</p>
@@ -149,22 +149,35 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
           .map((s) => subjectCard(s, kindLabel))
           .join("")}</div>`
       : `<p class="topics-empty-line">${escapeHtml(emptyExplainer)}</p>`;
-    return `<section class="topics-section">
+    return `<section class="topics-section" id="${escapeHtml(heading.toLowerCase().replace(/[^a-z]+/g, "-"))}">
   <div class="topics-section-kicker">${escapeHtml(kicker)}</div>
   <h2 class="topics-section-h">${escapeHtml(heading)}</h2>
   ${cards}
 </section>`;
   };
 
+  // Facets, honestly: a static page has no client-side filter to offer
+  // without JS, so these are anchor jumps to the section below, styled
+  // like the filter chips a denser index deserves — not fake interactivity.
+  // This IS the differentiator from Home's teaser: Home shows five rows
+  // and a link out; this is the dense, facet-navigable full index.
+  const facetBar = `<div class="facetbar topics-facetbar">
+  ${themeRows.length ? `<a href="#themes" class="facet">Themes<span>${themeRows.length}</span></a>` : ""}
+  <a href="#people" class="facet">People<span>${people.length}</span></a>
+  <a href="#companies-other" class="facet">Companies &amp; other<span>${entities.length}</span></a>
+  <a href="#events" class="facet">Events<span>${events.length}</span></a>
+</div>`;
+
   const body = `
 <section class="topics-masthead">
-  <div class="kicker"><span class="live"></span> Browse the record</div>
-  <h1 class="topics-hero">Browse the record</h1>
+  <div class="kicker"><span class="live"></span> The Record</div>
+  <h1 class="topics-hero">The Record</h1>
   <p class="topics-lede">
     Every file in the record — the widely-held stories the documents push back on, the people
     and companies named, the events on the timeline. Nobody wrote these pages; they grew as
     documents were read. Each one carries its receipts.
   </p>
+  ${facetBar}
 </section>
 ${themesSection}
 ${plainSection("People", "The named people in the record", people, "Person", "No people have been read into the record yet.")}
@@ -187,6 +200,8 @@ ${plainSection("Events", "Dated occurrences", events, "Event", "Dated occurrence
     color: var(--ink-2);
     max-width: 680px;
   }
+  .topics-facetbar { margin-top: 22px; margin-bottom: 0; }
+  .topics-facetbar .facet { text-decoration: none; }
   .topics-themes { margin-bottom: 40px; padding-bottom: 36px; border-bottom: 1px solid var(--rule); }
   .topics-themes-empty { padding-bottom: 28px; }
   .topics-section { margin-bottom: 36px; }
