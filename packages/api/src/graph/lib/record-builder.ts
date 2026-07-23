@@ -289,12 +289,11 @@ export async function getExpandStatus(
   }
 
   // Search+fetch+bank phase is done. Check what actually banked.
-  let pieceIds: string[] = [];
-  try {
-    pieceIds = JSON.parse(field(completed.payload, "banked_piece_ids") ?? "[]");
-  } catch {
-    pieceIds = [];
-  }
+  // NOTE: banked_piece_ids is an array — field() below stringifies every
+  // value via String(), which turns an array into a comma-joined string
+  // ("a,b", not '["a","b"]') that JSON.parse then throws on. Read it
+  // directly off the parsed payload instead of through field().
+  const pieceIds = fieldArray(completed.payload, "banked_piece_ids");
   if (pieceIds.length === 0) {
     return {
       terminal: true,
@@ -401,6 +400,16 @@ function field(payload: string, key: string): string | null {
     return typeof v === "string" ? v : String(v);
   } catch {
     return null;
+  }
+}
+
+function fieldArray(payload: string, key: string): string[] {
+  try {
+    const obj = JSON.parse(payload) as Record<string, unknown>;
+    const v = obj[key];
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
   }
 }
 
