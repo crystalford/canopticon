@@ -821,6 +821,14 @@ app.get("/debug-home-timing", async (c) => {
       one(c.env.DB, "SELECT COUNT(*) AS n FROM edges WHERE user_id = ?", [userId]),
     "quotes.count": () =>
       one(c.env.DB, "SELECT COUNT(*) AS n FROM quotes WHERE user_id = ?", [userId]),
+    "subjects.sources.subquery": () =>
+      all(
+        c.env.DB,
+        `SELECT n.id, (SELECT COUNT(DISTINCT piece_id) FROM nodes
+            WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources
+           FROM nodes n WHERE n.user_id = ? AND n.kind IN ('entity','event','theme') LIMIT 30`,
+        [userId, userId],
+      ),
     "support.cte.only": () =>
       one(
         c.env.DB,
