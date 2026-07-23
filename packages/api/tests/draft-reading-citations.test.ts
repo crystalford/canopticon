@@ -17,11 +17,7 @@ describe("applyCitationMarkers", () => {
   ]);
 
   it("replaces a passed marker with a real numbered link, never bracket text", () => {
-    const out = applyCitationMarkers(
-      "Carney chaired the bank [q1].",
-      shortToReal,
-      new Set(["q1"]),
-    );
+    const out = applyCitationMarkers("Carney chaired the bank [q1].", shortToReal, new Set(["q1"]));
     expect(out).not.toContain("[q1]");
     expect(out).toContain('<a class="cite-n" href="/q/real-quote-1">1</a>');
   });
@@ -70,5 +66,38 @@ describe("applyCitationMarkers", () => {
   it("leaves prose with no markers untouched", () => {
     const out = applyCitationMarkers("Plain prose, no citations here.", shortToReal, new Set());
     expect(out).toBe("Plain prose, no citations here.");
+  });
+
+  // Confirmed live on a real reading (marshall-mcluhan) after the
+  // exact-[qN]-only regex shipped: the model drifts under real load.
+
+  it("expands a dash range [q1-2] into both real quote ids", () => {
+    const out = applyCitationMarkers("Two facts [q1-2].", shortToReal, new Set(["q1", "q2"]));
+    expect(out).not.toContain("[q1-2]");
+    expect(out).toContain('href="/q/real-quote-1"');
+    expect(out).toContain('href="/q/real-quote-2"');
+  });
+
+  it("strips a stray non-q prefix marker like [p26] — never left as bracket text", () => {
+    const out = applyCitationMarkers("Some claim [p26].", shortToReal, new Set());
+    expect(out).not.toContain("[p26]");
+    expect(out).not.toContain("cite-n");
+    expect(out).toBe("Some claim .");
+  });
+
+  it("accepts semicolon-separated markers", () => {
+    const out = applyCitationMarkers("Two facts [q1; q2].", shortToReal, new Set(["q1", "q2"]));
+    expect(out).not.toContain("[q1; q2]");
+    expect(out).toContain('href="/q/real-quote-1"');
+    expect(out).toContain('href="/q/real-quote-2"');
+  });
+
+  it("does NOT touch a bare bracketed year or number — no letter prefix means it isn't a citation", () => {
+    const out = applyCitationMarkers(
+      "Published in [1968] under contract [42].",
+      shortToReal,
+      new Set(["q1", "q2"]),
+    );
+    expect(out).toBe("Published in [1968] under contract [42].");
   });
 });

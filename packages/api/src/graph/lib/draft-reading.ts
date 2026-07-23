@@ -446,11 +446,16 @@ export async function backfillCitationMarkers(
   const { renderMarkdown } = await import("../../cms/lib/render-post");
   const report: CitationBackfillReport = { scanned: 0, fixed: 0, errors: [] };
 
+  // '%[%]%' not '%[q%' — the marker drift this backfill also has to catch
+  // (dash ranges, a stray non-"q" prefix) means literal "[q" isn't a
+  // reliable filter anymore. Over-inclusive here is fine: applyCitationMarkers
+  // itself is what enforces precision, and a page with nothing it actually
+  // matches is a no-op (caught by the newBodyMd === page.body_md check below).
   const candidates = await all<{ id: string; subject_node_id: string; body_md: string }>(
     env.DB,
     `SELECT id, subject_node_id, body_md FROM pages
       WHERE user_id = ? AND signed_status IN ('draft', 'signed', 'published')
-        AND body_md IS NOT NULL AND body_md LIKE '%[q%'`,
+        AND body_md IS NOT NULL AND body_md LIKE '%[%]%'`,
     [userId],
   ).catch(() => []);
   report.scanned = candidates.length;
@@ -501,6 +506,34 @@ export async function backfillCitationMarkers(
   return report;
 }
 
+// The writer prompt only ever asks for "[qN]" / "[qN, qM]" — but under
+// real load the model drifts: dash ranges ("[q38-39]"), a stray non-"q"
+// prefix ("[p26]", presumably its own invented shorthand), semicolons
+// instead of commas. Confirmed live on a real reading (marshall-mcluhan)
+// after the exact-format-only version of this regex shipped. The first
+// token in a bracket group must carry a letter prefix — that's what
+// keeps this from also eating a bare year like "[1968]" or a legal
+// citation like "[42]", which have nothing to do with quotes. A
+// follow-up token in a range/list may omit its own prefix, inheriting
+// the previous one ("q38-39" -> q38, q39).
+const CITATION_MARKER_RE = /\[\s*[a-zA-Z]\d+(?:\s*[,;-]\s*[a-zA-Z]?\d+)*\s*\]/g;
+
+function parseMarkerIds(bracketed: string): string[] {
+  const inner = bracketed.slice(1, -1);
+  const tokens = inner.split(/[,;-]/).map((s) => s.trim());
+  let lastPrefix = "";
+  const ids: string[] = [];
+  for (const t of tokens) {
+    const m = t.match(/^([a-zA-Z]?)(\d+)$/);
+    if (!m) continue;
+    const prefix = m[1] ? m[1].toLowerCase() : lastPrefix;
+    if (!prefix) continue;
+    lastPrefix = prefix;
+    ids.push(`${prefix}${m[2]}`);
+  }
+  return ids;
+}
+
 export function applyCitationMarkers(
   bodyMd: string,
   shortToReal: Map<string, string>,
@@ -508,10 +541,8 @@ export function applyCitationMarkers(
 ): string {
   const numberFor = new Map<string, number>();
   let next = 1;
-  return bodyMd.replace(/\[\s*(q\d+(?:\s*,\s*q\d+)*)\s*\]/gi, (_match, group: string) => {
-    const links = group
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
+  return bodyMd.replace(CITATION_MARKER_RE, (match) => {
+    const links = parseMarkerIds(match)
       .filter((id) => passedShort.has(id))
       .map((id) => {
         const real = shortToReal.get(id);

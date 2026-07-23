@@ -727,11 +727,12 @@ app.get("/backfill-face-citations", async (c) => {
     return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
   }
   const userId = c.get("user_id");
+  // '%[%]%' not '%[q%' — same marker-drift reason as backfill-citation-markers.
   const affected = await all<{ page_id: string; kind: "script" | "chapter" }>(
     c.env.DB,
     `SELECT page_id, kind FROM page_faces
       WHERE user_id = ? AND kind IN ('script', 'chapter')
-        AND status = 'ready' AND (body_md LIKE '%[q%' OR body_html LIKE '%[q%')`,
+        AND status = 'ready' AND (body_md LIKE '%[%]%' OR body_html LIKE '%[%]%')`,
     [userId],
   ).catch(() => []);
   const { generateSingleFace } = await import("../graph/lib/face-renderer.ts");
