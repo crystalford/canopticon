@@ -715,27 +715,33 @@ app.get("/debug-home-timing", async (c) => {
     subjects: () =>
       all(
         c.env.DB,
-        `SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
+        `WITH support AS (
+           SELECT q.id AS quote_id, q.node_id AS supported_node FROM quotes q WHERE q.user_id = ?
+           UNION
+           SELECT q.id AS quote_id, e.dst_node_id AS supported_node
+             FROM quotes q JOIN edges e ON e.src_node_id = q.node_id
+            WHERE q.user_id = ? AND e.user_id = ?
+           UNION
+           SELECT q.id AS quote_id, e.src_node_id AS supported_node
+             FROM quotes q JOIN edges e ON e.dst_node_id = q.node_id
+            WHERE q.user_id = ? AND e.user_id = ?
+         ),
+         support_counts AS (
+           SELECT supported_node, COUNT(DISTINCT quote_id) AS qcount FROM support GROUP BY supported_node
+         )
+         SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
                 (SELECT COUNT(DISTINCT piece_id) FROM nodes
                   WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources,
                 p.created_at AS opened_at, p.updated_at
-           FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+           FROM pages p
+           JOIN nodes n ON n.id = p.subject_node_id
+           LEFT JOIN support_counts sc ON sc.supported_node = n.id
           WHERE p.user_id = ?
-            AND (
-              p.signed_status = 'published'
-              OR (
-                SELECT COUNT(*) FROM quotes q WHERE q.user_id = ?
-                  AND (q.node_id = n.id OR EXISTS (
-                    SELECT 1 FROM edges e WHERE
-                      (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
-                      (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
-                  ))
-              ) >= 2
-            )
+            AND (p.signed_status = 'published' OR COALESCE(sc.qcount, 0) >= 2)
           ORDER BY (p.signed_status = 'published') DESC,
                    COALESCE(p.signed_at, p.updated_at) DESC
           LIMIT 14`,
-        [userId, userId, userId],
+        [userId, userId, userId, userId, userId, userId, userId],
       ),
     counts: () =>
       one(
@@ -773,14 +779,15 @@ app.get("/debug-home-timing", async (c) => {
            (SELECT COUNT(*) FROM nodes f WHERE f.user_id = ? AND f.kind IN ('neutral_fact','event')
              AND EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND e.family='aboutness'
                AND e.src_node_id = f.id AND e.dst_node_id = ?)) AS facts,
-           (SELECT COUNT(*) FROM assertions a JOIN nodes an ON an.id = a.node_id
-             WHERE an.user_id = ? AND a.rank = 'contested'
-               AND EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
-                 (e.src_node_id = an.id AND e.dst_node_id = ?) OR (e.dst_node_id = an.id AND e.src_node_id = ?)))) AS disputed,
-           (SELECT COUNT(DISTINCT piece_id) FROM nodes np WHERE np.user_id = ? AND np.piece_id IS NOT NULL
-             AND (np.id = ? OR EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
-               (e.src_node_id = np.id AND e.dst_node_id = ?) OR (e.dst_node_id = np.id AND e.src_node_id = ?))))) AS sources`,
-        [userId, userId, raw, userId, userId, raw, raw, userId, raw, userId, raw, raw],
+           (SELECT COUNT(DISTINCT a.id) FROM edges e JOIN assertions a ON a.node_id = e.src_node_id
+             WHERE e.user_id = ? AND e.dst_node_id = ? AND a.rank = 'contested') AS disputed,
+           (SELECT COUNT(*) FROM (
+              SELECT piece_id FROM nodes WHERE id = ? AND piece_id IS NOT NULL
+              UNION
+              SELECT f2.piece_id FROM edges e JOIN nodes f2 ON f2.id = e.src_node_id
+               WHERE e.user_id = ? AND e.dst_node_id = ? AND f2.piece_id IS NOT NULL
+            )) AS sources`,
+        [userId, userId, raw, userId, raw, raw, userId, raw],
       ),
     "latestEvidence.pieces": () =>
       all(

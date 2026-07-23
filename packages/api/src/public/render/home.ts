@@ -303,9 +303,19 @@ async function loadActiveFiles(db: D1Database, userId: string): Promise<ActiveFi
   if (candidates.length === 0) return [];
 
   // Per-candidate stats are independent of each other — fire them together
-  // rather than one at a time. Serial round-trips here (bounded to 4, but
-  // each with three correlated EXISTS subqueries) were the actual cause of
-  // the live homepage timing out at Cloudflare's 30s request ceiling.
+  // rather than one at a time.
+  //
+  // The query itself used to drive FROM every assertion/piece-carrying node
+  // the user has and correlated-EXISTS each one against edges with an OR
+  // condition — for a hub subject (e.g. one the autonomous sweep has been
+  // expanding for a while) that's an O(all-assertions × edges) scan per
+  // candidate. Rewritten to drive FROM the one fixed node id instead (an
+  // indexed edges.dst_node_id lookup, same shape as the `facts` subquery
+  // below, which was never slow) and join outward — bounded by the edges
+  // actually touching that node, not by total corpus size. This, not the
+  // serial-vs-parallel round-trip shape, was the actual cause of the live
+  // homepage timing out: a single one of these queries against the current
+  // top "active file" errored out under the Worker's CPU limit.
   const statsList = await Promise.all(
     candidates.map((c) =>
       one<{ facts: number; disputed: number; sources: number }>(
@@ -314,27 +324,15 @@ async function loadActiveFiles(db: D1Database, userId: string): Promise<ActiveFi
            (SELECT COUNT(*) FROM nodes f WHERE f.user_id = ? AND f.kind IN ('neutral_fact','event')
              AND EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND e.family='aboutness'
                AND e.src_node_id = f.id AND e.dst_node_id = ?)) AS facts,
-           (SELECT COUNT(*) FROM assertions a JOIN nodes an ON an.id = a.node_id
-             WHERE an.user_id = ? AND a.rank = 'contested'
-               AND EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
-                 (e.src_node_id = an.id AND e.dst_node_id = ?) OR (e.dst_node_id = an.id AND e.src_node_id = ?)))) AS disputed,
-           (SELECT COUNT(DISTINCT piece_id) FROM nodes np WHERE np.user_id = ? AND np.piece_id IS NOT NULL
-             AND (np.id = ? OR EXISTS (SELECT 1 FROM edges e WHERE e.user_id = ? AND (
-               (e.src_node_id = np.id AND e.dst_node_id = ?) OR (e.dst_node_id = np.id AND e.src_node_id = ?))))) AS sources`,
-        [
-          userId,
-          userId,
-          c.node_id,
-          userId,
-          userId,
-          c.node_id,
-          c.node_id,
-          userId,
-          c.node_id,
-          userId,
-          c.node_id,
-          c.node_id,
-        ],
+           (SELECT COUNT(DISTINCT a.id) FROM edges e JOIN assertions a ON a.node_id = e.src_node_id
+             WHERE e.user_id = ? AND e.dst_node_id = ? AND a.rank = 'contested') AS disputed,
+           (SELECT COUNT(*) FROM (
+              SELECT piece_id FROM nodes WHERE id = ? AND piece_id IS NOT NULL
+              UNION
+              SELECT f2.piece_id FROM edges e JOIN nodes f2 ON f2.id = e.src_node_id
+               WHERE e.user_id = ? AND e.dst_node_id = ? AND f2.piece_id IS NOT NULL
+            )) AS sources`,
+        [userId, userId, c.node_id, userId, c.node_id, c.node_id, userId, c.node_id],
       ).catch(() => null),
     ),
   );
@@ -439,27 +437,41 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
       updated_at: string;
     }>(
       env.DB,
-      `SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
+      // Substance gate, rewritten: the old version ran a correlated
+      // "COUNT quotes supporting this page" subquery — with an OR'd
+      // bidirectional EXISTS against edges — once per page row (measured
+      // at 12.4s live with 625 pages). A quote "supports" a node if it's
+      // directly on that node OR one edge-hop away; that support relation
+      // is the same for every page, so compute it ONCE as a CTE (one pass
+      // over quotes, joined outward through indexed edges lookups) and
+      // join pages to the precomputed counts instead of recomputing per row.
+      `WITH support AS (
+         SELECT q.id AS quote_id, q.node_id AS supported_node FROM quotes q WHERE q.user_id = ?
+         UNION
+         SELECT q.id AS quote_id, e.dst_node_id AS supported_node
+           FROM quotes q JOIN edges e ON e.src_node_id = q.node_id
+          WHERE q.user_id = ? AND e.user_id = ?
+         UNION
+         SELECT q.id AS quote_id, e.src_node_id AS supported_node
+           FROM quotes q JOIN edges e ON e.dst_node_id = q.node_id
+          WHERE q.user_id = ? AND e.user_id = ?
+       ),
+       support_counts AS (
+         SELECT supported_node, COUNT(DISTINCT quote_id) AS qcount FROM support GROUP BY supported_node
+       )
+       SELECT p.slug, n.label, n.kind, p.signed_status, p.thesis, p.intent, p.signed_at,
               (SELECT COUNT(DISTINCT piece_id) FROM nodes
                 WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS sources,
               p.created_at AS opened_at, p.updated_at
-         FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+         FROM pages p
+         JOIN nodes n ON n.id = p.subject_node_id
+         LEFT JOIN support_counts sc ON sc.supported_node = n.id
         WHERE p.user_id = ?
-          AND (
-            p.signed_status = 'published'
-            OR (
-              SELECT COUNT(*) FROM quotes q WHERE q.user_id = ?
-                AND (q.node_id = n.id OR EXISTS (
-                  SELECT 1 FROM edges e WHERE
-                    (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
-                    (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
-                ))
-            ) >= 2
-          )
+          AND (p.signed_status = 'published' OR COALESCE(sc.qcount, 0) >= 2)
         ORDER BY (p.signed_status = 'published') DESC,
                  COALESCE(p.signed_at, p.updated_at) DESC
         LIMIT 14`,
-      [userId, userId, userId],
+      [userId, userId, userId, userId, userId, userId, userId],
     ).catch(() => []),
     one<{
       subjects: number;
