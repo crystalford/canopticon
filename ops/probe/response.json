@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-23T20:12:34Z",
-  "run_id": "30041128282",
+  "requested_at": "2026-07-23T20:16:18Z",
+  "run_id": "30041388697",
   "method": "GET",
-  "path": "/v1/admin/profiles-state",
+  "path": "/v1/admin/resettle?confirm=1&step=generate_profiles",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"rows\": []\n}"
+  "body": "{\n  \"ok\": true,\n  \"started\": true,\n  \"step\": \"generate_profiles\"\n}"
 }
