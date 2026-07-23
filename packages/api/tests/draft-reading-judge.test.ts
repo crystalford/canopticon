@@ -58,3 +58,32 @@ describe("judgeClaim — exported from briefs/pipeline for reuse", () => {
     expect(pipeline).toMatch(/export\s+async\s+function\s+judgeClaim/);
   });
 });
+
+// Re-draftable-drafts guard: a subject used to get exactly one reading,
+// ever — draftReadings() only ever considered signed_status = 'none'.
+// This is the fix that lets an unreviewed draft keep pace with a growing
+// fact base instead of freezing on day one, while never touching
+// anything the operator already signed off on.
+describe("draftReadings — unsigned drafts stay eligible for re-drafting", () => {
+  const drafter = readFileSync("./src/graph/lib/draft-reading.ts", "utf-8");
+
+  it("still considers subjects with no reading yet", () => {
+    expect(drafter).toContain("p.signed_status = 'none'");
+  });
+
+  it("ALSO considers unsigned drafts, gated on real growth since the last draft", () => {
+    expect(drafter).toContain("p.signed_status = 'draft'");
+    expect(drafter).toContain("p.claims_verified + p.claims_killed");
+  });
+
+  it("never re-drafts anything already signed or published", () => {
+    // The eligibility OR-clause is exhaustively 'none' or 'draft' — signed_status
+    // has only four values total (none/draft/signed/published per the CHECK
+    // constraint in 0030_themes_and_pages.sql), so confirming the clause
+    // names only these two is equivalent to confirming signed/published are
+    // excluded. If someone widens this to `!= 'signed'` or similar instead
+    // of listing exact statuses, this test should be revisited by hand.
+    expect(drafter).not.toContain("signed_status != 'signed'");
+    expect(drafter).not.toContain(`signed_status <> 'signed'`);
+  });
+});

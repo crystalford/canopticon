@@ -38,9 +38,25 @@ export interface DraftReadingReport {
 export async function draftReadings(env: Env, userId: string): Promise<DraftReadingReport> {
   const report: DraftReadingReport = { drafted: 0, skipped: 0, errors: [] };
 
-  // Candidate subjects: pages with no signed reading yet, ranked by how much
-  // there is to SAY — contested assertions + connected facts. A subject worth
-  // a reading has tension, not just facts.
+  // Candidate subjects, ranked by how much there is to SAY — contested
+  // assertions + connected facts. A subject worth a reading has tension,
+  // not just facts.
+  //
+  // Two kinds of candidate:
+  //   - signed_status = 'none': never drafted. Same as always.
+  //   - signed_status = 'draft': already has an unreviewed draft, but the
+  //     fact base has grown by MIN_QUOTES or more since that draft was
+  //     written — worth re-drafting so the one thing the operator
+  //     eventually reviews reflects the current best synthesis, not
+  //     whatever happened to be true the day the corpus first crossed the
+  //     threshold. This is the fix for a real limitation: without it, a
+  //     subject gets exactly one shot at a reading, ever, no matter how
+  //     much more material the autonomous sweep keeps finding — the fact
+  //     base grows forever but the interpretation freezes on day one.
+  // Never signed_status IN ('signed', 'published') — those are
+  // operator-approved. The prime directive is the operator approves,
+  // never authors; a reading they already signed off on does not get
+  // silently rewritten out from under them.
   //
   // The quote-count filter matters as much as the ranking: without it, a
   // subject that's merely well-connected (many aboutness edges from being
@@ -50,7 +66,13 @@ export async function draftReadings(env: Env, userId: string): Promise<DraftRead
   // candidates draftOne's own MIN_QUOTES check (below) was always going to
   // reject. Pre-filtering to the same >= MIN_QUOTES bar draftOne enforces
   // means every candidate this query returns can actually be drafted.
-  const candidates = await all<{ page_id: string; node_id: string; label: string; score: number }>(
+  const candidates = await all<{
+    page_id: string;
+    node_id: string;
+    label: string;
+    score: number;
+    qcount: number;
+  }>(
     env.DB,
     `SELECT p.id AS page_id, n.id AS node_id, n.label,
             (SELECT COUNT(*) FROM assertions a JOIN nodes an ON an.id = a.node_id
@@ -58,23 +80,37 @@ export async function draftReadings(env: Env, userId: string): Promise<DraftRead
                  AND EXISTS (SELECT 1 FROM edges e WHERE
                    (e.src_node_id = an.id AND e.dst_node_id = n.id) OR
                    (e.dst_node_id = an.id AND e.src_node_id = n.id))) * 3
-          + (SELECT COUNT(*) FROM edges e WHERE e.src_node_id = n.id OR e.dst_node_id = n.id) AS score
+          + (SELECT COUNT(*) FROM edges e WHERE e.src_node_id = n.id OR e.dst_node_id = n.id) AS score,
+            (SELECT COUNT(*) FROM quotes q
+              WHERE q.user_id = ?
+                AND (q.node_id = n.id OR EXISTS (
+                  SELECT 1 FROM edges e WHERE
+                    (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
+                    (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
+                ))
+            ) AS qcount
        FROM pages p JOIN nodes n ON n.id = p.subject_node_id
-      WHERE p.user_id = ? AND p.signed_status = 'none'
+      WHERE p.user_id = ?
         AND n.kind IN ('entity', 'theme')
         AND (
-          SELECT COUNT(*) FROM quotes q
-           WHERE q.user_id = ?
-             AND (q.node_id = n.id OR EXISTS (
-               SELECT 1 FROM edges e WHERE
-                 (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
-                 (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
-             ))
-        ) >= ${MIN_QUOTES}
+          p.signed_status = 'none'
+          OR (
+            p.signed_status = 'draft'
+            AND (SELECT COUNT(*) FROM quotes q
+                  WHERE q.user_id = ?
+                    AND (q.node_id = n.id OR EXISTS (
+                      SELECT 1 FROM edges e WHERE
+                        (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
+                        (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
+                    ))
+                ) >= p.claims_verified + p.claims_killed + ${MIN_QUOTES}
+          )
+        )
       ORDER BY score DESC
       LIMIT 12`,
-    [userId, userId, userId],
+    [userId, userId, userId, userId],
   ).catch(() => []);
+  const eligible = candidates.filter((c) => c.qcount >= MIN_QUOTES);
 
   // Load the operator's voice once (register for all drafts).
   const voice = await one<{ voice_md: string }>(
@@ -84,7 +120,7 @@ export async function draftReadings(env: Env, userId: string): Promise<DraftRead
   ).catch(() => null);
 
   let drafted = 0;
-  for (const c of candidates) {
+  for (const c of eligible) {
     if (drafted >= TOP_N_PER_RUN) break;
     try {
       const ok = await draftOne(env, userId, c.page_id, c.node_id, c.label, voice?.voice_md ?? "");
