@@ -89,16 +89,27 @@ app.onError(async (err, c) => {
     console.error("error-log insert failed", logErr);
   }
   console.error("unhandled error", { trace_id: traceId, err });
-  return c.json(
-    {
-      error: {
-        code: "internal_error",
-        message: "Internal server error",
-        trace_id: traceId,
+  // Same split as app.notFound: JSON for the API surface, a styled HTML
+  // page for public routes. Before this, ANY uncaught error anywhere —
+  // API or public — fell through to this one handler, so a transient D1
+  // hiccup mid-page-load showed a reader raw {"error":...} JSON instead
+  // of a page (confirmed live: a D1 CPU-time-limit reset from a concurrent
+  // heavy digest job broke an unrelated /search render this way).
+  const path = c.req.path;
+  if (path.startsWith("/v1/") || path === "/health") {
+    return c.json(
+      {
+        error: {
+          code: "internal_error",
+          message: "Internal server error",
+          trace_id: traceId,
+        },
       },
-    },
-    500,
-  );
+      500,
+    );
+  }
+  const { renderServerError } = await import("./public/render/placeholder.ts");
+  return htmlResponse(renderServerError(traceId), { status: 500 });
 });
 
 app.get("/health", (c) => c.json({ ok: true }));
