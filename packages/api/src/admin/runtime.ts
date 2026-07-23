@@ -436,6 +436,35 @@ app.get("/settle-state", async (c) => {
   return c.json({ ok: true, row });
 });
 
+// GET /v1/admin/profiles-state — diagnostic: what's actually in
+// page_profiles right now (graph/lib/profile-generator.ts). Exists for the
+// same reason /settle-state does — live-verifying a new pipeline step
+// against the busy orchestrator_events log (capped at the last 50 rows via
+// /runtime) is unreliable once other autonomous activity is pushing that
+// window fast; this reads the table directly instead of racing the log.
+app.get("/profiles-state", async (c) => {
+  const userId = c.get("user_id");
+  const rows = await all<{
+    id: string;
+    label: string;
+    status: string;
+    claims_verified: number;
+    claims_killed: number;
+    error: string | null;
+    updated_at: string;
+  }>(
+    c.env.DB,
+    `SELECT pp.id, n.label, pp.status, pp.claims_verified, pp.claims_killed, pp.error, pp.updated_at
+       FROM page_profiles pp
+       JOIN nodes n ON n.id = pp.subject_node_id
+      WHERE pp.user_id = ?
+      ORDER BY pp.updated_at DESC
+      LIMIT 20`,
+    [userId],
+  ).catch((err) => [{ error: (err as Error).message } as never]);
+  return c.json({ ok: true, rows });
+});
+
 app.get("/resettle", async (c) => {
   if (c.req.query("confirm") !== "1") {
     return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
