@@ -38,7 +38,8 @@ export async function loadEvents(env: PublicEnv, subject: SubjectContext): Promi
       WHERE n.user_id = ? AND n.kind = 'event'
         AND (EXISTS (SELECT 1 FROM edges e WHERE e.src_node_id = n.id AND e.dst_node_id = ?)
              OR EXISTS (SELECT 1 FROM edges e WHERE e.dst_node_id = n.id AND e.src_node_id = ?))
-      ORDER BY CASE WHEN json_extract(n.metadata, '$.event_date') IS NULL THEN 1 ELSE 0 END,
+      ORDER BY CASE WHEN json_extract(n.metadata, '$.event_date') IS NULL
+                      OR json_extract(n.metadata, '$.event_date') = '' THEN 1 ELSE 0 END,
                json_extract(n.metadata, '$.event_date') ASC
       LIMIT 100`,
     [subject.userId, subject.nodeId, subject.nodeId],
