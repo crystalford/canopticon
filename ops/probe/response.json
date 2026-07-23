@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-23T00:04:53Z",
-  "run_id": "29968039001",
+  "requested_at": "2026-07-23T00:05:37Z",
+  "run_id": "29968077106",
   "method": "GET",
-  "path": "/v1/admin/debug-home-timing?which=quotes.count",
+  "path": "/v1/admin/debug-home-timing?which=support.cte.only",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"which\": \"quotes.count\",\n  \"ms\": 36,\n  \"result\": {\n    \"n\": 3824\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"which\": \"support.cte.only\",\n  \"ms\": 97,\n  \"result\": {\n    \"n\": 11622\n  }\n}"
 }
