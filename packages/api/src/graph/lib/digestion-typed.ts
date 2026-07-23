@@ -51,7 +51,7 @@ const BULK_EXTRACTION_PROMPT = `You extract the FACTUAL layer of a typed graph f
 
 Schema:
 {
-  "entities":      [{ "lid": "e1", "label": "...", "type": "person|organization|institution|location|concept|asset|other" }],
+  "entities":      [{ "lid": "e1", "label": "...", "type": "person|organization|institution|location|concept|asset|work|other" }],
   "events":        [{ "lid": "ev1", "label": "...", "date": "YYYY[-MM[-DD]] or null", "about": ["e1"], "source_quote": "..." }],
   "neutral_facts": [{ "lid": "f1", "text": "...", "about": ["e1","e2"], "source_quote": "..." }],
   "assertions":    [{ "lid": "a1", "text": "...", "stance": "pro|critical|neutral", "asserted_by_lid": "e1 or null", "about": ["e2"], "source_quote": "..." }],
@@ -63,6 +63,7 @@ Rules:
 - "about" lists the entity lids the fact/event/assertion CONCERNS. ALWAYS fill it — a fact about nobody is invisible to the reader. Reference entities you put in "entities".
 - "source_quote" MUST be a LITERAL substring of the document below — copy it character for character, do NOT paraphrase or fix punctuation. Quotes that aren't found verbatim are dropped.
 - A NEUTRAL FACT is what is established and uncontested. An ASSERTION is what someone CLAIMS (and may be contested) — give its stance and who asserts it. Do NOT label a contested claim as a neutral fact; that violates the firewall.
+- A book, article, film, album, or other named creative/intellectual work is an ENTITY of type "work" — not an event. Its publication date is an attribute of that entity, not a separate event node; only make an event for the act of publishing if the document treats that moment itself as newsworthy (a launch, a ban, a controversy).
 - OPEN THREADS are unfinished directions the document opens but doesn't pursue. They surface as inquiry threads.
 - Omit any array that has no entries. Be thorough on entities + facts; that is the backbone.
 
@@ -416,7 +417,16 @@ interface PersistStats {
 // at the metadata level. Unknown values fall to "concept" — the entity still
 // persists, just typed as a concept until P2 surfaces re-type it.
 function normalizeEntityType(t: string | undefined): string {
-  const valid = ["person", "organization", "institution", "location", "concept", "asset", "other"];
+  const valid = [
+    "person",
+    "organization",
+    "institution",
+    "location",
+    "concept",
+    "asset",
+    "work",
+    "other",
+  ];
   const lower = (t ?? "").toLowerCase();
   return valid.includes(lower) ? lower : "concept";
 }

@@ -97,6 +97,8 @@ export function entityKindLabel(kind: string): string {
     case "concept":
     case "legislation":
       return "Concept";
+    case "work":
+      return "Work";
     case "event":
       return "Event";
     case "place":

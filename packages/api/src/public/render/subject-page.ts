@@ -1586,6 +1586,8 @@ function subjectKindLabel(kind: string, entityType?: string): string {
       case "organization":
       case "institution":
         return "Company";
+      case "work":
+        return "Work";
       default:
         return "Entity";
     }
