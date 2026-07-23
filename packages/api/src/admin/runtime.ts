@@ -688,6 +688,32 @@ app.get("/beats/add", async (c) => {
   return c.json({ ok: true, label });
 });
 
+// GET /v1/admin/event-log?type=<event_type> — the raw orchestrator_events
+// rows for any one event_type, most recent first. Generalizes the
+// search-miss-log pattern below instead of adding a new single-purpose
+// route every time a new pipeline step needs debugging against the
+// /runtime feed, whose last-50-rows window fills fast once autonomous
+// activity (the newsroom sweep, feed processing) is running concurrently.
+app.get("/event-log", async (c) => {
+  const userId = c.get("user_id");
+  const eventType = (c.req.query("type") ?? "").trim();
+  if (!eventType) return c.json({ ok: false, error: "missing ?type=" }, 400);
+  const rows = await all<{
+    id: string;
+    payload: string;
+    subject_kind: string | null;
+    subject_id: string | null;
+    created_at: string;
+  }>(
+    c.env.DB,
+    `SELECT id, payload, subject_kind, subject_id, created_at FROM orchestrator_events
+     WHERE user_id = ? AND event_type = ?
+     ORDER BY created_at DESC LIMIT 30`,
+    [userId, eventType],
+  ).catch(() => []);
+  return c.json({ ok: true, type: eventType, count: rows.length, events: rows });
+});
+
 // GET /v1/admin/search-miss-log — the raw orchestrator_events rows behind
 // every "search.miss" (logged on every /search hit with zero corpus
 // matches, from public.render/search.ts). Existed to answer one concrete
