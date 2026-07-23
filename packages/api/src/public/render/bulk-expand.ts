@@ -7,13 +7,9 @@
 // completion — no new progress machinery, just composing what exists.
 
 import type { Env } from "../../env";
-import { all } from "../../lib/d1";
+import { getExpandStatus } from "../../graph/lib/record-builder";
 import { escapeHtml, renderPage } from "../layout";
 import { renderExpandBanner } from "./subject-page";
-
-interface CompletedEvent {
-  payload: string;
-}
 
 export async function renderBulkExpandResult(
   env: Env,
@@ -22,31 +18,18 @@ export async function renderBulkExpandResult(
 ): Promise<string> {
   const banners = await Promise.all(subjects.map((s) => renderExpandBanner(env, userId, s)));
 
-  // "What grew" — sum facts_added across every subject in this batch that
-  // has already reported a record.expand.completed event. Subjects still
-  // in flight simply don't contribute yet; the page auto-refreshes (via
-  // renderExpandBanner's own meta-refresh convention below) until they do.
+  // "What grew" — sum real fact counts across every subject in this batch
+  // whose run has reached a terminal state (search+bank done AND queued
+  // extraction has actually landed or failed — see getExpandStatus).
+  // Subjects still in flight simply don't contribute yet; the page
+  // auto-refreshes (below) until they do.
   let totalFactsAdded = 0;
   let completedCount = 0;
   for (const subject of subjects) {
-    const completed = await all<CompletedEvent>(
-      env.DB,
-      `SELECT payload FROM orchestrator_events
-        WHERE user_id = ? AND event_type = 'record.expand.completed'
-          AND json_extract(payload, '$.subject') = ?
-          AND created_at > datetime('now','-15 minutes')
-        ORDER BY created_at DESC LIMIT 1`,
-      [userId, subject],
-    ).catch(() => []);
-    const row = completed[0];
-    if (row) {
+    const status = await getExpandStatus(env, userId, subject).catch(() => null);
+    if (status?.terminal) {
       completedCount++;
-      try {
-        const payload = JSON.parse(row.payload) as { facts_added?: number };
-        totalFactsAdded += payload.facts_added ?? 0;
-      } catch {
-        // malformed payload — skip, don't let it break the total
-      }
+      totalFactsAdded += status.factsAdded;
     }
   }
 

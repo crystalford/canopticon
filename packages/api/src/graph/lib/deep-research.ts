@@ -3,13 +3,14 @@
 // (Brave Search, already-wired; Workers AI, already included).
 //
 // This is deliberately NOT a multi-round agent loop. expandRecord() (one
-// search + up to 6 fetches + inline extraction) already runs close to the
-// platform's execution ceiling on its own — comment there: "~30-60s fits
-// comfortably in waitUntil." Chaining a full plan -> search -> read ->
-// refine -> search-again -> synthesize loop into ONE call would repeat the
-// exact class of bug that took most of a session to track down and fix
-// across entity-resolution.ts, surfacing.ts, and draft-reading.ts: real
-// work that never gets a chance to finish.
+// search + up to 6 fetches) already runs close to the platform's execution
+// ceiling on its own. Chaining a full plan -> search -> read -> refine ->
+// search-again -> synthesize loop into ONE call would repeat the exact
+// class of bug that took most of a session to track down and fix across
+// entity-resolution.ts, surfacing.ts, and draft-reading.ts — and, it turned
+// out, expandRecord() itself and this file's own extraction call below:
+// real work that never gets a chance to finish. Confirmed live: digest_jobs
+// rows stuck at status='running' with no heartbeat progress.
 //
 // Instead this is a SEPARATE, bounded, resumable step: expandRecord banks
 // raw sources as it already does; later (same cron slot, mutually
@@ -17,14 +18,16 @@
 // takes whatever a beat's last expand banked and writes a single
 // synthesized research report from it via the "writer" role — the same
 // LLM call budget draft-reading.ts already spends per candidate. The
-// report becomes a new document, stored and extracted through the exact
-// same verbatim-quote pipeline as anything the operator uploads by hand:
-// the firewall doesn't move, only where the document came from does.
+// report becomes a new document, stored and QUEUED for extraction through
+// the exact same verbatim-quote pipeline as anything the operator uploads
+// by hand (the every-minute cron drain, not run inline here — same fix as
+// expandRecord): the firewall doesn't move, only where the document came
+// from does.
 
 import type { Env } from "../../env";
 import { all, insertOne, one, run } from "../../lib/d1";
 import { callRole } from "../../llm/router";
-import { enqueueDigest, runDigestJob } from "./digest-jobs";
+import { enqueueDigest } from "./digest-jobs";
 
 const EXCERPT_CHARS_PER_SOURCE = 3000; // keeps the synthesis prompt bounded regardless of source length
 const REPORT_MAX_TOKENS = 3000;
@@ -157,14 +160,16 @@ Return markdown only — a title line, then the brief.`,
     }),
   });
 
-  const jobId = await enqueueDigest(env, {
+  // Enqueue only — the every-minute cron drain runs it, same as every
+  // other digest job. Running it inline here, right after the "writer"
+  // LLM call above, was the same execution-ceiling bug expandRecord had.
+  await enqueueDigest(env, {
     userId,
     pieceId,
     slug,
     title,
     sourceId,
   });
-  await runDigestJob(env, jobId);
 
   await run(env.DB, "UPDATE coverage_beats SET last_synthesized_at = ? WHERE id = ?", [
     now,

@@ -1780,14 +1780,11 @@ function renderFacesBlock(
 // EXPAND BANNER — live narration of record-building on click (spec v2.6 Part 26)
 // ===========================================================================
 
-interface ExpandEvent {
-  event_type: string;
-  payload: string;
-  created_at: string;
-}
-
-/** Render the live "expanding…" banner. Reads recent record.expand.* events
- *  for the subject from orchestrator_events and narrates the latest stage.
+/** Render the live "expanding…" banner. Delegates all state to
+ *  getExpandStatus() (record-builder.ts) — the one place that knows both
+ *  the search/fetch/bank phase (orchestrator_events) AND whether queued
+ *  extraction has actually landed (digest_jobs), so this and the search
+ *  page's poll-or-stop decision can never drift out of sync again.
  *  Page-level meta refresh (in the body) drives the live-update effect
  *  without any JS — same shape as the "operator pulls down to refresh"
  *  pattern used in the OUT stream. */
@@ -1796,20 +1793,10 @@ export async function renderExpandBanner(
   userId: string,
   subjectLabel: string,
 ): Promise<string> {
-  const events = await all<ExpandEvent>(
-    env.DB,
-    `SELECT event_type, payload, created_at
-       FROM orchestrator_events
-      WHERE user_id = ?
-        AND event_type LIKE 'record.expand.%'
-        AND json_extract(payload, '$.subject') = ?
-        AND created_at > datetime('now','-15 minutes')
-      ORDER BY created_at DESC
-      LIMIT 50`,
-    [userId, subjectLabel],
-  ).catch(() => []);
+  const { getExpandStatus } = await import("../../graph/lib/record-builder");
+  const status = await getExpandStatus(env, userId, subjectLabel).catch(() => null);
 
-  if (events.length === 0) {
+  if (!status) {
     return `<aside class="expand-banner expand-banner-warming" aria-label="Record expansion status">
   <div class="expand-band">
     <span class="expand-dot"></span>
@@ -1819,80 +1806,18 @@ export async function renderExpandBanner(
 ${EXPAND_BANNER_STYLES}`;
   }
 
-  // Compose a narration line from the most recent event.
-  const latest = events[0] as ExpandEvent;
-  const completed = events.find((e) => e.event_type === "record.expand.completed");
-  const failed = events.find((e) => e.event_type === "record.expand.failed");
-  const skipped = events.find((e) => e.event_type === "record.expand.skipped");
-  const sourceSeen = events.filter((e) => e.event_type === "record.expand.source_fetching").length;
-  const sourceBanked = events.filter((e) => e.event_type === "record.expand.source_banked").length;
-  const sourceExtracted = events.filter(
-    (e) => e.event_type === "record.expand.source_extracted",
-  ).length;
-  const extractFailures = events.filter(
-    (e) => e.event_type === "record.expand.source_extract_failed",
-  );
+  const dotClass = status.terminal ? (status.warn ? "expand-dot-warn" : "expand-dot-done") : "";
+  const line = status.terminal
+    ? `${escapeHtml(status.line)} <a href="?">Reload without the banner →</a>`
+    : escapeHtml(status.line);
 
-  let line: string;
-  let dotClass = "";
-  if (skipped) {
-    const reason = parsePayloadField(skipped.payload, "reason") ?? "unconfigured";
-    line = `Expansion skipped — ${reason}. Set BRAVE_SEARCH_API_KEY to enable web record-building.`;
-    dotClass = "expand-dot-warn";
-  } else if (failed) {
-    const error = parsePayloadField(failed.payload, "error") ?? "unknown";
-    line = `Expansion failed — ${error}`;
-    dotClass = "expand-dot-warn";
-  } else if (completed) {
-    const facts = parsePayloadField(completed.payload, "facts_added") ?? "0";
-    const extracted = parsePayloadField(completed.payload, "extracted") ?? "0";
-    // A source can bank fine (real text fetched) and still fail extraction
-    // (the LLM step throwing, a verbatim-check killing every claim, etc).
-    // Reporting a bare "0 facts from 0 sources" in that case reads as a
-    // clean no-op when something actually broke — surface why instead.
-    if (extracted === "0" && sourceBanked > 0 && extractFailures.length > 0) {
-      const reasons = extractFailures
-        .slice(0, 3)
-        .map((e) => parsePayloadField(e.payload, "error") ?? "unknown error")
-        .join("; ");
-      line = `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} but extraction failed: ${escapeHtml(reasons)}. <a href="?">Reload without the banner →</a>`;
-      dotClass = "expand-dot-warn";
-    } else {
-      line = `Record expanded — ${facts} facts added from ${extracted} sources. <a href="?">Reload without the banner →</a>`;
-      dotClass = "expand-dot-done";
-    }
-  } else {
-    const stage = latest.event_type.replace("record.expand.", "");
-    if (stage === "started") line = `Starting expansion for ${escapeHtml(subjectLabel)}…`;
-    else if (stage === "search_done") line = "Search done — fetching sources…";
-    else if (stage === "source_fetching")
-      line = `Fetching source ${sourceSeen} — ${escapeHtml(parsePayloadField(latest.payload, "title") ?? "")}`;
-    else if (stage === "source_banked")
-      line = `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} · extracting…`;
-    else if (stage === "source_extracted")
-      line = `Extracted ${sourceExtracted} source${sourceExtracted === 1 ? "" : "s"} into the graph…`;
-    else if (stage === "source_duplicate") line = "Already had that source · moving on…";
-    else line = "Working…";
-  }
-
-  return `<aside class="expand-banner${completed ? " expand-banner-done" : ""}${failed || skipped ? " expand-banner-warn" : ""}" aria-label="Record expansion status">
+  return `<aside class="expand-banner${status.terminal && !status.warn ? " expand-banner-done" : ""}${status.warn ? " expand-banner-warn" : ""}" aria-label="Record expansion status">
   <div class="expand-band">
     <span class="expand-dot ${dotClass}"></span>
     <span class="expand-text">${line}</span>
   </div>
 </aside>
 ${EXPAND_BANNER_STYLES}`;
-}
-
-function parsePayloadField(payload: string, key: string): string | null {
-  try {
-    const obj = JSON.parse(payload) as Record<string, unknown>;
-    const v = obj[key];
-    if (v == null) return null;
-    return typeof v === "string" ? v : String(v);
-  } catch {
-    return null;
-  }
 }
 
 const EXPAND_BANNER_STYLES = `<style>

@@ -9,8 +9,14 @@
 //   4. Banks the fetched content as a source document (with content-hash
 //      dedup) and enqueues a digest job — the same typed-extraction
 //      pipeline used on uploaded research reports.
-//   5. Runs the digest jobs inline (waitUntil) so facts land in the graph
-//      against the same firewall and verbatim-verification rules.
+//   5. Queues the digest job for the same every-minute cron drain that
+//      already processes uploads — NOT run inline. Chaining a full
+//      typed-extraction pass (real LLM calls) onto the search+fetch+bank
+//      loop for up to 6 sources, all in one execution context, silently
+//      exceeded the platform's execution ceiling in practice (confirmed
+//      live: digest_jobs rows stuck 'running' with no heartbeat, no
+//      completion). getExpandStatus() below polls the drain's real
+//      progress instead of assuming it happened synchronously.
 //
 // The architecture is jurisdiction-aware but global. Not Canada-hardcoded.
 //
@@ -25,9 +31,9 @@
 //     is the missing piece.
 
 import type { Env } from "../../env";
-import { insertOne, one, run } from "../../lib/d1";
+import { all, insertOne, one, run } from "../../lib/d1";
 import { TIMEOUTS, fetchWithTimeout } from "../../lib/timeout";
-import { enqueueDigest, runDigestJob } from "./digest-jobs";
+import { enqueueDigest } from "./digest-jobs";
 
 const BRAVE_SEARCH_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
 const MAX_SOURCES_PER_EXPAND = 6;
@@ -39,15 +45,26 @@ export interface ExpandReport {
   sources_found: number;
   sources_fetched: number;
   sources_banked: number;
-  sources_extracted: number;
-  facts_added: number;
   errors: string[];
   banked_piece_ids: string[];
 }
 
 /** The single entry point. Called from the /op/records/:slug/expand handler
  *  via c.executionCtx.waitUntil so the page render returns instantly and the
- *  expansion completes in the background. */
+ *  expansion completes in the background.
+ *
+ *  Search + fetch + bank ONLY — deliberately does NOT run extraction inline
+ *  anymore. It used to call runDigestJob() directly for each banked source,
+ *  chaining up to 6 sources' full typed-extraction (real LLM calls, chunked)
+ *  into the same execution context as the fetches. That's the exact class of
+ *  bug already found and fixed this session in entity-resolution.ts,
+ *  surfacing.ts, and draft-reading.ts: real work that silently never gets a
+ *  chance to finish. Confirmed live here too — digest_jobs rows stuck at
+ *  status='running' with no heartbeat progress and no completion event.
+ *  Extraction now goes through the SAME queued path uploads already use
+ *  (enqueueDigest → the every-minute cron drain, 4 jobs/tick, stale-heartbeat
+ *  retry) — a mechanism already proven reliable by every "completed" row in
+ *  digest_jobs. getExpandStatus() below reports on it live. */
 export async function expandRecord(
   env: Env,
   userId: string,
@@ -59,8 +76,6 @@ export async function expandRecord(
     sources_found: 0,
     sources_fetched: 0,
     sources_banked: 0,
-    sources_extracted: 0,
-    facts_added: 0,
     errors: [],
     banked_piece_ids: [],
   };
@@ -93,12 +108,10 @@ export async function expandRecord(
     found: results.length,
   });
 
-  // Count facts before the expansion so we can report the delta.
-  const factsBefore = await countSubjectFacts(env, userId, subjectLabel);
-
-  // Process sources sequentially (a few seconds each; total ~30-60s fits
-  // comfortably in waitUntil). Per-source progress emits so the live banner
-  // can narrate. Errors are per-source — one bad fetch doesn't sink the rest.
+  // Process sources sequentially — fetch + bank only, each just an HTTP GET
+  // and a couple of D1 writes, no LLM calls. Per-source progress emits so
+  // the live banner can narrate. Errors are per-source — one bad fetch
+  // doesn't sink the rest.
   for (const r of results) {
     await emit(env, userId, "record.expand.source_fetching", {
       subject: subjectLabel,
@@ -128,36 +141,16 @@ export async function expandRecord(
         chars: banked.chars,
       });
 
-      // Enqueue + run the digest job inline. The job is idempotent on retry
-      // and reads from R2 / pieces. Runs the same typed-extraction pipeline
-      // as an uploaded research report — so the same firewall + verbatim
-      // checks apply.
-      const jobId = await enqueueDigest(env, {
+      // Enqueue only — same idempotent-on-retry job the drain cron already
+      // processes for uploads. Same firewall + verbatim checks apply either
+      // way; only WHEN it runs changed.
+      await enqueueDigest(env, {
         userId,
         pieceId: banked.pieceId,
         slug: banked.slug,
         title: banked.title,
         sourceId: banked.sourceId,
       });
-      try {
-        await runDigestJob(env, jobId);
-        report.sources_extracted++;
-        await emit(env, userId, "record.expand.source_extracted", {
-          subject: subjectLabel,
-          url: r.url,
-        });
-      } catch (jobErr) {
-        const message = (jobErr as Error).message;
-        report.errors.push(`extract ${r.url}: ${message}`);
-        // Without this, a failed extraction is invisible: the banner's
-        // "completed" line just reports 0 facts / 0 sources with no
-        // indication anything was even attempted, let alone why it failed.
-        await emit(env, userId, "record.expand.source_extract_failed", {
-          subject: subjectLabel,
-          url: r.url,
-          error: message,
-        });
-      }
     } catch (err) {
       report.errors.push(`fetch ${r.url}: ${(err as Error).message}`);
       await emit(env, userId, "record.expand.source_failed", {
@@ -168,18 +161,211 @@ export async function expandRecord(
     }
   }
 
-  const factsAfter = await countSubjectFacts(env, userId, subjectLabel);
-  report.facts_added = Math.max(0, factsAfter - factsBefore);
-
+  // "completed" here means the search+fetch+bank phase is done — extraction
+  // is queued, not finished. banked_piece_ids is what getExpandStatus below
+  // polls against to know when the REAL work (facts landing) is done.
   await emit(env, userId, "record.expand.completed", {
     subject: subjectLabel,
     found: report.sources_found,
     fetched: report.sources_fetched,
     banked: report.sources_banked,
-    extracted: report.sources_extracted,
-    facts_added: report.facts_added,
+    banked_piece_ids: report.banked_piece_ids,
   });
   return report;
+}
+
+export interface ExpandStatus {
+  /** True once nothing more will happen automatically — safe to stop polling. */
+  terminal: boolean;
+  /** True if the overall run ended cleanly (no per-source or extraction failures). */
+  warn: boolean;
+  /** Plain-text narration — the caller escapes/wraps as HTML. */
+  line: string;
+  /** Real fact count added, computed from the banked pieces once extraction
+   *  has actually run — 0 while still pending. */
+  factsAdded: number;
+}
+
+interface ExpandEventRow {
+  event_type: string;
+  payload: string;
+  created_at: string;
+}
+
+/** The single source of truth for "how is this record-expand run going,
+ *  right now" — used by the public search page (to know when to stop
+ *  polling), the per-subject banner, and the bulk-expand result page. Reads
+ *  orchestrator_events for the search/fetch/bank phase, then — once that
+ *  phase's "completed" event names banked_piece_ids — cross-checks
+ *  digest_jobs for those exact pieces, because "record.expand.completed"
+ *  no longer means extraction is done (see expandRecord's comment above). */
+export async function getExpandStatus(
+  env: { DB: D1Database },
+  userId: string,
+  subjectLabel: string,
+): Promise<ExpandStatus | null> {
+  const events = await all<ExpandEventRow>(
+    env.DB,
+    `SELECT event_type, payload, created_at
+       FROM orchestrator_events
+      WHERE user_id = ?
+        AND event_type LIKE 'record.expand.%'
+        AND json_extract(payload, '$.subject') = ?
+        AND created_at > datetime('now','-15 minutes')
+      ORDER BY created_at DESC
+      LIMIT 50`,
+    [userId, subjectLabel],
+  ).catch(() => []);
+  if (events.length === 0) return null;
+
+  const latest = events[0] as ExpandEventRow;
+  const completed = events.find((e) => e.event_type === "record.expand.completed");
+  const failed = events.find((e) => e.event_type === "record.expand.failed");
+  const skipped = events.find((e) => e.event_type === "record.expand.skipped");
+  const sourceSeen = events.filter((e) => e.event_type === "record.expand.source_fetching").length;
+  const sourceBanked = events.filter((e) => e.event_type === "record.expand.source_banked").length;
+
+  if (skipped) {
+    const reason = field(skipped.payload, "reason") ?? "unconfigured";
+    return {
+      terminal: true,
+      warn: true,
+      line: `Expansion skipped — ${reason}. Set BRAVE_SEARCH_API_KEY to enable web record-building.`,
+      factsAdded: 0,
+    };
+  }
+  if (failed) {
+    const error = field(failed.payload, "error") ?? "unknown";
+    return { terminal: true, warn: true, line: `Expansion failed — ${error}`, factsAdded: 0 };
+  }
+
+  if (!completed) {
+    const stage = latest.event_type.replace("record.expand.", "");
+    let line = "Working…";
+    if (stage === "started") line = `Starting expansion for ${subjectLabel}…`;
+    else if (stage === "search_done") line = "Search done — fetching sources…";
+    else if (stage === "source_fetching") {
+      line = `Fetching source ${sourceSeen} — ${field(latest.payload, "title") ?? ""}`;
+    } else if (stage === "source_banked") {
+      line = `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} · queuing for extraction…`;
+    } else if (stage === "source_duplicate") line = "Already had that source · moving on…";
+    return { terminal: false, warn: false, line, factsAdded: 0 };
+  }
+
+  // Search+fetch+bank phase is done. Check what actually banked.
+  let pieceIds: string[] = [];
+  try {
+    pieceIds = JSON.parse(field(completed.payload, "banked_piece_ids") ?? "[]");
+  } catch {
+    pieceIds = [];
+  }
+  if (pieceIds.length === 0) {
+    return {
+      terminal: true,
+      warn: false,
+      line: "Searched and fetched, but nothing new to add — every source found was already on record or too thin to use.",
+      factsAdded: 0,
+    };
+  }
+
+  const extraction = await checkExtraction(env, userId, pieceIds);
+  if (extraction.pending > 0) {
+    return {
+      terminal: false,
+      warn: false,
+      line: `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} · extracting (${extraction.done + extraction.failed}/${pieceIds.length} done)…`,
+      factsAdded: 0,
+    };
+  }
+
+  if (extraction.failed > 0) {
+    const reasons = extraction.failedReasons.slice(0, 3).join("; ");
+    return {
+      terminal: true,
+      warn: true,
+      line: `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} but extraction failed for ${extraction.failed}: ${reasons}`,
+      factsAdded: extraction.factsAdded,
+    };
+  }
+
+  return {
+    terminal: true,
+    warn: false,
+    line: `Record expanded — ${extraction.factsAdded} fact${extraction.factsAdded === 1 ? "" : "s"} added from ${extraction.done} source${extraction.done === 1 ? "" : "s"}.`,
+    factsAdded: extraction.factsAdded,
+  };
+}
+
+interface ExtractionCheck {
+  done: number;
+  failed: number;
+  pending: number;
+  factsAdded: number;
+  failedReasons: string[];
+}
+
+async function checkExtraction(
+  env: { DB: D1Database },
+  userId: string,
+  pieceIds: string[],
+): Promise<ExtractionCheck> {
+  const placeholders = pieceIds.map(() => "?").join(",");
+  const jobs = await all<{ piece_id: string; status: string; last_error: string | null }>(
+    env.DB,
+    `SELECT piece_id, status, last_error FROM digest_jobs
+      WHERE user_id = ? AND piece_id IN (${placeholders})
+      ORDER BY created_at DESC`,
+    [userId, ...pieceIds],
+  ).catch(() => []);
+  // Keep only the latest job per piece (there should be exactly one for a
+  // record-expand-banked piece, but be defensive).
+  const latestByPiece = new Map<string, { status: string; last_error: string | null }>();
+  for (const j of jobs) {
+    if (!latestByPiece.has(j.piece_id)) latestByPiece.set(j.piece_id, j);
+  }
+
+  let done = 0;
+  let failed = 0;
+  const failedReasons: string[] = [];
+  const donePieceIds: string[] = [];
+  for (const pieceId of pieceIds) {
+    const job = latestByPiece.get(pieceId);
+    if (!job || job.status === "queued" || job.status === "running") continue;
+    if (job.status === "completed") {
+      done++;
+      donePieceIds.push(pieceId);
+    } else if (job.status === "failed") {
+      failed++;
+      failedReasons.push(job.last_error ?? "unknown error");
+    }
+  }
+  const pending = pieceIds.length - done - failed;
+
+  let factsAdded = 0;
+  if (donePieceIds.length > 0) {
+    const factPlaceholders = donePieceIds.map(() => "?").join(",");
+    const row = await one<{ n: number }>(
+      env.DB,
+      `SELECT COUNT(*) AS n FROM nodes
+        WHERE user_id = ? AND piece_id IN (${factPlaceholders})
+          AND kind IN ('neutral_fact','event','assertion')`,
+      [userId, ...donePieceIds],
+    ).catch(() => null);
+    factsAdded = row?.n ?? 0;
+  }
+
+  return { done, failed, pending, factsAdded, failedReasons };
+}
+
+function field(payload: string, key: string): string | null {
+  try {
+    const obj = JSON.parse(payload) as Record<string, unknown>;
+    const v = obj[key];
+    if (v == null) return null;
+    return typeof v === "string" ? v : String(v);
+  } catch {
+    return null;
+  }
 }
 
 interface BraveResult {
@@ -398,24 +584,6 @@ async function ensureUniqueSlug(db: D1Database, userId: string, base: string): P
   );
   const next = m?.[1] ? Number(m[1]) + 1 : 2;
   return `${slug}-${next}`;
-}
-
-async function countSubjectFacts(env: Env, userId: string, subjectLabel: string): Promise<number> {
-  const row = await one<{ n: number }>(
-    env.DB,
-    `SELECT COUNT(*) AS n FROM nodes
-      WHERE user_id = ? AND kind IN ('neutral_fact','event','assertion')
-        AND EXISTS (SELECT 1 FROM nodes subj
-                     WHERE subj.user_id = ? AND lower(subj.label) = lower(?)
-                       AND EXISTS (
-                         SELECT 1 FROM edges e
-                          WHERE e.user_id = ?
-                            AND e.family = 'aboutness'
-                            AND e.src_node_id = nodes.id
-                            AND e.dst_node_id = subj.id))`,
-    [userId, userId, subjectLabel, userId],
-  ).catch(() => null);
-  return row?.n ?? 0;
 }
 
 async function emit(

@@ -79,7 +79,9 @@ export async function renderSearchPage(
       summary = `No matches for <b>${escapeHtml(query)}</b> in the record yet.`;
       if (opts.researching) {
         resultsBlock = await renderExpandBanner(env, userId, query);
-        keepPolling = !(await isExpandTerminal(env.DB, userId, query));
+        const { getExpandStatus } = await import("../../graph/lib/record-builder");
+        const status = await getExpandStatus(env, userId, query).catch(() => null);
+        keepPolling = !status || !status.terminal;
       } else {
         resultsBlock = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
       }
@@ -184,22 +186,6 @@ export async function renderSearchPage(
     body,
     activeNav: "/search",
   });
-}
-
-// Mirrors the completed/failed/skipped check bulk-expand.ts uses to know
-// when to stop its own auto-refresh.
-async function isExpandTerminal(db: D1Database, userId: string, subject: string): Promise<boolean> {
-  const row = await one<{ id: string }>(
-    db,
-    `SELECT id FROM orchestrator_events
-      WHERE user_id = ?
-        AND event_type IN ('record.expand.completed','record.expand.failed','record.expand.skipped')
-        AND json_extract(payload, '$.subject') = ?
-        AND created_at > datetime('now','-15 minutes')
-      LIMIT 1`,
-    [userId, subject],
-  ).catch(() => null);
-  return !!row;
 }
 
 async function resolveHits(
