@@ -86,7 +86,12 @@ export async function generateProfiles(env: Env, userId: string): Promise<Genera
       ORDER BY qcount DESC
       LIMIT 12`,
     [userId, userId, userId],
-  ).catch(() => []);
+  ).catch((err) => {
+    // Same observability fix as draft-reading.ts's equivalent query: don't
+    // let a query failure look identical to a genuinely empty pool.
+    report.errors.push(`candidates query failed: ${(err as Error).message}`);
+    return [];
+  });
   const eligible = candidates.filter((c) => c.qcount >= MIN_QUOTES);
 
   let generated = 0;

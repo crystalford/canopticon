@@ -109,7 +109,16 @@ export async function draftReadings(env: Env, userId: string): Promise<DraftRead
       ORDER BY score DESC
       LIMIT 12`,
     [userId, userId, userId, userId],
-  ).catch(() => []);
+  ).catch((err) => {
+    // A query failure here used to be indistinguishable from a genuinely
+    // empty pool — both landed as {"drafted":0,"skipped":0,"errors":[]},
+    // which is exactly what readings.drafted logged on every tick for 6+
+    // straight hours after a healthy run. Recording the failure explicitly
+    // is what makes that diagnosable instead of looking like "ran out of
+    // subjects worth a reading."
+    report.errors.push(`candidates query failed: ${(err as Error).message}`);
+    return [];
+  });
   const eligible = candidates.filter((c) => c.qcount >= MIN_QUOTES);
 
   // Load the operator's voice once (register for all drafts).
