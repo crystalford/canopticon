@@ -98,7 +98,7 @@ app.use("*", async (c, next) => {
   const statusBadge = await renderWorkStatusBadge(c.env.DB).catch(() => "");
   const injected = html.replace(
     '<a href="/search" class="nav-search">',
-    `${statusBadge}<a href="/op/library" class="nav-search" style="color:var(--accent,#5d8bc6)">operator →</a>\n      <a href="/how-it-works" class="nav-search">how this works</a>\n      <a href="/search" class="nav-search">`,
+    `${statusBadge}<a href="/op/library" class="nav-search" style="color:var(--accent,#5d8bc6)">operator →</a>\n      <a href="/how-it-works" class="nav-search">how this works</a>\n      <a href="/citations" class="nav-search">citations</a>\n      <a href="/search" class="nav-search">`,
   );
   c.res = new Response(injected, { status: res.status, headers: res.headers });
 });
