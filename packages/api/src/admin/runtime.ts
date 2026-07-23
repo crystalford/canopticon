@@ -465,6 +465,64 @@ app.get("/profiles-state", async (c) => {
   return c.json({ ok: true, rows });
 });
 
+// GET /v1/admin/readings-candidates — diagnostic: what does
+// draft-reading.ts's own candidate query see right now. Exists because
+// readings.drafted logged {"drafted":0,"skipped":0,"errors":[]} on every
+// tick for 6+ consecutive hours (12:15-14:18 drafted 8 readings fine, then
+// nothing) — need to see whether the pool is genuinely exhausted under the
+// real thresholds or the query itself is silently failing (same
+// .catch(() => []) shape that made generate_profiles hard to debug).
+// Mirrors draftReadings' own query exactly rather than reimplementing it.
+app.get("/readings-candidates", async (c) => {
+  const userId = c.get("user_id");
+  const MIN_QUOTES = 4;
+  const rows = await all<{
+    page_id: string;
+    label: string;
+    signed_status: string;
+    score: number;
+    qcount: number;
+    claims_verified: number;
+    claims_killed: number;
+  }>(
+    c.env.DB,
+    `SELECT p.id AS page_id, n.label, p.signed_status, p.claims_verified, p.claims_killed,
+            (SELECT COUNT(*) FROM assertions a JOIN nodes an ON an.id = a.node_id
+               WHERE an.user_id = ? AND a.rank = 'contested'
+                 AND EXISTS (SELECT 1 FROM edges e WHERE
+                   (e.src_node_id = an.id AND e.dst_node_id = n.id) OR
+                   (e.dst_node_id = an.id AND e.src_node_id = n.id))) * 3
+          + (SELECT COUNT(*) FROM edges e WHERE e.src_node_id = n.id OR e.dst_node_id = n.id) AS score,
+            (SELECT COUNT(*) FROM quotes q
+              WHERE q.user_id = ?
+                AND (q.node_id = n.id OR EXISTS (
+                  SELECT 1 FROM edges e WHERE
+                    (e.src_node_id = q.node_id AND e.dst_node_id = n.id) OR
+                    (e.dst_node_id = q.node_id AND e.src_node_id = n.id)
+                ))
+            ) AS qcount
+       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+      WHERE p.user_id = ?
+        AND n.kind IN ('entity', 'theme')
+      ORDER BY score DESC
+      LIMIT 20`,
+    [userId, userId, userId],
+  ).catch((err) => [{ error: (err as Error).message } as never]);
+  const eligible = rows.filter(
+    (r) =>
+      r.qcount >= MIN_QUOTES &&
+      (r.signed_status === "none" ||
+        (r.signed_status === "draft" &&
+          r.qcount >= r.claims_verified + r.claims_killed + MIN_QUOTES)),
+  );
+  return c.json({
+    ok: true,
+    total_pages_scanned: rows.length,
+    eligible_count: eligible.length,
+    rows,
+  });
+});
+
 app.get("/resettle", async (c) => {
   if (c.req.query("confirm") !== "1") {
     return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
