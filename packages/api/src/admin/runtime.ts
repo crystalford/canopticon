@@ -746,7 +746,7 @@ app.get("/debug-home-timing", async (c) => {
           ORDER BY (p.signed_status = 'published') DESC,
                    COALESCE(p.signed_at, p.updated_at) DESC
           LIMIT 14`,
-        [userId, userId, userId, userId, userId, userId, userId, userId],
+        [userId, userId, userId, userId, userId, userId, userId],
       ),
     counts: () =>
       one(

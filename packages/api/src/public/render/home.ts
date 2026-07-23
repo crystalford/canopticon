@@ -478,7 +478,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
         ORDER BY (p.signed_status = 'published') DESC,
                  COALESCE(p.signed_at, p.updated_at) DESC
         LIMIT 14`,
-      [userId, userId, userId, userId, userId, userId, userId, userId],
+      [userId, userId, userId, userId, userId, userId, userId],
     ).catch(() => []),
     one<{
       subjects: number;
