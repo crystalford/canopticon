@@ -19,12 +19,16 @@ import {
   renderArrangementStandalone,
 } from "./shared";
 
-interface NarrativeProfile {
+export interface NarrativeProfile {
   body_html: string;
   updated_at: string;
 }
 
-async function loadNarrativeProfile(
+/** Exported for reuse by subject-page.ts, which leads the neutral File page
+ *  with this same narrative when one exists — the comprehensive synthesis
+ *  belongs at the top of the page a reader actually lands on, not only
+ *  reachable a click away at /profile/:slug. */
+export async function loadNarrativeProfile(
   env: PublicEnv,
   nodeId: string,
 ): Promise<NarrativeProfile | null> {

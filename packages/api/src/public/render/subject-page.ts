@@ -67,6 +67,7 @@ interface FactRow {
   quote_text: string | null;
   piece_slug: string | null;
   piece_title: string | null;
+  edge_degree?: number;
 }
 
 interface AssertionRow {
@@ -217,13 +218,16 @@ async function renderNeutral(
     thesis: page.thesis,
     signed_at: page.signed_at,
   };
-  const [established, contested, arrangementEvents, connections, sourceCount] = await Promise.all([
-    loadEstablishedFacts(env, userId, subject.node_id),
-    loadContestedAssertions(env, userId, subject.node_id),
-    loadArrangementEvents(env, arrangementSubject),
-    loadConnections(env, userId, subject.node_id),
-    loadSourceCount(env, userId, subject.node_id),
-  ]);
+  const { loadNarrativeProfile } = await import("./arrangements/profile");
+  const [established, contested, arrangementEvents, connections, sourceCount, narrative] =
+    await Promise.all([
+      loadEstablishedFacts(env, userId, subject.node_id),
+      loadContestedAssertions(env, userId, subject.node_id),
+      loadArrangementEvents(env, arrangementSubject),
+      loadConnections(env, userId, subject.node_id),
+      loadSourceCount(env, userId, subject.node_id),
+      loadNarrativeProfile(env, subject.node_id),
+    ]);
   // Legacy events shape — kept for buildLede + the empty-section count.
   const events = arrangementEvents.map((e) => ({
     id: e.id,
@@ -239,8 +243,19 @@ async function renderNeutral(
   const isPerson = subjectMeta.entity_type === "person";
 
   const lede = buildLede(subject, established);
+  // The comprehensive-narrative synthesis (graph/lib/profile-generator.ts)
+  // used to be reachable only via a "see profile →" link off the
+  // Established section — meaning a reader landed on a raw, unranked fact
+  // list before ever seeing anything resembling "who this is." When one
+  // exists, it leads the page instead: the reading, then the receipts.
+  const narrativeBlock = narrative
+    ? `<section class="subj-narrative">
+  <div class="sec-k">Profile <a class="sec-standalone" href="/profile/${escapeAttr(page.slug)}">see standalone →</a></div>
+  <div class="subj-narrative-body">${narrative.body_html}</div>
+</section>`
+    : "";
   const establishedBlock = renderEstablishedBlock(established);
-  const contestedBlock = renderContestedBlock(contested);
+  const contestedBlock = renderContestedBlock(contested, subject.label);
   // People connected to this file (folded out of Connections below). On a
   // person's own file, the inverse view — "appears in N files" — replaces
   // it; that's the cross-file accumulation that makes a person the story.
@@ -282,21 +297,24 @@ async function renderNeutral(
   // bespoke embedded section on this page the way established/contested/
   // timeline/connections do — but per Part 13 they're still meant to be
   // "reached through the subject page they belong to," not just by search
-  // or citation. A compact links row is the honest minimum: every
-  // arrangement gets a real inbound link from here, even the ones without
-  // a rich embedded preview. Each target renders its own graceful empty
-  // state when the graph doesn't have that shape of data for this subject.
+  // or citation. A compact links row is the honest minimum. Trimmed from
+  // seven links to four: Statistics/FAQ/Ledger are regex-heuristic surfaces
+  // over facts the extractor never actually tags as statistical/Q-shaped/
+  // flow-shaped (each file says so directly), and Comparison has no query
+  // behind it at all — it always renders its empty state, for every
+  // subject, full stop. Keeping seven links to mostly-permanent emptiness
+  // was exactly the "too much on this page" clutter — cut the three that
+  // are reliably nothing rather than dress up the row with dead ends.
+  // Definition/Who's-who/Bibliography/Mechanism all run real queries
+  // against real extraction output; they can still be empty for a given
+  // thin subject, but that's the record being thin, not the feature.
   const moreViewsBlock = `<section class="more-views">
   <div class="sec-k">More views of this file</div>
   <div class="mv-links">
     <a href="/d/${escapeAttr(page.slug)}">Definition</a>
     <a href="/w/${escapeAttr(page.slug)}">Who's-who</a>
     <a href="/b/${escapeAttr(page.slug)}">Bibliography</a>
-    <a href="/stat/${escapeAttr(page.slug)}">Statistics</a>
-    <a href="/f/${escapeAttr(page.slug)}">FAQ</a>
-    <a href="/l/${escapeAttr(page.slug)}">Ledger</a>
     <a href="/m/${escapeAttr(page.slug)}">Mechanism</a>
-    <a href="/c/${escapeAttr(page.slug)}">Comparison</a>
   </div>
 </section>`;
 
@@ -406,6 +424,7 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
   <div class="subject-grid">
     <div class="subject-main">
       ${shapeBlock}
+      ${narrativeBlock}
       ${establishedBlockWithStandalone}
       ${contestedBlockWithStandalone}
       ${timelineBlock}
@@ -452,6 +471,30 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
   .qref { text-decoration: none; }
   .qref sup { color: var(--accent); font-size: 11px; font-weight: 600; padding: 0 2px; }
   .qref:hover sup { text-decoration: underline; }
+  .subj-narrative-body {
+    font-family: var(--serif);
+    font-size: 16.5px; line-height: 1.65;
+    color: var(--ink);
+    max-width: 720px;
+  }
+  .subj-narrative-body h2 {
+    font-family: var(--serif);
+    font-size: 15px; font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--ink);
+    margin: 26px 0 10px;
+  }
+  .subj-narrative-body h2:first-child { margin-top: 0; }
+  .subj-narrative-body p { margin: 0 0 14px; }
+  .subj-narrative-body .cite-n { color: var(--accent); text-decoration: none; font-size: 11px; }
+  .subj-narrative-body .cite-n:hover { text-decoration: underline; }
+  .disputed-explainer {
+    font-family: var(--serif);
+    font-size: 14.5px; line-height: 1.55;
+    color: var(--ink-3);
+    max-width: 640px;
+    margin: -4px 0 18px;
+  }
   /* Contested as court evidence — the firewall, made visually obvious.
      Warm-tan background, big block-quote, attribution caps, source
      footer. Readers register "contested" without reading the label. */
@@ -1010,6 +1053,14 @@ ${evidence
 // Established facts: neutral_fact nodes connected to this subject, with their
 // supporting quote. The 'aboutness' edge family is the canonical "fact about X"
 // link; we also accept neutral_facts directly attached to the subject's piece.
+//
+// Ranked by edge_degree (how many edges touch this fact node at all — the
+// same cheap "how much does the corpus care about this" proxy autonomous-
+// expand.ts uses for sweep priority), created_at as tiebreak. Was plain
+// created_at DESC — whichever fact got extracted most recently, no
+// relevance signal at all, so a trivia fact read five minutes ago could
+// outrank one five documents corroborate. A subject with hundreds of
+// documents behind it needs a real ranking here, not insertion order.
 async function loadEstablishedFacts(
   env: PublicEnv,
   userId: string,
@@ -1019,7 +1070,9 @@ async function loadEstablishedFacts(
     env.DB,
     `SELECT n.id, n.label, n.kind, n.metadata,
             q.id AS quote_id, q.verbatim_text AS quote_text,
-            p.slug AS piece_slug, p.title AS piece_title
+            p.slug AS piece_slug, p.title AS piece_title,
+            (SELECT COUNT(*) FROM edges e3 WHERE e3.src_node_id = n.id OR e3.dst_node_id = n.id)
+              AS edge_degree
        FROM nodes n
        LEFT JOIN edges e ON (e.dst_node_id = ? AND e.src_node_id = n.id AND e.family = 'aboutness')
        LEFT JOIN quotes q ON q.node_id = n.id
@@ -1032,7 +1085,7 @@ async function loadEstablishedFacts(
             OR n.label LIKE ?
             OR (SELECT label FROM nodes WHERE id = ?) LIKE '%' || substr(n.label, 1, 30) || '%')
       GROUP BY n.id
-      ORDER BY n.created_at DESC
+      ORDER BY edge_degree DESC, n.created_at DESC
       LIMIT 12`,
     [subjectId, userId, subjectId, `%${subjectId.slice(0, 8)}%`, subjectId],
   ).catch(async () => {
@@ -1371,25 +1424,31 @@ function renderEstablishedBlock(facts: FactRow[]): string {
   return `<section id="on-the-record" data-schema="ItemList"><div class="sec-k">On the record</div>${rows}</section>`;
 }
 
-function renderContestedBlock(rows: AssertionRow[]): string {
+function renderContestedBlock(rows: AssertionRow[], subjectLabel: string): string {
   if (rows.length === 0) return "";
   // Contested-as-proud-gray: the firewall, rendered as evidence. Each card
   // looks like court evidence labeled CONTESTED. Block-quote treatment on
-  // the assertion text; attribution on its own line in caps; evidence
-  // balance as a small numerical line. The proudest box on the neutral
-  // page after the established list — readers should immediately register
-  // "this is contested" without reading any label.
+  // the assertion text; attribution on its own line in caps; a plain-
+  // language read on how well-supported the claim is. The proudest box on
+  // the neutral page after the established list — readers should
+  // immediately register "this is contested" without reading any label.
+  //
+  // The line under each card used to read the raw internal signal
+  // ("Evidence balance +0.0 · contested in the record") — meaningful to
+  // someone who knows the pipeline, opaque to everyone else. Reworded to
+  // say what it actually means: is this well-supported, leaned-against, or
+  // genuinely split, in plain words, not a score.
   const cards = rows
     .map((a) => {
       const balance = a.evidence_balance ?? 0;
       const balanceLine =
         a.rank === "contested"
-          ? `Evidence balance ${balance >= 0 ? "+" : ""}${balance.toFixed(1)} · contested in the record`
-          : balance > 0
-            ? `Evidence balance +${balance.toFixed(1)} · weakly supported`
-            : balance < 0
-              ? `Evidence balance ${balance.toFixed(1)} · weakly supported`
-              : "Stance attributed; balance unscored";
+          ? "Evidence is genuinely split on this one — real support and real pushback both on record."
+          : balance > 0.5
+            ? "The evidence on file mostly supports this, but it's still someone's claim, not a settled fact."
+            : balance < -0.5
+              ? "The evidence on file mostly runs against this claim."
+              : "Not yet independently weighed — one source's claim, unconfirmed elsewhere.";
       const sourceLink = a.piece_title
         ? `<a class="contested-src" href="/library/${escapeAttr(a.piece_slug ?? "")}">${escapeHtml(a.piece_title.slice(0, 60))} ↗</a>`
         : "";
@@ -1406,6 +1465,7 @@ function renderContestedBlock(rows: AssertionRow[]): string {
     .join("");
   return `<section id="disputed" data-schema="Claim">
 <div class="sec-k">Disputed — who says what, against what</div>
+<p class="disputed-explainer">These are things people say about ${escapeHtml(subjectLabel)} that aren't settled fact — each one attributed to who's actually claiming it, so a claim never quietly passes as established just because it showed up in a document. Weigh it yourself.</p>
 ${cards}
 </section>`;
 }
