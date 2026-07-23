@@ -45,13 +45,20 @@ export async function loadSegmentRow(db: D1Database, id: string): Promise<Segmen
 /** Insert a freshly-drafted segment from the editorial brain. Lifecycle
  *  starts at 'awaiting_approval' — the operator's /queue/:id review
  *  edits the forensic_turn and flips status to 'approved' (at which
- *  point the renderer fires). */
-export async function insertDraftedSegment(db: D1Database, segment: Segment): Promise<void> {
+ *  point the renderer fires). `sourceKind` distinguishes the GDELT
+ *  news-clip pipeline (default, unchanged) from reading-sourced
+ *  essays; `subjectSlug` links a reading-sourced segment back to the
+ *  Canopticon File it came from (migration 0006). */
+export async function insertDraftedSegment(
+  db: D1Database,
+  segment: Segment,
+  opts: { sourceKind?: "gdelt" | "reading"; subjectSlug?: string } = {},
+): Promise<void> {
   await db
     .prepare(
       `INSERT OR REPLACE INTO segments (
-         id, status, source_rubric_score, template, forensic_turn, needs_human, payload_json, created_at
-       ) VALUES (?, 'awaiting_approval', ?, ?, ?, 1, ?, ?)`,
+         id, status, source_rubric_score, template, forensic_turn, needs_human, payload_json, created_at, source_kind, subject_slug
+       ) VALUES (?, 'awaiting_approval', ?, ?, ?, 1, ?, ?, ?, ?)`,
     )
     .bind(
       segment.id,
@@ -60,6 +67,8 @@ export async function insertDraftedSegment(db: D1Database, segment: Segment): Pr
       segment.forensic_turn.text,
       JSON.stringify(segment),
       new Date().toISOString(),
+      opts.sourceKind ?? "gdelt",
+      opts.subjectSlug ?? null,
     )
     .run();
 }
@@ -185,4 +194,108 @@ export async function loadLatestJob(db: D1Database): Promise<RenderJobRow | null
   return db
     .prepare("SELECT * FROM render_jobs ORDER BY started_at DESC LIMIT 1")
     .first<RenderJobRow>();
+}
+
+/** The most recent render job for ONE segment — used by the review page
+ *  to show "already rendered, publish?" instead of the pre-render
+ *  editor once a render has actually run for this specific segment.
+ *  loadLatestJob above is global (Phase 0's single-spike assumption);
+ *  this is per-segment, needed once multiple segments can be in flight
+ *  at once (reading-sourced essays alongside the daily GDELT radar). */
+export async function loadLatestJobForSegment(
+  db: D1Database,
+  segmentId: string,
+): Promise<RenderJobRow | null> {
+  return db
+    .prepare("SELECT * FROM render_jobs WHERE segment_id = ? ORDER BY started_at DESC LIMIT 1")
+    .bind(segmentId)
+    .first<RenderJobRow>();
+}
+
+/** Flip a rendered segment to 'published' — the operator has watched
+ *  the finished MP4 and decided it's fit to show on canopticon.com's
+ *  public /videos section. Deliberately separate from 'rendered':
+ *  the operator-approves-never-authors rule applies to the finished
+ *  video, not just the drafted script (migration 0006). */
+export async function publishSegment(db: D1Database, segmentId: string): Promise<void> {
+  await db
+    .prepare(
+      "UPDATE segments SET status = 'published', published_at = ? WHERE id = ? AND status = 'rendered'",
+    )
+    .bind(new Date().toISOString(), segmentId)
+    .run();
+}
+
+export interface PublishedSegmentRow {
+  id: string;
+  title: string;
+  source_kind: string;
+  subject_slug: string | null;
+  template: string;
+  published_at: string;
+  length_s: number;
+  variant: string;
+  r2_key: string | null;
+}
+
+/** Public listing — every published segment, newest first, joined to
+ *  its succeeded render job for the R2 key the public watch route
+ *  serves. Read by packages/api's /videos section across the Worker
+ *  boundary (see routes/public.ts). */
+export async function listPublishedSegments(
+  db: D1Database,
+  limit = 50,
+): Promise<PublishedSegmentRow[]> {
+  const rows = await db
+    .prepare(
+      `SELECT s.id, s.payload_json, s.source_kind, s.subject_slug, s.template, s.published_at,
+              (SELECT r2_key FROM render_jobs WHERE segment_id = s.id AND status = 'succeeded'
+                 ORDER BY started_at DESC LIMIT 1) AS r2_key
+         FROM segments s
+        WHERE s.status = 'published'
+        ORDER BY s.published_at DESC
+        LIMIT ?`,
+    )
+    .bind(limit)
+    .all<{
+      id: string;
+      payload_json: string;
+      source_kind: string;
+      subject_slug: string | null;
+      template: string;
+      published_at: string;
+      r2_key: string | null;
+    }>();
+  return (rows.results ?? []).map((r) => {
+    const payload = JSON.parse(r.payload_json) as Segment;
+    return {
+      id: r.id,
+      title: payload.title,
+      source_kind: r.source_kind,
+      subject_slug: r.subject_slug,
+      template: r.template,
+      published_at: r.published_at,
+      length_s: payload.length_s,
+      variant: payload.variants[0] ?? "1080x1920",
+      r2_key: r.r2_key,
+    };
+  });
+}
+
+/** Is the segment whose render produced this R2 key published? Gate
+ *  for the public unauthenticated watch route (routes/public.ts) —
+ *  never serve an R2 asset publicly unless the operator explicitly
+ *  published the segment it belongs to. Keyed by r2_key, not job id,
+ *  since that's what the public route actually receives (the key the
+ *  public /public/segments listing handed out). */
+export async function isKeyPublished(db: D1Database, r2Key: string): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT s.status AS status FROM render_jobs rj
+         JOIN segments s ON s.id = rj.segment_id
+        WHERE rj.r2_key = ? AND rj.status = 'succeeded'`,
+    )
+    .bind(r2Key)
+    .first<{ status: string }>();
+  return row?.status === "published";
 }

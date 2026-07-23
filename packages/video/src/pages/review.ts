@@ -13,16 +13,24 @@ interface ReviewArgs {
   segment: Segment;
   usedLlm: boolean;
   message?: string;
+  /** Set once a render has actually run for this segment — swaps the
+   *  pre-render forensic_turn editor for the finished video + publish
+   *  controls. See routes/queue.ts's GET /:id. */
+  rendered?: { videoUrl: string | null; published: boolean };
 }
 
 export function renderReviewPage(args: ReviewArgs): Response {
-  const { candidate, segment, usedLlm, message } = args;
+  const { candidate, segment, usedLlm, message, rendered } = args;
   const msg = message
     ? `<div class="card" style="background:#fff5e6;border-color:#e3c89a;color:#5c4413;margin-bottom:14px">${escapeHtml(message)}</div>`
     : "";
   const llmTag = usedLlm
     ? `<span class="pill" style="background:#e7f0e6;color:#2f7d52">llm draft</span>`
     : `<span class="pill" style="background:#fff5e6;color:#5c4413">skeleton (no llm)</span>`;
+
+  if (rendered) {
+    return renderRenderedView(candidate, segment, llmTag, msg, rendered);
+  }
 
   const beats = segment.beats
     .map(
@@ -80,6 +88,60 @@ export function renderReviewPage(args: ReviewArgs): Response {
 `;
   return htmlPage({
     title: `Review · ${segment.title.slice(0, 40)}`,
+    body,
+  });
+}
+
+function renderRenderedView(
+  candidate: CandidateRow,
+  segment: Segment,
+  llmTag: string,
+  msg: string,
+  rendered: { videoUrl: string | null; published: boolean },
+): Response {
+  const video = rendered.videoUrl
+    ? `<video controls src="${escapeAttr(rendered.videoUrl)}" style="width:100%;max-width:640px;border-radius:8px"></video>`
+    : `<div class="v empty">render succeeded but the asset key is missing — check /metrics</div>`;
+
+  const publishBlock = rendered.published
+    ? `<div class="card" style="margin-top:18px;background:#e7f0e6;border-color:#bcd6b8">
+  <div class="k" style="color:#2f7d52">published</div>
+  <div style="font-family:var(--serif);font-size:14px;margin-top:4px">Live on canopticon.com's /videos section.</div>
+</div>`
+    : `<div class="card" style="margin-top:18px">
+  <div class="k">Publish to canopticon.com</div>
+  <div style="font-family:var(--serif);font-size:13.5px;line-height:1.55;color:var(--ink-3);margin:6px 0 14px">
+    Watch the video above first. Publishing puts it on the public /videos section — a separate
+    decision from approving the script, same as everything else on this site: nothing goes public
+    without the operator explicitly saying so.
+  </div>
+  <form method="POST" action="/queue/${escapeAttr(candidate.id)}/publish">
+    <button class="btn" type="submit" style="background:var(--amber);color:var(--ink);font-weight:600">Publish →</button>
+  </form>
+</div>`;
+
+  const body = `
+  <div style="display:flex;gap:14px;align-items:baseline">
+    <div class="h1" style="margin:0">${escapeHtml(segment.title)}</div>
+    ${llmTag}
+  </div>
+  <div class="sub">${escapeHtml(candidate.network)} · rendered · template <b>${escapeHtml(segment.template)}</b> · ${segment.length_s}s</div>
+
+  ${msg}
+
+  <div class="card">
+    <div class="k">rendered video</div>
+    <div style="margin-top:10px">${video}</div>
+  </div>
+
+  ${publishBlock}
+
+  <div style="margin-top:18px">
+    <a href="/queue" style="font-family:var(--mono);font-size:12px;color:var(--ink-3);text-decoration:none">← back to queue</a>
+  </div>
+`;
+  return htmlPage({
+    title: `Rendered · ${segment.title.slice(0, 40)}`,
     body,
   });
 }

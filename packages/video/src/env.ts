@@ -19,6 +19,14 @@ export interface Env {
    *  one session cookie recognises the operator on both subdomains.
    *  Set via `wrangler secret put SESSION_SECRET`. */
   SESSION_SECRET?: string;
+  /** Server-to-server auth for POST /segments/from-reading — the
+   *  publication's api Worker calls this endpoint directly (not
+   *  through a browser, so no session cookie), authenticated by this
+   *  shared token instead. Deliberately a SEPARATE secret from
+   *  SESSION_SECRET, which signs session cookies — a different purpose
+   *  shouldn't share a key. Same value must be set on both Workers via
+   *  `wrangler secret put VIDEO_INTERNAL_TOKEN`. */
+  VIDEO_INTERNAL_TOKEN?: string;
   /** ElevenLabs API key — Phase 1, opt-in per segment. */
   ELEVENLABS_API_KEY?: string;
   /** MiniMax API key — Phase 1, default voice provider. (If the

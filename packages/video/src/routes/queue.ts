@@ -35,13 +35,17 @@ import {
   approveSegment,
   createRenderJob,
   insertDraftedSegment,
+  loadLatestJobForSegment,
   loadSegment,
+  loadSegmentRow,
   markRenderFailed,
   markRenderRunning,
   markRenderSucceeded,
   markSegmentRendered,
+  publishSegment,
   saveSegmentDraft,
 } from "../storage/d1";
+import { signedAssetUrl } from "../storage/r2";
 
 const app = new Hono<{ Bindings: Env; Variables: AuthState }>();
 
@@ -106,9 +110,12 @@ app.post("/:id/promote", async (c) => {
   return c.redirect(`/queue/${encodeURIComponent(id)}`, 302);
 });
 
-// Review surface — operator edits forensic_turn. Handles both
-// candidate-backed segments (seg-cand-xxx) and compilation segments
-// (seg-brief-YYYY-MM-DD).
+// Review surface — operator edits forensic_turn. Handles candidate-
+// backed segments (seg-cand-xxx), compilation segments
+// (seg-brief-YYYY-MM-DD), and reading-sourced essays
+// (seg-reading-<slug>-<format>-<ts>, from routes/from-reading.ts).
+// Once a render has actually run for this segment, shows the rendered
+// video + publish controls instead of the pre-render editor.
 app.get("/:id", async (c) => {
   const gate = await requireOperator(c);
   if (gate) return gate;
@@ -120,14 +127,30 @@ app.get("/:id", async (c) => {
       status: 404,
     });
   }
-  // For compilation briefs there's no single candidate — synthesise a
-  // provenance card from the segment's beats / sources roll-up so the
-  // review page renders.
+  // For compilation briefs and reading-sourced essays there's no
+  // GDELT candidate row — synthesise a provenance card so the review
+  // page renders the same way either path.
   const candidate = id.startsWith("brief-")
     ? syntheticBriefCandidate(id, segment)
-    : await loadCandidate(c.env.DB, id);
+    : id.startsWith("reading-")
+      ? syntheticReadingCandidate(id, segment)
+      : await loadCandidate(c.env.DB, id);
   if (!candidate) return new Response("candidate not found", { status: 404 });
   const message = c.req.query("msg");
+
+  const job = await loadLatestJobForSegment(c.env.DB, segmentId).catch(() => null);
+  if (job && job.status === "succeeded") {
+    const videoUrl = job.r2_key ? await signedAssetUrl(c.env.ASSETS, job.r2_key) : null;
+    const row = await loadSegmentRow(c.env.DB, segmentId).catch(() => null);
+    return renderReviewPage({
+      candidate,
+      segment,
+      usedLlm: !segment.forensic_turn.text.includes("[OPERATOR:"),
+      rendered: { videoUrl, published: row?.status === "published" },
+      ...(message ? { message } : {}),
+    });
+  }
+
   return renderReviewPage({
     candidate,
     segment,
@@ -153,6 +176,30 @@ function syntheticBriefCandidate(
     rubric_score: null,
     rubric_json: null,
     cast_template: "daily_brief",
+    status: "promoted",
+    created_at: new Date().toISOString(),
+  };
+}
+
+/** Same synthetic-provenance-card pattern as syntheticBriefCandidate,
+ *  for a reading-sourced essay — there's no GDELT candidate row, so the
+ *  review page's "candidate" card shows the source reading instead. */
+function syntheticReadingCandidate(
+  id: string,
+  segment: import("@canopticon/shared/video/segment-schema").Segment,
+) {
+  return {
+    id,
+    network: "CANOPTICON",
+    clip_url: "",
+    captured_at: new Date().toISOString(),
+    headline: segment.title,
+    excerpt: `Drafted from a signed reading's verified facts — ${segment.beats.filter((b) => b.type === "evidence").length} evidence beats, ${segment.length_s}s total.`,
+    entities: segment.sources.slice(0, 6),
+    source: "stub" as const,
+    rubric_score: null,
+    rubric_json: null,
+    cast_template: segment.template,
     status: "promoted",
     created_at: new Date().toISOString(),
   };
@@ -215,6 +262,22 @@ app.post("/:id/approve", async (c) => {
   );
 
   return c.redirect("/", 302);
+});
+
+// Publish — the operator has watched the rendered MP4 (on /queue/:id,
+// which shows it once render succeeds) and decided it's fit to show
+// publicly. Flips segments.status to 'published'; routes/public.ts's
+// unauthenticated endpoints only ever serve segments in that state.
+// The operator-approves-never-authors rule applies here exactly as it
+// does to the forensic_turn line — rendering succeeding is not the
+// same as approved for publication.
+app.post("/:id/publish", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const candId = c.req.param("id");
+  const segmentId = `seg-${candId}`;
+  await publishSegment(c.env.DB, segmentId);
+  return c.redirect(`/queue/${encodeURIComponent(candId)}`, 302);
 });
 
 /** The full discovery pass: pool from every radar → upsert → score →

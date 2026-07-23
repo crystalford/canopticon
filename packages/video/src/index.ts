@@ -9,23 +9,43 @@
 // Phase 0 path (operator can still trigger): POST /spike renders the
 // seeded "It Looks Like Teslas" segment against the Container.
 //
+// A second content pipeline runs alongside the GDELT radar: the
+// publication's api Worker can POST a signed reading's verified facts
+// to /segments/from-reading, which drafts a video essay (short or
+// long-form) the exact same way a promoted GDELT candidate does —
+// same review/approve/render path, same Segment schema, same
+// Container. See editorial/reading-brain.ts.
+//
 // Routes:
-//   GET  /                — status page (latest render_job)
-//   GET  /queue           — daily-radar candidates
-//   POST /queue/poll      — manual GDELT poll (same as the cron)
-//   POST /queue/:id/promote — promote a candidate to a segment
-//   POST /spike           — render the Phase 0 seed segment
-//   GET  /assets/:key     — operator-only R2 proxy
-//   GET  /auth/login      — 302 to canopticon.com/auth/login?next=...
-//   GET  /auth/logout     — 302 to canopticon.com/auth/logout
-//   GET  /health          — public JSON liveness
+//   GET  /                    — status page (latest render_job)
+//   GET  /queue                — daily-radar candidates
+//   POST /queue/poll           — manual GDELT poll (same as the cron)
+//   POST /queue/:id/promote    — promote a candidate to a segment
+//   GET  /queue/:id            — review: pre-render editor, or the
+//                                 rendered video + publish button once
+//                                 a render has actually run
+//   POST /queue/:id/approve    — approve forensic_turn, fires the render
+//   POST /queue/:id/publish    — operator has watched the render, makes
+//                                 it visible on canopticon.com/videos
+//   POST /segments/from-reading — server-to-server intake from the
+//                                 publication's api Worker (shared-
+//                                 token auth, not a session cookie)
+//   POST /spike                — render the Phase 0 seed segment
+//   GET  /assets/:key          — operator-only R2 proxy
+//   GET  /public/segments      — public JSON: every published segment
+//   GET  /public/watch/:key    — public: streams one published MP4
+//   GET  /auth/login           — 302 to canopticon.com/auth/login?next=...
+//   GET  /auth/logout          — 302 to canopticon.com/auth/logout
+//   GET  /health                — public JSON liveness
 
 import { Hono } from "hono";
 import { type AuthState, requireOperator } from "./auth.ts";
 import type { Env } from "./env.ts";
 import { loadDailyMetrics, loadMetrics, renderMetricsPage } from "./pages/metrics.ts";
 import authRoutes from "./routes/auth.ts";
+import fromReadingRoutes from "./routes/from-reading.ts";
 import healthRoutes from "./routes/health.ts";
+import publicRoutes from "./routes/public.ts";
 import queueRoutes from "./routes/queue.ts";
 import spikeRoutes from "./routes/spike.ts";
 import statusRoutes from "./routes/status.ts";
@@ -55,10 +75,12 @@ app.onError((err, c) => {
 
 app.route("/", statusRoutes);
 app.route("/", spikeRoutes);
+app.route("/", fromReadingRoutes);
 app.route("/queue", queueRoutes);
 app.route("/voice", voiceRoutes);
 app.route("/auth", authRoutes);
 app.route("/health", healthRoutes);
+app.route("/public", publicRoutes);
 
 // GET /metrics — operator-only render-cost dashboard.
 app.get("/metrics", async (c) => {

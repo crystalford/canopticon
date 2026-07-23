@@ -148,9 +148,13 @@ export const SegmentSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   template: TemplateKindSchema,
-  /** Total run-time. Capped at 75s per the handoff (35–75s working
-   *  band; the system can extend to 2–3 min in rare cases). */
-  length_s: z.number().int().min(15).max(180),
+  /** Total run-time. Originally capped at 75s per the handoff (35–75s
+   *  working band; "the system can extend to 2–3 min in rare cases").
+   *  Raised to 1200 (20 min) for the reading-sourced long-form path —
+   *  genuinely untested past the original ~180s ceiling this replaces;
+   *  the first long-form render is a live test of this, not a proven
+   *  capability. See editorial/reading-brain.ts. */
+  length_s: z.number().int().min(15).max(1200),
   /** The one line the operator approves. The brain emits this with
    *  `needs_human: true`; the Phase 1 review surface flips it to
    *  `needs_human: false` after the operator edits/approves; only then

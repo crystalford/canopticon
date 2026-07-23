@@ -82,8 +82,13 @@ describe("SegmentSchema — the §7b contract", () => {
     expect(SegmentSchema.safeParse(bad).success).toBe(false);
   });
 
-  it("rejects length_s above the 180s ceiling", () => {
-    const bad = { ...carneySegment, length_s: 600 };
+  it("accepts length_s within the raised 1200s (20 min) ceiling — the reading-sourced long-form path", () => {
+    const ok = { ...carneySegment, length_s: 600 };
+    expect(SegmentSchema.safeParse(ok).success).toBe(true);
+  });
+
+  it("rejects length_s above the 1200s ceiling", () => {
+    const bad = { ...carneySegment, length_s: 1201 };
     expect(SegmentSchema.safeParse(bad).success).toBe(false);
   });
 
