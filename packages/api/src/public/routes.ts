@@ -22,6 +22,7 @@ import { renderNotFound } from "./render/placeholder";
 import { renderEntityPage } from "./render/record";
 import { renderSearchPage } from "./render/search";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
+import { renderVideosPage } from "./render/videos";
 import { renderWatchlistPage } from "./render/watchlist";
 import studioRoutes from "./studio/routes";
 import { STYLES_CSS, stylesHash } from "./styles";
@@ -282,6 +283,13 @@ app.get("/topics", async (c) => htmlResponse(await renderTopicsIndex(c.env)));
 // graph/routes/monitors.ts is a separate, older, unrelated system.
 app.get("/watchlist", async (c) => htmlResponse(await renderWatchlistPage(c.env)));
 
+// ---- Videos ----------------------------------------------------------
+// Published video essays — reading-sourced (from a signed File's
+// "Produce video essay" action) and the daily GDELT news-clip radar,
+// both surfaced from the separate video Worker's public API. See
+// render/videos.ts.
+app.get("/videos", async (c) => htmlResponse(await renderVideosPage(c.env)));
+
 // ---- Instruments ----------------------------------------------------------
 // The third product arm's doorway. Instruments live on their own
 // subdomains; this page is the machine-citable index into them.
@@ -325,6 +333,7 @@ app.get("/p/:slug", async (c) => {
   const subject = await renderSubjectPage(c.env, slug, mode, {
     isOperator: c.get("is_operator"),
     expanding: c.req.query("expanding") === "1",
+    videoMsg: c.req.query("video_msg"),
   });
   if (subject) return htmlResponse(subject);
   return htmlResponse(renderNotFound(c.req.path), { status: 404 });
@@ -338,6 +347,7 @@ app.get("/s/:slug", async (c) => {
   const html = await renderSubjectPage(c.env, c.req.param("slug"), mode, {
     isOperator: c.get("is_operator"),
     expanding: c.req.query("expanding") === "1",
+    videoMsg: c.req.query("video_msg"),
   });
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);

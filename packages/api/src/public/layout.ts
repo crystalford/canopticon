@@ -16,15 +16,17 @@ export interface NavItem {
   label: string;
 }
 
-// Four doors. The Record (home IS the front of the record), the signed
+// Five doors. The Record (home IS the front of the record), the signed
 // Investigations, Watchlist (the standing-research engine, given a real
-// surface instead of living only behind /v1/admin/beats), and Method (how
-// verification works — absorbs About). Everything else is reached by
-// walking the web, not by nav.
+// surface instead of living only behind /v1/admin/beats), Videos (published
+// video essays — the video Worker's own product, reached from here rather
+// than only from within a File), and Method (how verification works —
+// absorbs About). Everything else is reached by walking the web, not by nav.
 export const PRIMARY_NAV: NavItem[] = [
   { href: "/", label: "Record" },
   { href: "/investigations", label: "Investigations" },
   { href: "/watchlist", label: "Watchlist" },
+  { href: "/videos", label: "Videos" },
   { href: "/method", label: "Method" },
 ];
 

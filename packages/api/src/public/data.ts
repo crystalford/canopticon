@@ -12,6 +12,10 @@ import { all, one, parseJson } from "../lib/d1";
 
 export interface PublicEnv {
   DB: D1Database;
+  /** The video Worker's URL — render/videos.ts fetches its public
+   *  segments API cross-Worker. Optional; the page shows an honest
+   *  empty state without it. */
+  VIDEO_BASE?: string;
 }
 
 // The public site is single-operator. Resolve "the operator" as the

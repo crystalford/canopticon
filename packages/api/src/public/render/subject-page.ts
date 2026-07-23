@@ -57,7 +57,7 @@ interface PageRow {
   updated_at: string;
 }
 
-interface FactRow {
+export interface FactRow {
   id: string;
   label: string;
   kind: string;
@@ -120,7 +120,7 @@ export async function renderSubjectPage(
   env: PublicEnv,
   slug: string,
   mode: "neutral" | "signed" = "neutral",
-  opts: { isOperator?: boolean; expanding?: boolean } = {},
+  opts: { isOperator?: boolean; expanding?: boolean; videoMsg?: string | undefined } = {},
 ): Promise<string | null> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return null;
@@ -170,7 +170,7 @@ export async function renderSubjectPage(
   };
 
   if (resolvedMode === "signed") {
-    return renderSigned(env, subject, page, hasSignedReading, !!opts.isOperator);
+    return renderSigned(env, subject, page, hasSignedReading, !!opts.isOperator, opts.videoMsg);
   }
   return renderNeutral(env, subject, page, hasSignedReading, !!opts.isOperator, !!opts.expanding);
 }
@@ -647,6 +647,7 @@ async function renderSigned(
   page: PageRow,
   hasSignedReading: boolean,
   isOperator: boolean,
+  videoMsg?: string,
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const bodyHtml = page.body_html || (page.body_md ? renderMarkdown(page.body_md) : "");
@@ -702,6 +703,26 @@ async function renderSigned(
     signatureMeta.push(
       `${page.claims_verified} claim${page.claims_verified === 1 ? "" : "s"} verified`,
     );
+
+  // Operator affordance: turn this signed reading into a video essay via
+  // the video Worker (packages/video/src/routes/from-reading.ts). Two
+  // buttons, not a picker — short (45-75s vertical) and long (5-15min
+  // landscape) are different enough in shape and cost that "produce one
+  // and see" is the wrong default; the operator picks up front. Result
+  // isn't published here — it lands in the video Worker's own review
+  // queue for approval + render, same as the GDELT pipeline's segments.
+  const videoMsgBlock = videoMsg ? `<div class="video-msg">${escapeHtml(videoMsg)}</div>` : "";
+  const produceVideoBlock = isOperator
+    ? `<div class="produce-video">
+  <form method="POST" action="/op/records/${escapeAttr(page.slug)}/produce-video?format=short" style="display:inline">
+    <button class="op-aff-btn" type="submit">Produce video essay (short) →</button>
+  </form>
+  <form method="POST" action="/op/records/${escapeAttr(page.slug)}/produce-video?format=long" style="display:inline">
+    <button class="op-aff-btn" type="submit">Produce video essay (long) →</button>
+  </form>
+  ${videoMsgBlock}
+</div>`
+    : "";
 
   // The firewall, made visible IN the reading: any contested assertion this
   // subject carries MUST be shown, by rule, not by the writer's choice. This
@@ -785,6 +806,7 @@ async function renderSigned(
       ${signatureLine}
       ${signatureMeta.length ? `<div class="signature-meta">${signatureMeta.join(" · ")}</div>` : ""}
     </div>
+    ${produceVideoBlock}
   </header>
   <div class="prose signed-body">${bodyHtml}</div>
   ${complicateBox}
@@ -918,6 +940,8 @@ async function renderSigned(
     background:var(--surface); color:var(--ink); text-decoration:none; cursor:pointer; }
   .op-aff-btn-action { cursor:pointer; opacity:1; }
   .op-aff-btn-primary { background:var(--ink); color:var(--paper); border-color:var(--ink); font-weight:600; }
+  .produce-video { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .video-msg { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); width: 100%; }
   .draft-banner {
     margin-bottom: 18px; padding: 14px 16px;
     border: 1px solid var(--accent-bd);
@@ -1061,7 +1085,7 @@ ${evidence
 // relevance signal at all, so a trivia fact read five minutes ago could
 // outrank one five documents corroborate. A subject with hundreds of
 // documents behind it needs a real ranking here, not insertion order.
-async function loadEstablishedFacts(
+export async function loadEstablishedFacts(
   env: PublicEnv,
   userId: string,
   subjectId: string,

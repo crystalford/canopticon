@@ -61,4 +61,16 @@ export interface Env {
   // a "key not configured" notice). Set with `wrangler secret put
   // BRAVE_SEARCH_API_KEY`.
   BRAVE_SEARCH_API_KEY?: string;
+
+  // The video Worker's URL (video.canopticon.com) — where "Produce video
+  // essay" POSTs a signed reading's content, and where the public /videos
+  // section fetches the published-segments list from. Optional: without
+  // it, the produce action is visible but inert (same "wired, secret
+  // missing" pattern as BRAVE_SEARCH_API_KEY above) and /videos shows an
+  // honest empty state instead of erroring.
+  VIDEO_BASE?: string;
+  // Server-to-server auth for POST {VIDEO_BASE}/segments/from-reading.
+  // Same value as the video Worker's VIDEO_INTERNAL_TOKEN secret — set
+  // with `wrangler secret put VIDEO_INTERNAL_TOKEN` on BOTH Workers.
+  VIDEO_INTERNAL_TOKEN?: string;
 }

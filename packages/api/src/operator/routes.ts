@@ -598,6 +598,100 @@ app.post("/records/:slug/expand", async (c) => {
   return c.redirect(`/s/${slug}?expanding=1`);
 });
 
+// "Produce video essay" — turns a SIGNED reading's thesis + verified
+// facts into a video essay via the video Worker (packages/video), which
+// runs its own review/approve/render pipeline from there. Server-to-
+// server call (not a redirect through the browser to video.canopticon.com
+// first) so the reading's content never has to round-trip through the
+// operator's own request — the produce click does the work, then hands
+// the operator off to the video Worker's review page to approve the
+// script and watch the render, exactly the same review touchpoint the
+// GDELT pipeline already uses there.
+//
+// Without VIDEO_BASE/VIDEO_INTERNAL_TOKEN configured, this is wired but
+// inert — same "affordance visible, secret missing" pattern as
+// BRAVE_SEARCH_API_KEY above — and redirects back with a plain notice
+// instead of a raw error.
+app.post("/records/:slug/produce-video", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const slug = c.req.param("slug");
+  const format = c.req.query("format") === "long" ? "long" : "short";
+
+  if (!c.env.VIDEO_BASE || !c.env.VIDEO_INTERNAL_TOKEN) {
+    return c.redirect(
+      `/s/${slug}?mode=signed&video_msg=${encodeURIComponent("video Worker not configured yet")}`,
+    );
+  }
+
+  const page = await one<{ thesis: string | null; node_id: string; label: string }>(
+    c.env.DB,
+    `SELECT p.thesis, p.subject_node_id AS node_id, n.label
+       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+      WHERE p.user_id = ? AND p.slug = ? AND p.signed_status IN ('signed', 'published')`,
+    [userId, slug],
+  );
+  if (!page || !page.thesis) {
+    return c.redirect(
+      `/s/${slug}?video_msg=${encodeURIComponent("no signed reading to produce from yet")}`,
+    );
+  }
+
+  const { loadEstablishedFacts } = await import("../public/render/subject-page");
+  const facts = await loadEstablishedFacts(c.env, userId, page.node_id);
+  if (facts.length === 0) {
+    return c.redirect(
+      `/s/${slug}?mode=signed&video_msg=${encodeURIComponent("no established facts to draw on yet")}`,
+    );
+  }
+
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        const res = await fetch(`${c.env.VIDEO_BASE}/segments/from-reading`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-internal-token": c.env.VIDEO_INTERNAL_TOKEN as string,
+          },
+          body: JSON.stringify({
+            subjectSlug: slug,
+            subjectLabel: page.label,
+            thesis: page.thesis,
+            format,
+            facts: facts.map((f) => ({
+              text: f.label,
+              quote: f.quote_text,
+              source: f.piece_slug
+                ? `${f.piece_title ?? "source"} (/library/${f.piece_slug})`
+                : null,
+            })),
+          }),
+        });
+        await insertOne(c.env.DB, "orchestrator_events", {
+          user_id: userId,
+          event_type: res.ok ? "video.produce.requested" : "video.produce.failed",
+          subject_kind: "page",
+          subject_id: slug,
+          payload: { format, status: res.status },
+        }).catch(() => {});
+      } catch (err) {
+        await insertOne(c.env.DB, "orchestrator_events", {
+          user_id: userId,
+          event_type: "video.produce.failed",
+          subject_kind: "page",
+          subject_id: slug,
+          payload: { format, error: (err as Error).message },
+        }).catch(() => {});
+      }
+    })(),
+  );
+
+  return c.redirect(
+    `/s/${slug}?mode=signed&video_msg=${encodeURIComponent(`producing a ${format}-form video essay — check the video Worker's queue shortly`)}`,
+  );
+});
+
 // Bulk "expand the thinnest subjects now" — task #25. Deliberately small
 // (3, not "all") and reuses the exact same sniper ranking the autonomous
 // sweep uses (pickThinCandidates), just firing that many at once instead
