@@ -113,7 +113,7 @@ async function renderWorkStatusBadge(db: D1Database): Promise<string> {
   ).catch(() => null);
   const activeCount = active?.n ?? 0;
   if (activeCount > 0) {
-    return `<span class="nav-search" style="color:var(--accent,#5d8bc6)" title="digest jobs currently queued or running">⟳ working — ${activeCount} in progress</span>\n      `;
+    return `<a href="/op/library" class="nav-search" style="color:var(--accent,#5d8bc6)" title="click to see what's running, per document">⟳ working — ${activeCount} in progress</a>\n      `;
   }
   const last = await one<{ updated_at: string | null }>(
     db,
@@ -122,7 +122,7 @@ async function renderWorkStatusBadge(db: D1Database): Promise<string> {
   ).catch(() => null);
   if (!last?.updated_at) return "";
   const ago = formatRelativeTime(last.updated_at);
-  return `<span class="nav-search" style="color:var(--ink-mute,#666873)" title="nothing queued or running right now">idle — ${ago}</span>\n      `;
+  return `<a href="/op/library" class="nav-search" style="color:var(--ink-mute,#666873)" title="nothing queued or running right now — click for the full extraction log">idle — ${ago}</a>\n      `;
 }
 
 function formatRelativeTime(iso: string): string {

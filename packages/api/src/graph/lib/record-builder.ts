@@ -147,7 +147,16 @@ export async function expandRecord(
           url: r.url,
         });
       } catch (jobErr) {
-        report.errors.push(`extract ${r.url}: ${(jobErr as Error).message}`);
+        const message = (jobErr as Error).message;
+        report.errors.push(`extract ${r.url}: ${message}`);
+        // Without this, a failed extraction is invisible: the banner's
+        // "completed" line just reports 0 facts / 0 sources with no
+        // indication anything was even attempted, let alone why it failed.
+        await emit(env, userId, "record.expand.source_extract_failed", {
+          subject: subjectLabel,
+          url: r.url,
+          error: message,
+        });
       }
     } catch (err) {
       report.errors.push(`fetch ${r.url}: ${(err as Error).message}`);

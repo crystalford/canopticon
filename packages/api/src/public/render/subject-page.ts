@@ -1829,6 +1829,9 @@ ${EXPAND_BANNER_STYLES}`;
   const sourceExtracted = events.filter(
     (e) => e.event_type === "record.expand.source_extracted",
   ).length;
+  const extractFailures = events.filter(
+    (e) => e.event_type === "record.expand.source_extract_failed",
+  );
 
   let line: string;
   let dotClass = "";
@@ -1843,8 +1846,21 @@ ${EXPAND_BANNER_STYLES}`;
   } else if (completed) {
     const facts = parsePayloadField(completed.payload, "facts_added") ?? "0";
     const extracted = parsePayloadField(completed.payload, "extracted") ?? "0";
-    line = `Record expanded — ${facts} facts added from ${extracted} sources. <a href="?">Reload without the banner →</a>`;
-    dotClass = "expand-dot-done";
+    // A source can bank fine (real text fetched) and still fail extraction
+    // (the LLM step throwing, a verbatim-check killing every claim, etc).
+    // Reporting a bare "0 facts from 0 sources" in that case reads as a
+    // clean no-op when something actually broke — surface why instead.
+    if (extracted === "0" && sourceBanked > 0 && extractFailures.length > 0) {
+      const reasons = extractFailures
+        .slice(0, 3)
+        .map((e) => parsePayloadField(e.payload, "error") ?? "unknown error")
+        .join("; ");
+      line = `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} but extraction failed: ${escapeHtml(reasons)}. <a href="?">Reload without the banner →</a>`;
+      dotClass = "expand-dot-warn";
+    } else {
+      line = `Record expanded — ${facts} facts added from ${extracted} sources. <a href="?">Reload without the banner →</a>`;
+      dotClass = "expand-dot-done";
+    }
   } else {
     const stage = latest.event_type.replace("record.expand.", "");
     if (stage === "started") line = `Starting expansion for ${escapeHtml(subjectLabel)}…`;

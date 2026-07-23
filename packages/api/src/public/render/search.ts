@@ -51,6 +51,12 @@ export async function renderSearchPage(
   const userId = await resolveOperatorId(env.DB);
   let resultsBlock = "";
   let summary = "";
+  // Whether to keep auto-refreshing. Only true while research is genuinely
+  // still in flight — without a terminal check this refreshed forever
+  // (every 5s, indefinitely) even after the expansion finished, because
+  // `researching=1` stayed in the URL across every reload. Mirrors the
+  // terminal-state check bulk-expand.ts already does for the same reason.
+  let keepPolling = false;
 
   if (query.length > 0 && userId) {
     const hits = await searchVectors(env, { query, userId, topK: 25 }).catch(() => []);
@@ -71,9 +77,12 @@ export async function renderSearchPage(
       }).catch(() => {});
 
       summary = `No matches for <b>${escapeHtml(query)}</b> in the record yet.`;
-      resultsBlock = opts.researching
-        ? await renderExpandBanner(env, userId, query)
-        : `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
+      if (opts.researching) {
+        resultsBlock = await renderExpandBanner(env, userId, query);
+        keepPolling = !(await isExpandTerminal(env.DB, userId, query));
+      } else {
+        resultsBlock = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
+      }
 
       const preview =
         env.BRAVE_ANSWERS_API_KEY && !opts.researching
@@ -115,7 +124,7 @@ export async function renderSearchPage(
     resultsBlock = "";
   }
 
-  const body = `${opts.researching ? '<meta http-equiv="refresh" content="5">' : ""}
+  const body = `${keepPolling ? '<meta http-equiv="refresh" content="5">' : ""}
 <section class="search-section">
   <h1 class="search-h1">Ask the record</h1>
   <form class="search-form" method="GET" action="/search">
@@ -175,6 +184,22 @@ export async function renderSearchPage(
     body,
     activeNav: "/search",
   });
+}
+
+// Mirrors the completed/failed/skipped check bulk-expand.ts uses to know
+// when to stop its own auto-refresh.
+async function isExpandTerminal(db: D1Database, userId: string, subject: string): Promise<boolean> {
+  const row = await one<{ id: string }>(
+    db,
+    `SELECT id FROM orchestrator_events
+      WHERE user_id = ?
+        AND event_type IN ('record.expand.completed','record.expand.failed','record.expand.skipped')
+        AND json_extract(payload, '$.subject') = ?
+        AND created_at > datetime('now','-15 minutes')
+      LIMIT 1`,
+    [userId, subject],
+  ).catch(() => null);
+  return !!row;
 }
 
 async function resolveHits(
