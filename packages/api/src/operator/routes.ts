@@ -439,11 +439,11 @@ app.get("/out", async (c) =>
   ),
 );
 
-// Re-read the corpus: re-surface findings, re-name themes, re-propose, and
-// auto-draft signed readings. The cheap DETERMINISTIC steps (autoseed pages,
-// L1) run inline so the page is correct on redirect; the expensive LLM steps
-// (theme-naming, proposing, drafting) run in waitUntil so the request can't
-// blow the Worker wall-clock — the OUT stream fills in over the next minute.
+// Re-read the corpus: re-surface findings, re-name themes, and auto-draft
+// signed readings. The cheap DETERMINISTIC steps (autoseed pages, L1) run
+// inline so the page is correct on redirect; the expensive LLM steps
+// (theme-naming, drafting) run in waitUntil so the request can't blow the
+// Worker wall-clock — the OUT stream fills in over the next minute.
 app.post("/out/refresh", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/op/out?err=no_operator");
@@ -458,10 +458,8 @@ app.post("/out/refresh", async (c) => {
     (async () => {
       try {
         const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
-        const { proposeBriefs } = await import("../graph/lib/briefs/proposer");
         const { draftReadings } = await import("../graph/lib/draft-reading");
         await runThemeSurfacer(c.env, userId).catch(() => {});
-        await proposeBriefs(c.env, userId).catch(() => {});
         await draftReadings(c.env, userId).catch(() => {});
       } catch {
         // best-effort; another Re-read retries

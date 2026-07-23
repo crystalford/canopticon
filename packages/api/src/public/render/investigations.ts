@@ -6,10 +6,10 @@ import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
 import { escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
 
-// Reader-facing intent labels for published outputs (spec Part 18.2: intents
-// are badges and filters, not nav). The first seven are the canonical signed
-// reading intents (spec v2.5 Part 5); the rest are factual arrangement
-// types from the older briefs era still in circulation.
+// Reader-facing intent labels for signed readings (spec Part 18.2: intents
+// are badges and filters, not nav). The seven canonical signed-reading
+// intents — spec v2.5 Part 5, and the only values pages.intent's CHECK
+// constraint (migration 0032) permits.
 const INTENT_LABELS: Record<string, string> = {
   investigation: "Investigation",
   argument: "Argument",
@@ -18,13 +18,6 @@ const INTENT_LABELS: Record<string, string> = {
   assessment: "Assessment",
   critique: "Critique",
   explanation: "Explanation",
-  definition: "Definition",
-  comparison: "Comparison",
-  timeline: "Timeline",
-  faq: "FAQ",
-  "stat-roundup": "Statistics",
-  "entity-profile": "Profile",
-  "claim-table": "Claims & sources",
 };
 
 export async function renderInvestigationsIndex(
@@ -34,27 +27,13 @@ export async function renderInvestigationsIndex(
   const userId = await resolveOperatorId(env.DB);
   const pieces = userId ? await listInvestigations(env.DB, userId) : [];
 
-  // Published outputs (graph-derived, operator-approved). Interpretive
-  // pieces are SIGNED; factual arrangements are neutral.
-  const { all } = await import("../../lib/d1");
-  const outputs = userId
-    ? await all<{
-        slug: string;
-        title: string;
-        content_type: string;
-        layer: string;
-        published_at: string | null;
-        signed_by: string | null;
-      }>(
-        env.DB,
-        `SELECT slug, title, content_type, layer, published_at, signed_by
-           FROM briefs WHERE user_id = ? AND status = 'published'
-          ORDER BY published_at DESC LIMIT 60`,
-        [userId],
-      ).catch(() => [])
-    : [];
   // Signed readings from the fabric (pages.signed_status='published'). These
-  // are the Phase-3 auto-drafted, operator-signed readings of subjects.
+  // are the Phase-3 auto-drafted, operator-signed readings of subjects — the
+  // only "published analysis" pipeline actually being fed going forward.
+  // (The older `briefs` table/pipeline this index used to also list here is
+  // sunset — see settle-pipeline.ts. Already-published briefs still resolve
+  // at their own /briefs/:slug URLs; they just don't surface here anymore.)
+  const { all } = await import("../../lib/d1");
   const readings = userId
     ? await all<{
         slug: string;
@@ -75,12 +54,7 @@ export async function renderInvestigationsIndex(
       ).catch(() => [])
     : [];
 
-  const shownOutputs = intentFilter
-    ? outputs.filter((o) => o.content_type === intentFilter)
-    : outputs;
-
-  // Apply the intent filter to readings — clicking an intent badge narrows
-  // both layers (factual outputs and signed readings).
+  // Apply the intent filter to readings — clicking an intent badge narrows.
   const shownReadings = intentFilter ? readings.filter((r) => r.intent === intentFilter) : readings;
 
   // Editorial hierarchy: a LEAD reading + secondary cards row + the rest as
@@ -135,14 +109,9 @@ export async function renderInvestigationsIndex(
 
   const readingCards = leadReadingCard + secondaryReadingsRow + tailReadingsList;
 
-  // Filter row collects intents from BOTH signed readings (pages.intent) and
-  // legacy outputs (briefs.content_type). Click an intent to narrow.
-  const presentTypes = [
-    ...new Set([
-      ...outputs.map((o) => o.content_type),
-      ...readings.map((r) => r.intent).filter((i): i is string => !!i),
-    ]),
-  ];
+  // Filter row collects intents from signed readings (pages.intent). Click
+  // an intent to narrow.
+  const presentTypes = [...new Set(readings.map((r) => r.intent).filter((i): i is string => !!i))];
   const filterRow = presentTypes.length
     ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
   <a href="/investigations" class="chip" style="text-decoration:none${intentFilter ? "" : ";border-color:var(--accent)"}">All</a>
@@ -166,26 +135,14 @@ export async function renderInvestigationsIndex(
 </style>`
     : "";
 
-  const outputCards = shownOutputs.length
-    ? `<div style="margin-bottom:28px">${shownOutputs
-        .map(
-          (o) => `<div style="padding:14px 0;border-bottom:1px solid var(--rule)">
-  <span class="chip">${escapeHtml(INTENT_LABELS[o.content_type] ?? o.content_type)}</span>
-  ${o.layer === "interpretive" ? `<span class="chip" title="A signed reading — not neutral fact">signed${o.signed_by ? ` · ${escapeHtml(o.signed_by)}` : ""}</span>` : ""}
-  <div style="margin-top:6px"><a class="ac" href="/briefs/${escapeHtml(o.slug)}" style="font-family:var(--serif);font-size:20px">${escapeHtml(o.title)}</a></div>
-  ${o.published_at ? `<p class="coord" style="margin-top:4px">${escapeHtml(formatDate(o.published_at))}</p>` : ""}
-</div>`,
-        )
-        .join("")}</div>`
-    : "";
-
   const list = pieces.length
     ? `<div class="cards-row">${pieces.map((p) => pieceCard(p)).join("")}</div>`
     : "";
 
   // The fabric-era ledger: signed readings of subjects/themes. When no
-  // readings exist yet — and we only have legacy briefs (or nothing) —
-  // explain the SHAPE that fills this page rather than show a dead empty.
+  // readings exist yet — and we only have legacy CMS-era pieces (or
+  // nothing) — explain the SHAPE that fills this page rather than show a
+  // dead empty.
   const shapeBlock =
     readings.length === 0
       ? `<section class="shape-block" aria-label="What this page will contain">
@@ -210,7 +167,7 @@ export async function renderInvestigationsIndex(
 </section>
 ${shapeBlock}
 ${filterRow}
-<section>${readingCards}${outputCards}${list}</section>
+<section>${readingCards}${list}</section>
 <style>
   .shape-block { padding:20px 22px; border:1px solid var(--rule); border-radius:9px;
     background:var(--panel-soft, rgba(0,0,0,.02)); margin-bottom:28px; }

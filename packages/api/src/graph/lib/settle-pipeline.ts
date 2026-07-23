@@ -1,23 +1,30 @@
 // The corpus-settle pipeline — one step at a time, always.
 //
-// Seven steps run, in order, whenever the corpus needs to catch up: entity
+// Six steps run, in order, whenever the corpus needs to catch up: entity
 // resolution -> event dedup -> surfacing -> theme detection -> page
-// autoseeding -> brief proposals -> signed-reading drafts. These used to
-// run chained together in one execution context every time the corpus
-// went idle. Confirmed live (twice, on the standalone admin /resettle
-// endpoint before this module existed) that chaining real LLM-calling
-// steps this way reliably exceeds Cloudflare's aggregate wall-clock/CPU
-// budget for a single waitUntil, with no catchable error — the platform
-// tears down the execution context outright. advanceSettleOneStep is the
-// fix applied everywhere the pipeline fires: run exactly ONE step,
-// persist which one ran via settle_state (migration 0037), move on next
-// time. Two triggers keep it moving:
+// autoseeding -> signed-reading drafts. These used to run chained together
+// in one execution context every time the corpus went idle. Confirmed live
+// (twice, on the standalone admin /resettle endpoint before this module
+// existed) that chaining real LLM-calling steps this way reliably exceeds
+// Cloudflare's aggregate wall-clock/CPU budget for a single waitUntil, with
+// no catchable error — the platform tears down the execution context
+// outright. advanceSettleOneStep is the fix applied everywhere the pipeline
+// fires: run exactly ONE step, persist which one ran via settle_state
+// (migration 0037), move on next time. Two triggers keep it moving:
 //   1. digest-jobs.ts calls it once when the corpus goes idle (the last
 //      queued job finishes) — the common case, right after an upload.
 //   2. index.ts's every-minute cron calls it too (self-throttled below to
 //      at most once per ~90s) so the full cycle keeps completing even
 //      without new uploads — otherwise draft_readings, last in the cycle,
 //      only ever gets a turn when someone happens to upload again.
+//
+// A "propose_briefs" step used to sit between autoseed_pages and
+// draft_readings, automatically feeding the older `briefs` publishing
+// pipeline (graph/lib/briefs/). Removed — signed `pages` readings are the
+// pipeline actually being used; briefs is sunset going forward, but its
+// library (graph/lib/briefs/pipeline.ts) stays, since draft-reading.ts
+// still shares its judgeClaim function, and old /briefs/:slug pages still
+// resolve from data already published.
 
 import type { Env } from "../../env";
 import { insertOne, one, run } from "../../lib/d1";
@@ -28,7 +35,6 @@ export const SETTLE_STEPS_ORDER = [
   "surfacing_l1",
   "theme_surfacer",
   "autoseed_pages",
-  "propose_briefs",
   "draft_readings",
 ] as const;
 
@@ -57,10 +63,6 @@ export const SETTLE_STEP_RUNNERS: Record<
   autoseed_pages: async (env, userId) => {
     const { autoseedPages } = await import("./autoseed-pages");
     return autoseedPages(env, userId);
-  },
-  propose_briefs: async (env, userId) => {
-    const { proposeBriefs } = await import("./briefs/proposer");
-    return proposeBriefs(env, userId);
   },
   draft_readings: async (env, userId) => {
     const { draftReadings } = await import("./draft-reading");

@@ -371,7 +371,7 @@ app.get("/backfill-library", async (c) => {
 // GET /v1/admin/resettle?confirm=1&step=<name>
 //
 // Manually re-runs ONE step of the corpus-settle gate (surfacing_l1 →
-// theme_surfacer → autoseed_pages → propose_briefs → draft_readings)
+// theme_surfacer → autoseed_pages → draft_readings)
 // without needing a new digest job to trigger it — digest-jobs.ts only
 // fires the settle gate automatically when the LAST queued/running job
 // finishes, so a bug fix to one of these steps has no way to re-run
