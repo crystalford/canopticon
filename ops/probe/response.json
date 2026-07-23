@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-23T18:51:47Z",
-  "run_id": "30035533203",
+  "requested_at": "2026-07-23T18:53:06Z",
+  "run_id": "30035615029",
   "method": "GET",
-  "path": "/v1/admin/backfill-citation-markers?confirm=1",
+  "path": "/v1/admin/backfill-face-citations?confirm=1",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"scanned\": 2,\n  \"fixed\": 1,\n  \"errors\": []\n}"
+  "body": "{\n  \"ok\": true,\n  \"scanned\": 2,\n  \"rerendered\": 2,\n  \"errors\": []\n}"
 }
