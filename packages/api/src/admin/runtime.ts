@@ -819,6 +819,25 @@ app.get("/debug-home-timing", async (c) => {
       one(c.env.DB, "SELECT COUNT(*) AS n FROM pages WHERE user_id = ?", [userId]),
     "edges.count": () =>
       one(c.env.DB, "SELECT COUNT(*) AS n FROM edges WHERE user_id = ?", [userId]),
+    "quotes.count": () =>
+      one(c.env.DB, "SELECT COUNT(*) AS n FROM quotes WHERE user_id = ?", [userId]),
+    "support.cte.only": () =>
+      one(
+        c.env.DB,
+        `WITH support AS (
+           SELECT q.id AS quote_id, q.node_id AS supported_node FROM quotes q WHERE q.user_id = ?
+           UNION
+           SELECT q.id AS quote_id, e.dst_node_id AS supported_node
+             FROM quotes q JOIN edges e ON e.src_node_id = q.node_id
+            WHERE q.user_id = ? AND e.user_id = ?
+           UNION
+           SELECT q.id AS quote_id, e.src_node_id AS supported_node
+             FROM quotes q JOIN edges e ON e.dst_node_id = q.node_id
+            WHERE q.user_id = ? AND e.user_id = ?
+         )
+         SELECT COUNT(*) AS n FROM support`,
+        [userId, userId, userId, userId, userId],
+      ),
   };
 
   const fn = queries[which];
