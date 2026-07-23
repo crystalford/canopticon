@@ -821,6 +821,12 @@ app.get("/debug-home-timing", async (c) => {
       one(c.env.DB, "SELECT COUNT(*) AS n FROM edges WHERE user_id = ?", [userId]),
     "quotes.count": () =>
       one(c.env.DB, "SELECT COUNT(*) AS n FROM quotes WHERE user_id = ?", [userId]),
+    "nodes.indexes": () =>
+      all(
+        c.env.DB,
+        "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='nodes'",
+        [],
+      ),
     "subjects.sources.subquery": () =>
       all(
         c.env.DB,
