@@ -278,7 +278,7 @@ async function renderNeutral(
     : contestedBlock;
   const provenanceBlock = renderProvenance(sourceCount, hasSignedReading, page);
   const modeBand = renderModeBand(page.slug, "neutral", hasSignedReading, page);
-  // The remaining eight arrangement types (spec v2.6 Part 6) don't have a
+  // The remaining arrangement types (spec v2.6 Part 6) don't have a
   // bespoke embedded section on this page the way established/contested/
   // timeline/connections do — but per Part 13 they're still meant to be
   // "reached through the subject page they belong to," not just by search
@@ -291,6 +291,7 @@ async function renderNeutral(
   <div class="mv-links">
     <a href="/d/${escapeAttr(page.slug)}">Definition</a>
     <a href="/w/${escapeAttr(page.slug)}">Who's-who</a>
+    <a href="/b/${escapeAttr(page.slug)}">Bibliography</a>
     <a href="/stat/${escapeAttr(page.slug)}">Statistics</a>
     <a href="/f/${escapeAttr(page.slug)}">FAQ</a>
     <a href="/l/${escapeAttr(page.slug)}">Ledger</a>

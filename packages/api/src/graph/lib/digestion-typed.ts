@@ -81,7 +81,7 @@ const HARD_EXTRACTION_PROMPT = `You read a research document plus a MENU of node
 
 Schema:
 {
-  "relationships": [{ "src_lid": "e1", "dst_lid": "e2", "type": "owns|funded|appointed|employed_by|controls|member_of|other", "source_quote": "..." }],
+  "relationships": [{ "src_lid": "e1", "dst_lid": "e2", "type": "owns|funded|appointed|employed_by|controls|member_of|authored|other", "source_quote": "..." }],
   "evidential":    [{ "src_lid": "f1", "dst_lid": "a1", "type": "supports|contradicts|corroborates|rebuts|undercuts" }],
   "temporal":      [{ "src_lid": "ev1", "dst_lid": "ev2", "type": "before|after|during|coincides_with" }]
 }
@@ -89,6 +89,7 @@ Schema:
 Rules:
 - Use ONLY the lids from the MENU. Do not invent new nodes.
 - relationships connect two ENTITIES. evidential connects a fact/assertion to an assertion it supports or contradicts (contradiction is the contested-claim signal — find these). temporal connects two events.
+- If a "work" entity (a book, article, film, album — see the entities schema) has a named creator among the entities, link them with type "authored": src is the creator, dst is the work.
 - "source_quote" on relationships MUST be a literal substring of the document. Omit it rather than paraphrase.
 - Omit any array with no entries. Quality over quantity — only assert a link the document actually supports.`;
 

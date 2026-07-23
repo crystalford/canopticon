@@ -435,6 +435,14 @@ app.get("/w/:slug", async (c) => {
   return htmlResponse(html);
 });
 
+// `/b/:slug` — Bibliography / body-of-work (ItemList of CreativeWork JSON-LD).
+app.get("/b/:slug", async (c) => {
+  const { renderBibliographyPage } = await import("./render/arrangements/bibliography");
+  const html = await renderBibliographyPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
 // `/c/:slug` — Comparison matrix (Table + ClaimReview JSON-LD). Scaffold
 // rendering only — the graph isn't yet tagged with comparison-shaped data,
 // so this currently always renders its honest empty state. Real query
