@@ -8,7 +8,7 @@
 
 import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
-import { one } from "../lib/d1";
+import { all, one } from "../lib/d1";
 import { getPieceBySlug, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
 import { renderBriefPage } from "./render/brief";
@@ -138,14 +138,15 @@ function formatRelativeTime(iso: string): string {
   return `${days}d ago`;
 }
 
-// Favicon — a tight monogram in the amber accent. The "canopticon." brand
-// is the wordmark + a dot in --amber; we lean on the dot. Served as SVG
-// (vector, recolors well in dark/light) with an .ico fallback that the
-// browser resolves to the same SVG via the alternate icon hint.
+// Favicon — a tight monogram in the accent color. The "canopticon." brand
+// is the wordmark + a dot in the cool-blue accent; we lean on the dot.
+// Served as SVG (vector, recolors well in dark/light) with an .ico
+// fallback that the browser resolves to the same SVG via the alternate
+// icon hint.
 const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="6" fill="#0c0d10"/>
   <text x="16" y="22" font-family="Geist,system-ui,sans-serif" font-weight="700" font-size="20" letter-spacing="-1.2" text-anchor="middle" fill="#eceef2">c</text>
-  <circle cx="24.5" cy="22" r="1.9" fill="#e09a3a"/>
+  <circle cx="24.5" cy="22" r="1.9" fill="#5d8bc6"/>
 </svg>`;
 
 app.get("/favicon.svg", () => {
@@ -173,6 +174,58 @@ app.get("/styles.css", () => {
       "content-type": "text/css; charset=utf-8",
       "cache-control": "public, max-age=31536000, immutable",
       "x-styles-hash": stylesHash(),
+    },
+  });
+});
+
+// robots.txt + sitemap.xml — the entire GEO strategy (12 Arrangement types
+// per subject, all with their own schema.org markup) depends on crawlers
+// being able to enumerate the site; before this, there was nothing to
+// enumerate against. /op/* stays disallowed (Cloudflare Access gates it
+// anyway, but no reason to advertise it to a crawler).
+app.get("/robots.txt", () => {
+  return new Response(
+    ["User-agent: *", "Disallow: /op/", "Sitemap: https://canopticon.com/sitemap.xml", ""].join(
+      "\n",
+    ),
+    {
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "public, max-age=3600",
+      },
+    },
+  );
+});
+
+app.get("/sitemap.xml", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  const staticUrls = ["/", "/topics", "/investigations", "/library", "/method", "/how-it-works"];
+  let pageUrls: Array<{ loc: string; lastmod: string }> = [];
+  if (userId) {
+    const rows = await all<{ slug: string; updated_at: string; signed_status: string }>(
+      c.env.DB,
+      "SELECT slug, updated_at, signed_status FROM pages WHERE user_id = ? ORDER BY updated_at DESC LIMIT 5000",
+      [userId],
+    ).catch(() => []);
+    pageUrls = rows.flatMap((r) => {
+      const urls = [{ loc: `/s/${r.slug}`, lastmod: r.updated_at.slice(0, 10) }];
+      if (r.signed_status === "published") {
+        urls.push({ loc: `/s/${r.slug}?mode=signed`, lastmod: r.updated_at.slice(0, 10) });
+      }
+      return urls;
+    });
+  }
+  const urlEntries = [...staticUrls.map((loc) => ({ loc, lastmod: "" })), ...pageUrls]
+    .map(
+      (u) =>
+        `  <url><loc>https://canopticon.com${u.loc}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ""}</url>`,
+    )
+    .join("\n");
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlEntries}\n</urlset>\n`;
+  return new Response(xml, {
+    headers: {
+      "content-type": "application/xml; charset=utf-8",
+      "cache-control": "public, max-age=3600",
     },
   });
 });

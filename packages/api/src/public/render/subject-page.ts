@@ -329,6 +329,14 @@ async function renderNeutral(
   // BRAVE_SEARCH_API_KEY set as a Worker secret, the action no-ops and logs
   // an event saying so — the affordance is real even before the key lands.
   const isThin = established.length + events.length + contested.length < 5;
+  // Reader-facing, not operator-only: a thin file looks identical to a
+  // developed one in every list view unless something says otherwise. This
+  // is that something — honest about how little is on file yet, using the
+  // redaction-bar motif (the one sanctioned decorative device) to signal
+  // "still filling in" rather than "broken" or "empty by mistake."
+  const thinNote = isThin
+    ? `<div class="thin-note">This file is still developing — ${sourceCount.count} source${sourceCount.count === 1 ? "" : "s"} on record so far <span class="redact-bar" style="width:64px"></span> more may surface as the record grows.</div>`
+    : "";
   const opAffordance =
     isOperator && isThin
       ? `<form method="POST" action="/op/records/${escapeAttr(page.slug)}/expand" class="op-aff" style="display:flex">
@@ -369,6 +377,7 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
       updatedAt: page.updated_at,
       signedHref: hasSignedReading ? `/p/${escapeAttr(page.slug)}?mode=signed` : null,
     })}
+    ${thinNote}
   </header>
 
   <div class="subject-grid">

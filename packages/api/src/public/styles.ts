@@ -1371,6 +1371,9 @@ main { max-width: 1060px; margin: 0 auto; padding: 34px 20px 70px; }
 .file-row .grew { font-size: 12.5px; color: var(--ink-3); line-height: 1.45; }
 .file-row .grew .plus { font-family: var(--mono); color: var(--confirmed); }
 .file-row .grew .fed { font-family: var(--mono); font-size: 10.5px; color: var(--ink-mute); display: block; margin-top: 2px; }
+.file-row.thin, .cardlink.thin { opacity: .6; transition: opacity .12s; }
+.file-row.thin:hover, .cardlink.thin:hover { opacity: 1; }
+.file-row .fname .chip.draft, .card-type .chip.draft { margin-left: 8px; vertical-align: middle; }
 
 /* ---- evidence rows ---- */
 .ev-row {
@@ -1649,10 +1652,28 @@ details.seam-file:not([open]) .open-tag .when-open { display: none; }
 .thin-note {
   border: 1px dashed var(--ink-faint); border-radius: var(--r); padding: 13px 16px;
   font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); line-height: 1.7; max-width: var(--measure);
+  margin-top: 16px;
 }
 .thin-note .redact-bar { margin: 0 3px; }
 a.plain { border-bottom: 1px solid var(--accent-bd); color: var(--ink-2); }
 a.plain:hover { color: var(--accent-2); }
+
+/* ============================================================================
+   PRINT — investigations and files are meant to be citable forensic
+   documents; a reader saving one to PDF should get the argument and its
+   receipts, not the chrome around them.
+   ============================================================================ */
+@media print {
+  body { background: #fff; color: #111; }
+  .nav, .pub-footer, .foot, .rail, .rail-kbd, .top-strip, .mode-toggle,
+  .op-aff, .expand-banner, form, button, .btn, .cmdk-scrim,
+  .onward, .more-views { display: none !important; }
+  a { color: inherit; text-decoration: underline; }
+  .container, .subject-grid, .analysis, .prose, .md-body { max-width: 100% !important; }
+  .stamp, .foundation, .depth, .chain { box-shadow: none !important; border: 1px solid #999; }
+  .subject-grid { display: block !important; }
+  .subject-side { margin-top: 24px; }
+}
 
 `;
 

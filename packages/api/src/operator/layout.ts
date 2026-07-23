@@ -149,9 +149,18 @@ function renderRail(activeHref: string, nubs: Set<string>): string {
 </a>`;
   }).join("");
 
+  // OP_NAV is empty on purpose (see header comment) — without something in
+  // its place the rail reads as broken, not as "nothing to show here."
+  // A status line costs nothing and answers the one real question an
+  // empty rail raises: am I actually logged in as the operator right now?
+  const statusLine =
+    items.length > 0
+      ? items
+      : `<div class="rail-status"><span class="rail-status-dot"></span><span class="fl">Operating</span></div>`;
+
   return `<nav class="rail">
   <div class="rail-logo"><span class="word">canopticon</span><span class="dot">.</span></div>
-  <div class="rail-nav">${items}</div>
+  <div class="rail-nav">${statusLine}</div>
   <button class="rail-kbd" type="button" aria-label="Command palette (Cmd+K)">
     ${icon("search")}
     <span class="fl">Command</span>

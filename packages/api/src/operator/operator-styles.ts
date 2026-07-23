@@ -26,12 +26,18 @@ export const OPERATOR_CSS = String.raw`
   --rule:      #232530;
   --rule-2:    #2e3038;
   --rule-bright:#3a3d49;
-  /* the one warm accent — amber/saffron */
-  --amber:     #e09a3a;
-  --amber-hi:  #f2b04f;
-  --amber-bg:  rgba(224,154,58,0.11);
-  --amber-bg-2:rgba(224,154,58,0.16);
-  --amber-bd:  rgba(224,154,58,0.34);
+  /* the one accent — cool blue, matching the public site's --op-accent.
+     Named --amber for historical reasons (lifted from an older warm-amber
+     design bundle); the brand decision that survived is "the dark
+     instrument becomes everyone's ground... amber reads warm, the brand
+     is cold" (canopticon-renovation.md), so the VALUE is blue even though
+     every call site below still reads var(--amber). Same pattern as
+     --serif being aliased to the sans stack a few lines up. */
+  --amber:     #5d8bc6;
+  --amber-hi:  #7ea6d8;
+  --amber-bg:  rgba(93,139,198,0.11);
+  --amber-bg-2:rgba(93,139,198,0.16);
+  --amber-bd:  rgba(93,139,198,0.34);
   /* finding type hues — quiet, used only on badges/edges */
   --c-pattern: #74aef0;  --c-pattern-bg: rgba(116,174,240,0.12);  --c-pattern-bd: rgba(116,174,240,0.28);
   --c-contra:  #d97b6e;  --c-contra-bg:  rgba(217,123,110,0.12);  --c-contra-bd:  rgba(217,123,110,0.30);
@@ -98,6 +104,15 @@ svg { flex-shrink: 0; max-width: 100%; }
 }
 .rail-logo .dot { color: var(--amber); }
 .rail-nav { display: flex; flex-direction: column; gap: 2px; }
+.rail-status {
+  display: flex; align-items: center; gap: 9px; padding: 8px 10px;
+  color: var(--ink-3); font-size: 12px; font-family: var(--mono);
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.rail-status-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-bg); animation: pulse 1.8s ease-in-out infinite; flex-shrink: 0;
+}
 .rail-item {
   display: flex; align-items: center; gap: 11px; padding: 8px 10px;
   border-radius: 7px; color: var(--ink-3); font-size: 13.5px; font-weight: 500;
@@ -432,7 +447,7 @@ svg { flex-shrink: 0; max-width: 100%; }
   border: 1px solid var(--amber-bd); color: var(--amber-hi); background: var(--amber-bg);
 }
 .verb-promote:hover { background: var(--amber-bg-2); }
-.verb-promote.done { background: var(--amber); color: #1a1206; border-color: var(--amber); }
+.verb-promote.done { background: var(--amber); color: #fff; border-color: var(--amber); }
 .verb-wave { margin-left: auto; color: var(--faint); border-color: transparent; padding: 5px 9px; }
 .verb-wave:hover { color: var(--ink-3); border-color: var(--rule-2); background: transparent; }
 
@@ -525,8 +540,8 @@ svg { flex-shrink: 0; max-width: 100%; }
 .btn-danger-ghost:hover { border-color: var(--c-contra-bd); color: var(--c-contra); }
 .btn-amber { background: var(--amber-bg); border-color: var(--amber-bd); color: var(--amber-hi); flex: 1; justify-content: center; }
 .btn-amber:hover { background: var(--amber-bg-2); border-color: var(--amber); color: var(--amber-hi); }
-.btn-amber.solid { background: var(--amber); color: #1a1206; border-color: var(--amber); }
-.btn-amber.solid:hover { background: var(--amber-hi); color: #1a1206; }
+.btn-amber.solid { background: var(--amber); color: #fff; border-color: var(--amber); }
+.btn-amber.solid:hover { background: var(--amber-hi); color: #fff; }
 
 /* generate */
 .gen-grid { display: grid; grid-template-columns: 1fr; gap: 18px; margin-bottom: 20px; }
@@ -582,8 +597,8 @@ svg { flex-shrink: 0; max-width: 100%; }
 .btn-ghost:hover { border-color: var(--rule-bright); color: var(--ink-2); background: var(--raised); }
 .btn-ghost svg { width: 12px; height: 12px; }
 .btn-audio { margin-left: auto; color: var(--mute); }
-.btn-use { background: var(--amber); color: #1a1206; border: 1px solid var(--amber); font-weight: 500; }
-.btn-use:hover { background: var(--amber-hi); color: #1a1206; }
+.btn-use { background: var(--amber); color: #fff; border: 1px solid var(--amber); font-weight: 500; }
+.btn-use:hover { background: var(--amber-hi); color: #fff; }
 
 .studio-empty { text-align: center; padding: 50px 20px; color: var(--mute); }
 .studio-empty .se-ico { width: 38px; height: 38px; margin: 0 auto 14px; color: var(--faint); }
@@ -994,7 +1009,7 @@ svg { flex-shrink: 0; max-width: 100%; }
 /* Finding card: single verb */
 .verb-studio { background: var(--amber-bg); border-color: var(--amber-bd) !important; color: var(--amber-hi) !important; }
 .verb-studio:hover { background: var(--amber-bg-2) !important; }
-.verb-studio.done { background: var(--amber) !important; color: #1a1206 !important; border-color: var(--amber) !important; }
+.verb-studio.done { background: var(--amber) !important; color: #fff !important; border-color: var(--amber) !important; }
 
 /* responsive */
 @media (max-width: 820px) {

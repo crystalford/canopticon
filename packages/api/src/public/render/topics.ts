@@ -95,8 +95,9 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
 
   const subjectCard = (s: (typeof subjects)[number], kindLabel: string): string => {
     const isSigned = s.signed_status === "signed" || s.signed_status === "published";
-    return `<a class="cardlink" href="/s/${escapeHtml(s.slug)}">
-  <div class="card-type t-${escapeHtml(s.kind)}">${escapeHtml(kindLabel)}${isSigned ? " · signed" : ""}</div>
+    const thin = s.source_count <= 1;
+    return `<a class="cardlink${thin ? " thin" : ""}" href="/s/${escapeHtml(s.slug)}">
+  <div class="card-type t-${escapeHtml(s.kind)}">${escapeHtml(kindLabel)}${isSigned ? " · signed" : ""}${thin ? ' <span class="chip draft">developing</span>' : ""}</div>
   <div class="card-title">${escapeHtml(s.label)}</div>
   <div class="card-dek">${s.source_count} source${s.source_count === 1 ? "" : "s"}</div>
 </a>`;

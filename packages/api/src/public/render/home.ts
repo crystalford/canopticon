@@ -603,13 +603,14 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
   <div class="sec-h"><span class="label">Browse the record</span><span class="coord">${subjects.length} SUBJECT${subjects.length === 1 ? "" : "S"} <span class="sep">·</span> <a href="/search" class="plain" style="font-family:var(--mono)">ASK THE RECORD →</a></span></div>
   <div class="file-list">
     ${subjects
-      .map(
-        (s) => `<a class="file-row" href="${buildHref(s)}">
-  <div><div class="fname">${escapeHtml(s.label)}<span class="kind">${escapeHtml(kindChip(s.kind))}</span></div>
+      .map((s) => {
+        const thin = s.sources <= 1;
+        return `<a class="file-row${thin ? " thin" : ""}" href="${buildHref(s)}">
+  <div><div class="fname">${escapeHtml(s.label)}<span class="kind">${escapeHtml(kindChip(s.kind))}</span>${thin ? '<span class="chip draft">developing</span>' : ""}</div>
   <div class="coord fcoord">OPENED ${escapeHtml(s.opened_at.slice(0, 10))} <span class="sep">·</span> UPDATED ${escapeHtml(s.updated_at.slice(0, 10))}</div></div>
   <div class="grew">${intentChip(s.intent)}${s.thesis ? escapeHtml(s.thesis.slice(0, 90)) : `${s.sources} source${s.sources === 1 ? "" : "s"}`}</div>
-</a>`,
-      )
+</a>`;
+      })
       .join("")}
   </div>
 </div>`
