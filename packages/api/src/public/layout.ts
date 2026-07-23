@@ -136,8 +136,10 @@ function renderFooter(): string {
     <div class="foot-links">
       <a href="/">The Record</a>
       <a href="/investigations">Investigations</a>
+      <a href="/watchlist">Watchlist</a>
       <a href="/library">Library</a>
       <a href="/method">Method</a>
+      <a href="/how-it-works">How this works</a>
       <a href="/search">Search</a>
     </div>
   </div>

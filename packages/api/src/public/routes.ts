@@ -74,39 +74,60 @@ app.use("*", async (c, next) => {
 // (layout.ts renderNav) never had a way to point back at /op/*, so once
 // logged in, the only path into the operator console was already knowing
 // to type the URL. Rather than thread isOperator through every render
-// function's signature, this rewrites the rendered nav in one place: when
-// the session cookie resolves to the operator, splice an "operator" link
-// in ahead of the search affordance. No-ops (and costs one extra
-// html.includes check) on every anonymous request.
+// function's signature, this rewrites the rendered page in one place: when
+// the session cookie resolves to the operator, splice a separate strip
+// above the public nav. No-ops (and costs one extra html.includes check)
+// on every anonymous request.
 //
-// Same pass also splices in a live work-status badge — "the record has no
-// idea whether it's still doing anything" was a direct complaint: extraction
-// and the settle pipeline all run in the background with zero UI signal, so
-// the only way to tell was asking me to query the admin API by hand all
-// session. digest_jobs already tracks queued/running/completed with
-// timestamps; this just reads it. Operator-only, same reasoning as the nav
-// link — this is operational state, not editorial content for readers.
+// This used to splice operator links directly INTO .nav-links, at the same
+// visual weight as Record/Investigations/Watchlist/Method and reusing the
+// public search box's class with ad hoc inline color overrides — the
+// public nav and operator tools became indistinguishable, both structurally
+// and visually. Operator tools now render in their own dim strip ABOVE
+// <nav>; the public nav (.nav-links) is never touched. "How this works" is
+// public, not an operator tool — it moved to the public footer instead of
+// living here.
+//
+// The status badge answers "the record has no idea whether it's still
+// doing anything" — extraction and the settle pipeline run in the
+// background with zero UI signal otherwise. digest_jobs already tracks
+// queued/running/completed with timestamps; this just reads it.
 app.use("*", async (c, next) => {
   await next();
   if (!c.get("is_operator")) return;
   const res = c.res;
   if (!res || !(res.headers.get("content-type") ?? "").includes("text/html")) return;
   const html = await res.text();
-  if (!html.includes('class="nav-search"')) {
+  if (!html.includes('<nav class="nav">')) {
     c.res = new Response(html, { status: res.status, headers: res.headers });
     return;
   }
-  const statusBadge = await renderWorkStatusBadge(c.env.DB).catch(() => "");
-  const injected = html.replace(
-    '<a href="/search" class="nav-search">',
-    `${statusBadge}<a href="/op/library" class="nav-search" style="color:var(--accent,#5d8bc6)">operator →</a>\n      <a href="/how-it-works" class="nav-search">how this works</a>\n      <a href="/citations" class="nav-search">citations</a>\n      <a href="/search" class="nav-search">`,
-  );
+  // Named op-topbar, not op-strip — investigations.ts's library rendering
+  // already owns .op-strip for an unrelated per-page bulk-extract card;
+  // reusing the name would have collided two different components under
+  // one class in the cascade.
+  // "operator →" always renders, status data or not — the console needs
+  // to be reachable from any page, not conditional on digest_jobs having
+  // rows (a fresh/idle corpus with nothing ever queued yet still needs a
+  // way in without knowing the URL by heart).
+  const status = await renderWorkStatusBadge(c.env.DB).catch(() => null);
+  const statusHtml = status
+    ? `<span class="op-topbar-status${status.live ? " live" : ""}"><span class="op-topbar-dot"></span><span title="${status.title}">${status.text}</span></span>`
+    : "";
+  const opTopbar = `<div class="op-topbar"><div class="op-topbar-inner"><span class="op-topbar-tag">Operator</span><a href="/op/library">operator →</a>${statusHtml}<div class="op-topbar-right"><a href="/v1/admin/runtime">runtime</a><a href="/citations">citations</a><a href="/auth/logout">sign out</a></div></div></div>\n`;
+  const injected = html.replace('<nav class="nav">', `${opTopbar}<nav class="nav">`);
   c.res = new Response(injected, { status: res.status, headers: res.headers });
 });
 
-async function renderWorkStatusBadge(db: D1Database): Promise<string> {
+interface WorkStatus {
+  text: string;
+  title: string;
+  live: boolean;
+}
+
+async function renderWorkStatusBadge(db: D1Database): Promise<WorkStatus | null> {
   const userId = await resolveOperatorId(db);
-  if (!userId) return "";
+  if (!userId) return null;
   const active = await one<{ n: number }>(
     db,
     "SELECT COUNT(*) AS n FROM digest_jobs WHERE user_id = ? AND status IN ('queued','running')",
@@ -114,16 +135,24 @@ async function renderWorkStatusBadge(db: D1Database): Promise<string> {
   ).catch(() => null);
   const activeCount = active?.n ?? 0;
   if (activeCount > 0) {
-    return `<a href="/op/library" class="nav-search" style="color:var(--accent,#5d8bc6)" title="click to see what's running, per document">⟳ working — ${activeCount} in progress</a>\n      `;
+    return {
+      text: `working — ${activeCount} in progress`,
+      title: "click to see what's running, per document",
+      live: true,
+    };
   }
   const last = await one<{ updated_at: string | null }>(
     db,
     "SELECT MAX(updated_at) AS updated_at FROM digest_jobs WHERE user_id = ?",
     [userId],
   ).catch(() => null);
-  if (!last?.updated_at) return "";
+  if (!last?.updated_at) return null;
   const ago = formatRelativeTime(last.updated_at);
-  return `<a href="/op/library" class="nav-search" style="color:var(--ink-mute,#666873)" title="nothing queued or running right now — click for the full extraction log">idle — ${ago}</a>\n      `;
+  return {
+    text: `idle — ${ago}`,
+    title: "nothing queued or running right now — click for the full extraction log",
+    live: false,
+  };
 }
 
 function formatRelativeTime(iso: string): string {

@@ -1476,9 +1476,9 @@ function renderModeBand(
     isDraft && current === "signed"
       ? `<div class="reveal-draft-note">You are previewing an unpublished draft — not visible to public readers yet.</div>`
       : "";
-  return `<div class="reveal-tabs" role="tablist" aria-label="Neutral record or signed reading">
-  <a class="reveal-tab${current === "neutral" ? " on" : ""}" href="${neutralHref}" role="tab" aria-selected="${current === "neutral"}">On the record</a>
-  <a class="reveal-tab${current === "signed" ? " on" : ""}" href="${signedHref}" role="tab" aria-selected="${current === "signed"}">${isDraft ? "The reading — draft" : "The reading"}</a>
+  return `<div class="reveal-tabs" role="tablist" aria-label="Facts or analysis">
+  <a class="reveal-tab${current === "neutral" ? " on" : ""}" href="${neutralHref}" role="tab" aria-selected="${current === "neutral"}">Facts</a>
+  <a class="reveal-tab${current === "signed" ? " on" : ""}" href="${signedHref}" role="tab" aria-selected="${current === "signed"}">${isDraft ? "Analysis — draft" : "Analysis"}</a>
 </div>
 ${draftNote}`;
 }

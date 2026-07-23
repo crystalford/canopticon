@@ -153,14 +153,17 @@ async function draftOne(
 
   // Short ids the small model can echo (UUIDs get mangled).
   const quotes = new Map<string, GroundQuote>();
+  const shortToReal = new Map<string, string>();
   rawQuotes.forEach((r, i) => {
-    quotes.set(`q${i + 1}`, {
-      id: `q${i + 1}`,
+    const shortId = `q${i + 1}`;
+    quotes.set(shortId, {
+      id: shortId,
       text: r.verbatim_text,
       node_kind: r.node_kind,
       actor: r.actor,
       stance: r.stance,
     });
+    shortToReal.set(shortId, r.quote_id);
   });
 
   const factLines: string[] = [];
@@ -349,6 +352,16 @@ Draft the signed reading. Find the thesis the facts actually support.`,
   const { renderMarkdown } = await import("../../cms/lib/render-post");
   const now = new Date().toISOString();
 
+  // The writer's raw output still has [q3] / [q2, q8]-style markers in it —
+  // nothing converted those into real citations before this point, so a
+  // reader would see the literal bracket text on the page (confirmed live,
+  // e.g. canopticon.com/p/larry-fink?mode=signed). Turn each surviving
+  // marker into a real numbered link to its quote receipt; a marker whose
+  // claim didn't survive verbatim-check + firewall + judge gets dropped
+  // entirely rather than left as a naked, unverifiable citation.
+  const passedShort = new Set(judgePassed.map((c) => c.quote_id));
+  const bodyMd = applyCitationMarkers(parsed.body_md, shortToReal, passedShort);
+
   await run(
     env.DB,
     `UPDATE pages SET thesis = ?, intent = ?, body_md = ?, body_html = ?, confidence = ?,
@@ -358,8 +371,8 @@ Draft the signed reading. Find the thesis the facts actually support.`,
     [
       parsed.thesis.slice(0, 400),
       intent,
-      parsed.body_md,
-      renderMarkdown(parsed.body_md),
+      bodyMd,
+      renderMarkdown(bodyMd),
       confidence,
       verified,
       killed,
@@ -401,6 +414,40 @@ function realQuoteId(
   text: string,
 ): string {
   return rawQuotes.find((r) => r.verbatim_text === text)?.quote_id ?? rawQuotes[0]?.quote_id ?? "";
+}
+
+/** Replace the writer's [qN] / [q2, q8] markers with real numbered links to
+ *  each quote's receipt (/q/:id) — using .cite-n, the footnote-marker class
+ *  that already existed in styles.ts with nothing rendering it. A marker
+ *  citing only killed/unpassed ids is dropped entirely, not left as bracket
+ *  text. Numbers are assigned in first-appearance order. Markdown passes
+ *  inline HTML through untouched, so this runs on body_md before
+ *  renderMarkdown() and the links survive into body_html for free. */
+export function applyCitationMarkers(
+  bodyMd: string,
+  shortToReal: Map<string, string>,
+  passedShort: Set<string>,
+): string {
+  const numberFor = new Map<string, number>();
+  let next = 1;
+  return bodyMd.replace(/\[\s*(q\d+(?:\s*,\s*q\d+)*)\s*\]/gi, (_match, group: string) => {
+    const links = group
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter((id) => passedShort.has(id))
+      .map((id) => {
+        const real = shortToReal.get(id);
+        if (!real) return "";
+        let n = numberFor.get(id);
+        if (n === undefined) {
+          n = next++;
+          numberFor.set(id, n);
+        }
+        return `<a class="cite-n" href="/q/${encodeURIComponent(real)}">${n}</a>`;
+      })
+      .filter(Boolean);
+    return links.join("");
+  });
 }
 
 /** Pull the sentence the writer built around a [qN] citation, so the

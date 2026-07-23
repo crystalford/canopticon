@@ -1277,6 +1277,24 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   padding: 5px 11px; background: var(--surface); transition: all .12s;
 }
 
+/* ---- op-topbar: a separate tier ABOVE the public nav, never inside it.
+   Distinguishing "what a reader sees" from "what the operator can also
+   do" was the whole point of splitting this out. Not .op-strip — that
+   name is already investigations.ts's per-page bulk-extract card. ---- */
+.op-topbar { background: var(--paper-3); border-bottom: 1px solid var(--rule); }
+.op-topbar-inner {
+  max-width: 1060px; margin: 0 auto; padding: 6px 20px;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .02em; color: var(--ink-mute);
+}
+.op-topbar-inner a { color: var(--ink-mute); transition: color .12s; }
+.op-topbar-inner a:hover { color: var(--accent-2); }
+.op-topbar-tag { color: var(--accent-2); letter-spacing: .1em; text-transform: uppercase; }
+.op-topbar-status { display: inline-flex; align-items: center; gap: 6px; }
+.op-topbar-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); }
+.op-topbar-status.live .op-topbar-dot { background: var(--confirmed); }
+.op-topbar-right { margin-left: auto; display: flex; gap: 16px; }
+
 /* ---- mobile nav: checkbox-hack toggle, no client JS ---- */
 .nav-toggle { position: absolute; opacity: 0; pointer-events: none; }
 .nav-burger { display: none; }
