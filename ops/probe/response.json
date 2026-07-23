@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-23T22:29:06Z",
-  "run_id": "30050027206",
+  "requested_at": "2026-07-23T23:04:29Z",
+  "run_id": "30052034479",
   "method": "GET",
-  "path": "/v1/admin/profiles-state",
+  "path": "/v1/admin/backfill-cost-whitelists?confirm=1",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"rows\": []\n}"
+  "body": "{\n  \"ok\": true,\n  \"checked\": 18,\n  \"inserted\": 11\n}"
 }
