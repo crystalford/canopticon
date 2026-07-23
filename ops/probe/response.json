@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-23T02:06:05Z",
-  "run_id": "29973516608",
+  "requested_at": "2026-07-23T02:07:12Z",
+  "run_id": "29973568573",
   "method": "GET",
-  "path": "/v1/admin/expand-test?subject=World%20Economic%20Forum&confirm=1",
+  "path": "/v1/admin/expand-status?subject=World%20Economic%20Forum",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"report\": {\n    \"subject\": \"World Economic Forum\",\n    \"configured\": true,\n    \"sources_found\": 6,\n    \"sources_fetched\": 1,\n    \"sources_banked\": 0,\n    \"errors\": [\n      \"fetch https://www.weforum.org/: http 403\",\n      \"empty or too short: https://www.youtube.com/worldeconomicforum\",\n      \"fetch https://www.instagram.com/WorldEconomicForum/?hl=en: http 429\",\n      \"empty or too short: https://x.com/wef\",\n      \"empty or too short: https://www.facebook.com/worldeconomicforum/\"\n    ],\n    \"banked_piece_ids\": []\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"status\": {\n    \"terminal\": true,\n    \"warn\": false,\n    \"line\": \"Searched and fetched, but nothing new to add — every source found was already on record or too thin to use.\",\n    \"factsAdded\": 0\n  }\n}"
 }
