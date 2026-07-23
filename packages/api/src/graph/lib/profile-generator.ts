@@ -27,7 +27,15 @@ import { applyCitationMarkers, extractClaimSentence } from "./draft-reading";
 
 const TOP_N_PER_RUN = 1;
 const MIN_QUOTES = 6;
-const GROUNDING_LIMIT = 200;
+// draft-reading.ts's equivalent grounding query uses LIMIT 40 and is
+// production-proven to finish inside one waitUntil's CPU/wall-clock budget.
+// An earlier version of this file used 200 (5x that) with the large_context
+// model — live-verified via the admin probe to silently never complete
+// (no settle_step_failed, no profiles.generated event, ever) — the same
+// "platform tears down the execution context, no catchable error" failure
+// settle-pipeline.ts's header comment warns about. 60 gives some extra
+// breadth over draft-reading's bar without repeating that mistake.
+const GROUNDING_LIMIT = 60;
 
 export interface GenerateProfilesReport {
   generated: number;
@@ -167,7 +175,7 @@ async function generateOne(
     }
   }
 
-  const out = await callRole(env, "large_context", {
+  const out = await callRole(env, "writer", {
     userId,
     system: `You write a COMPREHENSIVE, NEUTRAL PROFILE of a subject — organized prose covering everything established about it, grounded entirely in supplied facts.
 
@@ -203,7 +211,7 @@ Write the comprehensive profile.`,
         ],
       },
     ],
-    max_tokens: 6000,
+    max_tokens: 4000,
     response_schema: {
       type: "object",
       properties: {
@@ -301,7 +309,7 @@ Write the comprehensive profile.`,
         renderMarkdown(bodyMd),
         verified,
         killed,
-        modelForRole("large_context").model,
+        modelForRole("writer").model,
         modelForRole("judge").model,
         now,
         existingProfileId,
@@ -317,7 +325,7 @@ Write the comprehensive profile.`,
       claims_verified: verified,
       claims_killed: killed,
       status: "ready",
-      generate_model: modelForRole("large_context").model,
+      generate_model: modelForRole("writer").model,
       judge_model: modelForRole("judge").model,
       updated_at: now,
     });
