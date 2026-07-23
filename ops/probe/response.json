@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-23T00:10:57Z",
-  "run_id": "29968343543",
+  "requested_at": "2026-07-23T00:13:54Z",
+  "run_id": "29968483321",
   "method": "GET",
-  "path": "/v1/admin/debug-home-timing?which=nodes.indexes",
-  "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"which\": \"nodes.indexes\",\n  \"ms\": 13,\n  \"result\": [\n    {\n      \"name\": \"sqlite_autoindex_nodes_1\",\n      \"sql\": null\n    },\n    {\n      \"name\": \"nodes_user_kind_idx\",\n      \"sql\": \"CREATE INDEX nodes_user_kind_idx ON nodes (user_id, kind)\"\n    },\n    {\n      \"name\": \"nodes_label_idx\",\n      \"sql\": \"CREATE INDEX nodes_label_idx ON nodes (label)\"\n    },\n    {\n      \"name\": \"nodes_user_piece_idx\",\n      \"sql\": \"CREATE INDEX nodes_user_piece_idx ON nodes (user_id, piece_id)\"\n    },\n    {\n      \"name\": \"nodes_label_lower_idx\",\n      \"sql\": \"CREATE INDEX nodes_label_lower_idx ON nodes (lower(label))\"\n    }\n  ]\n}"
+  "path": "/v1/admin/debug-home-timing?which=subjects",
+  "status": 500,
+  "body": "{\n  \"error\": {\n    \"code\": \"internal_error\",\n    \"message\": \"Internal server error\",\n    \"trace_id\": \"df89f8fa-f4a1-4dbc-808c-79abe1f513f5\"\n  }\n}"
 }
