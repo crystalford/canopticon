@@ -1,6 +1,6 @@
 {
-  "requested_at": "2026-07-23T20:17:39Z",
-  "run_id": "30041476036",
+  "requested_at": "2026-07-23T20:20:34Z",
+  "run_id": "30041677586",
   "method": "GET",
   "path": "/v1/admin/event-log?type=profiles.generated",
   "status": 200,
