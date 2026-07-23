@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-23T02:07:12Z",
-  "run_id": "29973568573",
+  "requested_at": "2026-07-23T02:10:51Z",
+  "run_id": "29973720766",
   "method": "GET",
-  "path": "/v1/admin/expand-status?subject=World%20Economic%20Forum",
+  "path": "/v1/admin/expand-test?subject=World%20Economic%20Forum&confirm=1",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"status\": {\n    \"terminal\": true,\n    \"warn\": false,\n    \"line\": \"Searched and fetched, but nothing new to add — every source found was already on record or too thin to use.\",\n    \"factsAdded\": 0\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"report\": {\n    \"subject\": \"World Economic Forum\",\n    \"configured\": true,\n    \"sources_found\": 15,\n    \"sources_fetched\": 2,\n    \"sources_banked\": 1,\n    \"errors\": [\n      \"fetch https://www.weforum.org/: http 403\",\n      \"fetch https://exeterce.org/knowledge-hub/world-economic-forum-wef/: D1_ERROR: LIKE or GLOB pattern too complex: SQLITE_ERROR\",\n      \"fetch https://president.georgetown.edu/projects/archive/wef/: D1_ERROR: LIKE or GLOB pattern too complex: SQLITE_ERROR\",\n      \"fetch https://www.investopedia.com/terms/w/world-economic-forum.asp: http 403\"\n    ],\n    \"banked_piece_ids\": [\n      \"7c926b79-6970-474c-9428-a67628a3f800\"\n    ]\n  }\n}"
 }
