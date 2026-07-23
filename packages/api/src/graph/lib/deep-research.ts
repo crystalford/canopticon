@@ -194,17 +194,19 @@ function slugify(s: string): string {
     .slice(0, 96);
 }
 
+// Exact-match probing, not a LIKE prefix scan — see record-builder.ts's
+// ensureUniqueSlug for why (D1 threw "LIKE or GLOB pattern too complex"
+// live on this exact pattern shape).
 async function ensureUniqueSlug(db: D1Database, userId: string, base: string): Promise<string> {
   const slug = base || `research-brief-${Date.now()}`;
-  const existing = await one<{ slug: string }>(
-    db,
-    "SELECT slug FROM pieces WHERE user_id = ? AND slug LIKE ? ORDER BY slug DESC LIMIT 1",
-    [userId, `${slug}%`],
-  );
-  if (!existing) return slug;
-  const m = existing.slug.match(
-    new RegExp(`^${slug.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(?:-(\\d+))?$`),
-  );
-  const next = m?.[1] ? Number(m[1]) + 1 : 2;
-  return `${slug}-${next}`;
+  for (let n = 0; n < 50; n++) {
+    const candidate = n === 0 ? slug : `${slug}-${n + 1}`;
+    const existing = await one<{ id: string }>(
+      db,
+      "SELECT id FROM pieces WHERE user_id = ? AND slug = ? LIMIT 1",
+      [userId, candidate],
+    );
+    if (!existing) return candidate;
+  }
+  return `${slug}-${Date.now()}`;
 }

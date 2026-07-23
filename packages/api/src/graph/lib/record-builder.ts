@@ -607,19 +607,23 @@ function slugify(s: string): string {
     .slice(0, 96);
 }
 
+// Exact-match probing instead of a LIKE prefix scan — D1 threw
+// "LIKE or GLOB pattern too complex" live on some fetched page titles even
+// though the pattern was just `${slug}%` (slugify() only ever emits
+// [a-z0-9-], so it isn't a malformed-pattern issue on our end; whatever the
+// exact cause, exact-match sidesteps it entirely and is simpler besides).
 async function ensureUniqueSlug(db: D1Database, userId: string, base: string): Promise<string> {
   const slug = base || `web-${Date.now()}`;
-  const existing = await one<{ slug: string }>(
-    db,
-    "SELECT slug FROM pieces WHERE user_id = ? AND slug LIKE ? ORDER BY slug DESC LIMIT 1",
-    [userId, `${slug}%`],
-  );
-  if (!existing) return slug;
-  const m = existing.slug.match(
-    new RegExp(`^${slug.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(?:-(\\d+))?$`),
-  );
-  const next = m?.[1] ? Number(m[1]) + 1 : 2;
-  return `${slug}-${next}`;
+  for (let n = 0; n < 50; n++) {
+    const candidate = n === 0 ? slug : `${slug}-${n + 1}`;
+    const existing = await one<{ id: string }>(
+      db,
+      "SELECT id FROM pieces WHERE user_id = ? AND slug = ? LIMIT 1",
+      [userId, candidate],
+    );
+    if (!existing) return candidate;
+  }
+  return `${slug}-${Date.now()}`;
 }
 
 async function emit(
