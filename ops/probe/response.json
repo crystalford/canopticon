@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-23T02:17:30Z",
-  "run_id": "29974015459",
+  "requested_at": "2026-07-23T02:21:25Z",
+  "run_id": "29974185363",
   "method": "GET",
   "path": "/v1/admin/expand-status?subject=World%20Economic%20Forum",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"status\": {\n    \"terminal\": true,\n    \"warn\": false,\n    \"line\": \"Searched and fetched, but nothing new to add — every source found was already on record or too thin to use.\",\n    \"factsAdded\": 0\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"status\": {\n    \"terminal\": true,\n    \"warn\": false,\n    \"line\": \"Record expanded — 32 facts added from 2 sources.\",\n    \"factsAdded\": 32\n  }\n}"
 }
