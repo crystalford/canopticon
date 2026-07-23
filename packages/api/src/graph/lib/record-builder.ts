@@ -37,7 +37,37 @@ import { enqueueDigest } from "./digest-jobs";
 
 const BRAVE_SEARCH_ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
 const MAX_SOURCES_PER_EXPAND = 6;
+const SEARCH_POOL_SIZE = 15; // requested from Brave, before the low-yield filter below
 const MIN_TEXT_CHARS = 400; // skip pages that didn't yield real article text
+
+// Social/video platforms whose pages are either walled off from a plain
+// HTTP fetch (login/JS-rendered) or return no real article text even when
+// reachable. Confirmed live: for "World Economic Forum," Brave's top 6
+// results were the org's own site (403, bot-blocked) plus YouTube,
+// Instagram, X, and Facebook — none fetchable — so record-expand banked
+// nothing at all for one of the most obvious subjects someone would search
+// for. Filtering these out before spending a fetch attempt on them means
+// the fetch budget goes to sources that can actually work.
+const LOW_YIELD_DOMAINS = [
+  "youtube.com",
+  "youtu.be",
+  "instagram.com",
+  "facebook.com",
+  "twitter.com",
+  "x.com",
+  "tiktok.com",
+  "linkedin.com",
+  "pinterest.com",
+];
+
+function isLowYieldDomain(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    return LOW_YIELD_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+  } catch {
+    return false;
+  }
+}
 
 export interface ExpandReport {
   subject: string;
@@ -90,9 +120,9 @@ export async function expandRecord(
     return report;
   }
 
-  let results: BraveResult[];
+  let searchResults: BraveResult[];
   try {
-    results = await braveSearch(env.BRAVE_SEARCH_API_KEY, subjectLabel, MAX_SOURCES_PER_EXPAND);
+    searchResults = await braveSearch(env.BRAVE_SEARCH_API_KEY, subjectLabel, SEARCH_POOL_SIZE);
   } catch (err) {
     report.errors.push(`search failed: ${(err as Error).message}`);
     await emit(env, userId, "record.expand.failed", {
@@ -102,10 +132,16 @@ export async function expandRecord(
     });
     return report;
   }
-  report.sources_found = results.length;
+  report.sources_found = searchResults.length;
+  // Skip domains already known to never yield fetchable article text —
+  // spend the fetch budget on sources that can actually work.
+  const results = searchResults
+    .filter((r) => !isLowYieldDomain(r.url))
+    .slice(0, MAX_SOURCES_PER_EXPAND);
   await emit(env, userId, "record.expand.search_done", {
     subject: subjectLabel,
-    found: results.length,
+    found: searchResults.length,
+    usable: results.length,
   });
 
   // Process sources sequentially — fetch + bank only, each just an HTTP GET
