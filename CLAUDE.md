@@ -79,29 +79,46 @@ thesis pulling the facts into order.
 
 ## Surfaces
 
-### Operator console (`/op/*`) — three destinations
-- **IN** (`/op/library`): drop documents + the archive + per-row Extract. `/op`
-  redirects to OUT.
-- **OUT** (`/op/out`, the home): the single editorial stream — morning brief →
-  *awaiting your signature* (drafted readings: sign/edit/discard) → *the wiki
-  grew* → *worth your attention* (≤4 findings, substance gate) → *still chasing*
-  (inquiry threads) → silence line. `/op/out/refresh` re-runs the settle
-  pipeline (cheap steps inline, LLM steps in `waitUntil`).
-- **Studio** (`/op/studio`): rich-media transforms (Stage 1 scripts).
-- *Synthesis + Outputs routes still exist for deep oversight but are OFF the
-  rail — folded into OUT.*
+### Operator console (`/op/*`) — no destination list anymore
+"One site, permission layers" (spec v2.5 Part 9): operating Canopticon means
+logging in and browsing the *public* site — the same pages grow affordances
+(sign/edit/discard on a subject page, Extract buttons in Library, a
+work-status badge and a `citations`/`how this works` link spliced into the
+nav) rather than visiting a separate dashboard. `operator/layout.ts`'s
+`OP_NAV` rail is deliberately empty; there is no IN/OUT/Studio list to click
+through anymore — the redirects that used to send those clicks back to the
+public site are gone because the rail that pointed at them is gone.
+
+Genuinely reachable under `/op/*` today: `/op/design` (an unlinked, throwaway
+prototype), `/op/studio/:id` (a per-project Studio workspace, reached from a
+signed subject page's "Produce" button, not from a list), `/op/out/:id/edit`
+and `/op/outputs/:id/edit` (edit forms, reached contextually), and the
+POST-only action endpoints (`/op/records/:slug/expand`, `/op/library/extract`,
+`/op/out/:id/sign`, `/op/outputs/:id/build`, etc.) that the public-side
+operator affordances submit to. `⌘K` opens a command palette with the small
+set of destinations that still do something distinct: Library,
+Investigations, Citations, re-surface synthesis, the public site.
 
 ### Public site
-- **Home** (`/`): live fabric activity feed.
+- **Home** (`/`): live fabric activity feed — hero (the open file) → depth
+  stats → active files (what grew) → latest evidence → a short "browse the
+  record" teaser. Operator overlays (briefing, drafts awaiting signature,
+  findings, threads) weave into the same page when logged in.
 - **Subject pages** (`/s/:slug`, with `/p/:slug` fallthrough): the unified
   renderer. `?mode=signed` reveals the reading. Neutral mode emits schema.org
   JSON-LD + stable block anchors.
-- **Investigations** (`/investigations`): signed readings + outputs, intent
-  badges + `?intent=` filters.
-- **Topics** (`/topics`): the browsable doorway (Themes / Entities / Events).
+- **Investigations** (`/investigations`): signed readings only, intent
+  badges + `?intent=` filters. (The older `briefs` publishing pipeline that
+  used to also list here is sunset — see `graph/lib/settle-pipeline.ts`;
+  already-published briefs still resolve individually at `/briefs/:slug`.)
+- **Topics** (`/topics`): the canonical full browsable index (Themes /
+  People / Companies & other / Events) — the stable, grouped counterpart to
+  Home's short recency teaser.
 - **Library** (`/library`, `/library/:slug`): source documents, public by
-  default; each shows "what it fed the fabric".
-- `/record` → 301 `/topics`, `/patterns` → 301 `/investigations`.
+  default; each shows "what it fed the fabric". Reachable from the footer
+  and every receipt, not top nav — sources are evidence, not a nav pillar.
+- `/record` → 301 `/`, `/patterns` → 301 `/investigations`, `/sources` → 301
+  `/library`.
 
 ## Key files
 - `packages/api/src/index.ts` — Worker entry, cron.
@@ -109,12 +126,15 @@ thesis pulling the facts into order.
 - `packages/api/src/graph/lib/digestion.ts` + `digestion-typed.ts` — extraction
   into the typed graph (resumable, batched, verbatim-checked quotes).
 - `packages/api/src/graph/lib/digest-jobs.ts` — durable job queue + the
-  **corpus-settle gate** (surfacing L1 → themes → autoseed pages → proposer →
-  draft readings).
+  **corpus-settle gate** (entity/event dedup → surfacing L1 → themes →
+  autoseed pages → draft readings — see `settle-pipeline.ts`).
 - `packages/api/src/graph/lib/theme-surfacer.ts` · `surfacing.ts` ·
   `draft-reading.ts` · `autoseed-pages.ts`.
 - `packages/api/src/public/render/subject-page.ts` — unified subject page.
-- `packages/api/src/operator/screens/out-stream.ts` — the OUT stream.
+- `packages/api/src/operator/screens/out-stream.ts` — the sign/edit/discard
+  logic behind a drafted reading; its own GET screen is redirect-shadowed
+  (see Surfaces above), the actions it backs are live via
+  `operator/routes.ts`.
 - `supabase/migrations/` — typed graph (0026), piece_id index (0027), output
   layers (0029), themes+pages (0030).
 

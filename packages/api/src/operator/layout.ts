@@ -1,7 +1,16 @@
-// Operator console shell — six-surface IA per the operator-claude-code-handoff.
+// Operator console shell.
 //
-// Six surfaces in the calm, dark, keyboard-friendly instrument:
-// Feed · Chat · Synthesis · Library · Outputs · Studio
+// This used to be a six (then three)-destination console with its own nav
+// rail. It isn't anymore: "one site, permission layers" (spec v2.5 Part 9)
+// moved operating Canopticon onto the public site itself — the operator
+// logs in and the same pages grow affordances (sign/discard, Extract
+// buttons, the "operator" nav overlay in public/routes.ts) rather than
+// visiting a separate dashboard. The IN/OUT/Studio rail items that used to
+// live here all just redirected back to public pages before this file
+// caught up to that reality — see CLAUDE.md's Surfaces section for what's
+// actually still reachable under /op/* (a prototype page, per-project
+// workspaces, and POST action endpoints). OP_NAV is empty on purpose now,
+// not an oversight.
 //
 // Layout per the design bundle:
 //   168px rail (collapses to 60px under 820px), top bar (52px), surface area
@@ -52,18 +61,11 @@ export interface OpNavItem {
   nub?: boolean;
 }
 
-// The six surfaces, in the design's order. The handoff makes the order
-// itself meaningful: archive+intake (Library) → oversee (Synthesis) →
-// build-citable (Outputs) → produce (Studio).
-// Phase 2: the console is IN · OUT · Studio. OUT is the single stream where
-// the system surfaces what it wrote (Synthesis + Outputs folded into it). IN
-// is Library (drop + archive + extract). Synthesis/Outputs routes still exist
-// for deep oversight but are no longer primary destinations.
-export const OP_NAV: OpNavItem[] = [
-  { href: "/op/library", label: "IN", icon: "library" },
-  { href: "/op/out", label: "OUT", icon: "briefs" },
-  { href: "/op/studio", label: "Studio", icon: "studio" },
-];
+// No destination list — see the header comment above. renderRail() still
+// reads this (an empty array just renders no items), so a genuine console
+// screen with its own nav destinations remains possible later without
+// touching renderRail's shape again.
+export const OP_NAV: OpNavItem[] = [];
 
 export interface OpPageArgs {
   /** Top bar h1 — e.g. "Feed" */

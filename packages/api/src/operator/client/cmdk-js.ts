@@ -1,8 +1,14 @@
 // Command palette (⌘K / Ctrl+K). Vanilla JS, no framework, attached to
 // every operator surface via layout.ts. Opens a centered overlay with
 // a sectioned filterable list:
-//   Go to — each surface (Feed / Chat / Synthesis / Library / Briefs / Studio)
-//   Do    — re-surface, new chat conversation
+//   Go to — the real, live destinations (Library / Investigations /
+//           Citations / the public site)
+//   Do    — re-surface synthesis
+//
+// This used to list six separate console surfaces (Feed / Chat / Synthesis
+// / Library / Briefs / Studio); most of those now just redirect back to one
+// of the entries below (see operator/layout.ts's header comment for why) —
+// trimmed to what a click here actually still does something distinct.
 //
 // Arrow keys navigate; Enter runs; Esc closes. The trigger lives on
 // the rail's "Command" button (#rail-kbd) and the global keyboard
@@ -11,12 +17,9 @@
 export const CMDK_CLIENT_JS = String.raw`
 (function(){
   const ITEMS = [
-    { sec: "Go to", label: "Feed",       href: "/op" },
-    { sec: "Go to", label: "Chat",       href: "/op/chat" },
-    { sec: "Go to", label: "Synthesis",  href: "/op/synthesis" },
-    { sec: "Go to", label: "Library",    href: "/op/library" },
+    { sec: "Go to", label: "Library",        href: "/library" },
     { sec: "Go to", label: "Investigations", href: "/investigations" },
-    { sec: "Go to", label: "Studio",     href: "/op/studio" },
+    { sec: "Go to", label: "Citations",      href: "/citations" },
     { sec: "Do",    label: "Re-surface synthesis", action: "post", href: "/op/synthesis/surface", hint: "POST" },
     { sec: "Do",    label: "Public site",          href: "/", hint: "↗" },
   ];
