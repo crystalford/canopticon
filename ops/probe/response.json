@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-23T00:13:54Z",
-  "run_id": "29968483321",
+  "requested_at": "2026-07-23T00:16:12Z",
+  "run_id": "29968595620",
   "method": "GET",
   "path": "/v1/admin/debug-home-timing?which=subjects",
   "status": 500,
-  "body": "{\n  \"error\": {\n    \"code\": \"internal_error\",\n    \"message\": \"Internal server error\",\n    \"trace_id\": \"df89f8fa-f4a1-4dbc-808c-79abe1f513f5\"\n  }\n}"
+  "body": "{\n  \"ok\": false,\n  \"which\": \"subjects\",\n  \"ms\": 43,\n  \"error\": \"D1_ERROR: Wrong number of parameter bindings for SQL query.\"\n}"
 }
