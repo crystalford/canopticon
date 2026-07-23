@@ -1,8 +1,13 @@
 // Entity profile arrangement — `/profile/:slug`.
 //
-// A subject's typed attributes + key relationships, laid out as a quick
-// reference. Pure rendering — a couple of SQL queries against the typed
-// graph + an HTML template. No LLM at render time.
+// Two layers, both real: the structured attributes/relationships/facts
+// below are pure rendering (a couple of SQL queries + a template, no LLM
+// at render time) — that part hasn't changed. Above it, when one exists,
+// is the comprehensive narrative from graph/lib/profile-generator.ts —
+// the missing middle between the raw fact pile and the one-shot
+// argumentative reading: organized prose covering what's established,
+// not an argument. Generated ahead of time by the settle pipeline
+// (generate_profiles step), never at render time.
 
 import type { PublicEnv } from "../../data";
 import {
@@ -13,6 +18,23 @@ import {
   loadSubject,
   renderArrangementStandalone,
 } from "./shared";
+
+interface NarrativeProfile {
+  body_html: string;
+  updated_at: string;
+}
+
+async function loadNarrativeProfile(
+  env: PublicEnv,
+  nodeId: string,
+): Promise<NarrativeProfile | null> {
+  const { one } = await import("../../../lib/d1");
+  return one<NarrativeProfile>(
+    env.DB,
+    "SELECT body_html, updated_at FROM page_profiles WHERE subject_node_id = ? AND status = 'ready'",
+    [nodeId],
+  ).catch(() => null);
+}
 
 interface AttributeRow {
   key: string;
@@ -45,8 +67,9 @@ async function loadProfile(
   relationships: RelationshipRow[];
   facts: FactRow[];
   sourceCount: number;
+  narrative: NarrativeProfile | null;
 }> {
-  const [attributes, relationships, facts, sources] = await Promise.all([
+  const [attributes, relationships, facts, sources, narrative] = await Promise.all([
     all<AttributeRow>(
       env.DB,
       `SELECT key, value,
@@ -98,8 +121,9 @@ async function loadProfile(
                OR (e.dst_node_id = n.id AND e.src_node_id = ?)))`,
       [subject.userId, subject.nodeId, subject.nodeId, subject.nodeId],
     ).catch(() => []),
+    loadNarrativeProfile(env, subject.nodeId),
   ]);
-  return { attributes, relationships, facts, sourceCount: sources.length };
+  return { attributes, relationships, facts, sourceCount: sources.length, narrative };
 }
 
 /** Inner block — embedded in subject pages, also used by the standalone. */
@@ -107,8 +131,8 @@ export function renderProfileBlock(
   subject: SubjectContext,
   data: Awaited<ReturnType<typeof loadProfile>>,
 ): string {
-  const { attributes, relationships, facts, sourceCount } = data;
-  if (attributes.length === 0 && relationships.length === 0 && facts.length === 0) {
+  const { attributes, relationships, facts, sourceCount, narrative } = data;
+  if (attributes.length === 0 && relationships.length === 0 && facts.length === 0 && !narrative) {
     return `<section class="profile-empty">
   <p>No structured attributes or relationships extracted yet for ${escapeHtml(subject.label)}. The profile fills in as documents in the Library are read — entity type, key dates, employment, ownership, and so on.</p>
 </section>
@@ -116,6 +140,13 @@ export function renderProfileBlock(
   .profile-empty p { font-family: var(--serif); font-size: 15px; color: var(--ink-3); font-style: italic; max-width: 640px; margin: 0; }
 </style>`;
   }
+
+  const narrativeBlock = narrative
+    ? `<section class="profile-narrative">
+  <div class="sec-k">Profile</div>
+  <div class="profile-narrative-body">${narrative.body_html}</div>
+</section>`
+    : "";
 
   const attrRows = attributes.length
     ? `<section class="profile-attrs" data-schema="${schemaTypeFor(subject.kind)}">
@@ -168,6 +199,7 @@ export function renderProfileBlock(
       : "";
 
   return `<div class="profile-block">
+  ${narrativeBlock}
   ${attrRows}
   ${relRows}
   ${factRows}
@@ -182,6 +214,23 @@ export function renderProfileBlock(
     margin: 28px 0 14px;
   }
   .profile-block section:first-of-type .sec-k { margin-top: 0; }
+  .profile-narrative-body {
+    font-family: var(--serif);
+    font-size: 16.5px; line-height: 1.65;
+    color: var(--ink);
+    max-width: 720px;
+  }
+  .profile-narrative-body h2 {
+    font-family: var(--serif);
+    font-size: 15px; font-weight: 600;
+    letter-spacing: .02em;
+    color: var(--ink);
+    margin: 26px 0 10px;
+  }
+  .profile-narrative-body h2:first-child { margin-top: 0; }
+  .profile-narrative-body p { margin: 0 0 14px; }
+  .profile-narrative-body .cite-n { color: var(--accent); text-decoration: none; font-size: 11px; }
+  .profile-narrative-body .cite-n:hover { text-decoration: underline; }
   .profile-dl {
     display: grid;
     grid-template-columns: 180px 1fr;

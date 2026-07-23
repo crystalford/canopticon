@@ -1,8 +1,9 @@
 // The corpus-settle pipeline — one step at a time, always.
 //
-// Six steps run, in order, whenever the corpus needs to catch up: entity
+// Seven steps run, in order, whenever the corpus needs to catch up: entity
 // resolution -> event dedup -> surfacing -> theme detection -> page
-// autoseeding -> signed-reading drafts. These used to run chained together
+// autoseeding -> signed-reading drafts -> comprehensive-profile generation.
+// These used to run chained together
 // in one execution context every time the corpus went idle. Confirmed live
 // (twice, on the standalone admin /resettle endpoint before this module
 // existed) that chaining real LLM-calling steps this way reliably exceeds
@@ -36,6 +37,7 @@ export const SETTLE_STEPS_ORDER = [
   "theme_surfacer",
   "autoseed_pages",
   "draft_readings",
+  "generate_profiles",
 ] as const;
 
 export type SettleStepName = (typeof SETTLE_STEPS_ORDER)[number];
@@ -67,6 +69,10 @@ export const SETTLE_STEP_RUNNERS: Record<
   draft_readings: async (env, userId) => {
     const { draftReadings } = await import("./draft-reading");
     return draftReadings(env, userId);
+  },
+  generate_profiles: async (env, userId) => {
+    const { generateProfiles } = await import("./profile-generator");
+    return generateProfiles(env, userId);
   },
 };
 

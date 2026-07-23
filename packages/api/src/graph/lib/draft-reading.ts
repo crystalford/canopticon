@@ -599,8 +599,10 @@ export function applyCitationMarkers(
  *  independent judge can evaluate whether the quote supports what the
  *  writer wrote (not just whether the quote exists). Sentence boundary is
  *  the nearest paragraph break, period, or 200-char window. Falls back to
- *  empty so the caller can use the quote itself if nothing useful is found. */
-function extractClaimSentence(bodyMd: string, shortId: string): string {
+ *  empty so the caller can use the quote itself if nothing useful is found.
+ *  Exported for reuse by profile-generator.ts — same judging discipline,
+ *  same reason to want the actual sentence, not just the bare quote. */
+export function extractClaimSentence(bodyMd: string, shortId: string): string {
   if (!bodyMd || !shortId) return "";
   // Match [q3] or [Q3] or [ q3 ] — short ids are case-insensitive in the
   // writer prompt and the verifier already normalised them.
