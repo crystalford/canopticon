@@ -782,6 +782,31 @@ app.post("/search/research", async (c) => {
   return c.redirect(`/search?q=${encodeURIComponent(q)}&researching=1`);
 });
 
+// JSON status for the live-polling banner (public/render/status-banner.ts's
+// client script) — replaces the old <meta refresh> full-page-reload loop.
+// One endpoint covers both plain expand (no synthesis phase, so
+// getResearchStatus just passes getExpandStatus's line straight through)
+// and on-demand research (adds the synthesis phase getExpandStatus alone
+// can't see). c.req.query, not parseBody — this is a GET, polled every
+// ~1.5s from the client; a form POST per poll would be needless overhead.
+app.get("/research-status", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId)
+    return c.json({ terminal: true, warn: true, headline: "not signed in", steps: [] }, 401);
+  const q = c.req.query("q")?.trim() ?? "";
+  if (!q) return c.json({ terminal: true, warn: true, headline: "no query", steps: [] }, 400);
+  // kind=expand: plain "Expand this file" has no synthesis phase — a
+  // deep_research event for its label will never arrive, so
+  // getResearchStatus must not wait on one.
+  const includeSynthesis = c.req.query("kind") !== "expand";
+  const { getResearchStatus } = await import("../graph/lib/deep-research");
+  const status = await getResearchStatus(c.env, userId, q, { includeSynthesis }).catch(() => null);
+  if (!status) {
+    return c.json({ terminal: false, warn: false, headline: "Starting…", steps: [] });
+  }
+  return c.json(status);
+});
+
 // Re-render a single face on a signed reading. Triggered from the face's
 // "Retry" affordance on the signed subject page when a face is in failed
 // state (a Workers AI hiccup, a transient timeout). Fires the render in the

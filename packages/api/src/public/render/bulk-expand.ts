@@ -2,9 +2,12 @@
 // action, task #24's "what grew" summary. Operator-only: the trigger
 // itself is an operator POST (operator/routes.ts), this page just shows
 // what came of it. Reuses subject-page.ts's renderExpandBanner per
-// subject (same live per-subject narration the single-subject expand
-// banner already uses) plus a running total once every subject reports
-// completion — no new progress machinery, just composing what exists.
+// subject — each one now polls its own live status client-side
+// (status-banner.ts), so this page no longer meta-refreshes itself: doing
+// both would just reset every banner's in-flight poller every 5s, the
+// exact double-refresh jank the client-side poller was built to remove.
+// The aggregate "what grew" total below is a snapshot as of page load; a
+// manual reload picks up the final tally once every banner reports done.
 
 import type { Env } from "../../env";
 import { getExpandStatus } from "../../graph/lib/record-builder";
@@ -16,13 +19,13 @@ export async function renderBulkExpandResult(
   userId: string,
   subjects: string[],
 ): Promise<string> {
-  const banners = await Promise.all(subjects.map((s) => renderExpandBanner(env, userId, s)));
+  const banners = subjects.map((s) => renderExpandBanner(s));
 
   // "What grew" — sum real fact counts across every subject in this batch
   // whose run has reached a terminal state (search+bank done AND queued
   // extraction has actually landed or failed — see getExpandStatus).
-  // Subjects still in flight simply don't contribute yet; the page
-  // auto-refreshes (below) until they do.
+  // Subjects still in flight simply don't contribute yet — a snapshot as
+  // of this render, not live (see the file comment above).
   let totalFactsAdded = 0;
   let completedCount = 0;
   for (const subject of subjects) {
@@ -38,7 +41,7 @@ export async function renderBulkExpandResult(
     ? `<div class="bulk-summary bulk-summary-done">Done — <b>${totalFactsAdded}</b> new fact${totalFactsAdded === 1 ? "" : "s"} across ${subjects.length} subject${subjects.length === 1 ? "" : "s"}.</div>`
     : `<div class="bulk-summary">Expanding ${subjects.length} subjects — ${completedCount} of ${subjects.length} done so far.</div>`;
 
-  const body = `${allDone ? "" : '<meta http-equiv="refresh" content="5">'}
+  const body = `
 <section class="bulk-section">
   <h1 class="bulk-h1">Expanding the thinnest subjects</h1>
   ${summary}

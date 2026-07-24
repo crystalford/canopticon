@@ -20,6 +20,7 @@ import { renderMarkdown } from "../../cms/lib/render-post";
 import { all, one, parseJson } from "../../lib/d1";
 import { type PublicEnv, resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
+import { renderLiveStatusBanner } from "./status-banner";
 
 interface SubjectRow {
   node_id: string;
@@ -438,17 +439,15 @@ async function renderNeutral(
   const jsonLd = buildSubjectJsonLd(subject, page, established, events);
 
   // Expanding banner (spec v2.6 Part 26). Renders when ?expanding=1 is on
-  // the URL — the operator just clicked "Expand this Record" or refreshed
-  // mid-expansion. The banner reads recent record.expand.* events for this
-  // subject from orchestrator_events and narrates the latest stage in
-  // plain English. Also sets a meta refresh so the page auto-reloads every
-  // 5 seconds until the operator removes ?expanding=1 (i.e. the
-  // expansion is done).
-  const expandBanner = expanding ? await renderExpandBanner(env, userId, subject.label) : "";
+  // the URL — the operator just clicked "Expand this Record". The banner
+  // polls its own live-status endpoint client-side (status-banner.ts) and
+  // updates in place — no page-level meta refresh needed or wanted; that
+  // used to hard-reload the WHOLE page every 5s on top of the banner's own
+  // update, which is exactly the janky double-refresh this replaced.
+  const expandBanner = expanding ? renderExpandBanner(subject.label) : "";
 
   const body = `
 <script type="application/ld+json">${jsonLd}</script>
-${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
 <article class="subject-page">
   ${modeBand}
   ${expandBanner}
@@ -1959,83 +1958,14 @@ function renderFacesBlock(
 // EXPAND BANNER — live narration of record-building on click (spec v2.6 Part 26)
 // ===========================================================================
 
-/** Render the live "expanding…" banner. Delegates all state to
- *  getExpandStatus() (record-builder.ts) — the one place that knows both
- *  the search/fetch/bank phase (orchestrator_events) AND whether queued
- *  extraction has actually landed (digest_jobs), so this and the search
- *  page's poll-or-stop decision can never drift out of sync again.
- *  Page-level meta refresh (in the body) drives the live-update effect
- *  without any JS — same shape as the "operator pulls down to refresh"
- *  pattern used in the OUT stream. */
-export async function renderExpandBanner(
-  env: PublicEnv,
-  userId: string,
-  subjectLabel: string,
-): Promise<string> {
-  const { getExpandStatus } = await import("../../graph/lib/record-builder");
-  const status = await getExpandStatus(env, userId, subjectLabel).catch(() => null);
-
-  if (!status) {
-    return `<aside class="expand-banner expand-banner-warming" aria-label="Record expansion status">
-  <div class="expand-band">
-    <span class="expand-dot"></span>
-    <span class="expand-text">Expanding this Record — searching the web for ${escapeHtml(subjectLabel)}…</span>
-  </div>
-</aside>
-${EXPAND_BANNER_STYLES}`;
-  }
-
-  const dotClass = status.terminal ? (status.warn ? "expand-dot-warn" : "expand-dot-done") : "";
-  const line = status.terminal
-    ? `${escapeHtml(status.line)} <a href="?">Reload without the banner →</a>`
-    : escapeHtml(status.line);
-
-  return `<aside class="expand-banner${status.terminal && !status.warn ? " expand-banner-done" : ""}${status.warn ? " expand-banner-warn" : ""}" aria-label="Record expansion status">
-  <div class="expand-band">
-    <span class="expand-dot ${dotClass}"></span>
-    <span class="expand-text">${line}</span>
-  </div>
-</aside>
-${EXPAND_BANNER_STYLES}`;
+/** Render the live "expanding…" banner. Client-side polling now
+ *  (status-banner.ts) — GET /op/research-status?q=...&kind=expand reads
+ *  getExpandStatus() (record-builder.ts) live, no page reload involved.
+ *  kind=expand tells the endpoint not to wait on a synthesis phase that
+ *  plain expand (unlike "Research this") never runs. */
+export function renderExpandBanner(subjectLabel: string): string {
+  return renderLiveStatusBanner(
+    `/op/research-status?q=${encodeURIComponent(subjectLabel)}&kind=expand`,
+    `Expanding this Record — searching the web for ${subjectLabel}…`,
+  );
 }
-
-const EXPAND_BANNER_STYLES = `<style>
-  .expand-banner {
-    margin: 0 0 22px;
-    padding: 12px 16px;
-    border: 1px solid var(--accent-bd, #c4d1e3);
-    border-radius: 8px;
-    background: var(--accent-bg, #e8ecf3);
-  }
-  .expand-banner-done {
-    background: var(--confirmed-bg, #e7f0e6);
-    border-color: var(--confirmed-bd, #bcd6bd);
-  }
-  .expand-banner-warn {
-    background: var(--correction-bg, #f6e4df);
-    border-color: var(--correction-bd, #e2bdb2);
-  }
-  .expand-band {
-    display: flex; align-items: center; gap: 11px;
-    font-family: var(--serif);
-    font-size: 14.5px;
-    color: var(--ink-2);
-  }
-  .expand-text a { color: var(--accent); text-decoration: none; }
-  .expand-text a:hover { text-decoration: underline; }
-  .expand-dot {
-    width: 9px; height: 9px; border-radius: 50%;
-    background: var(--accent);
-    flex-shrink: 0;
-    animation: expand-pulse 1.4s ease-in-out infinite;
-  }
-  .expand-dot.expand-dot-done {
-    background: var(--confirmed, #2f7d52);
-    animation: none;
-  }
-  .expand-dot.expand-dot-warn {
-    background: var(--correction, #b0402c);
-    animation: none;
-  }
-  @keyframes expand-pulse { 50% { opacity: .4; } }
-</style>`;

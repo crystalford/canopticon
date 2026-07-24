@@ -268,6 +268,143 @@ export async function researchOnDemand(
   return result;
 }
 
+export interface ResearchStep {
+  label: string;
+  state: "done" | "active" | "pending" | "warn";
+  detail?: string | undefined;
+}
+
+export interface ResearchStatus {
+  terminal: boolean;
+  warn: boolean;
+  headline: string;
+  steps: ResearchStep[];
+  reviewUrl?: string;
+}
+
+/** The richer status researchOnDemand's callers poll — getExpandStatus
+ *  (record-builder.ts) alone stops narrating once the search/fetch/bank/
+ *  extract phase ends, with no idea a synthesis step runs after it. This
+ *  wraps it with that missing phase, plus turns the single replacing
+ *  status line into a milestone checklist (search → fetch/bank → extract
+ *  → write) so a poller can show real progress, not just a spinner. */
+export async function getResearchStatus(
+  env: Env,
+  userId: string,
+  label: string,
+  opts: { includeSynthesis?: boolean } = {},
+): Promise<ResearchStatus | null> {
+  const includeSynthesis = opts.includeSynthesis ?? true;
+  const { getExpandStatus } = await import("./record-builder");
+  const expand = await getExpandStatus(env, userId, label);
+  if (!expand) return null;
+
+  const events = await all<{ event_type: string; payload: string }>(
+    env.DB,
+    `SELECT event_type, payload FROM orchestrator_events
+      WHERE user_id = ?
+        AND event_type LIKE 'record.expand.%'
+        AND json_extract(payload, '$.subject') = ?
+        AND created_at > datetime('now','-15 minutes')
+      ORDER BY created_at ASC LIMIT 100`,
+    [userId, label],
+  ).catch(() => []);
+  const has = (t: string) => events.some((e) => e.event_type === t);
+  const bankedCount = events.filter((e) => e.event_type === "record.expand.source_banked").length;
+  const fetchingCount = events.filter(
+    (e) => e.event_type === "record.expand.source_fetching",
+  ).length;
+
+  const steps: ResearchStep[] = [];
+  steps.push({
+    label: "Search the web",
+    state: has("record.expand.skipped")
+      ? "warn"
+      : has("record.expand.started")
+        ? "done"
+        : "pending",
+  });
+  steps.push({
+    label: "Fetch and bank sources",
+    state: has("record.expand.failed")
+      ? "warn"
+      : has("record.expand.completed")
+        ? "done"
+        : has("record.expand.search_done")
+          ? "active"
+          : "pending",
+    detail: has("record.expand.search_done")
+      ? `${bankedCount} banked${fetchingCount > bankedCount ? `, fetching ${fetchingCount}` : ""}`
+      : undefined,
+  });
+  const extractDone = expand.terminal && !expand.line.startsWith("Banked");
+  steps.push({
+    label: "Extract verbatim facts",
+    state: has("record.expand.completed") ? (extractDone ? "done" : "active") : "pending",
+    detail: extractDone
+      ? `${expand.factsAdded} fact${expand.factsAdded === 1 ? "" : "s"}`
+      : undefined,
+  });
+
+  // The phase getExpandStatus has zero visibility into — only relevant
+  // once expand itself has actually finished, and only for callers that
+  // actually run a synthesis step afterward (plain "Expand this file" —
+  // record-builder.ts's expandRecord with no researchOnDemand wrapper —
+  // never will; a deep_research event for its label would never arrive).
+  if (extractDone && includeSynthesis) {
+    const draftEvent = await one<{ event_type: string; payload: string }>(
+      env.DB,
+      `SELECT event_type, payload FROM orchestrator_events
+        WHERE user_id = ? AND event_type IN ('deep_research.drafted', 'deep_research.draft_failed')
+          AND json_extract(payload, '$.label') = ?
+          AND created_at > datetime('now','-15 minutes')
+        ORDER BY created_at DESC LIMIT 1`,
+      [userId, label],
+    ).catch(() => null);
+
+    if (!draftEvent) {
+      steps.push({ label: "Write a synthesis", state: "active" });
+      return {
+        terminal: false,
+        warn: false,
+        headline: "Writing a synthesis from what was found…",
+        steps,
+      };
+    }
+    if (draftEvent.event_type === "deep_research.drafted") {
+      let pieceId: string | undefined;
+      try {
+        pieceId = JSON.parse(draftEvent.payload)?.piece_id;
+      } catch {
+        pieceId = undefined;
+      }
+      steps.push({ label: "Write a synthesis", state: "done", detail: "draft ready" });
+      return {
+        terminal: true,
+        warn: false,
+        headline: "Draft brief ready — review it before it can publish.",
+        steps,
+        ...(pieceId ? { reviewUrl: `/op/library/research/${pieceId}/review` } : {}),
+      };
+    }
+    let reason = "unknown reason";
+    try {
+      reason = JSON.parse(draftEvent.payload)?.reason ?? reason;
+    } catch {
+      // keep default
+    }
+    steps.push({ label: "Write a synthesis", state: "warn", detail: reason });
+    return {
+      terminal: true,
+      warn: true,
+      headline: `Sources banked, but no brief written — ${reason}.`,
+      steps,
+    };
+  }
+
+  return { terminal: expand.terminal, warn: expand.warn, headline: expand.line, steps };
+}
+
 function slugify(s: string): string {
   return s
     .toLowerCase()

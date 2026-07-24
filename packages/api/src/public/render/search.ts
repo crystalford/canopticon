@@ -23,7 +23,7 @@ import { type VectorMeta, searchVectors } from "../../graph/lib/embeddings";
 import { insertOne, one } from "../../lib/d1";
 import { resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
-import { renderExpandBanner } from "./subject-page";
+import { renderLiveStatusBanner } from "./status-banner";
 
 interface ResolvedHit {
   url: string;
@@ -51,12 +51,6 @@ export async function renderSearchPage(
   const userId = await resolveOperatorId(env.DB);
   let resultsBlock = "";
   let summary = "";
-  // Whether to keep auto-refreshing. Only true while research is genuinely
-  // still in flight — without a terminal check this refreshed forever
-  // (every 5s, indefinitely) even after the expansion finished, because
-  // `researching=1` stayed in the URL across every reload. Mirrors the
-  // terminal-state check bulk-expand.ts already does for the same reason.
-  let keepPolling = false;
 
   if (query.length > 0 && userId) {
     const hits = await searchVectors(env, { query, userId, topK: 25 }).catch(() => []);
@@ -78,10 +72,10 @@ export async function renderSearchPage(
 
       summary = `No matches for <b>${escapeHtml(query)}</b> in the record yet.`;
       if (opts.researching) {
-        resultsBlock = await renderExpandBanner(env, userId, query);
-        const { getExpandStatus } = await import("../../graph/lib/record-builder");
-        const status = await getExpandStatus(env, userId, query).catch(() => null);
-        keepPolling = !status || !status.terminal;
+        resultsBlock = renderLiveStatusBanner(
+          `/op/research-status?q=${encodeURIComponent(query)}`,
+          `Starting research on ${query}…`,
+        );
       } else {
         resultsBlock = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
       }
@@ -126,7 +120,7 @@ export async function renderSearchPage(
     resultsBlock = "";
   }
 
-  const body = `${keepPolling ? '<meta http-equiv="refresh" content="5">' : ""}
+  const body = `
 <section class="search-section">
   <h1 class="search-h1">Ask the record</h1>
   <form class="search-form" method="GET" action="/search">
