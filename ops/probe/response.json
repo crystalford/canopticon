@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-24T19:51:35Z",
-  "run_id": "30121812289",
+  "requested_at": "2026-07-24T19:53:30Z",
+  "run_id": "30121892062",
   "method": "GET",
-  "path": "/v1/admin/debug-embed?model=%40cf%2Fbaai%2Fbge-m3",
+  "path": "/v1/admin/debug-embed?model=%40cf%2Fqwen%2Fqwen3-embedding-0.6b",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"model\": \"@cf/baai/bge-m3\",\n  \"latency_ms\": 338,\n  \"shape\": [\n    1,\n    1024\n  ],\n  \"dimensions\": 1024,\n  \"sample\": [\n    -0.07562255859375,\n    -0.025390625,\n    -0.031707763671875,\n    -0.05682373046875\n  ]\n}"
+  "body": "{\n  \"ok\": true,\n  \"model\": \"@cf/qwen/qwen3-embedding-0.6b\",\n  \"latency_ms\": 5801,\n  \"shape\": [\n    1,\n    1024\n  ],\n  \"dimensions\": 1024,\n  \"sample\": [\n    -0.051134224981069565,\n    0.020153606310486794,\n    -0.01183734554797411,\n    -0.055441852658987045\n  ]\n}"
 }
