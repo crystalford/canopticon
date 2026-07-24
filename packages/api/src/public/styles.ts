@@ -63,7 +63,11 @@ export const STYLES_CSS = `/* ==================================================
   --confirmed:    #2f7d52;     /* citable, multiply-sourced, high confidence */
   --confirmed-bg: #e7f0e6;
   --confirmed-bd: #bcd6bd;
-  --contested:    #b25f80;     /* partial / both-sides / advisory — muted rose */
+  /* Neutral gray, not rose — 2026-07-24. The card copy already reads as
+     evidence, not verdict ("weigh it yourself"); the color shouldn't
+     say something the words don't. Matches the op-ink-3/op-ink-mute
+     weight class so it reads as a marker without reading as a warning. */
+  --contested:    #9a9da8;     /* partial / both-sides / advisory — neutral gray */
   --correction:   #b0402c;     /* withdrawn / wrong / low confidence */
   --correction-bg:#f6e4df;
   --correction-bd:#e2bdb2;
@@ -115,9 +119,11 @@ export const STYLES_CSS = `/* ==================================================
   --conf-bd: var(--confirmed-bd-d);
   --corr-bg: var(--correction-bg-d);
   --corr-bd: var(--correction-bd-d);
-  /* Disputed (contested) surfaces — dark variants */
-  --cont-bg: #241219;
-  --cont-bd: #4b2734;
+  /* Disputed (contested) surfaces — neutral gray, not maroon, matching
+     --contested above. Reuses the existing surface/rule-bright tones
+     rather than a bespoke warning hue. */
+  --cont-bg: var(--op-paper-3);
+  --cont-bd: var(--op-rule-bright);
 }
 
 /* data-mode="operator" now inherits the same dark ground — one register.

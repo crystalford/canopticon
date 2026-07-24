@@ -542,9 +542,10 @@ async function renderNeutral(
     max-width: 640px;
     margin: -4px 0 18px;
   }
-  /* Contested as court evidence — the firewall, made visually obvious.
-     Warm-tan background, big block-quote, attribution caps, source
-     footer. Readers register "contested" without reading the label. */
+  /* Receipts, not a verdict — 2026-07-24. Neutral-gray card (var(--cont-bg)/
+     --cont-bd are gray, not maroon; --contested is gray, not rose): a
+     quote, who said it, and how well-supported it is on file. The card
+     should read as "here's the evidence" — never as an accusation. */
   .contested-card {
     background: var(--cont-bg);
     border: 1px solid var(--cont-bd);
@@ -1504,12 +1505,14 @@ function renderEstablishedBlock(facts: FactRow[]): string {
 
 function renderContestedBlock(rows: AssertionRow[], subjectLabel: string): string {
   if (rows.length === 0) return "";
-  // Contested-as-proud-gray: the firewall, rendered as evidence. Each card
-  // looks like court evidence labeled CONTESTED. Block-quote treatment on
-  // the assertion text; attribution on its own line in caps; a plain-
-  // language read on how well-supported the claim is. The proudest box on
-  // the neutral page after the established list — readers should
-  // immediately register "this is contested" without reading any label.
+  // Contested-as-evidence, not contested-as-verdict (2026-07-24: the color
+  // used to be rose, this comment used to say "court evidence... readers
+  // should immediately register this is contested" — that's a notch more
+  // adversarial than the site's own stated intent, and matters more once
+  // creator-profile pages start surfacing many of these at once for one
+  // person). Now genuinely neutral-gray. Block-quote treatment on the
+  // assertion text; attribution on its own line; a plain-language read on
+  // how well-supported the claim is, not a score.
   //
   // The line under each card used to read the raw internal signal
   // ("Evidence balance +0.0 · contested in the record") — meaningful to
