@@ -1,9 +1,23 @@
-// Embeddings: Workers AI bge-large-en-v1.5 (1024-dim, cosine) -> Vectorize.
+// Embeddings: Workers AI bge-m3 (1024-dim, cosine) -> Vectorize.
+//
+// Swapped from bge-large-en-v1.5 2026-07-24 after a live catalog sweep
+// turned up bge-m3 (same BAAI lab, newer, multi-functionality/
+// multi-granularity per Cloudflare's own description). Verified via
+// /v1/admin/debug-embed before switching: bge-m3 outputs the same 1024
+// dims (drop-in, no new Vectorize index needed) and embeds in ~340ms —
+// qwen3-embedding-0.6b was also 1024-dim but ~17x slower (5.8s, too slow
+// for a call on every search), and embeddinggemma-300m is 768-dim
+// (would need a brand new index). Existing vectors were written with the
+// old model and are NOT comparable to bge-m3 queries via cosine — see
+// admin/runtime.ts's /reembed-pieces for the one-time backfill this
+// requires for the "piece" kind (the confirmed-live, most-searched one;
+// entity/claim/thesis/source kinds weren't re-embedded in this pass —
+// their write paths need a closer look before touching them).
 
 import type { Env } from "../../env";
 import { TIMEOUTS, withTimeout } from "../../lib/timeout";
 
-const EMBED_MODEL = "@cf/baai/bge-large-en-v1.5";
+const EMBED_MODEL = "@cf/baai/bge-m3";
 
 interface BgeResponse {
   shape?: number[];

@@ -666,39 +666,44 @@ app.get("/health", async (c) => {
   });
 });
 
-// TEMPORARY — GET /v1/admin/debug-embed?model=...&text=...
-// One-off: checking whether bge-m3 / qwen3-embedding-0.6b / embeddinggemma-300m
-// output a dimension compatible with the existing 1024-dim cosine Vectorize
-// index (graph/lib/embeddings.ts's EMBED_MODEL) before considering a swap —
-// a mismatch means a brand new index + full corpus re-embed, not a drop-in
-// router change. Remove after use, same reasoning as the fetch-url route
-// removed 2026-07-24.
-app.get("/debug-embed", async (c) => {
-  const model = c.req.query("model") ?? "@cf/baai/bge-m3";
-  const text = c.req.query("text") ?? "Carbon credit verification standards";
-  const start = Date.now();
-  try {
-    const raw = (await c.env.AI.run(model as never, { text: [text] } as never)) as unknown as {
-      shape?: number[];
-      data?: number[][];
-    };
-    const vec = raw.data?.[0];
-    return c.json({
-      ok: true,
-      model,
-      latency_ms: Date.now() - start,
-      shape: raw.shape,
-      dimensions: vec?.length ?? null,
-      sample: vec?.slice(0, 4) ?? null,
-    });
-  } catch (err) {
-    return c.json({
-      ok: false,
-      model,
-      latency_ms: Date.now() - start,
-      error: (err as Error).message ?? "unknown",
-    });
+// GET /v1/admin/reembed-pieces?confirm=1
+//
+// One-time backfill for the 2026-07-24 bge-large-en-v1.5 -> bge-m3 swap
+// (graph/lib/embeddings.ts). Existing "piece" vectors were written with
+// the old model; cosine similarity against bge-m3 query embeddings is
+// meaningless until every piece is re-embedded with the new model. Mirrors
+// digestion.ts's embed step exactly (same text formula, same vectorId) so
+// re-running this is indistinguishable from the piece having just been
+// digested. Scoped to "piece" only — the confirmed-live, most-searched
+// kind; see embeddings.ts's comment for why entity/claim/thesis/source
+// weren't included.
+app.get("/reembed-pieces", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "pass ?confirm=1" }, 400);
   }
+  const userId = c.get("user_id");
+  const { embedText, upsertVector, vectorId } = await import("../graph/lib/embeddings.ts");
+  const pieces = await all<{ id: string; title: string; body_md: string }>(
+    c.env.DB,
+    "SELECT id, title, body_md FROM pieces WHERE user_id = ?",
+    [userId],
+  );
+  let embedded = 0;
+  const errors: Array<{ id: string; error: string }> = [];
+  for (const p of pieces) {
+    try {
+      const values = await embedText(c.env, `${p.title}\n${p.body_md.slice(0, 4000)}`);
+      await upsertVector(c.env, {
+        id: vectorId("piece", p.id),
+        values,
+        metadata: { user_id: userId, kind: "piece", id: p.id, title: p.title },
+      });
+      embedded++;
+    } catch (err) {
+      errors.push({ id: p.id, error: (err as Error).message ?? "unknown" });
+    }
+  }
+  return c.json({ ok: true, total: pieces.length, embedded, errors });
 });
 
 // GET /v1/admin/debug-model?model=...&prompt=...
