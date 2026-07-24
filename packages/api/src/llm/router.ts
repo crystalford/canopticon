@@ -28,6 +28,23 @@
 //   - @cf/nvidia/nemotron-3-120b-a12b (live since 2026-03-11). 256k context
 //     in + out. The large-context fallback for whole-corpus reasoning.
 //
+// research_writer candidate comparison — 2026-07-24 (live /debug-model
+// probes, same research-brief prompt, max_tokens=4000, real account):
+//   - @cf/openai/gpt-oss-120b: 14.1s, 5 correctly cross-cutting themes,
+//     4 follow-up questions, 61.6 neurons. Picked.
+//   - @cf/nvidia/nemotron-3-120b-a12b: 23.3s — 1.7s from the 25s LLM_CALL_MS
+//     ceiling on a SMALL 2-source test prompt; the real prompt (up to 12
+//     sources) would very plausibly exceed it. Comparable quality, not
+//     worth the risk.
+//   - @cf/deepseek-ai/deepseek-r1-distill-qwen-32b: newly appeared in the
+//     catalog since the 2026-06-10 survey above (wasn't live then). 22.4s
+//     (also near the ceiling), only 2 themes and organized BY SOURCE, not
+//     by theme — ignored that instruction outright — and 382.7 neurons,
+//     ~6x gpt-oss-120b's cost for a comparable-length answer. Worse on
+//     every axis.
+//   - @cf/meta/llama-4-maverick-17b-128e-instruct-fp8: not on this
+//     account ("No such model ... or task").
+//
 // To swap any stage to Claude near launch: change `provider` to "anthropic"
 // and `model` to the Claude ID. The cost_whitelists table needs a matching
 // operation_type entry; see packages/api/src/lib/seed.ts DEFAULT_WHITELISTS.
