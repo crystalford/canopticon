@@ -547,11 +547,15 @@ app.get("/patterns", (c) => c.redirect("/investigations", 301));
 app.get("/library", async (c) => {
   const ingested = c.req.query("ingested");
   const error = c.req.query("error");
+  const importing = c.req.query("importing");
+  const videoError = c.req.query("video_error");
   return htmlResponse(
     await renderLibraryIndex(c.env, {
       isOperator: c.get("is_operator"),
       ...(ingested ? { ingested } : {}),
       ...(error ? { error } : {}),
+      ...(importing ? { importing } : {}),
+      ...(videoError ? { videoError } : {}),
     }),
   );
 });

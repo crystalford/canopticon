@@ -5,6 +5,7 @@
 import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
 import { escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
+import { renderLiveStatusBanner } from "./status-banner";
 
 // Reader-facing intent labels for signed readings (spec Part 18.2: intents
 // are badges and filters, not nav). The seven canonical signed-reading
@@ -282,7 +283,13 @@ function looksLikeMachineFilename(title: string): boolean {
 
 export async function renderLibraryIndex(
   env: PublicEnv,
-  opts: { isOperator?: boolean; ingested?: string; error?: string } = {},
+  opts: {
+    isOperator?: boolean;
+    ingested?: string;
+    error?: string;
+    importing?: string;
+    videoError?: string;
+  } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const { listLibrary } = await import("../data");
@@ -379,12 +386,43 @@ export async function renderLibraryIndex(
   });
 })();
 </script>`;
+
+    // Video-as-source-material (Phase 1, 2026-07-24): the same "drop it in,
+    // no confirmation gauntlet" upload philosophy as the dropzone above,
+    // pointed at a video URL instead of a file. POSTs to
+    // /op/library/import-video, which fetches+transcribes via the video
+    // Worker's Container and (once done) turns the transcript into a piece
+    // exactly like an uploaded document — see graph/lib/video-intake.ts.
+    const videoImportBanner = opts.videoError
+      ? `<div class="op-banner op-banner-error">${escapeHtml(opts.videoError)}</div>`
+      : "";
+    const videoStatus = opts.importing
+      ? renderLiveStatusBanner(
+          `/op/library/import-video/${encodeURIComponent(opts.importing)}/status`,
+          "Fetching and transcribing…",
+        )
+      : "";
+    const videoImportForm = opts.importing
+      ? ""
+      : `<form method="POST" action="/op/library/import-video" class="op-video-form">
+  <input type="url" name="url" placeholder="Paste a video URL to transcribe and add to the record" required class="op-video-input" />
+  <button type="submit" class="op-strip-btn">Import video</button>
+</form>`;
+
     opStrip = `<div class="op-strip">
   <div class="op-strip-top">
     <div class="op-strip-label">Operator</div>
     <div class="op-strip-actions">${extractBtn}${reextractBtn}</div>
   </div>
   ${dropzone}
+  ${videoImportBanner}
+  ${videoStatus}
+  ${videoImportForm}
+  <style>
+    .op-video-form { display:flex; gap:8px; margin-top:10px; }
+    .op-video-input { flex:1; font-size:13px; padding:8px 10px; border-radius:6px;
+      border:1px solid var(--rule); background:var(--surface); color:var(--ink); }
+  </style>
 </div>
 <style>
   .op-strip { padding:14px 16px; margin:0 0 18px;

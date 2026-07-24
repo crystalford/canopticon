@@ -30,6 +30,13 @@
 //   POST /segments/from-reading — server-to-server intake from the
 //                                 publication's api Worker (shared-
 //                                 token auth, not a session cookie)
+//   POST /transcribe           — server-to-server: fetch+transcribe a
+//                                 video URL (shared-token auth). Ingestion
+//                                 direction, opposite of segments/from-
+//                                 reading — this Worker only transcribes,
+//                                 the api Worker owns turning the result
+//                                 into fact-graph material.
+//   GET  /transcribe/:jobId    — poll a transcription job's status
 //   POST /spike                — render the Phase 0 seed segment
 //   GET  /assets/:key          — operator-only R2 proxy
 //   GET  /public/segments      — public JSON: every published segment
@@ -49,6 +56,7 @@ import publicRoutes from "./routes/public.ts";
 import queueRoutes from "./routes/queue.ts";
 import spikeRoutes from "./routes/spike.ts";
 import statusRoutes from "./routes/status.ts";
+import transcribeRoutes from "./routes/transcribe.ts";
 import voiceRoutes from "./voice/routes.ts";
 
 // The Durable Object class backing the RENDER_CONTAINER binding. Must be
@@ -76,6 +84,7 @@ app.onError((err, c) => {
 app.route("/", statusRoutes);
 app.route("/", spikeRoutes);
 app.route("/", fromReadingRoutes);
+app.route("/", transcribeRoutes);
 app.route("/queue", queueRoutes);
 app.route("/voice", voiceRoutes);
 app.route("/auth", authRoutes);

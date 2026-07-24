@@ -30,6 +30,7 @@ import { SegmentSchema } from "@canopticon/shared/video/segment-schema";
 import Fastify from "fastify";
 import { estimateContainerCostCents } from "./cost/meter";
 import { renderSegment } from "./render/orchestrator";
+import { transcribeVideoUrl } from "./sourcing/transcribe-video";
 
 const PORT = Number(process.env.PORT ?? 8080);
 
@@ -69,6 +70,31 @@ app.post("/render", async (req, reply) => {
     .header("x-narrator-seconds", result.narrator_seconds.toFixed(2))
     .header("x-beats-snapped", String(result.beats_snapped));
   return result.mp4;
+});
+
+// POST /transcribe — full-video transcription for corpus ingestion, not
+// video rendering. Body: { url: string }. Returns JSON (not a media
+// binary): the plain transcript plus whatever publish metadata yt-dlp
+// found (title, channel, publish date, duration). See
+// sourcing/transcribe-video.ts for the yt-dlp + whisperx pipeline.
+interface TranscribeBody {
+  url?: unknown;
+}
+
+app.post("/transcribe", async (req, reply) => {
+  const body = req.body as TranscribeBody;
+  const url = typeof body?.url === "string" ? body.url.trim() : "";
+  if (!url) {
+    reply.code(400);
+    return { ok: false, error: "missing url" };
+  }
+  req.log.info({ url }, "transcribe start");
+  const result = await transcribeVideoUrl(url);
+  if (!result.ok) {
+    reply.code(500);
+    return { ok: false, error: result.error ?? "unknown transcription failure" };
+  }
+  return result;
 });
 
 app.setErrorHandler((err: Error, _req, reply) => {

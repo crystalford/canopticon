@@ -237,7 +237,7 @@ app.post("/feed/clear", async (c) => {
   return c.redirect("/op/library?cleared=1");
 });
 
-interface CreatedPiece {
+export interface CreatedPiece {
   pieceId: string;
   slug: string;
   title: string;
@@ -248,13 +248,21 @@ interface CreatedPiece {
 // Create + extract — the fast, deterministic half of ingest. Returns the new
 // piece's id + slug + extracted text so the caller can hand it to digest()
 // either inline or via waitUntil.
-async function createAndExtract(
+export async function createAndExtract(
   env: Env,
   userId: string,
   body: ReadableStream | Uint8Array,
   filename: string,
   mime: string,
   size: number,
+  opts: {
+    // Real-world publish date for the source material — a video's own
+    // upload date, e.g. — instead of "now" (when a plain file drop has
+    // no such date and "now" is the only honest answer).
+    publishedAt?: string | undefined;
+    ingestedFrom?: string | undefined;
+    extraMetadata?: Record<string, unknown> | undefined;
+  } = {},
 ): Promise<CreatedPiece & { duplicate?: boolean }> {
   // Materialize to bytes so we can hash + put in R2 deterministically.
   // (Streams can only be consumed once; we need the bytes twice — once
@@ -322,7 +330,11 @@ async function createAndExtract(
     // confirmation gauntlets" (CLAUDE.md) — the upload itself is the
     // publish decision.
     publication_status: "published",
-    published_at: nowIso,
+    // opts.publishedAt lets a caller supply the material's OWN real date
+    // (a video's actual upload date, e.g.) instead of "now" — "now" is
+    // only honest when there genuinely is no other date, as with a plain
+    // file drop.
+    published_at: opts.publishedAt ?? nowIso,
     body_md,
     // No byline default — "the operator" is internal vocabulary and this
     // string renders directly on public piece pages ("By the operator").
@@ -330,12 +342,13 @@ async function createAndExtract(
     // rather than write a placeholder into a field readers see.
     tags: JSON.stringify([]),
     metadata: JSON.stringify({
-      ingested_from: "feed-upload",
+      ingested_from: opts.ingestedFrom ?? "feed-upload",
       source_id: extracted.source_id,
       original_filename: filename,
       extracted_chars: extracted.extracted_chars,
       classification: extracted.classification,
       content_sha256: sha256,
+      ...opts.extraMetadata,
     }),
   });
   return { pieceId, slug, title, body_md, sourceId: extracted.source_id };
@@ -805,6 +818,51 @@ app.get("/research-status", async (c) => {
     return c.json({ terminal: false, warn: false, headline: "Starting…", steps: [] });
   }
   return c.json(status);
+});
+
+// Video-as-source-material ingestion (Phase 1, 2026-07-24) — the operator
+// pastes a video URL, it's fetched+transcribed by the video Worker's
+// Container, and the transcript becomes a piece attributed to the
+// channel with the video's own publish date. See graph/lib/video-intake.ts.
+app.post("/library/import-video", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const form = await c.req.parseBody();
+  const url = typeof form.url === "string" ? form.url.trim() : "";
+  if (!url) return c.redirect("/library");
+  const { requestVideoImport } = await import("../graph/lib/video-intake");
+  const result = await requestVideoImport(c.env, userId, url);
+  if (!result.ok || !result.importId) {
+    return c.redirect(`/library?video_error=${encodeURIComponent(result.error ?? "failed")}`);
+  }
+  return c.redirect(`/library?importing=${encodeURIComponent(result.importId)}`);
+});
+
+// JSON status for the same live-polling banner pattern as /research-status.
+app.get("/library/import-video/:id/status", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.json({ terminal: true, warn: true, headline: "not signed in" }, 401);
+  const { pollVideoImport } = await import("../graph/lib/video-intake");
+  const row = await pollVideoImport(c.env, userId, c.req.param("id")).catch(() => null);
+  if (!row) return c.json({ terminal: true, warn: true, headline: "import not found" }, 404);
+  if (row.status === "succeeded") {
+    const piece = row.piece_id
+      ? await one<{ slug: string }>(c.env.DB, "SELECT slug FROM pieces WHERE id = ?", [
+          row.piece_id,
+        ])
+      : null;
+    return c.json({
+      terminal: true,
+      warn: false,
+      headline: "Transcribed and queued for extraction",
+      pieceId: row.piece_id,
+      ...(piece ? { reviewUrl: `/library/${piece.slug}` } : {}),
+    });
+  }
+  if (row.status === "failed") {
+    return c.json({ terminal: true, warn: true, headline: row.error ?? "transcription failed" });
+  }
+  return c.json({ terminal: false, warn: false, headline: "Fetching and transcribing…" });
 });
 
 // Re-render a single face on a signed reading. Triggered from the face's

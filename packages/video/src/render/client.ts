@@ -68,3 +68,45 @@ export async function renderSegment(
     return { ok: false, error: (err as Error).message };
   }
 }
+
+export interface TranscribeContainerResult {
+  ok: boolean;
+  transcript?: string;
+  title?: string;
+  channel?: string;
+  published_at?: string | null;
+  duration_s?: number;
+  error?: string;
+}
+
+/** Ask the Container to fetch + transcribe a video URL. Same
+ *  DurableObjectNamespace binding as renderSegment above (RENDER_CONTAINER,
+ *  max_instances=1 per wrangler.toml) — a transcription job and a video
+ *  render share the one Container instance and queue behind each other.
+ *  Acceptable for now (both are operator-triggered, not high-frequency);
+ *  revisit if that contention becomes a real bottleneck. */
+export async function transcribeVideo(
+  containerNs: DurableObjectNamespace,
+  jobId: string,
+  url: string,
+): Promise<TranscribeContainerResult> {
+  const ns = containerNs as unknown as ContainerNamespaceLike;
+  const id = ns.idFromName(jobId);
+  const stub = ns.get(id);
+  try {
+    const res = await stub.fetch(
+      new Request("https://render/transcribe", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url }),
+      }),
+    );
+    const body = (await res.json().catch(() => null)) as TranscribeContainerResult | null;
+    if (!res.ok || !body) {
+      return { ok: false, error: body?.error ?? `transcriber returned ${res.status}` };
+    }
+    return body;
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
