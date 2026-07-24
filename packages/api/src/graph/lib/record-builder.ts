@@ -146,39 +146,43 @@ export async function expandRecord(
     usable: results.length,
   });
 
-  // Process sources sequentially — fetch + bank only, each just an HTTP GET
-  // and a couple of D1 writes, no LLM calls. Per-source progress emits so
-  // the live banner can narrate. Errors are per-source — one bad fetch
-  // doesn't sink the rest.
-  for (const r of results) {
-    await emit(env, userId, "record.expand.source_fetching", {
-      subject: subjectLabel,
-      title: r.title,
-      url: r.url,
-    });
-    try {
+  // Process sources CONCURRENTLY, not one at a time. Each source is just an
+  // HTTP GET + a couple of D1 writes, no LLM calls, and fully independent of
+  // every other source in this batch — nothing here shares mutable state
+  // across sources, so there was never a reason for them to wait on each
+  // other. Sequential was the whole latency problem: up to 6 real network
+  // fetches, back to back, each with its own timeout and a possible
+  // Browser Rendering fallback (slower still) on top. Bounded by
+  // MAX_SOURCES_PER_EXPAND (6) either way, so this doesn't need a separate
+  // concurrency limiter — the cap already IS the limiter. Per-source
+  // progress emits still fire; they just interleave across sources now
+  // instead of running in a strict a-then-b-then-c order (the live banner
+  // narrates off the latest event either way, so this reads fine).
+  // allSettled, not all — one source rejecting must not cancel the rest.
+  const outcomes = await Promise.allSettled(
+    results.map(async (r) => {
+      await emit(env, userId, "record.expand.source_fetching", {
+        subject: subjectLabel,
+        title: r.title,
+        url: r.url,
+      });
       const banked = await fetchAndBank(env, userId, r.url, r.title || subjectLabel);
       if (!banked) {
-        report.errors.push(`empty or too short: ${r.url}`);
-        continue;
+        return { url: r.url, kind: "empty" as const };
       }
-      report.sources_fetched++;
       if (banked.duplicate) {
         await emit(env, userId, "record.expand.source_duplicate", {
           subject: subjectLabel,
           url: r.url,
         });
-        continue;
+        return { url: r.url, kind: "duplicate" as const };
       }
-      report.sources_banked++;
-      report.banked_piece_ids.push(banked.pieceId);
       await emit(env, userId, "record.expand.source_banked", {
         subject: subjectLabel,
         url: r.url,
         title: banked.title,
         chars: banked.chars,
       });
-
       // Enqueue only — same idempotent-on-retry job the drain cron already
       // processes for uploads. Same firewall + verbatim checks apply either
       // way; only WHEN it runs changed.
@@ -189,13 +193,31 @@ export async function expandRecord(
         title: banked.title,
         sourceId: banked.sourceId,
       });
-    } catch (err) {
-      report.errors.push(`fetch ${r.url}: ${(err as Error).message}`);
+      return { url: r.url, kind: "banked" as const, pieceId: banked.pieceId };
+    }),
+  );
+
+  for (const [i, outcome] of outcomes.entries()) {
+    const url = results[i]?.url ?? "unknown";
+    if (outcome.status === "rejected") {
+      const message = (outcome.reason as Error)?.message ?? String(outcome.reason);
+      report.errors.push(`fetch ${url}: ${message}`);
       await emit(env, userId, "record.expand.source_failed", {
         subject: subjectLabel,
-        url: r.url,
-        error: (err as Error).message,
+        url,
+        error: message,
       });
+      continue;
+    }
+    const { kind } = outcome.value;
+    if (kind === "empty") {
+      report.errors.push(`empty or too short: ${url}`);
+      continue;
+    }
+    report.sources_fetched++;
+    if (kind === "banked") {
+      report.sources_banked++;
+      report.banked_piece_ids.push(outcome.value.pieceId);
     }
   }
 

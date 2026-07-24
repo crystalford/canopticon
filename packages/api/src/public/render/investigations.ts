@@ -288,6 +288,25 @@ export async function renderLibraryIndex(
   const { listLibrary } = await import("../data");
   const pieces = userId ? await listLibrary(env.DB, userId) : [];
 
+  // working-material never gets a public page (renderPiece refuses it,
+  // by design — see piece-template.ts) — EXCEPT an on-demand research
+  // draft (graph/lib/deep-research.ts's researchOnDemand), which is
+  // working-material specifically so it can't go live before review, but
+  // still needs to be readable somewhere. This is that somewhere: link it
+  // to the operator review screen instead of leaving it dead text like
+  // every other piece of raw working material.
+  const { all: allRows2 } = await import("../../lib/d1");
+  const onDemandDrafts = new Set<string>();
+  if (userId && opts.isOperator) {
+    const rows = await allRows2<{ id: string }>(
+      env.DB,
+      `SELECT id FROM pieces WHERE user_id = ? AND publication_status = 'working-material'
+         AND tags LIKE '%on-demand%'`,
+      [userId],
+    ).catch(() => []);
+    for (const r of rows) onDemandDrafts.add(r.id);
+  }
+
   const uploadBanner = opts.error
     ? `<div class="op-banner op-banner-error">${escapeHtml(opts.error)}</div>`
     : opts.ingested
@@ -442,14 +461,20 @@ export async function renderLibraryIndex(
     ? pieces
         .map((p) => {
           const fed = fedByPiece.get(p.id);
-          const status =
-            p.publication_status === "working-material"
+          const isOnDemandDraft =
+            p.publication_status === "working-material" && onDemandDrafts.has(p.id);
+          const status = isOnDemandDraft
+            ? `<span class="chip">draft — awaiting review</span>`
+            : p.publication_status === "working-material"
               ? `<span class="chip">working material</span>`
               : p.publication_status === "canonical"
                 ? `<span class="chip">canonical</span>`
                 : `<span class="chip">published</span>`;
-          const href =
-            p.publication_status === "working-material" ? "" : `/library/${escapeHtml(p.slug)}`;
+          const href = isOnDemandDraft
+            ? `/op/library/research/${escapeHtml(p.id)}/review`
+            : p.publication_status === "working-material"
+              ? ""
+              : `/library/${escapeHtml(p.slug)}`;
           const isRawFilename = looksLikeMachineFilename(p.title);
           const displayTitle = isRawFilename ? "Untitled research document" : p.title;
           const rawFilenameLine = isRawFilename

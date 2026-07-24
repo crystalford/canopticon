@@ -760,19 +760,25 @@ app.post("/records/bulk-expand", async (c) => {
 });
 
 // "Research this for real" — the operator-only follow-through on a search
-// miss's AI-generated preview (public/render/search.ts). The preview text
-// itself never enters the graph (it's Brave's synthesis, not a quote from a
-// stored document); this button is what actually does: runs the SAME
-// search -> fetch -> verbatim-extract pipeline as expandRecord, keyed off
-// the raw query instead of an existing subject's label.
+// miss's AI-generated preview (public/render/search.ts), also reused by the
+// homepage's finding/thread "Research this" buttons and the watchlist's
+// "Research now". The preview text itself never enters the graph (it's
+// Brave's synthesis, not a quote from a stored document); this button runs
+// the real search -> fetch -> verbatim-extract pipeline (expandRecord)
+// keyed off the raw query, THEN synthesizes a draft brief from whatever
+// gets banked (graph/lib/deep-research.ts's researchOnDemand) — banking
+// alone used to be the whole action; a synthesized draft is a more useful
+// answer to "research this" than a pile of unread raw pages. Lands as an
+// unpublished, unreviewed draft — see /library/research/:id/review.
 app.post("/search/research", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/search");
   const form = await c.req.parseBody();
   const q = typeof form.q === "string" ? form.q.trim() : "";
+  const angle = typeof form.angle === "string" ? form.angle.trim() || undefined : undefined;
   if (!q) return c.redirect("/search");
-  const { expandRecord } = await import("../graph/lib/record-builder");
-  c.executionCtx.waitUntil(expandRecord(c.env, userId, q));
+  const { researchOnDemand } = await import("../graph/lib/deep-research");
+  c.executionCtx.waitUntil(researchOnDemand(c.env, userId, q, angle).catch(() => {}));
   return c.redirect(`/search?q=${encodeURIComponent(q)}&researching=1`);
 });
 
@@ -869,6 +875,111 @@ app.post("/synthesis/thread/:id/:action", async (c) => {
 // DESIGN PROTOTYPE — unlinked, throwaway. The artifact for the app reframe;
 // see screens/design-mock.ts. Remove when the real redesign lands.
 app.get("/design", (c) => c.html(renderDesignMock()));
+
+// Review screen for an on-demand research draft (graph/lib/deep-research.ts's
+// researchOnDemand) — lands as publication_status='working-material', which
+// renderPiece (public/render/piece-template.ts) refuses to render at all, by
+// design (working-material never gets a public page). This is the only
+// place it's readable before the operator decides: publish it (which is
+// also the FIRST time it gets queued for typed-graph extraction — an
+// unreviewed draft doesn't get to seed graph facts either) or discard it.
+app.get("/library/research/:id/review", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const row = await one<{
+    id: string;
+    slug: string;
+    title: string;
+    body_md: string | null;
+    metadata: string;
+  }>(
+    c.env.DB,
+    "SELECT id, slug, title, body_md, metadata FROM pieces WHERE id = ? AND user_id = ? AND publication_status = 'working-material'",
+    [c.req.param("id"), userId],
+  );
+  if (!row) return c.redirect("/library");
+  let meta: { label?: string; angle?: string | null; source_piece_ids?: string[] } = {};
+  try {
+    meta = JSON.parse(row.metadata || "{}");
+  } catch {
+    meta = {};
+  }
+  const { escapeHtml } = await import("../public/layout");
+  const { renderMarkdown } = await import("../cms/lib/render-post");
+  const { renderOpPage } = await import("./layout");
+  const sourceCount = meta.source_piece_ids?.length ?? 0;
+  const body = `<div style="font-size:12px;color:var(--dmut,#888);margin-bottom:16px">
+  Researched: ${escapeHtml(meta.label ?? row.title)}
+  ${meta.angle ? ` <span style="opacity:.7">· angle: "${escapeHtml(meta.angle)}"</span>` : ""}
+  <span style="opacity:.7"> · ${sourceCount} source${sourceCount === 1 ? "" : "s"} banked</span>
+</div>
+<div style="border:1px solid #2e2e38;border-radius:9px;padding:20px 24px;background:#15181f;color:#e8eaef;max-width:720px;line-height:1.6">${renderMarkdown(row.body_md ?? "")}</div>
+<div style="margin-top:16px;display:flex;gap:10px">
+  <form method="POST" action="/op/library/research/${escapeHtml(row.id)}/publish">
+    <button type="submit" class="btn primary" style="background:#d9a441;color:#1c1608;font-weight:600;padding:9px 20px;border-radius:7px;border:none;cursor:pointer">Publish</button>
+  </form>
+  <form method="POST" action="/op/library/research/${escapeHtml(row.id)}/discard" onsubmit="return confirm('Discard this draft? This deletes it — there is no undo.');">
+    <button type="submit" class="btn" style="padding:9px 20px;border:1px solid #2e2e38;border-radius:7px;color:#c8c5bd;background:transparent;cursor:pointer">Discard</button>
+  </form>
+</div>`;
+  return opHtml(
+    renderOpPage({
+      title: "Review research draft",
+      sub: "written automatically, unpublished, unread until now · nothing has entered the record yet",
+      body,
+      activeNav: "/library",
+    }),
+  );
+});
+
+// Publish an on-demand research draft — the FIRST point it becomes public
+// (publication_status → 'published') and the FIRST point it's queued for
+// typed-graph extraction. Both were deferred from creation specifically so
+// nothing here happens before the operator reads it.
+app.post("/library/research/:id/publish", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const row = await one<{ slug: string; title: string; metadata: string }>(
+    c.env.DB,
+    "SELECT slug, title, metadata FROM pieces WHERE id = ? AND user_id = ? AND publication_status = 'working-material'",
+    [c.req.param("id"), userId],
+  );
+  if (!row) return c.redirect("/library");
+  const now = new Date().toISOString();
+  await run(
+    c.env.DB,
+    "UPDATE pieces SET publication_status = 'published', published_at = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+    [now, now, c.req.param("id"), userId],
+  );
+  let meta: { source_id?: string } = {};
+  try {
+    meta = JSON.parse(row.metadata || "{}");
+  } catch {
+    meta = {};
+  }
+  await enqueueDigest(c.env, {
+    userId,
+    pieceId: c.req.param("id"),
+    slug: row.slug,
+    title: row.title,
+    sourceId: meta.source_id ?? "",
+  });
+  return c.redirect(`/p/${row.slug}`);
+});
+
+// Discard an on-demand research draft. Extraction was never queued for a
+// working-material piece (see the review screen's comment above), so
+// there's nothing downstream to clean up — a plain delete is safe.
+app.post("/library/research/:id/discard", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  await run(
+    c.env.DB,
+    "DELETE FROM pieces WHERE id = ? AND user_id = ? AND publication_status = 'working-material'",
+    [c.req.param("id"), userId],
+  );
+  return c.redirect("/library");
+});
 
 // Manual extraction trigger. The pivot decoupled upload from extraction;
 // this is where the operator actually fires the LLM digestion pipeline.

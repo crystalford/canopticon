@@ -48,7 +48,10 @@ function formatRelative(iso: string): string {
   return `${months}mo ago`;
 }
 
-export async function renderWatchlistPage(env: PublicEnv): Promise<string> {
+export async function renderWatchlistPage(
+  env: PublicEnv,
+  opts: { isOperator?: boolean } = {},
+): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const beats = userId
     ? await all<BeatRow>(
@@ -85,9 +88,16 @@ export async function renderWatchlistPage(env: PublicEnv): Promise<string> {
           const status = b.last_swept_at
             ? `last checked ${formatRelative(b.last_swept_at)}`
             : "not checked yet";
+          const researchForm = opts.isOperator
+            ? `<form class="watch-research-form" method="POST" action="/op/search/research">
+  <input type="hidden" name="q" value="${escapeAttr(b.label)}">
+  <button class="watch-research-go" type="submit">Research now →</button>
+</form>`
+            : "";
           return `<div class="watch-row">
   <div class="watch-name">${name}</div>
   <div class="watch-meta">added ${formatRelative(b.created_at)} <span class="sep">·</span> ${status}${slug ? "" : ' <span class="sep">·</span> no file yet'}</div>
+  ${researchForm}
 </div>`;
         })
         .join("")
@@ -132,6 +142,10 @@ export async function renderWatchlistPage(env: PublicEnv): Promise<string> {
   .watch-name a { color: var(--ink); }
   .watch-name a:hover { color: var(--accent-2); }
   .watch-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); margin-top: 4px; }
+  .watch-research-form { margin-top: 8px; }
+  .watch-research-go { font-size: 12px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--rule);
+    background: var(--surface); color: var(--accent-2); cursor: pointer; }
+  .watch-research-go:hover { border-color: var(--accent-2); }
 </style>`,
     activeNav: "/watchlist",
     zone: "watchlist",

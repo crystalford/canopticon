@@ -140,6 +140,7 @@ function renderFooter(): string {
       <a href="/investigations">Investigations</a>
       <a href="/watchlist">Watchlist</a>
       <a href="/library">Library</a>
+      <a href="/activity">Activity</a>
       <a href="/method">Method</a>
       <a href="/how-it-works">How this works</a>
       <a href="/search">Search</a>

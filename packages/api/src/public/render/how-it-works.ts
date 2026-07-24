@@ -314,9 +314,11 @@ ${statStrip}
     </div>
     <div class="hiw-item">
       <div class="hiw-item-h">Research a question</div>
-      <p>On a search that comes up empty, or on an open thread / finding with nowhere
-      to click yet, "Research this" fires the same pipeline keyed to that exact
-      question.</p>
+      <p>On a search that comes up empty, an open thread/finding, or a watched subject,
+      "Research this" / "Research now" searches → fetches → banks sources on that exact
+      question, then drafts a synthesized brief from what it found. The draft lands
+      unpublished — readable only from its Library row, via a review screen with
+      Publish/Discard. Nothing enters the record or goes public until you publish it.</p>
     </div>
     <div class="hiw-item">
       <div class="hiw-item-h">Bulk-expand the thinnest 3</div>

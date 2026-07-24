@@ -13,30 +13,138 @@
 // rows stuck at status='running' with no heartbeat progress.
 //
 // Instead this is a SEPARATE, bounded, resumable step: expandRecord banks
-// raw sources as it already does; later (same cron slot, mutually
-// exclusive with a fresh expand — see autonomous-expand.ts), ONE call here
-// takes whatever a beat's last expand banked and writes a single
-// synthesized research report from it via the "writer" role — the same
-// LLM call budget draft-reading.ts already spends per candidate. The
-// report becomes a new document, stored and QUEUED for extraction through
-// the exact same verbatim-quote pipeline as anything the operator uploads
-// by hand (the every-minute cron drain, not run inline here — same fix as
-// expandRecord): the firewall doesn't move, only where the document came
-// from does.
+// raw sources as it already does; later, ONE call here takes a set of
+// already-banked pieces and writes a single synthesized research report
+// from them via the "writer" role — the same LLM call budget
+// draft-reading.ts already spends per candidate.
+//
+// synthesizeDueBeatReport (the autonomous-cron path, picked a beat's last
+// expand automatically and PUBLISHED the result with no operator ever
+// reading it) is retired along with the sweep that called it — see
+// index.ts's scheduled(). Left in place, unwired, not deleted: dormant
+// code, not a live path. researchOnDemand below is the replacement — the
+// operator triggers it (from "Research this" or a watchlist entry), and
+// what it writes lands as working-material, not published: readable only
+// via the operator review screen (operator/routes.ts's
+// /library/research/:id/review) until explicitly published from there.
+// Extraction into the typed graph is deferred to that same publish step
+// too — an unreviewed draft doesn't get to seed graph facts either.
 
 import type { Env } from "../../env";
 import { all, insertOne, one, run } from "../../lib/d1";
 import { callRole } from "../../llm/router";
-import { enqueueDigest } from "./digest-jobs";
 
 const EXCERPT_CHARS_PER_SOURCE = 3000; // keeps the synthesis prompt bounded regardless of source length
 const REPORT_MAX_TOKENS = 3000;
 
 export interface SynthesisReport {
   synthesized: boolean;
-  beatLabel?: string;
+  beatLabel?: string | undefined;
+  pieceId?: string | undefined;
+  reason?: string | undefined;
+}
+
+interface WriteBriefResult {
+  ok: boolean;
   pieceId?: string;
+  slug?: string;
+  sourceId?: string;
+  title?: string;
   reason?: string;
+}
+
+/** The shared core: given a label and a set of already-banked piece ids,
+ *  write one synthesized research brief from their bodies. Used by both
+ *  the (dormant) autonomous beat path and the on-demand path below —
+ *  `publish` is the only behavioral fork between them. Never enqueues
+ *  extraction itself; callers decide when (or if) that happens. */
+async function writeResearchBrief(
+  env: Env,
+  userId: string,
+  label: string,
+  pieceIds: string[],
+  opts: { publish: boolean; angleHint?: string | undefined },
+): Promise<WriteBriefResult> {
+  if (pieceIds.length === 0) return { ok: false, reason: "no banked sources to synthesize from" };
+
+  const placeholders = pieceIds.map(() => "?").join(",");
+  const pieces = await all<{ title: string; body_md: string | null }>(
+    env.DB,
+    `SELECT title, body_md FROM pieces WHERE id IN (${placeholders}) AND user_id = ?`,
+    [...pieceIds, userId],
+  ).catch(() => []);
+  if (pieces.length === 0) return { ok: false, reason: "banked pieces no longer found" };
+
+  const excerpts = pieces
+    .map((p) => `### ${p.title}\n${(p.body_md ?? "").slice(0, EXCERPT_CHARS_PER_SOURCE)}`)
+    .join("\n\n");
+
+  const angleLine = opts.angleHint
+    ? `\n\nTHE OPERATOR ASKED SPECIFICALLY ABOUT: "${opts.angleHint.slice(0, 300)}"\nFocus the brief on this if the excerpts support it. If they don't, say so honestly rather than forcing an answer the sources don't have.`
+    : "";
+
+  const out = await callRole(env, "writer", {
+    userId,
+    system: `You write a structured RESEARCH BRIEF synthesizing the supplied source excerpts about a subject the operator asked to have researched.
+
+RULES:
+- Organize by theme, not by source — pull the excerpts together into a coherent account.
+- Every substantive claim should be traceable to something in the supplied excerpts. Do not invent facts the excerpts don't support.
+- Close with a short "Still open" section: what these sources DON'T cover, or where they disagree.
+- This is a briefing document for a researcher deciding what to look into next — not a final verdict, not a signed reading.
+- Plain, direct prose. No throat-clearing intro, no "in conclusion."${angleLine}
+
+Return markdown only — a title line, then the brief.`,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `Subject: ${label}\n\nSOURCE EXCERPTS:\n${excerpts}`,
+          },
+        ],
+      },
+    ],
+    max_tokens: REPORT_MAX_TOKENS,
+  });
+
+  const reportText = (out.text ?? "").trim();
+  if (reportText.length < 200) return { ok: false, reason: "writer produced too little text" };
+
+  const now = new Date().toISOString();
+  const title = `Research brief: ${label} (${now.slice(0, 10)})`;
+  const sourceId = await insertOne(env.DB, "sources", {
+    user_id: userId,
+    // sources.source_type has a fixed CHECK list (no "synthesis" option) —
+    // "report" is the closest fit for a system-written research brief.
+    source_type: "report",
+    ingestion_state: "approved",
+    title,
+    url: null,
+    authors: JSON.stringify(["Canopticon research agent"]),
+    content_text: reportText,
+  });
+  const slug = await ensureUniqueSlug(env.DB, userId, slugify(title));
+  const pieceId = await insertOne(env.DB, "pieces", {
+    user_id: userId,
+    slug,
+    title,
+    kind: "research-report",
+    publication_status: opts.publish ? "published" : "working-material",
+    body_md: reportText,
+    byline: "Canopticon research agent",
+    tags: JSON.stringify(["auto-research", opts.publish ? "beat" : "on-demand"]),
+    metadata: JSON.stringify({
+      ingested_from: "deep-research",
+      label,
+      angle: opts.angleHint ?? null,
+      source_piece_ids: pieceIds,
+      source_id: sourceId,
+    }),
+  });
+
+  return { ok: true, pieceId, slug, sourceId, title };
 }
 
 interface DueBeatForSynthesis {
@@ -90,100 +198,74 @@ export async function synthesizeDueBeatReport(env: Env, userId: string): Promise
     return { synthesized: false, beatLabel: beat.label, reason: "banked pieces no longer found" };
   }
 
-  const excerpts = pieces
-    .map((p) => `### ${p.title}\n${(p.body_md ?? "").slice(0, EXCERPT_CHARS_PER_SOURCE)}`)
-    .join("\n\n");
-
-  const out = await callRole(env, "writer", {
-    userId,
-    system: `You write a structured RESEARCH BRIEF synthesizing the supplied source excerpts about a subject the operator is standing-watch on (a "beat").
-
-RULES:
-- Organize by theme, not by source — pull the excerpts together into a coherent account.
-- Every substantive claim should be traceable to something in the supplied excerpts. Do not invent facts the excerpts don't support.
-- Close with a short "Still open" section: what these sources DON'T cover, or where they disagree.
-- This is a briefing document for a researcher deciding what to look into next — not a final verdict, not a signed reading.
-- Plain, direct prose. No throat-clearing intro, no "in conclusion."
-
-Return markdown only — a title line, then the brief.`,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Subject (beat): ${beat.label}\n\nSOURCE EXCERPTS:\n${excerpts}`,
-          },
-        ],
-      },
-    ],
-    max_tokens: REPORT_MAX_TOKENS,
-  });
-
-  const reportText = (out.text ?? "").trim();
-  if (reportText.length < 200) {
-    await run(env.DB, "UPDATE coverage_beats SET last_synthesized_at = ? WHERE id = ?", [
-      new Date().toISOString(),
-      beat.id,
-    ]);
-    return { synthesized: false, beatLabel: beat.label, reason: "writer produced too little text" };
-  }
-
+  const result = await writeResearchBrief(env, userId, beat.label, pieceIds, { publish: true });
   const now = new Date().toISOString();
-  const title = `Research brief: ${beat.label} (${now.slice(0, 10)})`;
-  const sourceId = await insertOne(env.DB, "sources", {
-    user_id: userId,
-    // sources.source_type has a fixed CHECK list (no "synthesis" option) —
-    // "report" is the closest fit for a system-written research brief.
-    source_type: "report",
-    ingestion_state: "approved",
-    title,
-    url: null,
-    authors: JSON.stringify(["Canopticon research agent"]),
-    content_text: reportText,
-  });
-  const slug = await ensureUniqueSlug(env.DB, userId, slugify(title));
-  const pieceId = await insertOne(env.DB, "pieces", {
-    user_id: userId,
-    slug,
-    title,
-    kind: "research-report",
-    publication_status: "published",
-    body_md: reportText,
-    byline: "Canopticon research agent",
-    tags: JSON.stringify(["auto-research", "beat"]),
-    metadata: JSON.stringify({
-      ingested_from: "deep-research",
-      beat_id: beat.id,
-      beat_label: beat.label,
-      source_piece_ids: pieceIds,
-    }),
-  });
-
-  // Enqueue only — the every-minute cron drain runs it, same as every
-  // other digest job. Running it inline here, right after the "writer"
-  // LLM call above, was the same execution-ceiling bug expandRecord had.
-  await enqueueDigest(env, {
-    userId,
-    pieceId,
-    slug,
-    title,
-    sourceId,
-  });
-
   await run(env.DB, "UPDATE coverage_beats SET last_synthesized_at = ? WHERE id = ?", [
     now,
     beat.id,
   ]);
+  if (!result.ok) {
+    return { synthesized: false, beatLabel: beat.label, reason: result.reason };
+  }
+
+  // Publish path still enqueues extraction immediately — dormant code
+  // (nothing calls synthesizeDueBeatReport anymore), kept behaviorally
+  // identical to before rather than silently changed underneath a name
+  // nothing invokes.
+  const { enqueueDigest } = await import("./digest-jobs");
+  await enqueueDigest(env, {
+    userId,
+    pieceId: result.pieceId as string,
+    slug: result.slug as string,
+    title: result.title as string,
+    sourceId: result.sourceId as string,
+  });
+
   await insertOne(env.DB, "orchestrator_events", {
     user_id: userId,
     event_type: "deep_research.synthesized",
     subject_kind: "beat",
     subject_id: beat.id,
-    payload: { beat_label: beat.label, piece_id: pieceId, sources_used: pieces.length },
+    payload: { beat_label: beat.label, piece_id: result.pieceId, sources_used: pieces.length },
   }).catch(() => {});
 
-  return { synthesized: true, beatLabel: beat.label, pieceId };
+  return { synthesized: true, beatLabel: beat.label, pieceId: result.pieceId };
+}
+
+/** Operator-triggered research: search + fetch + bank sources on `label`
+ *  right now (expandRecord), then synthesize a brief from whatever gets
+ *  banked. Lands as working-material, NOT published, NOT queued for
+ *  extraction — only readable via the operator review screen
+ *  (operator/routes.ts's /library/research/:id/review), which is also
+ *  where publishing (and, only then, extraction) actually happens. */
+export async function researchOnDemand(
+  env: Env,
+  userId: string,
+  label: string,
+  angleHint?: string,
+): Promise<WriteBriefResult> {
+  const { expandRecord } = await import("./record-builder");
+  const expandReport = await expandRecord(env, userId, label);
+  if (expandReport.banked_piece_ids.length === 0) {
+    return {
+      ok: false,
+      reason: expandReport.errors.length
+        ? expandReport.errors.slice(0, 3).join("; ")
+        : "no usable sources found",
+    };
+  }
+  const result = await writeResearchBrief(env, userId, label, expandReport.banked_piece_ids, {
+    publish: false,
+    angleHint,
+  });
+  await insertOne(env.DB, "orchestrator_events", {
+    user_id: userId,
+    event_type: result.ok ? "deep_research.drafted" : "deep_research.draft_failed",
+    subject_kind: "query",
+    subject_id: null,
+    payload: { label, angle: angleHint ?? null, piece_id: result.pieceId, reason: result.reason },
+  }).catch(() => {});
+  return result;
 }
 
 function slugify(s: string): string {

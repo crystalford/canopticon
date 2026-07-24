@@ -11,6 +11,7 @@ import type { AuthContext } from "../auth/middleware";
 import { all, one } from "../lib/d1";
 import { getPieceBySlug, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
+import { renderActivityPage } from "./render/activity";
 import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
 import { renderHome } from "./render/home";
@@ -281,7 +282,9 @@ app.get("/topics", async (c) => htmlResponse(await renderTopicsIndex(c.env)));
 // Watchlist — the public surface for coverage_beats (previously only
 // reachable as the operator via /v1/admin/beats). Not "/monitors" —
 // graph/routes/monitors.ts is a separate, older, unrelated system.
-app.get("/watchlist", async (c) => htmlResponse(await renderWatchlistPage(c.env)));
+app.get("/watchlist", async (c) =>
+  htmlResponse(await renderWatchlistPage(c.env, { isOperator: c.get("is_operator") })),
+);
 
 // ---- Videos ----------------------------------------------------------
 // Published video essays — reading-sourced (from a signed File's
@@ -289,6 +292,7 @@ app.get("/watchlist", async (c) => htmlResponse(await renderWatchlistPage(c.env)
 // both surfaced from the separate video Worker's public API. See
 // render/videos.ts.
 app.get("/videos", async (c) => htmlResponse(await renderVideosPage(c.env)));
+app.get("/activity", async (c) => htmlResponse(await renderActivityPage(c.env)));
 
 // ---- Instruments ----------------------------------------------------------
 // The third product arm's doorway. Instruments live on their own
