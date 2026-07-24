@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-24T22:59:56Z",
-  "run_id": "30132545933",
+  "requested_at": "2026-07-24T23:00:42Z",
+  "run_id": "30132585392",
   "method": "GET",
-  "path": "/v1/admin/readings-candidates",
-  "status": 0,
-  "body": ""
+  "path": "/v1/admin/event-log?type=readings.drafted",
+  "status": 500,
+  "body": "{\n  \"error\": {\n    \"code\": \"internal_error\",\n    \"message\": \"Internal server error\",\n    \"trace_id\": \"0890576c-43d3-4276-8e8b-217a8f84f21f\"\n  }\n}"
 }
