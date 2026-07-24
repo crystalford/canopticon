@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-24T20:02:11Z",
-  "run_id": "30122445153",
+  "requested_at": "2026-07-24T20:03:53Z",
+  "run_id": "30122600706",
   "method": "GET",
   "path": "/v1/admin/reembed-pieces?confirm=1&offset=0",
-  "status": 0,
-  "body": ""
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"total\": 102,\n  \"batch_size\": 5,\n  \"embedded\": 5,\n  \"errors\": [],\n  \"next_offset\": 5,\n  \"done\": false\n}"
 }
