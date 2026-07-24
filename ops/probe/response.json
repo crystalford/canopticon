@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-24T22:57:23Z",
-  "run_id": "30132449530",
+  "requested_at": "2026-07-24T22:59:56Z",
+  "run_id": "30132545933",
   "method": "GET",
-  "path": "/v1/admin/settle-state",
-  "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"row\": {\n    \"user_id\": \"0c0971ff-4aad-4e8c-83b0-a99ae5fae260\",\n    \"next_step\": \"autoseed_pages\",\n    \"last_advanced_at\": \"2026-07-24T22:56:10.294Z\"\n  }\n}"
+  "path": "/v1/admin/readings-candidates",
+  "status": 0,
+  "body": ""
 }
