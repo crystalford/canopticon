@@ -27,6 +27,11 @@ import { applyCitationMarkers, extractClaimSentence } from "./draft-reading";
 
 const TOP_N_PER_RUN = 1;
 const MIN_QUOTES = 6;
+// Below this, a handful of self-authored assertions isn't enough to
+// describe as "recurring positions" — that's just a couple of claims,
+// not a shape to their thinking yet. Same order of magnitude as
+// MIN_QUOTES; will need real production data to tell if it's right.
+const MIN_SELF_ASSERTIONS = 5;
 // draft-reading.ts's equivalent grounding query uses LIMIT 40 and is
 // production-proven to finish inside one waitUntil's CPU/wall-clock budget.
 // An earlier version of this file used 200 (5x that) with the large_context
@@ -133,11 +138,13 @@ async function generateOne(
     verbatim_text: string;
     node_kind: string;
     actor: string | null;
+    actor_node_id: string | null;
     stance: string | null;
   }>(
     env.DB,
     `SELECT q.id AS quote_id, q.verbatim_text, n.kind AS node_kind,
             (SELECT label FROM nodes WHERE id = a.asserted_by_node_id) AS actor,
+            a.asserted_by_node_id AS actor_node_id,
             a.stance
        FROM quotes q
        JOIN nodes n ON n.id = q.node_id
@@ -155,7 +162,13 @@ async function generateOne(
   const shortToReal = new Map<string, string>();
   const quotes = new Map<
     string,
-    { text: string; node_kind: string; actor: string | null; stance: string | null }
+    {
+      text: string;
+      node_kind: string;
+      actor: string | null;
+      actor_node_id: string | null;
+      stance: string | null;
+    }
   >();
   rawQuotes.forEach((r, i) => {
     const shortId = `q${i + 1}`;
@@ -163,22 +176,37 @@ async function generateOne(
       text: r.verbatim_text,
       node_kind: r.node_kind,
       actor: r.actor,
+      actor_node_id: r.actor_node_id,
       stance: r.stance,
     });
     shortToReal.set(shortId, r.quote_id);
   });
 
   const factLines: string[] = [];
+  // Split assertions ABOUT this subject (made by someone else) from
+  // assertions BY this subject (self-authored — e.g. a creator's own
+  // claims across their own ingested videos). Same underlying data the
+  // profile already pulled in; the only change is telling the model
+  // which is which, so it can write a dedicated "in their own words"
+  // section from ONLY the self-authored ones instead of silently
+  // blending a person's own claims in with what other sources say about
+  // them (2026-07-24, video-commentary creator-profile Phase 3).
   const assertionLines: string[] = [];
+  const selfAssertionLines: string[] = [];
   for (const [id, q] of quotes) {
     if (q.node_kind === "assertion") {
-      assertionLines.push(
-        `[${id}] ASSERTION by ${q.actor ?? "UNKNOWN"} (${q.stance ?? "neutral"}): "${q.text.slice(0, 240)}"`,
-      );
+      const line = `[${id}] ASSERTION by ${q.actor ?? "UNKNOWN"} (${q.stance ?? "neutral"}): "${q.text.slice(0, 240)}"`;
+      if (q.actor_node_id === nodeId) {
+        selfAssertionLines.push(line);
+      } else {
+        assertionLines.push(line);
+      }
     } else {
       factLines.push(`[${id}] "${q.text.slice(0, 240)}"`);
     }
   }
+
+  const hasSelfMaterial = selfAssertionLines.length >= MIN_SELF_ASSERTIONS;
 
   const out = await callRole(env, "writer", {
     userId,
@@ -190,7 +218,12 @@ HARD RULES:
 - THE FIREWALL: an attributed assertion is NEVER stated as neutral fact. Write "According to X, ..." for contested material — never smooth it into settled fact just because this is a synthesis, not an argument.
 - Every load-bearing fact must reference a grounded quote id, marked inline like this: the claim text [q3]. We verify mechanically; invented ids are dropped.
 - Cover the full breadth of what's supplied, not just the most dramatic facts. This is meant to be comprehensive, the way a reference article is, not punchy.
-- Plain, clear prose. No throat-clearing intro, no "in conclusion."
+- Plain, clear prose. No throat-clearing intro, no "in conclusion."${
+      hasSelfMaterial
+        ? `
+- You have been supplied a SELF-AUTHORED block below: this subject's OWN claims, from their own material (not what others say about them). Add a "## In their own words" section built ONLY from that block — the recurring positions, arguments, and theories that show up across it. Still cite [qN] on every load-bearing point. Still no verdict on whether they're right — this section describes the shape of what they argue, not whether it holds up.`
+        : ""
+    }
 
 Return ONLY JSON:
 {
@@ -208,8 +241,15 @@ Return ONLY JSON:
 ESTABLISHED FACTS:
 ${factLines.join("\n") || "(none)"}
 
-ATTRIBUTED ASSERTIONS (contested — attribute, never state as fact):
+ATTRIBUTED ASSERTIONS (made by others, about this subject — contested, attribute, never state as fact):
 ${assertionLines.join("\n") || "(none)"}
+${
+  hasSelfMaterial
+    ? `
+SELF-AUTHORED ASSERTIONS (this subject's OWN claims, in their own words — use ONLY these for "In their own words"):
+${selfAssertionLines.join("\n")}`
+    : ""
+}
 
 Write the comprehensive profile.`,
           },
