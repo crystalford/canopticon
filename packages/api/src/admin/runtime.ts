@@ -666,7 +666,7 @@ app.get("/health", async (c) => {
   });
 });
 
-// GET /v1/admin/reembed-pieces?confirm=1
+// GET /v1/admin/reembed-pieces?confirm=1&offset=0
 //
 // One-time backfill for the 2026-07-24 bge-large-en-v1.5 -> bge-m3 swap
 // (graph/lib/embeddings.ts). Existing "piece" vectors were written with
@@ -677,16 +677,31 @@ app.get("/health", async (c) => {
 // digested. Scoped to "piece" only — the confirmed-live, most-searched
 // kind; see embeddings.ts's comment for why entity/claim/thesis/source
 // weren't included.
+//
+// Bounded per call (BATCH pieces, ordered by id) and returns next_offset —
+// this codebase's own established fix for the execution-ceiling failure
+// class (chaining many real model calls in one request silently exceeds
+// Cloudflare's wall-clock budget with no catchable error; the first
+// unbounded version of this route hit exactly that on a live probe).
+// Caller repeats with the returned next_offset until done=true.
 app.get("/reembed-pieces", async (c) => {
   if (c.req.query("confirm") !== "1") {
     return c.json({ ok: false, error: "pass ?confirm=1" }, 400);
   }
+  const BATCH = 10;
+  const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
   const userId = c.get("user_id");
   const { embedText, upsertVector, vectorId } = await import("../graph/lib/embeddings.ts");
+  const total =
+    (
+      await one<{ n: number }>(c.env.DB, "SELECT COUNT(*) AS n FROM pieces WHERE user_id = ?", [
+        userId,
+      ])
+    )?.n ?? 0;
   const pieces = await all<{ id: string; title: string; body_md: string }>(
     c.env.DB,
-    "SELECT id, title, body_md FROM pieces WHERE user_id = ?",
-    [userId],
+    "SELECT id, title, body_md FROM pieces WHERE user_id = ? ORDER BY id LIMIT ? OFFSET ?",
+    [userId, BATCH, offset],
   );
   let embedded = 0;
   const errors: Array<{ id: string; error: string }> = [];
@@ -703,7 +718,16 @@ app.get("/reembed-pieces", async (c) => {
       errors.push({ id: p.id, error: (err as Error).message ?? "unknown" });
     }
   }
-  return c.json({ ok: true, total: pieces.length, embedded, errors });
+  const nextOffset = offset + pieces.length;
+  return c.json({
+    ok: true,
+    total,
+    batch_size: pieces.length,
+    embedded,
+    errors,
+    next_offset: nextOffset,
+    done: nextOffset >= total,
+  });
 });
 
 // GET /v1/admin/debug-model?model=...&prompt=...
