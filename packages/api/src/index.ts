@@ -286,6 +286,13 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
     const { advanceReembedBackfill } = await import("./graph/lib/embeddings.ts");
     ctx.waitUntil(advanceReembedBackfill(env, settleUserId).catch(() => {}));
   }
+  // Video-ingestion Phase 2 (2026-07-24, graph/lib/argument-summary.ts):
+  // one video-transcript piece's argument summary per tick, only once its
+  // digestion has actually completed.
+  if (settleUserId) {
+    const { advanceArgumentSummaries } = await import("./graph/lib/argument-summary.ts");
+    ctx.waitUntil(advanceArgumentSummaries(env, settleUserId).catch(() => {}));
+  }
 };
 
 export default {

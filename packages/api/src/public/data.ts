@@ -115,6 +115,8 @@ export interface PieceDetail extends PieceSummary {
   body_html: string | null;
   chain_id: string | null;
   tags: string;
+  metadata: string;
+  argument_summary_md: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -142,7 +144,7 @@ export async function getPieceBySlug(
     db,
     `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
             byline, published_at, signed_by, body_md, body_html, chain_id,
-            tags, created_at, updated_at
+            tags, metadata, argument_summary_md, created_at, updated_at
        FROM pieces WHERE user_id = ? AND slug = ?`,
     [userId, slug],
   );

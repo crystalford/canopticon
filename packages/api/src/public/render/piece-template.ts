@@ -115,15 +115,81 @@ function renderWhatItFed(fed: FedSummary | undefined): string {
 function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   const sections = parseSections(piece.body_md ?? "");
   const kindClass = isEditorialKind(piece.kind) ? "container reading" : "container reading";
+  const videoMeta = parseVideoMetadata(piece);
+
+  // A video-transcript piece: lead with the argument summary (Phase 2,
+  // 2026-07-24) — the faithful, source-side account of what was argued —
+  // and fold the raw transcript (still the same body_md every other kind
+  // renders inline) behind a <details> so it reads as backing material,
+  // not the main event. Every other kind is untouched.
+  const bodyBlock = videoMeta
+    ? `${renderArgumentSummary(piece, videoMeta)}
+<details class="video-transcript-fold">
+  <summary>Full transcript</summary>
+  ${renderBodyForKind(piece, sections, ctx)}
+</details>`
+    : renderBodyForKind(piece, sections, ctx);
 
   return `<div class="${kindClass}">
 ${renderBreadcrumbs(piece)}
 ${renderPageHead(piece)}
 ${renderDownloadBar(piece)}
-${renderBodyForKind(piece, sections, ctx)}
+${bodyBlock}
 ${renderWhatItFed(ctx.fed)}
 ${renderDepositNote(piece, ctx.topics)}
 ${renderOnward(piece, ctx)}
+</div>
+<style>
+  .video-transcript-fold summary { cursor: pointer; font-family: var(--mono); font-size: 12px;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); padding: 10px 0;
+    border-top: 1px solid var(--rule); margin-top: 24px; }
+  .video-transcript-fold[open] summary { border-bottom: 1px solid var(--rule); margin-bottom: 18px; }
+</style>`;
+}
+
+interface VideoMeta {
+  source_url: string | null;
+  video_channel: string | null;
+}
+
+/** Detect a video-transcript piece (Phase 1 ingestion, 2026-07-24) from
+ *  its metadata JSON rather than a dedicated column — matches how every
+ *  other piece-origin marker (ingested_from) is already stored. */
+function parseVideoMetadata(piece: PieceDetail): VideoMeta | null {
+  try {
+    const meta = JSON.parse(piece.metadata || "{}") as {
+      ingested_from?: string;
+      source_url?: string;
+      video_channel?: string;
+    };
+    if (meta.ingested_from !== "video-transcript") return null;
+    return { source_url: meta.source_url ?? null, video_channel: meta.video_channel ?? null };
+  } catch {
+    return null;
+  }
+}
+
+/** "What this video argued" — the Phase 2 summary, or (while it's still
+ *  queued — advanceArgumentSummaries runs one piece per cron tick) an
+ *  honest note that it's on its way rather than a blank gap. */
+function renderArgumentSummary(piece: PieceDetail, meta: VideoMeta): string {
+  const sourceLine = [
+    meta.video_channel ? escapeHtml(meta.video_channel) : null,
+    meta.source_url
+      ? `<a href="${escapeAttr(meta.source_url)}" target="_blank" rel="noopener noreferrer">watch the original ↗</a>`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const body = piece.argument_summary_md
+    ? renderMarkdown(piece.argument_summary_md)
+    : `<p class="piece-note-pending">Summarizing what was argued in this video — checks in on the next processing pass. The full transcript below is already searchable and feeding the record.</p>`;
+
+  return `<div class="piece-note video-argument-summary">
+  <span class="dr-h">What this video argued</span>
+  ${sourceLine ? `<p class="coord" style="margin:2px 0 14px">${sourceLine}</p>` : ""}
+  ${body}
 </div>`;
 }
 
