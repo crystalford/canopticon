@@ -688,7 +688,11 @@ app.get("/reembed-pieces", async (c) => {
   if (c.req.query("confirm") !== "1") {
     return c.json({ ok: false, error: "pass ?confirm=1" }, 400);
   }
-  const BATCH = 10;
+  // 5, not 10 — the admin-probe's own curl call has a 30s client-side
+  // timeout (canopticon-admin-probe.yml's `-m 30`), independent of any
+  // Cloudflare-side limit; 10 sequential embed+upsert pairs measured
+  // close enough to that to time out on a live run. 5 leaves real margin.
+  const BATCH = 5;
   const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
   const userId = c.get("user_id");
   const { embedText, upsertVector, vectorId } = await import("../graph/lib/embeddings.ts");
