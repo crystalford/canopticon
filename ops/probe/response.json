@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-24T20:03:53Z",
-  "run_id": "30122600706",
+  "requested_at": "2026-07-24T22:50:39Z",
+  "run_id": "30132126239",
   "method": "GET",
-  "path": "/v1/admin/reembed-pieces?confirm=1&offset=0",
+  "path": "/v1/admin/reembed-status",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"total\": 102,\n  \"batch_size\": 5,\n  \"embedded\": 5,\n  \"errors\": [],\n  \"next_offset\": 5,\n  \"done\": false\n}"
+  "body": "{\n  \"ok\": true,\n  \"total\": 102,\n  \"done\": true,\n  \"done_at\": \"2026-07-24T20:58:31.346Z\",\n  \"progress\": {\n    \"next_offset\": 102,\n    \"total\": 102,\n    \"embedded_this_batch\": 2,\n    \"at\": \"2026-07-24T20:56:33.682Z\"\n  }\n}"
 }
