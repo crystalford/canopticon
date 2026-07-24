@@ -91,4 +91,12 @@ GRAPH_ENABLED = "true"
 # tools entirely; CMS and Graph work standalone. Flip per environment
 # to develop studio features without breaking the publication.
 STUDIO_ENABLED = "false"
+# Toggle for the on-demand research writer (graph/lib/deep-research.ts).
+# "workers_ai" (default, any value other than "anthropic" falls back to
+# this too): gpt-oss-120b, free. "anthropic": Claude, real cost per call —
+# and still inert even when set, until a cost_whitelists row exists for
+# operation_type 'anthropic.research_writer' (the cost gate denies
+# anything unwhitelisted by default; see cost/approve.ts). Meant to stay
+# "workers_ai" until deliberately turned on.
+RESEARCH_LLM_PROVIDER = "workers_ai"
 # deploy trigger: 2026-05-12

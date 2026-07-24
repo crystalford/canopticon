@@ -269,6 +269,15 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
   const { advanceSettleOneStep } = await import("./graph/lib/settle-pipeline.ts");
   const settleUserId = await resolveOperatorId(env.DB);
   if (settleUserId) ctx.waitUntil(advanceSettleOneStep(env, settleUserId));
+  // Two-pass on-demand research (graph/lib/deep-research.ts): pass 1 runs
+  // in the operator's own request; pass 2 (the follow-up searches +
+  // final re-synthesis) is deliberately NOT chained into that same
+  // execution — same reasoning as advanceSettleOneStep above — so it's
+  // picked up here instead, one research_runs row per tick.
+  if (settleUserId) {
+    const { advanceResearchRun } = await import("./graph/lib/deep-research.ts");
+    ctx.waitUntil(advanceResearchRun(env, settleUserId).catch(() => {}));
+  }
 };
 
 export default {

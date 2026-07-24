@@ -1,41 +1,47 @@
-// Deep research for beats — the "free-ish" version of Claude's Research
-// mode, built entirely on infrastructure this system already pays for
-// (Brave Search, already-wired; Workers AI, already included).
+// Deep research — the "free-ish" version of Claude's Research mode, built
+// entirely on infrastructure this system already pays for (Brave Search,
+// already-wired; Workers AI, already included).
 //
-// This is deliberately NOT a multi-round agent loop. expandRecord() (one
-// search + up to 6 fetches) already runs close to the platform's execution
-// ceiling on its own. Chaining a full plan -> search -> read -> refine ->
-// search-again -> synthesize loop into ONE call would repeat the exact
-// class of bug that took most of a session to track down and fix across
-// entity-resolution.ts, surfacing.ts, and draft-reading.ts — and, it turned
-// out, expandRecord() itself and this file's own extraction call below:
-// real work that never gets a chance to finish. Confirmed live: digest_jobs
-// rows stuck at status='running' with no heartbeat progress.
+// Two passes, each bounded and separately safe:
+//   Pass 1 (researchOnDemand, runs in the operator's own request via
+//     waitUntil): expandRecord banks sources on the label, then ONE writer
+//     call synthesizes a brief AND proposes up to MAX_FOLLOWUP_QUERIES
+//     specific follow-up searches for whatever it couldn't cover. If it
+//     has none, pass 1's own output IS the final draft.
+//   Pass 2 (advanceResearchRun, picked up by the existing every-2-minute
+//     cron drain — one run per tick, NOT chained into pass 1's own
+//     execution): runs the follow-up searches, then re-synthesizes over
+//     the combined source pool into the final draft.
 //
-// Instead this is a SEPARATE, bounded, resumable step: expandRecord banks
-// raw sources as it already does; later, ONE call here takes a set of
-// already-banked pieces and writes a single synthesized research report
-// from them via the "writer" role — the same LLM call budget
-// draft-reading.ts already spends per candidate.
+// Why two passes are two SEPARATE executions, not one call that chains
+// search -> synthesize -> search-again -> synthesize-again: that exact
+// chaining shape is the class of bug that took most of a session to track
+// down across entity-resolution.ts, surfacing.ts, draft-reading.ts, and
+// this file's own original single-pass version — real work that silently
+// never gets a chance to finish inside Cloudflare's execution ceiling.
+// settle-pipeline.ts's one-step-per-tick shape is the proven-safe pattern;
+// this reuses it via research_runs (migration 0042) tracking which phase
+// each run is in.
 //
-// synthesizeDueBeatReport (the autonomous-cron path, picked a beat's last
-// expand automatically and PUBLISHED the result with no operator ever
-// reading it) is retired along with the sweep that called it — see
-// index.ts's scheduled(). Left in place, unwired, not deleted: dormant
-// code, not a live path. researchOnDemand below is the replacement — the
-// operator triggers it (from "Research this" or a watchlist entry), and
-// what it writes lands as working-material, not published: readable only
-// via the operator review screen (operator/routes.ts's
+// synthesizeDueBeatReport (the retired autonomous-cron path — picked a
+// beat's last expand automatically and PUBLISHED the result with no
+// operator ever reading it) is left in place, unwired, dormant: nothing
+// calls it since index.ts's scheduled() dropped the sweep. researchOnDemand
+// below is the live replacement — operator-triggered, and what it writes
+// lands as working-material, not published: readable only via the
+// operator review screen (operator/routes.ts's
 // /library/research/:id/review) until explicitly published from there.
 // Extraction into the typed graph is deferred to that same publish step
 // too — an unreviewed draft doesn't get to seed graph facts either.
 
 import type { Env } from "../../env";
-import { all, insertOne, one, run } from "../../lib/d1";
-import { callRole } from "../../llm/router";
+import { all, insertOne, one, run, updateById } from "../../lib/d1";
+import { callResearchWriter } from "../../llm/router";
 
-const EXCERPT_CHARS_PER_SOURCE = 3000; // keeps the synthesis prompt bounded regardless of source length
-const REPORT_MAX_TOKENS = 3000;
+const EXCERPT_CHARS_PER_SOURCE = 5000; // was 3000 — more raw material now that the writer is gpt-oss-120b, not Scout
+const REPORT_MAX_TOKENS = 4000; // matches hard_extraction's proven-safe budget for this exact model+effort
+const MAX_FOLLOWUP_QUERIES = 2; // pass 2's added searches — each runs its own expandRecord
+const MAX_TOTAL_SOURCES_FOR_SYNTHESIS = 12; // hard cap on sources any one synthesis call reads, pass1+pass2 combined
 
 export interface SynthesisReport {
   synthesized: boolean;
@@ -50,28 +56,36 @@ interface WriteBriefResult {
   slug?: string;
   sourceId?: string;
   title?: string;
+  reason?: string | undefined;
+}
+
+interface SynthesizeResult {
+  ok: boolean;
+  title?: string;
+  bodyMd?: string;
+  followupQueries?: string[];
   reason?: string;
 }
 
-/** The shared core: given a label and a set of already-banked piece ids,
- *  write one synthesized research brief from their bodies. Used by both
- *  the (dormant) autonomous beat path and the on-demand path below —
- *  `publish` is the only behavioral fork between them. Never enqueues
- *  extraction itself; callers decide when (or if) that happens. */
-async function writeResearchBrief(
+/** The LLM half only — no DB writes beyond reading the source pieces.
+ *  Separated from persistBrief() because pass 1 needs to know the
+ *  follow-up queries BEFORE deciding whether this synthesis is the final
+ *  draft or just scratch work for planning pass 2. */
+async function synthesizeBrief(
   env: Env,
   userId: string,
   label: string,
   pieceIds: string[],
-  opts: { publish: boolean; angleHint?: string | undefined },
-): Promise<WriteBriefResult> {
+  opts: { angleHint?: string | undefined; wantFollowups: boolean },
+): Promise<SynthesizeResult> {
   if (pieceIds.length === 0) return { ok: false, reason: "no banked sources to synthesize from" };
+  const cappedIds = pieceIds.slice(0, MAX_TOTAL_SOURCES_FOR_SYNTHESIS);
 
-  const placeholders = pieceIds.map(() => "?").join(",");
+  const placeholders = cappedIds.map(() => "?").join(",");
   const pieces = await all<{ title: string; body_md: string | null }>(
     env.DB,
     `SELECT title, body_md FROM pieces WHERE id IN (${placeholders}) AND user_id = ?`,
-    [...pieceIds, userId],
+    [...cappedIds, userId],
   ).catch(() => []);
   if (pieces.length === 0) return { ok: false, reason: "banked pieces no longer found" };
 
@@ -82,38 +96,82 @@ async function writeResearchBrief(
   const angleLine = opts.angleHint
     ? `\n\nTHE OPERATOR ASKED SPECIFICALLY ABOUT: "${opts.angleHint.slice(0, 300)}"\nFocus the brief on this if the excerpts support it. If they don't, say so honestly rather than forcing an answer the sources don't have.`
     : "";
+  const followupLine = opts.wantFollowups
+    ? `\n\nAlso identify up to ${MAX_FOLLOWUP_QUERIES} SPECIFIC follow-up web searches that would fill the most important gaps these sources leave — concrete search queries a researcher would actually type, not vague topics. If these sources already cover the subject thoroughly, return an empty list. Put these in "followup_queries".`
+    : "";
 
-  const out = await callRole(env, "writer", {
+  const out = await callResearchWriter(env, {
     userId,
     system: `You write a structured RESEARCH BRIEF synthesizing the supplied source excerpts about a subject the operator asked to have researched.
 
 RULES:
-- Organize by theme, not by source — pull the excerpts together into a coherent account.
+- Organize by theme, not by source — pull the excerpts together into a coherent, comprehensive account. Aim for real depth, not a summary paragraph — this should read like a researcher's dossier, not an abstract.
 - Every substantive claim should be traceable to something in the supplied excerpts. Do not invent facts the excerpts don't support.
 - Close with a short "Still open" section: what these sources DON'T cover, or where they disagree.
 - This is a briefing document for a researcher deciding what to look into next — not a final verdict, not a signed reading.
-- Plain, direct prose. No throat-clearing intro, no "in conclusion."${angleLine}
+- Plain, direct prose. No throat-clearing intro, no "in conclusion."${angleLine}${followupLine}
 
-Return markdown only — a title line, then the brief.`,
+Return ONLY JSON:
+{
+  "title": "a short title for the brief",
+  "body_md": "the full markdown brief",
+  "followup_queries": ["query 1", "query 2"]
+}`,
     messages: [
       {
         role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Subject: ${label}\n\nSOURCE EXCERPTS:\n${excerpts}`,
-          },
-        ],
+        content: [{ type: "text", text: `Subject: ${label}\n\nSOURCE EXCERPTS:\n${excerpts}` }],
       },
     ],
     max_tokens: REPORT_MAX_TOKENS,
+    response_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string" },
+        body_md: { type: "string" },
+        followup_queries: { type: "array", items: { type: "string" } },
+      },
+      required: ["title", "body_md"],
+    },
   });
 
-  const reportText = (out.text ?? "").trim();
-  if (reportText.length < 200) return { ok: false, reason: "writer produced too little text" };
+  const parsed = (out.structured ?? safeParseJson(out.text)) as {
+    title?: string;
+    body_md?: string;
+    followup_queries?: string[];
+  } | null;
+  const bodyMd = (parsed?.body_md ?? "").trim();
+  if (bodyMd.length < 200) return { ok: false, reason: "writer produced too little text" };
 
-  const now = new Date().toISOString();
-  const title = `Research brief: ${label} (${now.slice(0, 10)})`;
+  return {
+    ok: true,
+    title: parsed?.title?.trim() || label,
+    bodyMd,
+    followupQueries: opts.wantFollowups
+      ? (parsed?.followup_queries ?? []).filter(Boolean).slice(0, MAX_FOLLOWUP_QUERIES)
+      : [],
+  };
+}
+
+interface PersistResult {
+  pieceId: string;
+  slug: string;
+  sourceId: string;
+  title: string;
+}
+
+/** The DB-write half — turns a finished synthesis into a real `pieces`
+ *  row. Never enqueues extraction itself; callers decide when (or if)
+ *  that happens. */
+async function persistBrief(
+  env: Env,
+  userId: string,
+  label: string,
+  title: string,
+  bodyMd: string,
+  sourcePieceIds: string[],
+  opts: { publish: boolean; angleHint?: string | undefined },
+): Promise<PersistResult> {
   const sourceId = await insertOne(env.DB, "sources", {
     user_id: userId,
     // sources.source_type has a fixed CHECK list (no "synthesis" option) —
@@ -123,7 +181,7 @@ Return markdown only — a title line, then the brief.`,
     title,
     url: null,
     authors: JSON.stringify(["Canopticon research agent"]),
-    content_text: reportText,
+    content_text: bodyMd,
   });
   const slug = await ensureUniqueSlug(env.DB, userId, slugify(title));
   const pieceId = await insertOne(env.DB, "pieces", {
@@ -132,19 +190,47 @@ Return markdown only — a title line, then the brief.`,
     title,
     kind: "research-report",
     publication_status: opts.publish ? "published" : "working-material",
-    body_md: reportText,
+    body_md: bodyMd,
     byline: "Canopticon research agent",
     tags: JSON.stringify(["auto-research", opts.publish ? "beat" : "on-demand"]),
     metadata: JSON.stringify({
       ingested_from: "deep-research",
       label,
       angle: opts.angleHint ?? null,
-      source_piece_ids: pieceIds,
+      source_piece_ids: sourcePieceIds,
       source_id: sourceId,
     }),
   });
+  return { pieceId, slug, sourceId, title };
+}
 
-  return { ok: true, pieceId, slug, sourceId, title };
+/** Single-pass write: synthesize + persist in one call. Only used by the
+ *  dormant synthesizeDueBeatReport path below now — researchOnDemand
+ *  needs the two halves separately (see file comment). */
+async function writeResearchBrief(
+  env: Env,
+  userId: string,
+  label: string,
+  pieceIds: string[],
+  opts: { publish: boolean; angleHint?: string | undefined },
+): Promise<WriteBriefResult> {
+  const synth = await synthesizeBrief(env, userId, label, pieceIds, {
+    angleHint: opts.angleHint,
+    wantFollowups: false,
+  });
+  if (!synth.ok || !synth.bodyMd || !synth.title) {
+    return { ok: false, reason: synth.reason };
+  }
+  const persisted = await persistBrief(
+    env,
+    userId,
+    label,
+    synth.title,
+    synth.bodyMd,
+    pieceIds,
+    opts,
+  );
+  return { ok: true, ...persisted };
 }
 
 interface DueBeatForSynthesis {
@@ -155,8 +241,9 @@ interface DueBeatForSynthesis {
 
 /** Picks the one beat whose most recent expand hasn't been synthesized
  *  yet, and writes its report. Returns {synthesized:false} when nothing
- *  is due — the caller (autonomous-expand.ts) then falls through to its
- *  normal expand-pick logic instead. */
+ *  is due. DORMANT — nothing calls this since the autonomous sweep that
+ *  used to (autonomous-expand.ts) was retired; left in place because
+ *  draftOne-style single-pass logic here is still worth having around. */
 export async function synthesizeDueBeatReport(env: Env, userId: string): Promise<SynthesisReport> {
   const beat = await one<DueBeatForSynthesis>(
     env.DB,
@@ -176,30 +263,19 @@ export async function synthesizeDueBeatReport(env: Env, userId: string): Promise
   } catch {
     pieceIds = [];
   }
+  const now = new Date().toISOString();
+  // coverage_beats has no updated_at column — updateById() unconditionally
+  // sets one, so a plain UPDATE is used here instead (matches this table's
+  // pre-existing convention elsewhere).
   if (pieceIds.length === 0) {
     await run(env.DB, "UPDATE coverage_beats SET last_synthesized_at = ? WHERE id = ?", [
-      new Date().toISOString(),
+      now,
       beat.id,
     ]);
     return { synthesized: false, beatLabel: beat.label, reason: "last expand banked nothing" };
   }
 
-  const placeholders = pieceIds.map(() => "?").join(",");
-  const pieces = await all<{ title: string; body_md: string | null }>(
-    env.DB,
-    `SELECT title, body_md FROM pieces WHERE id IN (${placeholders}) AND user_id = ?`,
-    [...pieceIds, userId],
-  ).catch(() => []);
-  if (pieces.length === 0) {
-    await run(env.DB, "UPDATE coverage_beats SET last_synthesized_at = ? WHERE id = ?", [
-      new Date().toISOString(),
-      beat.id,
-    ]);
-    return { synthesized: false, beatLabel: beat.label, reason: "banked pieces no longer found" };
-  }
-
   const result = await writeResearchBrief(env, userId, beat.label, pieceIds, { publish: true });
-  const now = new Date().toISOString();
   await run(env.DB, "UPDATE coverage_beats SET last_synthesized_at = ? WHERE id = ?", [
     now,
     beat.id,
@@ -208,10 +284,9 @@ export async function synthesizeDueBeatReport(env: Env, userId: string): Promise
     return { synthesized: false, beatLabel: beat.label, reason: result.reason };
   }
 
-  // Publish path still enqueues extraction immediately — dormant code
-  // (nothing calls synthesizeDueBeatReport anymore), kept behaviorally
-  // identical to before rather than silently changed underneath a name
-  // nothing invokes.
+  // Publish path still enqueues extraction immediately — dormant code,
+  // kept behaviorally identical to before rather than silently changed
+  // underneath a name nothing invokes.
   const { enqueueDigest } = await import("./digest-jobs");
   await enqueueDigest(env, {
     userId,
@@ -226,46 +301,211 @@ export async function synthesizeDueBeatReport(env: Env, userId: string): Promise
     event_type: "deep_research.synthesized",
     subject_kind: "beat",
     subject_id: beat.id,
-    payload: { beat_label: beat.label, piece_id: result.pieceId, sources_used: pieces.length },
+    payload: { beat_label: beat.label, piece_id: result.pieceId },
   }).catch(() => {});
 
   return { synthesized: true, beatLabel: beat.label, pieceId: result.pieceId };
 }
 
-/** Operator-triggered research: search + fetch + bank sources on `label`
- *  right now (expandRecord), then synthesize a brief from whatever gets
- *  banked. Lands as working-material, NOT published, NOT queued for
- *  extraction — only readable via the operator review screen
- *  (operator/routes.ts's /library/research/:id/review), which is also
- *  where publishing (and, only then, extraction) actually happens. */
+/** Operator-triggered research, pass 1. Banks sources on `label` right
+ *  now (expandRecord), synthesizes a brief AND asks the writer what
+ *  follow-up searches would help. No gaps flagged -> this synthesis IS
+ *  the final draft, persisted immediately. Gaps flagged -> nothing is
+ *  persisted yet; state is saved to research_runs and pass 2
+ *  (advanceResearchRun) picks it up on the next cron tick. Either way,
+ *  the eventual draft lands as working-material, not published — see
+ *  the file comment. */
 export async function researchOnDemand(
   env: Env,
   userId: string,
   label: string,
   angleHint?: string,
 ): Promise<WriteBriefResult> {
+  const runId = await insertOne(env.DB, "research_runs", {
+    user_id: userId,
+    label,
+    angle: angleHint ?? null,
+    status: "pass1_pending",
+  });
+
   const { expandRecord } = await import("./record-builder");
   const expandReport = await expandRecord(env, userId, label);
   if (expandReport.banked_piece_ids.length === 0) {
-    return {
-      ok: false,
-      reason: expandReport.errors.length
-        ? expandReport.errors.slice(0, 3).join("; ")
-        : "no usable sources found",
-    };
+    const reason = expandReport.errors.length
+      ? expandReport.errors.slice(0, 3).join("; ")
+      : "no usable sources found";
+    await updateById(env.DB, "research_runs", runId, { status: "failed", error: reason });
+    await emitDraftFailed(env, userId, label, angleHint, reason);
+    return { ok: false, reason };
   }
-  const result = await writeResearchBrief(env, userId, label, expandReport.banked_piece_ids, {
-    publish: false,
+
+  const synth = await synthesizeBrief(env, userId, label, expandReport.banked_piece_ids, {
     angleHint,
+    wantFollowups: true,
+  });
+  if (!synth.ok || !synth.bodyMd || !synth.title) {
+    await updateById(env.DB, "research_runs", runId, {
+      status: "failed",
+      error: synth.reason ?? "synthesis failed",
+      pass1_piece_ids: JSON.stringify(expandReport.banked_piece_ids),
+    });
+    await emitDraftFailed(env, userId, label, angleHint, synth.reason);
+    return { ok: false, reason: synth.reason };
+  }
+
+  const followups = synth.followupQueries ?? [];
+  if (followups.length === 0) {
+    const persisted = await persistBrief(
+      env,
+      userId,
+      label,
+      synth.title,
+      synth.bodyMd,
+      expandReport.banked_piece_ids,
+      { publish: false, angleHint },
+    );
+    await updateById(env.DB, "research_runs", runId, {
+      status: "done",
+      pass1_piece_ids: JSON.stringify(expandReport.banked_piece_ids),
+      final_piece_id: persisted.pieceId,
+    });
+    await emitDrafted(env, userId, label, angleHint, persisted.pieceId);
+    return { ok: true, ...persisted };
+  }
+
+  // There's more to chase — defer to the cron drain (see file comment on
+  // why this isn't just another expandRecord+synthesizeBrief call right
+  // here).
+  await updateById(env.DB, "research_runs", runId, {
+    status: "pass2_pending",
+    pass1_piece_ids: JSON.stringify(expandReport.banked_piece_ids),
+    followup_queries: JSON.stringify(followups),
   });
   await insertOne(env.DB, "orchestrator_events", {
     user_id: userId,
-    event_type: result.ok ? "deep_research.drafted" : "deep_research.draft_failed",
+    event_type: "deep_research.pass2_queued",
     subject_kind: "query",
     subject_id: null,
-    payload: { label, angle: angleHint ?? null, piece_id: result.pieceId, reason: result.reason },
+    payload: { label, angle: angleHint ?? null, followup_queries: followups },
   }).catch(() => {});
-  return result;
+  return { ok: false, reason: "digging deeper — follow-up research queued" };
+}
+
+export interface AdvanceRunReport {
+  advanced: boolean;
+  label?: string;
+  reason?: string | undefined;
+}
+
+/** Research pass 2 — one research_runs row per call, oldest first. Runs
+ *  the follow-up searches pass 1's writer proposed, then re-synthesizes
+ *  over the COMBINED source pool (pass 1 + pass 2 sources) into the final
+ *  draft. Wired into index.ts's every-2-minute cron drain. */
+export async function advanceResearchRun(env: Env, userId: string): Promise<AdvanceRunReport> {
+  const runRow = await one<{
+    id: string;
+    label: string;
+    angle: string | null;
+    pass1_piece_ids: string | null;
+    followup_queries: string | null;
+  }>(
+    env.DB,
+    `SELECT id, label, angle, pass1_piece_ids, followup_queries FROM research_runs
+      WHERE user_id = ? AND status = 'pass2_pending'
+      ORDER BY created_at ASC LIMIT 1`,
+    [userId],
+  ).catch(() => null);
+  if (!runRow) return { advanced: false, reason: "no run due" };
+
+  const pass1Ids = parseJsonArray(runRow.pass1_piece_ids);
+  const queries = parseJsonArray(runRow.followup_queries);
+
+  if (queries.length === 0) {
+    await updateById(env.DB, "research_runs", runRow.id, {
+      status: "failed",
+      error: "no follow-up queries recorded",
+    });
+    return { advanced: false, label: runRow.label, reason: "no follow-up queries recorded" };
+  }
+
+  const { expandRecord } = await import("./record-builder");
+  const followupReports = await Promise.all(queries.map((q) => expandRecord(env, userId, q)));
+  const pass2Ids = followupReports.flatMap((r) => r.banked_piece_ids);
+  const combinedIds = [...new Set([...pass1Ids, ...pass2Ids])];
+
+  const synth = await synthesizeBrief(env, userId, runRow.label, combinedIds, {
+    angleHint: runRow.angle ?? undefined,
+    wantFollowups: false,
+  });
+  if (!synth.ok || !synth.bodyMd || !synth.title) {
+    await updateById(env.DB, "research_runs", runRow.id, {
+      status: "failed",
+      error: synth.reason ?? "final synthesis failed",
+      pass2_piece_ids: JSON.stringify(pass2Ids),
+    });
+    await emitDraftFailed(env, userId, runRow.label, runRow.angle ?? undefined, synth.reason);
+    return { advanced: false, label: runRow.label, reason: synth.reason };
+  }
+
+  const persisted = await persistBrief(
+    env,
+    userId,
+    runRow.label,
+    synth.title,
+    synth.bodyMd,
+    combinedIds,
+    { publish: false, angleHint: runRow.angle ?? undefined },
+  );
+  await updateById(env.DB, "research_runs", runRow.id, {
+    status: "done",
+    pass2_piece_ids: JSON.stringify(pass2Ids),
+    final_piece_id: persisted.pieceId,
+  });
+  await emitDrafted(env, userId, runRow.label, runRow.angle ?? undefined, persisted.pieceId);
+
+  return { advanced: true, label: runRow.label };
+}
+
+async function emitDrafted(
+  env: Env,
+  userId: string,
+  label: string,
+  angle: string | undefined,
+  pieceId: string,
+): Promise<void> {
+  await insertOne(env.DB, "orchestrator_events", {
+    user_id: userId,
+    event_type: "deep_research.drafted",
+    subject_kind: "query",
+    subject_id: null,
+    payload: { label, angle: angle ?? null, piece_id: pieceId },
+  }).catch(() => {});
+}
+
+async function emitDraftFailed(
+  env: Env,
+  userId: string,
+  label: string,
+  angle: string | undefined,
+  reason: string | undefined,
+): Promise<void> {
+  await insertOne(env.DB, "orchestrator_events", {
+    user_id: userId,
+    event_type: "deep_research.draft_failed",
+    subject_kind: "query",
+    subject_id: null,
+    payload: { label, angle: angle ?? null, reason },
+  }).catch(() => {});
+}
+
+function parseJsonArray(s: string | null): string[] {
+  if (!s) return [];
+  try {
+    const parsed = JSON.parse(s);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export interface ResearchStep {
@@ -284,10 +524,12 @@ export interface ResearchStatus {
 
 /** The richer status researchOnDemand's callers poll — getExpandStatus
  *  (record-builder.ts) alone stops narrating once the search/fetch/bank/
- *  extract phase ends, with no idea a synthesis step runs after it. This
- *  wraps it with that missing phase, plus turns the single replacing
- *  status line into a milestone checklist (search → fetch/bank → extract
- *  → write) so a poller can show real progress, not just a spinner. */
+ *  extract phase ends, with no idea a synthesis (let alone a second
+ *  research pass) runs after it. This wraps it with those missing phases,
+ *  driven off research_runs' own status (authoritative, not reconstructed
+ *  from an event log), plus turns the single replacing status line into a
+ *  milestone checklist (search → fetch/bank → extract → write → dig
+ *  deeper) so a poller can show real progress. */
 export async function getResearchStatus(
   env: Env,
   userId: string,
@@ -350,19 +592,22 @@ export async function getResearchStatus(
   // once expand itself has actually finished, and only for callers that
   // actually run a synthesis step afterward (plain "Expand this file" —
   // record-builder.ts's expandRecord with no researchOnDemand wrapper —
-  // never will; a deep_research event for its label would never arrive).
+  // never will; no research_runs row for its label would ever exist).
   if (extractDone && includeSynthesis) {
-    const draftEvent = await one<{ event_type: string; payload: string }>(
+    const runRow = await one<{
+      status: string;
+      final_piece_id: string | null;
+      error: string | null;
+      followup_queries: string | null;
+    }>(
       env.DB,
-      `SELECT event_type, payload FROM orchestrator_events
-        WHERE user_id = ? AND event_type IN ('deep_research.drafted', 'deep_research.draft_failed')
-          AND json_extract(payload, '$.label') = ?
-          AND created_at > datetime('now','-15 minutes')
+      `SELECT status, final_piece_id, error, followup_queries FROM research_runs
+        WHERE user_id = ? AND label = ? AND created_at > datetime('now','-15 minutes')
         ORDER BY created_at DESC LIMIT 1`,
       [userId, label],
     ).catch(() => null);
 
-    if (!draftEvent) {
+    if (!runRow || runRow.status === "pass1_pending") {
       steps.push({ label: "Write a synthesis", state: "active" });
       return {
         terminal: false,
@@ -371,28 +616,34 @@ export async function getResearchStatus(
         steps,
       };
     }
-    if (draftEvent.event_type === "deep_research.drafted") {
-      let pieceId: string | undefined;
-      try {
-        pieceId = JSON.parse(draftEvent.payload)?.piece_id;
-      } catch {
-        pieceId = undefined;
-      }
+
+    if (runRow.status === "pass2_pending") {
+      const queryCount = parseJsonArray(runRow.followup_queries).length;
+      steps.push({ label: "Write a synthesis", state: "done", detail: "first pass done" });
+      steps.push({
+        label: `Dig deeper (${queryCount} follow-up search${queryCount === 1 ? "" : "es"})`,
+        state: "active",
+      });
+      return {
+        terminal: false,
+        warn: false,
+        headline: "First pass done — digging deeper on what it couldn't cover…",
+        steps,
+      };
+    }
+
+    if (runRow.status === "done" && runRow.final_piece_id) {
       steps.push({ label: "Write a synthesis", state: "done", detail: "draft ready" });
       return {
         terminal: true,
         warn: false,
         headline: "Draft brief ready — review it before it can publish.",
         steps,
-        ...(pieceId ? { reviewUrl: `/op/library/research/${pieceId}/review` } : {}),
+        reviewUrl: `/op/library/research/${runRow.final_piece_id}/review`,
       };
     }
-    let reason = "unknown reason";
-    try {
-      reason = JSON.parse(draftEvent.payload)?.reason ?? reason;
-    } catch {
-      // keep default
-    }
+
+    const reason = runRow.error ?? "unknown reason";
     steps.push({ label: "Write a synthesis", state: "warn", detail: reason });
     return {
       terminal: true,
@@ -403,6 +654,22 @@ export async function getResearchStatus(
   }
 
   return { terminal: expand.terminal, warn: expand.warn, headline: expand.line, steps };
+}
+
+function safeParseJson(s: string): unknown {
+  try {
+    return JSON.parse(s);
+  } catch {
+    const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fence?.[1]) {
+      try {
+        return JSON.parse(fence[1]);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
 }
 
 function slugify(s: string): string {

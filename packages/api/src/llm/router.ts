@@ -43,7 +43,8 @@ export type Role =
   | "surfacing_ambitious" // Level 2 surfacing engine (pattern discovery, ACH)
   | "judge" // independent verification — MUST differ from the generator
   | "large_context" // graph reasoning over very wide context (fallback)
-  | "writer"; // output drafting: proposals, arrangements, intents, scripts
+  | "writer" // output drafting: proposals, arrangements, intents, scripts
+  | "research_writer"; // deep-research.ts's synthesis writer — see callResearchWriter below
 
 interface RoleConfig {
   provider: "workers_ai" | "anthropic";
@@ -99,6 +100,13 @@ const ROUTES: Record<Role, RoleConfig> = {
     operation_type: "workers_ai.writer",
     why: "Output drafting (proposals, arrangements, intents, studio scripts). Scout: fast, non-reasoning, returns parsed-JSON objects — production-verified 2026-06-10. Replaces the retired llama-3.3-70b that buildBrief/composeScript were pinned to. Near launch this single line re-points generation at a frontier model (spec Part 14 #9).",
   },
+  research_writer: {
+    provider: "workers_ai",
+    model: "@cf/openai/gpt-oss-120b",
+    reasoning_effort: "medium",
+    operation_type: "workers_ai.research_writer",
+    why: "deep-research.ts's synthesis writer used to reuse the generic `writer` role (Scout) — fast, but picked for cheap structured extraction, not long-form reasoning; live output read shallow and generic. gpt-oss-120b at medium effort is already production-proven at this exact shape (hard_extraction: 4000 max_tokens, same model, same effort, comfortably inside the 25s-per-call ceiling) — same budget used here. Still Workers AI, still free.",
+  },
 };
 
 /** Resolve a role to its configured model. Exposed so callers can log /
@@ -140,4 +148,40 @@ export async function callRole(env: Env, role: Role, args: CallRoleArgs): Promis
     },
   };
   return callLLM(env, input);
+}
+
+// Claude model for the research writer when RESEARCH_LLM_PROVIDER=anthropic.
+// Sonnet, not Opus/Haiku — the middle tier: this is long-form synthesis
+// work, not a cheap classification call, but not worth Opus pricing for a
+// research draft the operator still has to review before it's anything.
+const RESEARCH_WRITER_ANTHROPIC_MODEL = "claude-sonnet-4-6";
+
+/** deep-research.ts's synthesis writer, toggleable per env — see
+ *  env.ts's RESEARCH_LLM_PROVIDER. Deliberately NOT just another ROUTES
+ *  entry: a static table can't express "read an env var at call time,"
+ *  and every other role has no reason to ever need that. Falls back to
+ *  the free `research_writer` role whenever the toggle is off, the
+ *  Anthropic key is missing, or (most likely near-term) the cost gate
+ *  hasn't been whitelisted for 'anthropic.research_writer' yet — that
+ *  last case surfaces as callLLM throwing "Cost gate blocked ... denied
+ *  or pending", not a silent fallback, so a flipped-but-unfunded toggle
+ *  fails loudly instead of quietly still being free. */
+export async function callResearchWriter(env: Env, args: CallRoleArgs): Promise<LlmCallOutput> {
+  if (env.RESEARCH_LLM_PROVIDER === "anthropic" && env.ANTHROPIC_API_KEY) {
+    const input: LlmCallInput = {
+      provider: "anthropic",
+      model: RESEARCH_WRITER_ANTHROPIC_MODEL,
+      system: args.system,
+      messages: args.messages,
+      max_tokens: args.max_tokens,
+      response_schema: args.response_schema,
+      ledger: {
+        user_id: args.userId,
+        operation_type: "anthropic.research_writer",
+        idempotency_key: args.idempotency_key,
+      },
+    };
+    return callLLM(env, input);
+  }
+  return callRole(env, "research_writer", args);
 }

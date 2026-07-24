@@ -73,4 +73,14 @@ export interface Env {
   // Same value as the video Worker's VIDEO_INTERNAL_TOKEN secret — set
   // with `wrangler secret put VIDEO_INTERNAL_TOKEN` on BOTH Workers.
   VIDEO_INTERNAL_TOKEN?: string;
+
+  // Toggle for graph/lib/deep-research.ts's synthesis writer: "anthropic"
+  // routes it to Claude instead of Workers AI's gpt-oss-120b. Defaults to
+  // (and falls back to on any other value) Workers AI — this is meant to
+  // stay off until the operator deliberately wants to spend on Claude.
+  // Flipping it alone does nothing unless a cost_whitelists row also
+  // exists for operation_type 'anthropic.research_writer' (see
+  // llm/router.ts's callResearchWriter) — the cost gate denies anything
+  // unwhitelisted by default, so this can't accidentally start spending.
+  RESEARCH_LLM_PROVIDER?: string;
 }

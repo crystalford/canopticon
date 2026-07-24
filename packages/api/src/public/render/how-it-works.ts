@@ -315,10 +315,13 @@ ${statStrip}
     <div class="hiw-item">
       <div class="hiw-item-h">Research a question</div>
       <p>On a search that comes up empty, an open thread/finding, or a watched subject,
-      "Research this" / "Research now" searches → fetches → banks sources on that exact
-      question, then drafts a synthesized brief from what it found. The draft lands
-      unpublished — readable only from its Library row, via a review screen with
-      Publish/Discard. Nothing enters the record or goes public until you publish it.</p>
+      "Research this" / "Research now" searches → fetches → banks sources, then drafts a
+      brief AND flags what it couldn't cover. If it flagged gaps, a second pass — picked
+      up within a couple minutes, not chained into the same request — runs targeted
+      follow-up searches and re-writes the brief over the combined sources. Either way
+      the draft lands unpublished — readable only from its Library row, via a review
+      screen with Publish/Discard. Nothing enters the record or goes public until you
+      publish it.</p>
     </div>
     <div class="hiw-item">
       <div class="hiw-item-h">Bulk-expand the thinnest 3</div>
