@@ -334,6 +334,7 @@ app.get("/p/:slug", async (c) => {
     isOperator: c.get("is_operator"),
     expanding: c.req.query("expanding") === "1",
     videoMsg: c.req.query("video_msg"),
+    draftMsg: c.req.query("draft_msg"),
   });
   if (subject) return htmlResponse(subject);
   return htmlResponse(renderNotFound(c.req.path), { status: 404 });
@@ -348,6 +349,7 @@ app.get("/s/:slug", async (c) => {
     isOperator: c.get("is_operator"),
     expanding: c.req.query("expanding") === "1",
     videoMsg: c.req.query("video_msg"),
+    draftMsg: c.req.query("draft_msg"),
   });
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);

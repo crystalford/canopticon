@@ -120,7 +120,12 @@ export async function renderSubjectPage(
   env: PublicEnv,
   slug: string,
   mode: "neutral" | "signed" = "neutral",
-  opts: { isOperator?: boolean; expanding?: boolean; videoMsg?: string | undefined } = {},
+  opts: {
+    isOperator?: boolean;
+    expanding?: boolean;
+    videoMsg?: string | undefined;
+    draftMsg?: string | undefined;
+  } = {},
 ): Promise<string | null> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return null;
@@ -172,7 +177,15 @@ export async function renderSubjectPage(
   if (resolvedMode === "signed") {
     return renderSigned(env, subject, page, hasSignedReading, !!opts.isOperator, opts.videoMsg);
   }
-  return renderNeutral(env, subject, page, hasSignedReading, !!opts.isOperator, !!opts.expanding);
+  return renderNeutral(
+    env,
+    subject,
+    page,
+    hasSignedReading,
+    !!opts.isOperator,
+    !!opts.expanding,
+    opts.draftMsg,
+  );
 }
 
 // ===========================================================================
@@ -185,6 +198,7 @@ async function renderNeutral(
   hasSignedReading: boolean,
   isOperator: boolean,
   expanding = false,
+  draftMsg?: string,
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) return renderPage({ title: subject.label, body: "", description: "" });
@@ -386,6 +400,39 @@ async function renderNeutral(
   <span class="op-aff-hint">not much on file yet — click to search the web for ${escapeHtml(subject.label)} and read new sources into the record</span>
 </form>`
       : "";
+  // Operator-directed drafting: pick a subject, optionally give it an
+  // angle, get a reading — instead of waiting on the autonomous
+  // corpus-settle ranking to decide this subject is worth one. Same
+  // grounding + firewall + independent judge as the autonomous path (see
+  // draftReadingForSubject in graph/lib/draft-reading.ts); the operator
+  // still has to sign it before it's public. The MIN_QUOTES=4 estimate
+  // below mirrors the server's own gate — it's a UI-side heads-up, not
+  // the authority; the server re-checks for real.
+  const READING_MIN_QUOTES_ESTIMATE = 4;
+  const readingSignalCount = established.length + contested.length;
+  const draftMsgBlock = draftMsg
+    ? `<div class="draft-reading-msg">${escapeHtml(draftMsg)}</div>`
+    : "";
+  let draftReadingBlock = "";
+  if (isOperator && page.signed_status === "none") {
+    draftReadingBlock =
+      readingSignalCount >= READING_MIN_QUOTES_ESTIMATE
+        ? `<div class="draft-reading op-aff">
+  <span class="op-aff-label">Operator</span>
+  <form method="POST" action="/op/records/${escapeAttr(page.slug)}/draft-reading" class="draft-reading-form">
+    <textarea name="angle" rows="2" placeholder="Optional — give it an angle. What should this reading argue? Leave blank and it'll find its own thesis in the facts."></textarea>
+    <button class="op-aff-btn op-aff-btn-action" type="submit">Draft a reading →</button>
+  </form>
+  ${draftMsgBlock}
+</div>`
+        : `<div class="draft-reading-note">No signed reading yet — needs at least ${READING_MIN_QUOTES_ESTIMATE} established/disputed facts before one can be drafted (${readingSignalCount} on file so far).</div>`;
+  } else if (isOperator && page.signed_status === "draft") {
+    draftReadingBlock = `<div class="draft-reading op-aff">
+  <span class="op-aff-label">Operator</span>
+  <a class="op-aff-btn op-aff-btn-action" href="/op/out/${escapeAttr(page.id)}/edit">A draft reading is waiting — review &amp; sign →</a>
+  ${draftMsgBlock}
+</div>`;
+  }
   // GEO/citability: a schema.org JSON-LD graph so AI engines can cite the
   // page and its blocks. The subject's schema type follows its kind.
   const jsonLd = buildSubjectJsonLd(subject, page, established, events);
@@ -406,6 +453,7 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
   ${modeBand}
   ${expandBanner}
   ${opAffordance}
+  ${draftReadingBlock}
   <header class="subject-head">
     ${renderFileStamp({
       label: subject.label,
@@ -615,6 +663,13 @@ ${expanding ? `<meta http-equiv="refresh" content="5">` : ""}
   .op-aff-btn { font-size:12.5px; padding:5px 12px; border-radius:6px; border:1px solid var(--rule);
     background:var(--surface); color:var(--ink); cursor:not-allowed; opacity:.6; }
   .op-aff-hint { font-size:12px; color:var(--ink-3); }
+  .draft-reading-form { display:flex; gap:10px; align-items:flex-start; flex:1 1 auto; min-width:220px; }
+  .draft-reading-form textarea { flex:1 1 auto; min-width:200px; font-family:inherit; font-size:12.5px;
+    padding:6px 10px; border:1px solid var(--rule); border-radius:6px; background:var(--surface);
+    color:var(--ink); resize:vertical; }
+  .draft-reading-note { font-size:12.5px; color:var(--ink-3); margin-bottom:18px; padding:9px 14px;
+    border:1px dashed var(--rule); border-radius:8px; }
+  .draft-reading-msg { font-family:var(--mono); font-size:11.5px; color:var(--ink-3); width:100%; }
   .shape-block { padding:20px 22px; border:1px solid var(--rule); border-radius:9px;
     background:var(--panel-soft, rgba(0,0,0,.02)); margin-bottom:24px; }
   .shape-block .sec-k { margin-top:0; }

@@ -20,6 +20,13 @@
 // nothing — no completion, no crash event, for minutes). Throughput now
 // comes from how often the settle pipeline reaches this step (settle-
 // pipeline.ts), not from batching inside one call.
+//
+// draftReadings above is the AUTONOMOUS path — the corpus decides which
+// subject earns a reading next, by score. draftReadingForSubject below is
+// the OPERATOR-DIRECTED path: any subject the operator picks, on demand,
+// optionally steered by an angle they type in. Same grounding, same
+// firewall, same independent judge — the only difference is who chose the
+// subject and, optionally, what the reading argues.
 
 import type { Env } from "../../env";
 import { all, insertOne, one, run } from "../../lib/d1";
@@ -155,6 +162,57 @@ export async function draftReadings(env: Env, userId: string): Promise<DraftRead
   return report;
 }
 
+export interface OnDemandDraftResult {
+  ok: boolean;
+  reason?: string;
+}
+
+// Operator-directed drafting for a subject the operator chose, not the
+// autonomous ranking. `angleHint` (optional, free text) is passed straight
+// into the writer's brief as a directive — it is NOT injected into the
+// output. The writer still has to ground every load-bearing sentence in a
+// real stored quote, the firewall still kills unattributed assertions
+// stated as fact, and an independent model still judges each claim before
+// anything is saved. The operator picking the subject and the angle isn't
+// authoring — it's assigning what to look into, same as always.
+export async function draftReadingForSubject(
+  env: Env,
+  userId: string,
+  pageId: string,
+  nodeId: string,
+  label: string,
+  angleHint?: string,
+): Promise<OnDemandDraftResult> {
+  const voice = await one<{ voice_md: string }>(
+    env.DB,
+    "SELECT voice_md FROM operator_voice WHERE user_id = ?",
+    [userId],
+  ).catch(() => null);
+  const trimmedAngle = angleHint?.trim() || undefined;
+  const ok = await draftOne(
+    env,
+    userId,
+    pageId,
+    nodeId,
+    label,
+    voice?.voice_md ?? "",
+    trimmedAngle,
+  );
+  await insertOne(env.DB, "orchestrator_events", {
+    user_id: userId,
+    event_type: ok ? "readings.drafted.manual" : "readings.drafted.manual.skipped",
+    subject_kind: "node",
+    subject_id: nodeId,
+    payload: { label, angle: trimmedAngle ?? null },
+  }).catch(() => {});
+  return ok
+    ? { ok: true }
+    : {
+        ok: false,
+        reason: `not enough verified, grounded material on ${label} yet for a reading (needs at least ${MIN_QUOTES} independently-verified facts or assertions)`,
+      };
+}
+
 interface GroundQuote {
   id: string; // short id q1, q2...
   text: string;
@@ -170,6 +228,7 @@ async function draftOne(
   nodeId: string,
   label: string,
   voiceMd: string,
+  angleHint?: string,
 ): Promise<boolean> {
   // Gather grounding: quotes for facts + assertions touching this subject.
   const rawQuotes = await all<{
@@ -226,6 +285,9 @@ async function draftOne(
   const voiceLine = voiceMd
     ? `\n\nWRITE IN THIS REGISTER (the operator's voice):\n${voiceMd.slice(0, 600)}`
     : "";
+  const angleLine = angleHint
+    ? `\n\nTHE OPERATOR ASSIGNED THIS ANGLE — build the thesis around it if the facts support it: "${angleHint.slice(0, 400)}"\nIf the facts DON'T support this angle, say so honestly in the reading rather than forcing an unsupported claim. The firewall still applies either way.`
+    : "";
 
   const out = await callRole(env, "writer", {
     userId,
@@ -236,7 +298,7 @@ HARD RULES:
 - Every load-bearing fact must reference a grounded quote id. Mark it inline like this: the claim text [q3]. We verify mechanically; invented ids are dropped.
 - You MUST include the strongest fact that COMPLICATES your thesis — engage it, don't bury it.
 - 4-8 short paragraphs. Open with the thing nobody quite says. Don't pad.
-- Plain, sharp prose. No throat-clearing intro, no "in conclusion."${voiceLine}
+- Plain, sharp prose. No throat-clearing intro, no "in conclusion."${voiceLine}${angleLine}
 
 INTENT — classify the reading's epistemic stance (spec v2.5 Part 5):
 - "investigation"  : open skeptical probe — may not conclude; surfaces what's open

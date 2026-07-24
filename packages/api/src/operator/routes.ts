@@ -692,6 +692,52 @@ app.post("/records/:slug/produce-video", async (c) => {
   );
 });
 
+// "Draft a reading" — operator-directed drafting (the on-demand
+// counterpart to the autonomous corpus-settle draft_readings step). Any
+// subject the operator picks, optionally steered by a free-text angle,
+// goes through draftReadingForSubject: same grounding, same firewall,
+// same independent judge as the autonomous path — the operator only
+// chooses the subject and (optionally) what it should argue, never the
+// prose itself. Runs in waitUntil — a writer call plus N parallel judge
+// calls easily exceeds a synchronous request's wall clock.
+app.post("/records/:slug/draft-reading", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const slug = c.req.param("slug");
+  const form = await c.req.parseBody();
+  const angle = typeof form.angle === "string" ? form.angle : undefined;
+
+  const page = await one<{ id: string; node_id: string; label: string; signed_status: string }>(
+    c.env.DB,
+    `SELECT p.id, p.subject_node_id AS node_id, n.label, p.signed_status
+       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+      WHERE p.user_id = ? AND p.slug = ?`,
+    [userId, slug],
+  );
+  if (!page) return c.redirect("/");
+  // Never silently overwrite an operator-approved reading — same rule
+  // draftReadings itself follows. A draft (unsigned) is fair game to
+  // redraft; signed/published is not.
+  if (page.signed_status === "signed" || page.signed_status === "published") {
+    return c.redirect(
+      `/s/${slug}?draft_msg=${encodeURIComponent("already has a signed reading — this only drafts new ones, it won't overwrite a signed one")}`,
+    );
+  }
+
+  c.executionCtx.waitUntil(
+    (async () => {
+      const { draftReadingForSubject } = await import("../graph/lib/draft-reading");
+      await draftReadingForSubject(c.env, userId, page.id, page.node_id, page.label, angle).catch(
+        () => {},
+      );
+    })(),
+  );
+
+  return c.redirect(
+    `/s/${slug}?draft_msg=${encodeURIComponent("drafting a reading now — this takes a minute or two; refresh to check")}`,
+  );
+});
+
 // Bulk "expand the thinnest subjects now" — task #25. Deliberately small
 // (3, not "all") and reuses the exact same sniper ranking the autonomous
 // sweep uses (pickThinCandidates), just firing that many at once instead
