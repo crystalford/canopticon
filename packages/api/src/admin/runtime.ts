@@ -712,43 +712,6 @@ app.get("/reembed-status", async (c) => {
   });
 });
 
-// TEMPORARY — GET /v1/admin/debug-rerank
-// One-off: bge-reranker-base's actual input/output shape on this account
-// hasn't been confirmed live — the catalog description says "inputting
-// query and passage" but not the exact JSON keys. Same reasoning as the
-// fetch-url/debug-embed temp routes removed earlier: test empirically,
-// then remove. Fixed query+contexts so this is a single deterministic
-// probe, not a general diagnostic surface.
-app.get("/debug-rerank", async (c) => {
-  const start = Date.now();
-  try {
-    const raw = await c.env.AI.run(
-      "@cf/baai/bge-reranker-base" as never,
-      {
-        query: "What does the Bank for International Settlements do?",
-        contexts: [
-          {
-            text: "The Bank for International Settlements is a bank for central banks, based in Basel.",
-          },
-          {
-            text: "Melanie Joly is a Canadian politician who has served as Minister of Foreign Affairs.",
-          },
-          {
-            text: "Carbon credit verification standards vary between Verra VCS and Gold Standard.",
-          },
-        ],
-      } as never,
-    );
-    return c.json({ ok: true, latency_ms: Date.now() - start, raw });
-  } catch (err) {
-    return c.json({
-      ok: false,
-      latency_ms: Date.now() - start,
-      error: (err as Error).message ?? "unknown",
-    });
-  }
-});
-
 // GET /v1/admin/debug-model?model=...&prompt=...
 //
 // Calls env.AI.run DIRECTLY (bypassing our callWorkersAi normalizer) and

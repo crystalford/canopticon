@@ -1,17 +1,26 @@
 // Card face — pure rendering (spec v2.6 Part 8).
 //
-// One shareable image: the thesis on top in serif, the single most damning
-// judge-passed fact below in italic, the receipt URL in mono in the corner.
-// Template + query, no LLM at render time. The "card" is what gets
-// produced into a PNG via Cloudflare Browser Rendering when the operator
-// hits Produce → from the face tab (Studio, Part 27).
+// One shareable image: a headline on top in serif, the single most
+// damning judge-passed fact below in italic, the receipt URL in mono in
+// the corner. Template + query, no LLM at render time. The "card" is
+// what gets produced into a PNG via Cloudflare Browser Rendering when
+// the operator hits Produce → from the face tab (Studio, Part 27).
+//
+// Two sources for the headline (2026-07-24): a signed reading's thesis
+// (original), or — when there's no reading yet — the subject label plus
+// its top judge-verified profile claim (graph/lib/profile-generator.ts's
+// page_profiles/page_profile_claims). Closes the gap where a
+// well-sourced neutral File had no way to become a shareable image at
+// all until someone signed a reading on it. Same trust bar either way:
+// every fact on the card is judge-passed, never invented at render time.
 
-import { all } from "../../../lib/d1";
+import { all, one } from "../../../lib/d1";
 import { escapeAttr, escapeHtml } from "../../layout";
 
 interface SignedReadingPage {
   id: string;
   slug: string;
+  subject_node_id: string;
   thesis: string | null;
 }
 
@@ -42,23 +51,68 @@ async function loadDamning(db: D1Database, pageId: string): Promise<DamningClaim
   return rows[0] ?? null;
 }
 
-export async function renderCardFace(db: D1Database, page: SignedReadingPage): Promise<string> {
+/** Same shape as loadDamning but for a neutral subject's profile claims —
+ *  no pages.id to key off since there may be no signed reading at all. */
+async function loadTopProfileClaim(
+  db: D1Database,
+  subjectNodeId: string,
+): Promise<DamningClaim | null> {
+  const profile = await one<{ id: string }>(
+    db,
+    "SELECT id FROM page_profiles WHERE subject_node_id = ? AND status = 'ready' LIMIT 1",
+    [subjectNodeId],
+  ).catch(() => null);
+  if (!profile) return null;
+  const rows = await all<DamningClaim>(
+    db,
+    `SELECT pc.claim_text, pc.quote_id,
+            (SELECT p.title FROM quotes q
+               JOIN nodes ns ON ns.id = q.source_id
+               JOIN pieces p ON p.id = ns.piece_id
+              WHERE q.id = pc.quote_id LIMIT 1) AS piece_title
+       FROM page_profile_claims pc
+      WHERE pc.profile_id = ? AND pc.judge_pass = 1
+      ORDER BY pc.sort_order ASC
+      LIMIT 1`,
+    [profile.id],
+  ).catch(() => []);
+  return rows[0] ?? null;
+}
+
+interface CardSubject {
+  label: string;
+}
+
+export async function renderCardFace(
+  db: D1Database,
+  page: SignedReadingPage,
+  subject?: CardSubject,
+): Promise<string> {
   const thesis = page.thesis ?? "";
-  if (!thesis) {
-    return `<div class="face-empty">No thesis on this reading yet — the card renders once the signed reading is in place.</div>
+  const isNeutral = !thesis;
+  const headline = isNeutral ? (subject?.label ?? "") : thesis;
+  const metaLine = isNeutral
+    ? "Single-image card · what's on file · pure rendering, no LLM"
+    : "Single-image card · thesis + the single most damning fact · pure rendering, no LLM";
+
+  if (isNeutral && !headline) {
+    return `<div class="face-empty">No thesis on this reading yet — the card renders once the signed reading is in place, or once a neutral profile exists.</div>
 <style>.face-empty { font-family: var(--serif); font-style: italic; color: var(--ink-3); font-size: 14px; }</style>`;
   }
-  const damning = await loadDamning(db, page.id);
+
+  const damning = isNeutral
+    ? await loadTopProfileClaim(db, page.subject_node_id)
+    : await loadDamning(db, page.id);
 
   return `<div class="card-face">
-  <div class="card-meta">Single-image card · thesis + the single most damning fact · pure rendering, no LLM</div>
+  <div class="card-meta">${escapeHtml(metaLine)}</div>
   <div class="card-art">
-    <div class="card-top">${escapeHtml(thesis)}</div>
+    <div class="card-top">${escapeHtml(headline)}</div>
     ${damning ? `<div class="card-bottom">${escapeHtml(damning.claim_text)}</div>` : `<div class="card-bottom card-empty">[no judge-passed fact yet]</div>`}
     <div class="card-receipt">
       ${damning?.quote_id ? `<a href="/q/${escapeAttr(damning.quote_id)}">receipt ↗</a>` : ""}
       ${damning?.piece_title ? ` · ${escapeHtml(damning.piece_title)}` : ""}
-      ${damning ? ` · canopticon.com/s/${escapeHtml(page.slug)}?mode=signed` : ""}
+      ${damning ? ` · canopticon.com/s/${escapeHtml(page.slug)}${isNeutral ? "" : "?mode=signed"}` : ""}
     </div>
   </div>
 </div>

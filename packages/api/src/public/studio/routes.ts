@@ -38,6 +38,7 @@ const app = new Hono<AuthContext>();
 interface PageRow {
   id: string;
   slug: string;
+  subject_node_id: string;
   thesis: string | null;
   body_md: string | null;
   body_html: string | null;
@@ -74,7 +75,7 @@ const KIND_HINTS: Record<FaceKind, string> = {
 async function loadPage(db: D1Database, slug: string): Promise<PageRow | null> {
   return one<PageRow>(
     db,
-    `SELECT id, slug, thesis, body_md, body_html, signed_by, signed_at, signed_status
+    `SELECT id, slug, subject_node_id, thesis, body_md, body_html, signed_by, signed_at, signed_status
        FROM pages WHERE slug = ? LIMIT 1`,
     [slug],
   );
@@ -83,10 +84,37 @@ async function loadPage(db: D1Database, slug: string): Promise<PageRow | null> {
 async function loadPageById(db: D1Database, id: string): Promise<PageRow | null> {
   return one<PageRow>(
     db,
-    `SELECT id, slug, thesis, body_md, body_html, signed_by, signed_at, signed_status
+    `SELECT id, slug, subject_node_id, thesis, body_md, body_html, signed_by, signed_at, signed_status
        FROM pages WHERE id = ? LIMIT 1`,
     [id],
   );
+}
+
+// A page is "producible" for the card kind alone (not thread/carousel/
+// newsletter/long-form — those assume a signed reading's argued shape)
+// once EITHER it has a thesis (the existing signed-reading card) OR a
+// ready comprehensive profile exists for its subject (the neutral-mode
+// card, 2026-07-24 — see graph/lib/profile-generator.ts). Every other
+// kind keeps the original thesis-only gate.
+async function hasReadyProfile(db: D1Database, subjectNodeId: string): Promise<boolean> {
+  const row = await one<{ id: string }>(
+    db,
+    "SELECT id FROM page_profiles WHERE subject_node_id = ? AND status = 'ready' LIMIT 1",
+    [subjectNodeId],
+  ).catch(() => null);
+  return !!row;
+}
+
+// Only needed by the neutral (no-thesis) card path — a signed reading's
+// card headline is its thesis, not the bare subject label.
+async function loadSubjectLabel(
+  db: D1Database,
+  page: PageRow,
+): Promise<{ label: string } | undefined> {
+  const row = await one<{ label: string }>(db, "SELECT label FROM nodes WHERE id = ?", [
+    page.subject_node_id,
+  ]).catch(() => null);
+  return row ?? undefined;
 }
 
 async function loadChapterFaceMd(db: D1Database, pageId: string): Promise<string | null> {
@@ -221,8 +249,18 @@ export function renderStudioShell(args: {
 app.get("/:slug", async (c) => {
   if (!c.var.is_operator) return c.redirect("/");
   const page = await loadPage(c.env.DB, c.req.param("slug"));
-  if (!page || !page.thesis) return c.redirect("/");
-  const cards = (Object.keys(KIND_LABELS) as FaceKind[])
+  if (!page) return c.redirect("/");
+  const hasThesis = !!page.thesis;
+  if (!hasThesis && !(await hasReadyProfile(c.env.DB, page.subject_node_id))) {
+    return c.redirect("/");
+  }
+  // Without a thesis, only the card format is producible — thread/
+  // carousel/newsletter/long-form all assume a signed reading's argued
+  // shape, which a neutral profile doesn't have.
+  const producibleKinds = hasThesis
+    ? (Object.keys(KIND_LABELS) as FaceKind[])
+    : (["card"] as FaceKind[]);
+  const cards = producibleKinds
     .map(
       (k) =>
         `<div class="studio-card">
@@ -435,8 +473,15 @@ app.get("/:slug/:kind", async (c) => {
   if (!SUPPORTED.has(kind))
     return new Response(`Studio doesn't produce "${kind}" yet (Stage A).`, { status: 404 });
   const page = await loadPage(c.env.DB, c.req.param("slug"));
-  if (!page || !page.thesis) return c.redirect("/");
+  if (!page) return c.redirect("/");
   const faceKind = kind as FaceKind;
+  if (!page.thesis) {
+    // Only "card" is producible without a thesis, and only when a ready
+    // neutral profile backs it (see hasReadyProfile above).
+    if (faceKind !== "card" || !(await hasReadyProfile(c.env.DB, page.subject_node_id))) {
+      return c.redirect("/");
+    }
+  }
   const preview = await renderPreview(c.env.DB, page, faceKind);
   const message = c.req.query("err");
   const shell = renderStudioShell({
@@ -449,7 +494,7 @@ app.get("/:slug/:kind", async (c) => {
 });
 
 async function renderPreview(db: D1Database, page: PageRow, faceKind: FaceKind): Promise<string> {
-  if (faceKind === "card") return renderCardFace(db, page);
+  if (faceKind === "card") return renderCardFace(db, page, await loadSubjectLabel(db, page));
   if (faceKind === "thread") return renderThreadFace(db, page);
   if (faceKind === "carousel") return renderCarouselFace(db, page);
   if (faceKind === "newsletter") {
@@ -477,17 +522,22 @@ app.post("/:pageId/:kind/produce", async (c) => {
   const kind = c.req.param("kind");
   if (!SUPPORTED.has(kind)) return new Response("unsupported face kind", { status: 404 });
   const page = await loadPageById(c.env.DB, c.req.param("pageId"));
-  if (!page || !page.thesis) return new Response("page not found", { status: 404 });
+  if (!page) return new Response("page not found", { status: 404 });
+  const faceKind = kind as FaceKind;
+  if (!page.thesis) {
+    if (faceKind !== "card" || !(await hasReadyProfile(c.env.DB, page.subject_node_id))) {
+      return new Response("page not found", { status: 404 });
+    }
+  }
   const form = await c.req.formData();
   const targetKey = String(form.get("target") ?? "");
-  const faceKind = kind as FaceKind;
 
   if (faceKind === "newsletter") {
     const isText = targetKey === "text";
     if (isText) {
       const text = renderNewsletterPlainText({
         slug: page.slug,
-        thesis: page.thesis,
+        thesis: page.thesis ?? "",
         bodyMd: page.body_md ?? "",
         signedBy: page.signed_by,
         signedAt: page.signed_at,
@@ -501,7 +551,7 @@ app.post("/:pageId/:kind/produce", async (c) => {
     }
     const html = renderNewsletterHtml({
       slug: page.slug,
-      thesis: page.thesis,
+      thesis: page.thesis ?? "",
       bodyMd: page.body_md ?? "",
       bodyHtml: page.body_html ?? "",
       signedBy: page.signed_by,
@@ -519,7 +569,7 @@ app.post("/:pageId/:kind/produce", async (c) => {
     const chapterMd = await loadChapterFaceMd(c.env.DB, page.id);
     const md = renderLongFormMarkdown({
       slug: page.slug,
-      thesis: page.thesis,
+      thesis: page.thesis ?? "",
       bodyMd: page.body_md ?? "",
       signedBy: page.signed_by,
       signedAt: page.signed_at,
@@ -540,7 +590,7 @@ app.post("/:pageId/:kind/produce", async (c) => {
   if (faceKind === "card") {
     const target = CARD_TARGETS.find((t) => t.key === targetKey) ?? CARD_TARGETS[0];
     if (!target) return new Response("no target", { status: 400 });
-    const face = await renderCardFace(c.env.DB, page);
+    const face = await renderCardFace(c.env.DB, page, await loadSubjectLabel(c.env.DB, page));
     doc = wrapFaceForProduce(face);
     viewport = target.viewport;
     filenameSuffix = target.filenameSuffix;

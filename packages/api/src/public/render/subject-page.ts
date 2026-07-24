@@ -263,10 +263,23 @@ async function renderNeutral(
   // Established section — meaning a reader landed on a raw, unranked fact
   // list before ever seeing anything resembling "who this is." When one
   // exists, it leads the page instead: the reading, then the receipts.
+  // A neutral-mode "Produce a card" affordance (2026-07-24) — before this,
+  // Studio's static formats only existed once a signed reading gave them a
+  // thesis to build from; a well-sourced File with no reading yet had no
+  // way to become a shareable image at all. Reuses the existing profile
+  // synthesis's own judge-verified claims (page_profile_claims) — same
+  // trust bar as everything else Studio produces, just no thesis required.
+  // Card only (not thread/carousel/newsletter/long-form) — those assume an
+  // argued reading's shape, a neutral profile doesn't have one to give them.
+  const produceCardLink =
+    isOperator && narrative
+      ? `<a class="face-produce" href="/studio/${escapeAttr(page.slug)}/card">Produce a card from what's on file →</a>`
+      : "";
   const narrativeBlock = narrative
     ? `<section class="subj-narrative">
   <div class="sec-k">Profile <a class="sec-standalone" href="/profile/${escapeAttr(page.slug)}">see standalone →</a></div>
   <div class="subj-narrative-body">${narrative.body_html}</div>
+  ${produceCardLink ? `<div class="subj-narrative-produce">${produceCardLink}</div>` : ""}
 </section>`
     : "";
   const establishedBlock = renderEstablishedBlock(established);
@@ -524,6 +537,7 @@ async function renderNeutral(
     color: var(--ink);
     max-width: 720px;
   }
+  .subj-narrative-produce { margin-top: 16px; }
   .subj-narrative-body h2 {
     font-family: var(--serif);
     font-size: 15px; font-weight: 600;
@@ -729,7 +743,7 @@ async function renderSigned(
     })(),
     (async () => {
       const { renderCardFace } = await import("./faces/card");
-      return renderCardFace(env.DB, page);
+      return renderCardFace(env.DB, { ...page, subject_node_id: subject.node_id });
     })(),
     (async () => {
       const { renderCarouselFace } = await import("./faces/carousel");

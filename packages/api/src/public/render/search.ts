@@ -19,7 +19,7 @@
 
 import type { Env } from "../../env";
 import { getAnswerPreview } from "../../graph/lib/answers-preview";
-import { type VectorMeta, searchVectors } from "../../graph/lib/embeddings";
+import { type VectorMeta, rerankResults, searchVectors } from "../../graph/lib/embeddings";
 import { insertOne, one } from "../../lib/d1";
 import { resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
@@ -53,8 +53,22 @@ export async function renderSearchPage(
   let summary = "";
 
   if (query.length > 0 && userId) {
+    // A wider net (25) than what's actually shown — cosine similarity is
+    // a decent candidate filter but a mediocre final ranker (it scores
+    // the query and each candidate separately, never together). The
+    // rerank pass below reads (query, candidate) as one input and
+    // reorders for real relevance; RESULT_LIMIT caps what's displayed
+    // to the reranked top slice, not the raw vector-search order.
     const hits = await searchVectors(env, { query, userId, topK: 25 }).catch(() => []);
-    const resolved = await resolveHits(env, hits);
+    const resolvedAll = await resolveHits(env, hits);
+    const RESULT_LIMIT = 12;
+    const resolved =
+      resolvedAll.length > 1
+        ? (await rerankResults(env, query, resolvedAll, (h) => `${h.title}. ${h.snippet}`)).slice(
+            0,
+            RESULT_LIMIT,
+          )
+        : resolvedAll;
     if (resolved.length === 0) {
       // A real miss — log it (cheap; feeds the future "what readers are
       // asking for" research signal) and, for the operator only, show a
@@ -98,7 +112,10 @@ export async function renderSearchPage(
 </div>`;
       }
     } else {
-      summary = `<b>${resolved.length}</b> matches for <b>${escapeHtml(query)}</b>.`;
+      summary =
+        resolvedAll.length > resolved.length
+          ? `<b>${resolved.length}</b> best matches for <b>${escapeHtml(query)}</b> — top-ranked of ${resolvedAll.length} found.`
+          : `<b>${resolved.length}</b> matches for <b>${escapeHtml(query)}</b>.`;
       resultsBlock = `<ol class="search-hits">${resolved
         .map(
           (h) => `<li class="search-hit">

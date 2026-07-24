@@ -179,3 +179,52 @@ export async function advanceReembedBackfill(env: Env, userId: string): Promise<
     payload: { next_offset: nextOffset, total, embedded_this_batch: embedded },
   }).catch(() => {});
 }
+
+// Reranking (2026-07-24) — a second, cheaper-per-item pass on top of
+// vector search's cosine ordering. Cosine similarity over embeddings is
+// a good CANDIDATE filter but a mediocre final ranker (it can't see the
+// query and the candidate together, only their separately-computed
+// vectors); a cross-encoder reranker reads (query, candidate) as one
+// input and scores relevance directly, which is why it's a second pass
+// on top of vector search rather than a replacement for it. Contract
+// verified live via a temp admin route before wiring this in: POST
+// {query, contexts: [{text}]} -> {response: [{id, score}]}, id is the
+// 0-based index into `contexts`, not stable across calls — never persist
+// it, only use it to reorder the SAME call's input array.
+const RERANK_MODEL = "@cf/baai/bge-reranker-base";
+
+interface RerankResponse {
+  response?: Array<{ id: number; score: number }>;
+}
+
+/** Rerank `items` against `query`, most relevant first. `getText` pulls
+ *  the text to score from each item — callers pass whatever field holds
+ *  enough content to judge relevance (a resolved search hit's title +
+ *  snippet, e.g.). Non-fatal: on any failure, returns `items` in their
+ *  original order rather than breaking search over a reranker hiccup. */
+export async function rerankResults<T>(
+  env: Env,
+  query: string,
+  items: T[],
+  getText: (item: T) => string,
+): Promise<T[]> {
+  if (items.length <= 1) return items;
+  try {
+    const raw = (await withTimeout(
+      env.AI.run(
+        RERANK_MODEL as never,
+        { query, contexts: items.map((item) => ({ text: getText(item).slice(0, 2000) })) } as never,
+      ) as Promise<unknown>,
+      TIMEOUTS.EMBED_MS,
+      "rerankResults",
+    )) as RerankResponse;
+    const scored = raw.response;
+    if (!scored || scored.length === 0) return items;
+    return [...scored]
+      .sort((a, b) => b.score - a.score)
+      .map((s) => items[s.id])
+      .filter((item): item is T => item !== undefined);
+  } catch {
+    return items;
+  }
+}
