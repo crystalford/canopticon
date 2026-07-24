@@ -60,6 +60,15 @@ OPERATOR_EMAIL = ""
 # video.canopticon.com (the daily video Worker shares SESSION_SECRET and
 # reads the same cookie). Leave empty for local dev.
 SESSION_COOKIE_DOMAIN = ".canopticon.com"
+# The video Worker's URL — where "Produce video essay" (on a signed File)
+# POSTs a reading's content, and where the public /videos section reads
+# the published-segments list from. Pair with the VIDEO_INTERNAL_TOKEN
+# Worker secret (same value as the video Worker's own
+# VIDEO_INTERNAL_TOKEN — set via the VIDEO_INTERNAL_TOKEN GitHub Actions
+# repo secret, pushed to both Workers by their deploy workflows). Leave
+# empty to keep the produce action inert and /videos showing an honest
+# empty state.
+VIDEO_BASE = "https://video.canopticon.com"
 # Cloudflare Browser Rendering — optional. Set this to your account id to
 # enable web_search / web_fetch_rendered chat tools. Pair with the
 # CLOUDFLARE_API_TOKEN Worker secret (`wrangler secret put CLOUDFLARE_API_TOKEN`)
