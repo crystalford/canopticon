@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-24T19:49:49Z",
-  "run_id": "30121731389",
+  "requested_at": "2026-07-24T19:51:35Z",
+  "run_id": "30121812289",
   "method": "GET",
   "path": "/v1/admin/debug-embed?model=%40cf%2Fbaai%2Fbge-m3",
-  "status": 404,
-  "body": "{\n  \"error\": {\n    \"code\": \"not_found\",\n    \"message\": \"Not found\",\n    \"trace_id\": \"f4cfc073-8ec0-4321-b9b9-7f55eaf73f96\"\n  }\n}"
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"model\": \"@cf/baai/bge-m3\",\n  \"latency_ms\": 338,\n  \"shape\": [\n    1,\n    1024\n  ],\n  \"dimensions\": 1024,\n  \"sample\": [\n    -0.07562255859375,\n    -0.025390625,\n    -0.031707763671875,\n    -0.05682373046875\n  ]\n}"
 }
