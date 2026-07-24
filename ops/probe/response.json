@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-24T19:53:30Z",
-  "run_id": "30121892062",
+  "requested_at": "2026-07-24T19:53:56Z",
+  "run_id": "30121912626",
   "method": "GET",
-  "path": "/v1/admin/debug-embed?model=%40cf%2Fqwen%2Fqwen3-embedding-0.6b",
+  "path": "/v1/admin/debug-embed?model=%40cf%2Fgoogle%2Fembeddinggemma-300m",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"model\": \"@cf/qwen/qwen3-embedding-0.6b\",\n  \"latency_ms\": 5801,\n  \"shape\": [\n    1,\n    1024\n  ],\n  \"dimensions\": 1024,\n  \"sample\": [\n    -0.051134224981069565,\n    0.020153606310486794,\n    -0.01183734554797411,\n    -0.055441852658987045\n  ]\n}"
+  "body": "{\n  \"ok\": true,\n  \"model\": \"@cf/google/embeddinggemma-300m\",\n  \"latency_ms\": 522,\n  \"shape\": [\n    1,\n    768\n  ],\n  \"dimensions\": 768,\n  \"sample\": [\n    -0.15261907875537872,\n    0.038447823375463486,\n    -0.009422032162547112,\n    -0.0114924730733037\n  ]\n}"
 }
