@@ -666,6 +666,41 @@ app.get("/health", async (c) => {
   });
 });
 
+// TEMPORARY — GET /v1/admin/debug-embed?model=...&text=...
+// One-off: checking whether bge-m3 / qwen3-embedding-0.6b / embeddinggemma-300m
+// output a dimension compatible with the existing 1024-dim cosine Vectorize
+// index (graph/lib/embeddings.ts's EMBED_MODEL) before considering a swap —
+// a mismatch means a brand new index + full corpus re-embed, not a drop-in
+// router change. Remove after use, same reasoning as the fetch-url route
+// removed 2026-07-24.
+app.get("/debug-embed", async (c) => {
+  const model = c.req.query("model") ?? "@cf/baai/bge-m3";
+  const text = c.req.query("text") ?? "Carbon credit verification standards";
+  const start = Date.now();
+  try {
+    const raw = (await c.env.AI.run(model as never, { text: [text] } as never)) as unknown as {
+      shape?: number[];
+      data?: number[][];
+    };
+    const vec = raw.data?.[0];
+    return c.json({
+      ok: true,
+      model,
+      latency_ms: Date.now() - start,
+      shape: raw.shape,
+      dimensions: vec?.length ?? null,
+      sample: vec?.slice(0, 4) ?? null,
+    });
+  } catch (err) {
+    return c.json({
+      ok: false,
+      model,
+      latency_ms: Date.now() - start,
+      error: (err as Error).message ?? "unknown",
+    });
+  }
+});
+
 // GET /v1/admin/debug-model?model=...&prompt=...
 //
 // Calls env.AI.run DIRECTLY (bypassing our callWorkersAi normalizer) and
