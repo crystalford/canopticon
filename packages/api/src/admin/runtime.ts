@@ -666,71 +666,49 @@ app.get("/health", async (c) => {
   });
 });
 
-// GET /v1/admin/reembed-pieces?confirm=1&offset=0
+// GET /v1/admin/reembed-status
 //
 // One-time backfill for the 2026-07-24 bge-large-en-v1.5 -> bge-m3 swap
-// (graph/lib/embeddings.ts). Existing "piece" vectors were written with
-// the old model; cosine similarity against bge-m3 query embeddings is
-// meaningless until every piece is re-embedded with the new model. Mirrors
-// digestion.ts's embed step exactly (same text formula, same vectorId) so
-// re-running this is indistinguishable from the piece having just been
-// digested. Scoped to "piece" only — the confirmed-live, most-searched
-// kind; see embeddings.ts's comment for why entity/claim/thesis/source
-// weren't included.
-//
-// Bounded per call (BATCH pieces, ordered by id) and returns next_offset —
-// this codebase's own established fix for the execution-ceiling failure
-// class (chaining many real model calls in one request silently exceeds
-// Cloudflare's wall-clock budget with no catchable error; the first
-// unbounded version of this route hit exactly that on a live probe).
-// Caller repeats with the returned next_offset until done=true.
-app.get("/reembed-pieces", async (c) => {
-  if (c.req.query("confirm") !== "1") {
-    return c.json({ ok: false, error: "pass ?confirm=1" }, 400);
-  }
-  // 5, not 10 — the admin-probe's own curl call has a 30s client-side
-  // timeout (canopticon-admin-probe.yml's `-m 30`), independent of any
-  // Cloudflare-side limit; 10 sequential embed+upsert pairs measured
-  // close enough to that to time out on a live run. 5 leaves real margin.
-  const BATCH = 5;
-  const offset = Number.parseInt(c.req.query("offset") ?? "0", 10) || 0;
+// (graph/lib/embeddings.ts). The actual work — graph/lib/embeddings.ts's
+// advanceReembedBackfill — runs automatically off the cron tick (index.ts,
+// same pattern as advanceResearchRun/advanceSettleOneStep): 5 pieces per
+// tick, progress tracked via an orchestrator_events row rather than a
+// request param so no caller has to remember an offset. This route is
+// read-only: it just reports where the cron-driven backfill currently is,
+// for checking progress without waiting on ~20 ticks to land one at a
+// time. (An earlier version of this route drove the backfill itself,
+// synchronously, one batch per call — dropped after a live probe run at
+// batch size 10 silently died mid-request: the admin-probe's own curl call
+// has a 30s client-side timeout, independent of any Cloudflare-side limit,
+// and even a smaller batch would have meant ~20 manual round trips for a
+// 102-piece corpus. Letting the existing cron infra own it is both safer
+// and needs zero manual driving.)
+app.get("/reembed-status", async (c) => {
   const userId = c.get("user_id");
-  const { embedText, upsertVector, vectorId } = await import("../graph/lib/embeddings.ts");
   const total =
     (
       await one<{ n: number }>(c.env.DB, "SELECT COUNT(*) AS n FROM pieces WHERE user_id = ?", [
         userId,
       ])
     )?.n ?? 0;
-  const pieces = await all<{ id: string; title: string; body_md: string }>(
+  const doneEvent = await one<{ created_at: string }>(
     c.env.DB,
-    "SELECT id, title, body_md FROM pieces WHERE user_id = ? ORDER BY id LIMIT ? OFFSET ?",
-    [userId, BATCH, offset],
+    "SELECT created_at FROM orchestrator_events WHERE user_id = ? AND event_type = 'embeddings.reembed_done' LIMIT 1",
+    [userId],
   );
-  let embedded = 0;
-  const errors: Array<{ id: string; error: string }> = [];
-  for (const p of pieces) {
-    try {
-      const values = await embedText(c.env, `${p.title}\n${p.body_md.slice(0, 4000)}`);
-      await upsertVector(c.env, {
-        id: vectorId("piece", p.id),
-        values,
-        metadata: { user_id: userId, kind: "piece", id: p.id, title: p.title },
-      });
-      embedded++;
-    } catch (err) {
-      errors.push({ id: p.id, error: (err as Error).message ?? "unknown" });
-    }
-  }
-  const nextOffset = offset + pieces.length;
+  const progress = await one<{ payload: string; created_at: string }>(
+    c.env.DB,
+    `SELECT payload, created_at FROM orchestrator_events
+      WHERE user_id = ? AND event_type = 'embeddings.reembed_progress'
+      ORDER BY created_at DESC LIMIT 1`,
+    [userId],
+  );
   return c.json({
     ok: true,
     total,
-    batch_size: pieces.length,
-    embedded,
-    errors,
-    next_offset: nextOffset,
-    done: nextOffset >= total,
+    done: Boolean(doneEvent),
+    done_at: doneEvent?.created_at ?? null,
+    progress: progress ? { ...JSON.parse(progress.payload), at: progress.created_at } : null,
   });
 });
 

@@ -278,6 +278,14 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
     const { advanceResearchRun } = await import("./graph/lib/deep-research.ts");
     ctx.waitUntil(advanceResearchRun(env, settleUserId).catch(() => {}));
   }
+  // One-time bge-large-en-v1.5 -> bge-m3 embedding backfill (2026-07-24,
+  // graph/lib/embeddings.ts) — 5 pieces per tick, self-terminating once an
+  // 'embeddings.reembed_done' event exists (a cheap COUNT-only no-op after
+  // that). Remove this call once /v1/admin/reembed-status reports done.
+  if (settleUserId) {
+    const { advanceReembedBackfill } = await import("./graph/lib/embeddings.ts");
+    ctx.waitUntil(advanceReembedBackfill(env, settleUserId).catch(() => {}));
+  }
 };
 
 export default {
