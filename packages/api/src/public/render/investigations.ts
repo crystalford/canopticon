@@ -148,11 +148,11 @@ export async function renderInvestigationsIndex(
       ? `<section class="shape-block" aria-label="What this page will contain">
   <div class="sec-k">What lands here</div>
   <ul>
-    <li><b>Signed readings</b> — the system auto-drafts a reading of any subject (entity, event, or theme) the corpus has enough material on; the operator reads and signs. Each carries a thesis, a confidence band, and a mandatory box of facts that complicate it.</li>
+    <li><b>Signed readings</b> — the operator picks a subject (entity, event, or theme) with enough material on it, optionally gives it an angle, and drafts a reading; then reads and signs it. Each carries a thesis, a confidence band, and a mandatory box of facts that complicate it.</li>
     <li><b>Intent badges</b> — every signed piece wears its kind: Investigation · Argument · Pattern · Assessment · Critique · Explanation. Filter above when there are enough to filter.</li>
     <li><b>Receipts</b> — every load-bearing assertion ties back to a verbatim quote from a stored source document.</li>
   </ul>
-  ${pieces.length > 0 ? `<p>Showing ${pieces.length} legacy investigation${pieces.length === 1 ? "" : "s"} from before the fabric era below. Fabric-era signed readings have not begun yet — the auto-drafter runs when the corpus settles after extraction.</p>` : "<p>The auto-drafter runs when the corpus settles after extraction. No readings yet.</p>"}
+  ${pieces.length > 0 ? `<p>Showing ${pieces.length} legacy investigation${pieces.length === 1 ? "" : "s"} from before the fabric era below. No fabric-era signed readings yet — draft one from any subject's page.</p>` : '<p>No signed readings yet — draft one from any subject\'s page ("Draft a reading").</p>'}
 </section>`
       : "";
 

@@ -206,24 +206,37 @@ import { drainDigestJobs, runDigestJob } from "./graph/lib/digest-jobs.ts";
 import { runWatcher } from "./graph/lib/watcher.ts";
 import { all as dbAll } from "./lib/d1.ts";
 
-// Cloudflare Cron Trigger handler. Three crons configured in wrangler.toml:
+// Cloudflare Cron Trigger handler. Two crons configured in wrangler.toml:
 //   "*/2 * * * *"  — drain the digest_jobs queue (safety net for ingest)
 //   "0 12 * * 1"   — weekly monitor watchers
-//   "0 */4 * * *"  — autonomous expand sweep every 4h (one thin subject/tick,
-//                    ranked by edge_degree — see graph/lib/autonomous-expand.ts)
-// We branch on controller.cron so the drain tick doesn't refire watchers or
-// the sweep on every tick.
+// We branch on controller.cron so the drain tick doesn't refire watchers.
+//
+// There used to be a third cron ("0 */4 * * *") that ran
+// graph/lib/autonomous-expand.ts's sweepThinSubjects every 4h — the
+// system picking a thin subject (or a "beat") and researching it
+// unattended, no operator involved. Retired: it was the same "the system
+// decides and acts on its own" shape as the auto-drafted signed readings
+// (see settle-pipeline.ts), except worse — it also auto-PUBLISHED the
+// result (graph/lib/deep-research.ts's synthesizeDueBeatReport), landing
+// a "signed research report" with a fabricated "medium confidence" badge
+// on the public site with zero human ever reading it first. Growth is
+// operator-initiated now: "Expand this file" on a subject page, the bulk
+// "expand thinnest 3" action, and (once built) an on-demand "inquire"
+// action, same shape as "Draft a reading." autonomous-expand.ts and
+// deep-research.ts are left in place, unwired — the search/fetch/extract
+// and beat-synthesis logic in them is worth reusing for the on-demand
+// version, not worth rewriting from scratch.
 //
 // The drain tick was every-minute until live D1_ERROR "exceeded its CPU
 // time limit and was reset" events (see draft-reading.ts / profile-
 // generator.ts's candidate queries, and reports of the site itself loading
 // slowly) traced to this account's shared D1 CPU budget getting exhausted
 // by everything running concurrently — this drain, the settle pipeline,
-// and the autonomous sweep all competing for the same pool at once.
-// Halved to every 2 minutes as a conservative, reversible knob alongside
-// halving CHUNK_CONCURRENCY and the per-tick doc count below — not a
-// redesign, just less pressure per unit time. Revisit if ingest throughput
-// becomes the bottleneck instead.
+// and the (now-retired) autonomous sweep all competing for the same pool
+// at once. Halved to every 2 minutes as a conservative, reversible knob
+// alongside halving CHUNK_CONCURRENCY and the per-tick doc count below —
+// not a redesign, just less pressure per unit time. Revisit if ingest
+// throughput becomes the bottleneck instead.
 const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, ctx) => {
   const cron = controller.cron;
   if (cron === "0 12 * * 1") {
@@ -234,13 +247,6 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
     for (const m of monitors) {
       ctx.waitUntil(runWatcher(env, m.id));
     }
-    return;
-  }
-  if (cron === "0 */4 * * *") {
-    const { resolveOperatorId } = await import("./public/data.ts");
-    const { sweepThinSubjects } = await import("./graph/lib/autonomous-expand.ts");
-    const userId = await resolveOperatorId(env.DB);
-    if (userId) ctx.waitUntil(sweepThinSubjects(env, userId));
     return;
   }
   // Default branch (every-2-minute tick): drain queued + stalled digest

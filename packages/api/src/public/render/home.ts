@@ -84,7 +84,6 @@ interface OperatorOverlays {
   pulse: { newPages: number; newFacts: number };
   searchMisses: Array<{ query: string; count: number; lastAsked: string }>;
   today: {
-    sweeps: number;
     sourcesBanked: number;
     entitiesMerged: number;
     activeJobs: number;
@@ -167,22 +166,23 @@ async function loadOperatorOverlays(db: D1Database, userId: string): Promise<Ope
         LIMIT 6`,
       [userId],
     ).catch(() => []),
-    // "Today" rhythm — what the standing sweep/settle machinery actually
-    // did on its own, so the operator isn't left wondering whether
-    // anything is happening between visits.
+    // "Today" rhythm — what the standing settle machinery actually did on
+    // its own, so the operator isn't left wondering whether anything is
+    // happening between visits. sourcesBanked now only ever comes from an
+    // operator clicking "Expand this file" (the autonomous sweep that used
+    // to also feed it is retired) — kept here as "what grew today"
+    // regardless of who clicked, not a claim that it happened unattended.
     one<{
-      sweeps: number;
       sourcesBanked: number;
       entitiesMerged: number;
       activeJobs: number;
     }>(
       db,
       `SELECT
-         (SELECT COUNT(*) FROM orchestrator_events WHERE user_id = ? AND event_type = 'autonomous.sweep.completed' AND created_at > datetime('now','-1 day')) AS sweeps,
          (SELECT COUNT(*) FROM orchestrator_events WHERE user_id = ? AND event_type = 'record.expand.source_banked' AND created_at > datetime('now','-1 day')) AS sourcesBanked,
          (SELECT COUNT(*) FROM entity_merges WHERE user_id = ? AND created_at > datetime('now','-1 day')) AS entitiesMerged,
          (SELECT COUNT(*) FROM digest_jobs WHERE user_id = ? AND status IN ('queued','running')) AS activeJobs`,
-      [userId, userId, userId, userId],
+      [userId, userId, userId],
     ).catch(() => null),
   ]);
   return {
@@ -192,7 +192,6 @@ async function loadOperatorOverlays(db: D1Database, userId: string): Promise<Ope
     pulse: pulse ?? { newPages: 0, newFacts: 0 },
     searchMisses,
     today: today ?? {
-      sweeps: 0,
       sourcesBanked: 0,
       entitiesMerged: 0,
       activeJobs: 0,
@@ -601,11 +600,13 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
 </div>`
       : "";
 
-  // ---- Watchlist — running unattended, a teaser toward /watchlist ----
+  // ---- Watchlist — a teaser toward /watchlist. Used to say "running
+  // unattended" here — no longer true, the sweep that checked these on a
+  // timer is retired (see watchlist.ts and index.ts's scheduled()).
   const watchlistBlock =
     watchlist.length > 0
       ? `<div class="sec">
-  <div class="sec-h"><span class="label">On the watchlist — running unattended</span><span class="coord"><a href="/watchlist" class="plain" style="font-family:var(--mono)">SEE ALL →</a></span></div>
+  <div class="sec-h"><span class="label">On the watchlist</span><span class="coord"><a href="/watchlist" class="plain" style="font-family:var(--mono)">SEE ALL →</a></span></div>
   <div class="file-list">
     ${watchlist
       .map(
@@ -721,30 +722,32 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
       })()
     : "";
 
-  // What the standing machinery (autonomous sweep, settle pipeline) did on
-  // its OWN today — separate from opBriefing above, which is about new
-  // pages/facts/drafts regardless of source. This is specifically "is the
-  // unattended part actually running," the exact question that prompted
-  // building it: "i have no idea if it is even still working on stuff."
+  // What the standing settle machinery did on its own today, plus what
+  // grew from operator clicks — separate from opBriefing above, which is
+  // about new pages/facts/drafts regardless of source. Used to be purely
+  // "is the unattended part running" (autonomous sweep + settle
+  // pipeline); the sweep is retired now (see index.ts's scheduled()), so
+  // entitiesMerged/activeJobs are the genuinely-unattended signals left —
+  // sourcesBanked only ever comes from an operator clicking Expand now,
+  // shown here as "what grew today," not a claim it happened unattended.
   const opToday = opOverlays
     ? (() => {
         const t = opOverlays.today;
         const bits: string[] = [];
-        if (t.sweeps > 0) bits.push(`${t.sweeps} sweep${t.sweeps === 1 ? "" : "s"} run`);
         if (t.sourcesBanked > 0) {
           bits.push(`${t.sourcesBanked} source${t.sourcesBanked === 1 ? "" : "s"} banked`);
         }
         if (t.entitiesMerged > 0) {
           bits.push(`${t.entitiesMerged} duplicate${t.entitiesMerged === 1 ? "" : "s"} merged`);
         }
-        const activity = bits.length > 0 ? bits.join(" · ") : "no autonomous activity yet today";
+        const activity = bits.length > 0 ? bits.join(" · ") : "nothing grown yet today";
         const jobs =
           t.activeJobs > 0
             ? ` · ${t.activeJobs} job${t.activeJobs === 1 ? "" : "s"} running now`
             : "";
         return `<aside class="op-today">
   <div class="op-today-row">
-    <div><div class="op-briefing-kicker">Today, unattended</div><p>${activity}${jobs}.</p></div>
+    <div><div class="op-briefing-kicker">Today</div><p>${activity}${jobs}.</p></div>
     <form method="POST" action="/op/records/bulk-expand">
       <button class="op-bulk-expand-go" type="submit">Expand thinnest 3 now →</button>
     </form>

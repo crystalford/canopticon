@@ -47,11 +47,14 @@ binding = "AI"
 # budget getting exhausted by concurrent background work (index.ts's
 # scheduled() has the full account).
 # monday 12:00 UTC: run the weekly monitor watchers
-# every 4 hours: autonomous expand sweep — one thin subject per tick,
-# ranked by edge_degree not staleness (see graph/lib/autonomous-expand.ts).
-# Kept deliberately infrequent — each tick spends real, metered Brave
-# Search + Workers AI + D1 cost, not just idle compute.
-crons = ["*/2 * * * *", "0 12 * * 1", "0 */4 * * *"]
+#
+# There used to be a third cron here (every 4 hours: autonomous expand
+# sweep, ranked by edge_degree — graph/lib/autonomous-expand.ts). Retired:
+# it was unattended growth + unattended publishing with no operator in
+# the loop, the same problem the auto-drafted signed readings had, worse
+# (it published). Growth is operator-initiated now — see index.ts's
+# scheduled() comment.
+crons = ["*/2 * * * *", "0 12 * * 1"]
 
 [vars]
 LOG_LEVEL = "info"

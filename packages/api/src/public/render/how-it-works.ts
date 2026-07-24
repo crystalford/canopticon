@@ -269,35 +269,17 @@ ${statStrip}
 </section>
 
 <section class="hiw-section">
-  <h2 class="hiw-h2">The standing newsroom</h2>
+  <h2 class="hiw-h2">What runs on its own vs. what you drive</h2>
   <p>
-    The system doesn't just wait for uploads. Several things run on their own, on a
-    schedule, without you:
+    One thing runs unattended, on a schedule. Everything that grows the record —
+    researching a subject, drafting a reading, producing a video — starts from you
+    clicking something. There used to be more running automatically (a sweep that
+    picked a thin subject and researched it every few hours, plus a pass that
+    auto-published research briefs from that); both are retired — the sweep decided
+    what to work on without you, and the auto-published briefs went live with no one
+    reading them first. Growth is a click now, on purpose.
   </p>
   <div class="hiw-list">
-    <div class="hiw-item">
-      <div class="hiw-item-h">The sweep</div>
-      <p>Every few hours, one pass picks the single most worth-pursuing thin subject
-      and runs a real search → fetch → verbatim-extract cycle on it — the same
-      pipeline as the "Expand this file" button, just fired automatically. Priority
-      goes to beats first, then subjects the graph already talks about a lot but
-      hasn't verified yet (edge_degree), with an extra boost for subjects a surfaced
-      contradiction or cross-document connection is specifically about.</p>
-    </div>
-    <div class="hiw-item">
-      <div class="hiw-item-h">Beats</div>
-      <p>Standing coverage areas you name — a person, an institution, a topic you want
-      watched continuously, not just filled in once. A due beat gets first refusal on
-      the sweep's one slot. Managed via <code>/v1/admin/beats</code> right now (no UI
-      form yet).</p>
-    </div>
-    <div class="hiw-item">
-      <div class="hiw-item-h">Deep research</div>
-      <p>After a beat's sweep banks new sources, a separate pass writes a synthesized
-      research brief from them — the "free-ish" equivalent of the Research toggle you'd
-      otherwise run by hand — and that brief goes through the exact same verbatim
-      extraction as anything you upload.</p>
-    </div>
     <div class="hiw-item">
       <div class="hiw-item-h">The settle pipeline</div>
       <p>After documents come in, six steps run in the background to turn raw
@@ -311,9 +293,9 @@ ${statStrip}
     </div>
   </div>
   <p>
-    The homepage's <b>"Today, unattended"</b> line is the honest status check: how many
-    sweeps ran, sources banked, and duplicates merged today, so you're
-    never left wondering if any of this is actually running.
+    The homepage's <b>"Today"</b> line is the honest status check: how many sources
+    got banked and duplicates merged today, so you're never left wondering if the
+    settle pipeline is actually running.
   </p>
 </section>
 
@@ -327,8 +309,8 @@ ${statStrip}
     </div>
     <div class="hiw-item">
       <div class="hiw-item-h">Expand a thin file</div>
-      <p>On any subject page, "Expand this file" fires the same search+fetch+extract
-      cycle the sweep uses, right now, for that one subject.</p>
+      <p>On any subject page, "Expand this file" fires a real search → fetch →
+      verbatim-extract cycle on that one subject, right now.</p>
     </div>
     <div class="hiw-item">
       <div class="hiw-item-h">Research a question</div>
@@ -339,7 +321,7 @@ ${statStrip}
     <div class="hiw-item">
       <div class="hiw-item-h">Bulk-expand the thinnest 3</div>
       <p>One button on the homepage's status line, for when you want to nudge several
-      gaps at once instead of waiting for the sweep's one-at-a-time cadence.</p>
+      thin files at once instead of one at a time.</p>
     </div>
   </div>
 </section>
@@ -356,7 +338,7 @@ ${statStrip}
         <li>LLM-seasoned faces (video script, chapter outline) — one pass on signing, then instant</li>
         <li>Semantic search (<code>/search</code>)</li>
         <li>The citation tracker (<code>/citations</code>, operator-only)</li>
-        <li>Record-building on click — search → fetch → extract, same pipeline the sweep uses</li>
+        <li>Record-building on click — search → fetch → extract, one subject at a time</li>
         <li>Studio Stage A — card/thread/carousel → PNG, newsletter, long-form export</li>
       </ul>
     </div>
@@ -376,10 +358,10 @@ ${statStrip}
 <section class="hiw-section">
   <h2 class="hiw-h2">What it costs</h2>
   <p>
-    None of the automatic parts are free: Brave Search calls and Workers AI inference
-    both cost real money, metered. Everything above is deliberately capped — one
-    subject per sweep tick, one candidate per settle step, bulk-expand capped at 3 —
-    on purpose, so unattended operation stays bounded rather than open-ended.
+    None of this is free: Brave Search calls and Workers AI inference both cost real
+    money, metered. Growth is click-triggered now specifically so that spend only
+    happens when you ask for it — one candidate per settle step in the background,
+    bulk-expand capped at 3 per click, on purpose.
   </p>
 </section>
 `;
