@@ -86,7 +86,6 @@ interface OperatorOverlays {
   today: {
     sweeps: number;
     sourcesBanked: number;
-    readingsDrafted: number;
     entitiesMerged: number;
     activeJobs: number;
   };
@@ -174,7 +173,6 @@ async function loadOperatorOverlays(db: D1Database, userId: string): Promise<Ope
     one<{
       sweeps: number;
       sourcesBanked: number;
-      readingsDrafted: number;
       entitiesMerged: number;
       activeJobs: number;
     }>(
@@ -182,10 +180,9 @@ async function loadOperatorOverlays(db: D1Database, userId: string): Promise<Ope
       `SELECT
          (SELECT COUNT(*) FROM orchestrator_events WHERE user_id = ? AND event_type = 'autonomous.sweep.completed' AND created_at > datetime('now','-1 day')) AS sweeps,
          (SELECT COUNT(*) FROM orchestrator_events WHERE user_id = ? AND event_type = 'record.expand.source_banked' AND created_at > datetime('now','-1 day')) AS sourcesBanked,
-         (SELECT COALESCE(SUM(CAST(json_extract(payload, '$.drafted') AS INTEGER)), 0) FROM orchestrator_events WHERE user_id = ? AND event_type = 'readings.drafted' AND created_at > datetime('now','-1 day')) AS readingsDrafted,
          (SELECT COUNT(*) FROM entity_merges WHERE user_id = ? AND created_at > datetime('now','-1 day')) AS entitiesMerged,
          (SELECT COUNT(*) FROM digest_jobs WHERE user_id = ? AND status IN ('queued','running')) AS activeJobs`,
-      [userId, userId, userId, userId, userId],
+      [userId, userId, userId, userId],
     ).catch(() => null),
   ]);
   return {
@@ -197,7 +194,6 @@ async function loadOperatorOverlays(db: D1Database, userId: string): Promise<Ope
     today: today ?? {
       sweeps: 0,
       sourcesBanked: 0,
-      readingsDrafted: 0,
       entitiesMerged: 0,
       activeJobs: 0,
     },
@@ -737,9 +733,6 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
         if (t.sweeps > 0) bits.push(`${t.sweeps} sweep${t.sweeps === 1 ? "" : "s"} run`);
         if (t.sourcesBanked > 0) {
           bits.push(`${t.sourcesBanked} source${t.sourcesBanked === 1 ? "" : "s"} banked`);
-        }
-        if (t.readingsDrafted > 0) {
-          bits.push(`${t.readingsDrafted} reading${t.readingsDrafted === 1 ? "" : "s"} drafted`);
         }
         if (t.entitiesMerged > 0) {
           bits.push(`${t.entitiesMerged} duplicate${t.entitiesMerged === 1 ? "" : "s"} merged`);

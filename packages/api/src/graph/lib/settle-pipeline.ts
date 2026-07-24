@@ -1,9 +1,8 @@
 // The corpus-settle pipeline — one step at a time, always.
 //
-// Seven steps run, in order, whenever the corpus needs to catch up: entity
+// Six steps run, in order, whenever the corpus needs to catch up: entity
 // resolution -> event dedup -> surfacing -> theme detection -> page
-// autoseeding -> signed-reading drafts -> comprehensive-profile generation.
-// These used to run chained together
+// autoseeding -> comprehensive-profile generation. These used to run chained together
 // in one execution context every time the corpus went idle. Confirmed live
 // (twice, on the standalone admin /resettle endpoint before this module
 // existed) that chaining real LLM-calling steps this way reliably exceeds
@@ -16,8 +15,8 @@
 //      queued job finishes) — the common case, right after an upload.
 //   2. index.ts's every-minute cron calls it too (self-throttled below to
 //      at most once per ~90s) so the full cycle keeps completing even
-//      without new uploads — otherwise draft_readings, last in the cycle,
-//      only ever gets a turn when someone happens to upload again.
+//      without new uploads — otherwise generate_profiles, last in the
+//      cycle, only ever gets a turn when someone happens to upload again.
 //
 // A "propose_briefs" step used to sit between autoseed_pages and
 // draft_readings, automatically feeding the older `briefs` publishing
@@ -26,6 +25,15 @@
 // library (graph/lib/briefs/pipeline.ts) stays, since draft-reading.ts
 // still shares its judgeClaim function, and old /briefs/:slug pages still
 // resolve from data already published.
+//
+// A "draft_readings" step used to sit between autoseed_pages and
+// generate_profiles, auto-drafting one signed reading per settle cycle by
+// an internal score, with no operator input on which subject or what it
+// argued. Removed — the operator now drives every reading directly via
+// draftReadingForSubject (subject-page.ts's "Draft a reading" action,
+// picked per-subject, optionally with an angle). draftReadings() itself
+// (draft-reading.ts) is unused now but left in place, not deleted —
+// draftOne is shared code the on-demand path also calls.
 
 import type { Env } from "../../env";
 import { insertOne, one, run } from "../../lib/d1";
@@ -36,7 +44,6 @@ export const SETTLE_STEPS_ORDER = [
   "surfacing_l1",
   "theme_surfacer",
   "autoseed_pages",
-  "draft_readings",
   "generate_profiles",
 ] as const;
 
@@ -65,10 +72,6 @@ export const SETTLE_STEP_RUNNERS: Record<
   autoseed_pages: async (env, userId) => {
     const { autoseedPages } = await import("./autoseed-pages");
     return autoseedPages(env, userId);
-  },
-  draft_readings: async (env, userId) => {
-    const { draftReadings } = await import("./draft-reading");
-    return draftReadings(env, userId);
   },
   generate_profiles: async (env, userId) => {
     const { generateProfiles } = await import("./profile-generator");

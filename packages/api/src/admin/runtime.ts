@@ -371,13 +371,13 @@ app.get("/backfill-library", async (c) => {
 // GET /v1/admin/resettle?confirm=1&step=<name>
 //
 // Manually re-runs ONE step of the corpus-settle gate (surfacing_l1 →
-// theme_surfacer → autoseed_pages → draft_readings)
+// theme_surfacer → autoseed_pages → generate_profiles)
 // without needing a new digest job to trigger it — digest-jobs.ts only
 // fires the settle gate automatically when the LAST queued/running job
 // finishes, so a bug fix to one of these steps has no way to re-run
 // against an already-settled corpus short of re-extracting everything.
 //
-// ONE step per call, not all six chained — confirmed live that chaining
+// ONE step per call, not all chained — confirmed live that chaining
 // them (each step can make several real LLM calls) reliably exceeds
 // whatever aggregate CPU/wall-clock budget Cloudflare gives a single
 // waitUntil execution: two consecutive attempts logged a "resettle_started"
@@ -386,9 +386,9 @@ app.get("/backfill-library", async (c) => {
 // execution context outright rather than the code throwing a catchable
 // error. Reuses the same step map the automatic pipeline runs
 // (graph/lib/settle-pipeline.ts) so a manual override here can never drift
-// from what actually runs on its own. Call this six times, once per step
-// name below, to run the whole gate; poll /runtime's events.by_type
-// between calls.
+// from what actually runs on its own. Call this once per step name below
+// (see SETTLE_STEPS_ORDER) to run the whole gate; poll /runtime's
+// events.by_type between calls.
 const RESETTLE_STEPS = SETTLE_STEP_RUNNERS;
 
 // GET /v1/admin/settle-advance?confirm=1 — diagnostic: call

@@ -255,10 +255,10 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
   // Also nudge the corpus-settle pipeline forward every tick (self-
   // throttled to ~90s inside advanceSettleOneStep — see settle-
   // pipeline.ts). digest-jobs.ts already advances it once whenever a
-  // batch of uploads finishes; this is what keeps the seven-step cycle
-  // moving even when nothing new has been uploaded, so draft_readings and
-  // generate_profiles (last in the cycle) reliably get their own turn
-  // instead of only firing right after an upload.
+  // batch of uploads finishes; this is what keeps the six-step cycle
+  // moving even when nothing new has been uploaded, so generate_profiles
+  // (last in the cycle) reliably gets its own turn instead of only firing
+  // right after an upload.
   const { resolveOperatorId } = await import("./public/data.ts");
   const { advanceSettleOneStep } = await import("./graph/lib/settle-pipeline.ts");
   const settleUserId = await resolveOperatorId(env.DB);

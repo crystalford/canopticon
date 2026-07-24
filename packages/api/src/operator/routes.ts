@@ -35,12 +35,8 @@ import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
 import { opHtml } from "./layout";
 import { renderDesignMock } from "./screens/design-mock";
-import { renderLibraryScreen } from "./screens/library";
-import { renderLibraryDocScreen } from "./screens/library-doc";
-import { renderOutStream } from "./screens/out-stream";
 import { renderOutputsScreen } from "./screens/outputs";
 import { renderProjectWorkspace, renderStudioScreen } from "./screens/studio";
-import { renderSynthesisScreen } from "./screens/synthesis";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -428,22 +424,16 @@ app.get("/cmdk.js", () => {
   });
 });
 
-// OUT — the single operator stream (Phase 2). Replaces Synthesis + Outputs
-// as the home: the system writes, the operator reads and decides.
-app.get("/out", async (c) =>
-  opHtml(
-    await renderOutStream(c.env, {
-      signed: c.req.query("signed"),
-      err: c.req.query("err"),
-    }),
-  ),
-);
-
-// Re-read the corpus: re-surface findings, re-name themes, and auto-draft
-// signed readings. The cheap DETERMINISTIC steps (autoseed pages, L1) run
-// inline so the page is correct on redirect; the expensive LLM steps
-// (theme-naming, drafting) run in waitUntil so the request can't blow the
-// Worker wall-clock — the OUT stream fills in over the next minute.
+// Re-read the corpus: re-surface findings and re-name themes. The cheap
+// DETERMINISTIC steps (autoseed pages, L1) run inline so the page is
+// correct on redirect; the expensive LLM step (theme-naming) runs in
+// waitUntil so the request can't blow the Worker wall-clock.
+//
+// No longer auto-drafts signed readings — that was the same "system
+// decides which subject gets a reading" behavior the corpus-settle
+// draft_readings step ran; both are retired in favor of the operator
+// picking the subject (and optionally the angle) directly via "Draft a
+// reading" on a subject's page (draftReadingForSubject).
 app.post("/out/refresh", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/op/out?err=no_operator");
@@ -452,15 +442,13 @@ app.post("/out/refresh", async (c) => {
   // Inline: fast, deterministic, no LLM.
   await autoseedPages(c.env, userId).catch(() => {});
   await runSurfacingL1(c.env, userId).catch(() => {});
-  // Background: the LLM-heavy passes. waitUntil keeps them alive past the
+  // Background: the LLM-heavy pass. waitUntil keeps it alive past the
   // response without risking a wall-clock kill of the redirect.
   c.executionCtx.waitUntil(
     (async () => {
       try {
         const { runThemeSurfacer } = await import("../graph/lib/theme-surfacer");
-        const { draftReadings } = await import("../graph/lib/draft-reading");
         await runThemeSurfacer(c.env, userId).catch(() => {});
-        await draftReadings(c.env, userId).catch(() => {});
       } catch {
         // best-effort; another Re-read retries
       }
@@ -692,14 +680,16 @@ app.post("/records/:slug/produce-video", async (c) => {
   );
 });
 
-// "Draft a reading" — operator-directed drafting (the on-demand
-// counterpart to the autonomous corpus-settle draft_readings step). Any
-// subject the operator picks, optionally steered by a free-text angle,
-// goes through draftReadingForSubject: same grounding, same firewall,
-// same independent judge as the autonomous path — the operator only
-// chooses the subject and (optionally) what it should argue, never the
-// prose itself. Runs in waitUntil — a writer call plus N parallel judge
-// calls easily exceeds a synchronous request's wall clock.
+// "Draft a reading" — operator-directed drafting. The corpus-settle
+// pipeline used to auto-draft one reading per cycle by an internal score
+// (the draft_readings step, since retired — see settle-pipeline.ts); this
+// is the only path to a signed reading now. Any subject the operator
+// picks, optionally steered by a free-text angle, goes through
+// draftReadingForSubject: same grounding, same firewall, same independent
+// judge draftReadings() always used — the operator only chooses the
+// subject and (optionally) what it should argue, never the prose itself.
+// Runs in waitUntil — a writer call plus N parallel judge calls easily
+// exceeds a synchronous request's wall clock.
 app.post("/records/:slug/draft-reading", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/");
@@ -815,13 +805,6 @@ app.post("/faces/:pageId/:kind/render", async (c) => {
   return c.redirect(`/s/${page.slug}?mode=signed`);
 });
 
-// /op/synthesis stays as the full findings/corpus oversight view (linked from
-// OUT's "see all findings"); it's no longer a primary nav destination.
-app.get("/synthesis", async (c) => {
-  const view = c.req.query("view") === "corpus" ? "corpus" : "findings";
-  return opHtml(await renderSynthesisScreen(c.env, view));
-});
-
 // Manual re-surface trigger. Runs BOTH the legacy SQL surfacer and the
 // typed-graph Surfacing Engine Level 1 (spec Part 17). Idempotent: both
 // upsert candidate cards by slug.
@@ -886,26 +869,6 @@ app.post("/synthesis/thread/:id/:action", async (c) => {
 // DESIGN PROTOTYPE — unlinked, throwaway. The artifact for the app reframe;
 // see screens/design-mock.ts. Remove when the real redesign lands.
 app.get("/design", (c) => c.html(renderDesignMock()));
-
-app.get("/library", async (c) => {
-  return opHtml(
-    await renderLibraryScreen(c.env, {
-      extracting: c.req.query("extracting"),
-      piece: c.req.query("piece"),
-      dedup: c.req.query("dedup"),
-      ingested: c.req.query("ingested"),
-      dupes: c.req.query("dupes"),
-      error: c.req.query("error"),
-      cleared: c.req.query("cleared"),
-    }),
-  );
-});
-
-app.get("/library/:slug", async (c) => {
-  const html = await renderLibraryDocScreen(c.env, c.req.param("slug"));
-  if (!html) return c.notFound();
-  return opHtml(html);
-});
 
 // Manual extraction trigger. The pivot decoupled upload from extraction;
 // this is where the operator actually fires the LLM digestion pipeline.

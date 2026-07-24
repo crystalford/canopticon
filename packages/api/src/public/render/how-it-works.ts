@@ -300,17 +300,19 @@ ${statStrip}
     </div>
     <div class="hiw-item">
       <div class="hiw-item-h">The settle pipeline</div>
-      <p>After documents come in, seven steps run in the background to turn raw
+      <p>After documents come in, six steps run in the background to turn raw
       extraction into a usable record: entity resolution, event dedup, scoring
       contested evidence, surfacing themes and cross-document patterns, seeding pages,
-      drafting signed readings, and generating comprehensive profiles. One step runs per
+      and generating comprehensive profiles. One step runs per
       tick — chaining them all at once is exactly what silently broke this for a while;
-      splitting it up is what fixed it.</p>
+      splitting it up is what fixed it. Drafting a signed reading isn't one of these
+      steps — that's an action you take on a subject's page ("Draft a reading"), not
+      something the corpus decides on its own.</p>
     </div>
   </div>
   <p>
     The homepage's <b>"Today, unattended"</b> line is the honest status check: how many
-    sweeps ran, sources banked, readings drafted, and duplicates merged today, so you're
+    sweeps ran, sources banked, and duplicates merged today, so you're
     never left wondering if any of this is actually running.
   </p>
 </section>
