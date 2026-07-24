@@ -42,7 +42,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # the image doesn't need a rebuild when Phase 2 ships. The
 # --break-system-packages flag is required on bookworm's Python; we're
 # isolating in the Container anyway.
+#
+# torch/torchaudio are installed FIRST from PyTorch's CPU-only wheel
+# index, before whisperx. Cloudflare Containers have no GPU (see
+# CHROME_EXECUTABLE_PATH below — this is a CPU-only box throughout), but
+# `pip install whisperx` pulls plain `torch` as a dependency, and PyPI's
+# default linux torch wheel bundles the full CUDA runtime (nvidia-cublas,
+# nvidia-cudnn, etc.) — several GB of libraries this Container can never
+# use. Installing the CPU wheel first satisfies whisperx's version
+# requirement, so its own install doesn't pull the CUDA build over it.
+# This is what was blowing up the image: one apt/pip layer was large
+# enough that pushing it to the Cloudflare registry outlasted the
+# deploy's docker auth token, failing with "unauthorized" after 15+
+# minutes stuck retrying a single blob (confirmed live, twice).
 RUN pip3 install --break-system-packages --no-cache-dir \
+    torch torchaudio --index-url https://download.pytorch.org/whl/cpu \
+  && pip3 install --break-system-packages --no-cache-dir \
     whisperx==3.* \
     librosa==0.10.*
 
