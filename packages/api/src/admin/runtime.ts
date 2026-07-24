@@ -716,33 +716,6 @@ app.get("/debug-model", async (c) => {
   }
 });
 
-// TEMPORARY — GET /v1/admin/fetch-url?url=...
-// One-off diagnostic: this sandbox's own network policy blocks
-// developers.cloudflare.com directly, but this Worker runs on Cloudflare's
-// own network and has no such restriction. Used once to read Cloudflare's
-// live Workers AI model catalog page through the deployed Worker instead
-// of guessing model ids one at a time via /debug-model. Remove after use —
-// an authenticated-admin "fetch any URL" primitive is a real SSRF-adjacent
-// surface even gated behind Cloudflare Access; not worth leaving standing
-// for a single investigative question.
-app.get("/fetch-url", async (c) => {
-  const url = c.req.query("url");
-  if (!url) return c.json({ ok: false, error: "?url= required" }, 400);
-  try {
-    const res = await fetch(url, { headers: { "user-agent": "canopticon-admin-probe/1.0" } });
-    const text = await res.text();
-    return c.json({
-      ok: true,
-      url,
-      status: res.status,
-      length: text.length,
-      body: text.slice(0, 60000),
-    });
-  } catch (err) {
-    return c.json({ ok: false, url, error: (err as Error).message ?? "unknown" }, 500);
-  }
-});
-
 // GET /v1/admin/beats — list standing coverage areas (newsroom phase 3).
 app.get("/beats", async (c) => {
   const userId = c.get("user_id");

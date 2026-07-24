@@ -45,6 +45,37 @@
 //   - @cf/meta/llama-4-maverick-17b-128e-instruct-fp8: not on this
 //     account ("No such model ... or task").
 //
+// Full-catalog sweep — 2026-07-24 (81 models live; checked for anything new
+// since the 2026-06-10 survey that could beat gpt-oss-120b on this role):
+//   - @cf/moonshotai/kimi-k2.7-code (Cloudflare-Pinned, 1T params, 262k
+//     context, agentic-focused): 10.8s — notably faster than gpt-oss-120b's
+//     14.1s — and correctly theme-organized. But 280.2 neurons vs
+//     gpt-oss-120b's 61.6 (~4.5x costlier), and the one test run produced a
+//     stray garbled character mid-sentence ("...incident rates阳区..."). One
+//     sample isn't enough to convict it, but it's also not enough to trust
+//     for unattended published output — genuinely promising, worth a larger
+//     multi-run test before ever switching, not switched now.
+//   - @cf/zai-org/glm-4.7-flash (also Cloudflare-Pinned): worse on every
+//     axis tested — 21.0s (uncomfortably close to the 25s ceiling on this
+//     SMALL 2-source prompt; a real 12-source prompt would likely exceed
+//     it), only 3 themes vs gpt-oss-120b's 5, and it corrupted "REDD+" into
+//     "Redwood+" and repeated the invented term three times. Ruled out.
+//   - No other net-new text-generation model in the catalog (glm-5.2,
+//     qwen3-30b-a3b-fp8, gpt-oss-20b, granite-4.0-h-micro,
+//     mistral-small-3.1-24b-instruct, kimi-k2.6) beat gpt-oss-120b's
+//     already-tested profile clearly enough to justify a live test; noted
+//     for a future pass if gpt-oss-120b's live output quality regresses.
+//   - Separately: bge-m3 / qwen3-embedding-0.6b / embeddinggemma-300m /
+//     bge-reranker-base are new embedding/reranking models relevant to
+//     Vectorize search quality (a different lever than research_writer,
+//     not evaluated here) and whisper-large-v3-turbo is relevant to the
+//     video engine's transcription needs — both flagged, neither pursued
+//     as part of this sweep.
+//   - llama-3.3-70b-instruct-fp8-fast still appears live (not deprecated)
+//     in this scrape despite the 2026-06-10 note above claiming it was
+//     sunset 2026-05-30 — Cloudflare's own catalog is the discrepancy here,
+//     not this router; harmless since nothing routes to it anymore.
+//
 // To swap any stage to Claude near launch: change `provider` to "anthropic"
 // and `model` to the Claude ID. The cost_whitelists table needs a matching
 // operation_type entry; see packages/api/src/lib/seed.ts DEFAULT_WHITELISTS.
