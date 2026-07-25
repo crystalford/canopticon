@@ -293,6 +293,12 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
     const { advanceArgumentSummaries } = await import("./graph/lib/argument-summary.ts");
     ctx.waitUntil(advanceArgumentSummaries(env, settleUserId).catch(() => {}));
   }
+  // Memetic content #3 (2026-07-24, graph/lib/self-contradictions.ts): one
+  // candidate person per tick, judge-verified before ever being surfaced.
+  if (settleUserId) {
+    const { advanceSelfContradictions } = await import("./graph/lib/self-contradictions.ts");
+    ctx.waitUntil(advanceSelfContradictions(env, settleUserId).catch(() => {}));
+  }
 };
 
 export default {

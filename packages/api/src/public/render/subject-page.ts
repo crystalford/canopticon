@@ -234,15 +234,23 @@ async function renderNeutral(
     signed_at: page.signed_at,
   };
   const { loadNarrativeProfile } = await import("./arrangements/profile");
-  const [established, contested, arrangementEvents, connections, sourceCount, narrative] =
-    await Promise.all([
-      loadEstablishedFacts(env, userId, subject.node_id),
-      loadContestedAssertions(env, userId, subject.node_id),
-      loadArrangementEvents(env, arrangementSubject),
-      loadConnections(env, userId, subject.node_id),
-      loadSourceCount(env, userId, subject.node_id),
-      loadNarrativeProfile(env, subject.node_id),
-    ]);
+  const [
+    established,
+    contested,
+    arrangementEvents,
+    connections,
+    sourceCount,
+    narrative,
+    selfContradictions,
+  ] = await Promise.all([
+    loadEstablishedFacts(env, userId, subject.node_id),
+    loadContestedAssertions(env, userId, subject.node_id),
+    loadArrangementEvents(env, arrangementSubject),
+    loadConnections(env, userId, subject.node_id),
+    loadSourceCount(env, userId, subject.node_id),
+    loadNarrativeProfile(env, subject.node_id),
+    loadSelfContradictions(env, userId, subject.node_id),
+  ]);
   // Legacy events shape — kept for buildLede + the empty-section count.
   const events = arrangementEvents.map((e) => ({
     id: e.id,
@@ -284,6 +292,7 @@ async function renderNeutral(
     : "";
   const establishedBlock = renderEstablishedBlock(established);
   const contestedBlock = renderContestedBlock(contested, subject.label);
+  const selfContradictionsBlock = renderSelfContradictionsBlock(selfContradictions, subject.label);
   // People connected to this file (folded out of Connections below). On a
   // person's own file, the inverse view — "appears in N files" — replaces
   // it; that's the cross-file accumulation that makes a person the story.
@@ -487,6 +496,7 @@ async function renderNeutral(
       ${narrativeBlock}
       ${establishedBlockWithStandalone}
       ${contestedBlockWithStandalone}
+      ${selfContradictionsBlock}
       ${timelineBlock}
       ${peopleBlock}
     </div>
@@ -1224,6 +1234,41 @@ async function loadContestedAssertions(
   ).catch(() => []);
 }
 
+interface SelfContradictionRow {
+  id: string;
+  tension_summary: string;
+  quote_a_text: string;
+  quote_a_id: string | null;
+  piece_a_title: string | null;
+  quote_b_text: string;
+  quote_b_id: string | null;
+  piece_b_title: string | null;
+}
+
+// Memetic content #3 (2026-07-24, graph/lib/self-contradictions.ts) —
+// judge-verified pairs of this SUBJECT'S OWN assertions that genuinely
+// conflict. Different from Contested (disputed by someone else): this is
+// contradicted by their own record. Only judge_pass=1 rows are ever
+// queried here — rejected candidates stay in the table (so the cron
+// doesn't re-evaluate them) but never reach a public page.
+async function loadSelfContradictions(
+  env: PublicEnv,
+  userId: string,
+  subjectId: string,
+): Promise<SelfContradictionRow[]> {
+  const { all } = await import("../../lib/d1");
+  return all<SelfContradictionRow>(
+    env.DB,
+    `SELECT id, tension_summary, quote_a_text, quote_a_id, piece_a_title,
+            quote_b_text, quote_b_id, piece_b_title
+       FROM self_contradictions
+      WHERE user_id = ? AND person_node_id = ? AND judge_pass = 1
+      ORDER BY created_at DESC
+      LIMIT 6`,
+    [userId, subjectId],
+  ).catch(() => []);
+}
+
 // loadTimelineEvents removed — the timeline section now calls the
 // arrangement renderer's loadEvents directly (spec v2.6 Part 6).
 
@@ -1561,6 +1606,39 @@ function renderContestedBlock(rows: AssertionRow[], subjectLabel: string): strin
   return `<section id="disputed" data-schema="Claim">
 <div class="sec-k">Disputed — who says what, against what</div>
 <p class="disputed-explainer">These are things people say about ${escapeHtml(subjectLabel)} that aren't settled fact — each one attributed to who's actually claiming it, so a claim never quietly passes as established just because it showed up in a document. Weigh it yourself.</p>
+${cards}
+</section>`;
+}
+
+// Memetic content #3 (2026-07-24) — this subject's own record contradicting
+// itself, not "disputed by someone else" (that's the Contested block above).
+// Same tone discipline as Contested: neutral gray, no stamp, two quotes and
+// a plain one-line description of the tension, receipts for both — never a
+// verdict on which one was "true." Nothing here that wasn't already
+// independently judge-verified (graph/lib/self-contradictions.ts).
+function renderSelfContradictionsBlock(rows: SelfContradictionRow[], subjectLabel: string): string {
+  if (rows.length === 0) return "";
+  const cards = rows
+    .map((r) => {
+      const srcA = r.piece_a_title
+        ? `<a class="contested-src" href="/q/${escapeAttr(r.quote_a_id ?? "")}">${escapeHtml(r.piece_a_title.slice(0, 60))} ↗</a>`
+        : "";
+      const srcB = r.piece_b_title
+        ? `<a class="contested-src" href="/q/${escapeAttr(r.quote_b_id ?? "")}">${escapeHtml(r.piece_b_title.slice(0, 60))} ↗</a>`
+        : "";
+      return `<div class="contested-card self-contradiction-card">
+  <div class="contested-stamp">On record, both ways</div>
+  <blockquote class="contested-quote">"${escapeHtml(r.quote_a_text)}"</blockquote>
+  ${srcA ? `<div class="contested-attribution">${srcA}</div>` : ""}
+  <blockquote class="contested-quote">"${escapeHtml(r.quote_b_text)}"</blockquote>
+  ${srcB ? `<div class="contested-attribution">${srcB}</div>` : ""}
+  <div class="contested-balance">${escapeHtml(r.tension_summary)}</div>
+</div>`;
+    })
+    .join("");
+  return `<section id="self-contradictions" data-schema="Claim">
+<div class="sec-k">On record, both ways</div>
+<p class="disputed-explainer">Two things ${escapeHtml(subjectLabel)} has said, in different places, that don't square with each other — verified against the stored source each time, with no claim about which one they meant. Weigh it yourself.</p>
 ${cards}
 </section>`;
 }
