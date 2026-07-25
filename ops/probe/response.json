@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-25T17:40:37Z",
-  "run_id": "30168097178",
+  "requested_at": "2026-07-25T17:47:13Z",
+  "run_id": "30168322177",
   "method": "GET",
-  "path": "/v1/admin/health",
+  "path": "/v1/admin/memetic-status",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"generated_at\": \"2026-07-25T17:40:37.404Z\",\n  \"roles\": {\n    \"bulk_extraction\": {\n      \"model\": \"@cf/meta/llama-4-scout-17b-16e-instruct\",\n      \"status\": \"ok\",\n      \"latency_ms\": 360,\n      \"text_sample\": \"OK\"\n    },\n    \"hard_extraction\": {\n      \"model\": \"@cf/openai/gpt-oss-120b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 368,\n      \"text_sample\": \"\"\n    },\n    \"surfacing_ambitious\": {\n      \"model\": \"@cf/openai/gpt-oss-120b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 328,\n      \"text_sample\": \"\"\n    },\n    \"judge\": {\n      \"model\": \"@cf/qwen/qwq-32b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 420,\n      \"text_sample\": \"Okay, the user sent \\\"ping\\\".\"\n    },\n    \"large_context\": {\n      \"model\": \"@cf/nvidia/nemotron-3-120b-a12b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 6053,\n      \"text_sample\": \"\"\n    }\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"self_contradictions\": [],\n  \"register_shifts\": [\n    {\n      \"id\": \"eb48eba5-c7b4-428e-a444-11141908a676\",\n      \"source_kind\": \"assertion\",\n      \"judge_pass\": 1\n    },\n    {\n      \"id\": \"7606a9cd-bd32-4788-bfc4-dc0464380cdd\",\n      \"source_kind\": \"assertion\",\n      \"judge_pass\": 0\n    },\n    {\n      \"id\": \"ab68cb34-832f-40bd-a158-1742550c9fc8\",\n      \"source_kind\": \"thesis\",\n      \"judge_pass\": 1\n    }\n  ],\n  \"pages_eligible_for_versus\": {\n    \"n\": 914\n  },\n  \"pages_eligible_for_timeline_drop\": {\n    \"n\": 131\n  }\n}"
 }
