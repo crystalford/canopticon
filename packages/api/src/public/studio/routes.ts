@@ -19,7 +19,9 @@ import { renderCardFace } from "../render/faces/card";
 import { renderCarouselFace, renderCarouselSlide } from "../render/faces/carousel";
 import {
   renderContradictionFace,
+  renderHookFace,
   renderTimelineDropFace,
+  renderTranslateFace,
   renderVersusFace,
 } from "../render/faces/memetic";
 import { renderThreadFace } from "../render/faces/thread";
@@ -60,7 +62,9 @@ type FaceKind =
   | "long-form"
   | "contradiction"
   | "versus"
-  | "timeline-drop";
+  | "timeline-drop"
+  | "translate"
+  | "hook";
 const SUPPORTED: ReadonlySet<string> = new Set([
   "card",
   "thread",
@@ -70,18 +74,24 @@ const SUPPORTED: ReadonlySet<string> = new Set([
   "contradiction",
   "versus",
   "timeline-drop",
+  "translate",
+  "hook",
 ]);
 
 // Kinds producible WITHOUT a signed reading's thesis — same "card" carve-
-// out as the 2026-07-24 neutral-mode work, extended to the three new
-// memetic formats, which are all neutral-graph-data formats by nature
-// (a self-contradiction, a contested claim, a timeline — none of them
-// need an operator's own argued thesis to exist).
+// out as the 2026-07-24 neutral-mode work, extended to the memetic
+// formats that are neutral-graph-data formats by nature (a self-
+// contradiction, a contested claim, a timeline, a plain-language
+// translation — none of them need an operator's own argued thesis to
+// exist). "hook" is deliberately excluded: it's a compression of an
+// EXISTING thesis, so it only makes sense once one exists, same as
+// thread/carousel/newsletter/long-form.
 const NO_THESIS_KINDS: ReadonlySet<FaceKind> = new Set([
   "card",
   "contradiction",
   "versus",
   "timeline-drop",
+  "translate",
 ]);
 
 const KIND_LABELS: Record<FaceKind, string> = {
@@ -93,6 +103,8 @@ const KIND_LABELS: Record<FaceKind, string> = {
   contradiction: "Self-contradiction",
   versus: "Claim vs. record",
   "timeline-drop": "Timeline drop",
+  translate: "Plain-language translation",
+  hook: "One-line hook",
 };
 
 const KIND_HINTS: Record<FaceKind, string> = {
@@ -104,6 +116,8 @@ const KIND_HINTS: Record<FaceKind, string> = {
   contradiction: "Two things they said that don't square with each other.",
   versus: "What they claimed, next to what the record shows.",
   "timeline-drop": "A handful of dated facts, no commentary.",
+  translate: "A formal quote, said in plain words. Same claim, same receipt.",
+  hook: "The signed reading, compressed to one shareable line.",
 };
 
 async function loadPage(db: D1Database, slug: string): Promise<PageRow | null> {
@@ -175,6 +189,14 @@ async function hasNeutralDataFor(
       [subjectNodeId, subjectNodeId],
     ).catch(() => []);
     return rows.length >= 3;
+  }
+  if (kind === "translate") {
+    const row = await one<{ id: string }>(
+      db,
+      "SELECT id FROM register_shifts WHERE subject_node_id = ? AND source_kind = 'assertion' AND judge_pass = 1 LIMIT 1",
+      [subjectNodeId],
+    ).catch(() => null);
+    return !!row;
   }
   return false;
 }
@@ -268,13 +290,15 @@ export function renderStudioShell(args: {
   const { page, faceKind, facePreviewHtml, message } = args;
   const title = `Produce — ${KIND_LABELS[faceKind]}`;
   let buttons = "";
-  // card + the three memetic single-image kinds all use the same X/IG
-  // viewport pair — none of them are multi-panel formats.
+  // card + every memetic single-image kind use the same X/IG viewport
+  // pair — none of them are multi-panel formats.
   if (
     faceKind === "card" ||
     faceKind === "contradiction" ||
     faceKind === "versus" ||
-    faceKind === "timeline-drop"
+    faceKind === "timeline-drop" ||
+    faceKind === "translate" ||
+    faceKind === "hook"
   ) {
     buttons = CARD_TARGETS.map(
       (t) =>
@@ -589,6 +613,8 @@ async function renderPreview(db: D1Database, page: PageRow, faceKind: FaceKind):
   if (faceKind === "contradiction") return renderContradictionFace(db, page.subject_node_id);
   if (faceKind === "versus") return renderVersusFace(db, page.subject_node_id);
   if (faceKind === "timeline-drop") return renderTimelineDropFace(db, page.subject_node_id);
+  if (faceKind === "translate") return renderTranslateFace(db, page.subject_node_id);
+  if (faceKind === "hook") return renderHookFace(db, page.subject_node_id);
   if (faceKind === "newsletter") {
     return `<div style="background:#fff;border:1px solid #e7e2d6;border-radius:8px;padding:24px;max-height:420px;overflow:auto;">
       <h2 style="font-family:Georgia,serif;font-size:22px;margin:0 0 12px;">${escapeAttr(page.thesis ?? "")}</h2>
@@ -678,7 +704,7 @@ app.post("/:pageId/:kind/produce", async (c) => {
     });
   }
 
-  // PNG paths: card / contradiction / versus / timeline-drop / thread / carousel
+  // PNG paths: card / contradiction / versus / timeline-drop / translate / hook / thread / carousel
   let doc: string;
   let viewport: import("./render-png").Viewport;
   let filenameSuffix: string;
@@ -686,7 +712,9 @@ app.post("/:pageId/:kind/produce", async (c) => {
     faceKind === "card" ||
     faceKind === "contradiction" ||
     faceKind === "versus" ||
-    faceKind === "timeline-drop"
+    faceKind === "timeline-drop" ||
+    faceKind === "translate" ||
+    faceKind === "hook"
   ) {
     const target = CARD_TARGETS.find((t) => t.key === targetKey) ?? CARD_TARGETS[0];
     if (!target) return new Response("no target", { status: 400 });
@@ -697,7 +725,11 @@ app.post("/:pageId/:kind/produce", async (c) => {
           ? await renderContradictionFace(c.env.DB, page.subject_node_id)
           : faceKind === "versus"
             ? await renderVersusFace(c.env.DB, page.subject_node_id)
-            : await renderTimelineDropFace(c.env.DB, page.subject_node_id);
+            : faceKind === "timeline-drop"
+              ? await renderTimelineDropFace(c.env.DB, page.subject_node_id)
+              : faceKind === "translate"
+                ? await renderTranslateFace(c.env.DB, page.subject_node_id)
+                : await renderHookFace(c.env.DB, page.subject_node_id);
     doc = wrapFaceForProduce(face);
     viewport = target.viewport;
     filenameSuffix = target.filenameSuffix;

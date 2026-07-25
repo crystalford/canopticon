@@ -299,6 +299,16 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
     const { advanceSelfContradictions } = await import("./graph/lib/self-contradictions.ts");
     ctx.waitUntil(advanceSelfContradictions(env, settleUserId).catch(() => {}));
   }
+  // Memetic content #5 + #6 (2026-07-25, graph/lib/register-shift.ts): one
+  // assertion quote plain-languaged, and one signed thesis compressed into
+  // a one-line hook, per tick — both judge-verified before surfacing.
+  if (settleUserId) {
+    const { advanceRegisterShifts, advanceHeadlineHooks } = await import(
+      "./graph/lib/register-shift.ts"
+    );
+    ctx.waitUntil(advanceRegisterShifts(env, settleUserId).catch(() => {}));
+    ctx.waitUntil(advanceHeadlineHooks(env, settleUserId).catch(() => {}));
+  }
 };
 
 export default {

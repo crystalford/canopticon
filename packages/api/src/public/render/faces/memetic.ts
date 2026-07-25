@@ -16,6 +16,10 @@
 //                    framing invented for this format.
 //   timeline-drop  — a handful of dated facts, zero commentary. The
 //                    pattern does the work.
+//   translate      — a formal quote next to its judge-verified plain-
+//                    language rewrite (graph/lib/register-shift.ts).
+//   hook           — a signed thesis compressed into one shareable line
+//                    (same pipeline as translate, "hook" mode).
 
 import { all } from "../../../lib/d1";
 import { escapeAttr, escapeHtml } from "../../layout";
@@ -189,6 +193,87 @@ export async function renderTimelineDropFace(
 ${MEME_STYLES}`;
 }
 
+// ---------------------------------------------------------------------------
+// translate — a formal quote, plain-languaged. Same claim, same citation.
+// ---------------------------------------------------------------------------
+interface TranslateRow {
+  original_text: string;
+  plain_text: string;
+  quote_id: string | null;
+  piece_title: string | null;
+}
+
+async function loadTopTranslation(
+  db: D1Database,
+  subjectNodeId: string,
+): Promise<TranslateRow | null> {
+  const rows = await all<TranslateRow>(
+    db,
+    `SELECT original_text, plain_text, quote_id, piece_title
+       FROM register_shifts
+      WHERE subject_node_id = ? AND source_kind = 'assertion' AND judge_pass = 1
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [subjectNodeId],
+  ).catch(() => []);
+  return rows[0] ?? null;
+}
+
+export async function renderTranslateFace(db: D1Database, subjectNodeId: string): Promise<string> {
+  const row = await loadTopTranslation(db, subjectNodeId);
+  if (!row) {
+    return emptyFace("No verified plain-language translation on file yet for this subject.");
+  }
+  return `<div class="meme-face meme-translate">
+  <div class="card-meta">Said it like this · pure rendering, no LLM</div>
+  <div class="card-art">
+    <div class="meme-versus-label">ON THE RECORD</div>
+    <blockquote class="meme-quote">"${escapeHtml(row.original_text)}"</blockquote>
+    <div class="meme-versus-label meme-versus-label-record">IN PLAIN WORDS</div>
+    <div class="meme-versus-record">${escapeHtml(row.plain_text)}</div>
+    <div class="card-receipt">
+      ${row.quote_id ? `<a href="/q/${escapeAttr(row.quote_id)}">receipt ↗</a>` : ""}
+      ${row.piece_title ? ` · ${escapeHtml(row.piece_title)}` : ""}
+    </div>
+  </div>
+</div>
+${MEME_STYLES}`;
+}
+
+// ---------------------------------------------------------------------------
+// hook — a signed thesis, compressed into one shareable line.
+// ---------------------------------------------------------------------------
+interface HookRow {
+  plain_text: string;
+}
+
+async function loadTopHook(db: D1Database, subjectNodeId: string): Promise<HookRow | null> {
+  const rows = await all<HookRow>(
+    db,
+    `SELECT plain_text
+       FROM register_shifts
+      WHERE subject_node_id = ? AND source_kind = 'thesis' AND judge_pass = 1
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [subjectNodeId],
+  ).catch(() => []);
+  return rows[0] ?? null;
+}
+
+export async function renderHookFace(db: D1Database, subjectNodeId: string): Promise<string> {
+  const row = await loadTopHook(db, subjectNodeId);
+  if (!row) {
+    return emptyFace("No verified one-line hook on file yet for this reading.");
+  }
+  return `<div class="meme-face meme-hook">
+  <div class="card-meta">The reading, in one line · pure rendering, no LLM</div>
+  <div class="card-art">
+    <div class="meme-hook-line">${escapeHtml(row.plain_text)}</div>
+  </div>
+</div>
+${MEME_STYLES}`;
+}
+
 function emptyFace(message: string): string {
   return `<div class="face-empty">${escapeHtml(message)}</div>
 <style>.face-empty { font-family: var(--serif); font-style: italic; color: var(--ink-3); font-size: 14px; }</style>`;
@@ -245,6 +330,13 @@ const MEME_STYLES = `<style>
   }
   .meme-tl-label {
     font-family: var(--serif); font-size: 16px; line-height: 1.35;
+    color: var(--paper, #faf6ef);
+  }
+  .meme-hook-line {
+    font-family: var(--serif);
+    font-size: 30px;
+    line-height: 1.3;
+    font-weight: 600;
     color: var(--paper, #faf6ef);
   }
   .card-receipt {

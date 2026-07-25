@@ -242,6 +242,7 @@ async function renderNeutral(
     sourceCount,
     narrative,
     selfContradictions,
+    hasTranslation,
   ] = await Promise.all([
     loadEstablishedFacts(env, userId, subject.node_id),
     loadContestedAssertions(env, userId, subject.node_id),
@@ -250,6 +251,7 @@ async function renderNeutral(
     loadSourceCount(env, userId, subject.node_id),
     loadNarrativeProfile(env, subject.node_id),
     loadSelfContradictions(env, userId, subject.node_id),
+    loadHasTranslation(env, userId, subject.node_id),
   ]);
   // Legacy events shape — kept for buildLede + the empty-section count.
   const events = arrangementEvents.map((e) => ({
@@ -322,10 +324,14 @@ async function renderNeutral(
         `<div class="sec-k">Connections <a class="sec-standalone" href="/n/${escapeAttr(page.slug)}">see standalone →</a></div>`,
       )
     : connectionsBlock;
+  const translateProduceLink =
+    isOperator && hasTranslation
+      ? ` <a class="face-produce" href="/studio/${escapeAttr(page.slug)}/translate">Produce a card →</a>`
+      : "";
   const establishedBlockWithStandalone = established.length
     ? establishedBlock.replace(
         `<div class="sec-k">On the record</div>`,
-        `<div class="sec-k">On the record <a class="sec-standalone" href="/profile/${escapeAttr(page.slug)}">see profile →</a></div>`,
+        `<div class="sec-k">On the record <a class="sec-standalone" href="/profile/${escapeAttr(page.slug)}">see profile →</a>${translateProduceLink}</div>`,
       )
     : establishedBlock;
   const versusProduceLink =
@@ -751,12 +757,13 @@ async function renderSigned(
   const userId = await resolveOperatorId(env.DB);
   const bodyHtml = page.body_html || (page.body_md ? renderMarkdown(page.body_md) : "");
   const modeBand = renderModeBand(page.slug, "signed", hasSignedReading, page);
-  const [pageClaims, signedConnections] = userId
+  const [pageClaims, signedConnections, hasHook] = userId
     ? await Promise.all([
         loadPageClaims(env, userId, page.id),
         loadConnections(env, userId, subject.node_id),
+        loadHasHook(env, userId, page.id),
       ])
-    : [[], []];
+    : [[], [], false];
   const claimsBlock = renderClaimsBlock(pageClaims);
   const foundationBlock = renderFoundationBlock(pageClaims, signedConnections, page.slug);
   // Faces (spec v2.6 Part 8) — formats of this reading rendered as tabs.
@@ -891,6 +898,10 @@ async function renderSigned(
   const intentBadge = page.intent
     ? `<span class="intent-badge intent-${escapeAttr(page.intent)}">${escapeHtml(intentLabel)}</span>`
     : "";
+  const hookProduceLink =
+    isOperator && hasHook
+      ? `<a class="face-produce" href="/studio/${escapeAttr(page.slug)}/hook">Produce a one-line hook →</a>`
+      : "";
 
   const body = `
 <article class="subject-page subject-page-signed">
@@ -905,6 +916,7 @@ async function renderSigned(
       ${signatureLine}
       ${signatureMeta.length ? `<div class="signature-meta">${signatureMeta.join(" · ")}</div>` : ""}
     </div>
+    ${hookProduceLink}
     ${produceVideoBlock}
   </header>
   <div class="prose signed-body">${bodyHtml}</div>
@@ -1287,6 +1299,36 @@ async function loadSelfContradictions(
       LIMIT 6`,
     [userId, subjectId],
   ).catch(() => []);
+}
+
+// Memetic content #5 (2026-07-25, graph/lib/register-shift.ts) — whether
+// a judge-verified plain-language translation exists for any of this
+// subject's own assertion quotes. A bare existence check (not the row
+// itself) since the Studio produce flow re-queries and renders it fresh.
+async function loadHasTranslation(
+  env: PublicEnv,
+  userId: string,
+  subjectId: string,
+): Promise<boolean> {
+  const { one } = await import("../../lib/d1");
+  const row = await one<{ id: string }>(
+    env.DB,
+    "SELECT id FROM register_shifts WHERE user_id = ? AND subject_node_id = ? AND source_kind = 'assertion' AND judge_pass = 1 LIMIT 1",
+    [userId, subjectId],
+  ).catch(() => null);
+  return !!row;
+}
+
+// Memetic content #6 (2026-07-25) — whether this signed reading's thesis
+// has a judge-verified one-line hook compression on file yet.
+async function loadHasHook(env: PublicEnv, userId: string, pageId: string): Promise<boolean> {
+  const { one } = await import("../../lib/d1");
+  const row = await one<{ id: string }>(
+    env.DB,
+    "SELECT id FROM register_shifts WHERE user_id = ? AND source_node_id = ? AND source_kind = 'thesis' AND judge_pass = 1 LIMIT 1",
+    [userId, pageId],
+  ).catch(() => null);
+  return !!row;
 }
 
 // loadTimelineEvents removed — the timeline section now calls the
