@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-25T17:47:13Z",
-  "run_id": "30168322177",
+  "requested_at": "2026-07-25T17:49:56Z",
+  "run_id": "30168410046",
   "method": "GET",
   "path": "/v1/admin/memetic-status",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"self_contradictions\": [],\n  \"register_shifts\": [\n    {\n      \"id\": \"eb48eba5-c7b4-428e-a444-11141908a676\",\n      \"source_kind\": \"assertion\",\n      \"judge_pass\": 1\n    },\n    {\n      \"id\": \"7606a9cd-bd32-4788-bfc4-dc0464380cdd\",\n      \"source_kind\": \"assertion\",\n      \"judge_pass\": 0\n    },\n    {\n      \"id\": \"ab68cb34-832f-40bd-a158-1742550c9fc8\",\n      \"source_kind\": \"thesis\",\n      \"judge_pass\": 1\n    }\n  ],\n  \"pages_eligible_for_versus\": {\n    \"n\": 914\n  },\n  \"pages_eligible_for_timeline_drop\": {\n    \"n\": 131\n  }\n}"
+  "body": "{\n  \"ok\": true,\n  \"self_contradictions\": [],\n  \"register_shifts\": [\n    {\n      \"id\": \"eb48eba5-c7b4-428e-a444-11141908a676\",\n      \"source_kind\": \"assertion\",\n      \"judge_pass\": 1,\n      \"slug\": \"wilson\"\n    },\n    {\n      \"id\": \"7606a9cd-bd32-4788-bfc4-dc0464380cdd\",\n      \"source_kind\": \"assertion\",\n      \"judge_pass\": 0,\n      \"slug\": \"peter-thiel\"\n    },\n    {\n      \"id\": \"ab68cb34-832f-40bd-a158-1742550c9fc8\",\n      \"source_kind\": \"thesis\",\n      \"judge_pass\": 1,\n      \"slug\": \"canadian-polling-industry\"\n    }\n  ],\n  \"pages_eligible_for_versus\": [\n    {\n      \"slug\": \"laws-of-media\"\n    },\n    {\n      \"slug\": \"the-medium-is-the-massage\"\n    },\n    {\n      \"slug\": \"narcissus\"\n    },\n    {\n      \"slug\": \"paul-levinson\"\n    },\n    {\n      \"slug\": \"vwfa\"\n    }\n  ],\n  \"pages_eligible_for_timeline_drop\": [\n    {\n      \"slug\": \"justin-carney\"\n    },\n    {\n      \"slug\": \"stripe\"\n    },\n    {\n      \"slug\": \"world-economic-forum-wef\"\n    },\n    {\n      \"slug\": \"blackrock\"\n    },\n    {\n      \"slug\": \"biden-administration\"\n    }\n  ]\n}"
 }
