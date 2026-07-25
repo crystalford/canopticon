@@ -300,9 +300,15 @@ async function renderNeutral(
   const appearsInBlock = isPerson ? renderAppearsInBlock(connections) : "";
   // Timeline uses the arrangement renderer. The standalone /t/:slug link
   // sits beneath the section so readers can deep-link the chronology.
+  // Timeline-drop card (2026-07-24) needs 3+ dated events, same bar as
+  // studio/routes.ts's own hasNeutralDataFor check for this kind.
+  const timelineDropProduceLink =
+    isOperator && arrangementEvents.length >= 3
+      ? ` <a class="face-produce" href="/studio/${escapeAttr(page.slug)}/timeline-drop">Produce a card →</a>`
+      : "";
   const timelineBlock = arrangementEvents.length
     ? `<section id="timeline" data-schema="Event">
-  <div class="sec-k">Timeline <a class="sec-standalone" href="/t/${escapeAttr(page.slug)}">see standalone →</a></div>
+  <div class="sec-k">Timeline <a class="sec-standalone" href="/t/${escapeAttr(page.slug)}">see standalone →</a>${timelineDropProduceLink}</div>
   ${renderArrangementTimeline(arrangementEvents)}
 </section>`
     : "";
@@ -322,12 +328,26 @@ async function renderNeutral(
         `<div class="sec-k">On the record <a class="sec-standalone" href="/profile/${escapeAttr(page.slug)}">see profile →</a></div>`,
       )
     : establishedBlock;
+  const versusProduceLink =
+    isOperator && contested.length
+      ? ` <a class="face-produce" href="/studio/${escapeAttr(page.slug)}/versus">Produce a card →</a>`
+      : "";
   const contestedBlockWithStandalone = contested.length
     ? contestedBlock.replace(
         `<div class="sec-k">Disputed — who says what, against what</div>`,
-        `<div class="sec-k">Disputed — who says what, against what <a class="sec-standalone" href="/ct/${escapeAttr(page.slug)}">see standalone →</a></div>`,
+        `<div class="sec-k">Disputed — who says what, against what <a class="sec-standalone" href="/ct/${escapeAttr(page.slug)}">see standalone →</a>${versusProduceLink}</div>`,
       )
     : contestedBlock;
+  const contradictionProduceLink =
+    isOperator && selfContradictions.length
+      ? ` <a class="face-produce" href="/studio/${escapeAttr(page.slug)}/contradiction">Produce a card →</a>`
+      : "";
+  const selfContradictionsBlockWithProduce = contradictionProduceLink
+    ? selfContradictionsBlock.replace(
+        `<div class="sec-k">On record, both ways</div>`,
+        `<div class="sec-k">On record, both ways${contradictionProduceLink}</div>`,
+      )
+    : selfContradictionsBlock;
   const provenanceBlock = renderProvenance(sourceCount, hasSignedReading, page);
   const modeBand = renderModeBand(page.slug, "neutral", hasSignedReading, page);
   // The remaining arrangement types (spec v2.6 Part 6) don't have a
@@ -496,7 +516,7 @@ async function renderNeutral(
       ${narrativeBlock}
       ${establishedBlockWithStandalone}
       ${contestedBlockWithStandalone}
-      ${selfContradictionsBlock}
+      ${selfContradictionsBlockWithProduce}
       ${timelineBlock}
       ${peopleBlock}
     </div>

@@ -17,6 +17,11 @@ import type { AuthContext } from "../../auth/middleware";
 import { all, one } from "../../lib/d1";
 import { renderCardFace } from "../render/faces/card";
 import { renderCarouselFace, renderCarouselSlide } from "../render/faces/carousel";
+import {
+  renderContradictionFace,
+  renderTimelineDropFace,
+  renderVersusFace,
+} from "../render/faces/memetic";
 import { renderThreadFace } from "../render/faces/thread";
 import {
   CARD_TARGETS,
@@ -47,13 +52,36 @@ interface PageRow {
   signed_status: string | null;
 }
 
-type FaceKind = "card" | "thread" | "carousel" | "newsletter" | "long-form";
+type FaceKind =
+  | "card"
+  | "thread"
+  | "carousel"
+  | "newsletter"
+  | "long-form"
+  | "contradiction"
+  | "versus"
+  | "timeline-drop";
 const SUPPORTED: ReadonlySet<string> = new Set([
   "card",
   "thread",
   "carousel",
   "newsletter",
   "long-form",
+  "contradiction",
+  "versus",
+  "timeline-drop",
+]);
+
+// Kinds producible WITHOUT a signed reading's thesis — same "card" carve-
+// out as the 2026-07-24 neutral-mode work, extended to the three new
+// memetic formats, which are all neutral-graph-data formats by nature
+// (a self-contradiction, a contested claim, a timeline — none of them
+// need an operator's own argued thesis to exist).
+const NO_THESIS_KINDS: ReadonlySet<FaceKind> = new Set([
+  "card",
+  "contradiction",
+  "versus",
+  "timeline-drop",
 ]);
 
 const KIND_LABELS: Record<FaceKind, string> = {
@@ -62,6 +90,9 @@ const KIND_LABELS: Record<FaceKind, string> = {
   carousel: "Carousel",
   newsletter: "Newsletter",
   "long-form": "Long-form",
+  contradiction: "Self-contradiction",
+  versus: "Claim vs. record",
+  "timeline-drop": "Timeline drop",
 };
 
 const KIND_HINTS: Record<FaceKind, string> = {
@@ -70,6 +101,9 @@ const KIND_HINTS: Record<FaceKind, string> = {
   carousel: "Six-slide swipe-through for Instagram / LinkedIn.",
   newsletter: "Email-safe HTML + plain text for mailing list.",
   "long-form": "Markdown export with optional chapter outline.",
+  contradiction: "Two things they said that don't square with each other.",
+  versus: "What they claimed, next to what the record shows.",
+  "timeline-drop": "A handful of dated facts, no commentary.",
 };
 
 async function loadPage(db: D1Database, slug: string): Promise<PageRow | null> {
@@ -90,19 +124,59 @@ async function loadPageById(db: D1Database, id: string): Promise<PageRow | null>
   );
 }
 
-// A page is "producible" for the card kind alone (not thread/carousel/
-// newsletter/long-form — those assume a signed reading's argued shape)
-// once EITHER it has a thesis (the existing signed-reading card) OR a
-// ready comprehensive profile exists for its subject (the neutral-mode
-// card, 2026-07-24 — see graph/lib/profile-generator.ts). Every other
-// kind keeps the original thesis-only gate.
-async function hasReadyProfile(db: D1Database, subjectNodeId: string): Promise<boolean> {
-  const row = await one<{ id: string }>(
-    db,
-    "SELECT id FROM page_profiles WHERE subject_node_id = ? AND status = 'ready' LIMIT 1",
-    [subjectNodeId],
-  ).catch(() => null);
-  return !!row;
+// A page is producible for a NO_THESIS_KINDS kind once its OWN data
+// requirement exists — never a shared check, since "card" needs a ready
+// profile, "contradiction" needs a judge-passed self-contradiction pair,
+// "versus" needs a contested assertion, and "timeline-drop" needs 3+
+// dated events. Every other kind (thread/carousel/newsletter/long-form)
+// keeps the original thesis-only gate, unaffected by any of this.
+async function hasNeutralDataFor(
+  db: D1Database,
+  subjectNodeId: string,
+  kind: FaceKind,
+): Promise<boolean> {
+  if (kind === "card") {
+    const row = await one<{ id: string }>(
+      db,
+      "SELECT id FROM page_profiles WHERE subject_node_id = ? AND status = 'ready' LIMIT 1",
+      [subjectNodeId],
+    ).catch(() => null);
+    return !!row;
+  }
+  if (kind === "contradiction") {
+    const row = await one<{ id: string }>(
+      db,
+      "SELECT id FROM self_contradictions WHERE person_node_id = ? AND judge_pass = 1 LIMIT 1",
+      [subjectNodeId],
+    ).catch(() => null);
+    return !!row;
+  }
+  if (kind === "versus") {
+    const row = await one<{ id: string }>(
+      db,
+      `SELECT n.id FROM nodes n
+         JOIN assertions a ON a.node_id = n.id
+        WHERE n.kind = 'assertion'
+          AND (EXISTS (SELECT 1 FROM edges e WHERE e.src_node_id = n.id AND e.dst_node_id = ?)
+               OR EXISTS (SELECT 1 FROM edges e WHERE e.dst_node_id = n.id AND e.src_node_id = ?))
+        LIMIT 1`,
+      [subjectNodeId, subjectNodeId],
+    ).catch(() => null);
+    return !!row;
+  }
+  if (kind === "timeline-drop") {
+    const rows = await all<{ id: string }>(
+      db,
+      `SELECT n.id FROM nodes n
+        WHERE n.kind = 'event' AND json_extract(n.metadata, '$.event_date') IS NOT NULL
+          AND (EXISTS (SELECT 1 FROM edges e WHERE e.src_node_id = n.id AND e.dst_node_id = ?)
+               OR EXISTS (SELECT 1 FROM edges e WHERE e.dst_node_id = n.id AND e.src_node_id = ?))
+        LIMIT 3`,
+      [subjectNodeId, subjectNodeId],
+    ).catch(() => []);
+    return rows.length >= 3;
+  }
+  return false;
 }
 
 // Only needed by the neutral (no-thesis) card path — a signed reading's
@@ -194,10 +268,17 @@ export function renderStudioShell(args: {
   const { page, faceKind, facePreviewHtml, message } = args;
   const title = `Produce — ${KIND_LABELS[faceKind]}`;
   let buttons = "";
-  if (faceKind === "card") {
+  // card + the three memetic single-image kinds all use the same X/IG
+  // viewport pair — none of them are multi-panel formats.
+  if (
+    faceKind === "card" ||
+    faceKind === "contradiction" ||
+    faceKind === "versus" ||
+    faceKind === "timeline-drop"
+  ) {
     buttons = CARD_TARGETS.map(
       (t) =>
-        `<form method="POST" action="/studio/${encodeURIComponent(page.id)}/card/produce" class="produce-form">
+        `<form method="POST" action="/studio/${encodeURIComponent(page.id)}/${faceKind}/produce" class="produce-form">
   <input type="hidden" name="target" value="${t.key}">
   <button class="produce-go" type="submit">Download PNG — ${t.label}</button>
 </form>`,
@@ -251,15 +332,22 @@ app.get("/:slug", async (c) => {
   const page = await loadPage(c.env.DB, c.req.param("slug"));
   if (!page) return c.redirect("/");
   const hasThesis = !!page.thesis;
-  if (!hasThesis && !(await hasReadyProfile(c.env.DB, page.subject_node_id))) {
-    return c.redirect("/");
-  }
-  // Without a thesis, only the card format is producible — thread/
+  // Without a thesis, only NO_THESIS_KINDS are even candidates — thread/
   // carousel/newsletter/long-form all assume a signed reading's argued
-  // shape, which a neutral profile doesn't have.
-  const producibleKinds = hasThesis
+  // shape. Each candidate still needs its OWN data to actually exist.
+  const producibleKinds: FaceKind[] = hasThesis
     ? (Object.keys(KIND_LABELS) as FaceKind[])
-    : (["card"] as FaceKind[]);
+    : (
+        await Promise.all(
+          [...NO_THESIS_KINDS].map(async (k) => ({
+            k,
+            ok: await hasNeutralDataFor(c.env.DB, page.subject_node_id, k),
+          })),
+        )
+      )
+        .filter((r) => r.ok)
+        .map((r) => r.k);
+  if (producibleKinds.length === 0) return c.redirect("/");
   const cards = producibleKinds
     .map(
       (k) =>
@@ -476,9 +564,10 @@ app.get("/:slug/:kind", async (c) => {
   if (!page) return c.redirect("/");
   const faceKind = kind as FaceKind;
   if (!page.thesis) {
-    // Only "card" is producible without a thesis, and only when a ready
-    // neutral profile backs it (see hasReadyProfile above).
-    if (faceKind !== "card" || !(await hasReadyProfile(c.env.DB, page.subject_node_id))) {
+    if (
+      !NO_THESIS_KINDS.has(faceKind) ||
+      !(await hasNeutralDataFor(c.env.DB, page.subject_node_id, faceKind))
+    ) {
       return c.redirect("/");
     }
   }
@@ -497,6 +586,9 @@ async function renderPreview(db: D1Database, page: PageRow, faceKind: FaceKind):
   if (faceKind === "card") return renderCardFace(db, page, await loadSubjectLabel(db, page));
   if (faceKind === "thread") return renderThreadFace(db, page);
   if (faceKind === "carousel") return renderCarouselFace(db, page);
+  if (faceKind === "contradiction") return renderContradictionFace(db, page.subject_node_id);
+  if (faceKind === "versus") return renderVersusFace(db, page.subject_node_id);
+  if (faceKind === "timeline-drop") return renderTimelineDropFace(db, page.subject_node_id);
   if (faceKind === "newsletter") {
     return `<div style="background:#fff;border:1px solid #e7e2d6;border-radius:8px;padding:24px;max-height:420px;overflow:auto;">
       <h2 style="font-family:Georgia,serif;font-size:22px;margin:0 0 12px;">${escapeAttr(page.thesis ?? "")}</h2>
@@ -525,7 +617,10 @@ app.post("/:pageId/:kind/produce", async (c) => {
   if (!page) return new Response("page not found", { status: 404 });
   const faceKind = kind as FaceKind;
   if (!page.thesis) {
-    if (faceKind !== "card" || !(await hasReadyProfile(c.env.DB, page.subject_node_id))) {
+    if (
+      !NO_THESIS_KINDS.has(faceKind) ||
+      !(await hasNeutralDataFor(c.env.DB, page.subject_node_id, faceKind))
+    ) {
       return new Response("page not found", { status: 404 });
     }
   }
@@ -583,14 +678,26 @@ app.post("/:pageId/:kind/produce", async (c) => {
     });
   }
 
-  // PNG paths: card / thread / carousel
+  // PNG paths: card / contradiction / versus / timeline-drop / thread / carousel
   let doc: string;
   let viewport: import("./render-png").Viewport;
   let filenameSuffix: string;
-  if (faceKind === "card") {
+  if (
+    faceKind === "card" ||
+    faceKind === "contradiction" ||
+    faceKind === "versus" ||
+    faceKind === "timeline-drop"
+  ) {
     const target = CARD_TARGETS.find((t) => t.key === targetKey) ?? CARD_TARGETS[0];
     if (!target) return new Response("no target", { status: 400 });
-    const face = await renderCardFace(c.env.DB, page, await loadSubjectLabel(c.env.DB, page));
+    const face =
+      faceKind === "card"
+        ? await renderCardFace(c.env.DB, page, await loadSubjectLabel(c.env.DB, page))
+        : faceKind === "contradiction"
+          ? await renderContradictionFace(c.env.DB, page.subject_node_id)
+          : faceKind === "versus"
+            ? await renderVersusFace(c.env.DB, page.subject_node_id)
+            : await renderTimelineDropFace(c.env.DB, page.subject_node_id);
     doc = wrapFaceForProduce(face);
     viewport = target.viewport;
     filenameSuffix = target.filenameSuffix;
