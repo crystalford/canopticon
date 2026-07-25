@@ -474,36 +474,42 @@ app.get("/profiles-state", async (c) => {
 app.get("/memetic-status", async (c) => {
   const userId = c.get("user_id");
   const [contradictions, shifts, versusEligible, timelineEligible] = await Promise.all([
-    all<{ id: string; person_label: string; judge_pass: number }>(
+    all<{ id: string; person_label: string; judge_pass: number; slug: string | null }>(
       c.env.DB,
-      "SELECT id, person_label, judge_pass FROM self_contradictions WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
+      `SELECT sc.id, sc.person_label, sc.judge_pass, pg.slug
+         FROM self_contradictions sc
+         LEFT JOIN pages pg ON pg.subject_node_id = sc.person_node_id
+        WHERE sc.user_id = ? ORDER BY sc.created_at DESC LIMIT 10`,
       [userId],
     ).catch((err) => [{ error: (err as Error).message } as never]),
-    all<{ id: string; source_kind: string; judge_pass: number }>(
+    all<{ id: string; source_kind: string; judge_pass: number; slug: string | null }>(
       c.env.DB,
-      "SELECT id, source_kind, judge_pass FROM register_shifts WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
+      `SELECT rs.id, rs.source_kind, rs.judge_pass, pg.slug
+         FROM register_shifts rs
+         LEFT JOIN pages pg ON pg.subject_node_id = rs.subject_node_id
+        WHERE rs.user_id = ? ORDER BY rs.created_at DESC LIMIT 10`,
       [userId],
     ).catch((err) => [{ error: (err as Error).message } as never]),
-    one<{ n: number }>(
+    all<{ slug: string }>(
       c.env.DB,
-      `SELECT COUNT(DISTINCT pg.id) AS n FROM pages pg
+      `SELECT DISTINCT pg.slug FROM pages pg
          JOIN nodes n ON n.id = pg.subject_node_id AND n.user_id = ?
          JOIN edges e ON e.src_node_id = n.id OR e.dst_node_id = n.id
-         JOIN assertions a ON a.node_id = CASE WHEN e.src_node_id = n.id THEN e.dst_node_id ELSE e.src_node_id END`,
+         JOIN assertions a ON a.node_id = CASE WHEN e.src_node_id = n.id THEN e.dst_node_id ELSE e.src_node_id END
+        LIMIT 5`,
       [userId],
-    ).catch((err) => ({ error: (err as Error).message }) as never),
-    one<{ n: number }>(
+    ).catch((err) => [{ error: (err as Error).message } as never]),
+    all<{ slug: string }>(
       c.env.DB,
-      `SELECT COUNT(*) AS n FROM (
-         SELECT pg.id FROM pages pg
-           JOIN nodes n ON n.id = pg.subject_node_id AND n.user_id = ?
-           JOIN edges e ON e.src_node_id = n.id OR e.dst_node_id = n.id
-           JOIN nodes ev ON ev.id = CASE WHEN e.src_node_id = n.id THEN e.dst_node_id ELSE e.src_node_id END
-             AND ev.kind = 'event' AND json_extract(ev.metadata, '$.event_date') IS NOT NULL
-         GROUP BY pg.id HAVING COUNT(DISTINCT ev.id) >= 3
-       )`,
+      `SELECT pg.slug FROM pages pg
+         JOIN nodes n ON n.id = pg.subject_node_id AND n.user_id = ?
+         JOIN edges e ON e.src_node_id = n.id OR e.dst_node_id = n.id
+         JOIN nodes ev ON ev.id = CASE WHEN e.src_node_id = n.id THEN e.dst_node_id ELSE e.src_node_id END
+           AND ev.kind = 'event' AND json_extract(ev.metadata, '$.event_date') IS NOT NULL
+        GROUP BY pg.id HAVING COUNT(DISTINCT ev.id) >= 3
+        LIMIT 5`,
       [userId],
-    ).catch((err) => ({ error: (err as Error).message }) as never),
+    ).catch((err) => [{ error: (err as Error).message } as never]),
   ]);
   return c.json({
     ok: true,
