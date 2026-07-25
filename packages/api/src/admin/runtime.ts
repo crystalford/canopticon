@@ -465,6 +465,55 @@ app.get("/profiles-state", async (c) => {
   return c.json({ ok: true, rows });
 });
 
+// GET /v1/admin/memetic-status — temp diagnostic (2026-07-25): the five
+// memetic-content formats shipped this session are cron-populated
+// (self-contradictions, translate, hook) or reuse-existing-data (versus,
+// timeline-drop) — this checks what's actually landed live right after
+// deploy, same "read the table directly" discipline as /profiles-state.
+// Remove once confirmed.
+app.get("/memetic-status", async (c) => {
+  const userId = c.get("user_id");
+  const [contradictions, shifts, versusEligible, timelineEligible] = await Promise.all([
+    all<{ id: string; person_label: string; judge_pass: number }>(
+      c.env.DB,
+      "SELECT id, person_label, judge_pass FROM self_contradictions WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
+      [userId],
+    ).catch((err) => [{ error: (err as Error).message } as never]),
+    all<{ id: string; source_kind: string; judge_pass: number }>(
+      c.env.DB,
+      "SELECT id, source_kind, judge_pass FROM register_shifts WHERE user_id = ? ORDER BY created_at DESC LIMIT 10",
+      [userId],
+    ).catch((err) => [{ error: (err as Error).message } as never]),
+    one<{ n: number }>(
+      c.env.DB,
+      `SELECT COUNT(DISTINCT pg.id) AS n FROM pages pg
+         JOIN nodes n ON n.id = pg.subject_node_id AND n.user_id = ?
+         JOIN edges e ON e.src_node_id = n.id OR e.dst_node_id = n.id
+         JOIN assertions a ON a.node_id = CASE WHEN e.src_node_id = n.id THEN e.dst_node_id ELSE e.src_node_id END`,
+      [userId],
+    ).catch((err) => ({ error: (err as Error).message }) as never),
+    one<{ n: number }>(
+      c.env.DB,
+      `SELECT COUNT(*) AS n FROM (
+         SELECT pg.id FROM pages pg
+           JOIN nodes n ON n.id = pg.subject_node_id AND n.user_id = ?
+           JOIN edges e ON e.src_node_id = n.id OR e.dst_node_id = n.id
+           JOIN nodes ev ON ev.id = CASE WHEN e.src_node_id = n.id THEN e.dst_node_id ELSE e.src_node_id END
+             AND ev.kind = 'event' AND json_extract(ev.metadata, '$.event_date') IS NOT NULL
+         GROUP BY pg.id HAVING COUNT(DISTINCT ev.id) >= 3
+       )`,
+      [userId],
+    ).catch((err) => ({ error: (err as Error).message }) as never),
+  ]);
+  return c.json({
+    ok: true,
+    self_contradictions: contradictions,
+    register_shifts: shifts,
+    pages_eligible_for_versus: versusEligible,
+    pages_eligible_for_timeline_drop: timelineEligible,
+  });
+});
+
 // GET /v1/admin/readings-candidates — diagnostic: what does
 // draft-reading.ts's own candidate query see right now. Exists because
 // readings.drafted logged {"drafted":0,"skipped":0,"errors":[]} on every
