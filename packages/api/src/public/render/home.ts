@@ -88,75 +88,172 @@ interface OperatorOverlays {
     entitiesMerged: number;
     activeJobs: number;
   };
+  researchDrafts: Array<{ id: string; title: string; created_at: string }>;
+  researchByLabel: Map<string, ResearchRunSummary>;
+}
+
+// The state of the most recent on-demand research run for a given label
+// (graph/lib/deep-research.ts's researchOnDemand), keyed lower-cased —
+// so "Research this" rows (findings/threads/search-misses) can show what
+// actually happened instead of always offering the same button forever,
+// even after a draft landed or the run failed. See home.ts's other
+// overlay sections for why this matters: the live status banner
+// (public/render/status-banner.ts) is the ONLY other place this state is
+// visible, and it's gone the moment the operator navigates away.
+interface ResearchRunSummary {
+  status: string;
+  pieceId: string | null;
+  pieceSlug: string | null;
+  piecePublished: boolean;
+  error: string | null;
+}
+
+async function loadResearchByLabel(
+  db: D1Database,
+  userId: string,
+  labels: string[],
+): Promise<Map<string, ResearchRunSummary>> {
+  const { all } = await import("../../lib/d1");
+  const out = new Map<string, ResearchRunSummary>();
+  const uniqueLabels = [...new Set(labels.map((l) => l.trim()).filter(Boolean))];
+  if (uniqueLabels.length === 0) return out;
+  const placeholders = uniqueLabels.map(() => "?").join(",");
+  const rows = await all<{
+    label: string;
+    status: string;
+    error: string | null;
+    final_piece_id: string | null;
+    piece_slug: string | null;
+    piece_publication_status: string | null;
+  }>(
+    db,
+    `SELECT rr.label, rr.status, rr.error, rr.final_piece_id,
+            p.slug AS piece_slug, p.publication_status AS piece_publication_status
+       FROM research_runs rr
+       LEFT JOIN pieces p ON p.id = rr.final_piece_id
+      WHERE rr.user_id = ? AND lower(rr.label) IN (${placeholders})
+      ORDER BY rr.created_at DESC`,
+    [userId, ...uniqueLabels.map((l) => l.toLowerCase())],
+  ).catch(() => []);
+  // Keep only the most recent run per label (rows are newest-first).
+  for (const r of rows) {
+    const key = r.label.toLowerCase();
+    if (out.has(key)) continue;
+    out.set(key, {
+      status: r.status,
+      pieceId: r.final_piece_id,
+      pieceSlug: r.piece_slug,
+      piecePublished: r.piece_publication_status === "published",
+      error: r.error,
+    });
+  }
+  return out;
+}
+
+// Renders whatever the operator should see for a "Research this" row,
+// given the most recent research_runs state for that exact label (see
+// loadResearchByLabel). Never a dead end: a completed draft links
+// straight to its review screen, a published one links to the piece
+// itself, an in-flight run says so instead of re-offering the button,
+// and a failed run explains why (in a title attribute) and lets the
+// operator retry.
+function renderResearchAction(
+  researchByLabel: Map<string, ResearchRunSummary>,
+  label: string,
+  formClass: string,
+  buttonClass: string,
+): string {
+  const researchButton = (buttonLabel: string, title?: string): string =>
+    `<form class="${formClass}" method="POST" action="/op/search/research">
+    <input type="hidden" name="q" value="${escapeAttr(label)}">
+    <button class="${buttonClass}" type="submit"${title ? ` title="${escapeAttr(title)}"` : ""}>${escapeHtml(buttonLabel)}</button>
+  </form>`;
+
+  const run = researchByLabel.get(label.trim().toLowerCase());
+  if (!run) return researchButton("Research this →");
+  if (run.pieceId && run.piecePublished && run.pieceSlug) {
+    return `<a class="${buttonClass}" href="/p/${escapeAttr(run.pieceSlug)}">Published — read it →</a>`;
+  }
+  if (run.pieceId && !run.piecePublished) {
+    return `<a class="${buttonClass}" href="/op/library/research/${escapeAttr(run.pieceId)}/review">Draft ready — review →</a>`;
+  }
+  if (run.status === "pass1_pending" || run.status === "pass2_pending") {
+    return `<span class="${buttonClass}" style="opacity:.6;cursor:default">Researching…</span>`;
+  }
+  if (run.status === "failed") {
+    return researchButton("Research failed — try again →", run.error ?? undefined);
+  }
+  return researchButton("Research this →");
 }
 
 async function loadOperatorOverlays(db: D1Database, userId: string): Promise<OperatorOverlays> {
   const { all, one } = await import("../../lib/d1");
-  const [drafts, findings, threads, pulse, searchMisses, today] = await Promise.all([
-    all<{
-      page_id: string;
-      slug: string;
-      label: string;
-      intent: string | null;
-      thesis: string | null;
-      confidence: string | null;
-      claims_verified: number;
-    }>(
-      db,
-      `SELECT p.id AS page_id, p.slug, n.label, p.intent, p.thesis, p.confidence, p.claims_verified
+  const [drafts, findings, threads, pulse, searchMisses, today, researchDrafts] = await Promise.all(
+    [
+      all<{
+        page_id: string;
+        slug: string;
+        label: string;
+        intent: string | null;
+        thesis: string | null;
+        confidence: string | null;
+        claims_verified: number;
+      }>(
+        db,
+        `SELECT p.id AS page_id, p.slug, n.label, p.intent, p.thesis, p.confidence, p.claims_verified
          FROM pages p JOIN nodes n ON n.id = p.subject_node_id
         WHERE p.user_id = ? AND p.signed_status = 'draft' AND p.body_md IS NOT NULL
         ORDER BY p.updated_at DESC LIMIT 6`,
-      [userId],
-    ).catch(() => []),
-    all<{
-      id: string;
-      kind: string;
-      title: string;
-      statement_md: string;
-      confidence: string;
-      linked_slug: string | null;
-      lead_label: string | null;
-    }>(
-      db,
-      `SELECT p.id, p.kind, p.title, p.statement_md, p.confidence,
+        [userId],
+      ).catch(() => []),
+      all<{
+        id: string;
+        kind: string;
+        title: string;
+        statement_md: string;
+        confidence: string;
+        linked_slug: string | null;
+        lead_label: string | null;
+      }>(
+        db,
+        `SELECT p.id, p.kind, p.title, p.statement_md, p.confidence,
               pg.slug AS linked_slug, n.label AS lead_label
          FROM patterns p
          LEFT JOIN nodes n ON n.id = p.primary_node_id
          LEFT JOIN pages pg ON pg.subject_node_id = p.primary_node_id
         WHERE p.user_id = ? AND p.status = 'candidate' AND length(p.statement_md) > 80
         ORDER BY (p.confidence = 'high') DESC, p.updated_at DESC LIMIT 4`,
-      [userId],
-    ).catch(() => []),
-    all<{
-      id: string;
-      question: string;
-      status: string;
-      linked_slug: string | null;
-      lead_label: string | null;
-    }>(
-      db,
-      `SELECT t.id, t.question, t.status, pg.slug AS linked_slug, n.label AS lead_label
+        [userId],
+      ).catch(() => []),
+      all<{
+        id: string;
+        question: string;
+        status: string;
+        linked_slug: string | null;
+        lead_label: string | null;
+      }>(
+        db,
+        `SELECT t.id, t.question, t.status, pg.slug AS linked_slug, n.label AS lead_label
          FROM inquiry_threads t
          LEFT JOIN nodes n ON n.id = (SELECT value FROM json_each(t.related_node_ids) LIMIT 1)
          LEFT JOIN pages pg ON pg.subject_node_id = n.id
         WHERE t.user_id = ? AND t.status IN ('open','being_pursued')
         ORDER BY CASE t.status WHEN 'being_pursued' THEN 0 ELSE 1 END, t.created_at DESC LIMIT 6`,
-      [userId],
-    ).catch(() => []),
-    one<{ newPages: number; newFacts: number }>(
-      db,
-      `SELECT
+        [userId],
+      ).catch(() => []),
+      one<{ newPages: number; newFacts: number }>(
+        db,
+        `SELECT
          (SELECT COUNT(*) FROM pages WHERE user_id = ? AND created_at > datetime('now','-1 day')) AS newPages,
          (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND kind IN ('neutral_fact','assertion','event')
             AND created_at > datetime('now','-1 day')) AS newFacts`,
-      [userId, userId],
-    ).catch(() => null),
-    // Search misses — real reader interest the record can't answer yet.
-    // Grouped so a question asked five times outranks one asked once.
-    all<{ query: string; count: number; lastAsked: string }>(
-      db,
-      `SELECT json_extract(payload, '$.query') AS query, COUNT(*) AS count, MAX(created_at) AS lastAsked
+        [userId, userId],
+      ).catch(() => null),
+      // Search misses — real reader interest the record can't answer yet.
+      // Grouped so a question asked five times outranks one asked once.
+      all<{ query: string; count: number; lastAsked: string }>(
+        db,
+        `SELECT json_extract(payload, '$.query') AS query, COUNT(*) AS count, MAX(created_at) AS lastAsked
          FROM orchestrator_events
         WHERE user_id = ? AND event_type = 'search.miss'
           AND created_at > datetime('now','-14 days')
@@ -164,27 +261,53 @@ async function loadOperatorOverlays(db: D1Database, userId: string): Promise<Ope
         GROUP BY lower(trim(json_extract(payload, '$.query')))
         ORDER BY count DESC, lastAsked DESC
         LIMIT 6`,
-      [userId],
-    ).catch(() => []),
-    // "Today" rhythm — what the standing settle machinery actually did on
-    // its own, so the operator isn't left wondering whether anything is
-    // happening between visits. sourcesBanked now only ever comes from an
-    // operator clicking "Expand this file" (the autonomous sweep that used
-    // to also feed it is retired) — kept here as "what grew today"
-    // regardless of who clicked, not a claim that it happened unattended.
-    one<{
-      sourcesBanked: number;
-      entitiesMerged: number;
-      activeJobs: number;
-    }>(
-      db,
-      `SELECT
+        [userId],
+      ).catch(() => []),
+      // "Today" rhythm — what the standing settle machinery actually did on
+      // its own, so the operator isn't left wondering whether anything is
+      // happening between visits. sourcesBanked now only ever comes from an
+      // operator clicking "Expand this file" (the autonomous sweep that used
+      // to also feed it is retired) — kept here as "what grew today"
+      // regardless of who clicked, not a claim that it happened unattended.
+      one<{
+        sourcesBanked: number;
+        entitiesMerged: number;
+        activeJobs: number;
+      }>(
+        db,
+        `SELECT
          (SELECT COUNT(*) FROM orchestrator_events WHERE user_id = ? AND event_type = 'record.expand.source_banked' AND created_at > datetime('now','-1 day')) AS sourcesBanked,
          (SELECT COUNT(*) FROM entity_merges WHERE user_id = ? AND created_at > datetime('now','-1 day')) AS entitiesMerged,
          (SELECT COUNT(*) FROM digest_jobs WHERE user_id = ? AND status IN ('queued','running')) AS activeJobs`,
-      [userId, userId, userId],
-    ).catch(() => null),
-  ]);
+        [userId, userId, userId],
+      ).catch(() => null),
+      // On-demand research drafts (graph/lib/deep-research.ts's
+      // researchOnDemand) waiting for the operator to read + publish or
+      // discard — the ONLY durable place a completed draft is discoverable.
+      // Before this, a finished draft's ONLY visibility was the live status
+      // banner (status-banner.ts) at the exact moment it landed; navigate
+      // away and the "Review the draft →" link was gone for good.
+      all<{ id: string; title: string; created_at: string }>(
+        db,
+        `SELECT id, title, created_at FROM pieces
+        WHERE user_id = ? AND kind = 'research-report' AND publication_status = 'working-material'
+        ORDER BY created_at DESC LIMIT 6`,
+        [userId],
+      ).catch(() => []),
+    ],
+  );
+
+  // The labels every "Research this" row on this page could have already
+  // been researched under — findings/threads use lead_label (falling back
+  // to their own title/question, matching the exact string the button
+  // itself submits), search-misses use the query verbatim.
+  const candidateLabels = [
+    ...findings.map((f) => f.lead_label ?? f.title),
+    ...threads.map((t) => t.lead_label ?? t.question),
+    ...searchMisses.map((m) => m.query),
+  ];
+  const researchByLabel = await loadResearchByLabel(db, userId, candidateLabels);
+
   return {
     drafts,
     findings,
@@ -196,6 +319,8 @@ async function loadOperatorOverlays(db: D1Database, userId: string): Promise<Ope
       entitiesMerged: 0,
       activeJobs: 0,
     },
+    researchDrafts,
+    researchByLabel,
   };
 }
 
@@ -792,10 +917,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
         const researchQuery = f.lead_label ?? f.title;
         return `<div class="op-finding">
   ${body}
-  <form class="op-finding-research" method="POST" action="/op/search/research">
-    <input type="hidden" name="q" value="${escapeAttr(researchQuery)}">
-    <button class="op-finding-research-go" type="submit">Research this →</button>
-  </form>
+  ${renderResearchAction(opOverlays.researchByLabel, researchQuery, "op-finding-research", "op-finding-research-go")}
 </div>`;
       })
       .join("")}
@@ -822,10 +944,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
         return `<div class="op-thread">
   ${statusBadge}
   <span class="op-thread-q">${escapeHtml(t.question)}</span>
-  <form class="op-thread-research" method="POST" action="/op/search/research">
-    <input type="hidden" name="q" value="${escapeAttr(researchQuery)}">
-    <button class="op-thread-research-go" type="submit">Research this →</button>
-  </form>
+  ${renderResearchAction(opOverlays.researchByLabel, researchQuery, "op-thread-research", "op-thread-research-go")}
 </div>`;
       })
       .join("")}
@@ -847,14 +966,31 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
         (m) => `<div class="op-thread">
   <span class="op-thread-status">${m.count}×</span>
   <span class="op-thread-q">${escapeHtml(m.query)}</span>
-  <form class="op-thread-research" method="POST" action="/op/search/research">
-    <input type="hidden" name="q" value="${escapeAttr(m.query)}">
-    <button class="op-thread-research-go" type="submit">Research this →</button>
-  </form>
+  ${renderResearchAction(opOverlays.researchByLabel, m.query, "op-thread-research", "op-thread-research-go")}
 </div>`,
       )
       .join("")}
   </div>
+</section>`
+      : "";
+
+  // On-demand research drafts waiting for the operator to read + publish
+  // or discard — see loadOperatorOverlays' comment on why this exists:
+  // it's the only PERSISTENT place a completed draft is findable, unlike
+  // the live status banner which vanishes the moment you navigate away.
+  const opResearchDrafts =
+    opOverlays && opOverlays.researchDrafts.length > 0
+      ? `<section class="op-drafts op-research-drafts">
+  <div class="section-label">Research drafts awaiting review</div>
+  ${opOverlays.researchDrafts
+    .map(
+      (d) => `<a class="op-draft" href="/op/library/research/${escapeAttr(d.id)}/review">
+  <div class="op-draft-kicker"><span class="op-draft-meta">researched automatically, unread</span></div>
+  <div class="op-draft-title">${escapeHtml(d.title)}</div>
+  <div class="op-draft-cta">Read &amp; publish or discard →</div>
+</a>`,
+    )
+    .join("")}
 </section>`
       : "";
 
@@ -866,6 +1002,7 @@ ${depthCells}
 ${opBriefing}
 ${opToday}
 ${opDrafts}
+${opResearchDrafts}
 
 ${activeFilesBlock}
 ${evidenceBlock}
