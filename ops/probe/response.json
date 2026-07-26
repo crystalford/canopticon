@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-26T19:41:23Z",
-  "run_id": "30217372615",
+  "requested_at": "2026-07-26T19:42:04Z",
+  "run_id": "30217397323",
   "method": "GET",
   "path": "/v1/admin/expand-status?subject=World%20Economic%20Forum",
-  "status": 500,
-  "body": "{\n  \"error\": {\n    \"code\": \"internal_error\",\n    \"message\": \"Internal server error\",\n    \"trace_id\": \"2c3647d8-9252-40b0-adbf-f1cbf84d6a93\"\n  }\n}"
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"status\": {\n    \"terminal\": false,\n    \"warn\": false,\n    \"line\": \"Banked 1 source · extracting (0/1 done)…\",\n    \"factsAdded\": 0\n  }\n}"
 }
