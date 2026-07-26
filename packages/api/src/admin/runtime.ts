@@ -921,6 +921,38 @@ app.get("/expand-status", async (c) => {
   return c.json({ ok: true, status });
 });
 
+// GET /v1/admin/digest-jobs-recent — temp diagnostic (2026-07-26): the
+// "Extract verbatim facts" step of on-demand research showed 0/1 done and
+// stopped advancing — need to see the actual digest_jobs row(s) to tell
+// stuck-queued vs stuck-running-stale vs silently-failed. Remove once
+// confirmed.
+app.get("/digest-jobs-recent", async (c) => {
+  const userId = c.get("user_id");
+  const rows = await all<{
+    id: string;
+    piece_id: string;
+    status: string;
+    step: string | null;
+    attempts: number;
+    heartbeat_at: string | null;
+    last_error: string | null;
+    created_at: string;
+    updated_at: string;
+    piece_title: string | null;
+  }>(
+    c.env.DB,
+    `SELECT dj.id, dj.piece_id, dj.status, dj.step, dj.attempts, dj.heartbeat_at,
+            dj.last_error, dj.created_at, dj.updated_at, p.title AS piece_title
+       FROM digest_jobs dj
+       LEFT JOIN pieces p ON p.id = dj.piece_id
+      WHERE dj.user_id = ?
+      ORDER BY dj.created_at DESC
+      LIMIT 15`,
+    [userId],
+  ).catch((err) => [{ error: (err as Error).message } as never]);
+  return c.json({ ok: true, rows });
+});
+
 // GET /v1/admin/backfill-cost-whitelists?confirm=1 — one-time sync: insert
 // any DEFAULT_WHITELISTS (lib/seed.ts) entry the operator's account is
 // missing. Needed because seedOperator only writes the whitelist once, at
