@@ -1,0 +1,62 @@
+name: Push Browser Rendering token to Worker
+
+# On-demand utility, same shape as set-session-secret.yml: takes the
+# narrowly-scoped token in the BROWSER_RENDERING_API_TOKEN repo secret
+# and pushes it into the live Worker as its CLOUDFLARE_API_TOKEN secret
+# (the binding record-builder.ts's fetchViaRenderingFallback reads at
+# runtime to call Cloudflare Browser Rendering). Uses the EXISTING
+# deploy credentials (CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID) only to
+# authenticate the `wrangler secret put` call itself — the value being
+# pushed is the separate, least-privilege token from
+# BROWSER_RENDERING_API_TOKEN, never the broad deploy token.
+#
+# One-time setup before running this:
+#   1. https://dash.cloudflare.com/profile/api-tokens -> Create Token ->
+#      Create Custom Token.
+#   2. Permissions: Account -> Browser Rendering -> Edit. Nothing else.
+#   3. Account Resources: Include -> this account only.
+#   4. Create Token, copy the value.
+#   5. This repo's Settings -> Secrets and variables -> Actions ->
+#      New repository secret -> name it BROWSER_RENDERING_API_TOKEN,
+#      paste the token value, Save.
+#   6. Run this workflow (Actions tab -> this workflow -> Run workflow).
+#
+# CLOUDFLARE_ACCOUNT_ID doesn't need any setup here — deploy-api.yml
+# already patches it into wrangler.toml from the same account id used
+# to authenticate deploys.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  push-secret:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify BROWSER_RENDERING_API_TOKEN is set
+        run: |
+          if [ -z "${{ secrets.BROWSER_RENDERING_API_TOKEN }}" ]; then
+            echo "BROWSER_RENDERING_API_TOKEN repo secret is not set — see this file's header comment for setup steps."
+            exit 1
+          fi
+
+      - name: Push token as the Worker's CLOUDFLARE_API_TOKEN secret
+        working-directory: packages/api
+        run: echo "${{ secrets.BROWSER_RENDERING_API_TOKEN }}" | pnpm exec wrangler secret put CLOUDFLARE_API_TOKEN

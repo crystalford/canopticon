@@ -120,6 +120,17 @@ jobs:
         run: |
           sed -i "s|OPERATOR_EMAIL = \"\"|OPERATOR_EMAIL = \"${{ secrets.OPERATOR_EMAIL }}\"|" wrangler.toml
 
+      # --- Set CLOUDFLARE_ACCOUNT_ID var ------------------------------
+      # Reuses the SAME account id already authenticating this deploy
+      # (the env var above) — never a value the operator has to paste
+      # anywhere. Without this, record-builder.ts's Browser Rendering
+      # fetch-fallback (bot-blocked/JS-rendered pages) silently no-ops
+      # forever, since it checks env.CLOUDFLARE_ACCOUNT_ID at runtime.
+      - name: Patch CLOUDFLARE_ACCOUNT_ID into wrangler.toml
+        working-directory: packages/api
+        run: |
+          sed -i "s|CLOUDFLARE_ACCOUNT_ID = \"\"|CLOUDFLARE_ACCOUNT_ID = \"${{ secrets.CLOUDFLARE_ACCOUNT_ID }}\"|" wrangler.toml
+
       # --- Deploy Worker ---------------------------------------------
       - name: Deploy Worker
         working-directory: packages/api
