@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-27T23:06:04Z",
-  "run_id": "30313013684",
+  "requested_at": "2026-07-27T23:18:57Z",
+  "run_id": "30313723701",
   "method": "GET",
-  "path": "/v1/admin/backfill-cost-whitelists?confirm=1",
+  "path": "/v1/admin/browser-rendering-status",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"checked\": 18,\n  \"inserted\": 0\n}"
+  "body": "{\n  \"ok\": true,\n  \"account_id_set\": true,\n  \"api_token_set\": true\n}"
 }
