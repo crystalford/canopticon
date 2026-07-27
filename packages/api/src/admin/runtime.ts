@@ -967,4 +967,17 @@ app.get("/backfill-cost-whitelists", async (c) => {
   return c.json({ ok: true, checked: DEFAULT_WHITELISTS.length, inserted });
 });
 
+// GET /v1/admin/browser-rendering-status — temp diagnostic (2026-07-27):
+// confirm CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN are actually set
+// live after wiring them up (deploy-api.yml patch + push-browser-
+// rendering-token.yml). Never returns the token value itself. Remove
+// once confirmed.
+app.get("/browser-rendering-status", (c) => {
+  return c.json({
+    ok: true,
+    account_id_set: !!c.env.CLOUDFLARE_ACCOUNT_ID,
+    api_token_set: !!c.env.CLOUDFLARE_API_TOKEN,
+  });
+});
+
 export default app;
