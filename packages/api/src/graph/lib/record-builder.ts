@@ -474,16 +474,78 @@ interface BankResult {
   duplicate: boolean;
 }
 
-/** Plain fetch first; falls back to Cloudflare Browser Rendering (a real
- *  headless browser, executes JS) when the plain fetch fails outright or
- *  yields too little text — the WEF case that motivated LOW_YIELD_DOMAINS
- *  above: the org's OWN site 403'd a plain fetch even though it's not one
- *  of the known-dead social platforms. Gated by the cost ledger, not an
- *  operator confirm card — this runs unattended from a cron sweep, so the
- *  "browser_rendering.fetch" whitelist cap (lib/seed.ts) IS the approval;
- *  see cost/approve.ts. If the account isn't configured or the cap is hit,
- *  this just returns null and the caller's existing plain-fetch failure
- *  stands — never a hard error from the fallback itself. */
+/** Jina AI Reader (r.jina.ai) — a free, keyless public fetch-and-render
+ *  proxy: it executes JS and presents as a different client entirely, so
+ *  it clears a lot of "the official site 403s a plain bot fetch" cases on
+ *  its own, no account configuration required. Tried first in the
+ *  fallback chain below because it costs nothing and needs no setup. */
+async function fetchViaJinaReader(url: string): Promise<{ title: string; text: string } | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `https://r.jina.ai/${url}`,
+      { headers: { Accept: "text/plain" } },
+      TIMEOUTS.WEB_FETCH_MS,
+      `jina-reader[${url}]`,
+    );
+    if (!res.ok) return null;
+    const raw = (await res.text()).trim();
+    const titleMatch = raw.match(/^Title:\s*(.+)$/m);
+    const bodyMatch = raw.match(/Markdown Content:\s*([\s\S]*)$/);
+    const text = (bodyMatch?.[1] ?? raw).trim();
+    if (text.length < MIN_TEXT_CHARS) return null;
+    return { title: titleMatch?.[1]?.trim() ?? "", text };
+  } catch {
+    return null;
+  }
+}
+
+/** The Wayback Machine — free, keyless. If the live page is unreachable
+ *  right now but was ever crawled, archive.org's public availability API
+ *  points at the most recent snapshot, which is fetched and stripped the
+ *  same way a live page would be. Tried second: still free, but a
+ *  snapshot can be stale, so a live render (Jina) is preferred first. */
+async function fetchViaWaybackMachine(
+  url: string,
+): Promise<{ title: string; text: string } | null> {
+  try {
+    const availRes = await fetchWithTimeout(
+      `https://archive.org/wayback/available?url=${encodeURIComponent(url)}`,
+      {},
+      TIMEOUTS.WEB_FETCH_MS,
+      `wayback-check[${url}]`,
+    );
+    if (!availRes.ok) return null;
+    const avail = (await availRes.json()) as {
+      archived_snapshots?: { closest?: { available?: boolean; url?: string } };
+    };
+    const closest = avail.archived_snapshots?.closest;
+    if (!closest?.available || !closest.url) return null;
+    const pageRes = await fetchWithTimeout(
+      closest.url,
+      { headers: { "User-Agent": "CanopticonBot/1.0 (+https://canopticon.com)" } },
+      TIMEOUTS.WEB_FETCH_MS,
+      `wayback-fetch[${url}]`,
+    );
+    if (!pageRes.ok) return null;
+    const html = await pageRes.text();
+    const { title, text } = stripHtmlToText(html);
+    if (text.length < MIN_TEXT_CHARS) return null;
+    return { title, text };
+  } catch {
+    return null;
+  }
+}
+
+/** Cloudflare Browser Rendering (a real headless browser under this
+ *  account, executes JS) — the last resort in the fallback chain: the
+ *  only option that costs money and needs CLOUDFLARE_ACCOUNT_ID /
+ *  CLOUDFLARE_API_TOKEN configured, so it's only reached once the two
+ *  free options above have both already failed. Gated by the cost
+ *  ledger, not an operator confirm card — this runs unattended from a
+ *  cron sweep, so the "browser_rendering.fetch" whitelist cap
+ *  (lib/seed.ts) IS the approval; see cost/approve.ts. If the account
+ *  isn't configured or the cap is hit, this just returns null and the
+ *  caller's existing failure stands — never a hard error on its own. */
 async function fetchViaRenderingFallback(
   env: Env,
   userId: string,
@@ -508,6 +570,21 @@ async function fetchViaRenderingFallback(
   const { title, text } = stripHtmlToText(html);
   if (text.length < MIN_TEXT_CHARS) return null;
   return { title, text };
+}
+
+/** The ordered fallback chain a plain fetch drops into on failure or too-
+ *  little-text: free options first (no cost, no configuration needed),
+ *  the paid Browser Rendering call last. */
+async function fetchViaFallbacks(
+  env: Env,
+  userId: string,
+  url: string,
+): Promise<{ title: string; text: string } | null> {
+  const viaJina = await fetchViaJinaReader(url);
+  if (viaJina) return viaJina;
+  const viaWayback = await fetchViaWaybackMachine(url);
+  if (viaWayback) return viaWayback;
+  return fetchViaRenderingFallback(env, userId, url);
 }
 
 /** Fetch a URL, strip the HTML to plain text, bank it as a source document
@@ -546,7 +623,7 @@ async function fetchAndBank(
     const html = await res.text();
     const stripped = stripHtmlToText(html);
     if (stripped.text.length < MIN_TEXT_CHARS) {
-      const rendered = await fetchViaRenderingFallback(env, userId, url);
+      const rendered = await fetchViaFallbacks(env, userId, url);
       if (!rendered) return null;
       title = rendered.title;
       text = rendered.text;
@@ -556,7 +633,7 @@ async function fetchAndBank(
       text = stripped.text;
     }
   } catch (err) {
-    const rendered = await fetchViaRenderingFallback(env, userId, url);
+    const rendered = await fetchViaFallbacks(env, userId, url);
     if (!rendered) throw err;
     title = rendered.title;
     text = rendered.text;
