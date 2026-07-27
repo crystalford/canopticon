@@ -792,7 +792,21 @@ app.post("/search/research", async (c) => {
   if (!q) return c.redirect("/search");
   const { researchOnDemand } = await import("../graph/lib/deep-research");
   c.executionCtx.waitUntil(researchOnDemand(c.env, userId, q, angle).catch(() => {}));
-  return c.redirect(`/search?q=${encodeURIComponent(q)}&researching=1`);
+  const angleParam = angle ? `&angle=${encodeURIComponent(angle)}` : "";
+  return c.redirect(`/op/research?q=${encodeURIComponent(q)}${angleParam}`);
+});
+
+// The on-demand research screen — its own dedicated page (operator/
+// screens/research.ts), not a query param bolted onto /search. See that
+// file's header comment for why.
+app.get("/research", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const q = c.req.query("q")?.trim() ?? "";
+  if (!q) return c.redirect("/");
+  const angle = c.req.query("angle")?.trim() || undefined;
+  const { renderResearchScreen } = await import("./screens/research");
+  return opHtml(renderResearchScreen({ label: q, angle }));
 });
 
 // JSON status for the live-polling banner (public/render/status-banner.ts's

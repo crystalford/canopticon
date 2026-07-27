@@ -331,9 +331,7 @@ export async function researchOnDemand(
   const { expandRecord } = await import("./record-builder");
   const expandReport = await expandRecord(env, userId, label);
   if (expandReport.banked_piece_ids.length === 0) {
-    const reason = expandReport.errors.length
-      ? expandReport.errors.slice(0, 3).join("; ")
-      : "no usable sources found";
+    const reason = describeEmptyExpand(expandReport);
     await updateById(env.DB, "research_runs", runId, { status: "failed", error: reason });
     await emitDraftFailed(env, userId, label, angleHint, reason);
     return { ok: false, reason };
@@ -654,6 +652,27 @@ export async function getResearchStatus(
   }
 
   return { terminal: expand.terminal, warn: expand.warn, headline: expand.line, steps };
+}
+
+// A precise, honest failure reason — not just "here's the last raw fetch
+// error." Confirmed live: a re-run of an already-researched label mostly
+// re-finds sources it already banked (duplicates, not errors) plus maybe
+// one genuinely new-but-blocked source — the raw error text alone made
+// that read as a random fetch failure instead of what it actually was
+// ("nothing NEW to add, and the one new thing found couldn't be reached").
+function describeEmptyExpand(report: {
+  sources_found: number;
+  sources_duplicate: number;
+  errors: string[];
+}): string {
+  if (report.sources_found === 0) return "the web search itself turned up nothing";
+  const errText = report.errors.slice(0, 3).join("; ");
+  if (report.sources_duplicate > 0) {
+    return errText
+      ? `${report.sources_duplicate} source${report.sources_duplicate === 1 ? "" : "s"} already on record; the rest couldn't be fetched: ${errText}`
+      : `every source found was already on record (${report.sources_duplicate} already known) — nothing new to add`;
+  }
+  return errText || "no usable sources found";
 }
 
 function safeParseJson(s: string): unknown {

@@ -76,10 +76,10 @@ ${LIVE_STATUS_STYLES}
 }
 
 const LIVE_STATUS_STYLES = `<style>
-  .live-status { margin: 0 0 22px; padding: 14px 18px; border: 1px solid var(--accent-bd, #c4d1e3);
-    border-radius: 8px; background: var(--accent-bg, #e8ecf3); }
-  .live-status-done { background: var(--confirmed-bg, #e7f0e6); border-color: var(--confirmed-bd, #bcd6bd); }
-  .live-status-warn { background: var(--correction-bg, #f6e4df); border-color: var(--correction-bd, #e2bdb2); }
+  .live-status { margin: 0 0 22px; padding: 14px 18px; border: 1px solid var(--accent-bd, #28425f);
+    border-radius: 8px; background: var(--accent-bg, #101c2b); }
+  .live-status-done { background: var(--conf-bg, #11251a); border-color: var(--conf-bd, #234d34); }
+  .live-status-warn { background: var(--corr-bg, #2a120c); border-color: var(--corr-bd, #5a261b); }
   .live-status-head { display: flex; align-items: center; gap: 11px; font-family: var(--serif); font-size: 14.5px; color: var(--ink-2); }
   .live-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent, #6b8fc4); flex-shrink: 0;
     animation: live-status-pulse 1.4s ease-in-out infinite; }

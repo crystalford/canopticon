@@ -23,7 +23,6 @@ import { type VectorMeta, rerankResults, searchVectors } from "../../graph/lib/e
 import { insertOne, one } from "../../lib/d1";
 import { resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
-import { renderLiveStatusBanner } from "./status-banner";
 
 interface ResolvedHit {
   url: string;
@@ -45,7 +44,7 @@ const KIND_LABEL: Record<VectorMeta["kind"], string> = {
 export async function renderSearchPage(
   env: Env,
   q: string,
-  opts: { isOperator?: boolean; researching?: boolean } = {},
+  opts: { isOperator?: boolean } = {},
 ): Promise<string> {
   const query = q.trim();
   const userId = await resolveOperatorId(env.DB);
@@ -85,17 +84,10 @@ export async function renderSearchPage(
       }).catch(() => {});
 
       summary = `No matches for <b>${escapeHtml(query)}</b> in the record yet.`;
-      if (opts.researching) {
-        resultsBlock = renderLiveStatusBanner(
-          `/op/research-status?q=${encodeURIComponent(query)}`,
-          `Starting research on ${query}…`,
-        );
-      } else {
-        resultsBlock = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
-      }
+      resultsBlock = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
 
       const preview =
-        opts.isOperator && userId && !opts.researching
+        opts.isOperator && userId
           ? await getAnswerPreview(env, userId, query).catch(() => null)
           : null;
       if (preview) {

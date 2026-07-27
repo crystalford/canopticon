@@ -77,6 +77,7 @@ export interface ExpandReport {
   sources_found: number;
   sources_fetched: number;
   sources_banked: number;
+  sources_duplicate: number;
   errors: string[];
   banked_piece_ids: string[];
 }
@@ -108,6 +109,7 @@ export async function expandRecord(
     sources_found: 0,
     sources_fetched: 0,
     sources_banked: 0,
+    sources_duplicate: 0,
     errors: [],
     banked_piece_ids: [],
   };
@@ -218,6 +220,8 @@ export async function expandRecord(
     if (kind === "banked") {
       report.sources_banked++;
       report.banked_piece_ids.push(outcome.value.pieceId);
+    } else if (kind === "duplicate") {
+      report.sources_duplicate++;
     }
   }
 

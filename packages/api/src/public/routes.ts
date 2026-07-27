@@ -600,7 +600,6 @@ app.get("/search", async (c) => {
   return htmlResponse(
     await renderSearchPage(c.env, q, {
       isOperator: c.get("is_operator"),
-      researching: c.req.query("researching") === "1",
     }),
   );
 });
