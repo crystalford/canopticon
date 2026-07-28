@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-27T23:18:57Z",
-  "run_id": "30313723701",
+  "requested_at": "2026-07-28T12:37:39Z",
+  "run_id": "30359749463",
   "method": "GET",
-  "path": "/v1/admin/browser-rendering-status",
+  "path": "/v1/admin/expand-status?subject=World%20Economic%20Forum",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"account_id_set\": true,\n  \"api_token_set\": true\n}"
+  "body": "{\n  \"ok\": true,\n  \"status\": {\n    \"terminal\": false,\n    \"warn\": false,\n    \"line\": \"Banked 2 sources · extracting (1/2 done)…\",\n    \"factsAdded\": 0\n  }\n}"
 }
