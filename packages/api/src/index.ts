@@ -278,36 +278,39 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
     const { advanceResearchRun } = await import("./graph/lib/deep-research.ts");
     ctx.waitUntil(advanceResearchRun(env, settleUserId).catch(() => {}));
   }
-  // One-time bge-large-en-v1.5 -> bge-m3 embedding backfill (2026-07-24,
-  // graph/lib/embeddings.ts) — 5 pieces per tick, self-terminating once an
-  // 'embeddings.reembed_done' event exists (a cheap COUNT-only no-op after
-  // that). Remove this call once /v1/admin/reembed-status reports done.
+  // Background enrichment — reembed backfill (graph/lib/embeddings.ts),
+  // per-video argument summaries, self-contradictions (memetic #3), and
+  // register-shifts (memetic #5+#6, two calls: plain-language + hook) —
+  // used to ALL fire on every single tick, stacking on top of the digest
+  // drain above and competing for the SAME shared D1 CPU budget. Confirmed
+  // live: this account's D1 throws "exceeded its CPU time limit and was
+  // reset" under exactly this kind of concurrent load, which is what was
+  // making on-demand research extraction (something an operator is
+  // actively watching finish) crawl. None of these five are
+  // latency-sensitive to a human waiting on them, so only ONE runs per
+  // tick now — a round-robin over a 5-tick (10-minute) cycle instead of
+  // all five every 2 minutes — freeing up the budget for the digest drain,
+  // the settle step, and research-run advancement above, which stay on
+  // every tick since those DO gate something someone's actively watching.
   if (settleUserId) {
-    const { advanceReembedBackfill } = await import("./graph/lib/embeddings.ts");
-    ctx.waitUntil(advanceReembedBackfill(env, settleUserId).catch(() => {}));
-  }
-  // Video-ingestion Phase 2 (2026-07-24, graph/lib/argument-summary.ts):
-  // one video-transcript piece's argument summary per tick, only once its
-  // digestion has actually completed.
-  if (settleUserId) {
-    const { advanceArgumentSummaries } = await import("./graph/lib/argument-summary.ts");
-    ctx.waitUntil(advanceArgumentSummaries(env, settleUserId).catch(() => {}));
-  }
-  // Memetic content #3 (2026-07-24, graph/lib/self-contradictions.ts): one
-  // candidate person per tick, judge-verified before ever being surfaced.
-  if (settleUserId) {
-    const { advanceSelfContradictions } = await import("./graph/lib/self-contradictions.ts");
-    ctx.waitUntil(advanceSelfContradictions(env, settleUserId).catch(() => {}));
-  }
-  // Memetic content #5 + #6 (2026-07-25, graph/lib/register-shift.ts): one
-  // assertion quote plain-languaged, and one signed thesis compressed into
-  // a one-line hook, per tick — both judge-verified before surfacing.
-  if (settleUserId) {
-    const { advanceRegisterShifts, advanceHeadlineHooks } = await import(
-      "./graph/lib/register-shift.ts"
-    );
-    ctx.waitUntil(advanceRegisterShifts(env, settleUserId).catch(() => {}));
-    ctx.waitUntil(advanceHeadlineHooks(env, settleUserId).catch(() => {}));
+    const tick = Math.floor(controller.scheduledTime / 120_000);
+    const slot = tick % 5;
+    if (slot === 0) {
+      const { advanceReembedBackfill } = await import("./graph/lib/embeddings.ts");
+      ctx.waitUntil(advanceReembedBackfill(env, settleUserId).catch(() => {}));
+    } else if (slot === 1) {
+      const { advanceArgumentSummaries } = await import("./graph/lib/argument-summary.ts");
+      ctx.waitUntil(advanceArgumentSummaries(env, settleUserId).catch(() => {}));
+    } else if (slot === 2) {
+      const { advanceSelfContradictions } = await import("./graph/lib/self-contradictions.ts");
+      ctx.waitUntil(advanceSelfContradictions(env, settleUserId).catch(() => {}));
+    } else if (slot === 3) {
+      const { advanceRegisterShifts } = await import("./graph/lib/register-shift.ts");
+      ctx.waitUntil(advanceRegisterShifts(env, settleUserId).catch(() => {}));
+    } else {
+      const { advanceHeadlineHooks } = await import("./graph/lib/register-shift.ts");
+      ctx.waitUntil(advanceHeadlineHooks(env, settleUserId).catch(() => {}));
+    }
   }
 };
 
