@@ -333,10 +333,20 @@ export async function getExpandStatus(
 
   const extraction = await checkExtraction(env, userId, pieceIds);
   if (extraction.pending > 0) {
+    // A source can be genuinely large (a full Wikipedia article, chunked
+    // 20-30+ ways) — each chunk is its own LLM call + D1 write, and this
+    // account's shared D1 CPU budget means a chunk sometimes has to retry
+    // (checkpointed, no lost progress, just slower). Without surfacing
+    // WHICH chunk it's on, real incremental progress on a big source looks
+    // identical to being stuck — confirmed live: an operator watching
+    // "extracting (0/2 done)" sit still for several minutes had no way to
+    // tell a 32-chunk article was actively resuming from chunk 12 after
+    // each reset from one that's actually dead.
+    const detail = extraction.pendingDetail ? ` · ${extraction.pendingDetail}` : "";
     return {
       terminal: false,
       warn: false,
-      line: `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} · extracting (${extraction.done + extraction.failed}/${pieceIds.length} done)…`,
+      line: `Banked ${sourceBanked} source${sourceBanked === 1 ? "" : "s"} · extracting (${extraction.done + extraction.failed}/${pieceIds.length} done)${detail}…`,
       factsAdded: 0,
     };
   }
@@ -365,6 +375,10 @@ interface ExtractionCheck {
   pending: number;
   factsAdded: number;
   failedReasons: string[];
+  /** The chunk-level step of whichever pending job is furthest along (e.g.
+   *  "chunk 12/32") — lets the caller show real, moving progress on a
+   *  large source instead of a static "0/N done" that looks frozen. */
+  pendingDetail: string | null;
 }
 
 async function checkExtraction(
@@ -373,16 +387,24 @@ async function checkExtraction(
   pieceIds: string[],
 ): Promise<ExtractionCheck> {
   const placeholders = pieceIds.map(() => "?").join(",");
-  const jobs = await all<{ piece_id: string; status: string; last_error: string | null }>(
+  const jobs = await all<{
+    piece_id: string;
+    status: string;
+    step: string | null;
+    last_error: string | null;
+  }>(
     env.DB,
-    `SELECT piece_id, status, last_error FROM digest_jobs
+    `SELECT piece_id, status, step, last_error FROM digest_jobs
       WHERE user_id = ? AND piece_id IN (${placeholders})
       ORDER BY created_at DESC`,
     [userId, ...pieceIds],
   ).catch(() => []);
   // Keep only the latest job per piece (there should be exactly one for a
   // record-expand-banked piece, but be defensive).
-  const latestByPiece = new Map<string, { status: string; last_error: string | null }>();
+  const latestByPiece = new Map<
+    string,
+    { status: string; step: string | null; last_error: string | null }
+  >();
   for (const j of jobs) {
     if (!latestByPiece.has(j.piece_id)) latestByPiece.set(j.piece_id, j);
   }
@@ -391,9 +413,13 @@ async function checkExtraction(
   let failed = 0;
   const failedReasons: string[] = [];
   const donePieceIds: string[] = [];
+  let pendingDetail: string | null = null;
   for (const pieceId of pieceIds) {
     const job = latestByPiece.get(pieceId);
-    if (!job || job.status === "queued" || job.status === "running") continue;
+    if (!job || job.status === "queued" || job.status === "running") {
+      if (job?.step?.startsWith("chunk ")) pendingDetail = job.step;
+      continue;
+    }
     if (job.status === "completed") {
       done++;
       donePieceIds.push(pieceId);
@@ -417,7 +443,7 @@ async function checkExtraction(
     factsAdded = row?.n ?? 0;
   }
 
-  return { done, failed, pending, factsAdded, failedReasons };
+  return { done, failed, pending, factsAdded, failedReasons, pendingDetail };
 }
 
 function field(payload: string, key: string): string | null {

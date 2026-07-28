@@ -967,37 +967,4 @@ app.get("/backfill-cost-whitelists", async (c) => {
   return c.json({ ok: true, checked: DEFAULT_WHITELISTS.length, inserted });
 });
 
-// GET /v1/admin/digest-jobs-recent — temp diagnostic (2026-07-28): a
-// second WEF source's extraction has sat at "1/2 done" through several
-// cron ticks even after staggering the other background tasks off the
-// digest drain's tick. Need the actual digest_jobs row to tell
-// stuck-queued vs stuck-running-stale vs silently-failed. Remove once
-// confirmed.
-app.get("/digest-jobs-recent", async (c) => {
-  const userId = c.get("user_id");
-  const rows = await all<{
-    id: string;
-    piece_id: string;
-    status: string;
-    step: string | null;
-    attempts: number;
-    heartbeat_at: string | null;
-    last_error: string | null;
-    created_at: string;
-    updated_at: string;
-    piece_title: string | null;
-  }>(
-    c.env.DB,
-    `SELECT dj.id, dj.piece_id, dj.status, dj.step, dj.attempts, dj.heartbeat_at,
-            dj.last_error, dj.created_at, dj.updated_at, p.title AS piece_title
-       FROM digest_jobs dj
-       LEFT JOIN pieces p ON p.id = dj.piece_id
-      WHERE dj.user_id = ?
-      ORDER BY dj.created_at DESC
-      LIMIT 10`,
-    [userId],
-  ).catch((err) => [{ error: (err as Error).message } as never]);
-  return c.json({ ok: true, rows });
-});
-
 export default app;
