@@ -275,8 +275,14 @@ const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, 
   // execution — same reasoning as advanceSettleOneStep above — so it's
   // picked up here instead, one research_runs row per tick.
   if (settleUserId) {
-    const { advanceResearchRun } = await import("./graph/lib/deep-research.ts");
+    const { advanceResearchRun, reapStaleResearchRuns } = await import(
+      "./graph/lib/deep-research.ts"
+    );
     ctx.waitUntil(advanceResearchRun(env, settleUserId).catch(() => {}));
+    // Cheap safety net (one UPDATE, no LLM calls) for a pass1_pending/
+    // pass2_pending row whose execution died before ever reaching a
+    // terminal write — see that function's comment. Safe every tick.
+    ctx.waitUntil(reapStaleResearchRuns(env, settleUserId).catch(() => {}));
   }
   // Background enrichment — reembed backfill (graph/lib/embeddings.ts),
   // per-video argument summaries, self-contradictions (memetic #3), and

@@ -967,34 +967,4 @@ app.get("/backfill-cost-whitelists", async (c) => {
   return c.json({ ok: true, checked: DEFAULT_WHITELISTS.length, inserted });
 });
 
-// GET /v1/admin/research-runs-recent — temp diagnostic (2026-07-28): the
-// research-status banner has sat on "Writing a synthesis from what was
-// found…" for a long time. getResearchStatus only ever checks
-// research_runs once extraction (digest_jobs) is fully done, but
-// researchOnDemand's synthesis call runs independently, right after
-// banking — it may have already resolved (done or failed) minutes ago
-// while extraction (a large source, chunked) is still grinding. Reading
-// research_runs directly to check. Remove once confirmed.
-app.get("/research-runs-recent", async (c) => {
-  const userId = c.get("user_id");
-  const rows = await all<{
-    id: string;
-    label: string;
-    status: string;
-    error: string | null;
-    final_piece_id: string | null;
-    created_at: string;
-    updated_at: string;
-  }>(
-    c.env.DB,
-    `SELECT id, label, status, error, final_piece_id, created_at, updated_at
-       FROM research_runs
-      WHERE user_id = ?
-      ORDER BY created_at DESC
-      LIMIT 10`,
-    [userId],
-  ).catch((err) => [{ error: (err as Error).message } as never]);
-  return c.json({ ok: true, rows });
-});
-
 export default app;

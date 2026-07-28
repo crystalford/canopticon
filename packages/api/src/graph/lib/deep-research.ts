@@ -42,6 +42,16 @@ const EXCERPT_CHARS_PER_SOURCE = 5000; // was 3000 — more raw material now tha
 const REPORT_MAX_TOKENS = 4000; // matches hard_extraction's proven-safe budget for this exact model+effort
 const MAX_FOLLOWUP_QUERIES = 2; // pass 2's added searches — each runs its own expandRecord
 const MAX_TOTAL_SOURCES_FOR_SYNTHESIS = 12; // hard cap on sources any one synthesis call reads, pass1+pass2 combined
+// expandRecord's free fetch-fallback chain (record-builder.ts: plain fetch
+// -> Jina Reader -> Wayback Machine -> Browser Rendering, up to 4 stacked
+// ~15s timeouts per blocked source) can now legitimately run long on a
+// source that needs every fallback. Pass 1 is the ONE step in this file
+// that still runs everything inline in the operator's own request (see
+// file header) — bound it so it ALWAYS reaches a terminal DB write.
+// Confirmed live: without this, a slow expand left a research_runs row
+// stuck at 'pass1_pending' forever — the execution died mid-flight before
+// ever updating it, with no error recorded anywhere.
+const EXPAND_BUDGET_MS = 45_000;
 
 export interface SynthesisReport {
   synthesized: boolean;
@@ -329,7 +339,7 @@ export async function researchOnDemand(
   });
 
   const { expandRecord } = await import("./record-builder");
-  const expandReport = await expandRecord(env, userId, label);
+  const expandReport = await withExpandBudget(expandRecord(env, userId, label), label);
   if (expandReport.banked_piece_ids.length === 0) {
     const reason = describeEmptyExpand(expandReport);
     await updateById(env.DB, "research_runs", runId, { status: "failed", error: reason });
@@ -462,6 +472,26 @@ export async function advanceResearchRun(env: Env, userId: string): Promise<Adva
   await emitDrafted(env, userId, runRow.label, runRow.angle ?? undefined, persisted.pieceId);
 
   return { advanced: true, label: runRow.label };
+}
+
+const STALE_RUN_MS = 10 * 60 * 1000; // well past EXPAND_BUDGET_MS + a synthesis call
+
+/** Safety net for the exact failure class EXPAND_BUDGET_MS above guards
+ *  against — a pass1_pending/pass2_pending row whose execution died
+ *  before ever reaching a terminal write (confirmed live: one from
+ *  before that budget existed, and any future slow path this doesn't
+ *  anticipate). Marks anything stuck past a generous ceiling as failed
+ *  so the status UI (home.ts, the research page) stops showing
+ *  "Researching…" forever for a run that's actually dead. Cheap — one
+ *  UPDATE, no LLM calls — safe to run every cron tick. */
+export async function reapStaleResearchRuns(env: Env, userId: string): Promise<void> {
+  const cutoff = new Date(Date.now() - STALE_RUN_MS).toISOString();
+  await run(
+    env.DB,
+    `UPDATE research_runs SET status = 'failed', error = 'execution stalled — try again', updated_at = ?
+      WHERE user_id = ? AND status IN ('pass1_pending', 'pass2_pending') AND created_at < ?`,
+    [new Date().toISOString(), userId, cutoff],
+  );
 }
 
 async function emitDrafted(
@@ -652,6 +682,37 @@ export async function getResearchStatus(
   }
 
   return { terminal: expand.terminal, warn: expand.warn, headline: expand.line, steps };
+}
+
+// Races expandRecord against EXPAND_BUDGET_MS. On timeout, treats it as
+// "nothing usable banked in time" — the same shape expandRecord itself
+// returns when every source fails, which researchOnDemand's existing
+// empty-expand path already handles (a clear, honest 'failed' status).
+// Orphaned fetches/fallback attempts inside the real expandRecord() call
+// keep running until Cloudflare reclaims the isolate on its own; nothing
+// awaits their result once the budget elapses, so they can't block this
+// function or the DB write that follows it.
+async function withExpandBudget(
+  expandPromise: ReturnType<typeof import("./record-builder").expandRecord>,
+  label: string,
+): ReturnType<typeof import("./record-builder").expandRecord> {
+  const timeout = new Promise<Awaited<typeof expandPromise>>((resolve) => {
+    setTimeout(
+      () =>
+        resolve({
+          subject: label,
+          configured: true,
+          sources_found: 0,
+          sources_fetched: 0,
+          sources_banked: 0,
+          sources_duplicate: 0,
+          errors: [`expand timed out after ${EXPAND_BUDGET_MS}ms`],
+          banked_piece_ids: [],
+        }),
+      EXPAND_BUDGET_MS,
+    );
+  });
+  return Promise.race([expandPromise, timeout]);
 }
 
 // A precise, honest failure reason — not just "here's the last raw fetch
