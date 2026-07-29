@@ -442,6 +442,29 @@ app.get("/settle-state", async (c) => {
 // against the busy orchestrator_events log (capped at the last 50 rows via
 // /runtime) is unreliable once other autonomous activity is pushing that
 // window fast; this reads the table directly instead of racing the log.
+// TEMP diagnostic — run draftProposalForSubject synchronously (not via
+// waitUntil) so the result (including a decline reason) is visible
+// directly in the response, for validating the Phase 7 pipeline live.
+// Remove after use.
+app.get("/test-draft-proposal", async (c) => {
+  const userId = c.get("user_id");
+  const slug = c.req.query("slug");
+  if (!slug) return c.json({ ok: false, error: "?slug= required" }, 400);
+  const page = await one<{ node_id: string; label: string }>(
+    c.env.DB,
+    `SELECT p.subject_node_id AS node_id, n.label
+       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+      WHERE p.user_id = ? AND p.slug = ?`,
+    [userId, slug],
+  );
+  if (!page) return c.json({ ok: false, error: "no such page" }, 404);
+  const { draftProposalForSubject } = await import("../graph/lib/draft-proposal.ts");
+  const result = await draftProposalForSubject(c.env, userId, page.node_id, page.label).catch(
+    (err) => ({ ok: false, reason: `threw: ${(err as Error).message}` }),
+  );
+  return c.json({ ok: true, subject: page.label, result });
+});
+
 // TEMP diagnostic — fabric-redesign coverage audit. How many subjects
 // have actually reached each layer (Facts-only / Corroborated / Signed
 // Analysis / Proposal) now that all 7 phases are live. Remove after use.
