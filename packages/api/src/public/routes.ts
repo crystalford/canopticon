@@ -339,6 +339,7 @@ app.get("/p/:slug", async (c) => {
     expanding: c.req.query("expanding") === "1",
     videoMsg: c.req.query("video_msg"),
     draftMsg: c.req.query("draft_msg"),
+    proposalMsg: c.req.query("proposal_msg"),
   });
   if (subject) return htmlResponse(subject);
   return htmlResponse(renderNotFound(c.req.path), { status: 404 });
@@ -354,6 +355,7 @@ app.get("/s/:slug", async (c) => {
     expanding: c.req.query("expanding") === "1",
     videoMsg: c.req.query("video_msg"),
     draftMsg: c.req.query("draft_msg"),
+    proposalMsg: c.req.query("proposal_msg"),
   });
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
@@ -439,6 +441,16 @@ app.get("/profile/:slug", async (c) => {
 app.get("/n/:slug", async (c) => {
   const { renderNetworkPage } = await import("./render/arrangements/network");
   const html = await renderNetworkPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
+
+// `/pr/:slug` — standalone Proposal page (fabric redesign Phase 7, the
+// third fabric layer: prescriptive, keyed by page_proposals.slug, not a
+// subject's own pages.slug — many proposals can exist per subject).
+app.get("/pr/:slug", async (c) => {
+  const { renderProposalPage } = await import("./render/arrangements/proposal");
+  const html = await renderProposalPage(c.env, c.req.param("slug"));
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
   return htmlResponse(html);
 });

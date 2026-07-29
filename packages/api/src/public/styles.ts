@@ -75,6 +75,15 @@ export const STYLES_CSS = `/* ==================================================
   --confirmed-bd-d:#234d34;
   --correction-bg-d:#2a120c;
   --correction-bd-d:#5a261b;
+  /* Proposal layer (fabric redesign Phase 7) — muted violet, the same
+     desaturation class as confirmed/contested/correction above. Doesn't
+     map to any existing semantic (not a confidence signal, not a dispute
+     signal) — a genuinely new register: prescriptive, not descriptive. */
+  --propose:      #8577b3;
+  --propose-bg:   #ece8f5;
+  --propose-bd:   #cdc2e0;
+  --propose-bg-d: #211a2e;
+  --propose-bd-d: #453564;
 
   /* ---- Type ----------------------------------------------------------- */
   --sans:  'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -124,6 +133,8 @@ export const STYLES_CSS = `/* ==================================================
      rather than a bespoke warning hue. */
   --cont-bg: var(--op-paper-3);
   --cont-bd: var(--op-rule-bright);
+  --prop-bg: var(--propose-bg-d);
+  --prop-bd: var(--propose-bd-d);
 }
 
 /* data-mode="operator" now inherits the same dark ground — one register.

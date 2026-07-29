@@ -126,6 +126,7 @@ export async function renderSubjectPage(
     expanding?: boolean;
     videoMsg?: string | undefined;
     draftMsg?: string | undefined;
+    proposalMsg?: string | undefined;
   } = {},
 ): Promise<string | null> {
   const userId = await resolveOperatorId(env.DB);
@@ -176,7 +177,15 @@ export async function renderSubjectPage(
   };
 
   if (resolvedMode === "signed") {
-    return renderSigned(env, subject, page, hasSignedReading, !!opts.isOperator, opts.videoMsg);
+    return renderSigned(
+      env,
+      subject,
+      page,
+      hasSignedReading,
+      !!opts.isOperator,
+      opts.videoMsg,
+      opts.proposalMsg,
+    );
   }
   return renderNeutral(
     env,
@@ -782,17 +791,19 @@ async function renderSigned(
   hasSignedReading: boolean,
   isOperator: boolean,
   videoMsg?: string,
+  proposalMsg?: string,
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const bodyHtml = page.body_html || (page.body_md ? renderMarkdown(page.body_md) : "");
   const modeBand = renderModeBand(page.slug, "signed", hasSignedReading, page);
-  const [pageClaims, signedConnections, hasHook] = userId
+  const [pageClaims, signedConnections, hasHook, proposals] = userId
     ? await Promise.all([
         loadPageClaims(env, userId, page.id),
         loadConnections(env, userId, subject.node_id),
         loadHasHook(env, userId, page.id),
+        loadProposals(env, userId, subject.node_id, isOperator),
       ])
-    : [[], [], false];
+    : [[], [], false, []];
   const claimsBlock = renderClaimsBlock(pageClaims);
   const foundationBlock = renderFoundationBlock(pageClaims, signedConnections, page.slug);
   // Faces (spec v2.6 Part 8) — formats of this reading rendered as tabs.
@@ -931,6 +942,7 @@ async function renderSigned(
     isOperator && hasHook
       ? `<a class="face-produce" href="/studio/${escapeAttr(page.slug)}/hook">Produce a one-line hook →</a>`
       : "";
+  const proposalsBlock = renderProposalsBlock(proposals, page.slug, isOperator, proposalMsg);
 
   const body = `
 <article class="subject-page subject-page-signed">
@@ -954,6 +966,7 @@ async function renderSigned(
   ${complicateBox}
   ${claimsBlock}
   ${facesBlock}
+  ${proposalsBlock}
   <div class="prov" style="margin-top:32px">
     This analysis was drafted and signed by hand. Every load-bearing fact links down to a word-for-word quote
     in a stored source document. Disputed material is shown as disputed; any claim without a named source is
@@ -1021,6 +1034,49 @@ async function renderSigned(
   .signed-body sup { color: var(--accent); font-size: 11px; }
   .signed-body .factref { background: var(--panel-2, rgba(0,0,0,.18)); border-bottom: 1px solid var(--accent); padding: 0 2px; cursor: pointer; }
 
+  /* Fabric redesign Phase 7 — Proposal cards, the third fabric layer
+     (prescriptive, after Facts and this Signed Analysis). --propose is a
+     genuinely new register, not a confidence/dispute signal reused. */
+  .proposal-card {
+    background: var(--prop-bg);
+    border: 1px solid var(--prop-bd);
+    border-radius: 9px;
+    padding: 22px 24px;
+    margin-bottom: 14px;
+  }
+  .proposal-kicker {
+    font-family: var(--mono);
+    font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--propose);
+    margin-bottom: 10px;
+  }
+  .proposal-thesis {
+    display: block;
+    font-family: var(--serif);
+    font-size: 18px; line-height: 1.45;
+    color: var(--ink);
+    font-style: italic;
+    text-decoration: none;
+    margin-bottom: 10px;
+  }
+  a.proposal-thesis:hover { color: var(--propose); }
+  .proposal-meta {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-3);
+    letter-spacing: .03em;
+    margin-bottom: 8px;
+  }
+  .proposal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .disputed-explainer {
+    font-family: var(--serif);
+    font-size: 14.5px; line-height: 1.55;
+    color: var(--ink-3);
+    max-width: 640px;
+    margin: -4px 0 18px;
+  }
+
   /* Complicating-facts box — the proudest box on the signed page.
      This is the firewall, made visible inside the reading itself. */
   .complicate {
@@ -1084,6 +1140,11 @@ async function renderSigned(
   .op-aff-btn-primary { background:var(--ink); color:var(--paper); border-color:var(--ink); font-weight:600; }
   .produce-video { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .video-msg { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); width: 100%; }
+  .draft-analysis-form { display:flex; gap:10px; align-items:flex-start; flex:1 1 auto; min-width:220px; }
+  .draft-analysis-form textarea { flex:1 1 auto; min-width:200px; font-family:inherit; font-size:12.5px;
+    padding:6px 10px; border:1px solid var(--rule); border-radius:6px; background:var(--surface);
+    color:var(--ink); resize:vertical; }
+  .draft-analysis-msg { font-family:var(--mono); font-size:11.5px; color:var(--ink-3); width:100%; }
   .draft-banner {
     margin-bottom: 18px; padding: 14px 16px;
     border: 1px solid var(--accent-bd);
@@ -1773,6 +1834,103 @@ function renderCorroboratedBlock(rows: AssertionRow[]): string {
 <div class="sec-k">Corroborated</div>
 <p class="disputed-explainer">Attributed claims — still someone's assertion, not a fact the corpus states directly — that multiple independent sources back and nothing on file contradicts.</p>
 ${cards}
+</section>`;
+}
+
+// ---------------------------------------------------------------------------
+// Fabric redesign Phase 7 — the Proposal layer. A Proposal is a separate
+// signed artifact (graph/lib/draft-proposal.ts): prescriptive should/ought
+// language, distinguished from Signed Analysis by grammatical mood, not
+// topic. Many proposals can exist per subject. Drafts are operator-only
+// (same "operator approves, never authors" gate as everywhere else);
+// published proposals are public, each with its own standalone /pr/:slug
+// citable URL (arrangements/proposal.ts).
+// ---------------------------------------------------------------------------
+interface ProposalRow {
+  id: string;
+  slug: string;
+  thesis: string | null;
+  confidence: string | null;
+  signed_by: string | null;
+  signed_at: string | null;
+  status: string;
+}
+
+async function loadProposals(
+  env: PublicEnv,
+  userId: string,
+  subjectNodeId: string,
+  isOperator: boolean,
+): Promise<ProposalRow[]> {
+  const statuses = isOperator ? ["draft", "signed", "published"] : ["published"];
+  return all<ProposalRow>(
+    env.DB,
+    `SELECT id, slug, thesis, confidence, signed_by, signed_at, status
+       FROM page_proposals
+      WHERE user_id = ? AND subject_node_id = ? AND status IN (${statuses.map(() => "?").join(",")})
+      ORDER BY updated_at DESC
+      LIMIT 8`,
+    [userId, subjectNodeId, ...statuses],
+  ).catch(() => []);
+}
+
+function renderProposalsBlock(
+  rows: ProposalRow[],
+  subjectSlug: string,
+  isOperator: boolean,
+  proposalMsg?: string,
+): string {
+  const msgBlock = proposalMsg
+    ? `<div class="draft-analysis-msg">${escapeHtml(proposalMsg)}</div>`
+    : "";
+  const draftAffordance = isOperator
+    ? `<div class="draft-analysis op-aff">
+  <span class="op-aff-label">Operator</span>
+  <form method="POST" action="/op/records/${escapeAttr(subjectSlug)}/draft-proposal" class="draft-analysis-form">
+    <textarea name="angle" rows="2" placeholder="Optional — give it an angle. What should be proposed? Leave blank and it'll find its own thesis in the facts."></textarea>
+    <button class="op-aff-btn op-aff-btn-action" type="submit">Draft a proposal →</button>
+  </form>
+  ${msgBlock}
+</div>`
+    : "";
+  if (rows.length === 0)
+    return draftAffordance ? `<section id="proposals">${draftAffordance}</section>` : "";
+
+  const cards = rows
+    .map((p) => {
+      const isDraft = p.status === "draft";
+      const href = isDraft ? null : `/pr/${escapeAttr(p.slug)}`;
+      const title = p.thesis ?? "(untitled proposal)";
+      const meta: string[] = [];
+      if (isDraft) meta.push("draft — awaiting signature");
+      if (p.signed_by) meta.push(`signed by ${p.signed_by}`);
+      if (p.confidence) meta.push(`${p.confidence} confidence`);
+      return `<div class="proposal-card" data-register="proposal">
+  <div class="proposal-kicker">Proposal · Prescriptive</div>
+  ${href ? `<a class="proposal-thesis" href="${escapeAttr(href)}">${escapeHtml(title)}</a>` : `<span class="proposal-thesis">${escapeHtml(title)}</span>`}
+  ${meta.length ? `<div class="proposal-meta">${meta.map(escapeHtml).join(" · ")}</div>` : ""}
+  ${
+    isOperator && isDraft
+      ? `<div class="proposal-actions">
+    <form method="POST" action="/op/proposals/${escapeAttr(p.id)}/sign" style="display:inline">
+      <button class="op-aff-btn op-aff-btn-primary" type="submit">Sign &amp; publish</button>
+    </form>
+    <a class="op-aff-btn op-aff-btn-action" href="/op/proposals/${escapeAttr(p.id)}/edit">Edit</a>
+    <form method="POST" action="/op/proposals/${escapeAttr(p.id)}/discard" style="display:inline" onsubmit="return confirm('Discard this proposal?');">
+      <button class="op-aff-btn op-aff-btn-action" type="submit">Discard</button>
+    </form>
+  </div>`
+      : ""
+  }
+</div>`;
+    })
+    .join("");
+
+  return `<section id="proposals">
+<div class="sec-k">Proposals</div>
+<p class="disputed-explainer">What should happen next, argued from the facts and analysis above — prescriptive, not descriptive. Each proposal is its own signed piece.</p>
+${cards}
+${draftAffordance}
 </section>`;
 }
 

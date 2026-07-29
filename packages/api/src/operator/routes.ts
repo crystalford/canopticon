@@ -748,6 +748,145 @@ app.post("/records/:slug/draft-analysis", async (c) => {
   );
 });
 
+// Fabric redesign Phase 7 — the Proposal layer. "Draft a proposal" is
+// operator-directed, same shape as "Draft an analysis": pick a subject,
+// optionally give it an angle, the system drafts a PRESCRIPTIVE piece
+// (should/ought, not is/was/means) grounded on the subject's signed
+// Analysis when one exists, or directly on established/corroborated
+// facts otherwise. Many proposals can exist per subject — this never
+// overwrites or redrafts an existing one, it always creates a new draft.
+app.post("/records/:slug/draft-proposal", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const slug = c.req.param("slug");
+  const form = await c.req.parseBody();
+  const angle = typeof form.angle === "string" ? form.angle : undefined;
+
+  const page = await one<{ node_id: string; label: string }>(
+    c.env.DB,
+    `SELECT p.subject_node_id AS node_id, n.label
+       FROM pages p JOIN nodes n ON n.id = p.subject_node_id
+      WHERE p.user_id = ? AND p.slug = ?`,
+    [userId, slug],
+  );
+  if (!page) return c.redirect("/");
+
+  c.executionCtx.waitUntil(
+    (async () => {
+      const { draftProposalForSubject } = await import("../graph/lib/draft-proposal");
+      await draftProposalForSubject(c.env, userId, page.node_id, page.label, angle).catch(() => {});
+    })(),
+  );
+
+  return c.redirect(
+    `/s/${slug}?proposal_msg=${encodeURIComponent("drafting a proposal now — this takes a minute or two; refresh to check")}`,
+  );
+});
+
+app.post("/proposals/:id/sign", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const now = new Date().toISOString();
+  const proposalId = c.req.param("id");
+  const proposal = await one<{ subject_node_id: string }>(
+    c.env.DB,
+    "SELECT subject_node_id FROM page_proposals WHERE id = ? AND user_id = ? AND status = 'draft'",
+    [proposalId, userId],
+  );
+  if (!proposal) return c.redirect("/");
+  // signed_by left as-is (NULL when never set) — same discipline as pages'
+  // own sign route; the public byline renders "— signed" for a null value.
+  await run(
+    c.env.DB,
+    `UPDATE page_proposals SET status = 'published', signed_at = ?, updated_at = ?
+      WHERE id = ? AND user_id = ? AND status = 'draft'`,
+    [now, now, proposalId, userId],
+  );
+  const subjectPage = await one<{ slug: string }>(
+    c.env.DB,
+    "SELECT slug FROM pages WHERE subject_node_id = ? AND user_id = ?",
+    [proposal.subject_node_id, userId],
+  );
+  return c.redirect(subjectPage ? `/s/${subjectPage.slug}?proposal_msg=signed` : "/");
+});
+
+app.get("/proposals/:id/edit", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const row = await one<{ id: string; thesis: string | null; body_md: string | null }>(
+    c.env.DB,
+    "SELECT id, thesis, body_md FROM page_proposals WHERE id = ? AND user_id = ? AND status = 'draft'",
+    [c.req.param("id"), userId],
+  );
+  if (!row) return c.redirect("/");
+  const { escapeHtml } = await import("../public/layout");
+  const { renderOpPage } = await import("./layout");
+  const body = `<form method="POST" action="/op/proposals/${escapeHtml(row.id)}/edit">
+  <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Thesis</label>
+  <input name="thesis" value="${escapeHtml(row.thesis ?? "")}" style="width:100%;background:#15181f;color:#e8eaef;border:1px solid #2e2e38;border-radius:7px;padding:10px 13px;font-size:14px;margin-bottom:16px" />
+  <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Proposal (markdown)</label>
+  <textarea name="body_md" rows="26" style="width:100%;background:#15181f;color:#e8eaef;border:1px solid #2e2e38;border-radius:7px;padding:13px;font-family:ui-monospace,monospace;font-size:13px">${escapeHtml(row.body_md ?? "")}</textarea>
+  <div style="margin-top:12px;display:flex;gap:10px">
+    <button type="submit" class="btn primary" style="background:#d9a441;color:#1c1608;font-weight:600;padding:9px 20px;border-radius:7px;border:none;cursor:pointer">Save draft</button>
+  </div>
+</form>`;
+  return opHtml(
+    renderOpPage({
+      title: "Edit proposal",
+      sub: "refine before you sign · hand-edited text is no longer machine-verified",
+      body,
+      activeNav: "/op/out",
+    }),
+  );
+});
+
+app.post("/proposals/:id/edit", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const proposalId = c.req.param("id");
+  const form = await c.req.parseBody();
+  const thesis = typeof form.thesis === "string" ? form.thesis.slice(0, 400) : null;
+  const bodyMd = typeof form.body_md === "string" ? form.body_md : null;
+  const { renderMarkdown } = await import("../cms/lib/render-post");
+  await run(
+    c.env.DB,
+    `UPDATE page_proposals SET thesis = ?, body_md = ?, body_html = ?, updated_at = ?
+      WHERE id = ? AND user_id = ? AND status = 'draft'`,
+    [
+      thesis,
+      bodyMd,
+      bodyMd ? renderMarkdown(bodyMd) : null,
+      new Date().toISOString(),
+      proposalId,
+      userId,
+    ],
+  );
+  return c.redirect(`/op/proposals/${proposalId}/edit`);
+});
+
+app.post("/proposals/:id/discard", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/");
+  const proposalId = c.req.param("id");
+  const proposal = await one<{ subject_node_id: string }>(
+    c.env.DB,
+    "SELECT subject_node_id FROM page_proposals WHERE id = ? AND user_id = ? AND status = 'draft'",
+    [proposalId, userId],
+  );
+  await run(
+    c.env.DB,
+    "DELETE FROM page_proposals WHERE id = ? AND user_id = ? AND status = 'draft'",
+    [proposalId, userId],
+  );
+  if (!proposal) return c.redirect("/");
+  const subjectPage = await one<{ slug: string }>(
+    c.env.DB,
+    "SELECT slug FROM pages WHERE subject_node_id = ? AND user_id = ?",
+    [proposal.subject_node_id, userId],
+  );
+  return c.redirect(subjectPage ? `/s/${subjectPage.slug}` : "/");
+});
+
 // Bulk "expand the thinnest subjects now" — task #25. Deliberately small
 // (3, not "all") and reuses the exact same sniper ranking the autonomous
 // sweep uses (pickThinCandidates), just firing that many at once instead
