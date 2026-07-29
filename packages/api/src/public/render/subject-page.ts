@@ -237,6 +237,7 @@ async function renderNeutral(
   const [
     established,
     contested,
+    corroborated,
     arrangementEvents,
     connections,
     sourceCount,
@@ -246,6 +247,7 @@ async function renderNeutral(
   ] = await Promise.all([
     loadEstablishedFacts(env, userId, subject.node_id),
     loadContestedAssertions(env, userId, subject.node_id),
+    loadCorroboratedAssertions(env, userId, subject.node_id),
     loadArrangementEvents(env, arrangementSubject),
     loadConnections(env, userId, subject.node_id),
     loadSourceCount(env, userId, subject.node_id),
@@ -296,6 +298,7 @@ async function renderNeutral(
 </section>`
     : "";
   const establishedBlock = renderEstablishedBlock(established);
+  const corroboratedBlock = renderCorroboratedBlock(corroborated);
   const contestedBlock = renderContestedBlock(contested, subject.label);
   const selfContradictionsBlock = renderSelfContradictionsBlock(selfContradictions, subject.label);
   // People connected to this file (folded out of Connections below). On a
@@ -523,6 +526,7 @@ async function renderNeutral(
     <div class="subject-main">
       ${shapeBlock}
       ${establishedBlockWithStandalone}
+      ${corroboratedBlock}
       ${narrativeBlock}
       ${contestedBlockWithStandalone}
       ${selfContradictionsBlockWithProduce}
@@ -643,6 +647,28 @@ async function renderNeutral(
     text-decoration: none;
   }
   .contested-src:hover { text-decoration: underline; }
+
+  /* Fabric redesign Phase 4/6 — Corroborated reuses the .contested-card
+     typography (quote/attribution/balance/src share the same shape) but
+     with the --confirmed token instead of the deliberately neutral
+     --contested gray: this tier earned a real signal, it isn't "evidence,
+     no verdict" like the rest of Disputed. */
+  .corroborated-card {
+    background: var(--conf-bg);
+    border: 1px solid var(--conf-bd);
+    border-radius: 9px;
+    padding: 22px 24px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .corroborated-stamp {
+    font-family: var(--serif);
+    font-size: 11px; letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--confirmed);
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
 
   /* Timeline as a vertical rail with dots — court-record shape from the
      prototype. Each event row has a circle on the rail, mono date at
@@ -1259,11 +1285,44 @@ async function loadContestedAssertions(
        JOIN assertions a ON a.node_id = n.id
        LEFT JOIN quotes q ON q.node_id = n.id
        LEFT JOIN pieces p ON p.id = n.piece_id
-      WHERE n.user_id = ? AND n.kind = 'assertion'
+      WHERE n.user_id = ? AND n.kind = 'assertion' AND a.rank != 'preferred'
         AND (EXISTS (SELECT 1 FROM edges e WHERE e.src_node_id = n.id AND e.dst_node_id = ?)
              OR EXISTS (SELECT 1 FROM edges e WHERE e.dst_node_id = n.id AND e.src_node_id = ?))
       GROUP BY n.id
       ORDER BY (a.rank = 'contested') DESC, a.updated_at DESC
+      LIMIT 8`,
+    [userId, subjectId, subjectId],
+  ).catch(() => []);
+}
+
+// Fabric redesign Phase 4 — assertions that graduated to rank='preferred'
+// (surfacing.ts's runSurfacingL1: zero contradicting verified evidential
+// edges AND independently corroborated by >=2 distinct source pieces).
+// Rendered in its own section between Established and Disputed so a
+// well-corroborated, uncontested claim stops living under a "Disputed"
+// heading just because someone, somewhere, asserted it rather than the
+// corpus stating it directly.
+async function loadCorroboratedAssertions(
+  env: PublicEnv,
+  userId: string,
+  subjectId: string,
+): Promise<AssertionRow[]> {
+  return all<AssertionRow>(
+    env.DB,
+    `SELECT n.id AS node_id, n.label,
+            (SELECT label FROM nodes WHERE id = a.asserted_by_node_id) AS actor,
+            a.stance, a.evidence_balance, a.rank,
+            q.verbatim_text AS quote_text,
+            p.slug AS piece_slug, p.title AS piece_title
+       FROM nodes n
+       JOIN assertions a ON a.node_id = n.id
+       LEFT JOIN quotes q ON q.node_id = n.id
+       LEFT JOIN pieces p ON p.id = n.piece_id
+      WHERE n.user_id = ? AND n.kind = 'assertion' AND a.rank = 'preferred'
+        AND (EXISTS (SELECT 1 FROM edges e WHERE e.src_node_id = n.id AND e.dst_node_id = ?)
+             OR EXISTS (SELECT 1 FROM edges e WHERE e.dst_node_id = n.id AND e.src_node_id = ?))
+      GROUP BY n.id
+      ORDER BY a.evidence_balance DESC, a.updated_at DESC
       LIMIT 8`,
     [userId, subjectId, subjectId],
   ).catch(() => []);
@@ -1657,8 +1716,15 @@ function renderContestedBlock(rows: AssertionRow[], subjectLabel: string): strin
       const sourceLink = a.piece_title
         ? `<a class="contested-src" href="/library/${escapeAttr(a.piece_slug ?? "")}">${escapeHtml(a.piece_title.slice(0, 60))} ↗</a>`
         : "";
+      // Stamp reflects THIS row's own rank, not the section as a whole —
+      // 'preferred' rows never reach here (loadContestedAssertions excludes
+      // them), so this is either genuinely 'contested' or merely 'normal'
+      // (attributed, unconfirmed, not disputed by anyone) — "Reported" says
+      // that honestly instead of implying every attributed claim was fought
+      // over.
+      const stamp = a.rank === "contested" ? "Disputed" : "Reported";
       return `<div class="contested-card">
-  <div class="contested-stamp">Disputed</div>
+  <div class="contested-stamp">${stamp}</div>
   <blockquote class="contested-quote">"${escapeHtml(a.label)}"</blockquote>
   <div class="contested-attribution">
     ${a.actor ? `Asserted by <b>${escapeHtml(a.actor)}</b>` : "Unattributed assertion"} · stance: ${escapeHtml(a.stance)}
@@ -1671,6 +1737,39 @@ function renderContestedBlock(rows: AssertionRow[], subjectLabel: string): strin
   return `<section id="disputed" data-schema="Claim">
 <div class="sec-k">Disputed — who says what, against what</div>
 <p class="disputed-explainer">These are things people say about ${escapeHtml(subjectLabel)} that aren't settled fact — each one attributed to who's actually claiming it, so a claim never quietly passes as established just because it showed up in a document. Weigh it yourself.</p>
+${cards}
+</section>`;
+}
+
+// Fabric redesign Phase 4 — assertions the corpus has independently
+// corroborated: no contradicting evidence on record, and backed by
+// verified evidential edges from >=2 distinct source pieces (surfacing.ts's
+// runSurfacingL1, rank='preferred'). Still an attributed claim, not a fact
+// the corpus states directly (it stays out of Established) — but it's no
+// longer honest to file it as "Disputed" next to claims nobody backs.
+// Reuses the --confirmed token (Phase 6), same "citable, multiply-sourced,
+// high confidence" semantic the rest of the site already gives that color.
+function renderCorroboratedBlock(rows: AssertionRow[]): string {
+  if (rows.length === 0) return "";
+  const cards = rows
+    .map((a) => {
+      const sourceLink = a.piece_title
+        ? `<a class="contested-src" href="/library/${escapeAttr(a.piece_slug ?? "")}">${escapeHtml(a.piece_title.slice(0, 60))} ↗</a>`
+        : "";
+      return `<div class="corroborated-card">
+  <div class="corroborated-stamp">Corroborated</div>
+  <blockquote class="contested-quote">"${escapeHtml(a.label)}"</blockquote>
+  <div class="contested-attribution">
+    ${a.actor ? `Asserted by <b>${escapeHtml(a.actor)}</b>` : "Unattributed assertion"} · stance: ${escapeHtml(a.stance)}
+  </div>
+  <div class="contested-balance">Independently backed by multiple separate sources, with no contradicting evidence on record.</div>
+  ${sourceLink}
+</div>`;
+    })
+    .join("");
+  return `<section id="corroborated" data-schema="Claim">
+<div class="sec-k">Corroborated</div>
+<p class="disputed-explainer">Attributed claims — still someone's assertion, not a fact the corpus states directly — that multiple independent sources back and nothing on file contradicts.</p>
 ${cards}
 </section>`;
 }

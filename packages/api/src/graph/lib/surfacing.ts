@@ -30,12 +30,25 @@ import { callRole } from "../../llm/router";
 export interface SurfacingReport {
   balances_updated: number;
   contested: number;
+  preferred: number;
   contradictions: number;
   connections: number;
   l2_candidates: number;
   l2_discarded: number;
   errors: string[];
 }
+
+// Fabric redesign Phase 4 (see /root/.claude/plans/humming-questing-backus.md):
+// the "confirmed, attributed" middle tier, reusing assertions.rank's own
+// already-declared, previously-unwritten 'preferred' value — no migration.
+// Graduation is pure row-counting over verified edges: zero contradicting
+// evidence AND at least this many INDEPENDENT source pieces corroborating
+// (same bar self-contradictions.ts already established as the independence
+// threshold for its own person-candidate gate). This never looks at stance,
+// topic, or which side of a debate a claim is on — only counts — which is
+// what keeps the political-neutrality constraint structural, not a prompt
+// instruction the model could get wrong.
+const MIN_CORROBORATING_PIECES = 2;
 
 // ---------------------------------------------------------------------------
 // Level 1 — deterministic
@@ -45,6 +58,7 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
   const report: SurfacingReport = {
     balances_updated: 0,
     contested: 0,
+    preferred: 0,
     contradictions: 0,
     connections: 0,
     l2_candidates: 0,
@@ -54,6 +68,11 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
 
   // ---- evidence balance per assertion ----
   // supports/corroborates = +weight; contradicts/rebuts/undercuts = -weight.
+  // corroborating_pieces counts DISTINCT source pieces behind verified
+  // supports/corroborates edges, excluding same-document self-support (a
+  // node from the assertion's own piece corroborating itself isn't
+  // independent corroboration) — the count Phase 4's 'preferred' rank
+  // graduation reads below.
   //
   // No LIMIT here used to mean one sequential UPDATE per assertion in the
   // WHOLE graph — 1357+ on this corpus, easily enough to exceed the
@@ -62,16 +81,28 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
   // oldest-updated first, so repeated invocations eventually cover
   // everything instead of one call trying to do it all and dying mid-loop.
   try {
-    const balances = await all<{ node_id: string; balance: number; pos: number; neg: number }>(
+    const balances = await all<{
+      node_id: string;
+      balance: number;
+      pos: number;
+      neg: number;
+      corroborating_pieces: number;
+    }>(
       env.DB,
       `SELECT a.node_id,
               COALESCE(SUM(CASE WHEN e.edge_type IN ('supports','corroborates') THEN e.weight ELSE 0 END), 0)
             - COALESCE(SUM(CASE WHEN e.edge_type IN ('contradicts','rebuts','undercuts') THEN e.weight ELSE 0 END), 0) AS balance,
               COALESCE(SUM(CASE WHEN e.edge_type IN ('supports','corroborates') THEN 1 ELSE 0 END), 0) AS pos,
-              COALESCE(SUM(CASE WHEN e.edge_type IN ('contradicts','rebuts','undercuts') THEN 1 ELSE 0 END), 0) AS neg
+              COALESCE(SUM(CASE WHEN e.edge_type IN ('contradicts','rebuts','undercuts') THEN 1 ELSE 0 END), 0) AS neg,
+              COUNT(DISTINCT CASE
+                WHEN e.edge_type IN ('supports','corroborates')
+                 AND sn.piece_id IS NOT NULL AND sn.piece_id != an.piece_id
+                THEN sn.piece_id END) AS corroborating_pieces
          FROM assertions a
+         JOIN nodes an ON an.id = a.node_id
          LEFT JOIN edges e ON e.dst_node_id = a.node_id AND e.family = 'evidential'
            AND e.scope_check = 'verified'
+         LEFT JOIN nodes sn ON sn.id = e.src_node_id
         WHERE a.node_id IN (SELECT id FROM nodes WHERE user_id = ?)
         GROUP BY a.node_id
         ORDER BY a.updated_at ASC
@@ -80,14 +111,24 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
     );
     for (const b of balances) {
       // Contested = nontrivial evidence on BOTH sides (the gray area).
+      // Preferred = zero contradicting evidence AND independently
+      // corroborated by enough distinct source pieces — pure row-counting,
+      // never a judgment call on which side is right (see the constant's
+      // comment above). Falls back to 'normal' recomputed from scratch
+      // every sweep, same as 'contested' — a later verified contradicting
+      // edge demotes a 'preferred' assertion automatically.
       const contested = b.pos > 0 && b.neg > 0;
+      const preferred =
+        !contested && b.neg === 0 && b.corroborating_pieces >= MIN_CORROBORATING_PIECES;
+      const rank = contested ? "contested" : preferred ? "preferred" : "normal";
       await run(
         env.DB,
         "UPDATE assertions SET evidence_balance = ?, rank = ?, updated_at = ? WHERE node_id = ?",
-        [b.balance, contested ? "contested" : "normal", new Date().toISOString(), b.node_id],
+        [b.balance, rank, new Date().toISOString(), b.node_id],
       );
       report.balances_updated++;
       if (contested) report.contested++;
+      if (preferred) report.preferred++;
     }
   } catch (err) {
     report.errors.push(`balance: ${(err as Error).message}`);
@@ -174,6 +215,7 @@ export async function runSurfacingL2(env: Env, userId: string): Promise<Surfacin
   const report: SurfacingReport = {
     balances_updated: 0,
     contested: 0,
+    preferred: 0,
     contradictions: 0,
     connections: 0,
     l2_candidates: 0,
