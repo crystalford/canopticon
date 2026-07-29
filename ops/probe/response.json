@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-29T18:52:36Z",
-  "run_id": "30481887306",
+  "requested_at": "2026-07-29T18:54:55Z",
+  "run_id": "30482048672",
   "method": "GET",
-  "path": "/v1/admin/fabric-coverage",
+  "path": "/v1/admin/test-draft-proposal?slug=canadian-polling-industry",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"pages_total\": 4558,\n  \"pages_signed_analysis\": 1,\n  \"assertions_preferred\": 0,\n  \"subjects_with_preferred\": 0,\n  \"proposals\": {\n    \"n\": 0,\n    \"drafts\": null,\n    \"published\": null\n  },\n  \"evidential_scope_check_breakdown\": [\n    {\n      \"scope_check\": null,\n      \"n\": 939\n    },\n    {\n      \"scope_check\": \"rejected\",\n      \"n\": 44\n    },\n    {\n      \"scope_check\": \"verified\",\n      \"n\": 12\n    }\n  ]\n}"
+  "body": "{\n  \"ok\": true,\n  \"subject\": \"Canadian polling industry\",\n  \"result\": {\n    \"ok\": false,\n    \"reason\": \"not enough grounded material on Canadian polling industry yet for a proposal (needs at least 3 verified facts, assertions, or analysis claims)\"\n  }\n}"
 }
