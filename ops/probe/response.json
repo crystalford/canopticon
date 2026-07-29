@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-29T14:01:40Z",
-  "run_id": "30458807438",
+  "requested_at": "2026-07-29T14:02:03Z",
+  "run_id": "30458836624",
   "method": "GET",
-  "path": "/v1/admin/research-status?q=World%20Economic%20Forum",
-  "status": 404,
-  "body": "{\n  \"error\": {\n    \"code\": \"not_found\",\n    \"message\": \"Not found\",\n    \"trace_id\": \"1723b87b-9854-4412-90f0-08d3fee31c20\"\n  }\n}"
+  "path": "/v1/admin/health",
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"generated_at\": \"2026-07-29T14:02:03.510Z\",\n  \"roles\": {\n    \"bulk_extraction\": {\n      \"model\": \"@cf/meta/llama-4-scout-17b-16e-instruct\",\n      \"status\": \"ok\",\n      \"latency_ms\": 874,\n      \"text_sample\": \"OK\"\n    },\n    \"hard_extraction\": {\n      \"model\": \"@cf/openai/gpt-oss-120b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 314,\n      \"text_sample\": \"\"\n    },\n    \"surfacing_ambitious\": {\n      \"model\": \"@cf/openai/gpt-oss-120b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 871,\n      \"text_sample\": \"\"\n    },\n    \"judge\": {\n      \"model\": \"@cf/qwen/qwq-32b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 462,\n      \"text_sample\": \"Okay, the user sent \\\"ping\\\".\"\n    },\n    \"large_context\": {\n      \"model\": \"@cf/nvidia/nemotron-3-120b-a12b\",\n      \"status\": \"ok\",\n      \"latency_ms\": 374,\n      \"text_sample\": \"\"\n    }\n  }\n}"
 }
