@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-29T18:51:09Z",
-  "run_id": "30481766756",
-  "method": "GET",
-  "path": "/v1/admin/fabric-coverage",
-  "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"pages_total\": 4558,\n  \"pages_signed_analysis\": 1,\n  \"assertions_preferred\": 0,\n  \"subjects_with_preferred\": 0,\n  \"proposals\": {\n    \"n\": 0,\n    \"drafts\": null,\n    \"published\": null\n  },\n  \"evidential_scope_check_breakdown\": [\n    {\n      \"scope_check\": null,\n      \"n\": 939\n    },\n    {\n      \"scope_check\": \"rejected\",\n      \"n\": 44\n    },\n    {\n      \"scope_check\": \"verified\",\n      \"n\": 12\n    }\n  ]\n}"
+  "requested_at": "2026-07-29T18:52:02Z",
+  "run_id": "30481836376",
+  "method": "POST",
+  "path": "/op/records/canadian-polling-industry/draft-proposal",
+  "status": 302,
+  "body": ""
 }
