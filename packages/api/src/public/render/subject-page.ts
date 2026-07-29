@@ -941,14 +941,16 @@ async function renderSigned(
     <div class="kicker">${intentBadge} <span class="kicker-meta">Analysis · Signed</span></div>
     <h1>${escapeHtml(subject.label)}</h1>
     ${page.thesis ? `<blockquote class="thesis-block">"${escapeHtml(page.thesis)}"</blockquote>` : ""}
+    ${hookProduceLink}
+    ${produceVideoBlock}
+  </header>
+  <div class="analysis" data-seam="strong">
     <div class="signature-block">
       ${signatureLine}
       ${signatureMeta.length ? `<div class="signature-meta">${signatureMeta.join(" · ")}</div>` : ""}
     </div>
-    ${hookProduceLink}
-    ${produceVideoBlock}
-  </header>
-  <div class="prose signed-body">${bodyHtml}</div>
+    <div class="prose signed-body">${bodyHtml}</div>
+  </div>
   ${complicateBox}
   ${claimsBlock}
   ${facesBlock}

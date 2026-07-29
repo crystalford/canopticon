@@ -576,12 +576,17 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
 .analysis[data-seam="subtle"] { }
 /* clear: byline + tinted left edge */
 .analysis[data-seam="clear"] { padding-left: 22px; border-left: 2px solid var(--accent-bd); }
-/* strong: full inset panel on a different ground */
+/* strong: full inset panel on a different ground. Used to carry a
+   [data-mode="public"] override to a hardcoded light hex — a leftover
+   from before the --pub-*/--op-* unification above (one register, one
+   brand); this component was never actually used on a public page until
+   the fabric redesign's signed-analysis panel (Phase 6), which is what
+   surfaced the stale override. Removed — --paper-2 alone is correct in
+   every mode now. */
 .analysis[data-seam="strong"] {
   background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--r-lg);
   padding: 32px 34px; margin-top: 12px;
 }
-[data-mode="public"] .analysis[data-seam="strong"] { background: #e9e7e3; }
 .analysis .byline {
   display: flex; align-items: center; gap: 12px; margin-bottom: 18px;
   font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute);
