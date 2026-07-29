@@ -1,8 +1,9 @@
 // The corpus-settle pipeline — one step at a time, always.
 //
-// Six steps run, in order, whenever the corpus needs to catch up: entity
-// resolution -> event dedup -> surfacing -> theme detection -> page
-// autoseeding -> comprehensive-profile generation. These used to run chained together
+// Seven steps run, in order, whenever the corpus needs to catch up: entity
+// resolution -> event dedup -> evidential scope-check -> surfacing -> theme
+// detection -> page autoseeding -> comprehensive-profile generation. These
+// used to run chained together
 // in one execution context every time the corpus went idle. Confirmed live
 // (twice, on the standalone admin /resettle endpoint before this module
 // existed) that chaining real LLM-calling steps this way reliably exceeds
@@ -41,6 +42,7 @@ import { insertOne, one, run } from "../../lib/d1";
 export const SETTLE_STEPS_ORDER = [
   "entity_resolution",
   "event_dedup",
+  "scope_check",
   "surfacing_l1",
   "theme_surfacer",
   "autoseed_pages",
@@ -60,6 +62,10 @@ export const SETTLE_STEP_RUNNERS: Record<
   event_dedup: async (env, userId) => {
     const { resolveDuplicateEvents } = await import("./entity-resolution");
     return resolveDuplicateEvents(env, userId);
+  },
+  scope_check: async (env, userId) => {
+    const { advanceEvidentialScopeCheck } = await import("./evidential-scope-check");
+    return advanceEvidentialScopeCheck(env, userId);
   },
   surfacing_l1: async (env, userId) => {
     const { runSurfacingL1 } = await import("./surfacing");

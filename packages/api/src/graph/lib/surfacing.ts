@@ -4,9 +4,13 @@
 // verifiable operations over the typed graph — no LLM judgment.
 //   - evidence-balance per assertion (supporting vs contradicting evidential
 //     edges) -> assertions.evidence_balance; both-sides-nontrivial -> rank
-//     'contested' (the gray area, shown AS gray — the firewall's data source)
-//   - contradiction candidates: evidential 'contradicts'/'rebuts' edges ->
-//     patterns rows (kind 'contradiction')
+//     'contested' (the gray area, shown AS gray — the firewall's data source).
+//     Only edges with scope_check='verified' count (evidential-scope-
+//     check.ts, run as its own settle step before this one) — an
+//     unverified edge can't manufacture a false 'contested' flag from two
+//     claims that only sound related.
+//   - contradiction candidates: verified evidential 'contradicts'/'rebuts'
+//     edges -> patterns rows (kind 'contradiction')
 //   - connection detection: entities co-appearing across >=2 source pieces ->
 //     patterns rows (kind 'connection')
 //
@@ -67,6 +71,7 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
               COALESCE(SUM(CASE WHEN e.edge_type IN ('contradicts','rebuts','undercuts') THEN 1 ELSE 0 END), 0) AS neg
          FROM assertions a
          LEFT JOIN edges e ON e.dst_node_id = a.node_id AND e.family = 'evidential'
+           AND e.scope_check = 'verified'
         WHERE a.node_id IN (SELECT id FROM nodes WHERE user_id = ?)
         GROUP BY a.node_id
         ORDER BY a.updated_at ASC
@@ -101,7 +106,7 @@ export async function runSurfacingL1(env: Env, userId: string): Promise<Surfacin
          FROM edges e
          JOIN nodes s ON s.id = e.src_node_id
          JOIN nodes d ON d.id = e.dst_node_id
-        WHERE e.user_id = ? AND e.family = 'evidential'
+        WHERE e.user_id = ? AND e.family = 'evidential' AND e.scope_check = 'verified'
           AND e.edge_type IN ('contradicts','rebuts','undercuts')
         LIMIT 25`,
       [userId],
