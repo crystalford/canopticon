@@ -472,16 +472,16 @@ async function renderNeutral(
         ? `<div class="draft-reading op-aff">
   <span class="op-aff-label">Operator</span>
   <form method="POST" action="/op/records/${escapeAttr(page.slug)}/draft-reading" class="draft-reading-form">
-    <textarea name="angle" rows="2" placeholder="Optional — give it an angle. What should this reading argue? Leave blank and it'll find its own thesis in the facts."></textarea>
-    <button class="op-aff-btn op-aff-btn-action" type="submit">Draft a reading →</button>
+    <textarea name="angle" rows="2" placeholder="Optional — give it an angle. What should this analysis argue? Leave blank and it'll find its own thesis in the facts."></textarea>
+    <button class="op-aff-btn op-aff-btn-action" type="submit">Draft an analysis →</button>
   </form>
   ${draftMsgBlock}
 </div>`
-        : `<div class="draft-reading-note">No signed reading yet — needs at least ${READING_MIN_QUOTES_ESTIMATE} established/disputed facts before one can be drafted (${readingSignalCount} on file so far).</div>`;
+        : `<div class="draft-reading-note">No signed analysis yet — needs at least ${READING_MIN_QUOTES_ESTIMATE} established/disputed facts before one can be drafted (${readingSignalCount} on file so far).</div>`;
   } else if (isOperator && page.signed_status === "draft") {
     draftReadingBlock = `<div class="draft-reading op-aff">
   <span class="op-aff-label">Operator</span>
-  <a class="op-aff-btn op-aff-btn-action" href="/op/out/${escapeAttr(page.id)}/edit">A draft reading is waiting — review &amp; sign →</a>
+  <a class="op-aff-btn op-aff-btn-action" href="/op/out/${escapeAttr(page.id)}/edit">A draft analysis is waiting — review &amp; sign →</a>
   ${draftMsgBlock}
 </div>`;
   }
@@ -1973,7 +1973,7 @@ const FACE_HINTS: Record<string, string> = {
   script: "Locked reasoning skeleton for a 3–4 minute video — structure, not voice.",
   card: "One shareable image: thesis on top, the most damning fact below, receipt in the corner.",
   carousel: "Six-slide swipe-through for Instagram / LinkedIn.",
-  chapter: "The reading's structure expanded for long-form treatment.",
+  chapter: "The analysis's structure expanded for long-form treatment.",
 };
 
 function renderFacesBlock(

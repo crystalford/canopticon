@@ -115,7 +115,7 @@ export async function renderQuoteReceipt(env: PublicEnv, quoteId: string): Promi
 </section>`
     : `<section class="q-citing q-citing-empty">
   <div class="sec-k">Pages that cite this quote</div>
-  <p>This quote is in the graph but not yet on any signed page. It will appear here when a signed reading rests on it.</p>
+  <p>This quote is in the graph but not yet on any signed page. It will appear here when a signed analysis rests on it.</p>
 </section>`;
 
   const sourceLink = quote.piece_slug

@@ -117,7 +117,7 @@ const KIND_HINTS: Record<FaceKind, string> = {
   versus: "What they claimed, next to what the record shows.",
   "timeline-drop": "A handful of dated facts, no commentary.",
   translate: "A formal quote, said in plain words. Same claim, same receipt.",
-  hook: "The signed reading, compressed to one shareable line.",
+  hook: "The signed analysis, compressed to one shareable line.",
 };
 
 async function loadPage(db: D1Database, slug: string): Promise<PageRow | null> {
@@ -261,7 +261,7 @@ function shellWrap(args: { title: string; slug: string; inner: string; message?:
 <div class="studio-shell">
   <div class="studio-head">
     <h1 class="studio-h1">${escapeAttr(title)}</h1>
-    <a class="studio-back" href="/s/${encodeURIComponent(slug)}?mode=signed">← back to the signed reading</a>
+    <a class="studio-back" href="/s/${encodeURIComponent(slug)}?mode=signed">← back to the signed analysis</a>
   </div>
   <div class="studio-sub">production pipeline · static format · v2.6 Part 27 Stage A</div>
   ${msg}
@@ -431,7 +431,7 @@ function renderPaperPicker(pages: PaperPickerRow[], message?: string): string {
   <div class="paper-picker">${rows}</div>
   <button class="produce-go" type="submit" style="margin-top:14px">Compose paper</button>
 </form>`
-    : "<p>No signed subjects published yet — sign a reading first, then come back here to compose a paper across several of them.</p>";
+    : "<p>No signed subjects published yet — sign an analysis first, then come back here to compose a paper across several of them.</p>";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -820,7 +820,7 @@ async function renderCarouselSlideByIndex(
         index: total - 1,
         total,
         kind: "closer",
-        body: "Read the full reading + every receipt.",
+        body: "Read the full analysis + every receipt.",
         slug: page.slug,
       })
     );

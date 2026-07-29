@@ -516,7 +516,7 @@ app.get("/out/:id/edit", async (c) => {
   const body = `<form method="POST" action="/op/out/${escapeHtml(row.id)}/edit">
   <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Thesis</label>
   <input name="thesis" value="${escapeHtml(row.thesis ?? "")}" style="width:100%;background:#15181f;color:#e8eaef;border:1px solid #2e2e38;border-radius:7px;padding:10px 13px;font-size:14px;margin-bottom:16px" />
-  <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Reading (markdown)</label>
+  <label style="font-size:12px;color:var(--dmut,#888);display:block;margin-bottom:6px">Analysis (markdown)</label>
   <textarea name="body_md" rows="26" style="width:100%;background:#15181f;color:#e8eaef;border:1px solid #2e2e38;border-radius:7px;padding:13px;font-family:ui-monospace,monospace;font-size:13px">${escapeHtml(row.body_md ?? "")}</textarea>
   <div style="margin-top:12px;display:flex;gap:10px">
     <button type="submit" class="btn primary" style="background:#d9a441;color:#1c1608;font-weight:600;padding:9px 20px;border-radius:7px;border:none;cursor:pointer">Save draft</button>
@@ -525,7 +525,7 @@ app.get("/out/:id/edit", async (c) => {
 </form>`;
   return opHtml(
     renderOpPage({
-      title: "Edit reading",
+      title: "Edit analysis",
       sub: "refine before you sign · hand-edited text is no longer machine-verified",
       body,
       activeNav: "/op/out",
@@ -634,7 +634,7 @@ app.post("/records/:slug/produce-video", async (c) => {
   );
   if (!page || !page.thesis) {
     return c.redirect(
-      `/s/${slug}?video_msg=${encodeURIComponent("no signed reading to produce from yet")}`,
+      `/s/${slug}?video_msg=${encodeURIComponent("no signed analysis to produce from yet")}`,
     );
   }
 
@@ -723,7 +723,7 @@ app.post("/records/:slug/draft-reading", async (c) => {
   // redraft; signed/published is not.
   if (page.signed_status === "signed" || page.signed_status === "published") {
     return c.redirect(
-      `/s/${slug}?draft_msg=${encodeURIComponent("already has a signed reading — this only drafts new ones, it won't overwrite a signed one")}`,
+      `/s/${slug}?draft_msg=${encodeURIComponent("already has a signed analysis — this only drafts new ones, it won't overwrite a signed one")}`,
     );
   }
 
@@ -737,7 +737,7 @@ app.post("/records/:slug/draft-reading", async (c) => {
   );
 
   return c.redirect(
-    `/s/${slug}?draft_msg=${encodeURIComponent("drafting a reading now — this takes a minute or two; refresh to check")}`,
+    `/s/${slug}?draft_msg=${encodeURIComponent("drafting an analysis now — this takes a minute or two; refresh to check")}`,
   );
 });
 

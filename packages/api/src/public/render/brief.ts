@@ -100,7 +100,7 @@ export async function renderBriefPage(
 
   const signatureLine =
     brief.layer === "interpretive"
-      ? `<div class="coord" style="margin-top:8px;padding:8px 12px;border:1px solid var(--rule);border-radius:6px">SIGNED INTERPRETIVE PIECE — a reading on top of the facts, by ${escapeHtml(brief.signed_by ?? "the operator")}.${brief.confidence ? ` Analytical confidence: <b>${escapeHtml(brief.confidence)}</b>.` : ""} The grounded facts it stands on are listed under Sources; contested assertions are attributed, never stated as fact.</div>`
+      ? `<div class="coord" style="margin-top:8px;padding:8px 12px;border:1px solid var(--rule);border-radius:6px">SIGNED INTERPRETIVE PIECE — an analysis on top of the facts, by ${escapeHtml(brief.signed_by ?? "the operator")}.${brief.confidence ? ` Analytical confidence: <b>${escapeHtml(brief.confidence)}</b>.` : ""} The grounded facts it stands on are listed under Sources; contested assertions are attributed, never stated as fact.</div>`
       : "";
 
   const body = `

@@ -68,7 +68,7 @@ export async function renderInvestigationsIndex(
   const intentChip = (intent: string | null | undefined): string =>
     intent
       ? `<span class="intent-badge intent-${escapeHtml(intent)}">${escapeHtml(INTENT_LABELS[intent] ?? intent)}</span>`
-      : `<span class="chip">Signed reading</span>`;
+      : `<span class="chip">Signed analysis</span>`;
 
   const leadReadingCard = leadReading
     ? `<a class="inv-lead" href="/s/${escapeHtml(leadReading.slug)}?mode=signed">
@@ -149,11 +149,11 @@ export async function renderInvestigationsIndex(
       ? `<section class="shape-block" aria-label="What this page will contain">
   <div class="sec-k">What lands here</div>
   <ul>
-    <li><b>Signed readings</b> — the operator picks a subject (entity, event, or theme) with enough material on it, optionally gives it an angle, and drafts a reading; then reads and signs it. Each carries a thesis, a confidence band, and a mandatory box of facts that complicate it.</li>
+    <li><b>Signed analyses</b> — the operator picks a subject (entity, event, or theme) with enough material on it, optionally gives it an angle, and drafts an analysis; then reads and signs it. Each carries a thesis, a confidence band, and a mandatory box of facts that complicate it.</li>
     <li><b>Intent badges</b> — every signed piece wears its kind: Investigation · Argument · Pattern · Assessment · Critique · Explanation. Filter above when there are enough to filter.</li>
     <li><b>Receipts</b> — every load-bearing assertion ties back to a verbatim quote from a stored source document.</li>
   </ul>
-  ${pieces.length > 0 ? `<p>Showing ${pieces.length} legacy investigation${pieces.length === 1 ? "" : "s"} from before the fabric era below. No fabric-era signed readings yet — draft one from any subject's page.</p>` : '<p>No signed readings yet — draft one from any subject\'s page ("Draft a reading").</p>'}
+  ${pieces.length > 0 ? `<p>Showing ${pieces.length} legacy investigation${pieces.length === 1 ? "" : "s"} from before the fabric era below. No fabric-era signed analyses yet — draft one from any subject's page.</p>` : '<p>No signed analyses yet — draft one from any subject\'s page ("Draft an analysis").</p>'}
 </section>`
       : "";
 

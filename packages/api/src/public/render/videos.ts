@@ -69,7 +69,7 @@ export async function renderVideosPage(env: PublicEnv): Promise<string> {
         s.source_kind === "reading" && s.subject_slug
           ? `<a href="/s/${escapeAttr(s.subject_slug)}">see the File →</a>`
           : "";
-      const kindLabel = s.source_kind === "reading" ? "from a signed reading" : "daily radar";
+      const kindLabel = s.source_kind === "reading" ? "from a signed analysis" : "daily radar";
       return `<div class="video-row">
   <div class="video-row-head">
     <span class="video-kind">${escapeHtml(kindLabel)}</span>
@@ -106,7 +106,7 @@ export async function renderVideosPage(env: PublicEnv): Promise<string> {
   <div class="video-list">${rows}</div>`
       : emptyState(
           env.VIDEO_BASE
-            ? "Nothing published yet. Video essays are drafted from signed readings via the 'Produce video essay' action on a File — the operator reviews and renders before anything appears here."
+            ? "Nothing published yet. Video essays are drafted from signed analyses via the 'Produce video essay' action on a File — the operator reviews and renders before anything appears here."
             : "The video Worker isn't configured on this deployment yet.",
         )
   }

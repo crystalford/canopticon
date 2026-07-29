@@ -96,7 +96,7 @@ export async function renderCardFace(
     : "Single-image card · thesis + the single most damning fact · pure rendering, no LLM";
 
   if (isNeutral && !headline) {
-    return `<div class="face-empty">No thesis on this reading yet — the card renders once the signed reading is in place, or once a neutral profile exists.</div>
+    return `<div class="face-empty">No thesis on this analysis yet — the card renders once the signed analysis is in place, or once a neutral profile exists.</div>
 <style>.face-empty { font-family: var(--serif); font-style: italic; color: var(--ink-3); font-size: 14px; }</style>`;
   }
 

@@ -827,7 +827,7 @@ async function renderActivityFeed(env: { DB: D1Database }, isOperator: boolean):
         }
         if (opOverlays.drafts.length > 0) {
           bits.push(
-            `<b>${opOverlays.drafts.length}</b> reading${opOverlays.drafts.length === 1 ? "" : "s"} drafted and waiting for your signature`,
+            `<b>${opOverlays.drafts.length}</b> analysis${opOverlays.drafts.length === 1 ? "" : "es"} drafted and waiting for your signature`,
           );
         }
         if (opOverlays.findings.length > 0) {

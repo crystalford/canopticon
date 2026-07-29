@@ -79,7 +79,7 @@ export function renderCarouselSlide(args: {
 export async function renderCarouselFace(db: D1Database, page: SignedReadingPage): Promise<string> {
   const thesis = page.thesis ?? "";
   if (!thesis) {
-    return `<div class="face-empty">No thesis on this reading yet — the carousel renders once the signed reading is in place.</div>
+    return `<div class="face-empty">No thesis on this analysis yet — the carousel renders once the signed analysis is in place.</div>
 <style>.face-empty { font-family: var(--serif); font-style: italic; color: var(--ink-3); font-size: 14px; }</style>`;
   }
   const facts = await loadCarouselClaims(db, page.id);
@@ -103,7 +103,7 @@ export async function renderCarouselFace(db: D1Database, page: SignedReadingPage
       index: totalSlides - 1,
       total: totalSlides,
       kind: "closer",
-      body: "Read the full reading + every receipt.",
+      body: "Read the full analysis + every receipt.",
       slug: page.slug,
     }),
   );

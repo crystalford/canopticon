@@ -36,7 +36,7 @@ const KIND_LABEL: Record<VectorMeta["kind"], string> = {
   entity: "File",
   claim: "Claim",
   piece: "Source document",
-  thesis: "Reading",
+  thesis: "Analysis",
   article: "Investigation",
   source: "Quote",
 };

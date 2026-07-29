@@ -45,7 +45,7 @@ async function loadTopClaims(db: D1Database, pageId: string, limit: number): Pro
 export async function renderThreadFace(db: D1Database, page: SignedReadingPage): Promise<string> {
   const thesis = page.thesis ?? "";
   if (!thesis) {
-    return `<div class="face-empty">No thesis on this reading yet — thread renders once the signed reading is in place.</div>
+    return `<div class="face-empty">No thesis on this analysis yet — thread renders once the signed analysis is in place.</div>
 <style>.face-empty { font-family: var(--serif); font-style: italic; color: var(--ink-3); font-size: 14px; }</style>`;
   }
   const claims = await loadTopClaims(db, page.id, 2);
@@ -57,7 +57,7 @@ export async function renderThreadFace(db: D1Database, page: SignedReadingPage):
   const post3 = claims[1]
     ? `${claims[1].claim_text}${claims[1].piece_title ? ` — ${claims[1].piece_title}` : ""}`
     : "";
-  const post4 = `Read the full reading — canopticon.com/s/${page.slug}?mode=signed`;
+  const post4 = `Read the full analysis — canopticon.com/s/${page.slug}?mode=signed`;
 
   const posts = [post1, post2, post3, post4].filter((p) => p.length > 0);
   const totalChars = posts.reduce((sum, p) => sum + p.length, 0);

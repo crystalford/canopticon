@@ -263,10 +263,10 @@ async function loadTopHook(db: D1Database, subjectNodeId: string): Promise<HookR
 export async function renderHookFace(db: D1Database, subjectNodeId: string): Promise<string> {
   const row = await loadTopHook(db, subjectNodeId);
   if (!row) {
-    return emptyFace("No verified one-line hook on file yet for this reading.");
+    return emptyFace("No verified one-line hook on file yet for this analysis.");
   }
   return `<div class="meme-face meme-hook">
-  <div class="card-meta">The reading, in one line · pure rendering, no LLM</div>
+  <div class="card-meta">The analysis, in one line · pure rendering, no LLM</div>
   <div class="card-art">
     <div class="meme-hook-line">${escapeHtml(row.plain_text)}</div>
   </div>

@@ -192,7 +192,7 @@ ${statStrip}
   <h2 class="hiw-h2">The one-sentence version</h2>
   <p>
     Canopticon reads research documents into a typed graph of facts, grows a citable public
-    record from that graph automatically, drafts signed readings on top of it, and the
+    record from that graph automatically, drafts signed analyses on top of it, and the
     operator approves what publishes. <b>The operator approves; the operator never authors.</b>
     Nobody writes a page by hand — pages grow as documents are read, and the same graph fans
     out into every format below without being regenerated from scratch each time.
@@ -210,7 +210,7 @@ ${statStrip}
     <div class="hiw-ct-name">Records</div>
     <p class="hiw-ct-body">One page per person, company, event, or theme — <code>/s/:slug</code>. Two
     modes: <b>neutral</b> (the facts and their receipts, disputed material shown gray) and
-    <b>signed</b> (the operator's reading — the same facts, re-sequenced under a thesis, with
+    <b>signed</b> (the operator's analysis — the same facts, re-sequenced under a thesis, with
     a mandatory box of what complicates it). This is the spine everything else hangs off.</p>
   </div>
 
@@ -232,14 +232,14 @@ ${statStrip}
 
   <div class="hiw-ct">
     <div class="hiw-ct-name">Investigations — the signed layer</div>
-    <p class="hiw-ct-body">A signed reading wears one of seven intents as a badge — its
+    <p class="hiw-ct-body">A signed analysis wears one of seven intents as a badge — its
     epistemic stance, not a nav category:</p>
     <div class="hiw-intents">${intentRows}</div>
   </div>
 
   <div class="hiw-ct">
-    <div class="hiw-ct-name">Faces — one reading, many formats</div>
-    <p class="hiw-ct-body">Every signed reading renders as tabs: <b>Thread</b> and <b>Card</b>
+    <div class="hiw-ct-name">Faces — one analysis, many formats</div>
+    <p class="hiw-ct-body">Every signed analysis renders as tabs: <b>Thread</b> and <b>Card</b>
     are pure template + query — no LLM call, instant, straight from the thesis and the
     highest-ranked stored quotes. <b>Video script</b> and <b>chapter outline</b> need real
     argumentative sequencing, so those get one LLM pass at the moment you sign, persisted
@@ -272,7 +272,7 @@ ${statStrip}
   <h2 class="hiw-h2">What runs on its own vs. what you drive</h2>
   <p>
     One thing runs unattended, on a schedule. Everything that grows the record —
-    researching a subject, drafting a reading, producing a video — starts from you
+    researching a subject, drafting an analysis, producing a video — starts from you
     clicking something. There used to be more running automatically (a sweep that
     picked a thin subject and researched it every few hours, plus a pass that
     auto-published research briefs from that); both are retired — the sweep decided
@@ -287,8 +287,8 @@ ${statStrip}
       contested evidence, surfacing themes and cross-document patterns, seeding pages,
       and generating comprehensive profiles. One step runs per
       tick — chaining them all at once is exactly what silently broke this for a while;
-      splitting it up is what fixed it. Drafting a signed reading isn't one of these
-      steps — that's an action you take on a subject's page ("Draft a reading"), not
+      splitting it up is what fixed it. Drafting a signed analysis isn't one of these
+      steps — that's an action you take on a subject's page ("Draft an analysis"), not
       something the corpus decides on its own.</p>
     </div>
   </div>
@@ -303,8 +303,8 @@ ${statStrip}
   <h2 class="hiw-h2">What you can do</h2>
   <div class="hiw-list">
     <div class="hiw-item">
-      <div class="hiw-item-h">Sign a reading</div>
-      <p>A drafted reading waits under "Awaiting your signature" until you read it and
+      <div class="hiw-item-h">Sign an analysis</div>
+      <p>A drafted analysis waits under "Awaiting your signature" until you read it and
       sign or discard it. The system writes; you're the only one who publishes.</p>
     </div>
     <div class="hiw-item">
