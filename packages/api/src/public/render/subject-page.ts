@@ -269,10 +269,13 @@ async function renderNeutral(
 
   const lede = buildLede(subject, established);
   // The comprehensive-narrative synthesis (graph/lib/profile-generator.ts)
-  // used to be reachable only via a "see profile →" link off the
-  // Established section — meaning a reader landed on a raw, unranked fact
-  // list before ever seeing anything resembling "who this is." When one
-  // exists, it leads the page instead: the reading, then the receipts.
+  // used to lead the page, ahead of the raw Established facts — "the
+  // reading, then the receipts." That made neutral mode visually
+  // resemble signed mode (both opened with essay-voice prose), which is
+  // exactly the "I can't tell what layer I'm looking at" complaint this
+  // fabric redesign starts from. Facts now lead; this renders second —
+  // still the fastest way to get oriented on a subject, just not ahead
+  // of the citable substrate it's a synthesis OF.
   // A neutral-mode "Produce a card" affordance (2026-07-24) — before this,
   // Studio's static formats only existed once a signed reading gave them a
   // thesis to build from; a well-sourced File with no reading yet had no
@@ -519,8 +522,8 @@ async function renderNeutral(
   <div class="subject-grid">
     <div class="subject-main">
       ${shapeBlock}
-      ${narrativeBlock}
       ${establishedBlockWithStandalone}
+      ${narrativeBlock}
       ${contestedBlockWithStandalone}
       ${selfContradictionsBlockWithProduce}
       ${timelineBlock}
