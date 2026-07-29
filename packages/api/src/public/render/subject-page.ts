@@ -556,7 +556,7 @@ async function renderNeutral(
   .subject-head { margin-bottom:32px; }
   .subject-grid { display:grid; grid-template-columns: 1fr 260px; gap:42px; }
   @media (max-width: 760px) { .subject-grid { grid-template-columns: 1fr; } }
-  .sec-k { font-size:11px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin:30px 0 12px; display:flex; gap:14px; align-items:baseline; }
+  .sec-k { font-size:11px; letter-spacing:.14em; color:var(--ink-faint); text-transform:uppercase; margin:30px 0 12px; display:flex; gap:14px; align-items:baseline; }
   .sec-k:first-child { margin-top:0; }
   .sec-standalone {
     font-family: var(--mono);
@@ -1076,6 +1076,12 @@ async function renderSigned(
     max-width: 640px;
     margin: -4px 0 18px;
   }
+  /* Pre-existing gap: this page's sections (Claims & receipts, Proposals)
+     use the shared .sec-k class but this style block never defined it —
+     it rendered as plain inherited-color text. Same rule as renderNeutral
+     and renderThemePageNeutral's own copies (also fixed here: they used
+     the undefined var(--faint) token instead of --ink-faint). */
+  .sec-k { font-size:11px; letter-spacing:.14em; color:var(--ink-faint); text-transform:uppercase; margin:30px 0 12px; }
 
   /* Complicating-facts box — the proudest box on the signed page.
      This is the firewall, made visible inside the reading itself. */
@@ -1251,14 +1257,14 @@ ${evidence
   .subject-head h1 { font-family:var(--serif); font-size:36px; line-height:1.15; letter-spacing:-.02em; font-weight:600; margin-bottom:24px; }
   .received { background:var(--panel-2, rgba(0,0,0,.15)); border:1px solid var(--rule);
     padding:16px 20px; margin-bottom:18px; border-radius:9px; }
-  .received-k { font-size:10.5px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin-bottom:6px; }
+  .received-k { font-size:10.5px; letter-spacing:.14em; color:var(--ink-faint); text-transform:uppercase; margin-bottom:6px; }
   .received p { font-family:var(--serif); font-size:20px; line-height:1.45; color:var(--ink); font-style:italic; }
   .convergence { font-size:13.5px; color:var(--ink-3); }
-  .sec-k { font-size:11px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin:30px 0 14px; }
+  .sec-k { font-size:11px; letter-spacing:.14em; color:var(--ink-faint); text-transform:uppercase; margin:30px 0 14px; }
   .evidence-card { padding:14px 16px; border:1px solid var(--rule); border-radius:9px; margin-bottom:10px; }
   .evidence-card blockquote { font-family:var(--serif); font-size:16px; line-height:1.5; color:var(--ink-2); font-style:italic;
     border-left:2px solid var(--accent); padding-left:14px; margin-bottom:8px; }
-  .evidence-src { font-size:12.5px; color:var(--faint); }
+  .evidence-src { font-size:12.5px; color:var(--ink-faint); }
   .evidence-src a { color:var(--accent); text-decoration:none; }
   .prov { padding:14px 16px; background:var(--panel-2, rgba(0,0,0,.15)); border:1px solid var(--rule); border-radius:9px; font-size:12.5px; color:var(--ink-3); }
 </style>
