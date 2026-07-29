@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-07-28T13:50:55Z",
-  "run_id": "30365413066",
+  "requested_at": "2026-07-29T14:01:40Z",
+  "run_id": "30458807438",
   "method": "GET",
-  "path": "/v1/admin/research-runs-recent",
-  "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"rows\": [\n    {\n      \"id\": \"7d312af5-41eb-4599-b97d-13388645d036\",\n      \"label\": \"World Economic Forum\",\n      \"status\": \"pass1_pending\",\n      \"error\": null,\n      \"final_piece_id\": null,\n      \"created_at\": \"2026-07-28T12:33:49.261Z\",\n      \"updated_at\": \"2026-07-28T12:33:49.261Z\"\n    },\n    {\n      \"id\": \"e556e268-bdaf-4521-8459-3eee7fc4e8b2\",\n      \"label\": \"World Economic Forum\",\n      \"status\": \"failed\",\n      \"error\": \"5 sources already on record; the rest couldn't be fetched: fetch https://www.weforum.org/: http 403\",\n      \"final_piece_id\": null,\n      \"created_at\": \"2026-07-27T23:05:02.411Z\",\n      \"updated_at\": \"2026-07-27T23:05:04.464Z\"\n    },\n    {\n      \"id\": \"5dc46f3c-6d8d-454c-8065-6df8e875571e\",\n      \"label\": \"World Economic Forum\",\n      \"status\": \"failed\",\n      \"error\": \"fetch https://www.weforum.org/: http 403\",\n      \"final_piece_id\": null,\n      \"created_at\": \"2026-07-27T15:23:44.453Z\",\n      \"updated_at\": \"2026-07-27T15:23:47.592Z\"\n    },\n    {\n      \"id\": \"c6f26ab3-10e1-4bd2-ba61-530f18968b81\",\n      \"label\": \"World Economic Forum\",\n      \"status\": \"failed\",\n      \"error\": \"fetch https://www.weforum.org/: http 403\",\n      \"final_piece_id\": null,\n      \"created_at\": \"2026-07-26T20:25:12.653Z\",\n      \"updated_at\": \"2026-07-26T20:25:14.548Z\"\n    },\n    {\n      \"id\": \"29d0d2c2-0a7a-40dc-a380-985590ecc675\",\n      \"label\": \"World Economic Forum\",\n      \"status\": \"done\",\n      \"error\": null,\n      \"final_piece_id\": \"567ca9c5-6494-47cf-92e1-c394e0aea842\",\n      \"created_at\": \"2026-07-26T19:29:22.567Z\",\n      \"updated_at\": \"2026-07-26T19:31:19.836Z\"\n    }\n  ]\n}"
+  "path": "/v1/admin/research-status?q=World%20Economic%20Forum",
+  "status": 404,
+  "body": "{\n  \"error\": {\n    \"code\": \"not_found\",\n    \"message\": \"Not found\",\n    \"trace_id\": \"1723b87b-9854-4412-90f0-08d3fee31c20\"\n  }\n}"
 }
