@@ -442,6 +442,70 @@ app.get("/settle-state", async (c) => {
 // against the busy orchestrator_events log (capped at the last 50 rows via
 // /runtime) is unreliable once other autonomous activity is pushing that
 // window fast; this reads the table directly instead of racing the log.
+// TEMP diagnostic — fabric-redesign coverage audit. How many subjects
+// have actually reached each layer (Facts-only / Corroborated / Signed
+// Analysis / Proposal) now that all 7 phases are live. Remove after use.
+app.get("/fabric-coverage", async (c) => {
+  const userId = c.get("user_id");
+  const [
+    totalPages,
+    signedPages,
+    preferredAssertions,
+    subjectsWithPreferred,
+    proposals,
+    scopeCheck,
+  ] = await Promise.all([
+    one<{ n: number }>(c.env.DB, "SELECT COUNT(*) AS n FROM pages WHERE user_id = ?", [userId]),
+    one<{ n: number }>(
+      c.env.DB,
+      "SELECT COUNT(*) AS n FROM pages WHERE user_id = ? AND signed_status IN ('signed','published')",
+      [userId],
+    ),
+    one<{ n: number }>(
+      c.env.DB,
+      `SELECT COUNT(*) AS n FROM assertions a JOIN nodes n ON n.id = a.node_id
+        WHERE n.user_id = ? AND a.rank = 'preferred'`,
+      [userId],
+    ),
+    one<{ n: number }>(
+      c.env.DB,
+      `SELECT COUNT(DISTINCT p.id) AS n
+         FROM pages p
+        WHERE p.user_id = ? AND EXISTS (
+          SELECT 1 FROM assertions a
+            JOIN edges e ON (e.src_node_id = a.node_id OR e.dst_node_id = a.node_id)
+           WHERE a.rank = 'preferred' AND (e.src_node_id = p.subject_node_id OR e.dst_node_id = p.subject_node_id)
+        )`,
+      [userId],
+    ).catch(() => ({ n: -1 })),
+    one<{ n: number; drafts: number; published: number }>(
+      c.env.DB,
+      `SELECT COUNT(*) AS n,
+              SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS drafts,
+              SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END) AS published
+         FROM page_proposals WHERE user_id = ?`,
+      [userId],
+    ).catch(() => ({ n: 0, drafts: 0, published: 0 })),
+    all<{ scope_check: string | null; n: number }>(
+      c.env.DB,
+      `SELECT scope_check, COUNT(*) AS n FROM edges
+        WHERE user_id = ? AND family = 'evidential'
+          AND edge_type IN ('supports','corroborates','contradicts','rebuts','undercuts')
+        GROUP BY scope_check`,
+      [userId],
+    ).catch(() => []),
+  ]);
+  return c.json({
+    ok: true,
+    pages_total: totalPages?.n ?? 0,
+    pages_signed_analysis: signedPages?.n ?? 0,
+    assertions_preferred: preferredAssertions?.n ?? 0,
+    subjects_with_preferred: subjectsWithPreferred?.n ?? -1,
+    proposals,
+    evidential_scope_check_breakdown: scopeCheck,
+  });
+});
+
 app.get("/profiles-state", async (c) => {
   const userId = c.get("user_id");
   const rows = await all<{
