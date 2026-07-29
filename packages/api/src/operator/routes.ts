@@ -703,7 +703,14 @@ app.post("/records/:slug/produce-video", async (c) => {
 // subject and (optionally) what it should argue, never the prose itself.
 // Runs in waitUntil — a writer call plus N parallel judge calls easily
 // exceeds a synchronous request's wall clock.
-app.post("/records/:slug/draft-reading", async (c) => {
+// Fabric redesign Phase 5: renamed from /draft-reading. Old path kept as a
+// redirect for one release in case a stale open tab still posts to it —
+// remove once confirmed nothing hits it.
+app.post("/records/:slug/draft-reading", (c) =>
+  c.redirect(`/op/records/${c.req.param("slug")}/draft-analysis`, 308),
+);
+
+app.post("/records/:slug/draft-analysis", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/");
   const slug = c.req.param("slug");

@@ -17,7 +17,7 @@
 import { all, one } from "../../../lib/d1";
 import { escapeAttr, escapeHtml } from "../../layout";
 
-interface SignedReadingPage {
+interface SignedAnalysisPage {
   id: string;
   slug: string;
   subject_node_id: string;
@@ -85,7 +85,7 @@ interface CardSubject {
 
 export async function renderCardFace(
   db: D1Database,
-  page: SignedReadingPage,
+  page: SignedAnalysisPage,
   subject?: CardSubject,
 ): Promise<string> {
   const thesis = page.thesis ?? "";

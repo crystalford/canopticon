@@ -466,23 +466,23 @@ async function renderNeutral(
   const READING_MIN_QUOTES_ESTIMATE = 4;
   const readingSignalCount = established.length + contested.length;
   const draftMsgBlock = draftMsg
-    ? `<div class="draft-reading-msg">${escapeHtml(draftMsg)}</div>`
+    ? `<div class="draft-analysis-msg">${escapeHtml(draftMsg)}</div>`
     : "";
   let draftReadingBlock = "";
   if (isOperator && page.signed_status === "none") {
     draftReadingBlock =
       readingSignalCount >= READING_MIN_QUOTES_ESTIMATE
-        ? `<div class="draft-reading op-aff">
+        ? `<div class="draft-analysis op-aff">
   <span class="op-aff-label">Operator</span>
-  <form method="POST" action="/op/records/${escapeAttr(page.slug)}/draft-reading" class="draft-reading-form">
+  <form method="POST" action="/op/records/${escapeAttr(page.slug)}/draft-analysis" class="draft-analysis-form">
     <textarea name="angle" rows="2" placeholder="Optional — give it an angle. What should this analysis argue? Leave blank and it'll find its own thesis in the facts."></textarea>
     <button class="op-aff-btn op-aff-btn-action" type="submit">Draft an analysis →</button>
   </form>
   ${draftMsgBlock}
 </div>`
-        : `<div class="draft-reading-note">No signed analysis yet — needs at least ${READING_MIN_QUOTES_ESTIMATE} established/disputed facts before one can be drafted (${readingSignalCount} on file so far).</div>`;
+        : `<div class="draft-analysis-note">No signed analysis yet — needs at least ${READING_MIN_QUOTES_ESTIMATE} established/disputed facts before one can be drafted (${readingSignalCount} on file so far).</div>`;
   } else if (isOperator && page.signed_status === "draft") {
-    draftReadingBlock = `<div class="draft-reading op-aff">
+    draftReadingBlock = `<div class="draft-analysis op-aff">
   <span class="op-aff-label">Operator</span>
   <a class="op-aff-btn op-aff-btn-action" href="/op/out/${escapeAttr(page.id)}/edit">A draft analysis is waiting — review &amp; sign →</a>
   ${draftMsgBlock}
@@ -742,13 +742,13 @@ async function renderNeutral(
   .op-aff-btn { font-size:12.5px; padding:5px 12px; border-radius:6px; border:1px solid var(--rule);
     background:var(--surface); color:var(--ink); cursor:not-allowed; opacity:.6; }
   .op-aff-hint { font-size:12px; color:var(--ink-3); }
-  .draft-reading-form { display:flex; gap:10px; align-items:flex-start; flex:1 1 auto; min-width:220px; }
-  .draft-reading-form textarea { flex:1 1 auto; min-width:200px; font-family:inherit; font-size:12.5px;
+  .draft-analysis-form { display:flex; gap:10px; align-items:flex-start; flex:1 1 auto; min-width:220px; }
+  .draft-analysis-form textarea { flex:1 1 auto; min-width:200px; font-family:inherit; font-size:12.5px;
     padding:6px 10px; border:1px solid var(--rule); border-radius:6px; background:var(--surface);
     color:var(--ink); resize:vertical; }
-  .draft-reading-note { font-size:12.5px; color:var(--ink-3); margin-bottom:18px; padding:9px 14px;
+  .draft-analysis-note { font-size:12.5px; color:var(--ink-3); margin-bottom:18px; padding:9px 14px;
     border:1px dashed var(--rule); border-radius:8px; }
-  .draft-reading-msg { font-family:var(--mono); font-size:11.5px; color:var(--ink-3); width:100%; }
+  .draft-analysis-msg { font-family:var(--mono); font-size:11.5px; color:var(--ink-3); width:100%; }
   .shape-block { padding:20px 22px; border:1px solid var(--rule); border-radius:9px;
     background:var(--panel-soft, rgba(0,0,0,.02)); margin-bottom:24px; }
   .shape-block .sec-k { margin-top:0; }

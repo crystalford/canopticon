@@ -12,7 +12,7 @@
 import { all } from "../../../lib/d1";
 import { escapeAttr, escapeHtml } from "../../layout";
 
-interface SignedReadingPage {
+interface SignedAnalysisPage {
   id: string;
   slug: string;
   thesis: string | null;
@@ -76,7 +76,10 @@ export function renderCarouselSlide(args: {
 </div>`;
 }
 
-export async function renderCarouselFace(db: D1Database, page: SignedReadingPage): Promise<string> {
+export async function renderCarouselFace(
+  db: D1Database,
+  page: SignedAnalysisPage,
+): Promise<string> {
   const thesis = page.thesis ?? "";
   if (!thesis) {
     return `<div class="face-empty">No thesis on this analysis yet — the carousel renders once the signed analysis is in place.</div>

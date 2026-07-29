@@ -7,7 +7,7 @@
 import { all, one } from "../../../lib/d1";
 import { escapeAttr, escapeHtml } from "../../layout";
 
-interface SignedReadingPage {
+interface SignedAnalysisPage {
   id: string;
   slug: string;
   thesis: string | null;
@@ -42,7 +42,7 @@ async function loadTopClaims(db: D1Database, pageId: string, limit: number): Pro
 
 /** Render the thread face. Caller passes the signed page row; we don't
  *  re-query the page itself. */
-export async function renderThreadFace(db: D1Database, page: SignedReadingPage): Promise<string> {
+export async function renderThreadFace(db: D1Database, page: SignedAnalysisPage): Promise<string> {
   const thesis = page.thesis ?? "";
   if (!thesis) {
     return `<div class="face-empty">No thesis on this analysis yet — thread renders once the signed analysis is in place.</div>
