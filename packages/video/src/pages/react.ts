@@ -77,7 +77,8 @@ export function renderReactDetailPage(args: {
   const stillWorking =
     project.status === "transcribing" ||
     project.status === "scripting" ||
-    project.status === "stitching";
+    project.status === "stitching" ||
+    points.some((p) => p.export_status === "rendering");
 
   const errorBlock = project.error ? `<pre class="err">${escapeHtml(project.error)}</pre>` : "";
 
@@ -194,6 +195,20 @@ function renderPointCard(project: ReactProjectRow, p: ReactPointRow): string {
       ? `<a href="/react/projects/${escapeAttr(project.id)}/points/${escapeAttr(p.id)}/record" class="btn" style="background:${p.reaction_r2_key ? "#fff" : "var(--amber)"};color:var(--ink);border:1px solid var(--rule);margin-top:10px;display:inline-block">${p.reaction_r2_key ? "Re-record" : "⏺ Record reaction"}</a>`
       : "";
 
+  const exportBlock =
+    p.status === "approved" && p.reaction_r2_key
+      ? p.export_status === "rendering"
+        ? `<span class="pill running" style="margin-left:8px">exporting clip…</span>`
+        : p.export_status === "ready" && p.export_r2_key
+          ? `<a href="/assets/${escapeAttr(encodeURIComponent(p.export_r2_key))}" class="btn" style="background:#fff;color:var(--ink);border:1px solid var(--rule);margin-top:10px;margin-left:8px;display:inline-block">↓ Download clip</a>
+             <form method="POST" action="/react/projects/${escapeAttr(project.id)}/points/${escapeAttr(p.id)}/export" style="display:inline">
+               <button class="btn" type="submit" style="background:#fff;color:var(--ink);border:1px solid var(--rule);margin-top:10px;margin-left:8px">Re-export</button>
+             </form>`
+          : `<form method="POST" action="/react/projects/${escapeAttr(project.id)}/points/${escapeAttr(p.id)}/export" style="display:inline">
+               <button class="btn" type="submit" style="background:#fff;color:var(--ink);border:1px solid var(--rule);margin-top:10px;margin-left:8px">Export social clip</button>
+             </form>${p.export_status === "failed" ? `<div class="sub" style="margin-top:6px;color:#b0402c">export failed: ${escapeHtml(p.export_error ?? "unknown")}</div>` : ""}`
+      : "";
+
   return `<div class="card">
   <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
     <div class="k">${p.start_s.toFixed(1)}s–${p.end_s.toFixed(1)}s</div>
@@ -218,6 +233,7 @@ function renderPointCard(project: ReactProjectRow, p: ReactPointRow): string {
     </div>
   </form>
   ${recordLink}
+  ${exportBlock}
 </div>`;
 }
 

@@ -53,6 +53,9 @@ export interface ReactPointRow {
   clip_r2_key: string | null;
   reaction_r2_key: string | null;
   reaction_duration_ms: number | null;
+  export_r2_key: string | null;
+  export_status: "rendering" | "ready" | "failed" | null;
+  export_error: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -192,6 +195,9 @@ export async function updateReactPoint(
       | "clip_r2_key"
       | "reaction_r2_key"
       | "reaction_duration_ms"
+      | "export_r2_key"
+      | "export_status"
+      | "export_error"
     >
   >,
 ): Promise<void> {

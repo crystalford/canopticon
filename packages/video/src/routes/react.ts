@@ -27,13 +27,16 @@
 //                                         gates (mirrors queue.ts/segments)
 // POST /react/projects/:id/publish     — SEPARATE gate: makes the render
 //                                         public. Requires approve first.
+// POST /react/projects/:id/points/:pid/export — render just this one
+//                                         point's source+reaction pair as
+//                                         a standalone social clip
 
 import type { Segment } from "@canopticon/shared/video/segment-schema";
 import { Hono } from "hono";
 import { type AuthState, requireOperator } from "../auth";
 import type { Env } from "../env";
 import { renderReactDetailPage, renderReactListPage, renderRecordPage } from "../pages/react";
-import { buildReactSegment } from "../react/build-segment";
+import { buildReactSegment, buildSinglePointSegment } from "../react/build-segment";
 import {
   createReactProject,
   listReactPoints,
@@ -202,7 +205,54 @@ app.post("/projects/:id/publish", async (c) => {
   return c.redirect(`/react/projects/${encodeURIComponent(id)}`, 302);
 });
 
+app.post("/projects/:id/points/:pointId/export", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const id = c.req.param("id");
+  const pointId = c.req.param("pointId");
+  const project = await loadReactProject(c.env.DB, id);
+  if (!project) return new Response("project not found", { status: 404 });
+  const point = await loadReactPoint(c.env.DB, pointId);
+  if (!point || point.project_id !== id) return new Response("point not found", { status: 404 });
+
+  const { segment, error } = buildSinglePointSegment(project, point, c.env.VIDEO_BASE);
+  if (!segment) {
+    return c.redirect(
+      `/react/projects/${encodeURIComponent(id)}?msg=${encodeURIComponent(error ?? "cannot export")}`,
+      302,
+    );
+  }
+  await updateReactPoint(c.env.DB, pointId, { export_status: "rendering", export_error: null });
+  c.executionCtx.waitUntil(runPointExport(c.env, pointId, segment));
+  return c.redirect(`/react/projects/${encodeURIComponent(id)}`, 302);
+});
+
 export default app;
+
+// ---------------------------------------------------------------------------
+// Background: render one point's own standalone social clip. Same
+// render/store shape as runStitch below, scoped to a single point.
+// ---------------------------------------------------------------------------
+async function runPointExport(env: Env, pointId: string, segment: Segment): Promise<void> {
+  try {
+    const result = await renderSegment(env.RENDER_CONTAINER, segment);
+    if (!result.ok || !result.mp4) {
+      await updateReactPoint(env.DB, pointId, {
+        export_status: "failed",
+        export_error: result.error ?? "export render failed",
+      });
+      return;
+    }
+    const key = `react-renders/point-${pointId}.mp4`;
+    await env.ASSETS.put(key, result.mp4, { httpMetadata: { contentType: "video/mp4" } });
+    await updateReactPoint(env.DB, pointId, { export_status: "ready", export_r2_key: key });
+  } catch (err) {
+    await updateReactPoint(env.DB, pointId, {
+      export_status: "failed",
+      export_error: (err as Error).message,
+    }).catch(() => {});
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Background: render the stitched Segment against the Container, same

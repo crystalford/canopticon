@@ -1,6 +1,6 @@
 import { SegmentSchema } from "@canopticon/shared/video/segment-schema";
 import { describe, expect, it } from "vitest";
-import { buildReactSegment } from "../src/react/build-segment";
+import { buildReactSegment, buildSinglePointSegment } from "../src/react/build-segment";
 import type { ReactPointRow, ReactProjectRow } from "../src/react/db";
 
 const project: ReactProjectRow = {
@@ -38,6 +38,9 @@ function point(overrides: Partial<ReactPointRow>): ReactPointRow {
     clip_r2_key: null,
     reaction_r2_key: "react-clips/pt-123.webm",
     reaction_duration_ms: 8000,
+    export_r2_key: null,
+    export_status: null,
+    export_error: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -97,5 +100,41 @@ describe("buildReactSegment", () => {
     expect(beats.every((b) => b.vo === null)).toBe(true);
     // 10s source + 5s reaction + 6s source + 4s reaction = 25s
     expect(segment?.length_s).toBe(25);
+  });
+});
+
+describe("buildSinglePointSegment", () => {
+  it("rejects a point that isn't approved", () => {
+    const { segment, error } = buildSinglePointSegment(
+      project,
+      point({ status: "pending" }),
+      "https://video.canopticon.com",
+    );
+    expect(segment).toBeNull();
+    expect(error).toMatch(/must be approved/);
+  });
+
+  it("rejects an approved point with no recording", () => {
+    const { segment, error } = buildSinglePointSegment(
+      project,
+      point({ reaction_r2_key: null, reaction_duration_ms: null }),
+      "https://video.canopticon.com",
+    );
+    expect(segment).toBeNull();
+    expect(error).toMatch(/no recorded reaction/);
+  });
+
+  it("pads a bare source+reaction pair with a tag beat to satisfy beats.min(3)", () => {
+    const { segment, error } = buildSinglePointSegment(
+      project,
+      point({}),
+      "https://video.canopticon.com",
+    );
+    expect(error).toBeNull();
+    expect(() => SegmentSchema.parse(segment)).not.toThrow();
+    const beats = segment?.beats ?? [];
+    expect(beats).toHaveLength(3);
+    expect(beats.map((b) => b.type)).toEqual(["source_clip", "reaction", "tag"]);
+    expect(beats[2]?.clip).toBeNull();
   });
 });
