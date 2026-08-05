@@ -16,12 +16,16 @@ import { z } from "zod";
 
 /** Four editorial templates. Three from the handoff (Part IV) — each
  *  is a beat skeleton, not a visual style — plus the compilation
- *  format the operator asked for in Phase 1B. */
+ *  format the operator asked for in Phase 1B. Plus "reaction" (the
+ *  operator's own reaction-video tool, react/ routes) — no AI voiceover,
+ *  no forensic_turn, alternating source-clip/reaction-clip beats built
+ *  entirely from the operator's own recorded takes. */
 export const TemplateKindSchema = z.enum([
   "claim_vs_ground", // Claim vs. The Ground — fact-check a statement against the record
   "buried_number", // The Buried Number — one shocking datapoint, scaled
   "reversal", // The Reversal — official story inverted by the receipts
   "daily_brief", // 3-5 stories of the day in one ~75-90s compilation
+  "reaction", // operator reacting point-by-point to an external source video
 ]);
 
 export const VariantSchema = z.enum([
@@ -125,7 +129,11 @@ export const BeatSchema = z.object({
   t_out_s: z.number().positive(),
   /** Editorial role of this beat in the chosen template. Drives the
    *  emphasis defaults (cold_open → strong, turn → pattern interrupt,
-   *  steelman → muted). */
+   *  steelman → muted). Purely informational — the renderer dispatches
+   *  on each beat's own clip/chrome content, never on `type` (confirmed
+   *  by grep: zero references in packages/video-renderer/src/remotion).
+   *  "source_clip"/"reaction" are the reaction-video template's own pair
+   *  of beat types — no emphasis defaults apply to them. */
   type: z.enum([
     "cold_open",
     "thesis",
@@ -134,6 +142,8 @@ export const BeatSchema = z.object({
     "steelman",
     "implication",
     "tag",
+    "source_clip",
+    "reaction",
   ]),
   /** Narration line. Null when this beat carries no VO (held silence,
    *  pattern interrupt). */
