@@ -132,10 +132,19 @@ function renderPointCard(project: ReactProjectRow, p: ReactPointRow): string {
         ? `<span class="pill" style="background:rgba(0,0,0,.06);color:var(--ink-3)">skipped</span>`
         : `<span class="pill queued">pending</span>`;
 
+  const recordedTag = p.reaction_r2_key
+    ? `<span class="pill succeeded">recorded${p.reaction_duration_ms ? ` · ${(p.reaction_duration_ms / 1000).toFixed(0)}s` : ""}</span>`
+    : "";
+
+  const recordLink =
+    p.status === "approved"
+      ? `<a href="/react/projects/${escapeAttr(project.id)}/points/${escapeAttr(p.id)}/record" class="btn" style="background:${p.reaction_r2_key ? "#fff" : "var(--amber)"};color:var(--ink);border:1px solid var(--rule);margin-top:10px;display:inline-block">${p.reaction_r2_key ? "Re-record" : "⏺ Record reaction"}</a>`
+      : "";
+
   return `<div class="card">
   <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
     <div class="k">${p.start_s.toFixed(1)}s–${p.end_s.toFixed(1)}s</div>
-    ${statusTag}
+    <div style="display:flex;gap:6px">${recordedTag}${statusTag}</div>
   </div>
   <div class="v" style="font-size:17px;margin-top:6px">${escapeHtml(p.summary)}</div>
   <div class="sub" style="font-style:italic;margin-top:6px">"${escapeHtml(p.transcript_text.slice(0, 300))}${p.transcript_text.length > 300 ? "…" : ""}"</div>
@@ -155,5 +164,119 @@ function renderPointCard(project: ReactProjectRow, p: ReactPointRow): string {
       <button class="btn btn-warn" type="submit" name="action" value="skip">Skip</button>
     </div>
   </form>
+  ${recordLink}
 </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Recording page — full-screen-feeling cue + camera capture. The only
+// other place in this Worker that uses client JS is voice.ts (MediaRecorder
+// for audio-only samples); this reuses that same discipline for a video+
+// audio capture. No PiP, no synced source-clip playback — the operator has
+// already watched/scripted the point, so recording is just "press record,
+// talk, stop."
+// ---------------------------------------------------------------------------
+const RECORD_JS = `
+const $ = (q) => document.querySelector(q);
+let mediaRecorder = null;
+let stream = null;
+let chunks = [];
+let recStart = 0;
+
+async function setup() {
+  stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  $('#preview').srcObject = stream;
+}
+
+function start() {
+  chunks = [];
+  mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+  mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+  mediaRecorder.onstop = onStop;
+  recStart = Date.now();
+  mediaRecorder.start();
+  $('#rec').disabled = true;
+  $('#stop').disabled = false;
+  $('#retake').style.display = 'none';
+  $('#status').textContent = 'Recording...';
+}
+
+function stop() {
+  if (mediaRecorder) mediaRecorder.stop();
+  $('#rec').disabled = false;
+  $('#stop').disabled = true;
+}
+
+async function onStop() {
+  const durationMs = Date.now() - recStart;
+  const blob = new Blob(chunks, { type: 'video/webm' });
+  $('#preview').srcObject = null;
+  $('#preview').src = URL.createObjectURL(blob);
+  $('#preview').controls = true;
+  $('#preview').muted = false;
+  $('#retake').style.display = 'inline-block';
+  $('#status').textContent = 'Uploading (' + (durationMs / 1000).toFixed(1) + 's)...';
+  const res = await fetch(window.location.pathname.replace(/\\/record$/, '/upload') + '?duration_ms=' + durationMs, {
+    method: 'POST',
+    headers: { 'content-type': 'video/webm' },
+    body: blob,
+  });
+  $('#status').textContent = res.ok ? 'Uploaded ✓' : 'Upload failed: ' + res.status;
+}
+
+function retake() {
+  $('#preview').src = '';
+  $('#preview').controls = false;
+  $('#preview').muted = true;
+  $('#preview').srcObject = stream;
+  $('#retake').style.display = 'none';
+  $('#status').textContent = 'Ready.';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  setup();
+  $('#rec').addEventListener('click', start);
+  $('#stop').addEventListener('click', stop);
+  $('#retake').addEventListener('click', retake);
+});
+`;
+
+export function renderRecordPage(args: {
+  project: ReactProjectRow;
+  point: ReactPointRow;
+}): Response {
+  const { project, point } = args;
+  const cueText = point.cue_text ?? point.suggested_angle_text ?? "";
+  const cueBlock =
+    point.cue_mode === "verbatim"
+      ? `<div style="font-family:var(--serif);font-size:26px;line-height:1.5">${escapeHtml(cueText)}</div>`
+      : `<ul style="font-family:var(--serif);font-size:22px;line-height:1.7;padding-left:22px;margin:0">${cueText
+          .split("\n")
+          .filter((l) => l.trim())
+          .map((l) => `<li>${escapeHtml(l.replace(/^[-*]\s*/, ""))}</li>`)
+          .join("")}</ul>`;
+
+  const body = `
+  <div class="h1">${escapeHtml(project.title)}</div>
+  <div class="sub">${point.start_s.toFixed(1)}s–${point.end_s.toFixed(1)}s · ${escapeHtml(point.cue_mode === "verbatim" ? "verbatim script" : "bullet cue")}</div>
+
+  <div class="card" style="background:#fbf3df">
+    ${cueBlock}
+  </div>
+
+  <div class="card">
+    <video id="preview" autoplay muted playsinline></video>
+    <div class="row" style="margin-top:14px">
+      <button id="rec" class="btn">⏺ Record</button>
+      <button id="stop" class="btn" style="background:#fff;color:var(--ink);border:1px solid var(--rule)" disabled>⏹ Stop &amp; upload</button>
+      <button id="retake" class="btn btn-warn" style="display:none">↺ Retake</button>
+    </div>
+    <div id="status" style="margin-top:12px;font-family:var(--mono);font-size:12px;color:var(--ink-3)">Requesting camera…</div>
+  </div>
+
+  <a href="/react/projects/${escapeAttr(project.id)}" style="font-family:var(--mono);font-size:12px;color:var(--ink-3)">← back to points</a>
+
+  <script>${RECORD_JS}</script>
+`;
+  return htmlPage({ title: `Record — ${point.summary}`, body });
 }
