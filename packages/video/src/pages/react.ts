@@ -74,7 +74,10 @@ export function renderReactDetailPage(args: {
   points: ReactPointRow[];
 }): Response {
   const { project, points } = args;
-  const stillWorking = project.status === "transcribing" || project.status === "scripting";
+  const stillWorking =
+    project.status === "transcribing" ||
+    project.status === "scripting" ||
+    project.status === "stitching";
 
   const errorBlock = project.error ? `<pre class="err">${escapeHtml(project.error)}</pre>` : "";
 
@@ -90,10 +93,13 @@ export function renderReactDetailPage(args: {
         ? ""
         : `<div class="card"><div class="v empty">No points yet.</div></div>`;
 
-  const approvedCount = points.filter((p) => p.status === "approved").length;
+  const approved = points.filter((p) => p.status === "approved");
+  const recorded = approved.filter((p) => p.reaction_r2_key);
   const summaryLine = points.length
-    ? `<div class="sub" style="margin-bottom:16px">${points.length} point${points.length === 1 ? "" : "s"} found · ${approvedCount} approved</div>`
+    ? `<div class="sub" style="margin-bottom:16px">${points.length} point${points.length === 1 ? "" : "s"} found · ${approved.length} approved · ${recorded.length} recorded</div>`
     : "";
+
+  const stitchBlock = renderStitchBlock(project, approved.length, recorded.length);
 
   const body = `
   <div class="h1">${escapeHtml(project.title)}</div>
@@ -101,6 +107,7 @@ export function renderReactDetailPage(args: {
   <div style="margin:10px 0 20px"><span class="pill ${statusPillClass(project.status)}">${escapeHtml(STATUS_LABEL[project.status] ?? project.status)}</span></div>
   ${errorBlock}
   ${waitingBlock}
+  ${stitchBlock}
   ${summaryLine}
   ${pointsBlock}
 `;
@@ -109,6 +116,52 @@ export function renderReactDetailPage(args: {
     body,
     ...(stillWorking ? { refreshSeconds: 8 } : {}),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Stitch + two-gate publish controls. "Rendering succeeded" and "approved
+// for publication" are separate gates (same rule as the GDELT/reading
+// pipeline's segments.published_at) — a render lands as 'rendered' and
+// stays operator-only until both /approve and /publish are clicked.
+// ---------------------------------------------------------------------------
+function renderStitchBlock(
+  project: ReactProjectRow,
+  approvedCount: number,
+  recordedCount: number,
+): string {
+  if (project.status === "rendered" || project.status === "published") {
+    const videoUrl = project.stitched_r2_key
+      ? `/assets/${encodeURIComponent(project.stitched_r2_key)}`
+      : null;
+    const player = videoUrl
+      ? `<video controls src="${escapeAttr(videoUrl)}" style="width:100%;max-width:420px;border-radius:8px;margin-bottom:14px"></video>`
+      : "";
+    const actions =
+      project.status === "published"
+        ? `<span class="pill succeeded">published</span>`
+        : project.approved_at
+          ? `<form method="POST" action="/react/projects/${escapeAttr(project.id)}/publish" style="display:inline">
+              <button class="btn" type="submit">Publish →</button>
+            </form>`
+          : `<form method="POST" action="/react/projects/${escapeAttr(project.id)}/approve" style="display:inline">
+              <button class="btn" type="submit" style="background:#fff;color:var(--ink);border:1px solid var(--rule)">Approve render</button>
+            </form>`;
+    return `<div class="card">
+  <div class="k">stitched render</div>
+  <div style="margin-top:10px">${player}</div>
+  ${actions}
+</div>`;
+  }
+
+  if (approvedCount < 2) return "";
+  const ready = recordedCount === approvedCount;
+  return `<div class="card">
+  <div class="k">stitch</div>
+  <div class="sub" style="margin:6px 0 12px">${recordedCount}/${approvedCount} approved points have a recorded reaction</div>
+  <form method="POST" action="/react/projects/${escapeAttr(project.id)}/stitch">
+    <button class="btn" type="submit" ${ready ? "" : "disabled"}>Stitch into final video →</button>
+  </form>
+</div>`;
 }
 
 function renderPointCard(project: ReactProjectRow, p: ReactPointRow): string {

@@ -20,11 +20,20 @@
 //                                         the render Container fetches this
 //                                         over plain HTTPS at stitch time,
 //                                         with no session cookie to send.
+// POST /react/projects/:id/stitch      — build the Segment from approved,
+//                                         recorded points and render it
+// POST /react/projects/:id/approve     — operator watched the stitched
+//                                         render, first of the two publish
+//                                         gates (mirrors queue.ts/segments)
+// POST /react/projects/:id/publish     — SEPARATE gate: makes the render
+//                                         public. Requires approve first.
 
+import type { Segment } from "@canopticon/shared/video/segment-schema";
 import { Hono } from "hono";
 import { type AuthState, requireOperator } from "../auth";
 import type { Env } from "../env";
 import { renderReactDetailPage, renderReactListPage, renderRecordPage } from "../pages/react";
+import { buildReactSegment } from "../react/build-segment";
 import {
   createReactProject,
   listReactPoints,
@@ -35,7 +44,7 @@ import {
   updateReactProject,
 } from "../react/db";
 import { segmentTranscriptIntoPoints } from "../react/segment-points";
-import { transcribeVideo } from "../render/client";
+import { renderSegment, transcribeVideo } from "../render/client";
 
 const app = new Hono<{ Bindings: Env; Variables: AuthState }>();
 
@@ -147,7 +156,80 @@ app.get("/clip/:key", async (c) => {
   });
 });
 
+app.post("/projects/:id/stitch", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const id = c.req.param("id");
+  const project = await loadReactProject(c.env.DB, id);
+  if (!project) return new Response("project not found", { status: 404 });
+  const points = await listReactPoints(c.env.DB, id);
+  const { segment, error } = buildReactSegment(project, points, c.env.VIDEO_BASE);
+  if (!segment) {
+    return c.redirect(
+      `/react/projects/${encodeURIComponent(id)}?msg=${encodeURIComponent(error ?? "cannot stitch")}`,
+      302,
+    );
+  }
+  await updateReactProject(c.env.DB, id, { status: "stitching", error: null });
+  c.executionCtx.waitUntil(runStitch(c.env, id, segment));
+  return c.redirect(`/react/projects/${encodeURIComponent(id)}`, 302);
+});
+
+app.post("/projects/:id/approve", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const id = c.req.param("id");
+  const project = await loadReactProject(c.env.DB, id);
+  if (!project || project.status !== "rendered") {
+    return new Response("project has no rendered video to approve", { status: 400 });
+  }
+  await updateReactProject(c.env.DB, id, { approved_at: new Date().toISOString() });
+  return c.redirect(`/react/projects/${encodeURIComponent(id)}`, 302);
+});
+
+app.post("/projects/:id/publish", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const id = c.req.param("id");
+  const project = await loadReactProject(c.env.DB, id);
+  if (!project || project.status !== "rendered" || !project.approved_at) {
+    return new Response("approve the render before publishing", { status: 400 });
+  }
+  await updateReactProject(c.env.DB, id, {
+    status: "published",
+    published_at: new Date().toISOString(),
+  });
+  return c.redirect(`/react/projects/${encodeURIComponent(id)}`, 302);
+});
+
 export default app;
+
+// ---------------------------------------------------------------------------
+// Background: render the stitched Segment against the Container, same
+// call shape as queue.ts's approve flow, then write the MP4 straight to
+// R2 via the ASSETS binding (Phase 0's chosen shortcut — no pre-signed
+// PUT plumbing) and flip the project to 'rendered'.
+// ---------------------------------------------------------------------------
+async function runStitch(env: Env, projectId: string, segment: Segment): Promise<void> {
+  try {
+    const result = await renderSegment(env.RENDER_CONTAINER, segment);
+    if (!result.ok || !result.mp4) {
+      await updateReactProject(env.DB, projectId, {
+        status: "failed",
+        error: result.error ?? "stitch render failed",
+      });
+      return;
+    }
+    const key = `react-renders/${projectId}.mp4`;
+    await env.ASSETS.put(key, result.mp4, { httpMetadata: { contentType: "video/mp4" } });
+    await updateReactProject(env.DB, projectId, { status: "rendered", stitched_r2_key: key });
+  } catch (err) {
+    await updateReactProject(env.DB, projectId, {
+      status: "failed",
+      error: (err as Error).message,
+    }).catch(() => {});
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Background pipeline: transcribe (timestamped) -> segment into points.
