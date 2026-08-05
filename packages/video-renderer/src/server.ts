@@ -79,6 +79,7 @@ app.post("/render", async (req, reply) => {
 // sourcing/transcribe-video.ts for the yt-dlp + whisperx pipeline.
 interface TranscribeBody {
   url?: unknown;
+  timestamped?: unknown;
 }
 
 app.post("/transcribe", async (req, reply) => {
@@ -88,8 +89,9 @@ app.post("/transcribe", async (req, reply) => {
     reply.code(400);
     return { ok: false, error: "missing url" };
   }
-  req.log.info({ url }, "transcribe start");
-  const result = await transcribeVideoUrl(url);
+  const timestamped = body?.timestamped === true;
+  req.log.info({ url, timestamped }, "transcribe start");
+  const result = await transcribeVideoUrl(url, { timestamped });
   if (!result.ok) {
     reply.code(500);
     return { ok: false, error: result.error ?? "unknown transcription failure" };

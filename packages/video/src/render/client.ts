@@ -69,9 +69,16 @@ export async function renderSegment(
   }
 }
 
+export interface TranscriptSegment {
+  text: string;
+  start_s: number;
+  end_s: number;
+}
+
 export interface TranscribeContainerResult {
   ok: boolean;
   transcript?: string;
+  segments?: TranscriptSegment[];
   title?: string;
   channel?: string;
   published_at?: string | null;
@@ -84,11 +91,18 @@ export interface TranscribeContainerResult {
  *  max_instances=1 per wrangler.toml) — a transcription job and a video
  *  render share the one Container instance and queue behind each other.
  *  Acceptable for now (both are operator-triggered, not high-frequency);
- *  revisit if that contention becomes a real bottleneck. */
+ *  revisit if that contention becomes a real bottleneck.
+ *
+ *  `timestamped: true` (the reaction-video tool's point-segmentation use
+ *  case) requests WhisperX's --output_format json instead of plain txt —
+ *  segment-level start/end times, no forced-alignment pass needed for
+ *  that precision. Omit/false preserves the original reading-ingestion
+ *  behavior (plain text, no segments array). */
 export async function transcribeVideo(
   containerNs: DurableObjectNamespace,
   jobId: string,
   url: string,
+  opts: { timestamped?: boolean } = {},
 ): Promise<TranscribeContainerResult> {
   const ns = containerNs as unknown as ContainerNamespaceLike;
   const id = ns.idFromName(jobId);
@@ -98,7 +112,7 @@ export async function transcribeVideo(
       new Request("https://render/transcribe", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, timestamped: opts.timestamped === true }),
       }),
     );
     const body = (await res.json().catch(() => null)) as TranscribeContainerResult | null;

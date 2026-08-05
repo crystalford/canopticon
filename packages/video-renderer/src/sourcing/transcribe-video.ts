@@ -5,6 +5,15 @@
 // alignment is for caption sync on short clips; a 60-minute commentary
 // video just needs the plain text, and skipping alignment is faster.
 //
+// Two output modes, both skip --align (word-level WAV2VEC2 alignment is
+// unnecessary cost/precision for either use case — that's reserved for
+// caption sync in whisperx.ts): plain text (`--output_format txt`, the
+// original reading-ingestion use case, no timestamps at all) and
+// timestamped (`--output_format json`, the reaction-video tool's point-
+// segmentation use case) — WhisperX's base decode already emits
+// segment-level start/end times as part of its normal JSON output, no
+// forced-alignment pass required to get them.
+//
 // File discovery is directory-scanned rather than assuming an exact
 // output filename — yt-dlp's --write-info-json naming (with
 // --extract-audio active) and whisperx's output naming have both varied
@@ -17,9 +26,16 @@ import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+export interface TranscriptSegment {
+  text: string;
+  start_s: number;
+  end_s: number;
+}
+
 export interface TranscribeResult {
   ok: boolean;
   transcript?: string | undefined;
+  segments?: TranscriptSegment[] | undefined;
   title?: string | undefined;
   channel?: string | undefined;
   published_at?: string | null | undefined;
@@ -36,10 +52,22 @@ interface YtDlpInfo {
   duration?: number;
 }
 
-export async function transcribeVideoUrl(url: string): Promise<TranscribeResult> {
+/** WhisperX's own JSON output shape (undocumented publicly, confirmed
+ *  from the whisperx source: a top-level `segments` array, each with at
+ *  least `start`/`end`/`text` — `words` is only populated when --align
+ *  ran, which this call deliberately skips). */
+interface WhisperXJson {
+  segments?: Array<{ start?: number; end?: number; text?: string }>;
+}
+
+export async function transcribeVideoUrl(
+  url: string,
+  opts: { timestamped?: boolean } = {},
+): Promise<TranscribeResult> {
   const workDir = join(tmpdir(), `transcribe-${Date.now()}-${Math.floor(Math.random() * 1e6)}`);
   await mkdir(workDir, { recursive: true });
   const outBase = join(workDir, "audio");
+  const timestamped = opts.timestamped === true;
 
   try {
     const ytErr = await runYtDlp(url, outBase);
@@ -60,24 +88,49 @@ export async function transcribeVideoUrl(url: string): Promise<TranscribeResult>
       }
     }
 
-    const wxErr = await runWhisperX(audioPath, workDir);
+    const wxErr = await runWhisperX(audioPath, workDir, timestamped ? "json" : "txt");
     if (wxErr) return { ok: false, error: `whisperx: ${wxErr}` };
 
     const postFiles = await readdir(workDir).catch(() => [] as string[]);
-    const txtName = postFiles.find((f) => f.endsWith(".txt"));
-    if (!txtName) return { ok: false, error: "whisperx produced no transcript file" };
-    const transcript = (await readFile(join(workDir, txtName), "utf8")).trim();
-    if (!transcript) return { ok: false, error: "whisperx produced an empty transcript" };
-
-    return {
-      ok: true,
-      transcript,
+    const common = {
       title: info.title ?? undefined,
       channel: info.channel ?? info.uploader ?? undefined,
       published_at: parseUploadDate(info.upload_date),
       duration_s: info.duration ?? undefined,
       source_url: url,
     };
+
+    if (timestamped) {
+      const jsonName = postFiles.find((f) => f.endsWith(".json"));
+      if (!jsonName) return { ok: false, error: "whisperx produced no timestamped output file" };
+      let parsed: WhisperXJson;
+      try {
+        parsed = JSON.parse(await readFile(join(workDir, jsonName), "utf8")) as WhisperXJson;
+      } catch (err) {
+        return { ok: false, error: `whisperx json parse failed: ${(err as Error).message}` };
+      }
+      const segments = (parsed.segments ?? [])
+        .filter((s) => typeof s.text === "string" && s.text.trim())
+        .map((s) => ({
+          text: (s.text ?? "").trim(),
+          start_s: s.start ?? 0,
+          end_s: s.end ?? s.start ?? 0,
+        }));
+      if (segments.length === 0) return { ok: false, error: "whisperx produced no segments" };
+      return {
+        ok: true,
+        segments,
+        transcript: segments.map((s) => s.text).join(" "),
+        ...common,
+      };
+    }
+
+    const txtName = postFiles.find((f) => f.endsWith(".txt"));
+    if (!txtName) return { ok: false, error: "whisperx produced no transcript file" };
+    const transcript = (await readFile(join(workDir, txtName), "utf8")).trim();
+    if (!transcript) return { ok: false, error: "whisperx produced an empty transcript" };
+
+    return { ok: true, transcript, ...common };
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => {});
   }
@@ -106,7 +159,11 @@ function runYtDlp(url: string, outBase: string): Promise<string | null> {
   ]);
 }
 
-function runWhisperX(audioPath: string, outDir: string): Promise<string | null> {
+function runWhisperX(
+  audioPath: string,
+  outDir: string,
+  format: "txt" | "json",
+): Promise<string | null> {
   return run("whisperx", [
     audioPath,
     "--model",
@@ -115,7 +172,7 @@ function runWhisperX(audioPath: string, outDir: string): Promise<string | null> 
     "--language",
     "en",
     "--output_format",
-    "txt",
+    format,
     "--output_dir",
     outDir,
     "--compute_type",
