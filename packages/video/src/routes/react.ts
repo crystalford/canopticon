@@ -1,0 +1,139 @@
+// /react routes — the reaction-video production tool (standalone,
+// separate route family from /queue's GDELT/AI-voiceover pipeline; see
+// react/db.ts + react/segment-points.ts for the data model and LLM
+// pipeline this wires together).
+//
+// GET  /react                          — project list
+// POST /react/projects                 — create a project (title + source
+//                                         URL), kicks off transcription +
+//                                         point segmentation in waitUntil
+// GET  /react/projects/:id             — review/scripting surface: project
+//                                         status + its points, editable
+// POST /react/projects/:id/points/:pid — approve/skip/edit one point
+//                                         (summary, cue_mode, cue_text)
+
+import { Hono } from "hono";
+import { type AuthState, requireOperator } from "../auth";
+import type { Env } from "../env";
+import { renderReactDetailPage, renderReactListPage } from "../pages/react";
+import {
+  createReactProject,
+  listReactPoints,
+  listReactProjects,
+  loadReactPoint,
+  loadReactProject,
+  updateReactPoint,
+  updateReactProject,
+} from "../react/db";
+import { segmentTranscriptIntoPoints } from "../react/segment-points";
+import { transcribeVideo } from "../render/client";
+
+const app = new Hono<{ Bindings: Env; Variables: AuthState }>();
+
+app.get("/", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const projects = await listReactProjects(c.env.DB).catch(() => []);
+  return renderReactListPage({ projects });
+});
+
+app.post("/projects", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const form = await c.req.parseBody();
+  const title = typeof form.title === "string" ? form.title.trim() : "";
+  const sourceUrl = typeof form.source_url === "string" ? form.source_url.trim() : "";
+  if (!title || !sourceUrl) {
+    return new Response("title and source_url are both required", { status: 400 });
+  }
+
+  const project = await createReactProject(c.env.DB, { title, sourceUrl });
+  c.executionCtx.waitUntil(runTranscribeAndSegment(c.env, project.id, sourceUrl));
+  return c.redirect(`/react/projects/${encodeURIComponent(project.id)}`, 302);
+});
+
+app.get("/projects/:id", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const id = c.req.param("id");
+  const project = await loadReactProject(c.env.DB, id);
+  if (!project) return new Response("project not found", { status: 404 });
+  const points = await listReactPoints(c.env.DB, id).catch(() => []);
+  return renderReactDetailPage({ project, points });
+});
+
+app.post("/projects/:id/points/:pointId", async (c) => {
+  const gate = await requireOperator(c);
+  if (gate) return gate;
+  const pointId = c.req.param("pointId");
+  const point = await loadReactPoint(c.env.DB, pointId);
+  if (!point || point.project_id !== c.req.param("id")) {
+    return new Response("point not found", { status: 404 });
+  }
+  const form = await c.req.parseBody();
+  const action = typeof form.action === "string" ? form.action : "";
+
+  if (action === "approve" || action === "skip") {
+    await updateReactPoint(c.env.DB, pointId, {
+      status: action === "approve" ? "approved" : "skipped",
+    });
+  } else if (action === "save") {
+    const cueMode = form.cue_mode === "verbatim" ? "verbatim" : "bullets";
+    const cueText = typeof form.cue_text === "string" ? form.cue_text : point.cue_text;
+    const summary =
+      typeof form.summary === "string" && form.summary.trim() ? form.summary.trim() : point.summary;
+    await updateReactPoint(c.env.DB, pointId, { cue_mode: cueMode, cue_text: cueText, summary });
+  }
+  return c.redirect(`/react/projects/${encodeURIComponent(c.req.param("id"))}`, 302);
+});
+
+export default app;
+
+// ---------------------------------------------------------------------------
+// Background pipeline: transcribe (timestamped) -> segment into points.
+// Runs in waitUntil since both steps are far too slow for one synchronous
+// request (a real WhisperX pass on a 10-minute video, then N chunked
+// writer+judge LLM calls) — same discipline as this Worker's render jobs
+// and the publication's own settle-pipeline background work.
+// ---------------------------------------------------------------------------
+async function runTranscribeAndSegment(
+  env: Env,
+  projectId: string,
+  sourceUrl: string,
+): Promise<void> {
+  try {
+    const result = await transcribeVideo(env.RENDER_CONTAINER, projectId, sourceUrl, {
+      timestamped: true,
+    });
+    if (!result.ok || !result.segments?.length) {
+      await updateReactProject(env.DB, projectId, {
+        status: "failed",
+        error: result.error ?? "transcription produced no timestamped segments",
+      });
+      return;
+    }
+    await updateReactProject(env.DB, projectId, {
+      status: "scripting",
+      transcript_json: JSON.stringify(result.segments),
+      source_duration_s: result.duration_s ?? null,
+    });
+
+    const report = await segmentTranscriptIntoPoints(env, projectId, result.segments);
+    if (report.points_created === 0) {
+      await updateReactProject(env.DB, projectId, {
+        status: "failed",
+        error:
+          report.errors.length > 0
+            ? `segmentation produced no points: ${report.errors.join("; ")}`
+            : "segmentation produced no points",
+      });
+      return;
+    }
+    await updateReactProject(env.DB, projectId, { status: "ready_for_scripting" });
+  } catch (err) {
+    await updateReactProject(env.DB, projectId, {
+      status: "failed",
+      error: (err as Error).message,
+    }).catch(() => {});
+  }
+}
