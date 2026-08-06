@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-08-06T13:20:45Z",
-  "run_id": "31105448362",
+  "requested_at": "2026-08-06T13:21:08Z",
+  "run_id": "31105488645",
   "method": "POST",
-  "path": "/op/records/mark-carney/draft-analysis",
+  "path": "/op/records/mark-carney/draft-proposal",
   "status": 302,
   "body": ""
 }
