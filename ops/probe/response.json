@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-08-06T13:07:24Z",
-  "run_id": "31104437378",
+  "requested_at": "2026-08-06T13:08:10Z",
+  "run_id": "31104462219",
   "method": "GET",
-  "path": "/v1/admin/top-subjects",
-  "status": 404,
-  "body": "{\n  \"error\": {\n    \"code\": \"not_found\",\n    \"message\": \"Not found\",\n    \"trace_id\": \"898541d9-66a2-4570-91b3-3f390eb60161\"\n  }\n}"
+  "path": "/v1/admin/readings-candidates",
+  "status": 0,
+  "body": ""
 }
