@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-08-06T13:24:29Z",
-  "run_id": "31105755765",
-  "method": "POST",
-  "path": "/op/records/mark-carney/draft-proposal",
-  "status": 302,
-  "body": ""
+  "requested_at": "2026-08-06T13:25:28Z",
+  "run_id": "31105833114",
+  "method": "GET",
+  "path": "/v1/admin/event-log?type=proposals.drafted.manual",
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"type\": \"proposals.drafted.manual\",\n  \"count\": 0,\n  \"events\": []\n}"
 }
