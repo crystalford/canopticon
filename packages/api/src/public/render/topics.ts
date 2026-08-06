@@ -28,6 +28,14 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   // Subject pages from the fabric — entities, events, themes — grouped by kind.
   // Each subject is a page that grew from extraction; nobody wrote them.
   const { all } = await import("../../lib/d1");
+  // source_count used to be a per-row correlated subquery doing
+  // lower(label) = lower(n.label) against the full nodes table — with no
+  // usable index (the lower() call on both sides defeats one) that's a
+  // full scan of every node per page row, evaluated before ORDER BY can
+  // even truncate to LIMIT 300. At corpus scale (13k+ nodes) this timed
+  // out the whole request — confirmed live, /topics was hanging/erroring
+  // in production. Precompute the count once via GROUP BY instead of
+  // once per page.
   const subjects = await all<{
     slug: string;
     label: string;
@@ -39,10 +47,15 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
     env.DB,
     `SELECT p.slug, n.label, n.kind, json_extract(n.metadata, '$.entity_type') AS entity_type,
             p.signed_status,
-            (SELECT COUNT(DISTINCT piece_id) FROM nodes
-              WHERE user_id = ? AND lower(label) = lower(n.label) AND piece_id IS NOT NULL) AS source_count
+            COALESCE(sc.cnt, 0) AS source_count
        FROM pages p
        JOIN nodes n ON n.id = p.subject_node_id
+       LEFT JOIN (
+         SELECT lower(label) AS label_lc, COUNT(DISTINCT piece_id) AS cnt
+           FROM nodes
+          WHERE user_id = ? AND piece_id IS NOT NULL
+          GROUP BY lower(label)
+       ) sc ON sc.label_lc = lower(n.label)
       WHERE p.user_id = ?
       ORDER BY n.kind, source_count DESC, n.label
       LIMIT 300`,

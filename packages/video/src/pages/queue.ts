@@ -33,6 +33,7 @@ export function renderQueuePage(args: QueueArgs): Response {
   <div style="font-family:var(--mono);font-size:11px;margin:0 0 16px">
     <a href="/" style="color:var(--ink-3);text-decoration:none;margin-right:14px">status →</a>
     <a href="/queue" style="color:var(--ink);text-decoration:none;margin-right:14px;border-bottom:2px solid var(--amber)">queue</a>
+    <a href="/react" style="color:var(--ink-3);text-decoration:none;margin-right:14px">reaction videos →</a>
     <a href="/voice" style="color:var(--ink-3);text-decoration:none;margin-right:14px">voice clone →</a>
     <a href="/metrics" style="color:var(--ink-3);text-decoration:none">metrics →</a>
   </div>

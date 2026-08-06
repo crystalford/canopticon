@@ -37,6 +37,14 @@
 //                                 the api Worker owns turning the result
 //                                 into fact-graph material.
 //   GET  /transcribe/:jobId    — poll a transcription job's status
+//   GET  /react                — reaction-video tool: project list
+//   POST /react/projects       — create a project, transcribes +
+//                                 segments into points in the background
+//   GET  /react/projects/:id   — scripting review surface
+//                                 (see routes/react.ts, react/db.ts,
+//                                 react/segment-points.ts — a standalone
+//                                 pipeline, not part of the GDELT/
+//                                 AI-voiceover /queue flow above)
 //   POST /spike                — render the Phase 0 seed segment
 //   GET  /assets/:key          — operator-only R2 proxy
 //   GET  /public/segments      — public JSON: every published segment
@@ -54,6 +62,7 @@ import fromReadingRoutes from "./routes/from-reading.ts";
 import healthRoutes from "./routes/health.ts";
 import publicRoutes from "./routes/public.ts";
 import queueRoutes from "./routes/queue.ts";
+import reactRoutes from "./routes/react.ts";
 import spikeRoutes from "./routes/spike.ts";
 import statusRoutes from "./routes/status.ts";
 import transcribeRoutes from "./routes/transcribe.ts";
@@ -86,6 +95,7 @@ app.route("/", spikeRoutes);
 app.route("/", fromReadingRoutes);
 app.route("/", transcribeRoutes);
 app.route("/queue", queueRoutes);
+app.route("/react", reactRoutes);
 app.route("/voice", voiceRoutes);
 app.route("/auth", authRoutes);
 app.route("/health", healthRoutes);
