@@ -1,12 +1,39 @@
-// candidates table — daily story-of-the-day candidates from GDELT,
-// scored by the editorial rubric, ready for the operator to promote
-// into a segment.
-//
-// Phase 1's daily cron upserts candidates here (one row per clip). The
-// rubric scorer fills in the score columns. The /queue page reads from
-// this table and the segments table together.
+// candidates table — READ-ONLY HISTORY as of the GDELT-pipeline cut
+// (see CLAUDE.md's "Two other Workers exist" section and
+// docs/canopticon-renovation.md). This table stops receiving new rows:
+// the discovery/scoring/casting pipeline that used to write here
+// (sourcing/gdelt.ts, sourcing/brave.ts, editorial/rubric.ts) has been
+// removed as a fully separate "what's newsworthy" engine with no
+// connection to the typed graph. Kept only so already-promoted
+// candidates and their segments remain reviewable — routes/queue.ts's
+// GET / and GET /:id still read through here.
 
-import type { Candidate } from "./gdelt";
+/** Shape a historical candidate row was written in — same fields the
+ *  now-removed GDELT/Brave clients + rubric scorer produced. Kept here
+ *  (not re-imported from the deleted sourcing/gdelt.ts) purely so
+ *  CandidateRow still type-checks against rows already in D1. */
+export interface Candidate {
+  id: string;
+  network: string;
+  clip_url: string;
+  captured_at: string;
+  headline: string;
+  excerpt: string;
+  entities: string[];
+  source: "gdelt" | "brave" | "rss" | "stub";
+}
+
+/** Per-axis rubric scores a historical row's rubric_json deserialises
+ *  to — kept for pages/queue.ts's read-only display, same reason as
+ *  Candidate above. */
+export interface RubricScores {
+  forensic_potential: number;
+  visual_evidence: number;
+  recency: number;
+  canadian_lane: number;
+  counter_voice: number;
+  legibility: number;
+}
 
 export interface CandidateRow extends Candidate {
   /** Total rubric score (0–30 sum across six 0–5 axes). */
@@ -18,59 +45,6 @@ export interface CandidateRow extends Candidate {
   /** Status: discovered → scored → cast → promoted → rejected */
   status: string;
   created_at: string;
-}
-
-/** Upsert a candidate (idempotent on id). Status starts at "discovered". */
-export async function upsertCandidate(db: D1Database, c: Candidate): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO candidates (
-         id, network, clip_url, captured_at, headline, excerpt, entities_json,
-         source, status, created_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'discovered', ?)
-       ON CONFLICT(id) DO UPDATE SET
-         headline = excluded.headline,
-         excerpt = excluded.excerpt,
-         entities_json = excluded.entities_json`,
-    )
-    .bind(
-      c.id,
-      c.network,
-      c.clip_url,
-      c.captured_at,
-      c.headline,
-      c.excerpt,
-      JSON.stringify(c.entities),
-      c.source,
-      new Date().toISOString(),
-    )
-    .run();
-}
-
-export async function recordRubric(
-  db: D1Database,
-  id: string,
-  score: number,
-  rubricJson: string,
-): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE candidates SET rubric_score = ?, rubric_json = ?, status = 'scored'
-        WHERE id = ?`,
-    )
-    .bind(score, rubricJson, id)
-    .run();
-}
-
-export async function recordTemplate(db: D1Database, id: string, template: string): Promise<void> {
-  await db
-    .prepare("UPDATE candidates SET cast_template = ?, status = 'cast' WHERE id = ?")
-    .bind(template, id)
-    .run();
-}
-
-export async function markPromoted(db: D1Database, id: string): Promise<void> {
-  await db.prepare("UPDATE candidates SET status = 'promoted' WHERE id = ?").bind(id).run();
 }
 
 export async function listRecent(

@@ -1,9 +1,11 @@
-// /queue — operator's daily-radar view. Lists candidates ordered by
-// rubric score, with per-axis scores visible, a cast template, and a
-// "Promote to segment" affordance for the top candidate.
+// /queue — read-only history. The GDELT/Brave daily-radar discovery +
+// rubric scoring + promote flow that used to populate this table has
+// been cut (see CLAUDE.md's "Two other Workers exist" section) — no
+// route writes a new candidate row anymore, so this page shows only
+// whatever's already in D1 from before the cut, no poll/brief/promote
+// actions.
 
-import type { RubricScores } from "../editorial/rubric";
-import type { CandidateRow } from "../sourcing/candidates";
+import type { CandidateRow, RubricScores } from "../sourcing/candidates";
 import { escapeAttr, escapeHtml, htmlPage } from "./shell";
 
 interface QueueArgs {
@@ -12,24 +14,10 @@ interface QueueArgs {
 
 export function renderQueuePage(args: QueueArgs): Response {
   const { candidates } = args;
-  const castCount = candidates.filter((c) => c.cast_template != null).length;
   const inner = candidates.length === 0 ? renderEmpty() : renderTable(candidates);
-  const briefAction =
-    castCount >= 2
-      ? `<form method="POST" action="/queue/brief" style="margin:0 0 18px;display:inline">
-  <button class="btn" type="submit" style="background:#fff;color:var(--ink);border:1px solid var(--rule)">
-    Build today's brief — ${castCount} stories →
-  </button>
-</form>`
-      : "";
-  const pollAction = `<form method="POST" action="/queue/poll" style="margin:0 0 18px;display:inline;margin-left:8px">
-  <button class="btn" type="submit" style="background:#fff;color:var(--ink);border:1px solid var(--rule)">
-    Refresh radar
-  </button>
-</form>`;
   const body = `
-  <div class="h1">Today's candidates — the daily radar</div>
-  <div class="sub">phase 1 cockpit · gdelt + brave radars · workers-ai rubric · ${candidates.length} candidate${candidates.length === 1 ? "" : "s"} from the last 48h · <span class="pill" style="background:#fff5e6;color:#5c4413">manual mode · cron disabled</span></div>
+  <div class="h1">Candidates — history</div>
+  <div class="sub">gdelt/brave daily-radar discovery retired — see CLAUDE.md · ${candidates.length} candidate${candidates.length === 1 ? "" : "s"} on record, read-only</div>
   <div style="font-family:var(--mono);font-size:11px;margin:0 0 16px">
     <a href="/" style="color:var(--ink-3);text-decoration:none;margin-right:14px">status →</a>
     <a href="/queue" style="color:var(--ink);text-decoration:none;margin-right:14px;border-bottom:2px solid var(--amber)">queue</a>
@@ -37,16 +25,17 @@ export function renderQueuePage(args: QueueArgs): Response {
     <a href="/voice" style="color:var(--ink-3);text-decoration:none;margin-right:14px">voice clone →</a>
     <a href="/metrics" style="color:var(--ink-3);text-decoration:none">metrics →</a>
   </div>
-  <div>${briefAction}${pollAction}</div>
   ${inner}
   <div class="card" style="margin-top:24px">
-    <div class="k">how this works</div>
+    <div class="k">how segments get made now</div>
     <div style="font-family:var(--serif);font-size:14.5px;line-height:1.65;margin-top:4px">
-      The daily cron polls GDELT for Canadian-politics clips, scores each one against the
-      six-axis rubric (forensic potential, visual evidence, recency, lane fit, counter-voice,
-      legibility), and casts the highest into one of three templates. The operator
-      promotes the top candidate to a segment — the editorial brain writes the §7b script,
-      flags the forensic_turn as <code>needs_human: true</code>, and waits for your edit.
+      The daily GDELT/Brave radar — poll, six-axis rubric score, cast, promote — has been
+      retired: it was a fully separate "what's newsworthy" engine with no connection to the
+      publication's typed graph. Segments now come from the publication's own signed
+      readings — the api Worker POSTs a reading's already-verified facts to
+      <code>/segments/from-reading</code>, which drafts a script from them (re-sequenced,
+      not independently sourced) and lands it in the same review below. Rows in this table
+      are history from before the cut.
     </div>
   </div>
 `;
@@ -55,8 +44,8 @@ export function renderQueuePage(args: QueueArgs): Response {
 
 function renderEmpty(): string {
   return `<div class="card">
-  <div class="k">no candidates yet</div>
-  <div class="v empty">The daily cron fires at noon UTC. Until then this is empty unless you trigger a manual poll.</div>
+  <div class="k">no candidates on record</div>
+  <div class="v empty">Nothing here — this table only ever held GDELT/Brave-sourced candidates, and that pipeline is retired.</div>
 </div>`;
 }
 
@@ -70,7 +59,6 @@ function renderTable(candidates: CandidateRow[]): string {
         <th style="text-align:left;padding:12px 16px;font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.04em">network · headline</th>
         <th style="text-align:left;padding:12px 16px;font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.04em">template</th>
         <th style="text-align:left;padding:12px 16px;font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.04em">status</th>
-        <th style="text-align:right;padding:12px 16px;font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.04em">action</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -87,15 +75,10 @@ function renderRow(c: CandidateRow): string {
   const template = c.cast_template
     ? `<span class="pill running">${escapeHtml(c.cast_template)}</span>`
     : `<span class="empty">—</span>`;
-  const status = `<span class="pill ${escapeAttr(c.status)}">${escapeHtml(c.status)}</span>`;
-  const action =
-    c.status === "cast" || c.status === "scored"
-      ? `<form method="POST" action="/queue/${escapeAttr(c.id)}/promote" style="margin:0">
-        <button class="btn" type="submit" style="padding:8px 14px;font-size:12px">Promote →</button>
-      </form>`
-      : c.status === "promoted"
-        ? `<span class="pill succeeded">promoted</span>`
-        : `<span class="empty">—</span>`;
+  const status =
+    c.status === "promoted"
+      ? `<a href="/queue/${escapeAttr(c.id)}" class="pill succeeded" style="text-decoration:none">promoted — review →</a>`
+      : `<span class="pill ${escapeAttr(c.status)}">${escapeHtml(c.status)}</span>`;
 
   const sourceTag =
     c.source === "stub"
@@ -119,7 +102,6 @@ function renderRow(c: CandidateRow): string {
   </td>
   <td style="padding:14px 16px;vertical-align:top">${template}</td>
   <td style="padding:14px 16px;vertical-align:top">${status}</td>
-  <td style="padding:14px 16px;vertical-align:top;text-align:right">${action}</td>
 </tr>`;
 }
 

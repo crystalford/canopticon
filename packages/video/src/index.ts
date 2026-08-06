@@ -1,26 +1,29 @@
-// canopticon-video — daily forensic video engine Worker.
+// canopticon-video — forensic video engine Worker.
 //
-// Phase 1 cockpit: the daily cron polls GDELT for Canadian-politics
-// clips, scores each through the editorial rubric (Workers AI), casts
-// the highest-scoring into one of three templates, and surfaces them
-// on /queue. The operator promotes one candidate per day to a segment
-// that Phase 1 chunk B's editorial brain writes a script for.
+// The GDELT/Brave daily-radar discovery pipeline (poll → rubric-score →
+// cast → promote) that used to drive this Worker has been CUT — a
+// fully separate "what's newsworthy today" engine, its own database,
+// zero connection to the publication's typed graph. See CLAUDE.md's
+// "Two other Workers exist" section and docs/canopticon-renovation.md
+// for the full reasoning. routes/queue.ts now only carries what's
+// genuinely shared: the render-job review/approve/publish lifecycle,
+// kept because routes/from-reading.ts's reading-sourced segments
+// depend on it, plus read-only access to whatever candidates/segments
+// already exist from before the cut.
+//
+// The live content path now: the publication's api Worker POSTs a
+// signed reading's verified facts to /segments/from-reading, which
+// drafts a video essay (short or long-form) — the reading's own facts
+// re-sequenced into a script, never independently sourced or judged —
+// then the SAME review/approve/render path above takes it from there.
+// See editorial/reading-brain.ts.
 //
 // Phase 0 path (operator can still trigger): POST /spike renders the
 // seeded "It Looks Like Teslas" segment against the Container.
 //
-// A second content pipeline runs alongside the GDELT radar: the
-// publication's api Worker can POST a signed reading's verified facts
-// to /segments/from-reading, which drafts a video essay (short or
-// long-form) the exact same way a promoted GDELT candidate does —
-// same review/approve/render path, same Segment schema, same
-// Container. See editorial/reading-brain.ts.
-//
 // Routes:
 //   GET  /                    — status page (latest render_job)
-//   GET  /queue                — daily-radar candidates
-//   POST /queue/poll           — manual GDELT poll (same as the cron)
-//   POST /queue/:id/promote    — promote a candidate to a segment
+//   GET  /queue                — historical candidates (read-only)
 //   GET  /queue/:id            — review: pre-render editor, or the
 //                                 rendered video + publish button once
 //                                 a render has actually run
@@ -141,16 +144,9 @@ app.get("/assets/:key", async (c) => {
   });
 });
 
-// NOTE: cron is intentionally not registered here. The Worker is
-// HTTP-only for now — the operator runs the radar by clicking
-// "Refresh radar" on /queue (which POSTs to /queue/poll and calls
-// runDailyPoll). When the manual flow is settled, re-enable the
-// scheduled handler below + uncomment [triggers] in wrangler.toml.
-//
-// const scheduled: ExportedHandlerScheduledHandler<Env> = async (controller, env, ctx) => {
-//   console.log(`canopticon-video cron ${controller.cron} fired at ${new Date().toISOString()}`);
-//   ctx.waitUntil(runDailyPoll(env));
-// };
+// NOTE: no cron here. There's no discovery pipeline left to schedule —
+// the daily-radar poll this used to trigger was cut (see the header
+// comment above). Nothing currently needs a scheduled handler.
 
 export default {
   fetch: app.fetch,
