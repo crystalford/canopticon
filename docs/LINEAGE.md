@@ -101,8 +101,10 @@ contested assertions), the **fact/interpretation firewall**, two output layers
 Engine** (deterministic L1 + ambitious L2), a per-role **model strategy**
 (roles not names; Llama 3.3 70B retired), and a public-site restructure.
 
-`canonical-spec-v2.4.md` is **still the current vision spec.** The Fabric era
-below is its implementation, with one refinement the spec didn't name (themes).
+`canonical-spec-v2.4.md` was the current vision spec at this point in the
+lineage (superseded first by v2.6, then by the Era 10 renovation verdict —
+see below; `CLAUDE.md` is current). The Fabric era below is its
+implementation, with one refinement the spec didn't name (themes).
 
 ---
 
@@ -262,6 +264,21 @@ to `main`.
 ## How to read the archive
 
 `docs/archive/` is **historical reference only.** If something there contradicts
-`CLAUDE.md` or `canonical-spec-v2.4.md`, the archive is wrong (it describes a
-dead era). Kept because the methodology canon, glossary, and entity-resolution
-notes still contain useful thinking — but the *system* they describe is gone.
+`CLAUDE.md`, the archive is wrong (it describes a dead era). Kept because the
+methodology canon, glossary, and entity-resolution notes still contain useful
+thinking — but the *system* they describe is gone. `CLAUDE.md` is the current
+fallback truth document — not `canonical-spec-v2.4.md`, which (like v2.6) is
+superseded historical record now too.
+
+## Era 10 — the renovation verdict (2026-08-05)
+
+`docs/canopticon-renovation.md` and `docs/renovation-brief.md`, both written
+after v2.6, diagnosed the actual failure mode this whole lineage shares: not
+under-building, but never enforcing that the project's own best strategic
+thinking survives into the next session. Formally adopted into `CLAUDE.md` on
+this date: the GDELT daily-radar pipeline in `packages/video` is cut (its
+render/reading-to-video machinery is kept); `packages/blindspot` ("Instruments")
+is kept but redefined as a standing side-project home, not a growing arm;
+`canonical-spec-v2.6.md` is retired as active reference; and the renovation
+doc's own rule — no new capability until its absence has hurt a real
+production twice — is now a standing rule in `CLAUDE.md`.

@@ -1,6 +1,18 @@
-# CANOPTICON — Canonical Specification v2.6 (Source of Truth)
+# CANOPTICON — Canonical Specification v2.6 (SUPERSEDED — historical record only)
 
-**Version 2.6 · Supersedes ALL prior versions including the v2.5 chat draft. This is the only document that matters. Read it top to bottom before building anything.**
+> **This document is no longer the active reference.** `CLAUDE.md` is the
+> current source of truth. `docs/canopticon-renovation.md` and
+> `docs/renovation-brief.md` (both dated after this spec) diagnosed this
+> document's own thirty-part scope as a real cause of the project's
+> six-month build-without-shipping loop, and issued a ruthless Keep/Freeze/Cut
+> verdict that CLAUDE.md now adopts as policy — including cutting this
+> spec itself from daily reference: *"No v2.7. No v3.0."* Its typed-graph
+> schema and Proposal-layer thinking are still accurate (CLAUDE.md documents
+> the live version directly); its scope/ambition claims are not something to
+> re-derive vision from. Kept here as history, same status as
+> `canonical-spec-v2.4.md` and `docs/archive/`.
+
+**Version 2.6 · Supersedes ALL prior versions including the v2.5 chat draft. Superseded in turn by the renovation verdict — see banner above.**
 
 **The headline reframe:** canopticon is a **rendering system**, not a generation system. The graph is the truth. Pages are renderings. URLs are rendering identities. Every projection of the graph — a timeline, a thread, a video script, a card — is a re-arrangement of the same underlying facts, not a new generation. The only places where generation legitimately happens are (a) extracting graph data from raw documents and (b) writing the signed reading body itself. Everything else is rendering.
 

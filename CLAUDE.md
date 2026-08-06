@@ -2,9 +2,13 @@
 
 > **If you are an AI reading this to understand the project: this file is the
 > source of truth for what Canopticon *currently is*. Everything in
-> `docs/archive/` describes SUPERSEDED systems — do not design against it. The
-> current vision spec is `docs/canonical-spec-v2.6.md`; the version lineage is
-> `docs/LINEAGE.md`; the current built architecture is below.**
+> `docs/archive/` describes SUPERSEDED systems — do not design against it.
+> `docs/canonical-spec-v2.6.md` is ALSO superseded as an active reference —
+> read it as historical record, not something to re-derive vision from (see
+> `docs/canopticon-renovation.md` for why, and for the Keep/Freeze/Cut verdict
+> the "Two other Workers" section below adopts as current policy). The
+> version lineage is `docs/LINEAGE.md`; the current built architecture is
+> below.**
 
 ## What it is
 
@@ -16,6 +20,39 @@ authors.**
 
 - **Domain**: canopticon.com · **Twitter**: @canoptics
 - **GitHub**: crystalford/canopticon
+
+## Two other Workers exist — read this before touching either
+
+Two more Cloudflare Workers live in this monorepo, deployed independently of
+the publication above. Neither is "the product," and neither should be grown
+in lockstep with it. This is adopted policy, not a suggestion — see
+`docs/canopticon-renovation.md` (dated after `canonical-spec-v2.6.md`) for the
+full diagnosis and verdict this section summarizes.
+
+- **`packages/video` (video.canopticon.com)** is a *rendering* surface, not an
+  independent content operation. `routes/from-reading.ts` takes an
+  already-signed Analysis's verified facts and drafts them into a video
+  script through the same human-approval rail (draft → review → approve →
+  publish) as everything else in this file — that part is real, good, and
+  worth using. The GDELT-sourced daily-radar pipeline (candidate discovery,
+  its own rubric scoring of "what's newsworthy," its own database) is a
+  fully separate product wearing the same URL, with zero connection to the
+  typed graph — cut, per the renovation verdict (*"the ninth rebuild wearing
+  a costume"*). The reaction-video tool (`packages/video/src/react/*`) is a
+  third, unrelated thing again: a standalone personal content-creation
+  utility (the operator reacts on camera to an external clip) — legitimate
+  on its own terms, but not a rendering of anything in the graph. Don't
+  conflate any of these three with each other.
+- **`packages/blindspot` (blindspot.canopticon.com, "Instruments")** is a
+  standing home for real, standalone software side-projects, each evaluated
+  on its own merits — not part of the File model, not subject to the fabric's
+  rules above, not something that needs to keep pace with the publication.
+  The Blind Spot (an inequality-measurement instrument) is the first one;
+  future ones are separate builds, same as this one, not a growing "arm."
+
+**Rule, adopted from the renovation verdict, applies across all three
+Workers**: no new capability until the capability's absence has hurt a real
+production twice.
 
 ## The fabric (the core mental model)
 
@@ -148,6 +185,9 @@ Investigations, Citations, re-surface synthesis, the public site.
   A signed reading must show the facts that complicate it.
 - **Repetition is not significance.** Surfacing runs on structure and stance.
 - **Simplicity above all.** Prior iterations failed from over-engineering.
+- **No new capability until its absence has hurt a real production twice.**
+  This project's actual failure mode has never been under-building — see
+  "Two other Workers exist" above and `docs/canopticon-renovation.md`.
 
 ## Env / bindings
 ```
