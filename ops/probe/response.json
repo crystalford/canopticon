@@ -1,6 +1,6 @@
 {
-  "requested_at": "2026-08-06T13:08:10Z",
-  "run_id": "31104462219",
+  "requested_at": "2026-08-06T13:09:36Z",
+  "run_id": "31104568570",
   "method": "GET",
   "path": "/v1/admin/readings-candidates",
   "status": 0,
