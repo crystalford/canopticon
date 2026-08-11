@@ -14,6 +14,7 @@
 import { Hono } from "hono";
 import { type AuthContext, requireAuth } from "../auth/middleware.ts";
 import { enqueueDigest, ensureJobsTable, runDigestJob } from "../graph/lib/digest-jobs.ts";
+import { draftMeme } from "../graph/lib/meme-draft.ts";
 import { SETTLE_STEP_RUNNERS } from "../graph/lib/settle-pipeline.ts";
 import { all, insertOne, one, run } from "../lib/d1.ts";
 import { type Role, callRole, modelForRole } from "../llm/router.ts";
@@ -965,6 +966,48 @@ app.get("/backfill-cost-whitelists", async (c) => {
     inserted++;
   }
   return c.json({ ok: true, checked: DEFAULT_WHITELISTS.length, inserted });
+});
+
+// GET /v1/admin/meme-draft?confirm=1[&contradiction_id=...]
+//
+// Prototype: compresses one already judge-verified self_contradictions row
+// into the "bare A/B, no connecting clause" meme copy format, translates it
+// into a visual prompt, generates one image via Workers AI, stores both.
+// Picks the most recent undrafted contradiction if no id is given. Produces
+// exactly one meme_drafts row for the operator to look at — nothing here
+// publishes anywhere.
+app.get("/meme-draft", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const userId = c.get("user_id");
+  const result = await draftMeme(c.env, userId, c.req.query("contradiction_id") || undefined);
+  return c.json(result);
+});
+
+// GET /v1/admin/meme-image?key=memes/<uuid>.jpg
+//
+// Serves a generated meme image back out of R2. The key is checked against
+// this user's own meme_drafts rows before FILES.get — without that check an
+// arbitrary ?key= would let an authenticated admin read any R2 object by
+// key, not just meme output.
+app.get("/meme-image", async (c) => {
+  const key = c.req.query("key");
+  if (!key || !key.startsWith("memes/")) {
+    return c.json({ ok: false, error: "missing or invalid ?key=" }, 400);
+  }
+  const userId = c.get("user_id");
+  const owned = await one<{ id: string }>(
+    c.env.DB,
+    "SELECT id FROM meme_drafts WHERE image_r2_key = ? AND user_id = ?",
+    [key, userId],
+  );
+  if (!owned) return c.json({ ok: false, error: "not found" }, 404);
+  const obj = await c.env.FILES.get(key);
+  if (!obj) return c.json({ ok: false, error: "missing in storage" }, 404);
+  return new Response(obj.body, {
+    headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=3600" },
+  });
 });
 
 export default app;
