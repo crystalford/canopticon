@@ -33,13 +33,6 @@ export interface Env {
    *  Workers AI binding for MiniMax is enabled instead, this can stay
    *  unset.) */
   MINIMAX_API_KEY?: string;
-  /** GDELT v3 API key — Phase 1, if required. */
-  GDELT_API_KEY?: string;
-  /** Brave Search API key — Phase 1B's second sourcing radar. The api
-   *  Worker already uses this for record-building on click; the video
-   *  Worker reuses the same key. ~$3/1000 queries on the paid tier. */
-  BRAVE_SEARCH_API_KEY?: string;
-
   /** The publication's URL (canopticon.com). Used by /auth/login to
    *  redirect there for the Access challenge. */
   PUBLIC_BASE: string;

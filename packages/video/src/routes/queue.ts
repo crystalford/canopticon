@@ -1,40 +1,32 @@
-// /queue routes — operator's view of the daily-radar candidates +
-// segment review surface.
+// /queue routes — segment review surface. The GDELT/Brave daily-radar
+// discovery + rubric scoring + candidate-promote flow that used to
+// populate this table has been CUT (see CLAUDE.md's "Two other Workers
+// exist" section and docs/canopticon-renovation.md — a fully separate
+// "what's newsworthy" engine, its own database, zero connection to the
+// typed graph). No route here writes a NEW candidate row anymore.
 //
-// GET  /queue                       — list candidates ranked by rubric
-// POST /queue/poll                  — operator-triggered manual poll
-//                                     (same code path as the cron)
-// POST /queue/:id/promote           — call the editorial brain to draft
-//                                     a §7b segment from the candidate,
-//                                     insert into segments table, redirect
-//                                     to the review page
+// What's left is the shared, generic render-job lifecycle that
+// routes/from-reading.ts's reading-sourced segments depend on — that
+// part is real and kept — plus read-only access to whatever candidates
+// and segments already exist from before the cut, so old review links
+// don't 404.
+//
+// GET  /queue                       — historical candidates (read-only)
 // GET  /queue/:id                   — review surface: edit forensic_turn
 // POST /queue/:id/approve           — approve + render (action=approve)
 //                                     or save draft (action=save)
+// POST /queue/:id/publish           — publish an approved render
 
 import { Hono } from "hono";
 import { type AuthState, requireOperator } from "../auth";
-import { draftSegment } from "../editorial/brain";
-import { buildDailyBrief } from "../editorial/compilation";
-import { castTemplate, scoreCandidate } from "../editorial/rubric";
 import type { Env } from "../env";
 import { renderQueuePage } from "../pages/queue";
 import { renderReviewPage } from "../pages/review";
 import { renderSegment as renderInContainer } from "../render/client";
-import { fetchBraveCandidates } from "../sourcing/brave";
-import {
-  listRecent,
-  loadCandidate,
-  markPromoted,
-  recordRubric,
-  recordTemplate,
-  upsertCandidate,
-} from "../sourcing/candidates";
-import { fetchCandidates } from "../sourcing/gdelt";
+import { listRecent, loadCandidate } from "../sourcing/candidates";
 import {
   approveSegment,
   createRenderJob,
-  insertDraftedSegment,
   loadLatestJobForSegment,
   loadSegment,
   loadSegmentRow,
@@ -52,62 +44,8 @@ const app = new Hono<{ Bindings: Env; Variables: AuthState }>();
 app.get("/", async (c) => {
   const gate = await requireOperator(c);
   if (gate) return gate;
-  const rows = await listRecent(c.env.DB, 48, 50).catch(() => []);
+  const rows = await listRecent(c.env.DB, 24 * 365, 50).catch(() => []);
   return renderQueuePage({ candidates: rows });
-});
-
-// Manual poll — fires the same logic the daily cron does.
-app.post("/poll", async (c) => {
-  const gate = await requireOperator(c);
-  if (gate) return gate;
-  c.executionCtx.waitUntil(runDailyPoll(c.env));
-  return c.redirect("/queue", 302);
-});
-
-// Build today's compilation from the top N cast candidates. Stitches
-// them into one daily_brief segment; the operator approves on
-// /queue/brief-:date.
-app.post("/brief", async (c) => {
-  const gate = await requireOperator(c);
-  if (gate) return gate;
-  const rows = await listRecent(c.env.DB, 48, 50).catch(() => []);
-  const usable = rows.filter((r) => r.cast_template != null).slice(0, 5);
-  if (usable.length < 2) {
-    return new Response(
-      "need at least 2 cast candidates to build a daily brief — poll the radar first",
-      { status: 400 },
-    );
-  }
-  const date = new Date().toISOString().slice(0, 10);
-  try {
-    const segment = buildDailyBrief(usable, { date });
-    await insertDraftedSegment(c.env.DB, segment);
-    // Mark the underlying candidates promoted so they don't get
-    // re-promoted individually.
-    for (const cand of usable) await markPromoted(c.env.DB, cand.id);
-    return c.redirect(`/queue/brief-${date}`, 302);
-  } catch (e) {
-    return new Response(`brief failed: ${(e as Error).message}`, { status: 500 });
-  }
-});
-
-app.post("/:id/promote", async (c) => {
-  const gate = await requireOperator(c);
-  if (gate) return gate;
-  const id = c.req.param("id");
-  const candidate = await loadCandidate(c.env.DB, id);
-  if (!candidate) return new Response("candidate not found", { status: 404 });
-  if (!candidate.cast_template) {
-    return new Response("candidate has no template — re-score it first", { status: 400 });
-  }
-  // Editorial brain — LLM (or fallback skeleton) writes a §7b draft.
-  const draft = await draftSegment({ AI: c.env.AI }, candidate);
-  if (!draft.ok || !draft.segment) {
-    return new Response(`draft failed: ${draft.error ?? "unknown"}`, { status: 500 });
-  }
-  await insertDraftedSegment(c.env.DB, draft.segment);
-  await markPromoted(c.env.DB, id);
-  return c.redirect(`/queue/${encodeURIComponent(id)}`, 302);
 });
 
 // Review surface — operator edits forensic_turn. Handles candidate-
@@ -279,30 +217,5 @@ app.post("/:id/publish", async (c) => {
   await publishSegment(c.env.DB, segmentId);
   return c.redirect(`/queue/${encodeURIComponent(candId)}`, 302);
 });
-
-/** The full discovery pass: pool from every radar → upsert → score →
- *  cast. Called by the daily cron and by the operator's manual /poll. */
-export async function runDailyPoll(env: Env): Promise<void> {
-  // Pool from both radars. Brave catches the "last 90 minutes" stuff
-  // GDELT hasn't transcribed yet; GDELT catches the broadcast soundbites
-  // Brave doesn't index. Same id format (deterministic from URL) means
-  // de-dup is automatic at upsert time.
-  const [gdeltCands, braveCands] = await Promise.all([
-    fetchCandidates({ apiKey: env.GDELT_API_KEY }),
-    fetchBraveCandidates({ apiKey: env.BRAVE_SEARCH_API_KEY }),
-  ]);
-  const pool = [...gdeltCands, ...braveCands];
-
-  for (const c of pool) {
-    await upsertCandidate(env.DB, c).catch(() => {});
-    const rubric = await scoreCandidate({ AI: env.AI }, c).catch(() => null);
-    if (!rubric) continue;
-    await recordRubric(env.DB, c.id, rubric.total, JSON.stringify(rubric.scores)).catch(() => {});
-    const tmpl = castTemplate(rubric.gap_kind);
-    if (tmpl) {
-      await recordTemplate(env.DB, c.id, tmpl).catch(() => {});
-    }
-  }
-}
 
 export default app;

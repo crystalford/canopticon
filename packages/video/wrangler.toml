@@ -73,13 +73,9 @@ class_name = "RenderContainer"
 tag = "v1"
 new_sqlite_classes = ["RenderContainer"]
 
-# Cron — DISABLED. The operator is running this manually for now
-# via the "Refresh radar" button on /queue (POST /queue/poll). Re-
-# enable by uncommenting the [triggers] block below once the deploy
-# is settled and the operator has run a few end-to-end renders by
-# hand.
-# [triggers]
-# crons = ["0 12 * * *"]
+# No cron. The daily-radar poll this used to trigger was cut (see
+# CLAUDE.md's "Two other Workers exist" section) — there's no
+# discovery pipeline left to schedule.
 
 [vars]
 LOG_LEVEL = "info"
