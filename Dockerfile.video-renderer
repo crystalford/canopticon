@@ -55,7 +55,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # enough that pushing it to the Cloudflare registry outlasted the
 # deploy's docker auth token, failing with "unauthorized" after 15+
 # minutes stuck retrying a single blob (confirmed live, twice).
-RUN pip3 install --break-system-packages --no-cache-dir \
+#
+# pip MUST be upgraded before any of that runs. bookworm ships pip 23.0.1,
+# which does not normalize underscores and hyphens in a wheel's metadata
+# Name — so when it resolves `typing-extensions>=4.10.0` and the wheel
+# declares `typing_extensions`, it rejects the wheel:
+#
+#   Requested typing-extensions>=4.10.0 ... has inconsistent Name:
+#   expected 'typing-extensions', but metadata has 'typing_extensions'
+#
+# It then falls back to the source tarball, which needs the `flit_core`
+# build backend — and because `--index-url` REPLACES PyPI rather than
+# adding to it (that is deliberate, see above: it is what keeps the CUDA
+# wheels out), flit_core cannot be found on the PyTorch index and the
+# build dies:
+#
+#   ERROR: No matching distribution found for flit_core<4,>=3.11
+#
+# Nothing in this file changed to cause that — typing_extensions published
+# a release whose metadata trips the old pip's bug, and the build started
+# failing on its own. A current pip accepts the wheel, so the source-build
+# path is never taken and no build backend is needed. Upgrading pip is the
+# fix; switching to --extra-index-url would ALSO fix it but would reopen
+# the multi-GB CUDA problem this layer exists to avoid.
+RUN pip3 install --break-system-packages --no-cache-dir --upgrade pip \
+  && pip3 install --break-system-packages --no-cache-dir \
     torch torchaudio --index-url https://download.pytorch.org/whl/cpu \
   && pip3 install --break-system-packages --no-cache-dir \
     whisperx==3.* \
