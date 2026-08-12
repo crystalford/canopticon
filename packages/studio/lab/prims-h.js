@@ -120,14 +120,39 @@ reg(
             nx += (q.y0 - h / 2) * phase * 0.9;
           } else if (mode === 1) {
             // SCATTER along a noise field: the word coming apart.
-            const a =
-              fbm(noise, (q.x0 / w) * 3, (q.y0 / h) * 3 + t * 0.15, 3, p.turbulence) * Math.PI * 2;
-            nx += Math.cos(a) * phase * 120;
-            ny += Math.sin(a) * phase * 120;
+            //
+            // Displacing EVERY point turns the word into confetti at any
+            // meaningful amount — there is nothing left to come apart FROM,
+            // so it reads as noise rather than as disintegration. Instead a
+            // PROPORTION of points leaves, rising with the amount, while
+            // the rest hold the silhouette. Which points leave is fixed per
+            // index, so a point that has gone does not flicker back.
+            const departed = (i * 2654435761) % 1000 < phase * 1000 * 1.15;
+            if (departed) {
+              const a =
+                fbm(noise, (q.x0 / w) * 3, (q.y0 / h) * 3 + t * 0.15, 3, p.turbulence) *
+                Math.PI *
+                2;
+              nx += Math.cos(a) * phase * 150;
+              ny += Math.sin(a) * phase * 150;
+            } else {
+              // The remainder trembles rather than sitting perfectly still —
+              // a held point next to a departing one reads as printed
+              // otherwise, and the plate stops being one image.
+              nx += Math.sin(t * 1.7 + i) * phase * 3;
+              ny += Math.cos(t * 1.4 + i) * phase * 3;
+            }
           } else {
             // COLLAPSE toward the centre line — compression, the essay's
             // own metaphor for fitting through the aperture.
-            ny += (h / 2 - q.y0) * phase;
+            //
+            // Capped at 0.78 rather than running to 1. A full collapse puts
+            // every point on one row: the word is not compressed, it is
+            // gone, and the plate says nothing. Squashed to a fifth of its
+            // height still reads AS the word, which is the difference
+            // between compression and deletion — and compression is the
+            // thing the line is actually about.
+            ny += (h / 2 - q.y0) * Math.min(0.78, phase);
             nx += Math.sin(i * 0.05 + t) * phase * 14;
           }
           return { x: nx, y: ny, x0: q.x0, y0: q.y0 };

@@ -18,6 +18,7 @@ import {
 } from "./cache.ts";
 import { type ComposedScene, composeAll } from "./compose.ts";
 import { hashSceneNodes } from "./hash.ts";
+import { type ShotVariation, planShots } from "./shot-plan.ts";
 import { type Alignment, type SolveResult, nominalAlignment, solveTiming } from "./solver.ts";
 import { type UsageReport, analyseUsage } from "./usage.ts";
 
@@ -35,9 +36,19 @@ export interface HashedScene {
   nodes: HashedNode[];
 }
 
+/** A scene's shots, with what varies across each cut. Carried on the report
+ *  so the Compile view can show the edit, and hashed into the nodes so a
+ *  changed cut recomputes only the shots it touched. */
+export interface SceneShots {
+  sceneId: string;
+  shots: ShotVariation[];
+}
+
 export interface CompileReport {
   projectId: string;
   timing: SolveResult;
+  /** Per-scene cut plans. Empty shots array when a scene is one take. */
+  shotPlans: SceneShots[];
   composed: ComposedScene[];
   cache: CacheReport;
   snapshot: CacheSnapshot;
@@ -83,6 +94,31 @@ export async function compile(
   const timing = solveTiming(ir, alignments, cutRhythm);
   const composed = composeAll(ir);
 
+  // Plan what varies across each scene's cuts. Intensity rides the film's
+  // motion energy, so a director dragging that curve re-cuts the film
+  // rather than only re-styling it.
+  const shotPlans: SceneShots[] = ir.scenes.map((scene, i) => {
+    const solved = timing.scenes.find((s) => s.sceneId === scene.sceneId);
+    const shotCount = solved?.shots.length ?? 1;
+    const composedScene = composed.find((c) => c.sceneId === scene.sceneId);
+    const intensity = composedScene?.state.values.motionEnergy ?? 0.5;
+    return {
+      sceneId: scene.sceneId,
+      shots:
+        shotCount > 1
+          ? planShots({
+              line: scene.narration.text,
+              shotCount,
+              sceneIndex: i,
+              intensity,
+              // The hedge reaches all the way here: a claim is not allowed
+              // to be dramatised into looking like a finding.
+              contested: scene.reading?.contested ?? false,
+            })
+          : [],
+    };
+  });
+
   const hashed: HashedScene[] = [];
   for (const scene of composed) {
     const window = timing.scenes.find((s) => s.sceneId === scene.sceneId);
@@ -100,6 +136,16 @@ export async function compile(
       }
       if (!irScene.narration.voAssetId) {
         assetHashes.push(`text:${irScene.narration.text}`);
+      }
+      // The cut plan is part of what a scene IS. Without it in the hash,
+      // re-cutting a scene would leave every node unchanged and the film
+      // would keep rendering the old edit — the same class of bug as
+      // narration text not reaching the hash.
+      const plan = shotPlans.find((sp) => sp.sceneId === irScene.sceneId);
+      if (plan && plan.shots.length > 0) {
+        assetHashes.push(
+          `cut:${plan.shots.map((v) => `${v.text}/${v.mode}/${v.amount}/${v.invert}`).join("|")}`,
+        );
       }
     }
     const pairs = await hashSceneNodes(
@@ -153,6 +199,7 @@ export async function compile(
   return {
     projectId: ir.projectId,
     timing,
+    shotPlans,
     composed,
     cache,
     snapshot: snapshotFrom(hashed),
