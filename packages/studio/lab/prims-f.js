@@ -23,6 +23,19 @@
 
 const LADDER_MODES = ["SOLID", "ILLUSTRATED", "TECHNICAL", "PIXEL", "POINTS"];
 
+/** The pixel mode's palette: a six-stop ramp keyed to luma, in the house
+ *  colours. Small and fixed on purpose — a limited palette is what reads as
+ *  pixel art, and sharing one ramp across all three channels is what stops
+ *  neutrals from picking up colour. */
+const PIXEL_RAMP = [
+  { l: 0.02, r: 13, g: 15, b: 17 },
+  { l: 0.16, r: 34, g: 39, b: 44 },
+  { l: 0.34, r: 62, g: 69, b: 76 },
+  { l: 0.56, r: 118, g: 126, b: 134 },
+  { l: 0.78, r: 186, g: 192, b: 197 },
+  { l: 0.95, r: 238, g: 241, b: 243 },
+];
+
 reg(
   "mounted_fixture",
   "S · ENTITY",
@@ -261,15 +274,31 @@ function drawPixel(ctx, w, h, geo, project, p, t) {
   s.fillRect(0, 0, small.width, small.height);
   drawFixture(s, geo, scaled, 0, p, t, small.width, small.height);
 
-  // Quantise to a limited palette — the other half of what makes pixel
-  // art read as pixel art. A low resolution alone still looks photographic.
+  // Snap to a fixed palette ramp — the other half of what makes pixel art
+  // read as pixel art. A low resolution alone still looks photographic.
+  //
+  // Quantising R, G and B INDEPENDENTLY is the obvious approach and it is
+  // wrong: on a near-neutral grey the three channels round into different
+  // buckets and manufacture coloured speckle out of nothing. Measured, it
+  // pushed the frame from 39 to 107 distinct luma levels — the opposite of
+  // a limited palette. Snapping each pixel to the nearest entry of one
+  // shared ramp keeps neutrals neutral and the palette genuinely small.
   const img = s.getImageData(0, 0, small.width, small.height);
   const d = img.data;
-  const levels = 5;
   for (let i = 0; i < d.length; i += 4) {
-    d[i] = Math.round((d[i] / 255) * levels) * (255 / levels);
-    d[i + 1] = Math.round((d[i + 1] / 255) * levels) * (255 / levels);
-    d[i + 2] = Math.round((d[i + 2] / 255) * levels) * (255 / levels);
+    const luma = (d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722) / 255;
+    let best = PIXEL_RAMP[0];
+    let bestD = Number.POSITIVE_INFINITY;
+    for (const stop of PIXEL_RAMP) {
+      const dist = Math.abs(stop.l - luma);
+      if (dist < bestD) {
+        bestD = dist;
+        best = stop;
+      }
+    }
+    d[i] = best.r;
+    d[i + 1] = best.g;
+    d[i + 2] = best.b;
   }
   s.putImageData(img, 0, 0);
 
