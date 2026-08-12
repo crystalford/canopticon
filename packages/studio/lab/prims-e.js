@@ -273,10 +273,10 @@ reg(
 
     return {
       frame(ctx, w, h, t, upstream) {
-      // Accept either a bare canvas (older call sites) or the executor's
-      // typed payload, so adding the payload did not have to be a
-      // migration of every consumer at once.
-      const input = upstream && upstream.canvas !== undefined ? upstream.canvas : upstream;
+        // Accept either a bare canvas (older call sites) or the executor's
+        // typed payload, so adding the payload did not have to be a
+        // migration of every consumer at once.
+        const input = upstream && upstream.canvas !== undefined ? upstream.canvas : upstream;
         if (input) {
           // Real upstream pixels — a rasterised entity, or a generated
           // plate. Re-sampled every frame because the source may be moving;

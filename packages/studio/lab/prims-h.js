@@ -169,7 +169,13 @@ reg(
 
       const pts = upstream && upstream.geometry;
       if (!pts || pts.length === 0) {
-        lab(ctx, "geometry_draw: no upstream GEOMETRY", 10, h / 2, inverted ? "#0d0f11" : undefined);
+        lab(
+          ctx,
+          "geometry_draw: no upstream GEOMETRY",
+          10,
+          h / 2,
+          inverted ? "#0d0f11" : undefined,
+        );
         return;
       }
 
@@ -189,7 +195,13 @@ reg(
           ctx.fillRect(q.x - r / 2, q.y - r / 2, r, r);
         }
       }
-      lab(ctx, `${pts.length} PTS · ${inverted ? "REVERSED" : "PLATE"}`, 10, h - 14, inverted ? "#3a4045" : undefined);
+      lab(
+        ctx,
+        `${pts.length} PTS · ${inverted ? "REVERSED" : "PLATE"}`,
+        10,
+        h - 14,
+        inverted ? "#3a4045" : undefined,
+      );
     },
   }),
   "Prints point geometry as a halftone plate. Dot weight keyed to how far each point has travelled, so the mark carries the deformation rather than only showing its result. Invert for the reversed spreads that alternate through Fiore's pages.",
