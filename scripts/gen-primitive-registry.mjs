@@ -15,7 +15,32 @@
 
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { chromium } from "playwright";
+
+// Playwright is a dev-machine tool, not a repo dependency — this script is
+// run by hand when the palette changes, not by CI. Resolve it from the
+// project if it's installed there, otherwise from wherever the environment
+// says (a global install won't resolve from a bare ESM specifier):
+//   PLAYWRIGHT_MODULE=/usr/lib/node_modules/playwright node scripts/...
+let chromium;
+try {
+  ({ chromium } = await import("playwright"));
+} catch {
+  const fallback = process.env.PLAYWRIGHT_MODULE;
+  if (!fallback) {
+    console.error(
+      "playwright not resolvable. Install it, or set PLAYWRIGHT_MODULE to the path of a global install.",
+    );
+    process.exit(1);
+  }
+  // A global install resolves to playwright's CommonJS entry, whose exports
+  // land on `.default` under ESM interop rather than as named exports.
+  const mod = await import(fallback);
+  chromium = mod.chromium ?? mod.default?.chromium;
+  if (!chromium) {
+    console.error(`PLAYWRIGHT_MODULE=${fallback} did not export chromium.`);
+    process.exit(1);
+  }
+}
 
 const TYPES = new Set([
   "FIELD",
@@ -26,6 +51,10 @@ const TYPES = new Set([
   "AUDIO",
   "ANIMATION",
   "ARTIFACT",
+  // A procedural SUBJECT — a creature, machine, or crowd generated from a
+  // body plan rather than painted as a texture. Distinct from GEOMETRY
+  // because an entity carries behaviour and gait, not just points.
+  "ENTITY",
 ]);
 
 // Shader and 3D output depends on GPU behaviour, so they can only honestly
@@ -53,6 +82,9 @@ const FAMILY_COST = {
   "P · INTERFACE": 4,
   "Q · CUT GRAMMAR": 2,
   "R · MAPS": 8,
+  // Entities carry geometry + gait + behaviour, so they cost more than a
+  // texture but far less than a video model.
+  "S · ENTITY": 10,
 };
 
 const appDir = process.argv[2];
@@ -146,7 +178,8 @@ export type PrimitiveType =
   | "DATA"
   | "AUDIO"
   | "ANIMATION"
-  | "ARTIFACT";
+  | "ARTIFACT"
+  | "ENTITY";
 
 export type Determinism = "L1" | "L2" | "L2-GPU";
 

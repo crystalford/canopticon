@@ -13,7 +13,12 @@ import { canonicalJSON, nodeHash } from "../src/compile/hash.ts";
 import { compile } from "../src/compile/index.ts";
 import { nominalAlignment, solveTiming, splitSentences } from "../src/compile/solver.ts";
 import { parseIR } from "../src/ir/schema.ts";
-import { PRIMITIVE_IDS, chainDeterminism } from "../src/primitives/registry.ts";
+import {
+  PRIMITIVES,
+  PRIMITIVE_IDS,
+  canChain,
+  chainDeterminism,
+} from "../src/primitives/registry.ts";
 import { buildFixtureIR } from "./fixture.ts";
 import { must } from "./must.ts";
 
@@ -411,5 +416,63 @@ describe("the Stage 1 milestone", () => {
     // node is already in the cache.
     const reverted = await compile(original, { snapshot: v1.snapshot });
     expect(reverted.cache.misses).toBe(0);
+  });
+});
+
+describe("generative entities", () => {
+  it("carries a procedural entity through a motif, with no engine changes", () => {
+    // The architectural claim: an ENTITY is not a special case. A motif's
+    // chain is a list of primitive ids, so a creature is carried by exactly
+    // the machinery that carries a timeline — and it develops along the same
+    // state ladder.
+    const ir = buildFixtureIR();
+    const institution = must(
+      ir.motifs.find((m) => m.motifId === "institution"),
+      "institution motif",
+    );
+    institution.chain = ["creature_chain"];
+    institution.states = ["solitary", "paired", "colony", "swarm"];
+
+    const low = composeAll(ir);
+    const early = must(
+      low.find((c) => c.sceneId === "s02"),
+      "s02",
+    );
+    expect(early.nodes.map((n) => n.primitiveId)).toContain("creature_chain");
+
+    // And it escalates with abstraction like any other motif.
+    for (const cp of ir.creativeState.controlPoints) cp.values.abstraction = 0.95;
+    const high = composeAll(ir);
+    const lateMotif = must(
+      must(
+        high.find((c) => c.sceneId === "s10"),
+        "s10",
+      ).motifs.find((m) => m.motifId === "institution"),
+      "institution occurrence",
+    );
+    expect(lateMotif.state).toBe("swarm");
+  });
+
+  it("prices an entity above a texture and below the frame budget", () => {
+    const entity = must(PRIMITIVES.creature_chain, "creature_chain");
+    const texture = must(PRIMITIVES.noise_field, "noise_field");
+    expect(entity.estimatedCostMsPerFrame).toBeGreaterThan(texture.estimatedCostMsPerFrame);
+    expect(entity.outputs).toContain("ENTITY");
+  });
+
+  it("treats a generated image as material, not as output", () => {
+    // image_to_points consumes an IMAGE and emits GEOMETRY, so generated
+    // imagery enters the chain as raw material that other primitives can
+    // transform — it is never the final frame.
+    const bridge = must(PRIMITIVES.image_to_points, "image_to_points");
+    expect(bridge.inputs).toContain("IMAGE");
+    expect(bridge.outputs).toContain("GEOMETRY");
+    // And it composes onward exactly the way glyph_to_points does — into a
+    // primitive that accepts GEOMETRY.
+    expect(canChain("image_to_points", "particle_seek")).toBe(true);
+    // The type system is load-bearing, not decorative: particle_flow
+    // advects a FIELD, so a point cloud cannot feed it directly. A chain
+    // that looks plausible in prose still has to typecheck.
+    expect(canChain("image_to_points", "particle_flow")).toBe(false);
   });
 });
