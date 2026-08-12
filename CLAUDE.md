@@ -91,34 +91,72 @@ and the code implements the amended version:
 
 If the latter, it belongs in an Advanced panel or nowhere.
 
-## What's built (Stage 1 — the skeleton)
+## What's built
 
 `packages/studio` — its own Worker, own D1 (`canopticon-studio`), own R2, own
 migration numbering in `supabase/migrations-studio/`.
 
-- `src/ir/schema.ts` — the Editorial IR + validation. Creative State control
-  points, motifs with development ladders, first-class overrides.
-- `src/compile/creative-state.ts` — control-point interpolation, invariant
-  floors/ceilings that **report** when they bite.
+**The pipeline, end to end.** An essay goes in as prose and comes out as a
+compiled plan. Verified on a real 88-scene institutional investigation:
+
+```
+POST /project/ingest       essay text → a compilable IR
+POST /project/:id/read     propose readings — the ONLY model call, bounded
+POST /project/:id/ratify   the human act: approve or reject
+POST /project/:id/compile  the plan, cached per primitive
+```
+
+- `src/compile/segment.ts` — the intake. **Deterministic, no model, by
+  design.** Acts from the essay's own headings; scenes bound by character
+  offset, scanning forward so a repeated line binds to its own occurrence;
+  bullets kept whole; a figure-bearing scene held rigid. It deliberately
+  does **not** decide what a sentence is about.
+- `src/compile/figures.ts` — quantities lifted by regex and checked as
+  literal substrings, plus routes the prose drew explicitly. **No model
+  ever touches a figure.** An approximation of `$282,345.84` is a different
+  finding.
+- `src/compile/extract-reading.ts` — the one model call, at authoring time,
+  frozen and ratified. Declines rather than guesses. The hedge floor
+  overrules the model, and reads the register — institutional framing
+  ("presented as", "framed as") and quoted spans count; bare "claims" does
+  not, because an essay about asylum *claimants* is not hedging.
+- `src/compile/treatment.ts` — reading + visual language → a type-checked
+  primitive chain. Body plans per subject kind, automatic bridges between
+  types, tails applied selectively.
 - `src/compile/compose.ts` — the composition engine. Abstraction ladder
   (GROUNDED → ANNOTATED → DECOMPOSED → DISSOLVED), the Constitution's
   8-level precedence order, motif development, restraint ceiling.
 - `src/compile/solver.ts` — anchor-based timing, overflow auto-split at
-  sentence boundaries, underflow J-cut/underrun, elastic-vs-rigid cascade.
-- `src/compile/hash.ts` · `cache.ts` — per-primitive SHA-256 node hashing over
-  canonical JSON; cache diff with a stated reason per recomputation.
-- `src/primitives/registry.ts` — **generated**, 111 primitives / 18 families.
+  sentence boundaries, underflow J-cut/underrun, elastic-vs-rigid cascade,
+  and the cut into shots.
+- `src/compile/shot-plan.ts` — what varies across a cut. Deterministic, and
+  it escalates. A contested line is held flatter.
+- `src/compile/hash.ts` · `cache.ts` — per-primitive SHA-256 node hashing
+  over canonical JSON; cache diff with a stated reason per recomputation.
+- `src/primitives/registry.ts` — **generated**, 123 primitives / 20 families.
   Regenerate with `node scripts/gen-primitive-registry.mjs packages/studio/lab`.
 - `lab/` — the Lab. Where primitives actually paint (canvas, seeded, in the
-  browser) and where one earns its place in the palette before being wired
-  into the pipeline.
+  browser) and where one earns its place before being wired in.
 
-**Stage 1 milestone is met and tested** (`packages/studio/tests/compile.test.ts`,
-31 tests): a hand-authored IR resolves to correct windows; an unchanged
-recompile is 100% cache hit; editing one sentence recomputes only what depends
-on it; dragging the abstraction curve spends zero TTS and leaves early scenes
-untouched; a pin survives a restyle with the tension reported; the same IR
-always produces the same hashes.
+**A figure is not an interpretation.** This is the distinction that makes the
+whole thing work on real material. A *reading* — what a sentence is about — is
+proposed by a model and ratified by a human, and a scene without one falls back
+to the film's own curve. A *figure* is checkable by anyone, so it needs neither.
+Which means an institutional essay reaches the chart family from prose alone,
+before a model has seen a single sentence.
+
+**Tested** (122 tests): a hand-authored IR resolves to correct windows; an
+unchanged recompile is 100% cache hit; editing one sentence recomputes only
+what depends on it; dragging the abstraction curve spends zero TTS and leaves
+early scenes untouched; a pin survives a restyle with the tension reported; the
+same IR always produces the same hashes; and the real essay segments, validates,
+compiles and re-compiles clean.
+
+**Known gaps, stated plainly.** There is no server-side renderer — the Lab is
+where chains execute, so a compile produces a *plan*, not pixels. Of the five
+views only the Lab exists. Most of the older primitives synthesise rather than
+consume input; prune the palette on usage evidence (`src/compile/usage.ts`
+reports which were load-bearing), not instinct.
 
 ## What's next
 
