@@ -35,7 +35,13 @@ import { PRIMITIVES, type PrimitiveType, canChain } from "../primitives/registry
 // that, and so the two can never drift into separate definitions.
 export type { SemanticReading, VisualLanguage };
 
-export const VISUAL_LANGUAGES: VisualLanguage[] = ["documentary", "technical", "pixel", "surreal"];
+export const VISUAL_LANGUAGES: VisualLanguage[] = [
+  "documentary",
+  "technical",
+  "pixel",
+  "surreal",
+  "kinetic",
+];
 
 /** Which body plan realises a kind of subject. Deliberately small: a body
  *  plan is a parameterised generator, not an asset, so a handful of them
@@ -71,6 +77,16 @@ const LANGUAGE_SPEC: Record<
     representation: 3, // PIXEL
     tail: ["pixelate", "dither"],
     why: "re-rendered at low resolution and quantised — the object as a game asset",
+  },
+  // Typography-led, for prose whose subjects are ideas rather than things.
+  // An aphoristic essay of short declarative lines has nothing to depict
+  // and everything to SET — the words are the image. Paired with a high
+  // cut rhythm this is the register that suits an argument made in
+  // fragments, and it is the one the palette always had and never used.
+  kinetic: {
+    representation: 0,
+    tail: ["shape_morph", "path_draw", "ease_profile"],
+    why: "the words as the image — glyph geometry morphed and drawn, cut fast",
   },
   surreal: {
     representation: 4, // POINTS
@@ -175,7 +191,21 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
   // IMAGE, so a bridge is required. Inserted automatically rather than left
   // for an author to remember: forgetting it is exactly the failure the
   // type check catches, and it caught it twice before this table existed.
-  const BRIDGES: Record<string, string> = { ENTITY: "entity_render", ARTIFACT: "artifact_render" };
+  const BRIDGES: Record<string, string> = {
+    ENTITY: "entity_render",
+    ARTIFACT: "artifact_render",
+    // The round trip. A kinetic treatment wants to MORPH its subject, and
+    // you cannot morph a raster — shape_morph consumes GEOMETRY. So a
+    // concrete subject travels ENTITY → IMAGE → GEOMETRY to be treated
+    // typographically. Without this the mirror, the aperture and the
+    // stenographer all failed to typecheck in exactly the language they
+    // most wanted.
+    IMAGE: "image_to_points",
+    // A place resolves to a FIELD, and a field is not geometry either.
+    // particle_flow advects a field into points, which is the honest path
+    // from "somewhere" to something a typographic treatment can morph.
+    FIELD: "particle_flow",
+  };
   const emitted = PRIMITIVES[bodyPlan]?.outputs ?? [];
   const bridge = emitted.map((t) => BRIDGES[t]).find(Boolean);
   if (bridge) {
@@ -191,6 +221,26 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
         ? "rasterised, held slightly under-exposed — the sentence reports a claim, not a fact"
         : "rasterised so raster and compositing primitives can consume it",
     });
+  }
+
+  // Keep bridging until the tail's opening primitive can legally consume
+  // what the chain currently emits. Two hops at most — ENTITY → IMAGE →
+  // GEOMETRY is the longest real path, and an unbounded loop here would
+  // hide a missing bridge as a hang.
+  const head = spec.tail[0];
+  if (head) {
+    for (let hop = 0; hop < 2; hop++) {
+      const last = nodes[nodes.length - 1]?.primitiveId;
+      if (!last || canChain(last, head)) break;
+      const emits = PRIMITIVES[last]?.outputs ?? [];
+      const next = emits.map((t) => BRIDGES[t]).find(Boolean);
+      if (!next || next === last) break;
+      nodes.push({
+        primitiveId: next,
+        params: {},
+        reason: `bridged to ${PRIMITIVES[next]?.outputs.join("|")} so ${head} can consume it`,
+      });
+    }
   }
 
   for (const id of spec.tail) {

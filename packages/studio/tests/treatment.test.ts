@@ -179,3 +179,93 @@ describe("treatments inside the compile pipeline", () => {
     for (const p of report.usage.primitives) expect(p.uses).toBeGreaterThan(0);
   });
 });
+
+describe("kinetic language and the cut", () => {
+  const MIRROR = {
+    sentence: "We built a mirror large enough to hold civilization.",
+    subjects: [
+      { label: "mirror", kind: "object" as const, weight: 0.9 },
+      { label: "civilization", kind: "concept" as const, weight: 0.5 },
+    ],
+    visualOpportunity: "inspect" as const,
+    contested: false,
+  };
+
+  it("bridges a concrete subject back to geometry so it can be morphed", () => {
+    // You cannot morph a raster. An entity rasterises to IMAGE, and
+    // shape_morph consumes GEOMETRY, so a kinetic treatment of a concrete
+    // subject has to travel ENTITY → IMAGE → GEOMETRY. Before the round
+    // trip existed, the mirror failed in the one language it most wanted.
+    const t = planTreatment(MIRROR, "kinetic");
+    expect(t.valid).toBe(true);
+    const ids = t.nodes.map((n) => n.primitiveId);
+    expect(ids).toContain("entity_render");
+    expect(ids).toContain("image_to_points");
+    expect(ids.indexOf("image_to_points")).toBeLessThan(ids.indexOf("shape_morph"));
+  });
+
+  it("needs no bridge when the subject is already geometry", () => {
+    const t = planTreatment(
+      { ...MIRROR, subjects: [{ label: "meaning", kind: "concept", weight: 0.9 }] },
+      "kinetic",
+    );
+    expect(t.valid).toBe(true);
+    expect(t.nodes.map((n) => n.primitiveId)).toEqual([
+      "glyph_to_points",
+      "shape_morph",
+      "path_draw",
+      "ease_profile",
+    ]);
+  });
+
+  it("plans a valid kinetic chain for every subject kind", () => {
+    for (const kind of ["object", "creature", "document", "person", "place", "concept"] as const) {
+      const t = planTreatment(
+        { ...MIRROR, subjects: [{ label: "x", kind, weight: 0.9 }] },
+        "kinetic",
+      );
+      expect(t.valid, `${kind}: ${t.errors.map((e) => e.message).join("; ")}`).toBe(true);
+    }
+  });
+
+  it("cuts a scene into shots at the film's rhythm", async () => {
+    const slow = buildFixtureIR();
+    slow.creativeState.identity.cutRhythm = 0;
+    const slowReport = await compile(slow);
+
+    const fast = buildFixtureIR();
+    fast.creativeState.identity.cutRhythm = 0.9;
+    const fastReport = await compile(fast);
+
+    const count = (r: typeof slowReport) => r.timing.scenes.reduce((n, s) => n + s.shots.length, 0);
+    expect(count(fastReport)).toBeGreaterThan(count(slowReport));
+    // Rhythm 0 means one continuous shot per scene, not zero shots.
+    for (const s of slowReport.timing.scenes) expect(s.shots.length).toBe(1);
+  });
+
+  it("never cuts faster than a shot can read", async () => {
+    const ir = buildFixtureIR();
+    ir.creativeState.identity.cutRhythm = 1;
+    const report = await compile(ir);
+    for (const scene of report.timing.scenes) {
+      for (const shot of scene.shots) {
+        // A cut below this stops being an edit and becomes a flicker. No
+        // rhythm setting may produce something unwatchable.
+        expect(shot.endMs - shot.startMs).toBeGreaterThanOrEqual(400);
+      }
+    }
+  });
+
+  it("tiles the scene exactly — no gap, no overlap, nothing stranded", async () => {
+    const ir = buildFixtureIR();
+    ir.creativeState.identity.cutRhythm = 0.7;
+    const report = await compile(ir);
+    for (const scene of report.timing.scenes) {
+      expect(must(scene.shots[0], "first shot").startMs).toBe(scene.startMs);
+      expect(must(scene.shots[scene.shots.length - 1], "last shot").endMs).toBe(scene.endMs);
+      for (let i = 1; i < scene.shots.length; i++) {
+        expect(must(scene.shots[i], "shot").startMs).toBe(must(scene.shots[i - 1], "prev").endMs);
+      }
+    }
+  });
+});

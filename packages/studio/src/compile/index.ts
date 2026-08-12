@@ -76,7 +76,11 @@ export async function compile(
     cursor += nominalMs;
   }
 
-  const timing = solveTiming(ir, alignments);
+  // Cut rhythm is a creative-state parameter like any other, so a director
+  // drags it rather than setting a shot length. Sampled at mid-runtime;
+  // per-scene rhythm curves are a later refinement.
+  const cutRhythm = ir.creativeState.identity.cutRhythm ?? 0;
+  const timing = solveTiming(ir, alignments, cutRhythm);
   const composed = composeAll(ir);
 
   const hashed: HashedScene[] = [];

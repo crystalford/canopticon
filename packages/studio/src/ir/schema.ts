@@ -206,7 +206,13 @@ export const SemanticReadingSchema = z.object({
 export type SemanticReading = z.infer<typeof SemanticReadingSchema>;
 
 /** How a scene is depicted. The subject is invariant; this is not. */
-export const VisualLanguageSchema = z.enum(["documentary", "technical", "pixel", "surreal"]);
+export const VisualLanguageSchema = z.enum([
+  "documentary",
+  "technical",
+  "pixel",
+  "surreal",
+  "kinetic",
+]);
 export type VisualLanguage = z.infer<typeof VisualLanguageSchema>;
 
 /** A block is a RECIPE — a convenient pre-composed default, not the
