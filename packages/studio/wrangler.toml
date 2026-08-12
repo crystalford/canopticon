@@ -24,7 +24,7 @@ migrations_dir = "../../supabase/migrations-studio"
 #   projects/{projectId}/cache/{nodeHash}.json
 #   projects/{projectId}/uploads/{assetId}.{ext}
 [[r2_buckets]]
-binding = "ASSETS"
+binding = "FILES"
 bucket_name = "canopticon-studio-assets"
 
 # Workers AI — segmentation proposal (LLM) and narration (TTS).
@@ -32,6 +32,13 @@ bucket_name = "canopticon-studio-assets"
 # hashed, and committed as an input artifact. Never called at render time.
 [ai]
 binding = "AI"
+
+# The Lab, served as static assets. This is the actual instrument — where
+# primitives paint and where one earns its place in the palette. Assets are
+# matched first, so `/` serves the Lab and anything without a matching file
+# (`/health`, `/primitives`, `/v1/*`) falls through to the Worker.
+[assets]
+directory = "./lab"
 
 [vars]
 STUDIO_ENV = "production"

@@ -63,7 +63,7 @@ if (!appDir) {
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
-await page.goto(`file://${resolve(appDir, "Canopticon.html")}`, { waitUntil: "domcontentloaded" });
+await page.goto(`file://${resolve(appDir, "index.html")}`, { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(1200);
 
 const { reg, cost } = await page.evaluate(() => {

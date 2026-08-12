@@ -215,7 +215,7 @@ Shared across every Worker in the monorepo; nothing else is shared.
 # Env / bindings
 
 ```
-Studio:  DB (D1 canopticon-studio) · ASSETS (R2) · AI
+Studio:  DB (D1 canopticon-studio) · FILES (R2) · AI
 Record:  DB (D1 canopticon) · FILES (R2) · EMBEDDINGS (Vectorize) · AI
 Secrets: ANTHROPIC_API_KEY (optional) · CRON_SECRET
          CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (admin probe)

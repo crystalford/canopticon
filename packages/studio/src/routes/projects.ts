@@ -222,13 +222,13 @@ async function loadVersion(
  *  written whole on every compile, which is exactly what object storage is
  *  for and exactly what a relational row is not. */
 async function loadSnapshot(env: Env, projectId: string): Promise<CacheSnapshot | null> {
-  const obj = await env.ASSETS.get(`projects/${projectId}/cache/snapshot.json`);
+  const obj = await env.FILES.get(`projects/${projectId}/cache/snapshot.json`);
   if (!obj) return null;
   return (await obj.json()) as CacheSnapshot;
 }
 
 async function saveSnapshot(env: Env, projectId: string, snapshot: CacheSnapshot): Promise<void> {
-  await env.ASSETS.put(`projects/${projectId}/cache/snapshot.json`, JSON.stringify(snapshot), {
+  await env.FILES.put(`projects/${projectId}/cache/snapshot.json`, JSON.stringify(snapshot), {
     httpMetadata: { contentType: "application/json" },
   });
 }
