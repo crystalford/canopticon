@@ -59,9 +59,14 @@
         <input id="scrub" type="range" min="0" max="1000" value="0" step="10">
         <span id="clock">0:00.0 / 0:00.0</span>
         <span id="solo"></span>
+        <button id="record" type="button">EXPORT</button>
       </div>
       <div id="timeline"></div>
       <p class="hint">Click a scene to jump to it · double-click to solo it on loop · the hairlines inside a block are its cuts</p>
+      <p class="hint">EXPORT records the canvas from the top and downloads a .webm. It runs in real time — a
+        six-minute film takes six minutes — and captures on the browser's clock, so two exports of the same
+        plan are not byte-identical. That is L2, stated honestly. Frame-accurate export means driving the
+        chain by frame index and encoding offline, which is a different piece of work.</p>
       <ul id="warnings"></ul>
     </div>
     <div class="panel" id="inspector"></div>

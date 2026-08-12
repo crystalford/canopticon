@@ -237,6 +237,86 @@ function tick(now) {
   requestAnimationFrame(tick);
 }
 
+/* ── EXPORT ───────────────────────────────────────────────────────────
+ *
+ * The film, as a file.
+ *
+ * Every compile until now produced a PLAN, and nothing anywhere in Studio
+ * wrote a video — no encoder, no frames-to-file step, not even a stub. So
+ * "essay in, film out" stopped one step short of the noun in its own name.
+ *
+ * This records the canvas as it plays. It is deliberately the cheap version
+ * and it is honest about which:
+ *
+ *   REAL TIME. The recording takes as long as the film. A 6-minute essay
+ *   costs 6 minutes of wall clock, because MediaRecorder captures a live
+ *   stream rather than rendering frames as fast as they compute.
+ *
+ *   REAL-TIME DETERMINISM, NOT FRAME DETERMINISM. Frames are captured on
+ *   the browser's clock, so a slow frame is a dropped frame and two exports
+ *   of the same plan are not byte-identical. That is L2 honestly stated,
+ *   not L3 — see standing rule 7. A frame-accurate export means driving the
+ *   chain by frame index and encoding offline, which is a real piece of
+ *   work and is not this.
+ *
+ * What it is good for is the thing that has been missing: watching the
+ * whole film somewhere other than this tab, and sending it to someone.
+ */
+let recorder = null;
+let recordedChunks = [];
+
+function startExport() {
+  if (!plan || recorder) return;
+  const stream = els.canvas.captureStream(30);
+  // VP9 where the browser has it, VP8 as the fallback that everything has.
+  const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((m) =>
+    MediaRecorder.isTypeSupported(m),
+  );
+  if (!mime) {
+    els.stats.textContent = "this browser cannot record a canvas — export unavailable";
+    return;
+  }
+  recordedChunks = [];
+  recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
+  recorder.ondataavailable = (e) => {
+    if (e.data.size > 0) recordedChunks.push(e.data);
+  };
+  recorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: "video/webm" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(plan.title || "film").replace(/[^\w-]+/g, "-").slice(0, 60)}.webm`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    recorder = null;
+    els.record.textContent = "EXPORT";
+    els.stats.textContent = `exported ${(blob.size / 1e6).toFixed(1)}MB · ${mime}`;
+  };
+
+  // Always from the top, always the whole film: an export that started
+  // wherever the scrubber happened to be would be a clip, and would be
+  // silently mislabelled as the film.
+  clockMs = 0;
+  soloIndex = -1;
+  els.solo.textContent = "";
+  playing = true;
+  els.play.textContent = "PAUSE";
+  els.record.textContent = "STOP · RECORDING";
+  recorder.start(1000);
+
+  const stopAt = plan.durationMs + 400;
+  const watch = setInterval(() => {
+    if (!recorder) return clearInterval(watch);
+    els.stats.textContent = `recording · ${fmt(clockMs)} of ${fmt(plan.durationMs)}`;
+    if (clockMs >= stopAt || clockMs < 200 && recordedChunks.length > 2) {
+      clearInterval(watch);
+      playing = false;
+      els.play.textContent = "PLAY";
+      recorder.stop();
+    }
+  }, 250);
+}
+
 function load(p) {
   plan = p;
   scenes = buildAll(p);
@@ -269,6 +349,7 @@ function boot() {
     "paste",
     "loadBtn",
     "solo",
+    "record",
   ]) {
     els[id] = document.getElementById(id);
   }
@@ -284,6 +365,15 @@ function boot() {
     soloIndex = -1;
     els.solo.textContent = "";
     markActive();
+  });
+  els.record.addEventListener("click", () => {
+    if (recorder) {
+      playing = false;
+      els.play.textContent = "PLAY";
+      recorder.stop();
+    } else {
+      startExport();
+    }
   });
   els.loadBtn.addEventListener("click", () => {
     try {
