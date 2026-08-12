@@ -267,11 +267,20 @@ reg(
     const noise = vnoise(909);
 
     return {
-      frame(ctx, w, h, t) {
-        const k = [p.source, p.sampling, p.threshold, w, h].join();
-        if (k !== key) {
-          key = k;
-          pts = sampleMaterial(w, h, Math.round(p.source), Math.round(p.sampling), p.threshold);
+      frame(ctx, w, h, t, input) {
+        if (input) {
+          // Real upstream pixels — a rasterised entity, or a generated
+          // plate. Re-sampled every frame because the source may be moving;
+          // at these step sizes that is a few thousand reads, not a cost
+          // worth caching incorrectly.
+          pts = samplePixels(input, w, h, Math.round(p.sampling), p.threshold);
+          key = "";
+        } else {
+          const k = [p.source, p.sampling, p.threshold, w, h].join();
+          if (k !== key) {
+            key = k;
+            pts = sampleMaterial(w, h, Math.round(p.source), Math.round(p.sampling), p.threshold);
+          }
         }
 
         bg(ctx, w, h);
@@ -294,17 +303,40 @@ reg(
           ctx.fillRect(x, y, 1.6, 1.6);
         }
 
-        lab(
-          ctx,
-          `${pts.length} PTS · ${["SKYLINE", "CROWD", "DOCUMENT"][Math.round(p.source)]} · DISSOLVE ${d.toFixed(2)}`,
-          10,
-          h - 16,
-        );
+        // Report where the pixels actually came from. Naming the stand-in
+        // while consuming a real upstream buffer would be a label that
+        // lies about its own provenance.
+        const origin = input ? "UPSTREAM" : ["SKYLINE", "CROWD", "DOCUMENT"][Math.round(p.source)];
+        lab(ctx, `${pts.length} PTS · ${origin} · DISSOLVE ${d.toFixed(2)}`, 10, h - 16);
       },
     };
   },
   "Turns a raster into geometry the engine can move. The Lab renders a procedural stand-in because it has no network, but the sampling path is identical for a generated image — which is the point: generated imagery is raw material, not output.",
 );
+
+/** Sample any canvas into a point cloud. This is the one function that
+ *  makes a picture into geometry the engine can move — and it does not care
+ *  whether the pixels came from a generated plate, a rasterised entity, or
+ *  the procedural stand-in below. That indifference is the point. */
+function samplePixels(source, w, h, step, threshold) {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const x = c.getContext("2d");
+  x.drawImage(source, 0, 0, w, h);
+  const data = x.getImageData(0, 0, w, h).data;
+  const out = [];
+  const rr = mulberry(77);
+  for (let y = 0; y < h; y += step) {
+    for (let px = 0; px < w; px += step) {
+      const i = (y * w + px) * 4;
+      const v = (data[i] * 0.2126 + data[i + 1] * 0.7152 + data[i + 2] * 0.0722) / 255;
+      if (v < threshold) continue;
+      out.push({ x: px, y, v, seed: rr() * TAU });
+    }
+  }
+  return out;
+}
 
 /** Render a stand-in material offscreen, then sample it to a point cloud.
  *  Deterministic: every source is drawn from a fixed seed. */

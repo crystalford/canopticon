@@ -332,26 +332,45 @@ reg(
     vignette: { v: 0.35, lo: 0, hi: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t) {
-      // Standing in for the upstream entity's own draw call: the chain
-      // executor hands this the entity's framebuffer. On its own it shades
-      // the plate so the exposure/vignette controls are legible.
-      const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.7);
-      const lift = Math.round(20 + p.exposure * 60);
-      g.addColorStop(0, `rgb(${lift},${lift + 3},${lift + 6})`);
-      g.addColorStop(1, BG);
-      ctx.fillStyle = g;
+    frame(ctx, w, h, t, input) {
+      ctx.fillStyle = BG;
       ctx.fillRect(0, 0, w, h);
+      if (!input) {
+        lab(ctx, "entity_render: no upstream ENTITY", 10, h / 2);
+        return;
+      }
+
+      // Rasterise the upstream entity for real, then grade it. Exposure and
+      // vignette are the two controls that let a treatment say something
+      // about the subject without changing what the subject IS — a claim
+      // held colder and tighter than the same object stated as fact.
+      ctx.drawImage(input, 0, 0, w, h);
+
+      if (p.exposure !== 0.5 || p.contrast !== 0.5) {
+        const img = ctx.getImageData(0, 0, w, h);
+        const d = img.data;
+        const gain = 0.55 + p.exposure * 0.9;
+        const k = 0.6 + p.contrast * 1.4;
+        for (let i = 0; i < d.length; i += 4) {
+          for (let c = 0; c < 3; c++) {
+            const v = (d[i + c] / 255) * gain;
+            // Contrast about mid-grey, so grading darkens the shadows
+            // without dragging the whole frame toward black.
+            d[i + c] = Math.max(0, Math.min(255, ((v - 0.5) * k + 0.5) * 255));
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+      }
+
       if (p.vignette > 0) {
         const v = ctx.createRadialGradient(
-          w / 2, h / 2, Math.min(w, h) * 0.25, w / 2, h / 2, Math.max(w, h) * 0.62,
+          w / 2, h / 2, Math.min(w, h) * 0.22, w / 2, h / 2, Math.max(w, h) * 0.62,
         );
         v.addColorStop(0, "rgba(0,0,0,0)");
-        v.addColorStop(1, `rgba(0,0,0,${p.vignette * 0.85})`);
+        v.addColorStop(1, `rgba(0,0,0,${p.vignette * 0.9})`);
         ctx.fillStyle = v;
         ctx.fillRect(0, 0, w, h);
       }
-      lab(ctx, "ENTITY → IMAGE · rasterise before compositing", 10, h - 16);
     },
   }),
   "The rasterisation step. An ENTITY carries geometry and behaviour; a raster or compositing primitive needs pixels. Without this a subject cannot legally reach the pixel, particle or raster families — the type system doing its job, not obstructing it.",
