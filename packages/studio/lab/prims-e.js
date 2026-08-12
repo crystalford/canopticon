@@ -316,6 +316,10 @@ reg(
         // lies about its own provenance.
         const origin = input ? "UPSTREAM" : ["SKYLINE", "CROWD", "DOCUMENT"][Math.round(p.source)];
         lab(ctx, `${pts.length} PTS · ${origin} · DISSOLVE ${d.toFixed(2)}`, 10, h - 16);
+        // Hand the points downstream. This is what lets a concrete subject
+        // — a fixture, a document, a generated plate — reach the kinetic
+        // family and be morphed rather than merely re-photographed.
+        return { geometry: pts };
       },
     };
   },
@@ -327,6 +331,9 @@ reg(
  *  whether the pixels came from a generated plate, a rasterised entity, or
  *  the procedural stand-in below. That indifference is the point. */
 function samplePixels(source, w, h, step, threshold) {
+  // Points carry x0/y0 — their origin — because a morph interpolates from
+  // where a point started. Without it a concrete subject could be sampled
+  // but never transformed.
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
@@ -340,7 +347,7 @@ function samplePixels(source, w, h, step, threshold) {
       const i = (y * w + px) * 4;
       const v = (data[i] * 0.2126 + data[i + 1] * 0.7152 + data[i + 2] * 0.0722) / 255;
       if (v < threshold) continue;
-      out.push({ x: px, y, v, seed: rr() * TAU });
+      out.push({ x: px, y, v, seed: rr() * TAU, x0: px, y0: y });
     }
   }
   return out;

@@ -103,4 +103,67 @@ function buildChain(chain, w, h) {
   };
 }
 
-Object.assign(window, { buildChain, validateChain: validate, chainLinkOk: linkOk });
+/** Render a scene as a SEQUENCE OF SHOTS rather than one continuous take.
+ *
+ *  The solver already decides where the cuts fall; this is what makes them
+ *  visible. Each shot gets its OWN chain instance, which is the whole
+ *  difference between a cut and a dissolve: at a cut, state resets. A
+ *  particle system carried across the boundary would drift through it and
+ *  the edit would read as a wobble rather than an edit.
+ *
+ *  Each shot is seeded from its index so the same cut always yields the
+ *  same frame, and so consecutive shots are not identical.
+ */
+function buildSequence(chain, shots, w, h) {
+  if (!shots || shots.length === 0) {
+    const single = buildChain(chain, w, h);
+    return single.errors.length
+      ? { errors: single.errors, run: null }
+      : { errors: [], shots: 1, run: (ms) => single.run(ms / 1000) };
+  }
+
+  const built = shots.map((shot, i) => {
+    const seeded = chain.map((node, j) => ({
+      ...node,
+      // Vary the seed per shot so a cut lands somewhere new, but keep it
+      // derived — a random seed would break determinism.
+      seed: (node.seed ?? 1337) + i * 101 + j,
+    }));
+    return { shot, chain: buildChain(seeded, w, h) };
+  });
+
+  const bad = built.find((b) => b.chain.errors.length);
+  if (bad) return { errors: bad.chain.errors, run: null };
+
+  return {
+    errors: [],
+    shots: built.length,
+    /** `ms` is time on the FILM's clock. The shot whose window contains it
+     *  renders, at its own local time — so a cut restarts the shot rather
+     *  than joining it mid-motion. */
+    run(ms) {
+      let active = built[built.length - 1];
+      for (const b of built) {
+        if (ms >= b.shot.startMs && ms < b.shot.endMs) {
+          active = b;
+          break;
+        }
+      }
+      return active.chain.run((ms - active.shot.startMs) / 1000);
+    },
+    at(ms) {
+      for (let i = 0; i < built.length; i++) {
+        const b = built[i];
+        if (ms >= b.shot.startMs && ms < b.shot.endMs) return i;
+      }
+      return built.length - 1;
+    },
+  };
+}
+
+Object.assign(window, {
+  buildChain,
+  buildSequence,
+  validateChain: validate,
+  chainLinkOk: linkOk,
+});
