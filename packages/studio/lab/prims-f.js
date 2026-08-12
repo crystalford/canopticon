@@ -279,3 +279,51 @@ function drawPixel(ctx, w, h, geo, project, p, t) {
   ctx.drawImage(small, 0, 0, w, h);
   ctx.imageSmoothingEnabled = true;
 }
+
+/* ── the missing link: ENTITY → IMAGE ───────────────────────────────
+ * Building the first real treatment chain exposed a hole in the type
+ * graph: `mounted_fixture` and `creature_chain` emit ENTITY, and nothing
+ * consumed it. So `fixture → pixelate` did not typecheck, correctly —
+ * pixelate takes IMAGE.
+ *
+ * That is not a bug in the type system, it is the type system being right.
+ * An entity is a scene object with geometry and behaviour; it has to be
+ * RASTERISED before a compositing or raster primitive can touch it. This
+ * is that step, and it is what lets a subject travel into the pixel,
+ * particle and raster families without the engine pretending an entity and
+ * a picture are the same thing.
+ */
+reg(
+  "entity_render",
+  "S · ENTITY",
+  "ENTITY → IMAGE",
+  {
+    exposure: { v: 0.5, lo: 0, hi: 1 },
+    contrast: { v: 0.5, lo: 0, hi: 1 },
+    vignette: { v: 0.35, lo: 0, hi: 1 },
+  },
+  (p) => ({
+    frame(ctx, w, h, t) {
+      // Standing in for the upstream entity's own draw call: the chain
+      // executor hands this the entity's framebuffer. On its own it shades
+      // the plate so the exposure/vignette controls are legible.
+      const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.7);
+      const lift = Math.round(20 + p.exposure * 60);
+      g.addColorStop(0, `rgb(${lift},${lift + 3},${lift + 6})`);
+      g.addColorStop(1, BG);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      if (p.vignette > 0) {
+        const v = ctx.createRadialGradient(
+          w / 2, h / 2, Math.min(w, h) * 0.25, w / 2, h / 2, Math.max(w, h) * 0.62,
+        );
+        v.addColorStop(0, "rgba(0,0,0,0)");
+        v.addColorStop(1, `rgba(0,0,0,${p.vignette * 0.85})`);
+        ctx.fillStyle = v;
+        ctx.fillRect(0, 0, w, h);
+      }
+      lab(ctx, "ENTITY → IMAGE · rasterise before compositing", 10, h - 16);
+    },
+  }),
+  "The rasterisation step. An ENTITY carries geometry and behaviour; a raster or compositing primitive needs pixels. Without this a subject cannot legally reach the pixel, particle or raster families — the type system doing its job, not obstructing it.",
+);
