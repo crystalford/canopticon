@@ -73,7 +73,13 @@ reg(
         for (const c of colony) {
           // ── locomotion: the head steers, the body follows ──────────
           const head = c.pts[0];
-          const turn = fbm(noise, head.x / w * 2.4 + c.drift, head.y / h * 2.4 + t * 0.09, 3, 0.5);
+          const turn = fbm(
+            noise,
+            (head.x / w) * 2.4 + c.drift,
+            (head.y / h) * 2.4 + t * 0.09,
+            3,
+            0.5,
+          );
           c.heading += turn * p.wander * 0.28;
           head.x += Math.cos(c.heading) * step;
           head.y += Math.sin(c.heading) * step;
@@ -146,8 +152,7 @@ function drawCreature(ctx, c, p, S, t) {
           // The metachronal wave: phase runs backwards along the body, so
           // the legs move as a travelling wave rather than in unison.
           // Opposite sides are a half-cycle apart (alternating tripod-ish).
-          const phase =
-            cycle - i * p.wave * 0.55 - g * 0.4 + (side > 0 ? Math.PI : 0);
+          const phase = cycle - i * p.wave * 0.55 - g * 0.4 + (side > 0 ? Math.PI : 0);
           const swing = Math.sin(phase);
           // Stance is the half of the cycle where the foot drives backward.
           const planted = swing < 0;
@@ -292,14 +297,13 @@ reg(
           if (d > 0) {
             // Points advect through a flow field as dissolution rises — the
             // image comes apart along its own structure, not by fading.
-            const a = fbm(noise, q.x / w * 3, q.y / h * 3 + t * 0.1, 3, 0.5) * TAU * 1.6;
+            const a = fbm(noise, (q.x / w) * 3, (q.y / h) * 3 + t * 0.1, 3, 0.5) * TAU * 1.6;
             const push = d * d * 90 * (0.4 + p.drift);
             x += Math.cos(a) * push + Math.cos(a) * Math.sin(t * 0.7 + q.seed) * push * 0.3;
             y += Math.sin(a) * push + Math.sin(a) * Math.cos(t * 0.6 + q.seed) * push * 0.3;
           }
           const alpha = (0.25 + q.v * 0.7) * (1 - d * 0.35);
-          ctx.fillStyle =
-            q.v > 0.82 ? `rgba(216,98,74,${alpha})` : `rgba(238,241,243,${alpha})`;
+          ctx.fillStyle = q.v > 0.82 ? `rgba(216,98,74,${alpha})` : `rgba(238,241,243,${alpha})`;
           ctx.fillRect(x, y, 1.6, 1.6);
         }
 

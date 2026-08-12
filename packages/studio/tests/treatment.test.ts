@@ -5,6 +5,7 @@
 // the same reading yields the same subject through different depictions.
 
 import { describe, expect, it } from "vitest";
+import { compile } from "../src/compile/index.ts";
 import {
   SMOKE_DETECTOR_READING,
   VISUAL_LANGUAGES,
@@ -14,6 +15,7 @@ import {
   validateChain,
 } from "../src/compile/treatment.ts";
 import { PRIMITIVES } from "../src/primitives/registry.ts";
+import { buildFixtureIR } from "./fixture.ts";
 import { must } from "./must.ts";
 
 describe("chain validation", () => {
@@ -110,5 +112,70 @@ describe("treatment planning", () => {
     const a = JSON.stringify(planAllTreatments(SMOKE_DETECTOR_READING));
     const b = JSON.stringify(planAllTreatments(SMOKE_DETECTOR_READING));
     expect(a).toBe(b);
+  });
+});
+
+describe("treatments inside the compile pipeline", () => {
+  it("plans a treatment for a scene that carries a reading", async () => {
+    const report = await compile(buildFixtureIR());
+    const withReading = report.composed.filter((c) => c.treatment !== null);
+    expect(withReading.length).toBeGreaterThan(0);
+    for (const scene of withReading) {
+      expect(must(scene.treatment, "treatment").valid).toBe(true);
+    }
+  });
+
+  it("falls back to the ladder for a scene with no reading", async () => {
+    const report = await compile(buildFixtureIR());
+    const noReading = must(
+      report.composed.find((c) => c.sceneId === "s01"),
+      "s01",
+    );
+    expect(noReading.treatment).toBeNull();
+    expect(noReading.nodes.length).toBeGreaterThan(0);
+  });
+
+  it("emits only chains that typecheck end to end", async () => {
+    // The engine appends motif, density and anti-repetition primitives
+    // AFTER planning. Before the final validation existed those appends
+    // rode through unchecked and the composed chains were quietly invalid.
+    const report = await compile(buildFixtureIR());
+    for (const scene of report.composed) {
+      const chain = scene.nodes.map((n) => n.primitiveId);
+      const { valid, errors } = validateChain(chain);
+      expect(valid, `${scene.sceneId}: ${errors.map((e) => e.message).join("; ")}`).toBe(true);
+    }
+  });
+
+  it("states a reason for every primitive it drops", async () => {
+    const report = await compile(buildFixtureIR());
+    const drops = report.composed.flatMap((s) => s.notes.filter((n) => n.startsWith("dropped ")));
+    expect(drops.length).toBeGreaterThan(0);
+    // A silent drop is worse than a bad chain — the director can't see it.
+    for (const note of drops) expect(note.length).toBeGreaterThan(20);
+  });
+
+  it("changing the visual language recomputes only the scenes that carry readings", async () => {
+    const base = buildFixtureIR();
+    const first = await compile(base);
+
+    const restyled = buildFixtureIR();
+    restyled.visualLanguage = "pixel";
+    const second = await compile(restyled, { snapshot: first.snapshot });
+
+    const touched = second.cache.scenes.filter((s) => s.misses > 0).map((s) => s.sceneId);
+    const readingScenes = base.scenes.filter((s) => s.reading).map((s) => s.sceneId);
+    expect(touched.length).toBeGreaterThan(0);
+    for (const id of touched) expect(readingScenes).toContain(id);
+    // And it costs nothing: depiction is not narration.
+    expect(second.ttsCalls).toBe(0);
+  });
+
+  it("reports which sources were load-bearing and which were terminal", async () => {
+    const report = await compile(buildFixtureIR());
+    // noise_field feeds the particle system — substrate, not decoration.
+    expect(report.usage.loadBearingSources).toContain("noise_field");
+    expect(report.usage.primitives.length).toBeGreaterThan(0);
+    for (const p of report.usage.primitives) expect(p.uses).toBeGreaterThan(0);
   });
 });

@@ -45,7 +45,8 @@ reg(
       ctx.fillStyle = "#6d7580";
       ctx.fillRect(0, h * 0.34, w, h * 0.12);
       ctx.fillStyle = "#aab3bd";
-      for (let i = 0; i < 7; i++) ctx.fillRect(w * 0.06 + i * w * 0.13, h * 0.375, w * 0.06, h * 0.03);
+      for (let i = 0; i < 7; i++)
+        ctx.fillRect(w * 0.06 + i * w * 0.13, h * 0.375, w * 0.06, h * 0.03);
 
       ctx.strokeStyle = "rgba(210,215,220,.45)";
       ctx.lineWidth = 2;
@@ -137,7 +138,10 @@ reg(
       const stops = Math.max(2, Math.round(p.levels));
       for (let i = 0; i < d.length; i += 4) {
         const l = (d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722) / 255;
-        const idx = Math.min(SCENE_RAMP.length - 1, Math.round(l * (stops - 1)) * ((SCENE_RAMP.length - 1) / (stops - 1)));
+        const idx = Math.min(
+          SCENE_RAMP.length - 1,
+          Math.round(l * (stops - 1)) * ((SCENE_RAMP.length - 1) / (stops - 1)),
+        );
         const stop = SCENE_RAMP[Math.round(idx)] || SCENE_RAMP[0];
         d[i] = Math.min(255, stop[0] + p.warmth * 26 * l);
         d[i + 1] = Math.min(255, stop[1] + p.warmth * 14 * l);

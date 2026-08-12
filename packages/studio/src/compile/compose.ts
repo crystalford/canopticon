@@ -36,6 +36,7 @@ import {
   resolveStateAt,
   scenePosition,
 } from "./creative-state.ts";
+import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
 
 /** The abstraction ladder — how far the image sits from literal depiction.
  *  Each rung names the base chain the film reaches for at that distance.
@@ -107,6 +108,9 @@ export interface ComposedScene {
   ruleHits: RuleHit[];
   notes: string[];
   override: Override | undefined;
+  /** Present when the scene carried a reading and a treatment was planned
+   *  from it. Null when the engine fell back to the abstraction ladder. */
+  treatment: Treatment | null;
   costMsPerFrame: number;
   determinism: Determinism;
 }
@@ -151,10 +155,38 @@ export function composeScene(
 
   const rung =
     LADDER.find((r) => abstraction < r.maxAbstraction) ?? (LADDER[LADDER.length - 1] as Rung);
-  let chain = [...rung.base];
+
+  // A scene that carries a reading gets a TREATMENT: a chain planned from
+  // what the prose is actually about. Without one the engine falls back to
+  // the abstraction ladder's default, which knows the film's mood but
+  // nothing about its subject. Either way the nodes are hashed identically
+  // downstream, so a treatment caches exactly like any other chain.
+  let treatment: Treatment | null = null;
+  let chain: string[];
   const reasons = new Map<string, string>();
-  for (const p of chain)
-    reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
+
+  if (scene.reading) {
+    const language = scene.visualLanguage ?? ir.visualLanguage;
+    treatment = planTreatment(scene.reading, language);
+    chain = treatment.nodes.map((n) => n.primitiveId);
+    for (const node of treatment.nodes) reasons.set(node.primitiveId, node.reason);
+    if (!treatment.valid) {
+      // A treatment that does not typecheck is reported and discarded, not
+      // rendered. Falling back is better than emitting a chain the executor
+      // will refuse — the scene degrades, the film still compiles.
+      notes.push(
+        `treatment rejected (${treatment.errors.map((e) => e.message).join("; ")}) — fell back to the ${rung.tier} rung`,
+      );
+      chain = [...rung.base];
+      reasons.clear();
+      for (const p of chain)
+        reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
+    }
+  } else {
+    chain = [...rung.base];
+    for (const p of chain)
+      reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
+  }
 
   // ── precedence 5: motif continuity ─────────────────────────────────
   // Developing an established motif is the DEFAULT. Its chain is appended
@@ -229,6 +261,28 @@ export function composeScene(
     notes.push(`dropped ${removed} — chain exceeded the frame budget`);
   }
 
+  // Validate the FINAL chain, not just the planned treatment. Motif,
+  // density and anti-repetition primitives are appended after planning, and
+  // an append that doesn't typecheck would otherwise ride through unchecked
+  // — which is precisely how a typed palette decays back into a menu of
+  // things stapled together because they look good side by side.
+  //
+  // Offending appends are dropped rather than the whole chain rejected: the
+  // rung and the treatment are what the scene is about, and a motif that
+  // cannot legally attach should lose, loudly.
+  {
+    let guard = chain.length;
+    while (guard-- > 0) {
+      const { errors } = validateChain(chain);
+      const first = errors[0];
+      if (!first) break;
+      const dropped = chain[first.at] as string;
+      chain.splice(first.at, 1);
+      reasons.delete(dropped);
+      notes.push(`dropped ${dropped} — ${first.message}`);
+    }
+  }
+
   // ── precedence 1: explicit human override ──────────────────────────
   // Applied LAST so it overwrites everything the engine just decided, and
   // the engine's own notes above are discarded rather than left dangling
@@ -251,6 +305,11 @@ export function composeScene(
       abstraction: round3(abstraction),
       human: round3(state.values.humanPresence ?? 0),
     };
+    // A treatment's parameters are the whole point of planning one — they
+    // carry the representation rung and the camera, and a claim's colder
+    // grade. Without this merge the plan would be decorative.
+    const planned = treatment?.nodes.find((n) => n.primitiveId === primitiveId);
+    if (planned) Object.assign(params, planned.params);
     if (override?.type === "pin" && override.params) {
       Object.assign(params, override.params);
     }
@@ -276,6 +335,7 @@ export function composeScene(
     ruleHits,
     notes,
     override,
+    treatment,
     costMsPerFrame: chainCost(chain),
     determinism: chainDeterminism(chain),
   };

@@ -178,6 +178,37 @@ export const NarrationSchema = z.object({
 });
 export type Narration = z.infer<typeof NarrationSchema>;
 
+/** What a scene's prose is ABOUT, as the compiler understands it.
+ *
+ *  A frozen input artifact: an LLM proposes it once at authoring time, the
+ *  operator ratifies it, and it is stored in the IR thereafter. It lives in
+ *  the IR rather than in the compiler because it is authored data — the
+ *  compiler reads it, never writes it, and never regenerates it during a
+ *  compile. That is what makes a treatment cacheable: the same reading
+ *  always plans the same chain. */
+export const SemanticReadingSchema = z.object({
+  sentence: z.string(),
+  subjects: z
+    .array(
+      z.object({
+        label: z.string(),
+        kind: z.enum(["object", "creature", "document", "person", "place", "concept"]),
+        weight: z.number().min(0).max(1),
+      }),
+    )
+    .min(1),
+  visualOpportunity: z.enum(["inspect", "establish", "contrast", "dissolve", "accumulate"]),
+  /** True when the prose reports a claim rather than asserting a fact. Never
+   *  silently dropped: a treatment may depict a claim differently, but it
+   *  must never depict one as established. */
+  contested: z.boolean(),
+});
+export type SemanticReading = z.infer<typeof SemanticReadingSchema>;
+
+/** How a scene is depicted. The subject is invariant; this is not. */
+export const VisualLanguageSchema = z.enum(["documentary", "technical", "pixel", "surreal"]);
+export type VisualLanguage = z.infer<typeof VisualLanguageSchema>;
+
 /** A block is a RECIPE — a convenient pre-composed default, not the
  *  director's vocabulary (Atlas Part 1.1). `chain` lets the composition
  *  engine reach past the recipe to the primitives themselves, which is
@@ -207,6 +238,12 @@ export const SceneSchema = z.object({
   /** Entity ids referenced in this scene — the motif trigger. */
   entities: z.array(z.string()).default([]),
   blocks: z.array(BlockSchema).default([]),
+  /** The frozen reading of this scene's prose. When present the composition
+   *  engine plans a treatment from it instead of reaching for the
+   *  abstraction ladder's default chain. */
+  reading: SemanticReadingSchema.optional(),
+  /** Per-scene depiction override. Falls back to the film's default. */
+  visualLanguage: VisualLanguageSchema.optional(),
 });
 export type Scene = z.infer<typeof SceneSchema>;
 
@@ -236,6 +273,9 @@ export const EditorialIRSchema = z.object({
   /** Kept as a field from Phase 0 even though accessibility render
    *  profiles are out of scope — so adding them later is not a schema
    *  migration. */
+  /** The film's default depiction. A director can travel this across the
+   *  runtime the same way they travel abstraction. */
+  visualLanguage: VisualLanguageSchema.default("documentary"),
   renderProfile: z.string().default("default"),
 });
 export type EditorialIR = z.infer<typeof EditorialIRSchema>;

@@ -27,28 +27,13 @@
 // different chains and the SAME subject. Identity is invariant; depiction
 // is the director's.
 
+import type { SemanticReading, VisualLanguage } from "../ir/schema.ts";
 import { PRIMITIVES, type PrimitiveType, canChain } from "../primitives/registry.ts";
 
-/** What the essay is talking about, as the compiler understands it.
- *  Generated once by an LLM at authoring time, then frozen. */
-export interface SemanticReading {
-  sentence: string;
-  subjects: Array<{
-    /** The noun as it appears in the prose. */
-    label: string;
-    kind: "object" | "creature" | "document" | "person" | "place" | "concept";
-    /** Salience 0..1 — which subject the shot is actually about. */
-    weight: number;
-  }>;
-  /** What the passage is doing, not what it depicts. */
-  visualOpportunity: "inspect" | "establish" | "contrast" | "dissolve" | "accumulate";
-  /** True when the sentence reports a claim rather than a fact — "he
-   *  claimed", "according to". Treatments may lean on this; the firewall
-   *  principle is that it is never silently dropped. */
-  contested: boolean;
-}
-
-export type VisualLanguage = "documentary" | "technical" | "pixel" | "surreal";
+// The reading and the visual language are AUTHORED DATA, so they live in
+// the IR. Re-exported here so callers of the planner do not need to know
+// that, and so the two can never drift into separate definitions.
+export type { SemanticReading, VisualLanguage };
 
 export const VISUAL_LANGUAGES: VisualLanguage[] = ["documentary", "technical", "pixel", "surreal"];
 
@@ -185,12 +170,17 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
     reason: `${subject?.label ?? "subject"} realised as a ${bodyPlan} body plan`,
   });
 
-  // An ENTITY has to be rasterised before any raster or compositing
-  // primitive can touch it. Inserted automatically rather than left for the
-  // author to remember — the type system will reject the chain otherwise.
-  if ((PRIMITIVES[bodyPlan]?.outputs ?? []).includes("ENTITY")) {
+  // A body plan emits a domain type — ENTITY for a creature or a fixture,
+  // ARTIFACT for a document. The compositing and raster families all speak
+  // IMAGE, so a bridge is required. Inserted automatically rather than left
+  // for an author to remember: forgetting it is exactly the failure the
+  // type check catches, and it caught it twice before this table existed.
+  const BRIDGES: Record<string, string> = { ENTITY: "entity_render", ARTIFACT: "artifact_render" };
+  const emitted = PRIMITIVES[bodyPlan]?.outputs ?? [];
+  const bridge = emitted.map((t) => BRIDGES[t]).find(Boolean);
+  if (bridge) {
     nodes.push({
-      primitiveId: "entity_render",
+      primitiveId: bridge,
       params: {
         // A contested claim is lit a little colder and closer, which is a
         // treatment choice the reading earns rather than a random flourish.

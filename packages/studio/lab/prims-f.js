@@ -364,7 +364,12 @@ reg(
 
       if (p.vignette > 0) {
         const v = ctx.createRadialGradient(
-          w / 2, h / 2, Math.min(w, h) * 0.22, w / 2, h / 2, Math.max(w, h) * 0.62,
+          w / 2,
+          h / 2,
+          Math.min(w, h) * 0.22,
+          w / 2,
+          h / 2,
+          Math.max(w, h) * 0.62,
         );
         v.addColorStop(0, "rgba(0,0,0,0)");
         v.addColorStop(1, `rgba(0,0,0,${p.vignette * 0.9})`);
@@ -374,4 +379,67 @@ reg(
     },
   }),
   "The rasterisation step. An ENTITY carries geometry and behaviour; a raster or compositing primitive needs pixels. Without this a subject cannot legally reach the pixel, particle or raster families — the type system doing its job, not obstructing it.",
+);
+
+/* ── the second bridge: ARTIFACT → IMAGE ────────────────────────────
+ * The same gap ENTITY had, found the same way — by planning a real
+ * treatment for a document subject and watching the type check refuse it:
+ * "parallax_layers consumes IMAGE but document_surface emits ARTIFACT".
+ *
+ * A document is a constructed artifact with structure, not a picture. It
+ * has to be rasterised before the compositing and raster families can
+ * touch it, exactly as an entity does. Two bridges rather than one generic
+ * one, because the types are genuinely different and collapsing them would
+ * throw away the distinction the palette exists to keep.
+ */
+reg(
+  "artifact_render",
+  "S · ENTITY",
+  "ARTIFACT → IMAGE",
+  {
+    exposure: { v: 0.5, lo: 0, hi: 1 },
+    contrast: { v: 0.5, lo: 0, hi: 1 },
+    vignette: { v: 0.3, lo: 0, hi: 1 },
+  },
+  (p) => ({
+    frame(ctx, w, h, t, input) {
+      ctx.fillStyle = BG;
+      ctx.fillRect(0, 0, w, h);
+      if (!input) {
+        lab(ctx, "artifact_render: no upstream ARTIFACT", 10, h / 2);
+        return;
+      }
+      ctx.drawImage(input, 0, 0, w, h);
+
+      if (p.exposure !== 0.5 || p.contrast !== 0.5) {
+        const img = ctx.getImageData(0, 0, w, h);
+        const d = img.data;
+        const gain = 0.55 + p.exposure * 0.9;
+        const k = 0.6 + p.contrast * 1.4;
+        for (let i = 0; i < d.length; i += 4) {
+          for (let c = 0; c < 3; c++) {
+            const v = (d[i + c] / 255) * gain;
+            d[i + c] = Math.max(0, Math.min(255, ((v - 0.5) * k + 0.5) * 255));
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+      }
+
+      if (p.vignette > 0) {
+        const v = ctx.createRadialGradient(
+          w / 2,
+          h / 2,
+          Math.min(w, h) * 0.3,
+          w / 2,
+          h / 2,
+          Math.max(w, h) * 0.66,
+        );
+        v.addColorStop(0, "rgba(0,0,0,0)");
+        v.addColorStop(1, `rgba(0,0,0,${p.vignette * 0.9})`);
+        ctx.fillStyle = v;
+        ctx.fillRect(0, 0, w, h);
+      }
+    },
+  }),
+  "Rasterises a constructed ARTIFACT — a document, a chart — so the compositing and raster families can consume it. The counterpart to entity_render, and found the same way: by a real treatment failing to typecheck.",
 );

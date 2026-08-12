@@ -19,6 +19,7 @@ import {
 import { type ComposedScene, composeAll } from "./compose.ts";
 import { hashSceneNodes } from "./hash.ts";
 import { type Alignment, type SolveResult, nominalAlignment, solveTiming } from "./solver.ts";
+import { type UsageReport, analyseUsage } from "./usage.ts";
 
 export interface HashedNode {
   primitiveId: string;
@@ -45,6 +46,9 @@ export interface CompileReport {
   peakCostMsPerFrame: number;
   /** Honest determinism claim for the whole film: the weakest scene. */
   determinism: "L1" | "L2" | "L2-GPU";
+  /** Which primitives were load-bearing in this build, so the palette can
+   *  be pruned on evidence rather than instinct. */
+  usage: UsageReport;
   /** TTS calls this compile made. Structurally always 0 — narration is an
    *  input artifact — and reported so the operator can see that. */
   ttsCalls: 0;
@@ -150,6 +154,7 @@ export async function compile(
     snapshot: snapshotFrom(hashed),
     peakCostMsPerFrame,
     determinism,
+    usage: analyseUsage(composed),
     ttsCalls: 0,
     warnings,
   };
