@@ -1,0 +1,37 @@
+name = "canopticon-studio"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# CANOPTICON STUDIO — the deterministic editorial compiler.
+#
+# Its own Worker, its own D1, its own R2, its own migration numbering.
+# Deliberately shares NOTHING with canopticon-api (the Record): different
+# product, different data model, different lifecycle. The only thing they
+# have in common is the stack.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "canopticon-studio"
+database_id = "PLACEHOLDER_FILLED_BY_DEPLOY_WORKFLOW"
+migrations_dir = "../../supabase/migrations-studio"
+
+# R2 — narration audio, alignment JSON, cached render artifacts, uploads.
+# Key layout is Master Spec Part 7.1:
+#   projects/{projectId}/vo/{sceneId}_v{n}.mp3
+#   projects/{projectId}/alignment/{sceneId}_v{n}.json
+#   projects/{projectId}/cache/{nodeHash}.json
+#   projects/{projectId}/uploads/{assetId}.{ext}
+[[r2_buckets]]
+binding = "ASSETS"
+bucket_name = "canopticon-studio-assets"
+
+# Workers AI — segmentation proposal (LLM) and narration (TTS).
+# Both are called ONCE, at authoring time, and their output is frozen,
+# hashed, and committed as an input artifact. Never called at render time.
+[ai]
+binding = "AI"
+
+[vars]
+STUDIO_ENV = "production"

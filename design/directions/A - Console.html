@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Canopticon — Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0c0d;--panel:#121416;--panel2:#171a1d;--line:#232629;--line2:#2d3135;--ink:#e6e8ea;--ink2:#9aa0a6;--mut:#63696e;--faint:#3d4247;--sig:#7dd3a0;--warn:#e0a94f;--hot:#e0614f;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;--cond:'IBM Plex Sans Condensed',sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--sig);text-decoration:none}a:hover{color:#a9e6c3}
+.k{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--faint);text-transform:uppercase}
+.bar{display:flex;align-items:center;gap:24px;height:46px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:9px}
+.logo svg{display:block}
+.logo b{font-family:var(--mono);font-weight:600;font-size:12px;letter-spacing:.28em}
+.nav{display:flex;height:100%;font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--mut)}
+.nav span{display:flex;align-items:center;padding:0 14px;border-bottom:2px solid transparent;cursor:default}
+.nav span.on{color:var(--ink);border-bottom-color:var(--sig)}
+.state{margin-left:auto;display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:9.5px;color:var(--mut);letter-spacing:.06em}
+.led{width:6px;height:6px;border-radius:50%;background:var(--sig);box-shadow:0 0 7px rgba(125,211,160,.8);display:inline-block;margin-right:6px}
+.shell{display:grid;grid-template-columns:236px minmax(0,1fr) 268px;height:calc(100vh - 46px);min-height:760px}
+.col{overflow:auto}
+.lcol{background:var(--panel);border-right:1px solid var(--line);padding:16px 0}
+.rcol{background:var(--panel);border-left:1px solid var(--line);padding:16px 0}
+.sec{padding:0 16px 18px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.sec:last-child{border-bottom:none}
+.sec>.k{display:block;margin-bottom:12px}
+/* film head */
+.film h1{font-family:var(--cond);font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0 0 4px;line-height:1.15}
+.film .sub{font-family:var(--mono);font-size:9.5px;color:var(--mut);letter-spacing:.08em}
+/* fader */
+.fader{margin-bottom:15px}
+.flab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--mut);margin-bottom:6px}
+.flab i{font-style:normal;color:var(--ink2)}
+.track{position:relative;height:3px;background:var(--line2)}
+.track .fill{position:absolute;left:0;top:0;bottom:0;background:#4d565c}
+.track .knob{position:absolute;top:-4px;width:3px;height:11px;background:var(--sig);box-shadow:0 0 6px rgba(125,211,160,.5)}
+.ends{display:flex;justify-content:space-between;font-family:var(--mono);font-size:8.5px;color:var(--faint);margin-top:5px;letter-spacing:.06em}
+/* main */
+.mcol{padding:0;display:flex;flex-direction:column;min-width:0}
+.mhead{display:flex;align-items:baseline;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line)}
+.mhead h2{font-family:var(--cond);font-size:15px;font-weight:600;margin:0;letter-spacing:.02em}
+.mhead .k{margin-left:auto}
+.arc{padding:18px 22px;border-bottom:1px solid var(--line);flex:1;min-height:0;display:flex;flex-direction:column}
+.acts{display:grid;grid-template-columns:1.1fr 1.4fr 1fr;font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--mut);border-bottom:1px solid var(--line);padding-bottom:7px}
+.acts div{border-left:1px solid var(--line2);padding-left:9px}
+.acts div:first-child{border-left:none;padding-left:0}
+.acts em{font-style:normal;color:var(--faint);display:block;margin-top:3px;letter-spacing:.04em}
+.lanes{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-between;padding-top:10px}
+.lane{display:grid;grid-template-columns:112px minmax(0,1fr) 34px;align-items:center;gap:10px;height:44px}
+.lane .ln{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink2)}
+.lane .ln u{text-decoration:none;display:block;color:var(--faint);font-size:8px;letter-spacing:.1em;margin-top:2px}
+.lane .val{font-family:var(--mono);font-size:9.5px;color:var(--mut);text-align:right}
+.lane svg{display:block;width:100%;height:40px;background:linear-gradient(to bottom,rgba(255,255,255,.014),rgba(255,255,255,.014))}
+.lane.sel .ln{color:var(--sig)}
+.lane.sel .val{color:var(--sig)}
+/* strip */
+.strip{padding:14px 22px 16px}
+.scenes{display:flex;gap:2px;margin-top:10px}
+.scn{flex:1;position:relative;height:52px;background:var(--panel2);border:1px solid var(--line);padding:6px 7px;overflow:hidden}
+.scn b{font-family:var(--mono);font-size:8px;letter-spacing:.06em;color:var(--mut);font-weight:400;display:block}
+.scn i{font-style:normal;font-family:var(--cond);font-size:10.5px;color:var(--ink2);display:block;margin-top:3px;line-height:1.25}
+.scn .fnbar{position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--line2)}
+.scn.hit .fnbar{background:#39463d}
+.scn.miss{border-color:#4a3a2a}
+.scn.miss .fnbar{background:var(--warn)}
+.scn.pin{border-color:#3d4a55}
+.scn.pin .fnbar{background:#6f9ec4}
+.legend{display:flex;gap:18px;margin-top:9px;font-family:var(--mono);font-size:8.5px;color:var(--faint);letter-spacing:.06em}
+.legend s{text-decoration:none;width:14px;height:2px;display:inline-block;margin-right:5px;vertical-align:middle}
+/* right col */
+.motif{border:1px solid var(--line);background:var(--panel2);padding:9px 10px;margin-bottom:8px}
+.motif .mh{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--ink)}
+.motif .mh em{font-style:normal;font-size:8.5px;color:var(--faint);letter-spacing:.06em}
+.motif .mb{font-size:11px;color:var(--mut);margin-top:5px;line-height:1.45}
+.motif .mstate{display:flex;align-items:center;gap:5px;margin-top:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;color:var(--warn)}
+.motif .mstate s{text-decoration:none;flex:1;height:1px;background:var(--line2)}
+.rule{display:flex;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--ink2);line-height:1.4}
+.rule:last-child{border-bottom:none}
+.rule .sev{font-family:var(--mono);font-size:8px;letter-spacing:.08em;padding:1px 5px;height:15px;flex-shrink:0;margin-top:1px}
+.sev.hard{color:var(--hot);border:1px solid #4a2d28}
+.sev.soft{color:var(--mut);border:1px solid var(--line2)}
+.cbtn{display:block;width:100%;font-family:var(--mono);font-size:10px;letter-spacing:.16em;padding:11px;background:var(--sig);color:#07130d;font-weight:600;border:none;cursor:pointer;margin-bottom:9px}
+.cmeta{font-family:var(--mono);font-size:9px;color:var(--faint);line-height:1.8;letter-spacing:.04em}
+.cmeta i{font-style:normal;color:var(--ink2);float:right}
+</style></head><body>
+<div class="bar">
+<div class="logo"><svg width="17" height="17" viewBox="0 0 17 17"><rect x="1" y="1" width="15" height="15" fill="none" stroke="#7dd3a0" stroke-width="1"/><circle cx="8.5" cy="8.5" r="3.2" fill="none" stroke="#7dd3a0" stroke-width="1"/><circle cx="8.5" cy="8.5" r="1" fill="#7dd3a0"/></svg><b>CANOPTICON</b></div>
+<div class="nav"><span>NARRATIVE</span><span class="on">EDITORIAL</span><span>PREVIEW</span><span>COMPILE</span><span>LAB</span></div>
+<div class="state"><span><i class="led"></i>IR v0.1.0 · CLEAN</span><span>L2 DETERMINISM</span><span>04:37 RUNTIME</span></div>
+</div>
+<div class="shell">
+<div class="col lcol">
+<div class="sec film"><h1>The Temporary Measure</h1><div class="sub">PROJ_004 · 3 ACTS · 22 SCENES</div></div>
+<div class="sec"><span class="k">Visual identity</span>
+<div class="fader"><div class="flab"><span>ABSTRACTION</span><i>0.48</i></div><div class="track"><div class="fill" style="width:48%"></div><div class="knob" style="left:48%"></div></div><div class="ends"><span>LITERAL</span><span>ABSTRACT</span></div></div>
+<div class="fader"><div class="flab"><span>DESIGN</span><i>0.62</i></div><div class="track"><div class="fill" style="width:62%"></div><div class="knob" style="left:62%"></div></div><div class="ends"><span>DOCUMENTARY</span><span>DESIGNED</span></div></div>
+<div class="fader"><div class="flab"><span>EXPERIMENTALISM</span><i>0.31</i></div><div class="track"><div class="fill" style="width:31%"></div><div class="knob" style="left:31%"></div></div><div class="ends"><span>RESTRAINED</span><span>EXPERIMENTAL</span></div></div>
+<div class="fader"><div class="flab"><span>SUBJECT</span><i>0.55</i></div><div class="track"><div class="fill" style="width:55%"></div><div class="knob" style="left:55%"></div></div><div class="ends"><span>HUMAN</span><span>SYSTEMIC</span></div></div>
+</div>
+<div class="sec"><span class="k">Film rhythm</span>
+<div class="fader"><div class="flab"><span>MOTION ENERGY</span><i>0.68</i></div><div class="track"><div class="fill" style="width:68%"></div><div class="knob" style="left:68%"></div></div><div class="ends"><span>CALM</span><span>FRENETIC</span></div></div>
+<div class="fader"><div class="flab"><span>VISUAL DENSITY</span><i>0.71</i></div><div class="track"><div class="fill" style="width:71%"></div><div class="knob" style="left:71%"></div></div><div class="ends"><span>SPARSE</span><span>DENSE</span></div></div>
+<div class="fader"><div class="flab"><span>CUT RHYTHM</span><i>0.40</i></div><div class="track"><div class="fill" style="width:40%"></div><div class="knob" style="left:40%"></div></div><div class="ends"><span>SLOW</span><span>RAPID</span></div></div>
+</div>
+<div class="sec"><span class="k">Invariants · 2 held</span>
+<div class="cmeta">humanPresence <i>MIN 0.30</i><br>corporateFeel <i>MAX 0.25</i></div></div>
+</div>
+
+<div class="col mcol">
+<div class="mhead"><h2>Film Arc</h2><span class="k">Control points interpolated · smooth</span></div>
+<div class="arc">
+<div class="acts"><div>ACT I<em>SETUP · 00:00–01:24</em></div><div>ACT II<em>ESCALATION · 01:24–03:26</em></div><div>ACT III<em>TURN · 03:26–04:37</em></div></div>
+<div class="lanes" id="lanes"></div>
+</div>
+<div class="strip">
+<div style="display:flex;align-items:baseline;gap:12px"><span class="k">Scene strip</span><span class="k" style="margin-left:auto">Last compile 6.2s · 18 of 22 cached</span></div>
+<div class="scenes">
+<div class="scn hit"><b>001 HOOK</b><i>A temporary order</i><s class="fnbar"></s></div>
+<div class="scn hit"><b>002 ESTABLISH</b><i>TIME motif opens</i><s class="fnbar"></s></div>
+<div class="scn hit"><b>003 EVIDENCE</b><i>The statute</i><s class="fnbar"></s></div>
+<div class="scn miss"><b>004 EVIDENCE</b><i>Renewal count</i><s class="fnbar"></s></div>
+<div class="scn miss"><b>005 TURN</b><i>Nobody voted</i><s class="fnbar"></s></div>
+<div class="scn hit"><b>006 ESTABLISH</b><i>The agency</i><s class="fnbar"></s></div>
+<div class="scn pin"><b>007 EVIDENCE</b><i>Pinned — memo</i><s class="fnbar"></s></div>
+<div class="scn hit"><b>008 TURN</b><i>Permanent</i><s class="fnbar"></s></div>
+<div class="scn hit"><b>009 RESOLVE</b><i>TIME fragments</i><s class="fnbar"></s></div>
+</div>
+<div class="legend"><span><s style="background:#39463d"></s>CACHE HIT</span><span><s style="background:#e0a94f"></s>RECOMPUTED</span><span><s style="background:#6f9ec4"></s>PINNED — HELD</span></div>
+</div>
+</div>
+
+<div class="col rcol">
+<div class="sec"><span class="k">Visual memory · 3 motifs</span>
+<div class="motif"><div class="mh">TIME<em>4 OCCURRENCES</em></div><div class="mb">horizontal line + kinetic type</div><div class="mstate">FLAT<s></s>LAYERED<s></s>FRAGMENTED</div></div>
+<div class="motif"><div class="mh">INSTITUTION<em>2 OCCURRENCES</em></div><div class="mb">aged document surface, slow push</div><div class="mstate" style="color:var(--mut)">CLEAN<s></s>AGED</div></div>
+<div class="motif"><div class="mh">UNCERTAINTY<em>UNUSED</em></div><div class="mb">glyph_to_points → particle drift</div></div>
+</div>
+<div class="sec"><span class="k">Directorial rules · 4 active</span>
+<div class="rule"><span class="sev hard">HARD</span>No abstract visuals before Act II</div>
+<div class="rule"><span class="sev hard">HARD</span>Return to TIME motif on every backward jump</div>
+<div class="rule"><span class="sev soft">SOFT</span>Min 2s breathing room after high density</div>
+<div class="rule"><span class="sev soft">SOFT</span>Archival stills hold at least 3s</div>
+</div>
+<div class="sec"><span class="k">Compile</span>
+<button class="cbtn">RECOMPILE — 4 SCENES DIRTY</button>
+<div class="cmeta">Est. rebuild <i>4.1s</i>Est. cost <i>$0.00</i>TTS regeneration <i>NONE</i>Determinism <i>L2</i>Tension reported <i>1 · SCENE 007</i></div>
+</div>
+</div>
+</div>
+<script>
+const lanes=[{n:'ARCHIVAL',s:'archivalWeight',v:[.70,.62,.45,.34,.25,.18,.10],c:'#8d949a'},{n:'DATA',s:'dataWeight',v:[.12,.20,.44,.58,.55,.44,.30],c:'#8d949a'},{n:'ABSTRACTION',s:'abstraction',v:[.15,.18,.25,.34,.48,.68,.85],c:'#7dd3a0',sel:1},{n:'DENSITY',s:'visualDensity',v:[.35,.42,.60,.72,.85,.62,.30],c:'#8d949a'},{n:'HUMAN PRESENCE',s:'humanPresence',v:[.80,.72,.55,.38,.32,.52,.70],c:'#8d949a'},{n:'MOTION ENERGY',s:'motionEnergy',v:[.20,.30,.48,.60,.72,.80,.88],c:'#8d949a'}];
+const W=1000,H=40;
+function path(v){const n=v.length-1;let d='';const pts=v.map((y,i)=>[i/n*W,H-y*(H-6)-3]);d='M'+pts[0][0]+','+pts[0][1];for(let i=0;i<pts.length-1;i++){const[x0,y0]=pts[i],[x1,y1]=pts[i+1],mx=(x0+x1)/2;d+=` C${mx},${y0} ${mx},${y1} ${x1},${y1}`}return{d,pts}}
+document.getElementById('lanes').innerHTML=lanes.map(l=>{const{d,pts}=path(l.v);const dots=pts.map((p,i)=>i%2?'':`<circle cx="${p[0]}" cy="${p[1]}" r="2.6" fill="${l.c}"/>`).join('');
+return `<div class="lane${l.sel?' sel':''}"><div class="ln">${l.n}<u>${l.s}</u></div><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="${W*.30}" y1="0" x2="${W*.30}" y2="${H}" stroke="#2d3135" stroke-width="1"/><line x1="${W*.745}" y1="0" x2="${W*.745}" y2="${H}" stroke="#2d3135" stroke-width="1"/><path d="${d} L${W},${H} L0,${H} Z" fill="${l.c}" opacity=".07"/><path d="${d}" fill="none" stroke="${l.c}" stroke-width="1.5" vector-effect="non-scaling-stroke"/>${dots}</svg><div class="val">${l.v[6].toFixed(2)}</div></div>`}).join('');
+</script></body></html>

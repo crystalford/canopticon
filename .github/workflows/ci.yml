@@ -51,3 +51,7 @@ jobs:
         working-directory: packages/blindspot
         run: pnpm exec wrangler deploy --dry-run
 
+      - name: Studio Worker bundle (wrangler dry-run)
+        working-directory: packages/studio
+        run: pnpm exec wrangler deploy --dry-run
+
