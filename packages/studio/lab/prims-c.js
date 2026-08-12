@@ -13,14 +13,27 @@ reg(
     grid: { v: 0.5, lo: 0, hi: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t) {
+    frame(ctx, w, h, t, upstream) {
       bg(ctx, w, h);
+      // Real figures when the chain supplies them, the synthetic series
+      // when it doesn't. `upstreamData` normalises both to {text,value}.
+      const rows = upstreamData(upstream, DATA);
+      const live = !!(upstream && upstream.data && upstream.data.length);
+      const V = rows.map((r) => (Number.isFinite(r.value) ? r.value : 0));
       const K = Math.round(p.kind),
         px = 34,
         py = 18,
         pw = w - px - 18,
-        ph = h - py - 30;
-      const mx = Math.max(...DATA);
+        // A live series prints its own labels under the bars, so the plot
+        // gives up a gutter for them rather than stacking them onto the
+        // footer line.
+        ph = h - py - (live ? 46 : 30);
+      const mx = Math.max(...V, 1);
+      // A bar is EMPHASISED when it is the largest in the set, rather than
+      // above a hardcoded 5. With real money on the axis, "≥ 5" made every
+      // bar emphatic and the accent stopped meaning anything.
+      const hot = (v) => v >= mx * 0.999;
+      const span = Math.max(1, V.length - 1);
       if (p.grid > 0.02) {
         ctx.strokeStyle = "rgba(155,163,170," + p.grid * 0.16 + ")";
         ctx.lineWidth = 1;
@@ -30,32 +43,36 @@ reg(
           ctx.moveTo(px, y);
           ctx.lineTo(px + pw, y);
           ctx.stroke();
-          lab(ctx, String(Math.round((i / 4) * mx)), 8, y - 4);
+          lab(ctx, axisTick((i / 4) * mx), 8, y - 4);
         }
       }
-      const N = Math.max(1, Math.floor(DATA.length * p.reveal));
+      const N = Math.max(1, Math.floor(V.length * p.reveal));
       if (K === 0) {
-        const bw = pw / DATA.length;
+        const bw = pw / V.length;
         for (let i = 0; i < N; i++) {
-          const bh = (DATA[i] / mx) * ph;
-          ctx.fillStyle = DATA[i] >= 5 ? EMB : "rgba(238,241,243,.72)";
+          const bh = (V[i] / mx) * ph;
+          ctx.fillStyle = hot(V[i]) ? EMB : "rgba(238,241,243,.72)";
           ctx.fillRect(px + i * bw + 1.5, py + ph - bh, bw - 3, bh);
+          // The verbatim string under its own bar. This is the whole point
+          // of carrying `text` through the payload: the reader sees the
+          // figure the essay printed, not a rounded axis value.
+          if (live) lab(ctx, rows[i].text, px + i * bw + 2, py + ph + 13);
         }
       } else if (K === 1) {
         ctx.strokeStyle = INK;
         ctx.lineWidth = 1.6;
         ctx.beginPath();
         for (let i = 0; i < N; i++) {
-          const x = px + (i / (DATA.length - 1)) * pw,
-            y = py + ph - (DATA[i] / mx) * ph;
+          const x = px + (i / span) * pw,
+            y = py + ph - (V[i] / mx) * ph;
           i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
         }
         ctx.stroke();
         for (let i = 0; i < N; i++) {
-          const x = px + (i / (DATA.length - 1)) * pw,
-            y = py + ph - (DATA[i] / mx) * ph;
-          ctx.fillStyle = DATA[i] >= 5 ? EMB : BG;
-          ctx.strokeStyle = DATA[i] >= 5 ? EMB : INK;
+          const x = px + (i / span) * pw,
+            y = py + ph - (V[i] / mx) * ph;
+          ctx.fillStyle = hot(V[i]) ? EMB : BG;
+          ctx.strokeStyle = hot(V[i]) ? EMB : INK;
           ctx.lineWidth = 1.2;
           ctx.beginPath();
           ctx.arc(x, y, 2.6, 0, 6.3);
@@ -66,11 +83,11 @@ reg(
         ctx.beginPath();
         ctx.moveTo(px, py + ph);
         for (let i = 0; i < N; i++) {
-          const x = px + (i / (DATA.length - 1)) * pw,
-            y = py + ph - (DATA[i] / mx) * ph;
+          const x = px + (i / span) * pw,
+            y = py + ph - (V[i] / mx) * ph;
           ctx.lineTo(x, y);
         }
-        ctx.lineTo(px + ((N - 1) / (DATA.length - 1)) * pw, py + ph);
+        ctx.lineTo(px + ((N - 1) / span) * pw, py + ph);
         ctx.closePath();
         ctx.fillStyle = "rgba(216,98,74,.22)";
         ctx.fill();
@@ -80,20 +97,70 @@ reg(
       } else {
         const r = mulberry(5);
         for (let i = 0; i < N; i++) {
-          const x = px + (i / (DATA.length - 1)) * pw;
-          for (let j = 0; j < DATA[i]; j++) {
+          const x = px + (i / span) * pw;
+          // Dots are PROPORTIONAL, not one-per-unit. The original loop ran
+          // `j < DATA[i]` over a synthetic array whose values were single
+          // digits; handed $750,000,000 it would have tried to draw seven
+          // hundred and fifty million circles.
+          const dots = Math.max(1, Math.round((V[i] / mx) * 24));
+          for (let j = 0; j < dots; j++) {
             ctx.fillStyle = "rgba(238,241,243,.6)";
             ctx.beginPath();
-            ctx.arc(x + (r() - 0.5) * 7, py + ph - ((j + 0.5) / mx) * ph, 2.2, 0, 6.3);
+            ctx.arc(x + (r() - 0.5) * 7, py + ph - ((j + 0.5) / 24) * ph, 2.2, 0, 6.3);
             ctx.fill();
           }
         }
       }
-      lab(ctx, ["BAR", "LINE", "AREA", "SCATTER"][K] + " · RENEWALS BY YEAR 2003–2024", 10, h - 14);
+      lab(
+        ctx,
+        ["BAR", "LINE", "AREA", "SCATTER"][K] +
+          (live ? ` · ${V.length} FIGURES · VERBATIM LABELS` : " · RENEWALS BY YEAR 2003–2024"),
+        10,
+        h - 14,
+      );
+      // The signature says DATA → GEOMETRY and until now that was a lie:
+      // the chart drew pixels and emitted nothing, so no downstream
+      // GEOMETRY consumer could ever actually receive one. Sampling its own
+      // marks makes the declared type real — and it means a bar chart can
+      // be sheared, scattered or collapsed by the kinetic family like any
+      // other point set. The figures ride along so a consumer that wants
+      // the numbers rather than the shape still has them.
+      return { data: rows, geometry: samplePixels(ctx.canvas, w, h, 5, 0.35) };
     },
   }),
-  "Bar, line, area, scatter from one data input. The chart type is a parameter, so it can change mid-shot.",
+  "Bar, line, area, scatter from one data input. The chart type is a parameter, so it can change mid-shot. Bars are labelled with the source strings, never with a reformatting of the parsed value.",
 );
+
+/** Format an in-progress count in the shape of the figure it is counting
+ *  to, at `progress` through the roll-up. countLike("$282,345.84", 0.5)
+ *  → "$141,172.92". Prefix,
+ *  grouping, decimal places and any trailing unit word are taken from the
+ *  source string, so an intermediate frame reads as the same KIND of
+ *  quantity — and only the magnitude is in motion. */
+function countLike(text, progress) {
+  const m = /^([^\d]*)([\d,]+(?:\.\d+)?)(.*)$/.exec(text);
+  if (!m) return text;
+  const [, prefix, digits, suffix] = m;
+  const dot = digits.indexOf(".");
+  const places = dot < 0 ? 0 : digits.length - dot - 1;
+  // Ease the PRINTED number, not the parsed magnitude — the suffix
+  // ("million", "B", "+") carries the scale and stays put, so "$1.1
+  // billion" counts through "$0.7 billion" rather than through 700000000.
+  const target = Number.parseFloat(digits.replace(/,/g, ""));
+  const [whole, frac] = (target * progress).toFixed(places).split(".");
+  const body = digits.includes(",") ? Number(whole).toLocaleString("en-US") : whole;
+  return prefix + body + (frac ? `.${frac}` : "") + suffix;
+}
+
+/** Axis ticks for a magnitude that may be nine digits long. The axis is the
+ *  one place a rounded number is honest — it is a scale, not a finding —
+ *  but it still has to fit. */
+function axisTick(v) {
+  if (v >= 1e9) return (v / 1e9).toFixed(1) + "B";
+  if (v >= 1e6) return (v / 1e6).toFixed(0) + "M";
+  if (v >= 1e4) return (v / 1e3).toFixed(0) + "K";
+  return String(Math.round(v));
+}
 
 reg(
   "chart_radial",
@@ -208,14 +275,50 @@ reg(
     format: { v: 0, lo: 0, hi: 2, int: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t) {
+    frame(ctx, w, h, t, upstream) {
       bg(ctx, w, h);
-      const cyc = cl01(((t * p.rate * 0.5) % 2.2) / 1.4);
-      const e = 1 - Math.pow(1 - cyc, 4),
-        v = Math.round(p.target * e);
-      const F = Math.round(p.format);
-      const s =
-        F === 0 ? String(v) : F === 1 ? v.toLocaleString() : "$" + (v * 1000).toLocaleString();
+      // A real figure from upstream if there is one, the synthetic target
+      // otherwise. Standalone in the Lab this behaves exactly as it did.
+      const fig = upstream && upstream.data && upstream.data[0];
+
+      // A real figure ARRIVES AND HOLDS. The synthetic demo loops forever,
+      // which is right for a palette browser and wrong for an edit: at the
+      // default rate the looping cycle only reaches 1 after seven seconds,
+      // so inside a two-second shot the counter never once showed the
+      // figure it was counting to. A shot that never lands is a shot that
+      // shows the viewer a wrong number and then cuts away from it.
+      const settleS = fig ? 0.6 + (1 - p.rate) * 2.2 : 0;
+      const cyc = fig ? cl01(t / settleS) : cl01(((t * p.rate * 0.5) % 2.2) / 1.4);
+      const e = 1 - Math.pow(1 - cyc, 4);
+      let s;
+      let caption;
+      if (fig) {
+        // THE LAST FRAME IS THE SUBSTRING, EXACTLY.
+        //
+        // Two wrong ways to do this, both tried. Counting `value` and
+        // formatting the result turns $282,345.84 into $282,346 — the
+        // compiler quietly correcting the finding. Easing each printed
+        // digit independently is worse: it renders $272,344.74, which is
+        // not on the way to anything, and which a viewer reads as a real
+        // figure because it has the shape of one. A wrong number that
+        // looks authoritative is the single worst thing this primitive
+        // could put on screen.
+        //
+        // So the roll-up eases the magnitude and re-formats it into the
+        // SOURCE STRING'S OWN SHAPE — same currency mark, same grouping,
+        // same decimal places, same trailing "million" — and once the ease
+        // has effectively landed the verbatim text is printed rather than
+        // reconstructed. What the viewer holds at the end of the shot is
+        // the essay's characters, not a rendering that agrees with them.
+        s = e > 0.995 ? fig.text : countLike(fig.text, e);
+        caption = fig.kind.toUpperCase();
+      } else {
+        const v = Math.round(p.target * e);
+        const F = Math.round(p.format);
+        s = F === 0 ? String(v) : F === 1 ? v.toLocaleString() : "$" + (v * 1000).toLocaleString();
+        caption = "RENEWALS SINCE 2003";
+      }
+
       ctx.font =
         "600 " + Math.min(h * 0.46, w / (s.length * 0.62)) + 'px "Space Grotesk",sans-serif';
       ctx.textAlign = "center";
@@ -224,12 +327,12 @@ reg(
       ctx.fillText(s, w / 2, h * 0.46);
       ctx.font = '500 11px "JetBrains Mono",monospace';
       ctx.fillStyle = EMB;
-      ctx.fillText("RENEWALS SINCE 2003", w / 2, h * 0.78);
+      ctx.fillText(caption, w / 2, h * 0.78);
       ctx.textAlign = "left";
-      lab(ctx, "EASED · NOT LINEAR", 10, h - 14);
+      lab(ctx, fig ? "VERBATIM · EASED" : "EASED · NOT LINEAR", 10, h - 14);
     },
   }),
-  "An animated number. Trivial to build, and it carries more weight than a chart when the figure is the argument.",
+  "An animated number. Trivial to build, and it carries more weight than a chart when the figure is the argument. Counts up through the digits of the figure as the essay printed it, so the last frame is the source string and not a rounding of it.",
 );
 
 reg(
@@ -845,10 +948,59 @@ reg(
     nodes: { v: 4, lo: 2, hi: 7, int: 1 },
     thickness: { v: 0.5, lo: 0.1, hi: 1 },
     curve: { v: 0.6, lo: 0, hi: 1 },
+    route: { s: "" },
   },
   (p) => ({
-    frame(ctx, w, h, t) {
+    frame(ctx, w, h, t, upstream) {
       bg(ctx, w, h);
+
+      // A ROUTE, when the prose gave one. "Ottawa → IRCC → Hotels → Housed"
+      // is not decoration and it is not a random weave: it is a claim about
+      // where money goes, and the whole argument of a shell-game essay is
+      // that two such routes have the same endpoint. Drawing it as one
+      // labelled channel per stage is the only version of this primitive
+      // that can be WRONG about the essay, which is what makes it worth
+      // drawing at all.
+      const stops = (p.route || "")
+        .split(/→|->|\|/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (stops.length >= 2) {
+        const fig = upstream && upstream.data && upstream.data[0];
+        const colw = w / stops.length;
+        const y = h * 0.5;
+        // One channel, thinning slightly at each hop — administration takes
+        // a cut of attention, never of the total. The endpoint is the point.
+        for (let c = 0; c < stops.length - 1; c++) {
+          const th = (10 + 22 * p.thickness) * (1 - c * 0.06);
+          ctx.strokeStyle = c === stops.length - 2 ? "rgba(216,98,74,.42)" : "rgba(238,241,243,.16)";
+          ctx.lineWidth = th;
+          ctx.beginPath();
+          ctx.moveTo(colw * c + colw * 0.5, y);
+          ctx.bezierCurveTo(
+            colw * c + colw * (0.5 + p.curve),
+            y - 16 * p.curve,
+            colw * (c + 1) + colw * (0.5 - p.curve),
+            y + 16 * p.curve,
+            colw * (c + 1) + colw * 0.5,
+            y,
+          );
+          ctx.stroke();
+        }
+        stops.forEach((s, i) => {
+          ctx.fillStyle = INK;
+          ctx.fillRect(colw * i + colw * 0.5 - 2, y - 34, 4, 68);
+          ctx.save();
+          ctx.translate(colw * i + colw * 0.5 + 8, y - 40);
+          ctx.font = '500 10px "JetBrains Mono",monospace';
+          ctx.fillStyle = i === stops.length - 1 ? EMB : "rgba(238,241,243,.8)";
+          ctx.fillText(s.toUpperCase().slice(0, 22), 0, 0);
+          ctx.restore();
+        });
+        lab(ctx, (fig ? fig.text + " · " : "") + stops.length + " STAGES · ROUTED", 10, h - 12);
+        return { geometry: samplePixels(ctx.canvas, w, h, 5, 0.3) };
+      }
+
       const L = Math.round(p.nodes),
         r = mulberry(88);
       const cols = 3,
@@ -859,9 +1011,7 @@ reg(
             if (r() > 0.42) continue;
             const th = (2 + r() * 16) * p.thickness;
             const y0 = ((i + 0.5) / L) * h,
-              y1 = ((j + 0.5) / L) * h,
-              x0 = colw * (c + 1) - 8,
-              x1 = colw * (c + 2) - colw + 8 + colw * c;
+              y1 = ((j + 0.5) / L) * h;
             ctx.strokeStyle = th > 10 ? "rgba(216,98,74,.3)" : "rgba(238,241,243,.13)";
             ctx.lineWidth = th;
             ctx.beginPath();
@@ -884,7 +1034,7 @@ reg(
       lab(ctx, "FLOW BETWEEN " + L + " CATEGORIES · 3 STAGES", 10, h - 12);
     },
   }),
-  "Quantity moving between categories. Money, people, authority — where it enters and where it ends up.",
+  "Quantity moving between categories. Money, people, authority — where it enters and where it ends up. Given a route lifted from the prose it draws that route, labelled; given none it weaves an unnamed flow.",
   1,
 );
 

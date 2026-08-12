@@ -202,6 +202,27 @@ export const SemanticReadingSchema = z.object({
    *  silently dropped: a treatment may depict a claim differently, but it
    *  must never depict one as established. */
   contested: z.boolean(),
+  /** Quantities lifted out of the sentence, VERBATIM. Populated by a regex
+   *  over the prose, never by the model — see `compile/figures.ts` for why
+   *  that separation is load-bearing rather than fastidious. Present on
+   *  roughly a third of the sentences of an institutional investigation and
+   *  on almost none of an aphoristic essay, which is exactly the difference
+   *  a treatment should be able to see. */
+  figures: z
+    .array(
+      z.object({
+        text: z.string(),
+        value: z.number(),
+        kind: z.enum(["money", "count", "percent", "year"]),
+        offset: z.number().int(),
+      }),
+    )
+    .optional(),
+  /** The stages a quantity passes through, when the sentence names them:
+   *  "Ottawa → IHAP grants → provinces → hotel contracts". A shell-game
+   *  essay's central claim is that two routes share an endpoint, and this
+   *  is the only field that can carry that claim to a chart. */
+  route: z.array(z.string()).optional(),
 });
 export type SemanticReading = z.infer<typeof SemanticReadingSchema>;
 

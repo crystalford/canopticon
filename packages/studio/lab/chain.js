@@ -58,9 +58,10 @@ function validate(chain) {
 /** Instantiate a chain once. Instances hold per-primitive state (particle
  *  positions, creature bodies), so they must persist across frames — a
  *  chain rebuilt every frame would reset all motion to its first step. */
-function buildChain(chain, w, h) {
+function buildChain(chain, w, h, duration) {
   const errors = validate(chain);
   if (errors.length) return { errors, run: null };
+  const dur = duration > 0 ? duration : 3;
 
   const stages = chain.map((node) => {
     const def = window.PRIMS[node.id];
@@ -76,6 +77,23 @@ function buildChain(chain, w, h) {
     return { id: node.id, inst: def.make(params), buf, ctx: buf.getContext("2d") };
   });
 
+  // MOTION CRAFT RE-TIMES; IT DOES NOT DRAW.
+  //
+  // The six motion-craft primitives declare ANIMATION → ANIMATION, and run
+  // as ordinary stages they painted an easing-curve diagram over the shot —
+  // which every visual language's tail did, invisibly, to every chain that
+  // reached them. An ease cannot be applied to a frame that has already
+  // been rendered. It has to be applied to the clock.
+  //
+  // So a stage exposing `warp` is pulled out of the draw order and folded
+  // into the time the remaining stages run on. If a chain is ONLY motion
+  // craft, they render as their own diagrams, which is what an operator
+  // inspecting the primitive by itself actually wants to see.
+  const shapers = stages.filter((s) => typeof s.inst.warp === "function");
+  const painters = stages.filter((s) => typeof s.inst.warp !== "function");
+  const draw = painters.length > 0 ? painters : stages;
+  const warpTime = (t) => shapers.reduce((acc, s) => s.inst.warp(acc, dur), t);
+
   return {
     errors: [],
     run(t) {
@@ -86,18 +104,25 @@ function buildChain(chain, w, h) {
       // it here; a stage that consumes GEOMETRY reads it instead of
       // guessing from pixels. That is the type system being real at
       // runtime rather than only at plan time.
+      const tt = painters.length > 0 ? warpTime(t) : t;
       let payload = null;
-      for (const stage of stages) {
+      for (const stage of draw) {
         stage.ctx.clearRect(0, 0, w, h);
-        const out = stage.inst.frame(stage.ctx, w, h, t, payload);
+        const out = stage.inst.frame(stage.ctx, w, h, tt, payload);
         payload = {
           canvas: stage.buf,
           // A primitive may hand back typed data alongside its pixels.
           geometry: out && out.geometry ? out.geometry : null,
           field: out && out.field ? out.field : null,
+          // DATA travels too. Without this line the twenty-four
+          // DATA-consuming primitives received nothing from `data_series`
+          // and silently fell back to their own synthetic arrays — the
+          // chain typechecked, ran, and charted numbers that were not in
+          // the essay.
+          data: out && out.data ? out.data : null,
         };
       }
-      return stages[stages.length - 1].buf;
+      return draw[draw.length - 1].buf;
     },
     stages,
   };
@@ -129,7 +154,12 @@ function buildSequence(chain, shots, w, h) {
       // derived — a random seed would break determinism.
       seed: (node.seed ?? 1337) + i * 101 + j,
     }));
-    return { shot, chain: buildChain(seeded, w, h) };
+    // The shot's own length, so a motion-craft ease spans the shot rather
+    // than an arbitrary second.
+    return {
+      shot,
+      chain: buildChain(seeded, w, h, (shot.endMs - shot.startMs) / 1000),
+    };
   });
 
   const bad = built.find((b) => b.chain.errors.length);

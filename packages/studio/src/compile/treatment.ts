@@ -29,6 +29,7 @@
 
 import type { SemanticReading, VisualLanguage } from "../ir/schema.ts";
 import { PRIMITIVES, type PrimitiveType, canChain } from "../primitives/registry.ts";
+import { chartFor, serialiseFigures } from "./figures.ts";
 
 // The reading and the visual language are AUTHORED DATA, so they live in
 // the IR. Re-exported here so callers of the planner do not need to know
@@ -170,21 +171,58 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
   // The shot is about the heaviest subject. Ties break on document order,
   // which keeps planning deterministic.
   const subject = [...reading.subjects].sort((a, b) => b.weight - a.weight)[0];
-  const bodyPlan = subject ? BODY_PLANS[subject.kind] : "glyph_to_points";
+
+  // DOES THE SENTENCE HAVE ARITHMETIC IN IT?
+  //
+  // Two cases, and only two, hand the shot to the data family:
+  //
+  //   A named ROUTE always wins. "Ottawa → IRCC → hotels → housed" is a
+  //   claim about form, and no body plan can depict a claim about form.
+  //
+  //   FIGURES win only when the heaviest subject is a concept — that is,
+  //   when there is nothing concrete to depict anyway. A sentence with a
+  //   real object in it and a number attached is still about the object;
+  //   letting every stray year displace a depictable thing would turn an
+  //   investigation into a slideshow of charts.
+  const figures = reading.figures ?? [];
+  const route = reading.route ?? [];
+  const dataLed = route.length >= 2 || (figures.length > 0 && subject?.kind === "concept");
 
   const nodes: PlannedNode[] = [];
 
-  nodes.push({
-    primitiveId: bodyPlan,
-    params: {
-      representation: spec.representation,
-      // `inspect` is the opportunity that wants a camera push; the others
-      // hold back so the subject isn't crowded.
-      push: reading.visualOpportunity === "inspect" ? 0.62 : 0.25,
-      spin: reading.visualOpportunity === "inspect" ? 0.4 : 0.15,
-    },
-    reason: `${subject?.label ?? "subject"} realised as a ${bodyPlan} body plan`,
-  });
+  if (dataLed) {
+    nodes.push({
+      primitiveId: "data_series",
+      params: {
+        series: serialiseFigures(figures),
+        caption: (subject?.label ?? "figures").toUpperCase(),
+        reveal: 1,
+      },
+      reason:
+        route.length >= 2
+          ? `the sentence routes a quantity through ${route.length} stages — the route is the shot`
+          : `${figures.length} figure${figures.length === 1 ? "" : "s"} carried verbatim out of the prose`,
+    });
+    const chart = chartFor(figures, route.length >= 2);
+    nodes.push({
+      primitiveId: chart,
+      params: route.length >= 2 ? { route: route.join(" → ") } : {},
+      reason: `${chart} — chosen by what the figures are, not by a house style`,
+    });
+  } else {
+    const bodyPlan = subject ? BODY_PLANS[subject.kind] : "glyph_to_points";
+    nodes.push({
+      primitiveId: bodyPlan,
+      params: {
+        representation: spec.representation,
+        // `inspect` is the opportunity that wants a camera push; the others
+        // hold back so the subject isn't crowded.
+        push: reading.visualOpportunity === "inspect" ? 0.62 : 0.25,
+        spin: reading.visualOpportunity === "inspect" ? 0.4 : 0.15,
+      },
+      reason: `${subject?.label ?? "subject"} realised as a ${bodyPlan} body plan`,
+    });
+  }
 
   // A body plan emits a domain type — ENTITY for a creature or a fixture,
   // ARTIFACT for a document. The compositing and raster families all speak
@@ -205,10 +243,18 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
     // particle_flow advects a field into points, which is the honest path
     // from "somewhere" to something a typographic treatment can morph.
     FIELD: "particle_flow",
+    // A chart emits point geometry. The raster tails speak IMAGE, and
+    // advecting a chart's own marks into trails is the honest way across:
+    // the figures come apart into drift rather than being screenshotted.
+    GEOMETRY: "particle_trail",
   };
-  const emitted = PRIMITIVES[bodyPlan]?.outputs ?? [];
+  const emitted = PRIMITIVES[nodes[nodes.length - 1]?.primitiveId ?? ""]?.outputs ?? [];
   const bridge = emitted.map((t) => BRIDGES[t]).find(Boolean);
-  if (bridge) {
+  // Only bridge eagerly if the tail cannot already consume what we have.
+  // Without this guard the GEOMETRY bridge fires on a kinetic chart chain
+  // and rasterises the very points the morph was going to interpolate.
+  const tailHead = spec.tail[0];
+  if (bridge && !(tailHead && canChain(nodes[nodes.length - 1]?.primitiveId ?? "", tailHead))) {
     nodes.push({
       primitiveId: bridge,
       params: {
@@ -243,7 +289,25 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
     }
   }
 
+  // Apply the tail SELECTIVELY. A visual language is a preference, not an
+  // obligation, and some heads genuinely end the picture chain: `counter`
+  // emits ANIMATION, and nothing in the palette consumes ANIMATION except
+  // the six motion-craft primitives, which return it unchanged. Appending
+  // the documentary tail wholesale produced fifteen invalid chains on this
+  // essay — every one of them a big verbatim figure that the type system
+  // was right to refuse to parallax.
+  //
+  // So each tail primitive is appended only if it can legally consume what
+  // the chain currently emits. What survives is the part of the language
+  // that actually applies: an eased counter, rather than an eased counter
+  // with a parallax error attached.
+  const skipped: string[] = [];
   for (const id of spec.tail) {
+    const last = nodes[nodes.length - 1]?.primitiveId ?? "";
+    if (last && !canChain(last, id)) {
+      skipped.push(id);
+      continue;
+    }
     nodes.push({ primitiveId: id, params: {}, reason: spec.why });
   }
 
@@ -257,7 +321,17 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
     signature: chainSignature(chain),
     valid,
     errors,
-    rationale: `${reading.visualOpportunity} · ${spec.why}${reading.contested ? " · claim, not fact" : ""}`,
+    // Say what the language could NOT reach. A silently truncated tail
+    // would leave a director wondering why one shot looks unstyled.
+    rationale: [
+      `${reading.visualOpportunity} · ${spec.why}`,
+      reading.contested ? "claim, not fact" : "",
+      skipped.length > 0
+        ? `${skipped.join(", ")} skipped — ${nodes[nodes.length - 1]?.primitiveId} ends the picture chain`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
   };
 }
 

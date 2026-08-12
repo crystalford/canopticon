@@ -440,9 +440,43 @@ reg(
     orientation: { v: 0, lo: 0, hi: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t) {
+    frame(ctx, w, h, t, upstream) {
       ctx.fillStyle = "#0d0f11";
       ctx.fillRect(0, 0, w, h);
+
+      // A REAL CHRONOLOGY when the chain supplies one. The years in an
+      // institutional essay are not a texture — 2017, 2019, 2024, 2025,
+      // 2026 is the argument's skeleton, and spacing the marks by the
+      // actual interval is what makes a six-year build-up followed by a
+      // one-year "end" look like what it is.
+      const years = (upstream && upstream.data ? upstream.data : []).filter(
+        (f) => f.kind === "year" && Number.isFinite(f.value),
+      );
+      if (years.length >= 2) {
+        const lo = Math.min(...years.map((f) => f.value));
+        const hi = Math.max(...years.map((f) => f.value));
+        const span = Math.max(1, hi - lo);
+        const y0 = h * 0.55;
+        ctx.strokeStyle = "rgba(155,163,170,.5)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(24, y0);
+        ctx.lineTo(w - 24, y0);
+        ctx.stroke();
+        for (const f of years) {
+          const x = 24 + (w - 48) * ((f.value - lo) / span);
+          const last = f.value === hi;
+          ctx.fillStyle = last ? "#d8624a" : "rgba(238,241,243,.75)";
+          ctx.fillRect(x - 0.75, y0 - (last ? 22 : 11), 1.5, last ? 22 : 11);
+          ctx.fillStyle = last ? "#d8624a" : "rgba(155,163,170,.7)";
+          ctx.font = "9px JetBrains Mono";
+          // The printed string, not the parsed year.
+          ctx.fillText(f.text, x - 10, y0 - (last ? 27 : 16));
+        }
+        lab(ctx, `${years.length} DATED MARKS · ${lo}–${hi}`, 10, h - 12);
+        return { geometry: samplePixels(ctx.canvas, w, h, 5, 0.3) };
+      }
+
       const N = Math.round(6 + p.marks * 36),
         y0 = h * 0.55,
         r = mulberry(303);

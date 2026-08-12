@@ -13,20 +13,20 @@ const base = { line: LINE, shotCount: 6, sceneIndex: 0, intensity: 0.7, conteste
 
 describe("fragmenting a line", () => {
   it("never leaves a weak word alone on a plate", () => {
-    for (const f of fragmentLine(LINE, 6)) {
+    for (const f of fragmentLine(LINE)) {
       expect(f.length).toBeGreaterThan(3);
       expect(["THE", "IS", "A"]).not.toContain(f);
     }
   });
 
   it("keeps the words, in order", () => {
-    const joined = fragmentLine(LINE, 6).join(" ");
+    const joined = fragmentLine(LINE).join(" ");
     expect(joined).toBe(LINE.toUpperCase());
   });
 
   it("survives a line with nothing in it", () => {
-    expect(fragmentLine("", 3).length).toBeGreaterThan(0);
-    expect(fragmentLine("   ,,,  ", 3).length).toBeGreaterThan(0);
+    expect(fragmentLine("").length).toBeGreaterThan(0);
+    expect(fragmentLine("   ,,,  ").length).toBeGreaterThan(0);
   });
 });
 

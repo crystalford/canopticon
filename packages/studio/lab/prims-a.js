@@ -247,6 +247,10 @@ reg(
   (p) => {
     const n = vnoise(1337);
     return {
+      // A loop is the plainest time transform there is: wrap the clock.
+      warp(t, dur) {
+        return dur > 0 ? t % dur : t;
+      },
       frame(ctx, w, h, t) {
         bg(ctx, w, h);
         const off = document.createElement("canvas");
@@ -600,6 +604,29 @@ function easeCurve(kind, x, amt) {
 }
 function motionDemo(kindFn, name) {
   return (p) => ({
+    /* MOTION CRAFT IS A TIME TRANSFORM, NOT A PIXEL ONE.
+     *
+     * These six primitives declare ANIMATION → ANIMATION and, run as an
+     * ordinary chain stage, painted this curve diagram straight over
+     * whatever came before them — so appending `ease_profile` to a chain,
+     * which every visual language's tail does, silently replaced the shot
+     * with a picture of an easing curve. The chain typechecked. It was
+     * still a fake, in exactly the way `entity_render` was.
+     *
+     * The fix is not a better draw call. An ease cannot be applied to a
+     * frame that has already been rendered; it has to be applied to the
+     * TIME the frame is rendered at. So a motion-craft instance exposes
+     * `warp`, the executor uses it to reshape the clock the upstream
+     * stages run on, and `frame` stays what it always was — a legible
+     * explanation of the parameter, for when the primitive is inspected on
+     * its own in the Lab.
+     *
+     * `dur` is the shot's length, so the curve spans the shot rather than
+     * an arbitrary second. */
+    warp(t, dur) {
+      if (!(dur > 0)) return t;
+      return kindFn(cl01(t / dur), p) * dur;
+    },
     frame(ctx, w, h, t) {
       bg(ctx, w, h);
       const cyc = (t * 0.42) % 1.7,
@@ -675,6 +702,14 @@ reg(
   "ANIMATION → ANIMATION",
   { lag: { v: 0.4, lo: 0.05, hi: 1 }, layers: { v: 3, lo: 2, hi: 6, int: 1 } },
   (p) => ({
+    // Follow-through as a time transform: the shot runs slightly behind
+    // the clock and catches up at the end. See motionDemo for why these
+    // warp time rather than drawing over the frame.
+    warp(t, dur) {
+      if (!(dur > 0)) return t;
+      const u = cl01(t / dur);
+      return (u - Math.sin(u * Math.PI) * p.lag * 0.12) * dur;
+    },
     frame(ctx, w, h, t) {
       bg(ctx, w, h);
       const N = Math.round(p.layers);

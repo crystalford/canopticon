@@ -52,10 +52,12 @@ export interface ShotPlanOptions {
  *
  *  Splits on words, then groups them so no fragment is a lone article or
  *  preposition — "THE" alone on a plate is a stutter, not an assertion.
- *  When there are more shots than fragments the fragments repeat, which is
- *  deliberate: a phrase returning under a harder deformation is the shape
- *  of the argument tightening. */
-export function fragmentLine(line: string, shotCount: number): string[] {
+ *  The shot count is deliberately NOT an input: fragmentation follows the
+ *  sentence's own joints, and when there are more shots than fragments the
+ *  fragments repeat (see `planShot`) — a phrase returning under a harder
+ *  deformation is the shape of the argument tightening, not a shortfall to
+ *  be padded out. */
+export function fragmentLine(line: string): string[] {
   const WEAK = new Set([
     "a",
     "an",
@@ -117,7 +119,7 @@ export function fragmentLine(line: string, shotCount: number): string[] {
 
 /** Plan one shot. Pure: same inputs, same shot, always. */
 export function planShot(opts: ShotPlanOptions, shotIndex: number): ShotVariation {
-  const frags = fragmentLine(opts.line, opts.shotCount);
+  const frags = fragmentLine(opts.line);
   const text = frags[shotIndex % frags.length] as string;
 
   // Position through the sequence, 0..1. Drives the escalation.

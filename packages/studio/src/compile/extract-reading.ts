@@ -11,6 +11,7 @@
 // and prompt recorded on it; nothing downstream will use it until it has
 // been stored as an asset, which is a deliberate human act.
 
+import { extractFigures, extractRoute } from "./figures.ts";
 import type { SemanticReading } from "./treatment.ts";
 
 export const EXTRACTION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
@@ -53,13 +54,26 @@ Report:
 Return ONLY JSON:
 {"subjects":[{"label":"...","kind":"object|creature|document|person|place|concept","weight":0.0}],"visualOpportunity":"inspect|establish|contrast|dissolve|accumulate","contested":true|false}`;
 
-/** Words that mark reported speech. Used by the deterministic fallback and
+/** Phrases that mark reported speech. Used by the deterministic fallback and
  *  as a floor under the model: if the prose hedges and the model says the
  *  sentence is settled fact, the hedge wins. Getting this wrong in the
- *  permissive direction would let a claim be depicted as established. */
+ *  permissive direction would let a claim be depicted as established.
+ *
+ *  Matched on WORD BOUNDARIES, and the attribution verbs carry their
+ *  grammar with them. Bare "claim"/"claims" used to be in this list and it
+ *  was actively wrong on an essay about asylum CLAIMANTS: three of four
+ *  hits were the subject matter, not a hedge. A word that is a common noun
+ *  in the domain cannot be an attribution marker on its own. */
 const CLAIM_MARKERS = [
-  "claimed",
-  "claims",
+  // Attribution verbs, with the grammar that makes them attributions.
+  "claimed that",
+  "claimed to",
+  "claims that",
+  "claims to",
+  "who claimed",
+  "he claimed",
+  "she claimed",
+  "they claimed",
   "alleged",
   "allegedly",
   "according to",
@@ -69,19 +83,52 @@ const CLAIM_MARKERS = [
   "maintained that",
   "denied",
   "asserted",
+  "supposedly",
+  "purportedly",
   // Attribution by naming a group — "critics call this", "we call it".
-  // This essay is full of them and the first pass caught none.
   "call it",
   "call this",
   "called it",
   "so-called",
-  "supposedly",
-  "purportedly",
+  // Institutional framing. This is how a bureaucratic investigation hedges:
+  // not "he claimed" but "was presented as". The register is passive and
+  // corporate, and the first pass caught none of it — nine sentences of
+  // the IHAP essay reported a government's own characterisation of its
+  // own policy and the compiler would have depicted every one as a finding.
+  "presented as",
+  "framed as",
+  "positioned as",
+  "described as",
+  "billed as",
+  "characterised as",
+  "characterized as",
+  "referred to as",
+  "announced",
+  "declares",
+  "declared",
+  "official explanation",
+  "statement that",
+  "in recognition of",
+  "on paper",
 ];
 
+/** A quoted span is reported language by construction. This generalises past
+ *  any word list: the essay's sharpest hedges are not verbs at all, they are
+ *  the government's own vocabulary held at arm's length — "sustainable and
+ *  cost-effective housing solutions", "ended the hotel program". Someone
+ *  else chose those words, and the sentence is about the choosing.
+ *
+ *  Straight and typographic double quotes only. Apostrophes are excluded
+ *  deliberately: "the government's statement" is not a quotation. */
+const QUOTED_SPAN = /"[^"]{2,}"|“[^”]{2,}”/;
+
+const MARKER_PATTERNS = CLAIM_MARKERS.map(
+  (m) => new RegExp(`\\b${m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i"),
+);
+
 export function looksContested(sentence: string): boolean {
-  const s = sentence.toLowerCase();
-  return CLAIM_MARKERS.some((m) => s.includes(m));
+  if (QUOTED_SPAN.test(sentence)) return true;
+  return MARKER_PATTERNS.some((re) => re.test(sentence));
 }
 
 export async function proposeReading(
@@ -171,6 +218,13 @@ export function parseReading(raw: string, sentence: string): SemanticReading | n
     // The hedge floor: the prose wins over the model here. A model that
     // misses "he claimed" would otherwise let a claim be depicted as fact.
     contested: obj.contested === true || looksContested(sentence),
+    // Figures and routes are read off the PROSE, never off the model's
+    // reply — deliberately, and whatever the model said is discarded. See
+    // compile/figures.ts: a model asked for the numbers in a budget essay
+    // will hand back a helpful approximation, and an approximation of
+    // $282,345.84 is a different finding.
+    figures: extractFigures(sentence),
+    route: extractRoute(sentence),
   };
 }
 
@@ -238,5 +292,7 @@ export function fallbackReading(sentence: string): SemanticReading {
     subjects: subjects.length > 0 ? subjects : [{ label: "subject", kind: "concept", weight: 0.5 }],
     visualOpportunity: "establish",
     contested: looksContested(sentence),
+    figures: extractFigures(sentence),
+    route: extractRoute(sentence),
   };
 }
