@@ -153,6 +153,14 @@ function buildSequence(chain, shots, w, h) {
       // Vary the seed per shot so a cut lands somewhere new, but keep it
       // derived — a random seed would break determinism.
       seed: (node.seed ?? 1337) + i * 101 + j,
+      // WHAT VARIES ACROSS THE CUT. Without this a six-shot scene is one
+      // continuous image with a stutter in it: the solver decided where to
+      // cut, the shot planner decided what should change, and the executor
+      // was applying only the first of the two. The overrides were resolved
+      // upstream against what each primitive actually declares (see
+      // compile/film.ts), so anything arriving here is a parameter the
+      // primitive really has.
+      params: { ...(node.params || {}), ...(shot.params || {}) },
     }));
     // The shot's own length, so a motion-craft ease spans the shot rather
     // than an arbitrary second.

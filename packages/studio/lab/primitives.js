@@ -174,7 +174,7 @@ reg(
 reg(
   "glyph_to_points",
   "A · TYPOGRAPHIC",
-  "TEXT → GEOMETRY",
+  "— → GEOMETRY",
   {
     text: { s: "PERMANENT" },
     sampling: { v: 5, lo: 3, hi: 12, int: 1 },
@@ -507,7 +507,7 @@ reg(
 reg(
   "text_stagger",
   "A · TYPOGRAPHIC",
-  "TEXT → ANIMATION",
+  "— → ANIMATION",
   {
     text: { s: "RENEWED FORTY-ONE TIMES" },
     stagger: { v: 0.4, lo: 0, hi: 1 },

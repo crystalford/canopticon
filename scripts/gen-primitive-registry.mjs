@@ -110,7 +110,28 @@ const { reg, cost } = await page.evaluate(() => {
           ? { kind: "string", default: s.s }
           : { kind: s.int ? "int" : "float", default: s.v, min: s.lo, max: s.hi };
     }
-    out[id] = { id, family: d.family, io: d.io, params, note: d.note || "" };
+    // DOES IT ACTUALLY READ ITS UPSTREAM?
+    //
+    // Declaring an input type is a promise; reading the fifth argument of
+    // frame() is keeping it. The two came apart twice — `entity_render`
+    // synthesised a gradient and ignored what it was handed, and the whole
+    // motion-craft family painted an easing diagram over the shot — and
+    // both times the chain typechecked. Determined here by instantiating
+    // the primitive and reading frame's arity, which is mechanical and
+    // cannot drift from the truth the way a hand-maintained flag would.
+    let consumesUpstream = false;
+    try {
+      const probe = { seed: 1337 };
+      for (const k in d.params) {
+        const sp = d.params[k];
+        probe[k] = sp.s !== undefined ? sp.s : sp.v;
+      }
+      const inst = d.make(probe);
+      consumesUpstream = typeof inst.frame === "function" && inst.frame.length >= 5;
+    } catch {
+      consumesUpstream = false;
+    }
+    out[id] = { id, family: d.family, io: d.io, params, note: d.note || "", consumesUpstream };
   }
   return { reg: out, cost: typeof COST !== "undefined" ? COST : {} };
 });
@@ -159,6 +180,7 @@ ${params}
     },
     estimatedCostMsPerFrame: ${c},
     determinismGuarantee: ${JSON.stringify(det)},
+    consumesUpstream: ${r.consumesUpstream ? "true" : "false"},
     note: ${JSON.stringify(r.note)},
   },`;
   })
@@ -198,7 +220,36 @@ export interface PrimitiveSpec {
   parameters: Record<string, ParameterSpec>;
   estimatedCostMsPerFrame: number;
   determinismGuarantee: Determinism;
+  /** True when the primitive actually READS its upstream buffer rather than
+   *  clearing the frame and drawing its own thing. Detected mechanically at
+   *  generation time from frame()'s arity, not declared by hand.
+   *
+   *  This is the difference between a chain and a stack. A source composes
+   *  with anything and overwrites what came before it, so a chain of three
+   *  sources renders as its last element and the first two cost time for
+   *  nothing. chainOverwrites() reports where that happens. */
+  consumesUpstream: boolean;
   note: string;
+}
+
+/** Stages a chain will paint over. Every stage after the LAST source is
+ *  visible; everything before it is overwritten and its cost is wasted.
+ *
+ *  Reported rather than forbidden. A stack of sources is sometimes what a
+ *  director wants — a recipe reaching for one look — but it should be a
+ *  choice, not a thing the system does silently while presenting a
+ *  three-primitive chain as though all three were on screen. */
+export function chainOverwrites(chain: string[]): { at: number; id: string; by: string }[] {
+  const out: { at: number; id: string; by: string }[] = [];
+  for (let i = 0; i < chain.length - 1; i++) {
+    const later = chain
+      .slice(i + 1)
+      .findIndex((id) => PRIMITIVES[id] && !PRIMITIVES[id].consumesUpstream);
+    if (later < 0) continue;
+    const by = chain[i + 1 + later] as string;
+    out.push({ at: i, id: chain[i] as string, by });
+  }
+  return out;
 }
 
 export const PRIMITIVES: Record<string, PrimitiveSpec> = {

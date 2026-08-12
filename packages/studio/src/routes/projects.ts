@@ -8,6 +8,7 @@
 import { Hono } from "hono";
 import type { CacheSnapshot } from "../compile/cache.ts";
 import { EXTRACTION_MODEL, proposeReading } from "../compile/extract-reading.ts";
+import { buildFilmPlan } from "../compile/film.ts";
 import { compile } from "../compile/index.ts";
 import { segmentEssay } from "../compile/segment.ts";
 import type { Env } from "../env.ts";
@@ -405,6 +406,34 @@ app.post("/project/:id/compile", async (c) => {
   );
 
   return c.json({ ...report, wallMs });
+});
+
+/** THE FILM, as something that can be played.
+ *
+ *  Compiles and returns a plan the Lab's executor can run directly: per
+ *  scene, the chain with its resolved parameters and seeds; per shot, its
+ *  window and what varies across it. No pixels are produced here — the
+ *  Worker plans, the browser paints — but everything needed to paint is in
+ *  the response, and nothing in it was invented by this route.
+ *
+ *  Costs nothing to call. `ttsCalls` comes back 0 for the same structural
+ *  reason it always does: narration is an input artifact, so watching the
+ *  film is free and so is watching it again after dragging a curve. */
+app.get("/project/:id/film", async (c) => {
+  const projectId = c.req.param("id");
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+
+  const snapshot = await loadSnapshot(c.env, projectId);
+  const report = await compile(parsed.ir, { snapshot });
+  return c.json(buildFilmPlan(parsed.ir, report));
 });
 
 app.get("/project/:id/compile-runs", async (c) => {

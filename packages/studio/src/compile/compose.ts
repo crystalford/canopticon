@@ -29,6 +29,7 @@ import {
   PRIMITIVES,
   chainCost,
   chainDeterminism,
+  chainOverwrites,
 } from "../primitives/registry.ts";
 import {
   type ResolvedState,
@@ -325,6 +326,22 @@ export function composeScene(
       reason: reasons.get(primitiveId) ?? "composed",
     };
   });
+
+  // A CHAIN OF SOURCES IS A STACK, NOT A CHAIN.
+  //
+  // Eleven of the palette's 123 primitives read their upstream buffer; the
+  // rest clear the frame and draw their own thing. So a three-primitive
+  // chain of sources renders as its LAST element and the first two cost
+  // time for nothing — which is true of the abstraction ladder's own
+  // ANNOTATED and DECOMPOSED rungs, and was invisible until the plan was
+  // played rather than measured.
+  //
+  // Reported, not forbidden. Reaching for a look with a recipe is a
+  // legitimate thing for a director to do; presenting three primitives as
+  // though all three were on screen is not.
+  for (const o of chainOverwrites(chain)) {
+    notes.push(`${o.id} is painted over by ${o.by} — it costs time and is never seen`);
+  }
 
   return {
     sceneId: scene.sceneId,

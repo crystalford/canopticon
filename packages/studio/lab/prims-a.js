@@ -1,4 +1,17 @@
 /* CANOPTICON — families A (typographic), B (vector), O (motion craft). */
+
+/* NOTE — "TEXT →" was a description, not a type.
+ *
+ * Seven typographic primitives declared "TEXT → …" and none of them read an
+ * upstream buffer: their text arrives as a string PARAMETER. The compiler's
+ * generated registry has no TEXT type, so it read them as sources that
+ * compose with anything, while the Lab's executor read them as consumers
+ * with an unmet input — and the two validators, which implement the same
+ * rule, disagreed on 57 of 88 scenes of a real film. The abstraction
+ * ladder's ANNOTATED and DECOMPOSED rungs had never once been runnable.
+ *
+ * A primitive with no upstream input is a SOURCE. Declared as one now.
+ */
 const TXT = (t) => ({ s: t });
 function fit(ctx, text, w, max) {
   const s = Math.min(max, w / (text.length * 0.58));
@@ -10,7 +23,7 @@ function fit(ctx, text, w, max) {
 reg(
   "text_layout",
   "A · TYPOGRAPHIC",
-  "TEXT → GEOMETRY",
+  "— → GEOMETRY",
   {
     text: TXT("THE TEMPORARY MEASURE"),
     mode: { v: 0, lo: 0, hi: 5, int: 1 },
@@ -90,7 +103,7 @@ reg(
 reg(
   "glyph_to_path",
   "A · TYPOGRAPHIC",
-  "TEXT → GEOMETRY",
+  "— → GEOMETRY",
   { text: TXT("STATUTE"), weight: { v: 0.4, lo: 0.05, hi: 1 }, dash: { v: 0.4, lo: 0, hi: 1 } },
   (p) => ({
     frame(ctx, w, h, t) {
@@ -114,7 +127,7 @@ reg(
 reg(
   "text_stagger_units",
   "A · TYPOGRAPHIC",
-  "TEXT → ANIMATION",
+  "— → ANIMATION",
   {
     text: TXT("NOBODY VOTED AGAINST"),
     unit: { v: 1, lo: 0, hi: 2, int: 1 },
@@ -148,7 +161,7 @@ reg(
 reg(
   "text_scramble",
   "A · TYPOGRAPHIC",
-  "TEXT → ANIMATION",
+  "— → ANIMATION",
   {
     text: TXT("LONGSTANDING"),
     rate: { v: 0.5, lo: 0.1, hi: 1 },
@@ -182,7 +195,7 @@ reg(
 reg(
   "variable_axis",
   "A · TYPOGRAPHIC",
-  "TEXT → ANIMATION",
+  "— → ANIMATION",
   {
     text: TXT("PERMANENT"),
     weight: { v: 0.5, lo: 0, hi: 1 },
@@ -212,7 +225,7 @@ reg(
 reg(
   "text_morph",
   "A · TYPOGRAPHIC",
-  "TEXT → ANIMATION",
+  "— → ANIMATION",
   { from: TXT("TEMPORARY"), to: TXT("PERMANENT"), rate: { v: 0.4, lo: 0.1, hi: 1 } },
   (p) => ({
     frame(ctx, w, h, t) {
@@ -238,7 +251,7 @@ reg(
 reg(
   "text_mask",
   "A · TYPOGRAPHIC",
-  "TEXT → MASK",
+  "— → MASK",
   {
     text: TXT("EVIDENCE"),
     source: { v: 0, lo: 0, hi: 1, int: 1 },

@@ -234,7 +234,12 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
         // alignment arrives the same anchors resolve to real time.
         startAnchor: { chunkId: `${sceneId}_start`, offsetMs: 0 },
         endAnchor: { chunkId: `${sceneId}_end`, offsetMs: 0 },
-        minDurationMs: Math.min(durationMs, MIN_SCENE_MS),
+        // The READING TIME, not the floor. An earlier version set this to
+        // MIN_SCENE_MS and threw the computed duration away, so every scene
+        // in an 88-scene film came out 1.8 seconds long, the whole film ran
+        // 158 seconds, and no scene was ever long enough for the cut
+        // rhythm to fire — the edit silently did not exist.
+        minDurationMs: durationMs,
         maxDurationMs: MAX_SCENE_MS,
         // A scene carrying a figure is RIGID. A viewer reading a number off
         // the screen cannot be hurried by a neighbouring scene's overflow,
