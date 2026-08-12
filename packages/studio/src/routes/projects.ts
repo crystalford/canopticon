@@ -71,6 +71,72 @@ app.post("/project", async (c) => {
  *  Re-posting an essay to an existing project appends a new IR version
  *  rather than overwriting: an edit to the prose is a version of the film,
  *  and the cache diff will report exactly which scenes it touched. */
+/** Every project, newest first. The front door's data.
+ *
+ *  Cheap on purpose — a list view that compiled each project to show a
+ *  duration would make opening the app cost the whole corpus. Scene count
+ *  and last-compiled come from stored rows; the film itself is computed
+ *  when someone actually asks for one. */
+app.get("/projects", async (c) => {
+  const rows = await all<ProjectRow>(
+    c.env.DB,
+    "SELECT * FROM projects ORDER BY created_at DESC LIMIT 200",
+  );
+  const out = [];
+  for (const r of rows) {
+    const version = r.current_ir_version
+      ? await loadVersion(c.env, r.id, r.current_ir_version)
+      : null;
+    let scenes = 0;
+    let acts = 0;
+    let readings = 0;
+    if (version) {
+      try {
+        const ir = JSON.parse(version.ir_json) as {
+          scenes?: { reading?: unknown }[];
+          acts?: unknown[];
+        };
+        scenes = ir.scenes?.length ?? 0;
+        acts = ir.acts?.length ?? 0;
+        readings = (ir.scenes ?? []).filter((s) => s.reading).length;
+      } catch {
+        // A project whose stored IR will not parse is still a project. It
+        // lists with zero counts rather than taking the whole page down.
+      }
+    }
+    const lastRun = await one<{ created_at: string; nodes_total: number }>(
+      c.env.DB,
+      "SELECT created_at, nodes_total FROM compile_runs WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+      [r.id],
+    );
+    out.push({
+      projectId: r.id,
+      title: r.title,
+      createdAt: r.created_at,
+      irVersion: r.current_ir_version,
+      scenes,
+      acts,
+      readings,
+      lastCompiledAt: lastRun?.created_at ?? null,
+      lastNodes: lastRun?.nodes_total ?? null,
+    });
+  }
+  return c.json({ count: out.length, projects: out });
+});
+
+/** Remove a project and everything hanging off it. The IR versions are
+ *  append-only WITHIN a project's life, not immortal — an operator who
+ *  pasted the wrong essay should be able to say so. */
+app.delete("/project/:id", async (c) => {
+  const id = c.req.param("id");
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [id]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  await run(c.env.DB, "DELETE FROM compile_runs WHERE project_id = ?", [id]);
+  await run(c.env.DB, "DELETE FROM ir_versions WHERE project_id = ?", [id]);
+  await run(c.env.DB, "DELETE FROM projects WHERE id = ?", [id]);
+  return c.json({ deleted: id, title: project.title });
+});
+
 app.post("/project/ingest", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
     essay?: string;

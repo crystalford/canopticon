@@ -385,11 +385,25 @@ function boot() {
     }
   });
 
-  // A plan can arrive from the Worker (?plan=<url>) or be pasted. The
-  // paste path is the one that matters here: the Lab is a static page, and
-  // it stays useful with no server at all.
-  const src = new URLSearchParams(location.search).get("plan");
-  if (src) {
+  // A plan arrives one of three ways, in order of how a person actually
+  // gets here: a project id from the front door, a plan URL, or pasted
+  // JSON. The paste path is kept because the Lab is a static page and
+  // stays useful with no server at all.
+  const q = new URLSearchParams(location.search);
+  const projectId = q.get("project");
+  const src = q.get("plan");
+  if (projectId) {
+    els.stats.textContent = "compiling…";
+    fetch(`/v1/project/${encodeURIComponent(projectId)}/film`)
+      .then((r) => r.json())
+      .then((p) => {
+        if (p.error) throw new Error(p.error);
+        load(p);
+      })
+      .catch((e) => {
+        els.stats.textContent = `could not compile ${projectId} — ${e.message}`;
+      });
+  } else if (src) {
     fetch(src)
       .then((r) => r.json())
       .then(load)
