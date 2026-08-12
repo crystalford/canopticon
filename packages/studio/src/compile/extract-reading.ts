@@ -16,7 +16,16 @@ import type { SemanticReading } from "./treatment.ts";
 export const EXTRACTION_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 
 export interface ReadingProposal {
-  reading: SemanticReading;
+  /** Null when extraction DECLINED — no model was available, or the model
+   *  produced nothing usable. A declined scene keeps no reading, so the
+   *  composition engine falls back to the abstraction ladder and the film's
+   *  creative-state curve carries it.
+   *
+   *  This matters more than it looks. A guessed reading OVERRIDES the curve,
+   *  so handing an operator an invented reading to ratify is worse than
+   *  handing them nothing: on an abstract essay it flattened nineteen
+   *  sentences to one body plan and took the film's trajectory with it. */
+  reading: SemanticReading | null;
   /** How it was produced, so the Compile view can state provenance rather
    *  than presenting a machine's guess as a fact about the essay. */
   provenance: {
@@ -60,6 +69,14 @@ const CLAIM_MARKERS = [
   "maintained that",
   "denied",
   "asserted",
+  // Attribution by naming a group — "critics call this", "we call it".
+  // This essay is full of them and the first pass caught none.
+  "call it",
+  "call this",
+  "called it",
+  "so-called",
+  "supposedly",
+  "purportedly",
 ];
 
 export function looksContested(sentence: string): boolean {
@@ -100,8 +117,12 @@ export async function proposeReading(
     }
   }
 
+  // Decline rather than guess. The deterministic reader below exists for
+  // tests and for inspection; it is deliberately NOT offered as a reading
+  // an operator could ratify, because it cannot tell a statute from
+  // latency and would depict both identically.
   return {
-    reading: fallbackReading(sentence),
+    reading: null,
     provenance: {
       generatedBy: "deterministic-fallback",
       createdAt,
@@ -200,7 +221,13 @@ export function fallbackReading(sentence: string): SemanticReading {
 
   const subjects: SemanticReading["subjects"] = nouns.slice(0, 3).map((label, i) => ({
     label,
-    kind: "object" as const,
+    // "concept", not "object". A word-splitter cannot tell a statute from
+    // latency, and claiming "object" is a false confidence that runs all
+    // the way to a body plan: on an abstract essay it turned every one of
+    // nineteen sentences into the same ceiling fixture. Concept routes to
+    // typography, which is the honest depiction of a noun whose referent
+    // the reader could not identify.
+    kind: "concept" as const,
     // Earlier words weigh more; a flat weighting would make the planner's
     // subject choice arbitrary and therefore unstable across edits.
     weight: Math.max(0.2, 0.9 - i * 0.3),

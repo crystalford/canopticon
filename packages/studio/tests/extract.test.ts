@@ -57,12 +57,13 @@ describe("parsing a model proposal", () => {
 });
 
 describe("degrade, flag, continue", () => {
-  it("returns a usable reading with no AI binding, flagged as fallback", async () => {
+  it("DECLINES rather than guessing when there is no AI binding", async () => {
+    // A guessed reading overrides the creative-state curve, so offering one
+    // is worse than offering none. Declining lets the abstraction ladder
+    // carry the scene, which is what the curve is for.
     const p = await proposeReading(undefined, SENTENCE);
     expect(p.provenance.fallback).toBe(true);
-    expect(p.reading.subjects.length).toBeGreaterThan(0);
-    // Even degraded, the hedge survives.
-    expect(p.reading.contested).toBe(true);
+    expect(p.reading).toBeNull();
   });
 
   it("falls back rather than throwing when the model errors", async () => {
@@ -74,6 +75,7 @@ describe("degrade, flag, continue", () => {
     const p = await proposeReading(ai, SENTENCE);
     expect(p.provenance.fallback).toBe(true);
     expect(p.provenance.generatedBy).toBe("deterministic-fallback");
+    expect(p.reading).toBeNull();
   });
 
   it("uses the model when it answers, and records provenance", async () => {
@@ -85,13 +87,22 @@ describe("degrade, flag, continue", () => {
     const p = await proposeReading(ai, SENTENCE);
     expect(p.provenance.fallback).toBe(false);
     expect(p.provenance.sourceText).toBe(SENTENCE);
-    expect(p.reading.visualOpportunity).toBe("inspect");
+    expect(must(p.reading, "reading").visualOpportunity).toBe("inspect");
   });
 
-  it("weights the fallback's subjects so planning stays stable", () => {
-    const r = fallbackReading(SENTENCE);
+  it("the deterministic reader marks subjects as concepts, not objects", () => {
+    // It has no lexicon. Claiming "object" routed every abstract noun to a
+    // ceiling-fixture body plan; "concept" is the honest answer for a noun
+    // whose referent it could not identify.
+    const r = fallbackReading("Meaning is what survives the rubbing.");
+    for (const s of r.subjects) expect(s.kind).toBe("concept");
     const weights = r.subjects.map((s) => s.weight);
     expect(new Set(weights).size).toBe(weights.length);
+  });
+
+  it("catches attribution by group, which the first hedge list missed", () => {
+    expect(looksContested("Critics call this bad UX.")).toBe(true);
+    expect(looksContested("We call it fighting the model.")).toBe(true);
   });
 });
 
@@ -105,7 +116,7 @@ describe("end to end: a sentence reaches a validated chain", () => {
       },
       SENTENCE,
     );
-    const treatment = planTreatment(reading, "pixel");
+    const treatment = planTreatment(must(reading, "reading"), "pixel");
     expect(treatment.valid).toBe(true);
     expect(treatment.errors).toEqual([]);
     expect(treatment.subject).toBe("smoke detector");
