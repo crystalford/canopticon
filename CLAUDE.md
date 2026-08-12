@@ -7,8 +7,14 @@
 > not grown. Do not design Studio against the older systems' docs; Studio's
 > authority is `docs/studio/`, in the order given below.**
 
-- **Domain**: canopticon.com · **Twitter**: @canoptics
-- **GitHub**: crystalford/canopticon
+- **Studio** (primary): studio.canopticon.com · **Record**: canopticon.com
+- **Twitter**: @canoptics · **GitHub**: crystalford/canopticon
+
+> **One-time setup after the Studio Worker first deploys:** add
+> `studio.canopticon.com` in the Cloudflare dashboard under Workers & Pages →
+> `canopticon-studio` → Settings → Domains & Routes. The deploy token lacks
+> Workers Routes Edit on the zone, so this can't be automated and the Worker
+> stays on its workers.dev subdomain until it's done.
 
 ---
 

@@ -4,6 +4,13 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
+# Custom domain `studio.canopticon.com` is configured in the Cloudflare
+# dashboard (Workers & Pages → canopticon-studio → Settings → Domains &
+# Routes), the same way video.canopticon.com is. The deploy token doesn't
+# have Workers Routes Edit on the zone, so routes are deliberately NOT
+# declared here — doing so would fail the deploy. Until it's added, the
+# Worker is live on its workers.dev subdomain.
+
 # CANOPTICON STUDIO — the deterministic editorial compiler.
 #
 # Its own Worker, its own D1, its own R2, its own migration numbering.
