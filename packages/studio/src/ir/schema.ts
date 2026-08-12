@@ -186,6 +186,18 @@ export type Narration = z.infer<typeof NarrationSchema>;
  *  compiler reads it, never writes it, and never regenerates it during a
  *  compile. That is what makes a treatment cacheable: the same reading
  *  always plans the same chain. */
+/** A quantity found in the prose, with the exact span it was found in.
+ *  `text` is authoritative for anything a viewer reads; `value` exists only
+ *  so a chart can scale. See `compile/figures.ts` for why a model is never
+ *  allowed near either. */
+export const FigureSchema = z.object({
+  text: z.string(),
+  value: z.number(),
+  kind: z.enum(["money", "count", "percent", "year"]),
+  offset: z.number().int(),
+});
+export type Figure = z.infer<typeof FigureSchema>;
+
 export const SemanticReadingSchema = z.object({
   sentence: z.string(),
   subjects: z
@@ -202,26 +214,12 @@ export const SemanticReadingSchema = z.object({
    *  silently dropped: a treatment may depict a claim differently, but it
    *  must never depict one as established. */
   contested: z.boolean(),
-  /** Quantities lifted out of the sentence, VERBATIM. Populated by a regex
-   *  over the prose, never by the model — see `compile/figures.ts` for why
-   *  that separation is load-bearing rather than fastidious. Present on
-   *  roughly a third of the sentences of an institutional investigation and
-   *  on almost none of an aphoristic essay, which is exactly the difference
-   *  a treatment should be able to see. */
-  figures: z
-    .array(
-      z.object({
-        text: z.string(),
-        value: z.number(),
-        kind: z.enum(["money", "count", "percent", "year"]),
-        offset: z.number().int(),
-      }),
-    )
-    .optional(),
-  /** The stages a quantity passes through, when the sentence names them:
-   *  "Ottawa → IHAP grants → provinces → hotel contracts". A shell-game
-   *  essay's central claim is that two routes share an endpoint, and this
-   *  is the only field that can carry that claim to a chart. */
+  /** Quantities lifted out of the sentence, VERBATIM, and the stages a
+   *  quantity is routed through when the prose names them. Both are
+   *  populated by a regex over the prose, never by the model — see
+   *  `compile/figures.ts`. Carried here so a hand-authored reading is
+   *  self-contained; `Scene.figures` is where the segmenter puts them. */
+  figures: FigureSchema.array().optional(),
   route: z.array(z.string()).optional(),
 });
 export type SemanticReading = z.infer<typeof SemanticReadingSchema>;
@@ -269,6 +267,21 @@ export const SceneSchema = z.object({
    *  engine plans a treatment from it instead of reaching for the
    *  abstraction ladder's default chain. */
   reading: SemanticReadingSchema.optional(),
+  /** Quantities and routes lifted MECHANICALLY out of this scene's prose.
+   *
+   *  Deliberately separate from `reading`. A reading is an interpretation —
+   *  a model proposes it, an operator ratifies it, and without one the
+   *  compiler declines rather than guesses. A figure is not an
+   *  interpretation. "$282,345.84" is in the sentence or it is not, and the
+   *  answer is checkable by anyone.
+   *
+   *  Which means these need no model and no ratification, and a scene that
+   *  carries them has something depictable in it even when nobody has read
+   *  it yet. That is what lets an institutional essay compile to charts
+   *  offline — see `compose.ts`, where prose alone is enough to plan a
+   *  data-led treatment. */
+  figures: FigureSchema.array().optional(),
+  route: z.array(z.string()).optional(),
   /** Per-scene depiction override. Falls back to the film's default. */
   visualLanguage: VisualLanguageSchema.optional(),
 });

@@ -23,7 +23,7 @@
 // No Math.random anywhere. Every seed is derived from scene index and
 // chain position, so the same IR always composes to the same chains.
 
-import type { EditorialIR, Motif, Override, Rule, Scene } from "../ir/schema.ts";
+import type { EditorialIR, Motif, Override, Rule, Scene, SemanticReading } from "../ir/schema.ts";
 import {
   type Determinism,
   PRIMITIVES,
@@ -36,6 +36,7 @@ import {
   resolveStateAt,
   scenePosition,
 } from "./creative-state.ts";
+import { looksContested } from "./extract-reading.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
 
 /** The abstraction ladder — how far the image sits from literal depiction.
@@ -165,9 +166,10 @@ export function composeScene(
   let chain: string[];
   const reasons = new Map<string, string>();
 
-  if (scene.reading) {
+  const reading = readingFor(scene);
+  if (reading) {
     const language = scene.visualLanguage ?? ir.visualLanguage;
-    treatment = planTreatment(scene.reading, language);
+    treatment = planTreatment(reading, language);
     chain = treatment.nodes.map((n) => n.primitiveId);
     for (const node of treatment.nodes) reasons.set(node.primitiveId, node.reason);
     if (!treatment.valid) {
@@ -338,6 +340,70 @@ export function composeScene(
     treatment,
     costMsPerFrame: chainCost(chain),
     determinism: chainDeterminism(chain),
+  };
+}
+
+/** The reading a scene will actually be planned from.
+ *
+ *  Three cases, and the middle one is the point of this function:
+ *
+ *  1. A RATIFIED READING. The operator approved an interpretation of the
+ *     sentence. Mechanically extracted figures and routes are merged onto
+ *     it — the reading says what the sentence is about, the prose says what
+ *     numbers are in it, and neither overrules the other.
+ *
+ *  2. NO READING, BUT FIGURES OR A ROUTE. The scene is planned anyway,
+ *     from a reading synthesised out of the prose alone. This is legitimate
+ *     precisely because nothing here is an interpretation: "$282,345.84" is
+ *     in the sentence or it is not, and "Ottawa → IRCC → hotels" is drawn
+ *     in the sentence or it is not. No model proposed either, so there is
+ *     nothing for an operator to ratify. The subject is marked `concept`
+ *     with modest weight, which routes it to the data family without
+ *     pretending to know what the sentence is otherwise about.
+ *
+ *     Without this case, an institutional essay could not compile to
+ *     anything but the abstraction ladder until every one of its sentences
+ *     had been through a model and a human — which for the essay that
+ *     motivated all of this is a hundred and four sentences of gate before
+ *     a single frame.
+ *
+ *  3. NEITHER. Declines, and the abstraction ladder carries the scene. A
+ *     guessed reading would override the film's curve, which is worse than
+ *     no reading at all.
+ */
+function readingFor(scene: Scene): SemanticReading | null {
+  const figures = scene.figures ?? [];
+  const route = scene.route ?? [];
+  if (scene.reading) {
+    return {
+      ...scene.reading,
+      figures: scene.reading.figures ?? (figures.length > 0 ? figures : undefined),
+      route: scene.reading.route ?? (route.length > 0 ? route : undefined),
+    };
+  }
+  // A LONE YEAR IS A DATE, NOT A QUANTITY.
+  //
+  // "On September 30, 2025, the federal government ended its direct
+  // funding" is a sentence about an ending. Its only figure is the year,
+  // and the planner dutifully gave it a counter rolling up to 2025 —
+  // arithmetic performed on a date, which is the slideshow-of-charts
+  // failure arriving through the one door left open for it. Two or more
+  // years is a chronology and stays; a year alongside money stays; a year
+  // by itself hands the scene back to the abstraction ladder.
+  const quantities = figures.filter((f) => f.kind !== "year");
+  const years = figures.filter((f) => f.kind === "year");
+  const dataLed = route.length >= 2 || quantities.length > 0 || years.length >= 2;
+  if (!dataLed) return null;
+  return {
+    sentence: scene.narration.text,
+    subjects: [{ label: scene.label || "figures", kind: "concept", weight: 0.6 }],
+    // A route is something being followed; a bare quantity accumulates.
+    visualOpportunity: route.length >= 2 ? "contrast" : "accumulate",
+    // The hedge still applies. A number inside a reported claim is still
+    // inside a reported claim.
+    contested: looksContested(scene.narration.text),
+    figures,
+    route,
   };
 }
 
