@@ -53,7 +53,7 @@ const BODY_PLANS: Record<SemanticReading["subjects"][number]["kind"], string> = 
   document: "document_surface",
   person: "creature_chain",
   place: "noise_field",
-  concept: "glyph_to_points",
+  concept: "glyph_geometry",
 };
 
 /** The representation rung each language sits on, and what it appends after
@@ -85,7 +85,7 @@ const LANGUAGE_SPEC: Record<
   // fragments, and it is the one the palette always had and never used.
   kinetic: {
     representation: 0,
-    tail: ["shape_morph", "path_draw", "ease_profile"],
+    tail: ["geometry_morph", "geometry_draw", "ease_profile"],
     why: "the words as the image — glyph geometry morphed and drawn, cut fast",
   },
   surreal: {

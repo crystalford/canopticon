@@ -79,11 +79,23 @@ function buildChain(chain, w, h) {
   return {
     errors: [],
     run(t) {
-      let input = null;
+      // The payload, not just a canvas. GEOMETRY is a point set and a
+      // picture OF points is not the same thing: re-sampling a drawn point
+      // cloud loses which point is which, so a morph between two of them
+      // has nothing to interpolate. A stage that emits GEOMETRY attaches
+      // it here; a stage that consumes GEOMETRY reads it instead of
+      // guessing from pixels. That is the type system being real at
+      // runtime rather than only at plan time.
+      let payload = null;
       for (const stage of stages) {
         stage.ctx.clearRect(0, 0, w, h);
-        stage.inst.frame(stage.ctx, w, h, t, input);
-        input = stage.buf;
+        const out = stage.inst.frame(stage.ctx, w, h, t, payload);
+        payload = {
+          canvas: stage.buf,
+          // A primitive may hand back typed data alongside its pixels.
+          geometry: out && out.geometry ? out.geometry : null,
+          field: out && out.field ? out.field : null,
+        };
       }
       return stages[stages.length - 1].buf;
     },

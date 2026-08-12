@@ -111,7 +111,11 @@ reg(
     warmth: { v: 0.35, lo: 0, hi: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t, input) {
+    frame(ctx, w, h, t, upstream) {
+      // Accept either a bare canvas (older call sites) or the executor's
+      // typed payload, so adding the payload did not have to be a
+      // migration of every consumer at once.
+      const input = upstream && upstream.canvas !== undefined ? upstream.canvas : upstream;
       ctx.fillStyle = BG;
       ctx.fillRect(0, 0, w, h);
       if (!input) {
@@ -168,7 +172,11 @@ reg(
     sway: { v: 0.3, lo: 0, hi: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t, input) {
+    frame(ctx, w, h, t, upstream) {
+      // Accept either a bare canvas (older call sites) or the executor's
+      // typed payload, so adding the payload did not have to be a
+      // migration of every consumer at once.
+      const input = upstream && upstream.canvas !== undefined ? upstream.canvas : upstream;
       ctx.fillStyle = BG;
       ctx.fillRect(0, 0, w, h);
       if (!input) {

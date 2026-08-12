@@ -201,7 +201,7 @@ describe("kinetic language and the cut", () => {
     const ids = t.nodes.map((n) => n.primitiveId);
     expect(ids).toContain("entity_render");
     expect(ids).toContain("image_to_points");
-    expect(ids.indexOf("image_to_points")).toBeLessThan(ids.indexOf("shape_morph"));
+    expect(ids.indexOf("image_to_points")).toBeLessThan(ids.indexOf("geometry_morph"));
   });
 
   it("needs no bridge when the subject is already geometry", () => {
@@ -211,9 +211,9 @@ describe("kinetic language and the cut", () => {
     );
     expect(t.valid).toBe(true);
     expect(t.nodes.map((n) => n.primitiveId)).toEqual([
-      "glyph_to_points",
-      "shape_morph",
-      "path_draw",
+      "glyph_geometry",
+      "geometry_morph",
+      "geometry_draw",
       "ease_profile",
     ]);
   });
