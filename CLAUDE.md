@@ -1,217 +1,229 @@
 # Canopticon
 
 > **If you are an AI reading this to understand the project: this file is the
-> source of truth for what Canopticon *currently is*. Everything in
-> `docs/archive/` describes SUPERSEDED systems — do not design against it.
-> `docs/canonical-spec-v2.6.md` is ALSO superseded as an active reference —
-> read it as historical record, not something to re-derive vision from (see
-> `docs/canopticon-renovation.md` for why, and for the Keep/Freeze/Cut verdict
-> the "Two other Workers" section below adopts as current policy). The
-> version lineage is `docs/LINEAGE.md`; the current built architecture is
-> below.**
+> source of truth. The primary product is CANOPTICON STUDIO — a deterministic
+> editorial compiler for documentary and video-essay film. Everything else in
+> this monorepo is a separate, compartmentalized system that is maintained but
+> not grown. Do not design Studio against the older systems' docs; Studio's
+> authority is `docs/studio/`, in the order given below.**
 
-## What it is
+- **Studio** (primary): studio.canopticon.com · **Record**: canopticon.com
+- **Twitter**: @canoptics · **GitHub**: crystalford/canopticon
 
-A **forensic intelligence publication system**. One operator feeds it research
-documents. The system reads them into a typed graph of facts, grows a citable
-public wiki from that graph, drafts signed interpretive readings on top of the
-facts, and the operator approves. **The operator approves; the operator never
-authors.**
+> **One-time setup after the Studio Worker first deploys:** add
+> `studio.canopticon.com` in the Cloudflare dashboard under Workers & Pages →
+> `canopticon-studio` → Settings → Domains & Routes. The deploy token lacks
+> Workers Routes Edit on the zone, so this can't be automated and the Worker
+> stays on its workers.dev subdomain until it's done.
 
-- **Domain**: canopticon.com · **Twitter**: @canoptics
-- **GitHub**: crystalford/canopticon
+---
 
-## Two other Workers exist — read this before touching either
+# THE PRIMARY PRODUCT — Canopticon Studio
 
-Two more Cloudflare Workers live in this monorepo, deployed independently of
-the publication above. Neither is "the product," and neither should be grown
-in lockstep with it. This is adopted policy, not a suggestion — see
-`docs/canopticon-renovation.md` (dated after `canonical-spec-v2.6.md`) for the
-full diagnosis and verdict this section summarizes.
-
-- **`packages/video` (video.canopticon.com)** is a *rendering* surface, not an
-  independent content operation. `routes/from-reading.ts` takes an
-  already-signed Analysis's verified facts and drafts them into a video
-  script through the same human-approval rail (draft → review → approve →
-  publish) as everything else in this file — that part is real, good, and
-  worth using. The GDELT-sourced daily-radar pipeline (candidate discovery,
-  its own rubric scoring of "what's newsworthy," its own database) is a
-  fully separate product wearing the same URL, with zero connection to the
-  typed graph — cut, per the renovation verdict (*"the ninth rebuild wearing
-  a costume"*). The reaction-video tool (`packages/video/src/react/*`) is a
-  third, unrelated thing again: a standalone personal content-creation
-  utility (the operator reacts on camera to an external clip) — legitimate
-  on its own terms, but not a rendering of anything in the graph. Don't
-  conflate any of these three with each other.
-- **`packages/blindspot` (blindspot.canopticon.com, "Instruments")** is a
-  standing home for real, standalone software side-projects, each evaluated
-  on its own merits — not part of the File model, not subject to the fabric's
-  rules above, not something that needs to keep pace with the publication.
-  The Blind Spot (an inequality-measurement instrument) is the first one;
-  future ones are separate builds, same as this one, not a growing "arm."
-
-**Rule, adopted from the renovation verdict, applies across all three
-Workers**: no new capability until the capability's absence has hurt a real
-production twice.
-
-## The fabric (the core mental model)
-
-One body of content, four grains. Everything below the pages is plumbing;
-everything at the pages is product.
+**Essay in, film out.** A film is the *compiled artifact* of a versioned,
+reproducible source representation — not a one-off render. The video is built
+from code: 111 procedural primitives across 18 families, chained by a
+composition engine that reads the director's intent.
 
 ```
-DOCUMENTS  (research reports, essays, primary sources — the operator drops these; IN)
-   ↓ extract (cheap model · idempotent · verbatim spans only)
-FACTS — the typed graph
-   • 7 node kinds: entity · attribute · event · neutral_fact · assertion · source · theme
-   • 6 edge families: aboutness · relationship · temporal · causal · evidential · attribution
-   • the FIREWALL lives here: an assertion is never silently a fact; contested is stored as contested
-   ↓ compose (automatic, on corpus settle)
-SUBJECTS & THEMES → PAGES
-   • every subject (entity | event | theme) is ONE page in TWO modes:
-       neutral  = the wiki (facts + receipts, contested shown gray, timeline, connections)
-       signed   = the operator's reading (thesis + the SAME facts re-sequenced + mandatory complicating box)
-   • a theme = a "received account the corpus engages with" — surfaced when 3+ docs converge on contradicting it
-   ↓ reshape (selection, not regeneration — partly built)
-TRANSFORMS  (thread · video script · card · chapter — Studio)
+ESSAY / SCRIPT
+     ↓
+NARRATIVE IR            acts → scenes, bound to the prose by character offset
+     ↓
+CREATIVE STATE          the film's evolving personality, as curves
+     ↓
+COMPOSITION ENGINE      intent → primitive chains
+     ↓
+PROCEDURAL PALETTE      111 primitives, typed inputs and outputs
+     ↓
+CONSTRAINT SOLVER       narration anchors → time windows
+     ↓
+RENDER DAG              content-hashed, cache-aware
+     ↓
+FILM
 ```
 
-The investigation is **not** a separate object — it is the same page with a
-thesis pulling the facts into order.
+**It is not** an AI video generator, a prompt-to-video wrapper, or a template
+engine. If a design decision would make it resemble any of those, it is the
+wrong decision.
 
-## Stack (CURRENT — not the old Next.js/Vercel/Postgres stack)
+## Authority order (highest first)
 
-- **Runtime**: Cloudflare Workers + **Hono**. One Worker serves `/` (public),
-  `/op/*` (operator console), `/v1/*` (API + admin).
-- **Rendering**: server-rendered HTML via **string concatenation**. No JSX, no
-  React, no client framework. No JS required to read any public page.
-- **Storage**: **D1** (SQLite) relational · **R2** (raw docs + extracted-text
-  overflow) · **Vectorize** (embeddings). Content-hash dedup on upload.
-- **AI**: **Workers AI** via a per-role router (`packages/api/src/llm/router.ts`)
-  — roles not model names. Anthropic is an optional near-launch top tier.
-- **Migrations**: `supabase/migrations/NNNN_*.sql`, applied on deploy via
-  `wrangler d1 migrations apply`. (Supabase = migration tooling only; the live
-  DB is D1, not Postgres.)
-- **Host**: Cloudflare, **auto-deploys on push/merge to `main`** (the
-  "Deploy to Cloudflare" GitHub Action). CI is `.github/workflows/ci.yml`.
+| # | Document | Answers |
+|---|---|---|
+| 1 | `docs/studio/CANOPTICON_CREATIVE_CONSTITUTION.md` | What does the director express? |
+| 2 | `docs/studio/CANOPTICON_PRIMITIVE_ATLAS.md` | What can the machine paint with? |
+| 3 | `docs/studio/CANOPTICON_PHASE0_MASTER_SPEC.md` | How does it compile, cache, store? |
 
-## Dev environment — IMPORTANT
+`docs/studio/CANOPTICON_00_HANDOFF_BRIEF.md` is the entry point and build
+sequence. **Where the Master Spec contradicts the Constitution, the
+Constitution wins** — three parts of the Master Spec are already superseded
+and the code implements the amended version:
+
+1. Flat per-act `vocabularyMix` → **Creative State control points**. Vocabulary
+   mix is a derived, overridable output, never the authoring model.
+2. Four fixed block types → **recipes over typed primitives**. Blocks remain as
+   defaults the engine can reach past.
+3. Per-block cache hashing → **per-primitive cache hashing**.
+
+## Standing rules — non-negotiable
+
+1. **AI output is an input artifact, never a function.** TTS audio, alignment
+   JSON, and segmentation proposals are generated once, frozen, hashed, and
+   committed. The compiler never calls an AI service at render time.
+2. **Timing is anchor-based, never frame-based.** No frame ranges in the IR.
+3. **The operator is always in control.** The system proposes; the human
+   ratifies. No auto-mutation of the IR.
+4. **No `Math.random()`.** Everything stochastic takes a seed.
+5. **Every primitive declares typed inputs and outputs.** A primitive that
+   consumes nothing and produces only final pixels is a recipe, not a primitive.
+6. **Overrides survive restyling.** A pin is never silently discarded by a
+   recompile; tension is *reported*, not resolved unilaterally.
+7. **Determinism is claimed honestly.** L1 (semantic) always. L2 (pixel) within
+   a pinned environment. L2-GPU for shader/3D. L3 is never claimed.
+8. **Degrade, flag, continue.** A failure in one scene never blocks the rest of
+   the film from compiling.
+
+## The test for every decision
+
+> **Does this let the director express intention, or does it make them specify
+> implementation?**
+
+If the latter, it belongs in an Advanced panel or nowhere.
+
+## What's built (Stage 1 — the skeleton)
+
+`packages/studio` — its own Worker, own D1 (`canopticon-studio`), own R2, own
+migration numbering in `supabase/migrations-studio/`.
+
+- `src/ir/schema.ts` — the Editorial IR + validation. Creative State control
+  points, motifs with development ladders, first-class overrides.
+- `src/compile/creative-state.ts` — control-point interpolation, invariant
+  floors/ceilings that **report** when they bite.
+- `src/compile/compose.ts` — the composition engine. Abstraction ladder
+  (GROUNDED → ANNOTATED → DECOMPOSED → DISSOLVED), the Constitution's
+  8-level precedence order, motif development, restraint ceiling.
+- `src/compile/solver.ts` — anchor-based timing, overflow auto-split at
+  sentence boundaries, underflow J-cut/underrun, elastic-vs-rigid cascade.
+- `src/compile/hash.ts` · `cache.ts` — per-primitive SHA-256 node hashing over
+  canonical JSON; cache diff with a stated reason per recomputation.
+- `src/primitives/registry.ts` — **generated**, 111 primitives / 18 families.
+  Regenerate with `node scripts/gen-primitive-registry.mjs packages/studio/lab`.
+- `lab/` — the Lab. Where primitives actually paint (canvas, seeded, in the
+  browser) and where one earns its place in the palette before being wired
+  into the pipeline.
+
+**Stage 1 milestone is met and tested** (`packages/studio/tests/compile.test.ts`,
+31 tests): a hand-authored IR resolves to correct windows; an unchanged
+recompile is 100% cache hit; editing one sentence recomputes only what depends
+on it; dragging the abstraction curve spends zero TTS and leaves early scenes
+untouched; a pin survives a restyle with the tension reported; the same IR
+always produces the same hashes.
+
+## What's next
+
+Stage 2 — the primitives that prove code is a medium, in this order:
+`noise_field` + `flow_field` → `glyph_to_points` → `particle_flow` +
+`particle_seek` → **motion craft layer** → compositing. Milestone: the
+text-dissolution chain runs end to end and a word assembles from scattered
+particles, holds, and dissolves into drift.
+
+Then Stage 3 (documentary workhorses), Stage 4 (Director's Control Surface,
+visual memory, override types), Stage 5 (remainder — cut from the bottom).
+
+Build the **five views** alongside stages 1–4, not after: Narrative,
+Editorial, Preview, Compile, Lab. **Lab first** — it is how you find out
+whether a primitive reads on screen before it goes near the pipeline.
+
+---
+
+# COMPARTMENTALIZED — maintained, not grown
+
+These are separate systems that predate the Studio pivot. They are kept and
+they keep working. **Do not grow them, do not couple them to Studio, and do
+not treat their docs as design authority for anything.** Each has its own
+Worker, its own database, and its own deploy.
+
+### `packages/api` — **the Record** (canopticon.com)
+
+A forensic intelligence publication: a typed graph (7 node kinds, 6 edge
+families) grown from uploaded research documents, rendered as a citable public
+wiki with signed interpretive readings on top. Real, working, and full of real
+content — 50+ research documents, subject pages, investigations, a library.
+
+Its own D1, migrations in `supabase/migrations/`, deployed by
+`deploy-api.yml`. Treat it as a **record-keeping / CMS system**: fix bugs,
+keep it live, don't extend the model.
+
+Its own internal rules, still true of it: the operator approves and never
+authors; upload is authorization; verification is mechanical (every published
+quote is a literal substring of a real stored source, verified by an
+independent different-family judge); an attributed assertion is never silently
+a neutral fact.
+
+Historical docs for the Record live in `docs/` (`canonical-spec-v2.6.md`,
+`canopticon-renovation.md`, `LINEAGE.md`, `docs/archive/`). **They describe
+the Record only.** They are not Studio design input.
+
+### `packages/video` — render surface + reaction tool (video.canopticon.com)
+
+Two unrelated things sharing a Worker. `routes/from-reading.ts` drafts an
+already-signed Record analysis into a video script through a human-approval
+rail. `src/react/*` is a standalone personal reaction-video tool (record on
+camera against an external clip). Neither is Studio; Studio does not build on
+either.
+
+### `packages/blindspot` — Instruments (blindspot.canopticon.com)
+
+A standing home for standalone software side-projects, each judged on its own
+merits. The Blind Spot (an inequality-measurement instrument) is the first.
+
+---
+
+# Stack
+
+Shared across every Worker in the monorepo; nothing else is shared.
+
+- **Runtime**: Cloudflare Workers + **Hono**, TypeScript.
+- **Storage**: **D1** (SQLite) · **R2** · **Vectorize** (Record only).
+- **AI**: **Workers AI**. The Record routes by role
+  (`packages/api/src/llm/router.ts`). Studio uses it only at authoring time
+  (segmentation, TTS) and freezes the output.
+- **Rendering**: server-rendered HTML by string concatenation. No JSX, no
+  React, no client framework, no frontend build step. Studio's Lab is plain
+  canvas + vanilla JS for the same reason.
+- **Migrations**: plain numbered SQL, applied on deploy via
+  `wrangler d1 migrations apply`. Each Worker has its own directory —
+  `supabase/migrations/` (Record), `migrations-video/`, `migrations-studio/`.
+- **Host**: Cloudflare, auto-deploy on merge to `main` per-package.
+
+# Dev environment — IMPORTANT
 
 - The operator works in Claude Code on the web, NOT a local IDE.
 - **All testing/deployment is LIVE on Cloudflare.** No local dev server, no
   local D1. Merge to `main` → deploys automatically.
-- To inspect or drive the LIVE system, use the **admin probe**: trigger
-  `.github/workflows/canopticon-admin-probe.yml` (workflow_dispatch with a
-  `path`); it calls canopticon.com through Cloudflare Access and commits the
-  response to `ops/probe/response.json`. Useful endpoints: `/v1/admin/runtime`,
-  `/v1/admin/health`, `/v1/admin/debug-model`, `/v1/admin/reextract?confirm=1`,
-  `/v1/admin/reset-graph?confirm=1`.
-- Do NOT suggest `npm run dev`. Verify with `pnpm --filter @canopticon/api
-  exec tsc --noEmit`, `pnpm exec biome check packages/api/src`, and
-  `pnpm --filter @canopticon/api exec vitest run`. **CI runs `biome check`
-  WITHOUT `--write`** — fix lint before pushing (e.g. no-template-literal on
-  non-interpolated strings).
+- Do NOT suggest `npm run dev`. Verify with:
+  ```
+  pnpm -r typecheck
+  pnpm exec biome check .        # CI runs this WITHOUT --write
+  pnpm -r test
+  ```
+- The **Lab runs locally as a static page** — open
+  `packages/studio/lab/Canopticon.html` in a browser. It needs no server, and
+  it is the fastest way to see whether a primitive actually looks good.
+- To inspect the live Record, trigger `.github/workflows/canopticon-admin-probe.yml`
+  (workflow_dispatch with a `path`); it calls canopticon.com through Cloudflare
+  Access and commits the response to `ops/probe/response.json`. It is hardcoded
+  to canopticon.com and cannot reach the other Workers.
 - Branch convention: `claude/<name>`. Never push to `main` directly; PR + CI +
   squash-merge.
 
-## Surfaces
+# Env / bindings
 
-### Operator console (`/op/*`) — no destination list anymore
-"One site, permission layers" (spec v2.5 Part 9): operating Canopticon means
-logging in and browsing the *public* site — the same pages grow affordances
-(sign/edit/discard on a subject page, Extract buttons in Library, a
-work-status badge and a `citations`/`how this works` link spliced into the
-nav) rather than visiting a separate dashboard. `operator/layout.ts`'s
-`OP_NAV` rail is deliberately empty; there is no IN/OUT/Studio list to click
-through anymore — the redirects that used to send those clicks back to the
-public site are gone because the rail that pointed at them is gone.
-
-Genuinely reachable under `/op/*` today: `/op/design` (an unlinked, throwaway
-prototype), `/op/studio/:id` (a per-project Studio workspace, reached from a
-signed subject page's "Produce" button, not from a list), `/op/out/:id/edit`
-and `/op/outputs/:id/edit` (edit forms, reached contextually), and the
-POST-only action endpoints (`/op/records/:slug/expand`, `/op/library/extract`,
-`/op/out/:id/sign`, `/op/outputs/:id/build`, etc.) that the public-side
-operator affordances submit to. `⌘K` opens a command palette with the small
-set of destinations that still do something distinct: Library,
-Investigations, Citations, re-surface synthesis, the public site.
-
-### Public site
-- **Home** (`/`): live fabric activity feed — hero (the open file) → depth
-  stats → active files (what grew) → latest evidence → a short "browse the
-  record" teaser. Operator overlays (briefing, drafts awaiting signature,
-  findings, threads) weave into the same page when logged in.
-- **Subject pages** (`/s/:slug`, with `/p/:slug` fallthrough): the unified
-  renderer. `?mode=signed` reveals the reading. Neutral mode emits schema.org
-  JSON-LD + stable block anchors.
-- **Investigations** (`/investigations`): signed readings only, intent
-  badges + `?intent=` filters. (The older `briefs` publishing pipeline that
-  used to also list here is sunset — see `graph/lib/settle-pipeline.ts`;
-  already-published briefs still resolve individually at `/briefs/:slug`.)
-- **Topics** (`/topics`): the canonical full browsable index (Themes /
-  People / Companies & other / Events) — the stable, grouped counterpart to
-  Home's short recency teaser.
-- **Library** (`/library`, `/library/:slug`): source documents, public by
-  default; each shows "what it fed the fabric". Reachable from the footer
-  and every receipt, not top nav — sources are evidence, not a nav pillar.
-- `/record` → 301 `/`, `/patterns` → 301 `/investigations`, `/sources` → 301
-  `/library`.
-
-## Key files
-- `packages/api/src/index.ts` — Worker entry, cron.
-- `packages/api/src/llm/router.ts` — model router (roles → models).
-- `packages/api/src/graph/lib/digestion.ts` + `digestion-typed.ts` — extraction
-  into the typed graph (resumable, batched, verbatim-checked quotes).
-- `packages/api/src/graph/lib/digest-jobs.ts` — durable job queue + the
-  **corpus-settle gate** (entity/event dedup → surfacing L1 → themes →
-  autoseed pages → draft readings — see `settle-pipeline.ts`).
-- `packages/api/src/graph/lib/theme-surfacer.ts` · `surfacing.ts` ·
-  `draft-reading.ts` · `autoseed-pages.ts`.
-- `packages/api/src/public/render/subject-page.ts` — unified subject page.
-- `packages/api/src/operator/screens/out-stream.ts` — the sign/edit/discard
-  logic behind a drafted reading; its own GET screen is redirect-shadowed
-  (see Surfaces above), the actions it backs are live via
-  `operator/routes.ts`.
-- `supabase/migrations/` — typed graph (0026), piece_id index (0027), output
-  layers (0029), themes+pages (0030).
-
-## The rules that survived every rebuild
-- **The operator approves, never authors.**
-- **Upload is authorization.** No confirmation gauntlets.
-- **Verification is mechanical, not vouched.** Every published claim's quote is
-  a literal substring of a real stored source, independently judged; failures
-  are killed, visibly.
-- **The firewall.** An attributed assertion is never silently a neutral fact.
-  A signed reading must show the facts that complicate it.
-- **Repetition is not significance.** Surfacing runs on structure and stance.
-- **Simplicity above all.** Prior iterations failed from over-engineering.
-- **No new capability until its absence has hurt a real production twice.**
-  This project's actual failure mode has never been under-building — see
-  "Two other Workers exist" above and `docs/canopticon-renovation.md`.
-
-## Env / bindings
 ```
-Bindings: DB (D1) · FILES (R2) · EMBEDDINGS (Vectorize) · AI (Workers AI)
-Secrets:  ANTHROPIC_API_KEY (optional) · CRON_SECRET
-          CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (admin probe)
-          SESSION_SECRET (operator session cookie — set this when the
-                          one-site permission model lands)
+Studio:  DB (D1 canopticon-studio) · FILES (R2) · AI
+Record:  DB (D1 canopticon) · FILES (R2) · EMBEDDINGS (Vectorize) · AI
+Secrets: ANTHROPIC_API_KEY (optional) · CRON_SECRET
+         CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (admin probe)
+         SESSION_SECRET (Record operator session cookie)
 ```
-
-## Operator setup post-merge — do these once after the one-site PR deploys
-
-1. **Set the session secret.** Any long random string; the Worker uses it
-   to sign the operator's session cookie.
-   ```
-   wrangler secret put SESSION_SECRET
-   ```
-2. **Configure Cloudflare Access on `/auth/*`.** Add `/auth/*` to the
-   same Access application that already gates `/op/*`. The Worker reads
-   the JWT Access adds to the request to mint the session cookie.
-3. **Visit `https://canopticon.com/auth/login` once.** Access challenges,
-   the Worker drops the `canopticon_op` cookie, every public URL
-   recognises you from then on. Logout: `/auth/logout`.
-
-Until those land, the public site continues to serve anonymous viewers
-correctly (no regression); the operator just sees the public view of
-every page.

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Canopticon — Plate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Fragment+Mono:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--pap:#efece4;--pap2:#e7e3d9;--card:#f7f5f0;--ink:#1c1a17;--ink2:#4c4842;--mut:#7c766c;--faint:#a8a196;--rule:#cdc7ba;--rule2:#b9b2a3;--red:#b23a26;--blue:#3f5d78;--mono:'Fragment Mono',monospace;--serif:'Newsreader',serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--pap);color:var(--ink);font-family:var(--serif);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--red);text-decoration:none}a:hover{color:#8d2c1c}
+.k{font-family:var(--mono);font-size:8.5px;letter-spacing:.2em;color:var(--mut);text-transform:uppercase}
+.bar{display:flex;align-items:center;gap:26px;height:52px;padding:0 24px;border-bottom:1.5px solid var(--ink)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo b{font-family:var(--mono);font-weight:400;font-size:12px;letter-spacing:.3em}
+.nav{display:flex;gap:20px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--faint);align-items:center;height:100%}
+.nav span{display:flex;align-items:center;height:100%;border-bottom:2px solid transparent}
+.nav span.on{color:var(--ink);border-bottom-color:var(--red)}
+.state{margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--mut);letter-spacing:.08em;display:flex;gap:18px}
+.shell{display:grid;grid-template-columns:250px minmax(0,1fr) 280px;height:calc(100vh - 52px);min-height:760px}
+.col{overflow:auto}
+.lcol{border-right:1px solid var(--rule2);padding:20px 20px 40px}
+.rcol{border-left:1px solid var(--rule2);padding:20px 20px 40px;background:var(--pap2)}
+.mcol{padding:0;display:flex;flex-direction:column;min-width:0}
+.sec{padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--rule)}
+.sec:last-child{border-bottom:none;margin-bottom:0}
+.sec>.k{display:block;margin-bottom:13px}
+.film h1{font-size:27px;font-weight:500;letter-spacing:-.015em;margin:0 0 5px;line-height:1.1}
+.film .sub{font-family:var(--mono);font-size:9px;color:var(--mut);letter-spacing:.1em}
+.film .log{font-size:13.5px;font-style:italic;color:var(--ink2);margin-top:10px;line-height:1.45;text-wrap:pretty}
+/* dial rows */
+.dial{display:grid;grid-template-columns:1fr auto;align-items:baseline;margin-bottom:3px}
+.dial .nm{font-family:var(--mono);font-size:9px;letter-spacing:.09em;color:var(--ink2)}
+.dial .vv{font-family:var(--mono);font-size:9px;color:var(--red)}
+.scale{position:relative;height:13px;margin-bottom:11px}
+.scale .base{position:absolute;top:6px;left:0;right:0;height:1px;background:var(--rule2)}
+.scale .tick{position:absolute;top:3px;width:1px;height:7px;background:var(--rule2)}
+.scale .pin{position:absolute;top:0;width:1.5px;height:13px;background:var(--red)}
+.ends{display:flex;justify-content:space-between;font-family:var(--mono);font-size:8px;color:var(--faint);letter-spacing:.08em;margin:-8px 0 14px}
+/* main */
+.mhead{display:flex;align-items:baseline;gap:14px;padding:16px 26px 13px;border-bottom:1px solid var(--rule2)}
+.mhead h2{font-size:19px;font-weight:500;margin:0;letter-spacing:-.01em}
+.mhead .k{margin-left:auto}
+.plate{flex:1;min-height:0;padding:18px 26px;display:flex;flex-direction:column;background:var(--card);border-bottom:1px solid var(--rule2)}
+.acts{display:grid;grid-template-columns:1.1fr 1.4fr 1fr;font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--ink);border-bottom:1px solid var(--ink);padding-bottom:7px}
+.acts div{border-left:1px solid var(--rule2);padding-left:10px}
+.acts div:first-child{border-left:none;padding-left:0}
+.acts em{font-style:normal;color:var(--faint);display:block;margin-top:3px;letter-spacing:.06em}
+.lanes{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-between;padding-top:8px}
+.lane{display:grid;grid-template-columns:118px minmax(0,1fr) 32px;align-items:center;gap:12px;height:44px}
+.lane .ln{font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--ink2)}
+.lane .val{font-family:var(--mono);font-size:9px;color:var(--faint);text-align:right}
+.lane svg{display:block;width:100%;height:40px}
+.lane.sel .ln{color:var(--red)}.lane.sel .val{color:var(--red)}
+/* strip */
+.strip{padding:15px 26px 18px}
+.scenes{display:grid;grid-template-columns:repeat(9,1fr);gap:0;margin-top:10px;border:1px solid var(--rule2);border-right:none}
+.scn{border-right:1px solid var(--rule2);padding:7px 8px 9px;position:relative;background:var(--card)}
+.scn b{font-family:var(--mono);font-size:8px;letter-spacing:.07em;color:var(--faint);font-weight:400;display:block}
+.scn i{font-style:italic;font-size:12px;color:var(--ink2);display:block;margin-top:3px;line-height:1.25}
+.scn.miss{background:#f6ece5}
+.scn.miss b{color:var(--red)}
+.scn.pin{background:#eaeef2}
+.scn.pin b{color:var(--blue)}
+.legend{display:flex;gap:20px;margin-top:9px;font-family:var(--mono);font-size:8px;color:var(--mut);letter-spacing:.09em}
+.legend s{text-decoration:none;width:9px;height:9px;display:inline-block;margin-right:6px;vertical-align:-1px;border:1px solid var(--rule2)}
+/* right */
+.motif{padding:11px 0;border-bottom:1px dotted var(--rule2)}
+.motif:last-of-type{border-bottom:none}
+.motif .mh{display:flex;align-items:baseline;justify-content:space-between;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--ink)}
+.motif .mh em{font-style:normal;font-size:8px;color:var(--faint);letter-spacing:.08em}
+.motif .mb{font-size:12.5px;font-style:italic;color:var(--mut);margin-top:4px;line-height:1.4}
+.motif .mstate{display:flex;align-items:center;gap:6px;margin-top:8px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;color:var(--faint)}
+.motif .mstate b{color:var(--red);font-weight:400}
+.motif .mstate s{text-decoration:none;flex:1;height:1px;background:var(--rule2)}
+.rule{display:flex;gap:9px;padding:8px 0;border-bottom:1px dotted var(--rule2);font-size:13px;color:var(--ink2);line-height:1.35}
+.rule:last-child{border-bottom:none}
+.rule .sev{font-family:var(--mono);font-size:7.5px;letter-spacing:.1em;padding:2px 5px;flex-shrink:0;margin-top:2px;height:15px}
+.sev.hard{color:#fff;background:var(--red)}
+.sev.soft{color:var(--mut);border:1px solid var(--rule2)}
+.cbtn{display:block;width:100%;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;padding:12px;background:var(--ink);color:var(--pap);border:none;cursor:pointer;margin-bottom:11px}
+.cmeta{font-family:var(--mono);font-size:8.5px;color:var(--mut);line-height:1.95;letter-spacing:.05em}
+.cmeta i{font-style:normal;color:var(--ink);float:right}
+</style></head><body>
+<div class="bar">
+<div class="logo"><svg width="17" height="17" viewBox="0 0 17 17"><rect x="1" y="1" width="15" height="15" fill="none" stroke="#1c1a17" stroke-width="1.2"/><circle cx="8.5" cy="8.5" r="3.2" fill="none" stroke="#b23a26" stroke-width="1.2"/><circle cx="8.5" cy="8.5" r="1" fill="#b23a26"/></svg><b>CANOPTICON</b></div>
+<div class="nav"><span>NARRATIVE</span><span class="on">EDITORIAL</span><span>PREVIEW</span><span>COMPILE</span><span>LAB</span></div>
+<div class="state"><span>IR v0.1.0 · CLEAN</span><span>L2 DETERMINISM</span><span>04:37 RUNTIME</span></div>
+</div>
+<div class="shell">
+<div class="col lcol">
+<div class="sec film"><h1>The Temporary Measure</h1><div class="sub">PROJ_004 · III ACTS · XXII SCENES</div><p class="log">An emergency order written for ninety days, renewed for nineteen years, and now cited as settled law.</p></div>
+<div class="sec"><span class="k">Visual identity</span>
+<div class="dial"><span class="nm">ABSTRACTION</span><span class="vv">0.48</span></div><div class="scale"><div class="base"></div><div class="tick" style="left:0"></div><div class="tick" style="left:25%"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:75%"></div><div class="tick" style="left:calc(100% - 1px)"></div><div class="pin" style="left:48%"></div></div><div class="ends"><span>LITERAL</span><span>ABSTRACT</span></div>
+<div class="dial"><span class="nm">DESIGN</span><span class="vv">0.62</span></div><div class="scale"><div class="base"></div><div class="tick" style="left:0"></div><div class="tick" style="left:25%"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:75%"></div><div class="tick" style="left:calc(100% - 1px)"></div><div class="pin" style="left:62%"></div></div><div class="ends"><span>DOCUMENTARY</span><span>DESIGNED</span></div>
+<div class="dial"><span class="nm">EXPERIMENTALISM</span><span class="vv">0.31</span></div><div class="scale"><div class="base"></div><div class="tick" style="left:0"></div><div class="tick" style="left:25%"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:75%"></div><div class="tick" style="left:calc(100% - 1px)"></div><div class="pin" style="left:31%"></div></div><div class="ends"><span>RESTRAINED</span><span>EXPERIMENTAL</span></div>
+<div class="dial"><span class="nm">SUBJECT</span><span class="vv">0.55</span></div><div class="scale"><div class="base"></div><div class="tick" style="left:0"></div><div class="tick" style="left:25%"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:75%"></div><div class="tick" style="left:calc(100% - 1px)"></div><div class="pin" style="left:55%"></div></div><div class="ends"><span>HUMAN</span><span>SYSTEMIC</span></div>
+</div>
+<div class="sec"><span class="k">Film rhythm</span>
+<div class="dial"><span class="nm">MOTION ENERGY</span><span class="vv">0.68</span></div><div class="scale"><div class="base"></div><div class="tick" style="left:0"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:calc(100% - 1px)"></div><div class="pin" style="left:68%"></div></div><div class="ends"><span>CALM</span><span>FRENETIC</span></div>
+<div class="dial"><span class="nm">VISUAL DENSITY</span><span class="vv">0.71</span></div><div class="scale"><div class="base"></div><div class="tick" style="left:0"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:calc(100% - 1px)"></div><div class="pin" style="left:71%"></div></div><div class="ends"><span>SPARSE</span><span>DENSE</span></div>
+<div class="dial"><span class="nm">CUT RHYTHM</span><span class="vv">0.40</span></div><div class="scale"><div class="base"></div><div class="tick" style="left:0"></div><div class="tick" style="left:50%"></div><div class="tick" style="left:calc(100% - 1px)"></div><div class="pin" style="left:40%"></div></div><div class="ends"><span>SLOW</span><span>RAPID</span></div>
+</div>
+<div class="sec"><span class="k">Invariants</span><div class="cmeta">humanPresence <i>MIN 0.30</i>corporateFeel <i>MAX 0.25</i></div></div>
+</div>
+
+<div class="col mcol">
+<div class="mhead"><h2>Film Arc</h2><span class="k">Control points · smooth interpolation</span></div>
+<div class="plate">
+<div class="acts"><div>ACT I<em>SETUP · 00:00–01:24</em></div><div>ACT II<em>ESCALATION · 01:24–03:26</em></div><div>ACT III<em>TURN · 03:26–04:37</em></div></div>
+<div class="lanes" id="lanes"></div>
+</div>
+<div class="strip">
+<div style="display:flex;align-items:baseline;gap:12px"><span class="k">Scene strip</span><span class="k" style="margin-left:auto">Last compile 6.2s · 18 of 22 cached</span></div>
+<div class="scenes">
+<div class="scn"><b>001 HOOK</b><i>A temporary order</i></div>
+<div class="scn"><b>002 ESTABLISH</b><i>TIME motif opens</i></div>
+<div class="scn"><b>003 EVIDENCE</b><i>The statute</i></div>
+<div class="scn miss"><b>004 EVIDENCE</b><i>Renewal count</i></div>
+<div class="scn miss"><b>005 TURN</b><i>Nobody voted</i></div>
+<div class="scn"><b>006 ESTABLISH</b><i>The agency</i></div>
+<div class="scn pin"><b>007 PINNED</b><i>The memo</i></div>
+<div class="scn"><b>008 TURN</b><i>Permanent</i></div>
+<div class="scn"><b>009 RESOLVE</b><i>TIME fragments</i></div>
+</div>
+<div class="legend"><span><s style="background:var(--card)"></s>CACHE HIT</span><span><s style="background:#f6ece5"></s>RECOMPUTED</span><span><s style="background:#eaeef2"></s>PINNED — HELD</span></div>
+</div>
+</div>
+
+<div class="col rcol">
+<div class="sec"><span class="k">Visual memory</span>
+<div class="motif"><div class="mh">TIME<em>4 OCCURRENCES</em></div><div class="mb">horizontal line + kinetic type</div><div class="mstate">FLAT<s></s>LAYERED<s></s><b>FRAGMENTED</b></div></div>
+<div class="motif"><div class="mh">INSTITUTION<em>2 OCCURRENCES</em></div><div class="mb">aged document surface, slow push</div><div class="mstate">CLEAN<s></s><b>AGED</b></div></div>
+<div class="motif"><div class="mh">UNCERTAINTY<em>UNUSED</em></div><div class="mb">glyph_to_points → particle drift</div></div>
+</div>
+<div class="sec"><span class="k">Directorial rules</span>
+<div class="rule"><span class="sev hard">HARD</span>No abstract visuals before Act II</div>
+<div class="rule"><span class="sev hard">HARD</span>Return to TIME motif on every backward jump</div>
+<div class="rule"><span class="sev soft">SOFT</span>Min 2s breathing room after high density</div>
+<div class="rule"><span class="sev soft">SOFT</span>Archival stills hold at least 3s</div>
+</div>
+<div class="sec"><span class="k">Compile</span>
+<button class="cbtn">RECOMPILE — 4 SCENES DIRTY</button>
+<div class="cmeta">Est. rebuild <i>4.1s</i>Est. cost <i>$0.00</i>TTS regeneration <i>NONE</i>Determinism <i>L2</i>Tension reported <i>1 · SC 007</i></div>
+</div>
+</div>
+</div>
+<script>
+const lanes=[{n:'ARCHIVAL',v:[.70,.62,.45,.34,.25,.18,.10]},{n:'DATA',v:[.12,.20,.44,.58,.55,.44,.30]},{n:'ABSTRACTION',v:[.15,.18,.25,.34,.48,.68,.85],sel:1},{n:'DENSITY',v:[.35,.42,.60,.72,.85,.62,.30]},{n:'HUMAN PRESENCE',v:[.80,.72,.55,.38,.32,.52,.70]},{n:'MOTION ENERGY',v:[.20,.30,.48,.60,.72,.80,.88]}];
+const W=1000,H=40;
+function path(v){const n=v.length-1;const pts=v.map((y,i)=>[i/n*W,H-y*(H-7)-3.5]);let d='M'+pts[0][0]+','+pts[0][1];for(let i=0;i<pts.length-1;i++){const[x0,y0]=pts[i],[x1,y1]=pts[i+1],mx=(x0+x1)/2;d+=` C${mx},${y0} ${mx},${y1} ${x1},${y1}`}return{d,pts}}
+document.getElementById('lanes').innerHTML=lanes.map(l=>{const{d,pts}=path(l.v);const c=l.sel?'#b23a26':'#4c4842';
+const dots=pts.map((p,i)=>i%3?'':`<circle cx="${p[0]}" cy="${p[1]}" r="2.4" fill="${l.sel?c:'#f7f5f0'}" stroke="${c}" stroke-width="1.2"/>`).join('');
+const grid=[0,.25,.5,.75,1].map(t=>`<line x1="0" y1="${3.5+t*(H-7)}" x2="${W}" y2="${3.5+t*(H-7)}" stroke="#cdc7ba" stroke-width=".5" stroke-dasharray="2 4"/>`).join('');
+return `<div class="lane${l.sel?' sel':''}"><div class="ln">${l.n}</div><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${grid}<line x1="${W*.30}" y1="0" x2="${W*.30}" y2="${H}" stroke="#b9b2a3" stroke-width="1"/><line x1="${W*.745}" y1="0" x2="${W*.745}" y2="${H}" stroke="#b9b2a3" stroke-width="1"/><path d="${d}" fill="none" stroke="${c}" stroke-width="${l.sel?2:1.3}" vector-effect="non-scaling-stroke"/>${dots}</svg><div class="val">${l.v[6].toFixed(2)}</div></div>`}).join('');
+</script></body></html>
