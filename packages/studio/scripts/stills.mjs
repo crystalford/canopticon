@@ -85,19 +85,27 @@ for (let i = 0; i < scenes.length && pick.length < N; i += step) {
 }
 
 for (const p of pick) {
-  const data = await page.evaluate(
-    ({ frame, FPS, W, H }) => {
-      // Wind the chain forward from the scene's own start so particle and
-      // creature state is where it would be in a real playthrough, not
-      // where a cold single call would leave it.
-      for (let f = Math.max(0, frame - 30); f <= frame; f++) {
-        drawFrame(window.__ctx, window.__scenes, f, FPS, W, H, window.__captions);
-      }
-      const u = window.__canvas.toDataURL("image/png");
-      return u.slice(u.indexOf(",") + 1);
-    },
-    { frame: p.frame, FPS, W, H },
-  );
+  let data;
+  try {
+    data = await page.evaluate(
+      ({ frame, FPS, W, H }) => {
+        // Wind the chain forward from the scene's own start so particle and
+        // creature state is where it would be in a real playthrough, not
+        // where a cold single call would leave it.
+        for (let f = Math.max(0, frame - 30); f <= frame; f++) {
+          drawFrame(window.__ctx, window.__scenes, f, FPS, W, H, window.__captions);
+        }
+        const u = window.__canvas.toDataURL("image/png");
+        return u.slice(u.indexOf(",") + 1);
+      },
+      { frame: p.frame, FPS, W, H },
+    );
+  } catch (e) {
+    // One scene that throws must not take the contact sheet with it —
+    // the point of a sheet is to see WHICH ones fail.
+    console.log(`scene-${String(p.i).padStart(2, "0")}  FAILED: ${String(e).split("\n")[0]}`);
+    continue;
+  }
   const file = path.join(outDir, `scene-${String(p.i).padStart(2, "0")}.png`);
   fs.writeFileSync(file, Buffer.from(data, "base64"));
   console.log(`${file}  ${String(p.text).slice(0, 62)}`);
