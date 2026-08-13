@@ -233,6 +233,20 @@ export const LANGUAGE: Record<VisualLanguage, LanguageBias> = {
   },
 };
 
+/** WHERE A CONSTRUCTED THING IS ALLOWED TO COME APART.
+ *
+ *  A construction may only decompose itself into points and particles on
+ *  the ladder's own decomposition rungs. Below them, what was built
+ *  reaches the frame as the thing that was built.
+ *
+ *  Gated on the TIER rather than on a threshold against `abstraction`,
+ *  because the tier is the ladder's own word for this and a second
+ *  numeric cutoff beside it would be a second opinion about the same
+ *  question. GROUNDED and ANNOTATED mean you can see the thing. */
+function mayDecompose(style: Style): boolean {
+  return style.tier === "DECOMPOSED" || style.tier === "DISSOLVED";
+}
+
 /** Which operations the abstraction curve PERMITS at all.
  *
  *  This is the ladder's real job. It used to name four chains, so a film
@@ -770,30 +784,58 @@ const CONSTRUCTIONS: Construction[] = [
             },
             reason: `set as ${long ? "a line" : "a single form"} — the words are the image`,
           },
-          {
-            primitiveId: "glyph_to_points",
-            // `density` is not one of its knobs — it samples with
-            // `sampling` and scatters with `jitter`.
-            params: {
-              text: beat.phrase,
-              sampling: Math.round(3 + (1 - style.density) * 9),
-              jitter: 0.05 + style.experimentalism * 0.4,
-            },
-            reason: "decomposed to points so it can be acted on rather than only read",
-          },
-          {
-            primitiveId: "particle_trail",
-            // `fade` does not exist. A trail decays, spreads and has a
-            // count.
-            params: {
-              decay: 0.02 + (1 - style.energy) * 0.1,
-              spread: 0.15 + style.energy * 0.5,
-              count: 0.2 + style.density * 0.5,
-            },
-            reason: "drawn as accumulation",
-          },
+          /* THE STEP THAT DESTROYED EVERY FILM.
+           *
+           * These two nodes used to be UNCONDITIONAL. So the construction
+           * called "type" — whose own `why` says "the sentence, set" —
+           * set the sentence and then immediately converted it to a point
+           * cloud and smeared it, at every abstraction level, in every
+           * language. Its own reason string admitted it: "decomposed to
+           * points so it can be acted on RATHER THAN ONLY READ".
+           *
+           * Measured on a real 39-scene film: 19 of 39 scenes chose this
+           * construction, which is the right choice — and not one of them
+           * put a legible word on screen. The engine reported "the
+           * sentence, set" and the frame was a particle field. That is
+           * the whole of the "it thinks it is producing something
+           * coherent and is actually producing glitch texture" problem,
+           * and it was here, in the construction, not in the styling.
+           *
+           * Decomposition is now what it always should have been: a thing
+           * the DISSOLUTION end of the ladder does, not a thing that
+           * happens to every sentence on the way to the screen. Below the
+           * DECOMPOSED rung, type is type. */
+          ...(mayDecompose(style)
+            ? [
+                {
+                  primitiveId: "glyph_to_points",
+                  // `density` is not one of its knobs — it samples with
+                  // `sampling` and scatters with `jitter`.
+                  params: {
+                    text: beat.phrase,
+                    sampling: Math.round(3 + (1 - style.density) * 9),
+                    jitter: 0.05 + style.experimentalism * 0.4,
+                  },
+                  reason: "decomposed to points — the words are coming apart",
+                },
+                {
+                  primitiveId: "particle_trail",
+                  // `fade` does not exist. A trail decays, spreads and has
+                  // a count.
+                  params: {
+                    decay: 0.02 + (1 - style.energy) * 0.1,
+                    spread: 0.15 + style.energy * 0.5,
+                    count: 0.2 + style.density * 0.5,
+                  },
+                  reason: "drawn as accumulation",
+                },
+              ]
+            : []),
         ],
-        why: "the sentence, set",
+        why:
+          mayDecompose(style)
+            ? "the sentence, set and coming apart"
+            : "the sentence, set",
       };
     },
   },
