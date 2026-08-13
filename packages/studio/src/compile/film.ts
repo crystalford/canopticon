@@ -17,6 +17,7 @@
 
 import type { EditorialIR } from "../ir/schema.ts";
 import { PRIMITIVES } from "../primitives/registry.ts";
+import type { ComposedNode } from "./compose.ts";
 import type { CompileReport } from "./index.ts";
 import type { ShotVariation } from "./shot-plan.ts";
 
@@ -206,20 +207,18 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
     const irScene = ir.scenes.find((s) => s.sceneId === composed.sceneId);
     const plan = report.shotPlans.find((s) => s.sceneId === composed.sceneId);
 
-    const chain: FilmNode[] = composed.nodes.map((n) => ({
+    // RECURSIVE, because a ground can carry a ground. The executor's
+    // `buildChain` has always recursed into `b`; this conversion did not,
+    // so an N-plane stack would have arrived at the browser with every
+    // layer below the first silently amputated — the plan correct, the
+    // film short two layers, and nothing anywhere saying so.
+    const toFilmNode = (n: ComposedNode): FilmNode => ({
       id: n.primitiveId,
       params: n.params,
       seed: n.seed,
-      ...(n.ground
-        ? {
-            b: n.ground.map((g) => ({
-              id: g.primitiveId,
-              params: g.params,
-              seed: g.seed,
-            })),
-          }
-        : {}),
-    }));
+      ...(n.ground && n.ground.length > 0 ? { b: n.ground.map(toFilmNode) } : {}),
+    });
+    const chain: FilmNode[] = composed.nodes.map(toFilmNode);
 
     // Zip the solver's cut windows against the shot planner's variations.
     // The two are computed independently and are the same length by

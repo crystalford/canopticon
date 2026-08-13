@@ -108,10 +108,11 @@
 | Pins | **EXISTS** | Precedence 1, freezes the chain |
 | Visual grammar (captured) | **EXISTS** | Per-operator appetites bias what is reached for |
 | Visual language (per film/scene) | **EXISTS** | Operator appetite + representation rung |
-| **World density** (sparse ↔ dense) | **MISSING** | The gap this map exists to name — see below |
+| **World density** (sparse ↔ dense) | **MISSING** | The gap this map exists to name — see below. Its input and its output path both exist now; the dial does not |
 | **Literalness** (literal ↔ displaced) | **PARTIAL** | `dislocation` moves *which construction*; it does not move *how displaced the depiction is* |
 | Abstraction (physical ↔ abstract) | **EXISTS** | The ladder, and a permission gate on operators |
-| Attention (subject ↔ environment) | **PARTIAL** | `plane.weight` now scales and populates the subject's construction; it is not yet a dial a director can move directly |
+| Attention (subject ↔ environment) | **PARTIAL** | `plane.weight` reaches every layer's construction and the compositors between them; it is not yet a dial a director can move directly |
+| **How importance MANIFESTS** (per grammar) | **MISSING** | One mapping for every film: weight means scale and population. A grammar that made a low-weight subject fragmented, occluded and intermittent instead would be a different film from the same 0.30 — and `applyPlane` is the one place it would go |
 | Transformation (stable ↔ mutating) | **MISSING** | The fourth program type, unbuilt |
 | Natural-language directing | **PARTIAL** | The register lexicon is the mechanism; there is no free-text UI path |
 
@@ -121,19 +122,21 @@
 |---|---|---|
 | `SETTING` | **EXISTS** | Becomes the ground under its subject (`plate_scene`) |
 | `SUBJECT` | **EXISTS** | Becomes the construction |
-| `COUNTERPOINT` | **EXISTS** | Becomes the ground; the only role no noun asks for |
+| `COUNTERPOINT` | **EXISTS** | A layer of the stack, built by its own construction |
 | **`METAPHOR`** | **PLANNED** | Computed, weighted by abstraction, **built by nothing** |
 | **`EDITORIAL`** | **PLANNED** | Same — typography arrives via the construction, not the plane |
-| `plane.depth` | **EXISTS** | `applyPlane` sets `parallax_layers.depth` from the plan, not from `style.density` |
-| `plane.weight` | **EXISTS** | Scale and population of the subject's construction. An unnoticed anomaly is 0.30 and visibly smaller |
+| `plane.depth` | **EXISTS** | `applyPlane` sets `parallax_layers.depth` from the plan, and orders the stack |
+| `plane.weight` | **EXISTS** | Scale and population of each layer's construction, and the compositor's `opacity`/`sink` |
+| Setting carried between scenes | **EXISTS** | "At first nobody noticed" is still in the city — same memory the subject had |
 | `CONTEXT` / `SECOND-STORY` / `TRACE` / `RED-HERRING` | **MISSING** | Aldershot roles, deliberately unbuilt |
 
 **This block was the map's most useful finding.** Five of eight rows were
-`PLANNED`; two have since been closed (`plane.depth`, `plane.weight`) and
-three remain. The scene plan is further from the screen than it looks — it
-currently reaches pixels through exactly two channels (which construction
-is built, and what goes in the ground slot) and every richer thing it
-computes is inert.
+`PLANNED`; three have since been closed and two remain (`METAPHOR`,
+`EDITORIAL`). The scene plan used to reach pixels through exactly two
+channels — which construction is built, and what single primitive went in
+the ground slot. It now reaches them through an ordered stack, so a plan
+that finds a setting *and* a counterpoint no longer has to discard one of
+them.
 
 ## COMPOSITION
 
@@ -141,9 +144,11 @@ computes is inert.
 |---|---|---|
 | Two-input compositing | **EXISTS** | Five compositors; a ground is a real second chain |
 | Ground type-checking | **EXISTS** | `groundSatisfies` refuses a plate to a field compositor |
-| Ordered N-plane stack | **MISSING** | One ground slot, not a depth-sorted stack |
+| Ordered N-plane stack | **EXISTS** | `stack.ts` — nested grounds, far to near. Cost, hash, film plan and usage all recurse |
 | Depth from the plan | **EXISTS** | `applyPlane` writes `parallax_layers.depth` from `plane.depth` — see the SCENE PLAN block |
-| Foreground / midground / background as roles | **MISSING** | — |
+| Foreground / midground / background as roles | **EXISTS** | The stack's order IS the depth order, and it is semantic — a setting is behind its subject because that is what a setting is |
+| A stack the frame budget cannot pay for | **EXISTS** | Drops the deepest layer and says how many, rather than trimming silently |
+| Two second inputs on one chain | **MISSING** | A scene whose generic ground is a FIELD cannot also show its setting — one ground slot on the main chain, and `compose.ts` keys its params by primitive id |
 
 ## CONSTRUCTIONS · BEHAVIOURS · MATERIAL
 
@@ -197,12 +202,15 @@ Same proposition — *something strange is happening and nobody has noticed*
 | **Systemic** | The city becomes a network and the anomaly propagates through it | The pattern is visible before the thing is |
 
 The compiler currently produces one of these — roughly the sparse one, and
-by accident rather than by choice, because a `COUNTERPOINT` is one
-`plate_scene` and there is no dial that could make it eighty micro-events.
+by accident rather than by choice.
 
-**This is not a missing primitive.** It is a missing *director dimension*,
-and the plan already computes the number it would need — `plane.weight` —
-and reads it nowhere.
+**This is not a missing primitive.** It is a missing *director dimension*.
+Both halves of the plumbing it needs now exist: the plan computes
+`plane.weight`, and `applyPlane` turns it into population (`plate_scene.cars`
+moved 17 → 24 between two layers of one scene). What is still missing is
+the dial itself — a director cannot say "make this world dense" and have
+the whole stack answer, and every layer's population is still a function of
+its own weight rather than of a stated density for the shot.
 
 ---
 
@@ -216,10 +224,13 @@ rather than from preference:
    density and scale of what is built are **done**, and doing them
    immediately surfaced a live bug: the unnoticed anomaly was weighted
    0.85 of the frame while the narration said nobody saw it. `METAPHOR`
-   → an actual second construction is the next of the three that remain.
-2. **World density as a real director dimension**, since the plan already
-   computes its input.
-3. **The N-plane stack**, which is what makes 1 and 2 worth having.
+   → an actual second construction is the next of the two that remain.
+2. **The N-plane stack** — **done**. Nested grounds, far to near, each
+   layer a real construction carrying its own weight. It is what makes 1
+   and 3 worth having, because a weight is only interesting once there is
+   something for it to be weighted *against*.
+3. **World density as a real director dimension**, since the plan
+   computes its input and the stack now spends it.
 4. Everything else — camera, lighting, transformation, the remaining
    Aldershot roles — after there is a composition worth pointing a camera
    at.

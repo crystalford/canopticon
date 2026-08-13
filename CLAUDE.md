@@ -86,6 +86,21 @@ and the code implements the amended version:
    a pinned environment. L2-GPU for shader/3D. L3 is never claimed.
 8. **Degrade, flag, continue.** A failure in one scene never blocks the rest of
    the film from compiling.
+9. **One authoritative translation point per semantic quantity.** The semantic
+   layer says *this plane has visual importance 0.30*; it never says *make it
+   smaller*. Exactly one function turns that number into parameters —
+   `applyPlane` in `scene-plan.ts` — and any new consumer goes inside it. The
+   failure this prevents is real and cheap to fall into: weight meaning scale
+   in one file, opacity in another, count in a third, until nobody can say
+   what "weight" means. It also keeps the door open for the thing that makes
+   this worth having — a *visual grammar* deciding HOW importance manifests,
+   so a low-weight subject is smaller and dimmer in one film and fragmented,
+   occluded and intermittent in another, from the same 0.30.
+10. **A semantic capability is not complete until a pixel differs.** Name which
+    of the six states it has actually reached — DETECTED → INTERPRETED →
+    PLANNED → BOUND → COMPOSITED → RENDERED. `PLANNED` is the dangerous one:
+    a missing thing announces itself, a planned thing looks finished from
+    every angle except the screen. See `docs/studio/CANOPTICON_CAPABILITY_MAP.md`.
 
 ## The test for every decision
 

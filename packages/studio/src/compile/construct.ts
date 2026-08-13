@@ -946,6 +946,43 @@ const MOTION_TAIL = ["parallax_layers", "ease_profile"];
    CANDIDATES — several programs, not one.
    ═══════════════════════════════════════════════════════════════════ */
 
+/** The state a construction actually reads, after the direction and the
+ *  relation have both leaned on it.
+ *
+ *  Factored out of `constructPrograms` the moment a second caller existed.
+ *  Two copies of this would mean a background plane built against an
+ *  unbent style while its subject built against a bent one — the same
+ *  scene composed against two different films, which is precisely the
+ *  class of divergence that had the Lab and the Worker disagreeing about
+ *  57 of 88 scenes. */
+function styleForBeat(beat: Beat, raw: Style): Style {
+  const intent = beat.intent ?? EMPTY_READING;
+  return beat.relation
+    ? bendStyle(bendStyle(raw, intent), {
+        ...EMPTY_READING,
+        style: relationBias(beat.relation),
+      })
+    : bendStyle(raw, intent);
+}
+
+/** BUILD ONE NAMED CONSTRUCTION, for a plane that already knows which one
+ *  it wants.
+ *
+ *  The scene plan names a construction per PLANE, and a background plane
+ *  deserves the same builder its subject gets. The alternative — a
+ *  `{ space: "plate_scene" }` lookup table in the compositor — would be a
+ *  second, worse implementation of the eight constructions, drifting from
+ *  the real one the first time a construction learned a new parameter.
+ *
+ *  Returns null for an unknown id rather than falling back to something,
+ *  because a plane whose construction cannot be built should be dropped
+ *  loudly, not replaced silently. */
+export function buildConstruction(id: string, beat: Beat, raw: Style): PlannedNode[] | null {
+  const c = CONSTRUCTIONS.find((x) => x.id === id);
+  if (!c) return null;
+  return c.build(beat, styleForBeat(beat, raw)).nodes;
+}
+
 /** Generate genuinely different visual programs for one beat.
  *
  *  Divergence comes from two axes, both deterministic: which CONSTRUCTION
@@ -987,12 +1024,7 @@ export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Pro
   // director's instruction, so the direction is applied first and the
   // relation leans on the result — a passive is still a passive in a film
   // directed to feel overwhelming, but it is an overwhelming passive.
-  const style = beat.relation
-    ? bendStyle(bendStyle(raw, intent), {
-        ...EMPTY_READING,
-        style: relationBias(beat.relation),
-      })
-    : bendStyle(raw, intent);
+  const style = styleForBeat(beat, raw);
 
   // HOW FAR THE DIRECTOR WILL LET THIS GO AGAINST THE GRAIN.
   //

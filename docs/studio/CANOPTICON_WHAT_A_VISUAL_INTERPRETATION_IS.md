@@ -44,6 +44,54 @@ is the list, and each one was found by measuring rather than by reading:
 whole path or it is not tested. "The compiler now understands X" is not a
 claim about the compiler until a pixel differs.
 
+### 0.1 One authoritative translation point
+
+The corollary, and it is a hard rule (CLAUDE.md standing rule 9). A
+semantic quantity gets **exactly one** function that turns it into
+parameters. `plane.weight` has `applyPlane` in `scene-plan.ts` and nothing
+else; every consumer goes inside it.
+
+Without that, the same number quietly means four things:
+
+```
+weight → scale        here
+weight → opacity      somewhere else
+weight → count        somewhere else
+weight → camera       somewhere else
+```
+
+and there is no longer any answer to "what does weight mean". The rule
+also keeps the interesting door open. The semantic layer's job is to say
+*this plane has visual importance 0.30* — never *make it smaller*. How
+importance MANIFESTS is a question for the visual grammar, and one grammar
+answering "smaller, dimmer, further away" while another answers
+"fragmented, partly occluded, visible only intermittently" is two
+different films from one identical 0.30. That is only possible while the
+translation lives in one place. It is not built; the place for it is.
+
+### 0.2 What the discipline is starting to make possible
+
+The unnoticed-anomaly bug is the first instance of something the palette
+architecture could never have produced: **the compiler catching its own
+picture contradicting its own script.** "At first nobody noticed" was
+DETECTED, INTERPRETED and PLANNED correctly, and the renderer drew the
+anomaly at 0.85 of the frame — the largest thing on screen. Plumbing the
+weight through is what made the disagreement expressible at all.
+
+Generalised, that is **visual consistency checking**, and it is not fact
+checking. It asks only whether the visual argument agrees with the script:
+
+| The script says | The frame would have to answer for |
+|---|---|
+| "Nobody noticed." | An anomaly at 0.85 weight |
+| "Only one person remained." | Fourteen agents visible |
+| "The city was empty." | A crowded environment |
+| "They slowly became synchronized." | Synchronisation already maximal in frame one |
+
+Not built, and deliberately not designed here. Recorded because it is the
+first thing on this list that is specific to Canopticon rather than
+generic to compilers.
+
 ---
 
 ## 1. What is a semantic reading?
@@ -128,6 +176,27 @@ scene graph, which is the same distinction candidates draw one level up.
 Deliberately conservative: a sentence naming one thing gets one plane and
 compiles exactly as before. Paying for a composite to layer one thing over
 nothing is how a render gets slow for no picture.
+
+**The stack is how it reaches the screen** (`stack.ts`). Every plane
+behind the subject becomes a real construction — the same builder the
+subject gets — and they nest, far to near, on compositors' second inputs.
+The rule is one line: *a compositor's ground is the layer behind it, its
+upstream is the layer in front.* Read outward it is a depth order; read
+inward it is a paint order.
+
+```
+main chain     [ subject program … , layer_over ]
+                                        ground ↓
+background     [ counterpoint program … , layer_over ]
+                                              ground ↓
+deepest        [ setting program … ]
+```
+
+Two consequences worth stating. A film's SETTING is carried between scenes
+the way its subject already was, because a setting outlives the sentence
+that named it — "at first nobody noticed" is still in the city. And a
+stack the frame budget cannot pay for drops its DEEPEST layer and reports
+how many, rather than trimming quietly.
 
 ## 5. What is a construction?
 
@@ -246,15 +315,23 @@ code:
 
 ## What this is not, yet
 
-- **Level 3 population.** "Nobody noticed" produces an anomaly and an
-  ordinary world; that world is a plate, not pedestrians facing away,
-  traffic continuing, storefronts. The proposition can put something in
-  the frame that no noun asked for — it cannot yet populate that something
-  richly.
+- **Level 3 population.** "Nobody noticed" produces an anomaly, an
+  ordinary world and the city behind both — three real layers with their
+  own weights. But each layer is still one construction, so the ordinary
+  world is a populated plate rather than pedestrians facing away, traffic
+  continuing, storefronts. The proposition can put something in the frame
+  that no noun asked for, and can now stack it; it cannot populate any one
+  layer richly.
 - **One construction per role.** `COUNTERPOINT → space` is a fixed mapping
   today, which is the old one-winner problem at a higher level, waiting.
   The plan should state what must be expressed and let candidates differ
   in how — it does not.
+- **One second input per chain.** The main chain has one ground slot, so a
+  scene whose generic ground is a FIELD (`field_displace` over
+  `gravity_field` — the flagship text-dissolution case) cannot also show
+  its setting. The stack sits inside the existing guard rather than
+  replacing it, which preserves the field case honestly and leaves the
+  either/or in place.
 - **Metaphor, narrative function, entity identity across a film.** Read
   nowhere. And they are not more lexicon.
 - **Transformation across representations.** Named as the missing fourth

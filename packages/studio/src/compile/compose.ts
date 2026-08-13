@@ -48,10 +48,12 @@ import {
   type Plane,
   type ScenePlan,
   applyPlane,
+  backgroundPlanes,
   isComposite,
   isUnnoticed,
   planScene,
 } from "./scene-plan.ts";
+import { type BuiltStack, buildStack, flattenGround, stackCompositor } from "./stack.ts";
 import {
   type DetectedSubject,
   detectSubjects,
@@ -216,6 +218,9 @@ export function composeScene(
   /** The last thing this film named. A sentence made of pronouns is about
    *  whatever the film was already looking at — see `refersBack`. */
   carried: DetectedSubject | null = null,
+  /** The last PLACE this film named. A setting outlives the sentence that
+   *  established it — see `planScene`. */
+  carriedPlace: DetectedSubject | null = null,
 ): ComposedScene {
   const state = resolveStateAt(ir, scenePosition(ir, sceneIndex), positions);
   const notes: string[] = [];
@@ -272,6 +277,11 @@ export function composeScene(
   /** The scene's roles, when it has more than one. Function-scoped because
    *  the compositing pass below needs it long after the constructor ran. */
   let scenePlan: ScenePlan | null = null;
+  /** The beat and the bent state the SUBJECT was built from, kept for the
+   *  same reason: the background planes have to be built from exactly the
+   *  same two, or the shot is composed against two different films. */
+  let composedBeat: Beat | null = null;
+  let composedStyle: Style | null = null;
 
   const reading = readingFor(scene);
   const ratified = Boolean(scene.reading);
@@ -419,7 +429,9 @@ export function composeScene(
     // THE SCENE PLAN. What roles this shot contains, before anything
     // decides which single one wins. A setting that loses is a setting
     // that was read and thrown away — see scene-plan.ts.
-    scenePlan = planScene(beat, style, carried);
+    scenePlan = planScene(beat, style, carried, carriedPlace);
+    composedBeat = beat;
+    composedStyle = style;
     if (isComposite(scenePlan)) notes.push(`composed — ${scenePlan.why}`);
 
     const programs = constructPrograms(beat, style, MAX_CHAIN_MS);
@@ -612,10 +624,15 @@ export function composeScene(
   // had no planner that could say "the city goes behind the people". It
   // does now, so the setting is composited UNDER the subject rather than
   // competing with it for the one slot a scene used to have.
-  const settingPlane =
-    scenePlan && isComposite(scenePlan)
-      ? scenePlan.planes.find((pl: Plane) => pl.role === "SETTING" || pl.role === "COUNTERPOINT")
-      : undefined;
+  //
+  // AND THERE IS MORE THAN ONE OF THEM. A scene plan that found a SETTING
+  // *and* a COUNTERPOINT had to pick one for the single slot and discard
+  // the other — the one-winner failure the plan exists to end, moved down
+  // a layer. `backgroundPlanes` returns all of them, far to near, and
+  // `buildStack` nests them into one ground. See stack.ts.
+  const background =
+    scenePlan && isComposite(scenePlan) ? backgroundPlanes(scenePlan) : ([] as Plane[]);
+  const settingPlane = background[background.length - 1];
 
   const ground = planGround({
     chain,
@@ -638,16 +655,67 @@ export function composeScene(
   // would type-check nowhere and composite nothing — `groundSatisfies`
   // catches it, and refusing here keeps the scene's real ground instead of
   // trading it for a refusal.
-  if (ground && settingPlane && groundSatisfies(ground.compositor, ["plate_scene"]) === true) {
-    ground.ground = ["plate_scene"];
-    notes.push(
-      settingPlane.role === "COUNTERPOINT"
-        ? "ground is the ordinary world — the thing the anomaly goes unnoticed against"
-        : `ground is the setting — ${settingPlane.from}`,
-    );
-  }
+  const baseParams = {
+    density: round3(density),
+    energy: round3(state.values.motionEnergy ?? 0),
+    abstraction: round3(abstraction),
+  };
   let groundNodes: ComposedNode[] | null = null;
-  if (ground) {
+  let stack: BuiltStack | null = null;
+  if (ground && settingPlane && groundSatisfies(ground.compositor, ["plate_scene"]) === true) {
+    stack =
+      composedBeat && composedStyle
+        ? buildStack(
+            background,
+            composedBeat,
+            composedStyle,
+            sceneIndex,
+            baseParams,
+            MAX_CHAIN_MS - chainCost(chain),
+          )
+        : null;
+    if (stack) {
+      // THE WHOLE BACKGROUND, NOT ONE PRIMITIVE OF IT. The generic
+      // planner still decides WHETHER this scene gets a second input —
+      // its three refusals (a pin, a contested line, a restrained film)
+      // are unchanged and are the reason this sits inside its guard. What
+      // it no longer decides is WHAT that input is, once the plan has an
+      // answer.
+      groundNodes = stack.ground;
+      // Forced to the plain compositor. A depth stack means "this is
+      // behind that", and `layer_blend` or `layer_mask` in the outer slot
+      // would say something else — a blend mode is a claim and a mask is
+      // redaction. Only reached when the guard above already established
+      // the compositor takes a picture.
+      const outer = stackCompositor(settingPlane, baseParams);
+      ground.compositor = outer.primitiveId;
+      ground.ground = stack.ground.map((n) => n.primitiveId);
+      for (const [k, v] of Object.entries(outer.params)) {
+        if (typeof v === "number") ground.params[k] = v;
+      }
+      chain.push(ground.compositor);
+      reasons.set(
+        ground.compositor,
+        `the background sits behind the subject — ${stack.layers.length} plane${
+          stack.layers.length === 1 ? "" : "s"
+        }`,
+      );
+      notes.push(
+        `stacked — ${stack.layers
+          .map(
+            (l) =>
+              `${l.role.toLowerCase()}${l.from ? ` (${l.from})` : ""} @${l.depth.toFixed(2)}×${l.weight.toFixed(2)}`,
+          )
+          .join(" ‹ ")} ‹ subject`,
+      );
+      if (stack.dropped > 0) {
+        notes.push(
+          `${stack.dropped} background plane${stack.dropped === 1 ? "" : "s"} dropped — the frame budget could not pay for the full depth`,
+        );
+      }
+    }
+  }
+  if (ground && !stack) {
     const satisfied = groundSatisfies(ground.compositor, ground.ground);
     if (satisfied !== true) {
       // A ground that does not structurally satisfy its compositor would
@@ -656,11 +724,7 @@ export function composeScene(
     } else {
       groundNodes = ground.ground.map((primitiveId, i) => ({
         primitiveId,
-        params: {
-          density: round3(density),
-          energy: round3(state.values.motionEnergy ?? 0),
-          abstraction: round3(abstraction),
-        },
+        params: { ...baseParams },
         // Seeded off the SCENE and its position in the ground, in a range
         // that cannot collide with the subject chain's seeds — two layers
         // seeded identically would move in lockstep and read as one.
@@ -764,8 +828,19 @@ export function composeScene(
     // is the scene's cost. Leaving it out would make a two-layer scene look
     // cheaper than a one-layer one, which is the sort of quiet arithmetic
     // that turns a budget into a decoration.
-    costMsPerFrame: chainCost(chain) + (groundNodes ? chainCost(ground?.ground ?? []) : 0),
-    determinism: chainDeterminism([...chain, ...(ground?.ground ?? [])]),
+    //
+    // FLATTENED, because a stack nests. `ground.ground` is only the
+    // outermost layer's primitives; the layers beneath it hang off their
+    // own compositors' second inputs, and counting one level would have
+    // reintroduced exactly the arithmetic this comment warns about — a
+    // three-plane scene reporting the cost of a one-plane one.
+    costMsPerFrame:
+      chainCost(chain) +
+      chainCost(flattenGround(groundNodes ?? undefined).map((n) => n.primitiveId)),
+    determinism: chainDeterminism([
+      ...chain,
+      ...flattenGround(groundNodes ?? undefined).map((n) => n.primitiveId),
+    ]),
     phrase: { text: phrase.text, source: phrase.source },
     program: program
       ? {
@@ -927,10 +1002,18 @@ export function composeAll(ir: EditorialIR): ComposedScene[] {
   // THE FILM'S SHORT-TERM MEMORY. What was last named, so a sentence made
   // of pronouns continues the image rather than starting a new one.
   let carried: DetectedSubject | null = null;
+  // AND WHERE IT WAS. Held separately from the subject, because a film
+  // changes what it is looking at far more often than it changes where it
+  // is — folding the two into one slot would mean the city stopped
+  // existing the moment a sentence named a person.
+  let carriedPlace: DetectedSubject | null = null;
   ir.scenes.forEach((scene, i) => {
-    const composed = composeScene(ir, scene, i, positions, recent, phrases, carried);
-    const own = detectSubjects(scene.narration.text)[0];
+    const composed = composeScene(ir, scene, i, positions, recent, phrases, carried, carriedPlace);
+    const named = detectSubjects(scene.narration.text);
+    const own = named[0];
     if (own) carried = own;
+    const place = named.find((s) => s.kind === "place");
+    if (place) carriedPlace = place;
     out.push(composed);
     recent.push(composed.nodes.map((n) => n.primitiveId));
     if (recent.length > 4) recent.shift();

@@ -148,6 +148,19 @@ export function planScene(
    *  is still ABOUT something, and without this the unnoticed case has no
    *  subject to be unnoticed. */
   carried?: DetectedSubject | null,
+  /** WHERE THE FILM ALREADY WAS.
+   *
+   *  A setting outlives the sentence that named it. "At first nobody
+   *  noticed" is still in the city — the prose does not re-establish a
+   *  location every sentence, and a compositor that forgets one between
+   *  two consecutive scenes is cutting to a different film and back.
+   *
+   *  This is the same memory mechanism the subject already had, applied to
+   *  the other thing a shot is made of. It is not a new semantic role and
+   *  it invents nothing: the noun is still verbatim from the prose, just
+   *  from an earlier sentence, and it is discounted for being inherited
+   *  exactly as a carried subject is. */
+  carriedPlace?: DetectedSubject | null,
 ): ScenePlan {
   const planes: Plane[] = [];
   const subjects = beat.subjects;
@@ -155,7 +168,12 @@ export function planScene(
   // THE SETTING. A place noun the sentence named, whatever its rank.
   // Previously this lost to the subject and vanished; here it simply sits
   // behind it, which is what a setting does.
-  const place = subjects.find((s) => s.kind === "place");
+  const named = subjects.find((s) => s.kind === "place");
+  const inherited =
+    !named && carriedPlace && !subjects.some((s) => s.text === carriedPlace.text)
+      ? carriedPlace
+      : undefined;
+  const place = named ?? inherited;
   // THE SUBJECT. The highest-weighted thing that is not the setting.
   const subject = subjects.find((s) => s !== place);
 
@@ -167,8 +185,11 @@ export function planScene(
       depth: 0.15,
       // A setting is entitled to less of the frame than its subject unless
       // the director says otherwise — the sentence is about the people, in
-      // a city, not about a city that happens to contain people.
-      weight: subject ? 0.35 : 0.8,
+      // a city, not about a city that happens to contain people. An
+      // INHERITED setting is quieter still: the film is somewhere it has
+      // already established, and re-asserting it at full weight would read
+      // as a re-establishing shot the edit did not ask for.
+      weight: (subject ? 0.35 : 0.8) * (inherited ? 0.8 : 1),
     });
   }
 
@@ -336,6 +357,25 @@ export function isComposite(plan: ScenePlan): boolean {
   return plan.planes.length >= 2;
 }
 
+/** THE PLANES THAT SIT BEHIND THE SUBJECT, ordered far to near.
+ *
+ *  This is the list an N-plane compositor walks. Everything strictly
+ *  deeper than the subject is background; the subject itself is the main
+ *  chain, and EDITORIAL is nearest and arrives through the type
+ *  construction rather than through the stack.
+ *
+ *  Sorted by depth and not by role, because depth is the thing being
+ *  claimed. Two roles at the same depth keep their planning order, which
+ *  is stable because `planScene` pushes in a fixed sequence — the sort is
+ *  deliberately not a tiebreak on anything the director could move. */
+export function backgroundPlanes(plan: ScenePlan): Plane[] {
+  const subject = plan.planes.find((p) => p.role === "SUBJECT");
+  const floor = subject ? subject.depth : 1;
+  return plan.planes
+    .filter((p) => p.role !== "SUBJECT" && p.role !== "EDITORIAL" && p.depth < floor)
+    .sort((a, b) => a.depth - b.depth);
+}
+
 /** WEIGHT AND DEPTH, APPLIED TO A BUILT NODE'S PARAMETERS.
  *
  *  The capability map found `plane.weight` and `plane.depth` computed and
@@ -386,6 +426,23 @@ export function applyPlane(
       // DEPTH, at last reaching the one primitive that has always had a
       // depth parameter and has never been told what the scene's depth is.
       out.depth = clamp01(plane.depth);
+      break;
+    case "layer_over":
+      // THE COMPOSITOR IS ALSO A TRANSLATION, and this is the reason this
+      // case belongs here rather than in the stack builder. A layer's
+      // entitlement to the frame is expressed on the compositor that puts
+      // it behind something — how strongly it re-asserts (`opacity`) and
+      // how far it sinks under what is in front of it (`sink`).
+      //
+      // Called with the DEEPER plane, always: the compositor is answering
+      // "how much of the frame does the thing behind me keep", which is
+      // that plane's weight and nobody else's.
+      out.opacity = clamp01(0.25 + w * 0.6);
+      // Inverted deliberately. A heavy background sinks LESS, so weight
+      // reads the same direction everywhere it lands — more weight, more
+      // presence — rather than meaning "louder" here and "further" there.
+      out.sink = clamp01(0.7 - w * 0.5);
+      out.front = 0;
       break;
     default:
       break;

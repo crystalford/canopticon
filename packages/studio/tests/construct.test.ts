@@ -18,6 +18,7 @@ import {
   type Style,
   constructPrograms,
 } from "../src/compile/construct.ts";
+import { hashSceneNodes } from "../src/compile/hash.ts";
 import {
   type DirectorIntent,
   bendStyle,
@@ -26,6 +27,7 @@ import {
 } from "../src/compile/intent.ts";
 import { isComposite, planScene } from "../src/compile/scene-plan.ts";
 import { segmentEssay } from "../src/compile/segment.ts";
+import { buildStack } from "../src/compile/stack.ts";
 import { detectSubjects } from "../src/compile/subject.ts";
 import type { VisualLanguage } from "../src/ir/schema.ts";
 import { parseIR } from "../src/ir/schema.ts";
@@ -1006,7 +1008,111 @@ describe("the proposition test — does it change what enters the frame", () => 
     const scene = must(composeAll(parsed.ir)[1]);
     const grounds = scene.nodes.flatMap((n) => (n.ground ?? []).map((g) => g.primitiveId));
     expect(grounds).toContain("plate_scene");
-    expect(scene.notes.join(" ")).toMatch(/ordinary world/);
+    // The counterpoint is named in the stack, with its own depth and its
+    // own weight. This used to assert a note that said "ordinary world"
+    // and nothing more; the stack line is the same claim with the
+    // arithmetic attached, so a plane that reached the report without
+    // reaching a depth would now fail here.
+    expect(scene.notes.join(" ")).toMatch(/stacked —.*counterpoint @0\.30×0\.70/);
+  });
+});
+
+describe("N-plane composition", () => {
+  function scenesOf(essay: string) {
+    const seed = segmentEssay(essay, { projectId: "p" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+    return composeAll(parsed.ir);
+  }
+  const CITY =
+    "The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.";
+
+  it("a setting outlives the sentence that named it", () => {
+    // "At first nobody noticed" names no place. The film is still in the
+    // city, and before the setting was carried this scene had exactly one
+    // background plane — so there was never anything to stack.
+    const scene = must(scenesOf(CITY)[1]);
+    expect(scene.notes.join(" ")).toMatch(/setting \(city\)/);
+  });
+
+  it("two background planes become a nested stack, not a choice between them", () => {
+    const scene = must(scenesOf(CITY)[1]);
+    const compositor = scene.nodes.find((n) => n.ground && n.ground.length > 0);
+    expect(compositor).toBeDefined();
+    // The outer ground is the nearer layer, and it carries the deeper one
+    // on a compositor of its own. One level of nesting per extra plane.
+    const inner = must(compositor?.ground).find((g) => g.ground && g.ground.length > 0);
+    expect(inner).toBeDefined();
+    expect(inner?.primitiveId).toBe("layer_over");
+    expect(must(inner?.ground).some((g) => g.primitiveId === "plate_scene")).toBe(true);
+  });
+
+  it("each layer is built with its OWN weight, not the film's average", () => {
+    const scene = must(scenesOf(CITY)[1]);
+    const outer = must(scene.nodes.find((n) => n.ground && n.ground.length > 0)).ground ?? [];
+    const near = must(outer.find((g) => g.primitiveId === "plate_scene"));
+    const inner = must(outer.find((g) => g.ground && g.ground.length > 0));
+    const far = must((inner.ground ?? []).find((g) => g.primitiveId === "plate_scene"));
+    // Counterpoint 0.70 against an inherited setting 0.28. Same primitive,
+    // same scene, same builder — and a different picture, which is the
+    // whole claim the stack makes.
+    expect(near.params.cars).not.toBe(far.params.cars);
+    expect(Number(near.params.cars)).toBeGreaterThan(Number(far.params.cars));
+  });
+
+  it("the deepest layer is inside the hash", async () => {
+    const scene = must(scenesOf(CITY)[1]);
+    const node = must(scene.nodes.find((n) => n.ground && n.ground.length > 0));
+    const w = { startMs: 0, endMs: 1000 };
+    const before = must((await hashSceneNodes([node], w, []))[0]).hash;
+    // Reach two levels down and change one number. A non-recursive
+    // signature would leave this hash identical and the cache would serve
+    // the old frames for a film whose furthest layer had changed.
+    const nested = JSON.parse(JSON.stringify(node)) as typeof node;
+    const inner = must((nested.ground ?? []).find((g) => g.ground && g.ground.length > 0));
+    const deepest = must((inner.ground ?? [])[0]);
+    deepest.params = { ...deepest.params, cars: Number(deepest.params.cars ?? 0) + 7 };
+    const after = must((await hashSceneNodes([nested], w, []))[0]).hash;
+    expect(after).not.toBe(before);
+  });
+
+  it("a stacked scene costs what its layers cost, all the way down", () => {
+    const scene = must(scenesOf(CITY)[1]);
+    const flat = (nodes: typeof scene.nodes): number =>
+      nodes.reduce((n, x) => n + 1 + flat(x.ground ?? []), 0);
+    const total = flat(scene.nodes);
+    const shallow =
+      scene.nodes.length + scene.nodes.reduce((n, x) => n + (x.ground?.length ?? 0), 0);
+    // There is genuinely a level the old one-deep accounting could not see.
+    expect(total).toBeGreaterThan(shallow);
+    expect(scene.costMsPerFrame).toBeGreaterThan(0);
+  });
+
+  it("a stack it cannot afford loses its DEEPEST layer, and says so", () => {
+    const planes = [
+      { role: "SETTING" as const, construction: "space", from: "city", depth: 0.15, weight: 0.28 },
+      { role: "COUNTERPOINT" as const, construction: "space", from: null, depth: 0.3, weight: 0.7 },
+    ];
+    const beat = beatFor("At first nobody noticed.", { index: 1 });
+    const style = styleFor("documentary");
+    const rich = must(buildStack(planes, beat, style, 1, {}, 999));
+    expect(rich.layers.length).toBe(2);
+    expect(rich.dropped).toBe(0);
+    // One layer's worth of budget. The near layer survives — the film
+    // keeps the backdrop its subject stands against and loses the city
+    // behind it, rather than the other way round.
+    const poor = must(buildStack(planes, beat, style, 1, {}, 1));
+    expect(poor.layers.length).toBe(1);
+    expect(must(poor.layers[0]).role).toBe("COUNTERPOINT");
+    expect(poor.dropped).toBe(1);
+  });
+
+  it("a single-plane scene still compiles as one chain", () => {
+    // Nothing to stack, nothing stacked. The conservative case has to stay
+    // conservative or every scene pays for a composite it does not use.
+    const scenes = scenesOf("A Note\n\nThe rule was written down.");
+    const scene = must(scenes[0]);
+    expect(scene.notes.join(" ")).not.toMatch(/stacked —/);
   });
 });
 
