@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-13T03:46:31Z",
+  "run_id": "31664927577",
+  "method": "GET",
+  "path": "/v1/projects",
+  "status": 200,
+  "body": "{\n  \"count\": 2,\n  \"projects\": [\n    {\n      \"projectId\": \"proj_997481cf8fd246d092a1\",\n      \"title\": \"The Form Is the Claim: Video Essay, Documentary, and the Architecture of Knowing\",\n      \"createdAt\": \"2026-08-13T02:46:05.915Z\",\n      \"irVersion\": 5,\n      \"scenes\": 61,\n      \"acts\": 9,\n      \"readings\": 0,\n      \"narrated\": 0,\n      \"lastCompiledAt\": null,\n      \"lastNodes\": null\n    },\n    {\n      \"projectId\": \"proj_305611e441404d1e97fa\",\n      \"title\": \"SHELF LIFE IS CLASS WAR\",\n      \"createdAt\": \"2026-08-13T01:10:04.894Z\",\n      \"irVersion\": 7,\n      \"scenes\": 118,\n      \"acts\": 10,\n      \"readings\": 23,\n      \"narrated\": 0,\n      \"lastCompiledAt\": \"2026-08-13T02:00:16.525Z\",\n      \"lastNodes\": 372\n    }\n  ]\n}"
+}
