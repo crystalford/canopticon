@@ -68,11 +68,11 @@ function opsFor(role: Role, mode: Mode): Op[] {
   if (role === "FIELD") return ["REPEAT", "PLACE", "FRAME"];
   if (role === "GROUND")
     return mode === "structural" ? ["APERTURE", "PLACE", "LAYER"] : ["MARK", "PLACE", "FRAME"];
-  if (role === "SECONDARY") return ["MARK", "CONTOUR", "PLACE", "FRAME"];
+  if (role === "SECONDARY") return ["SOLID", "PLACE", "FRAME"];
   // PRIMARY carries the representation's own idea.
   return (
     {
-      literal: ["APERTURE", "ENCLOSURE", "PLACE", "FRAME"],
+      literal: ["SOLID", "PLACE", "FRAME"],
       geometric: ["MARK", "CONTOUR", "PLACE", "FRAME"],
       structural: ["APERTURE", "PLACE", "LAYER"],
       typographic: ["WORD", "PLACE", "FRAME"],
@@ -175,10 +175,17 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
     els.push({
       role: "TEXT",
       ops: opsFor("TEXT", mode),
+      /* AN ACCENT, NOT A HEADLINE.
+       *
+       * This was `0.3 + typography * 0.35` — roughly half the frame — so
+       * in four of five modes the words out-read the subject and the
+       * representations collapsed back into one picture. A secondary
+       * element has to be secondary in SIZE, in POSITION and in WEIGHT,
+       * or it is simply the primary wearing a different role name. */
       place: {
-        scale: 0.3 + m.typography * 0.35,
-        x: off > 0.5 ? 0.26 : 0.72,
-        y: off > 0.5 ? 0.78 : 0.24,
+        scale: 0.1 + m.typography * 0.1,
+        x: off > 0.5 ? 0.2 : 0.8,
+        y: off > 0.5 ? 0.85 : 0.15,
         crop: 0,
       },
       depth: 0.9,
@@ -229,7 +236,7 @@ export function serialiseScene(scene: SceneGraph, m: Material): PlannedNode[] {
          * loudly the thing speaks, and a secondary element that arrives
          * louder than the subject is not a composition. */
         params: {
-          opacity: { PRIMARY: 1, SECONDARY: 0.72, TEXT: 0.9, FIELD: 0.55, GROUND: 0.3 }[e.role],
+          opacity: { PRIMARY: 1, SECONDARY: 0.72, TEXT: 0.6, FIELD: 0.55, GROUND: 0.3 }[e.role],
           front: 1,
           sink: { PRIMARY: 0, SECONDARY: 0.3, TEXT: 0.12, FIELD: 0.5, GROUND: 0.75 }[e.role],
         },
@@ -239,4 +246,60 @@ export function serialiseScene(scene: SceneGraph, m: Material): PlannedNode[] {
     ];
   }
   return out;
+}
+
+/* ── THE CAMERA ───────────────────────────────────────────────────────
+ *
+ * SCENE ≠ FRAME, and the scene graph is what finally makes that true. A
+ * scene is a set of elements at places and depths; the camera is a
+ * separate decision about how we see it. Until the scene existed
+ * independently there was nothing for a camera to observe.
+ *
+ * Implemented where it belongs — as a transform on the scene's PLACES,
+ * before serialisation. Nothing downstream knows a camera exists, which
+ * is what keeps it a directorial layer rather than a per-primitive
+ * parameter. Parallax falls out for free: an element at depth 0 moves
+ * less under a pan than one at depth 1, so a lateral move separates the
+ * planes the way a real one does.
+ */
+export interface Camera {
+  /** 1 = the frame as composed. >1 pushes in. */
+  zoom: number;
+  /** Where the camera is looking, in frame coordinates. */
+  x: number;
+  y: number;
+  /** How strongly depth separates under movement, 0..1. */
+  parallax: number;
+}
+
+export const CAMERA_STILL: Camera = { zoom: 1, x: 0.5, y: 0.5, parallax: 0 };
+
+/** Observe a scene through a camera. Returns a new graph; the scene is
+ *  untouched, because the whole point is that the same scene can be
+ *  looked at more than one way. */
+export function observe(scene: SceneGraph, cam: Camera): SceneGraph {
+  const elements = scene.elements.map((e) => {
+    // Nearer elements are displaced more by a move off centre. That is
+    // parallax, and it is the one thing a flat compositor cannot fake.
+    const lean = 1 + (e.depth - 0.5) * cam.parallax * 2;
+    return {
+      ...e,
+      place: {
+        scale: e.place.scale * cam.zoom,
+        x: 0.5 + (e.place.x - cam.x) * cam.zoom * lean,
+        y: 0.5 + (e.place.y - cam.y) * cam.zoom * lean,
+        // A push-in crops what a wide shot contained.
+        crop: cam.zoom > 1.15 ? 1 : e.place.crop,
+      },
+    };
+  });
+  const how =
+    cam.zoom > 1.3
+      ? "pushed in"
+      : cam.zoom < 0.85
+        ? "pulled wide"
+        : cam.parallax > 0.3
+          ? "moved across"
+          : "held";
+  return { elements, describes: `${scene.describes} · ${how}` };
 }

@@ -47,6 +47,8 @@ export type Op =
   | "WORD" // the language itself, as material
   | "MARK" // a sign that stands in for the thing
   | "CONTOUR" // the edge of a form rather than the form
+  | "SOLID" // a bounded polygonal body, not a blob
+  | "MASS" // that body given depth
   | "PLACE"; // how much of the frame it commands, and where
 
 /** What the grammar is given. Semantic material, never a primitive name
@@ -101,6 +103,14 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
     ),
   ],
 
+  /* NOT IN THE LITERAL RECIPE ANY MORE, and the reason is worth keeping.
+   * `boolean_ops` flattened a 7-sided polygon, a wireframe volume and a
+   * parametric curve into the SAME filled disc — three different forms,
+   * one output. A transform that erases the identity of everything it
+   * receives is not an operation on a form, it is a form generator
+   * wearing an operator's name. It stays available where subtraction is
+   * genuinely the idea; it is no longer on the path where "the thing
+   * itself" is. */
   ENCLOSURE: (m) => [
     n(
       "boolean_ops",
@@ -201,6 +211,49 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
     ),
   ],
 
+  /* A BOUNDED BODY. The literal reading was `wireframe → boolean_ops`,
+   * which produced a filled circle or a pair of them and nothing else —
+   * the thinnest column in every gallery. `shape_morph` interpolates
+   * between two polygon counts, so the same operation makes a triangle,
+   * a hexagon, a near-circle or the transition between them, and the
+   * count comes off the prose when the prose printed one. */
+  SOLID: (m) => [
+    n(
+      "polygon",
+      {
+        // The face count comes off the prose when the prose printed one.
+        // "Nine numbered rooms" is a nine-sided body; nothing else is.
+        sides: Math.round(clamp(m.count ? (m.count % 10) + 3 : 4 + (m.seed % 6), 3, 24)),
+        radius: clamp(0.22 + (1 - m.density) * 0.3, 0.05, 0.9),
+        corner: clamp(m.abstraction * 0.5, 0, 1),
+        taper: clamp((((m.seed * 13) % 100) / 100 - 0.5) * m.abstraction, -0.8, 0.8),
+        turn: clamp(m.energy * 0.5, 0, 1),
+      },
+      m.count
+        ? `a body with ${(m.count % 10) + 3} faces — the count is the prose's`
+        : "a bounded body, its faces counted rather than defaulted",
+    ),
+  ],
+
+  /* DEPTH. Declared and NOT USED in the literal recipe: `extrude` takes
+   * a `text` parameter and rasterises its own plate rather than
+   * extruding what arrives, so it REPLACED the polygon instead of giving
+   * it a near face and a far one. The same decorative-link failure the
+   * payload audit named, caught here by looking at the picture. Kept as
+   * an operation because a real depth primitive belongs in the grammar;
+   * it is simply not this one. */
+  MASS: (m) => [
+    n(
+      "extrude",
+      {
+        text: m.noun ? m.noun.toUpperCase().slice(0, 10) : m.phrase.split(" ")[0] || "FORM",
+        depth: clamp(0.2 + (1 - m.abstraction) * 0.55, 0.05, 1),
+        spin: clamp(0.08 + m.energy * 0.4, 0, 1),
+      },
+      "given a near face and a far one",
+    ),
+  ],
+
   // THE EDGE, NOT THE FILL. This is the whole distinction between
   // depicting a thing and describing its shape, and its absence is why
   // LITERAL and GEOMETRIC rendered as the same filled blob.
@@ -293,6 +346,8 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
  * payload contract was built to enforce, applied one layer up. */
 type Role = "SOURCE" | "TRANSFORM" | "RENDER";
 const ROLE: Record<Op, Role> = {
+  SOLID: "SOURCE",
+  MASS: "TRANSFORM",
   CONTOUR: "TRANSFORM",
   PLACE: "TRANSFORM",
   APERTURE: "SOURCE",
@@ -307,7 +362,7 @@ const ROLE: Record<Op, Role> = {
 
 const RECIPE: Record<Mode, Op[]> = {
   // THE THING: a solid, bounded, placed in the frame. A silhouette.
-  literal: ["APERTURE", "ENCLOSURE", "PLACE", "FRAME"],
+  literal: ["SOLID", "PLACE", "FRAME"],
   // ITS SHAPE: the same kind of form taken to its edge, with the lines it
   // was built on, repeated. Not a filled blob — that was the collapse.
   geometric: ["MARK", "CONTOUR", "PLACE", "FRAME"],

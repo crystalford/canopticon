@@ -392,3 +392,82 @@ reg(
   }),
   "Reduces a filled form to its own edge, and optionally lays construction lines across its bounds. The operation that separates depicting a thing from describing its shape — and the reason LITERAL and GEOMETRIC stop being the same picture.",
 );
+
+/* ── THE MISSING SOURCE ───────────────────────────────────────────────
+ *
+ * `SOLID` reached for `shape_morph`, which is GEOMETRY → GEOMETRY. With
+ * no upstream it drew its own default and the literal column stayed a
+ * sampled disc — the same "contractually correct, visually empty" shape
+ * of failure as before.
+ *
+ * The palette had NO POLYGON SOURCE. Every bounded body in the system
+ * came from `wireframe` (a box or a sphere), a boolean of two circles,
+ * or a raster sample of something else. That is a genuinely missing
+ * general capability rather than a missing noun, so it gets built: a
+ * body with a counted number of faces, a corner radius, and a taper —
+ * which is a triangle, a hexagon, a slab, a lozenge, a near-circle, or
+ * the thing between any two of them.
+ */
+reg(
+  "polygon",
+  "B · VECTOR",
+  "— → GEOMETRY",
+  {
+    sides: { v: 6, lo: 3, hi: 24, int: 1 },
+    radius: { v: 0.34, lo: 0.05, hi: 0.9 },
+    corner: { v: 0, lo: 0, hi: 1 },
+    taper: { v: 0, lo: -0.8, hi: 0.8 },
+    turn: { v: 0, lo: 0, hi: 1 },
+  },
+  (p) => ({
+    frame(ctx, w, h, t) {
+      bg(ctx, w, h);
+      const cx = w / 2;
+      const cy = h / 2;
+      const R = p.radius * Math.min(w, h);
+      const N = Math.max(3, Math.round(p.sides));
+      const spin = p.turn * t * 0.6;
+      const verts = [];
+      for (let i = 0; i < N; i++) {
+        const a = spin + (i / N) * Math.PI * 2 - Math.PI / 2;
+        // Taper narrows the upper half and widens the lower, or the
+        // reverse — the difference between a wedge, a slab and a plinth.
+        const lean = 1 + p.taper * -Math.sin(a);
+        verts.push([cx + Math.cos(a) * R * lean, cy + Math.sin(a) * R * lean]);
+      }
+      // A corner radius, as real geometry rather than a stroke setting:
+      // each vertex becomes a short arc between its two edges.
+      const path = [];
+      if (p.corner < 0.02) {
+        path.push(...verts, verts[0]);
+      } else {
+        const r = Math.min(0.5, p.corner * 0.5);
+        for (let i = 0; i < N; i++) {
+          const a = verts[(i + N - 1) % N];
+          const b = verts[i];
+          const c = verts[(i + 1) % N];
+          const p1 = [b[0] + (a[0] - b[0]) * r, b[1] + (a[1] - b[1]) * r];
+          const p2 = [b[0] + (c[0] - b[0]) * r, b[1] + (c[1] - b[1]) * r];
+          path.push(p1);
+          for (let k = 1; k < 5; k++) {
+            const f = k / 5;
+            const q = (1 - f) * (1 - f);
+            const m = 2 * (1 - f) * f;
+            const n2 = f * f;
+            path.push([q * p1[0] + m * b[0] + n2 * p2[0], q * p1[1] + m * b[1] + n2 * p2[1]]);
+          }
+          path.push(p2);
+        }
+        path.push(path[0]);
+      }
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      path.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.stroke();
+      lab(ctx, `${N}-GON`, 10, h - 16);
+      return vector([path], 7);
+    },
+  }),
+  "A bounded body with a counted number of faces, a corner radius and a taper. The palette's missing polygon source: a triangle, a slab, a lozenge, a near-circle, or anything between. General enough to serve the literal, geometric and structural readings without being about any subject.",
+);
