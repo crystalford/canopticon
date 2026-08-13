@@ -1,5 +1,30 @@
-/* CANOPTICON — resolver, composition engine, cache. Deterministic. No Math.random. */
-const F = window.FILM;
+/* CANOPTICON — resolver, composition engine, cache.
+ *
+ * THIS FILE USED TO BE A SECOND COMPILER. It reimplemented the abstraction
+ * ladder, the creative-state resolver, the precedence order and the cost
+ * table in the browser, and the Worker implemented them again in
+ * TypeScript. Two engines that could disagree, and did — the two chain
+ * validators disagreed about 57 of 88 scenes of a real film before anyone
+ * noticed, because nothing ever ran both against the same input.
+ *
+ * Now: when a real project is loaded, `compose` READS what the Worker
+ * decided rather than deciding again. The local implementation is kept for
+ * the built-in example only, which is honest — the example has no Worker
+ * behind it — and it is the only thing in the Lab still allowed to
+ * compose.
+ *
+ * Deterministic either way. No Math.random.
+ */
+
+// Follows the CURRENT film. `const F = window.FILM` captured whichever film
+// existed at script-load, so loading a project changed the views and left
+// the engine composing the demo.
+const F = new Proxy(
+  {},
+  {
+    get: (_t, k) => (window.FILM ? window.FILM[k] : undefined),
+  },
+);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const smooth = (t) => t * t * (3 - 2 * t);
 
@@ -49,6 +74,45 @@ const MOTIF_CHAIN = {
 };
 
 function compose(scene) {
+  // A real project: the Worker already composed this scene, with the real
+  // precedence order, the real registry and the real cost model. Adapt it
+  // to the shape the views read rather than recomputing an approximation
+  // of it here.
+  const real = window.STUDIO && window.STUDIO.composed.get(scene.id);
+  if (real) return adoptComposed(scene, real);
+  return composeLocally(scene);
+}
+
+/** Map a compiled scene onto the prototype's view model. Nothing is
+ *  invented: every field is carried across, and where the plan does not
+ *  provide one it is left empty rather than guessed. */
+function adoptComposed(scene, real) {
+  const nodes = real.chain.map((n, i) => ({
+    prim: n.id,
+    params: n.params,
+    hash: hash(n.id + JSON.stringify(n.params) + n.seed),
+    cost: COST[n.id] || 4,
+    // The engine's own words for why this primitive is in the chain.
+    why: (real.reasons[i] || "").replace(/^[a-z_0-9]+ — /, ""),
+  }));
+  return {
+    scene,
+    state: resolveAt(scene.pos),
+    abstraction: resolveAt(scene.pos).abstraction ?? 0,
+    tier: real.tier,
+    nodes,
+    motifs: [],
+    ruleHits: [],
+    notes: [],
+    pin: null,
+    cost: real.costMsPerFrame,
+    det: real.determinism,
+    shots: real.shots || [],
+    real: true,
+  };
+}
+
+function composeLocally(scene) {
   const st = resolveAt(scene.pos),
     notes = [],
     ruleHits = [];
@@ -199,6 +263,7 @@ function commit(run) {
 Object.assign(window, {
   resolveAt,
   compose,
+  composeLocally,
   composeAll,
   dryRun,
   commit,

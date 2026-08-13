@@ -1,5 +1,8 @@
 /* CANOPTICON — Preview, Compile, Lab. */
-const F3 = window.FILM;
+// Follows the CURRENT film. A plain capture of window.FILM meant that
+// loading a project updated the title bar and left every view rendering
+// the built-in example underneath it.
+const F3 = new Proxy({}, { get: (_t, k) => (window.FILM ? window.FILM[k] : undefined) });
 
 /* ══ PREVIEW ════════════════════════════════════════════ */
 const PLAY = { t: 0, on: false, last: 0 };
@@ -165,7 +168,7 @@ function viewCompile(root) {
    <div class="col rcol"><div class="pad">
     <div class="sec"><span class="k">This build</span>
      <div class="big">${run.miss}<em>primitives recomputed</em></div>
-     <div class="meta">${M({ cached: run.hit + " / " + run.total, "scenes touched": run.comps.filter((c) => c.misses).length + " / 16", "est. wall time": ((400 + run.miss * 310) / 1000).toFixed(1) + "s", "frame budget": totalCost + " ms", "tts calls": "0", spend: "$0.00" })}</div></div>
+     <div class="meta">${M({ cached: run.hit + " / " + run.total, "scenes touched": run.comps.filter((c) => c.misses).length + " / " + F3.scenes.length, "est. wall time": ((400 + run.miss * 310) / 1000).toFixed(1) + "s", "frame budget": totalCost + " ms", "tts calls": "0", spend: "$0.00" })}</div></div>
     <div class="sec secline"><span class="k">Determinism</span>
      <div class="meta">${M({ "semantic L1": "GUARANTEED", "pixel L2": "PINNED ENV", "gpu chains": run.comps.filter((c) => c.det !== "L2").length + " · L2-GPU", "byte-identical": "NOT CLAIMED" })}</div></div>
     <div class="sec secline"><span class="k">Build history</span>

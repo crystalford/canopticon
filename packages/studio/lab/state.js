@@ -1,4 +1,13 @@
-/* CANOPTICON — editorial IR + film state. */
+/* CANOPTICON — the built-in example.
+ *
+ * This was the app: one essay compiled into the page, and every view read
+ * it. It is now what it should always have been — an EXAMPLE, so the
+ * instrument opens on something rather than on an empty room, and so the
+ * palette can be explored with nothing stored.
+ *
+ * A real project replaces `window.FILM` wholesale (see bridge.js). Nothing
+ * here is consulted once one is loaded.
+ */
 const ESSAY = `In March of 2003, the legislature passed what everyone involved described as a temporary measure. The statute ran to eleven pages. It granted the department emergency authority to bypass its own review process, and it was written to expire in ninety days.
 
 It has been renewed forty-one times.
@@ -15,6 +24,25 @@ function find(t) {
   const i = ESSAY.indexOf(t);
   return { startChar: i, endChar: i + t.length };
 }
+
+/** The creative vocabulary, named once.
+ *
+ *  This lived inside the example's own object, so a real film loaded from
+ *  the compiler had no lane labels and the Editorial view threw on the
+ *  first one it looked for. The vocabulary is the DESIGN's and is shared
+ *  by every film — see bridge.js, which hands it to real projects. */
+const PARAMS = [
+    { id: "abstraction", name: "ABSTRACTION", lo: "LITERAL", hi: "ABSTRACT", arc: 1 },
+    { id: "archivalWeight", name: "ARCHIVAL", lo: "NONE", hi: "DOMINANT", arc: 1 },
+    { id: "dataWeight", name: "DATA", lo: "NONE", hi: "DOMINANT", arc: 1 },
+    { id: "visualDensity", name: "DENSITY", lo: "SPARSE", hi: "DENSE", arc: 1 },
+    { id: "humanPresence", name: "HUMAN PRESENCE", lo: "ABSENT", hi: "PRESENT", arc: 1 },
+    { id: "motionEnergy", name: "MOTION ENERGY", lo: "CALM", hi: "FRENETIC", arc: 1 },
+    { id: "typographicWeight", name: "TYPOGRAPHY", lo: "QUIET", hi: "LOUD" },
+    { id: "experimentalism", name: "EXPERIMENTALISM", lo: "RESTRAINED", hi: "EXPERIMENTAL" },
+    { id: "restraint", name: "RESTRAINT", lo: "MAXIMAL", hi: "SPARE" },
+  ];
+window.PARAMS = PARAMS;
 
 const FILM = {
   projectId: "proj_004",
@@ -174,17 +202,8 @@ const FILM = {
       entities: ["institution", "time"],
     },
   ],
-  params: [
-    { id: "abstraction", name: "ABSTRACTION", lo: "LITERAL", hi: "ABSTRACT", arc: 1 },
-    { id: "archivalWeight", name: "ARCHIVAL", lo: "NONE", hi: "DOMINANT", arc: 1 },
-    { id: "dataWeight", name: "DATA", lo: "NONE", hi: "DOMINANT", arc: 1 },
-    { id: "visualDensity", name: "DENSITY", lo: "SPARSE", hi: "DENSE", arc: 1 },
-    { id: "humanPresence", name: "HUMAN PRESENCE", lo: "ABSENT", hi: "PRESENT", arc: 1 },
-    { id: "motionEnergy", name: "MOTION ENERGY", lo: "CALM", hi: "FRENETIC", arc: 1 },
-    { id: "typographicWeight", name: "TYPOGRAPHY", lo: "QUIET", hi: "LOUD" },
-    { id: "experimentalism", name: "EXPERIMENTALISM", lo: "RESTRAINED", hi: "EXPERIMENTAL" },
-    { id: "restraint", name: "RESTRAINT", lo: "MAXIMAL", hi: "SPARE" },
-  ],
+  params: PARAMS,
+
   identity: { typographicWeight: 0.63, experimentalism: 0.31, restraint: 0.42, cutRhythm: 0.4 },
   controlPoints: [
     {
@@ -343,4 +362,7 @@ FILM.scenes.forEach((s, i) => {
   });
 })();
 
+// The example, under its own name. `window.FILM` is whatever is currently
+// on screen — the example at first load, a real project after that.
+window.DEMO_FILM = FILM;
 window.FILM = FILM;

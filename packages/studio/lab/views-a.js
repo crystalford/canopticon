@@ -1,5 +1,8 @@
 /* CANOPTICON — Narrative + Editorial views. */
-const F2 = window.FILM;
+// Follows the CURRENT film. A plain capture of window.FILM meant that
+// loading a project updated the title bar and left every view rendering
+// the built-in example underneath it.
+const F2 = new Proxy({}, { get: (_t, k) => (window.FILM ? window.FILM[k] : undefined) });
 
 /* ══ NARRATIVE ══════════════════════════════════════════ */
 function viewNarrative(root) {
@@ -18,12 +21,12 @@ function viewNarrative(root) {
   out += esc(F2.essay.slice(cur));
   root.innerHTML = `<div class="shell" style="grid-template-columns:minmax(0,1fr) 320px">
    <div class="col mcol" style="background:var(--bg)">
-     <div class="vhead"><h2>Narrative</h2><span class="k">Single source of truth · ${F2.essay.length} chars · 16 scenes bound</span></div>
-     <div class="col" style="flex:1"><div class="essay">${out.replace(/\n\n/g, "</p><p>")}</div></div>
+     <div class="vhead"><h2>Narrative</h2><span class="k">Single source of truth · ${F2.essay.length} chars · ${F2.scenes.length} scenes bound</span></div>
+     <div class="col" style="flex:1"><div class="essay">${asProse(out)}</div></div>
    </div>
    <div class="col rcol"><div class="pad">
      <div class="sec"><span class="k">Segmentation proposal</span>
-       <div class="meta" style="margin-bottom:14px">${M({ "proposed by": "llm:segment-1", "frozen artifact": "sha 4f1c…a20", "ratified by operator": "16 / 16" })}</div>
+       <div class="meta" style="margin-bottom:14px">${M(segProvenance())}</div>
        ${F2.scenes
          .map(
            (s) => `<div class="segrow ${s.id === sel ? "on" : ""}" data-scene="${s.id}">
@@ -34,7 +37,7 @@ function viewNarrative(root) {
          .join("")}
      </div>
      <div class="sec secline"><span class="k">Narration assets</span>
-       <div class="meta">${M({ voice: "workers-ai tts-1", takes: "16 frozen", alignment: "sentence-level", "regenerated this session": "0", spend: "$0.00" })}</div></div>
+       <div class="meta">${M(narrationState())}</div></div>
    </div></div></div>`;
   root.querySelectorAll("[data-scene]").forEach(
     (e) =>
@@ -44,6 +47,92 @@ function viewNarrative(root) {
       }),
   );
 }
+/** Act numbering. The header used to index a three-item array, so an essay
+ *  that declares sixteen sections — which a real investigation does, one
+ *  per heading — labelled thirteen of them "undefined". */
+function roman(n) {
+  const T = [
+    [10, "X"],
+    [9, "IX"],
+    [5, "V"],
+    [4, "IV"],
+    [1, "I"],
+  ];
+  let out = "";
+  let v = n;
+  for (const [val, sym] of T) {
+    while (v >= val) {
+      out += sym;
+      v -= val;
+    }
+  }
+  return "ACT " + out;
+}
+
+/** Lay the essay out as the essay. It used to split on blank lines only,
+ *  so a real document — where a heading sits on its own line above its
+ *  paragraph — ran its section titles into the prose: "…different
+ *  paperwork. The Timeline 2017-2023: Direct Federal Model".
+ *
+ *  A line the segmenter turned into an ACT is set as a heading here, which
+ *  means the layout is driven by the same decision the compiler made
+ *  rather than by a second guess about what a heading looks like. */
+function asProse(html) {
+  const heads = new Set((F2.acts || []).map((a) => esc(a.title)));
+  return html
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      if (heads.has(line)) return `<h3 class="essay-h">${line}</h3>`;
+      // A bullet stays one scene, so it stays one line — but the marker
+      // itself is layout, not prose.
+      if (/^\*\s|^\*<sup/.test(line)) return `<p class="essay-li">${line.replace(/^\*\s*/, "")}</p>`;
+      return `<p>${line}</p>`;
+    })
+    .join("");
+}
+
+/** Where this segmentation came from, honestly.
+ *
+ *  The panel used to state "proposed by llm:segment-1" over a frozen sha
+ *  and "ratified by operator 16 / 16" — none of which was true of
+ *  anything. Segmentation is DETERMINISTIC and no model is involved; what
+ *  a model proposes is the READING of each scene, and that is the number
+ *  worth showing, because it is the one an operator still has to ratify. */
+function segProvenance() {
+  const scenes = F2.scenes || [];
+  const read = scenes.filter((s) => s.reading).length;
+  if (window.STUDIO && window.STUDIO.demo) {
+    return {
+      "proposed by": "built-in example",
+      segmentation: "compiled into this page",
+      readings: "none — nothing behind it",
+    };
+  }
+  return {
+    segmentation: "deterministic · no model",
+    "bound to prose": scenes.length + " scenes by character offset",
+    "readings proposed": read + " / " + scenes.length,
+    "ratified by operator": scenes.filter((s) => s.status === "approved").length + " / " + read,
+  };
+}
+
+/** What narration has actually cost. Zero, structurally — narration is a
+ *  frozen input artifact, so a compile never generates any. The panel used
+ *  to claim 16 frozen takes; there are none, and saying so is the more
+ *  interesting fact. */
+function narrationState() {
+  const scenes = F2.scenes || [];
+  const withVo = scenes.filter((s) => s.voAssetId).length;
+  return {
+    takes: withVo === 0 ? "none generated" : withVo + " frozen",
+    timing: withVo === 0 ? "nominal windows — flagged" : "anchor-bound",
+    "regenerated this compile": "0",
+    spend: "$0.00",
+  };
+}
+
 function esc(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 }
@@ -62,7 +151,7 @@ function viewEditorial(root) {
     <div class="col lcol"><div class="pad" id="lpane"></div></div>
     <div class="col mcol">
       <div class="vhead"><h2>Film Arc</h2><span class="k" id="arcnote">Drag a control point</span></div>
-      <div class="arcwrap"><div class="acts">${F2.acts.map((a, i) => `<div style="flex:${(a.span[1] - a.span[0]) * 100}"><b>${["ACT I", "ACT II", "ACT III"][i]}</b><em>${a.title.toUpperCase()} · ${fmt(a.span[0] * F2.runtime)}–${fmt(a.span[1] * F2.runtime)}</em></div>`).join("")}</div>
+      <div class="arcwrap"><div class="acts">${F2.acts.map((a, i) => `<div style="flex:${(a.span[1] - a.span[0]) * 100}"><b>${roman(i + 1)}</b><em>${a.title.toUpperCase()} · ${fmt(a.span[0] * F2.runtime)}–${fmt(a.span[1] * F2.runtime)}</em></div>`).join("")}</div>
         <div class="lanes" id="lanes"></div></div>
       <div class="strip" id="strip"></div>
     </div>
@@ -77,7 +166,7 @@ function drawLeft() {
   const p = document.getElementById("lpane");
   if (!p) return;
   const id = F2.identity;
-  p.innerHTML = `<div class="sec"><h1 class="filmtitle">${F2.title}</h1><div class="meta" style="line-height:1.7">${F2.projectId.toUpperCase()} · 3 ACTS · 16 SCENES</div>
+  p.innerHTML = `<div class="sec"><h1 class="filmtitle">${F2.title}</h1><div class="meta" style="line-height:1.7">${F2.projectId.toUpperCase()} · ${F2.acts.length} ACT${F2.acts.length === 1 ? "" : "S"} · ${F2.scenes.length} SCENES</div>
    <p class="logline">${F2.logline}</p></div>
    <div class="sec secline"><span class="k">Visual identity</span>
     ${sliderHTML("typographicWeight", "TYPOGRAPHY", id.typographicWeight, "QUIET", "LOUD")}

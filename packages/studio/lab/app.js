@@ -5,13 +5,14 @@ const MARK = `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-h
 <circle cx="11" cy="11" r="1.6" fill="#d8624a"/></svg>`;
 
 const VIEWS = [
+  ["films", "FILMS"],
   ["narrative", "NARRATIVE"],
   ["editorial", "EDITORIAL"],
   ["preview", "PREVIEW"],
   ["compile", "COMPILE"],
   ["lab", "LAB"],
 ];
-const APP = { view: "editorial", dirty: false, sel: "s07", labPrim: "particle_seek", loops: [] };
+const APP = { view: "films", dirty: false, sel: "s07", labPrim: "particle_seek", loops: [] };
 
 function stopLoops() {
   APP.loops.forEach((t) => (t.alive = false));
@@ -44,10 +45,11 @@ function renderBar() {
   document.getElementById("bar").innerHTML = `<div class="logo">${MARK}<b>CANOPTICON</b></div>
    <div class="nav">${VIEWS.map(([id, l]) => `<button class="${APP.view === id ? "on" : ""}" data-go="${id}">${l}</button>`).join("")}</div>
    <div class="barstate">
-     <span>${FILM.title.toUpperCase()}</span>
-     <span>IR v${FILM.irVersion}</span>
+     <span title="${window.FILM.title.replace(/"/g, "&quot;")}">${window.FILM.title.length > 42 ? window.FILM.title.slice(0, 40).toUpperCase() + "…" : window.FILM.title.toUpperCase()}</span>
+     ${window.STUDIO && window.STUDIO.demo ? '<span class="tag">EXAMPLE</span>' : ""}
+     <span>IR v${window.FILM.irVersion}</span>
      <span class="${APP.dirty ? "dirty" : ""}"><i class="led ${APP.dirty ? "w" : ""}"></i>${APP.dirty ? "DIRTY — " + dirtyCount() + " SCENES" : "COMPILED"}</span>
-     <span>${fmt(FILM.runtime)}</span>
+     <span>${fmt(window.FILM.runtime)}</span>
    </div>`;
   document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => go(b.dataset.go)));
 }
@@ -93,6 +95,7 @@ function render() {
   renderBar();
   const v = document.getElementById("view");
   ({
+    films: viewFilms,
     narrative: viewNarrative,
     editorial: viewEditorial,
     preview: viewPreview,
@@ -100,10 +103,19 @@ function render() {
     lab: viewLab,
   })[APP.view](v);
 }
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   window.__lastRun = dryRun();
   commit(window.__lastRun);
   render();
+  // The list, and then the film you were last looking at. Reopening on the
+  // example every time is what made this feel like it had no memory.
+  await filmsRefresh();
+  const last = lastProjectId();
+  if (last && PROJECTS.some((p) => p.projectId === last)) {
+    await openFilm(last);
+  } else {
+    render();
+  }
 });
 function M(o) {
   return Object.entries(o)

@@ -843,3 +843,89 @@
     justify-content: center;
   }
 }
+
+/* ── FILMS ─────────────────────────────────────
+   The list of stored films. Uses the shell's own tokens throughout —
+   there is no second palette here and there should never be one. */
+.film {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border: 1px solid var(--line);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: border-color .12s;
+}
+.film:hover { border-color: var(--line2); }
+.film.on { border-color: var(--ember); }
+.film-main { flex: 1; min-width: 0; }
+.film .filmtitle {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  margin-bottom: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.film-meta { font-size: 9.5px; color: var(--faint); line-height: 1.6; }
+.film-acts { display: flex; gap: 6px; flex-shrink: 0; }
+.film-msg { font-size: 9.5px; color: var(--ink2); line-height: 1.7; margin: 12px 0 0; min-height: 15px; }
+
+.tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: .14em;
+  border: 1px solid var(--line2);
+  color: var(--faint);
+  padding: 2px 5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.tag.on { border-color: rgba(111,191,143,.4); color: var(--ok); }
+
+.films-essay {
+  width: 100%;
+  height: 210px;
+  background: var(--bg2);
+  color: var(--ink2);
+  border: 1px solid var(--line2);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.7;
+  padding: 13px;
+  resize: vertical;
+}
+.films-essay:focus { outline: none; border-color: var(--line3); }
+.films-actions { display: flex; align-items: center; gap: 14px; margin-top: 11px; }
+.films-hint { font-size: 9.5px; color: var(--faint); }
+.btn.primary { border-color: var(--ember); color: var(--ember); }
+.btn.primary:hover { border-color: var(--ember2); color: var(--ember2); }
+.films-steps { font-size: 10px; color: var(--faint); line-height: 1.85; max-width: 78ch; }
+.films-steps p { margin: 0 0 11px; }
+.films-steps b { color: var(--ink2); font-weight: 500; }
+
+/* A heading in the essay is a heading. The segmenter already decided which
+   lines those are — it turned them into acts — so the layout follows the
+   compiler rather than guessing a second time. */
+.essay-h {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 34px 0 14px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+}
+.essay-h:first-child { margin-top: 0; }
+.essay-li { padding-left: 20px; position: relative; }
+.essay-li::before {
+  content: "";
+  position: absolute;
+  left: 4px; top: .72em;
+  width: 4px; height: 1px;
+  background: var(--line3);
+}

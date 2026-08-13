@@ -269,15 +269,71 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
     irVersion: "0.1.0",
     essay,
     acts,
+    // THE FULL VOCABULARY, not a subset.
+    //
+    // An earlier version authored four parameters — restraint, density,
+    // motionEnergy, cutRhythm — and a curve carrying only `abstraction`.
+    // Every view in the instrument drives nine, so a segmented film opened
+    // into a console reading undefined off half its own creative state.
+    // The vocabulary is the DESIGN's, and the compiler has to speak all of
+    // it or the two halves are not the same product.
+    //
+    // These values are a STARTING TRAJECTORY, not a reading of the essay:
+    // open concrete and archival, end further out and more kinetic, which
+    // is true of essays in general and of this one in particular. The
+    // director drags them, and dragging them is the cheap loop the whole
+    // architecture exists to make cheap — no TTS, no model, no re-render
+    // of anything whose inputs did not change.
     creativeState: {
-      identity: { restraint: 0.5, density: 0.45, motionEnergy: 0.4, cutRhythm: 0.35 },
+      identity: {
+        restraint: 0.55,
+        experimentalism: 0.35,
+        typographicWeight: 0.45,
+        cutRhythm: 0.35,
+      },
       controlPoints: [
-        { at: { actId: firstAct, position: "start" }, values: { abstraction: 0.2 } },
-        { at: { position: 0.5 }, values: { abstraction: 0.42 } },
-        { at: { actId: lastAct, position: "end" }, values: { abstraction: 0.62 } },
+        {
+          at: { actId: firstAct, position: "start" },
+          values: {
+            abstraction: 0.2,
+            archivalWeight: 0.62,
+            dataWeight: 0.3,
+            visualDensity: 0.42,
+            humanPresence: 0.45,
+            motionEnergy: 0.28,
+          },
+        },
+        {
+          at: { position: 0.5 },
+          values: {
+            abstraction: 0.42,
+            archivalWeight: 0.4,
+            dataWeight: 0.55,
+            visualDensity: 0.62,
+            humanPresence: 0.36,
+            motionEnergy: 0.5,
+          },
+        },
+        {
+          at: { actId: lastAct, position: "end" },
+          values: {
+            abstraction: 0.62,
+            archivalWeight: 0.22,
+            dataWeight: 0.38,
+            visualDensity: 0.5,
+            humanPresence: 0.55,
+            motionEnergy: 0.72,
+          },
+        },
       ],
       interpolation: "smooth",
-      invariants: [],
+      // A floor on human presence and a ceiling on density: the two ways a
+      // documentary compiler most easily stops being watchable. They
+      // REPORT when they bite rather than silently absorbing the curve.
+      invariants: [
+        { param: "humanPresence", min: 0.3 },
+        { param: "visualDensity", max: 0.92 },
+      ],
     },
     motifs: [],
     rules: [],
