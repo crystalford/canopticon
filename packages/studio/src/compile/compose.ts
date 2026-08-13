@@ -321,10 +321,11 @@ export function composeScene(
       plannedParams = new Map(best.nodes.map((n) => [n.primitiveId, n.params]));
       for (const node of best.nodes) reasons.set(node.primitiveId, node.reason);
       notes.push(
-        `constructed "${best.id}" — ${best.why}` +
-          (alternatives.length
+        `constructed "${best.id}" — ${best.why}${
+          alternatives.length
             ? ` · ${alternatives.length} other reading${alternatives.length === 1 ? "" : "s"} available`
-            : ""),
+            : ""
+        }`,
       );
     } else {
       // Nothing could be constructed at all. The kind recipes and the

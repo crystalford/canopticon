@@ -1114,3 +1114,100 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── OVERVIEW · the contact sheet ─────────────────────────────────────
+ *
+ * The only surface in the instrument that answers "does this film look
+ * like anything" by showing rather than by counting.
+ */
+.sheet {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.cell {
+  margin: 0;
+  cursor: pointer;
+  border: 1px solid #232a2f;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #0d0f11;
+}
+.cell:hover {
+  border-color: var(--emb, #d8624a);
+}
+.cell.rep {
+  border-color: #4a4028;
+}
+.cell canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.cell figcaption {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 6px 8px 7px;
+  border-top: 1px solid #1b2126;
+}
+.cell figcaption b {
+  color: var(--ink-3, #9ba3aa);
+  font-size: 10px;
+}
+.cell figcaption span {
+  font-size: 11px;
+  color: var(--ink, #eef1f3);
+}
+.cell figcaption i {
+  font-style: normal;
+  font-size: 10px;
+  color: #69717a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  text-align: right;
+}
+.vocab {
+  margin-top: 8px;
+}
+.vocab-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 11px;
+}
+.vocab-row span {
+  width: 96px;
+  color: var(--ink-3, #9ba3aa);
+}
+.vocab-row i {
+  height: 8px;
+  background: #2f3f4a;
+  border-radius: 1px;
+  min-width: 2px;
+}
+.vocab-row b {
+  font-size: 10px;
+  color: #69717a;
+}
+.runs {
+  margin-top: 12px;
+}
+.run {
+  border-left: 2px solid #6b5a2e;
+  padding: 7px 0 7px 11px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink, #eef1f3);
+}
+.run span {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-3, #9ba3aa);
+  margin-top: 3px;
+}

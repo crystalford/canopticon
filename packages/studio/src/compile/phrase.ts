@@ -285,7 +285,7 @@ export function trimPhrase(raw: string, maxWords: number): string {
     .trim();
 
   const broken = text.split(CLAUSE_BREAK)[0];
-  if (broken && broken.trim()) text = broken.trim();
+  if (broken?.trim()) text = broken.trim();
 
   let words = text.split(/\s+/).filter(Boolean);
 

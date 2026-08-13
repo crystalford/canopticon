@@ -27,15 +27,17 @@ const TXT = (t) => ({ s: t });
  * reads as broken software, which is worse than plain, so this measures and
  * shrinks until it actually fits.
  */
-function fit(ctx, text, w, max) {
+function fit(ctx, text, w, max, weight) {
+  const face = (px) => (weight || 600) + " " + px + 'px "Space Grotesk",sans-serif';
   let size = Math.min(max, w / (Math.max(1, text.length) * 0.58));
-  ctx.font = "600 " + size + 'px "Space Grotesk",sans-serif';
+  ctx.font = face(size);
   // Measure, do not guess. Kerning, casing and the display face all move
-  // the real width away from the estimate.
+  // the real width away from the estimate — and so does letter spacing, so
+  // a caller that sets it must set it BEFORE calling this.
   let guard = 24;
   while (guard-- > 0 && ctx.measureText(text).width > w && size > 7) {
     size *= 0.92;
-    ctx.font = "600 " + size + 'px "Space Grotesk",sans-serif';
+    ctx.font = face(size);
   }
   return size;
 }
@@ -228,11 +230,17 @@ reg(
       bg(ctx, w, h);
       const wt = p.animate > 0.5 ? Math.sin(t * 0.9) * 0.5 + 0.5 : p.weight;
       const weight = 300 + Math.round(wt * 4) * 100;
-      const s = Math.min(58, w / (p.text.length * (0.42 + p.width * 0.3)));
+      // MEASURED, NOT GUESSED. The size was `w / (length * 0.42)` — an
+      // estimate of how wide a word would be — so "PERMANENT" rendered as
+      // "ERMANEN", clipped at both edges, on thirteen shots of the
+      // built-in example. Its neighbour four lines down has always used
+      // `fit`, which measures. Letter spacing is applied FIRST because it
+      // changes the measurement.
+      ctx.letterSpacing = (p.width - 0.5) * 7 + "px";
+      const s = fit(ctx, p.text, w * 0.86, 58, weight);
       ctx.font = weight + " " + s + 'px "Space Grotesk",sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.letterSpacing = (p.width - 0.5) * 7 + "px";
       ctx.fillStyle = INK;
       ctx.fillText(p.text, w / 2, h / 2);
       ctx.letterSpacing = "0px";
