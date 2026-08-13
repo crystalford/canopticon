@@ -2,45 +2,43 @@
  *
  * THE TWO BIGGEST HOLES THE PRODUCT AUDIT FOUND.
  *
- * The compiler grew eight compositional strategies and a whole narration
- * pipeline. Neither was reachable from the interface. A director opening
- * Studio could see FILMS, NARRATIVE, EDITORIAL, PREVIEW, OVERVIEW, COMPILE
- * and LAB — seven surfaces, every one of them named after a stage of the
- * compiler — and could not choose how the film should look or whether it
- * should speak.
+ * The compiler has had a real, load-bearing VISUAL LANGUAGE since
+ * `construct.ts` was written — five of them, each moving every operator's
+ * appetite and setting the representation rung a construction prefers —
+ * and it grew a whole narration pipeline. Neither was reachable from the
+ * interface. A director could open Studio, see seven surfaces every one of
+ * them named after a compiler stage, and change neither how the film looks
+ * nor whether it speaks.
  *
  * So this view answers two questions in the director's language:
  *
- *   HOW IS THIS FILM EXPRESSED?   the visual approach
+ *   HOW IS THIS FILM EXPRESSED?   the visual language
  *   HOW IS IT HEARD?              the audio
  *
  * It names no primitive, no chain and no parameter. Everything that
  * belongs to the compiler stays in ENGINE.
  *
+ * THE CORRECTION THIS FILE IS ON ITS SECOND VERSION FOR.
+ *
+ * The first version of this view offered the EIGHT COMPOSITIONAL
+ * STRATEGIES as the visual choice. They are the best thing in the
+ * repository and they are an EXPERIMENT — `experiments/strategy.ts` is
+ * imported by nothing in `src/compile/`, so choosing one changed a
+ * variable in this page and nothing else. A control that looks like a
+ * decision and is not one is precisely the failure this codebase has been
+ * bitten by most often, and shipping it while writing an honesty rule two
+ * paragraphs above it was worse than not shipping the view at all.
+ *
+ * So the picker now offers the FIVE LANGUAGES THE COMPILER ACTUALLY
+ * HONOURS, generated from `construct.ts` by `scripts/gen-languages.mjs`
+ * so the list cannot drift, and choosing one takes the same rail a curve
+ * drag takes: a new IR version, a recompile, and a report of what the
+ * change COST. The eight strategies are named at the foot of the section
+ * as what they are — a proposal that is not in the pipeline yet.
+ *
  * HONESTY RULE, applied strictly here: a control that is not wired says
- * so, on the control, in plain words. This project has been bitten
- * repeatedly by surfaces that looked finished and did nothing, and an
- * audio button that silently fails is worse than one that says it cannot
- * run yet.
+ * so, on the control, in plain words.
  */
-
-/** What the system reckons this writing wants, before the director says
- *  anything. AUTO is the default because a director should get a film
- *  first and an opinion second. */
-function suggestedStrategy() {
-  const film = window.FILM;
-  if (!film || !film.scenes) return "TYPOGRAPHIC";
-  const text = film.scenes.map((s) => s.text || "").join(" ");
-  const figures = (text.match(/\b\d[\d,.]*\b/g) || []).length;
-  const words = text.split(/\s+/).filter(Boolean).length || 1;
-  // Read off the prose, not off a preference: dense arithmetic wants a
-  // diagram, a document-heavy register wants paper, and everything else
-  // is carried by its own words.
-  if (figures / words > 0.02) return "DIAGRAMMATIC";
-  if (/\b(record|document|file|register|contract|archive|report)\b/i.test(text)) return "MATERIAL";
-  if (/\b(system|network|pattern|data|machine|algorithm)\b/i.test(text)) return "COMPUTATIONAL";
-  return "TYPOGRAPHIC";
-}
 
 /** What the film currently has by way of a voice. Read from the plan, so
  *  it cannot claim narration the film does not carry. */
@@ -61,29 +59,44 @@ function backendReachable() {
   return !(window.STUDIO && window.STUDIO.demo);
 }
 
+/** What the last language change cost, in the compiler's own numbers.
+ *  Set by the click handler, cleared when the view is rebuilt fresh. */
+let VISUAL_NOTE = null;
+function visualSay(text, kind) {
+  VISUAL_NOTE = text ? { text, kind: kind || "", action: null } : null;
+  const el = document.getElementById("visual-note");
+  if (el) el.outerHTML = noticeHTML(VISUAL_NOTE, "visual-note");
+}
+
 function viewVisual(root) {
-  const chosen = (window.APP_VISUAL && window.APP_VISUAL.strategy) || "auto";
-  const suggested = suggestedStrategy();
+  const film = window.FILM;
+  const chosen = film.visualLanguage || "documentary";
   const audio = audioState();
   const live = backendReachable();
-  const mode = (window.APP_VISUAL && window.APP_VISUAL.audio) || (audio.narrated ? "existing" : "none");
+  const mode =
+    (window.APP_VISUAL && window.APP_VISUAL.audio) || (audio.narrated ? "existing" : "none");
 
-  const strategyCards = STRATEGIES_UI.map((s) => {
-    const on = chosen === s.id;
-    const isSuggested = chosen === "auto" && s.id === suggested;
-    return `<button class="vcard ${on ? "on" : ""} ${isSuggested ? "sug" : ""}" data-strategy="${s.id}">
-      <b>${s.name}</b>
-      ${isSuggested ? '<span class="tag">SUGGESTED</span>' : ""}
-      <i>${s.feels}</i>
-      <p>${s.argument}</p>
+  const langCards = LANGUAGES_UI.map((l) => {
+    const on = chosen === l.id;
+    return `<button class="vcard ${on ? "on" : ""}" data-lang="${l.id}" ${live ? "" : "disabled"}>
+      <b>${l.name}</b>
+      ${on ? '<span class="tag on">IN USE</span>' : ""}
+      <i>${l.feels}</i>
+      <p>${l.blurb}</p>
+      <u class="vwhy">${l.why}</u>
     </button>`;
   }).join("");
 
+  /* THE FOUR THINGS A FILM CAN DO ABOUT SOUND.
+   *
+   * "Speak it yourself" is NOT offered. Studio has no recording path —
+   * no capture, no upload route, no asset provenance for operator audio —
+   * and an option that opens a microphone and loses the take is worse
+   * than an absence. It is named in the footnote instead, as missing. */
   const AUDIO_MODES = [
-    ["record", "Record", "Speak it yourself, scene by scene."],
-    ["tts", "Text to speech", "A synthetic voice reads the script."],
-    ["existing", "Use existing audio", "Narration already attached to this film."],
-    ["none", "No audio", "The film carries itself. Captions do the talking."],
+    ["tts", "Have it read aloud", "A synthetic voice speaks each scene once. Recorded, hashed and frozen."],
+    ["existing", "Use what is recorded", "The narration already attached to this film."],
+    ["none", "No voice", "The film carries itself. Captions do the talking."],
   ];
 
   root.innerHTML = `
@@ -92,26 +105,29 @@ function viewVisual(root) {
     <div class="sub">How this film is expressed, and how it is heard.</div>
   </div>
 
+  ${noticeHTML(VISUAL_NOTE, "visual-note")}
+
   <section class="vsec">
     <div class="vsech">
-      <h2>Visual approach</h2>
+      <h2>Visual language</h2>
       <div class="note">${
-        chosen === "auto"
-          ? `Choosing for you: <b>${(STRATEGIES_UI.find((s) => s.id === suggested) || {}).name || suggested}</b> — read off the writing itself.`
-          : "You have chosen this. Return to Auto to let the writing decide."
+        live
+          ? "Changing this recompiles the film and tells you what it cost. It never spends narration."
+          : "The example film is fixed. Open a stored film to change its language."
       }</div>
     </div>
-    <div class="vgrid">
-      <button class="vcard ${chosen === "auto" ? "on" : ""}" data-strategy="auto">
-        <b>Auto</b>
-        <i>let the writing decide</i>
-        <p>The system reads the essay and picks an approach. You can always override it.</p>
-      </button>
-      ${strategyCards}
-    </div>
+    <div class="vgrid">${langCards}</div>
     <div class="vfoot">
-      Same essay, same words, same seed — a different approach is a different film,
-      not a filter over the same one.
+      A language is a CONSTRAINT, not a look: it moves what each operation is
+      willing to do and how literally a thing may be drawn, and the sentence still
+      decides what gets built. Same essay, same words, same seed — a different
+      language is a different film rather than a filter over the same one.
+      <br><br>
+      The eight compositional strategies — typographic, geometric, diagrammatic,
+      signal, material, illustrative, computational, synthesis — are a proposal,
+      not a setting. They live in <span class="mono">experiments/strategy.ts</span>,
+      nothing in the compiler imports them, and they are deliberately not offered
+      here until they are in the pipeline.
     </div>
   </section>
 
@@ -120,24 +136,37 @@ function viewVisual(root) {
       <h2>Audio</h2>
       <div class="note">${
         audio.narrated === 0
-          ? `No narration yet. ${audio.scenes} scenes.`
-          : `${audio.narrated} of ${audio.scenes} scenes narrated.`
+          ? `No voice yet. ${audio.scenes} scenes.`
+          : `${audio.narrated} of ${audio.scenes} scenes have a voice.`
       }</div>
     </div>
     <div class="vrow">
       ${AUDIO_MODES.map(([id, label, help]) => {
         const on = mode === id;
-        const needsBackend = id === "tts" || id === "record";
-        const blocked = needsBackend && !live;
+        const blocked = id === "tts" && !live;
         return `<button class="vopt ${on ? "on" : ""} ${blocked ? "off" : ""}" data-audio="${id}"
           ${blocked ? 'disabled title="Needs the compiler. Open a stored film."' : ""}>
           <span class="dot"></span>
           <b>${label}</b>
           <p>${help}</p>
-          ${blocked ? '<em>unavailable here — needs the compiler</em>' : ""}
+          ${blocked ? "<em>unavailable here — needs the compiler</em>" : ""}
         </button>`;
       }).join("")}
     </div>
+    ${
+      mode === "tts" && live
+        ? `<div class="films-actions">
+             <button class="btn primary" id="v-narrate">${
+               audio.narrated >= audio.scenes && audio.scenes > 0
+                 ? "RE-RECORD EVERY SCENE"
+                 : `RECORD ${audio.scenes - audio.narrated} SCENE${audio.scenes - audio.narrated === 1 ? "" : "S"}`
+             }</button>
+             <span class="mono films-hint">The one step that spends model calls. Each scene is spoken
+               once and frozen; after this, re-cutting the film is free. Escape stops it between
+               batches and keeps everything already recorded.</span>
+           </div>`
+        : ""
+    }
     <div class="vscenes">
       ${
         audio.scenes
@@ -154,7 +183,11 @@ function viewVisual(root) {
       audio.narrated
         ? "Filled marks are scenes that have a recorded voice. Timing comes off the audio, not off character counts."
         : "A film with no audio is a finished film here — captions carry the script and the cut is unaffected."
-    }</div>
+    }<br><br>
+      Speaking it in your own voice is not built. Studio has no capture, no upload
+      route and no provenance for operator audio, so it is named here rather than
+      offered as a button that would lose the take.
+    </div>
   </section>
 
   <section class="vsec">
@@ -177,11 +210,35 @@ function viewVisual(root) {
     <pre class="mono probe-out" id="probe-out"></pre>
   </section>`;
 
-  root.querySelectorAll("[data-strategy]").forEach((b) => {
-    b.onclick = () => {
-      window.APP_VISUAL = window.APP_VISUAL || {};
-      window.APP_VISUAL.strategy = b.dataset.strategy;
-      viewVisual(root);
+  /* CHOOSING A LANGUAGE IS AN EDIT, so it takes the edit's rail: written
+   * as a new IR version, recompiled against the stored snapshot, and the
+   * cost reported. The number that matters is the TTS one — it is
+   * structurally zero, which is the whole argument for restyling being
+   * free. */
+  root.querySelectorAll("[data-lang]").forEach((b) => {
+    b.onclick = async () => {
+      if (b.disabled || b.dataset.lang === (window.FILM.visualLanguage || "documentary")) return;
+      const name = b.dataset.lang;
+      visualSay(`recomposing in ${name}…`, "working");
+      busy(true, `recomposing the film in ${name}`);
+      try {
+        const r = await setVisualLanguage(name);
+        await loadProject(window.STUDIO.projectId);
+        window.__lastRun = dryRun();
+        commit(window.__lastRun);
+        VISUAL_NOTE = {
+          kind: "ok",
+          text:
+            `Now in ${name}. ${r.cache.misses} of ${r.cache.total} primitives were recomputed, ` +
+            `${r.ttsCalls} narration calls spent. Version ${r.irVersion}.`,
+          action: null,
+        };
+        render();
+      } catch (err) {
+        visualSay(`That did not take — ${err.message}`, "problem");
+      } finally {
+        busy(false);
+      }
     };
   });
   root.querySelectorAll("[data-audio]").forEach((b) => {
@@ -192,6 +249,18 @@ function viewVisual(root) {
       viewVisual(root);
     };
   });
+  const nar = root.querySelector("#v-narrate");
+  if (nar) {
+    nar.onclick = async () => {
+      // The same batch loop LIBRARY runs, on the same film, reporting into
+      // this view's notice. One implementation, two doors.
+      await narrateFilm(window.STUDIO.projectId);
+      await loadProject(window.STUDIO.projectId);
+      window.__lastRun = dryRun();
+      commit(window.__lastRun);
+      render();
+    };
+  }
   const probe = root.querySelector("#films-probe");
   if (probe) probe.onclick = runProbe;
   const aud = root.querySelector("#films-audition");

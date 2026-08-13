@@ -197,7 +197,7 @@ interface LanguageBias {
   why: string;
 }
 
-const LANGUAGE: Record<VisualLanguage, LanguageBias> = {
+export const LANGUAGE: Record<VisualLanguage, LanguageBias> = {
   documentary: {
     ops: {
       grade: 0.35,

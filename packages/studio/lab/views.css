@@ -1461,3 +1461,13 @@
 .vfoot{margin-top:14px;font-size:12px;line-height:1.6;color:#79828a;max-width:70ch}
 .nav .crumb{color:#7fe3c0;border-left:1px solid var(--line,#1d2124);margin-left:2px}
 .nav .crumb::before{content:"› ";opacity:.6}
+
+/* The compiler's own one-line reason for a language, carried through to
+   the card verbatim. It is not marketing copy and it should not read like
+   it — it is what `construct.ts` says the language is for. */
+.vcard u.vwhy {
+  display: block; margin-top: 8px; text-decoration: none;
+  font: 10px/1.5 "JetBrains Mono", monospace; color: #6f7880;
+}
+.vcard[disabled] { opacity: .45; cursor: not-allowed; }
+.vcard[disabled]:hover { border-color: var(--line, #1d2124); background: #101315; }

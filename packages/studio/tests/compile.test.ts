@@ -319,6 +319,39 @@ describe("the Stage 1 milestone", () => {
     expect(second.cache.scenesTouched).toBe(0);
   });
 
+  /* THE ONE DISCRETE DIMENSION OF DEPICTION, and the first release in
+   * which a director can reach it.
+   *
+   * `visualLanguage` has been load-bearing in `construct.ts` since it was
+   * written — it moves every operator's appetite and sets the
+   * representation rung a construction prefers — and no surface anywhere
+   * could change it. The product pass wired it to the creative-state
+   * route, which means the claim on the control ("a different language is
+   * a different film, and it never costs narration") is now something the
+   * system asserts about itself rather than copy. */
+  it("changing the visual language recomposes the film and spends no narration", async () => {
+    const ir = buildFixtureIR();
+    const first = await compile(ir);
+
+    const restyled = buildFixtureIR();
+    restyled.visualLanguage = "surreal";
+    const second = await compile(restyled, { snapshot: first.snapshot });
+
+    // A different film, not a filter: the recomposition has to reach the
+    // per-primitive hashes or the renderer keeps drawing the old one.
+    expect(second.cache.misses).toBeGreaterThan(0);
+    expect(second.cache.scenesTouched).toBeGreaterThan(0);
+    // And it has to be free. This is the whole argument for restyling
+    // being a cheap act, and it is structural rather than lucky:
+    // narration is an input artifact, so nothing about depiction can
+    // reach the TTS binding.
+    expect(second.ttsCalls).toBe(0);
+
+    // The timing is untouched — the language changes how a sentence is
+    // drawn, never how long it is on screen.
+    expect(second.timing.runtimeMs).toBe(first.timing.runtimeMs);
+  });
+
   it("changing one sentence recomputes only that scene", async () => {
     const ir = buildFixtureIR();
     const first = await compile(ir);

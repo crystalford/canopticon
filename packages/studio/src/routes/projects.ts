@@ -1240,6 +1240,20 @@ app.post("/project/:id/creative-state", async (c) => {
     identity?: Record<string, number>;
     controlPoints?: { at: unknown; values: Record<string, number> }[];
     invariants?: { param: string; min?: number; max?: number }[];
+    /** THE FILM'S VISUAL LANGUAGE, editable for the first time.
+     *
+     *  It has been a real, load-bearing field since `construct.ts` was
+     *  written — it moves every operator's appetite and sets the
+     *  representation rung a construction prefers — and there was no way
+     *  to change it from anywhere. So a director could reach the two
+     *  continuous dimensions of the film's depiction and not the one
+     *  discrete one, which is the choice with the largest effect.
+     *
+     *  It travels the identical rail as a curve edit: validated, written
+     *  as a new IR version with a stated summary, recompiled against the
+     *  stored snapshot, and the cache diff handed back. Structurally zero
+     *  TTS — restyling a film has never been allowed to cost speech. */
+    visualLanguage?: string;
   };
 
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
@@ -1253,6 +1267,8 @@ app.post("/project/:id/creative-state", async (c) => {
 
   const next: EditorialIR = {
     ...current.ir,
+    visualLanguage: (body.visualLanguage ??
+      current.ir.visualLanguage) as EditorialIR["visualLanguage"],
     creativeState: {
       ...current.ir.creativeState,
       identity: body.identity ?? current.ir.creativeState.identity,
@@ -1270,13 +1286,15 @@ app.post("/project/:id/creative-state", async (c) => {
   if (!parsed.ok) return c.json({ error: "invalid creative state", details: parsed.errors }, 400);
 
   const nextVersion = project.current_ir_version + 1;
+  const changedLanguage =
+    body.visualLanguage !== undefined && body.visualLanguage !== current.ir.visualLanguage;
   await writeVersion(
     c.env,
     projectId,
     parsed.ir,
     nextVersion,
     project.current_ir_version,
-    "Creative state edited",
+    changedLanguage ? `Visual language → ${parsed.ir.visualLanguage}` : "Creative state edited",
   );
   await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
     nextVersion,
@@ -1292,6 +1310,7 @@ app.post("/project/:id/creative-state", async (c) => {
   return c.json({
     projectId,
     irVersion: nextVersion,
+    visualLanguage: parsed.ir.visualLanguage,
     cache: report.cache,
     ttsCalls: report.ttsCalls,
     warnings: report.warnings,

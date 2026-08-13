@@ -215,6 +215,10 @@ function toFilm(ir, plan, storedVersion) {
     schemaVersion: ir.irVersion,
     logline: ir.logline || "",
     essay: ir.essay,
+    // The film's visual language. Real and load-bearing in the compiler
+    // since construct.ts was written, and until now unreachable from any
+    // surface — see the creative-state route.
+    visualLanguage: ir.visualLanguage || "documentary",
     acts,
     scenes,
     runtime: total / 1000,
@@ -317,6 +321,23 @@ async function saveCreativeState() {
   return r;
 }
 
+/** THE FILM'S VISUAL LANGUAGE, changed.
+ *
+ *  The same rail as a curve drag — a new IR version, a recompile against
+ *  the stored snapshot, and the cache diff back — because it IS the same
+ *  kind of edit: it changes how the film depicts, not what it says, and
+ *  it is structurally free of TTS. */
+async function setVisualLanguage(name) {
+  const id = window.STUDIO.projectId;
+  if (!id) throw new Error("no film open");
+  const r = await api(`/project/${id}/creative-state`, {
+    method: "POST",
+    body: JSON.stringify({ visualLanguage: name }),
+  });
+  window.STUDIO.cache = r.cache;
+  return r;
+}
+
 /** DIRECT — choose one of the interpretations the engine proposed.
  *
  *  Writes a pin, which precedence 1 already honours. The engine stops
@@ -391,6 +412,7 @@ Object.assign(window, {
   releaseIntent,
   releaseScene,
   saveCreativeState,
+  setVisualLanguage,
   compileProject,
   lastProjectId: () => {
     try {
