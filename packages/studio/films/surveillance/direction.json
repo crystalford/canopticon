@@ -1,0 +1,180 @@
+{
+  "_": [
+    "THE DIRECTION FOR 'The City That Learned To Watch'.",
+    "",
+    "Two instruments, and only two, because they are the two the system",
+    "actually has: a CURVE that moves across the acts, and PROSE direction",
+    "on the beats that need more than the curve.",
+    "",
+    "Nothing here names a primitive, a colour or an effect. 'ordinary and",
+    "indifferent' is a register the compiler reads; what it builds from it",
+    "is the compiler's business. That is the whole test of whether there is",
+    "a director model — if this file had to say `pixel_quantise` it would",
+    "be an effects list with a nicer name.",
+    "",
+    "THE ARC, which is the reason a 38-scene film is not 38 unrelated",
+    "pictures:",
+    "",
+    "  I    the physical city. Concrete, archival, people in it, held still.",
+    "  II   the fragments connect. Data rises, the human falls away, the",
+    "       picture climbs off the literal.",
+    "  III  accumulation. The densest and most POPULATED act in the film —",
+    "       'thousands of ordinary decisions' has to be a world with too",
+    "       much in it, not a caption reading THOUSANDS.",
+    "  IV   the system, seen plainly. Most abstract, least human, most",
+    "       data. Nothing hidden and nothing warm.",
+    "  V    the same street. Returns close to Act I and deliberately NOT to",
+    "       it — a shade more abstract, a shade less archival. 'Only the",
+    "       meaning of the walk has changed' is a claim about the viewer,",
+    "       so the picture must be almost the same and not quite."
+  ],
+  "visualLanguage": "documentary",
+  "creativeState": {
+    "identity": {
+      "restraint": 0.4,
+      "experimentalism": 0.45,
+      "typographicWeight": 0.38,
+      "cutRhythm": 0.3
+    },
+    "controlPoints": [
+      {
+        "at": { "actId": "act_1", "position": "start" },
+        "values": {
+          "abstraction": 0.14,
+          "archivalWeight": 0.72,
+          "dataWeight": 0.12,
+          "visualDensity": 0.34,
+          "humanPresence": 0.62,
+          "motionEnergy": 0.22,
+          "worldPopulation": 0.52,
+          "attention": 0.34,
+          "restraint": 0.52
+        }
+      },
+      {
+        "at": { "actId": "act_2", "position": "start" },
+        "values": {
+          "abstraction": 0.38,
+          "archivalWeight": 0.5,
+          "dataWeight": 0.58,
+          "visualDensity": 0.52,
+          "humanPresence": 0.42,
+          "motionEnergy": 0.48,
+          "worldPopulation": 0.5,
+          "attention": 0.52,
+          "restraint": 0.4
+        }
+      },
+      {
+        "at": { "actId": "act_3", "position": "start" },
+        "values": {
+          "abstraction": 0.5,
+          "archivalWeight": 0.42,
+          "dataWeight": 0.62,
+          "visualDensity": 0.82,
+          "humanPresence": 0.34,
+          "motionEnergy": 0.62,
+          "worldPopulation": 0.88,
+          "attention": 0.24,
+          "restraint": 0.3
+        }
+      },
+      {
+        "at": { "actId": "act_4", "position": "start" },
+        "values": {
+          "abstraction": 0.68,
+          "archivalWeight": 0.34,
+          "dataWeight": 0.82,
+          "visualDensity": 0.66,
+          "humanPresence": 0.16,
+          "motionEnergy": 0.44,
+          "worldPopulation": 0.54,
+          "attention": 0.58,
+          "restraint": 0.46
+        }
+      },
+      {
+        "at": { "actId": "act_5", "position": "start" },
+        "values": {
+          "abstraction": 0.26,
+          "archivalWeight": 0.66,
+          "dataWeight": 0.22,
+          "visualDensity": 0.4,
+          "humanPresence": 0.58,
+          "motionEnergy": 0.24,
+          "worldPopulation": 0.6,
+          "attention": 0.36,
+          "restraint": 0.54
+        }
+      },
+      {
+        "at": { "actId": "act_5", "position": "end" },
+        "values": {
+          "abstraction": 0.3,
+          "archivalWeight": 0.6,
+          "dataWeight": 0.26,
+          "visualDensity": 0.38,
+          "humanPresence": 0.54,
+          "motionEnergy": 0.2,
+          "worldPopulation": 0.58,
+          "attention": 0.4,
+          "restraint": 0.56
+        }
+      }
+    ],
+    "invariants": [{ "param": "abstraction", "max": 0.82 }]
+  },
+
+  "sceneDirection": {
+    "0": { "feel": "ominous and clinical", "notice": "that nothing is happening" },
+    "2": { "feel": "isolated, a single object, precise" },
+    "3": { "feel": "clinical and procedural" },
+    "4": { "feel": "isolated and forgotten" },
+    "5": { "feel": "ordinary and indifferent — nobody notices, the world carries on" },
+    "6": { "feel": "ordinary, unremarked, routine" },
+    "8": { "feel": "ordinary and indifferent" },
+
+    "9": { "feel": "revealed — something becomes clear that was there all along" },
+    "10": { "feel": "uncanny, the thing turns into something else" },
+    "11": { "feel": "uncanny and strange" },
+    "12": { "feel": "ominous and disquieting" },
+    "14": { "feel": "vast, systemic, the scale is the point" },
+    "15": { "feel": "enormous and indifferent" },
+
+    "16": { "feel": "absurd — nobody chose this" },
+    "17": { "feel": "overwhelming, accumulating, too much at once" },
+    "18": { "feel": "mundane and routine" },
+    "19": { "feel": "mundane and routine" },
+    "20": { "feel": "clinical and procedural" },
+    "21": { "feel": "mundane, ordinary, a form" },
+    "22": { "feel": "clinical, a contract, precise" },
+    "23": { "feel": "ordinary, unbothered, it made sense" },
+    "25": { "feel": "overwhelming and inexorable — the accumulation is the point" },
+
+    "26": { "feel": "clinical and dispassionate" },
+    "27": { "feel": "clinical, in plain sight, precise" },
+    "29": { "feel": "forensic and evidential" },
+    "30": { "feel": "clinical and forensic, precise" },
+    "31": { "feel": "dispassionate, neutral, matter of fact" },
+    "32": { "feel": "unsettling and strange" },
+
+    "33": { "feel": "ordinary and unremarkable" },
+    "34": { "feel": "still, held, nothing moves" },
+    "35": { "feel": "ordinary and indifferent — the routine carries on" },
+    "36": { "feel": "quiet, still, held" },
+    "37": { "feel": "uncanny — the same picture, and it does not mean the same thing" }
+  },
+
+  "sceneLanguage": {
+    "10": "kinetic",
+    "11": "kinetic",
+    "12": "surreal",
+    "14": "pixel",
+    "15": "pixel",
+    "17": "pixel",
+    "25": "pixel",
+    "30": "pixel",
+    "32": "surreal",
+    "37": "surreal"
+  }
+}
