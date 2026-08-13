@@ -265,6 +265,13 @@ function drawLanes() {
             1,
           );
           F2.controlPoints[i].v[pid] = Math.round(v * 100) / 100;
+          // A synthetic endpoint has no authored binding, so editing it
+          // would write a point the director never placed. Move the real
+          // one it was cloned from instead.
+          if (F2.controlPoints[i].synthetic) {
+            const real = F2.controlPoints.find((cp) => !cp.synthetic);
+            if (real) real.v[pid] = F2.controlPoints[i].v[pid];
+          }
           markDirty();
           drawLanes();
           drawStrip();

@@ -201,3 +201,31 @@ describe("prose alone compiles", () => {
     expect(after.cache.scenesTouched).toBeLessThan(after.composed.length);
   });
 });
+
+describe("the cheap loop", () => {
+  // The claim the per-primitive cache exists to make good on: re-styling a
+  // film costs no narration and does not invalidate the parts of it the
+  // edit could not have reached.
+  it("moving the last control point leaves the early film untouched", async () => {
+    const parsed = parseIR(JSON.parse(JSON.stringify(seg().ir)));
+    if (!parsed.ok) throw new Error("invalid");
+    const base = await compile(parsed.ir);
+
+    const edited = JSON.parse(JSON.stringify(parsed.ir));
+    must(edited.creativeState.controlPoints[2]).values.abstraction = 0.95;
+    const next = parseIR(edited);
+    if (!next.ok) throw new Error("invalid edit");
+    const after = await compile(next.ir, { snapshot: base.snapshot });
+
+    expect(after.ttsCalls).toBe(0);
+    // Some scenes move; not all of them, and not none of them.
+    expect(after.cache.scenesTouched).toBeGreaterThan(0);
+    expect(after.cache.scenesTouched).toBeLessThan(after.composed.length);
+    // And specifically: the film's opening is on the far side of the curve
+    // from the point that moved, so it is untouched.
+    const firstChanged = after.composed.findIndex(
+      (c, i) => JSON.stringify(c.nodes) !== JSON.stringify(must(base.composed[i]).nodes),
+    );
+    expect(firstChanged).toBeGreaterThan(0);
+  });
+});

@@ -12,7 +12,7 @@ const VIEWS = [
   ["compile", "COMPILE"],
   ["lab", "LAB"],
 ];
-const APP = { view: "films", dirty: false, sel: "s07", labPrim: "particle_seek", loops: [] };
+const APP = { view: "films", dirty: false, saveState: "", sel: "s07", labPrim: "particle_seek", loops: [] };
 
 function stopLoops() {
   APP.loops.forEach((t) => (t.alive = false));
@@ -35,9 +35,52 @@ function go(v) {
   stopLoops();
   render();
 }
+/* THE EDIT ACTUALLY SAVES.
+ *
+ * Dragging a curve used to mutate the in-memory film and light a DIRTY
+ * lamp, and that was all — nothing was written, so the system's central
+ * claim (re-style a film for free, and only recompute what moved) was a
+ * demonstration of itself.
+ *
+ * Now an edit debounces into a new IR version and a recompile, and the bar
+ * reports what the edit COST: how many primitives had to be recomputed out
+ * of how many, with zero TTS calls, which is the number that makes the
+ * argument. The example has nothing behind it and stays local.
+ */
+let SAVE_TIMER = null;
+let SAVING = false;
 function markDirty() {
   APP.dirty = true;
   renderBar();
+  if (!window.STUDIO || window.STUDIO.demo || !window.STUDIO.projectId) return;
+  clearTimeout(SAVE_TIMER);
+  // Long enough that a drag is one save, short enough to feel immediate.
+  SAVE_TIMER = setTimeout(saveNow, 600);
+}
+
+async function saveNow() {
+  if (SAVING || !window.STUDIO.projectId) return;
+  SAVING = true;
+  APP.saveState = "saving";
+  renderBar();
+  try {
+    const r = await saveCreativeState();
+    // Reload so the views show what the COMPILER made of the edit rather
+    // than what the browser hoped it would make of it.
+    await loadProject(window.STUDIO.projectId);
+    window.__lastRun = dryRun();
+    commit(window.__lastRun);
+    APP.dirty = false;
+    APP.saveState = r
+      ? `v${r.irVersion} · ${r.cache.misses}/${r.cache.total} recomputed · ${r.ttsCalls} TTS`
+      : "saved";
+    render();
+  } catch (err) {
+    APP.saveState = `not saved — ${err.message}`;
+    renderBar();
+  } finally {
+    SAVING = false;
+  }
 }
 
 function renderBar() {
@@ -49,6 +92,7 @@ function renderBar() {
      ${window.STUDIO && window.STUDIO.demo ? '<span class="tag">EXAMPLE</span>' : ""}
      <span>IR v${window.FILM.irVersion}</span>
      <span class="${APP.dirty ? "dirty" : ""}"><i class="led ${APP.dirty ? "w" : ""}"></i>${APP.dirty ? "DIRTY — " + dirtyCount() + " SCENES" : "COMPILED"}</span>
+     ${APP.saveState ? `<span class="savestate">${APP.saveState}</span>` : ""}
      <span>${fmt(window.FILM.runtime)}</span>
    </div>`;
   document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => go(b.dataset.go)));
@@ -129,6 +173,7 @@ Object.assign(window, {
   render,
   renderBar,
   markDirty,
+  saveNow,
   sliderHTML,
   bindSliders,
   fmt,

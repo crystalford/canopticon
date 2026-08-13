@@ -506,9 +506,18 @@
   font-family: var(--mono);
   font-size: 8.5px;
   letter-spacing: .08em;
-  color: var(--mut);
+  color: #cfd6dc;
   line-height: 1.9;
-  text-shadow: 0 1px 3px #000;
+  /* A scrim, not a text-shadow. The frame used to be dark because the
+     Preview drew one hand-picked primitive; now it runs the real chain,
+     and a document plate is nearly white — on which grey-on-shadow HUD
+     text was completely unreadable. */
+  background: rgba(8, 9, 10, 0.72);
+  padding: 7px 10px;
+  border-radius: 2px;
+  max-width: calc(100% - 28px);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .hud b {
   color: var(--ember);
@@ -929,3 +938,15 @@
   width: 4px; height: 1px;
   background: var(--line3);
 }
+
+/* Preview inspector — real reading, real figures, the engine's own reasons. */
+.pv-note { font-size: 9.5px; color: var(--faint); line-height: 1.7; margin-top: 9px; }
+.pv-note b { color: var(--ember); font-weight: 500; }
+.pv-reading { font-size: 9.5px; color: var(--ink2); line-height: 1.8; margin-top: 10px;
+  border-left: 1px solid var(--line2); padding-left: 10px; }
+.pv-reading b { color: var(--ember); font-weight: 500; }
+.pv-why div { font-size: 9.5px; color: var(--faint); line-height: 1.65; margin-bottom: 6px; }
+
+/* What an edit cost. The bar says how many primitives a curve drag actually
+   invalidated, which is the whole argument for a per-primitive cache. */
+.savestate { font-family: var(--mono); font-size: 9px; color: var(--faint); letter-spacing: .06em; }

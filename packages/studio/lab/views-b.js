@@ -7,7 +7,7 @@ const F3 = new Proxy({}, { get: (_t, k) => (window.FILM ? window.FILM[k] : undef
 /* ══ PREVIEW ════════════════════════════════════════════ */
 const PLAY = { t: 0, on: false, last: 0 };
 function viewPreview(root) {
-  root.innerHTML = `<div class="shell" style="grid-template-columns:minmax(0,1fr) 300px">
+  root.innerHTML = `<div class="shell" style="grid-template-columns:minmax(0,1fr) 320px">
    <div class="col mcol">
      <div class="vhead"><h2>Preview</h2><span class="k" id="pvstate"></span></div>
      <div class="stage"><canvas id="film"></canvas><div class="vo" id="vo"></div>
@@ -16,105 +16,113 @@ function viewPreview(root) {
        <button class="btn" id="pp">${PLAY.on ? "PAUSE" : "PLAY"}</button>
        <div class="tl" id="tl"><div class="tlfill"></div><div class="tlhead"></div></div>
        <span class="mono tc" id="tc">0:00</span>
+       <button class="btn" id="pvexport">EXPORT</button>
      </div>
    </div>
    <div class="col rcol"><div class="pad" id="pvright"></div></div></div>`;
-  const cv = document.getElementById("film"),
-    ctx = cv.getContext("2d");
-  const runners = {};
+
+  const cv = document.getElementById("film");
+  const ctx = cv.getContext("2d");
   const run = dryRun();
+
   function sceneAt(t) {
     return (
       run.comps.find((c) => t >= c.scene.t0 && t < c.scene.t1) || run.comps[run.comps.length - 1]
     );
   }
+
+  /* THE REAL CHAIN, NOT A STAND-IN.
+   *
+   * This view used to pick ONE primitive by tier — document_surface for
+   * GROUNDED, particle_seek for DECOMPOSED — and draw that. So the
+   * compiler planned a five-primitive chain and the Preview showed a
+   * hand-written approximation of it, which meant the one surface whose
+   * whole job is to answer "does this look right" was answering about
+   * something else.
+   *
+   * Now it instantiates the chain the compiler actually planned, with its
+   * parameters and its seeds, cut into the shots the solver decided. The
+   * executor refuses a chain that does not typecheck and the refusal is
+   * drawn on the frame rather than swallowed. */
+  const built = new Map();
   function runnerFor(c) {
-    const key = c.scene.id + c.nodes.map((n) => n.hash).join("");
-    if (runners[key]) return runners[key];
-    const kw = c.scene.label
-      .replace(/[^A-Za-z0-9 -]/g, "")
-      .toUpperCase()
-      .slice(0, 22);
-    const p = { seed: 1000 + c.scene.n * 17 };
-    let r;
-    if (c.tier === "GROUNDED")
-      r = PRIMS.document_surface.make(
-        Object.assign(p, {
-          age: 0.3 + c.state.archivalWeight * 0.6,
-          columns: c.state.visualDensity > 0.6 ? 2 : 1,
-          redaction: 0.15,
-        }),
-      );
-    else if (c.tier === "ANNOTATED")
-      r = PRIMS.timeline_linear.make(
-        Object.assign(p, {
-          marks: 0.25 + c.state.dataWeight * 0.75,
-          fragment: c.abstraction * 0.5,
-          orientation: 0,
-        }),
-      );
-    else if (c.tier === "DECOMPOSED")
-      r = PRIMS.particle_seek.make(
-        Object.assign(p, {
-          text: kw,
-          damping: 0.9 - c.state.motionEnergy * 0.12,
-          force: 0.02 + c.state.motionEnergy * 0.08,
-          scatter: 1,
-        }),
-      );
-    else
-      r = PRIMS.particle_flow.make(
-        Object.assign(p, {
-          count: 0.15 + c.state.visualDensity * 0.75,
-          speed: 0.15 + c.state.motionEnergy * 0.7,
-          turbulence: c.abstraction,
-          trail: 0.03 + (1 - c.state.visualDensity) * 0.12,
-        }),
-      );
-    runners[key] = r;
-    return r;
+    const key = c.scene.id + "@" + cv.width + "x" + cv.height;
+    if (built.has(key)) return built.get(key);
+    const chain = c.nodes.map((n) => ({ id: n.prim, params: n.params, seed: n.params.seed }));
+    const shots = (c.shots || []).map((sh) => ({
+      startMs: sh.startMs - c.scene.t0 * 1000,
+      endMs: sh.endMs - c.scene.t0 * 1000,
+      params: sh.params || {},
+    }));
+    const dur = Math.max(0.1, c.scene.t1 - c.scene.t0);
+    const b =
+      shots.length > 1
+        ? buildSequence(chain, shots, cv.width, cv.height)
+        : buildChain(chain, cv.width, cv.height, dur);
+    const wrapped = { b, single: shots.length <= 1 };
+    built.set(key, wrapped);
+    return wrapped;
   }
+
   function resize() {
     const r = cv.parentElement.getBoundingClientRect();
-    cv.width = r.width;
-    cv.height = r.height;
+    cv.width = Math.max(160, Math.round(r.width));
+    cv.height = Math.max(90, Math.round(r.height));
+    built.clear();
   }
   resize();
   addEventListener("resize", resize);
+
   let cur = "";
   loop(() => {
     const now = performance.now();
     const dt = PLAY.last ? (now - PLAY.last) / 1000 : 0;
     PLAY.last = now;
-    if (PLAY.on) {
-      PLAY.t = (PLAY.t + dt) % F3.runtime;
-    }
+    if (PLAY.on) PLAY.t = (PLAY.t + dt) % F3.runtime;
+
     const c = sceneAt(PLAY.t);
     if (c.scene.id !== cur) {
       cur = c.scene.id;
       document.getElementById("vo").innerHTML = `<span>${esc(c.scene.text)}</span>`;
       document.getElementById("hud").innerHTML =
-        `<div><b>SC ${String(c.scene.n).padStart(2, "0")}</b> ${c.scene.fn.toUpperCase()} · ${c.tier}${c.pin ? " · PINNED" : ""}</div>
+        `<div><b>SC ${String(c.scene.n).padStart(2, "0")}</b> ${c.scene.fn.toUpperCase()} · ${c.tier}${c.pin ? " · PINNED" : ""}${(c.shots || []).length > 1 ? " · " + c.shots.length + " SHOTS" : ""}</div>
         <div>${c.nodes.map((n) => n.prim).join(" → ")}</div>
-        <div>abstraction ${c.abstraction.toFixed(2)} · density ${c.state.visualDensity.toFixed(2)} · energy ${c.state.motionEnergy.toFixed(2)} · human ${c.state.humanPresence.toFixed(2)}</div>`;
+        <div>abstraction ${c.abstraction.toFixed(2)} · density ${(c.state.visualDensity ?? 0).toFixed(2)} · energy ${(c.state.motionEnergy ?? 0).toFixed(2)} · human ${(c.state.humanPresence ?? 0).toFixed(2)}</div>`;
       document.getElementById("pvstate").textContent =
-        c.det + " DETERMINISM · SEED " + (1000 + c.scene.n * 17);
+        c.det + " DETERMINISM · " + c.nodes.length + " PRIMITIVES · SEED " + (c.nodes[0]?.params.seed ?? 0);
       drawPvRight(c);
     }
-    runnerFor(c).frame(ctx, cv.width, cv.height, PLAY.t);
+
+    const { b, single } = runnerFor(c);
+    const localMs = (PLAY.t - c.scene.t0) * 1000;
+    if (b.errors && b.errors.length) {
+      // Degrade, flag, continue — on the frame, where it cannot be missed.
+      ctx.fillStyle = "#0d0f11";
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.fillStyle = "#d8624a";
+      ctx.font = '500 12px "JetBrains Mono",monospace';
+      b.errors.slice(0, 5).forEach((e, i) => ctx.fillText(e, 20, 40 + i * 18));
+    } else {
+      const buf = single ? b.run(localMs / 1000) : b.run(localMs);
+      ctx.drawImage(buf, 0, 0);
+    }
+
     const p = (PLAY.t / F3.runtime) * 100;
-    const f = document.querySelector(".tlfill"),
-      hd = document.querySelector(".tlhead");
+    const f = document.querySelector(".tlfill");
+    const hd = document.querySelector(".tlhead");
     if (f) {
       f.style.width = p + "%";
       hd.style.left = p + "%";
       document.getElementById("tc").textContent = fmt(PLAY.t);
     }
   });
+
   document.getElementById("pp").onclick = (e) => {
     PLAY.on = !PLAY.on;
     e.target.textContent = PLAY.on ? "PAUSE" : "PLAY";
   };
+  document.getElementById("pvexport").onclick = () => exportFilm(cv);
+
   const tl = document.getElementById("tl");
   tl.innerHTML += run.comps
     .map(
@@ -128,19 +136,131 @@ function viewPreview(root) {
   };
   drawPvRight(sceneAt(PLAY.t));
 }
+
+/* ── export ───────────────────────────────────────────────────────────
+ *
+ * The film as a file, recorded off the canvas as it plays. Honest about
+ * which kind of determinism this is: frames are captured on the browser's
+ * clock, so a slow frame is a dropped frame and two exports of the same
+ * plan are not byte-identical. That is L2 — the same claim the compiler
+ * makes — and not L3, which this system never claims.
+ */
+let RECORDER = null;
+function exportFilm(canvas) {
+  const btn = document.getElementById("pvexport");
+  if (RECORDER) {
+    RECORDER.stop();
+    return;
+  }
+  const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((m) =>
+    window.MediaRecorder ? MediaRecorder.isTypeSupported(m) : false,
+  );
+  if (!mime) {
+    if (btn) btn.textContent = "NO RECORDER";
+    return;
+  }
+  const chunks = [];
+  RECORDER = new MediaRecorder(canvas.captureStream(30), {
+    mimeType: mime,
+    videoBitsPerSecond: 6_000_000,
+  });
+  RECORDER.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
+  RECORDER.onstop = () => {
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(F3.title || "film").replace(/[^\w-]+/g, "-").slice(0, 60)}.webm`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    RECORDER = null;
+    if (btn) btn.textContent = "EXPORT";
+  };
+
+  // Always from the top and always the whole film. An export that began
+  // wherever the playhead happened to sit would be a clip labelled as one.
+  PLAY.t = 0;
+  PLAY.on = true;
+  const pp = document.getElementById("pp");
+  if (pp) pp.textContent = "PAUSE";
+  if (btn) btn.textContent = "STOP · RECORDING";
+  RECORDER.start(1000);
+
+  const watch = setInterval(() => {
+    if (!RECORDER) return clearInterval(watch);
+    if (btn) btn.textContent = `STOP · ${fmt(PLAY.t)} / ${fmt(F3.runtime)}`;
+    if (PLAY.t >= F3.runtime - 0.2) {
+      clearInterval(watch);
+      PLAY.on = false;
+      if (pp) pp.textContent = "PLAY";
+      RECORDER.stop();
+    }
+  }, 250);
+}
+
 function drawPvRight(c) {
   const el = document.getElementById("pvright");
   if (!el) return;
-  el.innerHTML = `<div class="sec"><span class="k">Scene ${String(c.scene.n).padStart(2, "0")} · ${c.scene.label}</span>
-   <div class="statusrow">${["draft", "ready", "approved", "flagged"].map((s) => `<button class="chip ${s === "approved" ? "ok" : ""}">${s.toUpperCase()}</button>`).join("")}</div></div>
-   <div class="sec secline"><span class="k">Timestamped notes</span>
-    <div class="note"><b>02:41</b><em>The fragmentation reads as an error rather than an argument. Pull motion energy down here, or hold the flat timeline one beat longer.</em></div>
-    <div class="note"><b>03:58</b><em>Good. The word arriving out of scatter is the whole thesis in four seconds.</em></div>
-    <div class="addnote">+ NOTE AT ${fmt(PLAY.t)}</div></div>
+  const s = c.scene;
+  const reading = s.reading;
+  const status = s.status || (reading ? "ready_for_review" : "draft");
+
+  // RATIFICATION, FOR REAL. These used to be four decorative chips with
+  // "approved" always lit. Only a scene carrying a proposed reading has
+  // anything to ratify, and only this action can approve one.
+  const ratifyBlock = window.STUDIO.demo
+    ? `<div class="mono pv-note">Built-in example — nothing to ratify.</div>`
+    : reading
+      ? `<div class="statusrow">
+           <button class="chip ${status === "approved" ? "ok" : ""}" data-ratify="approve">APPROVE</button>
+           <button class="chip" data-ratify="reject">REJECT</button>
+           <span class="mono pv-note">${status === "approved" ? "ratified" : "proposed, awaiting you"}</span>
+         </div>
+         <div class="mono pv-reading">${esc(reading.subjects.map((x) => x.label + " · " + x.kind).join("  |  "))}<br>
+           ${esc(reading.visualOpportunity)}${reading.contested ? " · <b>reports a claim, not a fact</b>" : ""}</div>`
+      : `<div class="mono pv-note">No reading. The film's own abstraction curve is carrying this
+         scene${(s.figures || []).length ? ", and its figures reached the data family from the prose alone" : ""}.</div>`;
+
+  const figures = (s.figures || []).length
+    ? `<div class="sec secline"><span class="k">Figures — verbatim</span>
+        <div class="meta">${s.figures.map((f) => `<div class="mrow"><span>${esc(f.text)}</span><i>${f.kind}</i></div>`).join("")}</div>
+        ${(s.route || []).length ? `<div class="mono pv-note">route · ${esc(s.route.join(" → "))}</div>` : ""}</div>`
+    : "";
+
+  // Why this chain, in the engine's own words. Replaces two invented
+  // review notes that were hardcoded into the page.
+  const why = (s.reasons || []).length
+    ? `<div class="sec secline"><span class="k">Why this chain</span>
+        <div class="meta pv-why">${s.reasons.map((r) => `<div>${esc(r)}</div>`).join("")}</div></div>`
+    : "";
+
+  el.innerHTML = `<div class="sec"><span class="k">Scene ${String(s.n).padStart(2, "0")} · ${esc(s.label)}</span>
+   ${ratifyBlock}</div>
+   ${figures}
+   ${why}
    <div class="sec secline"><span class="k">Resolved state at playhead</span>
-    <div class="meta">${["abstraction", "archivalWeight", "dataWeight", "visualDensity", "humanPresence", "motionEnergy"].map((k) => `<div class="mrow"><span>${k}</span><i>${c.state[k].toFixed(2)}</i></div>`).join("")}</div>
-    ${c.state._held.length ? `<div class="ruleHit soft">INVARIANT · ${c.state._held.join(" · ")}</div>` : ""}
+    <div class="meta">${["abstraction", "archivalWeight", "dataWeight", "visualDensity", "humanPresence", "motionEnergy"].map((k) => `<div class="mrow"><span>${k}</span><i>${(c.state[k] ?? 0).toFixed(2)}</i></div>`).join("")}</div>
+    ${(c.state._held || []).length ? `<div class="ruleHit soft">INVARIANT · ${c.state._held.join(" · ")}</div>` : ""}
    </div>`;
+
+  for (const b of el.querySelectorAll("[data-ratify]")) {
+    b.onclick = async () => {
+      const id = window.STUDIO.projectId;
+      if (!id) return;
+      b.textContent = "…";
+      try {
+        const approve = b.dataset.ratify === "approve" ? [s.id] : [];
+        const reject = b.dataset.ratify === "reject" ? [s.id] : [];
+        await ratifyScenes(id, approve, reject);
+        await loadProject(id);
+        window.__lastRun = dryRun();
+        render();
+      } catch (err) {
+        b.textContent = err.message.slice(0, 24);
+      }
+    };
+  }
 }
 
 /* ══ COMPILE ════════════════════════════════════════════ */

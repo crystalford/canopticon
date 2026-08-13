@@ -57,6 +57,14 @@ const ingestEssay = (essay) =>
 const readProject = (id, limit) =>
   api(`/project/${id}/read`, { method: "POST", body: JSON.stringify({ limit: limit || 12 }) });
 const deleteProject = (id) => api(`/project/${id}`, { method: "DELETE" });
+/** The human act. Nothing else in the system can mark a reading approved,
+ *  and rejecting one strips it so the scene falls back to the film's own
+ *  curve rather than keeping an interpretation nobody stands behind. */
+const ratifyScenes = (id, approve, reject) =>
+  api(`/project/${id}/ratify`, {
+    method: "POST",
+    body: JSON.stringify({ approve: approve || [], reject: reject || [] }),
+  });
 
 /** Build the view model from the IR and the compiled plan.
  *
@@ -65,7 +73,7 @@ const deleteProject = (id) => api(`/project/${id}`, { method: "DELETE" });
  *  fractions rather than scene ranges, control points as a flat position
  *  rather than an act binding — it is DERIVED, and the derivation is the
  *  only arithmetic in this file. */
-function toFilm(ir, plan) {
+function toFilm(ir, plan, storedVersion) {
   const total = Math.max(1, plan.durationMs);
 
   const scenes = plan.scenes.map((s, i) => {
@@ -92,6 +100,7 @@ function toFilm(ir, plan) {
       figures: irScene.figures || [],
       route: irScene.route || [],
       reading: irScene.reading || null,
+      status: irScene.status || "draft",
       tier: s.tier,
       chain: s.chain.map((n) => n.id),
       reasons: s.reasons || [],
@@ -121,21 +130,36 @@ function toFilm(ir, plan) {
     } else {
       at = cp.at.position ?? 0;
     }
-    return { at, v: { ...cp.values } };
+    // `raw` is the ORIGINAL descriptor. An act-bound point is the preferred
+    // authoring form because it survives re-timing, so an edit must send
+    // back the binding it was given rather than the position that binding
+    // happened to resolve to — otherwise the first drag silently converts
+    // the whole curve to fixed positions.
+    return { at, v: { ...cp.values }, raw: cp.at };
   });
   controlPoints.sort((a, b) => a.at - b.at);
-  // The resolver interpolates between neighbours and needs both ends.
+  // The resolver interpolates between neighbours and needs both ends. These
+  // are SYNTHETIC — they carry no authored binding and are never saved.
   if (controlPoints.length && controlPoints[0].at > 0) {
-    controlPoints.unshift({ at: 0, v: { ...controlPoints[0].v } });
+    controlPoints.unshift({ at: 0, v: { ...controlPoints[0].v }, synthetic: true });
   }
   if (controlPoints.length && controlPoints[controlPoints.length - 1].at < 1) {
-    controlPoints.push({ at: 1, v: { ...controlPoints[controlPoints.length - 1].v } });
+    controlPoints.push({
+      at: 1,
+      v: { ...controlPoints[controlPoints.length - 1].v },
+      synthetic: true,
+    });
   }
 
   return {
     projectId: ir.projectId,
     title: ir.title,
-    irVersion: ir.irVersion,
+    // The STORED version, not the schema version. The bar read "IR v0.1.0"
+    // forever — that is the IR format's number, and it never changes, so
+    // the one place a director could see that their edit had produced a new
+    // version of the film showed a constant.
+    irVersion: storedVersion != null ? String(storedVersion) : ir.irVersion,
+    schemaVersion: ir.irVersion,
     logline: ir.logline || "",
     essay: ir.essay,
     acts,
@@ -180,7 +204,7 @@ async function loadProject(projectId) {
   ]);
   if (!detail.ir) throw new Error("this project has no stored IR yet");
 
-  window.FILM = toFilm(detail.ir, plan);
+  window.FILM = toFilm(detail.ir, plan, detail.irVersion);
   window.STUDIO.projectId = projectId;
   window.STUDIO.plan = plan;
   window.STUDIO.demo = false;
@@ -211,6 +235,35 @@ function loadDemo() {
   return window.FILM;
 }
 
+/** Save the creative state and recompile. The whole cheap loop, in one
+ *  call: no TTS, no model, and a cache diff that says what the edit
+ *  actually cost. Returns the diff so the UI can report it rather than
+ *  claiming success. */
+async function saveCreativeState() {
+  const id = window.STUDIO.projectId;
+  if (!id) return null;
+  const f = window.FILM;
+  const controlPoints = f.controlPoints
+    .filter((cp) => !cp.synthetic)
+    .map((cp) => ({
+      // A point the director dragged sideways loses its act binding — it is
+      // now at a position, and saying so is more honest than pretending it
+      // is still pinned to a landmark it no longer sits on.
+      at: cp.movedAt ? { position: Math.min(1, Math.max(0, cp.at)) } : cp.raw,
+      values: { ...cp.v },
+    }));
+  const r = await api(`/project/${id}/creative-state`, {
+    method: "POST",
+    body: JSON.stringify({
+      identity: { ...f.identity },
+      controlPoints,
+      invariants: f.invariants,
+    }),
+  });
+  window.STUDIO.cache = r.cache;
+  return r;
+}
+
 async function compileProject(projectId) {
   const report = await api(`/project/${projectId}/compile`, { method: "POST" });
   window.STUDIO.cache = report.cache;
@@ -224,6 +277,8 @@ Object.assign(window, {
   deleteProject,
   loadProject,
   loadDemo,
+  ratifyScenes,
+  saveCreativeState,
   compileProject,
   lastProjectId: () => {
     try {

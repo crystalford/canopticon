@@ -474,6 +474,86 @@ app.post("/project/:id/compile", async (c) => {
   return c.json({ ...report, wallMs });
 });
 
+/** THE DIRECTOR'S EDIT.
+ *
+ *  Writes a new creative state and nothing else. This is the loop the whole
+ *  architecture exists to make cheap: narration is a frozen input artifact,
+ *  so re-styling a film spends no TTS and no model call, and the
+ *  per-primitive cache means only the nodes whose inputs actually moved get
+ *  recomputed. Until this route existed the sliders moved and nothing was
+ *  saved — the thesis was a demo of itself.
+ *
+ *  Append-only, like every other write here: an edit is a VERSION, so a
+ *  director can drag a curve, dislike it, and revert to the exact film they
+ *  had before.
+ *
+ *  Control points keep their ORIGINAL binding. An act-bound point is the
+ *  preferred authoring form precisely because it survives re-timing, so the
+ *  client sends back the descriptor it was given rather than the position
+ *  that descriptor happened to resolve to. */
+app.post("/project/:id/creative-state", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    identity?: Record<string, number>;
+    controlPoints?: { at: unknown; values: Record<string, number> }[];
+    invariants?: { param: string; min?: number; max?: number }[];
+  };
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const current = parseIR(JSON.parse(version.ir_json));
+  if (!current.ok) return c.json({ error: "stored IR is invalid", details: current.errors }, 500);
+
+  const next: EditorialIR = {
+    ...current.ir,
+    creativeState: {
+      ...current.ir.creativeState,
+      identity: body.identity ?? current.ir.creativeState.identity,
+      controlPoints: (body.controlPoints ??
+        current.ir.creativeState.controlPoints) as EditorialIR["creativeState"]["controlPoints"],
+      invariants: (body.invariants ??
+        current.ir.creativeState.invariants) as EditorialIR["creativeState"]["invariants"],
+    },
+  };
+
+  // Validated before it is stored, never after. A curve edit that produced
+  // an IR the compiler would reject should fail here, with the reason,
+  // rather than becoming a version that cannot be opened.
+  const parsed = parseIR(JSON.parse(JSON.stringify(next)));
+  if (!parsed.ok) return c.json({ error: "invalid creative state", details: parsed.errors }, 400);
+
+  const nextVersion = project.current_ir_version + 1;
+  await writeVersion(
+    c.env,
+    projectId,
+    parsed.ir,
+    nextVersion,
+    project.current_ir_version,
+    "Creative state edited",
+  );
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+
+  // Recompile against the stored snapshot and hand back the diff, because
+  // the interesting part of an edit is what it did NOT invalidate.
+  const snapshot = await loadSnapshot(c.env, projectId);
+  const report = await compile(parsed.ir, { snapshot });
+  await saveSnapshot(c.env, projectId, report.snapshot);
+  return c.json({
+    projectId,
+    irVersion: nextVersion,
+    cache: report.cache,
+    ttsCalls: report.ttsCalls,
+    warnings: report.warnings,
+  });
+});
+
 /** THE FILM, as something that can be played.
  *
  *  Compiles and returns a plan the Lab's executor can run directly: per
@@ -499,6 +579,13 @@ app.get("/project/:id/film", async (c) => {
 
   const snapshot = await loadSnapshot(c.env, projectId);
   const report = await compile(parsed.ir, { snapshot });
+  // A REAL COMPILE UPDATES THE SNAPSHOT. Two routes compile and only one
+  // used to store what it produced, so the cache diff an operator saw
+  // depended on which route they had happened to hit last — opening a film
+  // and then dragging a curve reported 296/296 recomputed for an edit that
+  // genuinely touched 43 of 88 scenes. The cache should always mean "since
+  // the last time this film was compiled", whoever asked for it.
+  await saveSnapshot(c.env, projectId, report.snapshot);
   return c.json(buildFilmPlan(parsed.ir, report));
 });
 
