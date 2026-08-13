@@ -439,10 +439,34 @@ function viewLab(root) {
   const match = (x) =>
     !q || x.id.includes(q) || x.family.toLowerCase().includes(q) || x.io.toLowerCase().includes(q);
   const shown = Object.values(PRIMS).filter(match).length;
+
+  /* WHICH OF THESE THE FILM ACTUALLY USES.
+   *
+   * "123 of 123 primitives" told you nothing except that a lot exists. A
+   * real 88-scene film reaches 24 of them and touches 10 of 20 families;
+   * the other 99 have never appeared in anything. Presenting all 123 as
+   * equals is what made the palette feel like a menu of effects rather
+   * than a vocabulary — and it hid the fact that most of it is unproven.
+   *
+   * So each one is marked with what it is doing in THIS film: in the
+   * current chain, used somewhere in the film, or never used. That is the
+   * evidence a palette gets pruned on. */
+  const inFilm = new Map();
+  for (const sc of window.FILM.scenes || []) {
+    for (const cid of sc.chain || []) inFilm.set(cid, (inFilm.get(cid) ?? 0) + 1);
+  }
+  const here = new Set((window.FILM.scenes || []).find((x) => x.id === APP.sel)?.chain || []);
+  const badge = (x) => {
+    if (here.has(x.id)) return '<s class="ph on">THIS SCENE</s>';
+    const n = inFilm.get(x.id);
+    if (n) return `<s class="ph">×${n}</s>`;
+    return '<s class="ph off">UNUSED</s>';
+  };
   root.innerHTML = `<div class="shell" style="grid-template-columns:238px minmax(0,1fr) 268px">
    <div class="col lcol"><div class="pad">
      <div class="sec"><input class="search" id="labq" placeholder="FILTER PALETTE" value="${(APP.labQuery || "").replace(/"/g, "&quot;")}">
-      <div class="k" style="margin:10px 0 14px">${shown} of ${Object.keys(PRIMS).length} primitives · ${famKeys.length} families</div>
+      <div class="k" style="margin:10px 0 6px">${shown} of ${Object.keys(PRIMS).length} shown</div>
+      <div class="labuse mono">${inFilm.size} used by this film · ${Object.keys(PRIMS).length - inFilm.size} never used by anything yet</div>
       ${famKeys
         .map((f) => {
           const ps = fams[f].filter(match);
@@ -452,7 +476,7 @@ function viewLab(root) {
             ps
               .map(
                 (x) =>
-                  `<button class="pbtn ${x.id === id ? "on" : ""}" data-prim="${x.id}">${x.id}${x.phase ? '<s class="ph">P1</s>' : ""}<u>${x.io}</u></button>`,
+                  `<button class="pbtn ${x.id === id ? "on" : ""} ${inFilm.has(x.id) ? "used" : ""}" data-prim="${x.id}">${x.id}${badge(x)}<u>${x.io}</u></button>`,
               )
               .join("")
           );

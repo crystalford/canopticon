@@ -1036,3 +1036,12 @@
 .rend-bar i { display: block; height: 100%; width: 0; background: var(--ember); transition: width .18s linear; }
 .rend-status { font-size: 9.5px; color: var(--ink2); margin-top: 10px; min-height: 15px; line-height: 1.6; }
 .rend-actions { display: flex; gap: 8px; margin-top: 18px; }
+
+/* The palette, marked with what it is doing in THIS film. "123 of 123" told
+   you only that a lot exists; a real film reaches 24 of them. */
+.labuse { font-size: 8.5px; color: var(--faint); line-height: 1.6; margin-bottom: 13px; }
+.pbtn s.ph { text-decoration: none; font-size: 7px; letter-spacing: .1em; margin-left: 6px;
+  border: 1px solid var(--line2); padding: 1px 3px; color: var(--faint); }
+.pbtn s.ph.on { border-color: var(--ember); color: var(--ember); }
+.pbtn s.ph.off { opacity: .35; }
+.pbtn.used { color: var(--ink2); }
