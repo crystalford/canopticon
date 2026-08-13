@@ -209,6 +209,23 @@ export function solveTiming(
   // Pass 3 — cascade. Walk forward closing gaps and overlaps introduced by
   // clamping and J-cuts. Elastic scenes absorb the slack in place;
   // a rigid scene refuses, so the shift propagates to everything after it.
+  //
+  // VOICE IS ABSOLUTE. VISUALS ARE DERIVED.
+  //
+  // Absorbing shortens a scene: it moves the head and keeps the tail. That
+  // is exactly right for a procedural visual, which simply runs for less
+  // time. It is wrong for narration, which does not compress — so a scene
+  // shortened below its own measured audio has the next scene's voice
+  // starting before this one has finished speaking, and the film talks
+  // over itself. Reported from a real film: "the tts overlaps... a little
+  // bit jarring."
+  //
+  // So a narrated scene has a FLOOR at its measured duration. The cascade
+  // may still move it — that is what keeps the film contiguous — but it
+  // may not compress it, and the shift propagates instead. This is the
+  // absolute/derived distinction made structural rather than documented:
+  // the audio is the master clock, and the one pass that could quietly
+  // overrule it no longer can.
   for (let i = 1; i < solved.length; i++) {
     const prev = solved[i - 1];
     const cur = solved[i];
@@ -218,7 +235,15 @@ export function solveTiming(
     const deltaMs = prev.endMs - cur.startMs;
     if (deltaMs === 0) continue;
 
-    if (scene.timing.elasticity === "elastic" && cur.durationMs - deltaMs >= MIN_VISUAL_HOLD_MS) {
+    // What this scene's audio actually measures, when it has any.
+    const spoken = alignments.get(cur.sceneId);
+    const spokenMs = spoken?.chunks.length
+      ? Math.max(...spoken.chunks.map((c) => c.endMs)) -
+        Math.min(...spoken.chunks.map((c) => c.startMs))
+      : 0;
+    const floorMs = Math.max(MIN_VISUAL_HOLD_MS, spokenMs);
+
+    if (scene.timing.elasticity === "elastic" && cur.durationMs - deltaMs >= floorMs) {
       // Absorb: move the head, keep the tail, shorten in place.
       cur.startMs = prev.endMs;
       cur.durationMs = cur.endMs - cur.startMs;
@@ -228,7 +253,13 @@ export function solveTiming(
       cur.startMs = prev.endMs;
       cur.endMs = cur.startMs + cur.durationMs;
       cur.flags.push("cascade_shift");
-      cur.explanation += `; shifted ${Math.abs(deltaMs)}ms — ${scene.timing.elasticity === "rigid" ? "scene is rigid" : "absorbing would breach the minimum hold"}`;
+      cur.explanation += `; shifted ${Math.abs(deltaMs)}ms — ${
+        scene.timing.elasticity === "rigid"
+          ? "scene is rigid"
+          : spokenMs > 0
+            ? `absorbing would cut into ${Math.round(spokenMs)}ms of narration`
+            : "absorbing would breach the minimum hold"
+      }`;
     }
   }
 

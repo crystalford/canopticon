@@ -14,6 +14,7 @@ function viewPreview(root) {
        <div class="hud" id="hud"></div></div>
      <div class="transport">
        <button class="btn" id="pp">${PLAY.on ? "PAUSE" : "PLAY"}</button>
+       <button class="btn" id="pscore">${SCORE.on ? "SCORE ON" : "SCORE"}</button>
        <div class="tl" id="tl"><div class="tlfill"></div><div class="tlhead"></div></div>
        <span class="mono tc" id="tc">0:00</span>
        <span class="mono vostate" id="vostate"></span>
@@ -160,6 +161,19 @@ function viewPreview(root) {
     await loadNarration(plan);
     await playNarration(plan, PLAY.t * 1000);
   };
+
+  /* THE SCORE. Composed from the film's own curves rather than chosen —
+   * see score.js. Off by default: a film that scores itself the moment
+   * you open it has made a directorial decision on your behalf. */
+  const scoreBtn = document.getElementById("pscore");
+  if (scoreBtn) {
+    scoreBtn.onclick = async () => {
+      SCORE.on = !SCORE.on;
+      scoreBtn.textContent = SCORE.on ? "SCORE ON" : "SCORE";
+      if (!SCORE.on) return stopScore();
+      await playScore(window.STUDIO.plan || planFromFilm(), run.comps, PLAY.t * 1000);
+    };
+  }
   document.getElementById("pvrender").onclick = openRender;
 
   const tl = document.getElementById("tl");
@@ -173,9 +187,12 @@ function viewPreview(root) {
     const r = tl.getBoundingClientRect();
     PLAY.t = clamp((e.clientX - r.left) / r.width, 0, 0.999) * F3.runtime;
     // A seek re-cues the voice rather than leaving the old line running
-    // over the new picture.
+    // over the new picture. The score re-cues with it — its whole shape is
+    // scheduled against the film's timeline, so a seek without a re-cue
+    // would leave the drone playing act three under act one.
     stopNarration();
     if (PLAY.on && window.STUDIO.plan) await playNarration(window.STUDIO.plan, PLAY.t * 1000);
+    if (SCORE.on) await playScore(window.STUDIO.plan || planFromFilm(), run.comps, PLAY.t * 1000);
   };
   /* WHETHER THIS FILM CAN BE HEARD, said on the transport.
    *
