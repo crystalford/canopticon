@@ -69,10 +69,13 @@
 import type { Figure, VisualLanguage } from "../ir/schema.ts";
 import { PRIMITIVES, canChain, chainCost } from "../primitives/registry.ts";
 import { chartFor, serialiseFigures } from "./figures.ts";
+import type { Material } from "./grammar-visual.ts";
 import { EMPTY_READING, type IntentReading, bendStyle } from "./intent.ts";
 import { type Relation, relationBias } from "./relation.ts";
-import { type Representation, realisationFit, representationsFor } from "./represent.ts";
+import { type Mode, type Representation, realisationFit, representationsFor } from "./represent.ts";
+import { composeFromMeaning, serialiseScene } from "./scene-graph.ts";
 import type { SceneKind } from "./scene-kind.ts";
+import { readScene } from "./semantic-scene.ts";
 import type { DetectedSubject } from "./subject.ts";
 
 export interface PlannedNode {
@@ -340,7 +343,16 @@ interface Construction {
    *  be against the grain of). A construction that returns 0 is stating a
    *  reason, not missing a feature — see each site. */
   dislocate?(beat: Beat): number;
-  build(beat: Beat, style: Style): { nodes: PlannedNode[]; why: string };
+  /** The third argument is the REPRESENTATION this construction was
+   *  selected to realise, when the scorer chose one. Most constructions
+   *  ignore it — a chart is a chart. The scene construction cannot: it
+   *  builds a composition IN a mode, and which mode is exactly the
+   *  decision the representation layer above it exists to make. */
+  build(
+    beat: Beat,
+    style: Style,
+    rep?: Representation | null,
+  ): { nodes: PlannedNode[]; why: string };
 }
 
 /** A count the prose actually printed, if it printed one. This is what
@@ -395,6 +407,84 @@ const SWARMING = /\b(synchron\w*|waves?|together|in step|coordinated|unison|form
 const GROWING = /\b(dozens|hundreds|thousands|more|multiplied|spread|grew|growing|increasingly)\b/i;
 
 export const CONSTRUCTIONS: Construction[] = [
+  /* ── A SCENE. The composition itself, as a construction.
+   *
+   * THE WIRE THAT WAS MISSING, and it took compiling a real essay and
+   * reading the usage table to find it. Representation reached production
+   * — `representationsFor` is called eight lines above this — but
+   * everything BELOW it did not. `grammar-visual.ts`, `scene-graph.ts`,
+   * `semantic-scene.ts`, `film-state.ts` and `film-mode.ts` imported only
+   * each other, so the entire representation → grammar → scene → continuity
+   * chain was a closed island reachable from tests and nothing else. A
+   * 25-scene essay compiled to `plate_scene`, `pixel_quantise` and
+   * `color_transform`: the old generic constructions, in a system that had
+   * spent five passes building something better and never plugged it in.
+   *
+   * Standing rule 10, exactly: PLANNED is the dangerous state, because a
+   * planned thing looks finished from every angle except the screen.
+   *
+   * This construction is the plug. It reads the sentence as a SEMANTIC
+   * SCENE — entities and the relation between them — arranges those into
+   * elements with roles, places, depths, materials and a hierarchy, and
+   * serialises the arrangement to nested compositors. It declares every
+   * mode because that is the point of the layering: the same machinery
+   * builds the literal reading and the diagrammatic one, and what differs
+   * is which operations run, not which generator was picked.
+   *
+   * It competes rather than replaces. A sentence that draws a route is
+   * still a route; a printed quantity is still a chart. What this takes
+   * is the enormous middle — every ordinary sentence that used to fall
+   * through to a generic plate. */
+  {
+    id: "scene",
+    fit(beat) {
+      const rel = beat.relation?.agent && beat.relation.patient;
+      /* IT NEVER RETURNS ZERO, and the measurement is why.
+       *
+       * The first version refused a sentence that named nothing the
+       * lexicon knows. Run over a real 25-sentence essay, that put
+       * `type` — a SINGLE `text_layout` node, words on a plate — first
+       * on ten scenes, with `space` and `paper` generics taking nine
+       * more. Nineteen of twenty-five frames were a card or a texture,
+       * which is the whole of "why is it just abstract screens".
+       *
+       * `composeScene` needs no named noun. It composes from the film's
+       * own state — a form, a ground, a count, negative space — so
+       * refusing was never a statement about capability, only an
+       * oversight. A sentence about accumulation has an ACCUMULATES
+       * relation and a choreography built for it; a text card is the
+       * poorest available answer to it. */
+      if (!beat.subjects.length && !rel) return 0.55;
+      // A relation is two things and what stands between them, which is a
+      // COMPOSITION. A lone named subject is a single form in a frame,
+      // which is real but thinner — and both outrank a generic plate.
+      return rel ? 0.86 : 0.72;
+    },
+    build(beat, style, rep) {
+      const count = statedCount(beat);
+      const sem = readScene(beat.sentence, beat.subjects, beat.relation ?? null, count);
+      const m: Material = {
+        noun: beat.subjects[0]?.text ?? "",
+        phrase: beat.phrase,
+        count,
+        relation:
+          beat.relation?.agent && beat.relation?.patient
+            ? [String(beat.relation.agent), String(beat.relation.patient)]
+            : null,
+        density: style.density,
+        energy: style.energy,
+        abstraction: style.abstraction,
+        typography: style.typography,
+        seed: 101 + beat.index * 7,
+      };
+      const mode = (rep?.mode ?? "literal") as Mode;
+      const scene = composeFromMeaning(mode, m, sem);
+      return {
+        nodes: serialiseScene(scene, m),
+        why: scene.describes,
+      };
+    },
+  },
   /* ── A BODY. Segments, appendages, phase offsets, locomotion.
    *
    * This is the construction the whole argument turns on. The centipede
@@ -1205,7 +1295,7 @@ export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Pro
   const programs: Program[] = [];
 
   for (const { c, fit, dislocated, rep } of considered) {
-    const built = c.build(beat, style);
+    const built = c.build(beat, style, rep);
     for (const stack of stacks) {
       const program = assemble(c.id, built, stack, style, budgetMs);
       if (!program) continue;
@@ -1236,8 +1326,23 @@ export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Pro
         // How much the director's state wanted these operations. Breaks
         // ties BETWEEN stacks; never decides what is being built.
         stack.reduce((a, op) => a + Math.max(0, appetiteFor(op, style, intent)), 0) * 0.5 -
-        // A restrained film pays for every extra stage.
-        program.nodes.length * style.restraint * 0.15;
+        /* A RESTRAINED FILM PAYS FOR ELABORATION, NOT FOR COMPOSITION.
+         *
+         * This counted `program.nodes.length`, which is a category error
+         * with a measurable cost. An OPERATOR stage is elaboration — a
+         * dither, a scanline, a displacement laid over what was built. A
+         * scene graph's nodes are ELEMENTS: a ground, a subject, a field,
+         * the words, the line drawn between two things. Charging the same
+         * per node meant a five-element composition paid roughly ten
+         * times what a single text plate paid, so restraint was not
+         * choosing simplicity — it was choosing EMPTINESS, and the
+         * measurement showed it: `type`, one `text_layout` node, first on
+         * ten of twenty-five scenes of a real essay.
+         *
+         * Restraint should say "fewer treatments", never "fewer things in
+         * the frame". Composition is what the film is; elaboration is
+         * what is done to it. */
+        stack.length * style.restraint * 0.5;
       programs.push(program);
     }
   }

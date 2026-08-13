@@ -250,6 +250,13 @@ export function representationsFor(beat: Beat, style: Style): Representation[] {
  * already work, and which produced the only legible frames this system
  * has made — become reachable BY AN OBJECT NOUN for the first time. */
 export const REALISES: Record<string, Mode[]> = {
+  /* THE SCENE CONSTRUCTION SERVES ALL SIX, and that is the claim the
+   * whole three-layer separation rests on. If it needed a different
+   * generator per mode it would be the routing table again with more
+   * arithmetic; it does not, because what differs between a literal
+   * reading and a diagrammatic one is WHICH OPERATIONS RUN on the same
+   * arrangement, not which generator was picked. */
+  scene: ["literal", "structural", "geometric", "typographic", "diagrammatic", "symbolic"],
   fixture: ["literal"],
   body: ["literal"],
   space: ["literal", "structural"],
