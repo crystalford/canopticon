@@ -16,14 +16,25 @@
 // by the workflow, not added to package.json. This is a diagnostic, not a
 // feature.
 
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const BASE_URL = process.env.CAPTURE_BASE_URL || "https://studio.canopticon.com";
 const PROJECT_ID = process.env.CAPTURE_PROJECT_ID;
 const LABEL = process.env.CAPTURE_LABEL || "capture";
 const OUT_DIR = process.env.CAPTURE_OUT_DIR || `ops/studio-capture/${LABEL}`;
+// What was actually deployed at capture time, per the operator dispatching
+// the run — not inferred, because inferring "what's live" from a git log
+// is a guess and this manifest exists so the comparison isn't one.
+const GIT_SHA = process.env.CAPTURE_GIT_SHA || null;
+// Mirrors `RENDERER_VERSION` in src/compile/hash.ts. Not fetched from the
+// deployed Worker — nothing exposes it — so it is asserted here and will
+// read wrong if that constant is ever bumped without updating this line.
+const RENDERER_VERSION = "1.0.0";
+const RENDER_SETTINGS = { width: 1280, height: 720, fps: 30, captions: true };
 
 if (!PROJECT_ID) {
   console.error("CAPTURE_PROJECT_ID is required");
@@ -32,11 +43,40 @@ if (!PROJECT_ID) {
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
+function sha256(text) {
+  return crypto.createHash("sha256").update(text).digest("hex");
+}
+
 function writeJSON(name, value) {
   const p = path.join(OUT_DIR, name);
   fs.writeFileSync(p, JSON.stringify(value, null, 2));
   console.log(`wrote ${p} (${fs.statSync(p).size} bytes)`);
 }
+
+const scriptHash = sha256(fs.readFileSync(fileURLToPath(import.meta.url)));
+
+// THE COMPILE REPORT — CAPTURED FIRST, BEFORE ANYTHING ELSE TOUCHES THIS
+// PROJECT.
+//
+// `GET /project/:id/film` — which `loadProject()` below calls — runs a
+// real compile AND SAVES ITS SNAPSHOT (routes/projects.ts, the comment
+// right above that route explains why: two routes used to compile and
+// only one saved, so the cache diff an operator saw depended on which
+// route they happened to hit last). Call `/compile` AFTER that and it
+// diffs against the snapshot the film route just wrote seconds earlier —
+// reporting a warm cache regardless of what the deployed code actually
+// did, which would have made this diagnostic's central number decorative.
+// So this is a plain Node fetch, before the browser ever opens the page.
+console.log(`[capture] compile report — ${BASE_URL}/v1/project/${PROJECT_ID}/compile`);
+const compileStarted = Date.now();
+const compileRes = await fetch(`${BASE_URL}/v1/project/${PROJECT_ID}/compile`, {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+});
+if (!compileRes.ok) throw new Error(`compile ${compileRes.status}`);
+const compileReport = await compileRes.json();
+console.log(`[capture] compile in ${Date.now() - compileStarted}ms —`, compileReport.cache);
+writeJSON("compile.json", compileReport);
 
 const browser = await chromium.launch({
   headless: true,
@@ -64,7 +104,10 @@ await page.waitForFunction(
   { timeout: 30_000 },
 );
 
-// LOAD THE REAL PROJECT. Same call the FILMS picker makes.
+// LOAD THE REAL PROJECT. Same call the FILMS picker makes. This also
+// compiles and saves a snapshot (see above) — after the number that
+// mattered was already captured, so this second compile is redundant
+// bookkeeping rather than a second data point.
 const capturedAt = new Date().toISOString();
 const loadStarted = Date.now();
 const loaded = await page.evaluate(async (projectId) => {
@@ -79,37 +122,21 @@ const loaded = await page.evaluate(async (projectId) => {
 console.log(`[capture] loaded in ${Date.now() - loadStarted}ms —`, loaded);
 if (!loaded.planScenes) throw new Error("project loaded but has no film plan — nothing to render");
 
-// THE COMPILE REPORT. Not part of the render path — a second call, so the
-// cache/hash/usage numbers describe what the SAME deployed code just
-// composed, independent of what renderFilm does with it.
-const compileReport = await page.evaluate(async () => {
-  const res = await fetch(`/v1/project/${window.STUDIO.projectId}/compile`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-  });
-  if (!res.ok) throw new Error(`compile ${res.status}`);
-  return res.json();
-});
-writeJSON("compile.json", compileReport);
 writeJSON("plan.json", {
   title: loaded.title,
   plan: await page.evaluate(() => window.STUDIO.plan),
 });
 
-// THE RENDER. Exactly the UI's own defaults — 1280×720, 30fps, captions
-// on — because the point is what an operator actually gets, not a tuned
-// best case.
+// THE RENDER. Exactly the UI's own defaults — because the point is what an
+// operator actually gets, not a tuned best case.
 console.log("[capture] rendering — this paces to real time, expect several minutes");
 const renderStarted = Date.now();
 const downloadPromise = page.waitForEvent("download", { timeout: 20 * 60_000 });
 
-const renderResult = await page.evaluate(async () => {
+const renderResult = await page.evaluate(async (settings) => {
   const plan = window.STUDIO.plan;
   const out = await window.renderFilm(plan, {
-    width: 1280,
-    height: 720,
-    fps: 30,
-    captions: true,
+    ...settings,
     onProgress: (p) => {
       if (p.frame % 300 === 0 || p.pct >= 1) {
         console.log(
@@ -129,7 +156,7 @@ const renderResult = await page.evaluate(async () => {
     frameExact: out.frameExact,
     narrated: out.narrated,
   };
-});
+}, RENDER_SETTINGS);
 const renderMs = Date.now() - renderStarted;
 console.log(`[capture] render finished in ${renderMs}ms —`, renderResult);
 
@@ -138,15 +165,28 @@ const videoPath = path.join(OUT_DIR, "film.webm");
 await download.saveAs(videoPath);
 console.log(`[capture] saved ${videoPath} (${fs.statSync(videoPath).size} bytes)`);
 
+// THE MANIFEST. Every field here is either measured or hashed, nothing
+// asserted — so "Version A" and "Version B" can be compared as data
+// rather than as two files someone has to trust were captured the same
+// way.
 writeJSON("meta.json", {
   label: LABEL,
+  film: loaded.title,
   projectId: PROJECT_ID,
   baseUrl: BASE_URL,
+  gitCommit: GIT_SHA,
+  rendererVersion: RENDERER_VERSION,
+  scriptHash,
+  compileHash: sha256(JSON.stringify(compileReport)),
+  settings: RENDER_SETTINGS,
+  nodeCount: compileReport.cache?.total ?? null,
+  cacheHits: compileReport.cache?.hits ?? null,
+  cacheMisses: compileReport.cache?.misses ?? null,
+  coldStart: compileReport.cache?.coldStart ?? null,
   capturedAt,
-  loadMs: loadStarted ? Date.now() - loadStarted : null,
+  loadMs: Date.now() - loadStarted,
   renderMs,
   render: renderResult,
-  planTitle: loaded.title,
   planScenes: loaded.planScenes,
   planDurationMs: loaded.durationMs,
 });
