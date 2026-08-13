@@ -472,6 +472,27 @@ export function subjectReading(
   };
 }
 
+/** A sentence whose subject is a pronoun pointing at the last thing named.
+ *
+ *  "Then there were dozens of THEM, moving through the streets in strange
+ *  synchronized waves." names nothing depictable and is entirely about the
+ *  insects from two sentences ago. Without this the film built creatures
+ *  for the first beat and set type for the third — which is the "isolated
+ *  shots" failure: every sentence inventing its own world, and a film that
+ *  cannot hold an image for three sentences.
+ *
+ *  Deliberately narrow. It fires on a bare anaphor near the head of the
+ *  sentence and nothing else; "it was a policy shift" is not a scene about
+ *  a smoke detector because the word "it" appeared in it. Checkable
+ *  against the prose like everything else here. */
+const ANAPHOR = /\b(them|they|their|these|those|it|its)\b/i;
+
+export function refersBack(sentence: string): boolean {
+  if (detectSubjects(sentence).length > 0) return false;
+  const head = sentence.split(/[,;:]/)[0] ?? sentence;
+  return ANAPHOR.test(head);
+}
+
 /** Whole-word search. "border" must not match "borderline", and "record"
  *  must not match "recorded" — a substring match here would put a filing
  *  cabinet on screen every time an essay used a verb. */

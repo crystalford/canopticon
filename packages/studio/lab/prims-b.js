@@ -782,6 +782,24 @@ function srcImage(w, h, t, n) {
   o.fillText("1997", w / 2, h / 2);
   return c;
 }
+/** THE RASTER FAMILY READS WHAT IT WAS HANDED.
+ *
+ *  Every one of these declared IMAGE → IMAGE and every one of them
+ *  synthesised its own plate — a noise field with "1997" set across it —
+ *  and rastered THAT. So `dither` after a constructed smoke detector did
+ *  not dither the detector. It painted a dithered 1997 over it, at full
+ *  cost, and the chain typechecked.
+ *
+ *  That is the difference between an OPERATOR and a slide. An operation
+ *  you can apply to a fixture, a document, a chart or a sentence is the
+ *  whole premise of separating constructions from operations; one that
+ *  replaces all four with the same picture is a decorative link, and the
+ *  compiler has been counting them as such for weeks.
+ *
+ *  The synthetic plate stays as the FALLBACK, so each of these still reads
+ *  as itself standing alone in the Lab with nothing upstream — the same
+ *  arrangement `upstreamData` uses for the DATA family, and the reason
+ *  this could be fixed in one place rather than seven. */
 function rasterPrim(id, note, params, fn, phase) {
   reg(
     id,
@@ -790,10 +808,30 @@ function rasterPrim(id, note, params, fn, phase) {
     params,
     (p) => {
       const n = vnoise(1337);
+      let scratch = null;
       return {
-        frame(ctx, w, h, t) {
-          const src = srcImage(w, h, t, n);
-          const im = src.getContext("2d").getImageData(0, 0, w, h);
+        frame(ctx, w, h, t, upstream) {
+          const given = upstream?.canvas;
+          let src;
+          if (given) {
+            // The upstream buffer is the size the chain runs at; the
+            // pixels are read back once per frame into a scratch canvas so
+            // getImageData never touches the live buffer being drawn into.
+            if (!scratch || scratch.width !== w || scratch.height !== h) {
+              scratch = document.createElement("canvas");
+              scratch.width = w;
+              scratch.height = h;
+            }
+            const sx = scratch.getContext("2d", { willReadFrequently: true });
+            sx.clearRect(0, 0, w, h);
+            sx.drawImage(given, 0, 0, w, h);
+            src = scratch;
+          } else {
+            src = srcImage(w, h, t, n);
+          }
+          const im = src
+            .getContext("2d", { willReadFrequently: true })
+            .getImageData(0, 0, w, h);
           fn(ctx, im, w, h, p, t);
         },
       };
@@ -994,10 +1032,10 @@ reg(
   (p) => {
     const n = vnoise(1337);
     return {
-      frame(ctx, w, h, t) {
+      frame(ctx, w, h, t, upstream) {
         bg(ctx, w, h);
-        const src = srcImage(w, h, t * 0.4, n),
-          im = src.getContext("2d").getImageData(0, 0, w, h),
+        const src = upstream?.canvas || srcImage(w, h, t * 0.4, n),
+          im = src.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, w, h),
           c = 4;
         for (let y = 0; y < h; y += c)
           for (let x = 0; x < w; x += c) {
@@ -1038,9 +1076,9 @@ reg(
   (p) => {
     const n = vnoise(1337);
     return {
-      frame(ctx, w, h, t) {
+      frame(ctx, w, h, t, upstream) {
         bg(ctx, w, h);
-        const src = srcImage(w, h, t * 0.3, n),
+        const src = upstream?.canvas || srcImage(w, h, t * 0.3, n),
           a = p.angle * 6.283,
           amt = p.amount * 22 * (1 + Math.sin(t * 3) * p.pulse);
         ctx.globalCompositeOperation = "lighter";

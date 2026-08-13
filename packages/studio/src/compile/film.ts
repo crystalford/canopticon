@@ -58,6 +58,26 @@ export interface FilmScene {
   costMsPerFrame: number;
   /** Why this chain — one line per primitive, from the composition engine. */
   reasons: string[];
+  /** THE VISUAL IDEA, in the director's language rather than the
+   *  compiler's. What was built, what was done to it, and why — so the
+   *  first thing a person reads about a shot is what it IS, not which
+   *  five nodes were selected. */
+  idea: {
+    id: string;
+    construction: string;
+    operators: string[];
+    why: string;
+  } | null;
+  /** What else this sentence could have been. The engine proposes; the
+   *  director ratifies — the same rail readings go through, applied to
+   *  depiction. */
+  alternatives: Array<{
+    id: string;
+    construction: string;
+    operators: string[];
+    why: string;
+    chain: string[];
+  }>;
   chain: FilmNode[];
   shots: FilmShot[];
   /** Where this scene's frozen narration lives, when it has been recorded.
@@ -229,6 +249,8 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
       determinism: composed.determinism,
       costMsPerFrame: composed.costMsPerFrame,
       reasons: composed.nodes.map((n) => `${n.primitiveId} — ${n.reason}`),
+      idea: composed.program,
+      alternatives: composed.alternatives,
       chain,
       shots,
       ...narrationFor(ir, irScene),

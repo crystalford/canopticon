@@ -146,7 +146,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Closes the loop: any image becomes typography again. Very much the house sensibility.",
   },
   attractor: {
@@ -204,7 +204,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Three blurs with three different meanings: softness, speed, and attention.",
   },
   boolean_ops: {
@@ -368,7 +368,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 11,
     determinismGuarantee: "L2-GPU",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Channel separation. Reserved for moments where the image itself should read as unreliable.",
   },
   collision: {
@@ -398,7 +398,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Grade, duotone, palette map. One transform applied film-wide is most of what people call a look.",
   },
   comparison_matrix: {
@@ -582,7 +582,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 11,
     determinismGuarantee: "L2-GPU",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Distortion driven by a field, with optional chromatic separation. Instability as a controlled parameter.",
   },
   dither: {
@@ -596,7 +596,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Ordered and error-diffusion dithering. Tone reconstructed from a two-value system.",
   },
   document_layout: {
@@ -749,7 +749,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     determinismGuarantee: "L2",
     consumesUpstream: true,
     secondInput: "FIELD",
-    note: "Dissolution in the shape of the thing causing it. The image is eaten where the field is weakest, so a sentence comes apart along the field acting on it rather than under a random mask.",
+    note: "Dissolution in the shape of the thing causing it. The subject is eaten where the field is weakest and the field itself shows through, so a sentence comes apart along the thing acting on it rather than under a random mask.",
   },
   flocking: {
     primitiveId: "flocking",
@@ -960,7 +960,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Amplitude-modulated dots. Print reproduction as a temporal register — this is the 1970s.",
   },
   hard_cut: {
@@ -1447,7 +1447,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Rows sorted by luminance above a threshold. Glitch used as evidence of tampering.",
   },
   pixelate: {
@@ -1461,7 +1461,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Mosaic and quantisation. Withheld detail is a documentary statement, not a censor bar.",
   },
   plate_scene: {
@@ -1598,7 +1598,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "CRT scanlines and roll. A period register — the archive as it was actually watched.",
   },
   screen_transition: {
@@ -1882,7 +1882,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Posterise or isolate. Output can be used directly as a mask.",
   },
   tile: {

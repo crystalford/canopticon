@@ -121,6 +121,12 @@ function toFilm(ir, plan, storedVersion) {
       // a scene with no narration should not look the same to a view that
       // is trying to tell the operator which is which.
       vo: s.vo,
+      // WHAT THIS SHOT IS, and what else it could have been. The first
+      // thing a director reads about a scene should be the idea rather
+      // than the five nodes that implement it.
+      idea: s.idea || null,
+      alternatives: s.alternatives || [],
+      pinned: (ir.overrides || []).some((o) => o.sceneId === s.sceneId && o.type === "pin"),
     };
   });
 
@@ -281,6 +287,24 @@ async function saveCreativeState() {
   return r;
 }
 
+/** DIRECT — choose one of the interpretations the engine proposed.
+ *
+ *  Writes a pin, which precedence 1 already honours. The engine stops
+ *  composing that scene and reports it as pinned; `releaseScene` hands it
+ *  back. A director's choice was always meant to outrank the engine — the
+ *  precedence order was built for it and had no way to be reached. */
+const directScene = (projectId, sceneId, chain, note) =>
+  api(`/project/${projectId}/direct`, {
+    method: "POST",
+    body: JSON.stringify({ sceneId, chain, note }),
+  });
+
+const releaseScene = (projectId, sceneId) =>
+  api(`/project/${projectId}/direct`, {
+    method: "POST",
+    body: JSON.stringify({ sceneId, release: true }),
+  });
+
 async function compileProject(projectId) {
   const report = await api(`/project/${projectId}/compile`, { method: "POST" });
   window.STUDIO.cache = report.cache;
@@ -296,6 +320,8 @@ Object.assign(window, {
   loadDemo,
   ratifyScenes,
   narrateProject,
+  directScene,
+  releaseScene,
   saveCreativeState,
   compileProject,
   lastProjectId: () => {

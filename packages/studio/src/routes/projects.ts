@@ -17,6 +17,7 @@ import { all, newId, nowIso, one, run } from "../lib/d1.ts";
 import { sequenceAlignments } from "../narrate/align.ts";
 import { loadAlignments, narrateScenes } from "../narrate/index.ts";
 import { describeShape, sniff, synthesise } from "../narrate/tts.ts";
+import { PRIMITIVES } from "../primitives/registry.ts";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -451,6 +452,93 @@ app.post("/project/:id/ratify", async (c) => {
     projectId,
   ]);
   return c.json({ projectId, irVersion: nextVersion, approved, rejected });
+});
+
+/** DIRECT — the human choosing between visual interpretations.
+ *
+ *  The engine proposes several programs per scene and uses the best-scoring
+ *  one. This is how a director says "no, that one" — and it is the SAME
+ *  rail a reading goes through, applied to depiction: the system proposes,
+ *  the human ratifies, and the ratification is stored in the IR as a
+ *  version rather than applied to a running state.
+ *
+ *  It writes a `pin` override, which precedence 1 already honours and which
+ *  every downstream surface already reports as pinned. Nothing new had to
+ *  be invented to make a director's choice outrank the engine — the
+ *  precedence order was built for exactly this and had no way to be
+ *  reached.
+ *
+ *  A pin is reversible: post with no chain to release the scene back to the
+ *  engine. */
+app.post("/project/:id/direct", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    sceneId?: string;
+    chain?: string[];
+    note?: string;
+    release?: boolean;
+  };
+  if (!body.sceneId) return c.json({ error: "sceneId is required" }, 400);
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+
+  const scene = parsed.ir.scenes.find((s) => s.sceneId === body.sceneId);
+  if (!scene) return c.json({ error: `no scene ${body.sceneId}` }, 404);
+
+  const overrides = parsed.ir.overrides.filter((o) => o.sceneId !== body.sceneId);
+  if (!body.release) {
+    if (!body.chain?.length) return c.json({ error: "chain is required unless releasing" }, 400);
+    // Every primitive named has to exist. A pin is the one thing that
+    // bypasses composition entirely, so an unknown id here would reach the
+    // executor as a chain nobody planned.
+    const unknown = body.chain.filter((id) => !PRIMITIVES[id]);
+    if (unknown.length) return c.json({ error: `not in the palette: ${unknown.join(", ")}` }, 400);
+    overrides.push({
+      sceneId: body.sceneId,
+      type: "pin",
+      chain: body.chain,
+      note: body.note ?? "chosen by the director",
+      createdAt: nowIso(),
+    });
+  }
+
+  const nextVersion = project.current_ir_version + 1;
+  await writeVersion(
+    c.env,
+    projectId,
+    { ...parsed.ir, overrides },
+    nextVersion,
+    project.current_ir_version,
+    body.release
+      ? `Released ${body.sceneId} back to the engine`
+      : `Directed ${body.sceneId} — ${body.note ?? "chose an interpretation"}`,
+  );
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+
+  const snapshot = await loadSnapshot(c.env, projectId);
+  const timed = await frozenAlignments(c.env, { ...parsed.ir, overrides });
+  const report = await compile(
+    { ...parsed.ir, overrides },
+    { snapshot, alignments: timed.alignments },
+  );
+  await saveSnapshot(c.env, projectId, report.snapshot);
+  return c.json({
+    projectId,
+    irVersion: nextVersion,
+    sceneId: body.sceneId,
+    pinned: !body.release,
+    cache: report.cache,
+  });
 });
 
 /** NARRATE — the one place TTS is ever spent.

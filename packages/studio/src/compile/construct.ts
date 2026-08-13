@@ -278,7 +278,17 @@ function wordCount(sentence: string): number | null {
  *  large, inspected". The difference between a crowd and a centipede in
  *  the same construction grammar. */
 const MANY =
-  /\b(crowd|crowds|queue|queues|swarm|swarms|colony|people|residents|claimants|workers|migration|convoy|procession)\b/i;
+  /\b(crowd|crowds|queue|queues|swarm|swarms|colony|people|residents|claimants|workers|migration|convoy|procession|dozens|hundreds|thousands|many|several)\b/i;
+
+/** Words that say the thing is MULTIPLYING or FALLING INTO STEP.
+ *
+ *  "Then there were dozens of them, moving through the streets in strange
+ *  synchronized waves" is the sentence that introduced them, escalated:
+ *  more of them, and moving together rather than wandering. A film that
+ *  builds a creature and then sets type when the creature multiplies has
+ *  not understood the paragraph. */
+const SWARMING = /\b(synchron\w*|waves?|together|in step|coordinated|unison|formation|columns?)\b/i;
+const GROWING = /\b(dozens|hundreds|thousands|more|multiplied|spread|grew|growing|increasingly)\b/i;
 
 const CONSTRUCTIONS: Construction[] = [
   /* ── A BODY. Segments, appendages, phase offsets, locomotion.
@@ -302,7 +312,12 @@ const CONSTRUCTIONS: Construction[] = [
       // A crowd is many small fast bodies. A named creature is one, large,
       // and worth looking at. The prose decides which; the style decides
       // how far from literal it is drawn.
-      const count = many ? Math.min(12, Math.max(4, stated ?? 8)) : Math.min(3, stated ?? 1);
+      const growing = GROWING.test(beat.sentence);
+      const swarming = SWARMING.test(beat.sentence);
+      const count =
+        many || growing
+          ? Math.min(12, Math.max(4, stated ?? (growing ? 12 : 8)))
+          : Math.min(3, stated ?? 1);
       const segments = many
         ? 6 + Math.round(style.density * 6)
         : Math.min(
@@ -324,13 +339,23 @@ const CONSTRUCTIONS: Construction[] = [
               scale: many ? 0.16 + style.density * 0.12 : 0.4 + style.human * 0.3,
               speed: 0.25 + style.energy * 0.6,
               gait: 0.3 + style.energy * 0.5,
-              wander: many ? 0.55 + style.energy * 0.35 : 0.2 + style.energy * 0.3,
+              // Synchronised means LOW wander: bodies moving together are
+              // bodies that have stopped choosing their own paths. The
+              // parameter that expresses "strange synchronized waves" is
+              // the ABSENCE of wandering, not the presence of an effect.
+              wander: swarming
+                ? 0.08 + style.energy * 0.12
+                : many
+                  ? 0.55 + style.energy * 0.35
+                  : 0.2 + style.energy * 0.3,
               wave: 0.3 + style.energy * 0.4,
               stride: 0.35 + style.energy * 0.4,
             },
-            reason: many
-              ? `${count} bodies of ${segments} segments — the sentence names a crowd, so the construction is many small fast ones`
-              : `one body of ${segments} segments with ${legPairs} leg pairs, built from "${beat.subjects[0]?.text ?? "the subject"}"`,
+            reason: swarming
+              ? `${count} bodies moving in step — the sentence says synchronised, which is these bodies with the wander taken out of them`
+              : many || growing
+                ? `${count} bodies of ${segments} segments — the sentence names a crowd, so the construction is many small fast ones`
+                : `one body of ${segments} segments with ${legPairs} leg pairs, built from "${beat.subjects[0]?.text ?? "the subject"}"`,
           },
           {
             primitiveId: "entity_render",
@@ -344,7 +369,11 @@ const CONSTRUCTIONS: Construction[] = [
               : "lit as a thing in a room",
           },
         ],
-        why: many ? "a crowd, constructed" : "a body, constructed",
+        why: swarming
+          ? "a swarm, moving in step"
+          : many || growing
+            ? "a crowd, constructed"
+            : "a body, constructed",
       };
     },
   },

@@ -42,7 +42,7 @@ import { looksContested } from "./extract-reading.ts";
 import { groundSatisfies, planGround } from "./ground.ts";
 import { choosePhrase } from "./phrase.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
-import { detectSubjects, subjectReading } from "./subject.ts";
+import { type DetectedSubject, detectSubjects, refersBack, subjectReading } from "./subject.ts";
 import { textParamsFor } from "./text-params.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
 
@@ -185,6 +185,9 @@ export function composeScene(
    *  correctly between twenty chains still reads "THE FEDERAL GOVERNMENT"
    *  twenty times. */
   recentPhrases: string[] = [],
+  /** The last thing this film named. A sentence made of pronouns is about
+   *  whatever the film was already looking at — see `refersBack`. */
+  carried: DetectedSubject | null = null,
 ): ComposedScene {
   const state = resolveStateAt(ir, scenePosition(ir, sceneIndex), positions);
   const notes: string[] = [];
@@ -276,7 +279,7 @@ export function composeScene(
     const beat: Beat = {
       sentence: scene.narration.text,
       phrase: phrase.text,
-      subjects: detectSubjects(scene.narration.text),
+      subjects: sceneSubjects(scene.narration.text, carried),
       figures: scene.figures ?? [],
       route: scene.route ?? [],
       kind: kind.kind,
@@ -699,13 +702,31 @@ function readingFor(scene: Scene): SemanticReading | null {
   };
 }
 
+/** What this scene is about — its own nouns, or the film's if it is
+ *  pointing back at them. */
+function sceneSubjects(sentence: string, carried: DetectedSubject | null): DetectedSubject[] {
+  const own = detectSubjects(sentence);
+  if (own.length > 0) return own;
+  if (carried && refersBack(sentence)) {
+    // Carried at a lower weight: an inherited subject is a weaker signal
+    // than a named one, and should lose to a figure the sentence prints.
+    return [{ ...carried, weight: carried.weight * 0.8 }];
+  }
+  return [];
+}
+
 export function composeAll(ir: EditorialIR): ComposedScene[] {
   const positions = controlPointPositions(ir);
   const out: ComposedScene[] = [];
   const recent: string[][] = [];
   const phrases: string[] = [];
+  // THE FILM'S SHORT-TERM MEMORY. What was last named, so a sentence made
+  // of pronouns continues the image rather than starting a new one.
+  let carried: DetectedSubject | null = null;
   ir.scenes.forEach((scene, i) => {
-    const composed = composeScene(ir, scene, i, positions, recent, phrases);
+    const composed = composeScene(ir, scene, i, positions, recent, phrases, carried);
+    const own = detectSubjects(scene.narration.text)[0];
+    if (own) carried = own;
     out.push(composed);
     recent.push(composed.nodes.map((n) => n.primitiveId));
     if (recent.length > 4) recent.shift();

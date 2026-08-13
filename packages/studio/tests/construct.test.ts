@@ -224,3 +224,51 @@ The residents were moved at night. Nothing changed.`;
     expect(OPERATOR_IDS.length).toBeGreaterThan(8);
   });
 });
+
+describe("the paragraph the architecture is judged on", () => {
+  // "If the result is particle field → particle field → particle field, the
+  //  architecture is still wrong."
+  const PARAGRAPH = `The City
+
+They walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.`;
+
+  function sequence() {
+    const seed = segmentEssay(PARAGRAPH, { projectId: "p" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+    return composeAll(parsed.ir);
+  }
+
+  it("builds bodies for the sentence that names insects", () => {
+    const first = must(sequence()[0]);
+    expect(first.nodes.some((n) => n.primitiveId === "creature_chain")).toBe(true);
+  });
+
+  it("carries the creature across a sentence made of pronouns", () => {
+    // "dozens of THEM" names nothing depictable and is entirely about the
+    // insects two sentences earlier. Without the film's short-term memory
+    // this fell back to setting type — every sentence inventing its own
+    // world, which is the "isolated shots" failure.
+    const last = must(sequence()[2]);
+    expect(last.program?.construction).toBe("body");
+  });
+
+  it("ESCALATES rather than repeating — more of them, and in step", () => {
+    const scenes = sequence();
+    const first = must(
+      must(scenes[0]).nodes.find((n) => n.primitiveId === "creature_chain"),
+    ).params;
+    const last = must(must(scenes[2]).nodes.find((n) => n.primitiveId === "creature_chain")).params;
+    // "dozens of them" is more of them.
+    expect(Number(last.count)).toBeGreaterThan(Number(first.count));
+    // "strange synchronized waves" is the same bodies with the wander
+    // taken out of them — the parameter that expresses synchronised is the
+    // ABSENCE of wandering, not the presence of an effect.
+    expect(Number(last.wander)).toBeLessThan(Number(first.wander));
+  });
+
+  it("is not three of the same shot", () => {
+    const chains = sequence().map((s) => s.nodes.map((n) => n.primitiveId).join("→"));
+    expect(new Set(chains).size).toBe(3);
+  });
+});

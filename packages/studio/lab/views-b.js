@@ -315,6 +315,27 @@ function planFromFilm() {
   };
 }
 
+/** The visual idea as a sentence rather than an identifier.
+ *
+ *  "fixture · quantise + scanline" is what the compiler calls it. A
+ *  director should read "A fixture, built from the sentence — quantised,
+ *  then scanned." Same information, and only one of the two is something a
+ *  person can disagree with. */
+const CONSTRUCTION_WORDS = {
+  body: "A body, constructed from what the sentence names",
+  fixture: "A fixture, built from the noun itself",
+  paper: "A document, photographed",
+  quantity: "The figures, charted",
+  route: "The route, drawn as travel",
+  network: "The named parties, laid out by attraction",
+  space: "A space rather than a word",
+  type: "The sentence, set",
+};
+function ideaSentence(idea) {
+  const head = CONSTRUCTION_WORDS[idea.construction] || idea.construction;
+  return idea.operators.length ? `${head} — then ${idea.operators.join(", then ")}.` : `${head}.`;
+}
+
 function drawPvRight(c) {
   const el = document.getElementById("pvright");
   if (!el) return;
@@ -351,14 +372,91 @@ function drawPvRight(c) {
         <div class="meta pv-why">${s.reasons.map((r) => `<div>${esc(r)}</div>`).join("")}</div></div>`
     : "";
 
+  /* THE VISUAL IDEA — first, and in the director's language.
+   *
+   * "The system shows you what it thinks the visual idea is. You're not
+   * expected to understand a primitive chain."
+   *
+   * So the chain moves BELOW the idea and behind a disclosure. What a
+   * person reads first is what the shot is: a thing that was built, and
+   * what was done to it. The implementation is still one click away —
+   * this system's whole discipline is that its working can be audited —
+   * but it is no longer the headline.
+   *
+   * The alternatives are the other half. The engine constructed several
+   * programs for this sentence and used the best-scoring one; these are
+   * the rest, and choosing one pins it. Same rail a reading goes through:
+   * the system proposes, the human ratifies. */
+  const idea = s.idea
+    ? `<div class="sec"><span class="k">Visual idea</span>
+        <div class="idea">
+          <div class="idea-what">${esc(ideaSentence(s.idea))}</div>
+          <div class="mono idea-why">${esc(s.idea.why)}</div>
+        </div>
+        ${
+          (s.alternatives || []).length
+            ? `<div class="k alt-k">Or this sentence could be</div>
+               <div class="alts">${s.alternatives
+                 .map(
+                   (a, i) => `<button class="alt" data-alt="${i}">
+                     <b>${esc(a.construction)}</b>
+                     <span class="mono">${esc(a.operators.join(" + ") || "no operations")}</span>
+                     <i class="mono">${esc(a.chain.join(" → "))}</i>
+                   </button>`,
+                 )
+                 .join("")}</div>
+               <div class="mono pv-note" id="alt-msg">Choosing one pins the scene. The engine
+                 stops composing it and reports it as pinned; releasing hands it back.</div>`
+            : ""
+        }
+        ${s.pinned ? `<button class="chip" data-release="1">RELEASE TO THE ENGINE</button>` : ""}
+       </div>`
+    : `<div class="sec"><span class="k">Visual idea</span>
+        <div class="mono pv-note">${
+          s.pinned
+            ? "Pinned by you — composition bypassed."
+            : "Planned from a ratified reading rather than constructed."
+        }</div>
+        ${s.pinned ? `<button class="chip" data-release="1">RELEASE TO THE ENGINE</button>` : ""}</div>`;
+
   el.innerHTML = `<div class="sec"><span class="k">Scene ${String(s.n).padStart(2, "0")} · ${esc(s.label)}</span>
    ${ratifyBlock}</div>
+   ${idea}
    ${figures}
    ${why}
    <div class="sec secline"><span class="k">Resolved state at playhead</span>
     <div class="meta">${["abstraction", "archivalWeight", "dataWeight", "visualDensity", "humanPresence", "motionEnergy"].map((k) => `<div class="mrow"><span>${k}</span><i>${(c.state[k] ?? 0).toFixed(2)}</i></div>`).join("")}</div>
     ${(c.state._held || []).length ? `<div class="ruleHit soft">INVARIANT · ${c.state._held.join(" · ")}</div>` : ""}
    </div>`;
+
+  for (const b of el.querySelectorAll("[data-alt]")) {
+    b.onclick = async () => {
+      const alt = (s.alternatives || [])[Number(b.dataset.alt)];
+      if (!alt || !window.STUDIO.projectId) return;
+      const msg = document.getElementById("alt-msg");
+      if (msg) msg.textContent = "directing…";
+      try {
+        await directScene(window.STUDIO.projectId, s.id, alt.chain, alt.id);
+        await loadProject(window.STUDIO.projectId);
+        window.__lastRun = dryRun();
+        commit(window.__lastRun);
+        render();
+      } catch (err) {
+        if (msg) msg.textContent = err.message;
+      }
+    };
+  }
+  const release = el.querySelector("[data-release]");
+  if (release) {
+    release.onclick = async () => {
+      if (!window.STUDIO.projectId) return;
+      await releaseScene(window.STUDIO.projectId, s.id);
+      await loadProject(window.STUDIO.projectId);
+      window.__lastRun = dryRun();
+      commit(window.__lastRun);
+      render();
+    };
+  }
 
   for (const b of el.querySelectorAll("[data-ratify]")) {
     b.onclick = async () => {
