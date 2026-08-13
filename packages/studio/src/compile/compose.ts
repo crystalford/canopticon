@@ -286,19 +286,44 @@ export function composeScene(
       contested: looksContested(scene.narration.text),
       index: sceneIndex,
     };
+    // ── the director's verbs ───────────────────────────────────────
+    //
+    // A `constrain` override carries a DELTA on this scene's state. It is
+    // applied before the constructor runs and nowhere else: the engine
+    // still composes, so the nudge survives a restyle, a re-read and a
+    // recompile — which a pin does not, because a pin stops composition
+    // altogether.
+    const nudge = ir.overrides.find(
+      (o) => o.sceneId === scene.sceneId && o.type === "constrain",
+    )?.styleNudge;
+    const bend = (base: number, key: string) =>
+      Math.max(0, Math.min(1, base + (nudge?.[key] ?? 0)));
+    if (nudge) {
+      notes.push(
+        `directed — ${Object.entries(nudge)
+          .map(([k, v]) => `${k} ${v > 0 ? "+" : ""}${v.toFixed(2)}`)
+          .join(", ")}`,
+      );
+    }
+
     const style: Style = {
-      abstraction,
-      density,
-      energy: state.values.motionEnergy ?? 0.5,
-      human: state.values.humanPresence ?? 0.5,
-      typography,
-      archival: state.values.archivalWeight ?? 0.5,
-      data: state.values.dataWeight ?? 0.5,
-      experimentalism: state.values.experimentalism ?? 0.3,
-      restraint: state.values.restraint ?? 0.5,
+      abstraction: bend(abstraction, "abstraction"),
+      density: bend(density, "density"),
+      energy: bend(state.values.motionEnergy ?? 0.5, "energy"),
+      human: bend(state.values.humanPresence ?? 0.5, "human"),
+      typography: bend(typography, "typography"),
+      archival: bend(state.values.archivalWeight ?? 0.5, "archival"),
+      data: bend(state.values.dataWeight ?? 0.5, "data"),
+      experimentalism: bend(state.values.experimentalism ?? 0.3, "experimentalism"),
+      restraint: bend(state.values.restraint ?? 0.5, "restraint"),
       tier: rung.tier,
       language: scene.visualLanguage ?? ir.visualLanguage,
     };
+    // A nudge that raises abstraction should be able to reach the rung
+    // above it, or "stranger" would open no doors the curve had shut.
+    style.tier =
+      (LADDER.find((r) => style.abstraction < r.maxAbstraction) ?? LADDER[LADDER.length - 1])
+        ?.tier ?? rung.tier;
     const programs = constructPrograms(beat, style, MAX_CHAIN_MS);
     const best = programs[0];
     if (best) {

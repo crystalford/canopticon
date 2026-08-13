@@ -349,6 +349,33 @@ const OPERATOR_WORDS = {
   grade: "graded",
   soften: "softened",
 };
+/** WHAT A DIRECTOR SAYS INSTEAD OF MOVING A SLIDER.
+ *
+ *  Each of these bends the state THIS scene composes against and leaves
+ *  the engine composing — so the instruction survives a restyle, a re-read
+ *  and a recompile, which a pinned chain does not. Pressed twice it
+ *  compounds; pressed against its opposite it walks back.
+ *
+ *  Deliberately six words rather than sixty. A verb is a nudge; a director
+ *  who wants a large move has the curve for it. */
+const VERB_BUTTONS = [
+  ["stranger", "STRANGER"],
+  ["ground", "GROUND IT"],
+  ["quieter", "QUIETER"],
+  ["louder", "LOUDER"],
+  ["colder", "COLDER"],
+  ["warmer", "WARMER"],
+];
+function verbRow(scene) {
+  if (window.STUDIO.demo || !window.STUDIO.projectId) return "";
+  return `<div class="verbs">${VERB_BUTTONS.map(
+    ([id, label]) => `<button class="verb" data-verb="${id}">${label}</button>`,
+  ).join("")}</div>
+  <div class="mono pv-note" id="verb-msg">${
+    scene.directed ? `directed · ${esc(scene.directed)}` : "the engine keeps composing; a verb bends what it composes against"
+  }</div>`;
+}
+
 function ideaSentence(idea) {
   const head = CONSTRUCTION_WORDS[idea.construction] || idea.construction;
   if (!idea.operators.length) return `${head}.`;
@@ -429,6 +456,7 @@ function drawPvRight(c) {
                  stops composing it and reports it as pinned; releasing hands it back.</div>`
             : ""
         }
+        ${verbRow(s)}
         ${s.pinned ? `<button class="chip" data-release="1">RELEASE TO THE ENGINE</button>` : ""}
        </div>`
     : `<div class="sec"><span class="k">Visual idea</span>
@@ -466,6 +494,23 @@ function drawPvRight(c) {
       }
     };
   }
+  for (const b of el.querySelectorAll("[data-verb]")) {
+    b.onclick = async () => {
+      if (!window.STUDIO.projectId) return;
+      const msg = document.getElementById("verb-msg");
+      if (msg) msg.textContent = "directing…";
+      try {
+        await directVerb(window.STUDIO.projectId, s.id, b.dataset.verb);
+        await loadProject(window.STUDIO.projectId);
+        window.__lastRun = dryRun();
+        commit(window.__lastRun);
+        render();
+      } catch (err) {
+        if (msg) msg.textContent = err.message;
+      }
+    };
+  }
+
   const release = el.querySelector("[data-release]");
   if (release) {
     release.onclick = async () => {

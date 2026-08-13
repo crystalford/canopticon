@@ -11,6 +11,7 @@ import { EXTRACTION_MODEL, proposeReading } from "../compile/extract-reading.ts"
 import { buildFilmPlan } from "../compile/film.ts";
 import { compile } from "../compile/index.ts";
 import { segmentEssay } from "../compile/segment.ts";
+import { applyVerb, verbById } from "../compile/verbs.ts";
 import type { Env } from "../env.ts";
 import { type EditorialIR, parseIR } from "../ir/schema.ts";
 import { all, newId, nowIso, one, run } from "../lib/d1.ts";
@@ -477,6 +478,9 @@ app.post("/project/:id/direct", async (c) => {
     chain?: string[];
     note?: string;
     release?: boolean;
+    /** A director's verb — "stranger", "ground", "quieter". Bends the
+     *  scene's state rather than pinning its chain. */
+    verb?: string;
   };
   if (!body.sceneId) return c.json({ error: "sceneId is required" }, 400);
 
@@ -492,7 +496,57 @@ app.post("/project/:id/direct", async (c) => {
   const scene = parsed.ir.scenes.find((s) => s.sceneId === body.sceneId);
   if (!scene) return c.json({ error: `no scene ${body.sceneId}` }, 404);
 
+  const existing = parsed.ir.overrides.find(
+    (o) => o.sceneId === body.sceneId && o.type === "constrain",
+  );
   const overrides = parsed.ir.overrides.filter((o) => o.sceneId !== body.sceneId);
+
+  // A VERB. Bends the state this scene composes against and lets the
+  // engine keep composing, so the instruction survives a restyle rather
+  // than freezing the shot the way a pin does.
+  if (body.verb) {
+    const verb = verbById(body.verb);
+    if (!verb) return c.json({ error: `no verb "${body.verb}"` }, 400);
+    const styleNudge = applyVerb(existing?.styleNudge, verb);
+    if (Object.keys(styleNudge).length > 0) {
+      overrides.push({
+        sceneId: body.sceneId,
+        type: "constrain",
+        styleNudge,
+        note: verb.label.toLowerCase(),
+        createdAt: nowIso(),
+      });
+    }
+    const nextV = project.current_ir_version + 1;
+    await writeVersion(
+      c.env,
+      projectId,
+      { ...parsed.ir, overrides },
+      nextV,
+      project.current_ir_version,
+      `${body.sceneId} — ${verb.label.toLowerCase()}`,
+    );
+    await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+      nextV,
+      projectId,
+    ]);
+    const snap = await loadSnapshot(c.env, projectId);
+    const t = await frozenAlignments(c.env, { ...parsed.ir, overrides });
+    const rep = await compile(
+      { ...parsed.ir, overrides },
+      { snapshot: snap, alignments: t.alignments },
+    );
+    await saveSnapshot(c.env, projectId, rep.snapshot);
+    return c.json({
+      projectId,
+      irVersion: nextV,
+      sceneId: body.sceneId,
+      verb: verb.id,
+      styleNudge,
+      cache: rep.cache,
+    });
+  }
+
   if (!body.release) {
     if (!body.chain?.length) return c.json({ error: "chain is required unless releasing" }, 400);
     // Every primitive named has to exist. A pin is the one thing that

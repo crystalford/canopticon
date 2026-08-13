@@ -1211,3 +1211,25 @@
   color: var(--ink-3, #9ba3aa);
   margin-top: 3px;
 }
+
+/* Director verbs — what a person says instead of moving a slider. */
+.verbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 12px 0 6px;
+}
+.verb {
+  background: #14181b;
+  border: 1px solid #232a2f;
+  border-radius: 2px;
+  color: var(--ink-3, #9ba3aa);
+  font: 500 10px/1 "JetBrains Mono", monospace;
+  letter-spacing: 0.04em;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.verb:hover {
+  border-color: var(--emb, #d8624a);
+  color: var(--ink, #eef1f3);
+}

@@ -127,6 +127,11 @@ function toFilm(ir, plan, storedVersion) {
       idea: s.idea || null,
       alternatives: s.alternatives || [],
       pinned: (ir.overrides || []).some((o) => o.sceneId === s.sceneId && o.type === "pin"),
+      // What this scene has been DIRECTED to do, in the words the verb
+      // used, so the panel can say it rather than showing a delta.
+      directed:
+        (ir.overrides || []).find((o) => o.sceneId === s.sceneId && o.type === "constrain")?.note ||
+        null,
     };
   });
 
@@ -299,6 +304,15 @@ const directScene = (projectId, sceneId, chain, note) =>
     body: JSON.stringify({ sceneId, chain, note }),
   });
 
+/** A DIRECTOR'S VERB. Bends this scene's state and lets the engine keep
+ *  composing — so the instruction survives a restyle, which a pin does
+ *  not. Pressing the same verb twice compounds it. */
+const directVerb = (projectId, sceneId, verb) =>
+  api(`/project/${projectId}/direct`, {
+    method: "POST",
+    body: JSON.stringify({ sceneId, verb }),
+  });
+
 const releaseScene = (projectId, sceneId) =>
   api(`/project/${projectId}/direct`, {
     method: "POST",
@@ -321,6 +335,7 @@ Object.assign(window, {
   ratifyScenes,
   narrateProject,
   directScene,
+  directVerb,
   releaseScene,
   saveCreativeState,
   compileProject,

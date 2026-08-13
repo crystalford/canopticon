@@ -272,3 +272,59 @@ They walked around the city like insects. At first nobody noticed. Then there we
     expect(new Set(chains).size).toBe(3);
   });
 });
+
+describe("director verbs", () => {
+  it("bends the scene's state rather than pinning its chain", async () => {
+    const { VERBS, applyVerb, verbById } = await import("../src/compile/verbs.ts");
+    expect(VERBS.length).toBeGreaterThan(4);
+    const stranger = must(verbById("stranger"));
+    const once = applyVerb(undefined, stranger);
+    expect(must(once).abstraction).toBeGreaterThan(0);
+  });
+
+  it("compounds when pressed twice, and walks back when reversed", async () => {
+    const { applyVerb, verbById } = await import("../src/compile/verbs.ts");
+    const stranger = must(verbById("stranger"));
+    const ground = must(verbById("ground"));
+    const once = applyVerb(undefined, stranger);
+    const twice = applyVerb(once, stranger);
+    expect(Number(twice.abstraction)).toBeGreaterThan(Number(once.abstraction));
+    const back = applyVerb(twice, ground);
+    expect(Number(back.abstraction)).toBeLessThan(Number(twice.abstraction));
+  });
+
+  it("cannot be pressed into a state the resolver cannot use", async () => {
+    const { applyVerb, verbById } = await import("../src/compile/verbs.ts");
+    const stranger = must(verbById("stranger"));
+    let nudge = {};
+    for (let i = 0; i < 20; i++) nudge = applyVerb(nudge, stranger);
+    for (const v of Object.values(nudge)) expect(Math.abs(Number(v))).toBeLessThanOrEqual(0.6);
+  });
+
+  it("changes what the engine builds without freezing it", async () => {
+    const { composeAll } = await import("../src/compile/compose.ts");
+    const seed = segmentEssay("Rooms\n\nThe smoke detector in room 214 had been disconnected.", {
+      projectId: "p",
+    });
+    const base = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!base.ok) throw new Error("invalid");
+    const before = must(composeAll(base.ir)[0]);
+
+    const directed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!directed.ok) throw new Error("invalid");
+    directed.ir.overrides.push({
+      sceneId: must(directed.ir.scenes[0]).sceneId,
+      type: "constrain",
+      styleNudge: { abstraction: 0.4, experimentalism: 0.3, restraint: -0.2 },
+    });
+    const after = must(composeAll(directed.ir)[0]);
+
+    // The engine still composed it — it is not pinned.
+    expect(after.override?.type).not.toBe("pin");
+    expect(after.program).not.toBe(null);
+    // And the direction reached the picture.
+    expect(after.nodes.map((n) => n.primitiveId).join("→")).not.toBe(
+      before.nodes.map((n) => n.primitiveId).join("→"),
+    );
+  });
+});
