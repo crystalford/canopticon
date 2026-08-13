@@ -5,6 +5,11 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  # GitHub deliberately does not fire workflow triggers for events created
+  # with an app token, so a pull request opened by tooling gets no CI at
+  # all — and "CI is green" then means "CI never ran", which is the more
+  # dangerous of the two states because it looks identical on the branch.
+  workflow_dispatch:
 
 jobs:
   check:
