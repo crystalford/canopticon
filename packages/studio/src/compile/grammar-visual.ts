@@ -65,7 +65,15 @@ export interface Material {
   density: number;
   energy: number;
   abstraction: number;
+  /** How loud the film's typography is. Read by the scene graph to decide
+   *  whether words appear as a second element beside a form. */
+  typography: number;
   seed: number;
+  /** Set by the SCENE GRAPH per element. When present, PLACE uses it
+   *  instead of deriving one — the composition has already decided where
+   *  this element sits and how much of the frame it takes, and a second
+   *  opinion here would fight it. */
+  place?: { scale: number; x: number; y: number; crop: number };
 }
 
 const n = (primitiveId: string, params: PlannedNode["params"], reason: string): PlannedNode => ({
@@ -220,6 +228,15 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
    * centre, density crops it — so this is a compositional decision rather
    * than a parameter someone picked. */
   PLACE: (m) => {
+    if (m.place) {
+      return [
+        n(
+          "place",
+          { scale: m.place.scale, x: m.place.x, y: m.place.y, crop: m.place.crop },
+          "placed by the composition",
+        ),
+      ];
+    }
     const many = m.count !== null && m.count > 12;
     // A counted multitude is small against a big field; a single named
     // thing is allowed to dominate. Deterministic per beat.
@@ -309,6 +326,14 @@ const RECIPE: Record<Mode, Op[]> = {
  *  The abstraction curve decides how many operations get used — a
  *  restrained frame is one operation, an abstract one stacks all three.
  *  Nothing here consults the noun. */
+/** Realise an explicit op list. The scene graph builds each element from
+ *  its own operations, so it needs this rather than a mode. */
+export function realiseOps(ops: Op[], m: Material): PlannedNode[] {
+  const out: PlannedNode[] = [];
+  for (const op of ops) out.push(...OPS[op](m));
+  return out;
+}
+
 export function realise(mode: Mode, m: Material): PlannedNode[] {
   const out: PlannedNode[] = [];
   for (const op of opsFor(mode, m)) out.push(...OPS[op](m));
