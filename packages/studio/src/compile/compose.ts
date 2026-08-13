@@ -39,7 +39,8 @@ import {
   scenePosition,
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
-import { groundSatisfies, planGround } from "./ground.ts";
+import { buildGraph, describeGraph, flattenGraph, flattenGround, graphDepth } from "./graph.ts";
+import { planGround } from "./ground.ts";
 import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
@@ -48,12 +49,10 @@ import {
   type Plane,
   type ScenePlan,
   applyPlane,
-  backgroundPlanes,
   isComposite,
   isUnnoticed,
   planScene,
 } from "./scene-plan.ts";
-import { type BuiltStack, buildStack, flattenGround, stackCompositor } from "./stack.ts";
 import {
   type DetectedSubject,
   detectSubjects,
@@ -623,137 +622,6 @@ export function composeScene(
     notes.push(`pinned — composition bypassed${override.note ? ` (${override.note})` : ""}`);
   }
 
-  // ── the second input ───────────────────────────────────────────────
-  //
-  // Decided against the FINAL chain, after the restraint ceiling, the cost
-  // ceiling and the validity sweep have all had their say — so a ground is
-  // never the reason a scene blows a budget, and never sits under a chain
-  // the engine was about to drop a primitive from.
-  //
-  // Appended as a node like any other, so it hashes, caches, and appears
-  // in the Compile view exactly like the rest of the chain. The one thing
-  // that is different is that it carries a chain of its own.
-  // A SETTING PLANE IS A GROUND. The mechanism already existed — a
-  // compositor's second input, a chain of its own on the same clock — and
-  // had no planner that could say "the city goes behind the people". It
-  // does now, so the setting is composited UNDER the subject rather than
-  // competing with it for the one slot a scene used to have.
-  //
-  // AND THERE IS MORE THAN ONE OF THEM. A scene plan that found a SETTING
-  // *and* a COUNTERPOINT had to pick one for the single slot and discard
-  // the other — the one-winner failure the plan exists to end, moved down
-  // a layer. `backgroundPlanes` returns all of them, far to near, and
-  // `buildStack` nests them into one ground. See stack.ts.
-  const background =
-    scenePlan && isComposite(scenePlan) ? backgroundPlanes(scenePlan) : ([] as Plane[]);
-  const settingPlane = background[background.length - 1];
-
-  const ground = planGround({
-    chain,
-    tier: rung.tier,
-    density,
-    motionEnergy: state.values.motionEnergy ?? 0.5,
-    experimentalism,
-    restraint,
-    contested: Boolean(reading?.contested),
-    pinned: override?.type === "pin",
-    sceneIndex,
-    budgetMs: MAX_CHAIN_MS - chainCost(chain),
-  });
-  // THE SETTING TAKES THE GROUND SLOT. When the scene plan found a place,
-  // the second input should be THAT PLACE — not the abstract field the
-  // generic planner would otherwise reach for. This is the line that turns
-  // "city was detected" into "city is painted".
-  // Only when the compositor can actually take a picture. A field
-  // compositor reads a field's NUMBERS, so handing it a painted plate
-  // would type-check nowhere and composite nothing — `groundSatisfies`
-  // catches it, and refusing here keeps the scene's real ground instead of
-  // trading it for a refusal.
-  const baseParams = {
-    density: round3(density),
-    energy: round3(state.values.motionEnergy ?? 0),
-    abstraction: round3(abstraction),
-  };
-  let groundNodes: ComposedNode[] | null = null;
-  let stack: BuiltStack | null = null;
-  if (ground && settingPlane && groundSatisfies(ground.compositor, ["plate_scene"]) === true) {
-    stack =
-      composedBeat && composedStyle
-        ? buildStack(
-            background,
-            composedBeat,
-            composedStyle,
-            sceneIndex,
-            baseParams,
-            MAX_CHAIN_MS - chainCost(chain),
-          )
-        : null;
-    if (stack) {
-      // THE WHOLE BACKGROUND, NOT ONE PRIMITIVE OF IT. The generic
-      // planner still decides WHETHER this scene gets a second input —
-      // its three refusals (a pin, a contested line, a restrained film)
-      // are unchanged and are the reason this sits inside its guard. What
-      // it no longer decides is WHAT that input is, once the plan has an
-      // answer.
-      groundNodes = stack.ground;
-      // Forced to the plain compositor. A depth stack means "this is
-      // behind that", and `layer_blend` or `layer_mask` in the outer slot
-      // would say something else — a blend mode is a claim and a mask is
-      // redaction. Only reached when the guard above already established
-      // the compositor takes a picture.
-      const outer = stackCompositor(settingPlane, baseParams);
-      ground.compositor = outer.primitiveId;
-      ground.ground = stack.ground.map((n) => n.primitiveId);
-      for (const [k, v] of Object.entries(outer.params)) {
-        if (typeof v === "number") ground.params[k] = v;
-      }
-      chain.push(ground.compositor);
-      reasons.set(
-        ground.compositor,
-        `the background sits behind the subject — ${stack.layers.length} plane${
-          stack.layers.length === 1 ? "" : "s"
-        }`,
-      );
-      notes.push(
-        `stacked — ${stack.layers
-          .map(
-            (l) =>
-              `${l.role.toLowerCase()}${l.from ? ` (${l.from})` : ""} @${l.depth.toFixed(2)}×${l.weight.toFixed(2)}`,
-          )
-          .join(" ‹ ")} ‹ subject`,
-      );
-      if (stack.dropped > 0) {
-        notes.push(
-          `${stack.dropped} background plane${stack.dropped === 1 ? "" : "s"} dropped — the frame budget could not pay for the full depth`,
-        );
-      }
-    }
-  }
-  if (ground && !stack) {
-    const satisfied = groundSatisfies(ground.compositor, ground.ground);
-    if (satisfied !== true) {
-      // A ground that does not structurally satisfy its compositor would
-      // composite nothing and look like it worked. Refused loudly.
-      notes.push(`no ground — ${satisfied}`);
-    } else {
-      groundNodes = ground.ground.map((primitiveId, i) => ({
-        primitiveId,
-        params: { ...baseParams },
-        // Seeded off the SCENE and its position in the ground, in a range
-        // that cannot collide with the subject chain's seeds — two layers
-        // seeded identically would move in lockstep and read as one.
-        seed: 7000 + sceneIndex * 17 + i,
-        costMsPerFrame: PRIMITIVES[primitiveId]?.estimatedCostMsPerFrame ?? 4,
-        reason: `ground — ${ground.reason}`,
-      }));
-      chain.push(ground.compositor);
-      reasons.set(ground.compositor, ground.reason);
-      notes.push(
-        `${ground.compositor} over ${ground.ground.join(" → ")} — two inputs, not two stacked frames`,
-      );
-    }
-  }
-
   // THE SCENE'S OWN WORDS.
   //
   // Eleven primitives set type from a string parameter and the engine set
@@ -764,7 +632,7 @@ export function composeScene(
   // for six minutes. It typechecked, it cached, and every number in the
   // Compile view was correct about it.
 
-  const nodes: ComposedNode[] = chain.map((primitiveId, i) => {
+  const subjectNodes: ComposedNode[] = chain.map((primitiveId, i) => {
     const spec = PRIMITIVES[primitiveId];
     const params: Record<string, number | string> = {
       density: round3(density),
@@ -789,9 +657,6 @@ export function composeScene(
     if (override?.type === "pin" && override.params) {
       Object.assign(params, override.params);
     }
-    if (ground && groundNodes && primitiveId === ground.compositor) {
-      Object.assign(params, ground.params);
-    }
     return {
       primitiveId,
       params,
@@ -800,15 +665,72 @@ export function composeScene(
       seed: 1000 + sceneIndex * 17 + i,
       costMsPerFrame: spec?.estimatedCostMsPerFrame ?? 4,
       reason: reasons.get(primitiveId) ?? "composed",
-      // The compositor carries its ground. Everything else carries none —
-      // `ground` being absent rather than empty is what lets the executor
-      // tell a one-input node from a two-input node with nothing on its
-      // second side.
-      ...(ground && groundNodes && primitiveId === ground.compositor
-        ? { ground: groundNodes }
-        : {}),
     };
   });
+
+  // ── THE SCENE GRAPH ────────────────────────────────────────────────
+  //
+  // Assembled LAST, against the final subject program — after the
+  // restraint ceiling, the cost ceiling and the validity sweep have all
+  // had their say, so no layer is ever the reason a scene blows a budget
+  // and none sits under a chain the engine was about to prune.
+  //
+  // `ground` is no longer a slot. There is a tree of semantic nodes whose
+  // children are ordinary visual programs, and the type system decides
+  // which of them can interact with which. `planGround` survives, demoted
+  // from gatekeeper to ATMOSPHERE proposer — the film's own texture, one
+  // child among others. That demotion is a real fix: it used to be the
+  // gate on ALL layering, so a restrained film lost the city the sentence
+  // named, and a decision about decorative texture silently decided a
+  // question about depiction.
+  const baseParams = {
+    density: round3(density),
+    energy: round3(state.values.motionEnergy ?? 0),
+    abstraction: round3(abstraction),
+  };
+  const atmosphere = planGround({
+    chain,
+    tier: rung.tier,
+    density,
+    motionEnergy: state.values.motionEnergy ?? 0.5,
+    experimentalism,
+    restraint,
+    contested: Boolean(reading?.contested),
+    pinned: override?.type === "pin",
+    sceneIndex,
+    budgetMs: MAX_CHAIN_MS - chainCost(chain),
+  });
+  const planes = scenePlan && isComposite(scenePlan) ? scenePlan.planes : ([] as Plane[]);
+  // A PIN BYPASSES COMPOSITION ENTIRELY — precedence 1. Layering under a
+  // pinned chain would be the engine editing a director's decision, so the
+  // graph is not built at all rather than built and discarded.
+  const graph =
+    override?.type === "pin" || !composedBeat || !composedStyle
+      ? null
+      : buildGraph({
+          planes,
+          beat: composedBeat,
+          style: composedStyle,
+          sceneIndex,
+          base: baseParams,
+          subject: subjectNodes,
+          atmosphere: atmosphere
+            ? { program: atmosphere.ground, params: atmosphere.params, why: atmosphere.reason }
+            : null,
+          budgetMs: MAX_CHAIN_MS - chainCost(chain),
+        });
+  const flat = graph ? flattenGraph(graph.root, baseParams) : null;
+  const nodes: ComposedNode[] = flat && flat.chain.length > 0 ? flat.chain : subjectNodes;
+
+  if (graph && flat && graph.root.children.length > 1) {
+    notes.push(`graph — ${describeGraph(graph.root)}, ${graphDepth(graph.root)} levels`);
+    for (const d of graph.dropped) {
+      notes.push(`${d.role.toLowerCase()} dropped — ${d.why}`);
+    }
+    for (const r of flat.refused) {
+      notes.push(`${r.role.toLowerCase()} refused — ${r.why}`);
+    }
+  }
 
   // A CHAIN OF SOURCES IS A STACK, NOT A CHAIN.
   //
@@ -848,13 +770,11 @@ export function composeScene(
     // own compositors' second inputs, and counting one level would have
     // reintroduced exactly the arithmetic this comment warns about — a
     // three-plane scene reporting the cost of a one-plane one.
-    costMsPerFrame:
-      chainCost(chain) +
-      chainCost(flattenGround(groundNodes ?? undefined).map((n) => n.primitiveId)),
-    determinism: chainDeterminism([
-      ...chain,
-      ...flattenGround(groundNodes ?? undefined).map((n) => n.primitiveId),
-    ]),
+    // FLATTENED, because the graph nests. Counting one level would have
+    // made a three-layer scene report the cost of a one-layer one —
+    // standing rule 11, and the reason `flattenGround` exists at all.
+    costMsPerFrame: chainCost(flattenGround(nodes).map((n) => n.primitiveId)),
+    determinism: chainDeterminism(flattenGround(nodes).map((n) => n.primitiveId)),
     phrase: { text: phrase.text, source: phrase.source },
     program: program
       ? {

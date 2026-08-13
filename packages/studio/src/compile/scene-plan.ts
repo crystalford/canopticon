@@ -420,25 +420,6 @@ export function isComposite(plan: ScenePlan): boolean {
   return plan.planes.length >= 2;
 }
 
-/** THE PLANES THAT SIT BEHIND THE SUBJECT, ordered far to near.
- *
- *  This is the list an N-plane compositor walks. Everything strictly
- *  deeper than the subject is background; the subject itself is the main
- *  chain, and EDITORIAL is nearest and arrives through the type
- *  construction rather than through the stack.
- *
- *  Sorted by depth and not by role, because depth is the thing being
- *  claimed. Two roles at the same depth keep their planning order, which
- *  is stable because `planScene` pushes in a fixed sequence — the sort is
- *  deliberately not a tiebreak on anything the director could move. */
-export function backgroundPlanes(plan: ScenePlan): Plane[] {
-  const subject = plan.planes.find((p) => p.role === "SUBJECT");
-  const floor = subject ? subject.depth : 1;
-  return plan.planes
-    .filter((p) => p.role !== "SUBJECT" && p.role !== "EDITORIAL" && p.depth < floor)
-    .sort((a, b) => a.depth - b.depth);
-}
-
 /** WEIGHT AND DEPTH, APPLIED TO A BUILT NODE'S PARAMETERS.
  *
  *  The capability map found `plane.weight` and `plane.depth` computed and
@@ -460,6 +441,24 @@ export function applyPlane(
   primitiveId: string,
   params: Record<string, number | string>,
   plane: Plane,
+  /** The node's own seed, when it has one.
+   *
+   *  DETERMINISTIC IS NOT THE SAME AS REPETITIVE, and conflating them is
+   *  a real risk for a compiler built this way. `population 0.7` should
+   *  not mean "exactly 47 cars" — it should mean a world with a
+   *  particular population CHARACTER, and which cars, at which density,
+   *  is a realisation of it.
+   *
+   *  So the population-derived numbers carry a seeded jitter. Same
+   *  script, same direction, same seed always gives the same film — the
+   *  standing determinism rule is untouched, and there is still no
+   *  `Math.random()` anywhere. But the same semantic instruction under a
+   *  different seed gives a different valid realisation, which is the
+   *  procedural equivalent of documentary texture.
+   *
+   *  Omitted, the jitter is exactly 1 — so every caller that does not opt
+   *  in gets the arithmetic it always got. */
+  seed?: number,
 ): Record<string, number | string> {
   const out = { ...params };
   // Centred on 0.5 so a mid-weight plane is unchanged and the mapping is
@@ -475,7 +474,12 @@ export function applyPlane(
   // identity on every role but SETTING and COUNTERPOINT, and 0.5 is
   // identity everywhere.
   const worldly = plane.role === "SETTING" || plane.role === "COUNTERPOINT";
-  const crowd = worldly ? 0.25 + clamp01(plane.population) * 1.5 : 1; // 0.25 … 1.75
+  // ±18% around the character the dial asked for. Wide enough that two
+  // scenes at the same population do not look stamped from one plate,
+  // narrow enough that 0.1 and 0.9 never overlap — a jitter that can
+  // reach across the dial is not texture, it is noise standing in for a
+  // decision.
+  const crowd = worldly ? (0.25 + clamp01(plane.population) * 1.5) * jitter(seed, 0.18) : 1;
 
   switch (primitiveId) {
     case "creature_chain":
@@ -532,4 +536,20 @@ export function applyPlane(
 
 function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
+}
+
+/** A multiplier around 1, derived from a seed. Exactly 1 when there is no
+ *  seed, so opting out is free and nothing silently moves.
+ *
+ *  An integer hash rather than any PRNG, because standing rule 4 is not
+ *  "seed your randomness", it is that everything stochastic is a pure
+ *  function of its seed. This one is: same seed, same number, forever, in
+ *  any runtime. */
+function jitter(seed: number | undefined, amount: number): number {
+  if (seed === undefined) return 1;
+  let h = (seed ^ 0x9e3779b9) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b) >>> 0;
+  h = (h ^ (h >>> 16)) >>> 0;
+  return 1 + (h / 0xffffffff - 0.5) * 2 * amount;
 }

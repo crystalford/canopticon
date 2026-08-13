@@ -145,11 +145,15 @@ them.
 |---|---|---|
 | Two-input compositing | **EXISTS** | Five compositors; a ground is a real second chain |
 | Ground type-checking | **EXISTS** | `groundSatisfies` refuses a plate to a field compositor |
-| Ordered N-plane stack | **EXISTS** | `stack.ts` — nested grounds, far to near. Cost, hash, film plan and usage all recurse |
+| Ordered N-plane stack | **EXISTS** | `graph.ts` — nested grounds, far to near. Cost, hash, film plan and usage all recurse |
 | Depth from the plan | **EXISTS** | `applyPlane` writes `parallax_layers.depth` from `plane.depth` — see the SCENE PLAN block |
 | Foreground / midground / background as roles | **EXISTS** | The stack's order IS the depth order, and it is semantic — a setting is behind its subject because that is what a setting is |
 | A stack the frame budget cannot pay for | **EXISTS** | Drops the deepest layer and says how many, rather than trimming silently |
-| Two second inputs on one chain | **MISSING** | A scene whose generic ground is a FIELD cannot also show its setting — one ground slot on the main chain, and `compose.ts` keys its params by primitive id |
+| Two second inputs on one chain | **EXISTS** | A scene now carries a setting, a counterpoint AND a field at once. Beat 3 of the test paragraph is `field_displace ⌞ gravity_field` over a stacked world |
+| `ground` as a privileged concept | **RETIRED** | A scene is a typed tree. `planGround` survives demoted to ATMOSPHERE proposer — one child among others, not the gate all layering had to pass |
+| Typed interaction between nodes | **EXISTS** | A node's OUTPUT decides how it composes. IMAGE layers; FIELD inverts onto `field_displace` because it must be read as numbers |
+| Recursive containment | **PARTIAL** | `SceneNode.children` nests and `flattenGraph` recurses correctly, asserted three levels deep. No construction yet POPULATES a child's children |
+| Controlled stochasticity | **EXISTS** | Population is a character, not a count. Seeded ±18% jitter, no `Math.random()`, and the jitter never crosses the dial |
 
 ## CONSTRUCTIONS · BEHAVIOURS · MATERIAL
 

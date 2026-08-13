@@ -18,6 +18,7 @@ import {
   type Style,
   constructPrograms,
 } from "../src/compile/construct.ts";
+import { buildGraph, flattenGraph, graphShape } from "../src/compile/graph.ts";
 import { hashSceneNodes } from "../src/compile/hash.ts";
 import {
   type DirectorIntent,
@@ -25,9 +26,8 @@ import {
   describeIntent,
   readIntent,
 } from "../src/compile/intent.ts";
-import { isComposite, planScene } from "../src/compile/scene-plan.ts";
+import { applyPlane, isComposite, planScene } from "../src/compile/scene-plan.ts";
 import { segmentEssay } from "../src/compile/segment.ts";
-import { buildStack } from "../src/compile/stack.ts";
 import { detectSubjects } from "../src/compile/subject.ts";
 import type { VisualLanguage } from "../src/ir/schema.ts";
 import { parseIR } from "../src/ir/schema.ts";
@@ -1025,7 +1025,7 @@ describe("the proposition test — does it change what enters the frame", () => 
     // and nothing more; the stack line is the same claim with the
     // arithmetic attached, so a plane that reached the report without
     // reaching a depth would now fail here.
-    expect(scene.notes.join(" ")).toMatch(/stacked —.*counterpoint @0\.30×0\.70/);
+    expect(scene.notes.join(" ")).toMatch(/graph —.*counterpoint @0\.30×0\.70/);
   });
 });
 
@@ -1121,24 +1121,34 @@ describe("N-plane composition", () => {
     ];
     const beat = beatFor("At first nobody noticed.", { index: 1 });
     const style = styleFor("documentary");
-    const rich = must(buildStack(planes, beat, style, 1, {}, 999));
-    expect(rich.layers.length).toBe(2);
-    expect(rich.dropped).toBe(0);
-    // One layer's worth of budget. The near layer survives — the film
-    // keeps the backdrop its subject stands against and loses the city
-    // behind it, rather than the other way round.
-    const poor = must(buildStack(planes, beat, style, 1, {}, 1));
-    expect(poor.layers.length).toBe(1);
-    expect(must(poor.layers[0]).role).toBe("COUNTERPOINT");
-    expect(poor.dropped).toBe(1);
+    const args = { planes, beat, style, sceneIndex: 1, base: {}, subject: [], atmosphere: null };
+    const rich = buildGraph({ ...args, budgetMs: 999 });
+    expect(graphShape(rich.root)).toBe("SETTING ‹ COUNTERPOINT ‹ SUBJECT");
+    expect(rich.dropped).toEqual([]);
+    // Exactly one layer's worth of budget. The NEAR layer survives — the
+    // film keeps the backdrop its subject stands against and loses the
+    // city behind it, rather than the other way round.
+    const one =
+      (PRIMITIVES.plate_scene?.estimatedCostMsPerFrame ?? 4) +
+      (PRIMITIVES.layer_over?.estimatedCostMsPerFrame ?? 4);
+    const poor = buildGraph({ ...args, budgetMs: one });
+    expect(graphShape(poor.root)).toBe("COUNTERPOINT ‹ SUBJECT");
+    expect(poor.dropped).toEqual([{ role: "SETTING", why: "frame budget" }]);
+    // And a budget that cannot pay for any depth loses all of it, and
+    // reports every layer it lost rather than quietly rendering one.
+    const broke = buildGraph({ ...args, budgetMs: 1 });
+    expect(graphShape(broke.root)).toBe("SUBJECT");
+    expect(broke.dropped.length).toBe(2);
   });
 
-  it("a single-plane scene still compiles as one chain", () => {
-    // Nothing to stack, nothing stacked. The conservative case has to stay
-    // conservative or every scene pays for a composite it does not use.
-    const scenes = scenesOf("A Note\n\nThe rule was written down.");
-    const scene = must(scenes[0]);
-    expect(scene.notes.join(" ")).not.toMatch(/stacked —/);
+  it("a sentence naming one thing gets no background planes", () => {
+    // The conservative case has to stay conservative or every scene pays
+    // for a composite it does not use. A film's own ATMOSPHERE may still
+    // appear — that is the texture the curve asked for, not a role the
+    // sentence implied — but nothing SEMANTIC is invented to layer.
+    const scene = must(scenesOf("A Note\n\nThe rule was written down.")[0]);
+    const note = scene.notes.find((n) => n.startsWith("graph —")) ?? "";
+    expect(note).not.toMatch(/setting|counterpoint|metaphor/);
   });
 });
 
@@ -1298,8 +1308,12 @@ describe("the director model — expression changes, meaning does not", () => {
     expect(subj.subjectScale).toBeGreaterThan(env.subjectScale);
     expect(subj.cars).toBeLessThan(env.cars);
     // And the redistribution is visible in the plan, not only in pixels.
-    expect(must(env.scene.notes.find((n) => n.startsWith("stacked —")))).toMatch(/×0\.9/);
-    expect(must(subj.scene.notes.find((n) => n.startsWith("stacked —")))).toMatch(/×0\.[12]/);
+    expect(must(env.scene.notes.find((n) => n.startsWith("graph —")))).toMatch(
+      /counterpoint @0\.30×0\.9/,
+    );
+    expect(must(subj.scene.notes.find((n) => n.startsWith("graph —")))).toMatch(
+      /counterpoint @0\.30×0\.4/,
+    );
   });
 
   it("the proposition and the roles are invariant across all nine", () => {
@@ -1343,5 +1357,203 @@ describe("the director model — expression changes, meaning does not", () => {
     expect(must(busy.style.population)).toBeGreaterThan(0);
     expect(must(empty.style.attention)).toBeGreaterThan(0);
     expect(must(busy.style.attention)).toBeLessThan(0);
+  });
+});
+
+describe("the scene graph — a scene is a typed tree, not a chain plus a slot", () => {
+  const CITY =
+    "The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.";
+  function scenesOfGraph(essay: string) {
+    const seed = segmentEssay(essay, { projectId: "p" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+    return composeAll(parsed.ir);
+  }
+  function allNodes(scene: { nodes: { primitiveId: string; ground?: unknown }[] }): string[] {
+    const out: string[] = [];
+    const walk = (ns: { primitiveId: string; ground?: unknown }[]) => {
+      for (const n of ns) {
+        out.push(n.primitiveId);
+        walk((n.ground ?? []) as typeof ns);
+      }
+    };
+    walk(scene.nodes);
+    return out;
+  }
+
+  it("TEST 1 — coexistence: city AND ordinary world AND insects, at once", () => {
+    // Not "choose city or insects". The whole reason the graph exists.
+    const scene = must(scenesOfGraph(CITY)[1]);
+    const note = must(scene.notes.find((n) => n.startsWith("graph —")));
+    expect(note).toMatch(/setting \(city\)/);
+    expect(note).toMatch(/counterpoint/);
+    expect(note).toMatch(/subject \(insects\)/);
+    const ids = allNodes(scene);
+    // Two separate worlds painted, and the anomaly built, in one frame.
+    expect(ids.filter((id) => id === "plate_scene").length).toBe(2);
+    expect(ids).toContain("creature_chain");
+  });
+
+  it("TEST 2 — nesting: a node can contain a node, all the way down", () => {
+    // The planner does not yet populate children of children — no
+    // construction says "a street inside a city" — so this asserts the
+    // ARCHITECTURE, which is what was asked for. A hand-built three-level
+    // tree must survive flattening with every level present and the paint
+    // order intact: deepest at the back, grandchild at the front.
+    const leaf = (id: string, seed: number) => [
+      { primitiveId: id, params: {}, seed, costMsPerFrame: 4, reason: id },
+    ];
+    const node = (role: string, depth: number, program: string, kids: unknown[]) => ({
+      role,
+      from: null,
+      depth,
+      weight: 0.5,
+      program: leaf(program, Math.round(depth * 100)),
+      children: kids,
+      compositor: "layer_over",
+      inverted: false,
+      why: role,
+    });
+    const tree = node("SCENE", 0, "plate_scene", [
+      node("SETTING", 0.2, "cellular", [node("SUBJECT", 0.6, "creature_chain", [])]),
+    ]);
+    // biome-ignore lint/suspicious/noExplicitAny: hand-built structural fixture
+    const flat = flattenGraph(tree as any, {});
+    const ids: string[] = [];
+    const walk = (ns: { primitiveId: string; ground?: unknown }[]) => {
+      for (const n of ns) {
+        ids.push(n.primitiveId);
+        walk((n.ground ?? []) as typeof ns);
+      }
+    };
+    walk(flat.chain);
+    // Three levels, none lost.
+    expect(ids).toContain("plate_scene");
+    expect(ids).toContain("cellular");
+    expect(ids).toContain("creature_chain");
+    // Paint order: the GRANDCHILD is the frontmost upstream, and the
+    // root's own program is the ground of the outermost compositor —
+    // deepest at the back, which is what containment means.
+    expect(must(flat.chain[0]).primitiveId).toBe("creature_chain");
+    const outer = must(flat.chain[flat.chain.length - 1]);
+    expect(must(outer.ground).map((g) => g.primitiveId)).toEqual(["plate_scene"]);
+  });
+
+  it("sibling planes nest their grounds — depth in the wire format, not only the tree", () => {
+    // The real scene, not a fixture. Three background layers serialise as
+    // grounds inside grounds, which is what the executor recurses into.
+    const scene = must(scenesOfGraph(CITY)[1]);
+    const depth = (ns: { ground?: unknown }[]): number =>
+      ns.length === 0 ? 0 : 1 + Math.max(...ns.map((n) => depth((n.ground ?? []) as typeof ns)));
+    expect(depth(scene.nodes)).toBeGreaterThanOrEqual(3);
+  });
+
+  it("TEST 3 — the TYPE decides how two things interact, not the slot's name", () => {
+    const scenes = scenesOfGraph(CITY);
+    // A picture-emitting atmosphere is layered. A FIELD-emitting one is
+    // INVERTED onto a field compositor, because field_displace reads a
+    // field's numbers and a picture of a field would do nothing. Same
+    // graph position, different composition, decided from `emits()`.
+    const layered = must(scenes[1]);
+    const displaced = must(scenes[2]);
+    expect(allNodes(layered)).toContain("layer_over");
+    expect(allNodes(displaced)).toContain("field_displace");
+    expect(allNodes(displaced)).toContain("gravity_field");
+    // And the field really is on the SECOND input, not painted over.
+    const comp = must(displaced.nodes.find((n) => n.primitiveId === "field_displace"));
+    expect(must(comp.ground).map((g) => g.primitiveId)).toEqual(["gravity_field"]);
+  });
+
+  it("a type that cannot compose is refused, and the rest of the scene stands", () => {
+    const leaf = (id: string, seed: number) => [
+      { primitiveId: id, params: {}, seed, costMsPerFrame: 4, reason: id },
+    ];
+    const tree = {
+      role: "SCENE",
+      from: null,
+      depth: 0,
+      weight: 1,
+      program: [],
+      compositor: "layer_over",
+      inverted: false,
+      why: "",
+      children: [
+        {
+          role: "SETTING",
+          from: null,
+          depth: 0.2,
+          weight: 0.5,
+          program: leaf("plate_scene", 1),
+          children: [],
+          compositor: "layer_over",
+          inverted: false,
+          why: "",
+        },
+        {
+          // Declares a field compositor over a ground that paints a
+          // picture. Refused rather than composited into nothing.
+          role: "ATMOSPHERE",
+          from: null,
+          depth: 0.9,
+          weight: 0.5,
+          program: leaf("plate_scene", 2),
+          children: [],
+          compositor: "field_displace",
+          inverted: true,
+          why: "",
+        },
+      ],
+    };
+    // biome-ignore lint/suspicious/noExplicitAny: hand-built structural fixture
+    const flat = flattenGraph(tree as any, {});
+    expect(flat.refused.length).toBe(1);
+    expect(must(flat.refused[0]).role).toBe("ATMOSPHERE");
+    expect(flat.chain.map((n) => n.primitiveId)).toEqual(["plate_scene"]);
+  });
+
+  it("population is a character, not a count — the seed picks the realisation", () => {
+    // Deterministic is not the same as repetitive. Same seed, same world,
+    // always; and two layers at the same population are two streets
+    // rather than one street rendered twice.
+    const plane = {
+      role: "SETTING" as const,
+      construction: "space",
+      from: "city",
+      depth: 0.15,
+      weight: 0.5,
+      population: 0.7,
+    };
+    const params = { cars: 20 };
+    const a = applyPlane("plate_scene", params, plane, 101);
+    const b = applyPlane("plate_scene", params, plane, 202);
+    expect(a.cars).not.toBe(b.cars);
+    expect(applyPlane("plate_scene", params, plane, 101).cars).toBe(a.cars);
+    // But the jitter never crosses the dial: a sparse world stays sparser
+    // than a dense one whatever seed either of them draws.
+    const sparse = { ...plane, population: 0.1 };
+    const dense = { ...plane, population: 0.9 };
+    for (const s of [1, 2, 3, 7, 11, 101, 999]) {
+      expect(Number(applyPlane("plate_scene", params, sparse, s).cars)).toBeLessThan(
+        Number(applyPlane("plate_scene", params, dense, s).cars),
+      );
+    }
+    // And opting out is exactly free — no seed, no jitter.
+    expect(applyPlane("plate_scene", params, plane).cars).toBe(
+      Math.round(20 * (0.6 + 0.5 * 0.8) * (0.25 + 0.7 * 1.5)),
+    );
+  });
+
+  it("a pinned scene gets no graph at all", () => {
+    // Precedence 1. Layering under a pinned chain would be the engine
+    // editing a decision the director already made.
+    const seed = segmentEssay(CITY, { projectId: "p" });
+    const raw = JSON.parse(JSON.stringify(seed.ir));
+    const target = must(raw.scenes[1]).sceneId;
+    raw.overrides = [{ sceneId: target, type: "pin", chain: ["plate_scene"] }];
+    const parsed = parseIR(raw);
+    if (!parsed.ok) throw new Error("invalid IR");
+    const scene = must(composeAll(parsed.ir)[1]);
+    expect(scene.nodes.map((n) => n.primitiveId)).toEqual(["plate_scene"]);
+    expect(scene.notes.join(" ")).not.toMatch(/graph —/);
   });
 });

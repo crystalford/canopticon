@@ -177,12 +177,29 @@ Deliberately conservative: a sentence naming one thing gets one plane and
 compiles exactly as before. Paying for a composite to layer one thing over
 nothing is how a render gets slow for no picture.
 
-**The stack is how it reaches the screen** (`stack.ts`). Every plane
-behind the subject becomes a real construction — the same builder the
-subject gets — and they nest, far to near, on compositors' second inputs.
-The rule is one line: *a compositor's ground is the layer behind it, its
-upstream is the layer in front.* Read outward it is a depth order; read
-inward it is a paint order.
+**The graph is how it reaches the screen** (`graph.ts`). A scene is a
+typed TREE, not a chain plus a privileged slot called `ground`. One
+structural rule covers it: *a node's children are composed within it, far
+to near, and the node's own program is the deepest thing inside it.* That
+gives both readings a scene needs — a root with no program of its own,
+whose children ARE the scene; and a node with a program, whose children
+stand in front of it, which is what containment means.
+
+Every child is a real construction built by the same `buildConstruction`
+the subject uses. One construction vocabulary instantiated in different
+semantic roles — never a "background renderer" beside a "subject
+renderer".
+
+**The type decides how two nodes interact, not the slot's name.** A node
+emitting IMAGE layers. A node emitting FIELD *inverts*: its program moves
+to the second input and everything accumulated becomes the upstream,
+because `field_displace` reads a field's NUMBERS and a picture of a field
+would do nothing. That is the difference between a gravity field moving a
+sentence and a gravity field being painted over by one, and it falls out
+of `emits()` rather than being a case anyone wrote by hand.
+
+The tree needs no new executor. It SERIALISES as nested grounds, and the
+executor has recursed since the day grounds were added.
 
 ```
 main chain     [ subject program … , layer_over ]
@@ -379,13 +396,10 @@ code:
   nowhere. And they are not more lexicon.
 - **Transformation across representations.** Named as the missing fourth
   program type; unbuilt.
-- **`ground` as a privileged concept.** The stack is a real tree, but it is
-  still expressed as "a chain, plus a second input that happens to be a
-  chain". The destination is a scene graph where a field, an image, a
-  geometry, a text or another scene are all just nodes wherever the type
-  system permits, and `ground` stops being a special word. The current
-  recursive structure is a transitional architecture and should be read
-  that way.
+- **Recursive containment, populated.** `SceneNode.children` nests and
+  `flattenGraph` recurses correctly — asserted three levels deep — but no
+  construction yet says "a street inside a city". The architecture holds
+  it; the planner does not produce it.
 - **A surreal or systemic reading.** Of the four cinematic arguments the
   capability map lists for one proposition, population and attention reach
   sparse and dense. Surreal needs a construction that can be physically
