@@ -16,7 +16,7 @@ import type { Env } from "../env.ts";
 import { type EditorialIR, parseIR } from "../ir/schema.ts";
 import { all, newId, nowIso, one, run } from "../lib/d1.ts";
 import { ASR_CANDIDATES, readTimings, sequenceAlignments } from "../narrate/align.ts";
-import { loadAlignments, narrateScenes } from "../narrate/index.ts";
+import { loadAlignments, narrateScenes, voiceStates } from "../narrate/index.ts";
 import { TTS_CANDIDATES, describeShape, sniff, toBytes } from "../narrate/tts.ts";
 import { PRIMITIVES } from "../primitives/registry.ts";
 
@@ -96,6 +96,7 @@ app.get("/projects", async (c) => {
     let acts = 0;
     let readings = 0;
     let narrated = 0;
+    let stale = 0;
     if (version) {
       try {
         const ir = JSON.parse(version.ir_json) as {
@@ -106,6 +107,11 @@ app.get("/projects", async (c) => {
         acts = ir.acts?.length ?? 0;
         readings = (ir.scenes ?? []).filter((s) => s.reading).length;
         narrated = (ir.scenes ?? []).filter((s) => s.narration?.voAssetId).length;
+        // STALE IS NOT NARRATED. A scene whose prose was edited after
+        // recording has audio and says the wrong thing, and a row that
+        // reports it as done is the row lying.
+        const parsedIR = parseIR(JSON.parse(version.ir_json));
+        if (parsedIR.ok) stale = voiceStates(parsedIR.ir).stale;
       } catch {
         // A project whose stored IR will not parse is still a project. It
         // lists with zero counts rather than taking the whole page down.
@@ -125,6 +131,7 @@ app.get("/projects", async (c) => {
       acts,
       readings,
       narrated,
+      stale,
       lastCompiledAt: lastRun?.created_at ?? null,
       lastNodes: lastRun?.nodes_total ?? null,
     });

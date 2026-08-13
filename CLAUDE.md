@@ -252,14 +252,24 @@ them, with the wander taken out.
   an operator and a slide, and it is the check to run on any primitive
   before treating it as one.
 - **The Studio's information architecture is still the compiler's, not a
-  director's.** The VISUAL IDEA card and its alternatives are the first
-  piece of the creative loop; a shot-level inspector, a contact sheet, a
-  visual-rhythm view, and fork/compare are not built.
-- **`POST /project/:id/narrate` has not run against the live AI binding.**
-  Both ladders were exercised against fakes covering every response shape
-  Workers AI has been known to return, and `POST /v1/tts/probe` exists to ask
-  production what it actually returns before trusting any of it. Until that
-  probe has run, the model names in `TTS_CANDIDATES` are candidates.
+  director's.** The VISUAL IDEA card with its alternatives, the six
+  director verbs and the OVERVIEW contact sheet are the creative loop's
+  first pieces; a shot-level inspector, a visual-rhythm view, and
+  fork/compare are not built.
+- **Narration has no pauses, no script-vs-spoken split, and no
+  regenerate-this-paragraph.** A scene whose prose moved after recording is
+  correctly reported STALE and re-recorded on the next pass — that is the
+  correctness hole and it is closed — but breath, emphasis and a spoken
+  script that differs deliberately from the written one are not built.
+- **Opening a film fetches its plan once.** Narrate a film you already have
+  open and the Preview will not hear it until you re-open it from FILMS.
+- **Narration is verified live.** `@cf/deepgram/aura-1` speaks — 13.8KB of
+  mp3 for a short line, returned as a **ReadableStream**, which is exactly
+  why the recovery ladder does not assume a shape. `@cf/myshell-ai/melotts`
+  answered "capacity temporarily exceeded", which is why it is second.
+  Both whisper models return real word timings. A 61-scene film narrated
+  end to end: 61 of 61, zero failures, 6m22s of speech. `POST /v1/tts/probe`
+  and the PROBE THE BINDING button in FILMS re-ask that question any time.
 
 ## What's next
 

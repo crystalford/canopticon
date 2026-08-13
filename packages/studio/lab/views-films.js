@@ -122,13 +122,17 @@ function filmRow(p, cur) {
   // Narration is the one thing here that costs money and cannot be undone
   // by dragging a curve, so the row says how much of it exists rather than
   // leaving the operator to press the button and find out.
-  const voice =
-    p.narrated > 0
+  // STALE OUTRANKS NARRATED. A film whose prose moved after recording is
+  // not done — it is saying the wrong words — and the row has to say the
+  // more urgent of the two things rather than the flattering one.
+  const voice = p.stale
+    ? `<span class="tag warn">${p.stale} STALE</span>`
+    : p.narrated > 0
       ? `<span class="tag ${p.narrated >= p.scenes ? "on" : ""}">${
           p.narrated >= p.scenes ? "NARRATED" : `${p.narrated}/${p.scenes} VOICED`
         }</span>`
       : `<span class="tag">SILENT</span>`;
-  const done = p.narrated >= p.scenes && p.scenes > 0;
+  const done = p.narrated >= p.scenes && p.scenes > 0 && !p.stale;
   return `<div class="film ${p.projectId === cur ? "on" : ""}" data-open="${esc(p.projectId)}">
     <div class="film-main">
       <div class="filmtitle">${esc(p.title)}</div>
@@ -141,7 +145,9 @@ function filmRow(p, cur) {
       ${
         done
           ? ""
-          : `<button class="btn" data-act="narrate" data-id="${esc(p.projectId)}">NARRATE</button>`
+          : `<button class="btn" data-act="narrate" data-id="${esc(p.projectId)}">${
+              p.stale ? "RE-RECORD" : "NARRATE"
+            }</button>`
       }
       <button class="btn" data-act="delete" data-id="${esc(p.projectId)}">DELETE</button>
     </div>
@@ -231,7 +237,7 @@ async function filmAction(kind, id) {
 let NARRATE_STOP = false;
 async function narrateFilm(id) {
   const project = PROJECTS.find((p) => p.projectId === id);
-  const outstanding = project ? project.scenes - project.narrated : 0;
+  const outstanding = project ? project.scenes - project.narrated + (project.stale || 0) : 0;
   if (
     outstanding > 0 &&
     !confirm(

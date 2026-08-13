@@ -424,3 +424,58 @@ function fakeEnv(handler: (model: string, input: Record<string, unknown>) => unk
   // fake honest about that rather than stubbing an entire Env.
   return { env: env as unknown as import("../src/env.ts").Env, bucket, rows };
 }
+
+describe("audio that no longer matches its own words", () => {
+  it("calls a scene stale when the prose moved after recording", async () => {
+    const { voiceStates } = await import("../src/narrate/index.ts");
+    const ir = must(parseFixture());
+    const env = fakeEnv((model) =>
+      model.includes("whisper")
+        ? { words: [{ word: "a", start: 0, end: 2 }] }
+        : { audio: toBase64(pad(MP3)) },
+    );
+    const { ir: narrated } = await narrateScenes(env.env, "p", ir, 2, { limit: 1 });
+    expect(voiceStates(narrated).ready).toBe(1);
+    expect(voiceStates(narrated).stale).toBe(0);
+
+    // The author rewrites the sentence. The audio is now wrong — not
+    // missing, wrong — and nothing else in the system would have said so.
+    must(narrated.scenes[0]).narration.text = "A completely different sentence entirely.";
+    const after = voiceStates(narrated);
+    expect(after.stale).toBe(1);
+    expect(after.ready).toBe(0);
+    expect(must(after.scenes[0]).spokenFrom).toBeTruthy();
+  });
+
+  it("re-records a stale scene without being asked twice", async () => {
+    const ir = must(parseFixture());
+    const env = fakeEnv((model) =>
+      model.includes("whisper")
+        ? { words: [{ word: "a", start: 0, end: 2 }] }
+        : { audio: toBase64(pad(MP3)) },
+    );
+    const first = await narrateScenes(env.env, "p", ir, 2, { limit: 1 });
+    must(first.ir.scenes[0]).narration.text = "Rewritten.";
+
+    // "Next un-narrated scene" would skip this forever, and the film would
+    // keep saying the old sentence.
+    const second = await narrateScenes(env.env, "p", first.ir, 3, { limit: 1 });
+    expect(must(second.report.scenes[0]).sceneId).toBe(must(first.ir.scenes[0]).sceneId);
+    expect(second.report.narrated).toBe(1);
+  });
+
+  it("does not call an old asset stale merely for lacking a source text", async () => {
+    const { voiceStates } = await import("../src/narrate/index.ts");
+    const ir = must(parseFixture());
+    const scene = must(ir.scenes[0]);
+    scene.narration.voAssetId = "ast_old";
+    ir.assets.push({
+      assetId: "ast_old",
+      kind: "audio",
+      r2Key: "k",
+      sha256: "x",
+      provenance: { generatedBy: "old", params: {}, createdAt: "2020-01-01" },
+    });
+    expect(voiceStates(ir).stale).toBe(0);
+  });
+});

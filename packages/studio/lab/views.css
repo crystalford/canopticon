@@ -1245,3 +1245,11 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Stale narration — audio that no longer matches its own words. Marked
+ * rather than coloured like an error: it is a state to act on, not a
+ * failure that happened. */
+.tag.warn {
+  border-color: #6b5a2e;
+  color: #d9a441;
+}

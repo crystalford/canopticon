@@ -59,13 +59,72 @@ export interface SceneNarration {
   attempts?: Array<{ model: string; outcome: string; shape?: string }>;
 }
 
+/** THE ONE STATE THE UI DID NOT HAVE.
+ *
+ *  A scene whose prose has been edited since its audio was recorded is not
+ *  narrated and it is not silent. It is WRONG — the film plays a voice
+ *  saying something the frame no longer says, and every other signal in
+ *  the system reports it as done.
+ *
+ *  Checkable exactly, because every audio asset stores the text it was
+ *  spoken from. This is the same discipline as the alignment's sha256: the
+ *  artifact carries what it was made from, so nothing has to be assumed.
+ *
+ *   silent   — never recorded
+ *   ready    — recorded, and the prose still matches
+ *   stale    — recorded from text this scene no longer has
+ *   orphaned — named an asset the IR does not contain */
+export type VoiceState = "silent" | "ready" | "stale" | "orphaned";
+
+export interface SceneVoice {
+  sceneId: string;
+  state: VoiceState;
+  /** What it was spoken from, when that is no longer what the scene says.
+   *  Shown rather than summarised — "stale" is a claim, and the two texts
+   *  side by side are the evidence for it. */
+  spokenFrom?: string;
+}
+
+/** Every scene's voice state, and the film's. */
+export function voiceStates(ir: EditorialIR): {
+  scenes: SceneVoice[];
+  silent: number;
+  ready: number;
+  stale: number;
+} {
+  const scenes: SceneVoice[] = ir.scenes.map((scene) => {
+    const id = scene.narration.voAssetId;
+    if (!id) return { sceneId: scene.sceneId, state: "silent" };
+    const asset = ir.assets.find((a) => a.assetId === id);
+    if (!asset) return { sceneId: scene.sceneId, state: "orphaned" };
+    const spoken = asset.provenance.sourceText;
+    // No recorded source text is an OLD asset, not a mismatched one.
+    // Treated as ready rather than stale: claiming a scene is wrong on the
+    // strength of a missing field would make the state untrustworthy in
+    // the direction that matters.
+    if (spoken === undefined) return { sceneId: scene.sceneId, state: "ready" };
+    if (spoken.trim() === scene.narration.text.trim()) {
+      return { sceneId: scene.sceneId, state: "ready" };
+    }
+    return { sceneId: scene.sceneId, state: "stale", spokenFrom: spoken };
+  });
+  return {
+    scenes,
+    silent: scenes.filter((s) => s.state === "silent").length,
+    ready: scenes.filter((s) => s.state === "ready").length,
+    stale: scenes.filter((s) => s.state === "stale" || s.state === "orphaned").length,
+  };
+}
+
 export interface NarrateReport {
   scenes: SceneNarration[];
   narrated: number;
   failed: number;
-  /** Scenes still without audio after this batch, so the operator knows
-   *  whether to press the button again. */
+  /** Scenes that still need a voice after this batch — silent ones and
+   *  ones whose prose no longer matches what was spoken. */
   remaining: number;
+  silent: number;
+  stale: number;
   ttsCalls: number;
   asrCalls: number;
   /** Total measured narration time across every narrated scene in the
@@ -85,9 +144,16 @@ export async function narrateScenes(
   const next: EditorialIR = JSON.parse(JSON.stringify(ir));
   const limit = Math.max(1, Math.min(24, options.limit ?? DEFAULT_LIMIT));
 
+  // STALE SCENES ARE RE-RECORDED WITHOUT BEING ASKED TWICE.
+  //
+  // "Next un-narrated scene" was the wrong selection: a scene whose prose
+  // was edited after recording has audio, so it was skipped forever, and
+  // the film kept saying the old sentence. A scene that needs a voice is
+  // one that has none OR one whose voice no longer matches its words.
+  const voice = new Map(voiceStates(next).scenes.map((s) => [s.sceneId, s.state]));
   const targets = options.sceneIds?.length
     ? next.scenes.filter((s) => options.sceneIds?.includes(s.sceneId))
-    : next.scenes.filter((s) => options.force || !s.narration.voAssetId);
+    : next.scenes.filter((s) => options.force || voice.get(s.sceneId) !== "ready");
 
   const batch = targets.slice(0, limit);
   const results: SceneNarration[] = [];
@@ -220,7 +286,8 @@ export async function narrateScenes(
   }
 
   const narrated = results.filter((r) => r.status === "narrated").length;
-  const remaining = next.scenes.filter((s) => !s.narration.voAssetId).length;
+  const after = voiceStates(next);
+  const remaining = after.silent + after.stale;
   const narratedMs = results.reduce((a, r) => a + (r.durationMs ?? 0), 0);
 
   return {
@@ -230,6 +297,8 @@ export async function narrateScenes(
       narrated,
       failed: results.filter((r) => r.status === "failed").length,
       remaining,
+      silent: after.silent,
+      stale: after.stale,
       ttsCalls,
       asrCalls,
       narratedMs,
