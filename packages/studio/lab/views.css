@@ -1008,3 +1008,31 @@
   animation: busypulse 1s ease-in-out infinite;
 }
 @keyframes busypulse { 0%, 100% { opacity: .25 } 50% { opacity: 1 } }
+
+/* ── RENDER ─────────────────────────────────────────────
+   A film is something you set up and then render. The progress bar is not
+   decoration: a render with no progress is indistinguishable from a hang,
+   which is exactly what it looked like. */
+#rend {
+  position: fixed; inset: 0; z-index: 9200;
+  background: rgba(8, 9, 10, .82);
+  display: flex; align-items: center; justify-content: center;
+}
+.rend-box { width: min(560px, 92vw); border: 1px solid var(--line2); background: var(--bg2); padding: 22px 24px 20px; }
+.rend-head { font-size: 13px; font-weight: 600; letter-spacing: .02em; margin-bottom: 5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rend-meta { font-size: 9.5px; color: var(--faint); }
+.rend-opts { display: flex; flex-wrap: wrap; gap: 16px; margin: 20px 0 18px; }
+.rend-opts label { font-family: var(--mono); font-size: 8.5px; letter-spacing: .12em;
+  color: var(--faint); display: flex; flex-direction: column; gap: 6px; }
+.rend-opts select {
+  background: var(--bg3); color: var(--ink); border: 1px solid var(--line2);
+  font-family: var(--mono); font-size: 10.5px; padding: 7px 9px; letter-spacing: 0;
+}
+.rend-check { flex-direction: row !important; align-items: center; gap: 7px !important; width: 100%; }
+.rend-check input { accent-color: var(--ember); }
+
+.rend-bar { height: 3px; background: var(--bg4); overflow: hidden; }
+.rend-bar i { display: block; height: 100%; width: 0; background: var(--ember); transition: width .18s linear; }
+.rend-status { font-size: 9.5px; color: var(--ink2); margin-top: 10px; min-height: 15px; line-height: 1.6; }
+.rend-actions { display: flex; gap: 8px; margin-top: 18px; }

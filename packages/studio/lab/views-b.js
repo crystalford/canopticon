@@ -16,7 +16,7 @@ function viewPreview(root) {
        <button class="btn" id="pp">${PLAY.on ? "PAUSE" : "PLAY"}</button>
        <div class="tl" id="tl"><div class="tlfill"></div><div class="tlhead"></div></div>
        <span class="mono tc" id="tc">0:00</span>
-       <button class="btn" id="pvexport">EXPORT</button>
+       <button class="btn primary" id="pvrender">RENDER…</button>
      </div>
    </div>
    <div class="col rcol"><div class="pad" id="pvright"></div></div></div>`;
@@ -121,7 +121,7 @@ function viewPreview(root) {
     PLAY.on = !PLAY.on;
     e.target.textContent = PLAY.on ? "PAUSE" : "PLAY";
   };
-  document.getElementById("pvexport").onclick = () => exportFilm(cv);
+  document.getElementById("pvrender").onclick = openRender;
 
   const tl = document.getElementById("tl");
   tl.innerHTML += run.comps
@@ -137,66 +137,127 @@ function viewPreview(root) {
   drawPvRight(sceneAt(PLAY.t));
 }
 
-/* ── export ───────────────────────────────────────────────────────────
+/* ── RENDER ───────────────────────────────────────────────────────────
  *
- * The film as a file, recorded off the canvas as it plays. Honest about
- * which kind of determinism this is: frames are captured on the browser's
- * clock, so a slow frame is a dropped frame and two exports of the same
- * plan are not byte-identical. That is L2 — the same claim the compiler
- * makes — and not L3, which this system never claims.
+ * A film is something you set up and then render. Adjusting a knob and
+ * watching it redraw live is how a toy behaves, and it also forces every
+ * frame to fit in 16ms, which is what was keeping the chains thin.
+ *
+ * The panel below is the whole difference: choose a size and a frame rate,
+ * press RENDER, watch a progress bar, get a file. The render itself is
+ * driven BY FRAME INDEX (see render.js), so frame 900 at 30fps is exactly
+ * t = 30.0s whatever the machine was doing — which is what makes the L2
+ * determinism claim true at the one moment it matters.
  */
-let RECORDER = null;
-function exportFilm(canvas) {
-  const btn = document.getElementById("pvexport");
-  if (RECORDER) {
-    RECORDER.stop();
-    return;
-  }
-  const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find((m) =>
-    window.MediaRecorder ? MediaRecorder.isTypeSupported(m) : false,
-  );
-  if (!mime) {
-    if (btn) btn.textContent = "NO RECORDER";
-    return;
-  }
-  const chunks = [];
-  RECORDER = new MediaRecorder(canvas.captureStream(30), {
-    mimeType: mime,
-    videoBitsPerSecond: 6_000_000,
-  });
-  RECORDER.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
+function openRender() {
+  if (document.getElementById("rend")) return;
+  const el = document.createElement("div");
+  el.id = "rend";
+  const secs = Math.round(F3.runtime);
+  el.innerHTML = `<div class="rend-box">
+    <div class="rend-head">RENDER · ${esc(F3.title)}</div>
+    <div class="rend-meta mono">${F3.scenes.length} scenes · ${fmt(F3.runtime)} · plan compiled, nothing regenerated</div>
+    <div class="rend-opts">
+      <label>SIZE
+        <select id="r-size">
+          <option value="1280x720">1280 × 720</option>
+          <option value="1920x1080">1920 × 1080</option>
+          <option value="1080x1080">1080 × 1080 · square</option>
+          <option value="1080x1920">1080 × 1920 · vertical</option>
+          <option value="854x480">854 × 480 · draft</option>
+        </select></label>
+      <label>FRAME RATE
+        <select id="r-fps">
+          <option value="30">30 fps</option>
+          <option value="24">24 fps · film</option>
+          <option value="60">60 fps</option>
+        </select></label>
+      <label class="rend-check"><input type="checkbox" id="r-cap" checked> BURN THE SENTENCE INTO THE FRAME</label>
+    </div>
+    <div class="rend-bar"><i id="r-fill"></i></div>
+    <div class="rend-status mono" id="r-status">${secs} seconds of film · every frame drawn at its exact index, none dropped · takes about as long as the film runs</div>
+    <div class="rend-actions">
+      <button class="btn primary" id="r-go">RENDER</button>
+      <button class="btn" id="r-cancel">CLOSE</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+
+  const close = () => {
+    RENDER.cancel = true;
+    el.remove();
   };
-  RECORDER.onstop = () => {
-    const blob = new Blob(chunks, { type: "video/webm" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${(F3.title || "film").replace(/[^\w-]+/g, "-").slice(0, 60)}.webm`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    RECORDER = null;
-    if (btn) btn.textContent = "EXPORT";
+  document.getElementById("r-cancel").onclick = close;
+  el.onclick = (e) => {
+    if (e.target === el && !RENDER.running) close();
   };
 
-  // Always from the top and always the whole film. An export that began
-  // wherever the playhead happened to sit would be a clip labelled as one.
-  PLAY.t = 0;
-  PLAY.on = true;
-  const pp = document.getElementById("pp");
-  if (pp) pp.textContent = "PAUSE";
-  if (btn) btn.textContent = "STOP · RECORDING";
-  RECORDER.start(1000);
-
-  const watch = setInterval(() => {
-    if (!RECORDER) return clearInterval(watch);
-    if (btn) btn.textContent = `STOP · ${fmt(PLAY.t)} / ${fmt(F3.runtime)}`;
-    if (PLAY.t >= F3.runtime - 0.2) {
-      clearInterval(watch);
-      PLAY.on = false;
-      if (pp) pp.textContent = "PLAY";
-      RECORDER.stop();
+  document.getElementById("r-go").onclick = async () => {
+    if (RENDER.running) {
+      RENDER.cancel = true;
+      return;
     }
-  }, 250);
+    const [w, h] = document.getElementById("r-size").value.split("x").map(Number);
+    const fps = Number(document.getElementById("r-fps").value);
+    const captions = document.getElementById("r-cap").checked;
+    const go = document.getElementById("r-go");
+    const fill = document.getElementById("r-fill");
+    const status = document.getElementById("r-status");
+    go.textContent = "STOP";
+
+    const plan = window.STUDIO.plan || planFromFilm();
+    const started = performance.now();
+    try {
+      const out = await renderFilm(plan, {
+        width: w,
+        height: h,
+        fps,
+        captions,
+        onProgress: (p) => {
+          fill.style.width = `${Math.round((p.pct || 0) * 100)}%`;
+          const elapsed = (performance.now() - started) / 1000;
+          // Time REMAINING, from measured rate. A percentage alone does not
+          // tell you whether to wait or go and do something else.
+          const left = p.pct > 0.02 ? (elapsed / p.pct) * (1 - p.pct) : null;
+          status.textContent =
+            `${p.stage} · frame ${p.frame} of ${p.frames}` +
+            (left ? ` · about ${Math.ceil(left)}s left` : "");
+        },
+      });
+      const mb = (out.blob.size / 1e6).toFixed(1);
+      status.textContent = `${mb}MB · ${out.frames} frames · ${
+        out.frameExact ? "frame-exact" : "recorded in real time, NOT frame-exact"
+      } · ${Math.round((performance.now() - started) / 1000)}s`;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(out.blob);
+      a.download = `${(F3.title || "film").replace(/[^\w-]+/g, "-").slice(0, 60)}.webm`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 8000);
+    } catch (err) {
+      status.textContent = err.message;
+    } finally {
+      go.textContent = "RENDER";
+    }
+  };
+}
+
+/** The built-in example has no compiled plan behind it, so one is derived
+ *  from what the local engine composed. Stated rather than hidden: the
+ *  example renders too, it just does not come from the Worker. */
+function planFromFilm() {
+  const run = dryRun();
+  return {
+    title: F3.title,
+    durationMs: F3.runtime * 1000,
+    scenes: run.comps.map((c) => ({
+      sceneId: c.scene.id,
+      text: c.scene.text,
+      startMs: c.scene.t0 * 1000,
+      endMs: c.scene.t1 * 1000,
+      chain: c.nodes.map((n) => ({ id: n.prim, params: n.params, seed: n.params.seed })),
+      shots: c.shots || [],
+    })),
+  };
 }
 
 function drawPvRight(c) {
