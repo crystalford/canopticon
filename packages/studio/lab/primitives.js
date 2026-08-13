@@ -156,6 +156,60 @@ function lab(ctx, t, x, y, c) {
  * and this never fires.
  */
 
+/* ── VECTOR IS THE REPRESENTATION; SAMPLING IS A TREATMENT ────────────
+ *
+ * A GEOMETRY payload may now carry `paths` — ordered vertex lists, in
+ * frame coordinates — alongside its point set.
+ *
+ * This inverts the thing that has made every frame look like a
+ * low-resolution experiment. Geometry ORIGINATED as a 200×120 raster
+ * sample: `formPoints` drew the primitive to a small offscreen and read
+ * pixels back, so 24000 was the ceiling on detail no matter what
+ * resolution the film rendered at, and a "line" was a row of dots that
+ * got coarser as the frame got bigger.
+ *
+ * A path is resolution-independent. `geometry_draw` strokes it at any
+ * size; `place` transforms its vertices; `contour` is unnecessary for it
+ * because a path already IS an edge. Point sampling stays — it is the
+ * honest fallback for a primitive that genuinely paints rather than
+ * draws, and it is a legitimate visual treatment in its own right. It is
+ * no longer what geometry fundamentally is.
+ *
+ * `pathPoints` keeps the point set in step, so every consumer written
+ * against points continues to work unchanged. */
+function pathPoints(paths, step) {
+  const pts = [];
+  for (const path of paths) {
+    for (let i = 0; i < path.length; i++) {
+      const [x, y] = path[i];
+      pts.push({ x, y, x0: x, y0: y, v: 1 });
+      // Walk the segment so a consumer that only understands points sees
+      // a line rather than two endpoints.
+      const nxt = path[i + 1];
+      if (!nxt) continue;
+      const d = Math.hypot(nxt[0] - x, nxt[1] - y);
+      const n = Math.min(64, Math.floor(d / (step || 6)));
+      for (let k = 1; k < n; k++) {
+        const f = k / n;
+        pts.push({
+          x: x + (nxt[0] - x) * f,
+          y: y + (nxt[1] - y) * f,
+          x0: x + (nxt[0] - x) * f,
+          y0: y + (nxt[1] - y) * f,
+          v: 1,
+        });
+      }
+    }
+  }
+  return pts;
+}
+
+/** Emit a vector GEOMETRY payload: real paths plus the point set that
+ *  keeps every existing point-consuming primitive working. */
+function vector(paths, step) {
+  return { paths, geometry: pathPoints(paths, step) };
+}
+
 /** Sample the drawn form to a point set: [{x, y, x0, y0, v}].
  *
  *  Points carry their ORIGIN because a morph interpolates from where a
@@ -253,6 +307,11 @@ function reg(id, family, io, params, make, note, phase) {
             // A primitive that already emits its own geometry is left
             // entirely alone — its point set is better than a resample.
             if (out && out.geometry) return out;
+            // A primitive that emitted real PATHS has already answered
+            // this question better than a raster sample can. Only fall
+            // back to sampling when it did not.
+            if (out && out.paths && out.paths.length) return out;
+            if (out && out.geometry && out.geometry.length) return out;
             const geometry = formPoints(ctx, w, h);
             return out ? Object.assign({}, out, { geometry }) : { geometry };
           };

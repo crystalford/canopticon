@@ -420,6 +420,11 @@ reg(
         10,
         h - 16,
       );
+      // THE CURVE IT JUST DREW, AS A PATH. It was already computing an
+      // ordered vertex list and then throwing it away, so downstream saw
+      // a raster sample of a line instead of the line. Emitting it means
+      // the same figure strokes cleanly at any resolution.
+      return vector([P.slice(0, N).map(([x, y]) => [x, y])], 6);
     },
   }),
   "Rose curves, spirals, Lissajous figures. Mathematical form as a documentary register.",

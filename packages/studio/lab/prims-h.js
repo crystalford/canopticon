@@ -192,6 +192,30 @@ reg(
       ctx.fillRect(0, 0, w, h);
       ctx.globalAlpha = 1;
 
+      /* PATHS ARE STROKED, POINTS ARE PRINTED.
+       *
+       * A path is resolution-independent: at 4K it is a clean line, and
+       * at 640×360 it is the same line. A point set is a raster sample of
+       * something that was already drawn, so it coarsens as the frame
+       * grows. Both are legitimate — the dot plate is a real treatment —
+       * but the vector is now the default when the upstream has one. */
+      const paths = upstream && upstream.paths;
+      if (paths && paths.length) {
+        ctx.strokeStyle = ink;
+        ctx.lineWidth = Math.max(0.6, (0.4 + p.weight * 2.6) * (Math.min(w, h) / 400));
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        for (const path of paths) {
+          if (path.length < 2) continue;
+          ctx.beginPath();
+          ctx.moveTo(path[0][0], path[0][1]);
+          for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1]);
+          ctx.stroke();
+        }
+        lab(ctx, `${paths.length} PATHS · VECTOR`, 10, h - 14, inverted ? MUT : undefined);
+        return { paths, geometry: upstream.geometry || [] };
+      }
+
       const pts = upstream && upstream.geometry;
       if (!pts || pts.length === 0) {
         lab(
@@ -259,19 +283,22 @@ reg(
     frame(ctx, w, h, _t, upstream) {
       bg(ctx, w, h);
       const pts = (upstream && upstream.geometry) || [];
-      if (!pts.length) return { geometry: [] };
+      const anyPaths = (upstream && upstream.paths) || null;
+      if (!pts.length && !anyPaths) return { geometry: [] };
       // The form's own bounds, so `scale` means "this fraction of the
       // frame" rather than "this multiple of whatever it happened to be".
       let mnx = 1e9;
       let mny = 1e9;
       let mxx = -1e9;
       let mxy = -1e9;
-      for (const q of pts) {
-        if (q.x < mnx) mnx = q.x;
-        if (q.x > mxx) mxx = q.x;
-        if (q.y < mny) mny = q.y;
-        if (q.y > mxy) mxy = q.y;
-      }
+      const bound = (X, Y) => {
+        if (X < mnx) mnx = X;
+        if (X > mxx) mxx = X;
+        if (Y < mny) mny = Y;
+        if (Y > mxy) mxy = Y;
+      };
+      for (const q of pts) bound(q.x, q.y);
+      if (anyPaths) for (const path of anyPaths) for (const [X, Y] of path) bound(X, Y);
       const fw = Math.max(1, mxx - mnx);
       const fh = Math.max(1, mxy - mny);
       const k = (p.scale * Math.min(w, h)) / Math.max(fw, fh);
@@ -279,6 +306,14 @@ reg(
       const cy = (mny + mxy) / 2;
       const tx = p.x * w;
       const ty = p.y * h;
+      const mapx = (X) => tx + (X - cx) * k;
+      const mapy = (Y) => ty + (Y - cy) * k;
+      const inPaths = (upstream && upstream.paths) || null;
+      const outPaths = inPaths
+        ? inPaths
+            .map((path) => path.map(([X, Y]) => [mapx(X), mapy(Y)]))
+            .filter((path) => path.length > 1)
+        : null;
       const out = [];
       for (const q of pts) {
         const x = tx + (q.x - cx) * k;
@@ -289,7 +324,7 @@ reg(
         if (p.crop > 0.5 && (x < -4 || y < -4 || x > w + 4 || y > h + 4)) continue;
         out.push({ x, y, x0: tx + (q.x0 - cx) * k, y0: ty + (q.y0 - cy) * k, v: q.v });
       }
-      return { geometry: out };
+      return outPaths ? { paths: outPaths, geometry: out } : { geometry: out };
     },
   }),
   "Scales, positions and optionally crops a point set against the frame. The one operation that lets a composition decide how much of the frame a form commands and where the eye lands, without any primitive knowing what it is drawing.",
