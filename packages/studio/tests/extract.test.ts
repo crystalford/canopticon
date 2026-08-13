@@ -123,3 +123,49 @@ describe("end to end: a sentence reaches a validated chain", () => {
     expect(treatment.rationale).toContain("claim, not fact");
   });
 });
+
+describe("the binding's response shape", () => {
+  // This route never succeeded once: it assumed `{ response: string }`,
+  // called .slice on it, threw, and the throw was swallowed into
+  // "declined" — so a hard bug looked exactly like the extractor doing its
+  // job. These are the shapes Workers AI actually returns.
+  const ok =
+    '{"subjects":[{"label":"hotel","kind":"object","weight":0.9}],"visualOpportunity":"inspect","contested":false}';
+
+  it("reads a plain string response", async () => {
+    const ai = { run: async () => ({ response: ok }) };
+    const r = await proposeReading(ai, "The hotel remains operational.");
+    expect(r.reading?.subjects[0]?.label).toBe("hotel");
+  });
+
+  it("reads a response the model already parsed into an object", async () => {
+    const ai = { run: async () => ({ response: JSON.parse(ok) }) };
+    const r = await proposeReading(ai, "The hotel remains operational.");
+    expect(r.reading?.subjects[0]?.label).toBe("hotel");
+  });
+
+  it("reads a bare string", async () => {
+    const ai = { run: async () => ok };
+    const r = await proposeReading(ai, "The hotel remains operational.");
+    expect(r.reading?.subjects[0]?.label).toBe("hotel");
+  });
+
+  it("says WHY when the call throws, rather than only that it declined", async () => {
+    const ai = {
+      run: async () => {
+        throw new Error("binding exploded");
+      },
+    };
+    const r = await proposeReading(ai, "x");
+    expect(r.reading).toBeNull();
+    expect(r.provenance.declineReason).toBe("call-failed");
+    expect(r.provenance.rawSample).toContain("binding exploded");
+  });
+
+  it("distinguishes a model with nothing usable from one talking nonsense", async () => {
+    const empty = { run: async () => ({ response: '{"subjects":[]}' }) };
+    expect((await proposeReading(empty, "x")).provenance.declineReason).toBe("no-subjects");
+    const prose = { run: async () => ({ response: "I am sorry, I cannot help." }) };
+    expect((await proposeReading(prose, "x")).provenance.declineReason).toBe("unparseable");
+  });
+});

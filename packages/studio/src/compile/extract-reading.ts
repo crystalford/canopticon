@@ -56,6 +56,44 @@ interface AiBinding {
   run(model: string, input: Record<string, unknown>): Promise<unknown>;
 }
 
+/** Whatever the binding handed back, as text.
+ *
+ *  THIS ROUTE HAD NEVER SUCCEEDED ONCE. It assumed `{ response: string }`
+ *  and called `.slice` on it, and Workers AI does not always answer in that
+ *  shape — so every call threw `raw.slice is not a function`, the throw was
+ *  swallowed by a catch that fell through to "declined", and a hard bug
+ *  wore the costume of a legitimate result for as long as the route
+ *  existed. Nothing distinguished them until the decline started reporting
+ *  its cause.
+ *
+ *  So: normalise instead of assuming, and if the model has already returned
+ *  an object, keep it as JSON rather than stringifying a `[object Object]`
+ *  the parser could never read. */
+function asText(out: unknown): string {
+  if (typeof out === "string") return out;
+  if (!out || typeof out !== "object") return "";
+  const o = out as Record<string, unknown>;
+  // Common shapes, in the order they actually turn up.
+  const candidates = [
+    o.response,
+    (o.result as Record<string, unknown> | undefined)?.response,
+    o.output_text,
+    o.text,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string") return c;
+    if (c && typeof c === "object") return JSON.stringify(c);
+  }
+  // Last resort: the whole envelope. If the JSON we need is in there, the
+  // parser's brace-scan will find it; if it is not, "unparseable" is the
+  // honest verdict and the sample shows what arrived.
+  try {
+    return JSON.stringify(out);
+  } catch {
+    return "";
+  }
+}
+
 const SYSTEM = `You read one sentence from a documentary essay and report what it is ABOUT, so a procedural film compiler can choose a visual treatment. You do not choose the treatment.
 
 Report:
@@ -154,14 +192,14 @@ export async function proposeReading(
 
   if (ai) {
     try {
-      const out = (await ai.run(EXTRACTION_MODEL, {
+      const out = await ai.run(EXTRACTION_MODEL, {
         messages: [
           { role: "system", content: SYSTEM },
           { role: "user", content: sentence },
         ],
         max_tokens: 500,
-      })) as { response?: string };
-      const raw = out.response ?? "";
+      });
+      const raw = asText(out);
       rawSample = raw.slice(0, 240);
       const parsed = parseReading(raw, sentence);
       if (parsed) {
