@@ -59,6 +59,8 @@ function styleFor(language: VisualLanguage, over: Partial<Style> = {}): Style {
     data: 0.5,
     experimentalism: 0.5,
     restraint: 0.3,
+    population: 0.5,
+    attention: 0.5,
     tier: "DECOMPOSED",
     language,
     ...over,
@@ -423,6 +425,8 @@ describe("the sentence test — does direction change the IDEA, or only the effe
       data: 0.2,
       experimentalism: 0.5,
       restraint: 0.4,
+      population: 0.5,
+      attention: 0.5,
       tier: "DECOMPOSED",
       language: "documentary",
     };
@@ -550,6 +554,8 @@ describe("the second sentence test — same construction, different execution", 
       data: 0.2,
       experimentalism: 0.5,
       restraint: 0.4,
+      population: 0.5,
+      attention: 0.5,
       tier: "DECOMPOSED",
       language: "documentary",
     };
@@ -720,6 +726,8 @@ The residents were moved at night. The minister said the programme was working.`
       data: 0.2,
       experimentalism: 0.5,
       restraint: 0.4,
+      population: 0.5,
+      attention: 0.5,
       tier: "DECOMPOSED",
       language: "documentary",
     };
@@ -836,6 +844,8 @@ describe("the scene plan — a shot is several things at once", () => {
     data: 0.2,
     experimentalism: 0.5,
     restraint: 0.4,
+    population: 0.5,
+    attention: 0.5,
     tier: "DECOMPOSED",
     language: "documentary",
   };
@@ -935,6 +945,8 @@ describe("the proposition test — does it change what enters the frame", () => 
     data: 0.2,
     experimentalism: 0.5,
     restraint: 0.4,
+    population: 0.5,
+    attention: 0.5,
     tier: "DECOMPOSED",
     language: "documentary",
   };
@@ -1090,8 +1102,22 @@ describe("N-plane composition", () => {
 
   it("a stack it cannot afford loses its DEEPEST layer, and says so", () => {
     const planes = [
-      { role: "SETTING" as const, construction: "space", from: "city", depth: 0.15, weight: 0.28 },
-      { role: "COUNTERPOINT" as const, construction: "space", from: null, depth: 0.3, weight: 0.7 },
+      {
+        role: "SETTING" as const,
+        construction: "space",
+        from: "city",
+        depth: 0.15,
+        weight: 0.28,
+        population: 0.5,
+      },
+      {
+        role: "COUNTERPOINT" as const,
+        construction: "space",
+        from: null,
+        depth: 0.3,
+        weight: 0.7,
+        population: 0.5,
+      },
     ];
     const beat = beatFor("At first nobody noticed.", { index: 1 });
     const style = styleFor("documentary");
@@ -1210,5 +1236,112 @@ describe("weight and depth reach pixels", () => {
     expect(Number(must(scenes[2]?.body).params.count)).toBeGreaterThan(
       Number(must(scenes[1]?.body).params.count),
     );
+  });
+});
+
+describe("the director model — expression changes, meaning does not", () => {
+  // The claim under test, stated as the operator stated it: the same
+  // sentence, the same proposition, the same visual grammar, rendered at
+  // three world populations and three attentions. If the roles and the
+  // proposition survive all nine while the picture does not, the system
+  // has a director model rather than a scene generator.
+  const ESSAY =
+    "The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.";
+
+  function compile(over: Record<string, number>) {
+    const seed = segmentEssay(ESSAY, { projectId: "p" });
+    const raw = JSON.parse(JSON.stringify(seed.ir));
+    for (const cp of raw.creativeState.controlPoints) Object.assign(cp.values, over);
+    const parsed = parseIR(raw);
+    if (!parsed.ok) throw new Error("invalid IR");
+    return composeAll(parsed.ir);
+  }
+  /** The unnoticed scene, flattened through the whole stack. */
+  function probe(worldPopulation: number, attention: number) {
+    const scene = must(compile({ worldPopulation, attention })[1]);
+    const flat: typeof scene.nodes = [];
+    const walk = (ns: typeof scene.nodes) => {
+      for (const n of ns) {
+        flat.push(n);
+        walk(n.ground ?? []);
+      }
+    };
+    walk(scene.nodes);
+    return {
+      scene,
+      cars: flat
+        .filter((n) => n.primitiveId === "plate_scene")
+        .reduce((a, n) => a + Number(n.params.cars ?? 0), 0),
+      subjectScale: Number(
+        must(flat.find((n) => n.primitiveId === "creature_chain")).params.scale ?? 0,
+      ),
+      roles: must(scene.notes.find((n) => n.startsWith("composed —"))),
+    };
+  }
+
+  it("population populates the world and does NOT touch the subject", () => {
+    const sparse = probe(0.1, 0.5);
+    const middle = probe(0.5, 0.5);
+    const dense = probe(0.9, 0.5);
+    expect(sparse.cars).toBeLessThan(middle.cars);
+    expect(middle.cars).toBeLessThan(dense.cars);
+    // THE FIGURE FIREWALL, APPLIED TO POPULATION. "Dozens of them" is a
+    // number the essay printed. A world dial that multiplied it would be
+    // the director editing the prose, so the subject is untouched across
+    // the entire range.
+    expect(sparse.subjectScale).toBe(dense.subjectScale);
+  });
+
+  it("attention moves the subject and its world in opposite directions", () => {
+    const env = probe(0.5, 0.1);
+    const subj = probe(0.5, 0.9);
+    expect(subj.subjectScale).toBeGreaterThan(env.subjectScale);
+    expect(subj.cars).toBeLessThan(env.cars);
+    // And the redistribution is visible in the plan, not only in pixels.
+    expect(must(env.scene.notes.find((n) => n.startsWith("stacked —")))).toMatch(/×0\.9/);
+    expect(must(subj.scene.notes.find((n) => n.startsWith("stacked —")))).toMatch(/×0\.[12]/);
+  });
+
+  it("the proposition and the roles are invariant across all nine", () => {
+    const roles = new Set<string>();
+    const pictures = new Set<string>();
+    for (const p of [0.1, 0.5, 0.9]) {
+      for (const a of [0.1, 0.5, 0.9]) {
+        const r = probe(p, a);
+        roles.add(r.roles);
+        pictures.add(`${r.cars}/${r.subjectScale.toFixed(3)}`);
+      }
+    }
+    // One claim. Nine cinematic arguments for it.
+    expect(roles.size).toBe(1);
+    expect(pictures.size).toBeGreaterThan(6);
+  });
+
+  it("0.5 is the identity — a film that sets neither composes as before", () => {
+    const neutral = probe(0.5, 0.5);
+    const unset = must(compile({})[1]);
+    expect(JSON.stringify(neutral.scene.nodes)).toBe(JSON.stringify(unset.nodes));
+  });
+
+  it("a director reaches both dials in prose", () => {
+    // The operator's own example. Neither word names a parameter.
+    const read = readIntent({ feel: "Make the city feel huge and indifferent." });
+    expect(read.registers).toContain("indifferent");
+    expect(read.registers).toContain("scale");
+    expect(must(read.style.population)).toBeGreaterThan(0.5);
+    expect(must(read.style.attention)).toBeLessThan(-0.5);
+  });
+
+  it("indifference is not isolation — they disagree about population", () => {
+    // An empty street and a crowded one that simply carries on are both
+    // readings of "nobody noticed", and they are opposite pictures. A
+    // register table that could not tell them apart would collapse the
+    // Hopper reading and the Bruegel one into one look.
+    const empty = readIntent({ feel: "Make it feel isolated and empty." });
+    const busy = readIntent({ feel: "Make it feel ordinary and indifferent." });
+    expect(must(empty.style.population)).toBeLessThan(0);
+    expect(must(busy.style.population)).toBeGreaterThan(0);
+    expect(must(empty.style.attention)).toBeGreaterThan(0);
+    expect(must(busy.style.attention)).toBeLessThan(0);
   });
 });

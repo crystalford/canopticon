@@ -120,6 +120,29 @@ export interface Style {
   data: number;
   experimentalism: number;
   restraint: number;
+  /** HOW MUCH LIFE EXISTS IN THE WORLD BEYOND THE SUBJECT, 0..1.
+   *
+   *  Deliberately NOT `density`, which is visual texture — how much is
+   *  going on in the picture. This is how much is going on in the WORLD:
+   *  people, traffic, storefronts, background activity. The distinction is
+   *  the Hopper/Bruegel one, and it matters because the same proposition —
+   *  *something strange is happening and nobody has noticed* — has an
+   *  almost-empty-street reading and an eighty-micro-events reading, both
+   *  correct, and the difference between them is directorial.
+   *
+   *  0.5 is neutral by construction: at 0.5 the multiplier is exactly 1
+   *  and a film that never sets it composes as it always did. */
+  population: number;
+  /** WHERE THE FRAME'S ENTITLEMENT SITS, 0 environment … 1 subject.
+   *
+   *  Redistributes weight ACROSS the planes the scene already contains. It
+   *  never adds a plane and never removes one, which is what makes it a
+   *  change of expression rather than a change of meaning — the
+   *  proposition is built from roles, so it is invariant under this by
+   *  construction, and that is asserted rather than hoped for.
+   *
+   *  0.5 is neutral, same as `population`. */
+  attention: number;
   tier: "GROUNDED" | "ANNOTATED" | "DECOMPOSED" | "DISSOLVED";
   /** The film's visual language. A CONSTRAINT on how things may be built
    *  and what may be done to them — never a template with a fixed tail.

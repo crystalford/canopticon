@@ -75,8 +75,8 @@ export interface DirectorIntent {
 
 /** A directorial register, and what it makes the compiler reach for.
  *
- *  Deliberately small. Nine registers is not a claim that direction has
- *  nine flavours — it is the set that can be read off prose reliably
+ *  Deliberately small. Ten registers is not a claim that direction has
+ *  ten flavours — it is the set that can be read off prose reliably
  *  enough to act on. A direction matching nothing is not an error; it
  *  leaves the curve in charge, which is the honest outcome. */
 interface Register {
@@ -121,7 +121,9 @@ export type StyleDial =
   | "archival"
   | "data"
   | "experimentalism"
-  | "restraint";
+  | "restraint"
+  | "population"
+  | "attention";
 
 const REGISTERS: Register[] = [
   /* ── INEVITABLE. The thing was always going to happen.
@@ -284,7 +286,20 @@ const REGISTERS: Register[] = [
     // More of everything at once, and no restraint left to stop it. This
     // is the register most visible in the picture itself: a body built
     // under it has more segments, moves faster and wanders further.
-    style: { energy: 0.34, density: 0.48, restraint: -0.38, abstraction: 0.12 },
+    //
+    // POPULATION rises hard and ATTENTION falls: being overwhelmed is a
+    // relation between one thing and a world with too much in it, so the
+    // world has to be populated AND has to take the frame. Raising density
+    // alone would give a busy texture around a subject still holding the
+    // shot, which is a picture of a busy day rather than of drowning.
+    style: {
+      energy: 0.34,
+      density: 0.48,
+      restraint: -0.38,
+      abstraction: 0.12,
+      population: 0.5,
+      attention: -0.22,
+    },
   },
 
   /* ── ISOLATION. One thing, and space around it. */
@@ -310,7 +325,53 @@ const REGISTERS: Register[] = [
     // The inverse of overwhelm, dial for dial, and deliberately so —
     // these are the two ends of the same axis and a register table that
     // did not make that obvious would be hiding its own structure.
-    style: { energy: -0.38, density: -0.42, restraint: 0.3, human: -0.22 },
+    style: {
+      energy: -0.38,
+      density: -0.42,
+      restraint: 0.3,
+      human: -0.22,
+      population: -0.5,
+      attention: 0.26,
+    },
+  },
+
+  /* ── INDIFFERENT. The world is busy and it does not care.
+   *
+   * The register this whole compositing pass earned. It is NOT isolation:
+   * an empty street is one reading of "nobody noticed" and a crowded one
+   * that simply carries on is the other, and the second is the harder and
+   * more interesting picture — the viewer has to FIND the anomaly rather
+   * than being handed it against negative space.
+   *
+   * So this is the only entry in the table that raises population while
+   * lowering attention: a full world, and the subject small inside it.
+   * Hopper and Bruegel, made directable. */
+  {
+    id: "indifferent",
+    words: [
+      "indifferent",
+      "indifference",
+      "unnoticed",
+      "unremarked",
+      "oblivious",
+      "uncaring",
+      "carries on",
+      "carried on",
+      "ordinary",
+      "mundane",
+      "routine",
+      "unbothered",
+      "nobody notices",
+      "nobody noticed",
+    ],
+    // Low. Indifference is a fact about the world continuing, and building
+    // that world as something it is not would make the indifference the
+    // director's assertion rather than the picture's — the same argument
+    // `inexorable` makes, applied to a different fact.
+    dislocation: 0.2,
+    constructions: { space: 0.45, body: 0.2, network: 0.2, type: -0.2 },
+    ops: { grade: 0.2, soften: 0.15, fragment: -0.25 },
+    style: { population: 0.45, attention: -0.36, energy: -0.1, restraint: 0.16 },
   },
 
   /* ── REVELATION. Something arrives that was there all along. */
@@ -362,8 +423,17 @@ const REGISTERS: Register[] = [
     ops: { grade: 0.2, soften: 0.2, pixelate: 0.15 },
     // Human presence DOWN: scale is legible only by what it dwarfs, and a
     // figure held large in frame is the thing that destroys the sense of
-    // it.
-    style: { density: 0.34, abstraction: 0.16, human: -0.24, energy: -0.1 },
+    // it. ATTENTION follows for the same reason — "enormous" is a claim
+    // about the environment, so the environment has to be entitled to the
+    // frame or the word reaches nothing but a grade.
+    style: {
+      density: 0.34,
+      abstraction: 0.16,
+      human: -0.24,
+      energy: -0.1,
+      population: 0.3,
+      attention: -0.34,
+    },
   },
 
   /* ── STRANGE. The director asking for the unfamiliar, in as many words.

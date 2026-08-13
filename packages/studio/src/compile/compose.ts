@@ -391,6 +391,20 @@ export function composeScene(
       data: bend(state.values.dataWeight ?? 0.5, "data"),
       experimentalism: bend(state.values.experimentalism ?? 0.3, "experimentalism"),
       restraint: bend(state.values.restraint ?? 0.5, "restraint"),
+      // THE TWO DIRECTOR DIMENSIONS THE COMPOSITOR MADE REACHABLE.
+      //
+      // Both default to 0.5 and both are the identity at 0.5, so every
+      // film that predates them composes byte-identically. That is not a
+      // convenience — a new dial that silently restyled an existing film
+      // would be the engine editing work a director already approved.
+      //
+      // `worldPopulation` deliberately does NOT default to `visualDensity`.
+      // They are different questions: density is how much is going on in
+      // the picture, population is how much is going on in the world. A
+      // dense picture of an empty street is a real shot and folding the
+      // two would make it unreachable.
+      population: bend(state.values.worldPopulation ?? 0.5, "population"),
+      attention: bend(state.values.attention ?? 0.5, "attention"),
       tier: rung.tier,
       language: scene.visualLanguage ?? ir.visualLanguage,
       ...(ir.grammar ? { grammar: ir.grammar } : {}),

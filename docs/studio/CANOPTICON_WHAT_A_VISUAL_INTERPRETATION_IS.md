@@ -244,6 +244,49 @@ before it and never to overwrite it:
    "absurd" appears is not a matter of interpretation.
 4. **The curve** — the film's own creative state over time.
 
+### 7.1 Expression without meaning
+
+Two of the curve's dials are *world* dials rather than *picture* dials,
+and they are the first proof that the system has a director model rather
+than a scene generator.
+
+- **`population`** — how much life exists beyond the subject. Not
+  `density`, which is visual texture. This is the Hopper/Bruegel axis: an
+  almost-empty street and eighty micro-events are both correct readings of
+  *something strange is happening and nobody has noticed*, and the
+  difference is directorial.
+- **`attention`** — where the frame's entitlement sits, environment to
+  subject. It **redistributes weight across the planes the scene already
+  contains**. It never adds one and never removes one.
+
+That last sentence is the whole design. `applyAttention` runs *after* the
+roles are fixed, and the proposition is built from roles — so a
+proposition cannot move when only weights have moved. Meaning-invariance is
+a consequence of the ordering, not a hope. Measured across a 3×3 grid on
+one sentence: **one role set, nine different pictures.**
+
+| | cars in the world | subject scale |
+|---|---|---|
+| population 0.1 / 0.5 / 0.9 | 17 / 41 / 67 | 0.427 unchanged |
+| attention 0.1 → 0.9 | 48 → 35 | 0.378 → 0.475 |
+
+The subject is deliberately immune to population. "Dozens of them" is a
+number the essay printed; a world dial that multiplied it would be the
+director editing the prose. Same firewall the figures keep, and the reason
+`applyPlane` gates population on role.
+
+Both default to 0.5, and 0.5 is the exact identity — a film that sets
+neither composes byte-identically to before the dials existed. A new dial
+that silently restyled approved work would be the engine editing a
+decision the director already made.
+
+And both are reachable in prose. *"Make the city feel huge and
+indifferent"* reads as `population +0.75, attention −0.70` — two words,
+neither of which names a parameter. `indifferent` is a register the
+material earned: it is not `isolation`, and the two disagree about
+population by design, because a busy world that does not care is the
+harder and better picture of nobody noticing.
+
 Everything is a **bias, not a value**. A direction never sets abstraction
 to 0.8; it says "further from the literal than this film already is". So
 the same words over a restrained film and an experimental one land
@@ -336,12 +379,20 @@ code:
   nowhere. And they are not more lexicon.
 - **Transformation across representations.** Named as the missing fourth
   program type; unbuilt.
-- **Sparse vs dense as a director's dial.** A Hopper reading of "nobody
-  noticed" is an almost empty street; a Bruegel reading is eighty
-  micro-events. Both are correct, the difference is directorial, and there
-  is no control for it.
+- **`ground` as a privileged concept.** The stack is a real tree, but it is
+  still expressed as "a chain, plus a second input that happens to be a
+  chain". The destination is a scene graph where a field, an image, a
+  geometry, a text or another scene are all just nodes wherever the type
+  system permits, and `ground` stops being a special word. The current
+  recursive structure is a transitional architecture and should be read
+  that way.
+- **A surreal or systemic reading.** Of the four cinematic arguments the
+  capability map lists for one proposition, population and attention reach
+  sparse and dense. Surreal needs a construction that can be physically
+  impossible; systemic needs the anomaly to propagate *through* the world
+  rather than sit in it. Neither is a dial.
 
-The last one is the most interesting gap, because it is the point where
+Sparse-vs-dense used to head this list, and it is the one that closed:
 "what must be present for the proposition to hold" and "how richly should
-the world be populated" become two different questions — and the system
-currently only has an answer to the first.
+that world be populated" are two different questions, and the system now
+has an answer to both.

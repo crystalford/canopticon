@@ -101,6 +101,22 @@ and the code implements the amended version:
     PLANNED → BOUND → COMPOSITED → RENDERED. `PLANNED` is the dangerous one:
     a missing thing announces itself, a planned thing looks finished from
     every angle except the screen. See `docs/studio/CANOPTICON_CAPABILITY_MAP.md`.
+11. **A compositional structure is not implemented until every system that
+    operates on a visual program treats it recursively.** Cache, cost,
+    determinism, palette usage, serialisation to the executor — all of them,
+    or none. The N-plane stack needed four separate fixes for this and every
+    one of them would have failed silently, because "it renders, therefore it
+    works" is the exact failure mode a partially-recursive structure produces.
+
+## The prioritisation function
+
+> **Would this make the next generated film better — more semantically
+> faithful, more visually expressive, more coherent, more directed?**
+
+Build it. If it only makes the architecture cleaner without unlocking
+creative capability, defer it. If it adds another selectable effect to a
+menu, don't build it. If it lets the machine make a kind of scene it could
+not make before, that is the highest priority there is.
 
 ## The test for every decision
 

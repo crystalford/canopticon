@@ -108,13 +108,14 @@
 | Pins | **EXISTS** | Precedence 1, freezes the chain |
 | Visual grammar (captured) | **EXISTS** | Per-operator appetites bias what is reached for |
 | Visual language (per film/scene) | **EXISTS** | Operator appetite + representation rung |
-| **World density** (sparse ↔ dense) | **MISSING** | The gap this map exists to name — see below. Its input and its output path both exist now; the dial does not |
+| **World population** (sparse ↔ dense) | **EXISTS** | `style.population` → `plane.population` → `applyPlane`. 0.1/0.5/0.9 gives 17/41/67 cars on one scene, and does not touch the subject |
 | **Literalness** (literal ↔ displaced) | **PARTIAL** | `dislocation` moves *which construction*; it does not move *how displaced the depiction is* |
 | Abstraction (physical ↔ abstract) | **EXISTS** | The ladder, and a permission gate on operators |
-| Attention (subject ↔ environment) | **PARTIAL** | `plane.weight` reaches every layer's construction and the compositors between them; it is not yet a dial a director can move directly |
+| Attention (subject ↔ environment) | **EXISTS** | `style.attention` redistributes weight across the planes the scene already has. Subject scale 0.378 → 0.475 as its world falls 48 → 35 |
+| **Expression without meaning** | **EXISTS** | Attention applies AFTER the roles are fixed, so the proposition is invariant by construction. Asserted across a 3×3 grid: one role set, nine pictures |
 | **How importance MANIFESTS** (per grammar) | **MISSING** | One mapping for every film: weight means scale and population. A grammar that made a low-weight subject fragmented, occluded and intermittent instead would be a different film from the same 0.30 — and `applyPlane` is the one place it would go |
 | Transformation (stable ↔ mutating) | **MISSING** | The fourth program type, unbuilt |
-| Natural-language directing | **PARTIAL** | The register lexicon is the mechanism; there is no free-text UI path |
+| Natural-language directing | **PARTIAL** | 10 registers. "Make the city feel huge and indifferent" reads as population +0.75, attention −0.70 and reaches the picture. There is still no free-text UI path |
 
 ## SCENE PLAN
 
@@ -201,16 +202,26 @@ Same proposition — *something strange is happening and nobody has noticed*
 | **Surreal** | The city behaves normally; the anomaly is physically impossible | Nothing else in frame acknowledges the impossibility |
 | **Systemic** | The city becomes a network and the anomaly propagates through it | The pattern is visible before the thing is |
 
-The compiler currently produces one of these — roughly the sparse one, and
-by accident rather than by choice.
+**Two of these are now reachable and the axis is built.** `worldPopulation`
+and `attention` are director dimensions, biases like everything else,
+neutral at 0.5 so no existing film moved. Measured on "At first nobody
+noticed":
 
-**This is not a missing primitive.** It is a missing *director dimension*.
-Both halves of the plumbing it needs now exist: the plan computes
-`plane.weight`, and `applyPlane` turns it into population (`plate_scene.cars`
-moved 17 → 24 between two layers of one scene). What is still missing is
-the dial itself — a director cannot say "make this world dense" and have
-the whole stack answer, and every layer's population is still a function of
-its own weight rather than of a stated density for the shot.
+| | cars in the world | subject scale |
+|---|---|---|
+| population 0.1 | 17 | 0.427 |
+| population 0.5 | 41 | 0.427 |
+| population 0.9 | 67 | 0.427 |
+| attention 0.1 (environment) | 48 | 0.378 |
+| attention 0.9 (subject) | 35 | 0.475 |
+
+The subject does not move with population, on purpose: "dozens of them" is
+a number the essay printed, and a world dial that multiplied it would be
+the director editing the prose. Same firewall the figures keep.
+
+**Surreal and Systemic are still out of reach**, and neither is a dial —
+surreal needs a construction that can be physically impossible, systemic
+needs the anomaly to propagate through the world rather than sit in it.
 
 ---
 

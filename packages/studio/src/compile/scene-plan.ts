@@ -72,6 +72,19 @@ export interface Plane {
    *  dial a director moves to get "environment dominant" versus "subject
    *  dominant" WITHOUT changing what the scene contains. */
   weight: number;
+  /** HOW POPULATED THIS LAYER'S WORLD IS, 0..1.
+   *
+   *  Carried on the plane rather than passed alongside it so that
+   *  `applyPlane` keeps one signature and a layer stays a complete
+   *  description of itself — and so a future per-plane override has
+   *  somewhere to live.
+   *
+   *  Meaningful only on a plane that depicts a WORLD. A subject's count
+   *  comes from the prose ("dozens of them"), and multiplying that by a
+   *  director's world dial would be the engine editing the essay's own
+   *  numbers — the figure firewall, applied to population. Enforced in
+   *  `applyPlane`, which is the only place it is read. */
+  population: number;
 }
 
 export interface ScenePlan {
@@ -190,6 +203,7 @@ export function planScene(
       // already established, and re-asserting it at full weight would read
       // as a re-establishing shot the edit did not ask for.
       weight: (subject ? 0.35 : 0.8) * (inherited ? 0.8 : 1),
+      population: style.population,
     });
   }
 
@@ -200,6 +214,7 @@ export function planScene(
       from: subject.text,
       depth: 0.55,
       weight: place ? 0.65 : 0.85,
+      population: style.population,
     });
   }
 
@@ -218,6 +233,7 @@ export function planScene(
       // Rises with abstraction: a literal film shows people who move like
       // insects, an abstract one shows the insects.
       weight: 0.25 + style.abstraction * 0.5,
+      population: style.population,
     });
   }
 
@@ -246,6 +262,7 @@ export function planScene(
         depth: 0.55,
         // Small: the whole point is that it has not yet taken the frame.
         weight: 0.3,
+        population: style.population,
       });
     }
     planes.push({
@@ -258,6 +275,7 @@ export function planScene(
       // Dominant on purpose. The ordinary world is most of the frame; that
       // is what "nobody noticed" looks like.
       weight: 0.7,
+      population: style.population,
     });
   }
 
@@ -269,8 +287,23 @@ export function planScene(
       from: null,
       depth: 0.92,
       weight: 0.2 + style.typography * 0.25,
+      population: style.population,
     });
   }
+
+  // ATTENTION, APPLIED LAST AND TO NOTHING BUT WEIGHT.
+  //
+  // Every plane is already decided by this point — which roles the scene
+  // contains, what builds each one, where each sits in depth. Attention
+  // only redistributes the FRAME'S ENTITLEMENT across them.
+  //
+  // That ordering is the whole argument. `propose()` below is built from
+  // roles, so a proposition cannot move when only weights have moved: the
+  // same scene at attention 0.1 and 0.9 makes the same claim and makes it
+  // two different ways. "Director controls alter expression without
+  // altering meaning" is not a hope here, it is a consequence of applying
+  // this after the roles are fixed and never before.
+  applyAttention(planes, style.attention);
 
   return {
     planes,
@@ -279,6 +312,36 @@ export function planScene(
       : "single plane — the sentence names one thing",
     proposition: propose(planes, ESCALATING.test(beat.sentence)),
   };
+}
+
+/** WHERE THE FRAME'S ENTITLEMENT SITS — the second director dimension.
+ *
+ *  Mutates weights in place and touches nothing else. 0.5 is the identity:
+ *  both multipliers are exactly 1, so a film that never sets attention
+ *  composes precisely as it did before this function existed.
+ *
+ *  The floor and ceiling are not cosmetic. A plane driven to zero would
+ *  still be BUILT and still cost a frame's worth of time while being
+ *  invisible, which is the most expensive way to say nothing; a plane at 1
+ *  would erase everything behind it. Attention is a redistribution, and a
+ *  redistribution that can annihilate a term is a deletion wearing a
+ *  dial. */
+function applyAttention(planes: Plane[], attention: number): void {
+  if (planes.length < 2) return;
+  const a = clamp01(attention);
+  // Symmetric about 0.5 and bounded, so the two ends are mirror images of
+  // each other rather than one being a stronger move than the other.
+  const toSubject = 0.5 + a; // 0.5 … 1.5
+  const toWorld = 1.5 - a; // 1.5 … 0.5
+  for (const plane of planes) {
+    // EDITORIAL is deliberately exempt. The words are neither the subject
+    // nor its world — an attention dial that shrank the typography while
+    // the director was asking about the city would be reaching a decision
+    // nobody made.
+    if (plane.role === "EDITORIAL") continue;
+    const factor = plane.role === "SUBJECT" || plane.role === "METAPHOR" ? toSubject : toWorld;
+    plane.weight = Math.max(0.06, Math.min(0.96, plane.weight * factor));
+  }
 }
 
 /** What the composition claims, without the narration.
@@ -403,6 +466,16 @@ export function applyPlane(
   // legible: below half it recedes, above half it takes the frame.
   const w = plane.weight;
   const lift = 0.6 + w * 0.8; // 0.6 … 1.4
+  // POPULATION, ON A PLANE THAT DEPICTS A WORLD AND NOWHERE ELSE.
+  //
+  // A subject's numbers come off the prose — "dozens of them" is thirteen
+  // bodies because the sentence said dozens — and multiplying that by a
+  // director's world dial would be the engine editing the essay. Same
+  // firewall the figures keep, applied to population. So the multiplier is
+  // identity on every role but SETTING and COUNTERPOINT, and 0.5 is
+  // identity everywhere.
+  const worldly = plane.role === "SETTING" || plane.role === "COUNTERPOINT";
+  const crowd = worldly ? 0.25 + clamp01(plane.population) * 1.5 : 1; // 0.25 … 1.75
 
   switch (primitiveId) {
     case "creature_chain":
@@ -411,13 +484,20 @@ export function applyPlane(
       // true rather than merely illustrated.
       if (typeof out.scale === "number") out.scale = clamp01(out.scale * lift);
       if (typeof out.count === "number") {
-        out.count = Math.max(1, Math.round(out.count * lift));
+        out.count = Math.max(1, Math.round(out.count * lift * crowd));
       }
       break;
     case "plate_scene":
-      // A space spends weight on how populated it is.
-      if (typeof out.cars === "number") out.cars = Math.max(0, Math.round(out.cars * lift));
-      if (typeof out.life === "number") out.life = clamp01(out.life * lift);
+      // A space spends weight on how populated it is — and population
+      // spends itself on the same parameters, because "how much of the
+      // frame does this world get" and "how much is going on in it" are
+      // genuinely two questions about one plate. An almost-empty street
+      // that dominates the frame and a crowded one squeezed into a corner
+      // are both real shots, and they need both dials to be reachable.
+      if (typeof out.cars === "number") {
+        out.cars = Math.max(0, Math.round(out.cars * lift * crowd));
+      }
+      if (typeof out.life === "number") out.life = clamp01(out.life * lift * crowd);
       break;
     case "text_layout":
       if (typeof out.scale === "number") out.scale = clamp01(out.scale * lift);
