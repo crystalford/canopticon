@@ -69,6 +69,40 @@ line: `fit(beat: Beat): number` took no `Style`. **The director's state
 could not influence what was built, only what was done to it** — which is
 the exact definition of "different effects, not different ideas".
 
+The same defect then reappeared one layer down and had to be found the
+same way. `build(beat, style)` *does* take a Style, but a register could
+only reach two of that Style's nine dials — so a body built under five
+different directions came out with identical segments, gait, wander, scale
+and speed, and only the operator tail moved. A direction now bends the
+whole creative state (`bendStyle`), which reaches every parameter every
+construction already derives. Measured: **7 of 9 body parameters vary with
+direction; the 2 that do not are `count` and `legPairs`, both read off the
+prose.** A direction may not move those — that would be editing the essay
+rather than directing it.
+
+**Two levels, both asserted:** different interpretation → different
+construction, AND same construction → different cinematic execution.
+
+### The lexicon is a mechanism, not a theory of meaning
+
+Stated here so it is not mistaken for architecture. `subject.ts` and
+`intent.ts` are curated word lists because a word list is *checkable* and
+needs no ratification — which is the only reason they are allowed to skip
+the gate a reading goes through. They are not a claim to understand
+metaphor, causality, tension or narrative function.
+
+"The city was becoming hostile" and "Nobody noticed what was happening
+until it was too late" have enormous cinematic potential and almost no
+depictable noun. The compiler does not read them. What it now does is
+**say so**: `namesOnlyAbstractions` had existed since the lexicon did,
+documented as the affordance that stops a silent fallback looking like a
+decision, and was called by nothing — so an unread sentence got an answer
+indistinguishable from a closely-read one. The scene still compiles
+(standing rule 8); it just stops claiming the prose chose the picture.
+
+Relationships, metaphor, causality and narrative function are the next
+real layer, and they are **not** more lexicon.
+
 ## §9 · Visual grammar
 
 | Claim | State | Where |

@@ -69,7 +69,7 @@
 import type { Figure, VisualLanguage } from "../ir/schema.ts";
 import { PRIMITIVES, canChain, chainCost } from "../primitives/registry.ts";
 import { chartFor, serialiseFigures } from "./figures.ts";
-import { EMPTY_READING, type IntentReading } from "./intent.ts";
+import { EMPTY_READING, type IntentReading, bendStyle } from "./intent.ts";
 import type { SceneKind } from "./scene-kind.ts";
 import type { DetectedSubject } from "./subject.ts";
 
@@ -853,7 +853,7 @@ const MOTION_TAIL = ["parallax_layers", "ease_profile"];
  *  it shows its working.
  *
  *  Sorted best first. The caller takes `[0]` and carries the rest. */
-export function constructPrograms(beat: Beat, style: Style, budgetMs: number): Program[] {
+export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Program[] {
   // AN EXPLICITLY DRAWN ROUTE IS THE STRONGEST THING A SENTENCE CAN DO.
   //
   // "Ottawa → IHAP grants → Provincial governments → Hotel contracts" also
@@ -864,6 +864,20 @@ export function constructPrograms(beat: Beat, style: Style, budgetMs: number): P
   // edits to five `fit` functions, so the rule can be read.
   const drewRoute = beat.route.length >= 2;
   const intent = beat.intent ?? EMPTY_READING;
+
+  // THE DIRECTION BENDS THE STATE EVERY CONSTRUCTION READS.
+  //
+  // The half that selection alone does not reach. Moving which
+  // construction wins is one thing; a body built under five different
+  // directions came out with identical segments, gait, wander and scale,
+  // and only the operator tail changed — which is the "different colour
+  // and post-processing" failure with the argument moved one layer down.
+  //
+  // Applied HERE and nowhere else, so it cannot be applied twice or
+  // skipped by a caller. Every construction already reads these dials to
+  // set its own numbers, so this reaches scale, speed, gait, wander,
+  // segment count, depth and haze without naming any of them.
+  const style = bendStyle(raw, intent);
 
   // HOW FAR THE DIRECTOR WILL LET THIS GO AGAINST THE GRAIN.
   //

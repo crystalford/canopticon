@@ -90,12 +90,38 @@ interface Register {
   constructions?: Record<string, number>;
   /** Bias on an operator's appetite, added on top of the language's. */
   ops?: Record<string, number>;
-  /** What this register does to the shot's own restlessness, -1..1.
-   *  Feeds energy rather than naming a motion primitive. */
-  energy?: number;
-  /** What it does to how much is on screen at once, -1..1. */
-  density?: number;
+  /** WHAT THIS REGISTER DOES TO THE FILM'S OWN CURVES, per dial, -1..1.
+   *
+   *  The second half of the fix, and the half that is easy to stop short
+   *  of. Moving which CONSTRUCTION wins is selection; this is execution.
+   *  A register that could only reach `energy` and `density` left a body
+   *  built to identical numbers under five different directions — same
+   *  segments, same gait, same wander — with only the operator tail
+   *  changing, which is the "different colour and post-processing"
+   *  failure wearing a new hat.
+   *
+   *  Every construction already reads these dials to set its own
+   *  parameters, so biasing the state reaches scale, speed, gait, wander,
+   *  segment count, depth, haze and typographic weight without this file
+   *  knowing any of those names. That is the point: a register states a
+   *  disposition, not a parameter. */
+  style?: Partial<Record<StyleDial, number>>;
 }
+
+/** The dials a register may bend. Named here rather than imported as
+ *  `keyof Style` so this file states its own contract — a new dial on the
+ *  creative state should be a deliberate decision to expose, not something
+ *  a register silently gains access to. */
+export type StyleDial =
+  | "abstraction"
+  | "density"
+  | "energy"
+  | "human"
+  | "typography"
+  | "archival"
+  | "data"
+  | "experimentalism"
+  | "restraint";
 
 const REGISTERS: Register[] = [
   /* ── INEVITABLE. The thing was always going to happen.
@@ -126,8 +152,10 @@ const REGISTERS: Register[] = [
     dislocation: 0.1,
     constructions: { body: 0.5, quantity: 0.45, network: 0.35, route: 0.3, type: -0.2 },
     ops: { grade: 0.2, soften: 0.15, sort: 0.2, split: -0.25, fragment: -0.3 },
-    energy: -0.1,
-    density: 0.2,
+    // Held, dense and unhurried. Inevitability is not speed — a thing
+    // arriving fast is a shock; a thing arriving slowly and without pause
+    // is inevitable.
+    style: { energy: -0.14, density: 0.24, restraint: 0.18, experimentalism: -0.12 },
   },
 
   /* ── ABSURD. The thing is ridiculous and the picture should admit it.
@@ -157,7 +185,16 @@ const REGISTERS: Register[] = [
     dislocation: 0.95,
     constructions: { quantity: 0.4, paper: 0.35, type: 0.3, network: 0.25, space: 0.2 },
     ops: { halftone: 0.3, threshold: 0.25, pixelate: 0.2, split: 0.3, soften: -0.3 },
-    energy: 0.15,
+    // Loud, unrestrained and willing to look wrong. Archival weight comes
+    // DOWN because the archival register is what lends a shot its air of
+    // sober authority, and absurdity is the refusal of that air.
+    style: {
+      energy: 0.22,
+      experimentalism: 0.4,
+      restraint: -0.34,
+      archival: -0.2,
+      typography: 0.2,
+    },
   },
 
   /* ── UNEASE. Something is wrong and the picture will not say what. */
@@ -182,7 +219,11 @@ const REGISTERS: Register[] = [
     dislocation: 0.5,
     constructions: { space: 0.45, fixture: 0.35, body: 0.2, quantity: -0.2 },
     ops: { grade: 0.3, soften: 0.25, scanline: 0.2, trace: 0.2, halftone: -0.2 },
-    energy: -0.2,
+    // Slower, closer, and a step further from the literal — the thing is
+    // not quite being shown to you. Human presence UP because a body in
+    // the frame is what makes an empty room uneasy rather than merely
+    // empty.
+    style: { energy: -0.26, abstraction: 0.16, human: 0.18, restraint: 0.12 },
   },
 
   /* ── CLINICAL. The register the Record already speaks in. */
@@ -206,8 +247,18 @@ const REGISTERS: Register[] = [
     dislocation: 0.05,
     constructions: { paper: 0.5, quantity: 0.45, route: 0.35, body: -0.15 },
     ops: { trace: 0.3, threshold: 0.2, grade: -0.2, fragment: -0.35, split: -0.3 },
-    energy: -0.25,
-    density: 0.15,
+    // The most restrained entry in the table, and the only one that pulls
+    // abstraction DOWN. A clinical picture is one that lets the thing be
+    // seen; everything else here is a way of not quite showing it.
+    style: {
+      energy: -0.3,
+      density: 0.18,
+      abstraction: -0.26,
+      restraint: 0.36,
+      data: 0.26,
+      archival: 0.2,
+      experimentalism: -0.3,
+    },
   },
 
   /* ── OVERWHELM. There is too much and that IS the point. */
@@ -230,8 +281,10 @@ const REGISTERS: Register[] = [
     dislocation: 0.45,
     constructions: { quantity: 0.4, network: 0.4, body: 0.3, type: 0.2 },
     ops: { fragment: 0.3, sort: 0.25, pixelate: 0.2, soften: -0.3 },
-    energy: 0.3,
-    density: 0.45,
+    // More of everything at once, and no restraint left to stop it. This
+    // is the register most visible in the picture itself: a body built
+    // under it has more segments, moves faster and wanders further.
+    style: { energy: 0.34, density: 0.48, restraint: -0.38, abstraction: 0.12 },
   },
 
   /* ── ISOLATION. One thing, and space around it. */
@@ -254,8 +307,10 @@ const REGISTERS: Register[] = [
     dislocation: 0.3,
     constructions: { fixture: 0.45, space: 0.4, body: 0.15, network: -0.3, quantity: -0.25 },
     ops: { soften: 0.3, grade: 0.2, fragment: -0.35, sort: -0.3 },
-    energy: -0.35,
-    density: -0.4,
+    // The inverse of overwhelm, dial for dial, and deliberately so —
+    // these are the two ends of the same axis and a register table that
+    // did not make that obvious would be hiding its own structure.
+    style: { energy: -0.38, density: -0.42, restraint: 0.3, human: -0.22 },
   },
 
   /* ── REVELATION. Something arrives that was there all along. */
@@ -279,7 +334,10 @@ const REGISTERS: Register[] = [
     dislocation: 0.4,
     constructions: { paper: 0.35, fixture: 0.3, route: 0.25, type: 0.25 },
     ops: { threshold: 0.3, trace: 0.3, dither: 0.2, soften: -0.2 },
-    energy: 0.15,
+    // Toward the literal, because a revelation is a thing becoming
+    // legible. Abstraction rising at the moment of disclosure would be
+    // the picture withholding exactly when the prose stops withholding.
+    style: { energy: 0.18, abstraction: -0.14, typography: 0.18, restraint: -0.12 },
   },
 
   /* ── SCALE. The thing is far bigger or smaller than the sentence lets on. */
@@ -302,7 +360,10 @@ const REGISTERS: Register[] = [
     dislocation: 0.55,
     constructions: { space: 0.5, network: 0.35, quantity: 0.3, fixture: -0.2 },
     ops: { grade: 0.2, soften: 0.2, pixelate: 0.15 },
-    density: 0.3,
+    // Human presence DOWN: scale is legible only by what it dwarfs, and a
+    // figure held large in frame is the thing that destroys the sense of
+    // it.
+    style: { density: 0.34, abstraction: 0.16, human: -0.24, energy: -0.1 },
   },
 
   /* ── STRANGE. The director asking for the unfamiliar, in as many words.
@@ -328,7 +389,10 @@ const REGISTERS: Register[] = [
     dislocation: 0.8,
     constructions: { body: 0.3, space: 0.3, network: 0.25, paper: -0.2 },
     ops: { split: 0.3, fragment: 0.3, sort: 0.25, trace: 0.2, threshold: -0.15 },
-    energy: 0.2,
+    // The most experimental entry, and unlike `absurd` it keeps its
+    // restraint: strangeness that shouts is comedy, and this register is
+    // the serious one of the pair.
+    style: { energy: 0.24, abstraction: 0.38, experimentalism: 0.46, archival: -0.15 },
   },
 ];
 
@@ -347,8 +411,9 @@ export interface IntentReading {
   dislocation: number;
   constructions: Record<string, number>;
   ops: Record<string, number>;
-  energy: number;
-  density: number;
+  /** Per-dial bias on the film's creative state at this beat. Applied by
+   *  `bendStyle` — see it for why this is a bias rather than a value. */
+  style: Partial<Record<StyleDial, number>>;
 }
 
 export const EMPTY_READING: IntentReading = {
@@ -357,8 +422,7 @@ export const EMPTY_READING: IntentReading = {
   dislocation: 0,
   constructions: {},
   ops: {},
-  energy: 0,
-  density: 0,
+  style: {},
 };
 
 /** Is there anything here at all? An intent whose every field is blank is
@@ -414,8 +478,7 @@ export function readIntent(intent: DirectorIntent | undefined): IntentReading {
 
   const constructions: Record<string, number> = {};
   const ops: Record<string, number> = {};
-  let energy = 0;
-  let density = 0;
+  const style: Partial<Record<StyleDial, number>> = {};
   // The strongest register sets the floor; the others can only raise it.
   // Averaging would let "clinical and absurd" read as neither, when what
   // it actually asks for is a clinical picture of an absurd thing.
@@ -429,8 +492,10 @@ export function readIntent(intent: DirectorIntent | undefined): IntentReading {
     for (const [k, v] of Object.entries(register.ops ?? {})) {
       ops[k] = (ops[k] ?? 0) + v;
     }
-    energy += register.energy ?? 0;
-    density += register.density ?? 0;
+    for (const [k, v] of Object.entries(register.style ?? {})) {
+      const dial = k as StyleDial;
+      style[dial] = (style[dial] ?? 0) + v;
+    }
   }
 
   return {
@@ -439,10 +504,37 @@ export function readIntent(intent: DirectorIntent | undefined): IntentReading {
     dislocation,
     constructions,
     ops,
-    energy: Math.max(-1, Math.min(1, energy)),
-    density: Math.max(-1, Math.min(1, density)),
+    style,
   };
 }
+
+/** Bend the film's own curves by what this beat was directed to do.
+ *
+ *  A BIAS, NOT A VALUE, and that distinction is the whole reason this is
+ *  safe. A direction never sets abstraction to 0.8; it says "further from
+ *  the literal than this film already is". So an experimental film
+ *  directed "make it strange" ends up stranger than a restrained one given
+ *  the same words, which is what a director means by it — and the film's
+ *  own curve is never overwritten, only leaned on.
+ *
+ *  Weighted at 0.6 rather than applied outright. At full strength a
+ *  register could take a scene most of the way across a dial by itself,
+ *  and the creative state the director authored across the whole film
+ *  would become advisory. It is the film; this is one scene's opinion of
+ *  it. */
+export function bendStyle<T extends object>(style: T, reading: IntentReading): T {
+  if (Object.keys(reading.style).length === 0) return style;
+  const out = { ...style } as Record<string, unknown>;
+  for (const [dial, bias] of Object.entries(reading.style)) {
+    const base = out[dial];
+    if (typeof base !== "number" || typeof bias !== "number") continue;
+    out[dial] = Math.max(0, Math.min(1, base + bias * INTENT_WEIGHT));
+  }
+  return out as T;
+}
+
+/** How hard a direction leans on the film's curves. See `bendStyle`. */
+const INTENT_WEIGHT = 0.6;
 
 /** The direction, in a sentence a director can disagree with.
  *

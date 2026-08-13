@@ -40,10 +40,16 @@ import {
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
 import { groundSatisfies, planGround } from "./ground.ts";
-import { describeIntent, hasIntent, readIntent } from "./intent.ts";
+import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
-import { type DetectedSubject, detectSubjects, refersBack, subjectReading } from "./subject.ts";
+import {
+  type DetectedSubject,
+  detectSubjects,
+  namesOnlyAbstractions,
+  refersBack,
+  subjectReading,
+} from "./subject.ts";
 import { textParamsFor } from "./text-params.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
 
@@ -324,21 +330,12 @@ export function composeScene(
     const nudge = ir.overrides.find(
       (o) => o.sceneId === scene.sceneId && o.type === "constrain",
     )?.styleNudge;
-    // A verb's nudge and a direction's register both move the same
-    // curves, and they compound rather than override: "make it colder"
-    // typed as a verb and "increasing unease" written as an intent are two
-    // ways of asking for related things, and a director who does both
-    // means it. Intent is weighted lower because it is a description of
-    // the FEELING and the verb is an instruction about the PICTURE.
-    const bend = (base: number, key: string) => {
-      const fromIntent =
-        key === "energy"
-          ? (intentReading?.energy ?? 0) * 0.25
-          : key === "density"
-            ? (intentReading?.density ?? 0) * 0.25
-            : 0;
-      return Math.max(0, Math.min(1, base + (nudge?.[key] ?? 0) + fromIntent));
-    };
+    // A verb's nudge. A direction's register bends the same curves and
+    // compounds with it, but is applied inside `constructPrograms` rather
+    // than here — one place, so it can never be applied twice or forgotten
+    // by a caller.
+    const bend = (base: number, key: string) =>
+      Math.max(0, Math.min(1, base + (nudge?.[key] ?? 0)));
     if (nudge) {
       notes.push(
         `directed — ${Object.entries(nudge)
@@ -363,9 +360,35 @@ export function composeScene(
     };
     // A nudge that raises abstraction should be able to reach the rung
     // above it, or "stranger" would open no doors the curve had shut.
+    // Computed from the DIRECTED abstraction, not the raw one. The
+    // constructor bends the state itself, so reading the rung off the
+    // unbent value would report a tier the film never composed against —
+    // and the ground planner and the ladder fallback both read it.
+    const directedAbstraction = intentReading
+      ? bendStyle({ abstraction: style.abstraction }, intentReading).abstraction
+      : style.abstraction;
     style.tier =
-      (LADDER.find((r) => style.abstraction < r.maxAbstraction) ?? LADDER[LADDER.length - 1])
+      (LADDER.find((r) => directedAbstraction < r.maxAbstraction) ?? LADDER[LADDER.length - 1])
         ?.tier ?? rung.tier;
+    // NOTHING DEPICTABLE WAS NAMED — say so.
+    //
+    // `namesOnlyAbstractions` has existed since the subject lexicon did,
+    // documented as the affordance that stops a silent fallback looking
+    // like a decision, and nothing ever called it. So "nobody noticed what
+    // was happening until it was too late" got a confident answer chosen
+    // by the film's curve and the director's mood alone, presented exactly
+    // like a sentence the compiler had actually read.
+    //
+    // This is the same discipline `extract-reading.ts` already keeps when
+    // it declines rather than guesses. The scene still compiles — standing
+    // rule 8 — it just stops claiming the prose chose the picture.
+    if (beat.subjects.length === 0) {
+      notes.push(
+        namesOnlyAbstractions(scene.narration.text)
+          ? "names nothing depictable — the picture comes from the film's curve and the direction, not from the sentence"
+          : "no named subject — the picture comes from the film's curve and the direction, not from the sentence",
+      );
+    }
     const programs = constructPrograms(beat, style, MAX_CHAIN_MS);
     const best = programs[0];
     if (best) {

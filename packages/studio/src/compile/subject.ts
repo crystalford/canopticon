@@ -291,6 +291,38 @@ const LEXICON: Array<{ kind: SubjectKind; weight: number; words: string[] }> = [
       "guards",
     ],
   },
+  // ── people in general, at a deliberately lower weight than a named
+  //    role. "People" is depictable — it is bodies — but it says nothing
+  //    about WHICH bodies, so it must lose to any sentence that also
+  //    names an inspector, a crowd or an insect.
+  //
+  //    Absent entirely until "the policy was designed to make people feel
+  //    as though they were being watched" detected NO subject at all: the
+  //    lexicon knew "claimant" and "tenant" because it was grown from one
+  //    institutional essay, and had never needed the ordinary word.
+  {
+    kind: "person",
+    weight: 0.62,
+    words: [
+      "people",
+      "person",
+      "persons",
+      "man",
+      "men",
+      "woman",
+      "women",
+      "child",
+      "children",
+      "family",
+      "families",
+      "figure",
+      "figures",
+      "passenger",
+      "passengers",
+      "pedestrian",
+      "pedestrians",
+    ],
+  },
   // ── somewhere. Not a named place — scene-kind already catches those —
   //    but a KIND of place, which is depictable as a space rather than a
   //    point on a map.

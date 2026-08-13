@@ -18,7 +18,12 @@ import {
   type Style,
   constructPrograms,
 } from "../src/compile/construct.ts";
-import { type DirectorIntent, describeIntent, readIntent } from "../src/compile/intent.ts";
+import {
+  type DirectorIntent,
+  bendStyle,
+  describeIntent,
+  readIntent,
+} from "../src/compile/intent.ts";
 import { segmentEssay } from "../src/compile/segment.ts";
 import { detectSubjects } from "../src/compile/subject.ts";
 import type { VisualLanguage } from "../src/ir/schema.ts";
@@ -491,5 +496,154 @@ describe("the sentence test — does direction change the IDEA, or only the effe
     const none = candidates().map((p) => p.id);
     const empty = candidates({}).map((p) => p.id);
     expect(empty).toEqual(none);
+  });
+});
+
+describe("the second sentence test — same construction, different execution", () => {
+  // The follow-up challenge: "hold the construction constant and test
+  // whether the system can generate substantially different cinematic
+  // executions... The resulting videos should not merely differ in colour,
+  // speed, or post processing."
+  //
+  // Run before `bendStyle` existed, a body built under five different
+  // directions came out with IDENTICAL segments, gait, wander, scale,
+  // speed, stride and wave. Only the operator tail changed — which is
+  // precisely the "different colour and post-processing" failure, with the
+  // argument moved one layer down from the one it had just been fixed at.
+  //
+  // The cause was the same shape as the first: `build(beat, style)` takes
+  // a Style, and a register could only reach two of that Style's nine
+  // dials. A direction now bends the whole creative state, and every
+  // construction already reads it.
+  const SENTENCE = "They walked around the cities like insects.";
+  const DIRECTIONS = [
+    "clinical and precise, matter of fact",
+    "make this feel absurd",
+    "sinister, ominous, increasing dread",
+    "relentless, steadily accumulating, inevitable",
+    "overwhelming, drowning, too much",
+  ];
+
+  function bodyUnder(feel: string) {
+    const beat: Beat = {
+      sentence: SENTENCE,
+      phrase: "CITIES LIKE INSECTS",
+      subjects: detectSubjects(SENTENCE),
+      figures: [],
+      route: [],
+      kind: "statement",
+      contested: false,
+      index: 7,
+      intent: readIntent({ feel }),
+    };
+    const style: Style = {
+      abstraction: 0.5,
+      density: 0.5,
+      energy: 0.6,
+      human: 0.7,
+      typography: 0.4,
+      archival: 0.3,
+      data: 0.2,
+      experimentalism: 0.5,
+      restraint: 0.4,
+      tier: "DECOMPOSED",
+      language: "documentary",
+    };
+    return constructPrograms(beat, style, 40).find((p) => p.construction === "body");
+  }
+
+  it("moves the CONSTRUCTION'S OWN NUMBERS, not just the operators", () => {
+    const built = DIRECTIONS.map((d) => must(bodyUnder(d)).nodes[0]?.params ?? {});
+    // Every parameter derived from the film's curves must differ across
+    // directions. Named individually rather than counted, so a regression
+    // says which one went flat.
+    for (const key of ["segments", "scale", "speed", "gait", "wander", "wave", "stride"]) {
+      const values = new Set(built.map((p) => String(p[key])));
+      expect(values.size).toBeGreaterThan(1);
+    }
+  });
+
+  it("leaves the numbers the PROSE decided alone", () => {
+    // The other half, and the one a "make everything respond to mood"
+    // change would quietly break. `count` is how many things the sentence
+    // said there were and `legPairs` is what kind of thing it named —
+    // neither is a matter of taste, and a direction that could move them
+    // would be editing the essay rather than directing it.
+    const built = DIRECTIONS.map((d) => must(bodyUnder(d)).nodes[0]?.params ?? {});
+    expect(new Set(built.map((p) => String(p.count))).size).toBe(1);
+    expect(new Set(built.map((p) => String(p.legPairs))).size).toBe(1);
+  });
+
+  it("bends the film's curves rather than setting them", () => {
+    // A bias, not a value — so the same words over a restrained film and
+    // an experimental one land in different places, which is what a
+    // director means by "make it stranger".
+    const reading = readIntent({ feel: "make it stranger" });
+    const calm = bendStyle({ abstraction: 0.2 }, reading).abstraction;
+    const wild = bendStyle({ abstraction: 0.7 }, reading).abstraction;
+    expect(calm).toBeGreaterThan(0.2);
+    expect(wild).toBeGreaterThan(calm);
+    // And it can never leave the dial's own range.
+    expect(bendStyle({ abstraction: 0.98 }, reading).abstraction).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("the third sentence test — prose with nothing to point a camera at", () => {
+  // "The current test uses a very conveniently visual sentence. Try: 'The
+  //  policy was designed to make people feel as though they were being
+  //  watched.' Now there isn't an obvious object like 'centipede.' What
+  //  does the system do?"
+  //
+  // Honestly: it builds bodies, because the sentence does name people, and
+  // then the direction decides the rest. What it did NOT do before this
+  // test was admit which of those two had made the decision. A sentence
+  // the compiler could not read got an answer indistinguishable from one
+  // it had read closely — and `namesOnlyAbstractions` had existed the
+  // whole time, exported and documented for exactly this, and was called
+  // by nothing.
+  //
+  // This is deliberately not a claim to understand metaphor, causality or
+  // narrative function. It is the smaller, checkable claim: when the prose
+  // did not choose the picture, the report says so.
+  function notesFor(sentence: string) {
+    const seed = segmentEssay(`A\n\n${sentence}`, { projectId: "p" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+    return must(composeAll(parsed.ir)[0]).notes.join(" · ");
+  }
+
+  it("says so when the sentence names nothing depictable", () => {
+    expect(notesFor("Nobody noticed what was happening until it was too late.")).toMatch(
+      /not from the sentence/,
+    );
+  });
+
+  it("stays quiet when the sentence DID choose the picture", () => {
+    expect(notesFor("The smoke detector had been disconnected for eleven months.")).not.toMatch(
+      /not from the sentence/,
+    );
+  });
+
+  it("knows the ordinary word for people, not only institutional roles", () => {
+    // The lexicon knew "claimant" and "tenant" because it was grown from
+    // one institutional essay, and had never needed "people".
+    const found = detectSubjects(
+      "The policy was designed to make people feel as though they were being watched.",
+    );
+    expect(found.map((s) => s.text)).toContain("people");
+    // And it is weighted BELOW a named role, because "people" says nothing
+    // about which people.
+    const role = must(detectSubjects("The inspectors arrived on Tuesday.")[0]);
+    expect(must(found[0]).weight).toBeLessThan(role.weight);
+  });
+
+  it("still compiles it — degrade, flag, continue", () => {
+    const seed = segmentEssay("A\n\nNobody noticed what was happening until it was too late.", {
+      projectId: "p",
+    });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+    const scene = must(composeAll(parsed.ir)[0]);
+    expect(scene.nodes.length).toBeGreaterThan(0);
   });
 });
