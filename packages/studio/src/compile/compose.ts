@@ -123,6 +123,12 @@ export interface ProgramSummary {
   operators: string[];
   why: string;
   chain: string[];
+  /** WHICH KIND OF IMAGE this alternative is. An alternative that differs
+   *  only in its operators is a treatment; one that differs in its mode is
+   *  a different picture of the same sentence, and a director choosing
+   *  between them needs to be told which they are looking at. */
+  mode?: string;
+  idea?: string;
   /** Built against the grain of what the sentence names. Carried to the
    *  surface because "the city is the organism" and "the people are
    *  insects" are different claims about the same sentence, and a director
@@ -176,6 +182,18 @@ export interface ComposedScene {
     construction: string;
     operators: string[];
     why: string;
+    /* WHAT KIND OF IMAGE THIS IS, and the visual idea in the director's
+     * language. Both are computed by `represent.ts`, both are carried on
+     * the Program — and both were dropped HERE, at the projection onto
+     * the composed scene, along with `dislocated`, which the interface
+     * declared and the emit never wrote.
+     *
+     * So the compiler chose a representation for every scene, said so
+     * internally, and reported `mode: —` on all of them. The Studio's
+     * VISUAL IDEA card reads this object: a projection that silently
+     * narrows is how a working decision becomes an invisible one. */
+    mode?: string;
+    idea?: string;
     dislocated?: boolean;
   } | null;
   /** The other programs this sentence could have been, best first. */
@@ -464,6 +482,8 @@ export function composeScene(
           operators: p.operators,
           why: p.why,
           chain: p.nodes.map((n) => n.primitiveId),
+          ...(p.mode ? { mode: p.mode } : {}),
+          ...(p.idea ? { idea: p.idea } : {}),
           ...(p.dislocated ? { dislocated: true } : {}),
         }));
       chain = best.nodes.map((n) => n.primitiveId);
@@ -782,6 +802,9 @@ export function composeScene(
           construction: program.construction,
           operators: program.operators,
           why: program.why,
+          ...(program.mode ? { mode: program.mode } : {}),
+          ...(program.idea ? { idea: program.idea } : {}),
+          ...(program.dislocated ? { dislocated: true } : {}),
         }
       : null,
     alternatives,
