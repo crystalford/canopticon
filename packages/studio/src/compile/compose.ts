@@ -44,7 +44,7 @@ import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
-import { type Plane, type ScenePlan, isComposite, planScene } from "./scene-plan.ts";
+import { type Plane, type ScenePlan, isComposite, isUnnoticed, planScene } from "./scene-plan.ts";
 import {
   type DetectedSubject,
   detectSubjects,
@@ -321,7 +321,17 @@ export function composeScene(
     const beat: Beat = {
       sentence: scene.narration.text,
       phrase: phrase.text,
-      subjects: leadWithTopic(sceneSubjects(scene.narration.text, carried), relation),
+      // THE UNNOTICED CASE CARRIES ITS SUBJECT. "At first nobody noticed"
+      // is about whatever went unnoticed, and contains no anaphor — so the
+      // pronoun rule never fires and the anomaly was planned but never
+      // built. Without this the scene composes as typography and the
+      // proposition is decoration.
+      subjects: leadWithTopic(
+        isUnnoticed(scene.narration.text) && carried
+          ? [{ ...carried, weight: carried.weight * 0.8 }]
+          : sceneSubjects(scene.narration.text, carried),
+        relation,
+      ),
       ...(relation ? { relation } : {}),
       figures: scene.figures ?? [],
       route: scene.route ?? [],

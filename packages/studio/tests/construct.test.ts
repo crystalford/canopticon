@@ -1009,3 +1009,56 @@ describe("the proposition test — does it change what enters the frame", () => 
     expect(scene.notes.join(" ")).toMatch(/ordinary world/);
   });
 });
+
+describe("the acceptance test — the anomaly is BUILT, not just planned", () => {
+  // The bar set for this step: the resulting scene must contain both an
+  // anomaly and an ordinary world capable of failing to notice it, and the
+  // ordinary world must be materially represented rather than merely named
+  // as a role.
+  //
+  // The previous commit planned both and built neither: the scene still
+  // composed as typography, because `refersBack` does not fire on "at
+  // first nobody noticed" — it contains no anaphor — so the film's memory
+  // never reached the constructor. The proposition was decoration.
+  function scenes() {
+    const seed = segmentEssay(
+      `The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.`,
+      { projectId: "p" },
+    );
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+    return composeAll(parsed.ir);
+  }
+
+  it("builds the anomaly in a sentence that names nothing", () => {
+    const scene = must(scenes()[1]);
+    const built = scene.nodes.map((n) => n.primitiveId);
+    // Not typography. The thing that went unnoticed is on screen.
+    expect(built).toContain("creature_chain");
+    expect(built[0]).not.toBe("text_layout");
+  });
+
+  it("paints the ordinary world it goes unnoticed against", () => {
+    const scene = must(scenes()[1]);
+    const grounds = scene.nodes.flatMap((n) => (n.ground ?? []).map((g) => g.primitiveId));
+    expect(grounds).toContain("plate_scene");
+  });
+
+  it("holds both at once — the whole point", () => {
+    const scene = must(scenes()[1]);
+    const everything = scene.nodes.flatMap((n) => [
+      n.primitiveId,
+      ...(n.ground ?? []).map((g) => g.primitiveId),
+    ]);
+    expect(everything).toContain("creature_chain");
+    expect(everything).toContain("plate_scene");
+  });
+
+  it("keeps the anomaly small — it has not taken the frame yet", () => {
+    // "Nobody noticed" is a statement about scale and salience, not only
+    // about presence. A dominant anomaly would contradict the sentence.
+    const body = must(must(scenes()[1]).nodes.find((n) => n.primitiveId === "creature_chain"));
+    const escalated = must(must(scenes()[2]).nodes.find((n) => n.primitiveId === "creature_chain"));
+    expect(Number(body.params.count)).toBeLessThan(Number(escalated.params.count));
+  });
+});

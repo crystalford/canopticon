@@ -121,6 +121,15 @@ const SIMILE = /\b(like|as if|as though|resembl\w*)\b/i;
 const ESCALATING =
   /\b(then|suddenly|by then|soon)\b[^.]*\b(dozens|hundreds|thousands|more|everywhere|all)\b/i;
 
+/** Exported so `compose.ts` can carry the film's subject into a sentence
+ *  that names nothing. "Nobody noticed" is ABOUT the thing that went
+ *  unnoticed, but it contains no anaphor, so the ordinary pronoun rule
+ *  does not fire and the anomaly never reaches the constructor — planned
+ *  and never built. */
+export function isUnnoticed(sentence: string): boolean {
+  return UNNOTICED.test(sentence);
+}
+
 const UNNOTICED =
   /\b(nobody|no one|no-one|none of them|nothing)\b[^.]*\b(notic\w*|saw|see|register\w*|react\w*|question\w*|report\w*|look\w*)\b/i;
 
