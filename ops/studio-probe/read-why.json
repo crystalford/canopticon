@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-13T01:50:37Z",
+  "run_id": "31658966661",
+  "method": "POST",
+  "path": "/v1/project/proj_305611e441404d1e97fa/read",
+  "status": 200,
+  "body": "{\n  \"projectId\": \"proj_305611e441404d1e97fa\",\n  \"proposed\": 0,\n  \"declined\": 4,\n  \"why\": {\n    \"call-failed\": 4\n  },\n  \"samples\": [\n    {\n      \"sentence\": \"Food prices no longer behave like prices.\",\n      \"reason\": \"call-failed\",\n      \"said\": \"raw2.slice is not a function\"\n    },\n    {\n      \"sentence\": \"Headline inflation cools.\",\n      \"reason\": \"call-failed\",\n      \"said\": \"raw2.slice is not a function\"\n    },\n    {\n      \"sentence\": \"Food refuses.\",\n      \"reason\": \"call-failed\",\n      \"said\": \"raw2.slice is not a function\"\n    }\n  ],\n  \"remaining\": 118\n}"
+}
