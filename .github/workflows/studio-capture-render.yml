@@ -1,0 +1,77 @@
+name: Studio capture render
+
+# One-off diagnostic: export a real film from the deployed Studio, headless,
+# and upload the video plus the compile metadata behind it as a workflow
+# artifact. Built for a specific experiment — "Version A" (before the
+# construction-parameter plumbing fix) versus "Version B" (after) of the
+# same project — so the comparison is evidence rather than an impression.
+#
+# The sandbox Claude Code runs in cannot reach studio.canopticon.com at all
+# (same egress restriction documented in studio-probe.yml), which is the
+# whole reason this runs as a GitHub Actions job instead: this runner has
+# real network access, and this checkout's ref decides which VERSION of the
+# capture SCRIPT runs, not which version of the deployed site it talks to —
+# it always hits whatever is live at the base URL.
+#
+# Not cheap: a real render paces to real time, so a six-minute film costs
+# about six minutes of job time. Triggered only, never on a schedule.
+
+on:
+  workflow_dispatch:
+    inputs:
+      projectId:
+        description: "Studio project id to render"
+        required: true
+        type: string
+      label:
+        description: "Short name for this capture, e.g. version-a"
+        required: true
+        type: string
+      baseUrl:
+        description: "Base URL of the deployed Studio"
+        required: false
+        default: "https://studio.canopticon.com"
+        type: string
+      commitSha:
+        description: "SHA of main actually deployed at capture time (not inferred — the Worker exposes no version endpoint)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install playwright (ad hoc, not a repo dependency)
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Capture
+        env:
+          CAPTURE_PROJECT_ID: ${{ github.event.inputs.projectId }}
+          CAPTURE_LABEL: ${{ github.event.inputs.label }}
+          CAPTURE_BASE_URL: ${{ github.event.inputs.baseUrl }}
+          CAPTURE_GIT_SHA: ${{ github.event.inputs.commitSha }}
+          CAPTURE_OUT_DIR: ops/studio-capture/${{ github.event.inputs.label }}
+        run: node packages/studio/scripts/capture-render.mjs
+
+      - name: Upload capture
+        uses: actions/upload-artifact@v4
+        with:
+          name: studio-capture-${{ github.event.inputs.label }}
+          path: ops/studio-capture/${{ github.event.inputs.label }}
+          retention-days: 30
+          if-no-files-found: error
