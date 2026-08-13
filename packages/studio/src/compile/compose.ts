@@ -402,7 +402,7 @@ export function composeScene(
     // THE SCENE PLAN. What roles this shot contains, before anything
     // decides which single one wins. A setting that loses is a setting
     // that was read and thrown away — see scene-plan.ts.
-    scenePlan = planScene(beat, style);
+    scenePlan = planScene(beat, style, carried);
     if (isComposite(scenePlan)) notes.push(`composed — ${scenePlan.why}`);
 
     const programs = constructPrograms(beat, style, MAX_CHAIN_MS);
@@ -585,7 +585,7 @@ export function composeScene(
   // competing with it for the one slot a scene used to have.
   const settingPlane =
     scenePlan && isComposite(scenePlan)
-      ? scenePlan.planes.find((pl: Plane) => pl.role === "SETTING")
+      ? scenePlan.planes.find((pl: Plane) => pl.role === "SETTING" || pl.role === "COUNTERPOINT")
       : undefined;
 
   const ground = planGround({
@@ -611,7 +611,11 @@ export function composeScene(
   // trading it for a refusal.
   if (ground && settingPlane && groundSatisfies(ground.compositor, ["plate_scene"]) === true) {
     ground.ground = ["plate_scene"];
-    notes.push(`ground is the setting — ${settingPlane.from}`);
+    notes.push(
+      settingPlane.role === "COUNTERPOINT"
+        ? "ground is the ordinary world — the thing the anomaly goes unnoticed against"
+        : `ground is the setting — ${settingPlane.from}`,
+    );
   }
   let groundNodes: ComposedNode[] | null = null;
   if (ground) {

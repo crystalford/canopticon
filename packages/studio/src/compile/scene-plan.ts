@@ -49,6 +49,11 @@ export type PlaneRole =
    *  plane so the literal and the figurative can both be on screen and the
    *  director can weight between them. */
   | "METAPHOR"
+  /** What the subject is happening AGAINST — the ordinary world that has
+   *  not reacted to it. Never named by the sentence; it enters because the
+   *  PROPOSITION requires it, which is the whole test of whether a
+   *  proposition is doing work. */
+  | "COUNTERPOINT"
   /** The words, when the film puts them on screen. Always nearest. */
   | "EDITORIAL";
 
@@ -97,6 +102,28 @@ export interface ScenePlan {
  *  be seen as another, which is a plane. */
 const SIMILE = /\b(like|as if|as though|resembl\w*)\b/i;
 
+/** THE SENTENCE THAT NAMES NOTHING AND STILL DESCRIBES A PICTURE.
+ *
+ *  "At first nobody noticed." There is no noun here to build. A noun
+ *  reader gets nothing and falls through to typography — which is what
+ *  happened, and it is why this sentence was the clearest failure in the
+ *  paragraph.
+ *
+ *  But it describes a frame precisely: something is happening, and the
+ *  ordinary world around it is carrying on. That requires the ORDINARY
+ *  WORLD to be visible — people facing away, traffic continuing, a street
+ *  behaving normally — and none of that is a noun in the sentence.
+ *
+ *  So this is the test of whether a proposition does any work: if it can
+ *  put something in the frame that no noun asked for, the system is
+ *  composing a claim. If it cannot, it is a better noun compositor. */
+/** The turn — the anomaly stops being background. */
+const ESCALATING =
+  /\b(then|suddenly|by then|soon)\b[^.]*\b(dozens|hundreds|thousands|more|everywhere|all)\b/i;
+
+const UNNOTICED =
+  /\b(nobody|no one|no-one|none of them|nothing)\b[^.]*\b(notic\w*|saw|see|register\w*|react\w*|question\w*|report\w*|look\w*)\b/i;
+
 /** Does this sentence want more than one plane, and which?
  *
  *  Deliberately conservative. Most sentences name one thing and get one
@@ -105,7 +132,14 @@ const SIMILE = /\b(like|as if|as though|resembl\w*)\b/i;
  *  composition made explicit. The interesting case is the minority that
  *  name a setting AND a subject, which is where everything was being
  *  thrown away. */
-export function planScene(beat: Beat, style: Style): ScenePlan {
+export function planScene(
+  beat: Beat,
+  style: Style,
+  /** What the film was already looking at. A sentence that names nothing
+   *  is still ABOUT something, and without this the unnoticed case has no
+   *  subject to be unnoticed. */
+  carried?: DetectedSubject | null,
+): ScenePlan {
   const planes: Plane[] = [];
   const subjects = beat.subjects;
 
@@ -157,6 +191,38 @@ export function planScene(beat: Beat, style: Style): ScenePlan {
     });
   }
 
+  // THE UNNOTICED CASE. The sentence names nothing; the proposition
+  // populates the frame anyway.
+  //
+  // This is the falsifiable claim: a COUNTERPOINT plane enters because the
+  // proposition needs an ordinary world for the anomaly to go unregistered
+  // AGAINST. No noun in "at first nobody noticed" asked for it.
+  const unnoticed = UNNOTICED.test(beat.sentence);
+  if (unnoticed) {
+    const anomaly = subject ?? carried ?? null;
+    if (anomaly && !planes.some((pl) => pl.role === "SUBJECT")) {
+      planes.push({
+        role: "SUBJECT",
+        construction: constructionFor(anomaly),
+        from: anomaly.text,
+        depth: 0.55,
+        // Small: the whole point is that it has not yet taken the frame.
+        weight: 0.3,
+      });
+    }
+    planes.push({
+      role: "COUNTERPOINT",
+      // A place, because "the ordinary world carrying on" IS a setting
+      // seen as indifferent rather than as a location.
+      construction: "space",
+      from: null,
+      depth: 0.3,
+      // Dominant on purpose. The ordinary world is most of the frame; that
+      // is what "nobody noticed" looks like.
+      weight: 0.7,
+    });
+  }
+
   // THE WORDS. Nearest, and only when the film is putting them up.
   if (style.typography > 0.55 && beat.phrase) {
     planes.push({
@@ -173,7 +239,7 @@ export function planScene(beat: Beat, style: Style): ScenePlan {
     why: planes.length
       ? planes.map((p) => `${p.role.toLowerCase()}${p.from ? ` (${p.from})` : ""}`).join(" · ")
       : "single plane — the sentence names one thing",
-    proposition: propose(planes),
+    proposition: propose(planes, ESCALATING.test(beat.sentence)),
   };
 }
 
@@ -187,23 +253,35 @@ export function planScene(beat: Beat, style: Style): ScenePlan {
  *  artifact and not a caption.
  *
  *  Deterministic: same planes, same sentence, always. */
-function propose(planes: Plane[]): string {
+function propose(planes: Plane[], escalating: boolean): string {
   const setting = planes.find((p) => p.role === "SETTING");
   const subject = planes.find((p) => p.role === "SUBJECT");
   const metaphor = planes.find((p) => p.role === "METAPHOR");
+  const counter = planes.find((p) => p.role === "COUNTERPOINT");
 
   if (!planes.length) return "nothing is claimed — the sentence names nothing depictable";
+
+  // The counterpoint case states the RELATIONSHIP, which is the whole
+  // reason the plane exists. "Insects occupies city" would be a role
+  // summary; this is what a viewer would take from the arrangement.
+  if (counter) {
+    return "Something is happening that does not belong here, and the ordinary world has not registered it.";
+  }
+  if (escalating && subject) {
+    return "There are too many of them now, and they are moving together — the ordinary world can no longer absorb it.";
+  }
   if (subject && setting && metaphor) {
-    return `Something is moving through ${setting.from}, and it is not behaving the way the people who belong there behave.`;
+    return `Something is moving through ${setting.from} that does not move the way the things that belong there move.`;
   }
   if (subject && setting) {
-    return `${cap(subject.from)} occupies ${setting.from}, and the place continues around it.`;
+    return `Something is loose in ${setting.from}, and the place has not changed to accommodate it.`;
   }
   if (subject && metaphor) {
-    return `${cap(subject.from)} is being seen as something else, and the resemblance is the claim.`;
+    return `${cap(subject.from)} is being shown as something else, and the resemblance is the argument.`;
   }
   if (setting) return "A place is held, and whatever happened in it has already happened.";
-  if (subject) return `${cap(subject.from)} is presented alone, with nothing to compare it to.`;
+  if (subject)
+    return `${cap(subject.from)} is presented alone, with nothing to measure it against.`;
   return "The words are the image; there is nothing behind them.";
 }
 

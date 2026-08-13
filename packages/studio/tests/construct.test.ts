@@ -910,3 +910,102 @@ describe("the scene plan — a shot is several things at once", () => {
     if (lm && fm) expect(fm.weight).toBeGreaterThan(lm.weight);
   });
 });
+
+describe("the proposition test — does it change what enters the frame", () => {
+  // The pushback that produced this: "Insects occupies city" is a ROLE
+  // SUMMARY, not a proposition. It names what is in the frame instead of
+  // what the viewer should understand from it. The real test is not "did
+  // we detect city" — it is "did the proposition cause different things to
+  // enter the frame".
+  //
+  // "At first nobody noticed" is the unfakeable case. It names NOTHING. A
+  // noun reader gets nothing and falls through to typography, which is
+  // exactly what happened. Any plane that appears must therefore have come
+  // from the proposition, not from a noun — which makes this the one
+  // sentence where the claim cannot be faked by better noun detection.
+  const style: Style = {
+    abstraction: 0.5,
+    density: 0.5,
+    energy: 0.6,
+    human: 0.7,
+    typography: 0.4,
+    archival: 0.3,
+    data: 0.2,
+    experimentalism: 0.5,
+    restraint: 0.4,
+    tier: "DECOMPOSED",
+    language: "documentary",
+  };
+  const UNNOTICED = "At first nobody noticed.";
+  function beatFor(sentence: string): Beat {
+    return {
+      sentence,
+      phrase: "NOBODY NOTICED",
+      subjects: detectSubjects(sentence),
+      figures: [],
+      route: [],
+      kind: "statement",
+      contested: false,
+      index: 1,
+    };
+  }
+
+  it("the sentence names nothing — established, so the rest cannot be noun detection", () => {
+    expect(detectSubjects(UNNOTICED)).toEqual([]);
+  });
+
+  it("populates the frame anyway, from the proposition", () => {
+    const carried = must(detectSubjects("They walked around the city like insects.")[0]);
+    const plan = planScene(beatFor(UNNOTICED), style, carried);
+    expect(isComposite(plan)).toBe(true);
+    const roles = plan.planes.map((p) => p.role);
+    // The ordinary world enters. No noun asked for it.
+    expect(roles).toContain("COUNTERPOINT");
+    expect(roles).toContain("SUBJECT");
+    const counter = must(plan.planes.find((p) => p.role === "COUNTERPOINT"));
+    expect(counter.from).toBe(null); // named by nothing in the sentence
+    // And it dominates — that is what "nobody noticed" looks like.
+    const subject = must(plan.planes.find((p) => p.role === "SUBJECT"));
+    expect(counter.weight).toBeGreaterThan(subject.weight);
+  });
+
+  it("states a relationship, not an inventory", () => {
+    const carried = must(detectSubjects("They walked around the city like insects.")[0]);
+    const plan = planScene(beatFor(UNNOTICED), style, carried);
+    // The proposition must not be a list of what is present.
+    expect(plan.proposition).toMatch(/has not registered it/);
+    expect(plan.proposition).not.toMatch(/insects/i);
+  });
+
+  it("changes as the paragraph turns", () => {
+    // Same paragraph, three beats, three different claims — the arc is in
+    // the propositions, not only in the parameters.
+    const carried = must(detectSubjects("They walked around the city like insects.")[0]);
+    const a = planScene(beatFor("They walked around the city like insects."), style).proposition;
+    const b = planScene(beatFor(UNNOTICED), style, carried).proposition;
+    // Built the way compose builds it: the film's memory supplies the
+    // subject a pronoun sentence does not name.
+    const third =
+      "Then there were dozens of them, moving through the streets in strange synchronized waves.";
+    const c = planScene(
+      { ...beatFor(third), subjects: [carried, ...detectSubjects(third)] },
+      style,
+      carried,
+    ).proposition;
+    expect(new Set([a, b, c]).size).toBe(3);
+    expect(c).toMatch(/too many|together/);
+  });
+
+  it("the ordinary world reaches the picture, not just the plan", () => {
+    const seed = segmentEssay(
+      `The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.`,
+      { projectId: "p" },
+    );
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+    const scene = must(composeAll(parsed.ir)[1]);
+    const grounds = scene.nodes.flatMap((n) => (n.ground ?? []).map((g) => g.primitiveId));
+    expect(grounds).toContain("plate_scene");
+    expect(scene.notes.join(" ")).toMatch(/ordinary world/);
+  });
+});
