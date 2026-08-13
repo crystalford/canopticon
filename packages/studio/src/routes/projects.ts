@@ -882,6 +882,117 @@ app.post("/voice/audition", async (c) => {
   return c.json({ text: line, takes });
 });
 
+/** DOES THE NUMBER SURVIVE BEING SPOKEN?
+ *
+ *  The one question about a voice this system can answer objectively, and
+ *  it happens to be the one that matters most here. Whether narration
+ *  sounds authoritative over fifteen minutes is a judgement a person makes
+ *  with their ears. Whether "$282,345.84" comes back as "$282,345.84" is a
+ *  measurement — and on an institutional investigation an approximation of
+ *  that figure is a different finding, which is the standing rule the
+ *  whole figures pipeline exists to protect.
+ *
+ *  So: speak the line, transcribe it back, and report what survived. A
+ *  round trip through a DIFFERENT model family than the one that spoke it,
+ *  which is the same generate-then-verify discipline the Record uses on
+ *  quotes.
+ *
+ *  This is NOT a quality score. A model can round-trip perfectly and still
+ *  be unpleasant to listen to for a quarter of an hour. It is a floor: a
+ *  voice that mangles the figures is disqualified regardless of how it
+ *  sounds, and a voice that keeps them has earned the right to be judged
+ *  by ear. */
+app.post("/voice/fidelity", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { text?: string };
+  const line =
+    body.text ??
+    "The City of Niagara Falls received a federal IHAP grant of $282,345.84 for 2024-2025. " +
+      "Peak occupancy reached 7,000 people in July 2023. The building is the same.";
+
+  // What must survive verbatim: money, counts, years, and capitalised
+  // names. Anything a viewer would read off the screen and check.
+  const mustSurvive = [
+    ...(line.match(/\$[\d,]+(?:\.\d+)?/g) ?? []),
+    ...(line.match(/\b\d[\d,]*(?:\.\d+)?\b/g) ?? []),
+    ...(line.match(/\b[A-Z][a-z]{2,}\b/g) ?? []),
+  ];
+
+  const takes: Array<Record<string, unknown>> = [];
+  for (const candidate of TTS_CANDIDATES) {
+    let out: unknown;
+    try {
+      out = await c.env.AI.run(candidate.model as never, candidate.input(line) as never);
+    } catch (err) {
+      takes.push({
+        model: candidate.model,
+        ok: false,
+        outcome: `unavailable: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      continue;
+    }
+    const bytes = await toBytes(out);
+    if (!bytes) {
+      takes.push({ model: candidate.model, ok: false, outcome: "no recoverable audio" });
+      continue;
+    }
+
+    // Transcribed by a different family than the one that spoke it.
+    let heard = "";
+    let durationMs = 0;
+    let words = 0;
+    for (const asr of ASR_CANDIDATES) {
+      try {
+        const back = await c.env.AI.run(asr.model as never, asr.input(bytes.bytes) as never);
+        const timings = readTimings(back);
+        const asObject = back as unknown as { text?: unknown } | null;
+        const said =
+          asObject && typeof asObject.text === "string"
+            ? asObject.text
+            : timings.words.map((w) => w.word).join(" ");
+        if (said) {
+          heard = said;
+          durationMs = timings.durationMs;
+          words = timings.words.length;
+          break;
+        }
+      } catch {
+        // Next ASR candidate. A transcription that fails says nothing
+        // about the voice.
+      }
+    }
+
+    const lower = heard.toLowerCase().replace(/\s+/g, " ");
+    const kept = mustSurvive.filter((t) => lower.includes(t.toLowerCase()));
+    const lost = mustSurvive.filter((t) => !lower.includes(t.toLowerCase()));
+    // Words per minute, measured. Documentary narration sits around
+    // 130–160; far outside that is a pacing problem no amount of liking
+    // the timbre will fix.
+    const wpm = durationMs > 0 ? Math.round((line.split(/\s+/).length / durationMs) * 60000) : 0;
+
+    takes.push({
+      model: candidate.model,
+      ok: true,
+      bytes: bytes.bytes.length,
+      durationMs,
+      wordsHeard: words,
+      wpm,
+      survived: `${kept.length}/${mustSurvive.length}`,
+      lost,
+      heard,
+      audio: toBase64(bytes.bytes),
+    });
+  }
+
+  return c.json({
+    text: line,
+    mustSurvive,
+    takes,
+    note:
+      "Round-trip fidelity is a FLOOR, not a quality score. A voice that mangles the figures is " +
+      "disqualified however it sounds; one that keeps them has earned the right to be judged by ear.",
+  });
+});
+
 app.post("/project/:id/compile", async (c) => {
   const projectId = c.req.param("id");
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
