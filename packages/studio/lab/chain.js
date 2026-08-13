@@ -33,6 +33,12 @@ function typeOf(id, side) {
 function linkOk(from, to) {
   const needs = typeOf(to, "in");
   if (needs.length === 0) return true;
+  // A COMPOSITOR TAKES PIXELS — its first input is the previous stage's
+  // canvas, which every primitive produces. Same single stated exception
+  // the compiler's own canChain makes, and it has to be made in both or
+  // the Preview and the Worker would disagree about whether a chain is
+  // legal, which is how they came to disagree about 57 of 88 scenes.
+  if (takesTwo(to)) return true;
   const gives = typeOf(from, "out");
   return needs.some((t) => gives.includes(t));
 }
@@ -44,6 +50,24 @@ function validate(chain) {
       errors.push(`${node.id} is not in the palette`);
       return;
     }
+    // A BRANCH IS A CHAIN. It gets the same walk — a ground built out of
+    // primitives that do not compose is as broken as a subject built that
+    // way, and a compositor drawing a broken branch would just show the
+    // subject and look like it worked.
+    if (node.b && node.b.length) {
+      for (const e of validate(node.b)) errors.push(`ground: ${e}`);
+      const needs = secondInputOf(node.id);
+      if (needs.length) {
+        const tail = node.b[node.b.length - 1];
+        const gives = tail ? typeOf(tail.id, "out") : [];
+        if (!needs.some((tp) => gives.includes(tp))) {
+          errors.push(
+            `${node.id} needs a ${needs.join("|")} on its second input but its ground ends in ` +
+              `${tail ? tail.id : "nothing"}, which emits ${gives.join("|") || "nothing"}`,
+          );
+        }
+      }
+    }
     if (i === 0) return;
     const prev = chain[i - 1].id;
     if (!linkOk(prev, node.id)) {
@@ -54,6 +78,59 @@ function validate(chain) {
   });
   return errors;
 }
+
+/** What a two-input primitive wants on its SECOND input, if anything.
+ *
+ *  Read off the live instance rather than declared in the io string,
+ *  because the io string has one arrow and a second input is not a second
+ *  arrow — the same precedent motion craft set by exposing `warp`.
+ *
+ *  A compositor whose second input is IMAGE is unconstrained on purpose:
+ *  pixels are what every primitive produces, so any branch is legal and
+ *  saying otherwise would be theatre. FIELD is a real constraint and is
+ *  checked. */
+function secondInputOf(id) {
+  const spec = window.PRIMS[id];
+  if (!spec) return [];
+  const probe = SECOND_INPUT.get(id);
+  if (probe !== undefined) return probe;
+  let two = null;
+  try {
+    const params = { seed: 1 };
+    for (const k in spec.params) {
+      const s = spec.params[k];
+      params[k] = s.s !== undefined ? s.s : s.v;
+    }
+    two = spec.make(params).two || null;
+  } catch {
+    two = null;
+  }
+  const out = two && two !== "IMAGE" ? [two] : [];
+  SECOND_INPUT.set(id, out);
+  return out;
+}
+const SECOND_INPUT = new Map();
+
+/** Does this primitive take a second input at all? */
+function takesTwo(id) {
+  const spec = window.PRIMS[id];
+  if (!spec) return false;
+  if (TAKES_TWO.has(id)) return TAKES_TWO.get(id);
+  let yes = false;
+  try {
+    const params = { seed: 1 };
+    for (const k in spec.params) {
+      const s = spec.params[k];
+      params[k] = s.s !== undefined ? s.s : s.v;
+    }
+    yes = Boolean(spec.make(params).two);
+  } catch {
+    yes = false;
+  }
+  TAKES_TWO.set(id, yes);
+  return yes;
+}
+const TAKES_TWO = new Map();
 
 /** Instantiate a chain once. Instances hold per-primitive state (particle
  *  positions, creature bodies), so they must persist across frames — a
@@ -74,7 +151,19 @@ function buildChain(chain, w, h, duration) {
     const buf = document.createElement("canvas");
     buf.width = w;
     buf.height = h;
-    return { id: node.id, inst: def.make(params), buf, ctx: buf.getContext("2d") };
+    // THE GROUND, built as its own chain. It is instantiated once and kept,
+    // exactly like the main chain is, because a branch rebuilt per frame
+    // would reset its own motion to step one every frame — the same bug
+    // the main chain was carefully written to avoid.
+    const ground =
+      node.b && node.b.length && takesTwo(node.id) ? buildChain(node.b, w, h, dur) : null;
+    return {
+      id: node.id,
+      inst: def.make(params),
+      buf,
+      ctx: buf.getContext("2d"),
+      ground: ground && !ground.errors.length ? ground : null,
+    };
   });
 
   // MOTION CRAFT RE-TIMES; IT DOES NOT DRAW.
@@ -94,8 +183,15 @@ function buildChain(chain, w, h, duration) {
   const draw = painters.length > 0 ? painters : stages;
   const warpTime = (t) => shapers.reduce((acc, s) => s.inst.warp(acc, dur), t);
 
+  // What the chain last emitted, typed. A ground is consumed by its
+  // compositor as a PAYLOAD, not a picture — `field_displace` reads the
+  // field's numbers — so the branch has to be able to hand back what it
+  // produced, not only what it drew.
+  let emitted = { canvas: null, geometry: null, field: null, data: null };
+
   return {
     errors: [],
+    lastPayload: () => emitted,
     run(t) {
       // The payload, not just a canvas. GEOMETRY is a point set and a
       // picture OF points is not the same thing: re-sampling a drawn point
@@ -108,7 +204,15 @@ function buildChain(chain, w, h, duration) {
       let payload = null;
       for (const stage of draw) {
         stage.ctx.clearRect(0, 0, w, h);
-        const out = stage.inst.frame(stage.ctx, w, h, tt, payload);
+        // A compositor's SECOND input: its ground, rendered at the same
+        // instant on the same clock. Run first, so the composite is given
+        // a finished layer rather than one that is a frame behind.
+        let branch = null;
+        if (stage.ground) {
+          const canvas = stage.ground.run(tt);
+          branch = { ...stage.ground.lastPayload(), canvas };
+        }
+        const out = stage.inst.frame(stage.ctx, w, h, tt, payload, branch, dur);
         payload = {
           canvas: stage.buf,
           // A primitive may hand back typed data alongside its pixels.
@@ -122,6 +226,7 @@ function buildChain(chain, w, h, duration) {
           data: out && out.data ? out.data : null,
         };
       }
+      emitted = payload || emitted;
       return draw[draw.length - 1].buf;
     },
     stages,
@@ -161,6 +266,10 @@ function buildSequence(chain, shots, w, h) {
       // compile/film.ts), so anything arriving here is a parameter the
       // primitive really has.
       params: { ...(node.params || {}), ...(shot.params || {}) },
+      // The ground travels with its compositor across a cut. It gets its
+      // own fresh instance per shot for the same reason the subject does:
+      // at a cut, state resets.
+      ...(node.b ? { b: node.b } : {}),
     }));
     // The shot's own length, so a motion-craft ease spans the shot rather
     // than an arbitrary second.
@@ -204,4 +313,6 @@ Object.assign(window, {
   buildSequence,
   validateChain: validate,
   chainLinkOk: linkOk,
+  chainTakesTwo: takesTwo,
+  chainSecondInput: secondInputOf,
 });

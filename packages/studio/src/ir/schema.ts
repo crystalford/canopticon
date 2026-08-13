@@ -118,6 +118,19 @@ export const OverrideSchema = z.object({
   chain: z.array(z.string()).optional(),
   /** For `pin`: frozen parameter values. */
   params: z.record(z.string(), z.number()).optional(),
+  /** For `constrain`: a DELTA on the film's creative state, for this scene
+   *  only.
+   *
+   *  This is what a director's verb writes. "Make it stranger" is not a
+   *  chain and it is not a pin — it is a nudge to the state this scene is
+   *  composed against, so the engine keeps composing and the nudge
+   *  survives a restyle, a re-read and a recompile. A pin bypasses
+   *  composition; a constraint bends it, which is the difference between
+   *  freezing a shot and directing one.
+   *
+   *  `constrain` has been in this union since the schema was written and
+   *  nothing has ever produced one. This is what it was for. */
+  styleNudge: z.record(z.string(), z.number()).optional(),
   createdAt: z.string().optional(),
 });
 export type Override = z.infer<typeof OverrideSchema>;

@@ -155,7 +155,18 @@ describe("treatments inside the compile pipeline", () => {
     for (const note of drops) expect(note.length).toBeGreaterThan(20);
   });
 
-  it("changing the visual language recomputes only the scenes that carry readings", async () => {
+  it("changing the visual language restyles the whole film, and still spends nothing", async () => {
+    // THIS ASSERTION USED TO SAY "only the scenes that carry readings",
+    // and that was a description of a limitation rather than of a design.
+    // A visual language that reaches only the minority of scenes a human
+    // has ratified a reading for is a language that mostly does nothing —
+    // which is exactly what "it uses the same filter palettes" looked like
+    // from the outside.
+    //
+    // The language is now a CONSTRAINT on every constructed program: it
+    // moves each operator's appetite and states a preferred representation
+    // rung. So it reaches scenes with no reading at all, which is the
+    // point, and the cache diff correctly reports them as recomputed.
     const base = buildFixtureIR();
     const first = await compile(base);
 
@@ -165,9 +176,10 @@ describe("treatments inside the compile pipeline", () => {
 
     const touched = second.cache.scenes.filter((s) => s.misses > 0).map((s) => s.sceneId);
     const readingScenes = base.scenes.filter((s) => s.reading).map((s) => s.sceneId);
-    expect(touched.length).toBeGreaterThan(0);
-    for (const id of touched) expect(readingScenes).toContain(id);
-    // And it costs nothing: depiction is not narration.
+    // Every ratified scene moves, and so do others.
+    for (const id of readingScenes) expect(touched).toContain(id);
+    expect(touched.length).toBeGreaterThan(readingScenes.length);
+    // And it still costs nothing: depiction is not narration.
     expect(second.ttsCalls).toBe(0);
   });
 

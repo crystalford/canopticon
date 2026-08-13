@@ -46,6 +46,16 @@ export interface UsageReport {
   decorativeLinks: { link: string; uses: number }[];
   /** How much of this film's chaining is real, 0..1. */
   linkHonesty: number;
+  /** GROUNDS — scenes composited from two inputs rather than one.
+   *
+   *  Counted separately because a ground link is honest by construction:
+   *  a compositor reads both of its inputs or it does nothing visible, and
+   *  the whole reason this shape exists is that the linear chain could only
+   *  express "then". A film with grounds and a film without are different
+   *  films, and the number says which one this is. */
+  groundedScenes: number;
+  /** Every compositor → ground pairing this film used, with counts. */
+  grounds: { link: string; uses: number }[];
 }
 
 export function analyseUsage(scenes: ComposedScene[]): UsageReport {
@@ -53,8 +63,27 @@ export function analyseUsage(scenes: ComposedScene[]): UsageReport {
   const consumed = new Map<string, number>();
   const decorative = new Map<string, number>();
 
+  const grounds = new Map<string, number>();
+  let groundedScenes = 0;
+
   for (const scene of scenes) {
     const ids = scene.nodes.map((n) => n.primitiveId);
+    // The ground's own primitives are USES like any other — a palette
+    // pruned on evidence must not call a primitive unused because it only
+    // ever appears on a second input.
+    let sceneHasGround = false;
+    for (const node of scene.nodes) {
+      if (!node.ground || node.ground.length === 0) continue;
+      sceneHasGround = true;
+      for (const g of node.ground) uses.set(g.primitiveId, (uses.get(g.primitiveId) ?? 0) + 1);
+      // A ground IS consumed — by the compositor, which reads both sides.
+      const tail = node.ground[node.ground.length - 1];
+      if (tail) consumed.set(tail.primitiveId, (consumed.get(tail.primitiveId) ?? 0) + 1);
+      const link = `${node.ground.map((g) => g.primitiveId).join(" → ")} ⊕ ${node.primitiveId}`;
+      grounds.set(link, (grounds.get(link) ?? 0) + 1);
+    }
+    if (sceneHasGround) groundedScenes++;
+
     ids.forEach((id, i) => {
       uses.set(id, (uses.get(id) ?? 0) + 1);
       // Consumed if any LATER node in this chain declares an input. The
@@ -112,6 +141,10 @@ export function analyseUsage(scenes: ComposedScene[]): UsageReport {
       .map(([link, n]) => ({ link, uses: n }))
       .sort((a, b) => b.uses - a.uses),
     linkHonesty: honesty(scenes),
+    groundedScenes,
+    grounds: [...grounds.entries()]
+      .map(([link, n]) => ({ link, uses: n }))
+      .sort((a, b) => b.uses - a.uses),
   };
 }
 
@@ -127,6 +160,14 @@ function honesty(scenes: ComposedScene[]): number {
     for (let i = 1; i < ids.length; i++) {
       total++;
       if (PRIMITIVES[ids[i] as string]?.consumesUpstream) real++;
+    }
+    // A ground link counts, and counts as real. The compositor reads both
+    // of its inputs — that is what a compositor IS — so a second input is
+    // the one link in this palette that cannot be decorative.
+    for (const node of scene.nodes) {
+      if (!node.ground || node.ground.length === 0) continue;
+      total += node.ground.length;
+      real += node.ground.length;
     }
   }
   return total === 0 ? 1 : Math.round((real / total) * 1000) / 1000;

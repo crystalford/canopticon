@@ -94,6 +94,10 @@ function adoptComposed(scene, real) {
     cost: COST[n.id] || 4,
     // The engine's own words for why this primitive is in the chain.
     why: (real.reasons[i] || "").replace(/^[a-z_0-9]+ — /, ""),
+    // The SECOND INPUT, carried through untouched. Dropping it here would
+    // have the Preview render a compositor with nothing on its B side —
+    // which draws the subject and looks exactly like it worked.
+    b: n.b,
   }));
   return {
     scene,
@@ -143,6 +147,33 @@ function composeLocally(scene) {
   if (st.visualDensity > 0.55 && !chain.includes("blend")) chain.push("blend");
   if (st.visualDensity > 0.75 && !chain.includes("nest")) chain.push("nest");
   if (st.typographicWeight > 0.55 && !chain.includes("variable_axis")) chain.push("variable_axis");
+  // THE SAME VALIDITY SWEEP THE WORKER DOES.
+  //
+  // Motif and density primitives are appended AFTER the base chain, and
+  // an append that does not typecheck rode through unchecked — so the
+  // built-in example composed twelve of its sixteen scenes into
+  // `document_surface → document_layout → camera_move → timeline_linear`,
+  // where timeline_linear consumes DATA and camera_move emits ANIMATION.
+  // The executor refused all twelve and drew the refusal on the frame.
+  //
+  // Nobody saw it, because nothing in this instrument showed more than one
+  // frame at a time. The OVERVIEW view found it on its first run, which is
+  // the entire argument for having one.
+  //
+  // Offending appends are dropped rather than the chain rejected: the base
+  // is what the scene is about, and a motif that cannot legally attach
+  // should lose.
+  if (typeof validateChain === "function") {
+    let guard = chain.length;
+    while (guard-- > 0) {
+      const errs = validateChain(chain.map((id) => ({ id })));
+      if (!errs.length) break;
+      const at = chain.findIndex((id, i) => i > 0 && !chainLinkOk(chain[i - 1], id));
+      if (at < 0) break;
+      notes.push("dropped " + chain[at] + " — " + errs[0]);
+      chain.splice(at, 1);
+    }
+  }
   const ceiling = Math.round(4 + (1 - st.restraint) * 2 + st.experimentalism * 4);
   if (chain.length > ceiling) {
     notes.push("restraint ceiling " + ceiling + " — " + (chain.length - ceiling) + " dropped");
@@ -162,6 +193,22 @@ function composeLocally(scene) {
       human: +st.humanPresence.toFixed(3),
     };
     if (pin) Object.assign(params, { density: 0.35, energy: 0.1, abstraction: 0.15 });
+    // THE SCENE'S OWN WORDS, in the local composer too.
+    //
+    // The Worker sets these through `textParamsFor`; the built-in example
+    // never did, so thirteen of its sixteen shots rendered
+    // `variable_axis`'s default — one word, on a loop, over sixteen
+    // different sentences. Exactly the defect reported against the real
+    // pipeline, still living in the demo after the real one was fixed.
+    //
+    // Belt and braces, same as the compiler: the primitive must actually
+    // DECLARE the parameter, so a renamed one shows up as type that stops
+    // changing rather than a silently ignored write.
+    const declared = (window.PRIMS && window.PRIMS[p] && window.PRIMS[p].params) || {};
+    for (const key of ["text", "caption", "label", "heading", "from", "to"]) {
+      if (declared[key] === undefined) continue;
+      params[key] = (scene.label || scene.text || "").toUpperCase().slice(0, 26) || params[key];
+    }
     return { prim: p, params, hash: hash(p + JSON.stringify(params)), cost: COST[p] || 4 };
   });
   const cost = nodes.reduce((a, n) => a + n.cost, 0);

@@ -11,6 +11,8 @@
 // in the palette before it is ever wired into the pipeline.
 
 import { Hono } from "hono";
+import { CONSTRUCTION_IDS, OPERATOR_IDS } from "./compile/construct.ts";
+import { VERBS } from "./compile/verbs.ts";
 import type { Env } from "./env.ts";
 import { FAMILIES, PRIMITIVES, PRIMITIVE_IDS } from "./primitives/registry.ts";
 import projects from "./routes/projects.ts";
@@ -34,6 +36,21 @@ app.get("/primitives", (c) =>
     count: PRIMITIVE_IDS.length,
     families: FAMILIES,
     primitives: Object.values(PRIMITIVES),
+  }),
+);
+
+/** THE DIRECTOR'S VOCABULARY, as the compiler understands it.
+ *
+ *  Named rather than counted. "Eight constructions, twelve operations, six
+ *  verbs" is a fact a director can act on; "128 primitives" is not — it is
+ *  a fact about the instruction set. The Lab reads this so the two can
+ *  never disagree about what can be said. */
+app.get("/vocabulary", (c) =>
+  c.json({
+    constructions: CONSTRUCTION_IDS,
+    operators: OPERATOR_IDS,
+    verbs: VERBS,
+    primitives: PRIMITIVE_IDS.length,
   }),
 );
 

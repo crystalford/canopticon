@@ -11,9 +11,14 @@ import { EXTRACTION_MODEL, proposeReading } from "../compile/extract-reading.ts"
 import { buildFilmPlan } from "../compile/film.ts";
 import { compile } from "../compile/index.ts";
 import { segmentEssay } from "../compile/segment.ts";
+import { applyVerb, verbById } from "../compile/verbs.ts";
 import type { Env } from "../env.ts";
 import { type EditorialIR, parseIR } from "../ir/schema.ts";
 import { all, newId, nowIso, one, run } from "../lib/d1.ts";
+import { ASR_CANDIDATES, readTimings, sequenceAlignments } from "../narrate/align.ts";
+import { loadAlignments, narrateScenes } from "../narrate/index.ts";
+import { TTS_CANDIDATES, describeShape, sniff, toBytes } from "../narrate/tts.ts";
+import { PRIMITIVES } from "../primitives/registry.ts";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -90,15 +95,17 @@ app.get("/projects", async (c) => {
     let scenes = 0;
     let acts = 0;
     let readings = 0;
+    let narrated = 0;
     if (version) {
       try {
         const ir = JSON.parse(version.ir_json) as {
-          scenes?: { reading?: unknown }[];
+          scenes?: { reading?: unknown; narration?: { voAssetId?: string } }[];
           acts?: unknown[];
         };
         scenes = ir.scenes?.length ?? 0;
         acts = ir.acts?.length ?? 0;
         readings = (ir.scenes ?? []).filter((s) => s.reading).length;
+        narrated = (ir.scenes ?? []).filter((s) => s.narration?.voAssetId).length;
       } catch {
         // A project whose stored IR will not parse is still a project. It
         // lists with zero counts rather than taking the whole page down.
@@ -117,6 +124,7 @@ app.get("/projects", async (c) => {
       scenes,
       acts,
       readings,
+      narrated,
       lastCompiledAt: lastRun?.created_at ?? null,
       lastNodes: lastRun?.nodes_total ?? null,
     });
@@ -447,6 +455,369 @@ app.post("/project/:id/ratify", async (c) => {
   return c.json({ projectId, irVersion: nextVersion, approved, rejected });
 });
 
+/** DIRECT — the human choosing between visual interpretations.
+ *
+ *  The engine proposes several programs per scene and uses the best-scoring
+ *  one. This is how a director says "no, that one" — and it is the SAME
+ *  rail a reading goes through, applied to depiction: the system proposes,
+ *  the human ratifies, and the ratification is stored in the IR as a
+ *  version rather than applied to a running state.
+ *
+ *  It writes a `pin` override, which precedence 1 already honours and which
+ *  every downstream surface already reports as pinned. Nothing new had to
+ *  be invented to make a director's choice outrank the engine — the
+ *  precedence order was built for exactly this and had no way to be
+ *  reached.
+ *
+ *  A pin is reversible: post with no chain to release the scene back to the
+ *  engine. */
+app.post("/project/:id/direct", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    sceneId?: string;
+    chain?: string[];
+    note?: string;
+    release?: boolean;
+    /** A director's verb — "stranger", "ground", "quieter". Bends the
+     *  scene's state rather than pinning its chain. */
+    verb?: string;
+  };
+  if (!body.sceneId) return c.json({ error: "sceneId is required" }, 400);
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+
+  const scene = parsed.ir.scenes.find((s) => s.sceneId === body.sceneId);
+  if (!scene) return c.json({ error: `no scene ${body.sceneId}` }, 404);
+
+  const existing = parsed.ir.overrides.find(
+    (o) => o.sceneId === body.sceneId && o.type === "constrain",
+  );
+  const overrides = parsed.ir.overrides.filter((o) => o.sceneId !== body.sceneId);
+
+  // A VERB. Bends the state this scene composes against and lets the
+  // engine keep composing, so the instruction survives a restyle rather
+  // than freezing the shot the way a pin does.
+  if (body.verb) {
+    const verb = verbById(body.verb);
+    if (!verb) return c.json({ error: `no verb "${body.verb}"` }, 400);
+    const styleNudge = applyVerb(existing?.styleNudge, verb);
+    if (Object.keys(styleNudge).length > 0) {
+      overrides.push({
+        sceneId: body.sceneId,
+        type: "constrain",
+        styleNudge,
+        note: verb.label.toLowerCase(),
+        createdAt: nowIso(),
+      });
+    }
+    const nextV = project.current_ir_version + 1;
+    await writeVersion(
+      c.env,
+      projectId,
+      { ...parsed.ir, overrides },
+      nextV,
+      project.current_ir_version,
+      `${body.sceneId} — ${verb.label.toLowerCase()}`,
+    );
+    await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+      nextV,
+      projectId,
+    ]);
+    const snap = await loadSnapshot(c.env, projectId);
+    const t = await frozenAlignments(c.env, { ...parsed.ir, overrides });
+    const rep = await compile(
+      { ...parsed.ir, overrides },
+      { snapshot: snap, alignments: t.alignments },
+    );
+    await saveSnapshot(c.env, projectId, rep.snapshot);
+    return c.json({
+      projectId,
+      irVersion: nextV,
+      sceneId: body.sceneId,
+      verb: verb.id,
+      styleNudge,
+      cache: rep.cache,
+    });
+  }
+
+  if (!body.release) {
+    if (!body.chain?.length) return c.json({ error: "chain is required unless releasing" }, 400);
+    // Every primitive named has to exist. A pin is the one thing that
+    // bypasses composition entirely, so an unknown id here would reach the
+    // executor as a chain nobody planned.
+    const unknown = body.chain.filter((id) => !PRIMITIVES[id]);
+    if (unknown.length) return c.json({ error: `not in the palette: ${unknown.join(", ")}` }, 400);
+    overrides.push({
+      sceneId: body.sceneId,
+      type: "pin",
+      chain: body.chain,
+      note: body.note ?? "chosen by the director",
+      createdAt: nowIso(),
+    });
+  }
+
+  const nextVersion = project.current_ir_version + 1;
+  await writeVersion(
+    c.env,
+    projectId,
+    { ...parsed.ir, overrides },
+    nextVersion,
+    project.current_ir_version,
+    body.release
+      ? `Released ${body.sceneId} back to the engine`
+      : `Directed ${body.sceneId} — ${body.note ?? "chose an interpretation"}`,
+  );
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+
+  const snapshot = await loadSnapshot(c.env, projectId);
+  const timed = await frozenAlignments(c.env, { ...parsed.ir, overrides });
+  const report = await compile(
+    { ...parsed.ir, overrides },
+    { snapshot, alignments: timed.alignments },
+  );
+  await saveSnapshot(c.env, projectId, report.snapshot);
+  return c.json({
+    projectId,
+    irVersion: nextVersion,
+    sceneId: body.sceneId,
+    pinned: !body.release,
+    cache: report.cache,
+  });
+});
+
+/** NARRATE — the one place TTS is ever spent.
+ *
+ *  An explicit operator action at authoring time, never a compile step.
+ *  Each scene's speech is synthesised once, hashed, written to R2,
+ *  recorded as an Asset with its provenance, measured for word timings,
+ *  and the measurement frozen as a second Asset. Thereafter the compiler
+ *  READS it. That is standing rule 1, and it is why dragging a creative
+ *  curve costs nothing.
+ *
+ *  Bounded per call for the same reason `/read` is: an 88-scene film is
+ *  176 model calls and a Worker request has a wall clock. It always takes
+ *  the next un-narrated scenes, so calling it repeatedly finishes the film
+ *  and `remaining` says how far there is to go.
+ *
+ *  A failure here degrades one scene. The audio it did produce is kept
+ *  even when the alignment fails, because good audio with a nominal window
+ *  is worth more than no audio. */
+app.post("/project/:id/narrate", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    limit?: number;
+    sceneIds?: string[];
+    force?: boolean;
+    voice?: string;
+  };
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+
+  const nextVersion = project.current_ir_version + 1;
+  const { ir: narratedIR, report } = await narrateScenes(
+    c.env,
+    projectId,
+    parsed.ir,
+    nextVersion,
+    body,
+  );
+
+  if (report.narrated === 0) {
+    // Nothing was frozen, so nothing is versioned. A failed batch must not
+    // leave a version behind that looks like progress.
+    return c.json({ projectId, irVersion: project.current_ir_version, ...report }, 200);
+  }
+
+  await writeVersion(
+    c.env,
+    projectId,
+    narratedIR,
+    nextVersion,
+    project.current_ir_version,
+    `Narrated ${report.narrated} scene${report.narrated === 1 ? "" : "s"}${report.failed ? ` (${report.failed} failed)` : ""}`,
+  );
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+
+  return c.json({ projectId, irVersion: nextVersion, ...report });
+});
+
+/** The narration audio itself, so the Lab can play it and the render can
+ *  mux it. Streams straight from R2 — the Worker holds no copy. */
+app.get("/project/:id/vo/:sceneId", async (c) => {
+  const projectId = c.req.param("id");
+  const sceneId = c.req.param("sceneId");
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid" }, 500);
+
+  const scene = parsed.ir.scenes.find((s) => s.sceneId === sceneId);
+  const assetId = scene?.narration.voAssetId;
+  const asset = assetId ? parsed.ir.assets.find((a) => a.assetId === assetId) : undefined;
+  if (!asset) return c.json({ error: "this scene has no narration yet" }, 404);
+
+  const obj = await c.env.FILES.get(asset.r2Key);
+  if (!obj) return c.json({ error: "narration object is missing from storage" }, 404);
+
+  const bytes = await obj.arrayBuffer();
+  return new Response(bytes, {
+    headers: {
+      "content-type": sniff(new Uint8Array(bytes.slice(0, 8))).contentType,
+      "cache-control": "public, max-age=31536000, immutable",
+      // The hash is the identity. A client that has this etag has the
+      // approved bytes, not merely bytes from the same key.
+      etag: `"${asset.sha256}"`,
+    },
+  });
+});
+
+/** WHAT THE BINDING ACTUALLY RETURNS.
+ *
+ *  A permanent diagnostic, and a deliberate one. The last serious bug in
+ *  this system was an unverified assumption about the shape of a Workers
+ *  AI response, and it survived because nothing could ask production what
+ *  the shape was without also writing something. This asks, stores
+ *  nothing, and reports what it saw — including on failure, which is the
+ *  case that matters.
+ *
+ *  IT TRIES EVERY CANDIDATE, not just until one works.
+ *
+ *  A ladder that stops at its first success answers "can we speak?" A
+ *  probe should answer "what is actually available here", because the next
+ *  question after the first success is always which of the others also
+ *  work and what they return — and a second round trip to find out is a
+ *  second deploy-and-wait. One run reports the whole shelf: every TTS
+ *  candidate, every ASR candidate, what each returned, how many bytes, and
+ *  the structural shape of anything unusable.
+ *
+ *  ASR is probed with the audio the TTS step just produced, because that
+ *  is exactly what alignment will be handed in production. Probing it with
+ *  a synthetic buffer would answer a question nobody is asking. */
+app.post("/tts/probe", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as {
+    text?: string;
+    voice?: string;
+    /** Skip the ASR half. Off by default — measuring the audio is half of
+     *  what narration does. */
+    speechOnly?: boolean;
+  };
+  const text = (body.text ?? "Canopticon Studio. Narration probe.").slice(0, 300);
+  const started = Date.now();
+
+  const speech: Array<Record<string, unknown>> = [];
+  let firstAudio: Uint8Array | null = null;
+
+  for (const candidate of TTS_CANDIDATES) {
+    const at = Date.now();
+    let out: unknown;
+    try {
+      out = await c.env.AI.run(
+        candidate.model as never,
+        candidate.input(text, body.voice) as never,
+      );
+    } catch (err) {
+      speech.push({
+        model: candidate.model,
+        ok: false,
+        outcome: `threw: ${err instanceof Error ? err.message : String(err)}`,
+        wallMs: Date.now() - at,
+      });
+      continue;
+    }
+    const bytes = await toBytes(out);
+    if (!bytes) {
+      speech.push({
+        model: candidate.model,
+        ok: false,
+        outcome: "no recoverable audio",
+        shape: describeShape(out),
+        wallMs: Date.now() - at,
+      });
+      continue;
+    }
+    const sniffed = sniff(bytes.bytes);
+    if (!firstAudio) firstAudio = bytes.bytes;
+    speech.push({
+      model: candidate.model,
+      ok: true,
+      via: bytes.via,
+      bytes: bytes.bytes.length,
+      contentType: sniffed.contentType,
+      extension: sniffed.extension,
+      firstBytes: [...bytes.bytes.subarray(0, 8)].map((b) => b.toString(16).padStart(2, "0")),
+      wallMs: Date.now() - at,
+    });
+  }
+
+  const transcription: Array<Record<string, unknown>> = [];
+  if (!body.speechOnly && firstAudio) {
+    for (const candidate of ASR_CANDIDATES) {
+      const at = Date.now();
+      let out: unknown;
+      try {
+        out = await c.env.AI.run(candidate.model as never, candidate.input(firstAudio) as never);
+      } catch (err) {
+        transcription.push({
+          model: candidate.model,
+          ok: false,
+          outcome: `threw: ${err instanceof Error ? err.message : String(err)}`,
+          wallMs: Date.now() - at,
+        });
+        continue;
+      }
+      const read = readTimings(out);
+      transcription.push({
+        model: candidate.model,
+        ok: read.durationMs > 0,
+        words: read.words.length,
+        durationMs: read.durationMs,
+        // The shape either way: on failure it is the diagnostic, and on
+        // success it is how the next person knows what was relied on.
+        shape: describeShape(out),
+        firstWords: read.words.slice(0, 4),
+        wallMs: Date.now() - at,
+      });
+    }
+  }
+
+  return c.json({
+    ok: speech.some((s) => s.ok),
+    wallMs: Date.now() - started,
+    text,
+    speech,
+    transcription,
+    note: firstAudio
+      ? "ASR was run against the audio the first working TTS candidate produced."
+      : "No TTS candidate produced audio, so ASR was not probed.",
+  });
+});
+
 app.post("/project/:id/compile", async (c) => {
   const projectId = c.req.param("id");
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
@@ -462,7 +833,9 @@ app.post("/project/:id/compile", async (c) => {
 
   const started = Date.now();
   const snapshot = await loadSnapshot(c.env, projectId);
-  const report = await compile(parsed.ir, { snapshot });
+  const timed = await frozenAlignments(c.env, parsed.ir);
+  const report = await compile(parsed.ir, { snapshot, alignments: timed.alignments });
+  report.warnings.push(...timed.stale);
   const wallMs = Date.now() - started;
 
   await saveSnapshot(c.env, projectId, report.snapshot);
@@ -561,7 +934,8 @@ app.post("/project/:id/creative-state", async (c) => {
   // Recompile against the stored snapshot and hand back the diff, because
   // the interesting part of an edit is what it did NOT invalidate.
   const snapshot = await loadSnapshot(c.env, projectId);
-  const report = await compile(parsed.ir, { snapshot });
+  const timed = await frozenAlignments(c.env, parsed.ir);
+  const report = await compile(parsed.ir, { snapshot, alignments: timed.alignments });
   await saveSnapshot(c.env, projectId, report.snapshot);
   return c.json({
     projectId,
@@ -596,7 +970,9 @@ app.get("/project/:id/film", async (c) => {
   if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
 
   const snapshot = await loadSnapshot(c.env, projectId);
-  const report = await compile(parsed.ir, { snapshot });
+  const timed = await frozenAlignments(c.env, parsed.ir);
+  const report = await compile(parsed.ir, { snapshot, alignments: timed.alignments });
+  report.warnings.push(...timed.stale);
   // A REAL COMPILE UPDATES THE SNAPSHOT. Two routes compile and only one
   // used to store what it produced, so the cache diff an operator saw
   // depended on which route they had happened to hit last — opening a film
@@ -652,6 +1028,26 @@ async function loadSnapshot(env: Env, projectId: string): Promise<CacheSnapshot 
   const obj = await env.FILES.get(`projects/${projectId}/cache/snapshot.json`);
   if (!obj) return null;
   return (await obj.json()) as CacheSnapshot;
+}
+
+/** Every frozen alignment this film has, placed on the film's timeline.
+ *
+ *  Two steps, and the second is the one that is easy to get wrong: an
+ *  alignment artifact measures ONE audio file, so its times start at zero.
+ *  The solver reads absolute times, because a scene's window is its
+ *  position in the film. `sequenceAlignments` walks the scenes in the IR's
+ *  order — not the map's — and shifts each by the running cursor.
+ *
+ *  Anything that fails verification comes back as a warning rather than
+ *  silently as a missing alignment, because "this film is not narrated
+ *  yet" and "this film's narration no longer matches what was approved"
+ *  are different facts and only one of them is a bug. */
+async function frozenAlignments(env: Env, ir: EditorialIR) {
+  const loaded = await loadAlignments(env, ir);
+  return {
+    alignments: sequenceAlignments(ir.scenes, loaded.alignments),
+    stale: loaded.stale,
+  };
 }
 
 async function saveSnapshot(env: Env, projectId: string, snapshot: CacheSnapshot): Promise<void> {

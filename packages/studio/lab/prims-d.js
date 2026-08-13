@@ -847,9 +847,9 @@ reg(
   (p) => {
     const n = vnoise(1337);
     return {
-      frame(ctx, w, h, t) {
+      frame(ctx, w, h, t, upstream) {
         bg(ctx, w, h);
-        const src = layerB(w, h, t),
+        const src = upstream?.canvas || layerB(w, h, t),
           K = Math.round(p.kind);
         const R = p.radius * 26;
         if (K === 0) {
@@ -897,10 +897,10 @@ reg(
   (p) => {
     const n = vnoise(1337);
     return {
-      frame(ctx, w, h, t) {
+      frame(ctx, w, h, t, upstream) {
         bg(ctx, w, h);
-        const src = layerB(w, h, t),
-          im = src.getContext("2d").getImageData(0, 0, w, h),
+        const src = upstream?.canvas || layerB(w, h, t),
+          im = src.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, w, h),
           c = 4,
           M = Math.round(p.mode);
         const PALS = [

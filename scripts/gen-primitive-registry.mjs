@@ -93,7 +93,14 @@ if (!appDir) {
   process.exit(1);
 }
 
-const browser = await chromium.launch();
+// An environment with a pre-installed Chromium (the remote sandbox has one
+// at /opt/pw-browsers) will not match the build number whichever playwright
+// version happens to be installed expects. Point at it rather than
+// downloading a second copy:
+//   PLAYWRIGHT_CHROMIUM=/opt/pw-browsers/chromium-1194/chrome-linux/chrome
+const browser = await chromium.launch(
+  process.env.PLAYWRIGHT_CHROMIUM ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM } : {},
+);
 const page = await browser.newPage();
 await page.goto(`file://${resolve(appDir, "index.html")}`, { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(1200);
@@ -120,6 +127,7 @@ const { reg, cost } = await page.evaluate(() => {
     // the primitive and reading frame's arity, which is mechanical and
     // cannot drift from the truth the way a hand-maintained flag would.
     let consumesUpstream = false;
+    let secondInput = null;
     try {
       const probe = { seed: 1337 };
       for (const k in d.params) {
@@ -134,10 +142,27 @@ const { reg, cost } = await page.evaluate(() => {
       consumesUpstream =
         (typeof inst.frame === "function" && inst.frame.length >= 5) ||
         typeof inst.warp === "function";
+      // A SECOND INPUT.
+      //
+      // An io string has one arrow, so a two-input primitive cannot
+      // declare its B side there. It declares it on the instance instead —
+      // the precedent motion craft set with `warp` — and the value names
+      // the TYPE that side consumes. "IMAGE" means pixels, which every
+      // primitive produces, so it is recorded and deliberately not
+      // enforced; anything else is a real constraint the compiler checks.
+      secondInput = typeof inst.two === "string" ? inst.two : null;
     } catch {
       consumesUpstream = false;
     }
-    out[id] = { id, family: d.family, io: d.io, params, note: d.note || "", consumesUpstream };
+    out[id] = {
+      id,
+      family: d.family,
+      io: d.io,
+      params,
+      note: d.note || "",
+      consumesUpstream,
+      secondInput,
+    };
   }
   return { reg: out, cost: typeof COST !== "undefined" ? COST : {} };
 });
@@ -176,6 +201,7 @@ const entries = ids
           : `      ${JSON.stringify(k)}: { kind: "${v.kind}", default: ${v.default}, min: ${v.min}, max: ${v.max} },`,
       )
       .join("\n");
+    const second = r.secondInput ? `\n    secondInput: ${JSON.stringify(r.secondInput)},` : "";
     return `  ${JSON.stringify(id)}: {
     primitiveId: ${JSON.stringify(id)},
     family: ${JSON.stringify(r.family)},
@@ -186,7 +212,7 @@ ${params}
     },
     estimatedCostMsPerFrame: ${c},
     determinismGuarantee: ${JSON.stringify(det)},
-    consumesUpstream: ${r.consumesUpstream ? "true" : "false"},
+    consumesUpstream: ${r.consumesUpstream ? "true" : "false"},${second}
     note: ${JSON.stringify(r.note)},
   },`;
   })
@@ -235,6 +261,19 @@ export interface PrimitiveSpec {
    *  sources renders as its last element and the first two cost time for
    *  nothing. chainOverwrites() reports where that happens. */
   consumesUpstream: boolean;
+  /** The TYPE this primitive takes on a SECOND input, when it takes one.
+   *
+   *  An io string has one arrow, so a two-input primitive cannot declare
+   *  its B side there — it declares it on its instance, and this is read
+   *  off that at generation time.
+   *
+   *  "IMAGE" means pixels. Every primitive produces pixels, so an IMAGE
+   *  second input is recorded and deliberately NOT enforced; saying a
+   *  branch must emit IMAGE when everything does would be theatre.
+   *  Anything else is a real structural requirement — field_displace
+   *  reads a field's numbers, so a branch that only paints a picture of a
+   *  field is refused rather than silently doing nothing. */
+  secondInput?: PrimitiveType;
   note: string;
 }
 
@@ -289,6 +328,19 @@ export function canChain(producerId: string, consumerId: string): boolean {
   const consumer = PRIMITIVES[consumerId];
   if (!producer || !consumer) return false;
   if (consumer.inputs.length === 0) return true;
+  // A COMPOSITOR TAKES PIXELS.
+  //
+  // Its first input is the previous stage's canvas, and every primitive in
+  // this palette paints one — a declared output type describes the extra
+  // TYPED payload a primitive emits (GEOMETRY, FIELD, DATA), not whether
+  // it drew anything. So a two-input compositor composes after anything,
+  // which is what "layer" means.
+  //
+  // Stated as an exception in exactly one place rather than by giving all
+  // primitives an IMAGE output, because that second reading would also
+  // make image_to_points accept a DATA source and the type system would
+  // stop catching the things it currently catches.
+  if (consumer.secondInput) return true;
   return consumer.inputs.some((t) => producer.outputs.includes(t));
 }
 `,

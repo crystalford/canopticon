@@ -30,6 +30,15 @@ export interface HashableNode {
   startMs: number;
   endMs: number;
   assetHashes: string[];
+  /** THE SECOND INPUT, flattened.
+   *
+   *  A compositor's ground is a chain of its own, and a node whose ground
+   *  changed paints something different. Without this in the payload,
+   *  swapping a gravity field for a noise field behind the same sentence
+   *  would leave every hash identical and the film would keep rendering
+   *  the old layer — the same class of bug as narration text not reaching
+   *  the hash, and just as silent. */
+  ground?: string[];
 }
 
 /** Deterministic JSON: object keys sorted at every depth. */
@@ -52,6 +61,9 @@ export function hashPayload(node: HashableNode): string {
     seed: node.seed,
     window: [node.startMs, node.endMs],
     assets: [...node.assetHashes].sort(),
+    // Order matters here and must NOT be sorted: a ground is a chain, and
+    // noise_field → flow_field is not flow_field → noise_field.
+    ground: node.ground ?? [],
   });
 }
 
@@ -77,6 +89,13 @@ export async function hashSceneNodes(
         startMs: window.startMs,
         endMs: window.endMs,
         assetHashes,
+        ...(node.ground
+          ? {
+              ground: node.ground.map(
+                (g) => `${g.primitiveId}#${g.seed}#${canonicalJSON(g.params)}`,
+              ),
+            }
+          : {}),
       }),
     })),
   );

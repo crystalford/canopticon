@@ -66,6 +66,27 @@ const ratifyScenes = (id, approve, reject) =>
     body: JSON.stringify({ approve: approve || [], reject: reject || [] }),
   });
 
+/** NARRATE — the one operator action that spends TTS.
+ *
+ *  Bounded per call, like reading is, and for the same reason: an 88-scene
+ *  film is 176 model calls and a request has a wall clock. It always takes
+ *  the next un-narrated scenes, so calling it repeatedly finishes the film
+ *  and `remaining` says how far there is left to go. */
+const narrateProject = (id, opts) =>
+  api(`/project/${id}/narrate`, {
+    method: "POST",
+    body: JSON.stringify(opts || {}),
+  });
+
+/** ASK PRODUCTION WHAT THE VOICE ACTUALLY IS.
+ *
+ *  Stores nothing, changes nothing, and reports every TTS and ASR
+ *  candidate: what each returned, how many bytes, and the structural shape
+ *  of anything unusable. The one question that cannot be answered from a
+ *  local Worker, asked from the instrument rather than from a workflow
+ *  file. */
+const probeVoice = () => api("/tts/probe", { method: "POST", body: JSON.stringify({}) });
+
 /** Build the view model from the IR and the compiled plan.
  *
  *  Every field here is carried across, not invented. Where the prototype's
@@ -104,6 +125,22 @@ function toFilm(ir, plan, storedVersion) {
       tier: s.tier,
       chain: s.chain.map((n) => n.id),
       reasons: s.reasons || [],
+      // The frozen narration, when this scene has been recorded. Undefined
+      // rather than null when it has not — a scene that plays silence and
+      // a scene with no narration should not look the same to a view that
+      // is trying to tell the operator which is which.
+      vo: s.vo,
+      // WHAT THIS SHOT IS, and what else it could have been. The first
+      // thing a director reads about a scene should be the idea rather
+      // than the five nodes that implement it.
+      idea: s.idea || null,
+      alternatives: s.alternatives || [],
+      pinned: (ir.overrides || []).some((o) => o.sceneId === s.sceneId && o.type === "pin"),
+      // What this scene has been DIRECTED to do, in the words the verb
+      // used, so the panel can say it rather than showing a delta.
+      directed:
+        (ir.overrides || []).find((o) => o.sceneId === s.sceneId && o.type === "constrain")?.note ||
+        null,
     };
   });
 
@@ -264,6 +301,33 @@ async function saveCreativeState() {
   return r;
 }
 
+/** DIRECT — choose one of the interpretations the engine proposed.
+ *
+ *  Writes a pin, which precedence 1 already honours. The engine stops
+ *  composing that scene and reports it as pinned; `releaseScene` hands it
+ *  back. A director's choice was always meant to outrank the engine — the
+ *  precedence order was built for it and had no way to be reached. */
+const directScene = (projectId, sceneId, chain, note) =>
+  api(`/project/${projectId}/direct`, {
+    method: "POST",
+    body: JSON.stringify({ sceneId, chain, note }),
+  });
+
+/** A DIRECTOR'S VERB. Bends this scene's state and lets the engine keep
+ *  composing — so the instruction survives a restyle, which a pin does
+ *  not. Pressing the same verb twice compounds it. */
+const directVerb = (projectId, sceneId, verb) =>
+  api(`/project/${projectId}/direct`, {
+    method: "POST",
+    body: JSON.stringify({ sceneId, verb }),
+  });
+
+const releaseScene = (projectId, sceneId) =>
+  api(`/project/${projectId}/direct`, {
+    method: "POST",
+    body: JSON.stringify({ sceneId, release: true }),
+  });
+
 async function compileProject(projectId) {
   const report = await api(`/project/${projectId}/compile`, { method: "POST" });
   window.STUDIO.cache = report.cache;
@@ -278,6 +342,11 @@ Object.assign(window, {
   loadProject,
   loadDemo,
   ratifyScenes,
+  narrateProject,
+  probeVoice,
+  directScene,
+  directVerb,
+  releaseScene,
   saveCreativeState,
   compileProject,
   lastProjectId: () => {

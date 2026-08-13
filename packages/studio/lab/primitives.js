@@ -474,17 +474,39 @@ reg(
   (p) => {
     const n = vnoise(1337);
     const R = " .·:-=+*#%@";
+    let scratch = null;
     return {
-      frame(ctx, w, h, t) {
+      // TRANSCRIBES WHAT IT WAS HANDED. It declared IMAGE → GEOMETRY and
+      // read its own noise, so as an operator it replaced the thing it was
+      // supposed to be re-reading. With an upstream it now transcribes the
+      // real luminance; with nothing upstream it falls back to its own
+      // field, so it still reads as itself standing alone in the Lab.
+      frame(ctx, w, h, t, upstream) {
         ctx.fillStyle = "#0d0f11";
         ctx.fillRect(0, 0, w, h);
         const c = Math.round(p.cell);
+        let im = null;
+        if (upstream?.canvas) {
+          if (!scratch || scratch.width !== w || scratch.height !== h) {
+            scratch = document.createElement("canvas");
+            scratch.width = w;
+            scratch.height = h;
+          }
+          const sx = scratch.getContext("2d", { willReadFrequently: true });
+          sx.clearRect(0, 0, w, h);
+          sx.drawImage(upstream.canvas, 0, 0, w, h);
+          im = sx.getImageData(0, 0, w, h);
+        }
         ctx.font = c + 1 + "px JetBrains Mono";
         ctx.textBaseline = "top";
         for (let y = 0; y < h; y += c)
           for (let x = 0; x < w; x += c) {
-            let v =
-              fbm(n, (x / w) * 7 * p.scale, (y / h) * 7 * p.scale + t * 0.15, 3, 0.5) * 0.5 + 0.5;
+            let v = im
+              ? (im.data[((y | 0) * w + (x | 0)) * 4] * 0.299 +
+                  im.data[((y | 0) * w + (x | 0)) * 4 + 1] * 0.587 +
+                  im.data[((y | 0) * w + (x | 0)) * 4 + 2] * 0.114) /
+                255
+              : fbm(n, (x / w) * 7 * p.scale, (y / h) * 7 * p.scale + t * 0.15, 3, 0.5) * 0.5 + 0.5;
             v = Math.pow(v, 0.5 + p.ramp * 1.5);
             const ch = R[Math.min(R.length - 1, Math.floor(v * R.length))];
             ctx.fillStyle =

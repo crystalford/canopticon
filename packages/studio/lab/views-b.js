@@ -48,7 +48,15 @@ function viewPreview(root) {
   function runnerFor(c) {
     const key = c.scene.id + "@" + cv.width + "x" + cv.height;
     if (built.has(key)) return built.get(key);
-    const chain = c.nodes.map((n) => ({ id: n.prim, params: n.params, seed: n.params.seed }));
+    const chain = c.nodes.map((n) => ({
+      id: n.prim,
+      params: n.params,
+      seed: n.params.seed,
+      // A compositor's ground travels with it. Without this the Preview
+      // builds the node with no second input, draws the subject alone, and
+      // gives no sign that a layer is missing.
+      ...(n.b ? { b: n.b } : {}),
+    }));
     const shots = (c.shots || []).map((sh) => ({
       startMs: sh.startMs - c.scene.t0 * 1000,
       endMs: sh.endMs - c.scene.t0 * 1000,
@@ -86,7 +94,13 @@ function viewPreview(root) {
       document.getElementById("vo").innerHTML = `<span>${esc(c.scene.text)}</span>`;
       document.getElementById("hud").innerHTML =
         `<div><b>SC ${String(c.scene.n).padStart(2, "0")}</b> ${c.scene.fn.toUpperCase()} · ${c.tier}${c.pin ? " · PINNED" : ""}${(c.shots || []).length > 1 ? " · " + c.shots.length + " SHOTS" : ""}</div>
-        <div>${c.nodes.map((n) => n.prim).join(" → ")}</div>
+        <div>${c.nodes
+          .map((n) =>
+            n.b && n.b.length
+              ? `${n.prim} ⊕ (${n.b.map((g) => g.id).join(" → ")})`
+              : n.prim,
+          )
+          .join(" → ")}</div>
         <div>abstraction ${c.abstraction.toFixed(2)} · density ${(c.state.visualDensity ?? 0).toFixed(2)} · energy ${(c.state.motionEnergy ?? 0).toFixed(2)} · human ${(c.state.humanPresence ?? 0).toFixed(2)}</div>`;
       document.getElementById("pvstate").textContent =
         c.det + " DETERMINISM · " + c.nodes.length + " PRIMITIVES · SEED " + (c.nodes[0]?.params.seed ?? 0);
@@ -104,6 +118,11 @@ function viewPreview(root) {
       b.errors.slice(0, 5).forEach((e, i) => ctx.fillText(e, 20, 40 + i * 18));
     } else {
       const buf = single ? b.run(localMs / 1000) : b.run(localMs);
+      // Cleared for the same reason the render clears: a buffer with
+      // transparency in it would otherwise show the previous frame through
+      // its own holes.
+      ctx.fillStyle = "#0d0f11";
+      ctx.fillRect(0, 0, cv.width, cv.height);
       ctx.drawImage(buf, 0, 0);
     }
 
@@ -117,9 +136,28 @@ function viewPreview(root) {
     }
   });
 
-  document.getElementById("pp").onclick = (e) => {
+  /* THE VOICE.
+   *
+   * Play starts the frozen narration from the playhead; pause and seek
+   * stop it. It is scheduled on the Web Audio clock rather than started
+   * with setTimeout, because the whole reason timing is anchor-based is
+   * that the picture is cut to the speech — so the picture's clock and the
+   * speech's clock have to be the same clock.
+   *
+   * Nothing is generated here. The audio is fetched from storage by the
+   * hash the compiler froze; a film with no narration simply plays silent
+   * and the transport says so. */
+  document.getElementById("pp").onclick = async (e) => {
     PLAY.on = !PLAY.on;
     e.target.textContent = PLAY.on ? "PAUSE" : "PLAY";
+    const plan = window.STUDIO.plan;
+    if (!plan || narrationStatus(plan).narrated === 0) return;
+    if (!PLAY.on) {
+      stopNarration();
+      return;
+    }
+    await loadNarration(plan);
+    await playNarration(plan, PLAY.t * 1000);
   };
   document.getElementById("pvrender").onclick = openRender;
 
@@ -130,9 +168,13 @@ function viewPreview(root) {
         `<i class="mk ${c.pin ? "pin" : c.misses ? "miss" : ""}" style="left:${(c.scene.t0 / F3.runtime) * 100}%"></i>`,
     )
     .join("");
-  tl.onpointerdown = (e) => {
+  tl.onpointerdown = async (e) => {
     const r = tl.getBoundingClientRect();
     PLAY.t = clamp((e.clientX - r.left) / r.width, 0, 0.999) * F3.runtime;
+    // A seek re-cues the voice rather than leaving the old line running
+    // over the new picture.
+    stopNarration();
+    if (PLAY.on && window.STUDIO.plan) await playNarration(window.STUDIO.plan, PLAY.t * 1000);
   };
   drawPvRight(sceneAt(PLAY.t));
 }
@@ -154,9 +196,17 @@ function openRender() {
   const el = document.createElement("div");
   el.id = "rend";
   const secs = Math.round(F3.runtime);
+  const vo = narrationStatus(window.STUDIO.plan || {});
   el.innerHTML = `<div class="rend-box">
     <div class="rend-head">RENDER · ${esc(F3.title)}</div>
     <div class="rend-meta mono">${F3.scenes.length} scenes · ${fmt(F3.runtime)} · plan compiled, nothing regenerated</div>
+    <div class="rend-meta mono">${
+      vo.narrated === 0
+        ? "SILENT — no narration recorded. Record it in FILMS; the export carries the voice once it exists."
+        : `VOICE · ${vo.narrated} of ${vo.total} scenes narrated${
+            vo.silent ? `, ${vo.silent} silent` : ""
+          } · ${vo.measured} timed off the audio`
+    }</div>
     <div class="rend-opts">
       <label>SIZE
         <select id="r-size">
@@ -254,10 +304,83 @@ function planFromFilm() {
       text: c.scene.text,
       startMs: c.scene.t0 * 1000,
       endMs: c.scene.t1 * 1000,
-      chain: c.nodes.map((n) => ({ id: n.prim, params: n.params, seed: n.params.seed })),
+      chain: c.nodes.map((n) => ({
+        id: n.prim,
+        params: n.params,
+        seed: n.params.seed,
+        ...(n.b ? { b: n.b } : {}),
+      })),
       shots: c.shots || [],
     })),
   };
+}
+
+/** The visual idea as a sentence rather than an identifier.
+ *
+ *  "fixture · quantise + scanline" is what the compiler calls it. A
+ *  director should read "A fixture, built from the sentence — quantised,
+ *  then scanned." Same information, and only one of the two is something a
+ *  person can disagree with. */
+const CONSTRUCTION_WORDS = {
+  body: "A body, constructed from what the sentence names",
+  fixture: "A fixture, built from the noun itself",
+  paper: "A document, photographed",
+  quantity: "The figures, charted",
+  route: "The route, drawn as travel",
+  network: "The named parties, laid out by attraction",
+  space: "A space rather than a word",
+  type: "The sentence, set",
+};
+/** Operators as past participles. "then quantise, then scanline" is a list
+ *  of identifiers with a conjunction between them; "then quantised, then
+ *  scanned" is a sentence. This panel is the one surface written for a
+ *  person rather than for the compiler, so it should read like one. */
+const OPERATOR_WORDS = {
+  quantise: "quantised",
+  pixelate: "resolved down",
+  dither: "dithered",
+  scanline: "scanned",
+  halftone: "halftoned",
+  threshold: "reduced to light and dark",
+  sort: "sorted along its own rows",
+  split: "pulled apart into channels",
+  fragment: "taken apart into its own points",
+  trace: "transcribed as characters",
+  grade: "graded",
+  soften: "softened",
+};
+/** WHAT A DIRECTOR SAYS INSTEAD OF MOVING A SLIDER.
+ *
+ *  Each of these bends the state THIS scene composes against and leaves
+ *  the engine composing — so the instruction survives a restyle, a re-read
+ *  and a recompile, which a pinned chain does not. Pressed twice it
+ *  compounds; pressed against its opposite it walks back.
+ *
+ *  Deliberately six words rather than sixty. A verb is a nudge; a director
+ *  who wants a large move has the curve for it. */
+const VERB_BUTTONS = [
+  ["stranger", "STRANGER"],
+  ["ground", "GROUND IT"],
+  ["quieter", "QUIETER"],
+  ["louder", "LOUDER"],
+  ["colder", "COLDER"],
+  ["warmer", "WARMER"],
+];
+function verbRow(scene) {
+  if (window.STUDIO.demo || !window.STUDIO.projectId) return "";
+  return `<div class="verbs">${VERB_BUTTONS.map(
+    ([id, label]) => `<button class="verb" data-verb="${id}">${label}</button>`,
+  ).join("")}</div>
+  <div class="mono pv-note" id="verb-msg">${
+    scene.directed ? `directed · ${esc(scene.directed)}` : "the engine keeps composing; a verb bends what it composes against"
+  }</div>`;
+}
+
+function ideaSentence(idea) {
+  const head = CONSTRUCTION_WORDS[idea.construction] || idea.construction;
+  if (!idea.operators.length) return `${head}.`;
+  const words = idea.operators.map((o) => OPERATOR_WORDS[o] || o);
+  return `${head} — then ${words.join(", then ")}.`;
 }
 
 function drawPvRight(c) {
@@ -296,14 +419,109 @@ function drawPvRight(c) {
         <div class="meta pv-why">${s.reasons.map((r) => `<div>${esc(r)}</div>`).join("")}</div></div>`
     : "";
 
+  /* THE VISUAL IDEA — first, and in the director's language.
+   *
+   * "The system shows you what it thinks the visual idea is. You're not
+   * expected to understand a primitive chain."
+   *
+   * So the chain moves BELOW the idea and behind a disclosure. What a
+   * person reads first is what the shot is: a thing that was built, and
+   * what was done to it. The implementation is still one click away —
+   * this system's whole discipline is that its working can be audited —
+   * but it is no longer the headline.
+   *
+   * The alternatives are the other half. The engine constructed several
+   * programs for this sentence and used the best-scoring one; these are
+   * the rest, and choosing one pins it. Same rail a reading goes through:
+   * the system proposes, the human ratifies. */
+  const idea = s.idea
+    ? `<div class="sec"><span class="k">Visual idea</span>
+        <div class="idea">
+          <div class="idea-what">${esc(ideaSentence(s.idea))}</div>
+          <div class="mono idea-why">${esc(s.idea.why)}</div>
+        </div>
+        ${
+          (s.alternatives || []).length
+            ? `<div class="k alt-k">Or this sentence could be</div>
+               <div class="alts">${s.alternatives
+                 .map(
+                   (a, i) => `<button class="alt" data-alt="${i}">
+                     <b>${esc(a.construction)}</b>
+                     <span class="mono">${esc(a.operators.join(" + ") || "no operations")}</span>
+                     <i class="mono">${esc(a.chain.join(" → "))}</i>
+                   </button>`,
+                 )
+                 .join("")}</div>
+               <div class="mono pv-note" id="alt-msg">Choosing one pins the scene. The engine
+                 stops composing it and reports it as pinned; releasing hands it back.</div>`
+            : ""
+        }
+        ${verbRow(s)}
+        ${s.pinned ? `<button class="chip" data-release="1">RELEASE TO THE ENGINE</button>` : ""}
+       </div>`
+    : `<div class="sec"><span class="k">Visual idea</span>
+        <div class="mono pv-note">${
+          s.pinned
+            ? "Pinned by you — composition bypassed."
+            : "Planned from a ratified reading rather than constructed."
+        }</div>
+        ${s.pinned ? `<button class="chip" data-release="1">RELEASE TO THE ENGINE</button>` : ""}</div>`;
+
   el.innerHTML = `<div class="sec"><span class="k">Scene ${String(s.n).padStart(2, "0")} · ${esc(s.label)}</span>
    ${ratifyBlock}</div>
+   ${idea}
    ${figures}
    ${why}
    <div class="sec secline"><span class="k">Resolved state at playhead</span>
     <div class="meta">${["abstraction", "archivalWeight", "dataWeight", "visualDensity", "humanPresence", "motionEnergy"].map((k) => `<div class="mrow"><span>${k}</span><i>${(c.state[k] ?? 0).toFixed(2)}</i></div>`).join("")}</div>
     ${(c.state._held || []).length ? `<div class="ruleHit soft">INVARIANT · ${c.state._held.join(" · ")}</div>` : ""}
    </div>`;
+
+  for (const b of el.querySelectorAll("[data-alt]")) {
+    b.onclick = async () => {
+      const alt = (s.alternatives || [])[Number(b.dataset.alt)];
+      if (!alt || !window.STUDIO.projectId) return;
+      const msg = document.getElementById("alt-msg");
+      if (msg) msg.textContent = "directing…";
+      try {
+        await directScene(window.STUDIO.projectId, s.id, alt.chain, alt.id);
+        await loadProject(window.STUDIO.projectId);
+        window.__lastRun = dryRun();
+        commit(window.__lastRun);
+        render();
+      } catch (err) {
+        if (msg) msg.textContent = err.message;
+      }
+    };
+  }
+  for (const b of el.querySelectorAll("[data-verb]")) {
+    b.onclick = async () => {
+      if (!window.STUDIO.projectId) return;
+      const msg = document.getElementById("verb-msg");
+      if (msg) msg.textContent = "directing…";
+      try {
+        await directVerb(window.STUDIO.projectId, s.id, b.dataset.verb);
+        await loadProject(window.STUDIO.projectId);
+        window.__lastRun = dryRun();
+        commit(window.__lastRun);
+        render();
+      } catch (err) {
+        if (msg) msg.textContent = err.message;
+      }
+    };
+  }
+
+  const release = el.querySelector("[data-release]");
+  if (release) {
+    release.onclick = async () => {
+      if (!window.STUDIO.projectId) return;
+      await releaseScene(window.STUDIO.projectId, s.id);
+      await loadProject(window.STUDIO.projectId);
+      window.__lastRun = dryRun();
+      commit(window.__lastRun);
+      render();
+    };
+  }
 
   for (const b of el.querySelectorAll("[data-ratify]")) {
     b.onclick = async () => {

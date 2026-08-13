@@ -42,7 +42,16 @@ const RENDER = {
  *  and driven by index, never rebuilt mid-film. */
 function buildForRender(plan, w, h) {
   return plan.scenes.map((scene) => {
-    const chain = scene.chain.map((n) => ({ id: n.id, params: n.params, seed: n.seed }));
+    const chain = scene.chain.map((n) => ({
+      id: n.id,
+      params: n.params,
+      seed: n.seed,
+      // A compositor's ground. Dropping it here would export a film whose
+      // second layer is missing while the Preview showed it — the two
+      // surfaces disagreeing about one plan is exactly the failure that
+      // made the Lab stop having a second engine.
+      ...(n.b ? { b: n.b } : {}),
+    }));
     const shots = (scene.shots || []).map((s) => ({
       startMs: s.startMs - scene.startMs,
       endMs: s.endMs - scene.startMs,
@@ -77,6 +86,13 @@ function drawFrame(ctx, scenes, frame, fps, w, h, chrome) {
     active.built.errors.slice(0, 5).forEach((e, i) => ctx.fillText(e, 24, 50 + i * 20));
   } else {
     const buf = active.single ? active.built.run(localMs / 1000) : active.built.run(localMs);
+    // CLEAR FIRST. A chain's last stage can hand back a buffer with
+    // transparency in it — field_erode does, by design — and drawing that
+    // over an uncleared canvas leaves the PREVIOUS FRAME showing through
+    // the holes. The film smears, and it smears in a way that looks like a
+    // deliberate effect until you step through it.
+    ctx.fillStyle = "#0d0f11";
+    ctx.fillRect(0, 0, w, h);
     ctx.drawImage(buf, 0, 0, w, h);
   }
 
@@ -138,6 +154,28 @@ async function renderFilm(plan, options) {
     canvas.height = h;
     const ctx = canvas.getContext("2d");
 
+    // The narration, if the film has any. Decoded BEFORE the recorder
+    // starts: fetching eighty audio files while frames are being written
+    // would stall the wall clock the recorder is pacing against, and a
+    // stalled render is a stretched film.
+    let voice = null;
+    if (opts.narration !== false && narrationStatus(plan).narrated > 0) {
+      onProgress({ stage: "loading narration", frame: 0, frames: 1, pct: 0 });
+      const got = await loadNarration(plan, (p) =>
+        onProgress({
+          stage: `loading narration ${p.loaded}/${p.total}`,
+          frame: 0,
+          frames: 1,
+          pct: 0,
+        }),
+      );
+      if (got.loaded > 0) {
+        voice = narrationTrack(plan);
+        await voice.resume();
+      }
+      if (got.failed.length) console.warn("narration", got.failed);
+    }
+
     onProgress({ stage: "building chains", frame: 0, frames: 1, pct: 0 });
     const scenes = buildForRender(plan, w, h);
     const frames = Math.max(1, Math.ceil((plan.durationMs / 1000) * fps));
@@ -148,6 +186,7 @@ async function renderFilm(plan, options) {
       w,
       h,
       chrome,
+      voice,
       onProgress,
     });
   } finally {
@@ -189,6 +228,12 @@ async function encodeExact(ctx, canvas, scenes, cfg) {
   // Zero fps: the stream produces a frame only when we hand it one.
   const stream = canvas.captureStream(0);
   const track = stream.getVideoTracks()[0];
+  // The voice, on the same stream, so the browser muxes one file. Audio is
+  // NOT frame-driven — it plays on the audio clock while frames are pushed
+  // on the wall clock — and those two agree only because the loop below
+  // paces to real time. That is the honest reason this export is not
+  // faster than the film: sound.
+  if (cfg.voice && cfg.voice.track) stream.addTrack(cfg.voice.track);
   const chunks = [];
   const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 9_000_000 });
   rec.ondataavailable = (e) => {
@@ -198,6 +243,10 @@ async function encodeExact(ctx, canvas, scenes, cfg) {
     rec.onstop = () => resolve(new Blob(chunks, { type: "video/webm" }));
   });
   rec.start(400);
+  // Started AFTER the recorder, not before: a schedule laid down first
+  // would have the first line half-spoken by the time frame zero is
+  // written, and the film would open mid-sentence.
+  const voices = cfg.voice ? cfg.voice.begin() : [];
 
   const frameMs = 1000 / cfg.fps;
   const started = performance.now();
@@ -228,9 +277,21 @@ async function encodeExact(ctx, canvas, scenes, cfg) {
 
   cfg.onProgress({ stage: "finishing", frame: cfg.frames, frames: cfg.frames, pct: 1 });
   await new Promise((r) => setTimeout(r, 350));
+  for (const src of voices) {
+    try {
+      src.stop();
+    } catch {
+      // Already finished on its own.
+    }
+  }
   rec.stop();
   const blob = await finished;
-  return { blob, frameExact: dropped === 0, frames: cfg.frames };
+  return {
+    blob,
+    frameExact: dropped === 0,
+    frames: cfg.frames,
+    narrated: voices.length,
+  };
 }
 
 Object.assign(window, { renderFilm, RENDER, drawFrame, buildForRender });

@@ -9,6 +9,7 @@ const VIEWS = [
   ["narrative", "NARRATIVE"],
   ["editorial", "EDITORIAL"],
   ["preview", "PREVIEW"],
+  ["overview", "OVERVIEW"],
   ["compile", "COMPILE"],
   ["lab", "LAB"],
 ];
@@ -164,6 +165,7 @@ function render() {
   const v = document.getElementById("view");
   ({
     films: viewFilms,
+    overview: viewOverview,
     narrative: viewNarrative,
     editorial: viewEditorial,
     preview: viewPreview,
