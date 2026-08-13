@@ -424,3 +424,125 @@ function fakeEnv(handler: (model: string, input: Record<string, unknown>) => unk
   // fake honest about that rather than stubbing an entire Env.
   return { env: env as unknown as import("../src/env.ts").Env, bucket, rows };
 }
+
+describe("audio that no longer matches its own words", () => {
+  it("calls a scene stale when the prose moved after recording", async () => {
+    const { voiceStates } = await import("../src/narrate/index.ts");
+    const ir = must(parseFixture());
+    const env = fakeEnv((model) =>
+      model.includes("whisper")
+        ? { words: [{ word: "a", start: 0, end: 2 }] }
+        : { audio: toBase64(pad(MP3)) },
+    );
+    const { ir: narrated } = await narrateScenes(env.env, "p", ir, 2, { limit: 1 });
+    expect(voiceStates(narrated).ready).toBe(1);
+    expect(voiceStates(narrated).stale).toBe(0);
+
+    // The author rewrites the sentence. The audio is now wrong — not
+    // missing, wrong — and nothing else in the system would have said so.
+    must(narrated.scenes[0]).narration.text = "A completely different sentence entirely.";
+    const after = voiceStates(narrated);
+    expect(after.stale).toBe(1);
+    expect(after.ready).toBe(0);
+    expect(must(after.scenes[0]).spokenFrom).toBeTruthy();
+  });
+
+  it("re-records a stale scene without being asked twice", async () => {
+    const ir = must(parseFixture());
+    const env = fakeEnv((model) =>
+      model.includes("whisper")
+        ? { words: [{ word: "a", start: 0, end: 2 }] }
+        : { audio: toBase64(pad(MP3)) },
+    );
+    const first = await narrateScenes(env.env, "p", ir, 2, { limit: 1 });
+    must(first.ir.scenes[0]).narration.text = "Rewritten.";
+
+    // "Next un-narrated scene" would skip this forever, and the film would
+    // keep saying the old sentence.
+    const second = await narrateScenes(env.env, "p", first.ir, 3, { limit: 1 });
+    expect(must(second.report.scenes[0]).sceneId).toBe(must(first.ir.scenes[0]).sceneId);
+    expect(second.report.narrated).toBe(1);
+  });
+
+  it("does not call an old asset stale merely for lacking a source text", async () => {
+    const { voiceStates } = await import("../src/narrate/index.ts");
+    const ir = must(parseFixture());
+    const scene = must(ir.scenes[0]);
+    scene.narration.voAssetId = "ast_old";
+    ir.assets.push({
+      assetId: "ast_old",
+      kind: "audio",
+      r2Key: "k",
+      sha256: "x",
+      provenance: { generatedBy: "old", params: {}, createdAt: "2020-01-01" },
+    });
+    expect(voiceStates(ir).stale).toBe(0);
+  });
+});
+
+describe("the film does not talk over itself", () => {
+  // Reported from a real film: "the tts overlaps... a little bit jarring."
+  //
+  // The cascade closes gaps by moving a scene's head and keeping its tail,
+  // which SHORTENS it. Correct for a procedural visual, which simply runs
+  // for less time; wrong for narration, which does not compress.
+  it("never shortens a narrated scene below its own measured audio", () => {
+    const ir = must(parseFixture());
+    for (const scene of ir.scenes) {
+      scene.timing.startAnchor = { chunkId: `${scene.sceneId}_start`, offsetMs: 0 };
+      scene.timing.endAnchor = { chunkId: `${scene.sceneId}_end`, offsetMs: 0 };
+      scene.timing.elasticity = "elastic";
+      scene.timing.minDurationMs = 0;
+    }
+
+    // Uneven measured durations, which is what real speech looks like and
+    // what makes the cascade fire.
+    const measured = [7000, 2600, 9100, 3400, 5200];
+    const local = new Map(
+      ir.scenes.map((s, i) => [
+        s.sceneId,
+        withEndpoints(s.sceneId, [
+          {
+            chunkId: `${s.sceneId}_c1`,
+            startMs: 0,
+            endMs: measured[i % measured.length] as number,
+          },
+        ]),
+      ]),
+    );
+    const placed = sequenceAlignments(ir.scenes, local);
+    const solved = solveTiming(ir, placed, 0);
+
+    for (const scene of solved.scenes) {
+      const spoken = placed.get(scene.sceneId);
+      if (!spoken) continue;
+      const spokenMs =
+        Math.max(...spoken.chunks.map((c) => c.endMs)) -
+        Math.min(...spoken.chunks.map((c) => c.startMs));
+      expect(scene.durationMs).toBeGreaterThanOrEqual(spokenMs);
+    }
+  });
+
+  it("keeps the film contiguous while doing it", () => {
+    const ir = must(parseFixture());
+    for (const scene of ir.scenes) {
+      scene.timing.startAnchor = { chunkId: `${scene.sceneId}_start`, offsetMs: 0 };
+      scene.timing.endAnchor = { chunkId: `${scene.sceneId}_end`, offsetMs: 0 };
+      scene.timing.elasticity = "elastic";
+      scene.timing.minDurationMs = 0;
+    }
+    const local = new Map(
+      ir.scenes.map((s, i) => [
+        s.sceneId,
+        withEndpoints(s.sceneId, [
+          { chunkId: `${s.sceneId}_c1`, startMs: 0, endMs: 3000 + i * 900 },
+        ]),
+      ]),
+    );
+    const solved = solveTiming(ir, sequenceAlignments(ir.scenes, local), 0);
+    // No gaps and no overlaps: each scene starts where the last one ended.
+    for (let i = 1; i < solved.scenes.length; i++) {
+      expect(must(solved.scenes[i]).startMs).toBe(must(solved.scenes[i - 1]).endMs);
+    }
+  });
+});

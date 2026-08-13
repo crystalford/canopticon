@@ -215,6 +215,14 @@ function buildChain(chain, w, h, duration) {
         const out = stage.inst.frame(stage.ctx, w, h, tt, payload, branch, dur);
         payload = {
           canvas: stage.buf,
+          // PATHS TRAVEL. The payload was assembled field by field and
+          // `paths` was never one of them, so every vector a primitive
+          // emitted was dropped at the very next stage and the renderer
+          // only ever saw the point-sample fallback. Materiality, line
+          // weight and resolution independence were all unreachable for
+          // exactly this reason — the geometry was real and could not
+          // get anywhere.
+          paths: out && out.paths ? out.paths : null,
           // A primitive may hand back typed data alongside its pixels.
           geometry: out && out.geometry ? out.geometry : null,
           field: out && out.field ? out.field : null,

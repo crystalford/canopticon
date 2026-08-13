@@ -420,6 +420,11 @@ reg(
         10,
         h - 16,
       );
+      // THE CURVE IT JUST DREW, AS A PATH. It was already computing an
+      // ordered vertex list and then throwing it away, so downstream saw
+      // a raster sample of a line instead of the line. Emitting it means
+      // the same figure strokes cleanly at any resolution.
+      return vector([P.slice(0, N).map(([x, y]) => [x, y])], 6);
     },
   }),
   "Rose curves, spirals, Lissajous figures. Mathematical form as a documentary register.",
@@ -809,4 +814,68 @@ reg(
     };
   },
   "First frame identical to last. Cacheable ambient beds that cost one cycle to render and run forever.",
+);
+
+/* ── A WORD, PRINTED MANY TIMES ───────────────────────────────────────
+ *
+ * Added because the typographic language needed the one move it could
+ * not make. `tile` looked like the answer and is not: it declares
+ * IMAGE → IMAGE and draws a SYNTHETIC plate, ignoring its upstream
+ * entirely — so a word handed to it came back as the palette's default
+ * "90 DAYS" repeated, which is the decorative-link failure the usage
+ * measure exists to catch, caught here by looking at the picture.
+ *
+ * The move itself is the oldest one in editorial design: say it once,
+ * then say it until it stops being a word and becomes a texture.
+ * "thousands of ordinary decisions" is DECISION ninety-six times, and
+ * the count is not a style choice — it is what the sentence printed.
+ *
+ * Deterministic: every variation is a function of the cell index, so the
+ * same word at the same count is the same frame forever.
+ */
+reg(
+  "text_repeat",
+  "A · TYPOGRAPHIC",
+  "— → GEOMETRY",
+  {
+    text: TXT("DECISION"),
+    count: { v: 6, lo: 1, hi: 14, int: 1 },
+    scatter: { v: 0.15, lo: 0, hi: 1 },
+    fade: { v: 0.35, lo: 0, hi: 1 },
+  },
+  (p) => ({
+    frame(ctx, w, h, t) {
+      bg(ctx, w, h);
+      const N = Math.max(1, Math.round(p.count));
+      const cw = w / N;
+      const ch = h / N;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+          const i = y * N + x;
+          // Derived from the cell, never random: the same grid twice is
+          // the same grid.
+          const jitter = Math.sin(i * 12.9898) * 43758.5453;
+          const j = jitter - Math.floor(jitter);
+          const k = Math.sin(i * 78.233 + 1.7) * 12345.678;
+          const j2 = k - Math.floor(k);
+          // A slow travel so the block breathes instead of sitting still.
+          const drift = Math.sin(t * 0.6 + i * 0.4) * p.scatter * cw * 0.25;
+          const px = x * cw + cw / 2 + (j - 0.5) * p.scatter * cw + drift;
+          const py = y * ch + ch / 2 + (j2 - 0.5) * p.scatter * ch;
+          const size = fit(ctx, p.text, cw * 0.92, Math.max(9, ch * 0.6), 600);
+          ctx.font = '600 ' + size + 'px "Space Grotesk",sans-serif';
+          // The grid is not uniform in weight — some instances are almost
+          // gone, which is what makes a repetition read as accumulation
+          // rather than as wallpaper.
+          const a = 0.16 + (1 - p.fade) * 0.5 + j2 * p.fade * 0.7;
+          ctx.fillStyle = i % 17 === 0 ? "rgba(216,98,74," + a + ")" : "rgba(238,241,243," + a + ")";
+          ctx.fillText(p.text, px, py);
+        }
+      }
+      lab(ctx, p.text + " × " + N * N, 10, h - 12);
+    },
+  }),
+  "One word, printed until it stops being a word. The count comes off the prose — 'thousands of ordinary decisions' is DECISION ninety-six times, not a caption reading THOUSANDS.",
 );

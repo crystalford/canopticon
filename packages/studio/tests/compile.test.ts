@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { composeAll } from "../src/compile/compose.ts";
 import { controlPointPositions, resolveStateAt } from "../src/compile/creative-state.ts";
+import { buildFilmPlan } from "../src/compile/film.ts";
 import { canonicalJSON, nodeHash } from "../src/compile/hash.ts";
 import { compile } from "../src/compile/index.ts";
 import { nominalAlignment, solveTiming, splitSentences } from "../src/compile/solver.ts";
@@ -319,6 +320,59 @@ describe("the Stage 1 milestone", () => {
     expect(second.cache.scenesTouched).toBe(0);
   });
 
+  /* THE ONE DISCRETE DIMENSION OF DEPICTION, and the first release in
+   * which a director can reach it.
+   *
+   * `visualLanguage` has been load-bearing in `construct.ts` since it was
+   * written — it moves every operator's appetite and sets the
+   * representation rung a construction prefers — and no surface anywhere
+   * could change it. The product pass wired it to the creative-state
+   * route, which means the claim on the control ("a different language is
+   * a different film, and it never costs narration") is now something the
+   * system asserts about itself rather than copy. */
+  it("changing the visual language recomposes the film and spends no narration", async () => {
+    const ir = buildFixtureIR();
+    const first = await compile(ir);
+
+    const restyled = buildFixtureIR();
+    restyled.visualLanguage = "surreal";
+    const second = await compile(restyled, { snapshot: first.snapshot });
+
+    // A different film, not a filter: the recomposition has to reach the
+    // per-primitive hashes or the renderer keeps drawing the old one.
+    expect(second.cache.misses).toBeGreaterThan(0);
+    expect(second.cache.scenesTouched).toBeGreaterThan(0);
+    // And it has to be free. This is the whole argument for restyling
+    // being a cheap act, and it is structural rather than lucky:
+    // narration is an input artifact, so nothing about depiction can
+    // reach the TTS binding.
+    expect(second.ttsCalls).toBe(0);
+
+    // The timing is untouched — the language changes how a sentence is
+    // drawn, never how long it is on screen.
+    expect(second.timing.runtimeMs).toBe(first.timing.runtimeMs);
+  });
+
+  /* COLOUR IS A REAL PROPERTY OF THE FILM, not a renderer preference.
+   *
+   * Measured before this existed: 105 of 129 primitives rendered a frame
+   * below luminance 40/255, all of it decided by five constants no
+   * director could reach. The four numbers now travel on the IR and onto
+   * the film plan, and the renderer owns the single function that turns
+   * them into hex — so the compiler can be asked whether it CARRIES the
+   * intent without knowing anything about colour. */
+  it("carries the film's colour onto the plan without resolving it", async () => {
+    const ir = buildFixtureIR();
+    ir.cinematography.colour = { key: 0.9, temperature: 0.66, saturation: 0.36, contrast: 0.72 };
+    const report = await compile(ir);
+    const plan = buildFilmPlan(ir, report);
+    expect(plan.colour).toEqual(ir.cinematography.colour);
+    // The compiler never decides what a colour IS. If a hex string ever
+    // appears in the plan's colour, the translation point has moved and
+    // there are two of them again.
+    expect(JSON.stringify(plan.colour)).not.toMatch(/#[0-9a-f]{3}/i);
+  });
+
   it("changing one sentence recomputes only that scene", async () => {
     const ir = buildFixtureIR();
     const first = await compile(ir);
@@ -457,7 +511,14 @@ describe("generative entities", () => {
     const entity = must(PRIMITIVES.creature_chain, "creature_chain");
     const texture = must(PRIMITIVES.noise_field, "noise_field");
     expect(entity.estimatedCostMsPerFrame).toBeGreaterThan(texture.estimatedCostMsPerFrame);
-    expect(entity.outputs).toContain("ENTITY");
+    // It used to declare ENTITY. It emitted pixels, and every consumer of
+    // "ENTITY" read the canvas — so the type was a name for "a picture
+    // from the entity family" and the payload-contract pass collapsed it
+    // to what it truthfully is. A real ENTITY — segments, joints, gait,
+    // consumable by a renderer that draws FROM it — is a contract this
+    // palette does not have yet, and is recorded as such rather than
+    // faked.
+    expect(entity.outputs).toContain("IMAGE");
   });
 
   it("treats a generated image as material, not as output", () => {

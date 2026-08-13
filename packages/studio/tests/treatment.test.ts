@@ -42,7 +42,7 @@ describe("chain validation", () => {
 
   it("renders a readable type signature", () => {
     expect(chainSignature(["mounted_fixture", "entity_render", "pixelate"])).toBe(
-      "— → ENTITY → IMAGE → IMAGE",
+      "— → IMAGE → IMAGE → IMAGE",
     );
   });
 });
@@ -78,27 +78,38 @@ describe("treatment planning", () => {
     expect(t.subject).toBe("smoke detector");
   });
 
-  it("inserts the rasterisation step automatically", () => {
-    // An ENTITY cannot legally reach a raster primitive. The planner has to
-    // supply entity_render itself — forgetting it is exactly the class of
-    // error the type check catches.
+  it("inserts no bridge where there is no longer a type gap", () => {
+    // This test used to assert that `entity_render` was inserted, because
+    // a fixture emitted ENTITY and a raster primitive could not consume
+    // it. ENTITY was a fiction — the fixture emitted pixels and
+    // `entity_render` read `upstream.canvas` — so the bridge was crossing
+    // a boundary that did not exist at runtime.
+    //
+    // With the declaration corrected there is no gap, and the planner
+    // correctly stops bridging. The chain is shorter and does exactly what
+    // it always did.
     const t = planTreatment(SMOKE_DETECTOR_READING, "pixel");
     const ids = t.nodes.map((n) => n.primitiveId);
-    expect(ids).toContain("entity_render");
-    expect(ids.indexOf("entity_render")).toBe(1);
-    expect(must(PRIMITIVES.mounted_fixture, "fixture").outputs).toContain("ENTITY");
+    expect(must(PRIMITIVES.mounted_fixture, "fixture").outputs).toContain("IMAGE");
+    expect(ids).not.toContain("entity_render");
+    expect(t.valid).toBe(true);
+    expect(ids[0]).toBe("mounted_fixture");
+    expect(ids).toContain("pixelate");
   });
 
   it("carries a contested claim into the treatment instead of dropping it", () => {
     const contested = planTreatment(SMOKE_DETECTOR_READING, "documentary");
     const asFact = planTreatment({ ...SMOKE_DETECTOR_READING, contested: false }, "documentary");
-    const render = (t: typeof contested) =>
-      must(
-        t.nodes.find((n) => n.primitiveId === "entity_render"),
-        "entity_render",
-      );
-    expect(render(contested).params.exposure).not.toBe(render(asFact).params.exposure);
-    expect(render(contested).reason).toContain("claim");
+    // The grade used to ride on the ENTITY bridge — `entity_render` was
+    // inserted to cross a type boundary and carried the under-exposure
+    // while it was there. When the fictional type went, the editorial rule
+    // would have gone with it, so it is now stated as a treatment decision
+    // and applies whatever the subject was built from.
+    const graded = contested.nodes.find((n) => n.primitiveId === "artifact_render");
+    expect(graded, "a contested claim is graded").toBeDefined();
+    expect(Number(must(graded, "graded").params.exposure)).toBeLessThan(0.5);
+    expect(asFact.nodes.some((n) => n.primitiveId === "artifact_render")).toBe(false);
+    expect(must(graded, "graded").reason).toContain("claim");
     expect(contested.rationale).toContain("claim, not fact");
   });
 
@@ -204,14 +215,14 @@ describe("kinetic language and the cut", () => {
   };
 
   it("bridges a concrete subject back to geometry so it can be morphed", () => {
-    // You cannot morph a raster. An entity rasterises to IMAGE, and
-    // shape_morph consumes GEOMETRY, so a kinetic treatment of a concrete
-    // subject has to travel ENTITY → IMAGE → GEOMETRY. Before the round
-    // trip existed, the mirror failed in the one language it most wanted.
+    // You cannot morph a raster. A concrete subject paints pixels and
+    // `geometry_morph` consumes GEOMETRY, so a kinetic treatment has to
+    // travel IMAGE → GEOMETRY. That round trip is still required and still
+    // fires; what is gone is the extra ENTITY → IMAGE hop, which was
+    // crossing a type that did not exist at runtime.
     const t = planTreatment(MIRROR, "kinetic");
     expect(t.valid).toBe(true);
     const ids = t.nodes.map((n) => n.primitiveId);
-    expect(ids).toContain("entity_render");
     expect(ids).toContain("image_to_points");
     expect(ids.indexOf("image_to_points")).toBeLessThan(ids.indexOf("geometry_morph"));
   });

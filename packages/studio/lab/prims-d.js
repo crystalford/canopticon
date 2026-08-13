@@ -20,7 +20,7 @@ function lines(ctx, x, y, wd, n, r, c) {
 reg(
   "document_layout",
   "I · DOCUMENTS",
-  "— → ARTIFACT",
+  "— → IMAGE",
   {
     kind: { v: 0, lo: 0, hi: 3, int: 1 },
     columns: { v: 2, lo: 1, hi: 3, int: 1 },
@@ -219,7 +219,7 @@ reg(
           const bx = 20 + r() * lw * 0.4,
             bw = lw * (0.2 + r() * 0.5);
           const grow = M === 0 ? 1 : M === 1 ? pr : cl01((pr * rows - i) / 2);
-          ctx.fillStyle = "#14120f";
+          ctx.fillStyle = BG;
           ctx.fillRect(bx, y - 3, Math.max(0, bw * cl01(grow)), 8);
         }
       }
@@ -238,7 +238,7 @@ reg(
 reg(
   "camera_move",
   "I · DOCUMENTS",
-  "ARTIFACT → ANIMATION",
+  "IMAGE → ANIMATION",
   {
     kind: { v: 0, lo: 0, hi: 2, int: 1 },
     rate: { v: 0.3, lo: 0.05, hi: 1 },
@@ -275,7 +275,7 @@ reg(
         o.font = '700 26px "Space Grotesk",sans-serif';
         o.fillText("ORDER 03-114", 26, 44);
         lines(o, 26, 64, doc.width - 52, Math.floor((doc.height - 90) / 9), r);
-        o.fillStyle = "#14120f";
+        o.fillStyle = BG;
         o.fillRect(26, doc.height * 0.42, doc.width * 0.42, 11);
       }
       const ph = (t * p.rate * 0.22) % 1,
@@ -757,7 +757,7 @@ function layerB(w, h, t) {
     o.arc(w / 2, h / 2, (i / 16) * Math.min(w, h) * 0.6 + Math.sin(t + i * 0.4) * 7, 0, 6.3);
     o.stroke();
   }
-  o.fillStyle = "#eef1f3";
+  o.fillStyle = INK;
   o.font = "700 " + Math.round(h * 0.3) + 'px "Space Grotesk",sans-serif';
   o.textAlign = "center";
   o.textBaseline = "middle";
@@ -1129,7 +1129,7 @@ reg(
 reg(
   "device_frame",
   "P · INTERFACE",
-  "— → ARTIFACT",
+  "— → IMAGE",
   {
     kind: { v: 0, lo: 0, hi: 2, int: 1 },
     scale: { v: 0.8, lo: 0.4, hi: 1 },
@@ -1149,8 +1149,8 @@ reg(
         dh = h * dims[1] * p.scale;
       const x = (w - dw) / 2,
         y = (h - dh) / 2;
-      ctx.fillStyle = "#191d21";
-      ctx.strokeStyle = "#3a4045";
+      ctx.fillStyle = DIM;
+      ctx.strokeStyle = MUT;
       ctx.lineWidth = 1.4;
       const rad = K === 0 ? dw * 0.1 : 6;
       ctx.beginPath();
@@ -1161,17 +1161,17 @@ reg(
         iy = y + (K === 0 ? 18 : K === 1 ? 16 : 10),
         iw = dw - 14,
         ih = dh - (K === 0 ? 32 : K === 1 ? 24 : 20);
-      ctx.fillStyle = "#0d0f11";
+      ctx.fillStyle = BG;
       ctx.fillRect(ix, iy, iw, ih);
       if (K === 0) {
-        ctx.fillStyle = "#3a4045";
+        ctx.fillStyle = MUT;
         ctx.fillRect(x + dw / 2 - 16, y + 8, 32, 4);
       }
       if (K === 1) {
         [
-          ["#d8624a", 12],
-          ["#69717a", 24],
-          ["#69717a", 36],
+          [EMB, 12],
+          [MUT, 24],
+          [MUT, 36],
         ].forEach(([c, ox]) => {
           ctx.fillStyle = c;
           ctx.beginPath();
@@ -1204,7 +1204,7 @@ reg(
 reg(
   "browser_chrome",
   "P · INTERFACE",
-  "— → ARTIFACT",
+  "— → IMAGE",
   {
     url: { s: "archive.gov/orders/03-114" },
     tabs: { v: 3, lo: 1, hi: 6, int: 1 },
@@ -1215,19 +1215,19 @@ reg(
       bg(ctx, w, h);
       const T = Math.round(p.tabs),
         r = mulberry(33);
-      ctx.fillStyle = "#191d21";
+      ctx.fillStyle = DIM;
       ctx.fillRect(0, 0, w, 54);
       const tw = Math.min(140, (w - 20) / T);
       for (let i = 0; i < T; i++) {
-        ctx.fillStyle = i === 0 ? "#0d0f11" : "#131619";
+        ctx.fillStyle = i === 0 ? BG : DIM;
         ctx.fillRect(8 + i * (tw + 2), 6, tw, 22);
         ctx.fillStyle = i === 0 ? "rgba(238,241,243,.75)" : "rgba(155,163,170,.4)";
         ctx.fillRect(14 + i * (tw + 2), 15, tw * (0.4 + r() * 0.4), 3);
       }
-      ctx.fillStyle = "#0d0f11";
+      ctx.fillStyle = BG;
       ctx.fillRect(8, 32, w - 16, 17);
       ctx.font = "9px JetBrains Mono";
-      ctx.fillStyle = "#9ba3aa";
+      ctx.fillStyle = MUT;
       ctx.fillText(p.url, 16, 44);
       ctx.fillStyle = "#6fbf8f";
       ctx.fillRect(w - 22, 38, 5, 5);
@@ -1237,7 +1237,7 @@ reg(
       ctx.rect(0, 54, w, h - 54);
       ctx.clip();
       ctx.translate(0, -sc);
-      ctx.fillStyle = "#eef1f3";
+      ctx.fillStyle = INK;
       ctx.font = '700 20px "Space Grotesk",sans-serif';
       ctx.fillText("Executive Order 03-114", 18, 90);
       for (let i = 0; i < 26; i++) {
@@ -1256,7 +1256,7 @@ reg(
 reg(
   "ui_surface",
   "P · INTERFACE",
-  "DATA → ARTIFACT",
+  "DATA → IMAGE",
   {
     kind: { v: 0, lo: 0, hi: 2, int: 1 },
     items: { v: 6, lo: 2, hi: 12, int: 1 },
@@ -1271,7 +1271,7 @@ reg(
       if (K === 0) {
         for (let i = 0; i < N; i++) {
           const y = 10 + i * ((h - 20) / N);
-          ctx.fillStyle = "#131619";
+          ctx.fillStyle = DIM;
           ctx.fillRect(10, y, w - 20, (h - 20) / N - 6);
           ctx.fillStyle = i === 0 ? "rgba(216,98,74,.75)" : "rgba(238,241,243,.6)";
           ctx.fillRect(20, y + 9, (w - 60) * (0.3 + r() * 0.55), 4);
@@ -1279,7 +1279,7 @@ reg(
           ctx.fillRect(20, y + 19, (w - 60) * (0.2 + r() * 0.4), 3);
           const n = Math.round(r() * 400 * p.activity);
           ctx.font = "8px JetBrains Mono";
-          ctx.fillStyle = "#69717a";
+          ctx.fillStyle = MUT;
           ctx.fillText(String(n), w - 44, y + 14);
         }
       } else if (K === 1) {
@@ -1288,7 +1288,7 @@ reg(
         for (let i = 0; i < N; i++) {
           const x = 10 + (i % C) * ((w - 20) / C),
             y = 10 + Math.floor(i / C) * ((h - 20) / R);
-          ctx.fillStyle = "#131619";
+          ctx.fillStyle = DIM;
           ctx.fillRect(x, y, (w - 20) / C - 8, (h - 20) / R - 8);
           const v = Math.abs(Math.sin(t * (0.4 + i * 0.2))) * p.activity;
           ctx.fillStyle = v > 0.7 ? EMB : "rgba(238,241,243,.6)";
@@ -1296,7 +1296,7 @@ reg(
           ctx.fillText((v * 100).toFixed(0) + "%", x + 10, y + ((h - 20) / R) * 0.55);
         }
       } else {
-        ctx.fillStyle = "#131619";
+        ctx.fillStyle = DIM;
         ctx.fillRect(0, 0, w * 0.28, h);
         for (let i = 0; i < N; i++) {
           ctx.fillStyle = i === 1 ? "rgba(216,98,74,.8)" : "rgba(155,163,170,.35)";
@@ -1378,7 +1378,7 @@ reg(
           [w * 0.78, h * 0.72],
         ];
         targets.forEach(([bx, by], i) => {
-          ctx.fillStyle = i === Math.floor(last) % 4 ? "rgba(216,98,74,.3)" : "#131619";
+          ctx.fillStyle = i === Math.floor(last) % 4 ? "rgba(216,98,74,.3)" : DIM;
           ctx.fillRect(bx - 42, by - 13, 84, 26);
           ctx.strokeStyle = "rgba(155,163,170,.3)";
           ctx.strokeRect(bx - 42, by - 13, 84, 26);
@@ -1431,7 +1431,7 @@ reg(
       bg(ctx, w, h);
       const K = Math.round(p.kind),
         cyc = (t * p.rate * 0.6) % 1.6;
-      ctx.fillStyle = "#131619";
+      ctx.fillStyle = DIM;
       ctx.fillRect(w * 0.12, h * 0.3, w * 0.76, h * 0.4);
       ctx.strokeStyle = "rgba(155,163,170,.25)";
       ctx.strokeRect(w * 0.12, h * 0.3, w * 0.76, h * 0.4);
@@ -1477,7 +1477,7 @@ reg(
         c = raw > 1 ? 1 : raw,
         e = c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
       const screen = (x, acc) => {
-        ctx.fillStyle = "#131619";
+        ctx.fillStyle = DIM;
         ctx.fillRect(x, h * 0.12, w * 0.7, h * 0.76);
         ctx.strokeStyle = "rgba(155,163,170,.22)";
         ctx.strokeRect(x, h * 0.12, w * 0.7, h * 0.76);
@@ -1497,7 +1497,7 @@ reg(
         ctx.fillRect(0, 0, w, h);
         ctx.save();
         ctx.translate(w / 2, h * 0.5 + (1 - e) * h * 0.5);
-        ctx.fillStyle = "#191d21";
+        ctx.fillStyle = DIM;
         ctx.fillRect(-w * 0.3, -h * 0.18, w * 0.6, h * 0.36);
         ctx.strokeStyle = EMB;
         ctx.strokeRect(-w * 0.3, -h * 0.18, w * 0.6, h * 0.36);
@@ -1506,7 +1506,7 @@ reg(
         screen(w * 0.15, 0);
         ctx.save();
         ctx.translate(w - 16 - e * w * 0.4, 16);
-        ctx.fillStyle = "#191d21";
+        ctx.fillStyle = DIM;
         ctx.fillRect(0, 0, w * 0.36, 44);
         ctx.strokeStyle = "rgba(216,98,74,.6)";
         ctx.strokeRect(0, 0, w * 0.36, 44);
@@ -1533,7 +1533,7 @@ function shotA(ctx, w, h, t) {
   ctx.fillText("A", 16, h * 0.62);
 }
 function shotB(ctx, w, h, t) {
-  ctx.fillStyle = "#191d21";
+  ctx.fillStyle = DIM;
   ctx.fillRect(0, 0, w, h);
   ctx.strokeStyle = "rgba(216,98,74,.6)";
   for (let i = 0; i < 8; i++) {
@@ -1581,7 +1581,7 @@ reg(
         ctx.fillStyle = "rgba(238,241,243,.08)";
         for (let i = 0; i < 9; i++) ctx.fillRect(12, 14 + (i * (h - 26)) / 9, (w - 24) * 0.6, 4);
       } else {
-        ctx.fillStyle = "#191d21";
+        ctx.fillStyle = DIM;
         ctx.fillRect(0, 0, w, h);
       }
       ctx.strokeStyle = side ? INK : EMB;

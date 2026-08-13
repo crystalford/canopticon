@@ -463,18 +463,33 @@ reg(
     show: { v: 0, lo: 0, hi: 1, int: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t) {
+    frame(ctx, w, h, t, upstream) {
       bg(ctx, w, h);
       const R = Math.round(p.resolution),
         C = Math.round((R * w) / h);
       const gap = w / C;
+      // THE NUMBERS IT WAS HANDED, not the module's stand-in array. It
+      // declares DATA on its input and read a global — the input half of
+      // the same contract the output half was failing.
+      const figs = upstream && upstream.data;
+      const src =
+        Array.isArray(figs) && figs.length
+          ? figs.map((d) => (typeof d === "number" ? d : Number(d.value) || 0))
+          : DATA;
+      // THE FIELD ITSELF, not only a picture of it. The angle per cell is
+      // already computed below to draw the hatch; it was simply never
+      // collected, so `DATA → FIELD` was a promise no consumer could
+      // collect on. Same shape `flow_field` emits, so the two are
+      // interchangeable upstream of anything that reads a vector field.
+      const ang = new Float32Array(C * R);
       for (let y = 0; y < R; y++)
         for (let x = 0; x < C; x++) {
-          const u = (x / C) * DATA.length,
+          const u = (x / C) * src.length,
             i = Math.floor(u),
             f = u - i;
-          const v = (DATA[i] || 0) * (1 - f) + (DATA[i + 1] || 0) * f;
+          const v = (src[i] || 0) * (1 - f) + (src[i + 1] || 0) * f;
           const a = (v / 6) * Math.PI * 2 * p.influence + t * 0.3;
+          ang[y * C + x] = a;
           const px = x * gap + gap / 2,
             py = y * (h / R) + h / R / 2;
           if (p.show < 0.5) {
@@ -491,9 +506,10 @@ reg(
           }
         }
       lab(ctx, "DATA AS DISPLACEMENT SOURCE", 10, h - 14);
+      return { field: { kind: "vector", cols: C, rows: R, cell: gap, w, h, ang } };
     },
   }),
-  "Data used as a field rather than a chart. Everything downstream — particles, type, geometry — inherits the numbers.",
+  "Data used as a field rather than a chart. Everything downstream — particles, type, geometry — inherits the numbers, because the field is emitted rather than merely drawn.",
 );
 
 reg(
@@ -1075,7 +1091,7 @@ reg(
           ctx.translate(w / 2 + Math.cos(a) * (R + 18), h / 2 + Math.sin(a) * (R + 18));
           ctx.rotate(a + 1.57);
           ctx.font = "7px JetBrains Mono";
-          ctx.fillStyle = "#9ba3aa";
+          ctx.fillStyle = MUT;
           ctx.textAlign = "center";
           ctx.fillText(String(2003 + i), 0, 0);
           ctx.restore();

@@ -135,6 +135,40 @@ export const OverrideSchema = z.object({
 });
 export type Override = z.infer<typeof OverrideSchema>;
 
+/** A VISUAL GRAMMAR — the film's look, named so it can be asked for again.
+ *
+ *  Not a chain and not a preset. A set of APPETITES: how much this film
+ *  wants to grade, to scanline, to come apart. They sit on top of the
+ *  director's curves and bias what the constructor reaches for, so the
+ *  same grammar over a different essay builds different things in a
+ *  recognisable way — which is what a house style actually is.
+ *
+ *  Captured from a film that already looks right rather than authored
+ *  from nothing. See `compile/grammar.ts`. */
+export const VisualGrammarSchema = z.object({
+  name: z.string(),
+  ops: z.record(z.string(), z.number()).default({}),
+  representation: z.number().min(0).max(4).optional(),
+  capturedFrom: z.object({ projectId: z.string(), scenes: z.number(), at: z.string() }).optional(),
+});
+export type VisualGrammarIR = z.infer<typeof VisualGrammarSchema>;
+
+/** The director's instruction for one scene, in their own words.
+ *
+ *  Four optional fields, all prose, all short by convention rather than by
+ *  constraint — a direction long enough to need scrolling is a note to
+ *  self, not an instruction to a compiler. `hide` is deliberately included
+ *  even though the compiler currently uses it only as register evidence:
+ *  what a director wants WITHHELD is a real directorial statement and
+ *  dropping the field would make it unsayable. See `compile/intent.ts`. */
+export const DirectorIntentSchema = z.object({
+  understand: z.string().optional(),
+  feel: z.string().optional(),
+  notice: z.string().optional(),
+  hide: z.string().optional(),
+});
+export type DirectorIntentIR = z.infer<typeof DirectorIntentSchema>;
+
 export const EntitySchema = z.object({
   id: z.string(),
   type: z.enum(["organization", "person", "document", "concept", "place"]),
@@ -238,6 +272,44 @@ export const SemanticReadingSchema = z.object({
 export type SemanticReading = z.infer<typeof SemanticReadingSchema>;
 
 /** How a scene is depicted. The subject is invariant; this is not. */
+/** COLOUR, as four directorial numbers.
+ *
+ *  key         0 = dark ground, light drawn onto it · 1 = paper, marks on it
+ *  temperature 0 = cold · 1 = warm
+ *  saturation  0 = monochrome · 1 = saturated
+ *  contrast    0 = flat · 1 = hard
+ *
+ *  Continuous on purpose. Named looks are coordinates in this space, not
+ *  an enum — "slightly warmer" has to be a real position or the director
+ *  is choosing from a filter menu again. */
+export const ColourSchema = z.object({
+  key: z.number().min(0).max(1).default(0.14),
+  temperature: z.number().min(0).max(1).default(0.55),
+  saturation: z.number().min(0).max(1).default(0.42),
+  contrast: z.number().min(0).max(1).default(0.62),
+});
+export type Colour = z.infer<typeof ColourSchema>;
+
+/** WHAT A NEW FILM STARTS AS. Deliberately not the old world: the
+ *  previous constants put every frame at a near-black ground with almost
+ *  no colour, which is why 105 of 129 primitives measured below luminance
+ *  40/255. A film should open somewhere a person would choose. */
+export const DEFAULT_COLOUR: Colour = {
+  key: 0.14,
+  temperature: 0.55,
+  saturation: 0.42,
+  contrast: 0.62,
+};
+
+/** How the film is photographed. Colour is built; camera and light are
+ *  declared here as the place they will land, and are deliberately absent
+ *  rather than stubbed — a field that exists and does nothing is the
+ *  failure this project keeps repeating. */
+export const CinematographySchema = z.object({
+  colour: ColourSchema.default({}),
+});
+export type Cinematography = z.infer<typeof CinematographySchema>;
+
 export const VisualLanguageSchema = z.enum([
   "documentary",
   "technical",
@@ -297,6 +369,21 @@ export const SceneSchema = z.object({
   route: z.array(z.string()).optional(),
   /** Per-scene depiction override. Falls back to the film's default. */
   visualLanguage: VisualLanguageSchema.optional(),
+  /** WHAT THE DIRECTOR WANTS THIS SCENE TO DO. Prose, not settings.
+   *
+   *  The third kind of input this compiler takes, and it is genuinely
+   *  distinct from the other two. A FIGURE is checkable against the prose.
+   *  A READING is an interpretation of the prose, so a model proposes it
+   *  and a human ratifies it. An INTENT is neither — it is not about the
+   *  prose at all, it is the director's own instruction, so it is authored
+   *  outright and there is nothing to ratify. Written by the operator, read
+   *  deterministically by `intent.ts`, and absent on most scenes.
+   *
+   *  It exists because the constructor could previously infer everything
+   *  from the sentence's surface and had no channel at all for "this scene
+   *  should feel inevitable" — which is precisely the input that makes
+   *  candidates differ as INTERPRETATIONS rather than as effects. */
+  directorIntent: DirectorIntentSchema.optional(),
 });
 export type Scene = z.infer<typeof SceneSchema>;
 
@@ -329,6 +416,23 @@ export const EditorialIRSchema = z.object({
   /** The film's default depiction. A director can travel this across the
    *  runtime the same way they travel abstraction. */
   visualLanguage: VisualLanguageSchema.default("documentary"),
+  /** The film's captured look, when it has one. Optional: a film without
+   *  a grammar is composed from the curves alone, exactly as before. */
+  grammar: VisualGrammarSchema.optional(),
+  /** THE FILM'S CINEMATOGRAPHY. Colour first, because colour was the
+   *  measurable hole: 105 of 129 primitives rendered below luminance
+   *  40/255 and 86 below contrast 20, all of it decided by five constants
+   *  no director could reach.
+   *
+   *  Four continuous numbers, and the compiler NEVER resolves them into
+   *  colours — it stores them and hands them to the renderer, which owns
+   *  the single translation point (`resolvePalette` in `lab/palette.js`).
+   *  Standing rule 9: the semantic layer says "warm, light, restrained";
+   *  exactly one function decides what that is in hex.
+   *
+   *  Camera and light will join this object rather than becoming their
+   *  own layer. */
+  cinematography: CinematographySchema.default({}),
   renderProfile: z.string().default("default"),
 });
 export type EditorialIR = z.infer<typeof EditorialIRSchema>;

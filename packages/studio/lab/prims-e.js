@@ -21,7 +21,7 @@ const TAU = Math.PI * 2;
 reg(
   "creature_chain",
   "S · ENTITY",
-  "— → ENTITY",
+  "— → IMAGE",
   {
     segments: { v: 22, lo: 5, hi: 60, int: 1 },
     legPairs: { v: 1, lo: 0, hi: 2, int: 1 },

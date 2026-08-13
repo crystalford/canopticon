@@ -6,16 +6,31 @@ const F3 = new Proxy({}, { get: (_t, k) => (window.FILM ? window.FILM[k] : undef
 
 /* ══ PREVIEW ════════════════════════════════════════════ */
 const PLAY = { t: 0, on: false, last: 0 };
+/** Whether the compiler's own numbers are drawn over the picture. Off by
+ *  default — see the note where the HUD is built. */
+let HUD_DETAIL = false;
 function viewPreview(root) {
   root.innerHTML = `<div class="shell" style="grid-template-columns:minmax(0,1fr) 320px">
    <div class="col mcol">
-     <div class="vhead"><h2>Preview</h2><span class="k" id="pvstate"></span></div>
+     <!-- THE FILM IS THE CENTRAL OBJECT, so this says which film you are
+          looking at rather than which compiler surface you are on. The
+          determinism/primitive/seed line moved to a title attribute — it
+          is true, it is checkable, and it is not what a person needs to
+          read while watching. -->
+     <div class="vhead filmhead">
+       <h2 title="${esc(F3.title)}">${esc(F3.title)}</h2>
+       <span class="k">${F3.scenes.length} SCENES · ${F3.acts ? `${F3.acts.length} ACTS · ` : ""}${fmt(F3.runtime)}</span>
+       <span class="k dim" id="pvstate"></span>
+     </div>
      <div class="stage"><canvas id="film"></canvas><div class="vo" id="vo"></div>
        <div class="hud" id="hud"></div></div>
      <div class="transport">
        <button class="btn" id="pp">${PLAY.on ? "PAUSE" : "PLAY"}</button>
+       <button class="btn" id="pscore">${SCORE.on ? "SCORE ON" : "SCORE"}</button>
+       <button class="btn" id="phud" title="Draw the compiler's own numbers over the picture">${HUD_DETAIL ? "NUMBERS ON" : "NUMBERS"}</button>
        <div class="tl" id="tl"><div class="tlfill"></div><div class="tlhead"></div></div>
        <span class="mono tc" id="tc">0:00</span>
+       <span class="mono vostate" id="vostate"></span>
        <button class="btn primary" id="pvrender">RENDER…</button>
      </div>
    </div>
@@ -83,6 +98,10 @@ function viewPreview(root) {
 
   let cur = "";
   loop(() => {
+    // The film's colour, before anything paints. Cheap (five assignments)
+    // and unconditional, so there is no path that draws a frame in a
+    // palette the film did not ask for.
+    applyFilmPalette();
     const now = performance.now();
     const dt = PLAY.last ? (now - PLAY.last) / 1000 : 0;
     PLAY.last = now;
@@ -92,16 +111,29 @@ function viewPreview(root) {
     if (c.scene.id !== cur) {
       cur = c.scene.id;
       document.getElementById("vo").innerHTML = `<span>${esc(c.scene.text)}</span>`;
+      /* THE HUD USED TO BURN THE COMPILER OVER THE ARTWORK.
+       *
+       * Three lines of it: the chain, then `abstraction 0.15 · density
+       * 0.36 · energy 0.41 · human 0.00`. Raw dials, in the middle of the
+       * one surface whose entire job is to answer "does this look right".
+       * You cannot judge a frame you cannot see, and none of that told a
+       * director anything they could act on.
+       *
+       * What stays on the frame is what identifies the shot. Everything
+       * else is already in the right column, in sentences, and behind a
+       * toggle here for anyone who wants it while watching. */
       document.getElementById("hud").innerHTML =
-        `<div><b>SC ${String(c.scene.n).padStart(2, "0")}</b> ${c.scene.fn.toUpperCase()} · ${c.tier}${c.pin ? " · PINNED" : ""}${(c.shots || []).length > 1 ? " · " + c.shots.length + " SHOTS" : ""}</div>
-        <div>${c.nodes
-          .map((n) =>
-            n.b && n.b.length
-              ? `${n.prim} ⊕ (${n.b.map((g) => g.id).join(" → ")})`
-              : n.prim,
-          )
-          .join(" → ")}</div>
-        <div>abstraction ${c.abstraction.toFixed(2)} · density ${(c.state.visualDensity ?? 0).toFixed(2)} · energy ${(c.state.motionEnergy ?? 0).toFixed(2)} · human ${(c.state.humanPresence ?? 0).toFixed(2)}</div>`;
+        `<div><b>SC ${String(c.scene.n).padStart(2, "0")}</b> ${c.scene.fn.toUpperCase()}${c.pin ? " · PINNED" : ""}${(c.shots || []).length > 1 ? " · " + c.shots.length + " SHOTS" : ""}</div>
+        ${
+          HUD_DETAIL
+            ? `<div>${c.nodes
+                .map((n) =>
+                  n.b && n.b.length ? `${n.prim} ⊕ (${n.b.map((g) => g.id).join(" → ")})` : n.prim,
+                )
+                .join(" → ")}</div>
+              <div>${c.tier} · abstraction ${c.abstraction.toFixed(2)} · density ${(c.state.visualDensity ?? 0).toFixed(2)} · energy ${(c.state.motionEnergy ?? 0).toFixed(2)} · human ${(c.state.humanPresence ?? 0).toFixed(2)}</div>`
+            : ""
+        }`;
       document.getElementById("pvstate").textContent =
         c.det + " DETERMINISM · " + c.nodes.length + " PRIMITIVES · SEED " + (c.nodes[0]?.params.seed ?? 0);
       drawPvRight(c);
@@ -159,6 +191,27 @@ function viewPreview(root) {
     await loadNarration(plan);
     await playNarration(plan, PLAY.t * 1000);
   };
+
+  /* THE SCORE. Composed from the film's own curves rather than chosen —
+   * see score.js. Off by default: a film that scores itself the moment
+   * you open it has made a directorial decision on your behalf. */
+  const scoreBtn = document.getElementById("pscore");
+  if (scoreBtn) {
+    scoreBtn.onclick = async () => {
+      SCORE.on = !SCORE.on;
+      scoreBtn.textContent = SCORE.on ? "SCORE ON" : "SCORE";
+      if (!SCORE.on) return stopScore();
+      await playScore(window.STUDIO.plan || planFromFilm(), run.comps, PLAY.t * 1000);
+    };
+  }
+  const hudBtn = document.getElementById("phud");
+  if (hudBtn) {
+    hudBtn.onclick = () => {
+      HUD_DETAIL = !HUD_DETAIL;
+      hudBtn.textContent = HUD_DETAIL ? "NUMBERS ON" : "NUMBERS";
+      cur = ""; // force the HUD to rebuild on the next frame
+    };
+  }
   document.getElementById("pvrender").onclick = openRender;
 
   const tl = document.getElementById("tl");
@@ -172,10 +225,35 @@ function viewPreview(root) {
     const r = tl.getBoundingClientRect();
     PLAY.t = clamp((e.clientX - r.left) / r.width, 0, 0.999) * F3.runtime;
     // A seek re-cues the voice rather than leaving the old line running
-    // over the new picture.
+    // over the new picture. The score re-cues with it — its whole shape is
+    // scheduled against the film's timeline, so a seek without a re-cue
+    // would leave the drone playing act three under act one.
     stopNarration();
     if (PLAY.on && window.STUDIO.plan) await playNarration(window.STUDIO.plan, PLAY.t * 1000);
+    if (SCORE.on) await playScore(window.STUDIO.plan || planFromFilm(), run.comps, PLAY.t * 1000);
   };
+  /* WHETHER THIS FILM CAN BE HEARD, said on the transport.
+   *
+   * A plan is fetched once when a film is opened, and the plan is what
+   * carries the audio. So a film narrated after it was opened has a voice
+   * in storage and none in the tab — and PLAY did nothing, silently,
+   * which is indistinguishable from a broken feature.
+   *
+   * It is not the compiler's job to poll for this. It IS its job to say
+   * which of the two states you are in. */
+  const state = document.getElementById("vostate");
+  if (state) {
+    const vo = narrationStatus(window.STUDIO.plan || {});
+    state.textContent = window.STUDIO.demo
+      ? "EXAMPLE · SILENT"
+      : vo.narrated === 0
+        ? "SILENT — reopen from FILMS if you have narrated it"
+        : vo.silent > 0
+          ? `VOICE · ${vo.narrated}/${vo.total} SCENES`
+          : `VOICE · ${fmt(vo.ms / 1000)}`;
+    state.className = `mono vostate ${vo.narrated === 0 ? "quiet" : "on"}`;
+  }
+
   drawPvRight(sceneAt(PLAY.t));
 }
 
@@ -419,6 +497,44 @@ function drawPvRight(c) {
         <div class="meta pv-why">${s.reasons.map((r) => `<div>${esc(r)}</div>`).join("")}</div></div>`
     : "";
 
+/* WHAT THIS SCENE IS FOR — the director's own instruction.
+ *
+ * Deliberately NOT another row of chips. The verbs above are chips
+ * because "stranger" and "colder" are a closed set of nudges; this is
+ * prose because "make the crowd's synchronisation feel inevitable" is not
+ * a position on any axis, and turning it into one would be exactly the
+ * "make them specify implementation" failure the whole system is tested
+ * against.
+ *
+ * The readback under the fields is the important part. The compiler reads
+ * this deterministically, which is only useful if the director can SEE
+ * what was read — a direction that matched nothing has to look different
+ * from one that was heard and acted on, or a misread is indistinguishable
+ * from a disagreement. */
+function intentBlock(s) {
+  const i = s.intent || {};
+  const has = Boolean(i.feel || i.understand || i.notice || i.hide);
+  const field = (key, label, placeholder) =>
+    `<label class="int-f"><span class="k">${label}</span>
+      <input id="int-${key}" type="text" value="${esc(i[key] || "")}" placeholder="${esc(placeholder)}"></label>`;
+  return `<div class="sec secline int">
+    <span class="k">What this scene is for</span>
+    ${field("feel", "Feel", "increasing unease")}
+    ${field("understand", "Understand", "the crowd is becoming synchronized")}
+    ${field("notice", "Notice", "the movement pattern")}
+    ${field("hide", "Hide", "why it is happening")}
+    <div class="int-row">
+      <button class="chip" data-intend="1">DIRECT THIS SCENE</button>
+      ${has ? `<button class="chip" data-unintend="1">CLEAR</button>` : ""}
+    </div>
+    <div class="mono pv-note" id="int-msg">${
+      has
+        ? "Directed. The constructor reads this to decide what to BUILD, not only what to do to it."
+        : "Prose, not settings. What the audience should feel, understand, notice — or not."
+    }</div>
+   </div>`;
+}
+
   /* THE VISUAL IDEA — first, and in the director's language.
    *
    * "The system shows you what it thinks the visual idea is. You're not
@@ -457,25 +573,41 @@ function drawPvRight(c) {
             : ""
         }
         ${verbRow(s)}
+        ${intentBlock(s)}
         ${s.pinned ? `<button class="chip" data-release="1">RELEASE TO THE ENGINE</button>` : ""}
        </div>`
     : `<div class="sec"><span class="k">Visual idea</span>
         <div class="mono pv-note">${
           s.pinned
-            ? "Pinned by you — composition bypassed."
-            : "Planned from a ratified reading rather than constructed."
+            ? "You chose this shot yourself. The engine is not composing this scene."
+            : "This shot came from an interpretation you approved, so the engine did not construct one of its own."
         }</div>
         ${s.pinned ? `<button class="chip" data-release="1">RELEASE TO THE ENGINE</button>` : ""}</div>`;
 
-  el.innerHTML = `<div class="sec"><span class="k">Scene ${String(s.n).padStart(2, "0")} · ${esc(s.label)}</span>
+  /* WHAT THE SHOT IS, FIRST.
+   *
+   * This column used to open with the scene's identity and its
+   * ratification chips, and close with six raw dials under the heading
+   * "RESOLVED STATE AT PLAYHEAD". So the first thing a director read
+   * while watching their own film was a status widget, and the last
+   * thing was `archivalWeight 0.69`.
+   *
+   * The order is now: what this shot IS, then which scene it belongs to
+   * and whether it has been ratified, then the checkable things — the
+   * figures, the engine's stated reasons. The dials are still here,
+   * unchanged and to two decimal places, behind a disclosure that says
+   * in plain words what is inside it. Nothing was removed; it stopped
+   * being the headline. */
+  el.innerHTML = `${idea}
+   <div class="sec secline"><span class="k">Scene ${String(s.n).padStart(2, "0")} · ${esc(s.label)}</span>
    ${ratifyBlock}</div>
-   ${idea}
    ${figures}
    ${why}
-   <div class="sec secline"><span class="k">Resolved state at playhead</span>
+   <details class="pvmore">
+    <summary>The compiler's own numbers for this moment</summary>
     <div class="meta">${["abstraction", "archivalWeight", "dataWeight", "visualDensity", "humanPresence", "motionEnergy"].map((k) => `<div class="mrow"><span>${k}</span><i>${(c.state[k] ?? 0).toFixed(2)}</i></div>`).join("")}</div>
     ${(c.state._held || []).length ? `<div class="ruleHit soft">INVARIANT · ${c.state._held.join(" · ")}</div>` : ""}
-   </div>`;
+   </details>`;
 
   for (const b of el.querySelectorAll("[data-alt]")) {
     b.onclick = async () => {
@@ -485,6 +617,57 @@ function drawPvRight(c) {
       if (msg) msg.textContent = "directing…";
       try {
         await directScene(window.STUDIO.projectId, s.id, alt.chain, alt.id);
+        await loadProject(window.STUDIO.projectId);
+        window.__lastRun = dryRun();
+        commit(window.__lastRun);
+        render();
+      } catch (err) {
+        if (msg) msg.textContent = err.message;
+      }
+    };
+  }
+  const intendBtn = el.querySelector("[data-intend]");
+  if (intendBtn) {
+    intendBtn.onclick = async () => {
+      if (!window.STUDIO.projectId) return;
+      const msg = document.getElementById("int-msg");
+      const read = (k) => (document.getElementById(`int-${k}`)?.value || "").trim();
+      const intent = {
+        feel: read("feel"),
+        understand: read("understand"),
+        notice: read("notice"),
+        hide: read("hide"),
+      };
+      if (msg) msg.textContent = "directing…";
+      try {
+        const res = await directIntent(window.STUDIO.projectId, s.id, intent);
+        await loadProject(window.STUDIO.projectId);
+        window.__lastRun = dryRun();
+        commit(window.__lastRun);
+        render();
+        // Report what the compiler HEARD and what it did about it, in the
+        // same breath. A direction that read as nothing says so.
+        const after = document.getElementById("int-msg");
+        if (after) {
+          const heard = res.heard?.describe || "nothing read";
+          const built = res.built
+            ? ` → builds ${res.built.construction}${res.built.against ? " (against the grain)" : ""}`
+            : "";
+          after.textContent = `${heard}${built}`;
+        }
+      } catch (err) {
+        if (msg) msg.textContent = err.message;
+      }
+    };
+  }
+  const clearBtn = el.querySelector("[data-unintend]");
+  if (clearBtn) {
+    clearBtn.onclick = async () => {
+      if (!window.STUDIO.projectId) return;
+      const msg = document.getElementById("int-msg");
+      if (msg) msg.textContent = "clearing…";
+      try {
+        await releaseIntent(window.STUDIO.projectId, s.id);
         await loadProject(window.STUDIO.projectId);
         window.__lastRun = dryRun();
         commit(window.__lastRun);

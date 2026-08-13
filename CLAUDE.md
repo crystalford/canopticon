@@ -86,6 +86,37 @@ and the code implements the amended version:
    a pinned environment. L2-GPU for shader/3D. L3 is never claimed.
 8. **Degrade, flag, continue.** A failure in one scene never blocks the rest of
    the film from compiling.
+9. **One authoritative translation point per semantic quantity.** The semantic
+   layer says *this plane has visual importance 0.30*; it never says *make it
+   smaller*. Exactly one function turns that number into parameters —
+   `applyPlane` in `scene-plan.ts` — and any new consumer goes inside it. The
+   failure this prevents is real and cheap to fall into: weight meaning scale
+   in one file, opacity in another, count in a third, until nobody can say
+   what "weight" means. It also keeps the door open for the thing that makes
+   this worth having — a *visual grammar* deciding HOW importance manifests,
+   so a low-weight subject is smaller and dimmer in one film and fragmented,
+   occluded and intermittent in another, from the same 0.30.
+10. **A semantic capability is not complete until a pixel differs.** Name which
+    of the six states it has actually reached — DETECTED → INTERPRETED →
+    PLANNED → BOUND → COMPOSITED → RENDERED. `PLANNED` is the dangerous one:
+    a missing thing announces itself, a planned thing looks finished from
+    every angle except the screen. See `docs/studio/CANOPTICON_CAPABILITY_MAP.md`.
+11. **A compositional structure is not implemented until every system that
+    operates on a visual program treats it recursively.** Cache, cost,
+    determinism, palette usage, serialisation to the executor — all of them,
+    or none. The N-plane stack needed four separate fixes for this and every
+    one of them would have failed silently, because "it renders, therefore it
+    works" is the exact failure mode a partially-recursive structure produces.
+
+## The prioritisation function
+
+> **Would this make the next generated film better — more semantically
+> faithful, more visually expressive, more coherent, more directed?**
+
+Build it. If it only makes the architecture cleaner without unlocking
+creative capability, defer it. If it adds another selectable effect to a
+menu, don't build it. If it lets the machine make a kind of scene it could
+not make before, that is the highest priority there is.
 
 ## The test for every decision
 
@@ -252,14 +283,24 @@ them, with the wander taken out.
   an operator and a slide, and it is the check to run on any primitive
   before treating it as one.
 - **The Studio's information architecture is still the compiler's, not a
-  director's.** The VISUAL IDEA card and its alternatives are the first
-  piece of the creative loop; a shot-level inspector, a contact sheet, a
-  visual-rhythm view, and fork/compare are not built.
-- **`POST /project/:id/narrate` has not run against the live AI binding.**
-  Both ladders were exercised against fakes covering every response shape
-  Workers AI has been known to return, and `POST /v1/tts/probe` exists to ask
-  production what it actually returns before trusting any of it. Until that
-  probe has run, the model names in `TTS_CANDIDATES` are candidates.
+  director's.** The VISUAL IDEA card with its alternatives, the six
+  director verbs and the OVERVIEW contact sheet are the creative loop's
+  first pieces; a shot-level inspector, a visual-rhythm view, and
+  fork/compare are not built.
+- **Narration has no pauses, no script-vs-spoken split, and no
+  regenerate-this-paragraph.** A scene whose prose moved after recording is
+  correctly reported STALE and re-recorded on the next pass — that is the
+  correctness hole and it is closed — but breath, emphasis and a spoken
+  script that differs deliberately from the written one are not built.
+- **Opening a film fetches its plan once.** Narrate a film you already have
+  open and the Preview will not hear it until you re-open it from FILMS.
+- **Narration is verified live.** `@cf/deepgram/aura-1` speaks — 13.8KB of
+  mp3 for a short line, returned as a **ReadableStream**, which is exactly
+  why the recovery ladder does not assume a shape. `@cf/myshell-ai/melotts`
+  answered "capacity temporarily exceeded", which is why it is second.
+  Both whisper models return real word timings. A 61-scene film narrated
+  end to end: 61 of 61, zero failures, 6m22s of speech. `POST /v1/tts/probe`
+  and the PROBE THE BINDING button in FILMS re-ask that question any time.
 
 ## What's next
 
@@ -332,7 +373,15 @@ Shared across every Worker in the monorepo; nothing else is shared.
 
 - **Runtime**: Cloudflare Workers + **Hono**, TypeScript.
 - **Storage**: **D1** (SQLite) · **R2** · **Vectorize** (Record only).
-- **AI**: **Workers AI**. The Record routes by role
+- **AI**: **Workers AI**, and nothing else. Narration was reviewed against
+  MiniMax and ElevenLabs and Workers AI kept: a third-party voice provider
+  would be an external API key, an external outage surface, and the only
+  part of the pipeline able to fail for reasons off-platform — inside a
+  system whose whole premise is a reproducible artifact. `@cf/deepgram/aura-1`
+  answers in ~500ms and is billed inside Workers AI. (`packages/video` DOES
+  call MiniMax directly, for voice CLONING, with its own key. That is the
+  compartmentalized system and is not a precedent for Studio.) The Record
+  routes by role
   (`packages/api/src/llm/router.ts`). Studio uses it only at authoring time
   (segmentation, TTS) and freezes the output.
 - **Rendering**: server-rendered HTML by string concatenation. No JSX, no

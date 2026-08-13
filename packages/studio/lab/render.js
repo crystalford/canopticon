@@ -67,6 +67,7 @@ function buildForRender(plan, w, h) {
 /** Draw one frame of the film at an exact index. This is the whole reason
  *  the render is deterministic: nothing here reads a clock. */
 function drawFrame(ctx, scenes, frame, fps, w, h, chrome) {
+  applyFilmPalette();
   const ms = (frame / fps) * 1000;
   let active = scenes[scenes.length - 1];
   for (const s of scenes) {

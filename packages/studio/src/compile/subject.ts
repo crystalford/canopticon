@@ -291,6 +291,38 @@ const LEXICON: Array<{ kind: SubjectKind; weight: number; words: string[] }> = [
       "guards",
     ],
   },
+  // ── people in general, at a deliberately lower weight than a named
+  //    role. "People" is depictable — it is bodies — but it says nothing
+  //    about WHICH bodies, so it must lose to any sentence that also
+  //    names an inspector, a crowd or an insect.
+  //
+  //    Absent entirely until "the policy was designed to make people feel
+  //    as though they were being watched" detected NO subject at all: the
+  //    lexicon knew "claimant" and "tenant" because it was grown from one
+  //    institutional essay, and had never needed the ordinary word.
+  {
+    kind: "person",
+    weight: 0.62,
+    words: [
+      "people",
+      "person",
+      "persons",
+      "man",
+      "men",
+      "woman",
+      "women",
+      "child",
+      "children",
+      "family",
+      "families",
+      "figure",
+      "figures",
+      "passenger",
+      "passengers",
+      "pedestrian",
+      "pedestrians",
+    ],
+  },
   // ── somewhere. Not a named place — scene-kind already catches those —
   //    but a KIND of place, which is depictable as a space rather than a
   //    point on a map.
@@ -305,6 +337,27 @@ const LEXICON: Array<{ kind: SubjectKind; weight: number; words: string[] }> = [
     kind: "place",
     weight: 0.58,
     words: [
+      // The settlement scale. Absent until the sentence test asked for
+      // "they walked around the cities like insects" and the compiler
+      // could not see the cities at all — the lexicon had been grown
+      // entirely from one institutional housing essay, so it knew
+      // "corridor" and "shelter" and not "city". A missing noun is not a
+      // ranking problem: the space construction was UNREACHABLE for that
+      // sentence, which is a different and worse failure than losing.
+      "city",
+      "cities",
+      "town",
+      "towns",
+      "street",
+      "streets",
+      "neighbourhood",
+      "neighbourhoods",
+      "neighborhood",
+      "neighborhoods",
+      "district",
+      "districts",
+      "block",
+      "blocks",
       "hotel",
       "hotels",
       "motel",
@@ -356,6 +409,12 @@ const LEXICON: Array<{ kind: SubjectKind; weight: number; words: string[] }> = [
  *  These lose to anything in the lexicon and, on their own, produce no
  *  subject at all. A film that renders a ceiling fixture every time an
  *  essay says "infrastructure" is worse than one that renders type. */
+/** Nouns that name a real thing in the argument and no thing you can point
+ *  a camera at. Used two ways, and the difference matters: a subject must
+ *  be depictable to be BUILT, but a relation's participants need only be
+ *  named — "the policy made the residents afraid" is a relation whose
+ *  agent cannot be drawn, and refusing to read it because of that would
+ *  discard the causal structure along with the picture. */
 const NOT_DEPICTABLE = new Set([
   "system",
   "systems",
@@ -428,6 +487,29 @@ export function namesOnlyAbstractions(sentence: string): boolean {
     .some((w) => NOT_DEPICTABLE.has(w));
 }
 
+/** The abstractions a sentence names, with their offsets — the same shape
+ *  as a detected subject so a relation can hold one at either end.
+ *
+ *  Weight is deliberately 0: these can never be BUILT, and returning them
+ *  in the same shape is only safe because that zero makes them lose every
+ *  comparison a construction makes. What they can do is stand at one end
+ *  of a relation, which is a different question from what can be drawn. */
+export function detectAbstractions(sentence: string): DetectedSubject[] {
+  const lower = sentence.toLowerCase();
+  const out: DetectedSubject[] = [];
+  for (const word of NOT_DEPICTABLE) {
+    const at = wholeWordIndex(lower, word);
+    if (at < 0) continue;
+    out.push({
+      text: sentence.slice(at, at + word.length),
+      offset: at,
+      kind: "concept",
+      weight: 0,
+    });
+  }
+  return out.sort((a, b) => a.offset - b.offset);
+}
+
 /** A reading synthesised from what the prose NAMES, when no human-ratified
  *  one exists.
  *
@@ -485,10 +567,41 @@ export function subjectReading(
  *  sentence and nothing else; "it was a policy shift" is not a scene about
  *  a smoke detector because the word "it" appeared in it. Checkable
  *  against the prose like everything else here. */
-const ANAPHOR = /\b(them|they|their|these|those|it|its)\b/i;
+/* WHAT COUNTS AS REFERRING BACK.
+ *
+ * "it" and "its" were in this list, and they are why five scenes of a
+ * thirty-nine scene film were built from a noun that does not appear in
+ * them — s005 "When the printed page arrived IT did not simply carry
+ * speech" was built as a mounted fixture "from the word window", four
+ * sentences after the last window.
+ *
+ * Singular "it" is the least referential pronoun in English. It is a
+ * dummy subject far more often than a reference — "it is interesting",
+ * "it is now a thing that happens", "it says" — and it also routinely
+ * refers to something the sentence names ITSELF, as in the printed page
+ * above. Treating it as "still talking about the last object" is not a
+ * memory, it is a leak.
+ *
+ * The plural and demonstrative forms stay. They are strongly referential
+ * and they are the case this mechanism was written for — "then there were
+ * dozens of THEM, moving through the streets", which still works. */
+const ANAPHOR = /\b(them|they|their|these|those)\b/i;
+
+/** A subject specific enough that the sentence is plainly about it, rather
+ *  than merely mentioning it. Above this, the sentence speaks for itself
+ *  and needs no memory; at or below it, a setting has been named and the
+ *  thing moving through that setting may still be two sentences back. */
+const SPEAKS_FOR_ITSELF = 0.7;
 
 export function refersBack(sentence: string): boolean {
-  if (detectSubjects(sentence).length > 0) return false;
+  // Naming ANYTHING used to disqualify a sentence from referring back,
+  // which quietly made the film's memory conditional on its prose never
+  // mentioning a room. "Then there were dozens of them, moving through the
+  // streets in strange synchronized waves" is the case that proved it: one
+  // low-weight place noun and the insects the sentence is entirely about
+  // were forgotten. A place is the SETTING; it does not displace a
+  // subject, and it should not silence one either.
+  if (detectSubjects(sentence).some((s) => s.weight > SPEAKS_FOR_ITSELF)) return false;
   const head = sentence.split(/[,;:]/)[0] ?? sentence;
   return ANAPHOR.test(head);
 }

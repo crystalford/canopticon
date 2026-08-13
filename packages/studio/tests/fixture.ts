@@ -1,3 +1,4 @@
+import { DEFAULT_COLOUR } from "../src/ir/schema.ts";
 // A real hand-authored IR, used across the Stage 1 tests.
 //
 // "The Temporary Measure" — the essay the prototype was designed against.
@@ -301,6 +302,7 @@ export function buildFixtureIR(): EditorialIR {
       },
     ],
     visualLanguage: "documentary",
+    cinematography: { colour: DEFAULT_COLOUR },
     renderProfile: "default",
   };
 }

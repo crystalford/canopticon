@@ -71,13 +71,53 @@ function glyphPoints(text, w, h, step, font) {
 
 /* ── primitive registry ───────────────────────────────── */
 const PRIMS = {};
-const INK = "#eef1f3",
-  EMB = "#d8624a",
-  MUT = "#9ba3aa",
-  COOL = "#6f9ec4",
-  BG = "#0d0f11";
+
+/* ── THE FILM'S COLOUR, NOT THE PRIMITIVE'S ───────────────────────────
+ *
+ * These five were `const`, and between them they decided the tonal world
+ * of every frame Canopticon has ever produced. Measured across all 129
+ * primitives at 854×480: 105 of them rendered below luminance 40/255 and
+ * 86 below contrast 20. That is the "grey murk" complaint, and it was
+ * never 129 decisions — it was this block, unreachable from anywhere.
+ *
+ * They are now `let`, written once per scene by `setPalette()` from the
+ * four directorial numbers the film carries (see palette.js). Every
+ * `bg()` call and every `INK` / `EMB` / `MUT` / `COOL` reference in the
+ * ten primitive modules picks the change up on the next frame, because
+ * they resolve the identifier at draw time rather than capturing it.
+ *
+ * A primitive still decides WHAT it draws. It no longer decides what
+ * colour the film is.
+ */
+let INK = "#eef1f3";
+let EMB = "#d8624a";
+let MUT = "#9ba3aa";
+let COOL = "#6f9ec4";
+let BG = "#0d0f11";
+/** Barely off the ground — grids, hairlines, the marks that give a frame
+ *  depth without asking to be read. Previously every primitive that
+ *  wanted one hardcoded its own near-black. */
+let DIM = "#191d21";
+let BG_RGB = [13, 15, 17];
+/** How light the world is (0 dark → 1 paper). A primitive that needs to
+ *  know whether it is drawing light onto dark or marks onto paper asks
+ *  this instead of trying to infer it from the ground colour. */
+let KEY = 0.12;
+
+function setPalette(p) {
+  if (!p) return;
+  INK = p.ink;
+  EMB = p.accent;
+  MUT = p.muted;
+  COOL = p.cool;
+  BG = p.bg;
+  DIM = p.dim;
+  BG_RGB = p.bgRgb;
+  KEY = p.key;
+}
+
 function bg(ctx, w, h, a) {
-  ctx.fillStyle = a ? "rgba(13,15,17," + a + ")" : BG;
+  ctx.fillStyle = a ? `rgba(${BG_RGB[0]},${BG_RGB[1]},${BG_RGB[2]},${a})` : BG;
   ctx.fillRect(0, 0, w, h);
 }
 function lab(ctx, t, x, y, c) {
@@ -86,8 +126,199 @@ function lab(ctx, t, x, y, c) {
   ctx.fillStyle = c || "#69717a";
   ctx.fillText(t, x, y);
 }
+/* ── THE PAYLOAD CONTRACT ─────────────────────────────────────────────
+ *
+ * A primitive's declared OUTPUT TYPE must equal the payload it actually
+ * emits. Until now it did not, and the gap was the largest single fact
+ * about this palette:
+ *
+ *   129 primitives · 42 declared GEOMETRY / FIELD / ARTIFACT / ENTITY
+ *   and returned nothing but pixels.
+ *
+ * Which meant a chain could type-check completely and the downstream node
+ * receive NOTHING. It then fell back to its own synthetic default, and the
+ * film rendered something plausible that no part of the compiler chose —
+ * `tile` returning the stock "90 DAYS", `geometry_draw: no upstream
+ * GEOMETRY` on a chain the type checker had already approved, and the
+ * raster bridges that were only ever necessary because a canvas is the
+ * one thing that really travelled between two nodes.
+ *
+ * `noise_field` was fixed by hand for exactly this reason and its comment
+ * says why. This does the same thing for the rest, in one place, at
+ * registration — because thirty-four separate edits to thirty-four
+ * drawing loops is how a mechanical problem becomes a rewrite.
+ *
+ * THE FORM A PRIMITIVE DREW *IS* ITS GEOMETRY. Sampling the canvas the
+ * primitive just painted is not manufacturing a fake payload to satisfy a
+ * type — it is reading back the thing it actually made, which is exactly
+ * what `image_to_points` and `glyph_to_points` already do on purpose. A
+ * primitive that computes a better point set of its own simply returns it
+ * and this never fires.
+ */
+
+/* ── VECTOR IS THE REPRESENTATION; SAMPLING IS A TREATMENT ────────────
+ *
+ * A GEOMETRY payload may now carry `paths` — ordered vertex lists, in
+ * frame coordinates — alongside its point set.
+ *
+ * This inverts the thing that has made every frame look like a
+ * low-resolution experiment. Geometry ORIGINATED as a 200×120 raster
+ * sample: `formPoints` drew the primitive to a small offscreen and read
+ * pixels back, so 24000 was the ceiling on detail no matter what
+ * resolution the film rendered at, and a "line" was a row of dots that
+ * got coarser as the frame got bigger.
+ *
+ * A path is resolution-independent. `geometry_draw` strokes it at any
+ * size; `place` transforms its vertices; `contour` is unnecessary for it
+ * because a path already IS an edge. Point sampling stays — it is the
+ * honest fallback for a primitive that genuinely paints rather than
+ * draws, and it is a legitimate visual treatment in its own right. It is
+ * no longer what geometry fundamentally is.
+ *
+ * `pathPoints` keeps the point set in step, so every consumer written
+ * against points continues to work unchanged. */
+function pathPoints(paths, step) {
+  const pts = [];
+  for (const path of paths) {
+    for (let i = 0; i < path.length; i++) {
+      const [x, y] = path[i];
+      pts.push({ x, y, x0: x, y0: y, v: 1 });
+      // Walk the segment so a consumer that only understands points sees
+      // a line rather than two endpoints.
+      const nxt = path[i + 1];
+      if (!nxt) continue;
+      const d = Math.hypot(nxt[0] - x, nxt[1] - y);
+      const n = Math.min(64, Math.floor(d / (step || 6)));
+      for (let k = 1; k < n; k++) {
+        const f = k / n;
+        pts.push({
+          x: x + (nxt[0] - x) * f,
+          y: y + (nxt[1] - y) * f,
+          x0: x + (nxt[0] - x) * f,
+          y0: y + (nxt[1] - y) * f,
+          v: 1,
+        });
+      }
+    }
+  }
+  return pts;
+}
+
+/** Emit a vector GEOMETRY payload: real paths plus the point set that
+ *  keeps every existing point-consuming primitive working. */
+function vector(paths, step) {
+  return { paths, geometry: pathPoints(paths, step) };
+}
+
+/** Sample the drawn form to a point set: [{x, y, x0, y0, v}].
+ *
+ *  Points carry their ORIGIN because a morph interpolates from where a
+ *  point started — the same contract `glyph_to_points` established.
+ *
+ *  Sampled through a small offscreen rather than off the full-size canvas:
+ *  one getImageData on a ~200px buffer instead of a 1280×720 one, which
+ *  keeps the contract affordable at render resolution. */
+const _formBuf = document.createElement("canvas");
+const _formCtx = _formBuf.getContext("2d", { willReadFrequently: true });
+function formPoints(ctx, w, h) {
+  if (!w || !h) return [];
+  const SW = 200;
+  const sw = Math.min(SW, w);
+  const sh = Math.max(1, Math.round((h / w) * sw));
+  _formBuf.width = sw;
+  _formBuf.height = sh;
+  _formCtx.clearRect(0, 0, sw, sh);
+  try {
+    _formCtx.drawImage(ctx.canvas, 0, 0, sw, sh);
+  } catch (_) {
+    return [];
+  }
+  const d = _formCtx.getImageData(0, 0, sw, sh).data;
+  const kx = w / sw;
+  const ky = h / sh;
+  const pts = [];
+  for (let y = 0; y < sh; y++) {
+    for (let x = 0; x < sw; x++) {
+      const i = (y * sw + x) * 4;
+      const a = d[i + 3];
+      if (a < 24) continue;
+      // Luminance against the palette's own ground. A primitive that
+      // painted its background and nothing else emits no geometry, which
+      // is the honest answer for an empty frame.
+      // DISTANCE FROM THE FILM'S OWN GROUND, not a fixed brightness.
+      //
+      // This was `if (v < 0.14) continue` — keep anything brighter than
+      // 0.14 — which silently assumed the ground was the near-black
+      // #0d0f11 it had been since the palette was five constants. The
+      // moment colour became directorial and a film could have a PAPER
+      // ground, every background pixel passed, `formPoints` returned all
+      // 24000 grid cells, and every GEOMETRY payload in the system became
+      // a solid field of dots. Three of six representation modes rendered
+      // as uniform texture because of this one comparison.
+      //
+      // A form is what DIFFERS from the ground. That is true whether the
+      // ground is black, white or amber, and it is the only version of
+      // this test that survives a director changing the key.
+      const dr = d[i] - BG_RGB[0];
+      const dg = d[i + 1] - BG_RGB[1];
+      const db = d[i + 2] - BG_RGB[2];
+      if (dr * dr + dg * dg + db * db < 900) continue;
+      const v = (d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722) / 255;
+      const px = x * kx;
+      const py = y * ky;
+      pts.push({ x: px, y: py, x0: px, y0: py, v });
+    }
+  }
+  return pts;
+}
+
+/** The declared output types of an io string ("GEOMETRY → ANIMATION"). */
+function declaredOut(io) {
+  return String(io)
+    .split("→")
+    .pop()
+    .split("|")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function reg(id, family, io, params, make, note, phase) {
-  PRIMS[id] = { id, family, io, params, make, note, phase: phase || 0 };
+  const emits = declaredOut(io);
+  // ONLY GEOMETRY IS BACKFILLED. FIELD and DATA are numeric structures a
+  // canvas cannot be read back into — a primitive claiming those has to
+  // compute them, and `noise_field` and `data_series` do. A declaration
+  // that cannot be honoured is a declaration that must change, not one to
+  // paper over.
+  const backfill = emits.includes("GEOMETRY");
+  PRIMS[id] = {
+    id,
+    family,
+    io,
+    params,
+    note,
+    phase: phase || 0,
+    make: backfill
+      ? (p) => {
+          const inst = make(p);
+          const inner = inst.frame;
+          if (typeof inner !== "function") return inst;
+          inst.frame = function (ctx, w, h, t, a, b, dur) {
+            const out = inner.call(this, ctx, w, h, t, a, b, dur);
+            // A primitive that already emits its own geometry is left
+            // entirely alone — its point set is better than a resample.
+            if (out && out.geometry) return out;
+            // A primitive that emitted real PATHS has already answered
+            // this question better than a raster sample can. Only fall
+            // back to sampling when it did not.
+            if (out && out.paths && out.paths.length) return out;
+            if (out && out.geometry && out.geometry.length) return out;
+            const geometry = formPoints(ctx, w, h);
+            return out ? Object.assign({}, out, { geometry }) : { geometry };
+          };
+          return inst;
+        }
+      : make,
+  };
 }
 
 reg(
@@ -522,7 +753,10 @@ reg(
 reg(
   "document_surface",
   "I · DOCUMENTS",
-  "— → ARTIFACT",
+  // Declared ARTIFACT and emitted pixels. Every consumer of "ARTIFACT"
+  // reads `upstream.canvas`, so the type was a name for "a picture from
+  // the documents family" and nothing more. IMAGE is what it is.
+  "— → IMAGE",
   {
     age: { v: 0.5, lo: 0, hi: 1 },
     columns: { v: 1, lo: 1, hi: 3, int: 1 },

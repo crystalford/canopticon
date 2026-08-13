@@ -1,0 +1,194 @@
+/* CANOPTICON — COLOUR, as a directorial property.
+ *
+ * WHAT THIS REPLACES, AND WHY IT IS THE HIGHEST-LEVERAGE FILE IN THE LAB.
+ *
+ * Measured across all 129 primitives, rendered standalone at 854×480:
+ *
+ *   105 of 129 produce a frame with mean luminance below 40/255
+ *    86 of 129 produce a frame with contrast (luminance σ) below 20
+ *
+ * That is the "grey, murky, near-black, low-contrast" complaint, as a
+ * number. And its cause was not 129 separate decisions — it was FIVE
+ * CONSTANTS and one helper. `BG = "#0d0f11"` and `bg(ctx,w,h)` between
+ * them decided the tonal world of every frame the system has ever made,
+ * and no director could reach either.
+ *
+ * A primitive should know WHAT it is drawing. It should not decide the
+ * colour world of the film. So:
+ *
+ *     FILM
+ *       ↓  four directorial numbers, on the IR
+ *     CINEMATOGRAPHY   key · temperature · saturation · contrast
+ *       ↓  resolvePalette() — the ONE translation point
+ *     PALETTE          bg · ink · accent · muted · cool · dim
+ *       ↓  setPalette(), once per scene
+ *     PRIMITIVE        draws with INK / EMB / MUT / COOL / bg()
+ *
+ * NOT PRESETS. The four inputs are continuous, and every colour is
+ * derived from them arithmetically — so "slightly warmer" is a real
+ * position, not the nearest of six named looks. Named looks exist
+ * (`LOOKS` below) but they are *coordinates*, offered as starting points
+ * and immediately editable, which is the difference between a palette
+ * system and a filter menu.
+ *
+ * WHERE THIS LIVES AND WHY. The compiler stores the four numbers and
+ * never resolves them; the Lab resolves them and never invents them.
+ * One authoritative translation point per semantic quantity (standing
+ * rule 9) — the semantic layer says "this film is warm and light", and
+ * exactly one function decides what that means in hex.
+ *
+ * No `Math.random()`: every value here is a pure function of its inputs.
+ */
+
+/** The film's colour, in four numbers a director can actually hold.
+ *
+ *  key         0 = the image is dark and light is drawn onto it
+ *              1 = the image is light and marks are drawn onto it
+ *  temperature 0 = cold (blue/cyan)      1 = warm (amber/red)
+ *  saturation  0 = monochrome            1 = fully saturated
+ *  contrast    0 = flat, close values    1 = hard, separated values
+ */
+// Kept identical to DEFAULT_COLOUR in src/ir/schema.ts — the compiler
+// owns the number, this file owns what it means in hex.
+const COLOUR_DEFAULT = { key: 0.14, temperature: 0.55, saturation: 0.42, contrast: 0.62 };
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const mix = (a, b, t) => a + (b - a) * t;
+
+/** HSL → hex. Plain sRGB: the palette needs to be predictable to read in
+ *  a diff, not perceptually perfect. */
+function hsl(h, s, l) {
+  const hh = ((h % 360) + 360) % 360;
+  const ss = clamp01(s);
+  const ll = clamp01(l);
+  const c = (1 - Math.abs(2 * ll - 1)) * ss;
+  const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+  const m = ll - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hh < 60) [r, g, b] = [c, x, 0];
+  else if (hh < 120) [r, g, b] = [x, c, 0];
+  else if (hh < 180) [r, g, b] = [0, c, x];
+  else if (hh < 240) [r, g, b] = [0, x, c];
+  else if (hh < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const q = (v) =>
+    Math.max(0, Math.min(255, Math.round((v + m) * 255)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${q(r)}${q(g)}${q(b)}`;
+}
+
+function hexToRgb(hex) {
+  const h = hex.replace("#", "");
+  const f = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  return [
+    Number.parseInt(f.slice(0, 2), 16),
+    Number.parseInt(f.slice(2, 4), 16),
+    Number.parseInt(f.slice(4, 6), 16),
+  ];
+}
+
+/* The two ends of the temperature axis, as hue. Not arbitrary: 210° is
+ * the blue of a cold interior and 32° is the amber of sodium light and
+ * aged paper — the two poles documentary and archival material actually
+ * sit between. */
+const HUE_COLD = 210;
+const HUE_WARM = 32;
+/** The accent sits across the wheel from the ground, so it separates from
+ *  it at any temperature rather than only at one end. */
+const ACCENT_OFFSET = 168;
+
+/** THE ONE TRANSLATION POINT. Four numbers in, a whole colour world out.
+ *
+ *  Every value is derived rather than tabulated, which is what makes this
+ *  a system: nudging `contrast` moves the ground, the ink, the mid tones
+ *  and the accent together and consistently, and there is no combination
+ *  of the four inputs that produces an undefined look. */
+function resolvePalette(colour) {
+  const c = { ...COLOUR_DEFAULT, ...(colour || {}) };
+  const key = clamp01(c.key);
+  const temp = clamp01(c.temperature);
+  const sat = clamp01(c.saturation);
+  const con = clamp01(c.contrast);
+
+  const hue = mix(HUE_COLD, HUE_WARM, temp);
+
+  // THE GROUND. At key 0 it is near-black; at key 1 it is paper. Contrast
+  // pushes it away from the middle in whichever direction key chose, so a
+  // high-contrast dark film gets a deeper ground and a high-contrast
+  // light film gets a cleaner one.
+  const groundL = mix(0.055, 0.94, key) + (key > 0.5 ? con * 0.04 : -con * 0.03);
+  // A ground is never fully neutral — a completely grey ground is what
+  // made every frame read as a diagnostic buffer rather than a picture.
+  const groundS = 0.05 + sat * 0.22 * (1 - Math.abs(key - 0.5) * 0.6);
+
+  // THE INK. Always the far side of the ground, separated by contrast.
+  const inkL = key > 0.5 ? mix(0.28, 0.06, con) : mix(0.78, 0.985, con);
+  const inkS = sat * 0.1;
+
+  // The mid tone carries structure that is present but not the subject.
+  const midL = mix(groundL, inkL, mix(0.42, 0.3, con));
+  const midS = 0.06 + sat * 0.2;
+
+  // DIM — barely off the ground. Grids, hairlines, the things that give a
+  // frame depth without asking to be read.
+  const dimL = mix(groundL, inkL, 0.14 + con * 0.06);
+
+  const accentHue = (hue + ACCENT_OFFSET) % 360;
+  // The accent is the one place saturation is allowed to be assertive:
+  // a film at saturation 0 still needs a focal colour or nothing in the
+  // frame can be emphasised at all.
+  const accentS = 0.42 + sat * 0.52;
+  const accentL = key > 0.5 ? mix(0.5, 0.4, con) : mix(0.56, 0.62, con);
+
+  return {
+    bg: hsl(hue, groundS, groundL),
+    bgRgb: hexToRgb(hsl(hue, groundS, groundL)),
+    ink: hsl(hue, inkS, inkL),
+    muted: hsl(hue, midS, midL),
+    dim: hsl(hue, midS * 0.7, dimL),
+    accent: hsl(accentHue, accentS, accentL),
+    /** A second, cooler accent for the rare frame that needs two. */
+    cool: hsl((hue + 300) % 360, accentS * 0.72, accentL * (key > 0.5 ? 0.85 : 1.05)),
+    /** Carried through so a primitive can ask how light the world is
+     *  rather than guessing from the ground colour. */
+    key,
+    contrast: con,
+  };
+}
+
+/* NAMED LOOKS — coordinates, not presets.
+ *
+ * Each one is a position in the same four-number space, so choosing one
+ * and then nudging `temperature` is a coherent act rather than an escape
+ * from a preset into an unnamed state. */
+const LOOKS = [
+  { id: "noir", name: "Noir", blurb: "Near-black ground, hard light, almost no colour.",
+    colour: { key: 0.05, temperature: 0.35, saturation: 0.12, contrast: 0.85 } },
+  { id: "documentary", name: "Muted documentary", blurb: "Low-key, slightly warm, restrained.",
+    colour: { key: 0.16, temperature: 0.58, saturation: 0.28, contrast: 0.5 } },
+  { id: "editorial", name: "Warm editorial", blurb: "Paper ground, dark type, one hot accent.",
+    colour: { key: 0.9, temperature: 0.66, saturation: 0.36, contrast: 0.72 } },
+  { id: "technical", name: "Cold technical", blurb: "Blue-white, thin, diagrammatic.",
+    colour: { key: 0.86, temperature: 0.1, saturation: 0.22, contrast: 0.66 } },
+  { id: "signal", name: "Signal", blurb: "Dark ground, saturated red, high separation.",
+    colour: { key: 0.08, temperature: 0.9, saturation: 0.95, contrast: 0.9 } },
+  { id: "fluorescent", name: "Fluorescent", blurb: "Bright, cold, over-lit interior.",
+    colour: { key: 0.82, temperature: 0.05, saturation: 0.62, contrast: 0.4 } },
+  { id: "sodium", name: "Sodium", blurb: "Amber street light against dark.",
+    colour: { key: 0.14, temperature: 1, saturation: 0.72, contrast: 0.62 } },
+  { id: "bleached", name: "Bleached", blurb: "Washed-out, flat, overexposed.",
+    colour: { key: 0.95, temperature: 0.5, saturation: 0.14, contrast: 0.18 } },
+];
+
+/** Push the CURRENT FILM's colour into the primitives. Called at the top
+ *  of every draw — the preview loop, the renderer, the palette browser —
+ *  so there is no path that paints with a stale or default palette, and
+ *  no primitive has to be told which film it is in. */
+function applyFilmPalette(colour) {
+  setPalette(resolvePalette(colour || (window.FILM && window.FILM.colour)));
+}
+
+Object.assign(window, { resolvePalette, applyFilmPalette, LOOKS, COLOUR_DEFAULT, hexToRgb });

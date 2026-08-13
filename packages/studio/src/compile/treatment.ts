@@ -230,8 +230,14 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
   // for an author to remember: forgetting it is exactly the failure the
   // type check catches, and it caught it twice before this table existed.
   const BRIDGES: Record<string, string> = {
-    ENTITY: "entity_render",
-    ARTIFACT: "artifact_render",
+    // ENTITY and ARTIFACT used to be bridged here and no longer exist.
+    //
+    // Both were FICTIONS: every consumer of either read `upstream.canvas`,
+    // so the types were names for "a picture from the entity family" and
+    // "a picture from the documents family". The payload-contract pass
+    // collapsed them to IMAGE, which is what they always emitted — and
+    // with no type gap left to cross, the bridge correctly stops firing.
+    //
     // The round trip. A kinetic treatment wants to MORPH its subject, and
     // you cannot morph a raster — shape_morph consumes GEOMETRY. So a
     // concrete subject travels ENTITY → IMAGE → GEOMETRY to be treated
@@ -287,6 +293,28 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
         reason: `bridged to ${PRIMITIVES[next]?.outputs.join("|")} so ${head} can consume it`,
       });
     }
+  }
+
+  // A CONTESTED CLAIM IS GRADED COLDER — a treatment decision applied to
+  // the SUBJECT, before the language's tail.
+  //
+  // This behaviour used to ride on the ENTITY bridge: `entity_render` was
+  // inserted to cross a type boundary and, while it was there, carried the
+  // under-exposure that says "this sentence reports a claim, not a fact".
+  // When the fictional type went, a real editorial rule would have gone
+  // with it because an unrelated fiction was removed. So it is stated
+  // here, where it belongs, and now applies whatever the subject was built
+  // from rather than only to things that happened to be entities.
+  //
+  // Before the tail, because the tail can end in ANIMATION and a grade
+  // consumes pixels.
+  const graded = nodes[nodes.length - 1]?.primitiveId ?? "";
+  if (reading.contested && graded && canChain(graded, "artifact_render")) {
+    nodes.push({
+      primitiveId: "artifact_render",
+      params: { exposure: 0.38, contrast: 0.5, vignette: 0.6 },
+      reason: "held slightly under-exposed — the sentence reports a claim, not a fact",
+    });
   }
 
   // Apply the tail SELECTIVELY. A visual language is a preference, not an

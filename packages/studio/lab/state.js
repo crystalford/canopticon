@@ -48,6 +48,7 @@ const FILM = {
   projectId: "proj_004",
   title: "The Temporary Measure",
   irVersion: "0.1.0",
+  colour: { key: 0.14, temperature: 0.55, saturation: 0.42, contrast: 0.62 },
   logline:
     "An emergency order written for ninety days, renewed forty-one times, now cited as settled law.",
   essay: ESSAY,

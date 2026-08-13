@@ -73,6 +73,34 @@ export async function nodeHash(node: HashableNode): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** A ground, flattened to strings, ALL THE WAY DOWN.
+ *
+ *  A ground used to be one level deep, so one `.map()` covered it. An
+ *  N-plane stack nests — the deepest layer hangs off a compositor that
+ *  hangs off another compositor — and a non-recursive signature would
+ *  leave the film's furthest layer outside the hash entirely. Change the
+ *  city behind the ordinary world behind the anomaly, and every node hash
+ *  would be identical and the cache would serve the old frames.
+ *
+ *  That is the exact bug this field was added to prevent, one level
+ *  further down. Nesting is marked with parentheses so a stack and a flat
+ *  list of the same primitives cannot collide. */
+function groundSignature(nodes: HashableGround[]): string[] {
+  return nodes.map((g) => {
+    const self = `${g.primitiveId}#${g.seed}#${canonicalJSON(g.params)}`;
+    return g.ground && g.ground.length > 0
+      ? `${self}(${groundSignature(g.ground).join(",")})`
+      : self;
+  });
+}
+
+interface HashableGround {
+  primitiveId: string;
+  params: Record<string, number | string>;
+  seed: number;
+  ground?: HashableGround[];
+}
+
 /** Hash every node of a composed scene against its resolved window. */
 export async function hashSceneNodes(
   nodes: ComposedNode[],
@@ -89,13 +117,7 @@ export async function hashSceneNodes(
         startMs: window.startMs,
         endMs: window.endMs,
         assetHashes,
-        ...(node.ground
-          ? {
-              ground: node.ground.map(
-                (g) => `${g.primitiveId}#${g.seed}#${canonicalJSON(g.params)}`,
-              ),
-            }
-          : {}),
+        ...(node.ground ? { ground: groundSignature(node.ground) } : {}),
       }),
     })),
   );

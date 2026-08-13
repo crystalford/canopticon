@@ -85,6 +85,64 @@ function plate(payload) {
   return payload && payload.canvas ? payload.canvas : null;
 }
 
+/* ── THE STACK'S MISSING KNOCKOUT ─────────────────────────────────────
+ *
+ * A compositor receives two IMAGES, and every primitive paints its own
+ * opaque `bg()` before it draws. So stacking element B over element A
+ * covered A completely with B's background, and `opacity` merely faded
+ * the top plate toward the ground colour — which is why raising the
+ * composite weights made the gallery PALER rather than deeper. Every
+ * scene the semantic layer composed arrived as one visible element and
+ * a stack of opaque rectangles.
+ *
+ * The fix is the same insight `formPoints` needed: A FORM IS WHAT
+ * DIFFERS FROM THE GROUND. Pixels close to the film's ground colour
+ * become transparent, so what remains is the element's own marks and the
+ * layer beneath shows through.
+ *
+ * Cached on the source canvas so a chain that composites several layers
+ * pays for each plate once per frame rather than once per compositor.
+ */
+const _koBuf = document.createElement("canvas");
+const _koCtx = _koBuf.getContext("2d", { willReadFrequently: true });
+function knockout(src) {
+  if (!src || !src.width || !src.height) return src;
+  const w = src.width;
+  const h = src.height;
+  _koBuf.width = w;
+  _koBuf.height = h;
+  _koCtx.clearRect(0, 0, w, h);
+  _koCtx.drawImage(src, 0, 0);
+  let img;
+  try {
+    img = _koCtx.getImageData(0, 0, w, h);
+  } catch (_) {
+    return src;
+  }
+  const d = img.data;
+  const [r0, g0, b0] = BG_RGB;
+  for (let i = 0; i < d.length; i += 4) {
+    const dr = d[i] - r0;
+    const dg = d[i + 1] - g0;
+    const db = d[i + 2] - b0;
+    const dist = dr * dr + dg * dg + db * db;
+    // Below ~30 units of distance the pixel IS the ground; above it the
+    // pixel is a mark. The band between them feathers, so an antialiased
+    // edge stays antialiased instead of becoming a hard cutout.
+    if (dist < 400) d[i + 3] = 0;
+    else if (dist < 2500) d[i + 3] = Math.round(d[i + 3] * ((dist - 400) / 2100));
+  }
+  _koCtx.putImageData(img, 0, 0);
+  // Returned as a fresh canvas because the caller draws it after the
+  // under-plate, and the shared buffer would be overwritten by a second
+  // compositor in the same chain before it was used.
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  out.getContext("2d").drawImage(_koBuf, 0, 0);
+  return out;
+}
+
 /** Said on the frame when a compositor was given only one input. A
  *  two-input primitive with one input is not an error — it is a chain
  *  someone is still building — but it must not look like it worked. */
@@ -130,7 +188,10 @@ reg(
         return;
       }
       const under = p.front > 0.5 ? A : B;
-      const over = p.front > 0.5 ? B : A;
+      // KNOCKED OUT, so the layer beneath survives. Without this the
+      // over-plate's own background paints over everything below it and
+      // a stack is indistinguishable from a replacement.
+      const over = knockout(p.front > 0.5 ? B : A);
       ctx.globalAlpha = 1 - p.sink * 0.6;
       ctx.drawImage(under, 0, 0, w, h);
       ctx.globalAlpha = p.front > 0.5 ? p.opacity : 1;

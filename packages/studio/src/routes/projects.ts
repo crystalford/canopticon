@@ -9,15 +9,17 @@ import { Hono } from "hono";
 import type { CacheSnapshot } from "../compile/cache.ts";
 import { EXTRACTION_MODEL, proposeReading } from "../compile/extract-reading.ts";
 import { buildFilmPlan } from "../compile/film.ts";
+import { captureGrammar, describeGrammar } from "../compile/grammar.ts";
 import { compile } from "../compile/index.ts";
+import { EMPTY_READING, describeIntent, readIntent } from "../compile/intent.ts";
 import { segmentEssay } from "../compile/segment.ts";
 import { applyVerb, verbById } from "../compile/verbs.ts";
 import type { Env } from "../env.ts";
-import { type EditorialIR, parseIR } from "../ir/schema.ts";
+import { type DirectorIntentIR, type EditorialIR, parseIR } from "../ir/schema.ts";
 import { all, newId, nowIso, one, run } from "../lib/d1.ts";
 import { ASR_CANDIDATES, readTimings, sequenceAlignments } from "../narrate/align.ts";
-import { loadAlignments, narrateScenes } from "../narrate/index.ts";
-import { TTS_CANDIDATES, describeShape, sniff, toBytes } from "../narrate/tts.ts";
+import { loadAlignments, narrateScenes, voiceStates } from "../narrate/index.ts";
+import { TTS_CANDIDATES, describeShape, sniff, toBase64, toBytes } from "../narrate/tts.ts";
 import { PRIMITIVES } from "../primitives/registry.ts";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -96,6 +98,7 @@ app.get("/projects", async (c) => {
     let acts = 0;
     let readings = 0;
     let narrated = 0;
+    let stale = 0;
     if (version) {
       try {
         const ir = JSON.parse(version.ir_json) as {
@@ -106,6 +109,11 @@ app.get("/projects", async (c) => {
         acts = ir.acts?.length ?? 0;
         readings = (ir.scenes ?? []).filter((s) => s.reading).length;
         narrated = (ir.scenes ?? []).filter((s) => s.narration?.voAssetId).length;
+        // STALE IS NOT NARRATED. A scene whose prose was edited after
+        // recording has audio and says the wrong thing, and a row that
+        // reports it as done is the row lying.
+        const parsedIR = parseIR(JSON.parse(version.ir_json));
+        if (parsedIR.ok) stale = voiceStates(parsedIR.ir).stale;
       } catch {
         // A project whose stored IR will not parse is still a project. It
         // lists with zero counts rather than taking the whole page down.
@@ -125,6 +133,7 @@ app.get("/projects", async (c) => {
       acts,
       readings,
       narrated,
+      stale,
       lastCompiledAt: lastRun?.created_at ?? null,
       lastNodes: lastRun?.nodes_total ?? null,
     });
@@ -471,6 +480,117 @@ app.post("/project/:id/ratify", async (c) => {
  *
  *  A pin is reversible: post with no chain to release the scene back to the
  *  engine. */
+/* ── THE DIRECTOR STATES WHAT THE SCENE IS FOR ──────────────────────
+ *
+ * The third kind of input this compiler takes, and the one it had no
+ * channel for at all. A FIGURE is checkable against the prose, so it needs
+ * no ratification. A READING is an interpretation of the prose, so a model
+ * proposes and a human ratifies. An INTENT is neither — it is not about
+ * the prose, it is the director's own instruction, so it is authored
+ * outright and there is nothing to ratify.
+ *
+ * Writes a new IR version like every other edit, and RETURNS WHAT IT
+ * HEARD. That readback is the point: the reading is deterministic
+ * precisely so a director can see it was misread and reword, which is
+ * impossible when the reading is a model's private opinion. */
+app.post("/project/:id/intend", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    sceneId?: string;
+    understand?: string;
+    feel?: string;
+    notice?: string;
+    hide?: string;
+    /** Clear the direction on this scene. */
+    release?: boolean;
+  };
+  if (!body.sceneId) return c.json({ error: "sceneId is required" }, 400);
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+  if (!parsed.ir.scenes.some((s) => s.sceneId === body.sceneId)) {
+    return c.json({ error: `no scene ${body.sceneId}` }, 404);
+  }
+
+  const fields = ["understand", "feel", "notice", "hide"] as const;
+  const intent: DirectorIntentIR = {};
+  for (const key of fields) {
+    const value = body[key]?.trim();
+    if (value) intent[key] = value;
+  }
+  const clearing = body.release || Object.keys(intent).length === 0;
+
+  const scenes = parsed.ir.scenes.map((s) => {
+    if (s.sceneId !== body.sceneId) return s;
+    if (clearing) {
+      const { directorIntent: _dropped, ...rest } = s;
+      return rest;
+    }
+    return { ...s, directorIntent: intent };
+  });
+
+  const reading = clearing ? EMPTY_READING : readIntent(intent);
+  const nextV = project.current_ir_version + 1;
+  await writeVersion(
+    c.env,
+    projectId,
+    { ...parsed.ir, scenes },
+    nextV,
+    project.current_ir_version,
+    clearing
+      ? `${body.sceneId} — direction cleared`
+      : `${body.sceneId} — directed: ${describeIntent(reading)}`,
+  );
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextV,
+    projectId,
+  ]);
+
+  const snap = await loadSnapshot(c.env, projectId);
+  const t = await frozenAlignments(c.env, { ...parsed.ir, scenes });
+  const rep = await compile({ ...parsed.ir, scenes }, { snapshot: snap, alignments: t.alignments });
+  await saveSnapshot(c.env, projectId, rep.snapshot);
+  const scene = rep.composed.find((s) => s.sceneId === body.sceneId);
+
+  return c.json({
+    projectId,
+    irVersion: nextV,
+    sceneId: body.sceneId,
+    cleared: clearing,
+    intent: clearing ? null : intent,
+    // WHAT THE COMPILER HEARD, not what was typed. A director whose
+    // direction read as nothing needs to be told so, in the same breath.
+    heard: {
+      registers: reading.registers,
+      matched: reading.matched,
+      dislocation: reading.dislocation,
+      describe: describeIntent(reading),
+    },
+    // AND WHAT IT DID ABOUT IT. The visual idea and its alternatives after
+    // the direction landed, so the effect is visible in the response
+    // rather than only on the next fetch.
+    built: scene
+      ? {
+          construction: scene.program?.construction ?? null,
+          against: Boolean(scene.program?.dislocated),
+          why: scene.program?.why ?? null,
+          chain: scene.nodes.map((n) => n.primitiveId),
+          alternatives: scene.alternatives.map((a) => ({
+            construction: a.construction,
+            why: a.why,
+          })),
+        }
+      : null,
+    cache: rep.cache,
+  });
+});
+
 app.post("/project/:id/direct", async (c) => {
   const projectId = c.req.param("id");
   const body = (await c.req.json().catch(() => ({}))) as {
@@ -592,6 +712,70 @@ app.post("/project/:id/direct", async (c) => {
     sceneId: body.sceneId,
     pinned: !body.release,
     cache: report.cache,
+  });
+});
+
+/** NAME THE LOOK THIS FILM ALREADY HAS.
+ *
+ *  "That's sorta the style I was envisioning... but it sorta happened
+ *  randomly." It did not happen randomly — it was the appetites the film's
+ *  own curves implied, and the same curve produces it again. But nothing
+ *  captured it, so it could not be asked for, and it could not be carried
+ *  to a different essay. A style you cannot ask for twice is a result, not
+ *  a style.
+ *
+ *  This compiles the film, reads what it ACTUALLY did — which operators it
+ *  reached for, how often, at what representation rung — and stores that
+ *  as a named grammar on the IR. From then on the constructor is biased
+ *  toward it, so a new essay under the same grammar builds different
+ *  things in a recognisable way.
+ *
+ *  Captured rather than authored. That is the whole point: you keep the
+ *  accident by naming it, and then you can do it on purpose. */
+app.post("/project/:id/grammar", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { name?: string; clear?: boolean };
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+
+  let next: EditorialIR;
+  let summary: string;
+  if (body.clear) {
+    const { grammar: _dropped, ...rest } = parsed.ir;
+    next = rest as EditorialIR;
+    summary = "Released the film's grammar — composed from the curves alone";
+  } else {
+    const name = body.name?.trim();
+    if (!name) return c.json({ error: "name is required" }, 400);
+    // Captured from the film as it stands WITHOUT its current grammar, so
+    // capturing twice does not compound a bias into a caricature of
+    // itself.
+    const { grammar: _existing, ...bare } = parsed.ir;
+    const report = await compile(bare as EditorialIR);
+    const grammar = captureGrammar(name, report.composed, projectId);
+    next = { ...parsed.ir, grammar };
+    summary = `Captured "${name}" — ${describeGrammar(grammar)}`;
+  }
+
+  const nextVersion = project.current_ir_version + 1;
+  await writeVersion(c.env, projectId, next, nextVersion, project.current_ir_version, summary);
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+
+  return c.json({
+    projectId,
+    irVersion: nextVersion,
+    grammar: next.grammar ?? null,
+    describes: next.grammar ? describeGrammar(next.grammar) : "none",
   });
 });
 
@@ -818,6 +1002,174 @@ app.post("/tts/probe", async (c) => {
   });
 });
 
+/** AUDITION — hear the candidates before committing a film to one.
+ *
+ *  The provider question is a product decision and it should be settled by
+ *  ear rather than by argument. This speaks one line through every
+ *  available candidate and hands back the audio, so two voices can be
+ *  compared on the operator's own sentence rather than on a demo reel.
+ *
+ *  Stores nothing. Costs one call per candidate on a line the operator
+ *  chose, which is the cheapest possible way to make this decision and
+ *  considerably cheaper than narrating a film to find out.
+ *
+ *  Base64 rather than a URL for the same reason it stores nothing: an
+ *  audition is not an artifact. Nothing here is hashed, versioned, or
+ *  reachable again — if it were, it would be narration, and narration is
+ *  a deliberate act with a different button. */
+app.post("/voice/audition", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { text?: string; voice?: string };
+  const line = (body.text ?? "The building is the same. The residents are the same.").slice(0, 400);
+
+  const takes: Array<Record<string, unknown>> = [];
+  for (const candidate of TTS_CANDIDATES) {
+    const at = Date.now();
+    let out: unknown;
+    try {
+      out = await c.env.AI.run(
+        candidate.model as never,
+        candidate.input(line, body.voice) as never,
+      );
+    } catch (err) {
+      takes.push({
+        model: candidate.model,
+        ok: false,
+        outcome: `unavailable: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      continue;
+    }
+    const bytes = await toBytes(out);
+    if (!bytes) {
+      takes.push({ model: candidate.model, ok: false, outcome: "no recoverable audio" });
+      continue;
+    }
+    const sniffed = sniff(bytes.bytes);
+    takes.push({
+      model: candidate.model,
+      ok: true,
+      contentType: sniffed.contentType,
+      bytes: bytes.bytes.length,
+      wallMs: Date.now() - at,
+      // The audio itself, so the browser can play it without a round trip
+      // to storage that would imply this was kept.
+      audio: toBase64(bytes.bytes),
+    });
+  }
+
+  return c.json({ text: line, takes });
+});
+
+/** DOES THE NUMBER SURVIVE BEING SPOKEN?
+ *
+ *  The one question about a voice this system can answer objectively, and
+ *  it happens to be the one that matters most here. Whether narration
+ *  sounds authoritative over fifteen minutes is a judgement a person makes
+ *  with their ears. Whether "$282,345.84" comes back as "$282,345.84" is a
+ *  measurement — and on an institutional investigation an approximation of
+ *  that figure is a different finding, which is the standing rule the
+ *  whole figures pipeline exists to protect.
+ *
+ *  So: speak the line, transcribe it back, and report what survived. A
+ *  round trip through a DIFFERENT model family than the one that spoke it,
+ *  which is the same generate-then-verify discipline the Record uses on
+ *  quotes.
+ *
+ *  This is NOT a quality score. A model can round-trip perfectly and still
+ *  be unpleasant to listen to for a quarter of an hour. It is a floor: a
+ *  voice that mangles the figures is disqualified regardless of how it
+ *  sounds, and a voice that keeps them has earned the right to be judged
+ *  by ear. */
+app.post("/voice/fidelity", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { text?: string };
+  const line =
+    body.text ??
+    "The City of Niagara Falls received a federal IHAP grant of $282,345.84 for 2024-2025. " +
+      "Peak occupancy reached 7,000 people in July 2023. The building is the same.";
+
+  // What must survive verbatim: money, counts, years, and capitalised
+  // names. Anything a viewer would read off the screen and check.
+  const mustSurvive = [
+    ...(line.match(/\$[\d,]+(?:\.\d+)?/g) ?? []),
+    ...(line.match(/\b\d[\d,]*(?:\.\d+)?\b/g) ?? []),
+    ...(line.match(/\b[A-Z][a-z]{2,}\b/g) ?? []),
+  ];
+
+  const takes: Array<Record<string, unknown>> = [];
+  for (const candidate of TTS_CANDIDATES) {
+    let out: unknown;
+    try {
+      out = await c.env.AI.run(candidate.model as never, candidate.input(line) as never);
+    } catch (err) {
+      takes.push({
+        model: candidate.model,
+        ok: false,
+        outcome: `unavailable: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      continue;
+    }
+    const bytes = await toBytes(out);
+    if (!bytes) {
+      takes.push({ model: candidate.model, ok: false, outcome: "no recoverable audio" });
+      continue;
+    }
+
+    // Transcribed by a different family than the one that spoke it.
+    let heard = "";
+    let durationMs = 0;
+    let words = 0;
+    for (const asr of ASR_CANDIDATES) {
+      try {
+        const back = await c.env.AI.run(asr.model as never, asr.input(bytes.bytes) as never);
+        const timings = readTimings(back);
+        const asObject = back as unknown as { text?: unknown } | null;
+        const said =
+          asObject && typeof asObject.text === "string"
+            ? asObject.text
+            : timings.words.map((w) => w.word).join(" ");
+        if (said) {
+          heard = said;
+          durationMs = timings.durationMs;
+          words = timings.words.length;
+          break;
+        }
+      } catch {
+        // Next ASR candidate. A transcription that fails says nothing
+        // about the voice.
+      }
+    }
+
+    const lower = heard.toLowerCase().replace(/\s+/g, " ");
+    const kept = mustSurvive.filter((t) => lower.includes(t.toLowerCase()));
+    const lost = mustSurvive.filter((t) => !lower.includes(t.toLowerCase()));
+    // Words per minute, measured. Documentary narration sits around
+    // 130–160; far outside that is a pacing problem no amount of liking
+    // the timbre will fix.
+    const wpm = durationMs > 0 ? Math.round((line.split(/\s+/).length / durationMs) * 60000) : 0;
+
+    takes.push({
+      model: candidate.model,
+      ok: true,
+      bytes: bytes.bytes.length,
+      durationMs,
+      wordsHeard: words,
+      wpm,
+      survived: `${kept.length}/${mustSurvive.length}`,
+      lost,
+      heard,
+      audio: toBase64(bytes.bytes),
+    });
+  }
+
+  return c.json({
+    text: line,
+    mustSurvive,
+    takes,
+    note:
+      "Round-trip fidelity is a FLOOR, not a quality score. A voice that mangles the figures is " +
+      "disqualified however it sounds; one that keeps them has earned the right to be judged by ear.",
+  });
+});
+
 app.post("/project/:id/compile", async (c) => {
   const projectId = c.req.param("id");
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
@@ -888,6 +1240,23 @@ app.post("/project/:id/creative-state", async (c) => {
     identity?: Record<string, number>;
     controlPoints?: { at: unknown; values: Record<string, number> }[];
     invariants?: { param: string; min?: number; max?: number }[];
+    /** THE FILM'S VISUAL LANGUAGE, editable for the first time.
+     *
+     *  It has been a real, load-bearing field since `construct.ts` was
+     *  written — it moves every operator's appetite and sets the
+     *  representation rung a construction prefers — and there was no way
+     *  to change it from anywhere. So a director could reach the two
+     *  continuous dimensions of the film's depiction and not the one
+     *  discrete one, which is the choice with the largest effect.
+     *
+     *  It travels the identical rail as a curve edit: validated, written
+     *  as a new IR version with a stated summary, recompiled against the
+     *  stored snapshot, and the cache diff handed back. Structurally zero
+     *  TTS — restyling a film has never been allowed to cost speech. */
+    visualLanguage?: string;
+    /** The film's colour, as the four directorial numbers. Same rail as a
+     *  curve drag: validated, versioned, recompiled, cost reported. */
+    colour?: Record<string, number>;
   };
 
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
@@ -901,6 +1270,15 @@ app.post("/project/:id/creative-state", async (c) => {
 
   const next: EditorialIR = {
     ...current.ir,
+    visualLanguage: (body.visualLanguage ??
+      current.ir.visualLanguage) as EditorialIR["visualLanguage"],
+    cinematography: {
+      ...current.ir.cinematography,
+      colour: {
+        ...current.ir.cinematography.colour,
+        ...(body.colour ?? {}),
+      },
+    },
     creativeState: {
       ...current.ir.creativeState,
       identity: body.identity ?? current.ir.creativeState.identity,
@@ -918,13 +1296,20 @@ app.post("/project/:id/creative-state", async (c) => {
   if (!parsed.ok) return c.json({ error: "invalid creative state", details: parsed.errors }, 400);
 
   const nextVersion = project.current_ir_version + 1;
+  const changedLanguage =
+    body.visualLanguage !== undefined && body.visualLanguage !== current.ir.visualLanguage;
+  const changedColour = body.colour !== undefined;
   await writeVersion(
     c.env,
     projectId,
     parsed.ir,
     nextVersion,
     project.current_ir_version,
-    "Creative state edited",
+    changedLanguage
+      ? `Visual language → ${parsed.ir.visualLanguage}`
+      : changedColour
+        ? "Colour changed"
+        : "Creative state edited",
   );
   await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
     nextVersion,
@@ -940,6 +1325,8 @@ app.post("/project/:id/creative-state", async (c) => {
   return c.json({
     projectId,
     irVersion: nextVersion,
+    visualLanguage: parsed.ir.visualLanguage,
+    colour: parsed.ir.cinematography.colour,
     cache: report.cache,
     ttsCalls: report.ttsCalls,
     warnings: report.warnings,

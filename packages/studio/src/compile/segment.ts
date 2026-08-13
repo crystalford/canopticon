@@ -1,3 +1,4 @@
+import { DEFAULT_COLOUR } from "../ir/schema.ts";
 // Segmentation — an essay becomes an IR.
 //
 // This is the door the system did not have. Everything downstream of it was
@@ -349,6 +350,7 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
     assets: [],
     scenes,
     visualLanguage: "documentary",
+    cinematography: { colour: DEFAULT_COLOUR },
     renderProfile: "default",
   };
 

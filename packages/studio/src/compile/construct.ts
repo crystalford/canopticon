@@ -69,13 +69,24 @@
 import type { Figure, VisualLanguage } from "../ir/schema.ts";
 import { PRIMITIVES, canChain, chainCost } from "../primitives/registry.ts";
 import { chartFor, serialiseFigures } from "./figures.ts";
+import type { Material } from "./grammar-visual.ts";
+import { EMPTY_READING, type IntentReading, bendStyle } from "./intent.ts";
+import { type Relation, relationBias } from "./relation.ts";
+import { type Mode, type Representation, realisationFit, representationsFor } from "./represent.ts";
+import { composeFromMeaning, serialiseScene } from "./scene-graph.ts";
 import type { SceneKind } from "./scene-kind.ts";
+import { readScene } from "./semantic-scene.ts";
 import type { DetectedSubject } from "./subject.ts";
 
 export interface PlannedNode {
   primitiveId: string;
   params: Record<string, number | string>;
   reason: string;
+  /** A compositor's SECOND INPUT, when the planner built one. Present
+   *  only on two-input primitives; `language.ts` uses it to nest a
+   *  grammar's layers so that a world, a subject and a set of words
+   *  compose instead of overwriting each other. */
+  ground?: PlannedNode[];
 }
 
 /** What the sentence IS, as far as anything checkable can say. Assembled
@@ -92,6 +103,18 @@ export interface Beat {
   /** Scene index, used as the seed for every deterministic choice below.
    *  Nothing here calls a random number generator. */
   index: number;
+  /** What the director asked this beat to do, already read. Absent means
+   *  no direction was given, which is not a failure — the film's own curve
+   *  decides, exactly as it does for a scene with no ratified reading. */
+  intent?: IntentReading | undefined;
+  /** WHO ACTS ON WHOM, and whether the sentence claims it happened.
+   *
+   *  Absent on most beats: a relation needs two named things and most
+   *  prose names one. Where it IS present it outranks the noun reading of
+   *  the sentence, because "the city watched its residents" and "the
+   *  residents watched the city" name exactly the same two things and are
+   *  different shots. `subjects` arrives already ordered by it. */
+  relation?: Relation | null | undefined;
 }
 
 /** The director's controls, resolved at this point in the film. These
@@ -106,11 +129,40 @@ export interface Style {
   data: number;
   experimentalism: number;
   restraint: number;
+  /** HOW MUCH LIFE EXISTS IN THE WORLD BEYOND THE SUBJECT, 0..1.
+   *
+   *  Deliberately NOT `density`, which is visual texture — how much is
+   *  going on in the picture. This is how much is going on in the WORLD:
+   *  people, traffic, storefronts, background activity. The distinction is
+   *  the Hopper/Bruegel one, and it matters because the same proposition —
+   *  *something strange is happening and nobody has noticed* — has an
+   *  almost-empty-street reading and an eighty-micro-events reading, both
+   *  correct, and the difference between them is directorial.
+   *
+   *  0.5 is neutral by construction: at 0.5 the multiplier is exactly 1
+   *  and a film that never sets it composes as it always did. */
+  population: number;
+  /** WHERE THE FRAME'S ENTITLEMENT SITS, 0 environment … 1 subject.
+   *
+   *  Redistributes weight ACROSS the planes the scene already contains. It
+   *  never adds a plane and never removes one, which is what makes it a
+   *  change of expression rather than a change of meaning — the
+   *  proposition is built from roles, so it is invariant under this by
+   *  construction, and that is asserted rather than hoped for.
+   *
+   *  0.5 is neutral, same as `population`. */
+  attention: number;
   tier: "GROUNDED" | "ANNOTATED" | "DECOMPOSED" | "DISSOLVED";
   /** The film's visual language. A CONSTRAINT on how things may be built
    *  and what may be done to them — never a template with a fixed tail.
    *  See LANGUAGE and PERMITTED below. */
   language: VisualLanguage;
+  /** The film's CAPTURED look, when it has one — a set of per-operator
+   *  appetites read off a film that already looked right. Applied on top
+   *  of the language's own bias, so a grammar sharpens a language rather
+   *  than replacing it. This is what makes a look askable-for instead of
+   *  something that happened. */
+  grammar?: { ops: Record<string, number>; representation?: number | undefined } | undefined;
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -149,7 +201,7 @@ interface LanguageBias {
   why: string;
 }
 
-const LANGUAGE: Record<VisualLanguage, LanguageBias> = {
+export const LANGUAGE: Record<VisualLanguage, LanguageBias> = {
   documentary: {
     ops: {
       grade: 0.35,
@@ -185,6 +237,20 @@ const LANGUAGE: Record<VisualLanguage, LanguageBias> = {
   },
 };
 
+/** WHERE A CONSTRUCTED THING IS ALLOWED TO COME APART.
+ *
+ *  A construction may only decompose itself into points and particles on
+ *  the ladder's own decomposition rungs. Below them, what was built
+ *  reaches the frame as the thing that was built.
+ *
+ *  Gated on the TIER rather than on a threshold against `abstraction`,
+ *  because the tier is the ladder's own word for this and a second
+ *  numeric cutoff beside it would be a second opinion about the same
+ *  question. GROUNDED and ANNOTATED mean you can see the thing. */
+function mayDecompose(style: Style): boolean {
+  return style.tier === "DECOMPOSED" || style.tier === "DISSOLVED";
+}
+
 /** Which operations the abstraction curve PERMITS at all.
  *
  *  This is the ladder's real job. It used to name four chains, so a film
@@ -201,9 +267,18 @@ function permitted(style: Style): Set<string> {
   return new Set([...keep, ...stylise, ...decompose]);
 }
 
-/** An operator's appetite, after the language has had its say. */
-function appetiteFor(op: Operator, style: Style): number {
-  return op.appetite(style) + (LANGUAGE[style.language]?.ops[op.id] ?? 0);
+/** An operator's appetite, after the language, the film's own captured
+ *  grammar and this beat's direction have had their say — in that order,
+ *  widest scope first. A language is the film's dialect, a grammar is the
+ *  refinement of it this film actually settled into, and a direction is
+ *  one scene asking for something; each may bend the one before it. */
+function appetiteFor(op: Operator, style: Style, intent?: IntentReading): number {
+  return (
+    op.appetite(style) +
+    (LANGUAGE[style.language]?.ops[op.id] ?? 0) +
+    (style.grammar?.ops[op.id] ?? 0) +
+    (intent?.ops[op.id] ?? 0)
+  );
 }
 
 /** The representation rung for a construction that has one — the language's
@@ -211,7 +286,10 @@ function appetiteFor(op: Operator, style: Style): number {
  *  documentary film at high abstraction is still a documentary film, and a
  *  pixel film at low abstraction still has to be recognisable. */
 function representationRung(style: Style): number {
-  const preferred = LANGUAGE[style.language]?.representation ?? 0;
+  // A captured grammar's rung is what the film ACTUALLY drew, so it
+  // outranks the language's preference — but never the curve, which is
+  // still the director's.
+  const preferred = style.grammar?.representation ?? LANGUAGE[style.language]?.representation ?? 0;
   return Math.max(0, Math.min(4, Math.round(preferred * 0.6 + style.abstraction * 4 * 0.4)));
 }
 
@@ -225,6 +303,18 @@ export interface Program {
   why: string;
   costMsPerFrame: number;
   score: number;
+  /** WHICH KIND OF IMAGE this is — the representation it realises. Six
+   *  values, not a treatment: a typographic idea and a literal one are
+   *  different pictures of the same sentence, not two gradings of one. */
+  mode?: string;
+  /** The visual idea in the director's language, from `represent.ts`. */
+  idea?: string;
+  /** Built against the grain of what the sentence names — a network made
+   *  of people, a space standing in for its occupants. Carried so the
+   *  Preview can say WHICH KIND of reading this is, because "the city is
+   *  the organism" and "the people are insects" are different claims and
+   *  a director should not have to infer which one they are looking at. */
+  dislocated?: boolean;
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -233,10 +323,36 @@ export interface Program {
 
 interface Construction {
   id: string;
-  /** How well this construction fits the beat, 0..1. Zero means it does
-   *  not apply at all and is never considered. */
+  /** How well this construction fits what the sentence NAMES, 0..1. Zero
+   *  means the prose does not reach it. Deliberately takes only the beat:
+   *  semantic fit is a claim about the text and must stay checkable
+   *  against the text. The director's influence is a separate, explicit
+   *  term in the score, so a `why` can say which of the two moved it. */
   fit(beat: Beat): number;
-  build(beat: Beat, style: Style): { nodes: PlannedNode[]; why: string };
+  /** Can this construction build the sentence AGAINST THE GRAIN of its
+   *  noun, and how well — 0..1, and 0 means it refuses.
+   *
+   *  This is the mechanism that makes candidates different INTERPRETATIONS
+   *  rather than the same interpretation wearing different operators.
+   *  "They walked around the cities like insects" has one honest
+   *  construction — a body — and the interesting alternatives are the ones
+   *  that build it as something it is not: a network of nodes, a space
+   *  that is itself the organism, a document about people.
+   *
+   *  Absent means the construction is always available (it has no noun to
+   *  be against the grain of). A construction that returns 0 is stating a
+   *  reason, not missing a feature — see each site. */
+  dislocate?(beat: Beat): number;
+  /** The third argument is the REPRESENTATION this construction was
+   *  selected to realise, when the scorer chose one. Most constructions
+   *  ignore it — a chart is a chart. The scene construction cannot: it
+   *  builds a composition IN a mode, and which mode is exactly the
+   *  decision the representation layer above it exists to make. */
+  build(
+    beat: Beat,
+    style: Style,
+    rep?: Representation | null,
+  ): { nodes: PlannedNode[]; why: string };
 }
 
 /** A count the prose actually printed, if it printed one. This is what
@@ -290,7 +406,85 @@ const MANY =
 const SWARMING = /\b(synchron\w*|waves?|together|in step|coordinated|unison|formation|columns?)\b/i;
 const GROWING = /\b(dozens|hundreds|thousands|more|multiplied|spread|grew|growing|increasingly)\b/i;
 
-const CONSTRUCTIONS: Construction[] = [
+export const CONSTRUCTIONS: Construction[] = [
+  /* ── A SCENE. The composition itself, as a construction.
+   *
+   * THE WIRE THAT WAS MISSING, and it took compiling a real essay and
+   * reading the usage table to find it. Representation reached production
+   * — `representationsFor` is called eight lines above this — but
+   * everything BELOW it did not. `grammar-visual.ts`, `scene-graph.ts`,
+   * `semantic-scene.ts`, `film-state.ts` and `film-mode.ts` imported only
+   * each other, so the entire representation → grammar → scene → continuity
+   * chain was a closed island reachable from tests and nothing else. A
+   * 25-scene essay compiled to `plate_scene`, `pixel_quantise` and
+   * `color_transform`: the old generic constructions, in a system that had
+   * spent five passes building something better and never plugged it in.
+   *
+   * Standing rule 10, exactly: PLANNED is the dangerous state, because a
+   * planned thing looks finished from every angle except the screen.
+   *
+   * This construction is the plug. It reads the sentence as a SEMANTIC
+   * SCENE — entities and the relation between them — arranges those into
+   * elements with roles, places, depths, materials and a hierarchy, and
+   * serialises the arrangement to nested compositors. It declares every
+   * mode because that is the point of the layering: the same machinery
+   * builds the literal reading and the diagrammatic one, and what differs
+   * is which operations run, not which generator was picked.
+   *
+   * It competes rather than replaces. A sentence that draws a route is
+   * still a route; a printed quantity is still a chart. What this takes
+   * is the enormous middle — every ordinary sentence that used to fall
+   * through to a generic plate. */
+  {
+    id: "scene",
+    fit(beat) {
+      const rel = beat.relation?.agent && beat.relation.patient;
+      /* IT NEVER RETURNS ZERO, and the measurement is why.
+       *
+       * The first version refused a sentence that named nothing the
+       * lexicon knows. Run over a real 25-sentence essay, that put
+       * `type` — a SINGLE `text_layout` node, words on a plate — first
+       * on ten scenes, with `space` and `paper` generics taking nine
+       * more. Nineteen of twenty-five frames were a card or a texture,
+       * which is the whole of "why is it just abstract screens".
+       *
+       * `composeScene` needs no named noun. It composes from the film's
+       * own state — a form, a ground, a count, negative space — so
+       * refusing was never a statement about capability, only an
+       * oversight. A sentence about accumulation has an ACCUMULATES
+       * relation and a choreography built for it; a text card is the
+       * poorest available answer to it. */
+      if (!beat.subjects.length && !rel) return 0.55;
+      // A relation is two things and what stands between them, which is a
+      // COMPOSITION. A lone named subject is a single form in a frame,
+      // which is real but thinner — and both outrank a generic plate.
+      return rel ? 0.86 : 0.72;
+    },
+    build(beat, style, rep) {
+      const count = statedCount(beat);
+      const sem = readScene(beat.sentence, beat.subjects, beat.relation ?? null, count);
+      const m: Material = {
+        noun: beat.subjects[0]?.text ?? "",
+        phrase: beat.phrase,
+        count,
+        relation:
+          beat.relation?.agent && beat.relation?.patient
+            ? [String(beat.relation.agent), String(beat.relation.patient)]
+            : null,
+        density: style.density,
+        energy: style.energy,
+        abstraction: style.abstraction,
+        typography: style.typography,
+        seed: 101 + beat.index * 7,
+      };
+      const mode = (rep?.mode ?? "literal") as Mode;
+      const scene = composeFromMeaning(mode, m, sem);
+      return {
+        nodes: serialiseScene(scene, m),
+        why: scene.describes,
+      };
+    },
+  },
   /* ── A BODY. Segments, appendages, phase offsets, locomotion.
    *
    * This is the construction the whole argument turns on. The centipede
@@ -306,6 +500,11 @@ const CONSTRUCTIONS: Construction[] = [
       if (s.kind === "person") return 0.85;
       return 0;
     },
+    // Anything can be given a body. The build reads its numbers off the
+    // prose (how many, how fast, growing or not) and falls back to "the
+    // subject" for its own account of itself, so a sentence naming no
+    // creature still produces a specific body rather than a generic one.
+    dislocate: () => 0.7,
     build(beat, style) {
       const many = MANY.test(beat.sentence);
       const stated = statedCount(beat) ?? wordCount(beat.sentence);
@@ -385,7 +584,38 @@ const CONSTRUCTIONS: Construction[] = [
    * four representations: solid, wireframe, technical, pixel. */
   {
     id: "fixture",
-    fit: (beat) => (beat.subjects[0]?.kind === "object" ? 1 : 0),
+    /* IT NOW REFUSES, which is what the comment below always said it
+     * should do and what the code did not.
+     *
+     * `kind === "object"` covers door, window, lock, gate, sign, screen,
+     * bed, mattress, bus, van, truck, pipe, valve, server and phone. This
+     * construction knows how to build exactly three of those shapes — a
+     * sensor, a sounder, a camera housing — and returned fit 1.0 for all
+     * of them, so every physical noun in a 257-word lexicon became a
+     * generic ceiling dome. That is the single line that made two
+     * feasibility demos into the ontology of the system.
+     *
+     * A construction may now only claim a sentence it can actually
+     * construct. With none of its three lookups hit it scores 0.12 — low
+     * enough to lose to any real reading, high enough to remain visible
+     * in the alternatives, because a director may still want a fixture. */
+    fit: (beat) => {
+      const s = beat.subjects[0];
+      if (!s || s.kind !== "object") return 0;
+      const noun = s.text.toLowerCase();
+      const knows =
+        /camera|dome|surveillance/.test(noun) ||
+        /speaker|alarm|siren/.test(noun) ||
+        /detector|sensor|thermostat|sprinkler/.test(noun);
+      return knows ? 1 : 0.12;
+    },
+    // REFUSES. The whole point of this construction is that the noun
+    // decides: a detector vents and blinks, a camera domes and does not.
+    // With no object noun every one of those lookups misses and it builds
+    // a generic fixture — which is the thing it was written to replace.
+    // A construction that can only produce its own default is not an
+    // interpretation of the sentence.
+    dislocate: () => 0,
     build(beat, style) {
       const noun = (beat.subjects[0]?.text ?? "").toLowerCase();
       // A detector vents and blinks. A camera domes and does not. A
@@ -438,6 +668,12 @@ const CONSTRUCTIONS: Construction[] = [
       if (beat.kind === "attribution") return 0.7;
       return 0;
     },
+    // Any sentence can be shown as the record of itself. This is a real
+    // reading rather than a fallback — an essay's claim rendered as the
+    // document it would have to be to count is exactly the move the
+    // Record's own material invites, and it is the strongest dislocation
+    // available in an institutional film.
+    dislocate: () => 0.75,
     build(beat, style) {
       const words = beat.sentence.split(/\s+/).length;
       return {
@@ -483,6 +719,14 @@ const CONSTRUCTIONS: Construction[] = [
       if (real.length > 0) return 1;
       return beat.figures.length >= 2 ? 0.8 : 0;
     },
+    // REFUSES when the prose printed no numbers. A chart drawn from
+    // nothing is a picture of a chart, and this is the same firewall that
+    // keeps a model away from a figure: an axis implies a measurement, and
+    // inventing one to satisfy a directorial mood is the single most
+    // dishonest thing this compiler could do. With real figures present,
+    // charting a sentence that is not about its numbers is a legitimate
+    // reading and is allowed.
+    dislocate: (beat) => (beat.figures.some((f) => f.kind !== "year") ? 0.6 : 0),
     build(beat, style) {
       const chart = chartFor(beat.figures, beat.route.length >= 2);
       return {
@@ -517,6 +761,10 @@ const CONSTRUCTIONS: Construction[] = [
   {
     id: "route",
     fit: (beat) => (beat.route.length >= 2 ? 1 : 0),
+    // REFUSES. A route IS its stages; the sankey has nothing to flow
+    // between without them. Unlike the fixture, this is not a quality
+    // objection — there is literally no drawing to make.
+    dislocate: () => 0,
     build(beat, style) {
       return {
         nodes: [
@@ -548,6 +796,11 @@ const CONSTRUCTIONS: Construction[] = [
       const caps = beat.sentence.match(/\b[A-Z][a-z]{2,}\b/g) ?? [];
       return caps.length >= 3 && beat.route.length < 2 ? 0.75 : 0;
     },
+    // Anything with more than one thing in it can be shown as a relation
+    // between them — people as nodes, a city as a topology. Guarded on
+    // there being at least two things to relate, because a force layout
+    // over one node is a dot.
+    dislocate: (beat) => (beat.subjects.length + beat.figures.length >= 2 ? 0.7 : 0.4),
     build(beat, style) {
       return {
         nodes: [
@@ -579,14 +832,32 @@ const CONSTRUCTIONS: Construction[] = [
       if (beat.subjects[0]?.kind === "place") return 0.95;
       return beat.kind === "place" ? 0.8 : 0;
     },
+    // Every sentence happens somewhere, and building the SETTING rather
+    // than the subject is one of the oldest moves in documentary — the
+    // room the thing happened in, held while the narration says what
+    // happened. It is also how "the city becomes the organism" is
+    // reachable from a sentence whose subject is the people in it.
+    dislocate: () => 0.7,
     build(beat, style) {
       return {
         nodes: [
           {
             primitiveId: "plate_scene",
+            // `depth` and `haze` were set here and NEITHER EXISTS on
+            // `plate_scene`. So every space this compiler has ever built
+            // rendered with the same eleven cars at the same dusk, in
+            // every film, whatever the state said — which is why the two
+            // sentences "the city watched its residents" and "the city
+            // appeared to watch its residents" came out byte-identical.
+            //
+            // The real knobs are how many things are in it, how dark it
+            // is, and how much is moving. Read off the state so a space
+            // can be crowded or emptied, lit or dusk, alive or still.
             params: {
-              depth: 0.4 + style.density * 0.4,
-              haze: 0.2 + style.archival * 0.4,
+              scene: style.abstraction > 0.6 ? 1 : 0,
+              cars: Math.round(2 + style.density * 26 + style.human * 8),
+              dusk: 0.25 + style.archival * 0.45 + (1 - style.energy) * 0.2,
+              life: 0.1 + style.energy * 0.6 + style.human * 0.25,
             },
             reason: `a room rather than a word, from "${beat.subjects[0]?.text ?? "the place named"}"`,
           },
@@ -611,21 +882,78 @@ const CONSTRUCTIONS: Construction[] = [
         nodes: [
           {
             primitiveId: long ? "text_layout" : "glyph_geometry",
-            params: { text: beat.phrase, weight: 0.4 + style.typography * 0.5 },
+            // `weight` exists on `variable_axis` and on NEITHER of the
+            // two primitives this construction actually uses.
+            // `text_layout` sets its measure with mode, tracking and
+            // scale; `glyph_geometry` with sampling, scale and rotate.
+            // Setting a name neither has meant every line of type in
+            // every film was laid out identically — which is a large part
+            // of why the films looked repetitive.
+            params: {
+              text: beat.phrase,
+              ...(long
+                ? {
+                    mode: Math.round(style.typography * 2),
+                    tracking: 0.2 + style.typography * 0.5,
+                    scale: 0.3 + style.typography * 0.5,
+                  }
+                : {
+                    sampling: Math.round(3 + (1 - style.density) * 8),
+                    scale: 0.35 + style.typography * 0.45,
+                    rotate: style.experimentalism * 0.3,
+                  }),
+            },
             reason: `set as ${long ? "a line" : "a single form"} — the words are the image`,
           },
-          {
-            primitiveId: "glyph_to_points",
-            params: { text: beat.phrase, density: 0.4 + style.density * 0.5 },
-            reason: "decomposed to points so it can be acted on rather than only read",
-          },
-          {
-            primitiveId: "particle_trail",
-            params: { fade: 0.3 + style.energy * 0.4 },
-            reason: "drawn as accumulation",
-          },
+          /* THE STEP THAT DESTROYED EVERY FILM.
+           *
+           * These two nodes used to be UNCONDITIONAL. So the construction
+           * called "type" — whose own `why` says "the sentence, set" —
+           * set the sentence and then immediately converted it to a point
+           * cloud and smeared it, at every abstraction level, in every
+           * language. Its own reason string admitted it: "decomposed to
+           * points so it can be acted on RATHER THAN ONLY READ".
+           *
+           * Measured on a real 39-scene film: 19 of 39 scenes chose this
+           * construction, which is the right choice — and not one of them
+           * put a legible word on screen. The engine reported "the
+           * sentence, set" and the frame was a particle field. That is
+           * the whole of the "it thinks it is producing something
+           * coherent and is actually producing glitch texture" problem,
+           * and it was here, in the construction, not in the styling.
+           *
+           * Decomposition is now what it always should have been: a thing
+           * the DISSOLUTION end of the ladder does, not a thing that
+           * happens to every sentence on the way to the screen. Below the
+           * DECOMPOSED rung, type is type. */
+          ...(mayDecompose(style)
+            ? [
+                {
+                  primitiveId: "glyph_to_points",
+                  // `density` is not one of its knobs — it samples with
+                  // `sampling` and scatters with `jitter`.
+                  params: {
+                    text: beat.phrase,
+                    sampling: Math.round(3 + (1 - style.density) * 9),
+                    jitter: 0.05 + style.experimentalism * 0.4,
+                  },
+                  reason: "decomposed to points — the words are coming apart",
+                },
+                {
+                  primitiveId: "particle_trail",
+                  // `fade` does not exist. A trail decays, spreads and has
+                  // a count.
+                  params: {
+                    decay: 0.02 + (1 - style.energy) * 0.1,
+                    spread: 0.15 + style.energy * 0.5,
+                    count: 0.2 + style.density * 0.5,
+                  },
+                  reason: "drawn as accumulation",
+                },
+              ]
+            : []),
         ],
-        why: "the sentence, set",
+        why: mayDecompose(style) ? "the sentence, set and coming apart" : "the sentence, set",
       };
     },
   },
@@ -644,7 +972,14 @@ interface Operator {
   /** How much the director's state wants this, 0..1. Nothing about the
    *  SUBJECT appears here — that is the whole point of an operator. */
   appetite(style: Style): number;
-  params(style: Style): Record<string, number | string>;
+  /** The numbers, PER PRIMITIVE.
+   *
+   *  Takes the primitive id because an operator implemented by two of them
+   *  is two different things — `trace` is an ascii pass and then a trail,
+   *  and they share no parameter names. One bag applied to both meant each
+   *  primitive received the other's parameters and silently ignored them,
+   *  so half of every multi-primitive operator ran on its defaults. */
+  params(style: Style, primitiveId: string): Record<string, number | string>;
   why: string;
 }
 
@@ -681,21 +1016,30 @@ const OPERATORS: Operator[] = [
     id: "scanline",
     chain: ["scanline"],
     appetite: (s) => s.archival * 0.7,
-    params: (s) => ({ gap: Math.round(2 + s.archival * 5), strength: 0.3 + s.archival * 0.4 }),
+    // `strength` was set for months and `scanline` has never had one. The
+    // knobs it does have are gap, roll and bleed, so every scanline in
+    // every film ran on defaults whatever the film's archival weight was.
+    params: (s) => ({
+      gap: Math.round(2 + s.archival * 5),
+      roll: 0.2 + s.energy * 0.5,
+      bleed: 0.25 + s.archival * 0.5,
+    }),
     why: "scanned — the image as a recording of an image",
   },
   {
     id: "halftone",
     chain: ["halftone"],
     appetite: (s) => s.archival * 0.5 + s.typography * 0.3,
-    params: (s) => ({ dot: 0.3 + s.density * 0.4, angle: 0.25 }),
+    // `dot` does not exist; a halftone cell's size is `size`.
+    params: (s) => ({ size: Math.round(4 + (1 - s.density) * 12), angle: 0.15 + s.energy * 0.5 }),
     why: "halftoned — reproduction, with its own texture",
   },
   {
     id: "threshold",
     chain: ["threshold"],
     appetite: (s) => (1 - s.human) * 0.3 + s.abstraction * 0.25,
-    params: (s) => ({ cut: 0.4 + s.density * 0.2 }),
+    // `cut` does not exist; the level to cut at is `level`.
+    params: (s) => ({ level: 0.3 + s.density * 0.35, steps: Math.round(2 + s.abstraction * 5) }),
     why: "thresholded — reduced to what is there and what is not",
   },
   {
@@ -709,7 +1053,11 @@ const OPERATORS: Operator[] = [
     id: "split",
     chain: ["chromatic_split"],
     appetite: (s) => s.energy * 0.5 + s.experimentalism * 0.3 - s.restraint * 0.3,
-    params: (s) => ({ amount: 0.15 + s.energy * 0.4 }),
+    params: (s) => ({
+      amount: 0.15 + s.energy * 0.4,
+      angle: 0.1 + s.abstraction * 0.6,
+      pulse: 0.2 + s.energy * 0.5,
+    }),
     why: "separated — the channels pulled apart",
   },
   {
@@ -720,21 +1068,52 @@ const OPERATORS: Operator[] = [
     // sentence, which is what makes it an operation rather than a look.
     chain: ["image_to_points", "particle_trail"],
     appetite: (s) => s.abstraction * 0.7 + s.energy * 0.2,
-    params: (s) => ({ density: 0.35 + s.density * 0.5, fade: 0.3 + s.energy * 0.4 }),
+    params: (s, id) =>
+      id === "image_to_points"
+        ? {
+            sampling: Math.round(3 + (1 - s.density) * 9),
+            threshold: 0.2 + (1 - s.density) * 0.4,
+            dissolve: s.abstraction * 0.6,
+            drift: 0.2 + s.energy * 0.6,
+          }
+        : {
+            decay: 0.02 + (1 - s.energy) * 0.12,
+            spread: 0.2 + s.energy * 0.6,
+            count: 0.2 + s.density * 0.6,
+          },
     why: "taken apart into its own points and redrawn",
   },
   {
     id: "trace",
     chain: ["ascii_render", "particle_trail"],
     appetite: (s) => s.typography * 0.6 + s.experimentalism * 0.2,
-    params: (s) => ({ cell: Math.round(6 + (1 - s.density) * 10), fade: 0.35 }),
+    params: (s, id) =>
+      id === "ascii_render"
+        ? {
+            cell: Math.round(6 + (1 - s.density) * 10),
+            scale: 0.2 + s.typography * 0.5,
+            ramp: 0.25 + s.archival * 0.5,
+          }
+        : {
+            decay: 0.03 + s.restraint * 0.1,
+            spread: 0.15 + s.energy * 0.5,
+            count: 0.2 + s.density * 0.5,
+          },
     why: "re-read as characters — the image transcribed",
   },
   {
     id: "grade",
     chain: ["color_transform"],
     appetite: (s) => 0.3 + s.archival * 0.2,
-    params: (s) => ({ warmth: 0.35 + s.archival * 0.3, lift: 0.2 + (1 - s.density) * 0.2 }),
+    // `warmth` and `lift` do not exist on `color_transform`. It grades by
+    // MODE — which grade — plus how much of it and how far the hue moves.
+    // This is why every graded shot in every film looked the same: mode 0
+    // at amount 0.7, the defaults, in all of them.
+    params: (s) => ({
+      mode: Math.round(Math.min(2, s.archival * 2 + (s.experimentalism > 0.7 ? 1 : 0))),
+      amount: 0.35 + s.archival * 0.5,
+      shift: 0.1 + s.experimentalism * 0.5,
+    }),
     why: "graded",
   },
   {
@@ -755,6 +1134,43 @@ const MOTION_TAIL = ["parallax_layers", "ease_profile"];
    CANDIDATES — several programs, not one.
    ═══════════════════════════════════════════════════════════════════ */
 
+/** The state a construction actually reads, after the direction and the
+ *  relation have both leaned on it.
+ *
+ *  Factored out of `constructPrograms` the moment a second caller existed.
+ *  Two copies of this would mean a background plane built against an
+ *  unbent style while its subject built against a bent one — the same
+ *  scene composed against two different films, which is precisely the
+ *  class of divergence that had the Lab and the Worker disagreeing about
+ *  57 of 88 scenes. */
+function styleForBeat(beat: Beat, raw: Style): Style {
+  const intent = beat.intent ?? EMPTY_READING;
+  return beat.relation
+    ? bendStyle(bendStyle(raw, intent), {
+        ...EMPTY_READING,
+        style: relationBias(beat.relation),
+      })
+    : bendStyle(raw, intent);
+}
+
+/** BUILD ONE NAMED CONSTRUCTION, for a plane that already knows which one
+ *  it wants.
+ *
+ *  The scene plan names a construction per PLANE, and a background plane
+ *  deserves the same builder its subject gets. The alternative — a
+ *  `{ space: "plate_scene" }` lookup table in the compositor — would be a
+ *  second, worse implementation of the eight constructions, drifting from
+ *  the real one the first time a construction learned a new parameter.
+ *
+ *  Returns null for an unknown id rather than falling back to something,
+ *  because a plane whose construction cannot be built should be dropped
+ *  loudly, not replaced silently. */
+export function buildConstruction(id: string, beat: Beat, raw: Style): PlannedNode[] | null {
+  const c = CONSTRUCTIONS.find((x) => x.id === id);
+  if (!c) return null;
+  return c.build(beat, styleForBeat(beat, raw)).nodes;
+}
+
 /** Generate genuinely different visual programs for one beat.
  *
  *  Divergence comes from two axes, both deterministic: which CONSTRUCTION
@@ -766,7 +1182,7 @@ const MOTION_TAIL = ["parallax_layers", "ease_profile"];
  *  it shows its working.
  *
  *  Sorted best first. The caller takes `[0]` and carries the rest. */
-export function constructPrograms(beat: Beat, style: Style, budgetMs: number): Program[] {
+export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Program[] {
   // AN EXPLICITLY DRAWN ROUTE IS THE STRONGEST THING A SENTENCE CAN DO.
   //
   // "Ottawa → IHAP grants → Provincial governments → Hotel contracts" also
@@ -776,23 +1192,121 @@ export function constructPrograms(beat: Beat, style: Style, budgetMs: number): P
   // about the movement between them. Stated once here rather than as five
   // edits to five `fit` functions, so the rule can be read.
   const drewRoute = beat.route.length >= 2;
-  const applicable = CONSTRUCTIONS.map((c) => ({
-    c,
-    fit: c.fit(beat) * (drewRoute && c.id !== "route" ? 0.5 : 1),
-  }))
-    .filter((x) => x.fit > 0)
-    .sort((a, b) => b.fit - a.fit)
-    // Three is enough to be a real choice and few enough to read.
-    .slice(0, 3);
+  const intent = beat.intent ?? EMPTY_READING;
 
-  const stacks = operatorStacks(style, beat.index);
+  // THE DIRECTION BENDS THE STATE EVERY CONSTRUCTION READS.
+  //
+  // The half that selection alone does not reach. Moving which
+  // construction wins is one thing; a body built under five different
+  // directions came out with identical segments, gait, wander and scale,
+  // and only the operator tail changed — which is the "different colour
+  // and post-processing" failure with the argument moved one layer down.
+  //
+  // Applied HERE and nowhere else, so it cannot be applied twice or
+  // skipped by a caller. Every construction already reads these dials to
+  // set its own numbers, so this reaches scale, speed, gait, wander,
+  // segment count, depth and haze without naming any of them.
+  // THE DIRECTION AND THE RELATION BOTH BEND IT, in that order.
+  //
+  // The relation is a fact about the prose and the direction is the
+  // director's instruction, so the direction is applied first and the
+  // relation leans on the result — a passive is still a passive in a film
+  // directed to feel overwhelming, but it is an overwhelming passive.
+  const style = styleForBeat(beat, raw);
+
+  // HOW FAR THE DIRECTOR WILL LET THIS GO AGAINST THE GRAIN.
+  //
+  // Mostly the direction, because "make it absurd" is a request for
+  // category error and "make it inevitable" is a request to watch the
+  // thing itself keep going. Experimentalism and abstraction contribute a
+  // little, so a film with no directed scenes still opens the space
+  // slightly as it climbs the ladder — but never enough to take the
+  // literal reading away from a director who did not ask.
+  const appetite = Math.max(
+    0,
+    Math.min(1, intent.dislocation * 0.7 + style.experimentalism * 0.2 + style.abstraction * 0.2),
+  );
+
+  /* THE REPRESENTATION CANDIDATES, BEFORE ANY CONSTRUCTION IS CHOSEN.
+   *
+   * The layer this system did not have. A subject used to select a
+   * construction directly — one kind, one generator, score 1.0 — so the
+   * only thing a sentence could vary was which of five demo generators
+   * ran. Now the sentence first produces six genuinely different VISUAL
+   * IDEAS, weighted by checkable facts about the prose (is the noun used
+   * or merely invoked, did it print a figure, did it draw a route) and by
+   * the film's own state, and constructions compete to REALISE one.
+   *
+   * `fit` keeps its old job — is this construction suitable for this
+   * sentence — and gains no semantic responsibility. The choice of what
+   * KIND of image to make is made above it, which is the correction that
+   * stops this becoming the routing table again with more arithmetic. */
+  const reps = representationsFor(beat, style);
+
+  const applicable: {
+    c: Construction;
+    fit: number;
+    dislocated: boolean;
+    rep: Representation | null;
+  }[] = [];
+  for (const c of CONSTRUCTIONS) {
+    const raw0 = c.fit(beat) * (drewRoute && c.id !== "route" ? 0.5 : 1);
+    // The construction's suitability, multiplied by how well it serves
+    // the best idea it can serve. A construction that only realises the
+    // literal reading of a sentence whose literal reading was killed by a
+    // metaphor now scores near nothing — without anyone having written a
+    // rule about windows.
+    let best: Representation | null = null;
+    let bestScore = 0;
+    for (const rep of reps) {
+      const s2 = rep.weight * realisationFit(c.id, rep.mode);
+      if (s2 > bestScore) {
+        bestScore = s2;
+        best = rep;
+      }
+    }
+    const semantic = raw0 * (best ? 0.25 + bestScore * 0.75 : 1);
+    if (semantic > 0) {
+      // A DIRECTION THAT WANTS DISLOCATION DISCOUNTS THE LITERAL READING.
+      //
+      // This is the half that is easy to miss and without which the test
+      // fails: absurdity is a DEPARTURE from faithfulness, so it is not
+      // enough to make the strange reading available — the faithful one
+      // has to become less compelling in proportion. Capped at 0.55 so
+      // even a maximally strange direction can never make the sentence's
+      // own subject unreachable.
+      applicable.push({ c, fit: semantic * (1 - appetite * 0.55), dislocated: false, rep: best });
+    }
+    // Against the grain. Offered even at zero appetite so the picker can
+    // always show what else the sentence could have been — it simply
+    // scores too low to win until the director asks for it.
+    const against = c.dislocate?.(beat) ?? 0;
+    if (against > 0 && semantic <= 0) {
+      applicable.push({ c, fit: against * appetite, dislocated: true, rep: best });
+    }
+  }
+
+  // Enough to be a real choice, few enough to read — and now drawn from
+  // both readings rather than from the nouns alone.
+  applicable.sort((a, b) => b.fit - a.fit);
+  const considered = applicable.slice(0, 5);
+
+  const stacks = operatorStacks(style, beat.index, intent);
   const programs: Program[] = [];
 
-  for (const { c, fit } of applicable) {
-    const built = c.build(beat, style);
+  for (const { c, fit, dislocated, rep } of considered) {
+    const built = c.build(beat, style, rep);
     for (const stack of stacks) {
       const program = assemble(c.id, built, stack, style, budgetMs);
       if (!program) continue;
+      program.dislocated = dislocated;
+      // The visual IDEA this program is a realisation of, carried onto
+      // the plan so the Studio can say what kind of image it is making
+      // rather than only which primitives it used.
+      if (rep) {
+        program.mode = rep.mode;
+        program.idea = rep.idea;
+      }
       // FIT DOMINATES. Weighted so that no operator stack can lift a
       // worse-fitting construction over a better one: a sentence that
       // draws a route through four stages is a route, and no amount of
@@ -803,16 +1317,63 @@ export function constructPrograms(beat: Beat, style: Style, budgetMs: number): P
       // layer exists to prevent.
       program.score =
         fit * 4 +
+        // WHAT THE DIRECTION REACHED FOR. Weighted at 2 — heavy enough
+        // that a stated intention can move which construction wins, light
+        // enough that it cannot overturn a strongly-fitting subject on a
+        // scene the direction barely touched. This term is the whole
+        // reason `fit` was allowed to stay a claim about the text.
+        (intent.constructions[c.id] ?? 0) * 2 +
         // How much the director's state wanted these operations. Breaks
         // ties BETWEEN stacks; never decides what is being built.
-        stack.reduce((a, op) => a + Math.max(0, appetiteFor(op, style)), 0) * 0.5 -
-        // A restrained film pays for every extra stage.
-        program.nodes.length * style.restraint * 0.15;
+        stack.reduce((a, op) => a + Math.max(0, appetiteFor(op, style, intent)), 0) * 0.5 -
+        /* A RESTRAINED FILM PAYS FOR ELABORATION, NOT FOR COMPOSITION.
+         *
+         * This counted `program.nodes.length`, which is a category error
+         * with a measurable cost. An OPERATOR stage is elaboration — a
+         * dither, a scanline, a displacement laid over what was built. A
+         * scene graph's nodes are ELEMENTS: a ground, a subject, a field,
+         * the words, the line drawn between two things. Charging the same
+         * per node meant a five-element composition paid roughly ten
+         * times what a single text plate paid, so restraint was not
+         * choosing simplicity — it was choosing EMPTINESS, and the
+         * measurement showed it: `type`, one `text_layout` node, first on
+         * ten of twenty-five scenes of a real essay.
+         *
+         * Restraint should say "fewer treatments", never "fewer things in
+         * the frame". Composition is what the film is; elaboration is
+         * what is done to it. */
+        stack.length * style.restraint * 0.5;
       programs.push(program);
     }
   }
 
-  return programs.sort((a, b) => b.score - a.score);
+  programs.sort((a, b) => b.score - a.score);
+  return diversify(programs);
+}
+
+/** Put a genuinely different program second.
+ *
+ *  Sorting by score alone put the same construction in the top two slots
+ *  differing by a single operator — which is a picker offering the same
+ *  thing twice, and was half of why the alternatives read as noise. The
+ *  first program of each distinct construction is promoted in score order,
+ *  then everything else follows. Nothing is discarded and nothing is
+ *  reordered within a construction, so the best program is still the best
+ *  program; only the ORDER of the also-rans changes, which is exactly the
+ *  part a director reads. */
+function diversify(programs: Program[]): Program[] {
+  const seen = new Set<string>();
+  const first: Program[] = [];
+  const rest: Program[] = [];
+  for (const p of programs) {
+    const key = `${p.construction}:${p.dislocated ? "against" : "with"}`;
+    if (seen.has(key)) rest.push(p);
+    else {
+      seen.add(key);
+      first.push(p);
+    }
+  }
+  return [...first, ...rest];
 }
 
 /** Operator stacks worth trying, best-appetite first, plus a deliberately
@@ -824,11 +1385,11 @@ export function constructPrograms(beat: Beat, style: Style, budgetMs: number): P
  *  precisely the reported symptom. Offering the top pair, the single
  *  strongest, and a rotated pair gives three real alternatives whose
  *  differences a viewer can see. */
-function operatorStacks(style: Style, seed: number): Operator[][] {
+function operatorStacks(style: Style, seed: number, intent?: IntentReading): Operator[][] {
   const allowed = permitted(style);
   const ranked = [...OPERATORS]
     .filter((op) => allowed.has(op.id))
-    .map((op) => ({ op, want: appetiteFor(op, style) }))
+    .map((op) => ({ op, want: appetiteFor(op, style, intent) }))
     .filter((x) => x.want > 0.15)
     .sort((a, b) => b.want - a.want || (a.op.id < b.op.id ? -1 : 1));
 
@@ -890,7 +1451,7 @@ function assemble(
       }
       candidate.push({
         primitiveId,
-        params: op.params(style),
+        params: op.params(style, primitiveId),
         reason: op.why,
       });
     }
@@ -909,7 +1470,18 @@ function assemble(
     if (chainCost(withTail) > budgetMs) break;
     nodes.push({
       primitiveId,
-      params: { depth: 0.3 + style.density * 0.3 },
+      // `depth` belongs to `parallax_layers`, not to `ease_profile`, and
+      // the tail set it on both — so every shot in every film has eased
+      // on `kind` 0 at `amount` 0.5, the defaults. The two primitives in
+      // this tail want different numbers and now get them.
+      params:
+        primitiveId === "parallax_layers"
+          ? {
+              layers: Math.round(2 + style.density * 4),
+              depth: 0.2 + style.density * 0.4,
+              rate: 0.15 + style.energy * 0.5,
+            }
+          : { kind: Math.round(style.restraint > 0.6 ? 0 : 1), amount: 0.25 + style.energy * 0.5 },
       reason: "given depth and eased, so the shot moves like a shot",
     });
   }

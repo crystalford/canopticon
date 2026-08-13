@@ -72,15 +72,27 @@ export function analyseUsage(scenes: ComposedScene[]): UsageReport {
     // pruned on evidence must not call a primitive unused because it only
     // ever appears on a second input.
     let sceneHasGround = false;
-    for (const node of scene.nodes) {
-      if (!node.ground || node.ground.length === 0) continue;
-      sceneHasGround = true;
-      for (const g of node.ground) uses.set(g.primitiveId, (uses.get(g.primitiveId) ?? 0) + 1);
+    // RECURSIVE, because an N-plane stack nests one ground inside another.
+    // Walking a single level would report the film's deepest layers as
+    // unused primitives — and the whole point of this measure is that the
+    // palette gets pruned on evidence, so a wrong "never used" here is how
+    // a working primitive gets deleted.
+    const walkGround = (node: { primitiveId: string; ground?: typeof scene.nodes }) => {
+      if (!node.ground || node.ground.length === 0) return;
+      for (const g of node.ground) {
+        uses.set(g.primitiveId, (uses.get(g.primitiveId) ?? 0) + 1);
+        walkGround(g);
+      }
       // A ground IS consumed — by the compositor, which reads both sides.
       const tail = node.ground[node.ground.length - 1];
       if (tail) consumed.set(tail.primitiveId, (consumed.get(tail.primitiveId) ?? 0) + 1);
       const link = `${node.ground.map((g) => g.primitiveId).join(" → ")} ⊕ ${node.primitiveId}`;
       grounds.set(link, (grounds.get(link) ?? 0) + 1);
+    };
+    for (const node of scene.nodes) {
+      if (!node.ground || node.ground.length === 0) continue;
+      sceneHasGround = true;
+      walkGround(node);
     }
     if (sceneHasGround) groundedScenes++;
 

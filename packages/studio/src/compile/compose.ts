@@ -39,10 +39,27 @@ import {
   scenePosition,
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
-import { groundSatisfies, planGround } from "./ground.ts";
+import { buildGraph, describeGraph, flattenGraph, flattenGround, graphDepth } from "./graph.ts";
+import { planGround } from "./ground.ts";
+import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
+import { type Relation, describeRelation, readRelation } from "./relation.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
-import { type DetectedSubject, detectSubjects, refersBack, subjectReading } from "./subject.ts";
+import {
+  type Plane,
+  type ScenePlan,
+  applyPlane,
+  isComposite,
+  isUnnoticed,
+  planScene,
+} from "./scene-plan.ts";
+import {
+  type DetectedSubject,
+  detectSubjects,
+  namesOnlyAbstractions,
+  refersBack,
+  subjectReading,
+} from "./subject.ts";
 import { textParamsFor } from "./text-params.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
 
@@ -106,6 +123,18 @@ export interface ProgramSummary {
   operators: string[];
   why: string;
   chain: string[];
+  /** WHICH KIND OF IMAGE this alternative is. An alternative that differs
+   *  only in its operators is a treatment; one that differs in its mode is
+   *  a different picture of the same sentence, and a director choosing
+   *  between them needs to be told which they are looking at. */
+  mode?: string;
+  idea?: string;
+  /** Built against the grain of what the sentence names. Carried to the
+   *  surface because "the city is the organism" and "the people are
+   *  insects" are different claims about the same sentence, and a director
+   *  reading a list of alternatives should not have to infer which one
+   *  they are being offered. */
+  dislocated?: boolean;
 }
 
 export interface MotifOccurrence {
@@ -148,7 +177,25 @@ export interface ComposedScene {
    *  applied to it — when the engine built rather than fell back to a
    *  recipe. Null on a scene planned from a ratified reading or from the
    *  ladder. */
-  program: { id: string; construction: string; operators: string[]; why: string } | null;
+  program: {
+    id: string;
+    construction: string;
+    operators: string[];
+    why: string;
+    /* WHAT KIND OF IMAGE THIS IS, and the visual idea in the director's
+     * language. Both are computed by `represent.ts`, both are carried on
+     * the Program — and both were dropped HERE, at the projection onto
+     * the composed scene, along with `dislocated`, which the interface
+     * declared and the emit never wrote.
+     *
+     * So the compiler chose a representation for every scene, said so
+     * internally, and reported `mode: —` on all of them. The Studio's
+     * VISUAL IDEA card reads this object: a projection that silently
+     * narrows is how a working decision becomes an invisible one. */
+    mode?: string;
+    idea?: string;
+    dislocated?: boolean;
+  } | null;
   /** The other programs this sentence could have been, best first. */
   alternatives: ProgramSummary[];
 }
@@ -188,6 +235,9 @@ export function composeScene(
   /** The last thing this film named. A sentence made of pronouns is about
    *  whatever the film was already looking at — see `refersBack`. */
   carried: DetectedSubject | null = null,
+  /** The last PLACE this film named. A setting outlives the sentence that
+   *  established it — see `planScene`. */
+  carriedPlace: DetectedSubject | null = null,
 ): ComposedScene {
   const state = resolveStateAt(ir, scenePosition(ir, sceneIndex), positions);
   const notes: string[] = [];
@@ -241,6 +291,14 @@ export function composeScene(
   let plannedParams = new Map<string, Record<string, number | string>>();
   let program: Program | null = null;
   let alternatives: ProgramSummary[] = [];
+  /** The scene's roles, when it has more than one. Function-scoped because
+   *  the compositing pass below needs it long after the constructor ran. */
+  let scenePlan: ScenePlan | null = null;
+  /** The beat and the bent state the SUBJECT was built from, kept for the
+   *  same reason: the background planes have to be built from exactly the
+   *  same two, or the shot is composed against two different films. */
+  let composedBeat: Beat | null = null;
+  let composedStyle: Style | null = null;
 
   const reading = readingFor(scene);
   const ratified = Boolean(scene.reading);
@@ -276,15 +334,45 @@ export function composeScene(
     // have been and switch — which is the system proposing and the human
     // ratifying, applied to depiction rather than only to meaning.
     const kind = readSceneKind(scene);
+    // THE DIRECTOR'S OWN INSTRUCTION, read before the beat is assembled.
+    //
+    // Deterministic and unratified, for the same reason a figure is:
+    // whether the word "absurd" appears in the direction is not a matter
+    // of interpretation. Reported either way, because a direction the
+    // compiler could not read is the one thing a director most needs to
+    // be told — silence there would look identical to a direction that
+    // was heard and ignored.
+    const intentReading = hasIntent(scene.directorIntent)
+      ? readIntent(scene.directorIntent)
+      : undefined;
+    if (intentReading) {
+      notes.push(`directed — ${describeIntent(intentReading)}`);
+    }
+    // WHO ACTS ON WHOM. Read before the subjects are ordered, because it
+    // is what orders them.
+    const relation = readRelation(scene.narration.text);
+    if (relation) notes.push(`relation — ${describeRelation(relation)}`);
     const beat: Beat = {
       sentence: scene.narration.text,
       phrase: phrase.text,
-      subjects: sceneSubjects(scene.narration.text, carried),
+      // THE UNNOTICED CASE CARRIES ITS SUBJECT. "At first nobody noticed"
+      // is about whatever went unnoticed, and contains no anaphor — so the
+      // pronoun rule never fires and the anomaly was planned but never
+      // built. Without this the scene composes as typography and the
+      // proposition is decoration.
+      subjects: leadWithTopic(
+        isUnnoticed(scene.narration.text) && carried
+          ? [{ ...carried, weight: carried.weight * 0.8 }]
+          : sceneSubjects(scene.narration.text, carried),
+        relation,
+      ),
+      ...(relation ? { relation } : {}),
       figures: scene.figures ?? [],
       route: scene.route ?? [],
       kind: kind.kind,
       contested: looksContested(scene.narration.text),
       index: sceneIndex,
+      ...(intentReading ? { intent: intentReading } : {}),
     };
     // ── the director's verbs ───────────────────────────────────────
     //
@@ -296,6 +384,10 @@ export function composeScene(
     const nudge = ir.overrides.find(
       (o) => o.sceneId === scene.sceneId && o.type === "constrain",
     )?.styleNudge;
+    // A verb's nudge. A direction's register bends the same curves and
+    // compounds with it, but is applied inside `constructPrograms` rather
+    // than here — one place, so it can never be applied twice or forgotten
+    // by a caller.
     const bend = (base: number, key: string) =>
       Math.max(0, Math.min(1, base + (nudge?.[key] ?? 0)));
     if (nudge) {
@@ -316,14 +408,63 @@ export function composeScene(
       data: bend(state.values.dataWeight ?? 0.5, "data"),
       experimentalism: bend(state.values.experimentalism ?? 0.3, "experimentalism"),
       restraint: bend(state.values.restraint ?? 0.5, "restraint"),
+      // THE TWO DIRECTOR DIMENSIONS THE COMPOSITOR MADE REACHABLE.
+      //
+      // Both default to 0.5 and both are the identity at 0.5, so every
+      // film that predates them composes byte-identically. That is not a
+      // convenience — a new dial that silently restyled an existing film
+      // would be the engine editing work a director already approved.
+      //
+      // `worldPopulation` deliberately does NOT default to `visualDensity`.
+      // They are different questions: density is how much is going on in
+      // the picture, population is how much is going on in the world. A
+      // dense picture of an empty street is a real shot and folding the
+      // two would make it unreachable.
+      population: bend(state.values.worldPopulation ?? 0.5, "population"),
+      attention: bend(state.values.attention ?? 0.5, "attention"),
       tier: rung.tier,
       language: scene.visualLanguage ?? ir.visualLanguage,
+      ...(ir.grammar ? { grammar: ir.grammar } : {}),
     };
     // A nudge that raises abstraction should be able to reach the rung
     // above it, or "stranger" would open no doors the curve had shut.
+    // Computed from the DIRECTED abstraction, not the raw one. The
+    // constructor bends the state itself, so reading the rung off the
+    // unbent value would report a tier the film never composed against —
+    // and the ground planner and the ladder fallback both read it.
+    const directedAbstraction = intentReading
+      ? bendStyle({ abstraction: style.abstraction }, intentReading).abstraction
+      : style.abstraction;
     style.tier =
-      (LADDER.find((r) => style.abstraction < r.maxAbstraction) ?? LADDER[LADDER.length - 1])
+      (LADDER.find((r) => directedAbstraction < r.maxAbstraction) ?? LADDER[LADDER.length - 1])
         ?.tier ?? rung.tier;
+    // NOTHING DEPICTABLE WAS NAMED — say so.
+    //
+    // `namesOnlyAbstractions` has existed since the subject lexicon did,
+    // documented as the affordance that stops a silent fallback looking
+    // like a decision, and nothing ever called it. So "nobody noticed what
+    // was happening until it was too late" got a confident answer chosen
+    // by the film's curve and the director's mood alone, presented exactly
+    // like a sentence the compiler had actually read.
+    //
+    // This is the same discipline `extract-reading.ts` already keeps when
+    // it declines rather than guesses. The scene still compiles — standing
+    // rule 8 — it just stops claiming the prose chose the picture.
+    if (beat.subjects.length === 0) {
+      notes.push(
+        namesOnlyAbstractions(scene.narration.text)
+          ? "names nothing depictable — the picture comes from the film's curve and the direction, not from the sentence"
+          : "no named subject — the picture comes from the film's curve and the direction, not from the sentence",
+      );
+    }
+    // THE SCENE PLAN. What roles this shot contains, before anything
+    // decides which single one wins. A setting that loses is a setting
+    // that was read and thrown away — see scene-plan.ts.
+    scenePlan = planScene(beat, style, carried, carriedPlace);
+    composedBeat = beat;
+    composedStyle = style;
+    if (isComposite(scenePlan)) notes.push(`composed — ${scenePlan.why}`);
+
     const programs = constructPrograms(beat, style, MAX_CHAIN_MS);
     const best = programs[0];
     if (best) {
@@ -341,9 +482,24 @@ export function composeScene(
           operators: p.operators,
           why: p.why,
           chain: p.nodes.map((n) => n.primitiveId),
+          ...(p.mode ? { mode: p.mode } : {}),
+          ...(p.idea ? { idea: p.idea } : {}),
+          ...(p.dislocated ? { dislocated: true } : {}),
         }));
       chain = best.nodes.map((n) => n.primitiveId);
       plannedParams = new Map(best.nodes.map((n) => [n.primitiveId, n.params]));
+      // THE PLAN REACHES THE PARAMETERS. Weight and depth were computed
+      // and read by nothing — see the capability map. The subject plane's
+      // entitlement now sets how much of the frame its construction takes.
+      const subjectPlane = scenePlan?.planes.find((pl) => pl.role === "SUBJECT");
+      if (subjectPlane) {
+        for (const [id, ps] of plannedParams) {
+          plannedParams.set(id, applyPlane(id, ps, subjectPlane));
+        }
+        notes.push(
+          `weighted — ${subjectPlane.role.toLowerCase()} at ${subjectPlane.weight.toFixed(2)}, depth ${subjectPlane.depth.toFixed(2)}`,
+        );
+      }
       for (const node of best.nodes) reasons.set(node.primitiveId, node.reason);
       notes.push(
         `constructed "${best.id}" — ${best.why}${
@@ -486,58 +642,6 @@ export function composeScene(
     notes.push(`pinned — composition bypassed${override.note ? ` (${override.note})` : ""}`);
   }
 
-  // ── the second input ───────────────────────────────────────────────
-  //
-  // Decided against the FINAL chain, after the restraint ceiling, the cost
-  // ceiling and the validity sweep have all had their say — so a ground is
-  // never the reason a scene blows a budget, and never sits under a chain
-  // the engine was about to drop a primitive from.
-  //
-  // Appended as a node like any other, so it hashes, caches, and appears
-  // in the Compile view exactly like the rest of the chain. The one thing
-  // that is different is that it carries a chain of its own.
-  const ground = planGround({
-    chain,
-    tier: rung.tier,
-    density,
-    motionEnergy: state.values.motionEnergy ?? 0.5,
-    experimentalism,
-    restraint,
-    contested: Boolean(reading?.contested),
-    pinned: override?.type === "pin",
-    sceneIndex,
-    budgetMs: MAX_CHAIN_MS - chainCost(chain),
-  });
-  let groundNodes: ComposedNode[] | null = null;
-  if (ground) {
-    const satisfied = groundSatisfies(ground.compositor, ground.ground);
-    if (satisfied !== true) {
-      // A ground that does not structurally satisfy its compositor would
-      // composite nothing and look like it worked. Refused loudly.
-      notes.push(`no ground — ${satisfied}`);
-    } else {
-      groundNodes = ground.ground.map((primitiveId, i) => ({
-        primitiveId,
-        params: {
-          density: round3(density),
-          energy: round3(state.values.motionEnergy ?? 0),
-          abstraction: round3(abstraction),
-        },
-        // Seeded off the SCENE and its position in the ground, in a range
-        // that cannot collide with the subject chain's seeds — two layers
-        // seeded identically would move in lockstep and read as one.
-        seed: 7000 + sceneIndex * 17 + i,
-        costMsPerFrame: PRIMITIVES[primitiveId]?.estimatedCostMsPerFrame ?? 4,
-        reason: `ground — ${ground.reason}`,
-      }));
-      chain.push(ground.compositor);
-      reasons.set(ground.compositor, ground.reason);
-      notes.push(
-        `${ground.compositor} over ${ground.ground.join(" → ")} — two inputs, not two stacked frames`,
-      );
-    }
-  }
-
   // THE SCENE'S OWN WORDS.
   //
   // Eleven primitives set type from a string parameter and the engine set
@@ -548,7 +652,7 @@ export function composeScene(
   // for six minutes. It typechecked, it cached, and every number in the
   // Compile view was correct about it.
 
-  const nodes: ComposedNode[] = chain.map((primitiveId, i) => {
+  const subjectNodes: ComposedNode[] = chain.map((primitiveId, i) => {
     const spec = PRIMITIVES[primitiveId];
     const params: Record<string, number | string> = {
       density: round3(density),
@@ -573,9 +677,6 @@ export function composeScene(
     if (override?.type === "pin" && override.params) {
       Object.assign(params, override.params);
     }
-    if (ground && groundNodes && primitiveId === ground.compositor) {
-      Object.assign(params, ground.params);
-    }
     return {
       primitiveId,
       params,
@@ -584,15 +685,72 @@ export function composeScene(
       seed: 1000 + sceneIndex * 17 + i,
       costMsPerFrame: spec?.estimatedCostMsPerFrame ?? 4,
       reason: reasons.get(primitiveId) ?? "composed",
-      // The compositor carries its ground. Everything else carries none —
-      // `ground` being absent rather than empty is what lets the executor
-      // tell a one-input node from a two-input node with nothing on its
-      // second side.
-      ...(ground && groundNodes && primitiveId === ground.compositor
-        ? { ground: groundNodes }
-        : {}),
     };
   });
+
+  // ── THE SCENE GRAPH ────────────────────────────────────────────────
+  //
+  // Assembled LAST, against the final subject program — after the
+  // restraint ceiling, the cost ceiling and the validity sweep have all
+  // had their say, so no layer is ever the reason a scene blows a budget
+  // and none sits under a chain the engine was about to prune.
+  //
+  // `ground` is no longer a slot. There is a tree of semantic nodes whose
+  // children are ordinary visual programs, and the type system decides
+  // which of them can interact with which. `planGround` survives, demoted
+  // from gatekeeper to ATMOSPHERE proposer — the film's own texture, one
+  // child among others. That demotion is a real fix: it used to be the
+  // gate on ALL layering, so a restrained film lost the city the sentence
+  // named, and a decision about decorative texture silently decided a
+  // question about depiction.
+  const baseParams = {
+    density: round3(density),
+    energy: round3(state.values.motionEnergy ?? 0),
+    abstraction: round3(abstraction),
+  };
+  const atmosphere = planGround({
+    chain,
+    tier: rung.tier,
+    density,
+    motionEnergy: state.values.motionEnergy ?? 0.5,
+    experimentalism,
+    restraint,
+    contested: Boolean(reading?.contested),
+    pinned: override?.type === "pin",
+    sceneIndex,
+    budgetMs: MAX_CHAIN_MS - chainCost(chain),
+  });
+  const planes = scenePlan && isComposite(scenePlan) ? scenePlan.planes : ([] as Plane[]);
+  // A PIN BYPASSES COMPOSITION ENTIRELY — precedence 1. Layering under a
+  // pinned chain would be the engine editing a director's decision, so the
+  // graph is not built at all rather than built and discarded.
+  const graph =
+    override?.type === "pin" || !composedBeat || !composedStyle
+      ? null
+      : buildGraph({
+          planes,
+          beat: composedBeat,
+          style: composedStyle,
+          sceneIndex,
+          base: baseParams,
+          subject: subjectNodes,
+          atmosphere: atmosphere
+            ? { program: atmosphere.ground, params: atmosphere.params, why: atmosphere.reason }
+            : null,
+          budgetMs: MAX_CHAIN_MS - chainCost(chain),
+        });
+  const flat = graph ? flattenGraph(graph.root, baseParams) : null;
+  const nodes: ComposedNode[] = flat && flat.chain.length > 0 ? flat.chain : subjectNodes;
+
+  if (graph && flat && graph.root.children.length > 1) {
+    notes.push(`graph — ${describeGraph(graph.root)}, ${graphDepth(graph.root)} levels`);
+    for (const d of graph.dropped) {
+      notes.push(`${d.role.toLowerCase()} dropped — ${d.why}`);
+    }
+    for (const r of flat.refused) {
+      notes.push(`${r.role.toLowerCase()} refused — ${r.why}`);
+    }
+  }
 
   // A CHAIN OF SOURCES IS A STACK, NOT A CHAIN.
   //
@@ -626,8 +784,17 @@ export function composeScene(
     // is the scene's cost. Leaving it out would make a two-layer scene look
     // cheaper than a one-layer one, which is the sort of quiet arithmetic
     // that turns a budget into a decoration.
-    costMsPerFrame: chainCost(chain) + (groundNodes ? chainCost(ground?.ground ?? []) : 0),
-    determinism: chainDeterminism([...chain, ...(ground?.ground ?? [])]),
+    //
+    // FLATTENED, because a stack nests. `ground.ground` is only the
+    // outermost layer's primitives; the layers beneath it hang off their
+    // own compositors' second inputs, and counting one level would have
+    // reintroduced exactly the arithmetic this comment warns about — a
+    // three-plane scene reporting the cost of a one-plane one.
+    // FLATTENED, because the graph nests. Counting one level would have
+    // made a three-layer scene report the cost of a one-layer one —
+    // standing rule 11, and the reason `flattenGround` exists at all.
+    costMsPerFrame: chainCost(flattenGround(nodes).map((n) => n.primitiveId)),
+    determinism: chainDeterminism(flattenGround(nodes).map((n) => n.primitiveId)),
     phrase: { text: phrase.text, source: phrase.source },
     program: program
       ? {
@@ -635,6 +802,9 @@ export function composeScene(
           construction: program.construction,
           operators: program.operators,
           why: program.why,
+          ...(program.mode ? { mode: program.mode } : {}),
+          ...(program.idea ? { idea: program.idea } : {}),
+          ...(program.dislocated ? { dislocated: true } : {}),
         }
       : null,
     alternatives,
@@ -730,15 +900,55 @@ function readingFor(scene: Scene): SemanticReading | null {
 
 /** What this scene is about — its own nouns, or the film's if it is
  *  pointing back at them. */
+/** Put what the sentence is ABOUT at the front of the subject list.
+ *
+ *  The single change that makes "the city watched its residents" and "the
+ *  residents watched the city" build different things. They name the same
+ *  two nouns, so a weight-ordered list puts the same one first in both and
+ *  the compiler answers them identically. Word order is the signal, and a
+ *  passive exists precisely to change it — which is why the topic is used
+ *  here rather than the agent.
+ *
+ *  Only reorders. Nothing is added or dropped, so a relation can change
+ *  which construction wins but can never introduce a subject the sentence
+ *  did not name. */
+function leadWithTopic(subjects: DetectedSubject[], relation: Relation | null): DetectedSubject[] {
+  const topic = relation?.topic;
+  if (!topic) return subjects;
+  const at = subjects.findIndex(
+    (s) => s.offset === topic.offset && s.text.toLowerCase() === topic.text.toLowerCase(),
+  );
+  // An abstraction can lead a RELATION and must never lead a BUILD — the
+  // policy is genuinely the agent of "the policy made the residents
+  // afraid" and there is still nothing to draw. Leaving the order alone
+  // hands the shot to the residents, which is the right picture of it.
+  if (at < 0 || topic.weight <= 0) return subjects;
+  return [subjects[at] as DetectedSubject, ...subjects.filter((_, i) => i !== at)];
+}
+
 function sceneSubjects(sentence: string, carried: DetectedSubject | null): DetectedSubject[] {
   const own = detectSubjects(sentence);
-  if (own.length > 0) return own;
-  if (carried && refersBack(sentence)) {
-    // Carried at a lower weight: an inherited subject is a weaker signal
-    // than a named one, and should lose to a figure the sentence prints.
-    return [{ ...carried, weight: carried.weight * 0.8 }];
-  }
-  return [];
+  // A CARRIED SUBJECT COMPETES; IT IS NOT A FALLBACK.
+  //
+  // This used to return `own` whenever the sentence named anything at all,
+  // so the memory only ever applied to a sentence that named NOTHING. That
+  // held until "then there were dozens of them, moving through the streets
+  // in strange synchronized waves" — which refers back AND names its
+  // setting, and the setting immediately evicted the insects the sentence
+  // is entirely about. A film whose memory is switched off by the word
+  // "streets" does not have a memory.
+  //
+  // So the inherited subject joins the list and argues on weight like
+  // everything else. It loses to a named creature, and it beats a place —
+  // which is the correct reading of a sentence about them, in a street.
+  if (!carried || !refersBack(sentence)) return own;
+  // Discounted, because an inherited subject is a weaker signal than a
+  // named one and should lose to a figure the sentence prints. Skipped
+  // entirely when the sentence names the same thing again, or the memory
+  // would double a subject that is simply still there.
+  const again = own.some((s) => s.text.toLowerCase() === carried.text.toLowerCase());
+  if (again) return own;
+  return [...own, { ...carried, weight: carried.weight * 0.8 }].sort((a, b) => b.weight - a.weight);
 }
 
 export function composeAll(ir: EditorialIR): ComposedScene[] {
@@ -749,10 +959,18 @@ export function composeAll(ir: EditorialIR): ComposedScene[] {
   // THE FILM'S SHORT-TERM MEMORY. What was last named, so a sentence made
   // of pronouns continues the image rather than starting a new one.
   let carried: DetectedSubject | null = null;
+  // AND WHERE IT WAS. Held separately from the subject, because a film
+  // changes what it is looking at far more often than it changes where it
+  // is — folding the two into one slot would mean the city stopped
+  // existing the moment a sentence named a person.
+  let carriedPlace: DetectedSubject | null = null;
   ir.scenes.forEach((scene, i) => {
-    const composed = composeScene(ir, scene, i, positions, recent, phrases, carried);
-    const own = detectSubjects(scene.narration.text)[0];
+    const composed = composeScene(ir, scene, i, positions, recent, phrases, carried, carriedPlace);
+    const named = detectSubjects(scene.narration.text);
+    const own = named[0];
     if (own) carried = own;
+    const place = named.find((s) => s.kind === "place");
+    if (place) carriedPlace = place;
     out.push(composed);
     recent.push(composed.nodes.map((n) => n.primitiveId));
     if (recent.length > 4) recent.shift();

@@ -39,7 +39,7 @@ const PIXEL_RAMP = [
 reg(
   "mounted_fixture",
   "S · ENTITY",
-  "— → ENTITY",
+  "— → IMAGE",
   {
     representation: { v: 0, lo: 0, hi: 4, int: 1 },
     radius: { v: 0.5, lo: 0.15, hi: 1 },
@@ -238,7 +238,7 @@ function drawFixture(ctx, geo, project, mode, p, t, w, h) {
     ctx.lineTo(w * 0.78, h * 0.3);
     ctx.stroke();
     ctx.setLineDash([]);
-    lab(ctx, "INDICATOR", w * 0.78 + 4, h * 0.3 - 4, "#9ba3aa");
+    lab(ctx, "INDICATOR", w * 0.78 + 4, h * 0.3 - 4, MUT);
     const e = outer[0];
     ctx.strokeStyle = "rgba(155,163,170,.5)";
     ctx.setLineDash([2, 3]);
@@ -247,7 +247,7 @@ function drawFixture(ctx, geo, project, mode, p, t, w, h) {
     ctx.lineTo(w * 0.2, h * 0.74);
     ctx.stroke();
     ctx.setLineDash([]);
-    lab(ctx, `Ø ${(geo.R * 2 * 170).toFixed(0)} MM`, w * 0.2 - 46, h * 0.74 + 4, "#9ba3aa");
+    lab(ctx, `Ø ${(geo.R * 2 * 170).toFixed(0)} MM`, w * 0.2 - 46, h * 0.74 + 4, MUT);
   }
 }
 
@@ -325,7 +325,7 @@ function drawPixel(ctx, w, h, geo, project, p, t) {
 reg(
   "entity_render",
   "S · ENTITY",
-  "ENTITY → IMAGE",
+  "IMAGE → IMAGE",
   {
     exposure: { v: 0.5, lo: 0, hi: 1 },
     contrast: { v: 0.5, lo: 0, hi: 1 },
@@ -399,7 +399,7 @@ reg(
 reg(
   "artifact_render",
   "S · ENTITY",
-  "ARTIFACT → IMAGE",
+  "IMAGE → IMAGE",
   {
     exposure: { v: 0.5, lo: 0, hi: 1 },
     contrast: { v: 0.5, lo: 0, hi: 1 },

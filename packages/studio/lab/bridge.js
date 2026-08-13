@@ -87,6 +87,18 @@ const narrateProject = (id, opts) =>
  *  file. */
 const probeVoice = () => api("/tts/probe", { method: "POST", body: JSON.stringify({}) });
 
+/** Hear every candidate say the same line. The provider question is a
+ *  product decision and this is how it gets settled — by ear, on the
+ *  operator's own sentence, rather than by argument. Stores nothing. */
+/** KEEP THE LOOK. Compiles the film, reads what it actually did, and
+ *  stores that as a named grammar — so a style that happened can be asked
+ *  for again, and carried to a different essay. */
+const captureLook = (projectId, name) =>
+  api(`/project/${projectId}/grammar`, { method: "POST", body: JSON.stringify({ name }) });
+
+const auditionVoice = (text) =>
+  api("/voice/audition", { method: "POST", body: JSON.stringify({ text }) });
+
 /** Build the view model from the IR and the compiled plan.
  *
  *  Every field here is carried across, not invented. Where the prototype's
@@ -141,6 +153,10 @@ function toFilm(ir, plan, storedVersion) {
       directed:
         (ir.overrides || []).find((o) => o.sceneId === s.sceneId && o.type === "constrain")?.note ||
         null,
+      // WHAT THE DIRECTOR SAID THIS SCENE IS FOR. Read straight off the
+      // IR rather than off the plan, because it is authored rather than
+      // derived — there is nothing for the compiler to have decided.
+      intent: irScene.directorIntent || null,
     };
   });
 
@@ -199,6 +215,13 @@ function toFilm(ir, plan, storedVersion) {
     schemaVersion: ir.irVersion,
     logline: ir.logline || "",
     essay: ir.essay,
+    // The film's visual language. Real and load-bearing in the compiler
+    // since construct.ts was written, and until now unreachable from any
+    // surface — see the creative-state route.
+    visualLanguage: ir.visualLanguage || "documentary",
+    // The film's colour, as the four directorial numbers. Never hex —
+    // resolvePalette() is the only thing that turns these into colours.
+    colour: { ...COLOUR_DEFAULT, ...((ir.cinematography && ir.cinematography.colour) || {}) },
     acts,
     scenes,
     runtime: total / 1000,
@@ -301,6 +324,36 @@ async function saveCreativeState() {
   return r;
 }
 
+/** THE FILM'S VISUAL LANGUAGE, changed.
+ *
+ *  The same rail as a curve drag — a new IR version, a recompile against
+ *  the stored snapshot, and the cache diff back — because it IS the same
+ *  kind of edit: it changes how the film depicts, not what it says, and
+ *  it is structurally free of TTS. */
+async function setVisualLanguage(name) {
+  const id = window.STUDIO.projectId;
+  if (!id) throw new Error("no film open");
+  const r = await api(`/project/${id}/creative-state`, {
+    method: "POST",
+    body: JSON.stringify({ visualLanguage: name }),
+  });
+  window.STUDIO.cache = r.cache;
+  return r;
+}
+
+/** THE FILM'S COLOUR, changed. Same rail as a curve drag or a language
+ *  change: a new IR version, a recompile, the cost reported. */
+async function setColour(colour) {
+  const id = window.STUDIO.projectId;
+  if (!id) throw new Error("no film open");
+  const r = await api(`/project/${id}/creative-state`, {
+    method: "POST",
+    body: JSON.stringify({ colour }),
+  });
+  window.STUDIO.cache = r.cache;
+  return r;
+}
+
 /** DIRECT — choose one of the interpretations the engine proposed.
  *
  *  Writes a pin, which precedence 1 already honours. The engine stops
@@ -320,6 +373,29 @@ const directVerb = (projectId, sceneId, verb) =>
   api(`/project/${projectId}/direct`, {
     method: "POST",
     body: JSON.stringify({ sceneId, verb }),
+  });
+
+/** WHAT THE SCENE IS FOR, in the director's own words.
+ *
+ *  Not a verb and not a pin. A verb bends a curve; a pin freezes a chain;
+ *  an intent states what the audience should understand, feel and notice,
+ *  and the constructor reads it to decide WHAT TO BUILD — which is the
+ *  one thing neither of the other two could reach.
+ *
+ *  The response carries `heard`: the registers the compiler actually read
+ *  out of the prose. Show it. A direction that read as nothing must look
+ *  different from one that was heard and acted on, or the director cannot
+ *  tell the difference between a misread and a disagreement. */
+const directIntent = (projectId, sceneId, intent) =>
+  api(`/project/${projectId}/intend`, {
+    method: "POST",
+    body: JSON.stringify({ sceneId, ...intent }),
+  });
+
+const releaseIntent = (projectId, sceneId) =>
+  api(`/project/${projectId}/intend`, {
+    method: "POST",
+    body: JSON.stringify({ sceneId, release: true }),
   });
 
 const releaseScene = (projectId, sceneId) =>
@@ -344,10 +420,16 @@ Object.assign(window, {
   ratifyScenes,
   narrateProject,
   probeVoice,
+  auditionVoice,
+  captureLook,
   directScene,
   directVerb,
+  directIntent,
+  releaseIntent,
   releaseScene,
   saveCreativeState,
+  setVisualLanguage,
+  setColour,
   compileProject,
   lastProjectId: () => {
     try {
