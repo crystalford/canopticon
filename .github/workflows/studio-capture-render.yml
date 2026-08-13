@@ -32,6 +32,11 @@ on:
         required: false
         default: "https://studio.canopticon.com"
         type: string
+      commitSha:
+        description: "SHA of main actually deployed at capture time (not inferred — the Worker exposes no version endpoint)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -59,6 +64,7 @@ jobs:
           CAPTURE_PROJECT_ID: ${{ github.event.inputs.projectId }}
           CAPTURE_LABEL: ${{ github.event.inputs.label }}
           CAPTURE_BASE_URL: ${{ github.event.inputs.baseUrl }}
+          CAPTURE_GIT_SHA: ${{ github.event.inputs.commitSha }}
           CAPTURE_OUT_DIR: ops/studio-capture/${{ github.event.inputs.label }}
         run: node packages/studio/scripts/capture-render.mjs
 
