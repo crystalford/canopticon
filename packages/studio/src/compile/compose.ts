@@ -38,6 +38,7 @@ import {
   scenePosition,
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
+import { displayPhrase, textParamsFor } from "./text-params.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
 
 /** The abstraction ladder — how far the image sits from literal depiction.
@@ -322,6 +323,17 @@ export function composeScene(
     notes.push(`pinned — composition bypassed${override.note ? ` (${override.note})` : ""}`);
   }
 
+  // THE SCENE'S OWN WORDS.
+  //
+  // Eleven primitives set type from a string parameter and the engine set
+  // none of them, so an 89-scene investigation rendered `text_stagger`'s
+  // default — "NOBODY VOTED AGAINST" — thirty-one times, and
+  // `particle_seek`'s "NINETY DAYS" twenty-one times, over narration about
+  // asylum hotels. Four hardcoded phrases from a different essay, looping
+  // for six minutes. It typechecked, it cached, and every number in the
+  // Compile view was correct about it.
+  const phrase = displayPhrase(scene.label, scene.narration.text);
+
   const nodes: ComposedNode[] = chain.map((primitiveId, i) => {
     const spec = PRIMITIVES[primitiveId];
     const params: Record<string, number | string> = {
@@ -329,6 +341,7 @@ export function composeScene(
       energy: round3(state.values.motionEnergy ?? 0),
       abstraction: round3(abstraction),
       human: round3(state.values.humanPresence ?? 0),
+      ...textParamsFor(primitiveId, phrase, spec?.parameters ?? {}),
     };
     // A treatment's parameters are the whole point of planning one — they
     // carry the representation rung and the camera, and a claim's colder

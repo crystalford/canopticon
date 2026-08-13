@@ -136,9 +136,16 @@ function narrativeFunction(
  *  is what a human writing a shot list would have written anyway. */
 function labelOf(text: string): string {
   const words = text
-    .replace(/[^\w\s$,.%-]/g, " ")
+    // Apostrophes and hyphens are part of the word. Stripping them turned
+    // "Ontario's share" into "Ontario s share" — and since the label is what
+    // goes on screen as type, that was a rendering error printed at 40px.
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[^\w\s$,.%'-]/g, " ")
     .split(/\s+/)
     .filter(Boolean);
+  // Drop a leading article: "THE PROGRAM WHICH HAD" reads worse than
+  // "PROGRAM WHICH HAD COST" on a card, and the article carries nothing.
+  if (words.length > 3 && /^(the|a|an)$/i.test(words[0] as string)) words.shift();
   return words.slice(0, 5).join(" ").slice(0, 48);
 }
 

@@ -25,6 +25,11 @@ reg(
     kind: { v: 0, lo: 0, hi: 3, int: 1 },
     columns: { v: 2, lo: 1, hi: 3, int: 1 },
     age: { v: 0.35, lo: 0, hi: 1 },
+    // The headline. It was the string "THE REGISTER", so twenty-one
+    // GROUNDED scenes of a real film were the same masthead over the same
+    // grey lines — the rung that carries a documentary's most literal
+    // register had exactly one look.
+    heading: { s: "THE REGISTER" },
   },
   (p) => ({
     frame(ctx, w, h, t) {
@@ -35,12 +40,27 @@ reg(
       const pad = 18;
       ctx.fillStyle = "rgba(24,20,16,.9)";
       if (K === 0) {
-        ctx.font = "700 " + Math.round(h * 0.11) + 'px "Space Grotesk",sans-serif';
-        ctx.fillText("THE REGISTER", pad, h * 0.14);
-        ctx.fillRect(pad, h * 0.18, w - pad * 2, 1.4);
+        // Shrink the masthead to the width it has. A headline clipped at
+        // the frame edge reads as broken software, not as a crop.
+        let hs = Math.round(h * 0.11);
+        ctx.font = "700 " + hs + 'px "Space Grotesk",sans-serif';
+        let g2 = 20;
+        while (g2-- > 0 && ctx.measureText(p.heading).width > w - pad * 2 && hs > 8) {
+          hs *= 0.9;
+          ctx.font = "700 " + Math.round(hs) + 'px "Space Grotesk",sans-serif';
+        }
+        // Baseline set explicitly and the rule placed BELOW the type's
+        // real depth. With a default alphabetic baseline the headline hung
+        // past a rule at a fixed fraction of the height, so every GROUNDED
+        // scene printed its own headline struck through.
+        ctx.textBaseline = "alphabetic";
+        const hy = h * 0.055 + hs;
+        ctx.fillText(p.heading, pad, hy);
+        ctx.fillRect(pad, hy + hs * 0.28, w - pad * 2, 1.4);
         const cw = (w - pad * 2 - (C - 1) * 12) / C;
+        const top = hy + hs * 0.28 + 12;
         for (let c = 0; c < C; c++)
-          lines(ctx, pad + c * (cw + 12), h * 0.24, cw, Math.floor((h * 0.72) / 8), r);
+          lines(ctx, pad + c * (cw + 12), top, cw, Math.floor((h - top - 10) / 8), r);
       } else if (K === 1) {
         ctx.font = '600 11px "JetBrains Mono",monospace';
         ctx.fillText("MEMORANDUM", pad, 20);

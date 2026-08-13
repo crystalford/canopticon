@@ -290,7 +290,9 @@ reg(
             ty: y,
           }));
         }
-        ctx.fillStyle = "rgba(13,15,17,.22)";
+        // A heavier clear: at .22 the trail from the scattered start never
+        // faded, so the formed word sat inside a fog of where it came from.
+        ctx.fillStyle = "rgba(13,15,17,.38)";
         ctx.fillRect(0, 0, w, h);
         for (const q of ps) {
           const sx = q.tx,
@@ -301,8 +303,12 @@ reg(
           q.y += q.vy;
           const sp = Math.min(1, Math.hypot(q.vx, q.vy) / 6);
           ctx.fillStyle =
-            sp > 0.25 ? "rgba(216,98,74," + (0.4 + sp * 0.6) + ")" : "rgba(238,241,243,.8)";
-          ctx.fillRect(q.x, q.y, 1.7, 1.7);
+            sp > 0.25 ? "rgba(216,98,74," + (0.5 + sp * 0.5) + ")" : "rgba(238,241,243,.95)";
+          // Sampled at a 5px step and drawn at 1.7px, the settled word was a
+          // sparse grey stipple — legible in a Lab tile at full size and
+          // nearly invisible in a frame. The mark has to cover the step it
+          // was sampled at, or the letterform never closes.
+          ctx.fillRect(q.x, q.y, 3.2, 3.2);
         }
         return { geometry: ps.map((q) => ({ x: q.x, y: q.y, x0: q.tx, y0: q.ty })) };
       },
@@ -628,13 +634,26 @@ reg(
       const units = p.unit < 0.5 ? p.text.split("") : p.unit < 1.5 ? p.text.split(" ") : [p.text];
       const cyc = (t * 0.42) % 1.9;
       ctx.textBaseline = "middle";
-      const size = Math.min(34, w / (p.text.length * 0.52));
-      ctx.font = "600 " + size + 'px "Space Grotesk",sans-serif';
-      const widths = units.map(
-        (u) => ctx.measureText(u + (p.unit < 1.5 && p.unit >= 0.5 ? " " : "")).width,
-      );
-      let total = widths.reduce((a, b) => a + b, 0),
-        x = (w - total) / 2;
+      // MEASURE, THEN SHRINK. The size was estimated from the character
+      // count and never checked, so a phrase wider than the guess ran off
+      // both edges — which became most of the film the moment the engine
+      // started passing the scene's own words instead of a short default.
+      const gap = p.unit < 1.5 && p.unit >= 0.5 ? " " : "";
+      let size = Math.min(34, w / (Math.max(1, p.text.length) * 0.52));
+      let widths;
+      let total;
+      let guard = 24;
+      const measure = () => {
+        ctx.font = "600 " + size + 'px "Space Grotesk",sans-serif';
+        widths = units.map((u) => ctx.measureText(u + gap).width);
+        total = widths.reduce((a, b) => a + b, 0);
+      };
+      measure();
+      while (guard-- > 0 && total > w * 0.94 && size > 7) {
+        size *= 0.92;
+        measure();
+      }
+      let x = (w - total) / 2;
       units.forEach((u, i) => {
         const d = (i / Math.max(1, units.length - 1)) * p.stagger * 0.9;
         const pr = cl01((cyc - d) / 0.55);

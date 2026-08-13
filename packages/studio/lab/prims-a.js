@@ -13,10 +13,31 @@
  * A primitive with no upstream input is a SOURCE. Declared as one now.
  */
 const TXT = (t) => ({ s: t });
+
+/* FIT MEANS FIT.
+ *
+ * This estimated a size from the character count — width / (len * 0.58) —
+ * and never measured the result, so anything wider than the guess ran off
+ * both edges of the frame. Once the composition engine started passing the
+ * SCENE'S OWN WORDS instead of a short hardcoded default, that stopped
+ * being an edge case and became most of the film: "FRAMED AS SUPPORTING"
+ * rendered as "RAMED AS SUPPORTIN".
+ *
+ * A word clipped at the frame edge does not read as a design decision. It
+ * reads as broken software, which is worse than plain, so this measures and
+ * shrinks until it actually fits.
+ */
 function fit(ctx, text, w, max) {
-  const s = Math.min(max, w / (text.length * 0.58));
-  ctx.font = "600 " + s + 'px "Space Grotesk",sans-serif';
-  return s;
+  let size = Math.min(max, w / (Math.max(1, text.length) * 0.58));
+  ctx.font = "600 " + size + 'px "Space Grotesk",sans-serif';
+  // Measure, do not guess. Kerning, casing and the display face all move
+  // the real width away from the estimate.
+  let guard = 24;
+  while (guard-- > 0 && ctx.measureText(text).width > w && size > 7) {
+    size *= 0.92;
+    ctx.font = "600 " + size + 'px "Space Grotesk",sans-serif';
+  }
+  return size;
 }
 
 /* ── A. TYPOGRAPHIC ─────────────────────────────────── */

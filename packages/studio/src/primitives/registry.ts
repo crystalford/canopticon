@@ -595,6 +595,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
       kind: { kind: "int", default: 0, min: 0, max: 3 },
       columns: { kind: "int", default: 2, min: 1, max: 3 },
       age: { kind: "float", default: 0.35, min: 0, max: 1 },
+      heading: { kind: "string", default: "THE REGISTER" },
     },
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
