@@ -24,6 +24,13 @@ export interface FilmNode {
   id: string;
   params: Record<string, number | string>;
   seed: number;
+  /** THE SECOND INPUT — this node's ground, as its own chain.
+   *
+   *  Named `b` rather than `ground` because that is what the executor
+   *  calls the B side of a composite, and the plan is a message to the
+   *  executor. Absent on every one-input node, which is how the browser
+   *  tells a compositor with a ground from one without. */
+  b?: FilmNode[];
 }
 
 export interface FilmShot {
@@ -183,6 +190,15 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
       id: n.primitiveId,
       params: n.params,
       seed: n.seed,
+      ...(n.ground
+        ? {
+            b: n.ground.map((g) => ({
+              id: g.primitiveId,
+              params: g.params,
+              seed: g.seed,
+            })),
+          }
+        : {}),
     }));
 
     // Zip the solver's cut windows against the shot planner's variations.

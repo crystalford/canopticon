@@ -48,7 +48,15 @@ function viewPreview(root) {
   function runnerFor(c) {
     const key = c.scene.id + "@" + cv.width + "x" + cv.height;
     if (built.has(key)) return built.get(key);
-    const chain = c.nodes.map((n) => ({ id: n.prim, params: n.params, seed: n.params.seed }));
+    const chain = c.nodes.map((n) => ({
+      id: n.prim,
+      params: n.params,
+      seed: n.params.seed,
+      // A compositor's ground travels with it. Without this the Preview
+      // builds the node with no second input, draws the subject alone, and
+      // gives no sign that a layer is missing.
+      ...(n.b ? { b: n.b } : {}),
+    }));
     const shots = (c.shots || []).map((sh) => ({
       startMs: sh.startMs - c.scene.t0 * 1000,
       endMs: sh.endMs - c.scene.t0 * 1000,
@@ -86,7 +94,13 @@ function viewPreview(root) {
       document.getElementById("vo").innerHTML = `<span>${esc(c.scene.text)}</span>`;
       document.getElementById("hud").innerHTML =
         `<div><b>SC ${String(c.scene.n).padStart(2, "0")}</b> ${c.scene.fn.toUpperCase()} · ${c.tier}${c.pin ? " · PINNED" : ""}${(c.shots || []).length > 1 ? " · " + c.shots.length + " SHOTS" : ""}</div>
-        <div>${c.nodes.map((n) => n.prim).join(" → ")}</div>
+        <div>${c.nodes
+          .map((n) =>
+            n.b && n.b.length
+              ? `${n.prim} ⊕ (${n.b.map((g) => g.id).join(" → ")})`
+              : n.prim,
+          )
+          .join(" → ")}</div>
         <div>abstraction ${c.abstraction.toFixed(2)} · density ${(c.state.visualDensity ?? 0).toFixed(2)} · energy ${(c.state.motionEnergy ?? 0).toFixed(2)} · human ${(c.state.humanPresence ?? 0).toFixed(2)}</div>`;
       document.getElementById("pvstate").textContent =
         c.det + " DETERMINISM · " + c.nodes.length + " PRIMITIVES · SEED " + (c.nodes[0]?.params.seed ?? 0);
@@ -104,6 +118,11 @@ function viewPreview(root) {
       b.errors.slice(0, 5).forEach((e, i) => ctx.fillText(e, 20, 40 + i * 18));
     } else {
       const buf = single ? b.run(localMs / 1000) : b.run(localMs);
+      // Cleared for the same reason the render clears: a buffer with
+      // transparency in it would otherwise show the previous frame through
+      // its own holes.
+      ctx.fillStyle = "#0d0f11";
+      ctx.fillRect(0, 0, cv.width, cv.height);
       ctx.drawImage(buf, 0, 0);
     }
 
@@ -285,7 +304,12 @@ function planFromFilm() {
       text: c.scene.text,
       startMs: c.scene.t0 * 1000,
       endMs: c.scene.t1 * 1000,
-      chain: c.nodes.map((n) => ({ id: n.prim, params: n.params, seed: n.params.seed })),
+      chain: c.nodes.map((n) => ({
+        id: n.prim,
+        params: n.params,
+        seed: n.params.seed,
+        ...(n.b ? { b: n.b } : {}),
+      })),
       shots: c.shots || [],
     })),
   };

@@ -591,11 +591,44 @@ reg(
           ctx.arc(x, y, 3.4, 0, 6.3);
           ctx.fill();
         });
-        lab(ctx, B + " ATTRACTORS · INVERSE-SQUARE", 10, h - 16);
+        lab(ctx, B + " ATTRACTORS · INVERSE-SQUARE · FIELD OUT", 10, h - 16);
+
+        // THE FIELD ITSELF, not only a picture of one.
+        //
+        // This declared "— → FIELD" and returned nothing, so its own note —
+        // "attraction as a field other primitives can consume" — was
+        // describing something that did not exist. Anything downstream got
+        // a canvas of dots and fell back to its own synthetic noise.
+        //
+        // The grid is computed analytically from the attractors rather than
+        // sampled off the particles: the particles are a rendering of the
+        // field, and reading the field back out of its own picture would be
+        // both slower and wrong.
+        const cell = 8;
+        const cols = Math.ceil(w / cell);
+        const rows = Math.ceil(h / cell);
+        const ang = new Float32Array(cols * rows);
+        for (let gy = 0; gy < rows; gy++) {
+          for (let gx = 0; gx < cols; gx++) {
+            const x = gx * cell + cell / 2;
+            const y = gy * cell + cell / 2;
+            let fx = 0;
+            let fy = 0;
+            for (const [ax, ay] of att) {
+              const dx = ax - x;
+              const dy = ay - y;
+              const d2 = Math.max(700, dx * dx + dy * dy);
+              fx += (dx / d2) * p.mass * 36;
+              fy += (dy / d2) * p.mass * 36;
+            }
+            ang[gy * cols + gx] = Math.atan2(fy, fx);
+          }
+        }
+        return { field: { kind: "vector", cols, rows, cell, w, h, ang } };
       },
     };
   },
-  "Attraction as a field other primitives can consume. Influence, gravity of an institution, pull.",
+  "Attraction as a field other primitives can consume — emitted as a sampled grid of directions computed from the attractors themselves. Influence, gravity of an institution, pull. Combine it with a sentence through field_displace and the pull moves the letters.",
   1,
 );
 

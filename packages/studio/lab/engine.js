@@ -94,6 +94,10 @@ function adoptComposed(scene, real) {
     cost: COST[n.id] || 4,
     // The engine's own words for why this primitive is in the chain.
     why: (real.reasons[i] || "").replace(/^[a-z_0-9]+ — /, ""),
+    // The SECOND INPUT, carried through untouched. Dropping it here would
+    // have the Preview render a compositor with nothing on its B side —
+    // which draws the subject and looks exactly like it worked.
+    b: n.b,
   }));
   return {
     scene,

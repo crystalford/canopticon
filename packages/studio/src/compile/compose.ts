@@ -38,6 +38,7 @@ import {
   scenePosition,
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
+import { groundSatisfies, planGround } from "./ground.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
 import { displayPhrase, textParamsFor } from "./text-params.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
@@ -84,6 +85,12 @@ export interface ComposedNode {
   /** Why this primitive is in the chain — surfaced in the Compile view so
    *  a chain is auditable rather than magic. */
   reason: string;
+  /** THE SECOND INPUT. Present only on a two-input compositor: its own
+   *  small chain, rendered on the same clock and handed to the
+   *  compositor's B side. This is how a field sits BEHIND a sentence
+   *  rather than being painted over by it — the one relation a linear
+   *  chain could not express. */
+  ground?: ComposedNode[];
 }
 
 export interface MotifOccurrence {
@@ -339,6 +346,58 @@ export function composeScene(
     notes.push(`pinned — composition bypassed${override.note ? ` (${override.note})` : ""}`);
   }
 
+  // ── the second input ───────────────────────────────────────────────
+  //
+  // Decided against the FINAL chain, after the restraint ceiling, the cost
+  // ceiling and the validity sweep have all had their say — so a ground is
+  // never the reason a scene blows a budget, and never sits under a chain
+  // the engine was about to drop a primitive from.
+  //
+  // Appended as a node like any other, so it hashes, caches, and appears
+  // in the Compile view exactly like the rest of the chain. The one thing
+  // that is different is that it carries a chain of its own.
+  const ground = planGround({
+    chain,
+    tier: rung.tier,
+    density,
+    motionEnergy: state.values.motionEnergy ?? 0.5,
+    experimentalism,
+    restraint,
+    contested: Boolean(reading?.contested),
+    pinned: override?.type === "pin",
+    sceneIndex,
+    budgetMs: MAX_CHAIN_MS - chainCost(chain),
+  });
+  let groundNodes: ComposedNode[] | null = null;
+  if (ground) {
+    const satisfied = groundSatisfies(ground.compositor, ground.ground);
+    if (satisfied !== true) {
+      // A ground that does not structurally satisfy its compositor would
+      // composite nothing and look like it worked. Refused loudly.
+      notes.push(`no ground — ${satisfied}`);
+    } else {
+      groundNodes = ground.ground.map((primitiveId, i) => ({
+        primitiveId,
+        params: {
+          density: round3(density),
+          energy: round3(state.values.motionEnergy ?? 0),
+          abstraction: round3(abstraction),
+        },
+        // Seeded off the SCENE and its position in the ground, in a range
+        // that cannot collide with the subject chain's seeds — two layers
+        // seeded identically would move in lockstep and read as one.
+        seed: 7000 + sceneIndex * 17 + i,
+        costMsPerFrame: PRIMITIVES[primitiveId]?.estimatedCostMsPerFrame ?? 4,
+        reason: `ground — ${ground.reason}`,
+      }));
+      chain.push(ground.compositor);
+      reasons.set(ground.compositor, ground.reason);
+      notes.push(
+        `${ground.compositor} over ${ground.ground.join(" → ")} — two inputs, not two stacked frames`,
+      );
+    }
+  }
+
   // THE SCENE'S OWN WORDS.
   //
   // Eleven primitives set type from a string parameter and the engine set
@@ -367,6 +426,9 @@ export function composeScene(
     if (override?.type === "pin" && override.params) {
       Object.assign(params, override.params);
     }
+    if (ground && groundNodes && primitiveId === ground.compositor) {
+      Object.assign(params, ground.params);
+    }
     return {
       primitiveId,
       params,
@@ -375,6 +437,13 @@ export function composeScene(
       seed: 1000 + sceneIndex * 17 + i,
       costMsPerFrame: spec?.estimatedCostMsPerFrame ?? 4,
       reason: reasons.get(primitiveId) ?? "composed",
+      // The compositor carries its ground. Everything else carries none —
+      // `ground` being absent rather than empty is what lets the executor
+      // tell a one-input node from a two-input node with nothing on its
+      // second side.
+      ...(ground && groundNodes && primitiveId === ground.compositor
+        ? { ground: groundNodes }
+        : {}),
     };
   });
 
@@ -406,8 +475,12 @@ export function composeScene(
     notes,
     override,
     treatment,
-    costMsPerFrame: chainCost(chain),
-    determinism: chainDeterminism(chain),
+    // The ground is a whole second chain rendered every frame, so its cost
+    // is the scene's cost. Leaving it out would make a two-layer scene look
+    // cheaper than a one-layer one, which is the sort of quiet arithmetic
+    // that turns a budget into a decoration.
+    costMsPerFrame: chainCost(chain) + (groundNodes ? chainCost(ground?.ground ?? []) : 0),
+    determinism: chainDeterminism([...chain, ...(ground?.ground ?? [])]),
   };
 }
 

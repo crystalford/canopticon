@@ -101,8 +101,9 @@ compiled plan. Verified on a real 88-scene institutional investigation:
 
 ```
 POST /project/ingest       essay text → a compilable IR
-POST /project/:id/read     propose readings — the ONLY model call, bounded
+POST /project/:id/read     propose readings — a model call, bounded
 POST /project/:id/ratify   the human act: approve or reject
+POST /project/:id/narrate  speak it once, hash it, freeze it, measure it
 POST /project/:id/compile  the plan, cached per primitive
 ```
 
@@ -131,12 +132,43 @@ POST /project/:id/compile  the plan, cached per primitive
   and the cut into shots.
 - `src/compile/shot-plan.ts` — what varies across a cut. Deterministic, and
   it escalates. A contested line is held flatter.
+- `src/compile/ground.ts` — **the second input.** A chain is a line and says
+  only "then"; a ground says "and". Decides — from the abstraction rung,
+  motion energy, density and restraint — whether a scene is composited over
+  its own small chain, and refuses on three stated grounds: a pinned scene,
+  a restrained film, and a contested line (which is never dramatised).
+- `src/narrate/` — narration as a frozen input artifact. `tts.ts` speaks it,
+  `align.ts` measures it, `index.ts` hashes both into R2 and names them on
+  the IR. Both calls are LADDERS that report the shape they could not use,
+  because the last serious bug here was an unverified assumption about a
+  Workers AI response shape.
 - `src/compile/hash.ts` · `cache.ts` — per-primitive SHA-256 node hashing
   over canonical JSON; cache diff with a stated reason per recomputation.
-- `src/primitives/registry.ts` — **generated**, 123 primitives / 20 families.
+  The node's ground is in the payload — swapping the layer behind a
+  sentence has to move the hash or the film keeps rendering the old one.
+- `src/primitives/registry.ts` — **generated**, 128 primitives / 20 families.
   Regenerate with `node scripts/gen-primitive-registry.mjs packages/studio/lab`.
 - `lab/` — the Lab. Where primitives actually paint (canvas, seeded, in the
   browser) and where one earns its place before being wired in.
+
+**Timing comes off the audio, not off character counts.** `POST
+/project/:id/narrate` speaks each scene once, hashes the bytes into R2,
+records an Asset with its provenance, measures word timings, and freezes the
+measurement as a second Asset. The anchors the segmenter authored
+(`{sceneId}_start` / `{sceneId}_end`) then resolve, `missing_alignment`
+clears, and the window is the measured one. Alignment is called what it is —
+`asr-proportional`, sentence boundaries landing on real word boundaries at
+real measured times — not dressed up as forced.
+
+**Two inputs, not two stacked frames.** Five compositors in `M · COMPOSITING`
+take a second input: `layer_over`, `layer_blend`, `layer_mask`,
+`field_displace`, `field_erode`. A compositor's first input is the previous
+stage's canvas — every primitive paints one — and its second is a GROUND, a
+chain of its own run on the same clock. Two of them are typed on that second
+input for real: `field_displace` and `field_erode` read a field's NUMBERS, so
+a branch that only paints a picture of a field is refused rather than
+silently doing nothing. This is what lets a gravity field move a sentence
+instead of being painted over by it.
 
 **A figure is not an interpretation.** This is the distinction that makes the
 whole thing work on real material. A *reading* — what a sentence is about — is
@@ -149,7 +181,9 @@ before a model has seen a single sentence.
 compiler. FILMS lists what is stored and takes a pasted essay; NARRATIVE shows
 the prose with every scene bound to its own span; EDITORIAL is the creative
 state, and dragging it writes a new IR version and reports what the edit cost;
-PREVIEW runs the real chain and exports a `.webm`; COMPILE is the audit;
+PREVIEW runs the real chain, plays the frozen narration on the Web Audio
+clock, and RENDER writes a `.webm` frame by exact index with the voice on its
+own track; COMPILE is the audit;
 LAB is where a primitive earns its place. Keyboard throughout, and `/` finds a
 scene by what it says.
 
@@ -158,35 +192,47 @@ resolver and the cost table in the browser. It reads the Worker's composition
 now — two implementations of one rule is how they disagreed about 57 of 88
 scenes without anyone noticing.
 
-**Tested** (125 tests): a hand-authored IR resolves to correct windows; an
+**Tested** (178 tests): a hand-authored IR resolves to correct windows; an
 unchanged recompile is 100% cache hit; editing one sentence recomputes only
 what depends on it; moving the last control point leaves the film's opening
 untouched and spends zero TTS; a pin survives a restyle with the tension
 reported; the same IR always produces the same hashes; the real essay segments,
 validates, compiles and re-compiles clean; and the flagship chain is asserted
-to consume its own upstream at every stage.
+to consume its own upstream at every stage. Narration: a frozen alignment
+clears `missing_alignment` AND moves the window to the measured time, audio
+survives a failed alignment, and one scene's failure degrades that scene
+only. Grounds: the ground reaches the hash, costs what it costs, and a field
+compositor refuses a ground that is not a field.
 
 **Known gaps, stated plainly.**
 
 - **No server-side renderer.** Chains execute in the browser, so a compile
   produces a plan and the export records the canvas in real time. That is L2
   honestly — frames are captured on the browser's clock — not L3.
-- **51 of 74 consumers still ignore their declared input.** The compiler
-  measures this (`usage.linkHonesty`, `usage.decorativeLinks`) and the Compile
-  view prints it, so pruning happens on evidence. A real film currently has
-  zero decorative links but roughly half its chain links are a source drawing
-  over the stage before it. That is the remaining debt and it is a list, not a
-  feeling.
-- **`POST /project/:id/read` has never run against a live model.** It needs the
-  deployed AI binding; every other path is exercised end to end.
+- **Roughly half of the palette's consumers still ignore their declared
+  input.** The compiler measures this (`usage.linkHonesty`,
+  `usage.decorativeLinks`, `usage.grounds`) and the Compile view prints it,
+  so pruning happens on evidence. A ground link is the one link that cannot
+  be decorative — a compositor reads both sides or draws nothing — which is
+  why grounds are counted separately rather than folded into the average.
+- **`POST /project/:id/narrate` has not run against the live AI binding.**
+  Both ladders were exercised against fakes covering every response shape
+  Workers AI has been known to return, and `POST /v1/tts/probe` exists to ask
+  production what it actually returns before trusting any of it. Until that
+  probe has run, the model names in `TTS_CANDIDATES` are candidates.
 
 ## What's next
 
-Stage 2 — the primitives that prove code is a medium, in this order:
-`noise_field` + `flow_field` → `glyph_to_points` → `particle_flow` +
-`particle_seek` → **motion craft layer** → compositing. Milestone: the
-text-dissolution chain runs end to end and a word assembles from scattered
-particles, holds, and dissolves into drift.
+Stage 2 is done. `noise_field` + `flow_field` → `glyph_to_points` →
+`particle_flow` + `particle_seek` → motion craft → compositing, and the
+milestone with it: the text-dissolution chain runs end to end, and with a
+ground under it a sentence now comes apart in the shape of the field acting
+on it rather than under a random mask.
+
+The immediate next thing is not a feature, it is a probe. Run
+`POST /v1/tts/probe` against production and find out what the TTS binding
+actually returns before a single scene is narrated for real — the last
+serious bug in this system was exactly this assumption left unchecked.
 
 Then Stage 3 (documentary workhorses), Stage 4 (Director's Control Surface,
 visual memory, override types), Stage 5 (remainder — cut from the bottom).

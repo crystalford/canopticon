@@ -42,7 +42,16 @@ const RENDER = {
  *  and driven by index, never rebuilt mid-film. */
 function buildForRender(plan, w, h) {
   return plan.scenes.map((scene) => {
-    const chain = scene.chain.map((n) => ({ id: n.id, params: n.params, seed: n.seed }));
+    const chain = scene.chain.map((n) => ({
+      id: n.id,
+      params: n.params,
+      seed: n.seed,
+      // A compositor's ground. Dropping it here would export a film whose
+      // second layer is missing while the Preview showed it — the two
+      // surfaces disagreeing about one plan is exactly the failure that
+      // made the Lab stop having a second engine.
+      ...(n.b ? { b: n.b } : {}),
+    }));
     const shots = (scene.shots || []).map((s) => ({
       startMs: s.startMs - scene.startMs,
       endMs: s.endMs - scene.startMs,
@@ -77,6 +86,13 @@ function drawFrame(ctx, scenes, frame, fps, w, h, chrome) {
     active.built.errors.slice(0, 5).forEach((e, i) => ctx.fillText(e, 24, 50 + i * 20));
   } else {
     const buf = active.single ? active.built.run(localMs / 1000) : active.built.run(localMs);
+    // CLEAR FIRST. A chain's last stage can hand back a buffer with
+    // transparency in it — field_erode does, by design — and drawing that
+    // over an uncleared canvas leaves the PREVIOUS FRAME showing through
+    // the holes. The film smears, and it smears in a way that looks like a
+    // deliberate effect until you step through it.
+    ctx.fillStyle = "#0d0f11";
+    ctx.fillRect(0, 0, w, h);
     ctx.drawImage(buf, 0, 0, w, h);
   }
 
