@@ -59,10 +59,45 @@ function viewPreview(root) {
    * parameters and its seeds, cut into the shots the solver decided. The
    * executor refuses a chain that does not typecheck and the refusal is
    * drawn on the frame rather than swallowed. */
+  /* A BOUNDED CACHE, BECAUSE THE FRAME BUFFERS ARE NOT FREE.
+   *
+   * This was an unbounded Map, cleared only on resize. Every scene the
+   * playhead touched built a chain of full-size canvases and kept them
+   * forever: ~31MB a scene at 1076×760, and the tab died at scene 21 of a
+   * 39-scene film. Canvas backing store is not in the JS heap, so
+   * `performance.memory` read a healthy 64MB right up to the crash, which
+   * is why this survived so long.
+   *
+   * The scene graph makes it worse, not better — a five-element scene
+   * nests a chain per element, and a multi-shot scene builds one per shot.
+   * A cache that cannot evict was always going to lose that race.
+   *
+   * Small on purpose. Playback is sequential, so the working set is the
+   * current scene and a couple either side for scrubbing; anything beyond
+   * that is holding memory against a scene nobody is looking at. Rebuilding
+   * is cheap — it is the ALLOCATION that hurts, and eviction is what makes
+   * the allocation reusable. */
+  const KEEP = 4;
   const built = new Map();
+  function evictOldest() {
+    // Map iterates in insertion order, and `runnerFor` re-inserts on every
+    // hit — so the first key is the least recently used.
+    while (built.size > KEEP) {
+      const oldest = built.keys().next().value;
+      const dead = built.get(oldest);
+      built.delete(oldest);
+      dead?.b?.dispose?.();
+    }
+  }
   function runnerFor(c) {
     const key = c.scene.id + "@" + cv.width + "x" + cv.height;
-    if (built.has(key)) return built.get(key);
+    if (built.has(key)) {
+      // Touch it, so recency is real rather than insertion order.
+      const hit = built.get(key);
+      built.delete(key);
+      built.set(key, hit);
+      return hit;
+    }
     const chain = c.nodes.map((n) => ({
       id: n.prim,
       params: n.params,
@@ -84,6 +119,7 @@ function viewPreview(root) {
         : buildChain(chain, cv.width, cv.height, dur);
     const wrapped = { b, single: shots.length <= 1 };
     built.set(key, wrapped);
+    evictOldest();
     return wrapped;
   }
 
@@ -91,6 +127,9 @@ function viewPreview(root) {
     const r = cv.parentElement.getBoundingClientRect();
     cv.width = Math.max(160, Math.round(r.width));
     cv.height = Math.max(90, Math.round(r.height));
+    // Every cached chain is keyed to the OLD size and its canvases are the
+    // old size too, so this is a full release rather than a drop.
+    for (const dead of built.values()) dead?.b?.dispose?.();
     built.clear();
   }
   resize();
@@ -353,9 +392,22 @@ function openRender() {
         },
       });
       const mb = (out.blob.size / 1e6).toFixed(1);
-      status.textContent = `${mb}MB · ${out.frames} frames · ${
-        out.frameExact ? "frame-exact" : "recorded in real time, NOT frame-exact"
-      } · ${Math.round((performance.now() - started) / 1000)}s`;
+      /* SAY WHETHER THE FILE'S CLOCK IS THE FILM'S CLOCK.
+       *
+       * "frame-exact" was the only claim made here, and it was true and
+       * beside the point: the frames were always exact and in order, and
+       * the FILE still ran nine times too long because the recorder
+       * stamps on arrival. A render step whose whole justification is
+       * knowing what you got has to report the one thing that was wrong. */
+      const runtime = out.frames / 30;
+      status.textContent =
+        `${mb}MB · ${out.frames} frames · ` +
+        (out.durationExact === false
+          ? `TOO LARGE TO TIME EXACTLY — the file will run longer than the film's ${fmt(runtime)}`
+          : out.late
+            ? `${fmt(runtime)}, approximately — ${out.late} frames arrived late`
+            : `${fmt(runtime)}, exact`) +
+        ` · ${Math.round((performance.now() - started) / 1000)}s`;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(out.blob);
       a.download = `${(F3.title || "film").replace(/[^\w-]+/g, "-").slice(0, 60)}.webm`;
