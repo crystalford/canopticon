@@ -377,7 +377,7 @@ const RECIPE: Record<Mode, Op[]> = {
   // was built on, repeated. Not a filled blob — that was the collapse.
   geometric: ["MARK", "CONTOUR", "PLACE", "FRAME"],
   // DEPTH: an open volume, peeled apart to show what is behind it.
-  structural: ["SOLID", "PLACE", "APERTURE"],
+  structural: ["SOLID", "PLACE", "FRAME"],
   // LANGUAGE as material.
   typographic: ["WORD", "PLACE", "FRAME"],
   // WHAT CONNECTS TO WHAT.

@@ -8,6 +8,51 @@
 
 ---
 
+## SCOPE — read this before picking anything up
+
+Three states, and they are not the same thing. A roadmap item is not
+permission; a tabled item is not a backlog.
+
+| | |
+|---|---|
+| **ACTIVE** | The spatial/semantic visual grammar. `representation → semantic scene → composition → geometry → camera`. This is the only thing to build. |
+| **ROADMAP** | Sequenced below. Work through it as a program, not one item at a time. |
+| **TABLED** | Discussed, deliberately not being built. **Do not touch without explicit reactivation.** |
+
+### ROADMAP — build, but not yet
+
+- **Continuous / one-shot as a FILM MODE.** Visual state persists across
+  every semantic event so an essay morphs, accumulates and travels
+  without cuts. The mechanism already exists as a single constraint —
+  `allowCut: false` in `film-state.ts` — because a cut is a grammatical
+  operation rather than the absence of one. It is **one flag on the
+  continuity vocabulary, not a second engine**, and that is the whole
+  design: the modes are constraints over one grammar.
+
+  | Mode | Continuity |
+  |---|---|
+  | Shot / film | state may reset at a CUT |
+  | One shot | state must persist; CUT forbidden |
+  | Montage | state deliberately fractures |
+  | Hybrid | continuous passages punctuated by cuts |
+
+  **Integrated after the spatial grammar is expressive**, not before —
+  a continuous sequence of weak frames is still weak. No further work on
+  it in the meantime.
+
+### TABLED — do not build
+
+- **React / any frontend framework.** The Lab is plain canvas and vanilla
+  JS with no build step, by design.
+- **TTS, voice and narration work.** A separate sidebar. The narration
+  pipeline that exists is frozen.
+
+The temporal work already committed (`scene-graph.ts` choreography,
+`film-state.ts` continuity) stays in the tree and keeps passing its
+tests. It is not the active line of work.
+
+---
+
 ## The architecture, as it stands
 
 ```

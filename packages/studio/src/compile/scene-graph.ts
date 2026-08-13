@@ -37,7 +37,7 @@ import { type SemanticScene, arrange } from "./semantic-scene.ts";
 /** What an element is FOR in the frame. Roles, not shapes — the same
  *  operations serve any of them, and the role decides scale, placement
  *  and how loudly it is composited. */
-export type Role = "GROUND" | "PRIMARY" | "SECONDARY" | "FIELD" | "TEXT";
+export type Role = "GROUND" | "PRIMARY" | "SECONDARY" | "FIELD" | "TEXT" | "SURFACE";
 
 export interface Element {
   role: Role;
@@ -65,6 +65,18 @@ const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi 
  *  a ground is FRAME at low weight, typography is WORD. Nothing here is a
  *  new vocabulary; it is the existing one used more than once per frame. */
 function opsFor(role: Role, mode: Mode): Op[] {
+  /* THE SURFACE THAT CONCEALS. An aperture is a RELATION BETWEEN TWO
+   * SPACES, so it cannot live inside one element's chain — it needs
+   * something behind it to reveal. Put in the element's op list it
+   * painted a mid-toned rectangle with a hole cut to the ground colour
+   * and nothing behind the hole, which is why the structural column was
+   * a plain rectangle in every row of every gallery even after the
+   * aperture primitive existed.
+   *
+   * As its own element, composited nearest, the knockout makes its
+   * opening transparent and whatever the scene put behind it shows
+   * through. Two elements, one relation — which is what it always was. */
+  if (role === "SURFACE") return ["APERTURE"];
   if (role === "TEXT") return ["WORD", "PLACE", "FRAME"];
   if (role === "FIELD") return ["REPEAT", "PLACE", "FRAME"];
   if (role === "GROUND")
@@ -75,7 +87,7 @@ function opsFor(role: Role, mode: Mode): Op[] {
     {
       literal: ["SOLID", "PLACE", "FRAME"],
       geometric: ["MARK", "CONTOUR", "PLACE", "FRAME"],
-      structural: ["SOLID", "PLACE", "APERTURE"],
+      structural: ["SOLID", "PLACE", "FRAME"],
       typographic: ["WORD", "PLACE", "FRAME"],
       diagrammatic: ["CONNECT", "PLACE", "FRAME"],
       symbolic: ["REPEAT", "CONTOUR", "PLACE", "FRAME"],
@@ -159,6 +171,19 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
       place: { scale: 1.1, x: (a.from.x + a.to.x) / 2, y: (a.from.y + a.to.y) / 2, crop: 0 },
       depth: 0.5,
       reason: "what runs between them",
+    });
+  }
+
+  // THE APERTURE, nearest, so everything the scene built is seen through
+  // it. This is what makes the structural reading structural: not a
+  // plane, but an inside and an outside.
+  if (mode === "structural") {
+    els.push({
+      role: "SURFACE",
+      ops: opsFor("SURFACE", mode),
+      place: { scale: 1, x: 0.5, y: 0.5, crop: 0 },
+      depth: 0.99,
+      reason: "a surface in front of it all — what is behind is seen only through the opening",
     });
   }
 
@@ -251,6 +276,16 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
     });
   }
 
+  if (mode === "structural") {
+    els.push({
+      role: "SURFACE",
+      ops: opsFor("SURFACE", mode),
+      place: { scale: 1, x: 0.5, y: 0.5, crop: 0 },
+      depth: 0.99,
+      reason: "a surface in front of it all — what is behind is seen only through the opening",
+    });
+  }
+
   // TYPOGRAPHY AS A SCENE ELEMENT rather than as the whole scene. In
   // every mode except the typographic one, where the words already ARE
   // the primary and a second copy would be a stutter.
@@ -334,9 +369,18 @@ export function serialiseScene(scene: SceneGraph, m: Material): PlannedNode[] {
            * quiet element, it is a missing one. Only the GROUND is
            * genuinely sunk, because a ground is the one thing that is
            * supposed to sit behind. */
-          opacity: { PRIMARY: 1, SECONDARY: 0.95, TEXT: 0.85, FIELD: 0.95, GROUND: 0.45 }[e.role],
+          opacity: {
+            PRIMARY: 1,
+            SECONDARY: 0.95,
+            TEXT: 0.85,
+            FIELD: 0.95,
+            GROUND: 0.45,
+            SURFACE: 1,
+          }[e.role],
           front: 1,
-          sink: { PRIMARY: 0, SECONDARY: 0.05, TEXT: 0.05, FIELD: 0.05, GROUND: 0.6 }[e.role],
+          sink: { PRIMARY: 0, SECONDARY: 0.05, TEXT: 0.05, FIELD: 0.05, GROUND: 0.6, SURFACE: 0 }[
+            e.role
+          ],
         },
         reason: e.reason,
         ground: chainFor(e),
