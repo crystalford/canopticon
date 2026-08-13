@@ -71,6 +71,7 @@ import { PRIMITIVES, canChain, chainCost } from "../primitives/registry.ts";
 import { chartFor, serialiseFigures } from "./figures.ts";
 import { EMPTY_READING, type IntentReading, bendStyle } from "./intent.ts";
 import { type Relation, relationBias } from "./relation.ts";
+import { type Representation, realisationFit, representationsFor } from "./represent.ts";
 import type { SceneKind } from "./scene-kind.ts";
 import type { DetectedSubject } from "./subject.ts";
 
@@ -299,6 +300,12 @@ export interface Program {
   why: string;
   costMsPerFrame: number;
   score: number;
+  /** WHICH KIND OF IMAGE this is — the representation it realises. Six
+   *  values, not a treatment: a typographic idea and a literal one are
+   *  different pictures of the same sentence, not two gradings of one. */
+  mode?: string;
+  /** The visual idea in the director's language, from `represent.ts`. */
+  idea?: string;
   /** Built against the grain of what the sentence names — a network made
    *  of people, a space standing in for its occupants. Carried so the
    *  Preview can say WHICH KIND of reading this is, because "the city is
@@ -387,7 +394,7 @@ const MANY =
 const SWARMING = /\b(synchron\w*|waves?|together|in step|coordinated|unison|formation|columns?)\b/i;
 const GROWING = /\b(dozens|hundreds|thousands|more|multiplied|spread|grew|growing|increasingly)\b/i;
 
-const CONSTRUCTIONS: Construction[] = [
+export const CONSTRUCTIONS: Construction[] = [
   /* ── A BODY. Segments, appendages, phase offsets, locomotion.
    *
    * This is the construction the whole argument turns on. The centipede
@@ -487,7 +494,31 @@ const CONSTRUCTIONS: Construction[] = [
    * four representations: solid, wireframe, technical, pixel. */
   {
     id: "fixture",
-    fit: (beat) => (beat.subjects[0]?.kind === "object" ? 1 : 0),
+    /* IT NOW REFUSES, which is what the comment below always said it
+     * should do and what the code did not.
+     *
+     * `kind === "object"` covers door, window, lock, gate, sign, screen,
+     * bed, mattress, bus, van, truck, pipe, valve, server and phone. This
+     * construction knows how to build exactly three of those shapes — a
+     * sensor, a sounder, a camera housing — and returned fit 1.0 for all
+     * of them, so every physical noun in a 257-word lexicon became a
+     * generic ceiling dome. That is the single line that made two
+     * feasibility demos into the ontology of the system.
+     *
+     * A construction may now only claim a sentence it can actually
+     * construct. With none of its three lookups hit it scores 0.12 — low
+     * enough to lose to any real reading, high enough to remain visible
+     * in the alternatives, because a director may still want a fixture. */
+    fit: (beat) => {
+      const s = beat.subjects[0];
+      if (!s || s.kind !== "object") return 0;
+      const noun = s.text.toLowerCase();
+      const knows =
+        /camera|dome|surveillance/.test(noun) ||
+        /speaker|alarm|siren/.test(noun) ||
+        /detector|sensor|thermostat|sprinkler/.test(noun);
+      return knows ? 1 : 0.12;
+    },
     // REFUSES. The whole point of this construction is that the noun
     // decides: a detector vents and blinks, a camera domes and does not.
     // With no object noun every one of those lookups misses and it builds
@@ -832,10 +863,7 @@ const CONSTRUCTIONS: Construction[] = [
               ]
             : []),
         ],
-        why:
-          mayDecompose(style)
-            ? "the sentence, set and coming apart"
-            : "the sentence, set",
+        why: mayDecompose(style) ? "the sentence, set and coming apart" : "the sentence, set",
       };
     },
   },
@@ -1109,9 +1137,45 @@ export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Pro
     Math.min(1, intent.dislocation * 0.7 + style.experimentalism * 0.2 + style.abstraction * 0.2),
   );
 
-  const applicable: { c: Construction; fit: number; dislocated: boolean }[] = [];
+  /* THE REPRESENTATION CANDIDATES, BEFORE ANY CONSTRUCTION IS CHOSEN.
+   *
+   * The layer this system did not have. A subject used to select a
+   * construction directly — one kind, one generator, score 1.0 — so the
+   * only thing a sentence could vary was which of five demo generators
+   * ran. Now the sentence first produces six genuinely different VISUAL
+   * IDEAS, weighted by checkable facts about the prose (is the noun used
+   * or merely invoked, did it print a figure, did it draw a route) and by
+   * the film's own state, and constructions compete to REALISE one.
+   *
+   * `fit` keeps its old job — is this construction suitable for this
+   * sentence — and gains no semantic responsibility. The choice of what
+   * KIND of image to make is made above it, which is the correction that
+   * stops this becoming the routing table again with more arithmetic. */
+  const reps = representationsFor(beat, style);
+
+  const applicable: {
+    c: Construction;
+    fit: number;
+    dislocated: boolean;
+    rep: Representation | null;
+  }[] = [];
   for (const c of CONSTRUCTIONS) {
-    const semantic = c.fit(beat) * (drewRoute && c.id !== "route" ? 0.5 : 1);
+    const raw0 = c.fit(beat) * (drewRoute && c.id !== "route" ? 0.5 : 1);
+    // The construction's suitability, multiplied by how well it serves
+    // the best idea it can serve. A construction that only realises the
+    // literal reading of a sentence whose literal reading was killed by a
+    // metaphor now scores near nothing — without anyone having written a
+    // rule about windows.
+    let best: Representation | null = null;
+    let bestScore = 0;
+    for (const rep of reps) {
+      const s2 = rep.weight * realisationFit(c.id, rep.mode);
+      if (s2 > bestScore) {
+        bestScore = s2;
+        best = rep;
+      }
+    }
+    const semantic = raw0 * (best ? 0.25 + bestScore * 0.75 : 1);
     if (semantic > 0) {
       // A DIRECTION THAT WANTS DISLOCATION DISCOUNTS THE LITERAL READING.
       //
@@ -1121,14 +1185,14 @@ export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Pro
       // has to become less compelling in proportion. Capped at 0.55 so
       // even a maximally strange direction can never make the sentence's
       // own subject unreachable.
-      applicable.push({ c, fit: semantic * (1 - appetite * 0.55), dislocated: false });
+      applicable.push({ c, fit: semantic * (1 - appetite * 0.55), dislocated: false, rep: best });
     }
     // Against the grain. Offered even at zero appetite so the picker can
     // always show what else the sentence could have been — it simply
     // scores too low to win until the director asks for it.
     const against = c.dislocate?.(beat) ?? 0;
     if (against > 0 && semantic <= 0) {
-      applicable.push({ c, fit: against * appetite, dislocated: true });
+      applicable.push({ c, fit: against * appetite, dislocated: true, rep: best });
     }
   }
 
@@ -1140,12 +1204,19 @@ export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Pro
   const stacks = operatorStacks(style, beat.index, intent);
   const programs: Program[] = [];
 
-  for (const { c, fit, dislocated } of considered) {
+  for (const { c, fit, dislocated, rep } of considered) {
     const built = c.build(beat, style);
     for (const stack of stacks) {
       const program = assemble(c.id, built, stack, style, budgetMs);
       if (!program) continue;
       program.dislocated = dislocated;
+      // The visual IDEA this program is a realisation of, carried onto
+      // the plan so the Studio can say what kind of image it is making
+      // rather than only which primitives it used.
+      if (rep) {
+        program.mode = rep.mode;
+        program.idea = rep.idea;
+      }
       // FIT DOMINATES. Weighted so that no operator stack can lift a
       // worse-fitting construction over a better one: a sentence that
       // draws a route through four stages is a route, and no amount of

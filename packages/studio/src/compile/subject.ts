@@ -567,7 +567,25 @@ export function subjectReading(
  *  sentence and nothing else; "it was a policy shift" is not a scene about
  *  a smoke detector because the word "it" appeared in it. Checkable
  *  against the prose like everything else here. */
-const ANAPHOR = /\b(them|they|their|these|those|it|its)\b/i;
+/* WHAT COUNTS AS REFERRING BACK.
+ *
+ * "it" and "its" were in this list, and they are why five scenes of a
+ * thirty-nine scene film were built from a noun that does not appear in
+ * them — s005 "When the printed page arrived IT did not simply carry
+ * speech" was built as a mounted fixture "from the word window", four
+ * sentences after the last window.
+ *
+ * Singular "it" is the least referential pronoun in English. It is a
+ * dummy subject far more often than a reference — "it is interesting",
+ * "it is now a thing that happens", "it says" — and it also routinely
+ * refers to something the sentence names ITSELF, as in the printed page
+ * above. Treating it as "still talking about the last object" is not a
+ * memory, it is a leak.
+ *
+ * The plural and demonstrative forms stay. They are strongly referential
+ * and they are the case this mechanism was written for — "then there were
+ * dozens of THEM, moving through the streets", which still works. */
+const ANAPHOR = /\b(them|they|their|these|those)\b/i;
 
 /** A subject specific enough that the sentence is plainly about it, rather
  *  than merely mentioning it. Above this, the sentence speaks for itself
