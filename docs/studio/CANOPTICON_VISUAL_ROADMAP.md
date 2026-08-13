@@ -106,6 +106,10 @@ Outstanding, in order of leverage:
 - **A constant tuned against one situation will break when the situation
   becomes directorial.** `formPoints`' 0.14 luminance floor assumed a
   near-black ground and broke the moment colour became a choice.
+- **Prefixes do not take a trailing word boundary.** `\baccumulat\b`
+  cannot match "accumulated". Five relation kinds were unreachable
+  because of it and their sentences fell through to CONNECTS. Found by
+  the continuity suite asking why an accumulation did not accumulate.
 - **The paired suite is the regression net, and it finds things.**
   `tests/semantic-scene.test.ts` holds minimal pairs where only the
   relationship changes. It caught `APPROACHES`/`DEPARTS` missing on its

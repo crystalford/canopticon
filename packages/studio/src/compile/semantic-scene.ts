@@ -108,48 +108,44 @@ export interface SemanticScene {
  * in one sentence are at minimum related. */
 const CONSEQUENCE: Array<[RegExp, RelationKind]> = [
   [
-    /\b(watch|watche[ds]|monitor|monitored|record|recorded|observe[ds]?|survey|surveilled|inspect|inspected|photograph|photographed|film|filmed|track|tracked)\b/i,
+    /\b(watch\w*|monitor\w*|observ\w*|survey\w*|surveill\w*|inspect\w*|photograph\w*|film(?:ed|s)?|track(?:ed|s)?)/i,
     "OBSERVES",
   ],
-  [
-    /\b(contain|contained|hold|held|house[ds]?|enclose[ds]?|surround|surrounded|inside|within|cover|covered)\b/i,
-    "CONTAINS",
-  ],
+  [/\b(contain\w*|hold|held|hous\w*|enclos\w*|surround\w*|inside|within|cover\w*)/i, "CONTAINS"],
   [
     /\b(becam|become[s]?|turn|turned|transform|transformed|made into|grew into|was never|is never|replace[ds]?)\b/i,
     "BECOMES",
   ],
   [
-    /\b(against|oppose[ds]?|resist|resisted|refus|contradict|contradicted|but|versus|rather than|instead of)\b/i,
+    /\b(against|oppos\w*|resist\w*|refus\w*|contradict\w*|but|versus|rather than|instead of)/i,
     "OPPOSES",
   ],
+  /* PREFIXES DO NOT TAKE A TRAILING WORD BOUNDARY. `\baccumulat\b` can
+   * never match "accumulated" — the boundary requires a non-word
+   * character after "accumulat" and an "e" follows. Every prefix pattern
+   * in this table had the same defect, so ACCUMULATES, EMERGES,
+   * APPROACHES, DEPARTS and half of CONNECTS were unreachable and their
+   * sentences fell through to CONNECTS. Caught by the continuity suite
+   * asking why "the residents accumulated into a system" did not
+   * accumulate. */
   [
-    /\b(accumulat|gather|gathered|pile|piled|collect|collected|amass|multiplied|spread|grew)\b/i,
+    /\b(accumulat\w*|gather\w*|pil(?:e|ed|ing)|collect\w*|amass\w*|multipl\w*|spread|grew)/i,
     "ACCUMULATES",
   ],
   // Proximity before connection: "moved toward" is a connection too, and
   // the closing of distance is the more specific reading.
+  [/\b(approach\w*|toward|towards|closer|nearer|arriv\w* at|converg\w*)/i, "APPROACHES"],
   [
-    /\b(approach|approached|toward|towards|closer|nearer|arriv(?:ed|ing) at|converg)\b/i,
-    "APPROACHES",
-  ],
-  [
-    /\b(moved away|away from|receded|withdrew|retreat|depart|left|further from|diverg)\b/i,
+    /\b(moved away|away from|reced\w*|withdrew|retreat\w*|depart\w*|left|further from|diverg\w*)/i,
     "DEPARTS",
   ],
+  [/\b(reveal\w*|expos\w*|uncover\w*|disclos\w*|show(?:ed|s)? through|through)/i, "REVEALS"],
   [
-    /\b(reveal|revealed|expose[ds]?|uncover|uncovered|disclos|show(?:ed|s)? through|through)\b/i,
-    "REVEALS",
-  ],
-  [
-    /\b(conceal|concealed|hid|hidden|obscur|cover(?:ed)? up|behind|buried|withheld|redact)\b/i,
+    /\b(conceal\w*|hid|hidden|obscur\w*|cover(?:ed)? up|behind|buried|withheld|redact\w*)/i,
     "CONCEALS",
   ],
-  [/\b(emerg|arriv|appear|came out|rose|surfac|issued|arose)\b/i, "EMERGES"],
-  [
-    /\b(carr|carried|connect|connected|link|linked|join|joined|sent|deliver|delivered|between)\b/i,
-    "CONNECTS",
-  ],
+  [/\b(emerg\w*|arriv\w*|appear\w*|came out|rose|surfac\w*|issued|arose)/i, "EMERGES"],
+  [/\b(carr\w*|connect\w*|link\w*|join\w*|sent|deliver\w*|between)/i, "CONNECTS"],
 ];
 
 const NEGATION = /\b(never|not|no longer|nothing|without|failed to|neither|nor|un[a-z]+ed)\b/i;
