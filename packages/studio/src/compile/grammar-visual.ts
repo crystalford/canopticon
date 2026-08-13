@@ -45,7 +45,9 @@ export type Op =
   | "REPEAT" // many of it, counted off the prose
   | "CONNECT" // this relates to that
   | "WORD" // the language itself, as material
-  | "MARK"; // a sign that stands in for the thing
+  | "MARK" // a sign that stands in for the thing
+  | "CONTOUR" // the edge of a form rather than the form
+  | "PLACE"; // how much of the frame it commands, and where
 
 /** What the grammar is given. Semantic material, never a primitive name
  *  and never a noun-keyed lookup. */
@@ -191,6 +193,57 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
     ),
   ],
 
+  // THE EDGE, NOT THE FILL. This is the whole distinction between
+  // depicting a thing and describing its shape, and its absence is why
+  // LITERAL and GEOMETRIC rendered as the same filled blob.
+  CONTOUR: (m) => [
+    n(
+      "contour",
+      {
+        thin: clamp(0.4 + m.abstraction * 0.5, 0, 1),
+        construction: clamp(0.2 + m.abstraction * 0.6, 0, 1),
+        seed: m.seed,
+      },
+      "reduced to its own edge, with the lines it was built on",
+    ),
+  ],
+
+  /* WHERE IT SITS AND HOW BIG IT IS.
+   *
+   * The gallery's real weakness was never a broken primitive: it was that
+   * every frame held ONE FORM, CENTRED, AT ONE SCALE. Every source draws
+   * itself where it wants to be, so the grammar could decide what to
+   * build and had no way to decide what the composition IS.
+   *
+   * Scale and position are read off the semantic material — a printed
+   * count makes a thing small in a large field, a metaphor pushes it off
+   * centre, density crops it — so this is a compositional decision rather
+   * than a parameter someone picked. */
+  PLACE: (m) => {
+    const many = m.count !== null && m.count > 12;
+    // A counted multitude is small against a big field; a single named
+    // thing is allowed to dominate. Deterministic per beat.
+    const scale = many ? 0.3 + m.density * 0.15 : 0.55 + (1 - m.density) * 0.5;
+    const off = ((m.seed * 37) % 100) / 100;
+    return [
+      n(
+        "place",
+        {
+          scale: clamp(scale, 0.05, 4),
+          // Off-centre in proportion to how far the film is from literal.
+          x: clamp(0.5 + (off - 0.5) * m.abstraction * 0.7, -0.4, 1.4),
+          y: clamp(0.5 + (0.5 - off) * m.abstraction * 0.45, -0.4, 1.4),
+          crop: scale > 1 ? 1 : 0,
+        },
+        many
+          ? `small against a large field — the prose counted ${m.count}`
+          : scale > 1
+            ? "larger than the frame, cropped by it"
+            : "given the frame, off centre",
+      ),
+    ];
+  },
+
   MARK: (m) => [
     n(
       "parametric_curve",
@@ -223,6 +276,8 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
  * payload contract was built to enforce, applied one layer up. */
 type Role = "SOURCE" | "TRANSFORM" | "RENDER";
 const ROLE: Record<Op, Role> = {
+  CONTOUR: "TRANSFORM",
+  PLACE: "TRANSFORM",
   APERTURE: "SOURCE",
   WORD: "SOURCE",
   MARK: "SOURCE",
@@ -234,18 +289,19 @@ const ROLE: Record<Op, Role> = {
 };
 
 const RECIPE: Record<Mode, Op[]> = {
-  // The thing itself: an open volume, cut, and drawn as line.
-  literal: ["APERTURE", "ENCLOSURE", "FRAME"],
-  // Pure form: a figure, cut against itself, drawn as line.
-  geometric: ["MARK", "ENCLOSURE", "FRAME"],
-  // Depth: an open volume, peeled apart to show what is behind it.
-  structural: ["APERTURE", "LAYER"],
-  // The words, drawn as geometry rather than typeset onto a plate.
-  typographic: ["WORD", "FRAME"],
-  // What connects to what.
-  diagrammatic: ["CONNECT", "FRAME"],
+  // THE THING: a solid, bounded, placed in the frame. A silhouette.
+  literal: ["APERTURE", "ENCLOSURE", "PLACE", "FRAME"],
+  // ITS SHAPE: the same kind of form taken to its edge, with the lines it
+  // was built on, repeated. Not a filled blob — that was the collapse.
+  geometric: ["MARK", "CONTOUR", "PLACE", "FRAME"],
+  // DEPTH: an open volume, peeled apart to show what is behind it.
+  structural: ["APERTURE", "PLACE", "LAYER"],
+  // LANGUAGE as material.
+  typographic: ["WORD", "PLACE", "FRAME"],
+  // WHAT CONNECTS TO WHAT.
+  diagrammatic: ["CONNECT", "PLACE", "FRAME"],
   // A repeated figure standing in for the thing.
-  symbolic: ["REPEAT", "FRAME"],
+  symbolic: ["REPEAT", "CONTOUR", "PLACE", "FRAME"],
 };
 
 /** Realise an idea as visual material.
@@ -266,5 +322,12 @@ export function opsFor(mode: Mode, m: Material): Op[] {
   // A SOURCE and a RENDER are structural — drop either and there is no
   // picture. Only the TRANSFORM is discretionary, so restraint removes
   // elaboration rather than removing the image.
-  return ops.filter((op) => ROLE[op] !== "TRANSFORM" || m.abstraction > 0.3);
+  //
+  // PLACE IS NEVER DISCRETIONARY. It was, and two LITERAL cells of the
+  // first gallery came back empty because of it: at low abstraction the
+  // filter dropped the placement and the source drew itself wherever it
+  // happened to draw itself, which on a wireframe is mostly off-frame.
+  // Deciding how much of the frame a form commands is composition, not
+  // elaboration — a restrained film still has to put the thing somewhere.
+  return ops.filter((op) => op === "PLACE" || ROLE[op] !== "TRANSFORM" || m.abstraction > 0.3);
 }

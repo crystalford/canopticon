@@ -231,3 +231,129 @@ reg(
   }),
   "Prints point geometry as a halftone plate. Dot weight keyed to how far each point has travelled, so the mark carries the deformation rather than only showing its result. Invert for the reversed spreads that alternate through Fiore's pages.",
 );
+
+/* ── COMPOSITION, as two general operations ───────────────────────────
+ *
+ * The gallery's biggest weakness was not a broken primitive. It was that
+ * every frame contained ONE FORM, CENTRED, AT ONE SCALE, on empty ground.
+ * Every geometry source draws itself where it wants to be, so the grammar
+ * could decide WHAT to build and had no way to decide how big it is,
+ * where it sits, or how much of the frame it commands.
+ *
+ * These two are general on purpose — they take a point set and return a
+ * point set, so they serve every representation rather than any subject.
+ * Neither knows what it is transforming.
+ */
+
+reg(
+  "place",
+  "B · VECTOR",
+  "GEOMETRY → GEOMETRY",
+  {
+    scale: { v: 1, lo: 0.05, hi: 4 },
+    x: { v: 0.5, lo: -0.4, hi: 1.4 },
+    y: { v: 0.5, lo: -0.4, hi: 1.4 },
+    crop: { v: 0, lo: 0, hi: 1, int: 1 },
+  },
+  (p) => ({
+    frame(ctx, w, h, _t, upstream) {
+      bg(ctx, w, h);
+      const pts = (upstream && upstream.geometry) || [];
+      if (!pts.length) return { geometry: [] };
+      // The form's own bounds, so `scale` means "this fraction of the
+      // frame" rather than "this multiple of whatever it happened to be".
+      let mnx = 1e9;
+      let mny = 1e9;
+      let mxx = -1e9;
+      let mxy = -1e9;
+      for (const q of pts) {
+        if (q.x < mnx) mnx = q.x;
+        if (q.x > mxx) mxx = q.x;
+        if (q.y < mny) mny = q.y;
+        if (q.y > mxy) mxy = q.y;
+      }
+      const fw = Math.max(1, mxx - mnx);
+      const fh = Math.max(1, mxy - mny);
+      const k = (p.scale * Math.min(w, h)) / Math.max(fw, fh);
+      const cx = (mnx + mxx) / 2;
+      const cy = (mny + mxy) / 2;
+      const tx = p.x * w;
+      const ty = p.y * h;
+      const out = [];
+      for (const q of pts) {
+        const x = tx + (q.x - cx) * k;
+        const y = ty + (q.y - cy) * k;
+        // CROP IS A COMPOSITIONAL ACT. A form running off the edge is a
+        // decision — it says the thing is bigger than the frame — so the
+        // points outside are DROPPED rather than clamped into a smear.
+        if (p.crop > 0.5 && (x < -4 || y < -4 || x > w + 4 || y > h + 4)) continue;
+        out.push({ x, y, x0: tx + (q.x0 - cx) * k, y0: ty + (q.y0 - cy) * k, v: q.v });
+      }
+      return { geometry: out };
+    },
+  }),
+  "Scales, positions and optionally crops a point set against the frame. The one operation that lets a composition decide how much of the frame a form commands and where the eye lands, without any primitive knowing what it is drawing.",
+);
+
+reg(
+  "contour",
+  "B · VECTOR",
+  "GEOMETRY → GEOMETRY",
+  {
+    thin: { v: 0.6, lo: 0, hi: 1 },
+    construction: { v: 0.35, lo: 0, hi: 1 },
+    seed: { v: 7, lo: 1, hi: 9999, int: 1 },
+  },
+  (p) => ({
+    frame(ctx, w, h, _t, upstream) {
+      bg(ctx, w, h);
+      const pts = (upstream && upstream.geometry) || [];
+      if (!pts.length) return { geometry: [] };
+      // THE EDGE OF THE FORM, NOT THE FORM. This is the difference
+      // between LITERAL and GEOMETRIC: a filled silhouette says "the
+      // thing"; its outline plus construction lines says "the thing's
+      // shape". They were collapsing into the same filled blob because
+      // nothing could take one to the other.
+      const cell = Math.max(4, Math.round(10 - p.thin * 6));
+      const grid = new Set();
+      for (const q of pts) grid.add(`${Math.round(q.x / cell)},${Math.round(q.y / cell)}`);
+      const out = [];
+      for (const q of pts) {
+        const gx = Math.round(q.x / cell);
+        const gy = Math.round(q.y / cell);
+        // A point is on the edge when a neighbouring cell is empty.
+        const edge =
+          !grid.has(`${gx - 1},${gy}`) ||
+          !grid.has(`${gx + 1},${gy}`) ||
+          !grid.has(`${gx},${gy - 1}`) ||
+          !grid.has(`${gx},${gy + 1}`);
+        if (edge) out.push(q);
+      }
+      // CONSTRUCTION LINES — the marks a drawing is built on. Deterministic
+      // from the bounds, so the same form always gets the same scaffold.
+      if (p.construction > 0.02 && out.length) {
+        let mnx = 1e9;
+        let mny = 1e9;
+        let mxx = -1e9;
+        let mxy = -1e9;
+        for (const q of out) {
+          if (q.x < mnx) mnx = q.x;
+          if (q.x > mxx) mxx = q.x;
+          if (q.y < mny) mny = q.y;
+          if (q.y > mxy) mxy = q.y;
+        }
+        const lines = 2 + Math.round(p.construction * 5);
+        const step = Math.max(3, Math.round(9 - p.construction * 5));
+        for (let i = 0; i < lines; i++) {
+          const f = (i + 1) / (lines + 1);
+          const yy = mny + (mxy - mny) * f;
+          const xx = mnx + (mxx - mnx) * f;
+          for (let x = mnx; x <= mxx; x += step) out.push({ x, y: yy, x0: x, y0: yy, v: 0.35 });
+          for (let y = mny; y <= mxy; y += step) out.push({ x: xx, y, x0: xx, y0: y, v: 0.35 });
+        }
+      }
+      return { geometry: out };
+    },
+  }),
+  "Reduces a filled form to its own edge, and optionally lays construction lines across its bounds. The operation that separates depicting a thing from describing its shape — and the reason LITERAL and GEOMETRIC stop being the same picture.",
+);
