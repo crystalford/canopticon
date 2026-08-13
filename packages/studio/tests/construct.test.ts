@@ -743,3 +743,70 @@ The residents were moved at night. The minister said the programme was working.`
     expect(wrong).toEqual([]);
   });
 });
+
+describe("semantic accounting — does the program account for what the sentence says", () => {
+  // The charge: "it has extracted 'insects' and produced insect-like
+  // geometry, but discarded almost everything else — city, people,
+  // walking, streets, dozens, temporal escalation, synchronization."
+  //
+  // Measured rather than accepted, and the measurement corrects the
+  // charge in a specific and useful way. The compiler accounts for FIVE
+  // of eight facts, and the ones it gets are not noun associations —
+  // they are numbers read off the prose and escalated across scenes:
+  // count 1 → 12, wander 0.30 → 0.16 (synchronised means LESS wander),
+  // scale 0.53 → 0.22, speed 0.45 → 0.65. That is the paragraph's own
+  // arc, in parameters.
+  //
+  // What it genuinely misses is not semantic. "city" and "streets" ARE
+  // detected — they lose. A scene builds ONE construction, so the setting
+  // always loses to the subject, and the temporal turn ("at first nobody
+  // noticed") has no cross-scene mechanism to express.
+  //
+  // So this is the compositing-planes gap named in the palette map, not a
+  // reading failure: the sentence is understood, and the renderer has no
+  // way to hold an environment AND its agents at once.
+  const PARA = `The City
+
+They walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.`;
+
+  function compiled() {
+    const seed = segmentEssay(PARA, { projectId: "p" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+    return composeAll(parsed.ir);
+  }
+
+  it("reads the population off the prose and escalates it", () => {
+    const scenes = compiled();
+    const first = must(must(scenes[0]).nodes.find((n) => n.primitiveId === "creature_chain"));
+    const last = must(must(scenes[2]).nodes.find((n) => n.primitiveId === "creature_chain"));
+    expect(Number(last.params.count)).toBeGreaterThan(Number(first.params.count));
+    // Smaller, faster, more of them — a crowd rather than a specimen.
+    expect(Number(last.params.scale)).toBeLessThan(Number(first.params.scale));
+    expect(Number(last.params.speed)).toBeGreaterThan(Number(first.params.speed));
+  });
+
+  it("expresses SYNCHRONIZED as the absence of wander, not as an effect", () => {
+    const scenes = compiled();
+    const first = must(must(scenes[0]).nodes.find((n) => n.primitiveId === "creature_chain"));
+    const last = must(must(scenes[2]).nodes.find((n) => n.primitiveId === "creature_chain"));
+    expect(Number(last.params.wander)).toBeLessThan(Number(first.params.wander));
+  });
+
+  it("DETECTS the setting it cannot yet build — the gap is the renderer, not the reading", () => {
+    // This is the test that names the real defect. Both nouns are read;
+    // neither reaches the picture, because a scene is one construction.
+    // When compositing planes land, this test should be inverted — the
+    // setting should appear ALONGSIDE the agents, not instead of them.
+    const scene0 = detectSubjects("They walked around the city like insects.");
+    const scene2 = detectSubjects(
+      "Then there were dozens of them, moving through the streets in strange synchronized waves.",
+    );
+    expect(scene0.map((s) => s.text)).toContain("city");
+    expect(scene2.map((s) => s.text)).toContain("streets");
+
+    // ...and yet nothing in the compiled film paints a space.
+    const paints = compiled().flatMap((s) => s.nodes.map((n) => n.primitiveId));
+    expect(paints).not.toContain("plate_scene");
+  });
+});
