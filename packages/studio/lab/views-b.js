@@ -294,8 +294,65 @@ function viewCompile(root) {
     <div class="sec secline"><span class="k">Build history</span>
      ${CACHE.history.map((h) => `<div class="hrow"><b>${h.at.toTimeString().slice(0, 8)}</b><em>${h.miss} recomputed of ${h.total}</em><u>${h.ms.toFixed(1)}s</u></div>`).join("") || '<div class="empty">NONE</div>'}</div>
     <div class="sec secline"><span class="k">Reported tensions</span>
-     ${F3.overrides.map((o) => `<div class="ruleHit">PIN ${o.sceneId.toUpperCase()} held against a rising abstraction curve. Not resolved — reported.</div>`).join("") || '<div class="empty">NONE</div>'}</div>
+     ${tensions()}</div>
+    <div class="sec secline"><span class="k">Chain honesty</span>
+     ${chainHonesty()}</div>
    </div></div></div>`;
+}
+
+/** WHAT THE COMPILER ACTUALLY SAID.
+ *
+ *  This panel used to write its own sentence for every override — "held
+ *  against a rising abstraction curve" — whether or not the curve was
+ *  rising and whether or not anything was in tension. The compiler already
+ *  reports tensions, in its own words, and the whole reason it reports
+ *  rather than resolves is so a human reads the actual sentence. */
+function tensions() {
+  const w = (window.STUDIO.plan && window.STUDIO.plan.warnings) || [];
+  if (window.STUDIO.demo) {
+    return F3.overrides.length
+      ? F3.overrides
+          .map((o) => `<div class="ruleHit">PIN ${o.sceneId.toUpperCase()} — example only.</div>`)
+          .join("")
+      : '<div class="empty">NONE</div>';
+  }
+  return w.length
+    ? w.map((x) => `<div class="ruleHit">${esc(x)}</div>`).join("")
+    : '<div class="empty">NONE — no invariant bit, no rule was overruled, no pin is in tension</div>';
+}
+
+/** How much of this film's chaining is real.
+ *
+ *  A five-primitive chain that renders as its last element looks five times
+ *  richer than a chain of one. Stating the proportion is what stops the
+ *  Compile view — the view whose whole claim is that it is deliberately
+ *  boring and fully auditable — from being the most flattering surface in
+ *  the app. */
+function chainHonesty() {
+  const scenes = F3.scenes || [];
+  let links = 0;
+  let real = 0;
+  const over = [];
+  for (const s of scenes) {
+    const chain = s.chain || [];
+    for (let i = 1; i < chain.length; i++) {
+      links++;
+      const spec = PRIMS[chain[i]];
+      const io = spec ? spec.io.split("→")[0].trim() : "—";
+      // A stage with no declared input overwrites what came before it.
+      if (io === "—") over.push(chain[i - 1] + " → " + chain[i]);
+      else real++;
+    }
+  }
+  if (!links) return '<div class="empty">SINGLE-PRIMITIVE SCENES</div>';
+  const pct = Math.round((real / links) * 100);
+  const counts = new Map();
+  for (const o of over) counts.set(o, (counts.get(o) ?? 0) + 1);
+  const worst = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  return `<div class="meta">${M({
+    "links that carry something": pct + "%",
+    "painted over": over.length + " of " + links,
+  })}</div>${worst.map(([l, n]) => `<div class="mono pv-note">${esc(l)} · ×${n}</div>`).join("")}`;
 }
 
 /* ══ LAB ════════════════════════════════════════════════ */

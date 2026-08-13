@@ -136,6 +136,7 @@ async function openFilm(id) {
       filmsSay("built-in example — nothing behind it but this page");
     } else {
       filmsSay("compiling…");
+      busy(true, "compiling the film");
       const film = await loadProject(id);
       filmsSay(`${film.title} — ${film.scenes.length} scenes, ${fmt(film.runtime)}`);
     }
@@ -148,6 +149,7 @@ async function openFilm(id) {
   } catch (err) {
     filmsSay(err.message);
   } finally {
+    busy(false);
     FILMS_BUSY = false;
   }
 }
@@ -158,6 +160,7 @@ async function filmAction(kind, id) {
   try {
     if (kind === "read") {
       filmsSay("proposing readings — the one model call in the system…");
+      busy(true, "reading — one model call, bounded");
       const r = await readProject(id, 12);
       filmsSay(
         r.proposed === 0 && r.remaining === 0
@@ -177,6 +180,7 @@ async function filmAction(kind, id) {
   } catch (err) {
     filmsSay(err.message);
   } finally {
+    busy(false);
     FILMS_BUSY = false;
   }
 }
@@ -189,7 +193,9 @@ async function filmsIngest() {
   FILMS_BUSY = true;
   try {
     filmsSay("segmenting…");
+    busy(true, "segmenting — deterministic, no model");
     const r = await ingestEssay(essay);
+    busy(false);
     box.value = "";
     await filmsRefresh();
     // Open it immediately. Segmenting and then being returned to a list is

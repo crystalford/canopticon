@@ -35,6 +35,24 @@ function go(v) {
   stopLoops();
   render();
 }
+
+/** A film compiles on open, and an eighty-eight scene investigation takes a
+ *  couple of seconds. Without this the window simply stopped responding and
+ *  the only signal was that nothing happened — which reads as broken, not
+ *  as working. */
+function busy(on, what) {
+  let el = document.getElementById("busy");
+  if (!on) {
+    if (el) el.remove();
+    return;
+  }
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "busy";
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<div class="busy-box"><i></i>${what || "working"}</div>`;
+}
 /* THE EDIT ACTUALLY SAVES.
  *
  * Dragging a curve used to mutate the in-memory film and light a DIRTY
@@ -79,6 +97,7 @@ async function saveNow() {
     APP.saveState = `not saved — ${err.message}`;
     renderBar();
   } finally {
+    busy(false);
     SAVING = false;
   }
 }
@@ -87,6 +106,7 @@ function renderBar() {
   const run = window.__lastRun;
   document.getElementById("bar").innerHTML = `<div class="logo">${MARK}<b>CANOPTICON</b></div>
    <div class="nav">${VIEWS.map(([id, l]) => `<button class="${APP.view === id ? "on" : ""}" data-go="${id}">${l}</button>`).join("")}</div>
+   <div class="keyhint" id="keyhint"></div>
    <div class="barstate">
      <span title="${window.FILM.title.replace(/"/g, "&quot;")}">${window.FILM.title.length > 42 ? window.FILM.title.slice(0, 40).toUpperCase() + "…" : window.FILM.title.toUpperCase()}</span>
      ${window.STUDIO && window.STUDIO.demo ? '<span class="tag">EXAMPLE</span>' : ""}
@@ -96,6 +116,10 @@ function renderBar() {
      <span>${fmt(window.FILM.runtime)}</span>
    </div>`;
   document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => go(b.dataset.go)));
+  const hint = document.getElementById("keyhint");
+  if (hint) {
+    hint.innerHTML = KEYS.map(([k, what]) => `<span><kbd>${k}</kbd>${what}</span>`).join("");
+  }
 }
 function dirtyCount() {
   const r = dryRun();
@@ -147,6 +171,139 @@ function render() {
     lab: viewLab,
   })[APP.view](v);
 }
+/* ── KEYBOARD ─────────────────────────────────────────────────────────
+ *
+ * There was none. On a nine-scene example that is a preference; on an
+ * eighty-eight scene investigation it is the difference between an
+ * instrument and a form, because every act of comparison — this scene
+ * against the next, this rung against the one below — was a mouse
+ * round-trip to a list.
+ *
+ * Nothing here is a chord. A director's hands are on the arrow keys.
+ */
+const KEYS = [
+  ["1–6", "switch view"],
+  ["← →", "previous / next scene"],
+  ["space", "play · pause"],
+  ["/", "find a scene"],
+  ["esc", "films"],
+];
+
+function stepScene(delta) {
+  const scenes = window.FILM.scenes;
+  if (!scenes.length) return;
+  const at = Math.max(0, scenes.findIndex((s) => s.id === APP.sel));
+  const next = scenes[Math.min(scenes.length - 1, Math.max(0, at + delta))];
+  if (!next) return;
+  APP.sel = next.id;
+  // Moving the selection moves the playhead, so Preview and Editorial agree
+  // about which scene is being looked at.
+  PLAY.t = next.t0 + 0.01;
+  render();
+}
+
+function onKey(e) {
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea") {
+    if (e.key === "Escape") e.target.blur();
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  const viewKey = VIEWS[Number(e.key) - 1];
+  if (viewKey) {
+    e.preventDefault();
+    go(viewKey[0]);
+    return;
+  }
+  if (e.key === "ArrowRight") {
+    e.preventDefault();
+    stepScene(1);
+  } else if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    stepScene(-1);
+  } else if (e.key === " ") {
+    e.preventDefault();
+    PLAY.on = !PLAY.on;
+    const pp = document.getElementById("pp");
+    if (pp) pp.textContent = PLAY.on ? "PAUSE" : "PLAY";
+  } else if (e.key === "/") {
+    e.preventDefault();
+    openFinder();
+  } else if (e.key === "Escape") {
+    if (document.getElementById("finder")) closeFinder();
+    else go("films");
+  }
+}
+
+/* ── SCENE FINDER ─────────────────────────────────────────────────────
+ *
+ * Search the film by its own prose. An investigation's scenes are
+ * sentences, so the only search term anyone actually has is a phrase they
+ * remember reading — "Niagara", "$282", "nothing changed" — and matching
+ * on the narration is both the simplest implementation and the only one
+ * that fits how a director thinks about their own essay.
+ */
+function openFinder() {
+  if (document.getElementById("finder")) return;
+  const el = document.createElement("div");
+  el.id = "finder";
+  el.innerHTML = `<div class="finder-box">
+    <input id="finder-q" placeholder="find a scene — by what it says" autocomplete="off">
+    <div id="finder-list"></div>
+  </div>`;
+  document.body.appendChild(el);
+  el.onclick = (e) => {
+    if (e.target === el) closeFinder();
+  };
+  const q = document.getElementById("finder-q");
+  q.oninput = () => paintFinder(q.value);
+  q.onkeydown = (e) => {
+    if (e.key === "Enter") {
+      const first = document.querySelector("#finder-list [data-jump]");
+      if (first) jumpTo(first.dataset.jump);
+    }
+  };
+  q.focus();
+  paintFinder("");
+}
+
+function paintFinder(term) {
+  const t = term.trim().toLowerCase();
+  const hits = window.FILM.scenes
+    .filter((s) => !t || s.text.toLowerCase().includes(t) || s.label.toLowerCase().includes(t))
+    .slice(0, 40);
+  document.getElementById("finder-list").innerHTML = hits.length
+    ? hits
+        .map(
+          (s) => `<button class="finder-row" data-jump="${s.id}">
+        <b>${String(s.n).padStart(2, "0")}</b>
+        <span>${s.text.replace(/[<>&]/g, "").slice(0, 96)}</span>
+        <i>${s.fn.toUpperCase()} · ${fmt(s.t0)}</i></button>`,
+        )
+        .join("")
+    : `<p class="finder-empty">Nothing in this film says that.</p>`;
+  for (const b of document.querySelectorAll("#finder-list [data-jump]")) {
+    b.onclick = () => jumpTo(b.dataset.jump);
+  }
+}
+
+function jumpTo(sceneId) {
+  const s = window.FILM.scenes.find((x) => x.id === sceneId);
+  if (!s) return;
+  APP.sel = sceneId;
+  PLAY.t = s.t0 + 0.01;
+  closeFinder();
+  render();
+}
+
+function closeFinder() {
+  const el = document.getElementById("finder");
+  if (el) el.remove();
+}
+
+window.addEventListener("keydown", onKey);
+
 window.addEventListener("DOMContentLoaded", async () => {
   window.__lastRun = dryRun();
   commit(window.__lastRun);
@@ -174,6 +331,11 @@ Object.assign(window, {
   renderBar,
   markDirty,
   saveNow,
+  busy,
+  openFinder,
+  jumpTo,
+  stepScene,
+  KEYS,
   sliderHTML,
   bindSliders,
   fmt,
