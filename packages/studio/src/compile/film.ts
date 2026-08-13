@@ -15,7 +15,7 @@
 // One real decision does live here, and it is stated rather than hidden:
 // how a shot's variation reaches the primitives. See `shotParams`.
 
-import type { EditorialIR } from "../ir/schema.ts";
+import type { Colour, EditorialIR } from "../ir/schema.ts";
 import { PRIMITIVES } from "../primitives/registry.ts";
 import type { ComposedNode } from "./compose.ts";
 import type { CompileReport } from "./index.ts";
@@ -105,6 +105,10 @@ export interface FilmPlan {
   ttsCalls: 0;
   determinism: string;
   peakCostMsPerFrame: number;
+  /** THE FILM'S COLOUR, as the four directorial numbers — never as hex.
+   *  The compiler carries the intent; the renderer owns the one function
+   *  that turns it into a palette. */
+  colour: Colour;
   scenes: FilmScene[];
   warnings: string[];
 }
@@ -265,6 +269,7 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
     ttsCalls: 0,
     determinism: report.determinism,
     peakCostMsPerFrame: report.peakCostMsPerFrame,
+    colour: ir.cinematography.colour,
     scenes,
     warnings: report.warnings,
   };

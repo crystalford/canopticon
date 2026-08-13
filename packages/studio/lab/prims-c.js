@@ -1091,7 +1091,7 @@ reg(
           ctx.translate(w / 2 + Math.cos(a) * (R + 18), h / 2 + Math.sin(a) * (R + 18));
           ctx.rotate(a + 1.57);
           ctx.font = "7px JetBrains Mono";
-          ctx.fillStyle = "#9ba3aa";
+          ctx.fillStyle = MUT;
           ctx.textAlign = "center";
           ctx.fillText(String(2003 + i), 0, 0);
           ctx.restore();

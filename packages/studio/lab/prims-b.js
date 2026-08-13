@@ -879,7 +879,7 @@ rasterPrim(
         const v = im.data[i] / 255;
         const th = (B[((y / c) | 0) % 4][((x / c) | 0) % 4] / 16) * (1.4 - p.threshold);
         if (v > th) {
-          ctx.fillStyle = v > 0.85 ? EMB : "#eef1f3";
+          ctx.fillStyle = v > 0.85 ? EMB : INK;
           ctx.fillRect(x, y, c, c);
         }
       }
@@ -900,7 +900,7 @@ rasterPrim(
           sy = Math.round(y + Math.cos(a) * c * 0.5);
         if (sx < 0 || sx >= w || sy < 0 || sy >= h) continue;
         const v = im.data[(sy * w + sx) * 4] / 255;
-        ctx.fillStyle = v > 0.8 ? EMB : "#eef1f3";
+        ctx.fillStyle = v > 0.8 ? EMB : INK;
         ctx.beginPath();
         ctx.arc(sx, sy, v * c * 0.62, 0, 6.3);
         ctx.fill();

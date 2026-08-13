@@ -98,6 +98,10 @@ function viewPreview(root) {
 
   let cur = "";
   loop(() => {
+    // The film's colour, before anything paints. Cheap (five assignments)
+    // and unconditional, so there is no path that draws a frame in a
+    // palette the film did not ask for.
+    applyFilmPalette();
     const now = performance.now();
     const dt = PLAY.last ? (now - PLAY.last) / 1000 : 0;
     PLAY.last = now;

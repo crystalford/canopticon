@@ -37,9 +37,9 @@ reg(
           key = k;
           pts = layoutGlyphs(p.text, w, h, Math.round(p.sampling), p.scale, Math.round(p.rotate));
         }
-        ctx.fillStyle = "#0d0f11";
+        ctx.fillStyle = BG;
         ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = "#eef1f3";
+        ctx.fillStyle = INK;
         for (const q of pts) ctx.fillRect(q.x, q.y, 2, 2);
         lab(ctx, `${pts.length} PTS · GEOMETRY OUT`, 10, h - 14);
         // The point of the payload: hand the POINTS downstream, not the
@@ -101,7 +101,7 @@ reg(
     const noise = vnoise(4242);
     return {
       frame(ctx, w, h, t, upstream) {
-        ctx.fillStyle = "#0d0f11";
+        ctx.fillStyle = BG;
         ctx.fillRect(0, 0, w, h);
         const src = upstream && upstream.geometry;
         if (!src || src.length === 0) {
@@ -158,7 +158,7 @@ reg(
           return { x: nx, y: ny, x0: q.x0, y0: q.y0 };
         });
 
-        ctx.fillStyle = "#eef1f3";
+        ctx.fillStyle = INK;
         for (const q of out) ctx.fillRect(q.x, q.y, 2, 2);
         lab(ctx, `MORPH ${["SHEAR", "SCATTER", "COLLAPSE"][mode]} ${phase.toFixed(2)}`, 10, h - 14);
         return { geometry: out };
@@ -182,8 +182,8 @@ reg(
   (p) => ({
     frame(ctx, w, h, t, upstream) {
       const inverted = p.invert > 0.5;
-      const ink = inverted ? "#0d0f11" : "#eef1f3";
-      const paper = inverted ? "#eef1f3" : "#0d0f11";
+      const ink = inverted ? BG : INK;
+      const paper = inverted ? INK : BG;
 
       // Trail as a held wash rather than a clear: on a fast cut it leaves
       // just enough of the previous phase to read as motion.
@@ -199,7 +199,7 @@ reg(
           "geometry_draw: no upstream GEOMETRY",
           10,
           h / 2,
-          inverted ? "#0d0f11" : undefined,
+          inverted ? BG : undefined,
         );
         return;
       }
@@ -225,7 +225,7 @@ reg(
         `${pts.length} PTS · ${inverted ? "REVERSED" : "PLATE"}`,
         10,
         h - 14,
-        inverted ? "#3a4045" : undefined,
+        inverted ? MUT : undefined,
       );
     },
   }),

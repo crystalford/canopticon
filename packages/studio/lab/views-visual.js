@@ -68,6 +68,40 @@ function visualSay(text, kind) {
   if (el) el.outerHTML = noticeHTML(VISUAL_NOTE, "visual-note");
 }
 
+
+/* ── COLOUR, THE DIRECTOR'S FOUR NUMBERS ──────────────────────────────
+ *
+ * These are the whole cinematography control today, and they are real:
+ * every one of them moves the ground, the ink, the mid tones and the
+ * accent together through `resolvePalette`. There is no fifth hidden
+ * setting and no per-primitive colour to hunt for.
+ *
+ * Named looks are shown as coordinates rather than modes — a look reads
+ * as "in use" only while the dials still sit where it put them, so
+ * nudging one does not leave a preset lit that no longer describes the
+ * film. */
+const COLOUR_DIALS = [
+  ["key", "Key", "dark ground", "paper"],
+  ["temperature", "Temperature", "cold", "warm"],
+  ["saturation", "Saturation", "monochrome", "saturated"],
+  ["contrast", "Contrast", "flat", "hard"],
+];
+
+/** A look is "in use" only while the film still sits on its coordinates. */
+function LOOK_MATCH(a, b) {
+  if (!b) return false;
+  return COLOUR_DIALS.every(([k]) => Math.abs((a[k] ?? 0) - (b[k] ?? 0)) < 0.02);
+}
+
+/** Show what the colour actually IS. A colour control with no colour on
+ *  it is the one kind of control that has no excuse. */
+function SWATCH(colour) {
+  const p = resolvePalette(colour);
+  return [p.bg, p.ink, p.muted, p.accent]
+    .map((c) => `<i style="background:${c}"></i>`)
+    .join("");
+}
+
 function viewVisual(root) {
   const film = window.FILM;
   const chosen = film.visualLanguage || "documentary";
@@ -128,6 +162,34 @@ function viewVisual(root) {
       not a setting. They live in <span class="mono">experiments/strategy.ts</span>,
       nothing in the compiler imports them, and they are deliberately not offered
       here until they are in the pipeline.
+    </div>
+  </section>
+
+  <section class="vsec">
+    <div class="vsech">
+      <h2>Cinematography — colour</h2>
+      <div class="note">${
+        live
+          ? "How the film is lit and graded. Four continuous choices, not a filter menu."
+          : "The example film is fixed. Open a stored film to change its colour."
+      }</div>
+    </div>
+    <div class="vgrid looks">
+      ${LOOKS.map((l) => {
+        const on = LOOK_MATCH(l.colour, film.colour);
+        return `<button class="vcard look ${on ? "on" : ""}" data-look="${l.id}" ${live ? "" : "disabled"}>
+          <span class="swatch">${SWATCH(l.colour)}</span>
+          <b>${l.name}</b>
+          <p>${l.blurb}</p>
+        </button>`;
+      }).join("")}
+    </div>
+    <div class="cdials" id="cdials"></div>
+    <div class="vfoot">
+      A named look is a POSITION in these four numbers, not a preset — pick one and
+      then move a dial and you are still somewhere the system understands. Colour
+      belongs to the film; a primitive decides what it draws, never what colour the
+      film is.
     </div>
   </section>
 
@@ -261,10 +323,80 @@ function viewVisual(root) {
       render();
     };
   }
+  /* THE DIALS. Rendered after the shell so they can reuse the app's own
+   * slider, and debounced into one save per drag — a colour dial dragged
+   * across its range would otherwise be forty recompiles. */
+  const dialHost = root.querySelector("#cdials");
+  if (dialHost) {
+    const c = { ...COLOUR_DEFAULT, ...(film.colour || {}) };
+    dialHost.innerHTML = COLOUR_DIALS.map(([id, name, lo, hi]) =>
+      sliderHTML(id, name, c[id], lo, hi, c[id].toFixed(2)),
+    ).join("");
+    bindSliders(dialHost, null, (id, v) => {
+      if (!live) return;
+      c[id] = v;
+      // Repaint the dial and the swatches immediately; the film follows
+      // when the drag settles.
+      film.colour = { ...c };
+      applyFilmPalette(c);
+      const row = dialHost.querySelector(`[data-sl="${id}"] .slh i`);
+      if (row) row.textContent = v.toFixed(2);
+      const bars = dialHost.querySelectorAll(`[data-sl="${id}"] .bars s`);
+      const f = Math.round(v * bars.length);
+      bars.forEach((b, i) => {
+        b.className = i < f - 1 ? "f" : i === f - 1 ? "h" : "";
+      });
+      queueColour(root, c);
+    });
+  }
+
+  root.querySelectorAll("[data-look]").forEach((b) => {
+    b.onclick = async () => {
+      if (b.disabled) return;
+      const look = LOOKS.find((l) => l.id === b.dataset.look);
+      if (!look) return;
+      window.FILM.colour = { ...look.colour };
+      applyFilmPalette(look.colour);
+      await commitColour(root, look.colour, look.name);
+    };
+  });
+
   const probe = root.querySelector("#films-probe");
   if (probe) probe.onclick = runProbe;
   const aud = root.querySelector("#films-audition");
   if (aud) aud.onclick = runAudition;
+}
+
+let COLOUR_TIMER = null;
+function queueColour(root, colour) {
+  clearTimeout(COLOUR_TIMER);
+  COLOUR_TIMER = setTimeout(() => commitColour(root, colour, null), 700);
+}
+
+/** Write the colour, recompile, and say what it cost. Identical rail to a
+ *  curve drag and a language change, for the identical reason: it changes
+ *  how the film depicts, never what it says, and it can never spend
+ *  narration. */
+async function commitColour(root, colour, lookName) {
+  if (!backendReachable()) return;
+  visualSay(lookName ? `grading — ${lookName}…` : "grading…", "working");
+  try {
+    const r = await setColour(colour);
+    await loadProject(window.STUDIO.projectId);
+    window.__lastRun = dryRun();
+    commit(window.__lastRun);
+    VISUAL_NOTE = {
+      kind: "ok",
+      text:
+        `${lookName ? `${lookName}. ` : "Graded. "}` +
+        `${r.cache.misses} of ${r.cache.total} primitives recomputed, ${r.ttsCalls} narration calls. ` +
+        `Version ${r.irVersion}.`,
+      action: null,
+    };
+    render();
+  } catch (err) {
+    visualSay(`That grade did not take — ${err.message}`, "problem");
+  }
 }
 
 /** Run the probe and print what came back, whole.

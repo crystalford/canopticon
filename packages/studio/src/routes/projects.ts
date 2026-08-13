@@ -1254,6 +1254,9 @@ app.post("/project/:id/creative-state", async (c) => {
      *  stored snapshot, and the cache diff handed back. Structurally zero
      *  TTS — restyling a film has never been allowed to cost speech. */
     visualLanguage?: string;
+    /** The film's colour, as the four directorial numbers. Same rail as a
+     *  curve drag: validated, versioned, recompiled, cost reported. */
+    colour?: Record<string, number>;
   };
 
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
@@ -1269,6 +1272,13 @@ app.post("/project/:id/creative-state", async (c) => {
     ...current.ir,
     visualLanguage: (body.visualLanguage ??
       current.ir.visualLanguage) as EditorialIR["visualLanguage"],
+    cinematography: {
+      ...current.ir.cinematography,
+      colour: {
+        ...current.ir.cinematography.colour,
+        ...(body.colour ?? {}),
+      },
+    },
     creativeState: {
       ...current.ir.creativeState,
       identity: body.identity ?? current.ir.creativeState.identity,
@@ -1288,13 +1298,18 @@ app.post("/project/:id/creative-state", async (c) => {
   const nextVersion = project.current_ir_version + 1;
   const changedLanguage =
     body.visualLanguage !== undefined && body.visualLanguage !== current.ir.visualLanguage;
+  const changedColour = body.colour !== undefined;
   await writeVersion(
     c.env,
     projectId,
     parsed.ir,
     nextVersion,
     project.current_ir_version,
-    changedLanguage ? `Visual language → ${parsed.ir.visualLanguage}` : "Creative state edited",
+    changedLanguage
+      ? `Visual language → ${parsed.ir.visualLanguage}`
+      : changedColour
+        ? "Colour changed"
+        : "Creative state edited",
   );
   await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
     nextVersion,
@@ -1311,6 +1326,7 @@ app.post("/project/:id/creative-state", async (c) => {
     projectId,
     irVersion: nextVersion,
     visualLanguage: parsed.ir.visualLanguage,
+    colour: parsed.ir.cinematography.colour,
     cache: report.cache,
     ttsCalls: report.ttsCalls,
     warnings: report.warnings,

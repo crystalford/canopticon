@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { composeAll } from "../src/compile/compose.ts";
 import { controlPointPositions, resolveStateAt } from "../src/compile/creative-state.ts";
+import { buildFilmPlan } from "../src/compile/film.ts";
 import { canonicalJSON, nodeHash } from "../src/compile/hash.ts";
 import { compile } from "../src/compile/index.ts";
 import { nominalAlignment, solveTiming, splitSentences } from "../src/compile/solver.ts";
@@ -350,6 +351,26 @@ describe("the Stage 1 milestone", () => {
     // The timing is untouched — the language changes how a sentence is
     // drawn, never how long it is on screen.
     expect(second.timing.runtimeMs).toBe(first.timing.runtimeMs);
+  });
+
+  /* COLOUR IS A REAL PROPERTY OF THE FILM, not a renderer preference.
+   *
+   * Measured before this existed: 105 of 129 primitives rendered a frame
+   * below luminance 40/255, all of it decided by five constants no
+   * director could reach. The four numbers now travel on the IR and onto
+   * the film plan, and the renderer owns the single function that turns
+   * them into hex — so the compiler can be asked whether it CARRIES the
+   * intent without knowing anything about colour. */
+  it("carries the film's colour onto the plan without resolving it", async () => {
+    const ir = buildFixtureIR();
+    ir.cinematography.colour = { key: 0.9, temperature: 0.66, saturation: 0.36, contrast: 0.72 };
+    const report = await compile(ir);
+    const plan = buildFilmPlan(ir, report);
+    expect(plan.colour).toEqual(ir.cinematography.colour);
+    // The compiler never decides what a colour IS. If a hex string ever
+    // appears in the plan's colour, the translation point has moved and
+    // there are two of them again.
+    expect(JSON.stringify(plan.colour)).not.toMatch(/#[0-9a-f]{3}/i);
   });
 
   it("changing one sentence recomputes only that scene", async () => {

@@ -71,13 +71,53 @@ function glyphPoints(text, w, h, step, font) {
 
 /* ── primitive registry ───────────────────────────────── */
 const PRIMS = {};
-const INK = "#eef1f3",
-  EMB = "#d8624a",
-  MUT = "#9ba3aa",
-  COOL = "#6f9ec4",
-  BG = "#0d0f11";
+
+/* ── THE FILM'S COLOUR, NOT THE PRIMITIVE'S ───────────────────────────
+ *
+ * These five were `const`, and between them they decided the tonal world
+ * of every frame Canopticon has ever produced. Measured across all 129
+ * primitives at 854×480: 105 of them rendered below luminance 40/255 and
+ * 86 below contrast 20. That is the "grey murk" complaint, and it was
+ * never 129 decisions — it was this block, unreachable from anywhere.
+ *
+ * They are now `let`, written once per scene by `setPalette()` from the
+ * four directorial numbers the film carries (see palette.js). Every
+ * `bg()` call and every `INK` / `EMB` / `MUT` / `COOL` reference in the
+ * ten primitive modules picks the change up on the next frame, because
+ * they resolve the identifier at draw time rather than capturing it.
+ *
+ * A primitive still decides WHAT it draws. It no longer decides what
+ * colour the film is.
+ */
+let INK = "#eef1f3";
+let EMB = "#d8624a";
+let MUT = "#9ba3aa";
+let COOL = "#6f9ec4";
+let BG = "#0d0f11";
+/** Barely off the ground — grids, hairlines, the marks that give a frame
+ *  depth without asking to be read. Previously every primitive that
+ *  wanted one hardcoded its own near-black. */
+let DIM = "#191d21";
+let BG_RGB = [13, 15, 17];
+/** How light the world is (0 dark → 1 paper). A primitive that needs to
+ *  know whether it is drawing light onto dark or marks onto paper asks
+ *  this instead of trying to infer it from the ground colour. */
+let KEY = 0.12;
+
+function setPalette(p) {
+  if (!p) return;
+  INK = p.ink;
+  EMB = p.accent;
+  MUT = p.muted;
+  COOL = p.cool;
+  BG = p.bg;
+  DIM = p.dim;
+  BG_RGB = p.bgRgb;
+  KEY = p.key;
+}
+
 function bg(ctx, w, h, a) {
-  ctx.fillStyle = a ? "rgba(13,15,17," + a + ")" : BG;
+  ctx.fillStyle = a ? `rgba(${BG_RGB[0]},${BG_RGB[1]},${BG_RGB[2]},${a})` : BG;
   ctx.fillRect(0, 0, w, h);
 }
 function lab(ctx, t, x, y, c) {

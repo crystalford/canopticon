@@ -219,6 +219,9 @@ function toFilm(ir, plan, storedVersion) {
     // since construct.ts was written, and until now unreachable from any
     // surface — see the creative-state route.
     visualLanguage: ir.visualLanguage || "documentary",
+    // The film's colour, as the four directorial numbers. Never hex —
+    // resolvePalette() is the only thing that turns these into colours.
+    colour: { ...COLOUR_DEFAULT, ...((ir.cinematography && ir.cinematography.colour) || {}) },
     acts,
     scenes,
     runtime: total / 1000,
@@ -338,6 +341,19 @@ async function setVisualLanguage(name) {
   return r;
 }
 
+/** THE FILM'S COLOUR, changed. Same rail as a curve drag or a language
+ *  change: a new IR version, a recompile, the cost reported. */
+async function setColour(colour) {
+  const id = window.STUDIO.projectId;
+  if (!id) throw new Error("no film open");
+  const r = await api(`/project/${id}/creative-state`, {
+    method: "POST",
+    body: JSON.stringify({ colour }),
+  });
+  window.STUDIO.cache = r.cache;
+  return r;
+}
+
 /** DIRECT — choose one of the interpretations the engine proposed.
  *
  *  Writes a pin, which precedence 1 already honours. The engine stops
@@ -413,6 +429,7 @@ Object.assign(window, {
   releaseScene,
   saveCreativeState,
   setVisualLanguage,
+  setColour,
   compileProject,
   lastProjectId: () => {
     try {
