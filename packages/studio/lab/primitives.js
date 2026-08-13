@@ -191,8 +191,25 @@ function formPoints(ctx, w, h) {
       // Luminance against the palette's own ground. A primitive that
       // painted its background and nothing else emits no geometry, which
       // is the honest answer for an empty frame.
+      // DISTANCE FROM THE FILM'S OWN GROUND, not a fixed brightness.
+      //
+      // This was `if (v < 0.14) continue` — keep anything brighter than
+      // 0.14 — which silently assumed the ground was the near-black
+      // #0d0f11 it had been since the palette was five constants. The
+      // moment colour became directorial and a film could have a PAPER
+      // ground, every background pixel passed, `formPoints` returned all
+      // 24000 grid cells, and every GEOMETRY payload in the system became
+      // a solid field of dots. Three of six representation modes rendered
+      // as uniform texture because of this one comparison.
+      //
+      // A form is what DIFFERS from the ground. That is true whether the
+      // ground is black, white or amber, and it is the only version of
+      // this test that survives a director changing the key.
+      const dr = d[i] - BG_RGB[0];
+      const dg = d[i + 1] - BG_RGB[1];
+      const db = d[i + 2] - BG_RGB[2];
+      if (dr * dr + dg * dg + db * db < 900) continue;
       const v = (d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722) / 255;
-      if (v < 0.14) continue;
       const px = x * kx;
       const py = y * ky;
       pts.push({ x: px, y: py, x0: px, y0: py, v });
