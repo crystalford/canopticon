@@ -78,6 +78,15 @@ const narrateProject = (id, opts) =>
     body: JSON.stringify(opts || {}),
   });
 
+/** ASK PRODUCTION WHAT THE VOICE ACTUALLY IS.
+ *
+ *  Stores nothing, changes nothing, and reports every TTS and ASR
+ *  candidate: what each returned, how many bytes, and the structural shape
+ *  of anything unusable. The one question that cannot be answered from a
+ *  local Worker, asked from the instrument rather than from a workflow
+ *  file. */
+const probeVoice = () => api("/tts/probe", { method: "POST", body: JSON.stringify({}) });
+
 /** Build the view model from the IR and the compiled plan.
  *
  *  Every field here is carried across, not invented. Where the prototype's
@@ -334,6 +343,7 @@ Object.assign(window, {
   loadDemo,
   ratifyScenes,
   narrateProject,
+  probeVoice,
   directScene,
   directVerb,
   releaseScene,

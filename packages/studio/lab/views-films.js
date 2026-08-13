@@ -71,6 +71,17 @@ function viewFilms(el) {
     </div>
 
     <div class="sec secline">
+      <span class="k">THE VOICE</span>
+      <div class="films-actions">
+        <button class="btn" id="films-probe">PROBE THE BINDING</button>
+        <span class="mono films-hint">Asks production what its speech models actually return.
+          Stores nothing, spends one call per candidate, and is the check to run before
+          narrating anything for real.</span>
+      </div>
+      <pre class="mono probe-out" id="probe-out"></pre>
+    </div>
+
+    <div class="sec secline">
       <span class="k">THE THREE STEPS</span>
       <div class="mono films-steps">
         <p><b>SEGMENT</b> — acts from the essay's own headings, scenes bound to the prose by
@@ -99,6 +110,8 @@ function viewFilms(el) {
   }
   const ing = document.getElementById("films-ingest");
   if (ing) ing.onclick = filmsIngest;
+  const probe = document.getElementById("films-probe");
+  if (probe) probe.onclick = runProbe;
 }
 
 function filmRow(p, cur) {
@@ -286,6 +299,39 @@ async function narrateFilm(id) {
     await loadProject(id);
     window.__lastRun = dryRun();
     commit(window.__lastRun);
+  }
+}
+
+/** Run the probe and print what came back, whole.
+ *
+ *  Deliberately a raw dump rather than a summary. The entire point of this
+ *  button is to see the SHAPE — a summary would be one more layer between
+ *  a person and the thing that was unverified. */
+async function runProbe() {
+  const out = document.getElementById("probe-out");
+  if (!out) return;
+  out.textContent = "asking…";
+  try {
+    const r = await probeVoice();
+    const lines = [];
+    for (const s of r.speech || []) {
+      lines.push(
+        s.ok
+          ? `SPEECH  ok    ${s.model}\n        ${s.bytes} bytes ${s.contentType} via ${s.via} · ${s.wallMs}ms\n        first bytes ${(s.firstBytes || []).join(" ")}`
+          : `SPEECH  FAIL  ${s.model}\n        ${s.outcome}${s.shape ? `\n        returned ${s.shape}` : ""}`,
+      );
+    }
+    for (const t of r.transcription || []) {
+      lines.push(
+        t.ok
+          ? `TIMING  ok    ${t.model}\n        ${t.words} words, ${t.durationMs}ms measured · ${t.wallMs}ms\n        ${t.shape}`
+          : `TIMING  FAIL  ${t.model}\n        ${t.outcome || "no usable timings"}${t.shape ? `\n        returned ${t.shape}` : ""}`,
+      );
+    }
+    lines.push("", r.note || "");
+    out.textContent = lines.join("\n");
+  } catch (err) {
+    out.textContent = `could not reach the compiler — ${err.message}`;
   }
 }
 
