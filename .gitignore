@@ -58,3 +58,4 @@ supabase/.temp/
 # Rendered films — regenerable from essay.md + direction.json via
 # scripts/make-film.ts and scripts/render-offline.mjs. Tens of MB each.
 packages/studio/films/**/out/*.webm
+packages/studio/films/strategies/out/*.webm
