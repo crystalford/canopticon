@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-13T01:45:33Z",
+  "run_id": "31658703764",
+  "method": "POST",
+  "path": "/v1/project/proj_305611e441404d1e97fa/read",
+  "status": 200,
+  "body": "{\n  \"projectId\": \"proj_305611e441404d1e97fa\",\n  \"proposed\": 0,\n  \"declined\": 8,\n  \"remaining\": 118\n}"
+}
