@@ -37,6 +37,18 @@ export interface ReadingProposal {
      *  A degraded reading is still a usable one — standing rule 8 — but it
      *  must never be mistaken for the model's. */
     fallback: boolean;
+    /** WHY it declined, when it did.
+     *
+     *  The first live run of this route declined 8 of 8 sentences and there
+     *  was no way to tell which failure it was: a missing binding, a thrown
+     *  call, unparseable output, or a model that answered with no usable
+     *  subjects all produced the identical `reading: null`. "Declined" is a
+     *  legitimate result and a broken binding is a bug, and a diagnostic
+     *  that cannot separate them is not a diagnostic. */
+    declineReason?: "no-binding" | "call-failed" | "unparseable" | "no-subjects";
+    /** The first 240 characters of what the model actually said. Kept only
+     *  on a decline — on success the reading itself is the evidence. */
+    rawSample?: string;
   };
 }
 
@@ -137,6 +149,9 @@ export async function proposeReading(
 ): Promise<ReadingProposal> {
   const createdAt = new Date().toISOString();
 
+  let reason: NonNullable<ReadingProposal["provenance"]["declineReason"]> = "no-binding";
+  let rawSample: string | undefined;
+
   if (ai) {
     try {
       const out = (await ai.run(EXTRACTION_MODEL, {
@@ -146,7 +161,9 @@ export async function proposeReading(
         ],
         max_tokens: 500,
       })) as { response?: string };
-      const parsed = parseReading(out.response ?? "", sentence);
+      const raw = out.response ?? "";
+      rawSample = raw.slice(0, 240);
+      const parsed = parseReading(raw, sentence);
       if (parsed) {
         return {
           reading: parsed,
@@ -158,9 +175,13 @@ export async function proposeReading(
           },
         };
       }
-    } catch {
-      // Fall through to the deterministic reader. A failed extraction
-      // degrades one scene; it does not block the film.
+      // Separate "the model wrote something that is not JSON" from "the
+      // model wrote JSON with nothing usable in it". They are different
+      // problems with different fixes — one is a prompt, one is a schema.
+      reason = /[{}]/.test(raw) ? "no-subjects" : "unparseable";
+    } catch (err) {
+      reason = "call-failed";
+      rawSample = err instanceof Error ? err.message.slice(0, 240) : String(err).slice(0, 240);
     }
   }
 
@@ -175,6 +196,8 @@ export async function proposeReading(
       createdAt,
       sourceText: sentence,
       fallback: true,
+      declineReason: reason,
+      ...(rawSample ? { rawSample } : {}),
     },
   };
 }

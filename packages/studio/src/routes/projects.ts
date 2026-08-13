@@ -328,10 +328,24 @@ app.post("/project/:id/read", async (c) => {
 
   let proposed = 0;
   let declined = 0;
+  // A decline is a legitimate result; a broken binding is a bug. Reporting
+  // only the count made them indistinguishable, and the first live run of
+  // this route declined 8 of 8 with no way to tell which had happened.
+  const why: Record<string, number> = {};
+  const samples: { sentence: string; reason: string; said: string }[] = [];
   for (const scene of pending) {
     const result = await proposeReading(c.env.AI, scene.narration.text);
     if (!result.reading) {
       declined++;
+      const r = result.provenance.declineReason ?? "unknown";
+      why[r] = (why[r] ?? 0) + 1;
+      if (samples.length < 3) {
+        samples.push({
+          sentence: scene.narration.text.slice(0, 90),
+          reason: r,
+          said: result.provenance.rawSample ?? "",
+        });
+      }
       continue;
     }
     const at = scenes.findIndex((s) => s.sceneId === scene.sceneId);
@@ -344,6 +358,8 @@ app.post("/project/:id/read", async (c) => {
       projectId,
       proposed,
       declined,
+      why,
+      samples,
       remaining: scenes.filter((s) => !s.reading).length,
     });
   }
@@ -367,6 +383,8 @@ app.post("/project/:id/read", async (c) => {
     irVersion: nextVersion,
     proposed,
     declined,
+    why,
+    samples,
     remaining: scenes.filter((s) => !s.reading).length,
     // Named so the Compile view can state provenance rather than presenting
     // a machine's guess as a fact about the essay.
