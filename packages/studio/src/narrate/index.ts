@@ -338,31 +338,51 @@ export async function loadAlignments(
   const alignments = new Map<string, Alignment>();
   const stale: string[] = [];
 
-  for (const scene of ir.scenes) {
-    const id = scene.narration.alignmentAssetId;
-    if (!id) continue;
-    const asset = ir.assets.find((a) => a.assetId === id);
-    if (!asset) {
-      stale.push(`${scene.sceneId}: alignment asset ${id} is not in the IR`);
+  // FETCHED IN PARALLEL, NOT ONE AT A TIME.
+  //
+  // This was a sequential loop: one R2 round trip and one SHA-256 per
+  // scene, awaited in order. On a sixty-one scene film that is sixty-one
+  // serial round trips inside a single request, and a compile that should
+  // take a second took long enough to look hung. The verification is not
+  // optional — a swapped artifact must not re-time a film silently — but
+  // nothing about it needs to happen in sequence.
+  const loaded = await Promise.all(
+    ir.scenes.map(async (scene) => {
+      const id = scene.narration.alignmentAssetId;
+      if (!id) return null;
+      const asset = ir.assets.find((a) => a.assetId === id);
+      if (!asset) {
+        return { error: `${scene.sceneId}: alignment asset ${id} is not in the IR` };
+      }
+      const obj = await env.FILES.get(asset.r2Key);
+      if (!obj) {
+        return {
+          error: `${scene.sceneId}: alignment object ${asset.r2Key} is missing from storage`,
+        };
+      }
+      const text = await obj.text();
+      const actual = await sha256Hex(text);
+      if (actual !== asset.sha256) {
+        return { error: `${scene.sceneId}: alignment bytes do not match the approved hash` };
+      }
+      const parsed = JSON.parse(text) as { chunks?: Alignment["chunks"] };
+      if (!parsed.chunks?.length) {
+        return { error: `${scene.sceneId}: alignment artifact has no chunks` };
+      }
+      return { sceneId: scene.sceneId, chunks: parsed.chunks };
+    }),
+  );
+
+  // Collected in the IR's scene order, because `sequenceAlignments` walks
+  // that order and a Map built from a race would still be correct but
+  // would make a diff of this function's output depend on timing.
+  for (const entry of loaded) {
+    if (!entry) continue;
+    if ("error" in entry) {
+      stale.push(entry.error);
       continue;
     }
-    const obj = await env.FILES.get(asset.r2Key);
-    if (!obj) {
-      stale.push(`${scene.sceneId}: alignment object ${asset.r2Key} is missing from storage`);
-      continue;
-    }
-    const text = await obj.text();
-    const actual = await sha256Hex(text);
-    if (actual !== asset.sha256) {
-      stale.push(`${scene.sceneId}: alignment bytes do not match the approved hash`);
-      continue;
-    }
-    const parsed = JSON.parse(text) as { chunks?: Alignment["chunks"] };
-    if (!parsed.chunks?.length) {
-      stale.push(`${scene.sceneId}: alignment artifact has no chunks`);
-      continue;
-    }
-    alignments.set(scene.sceneId, { sceneId: scene.sceneId, chunks: parsed.chunks });
+    alignments.set(entry.sceneId, { sceneId: entry.sceneId, chunks: entry.chunks });
   }
 
   return { alignments, stale };

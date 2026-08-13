@@ -1287,3 +1287,20 @@
   flex: 1;
   min-width: 220px;
 }
+
+/* Whether this film can be heard. A plan is fetched once, so a film
+ * narrated after it was opened has a voice in storage and none in the
+ * tab — and silence is indistinguishable from a broken feature unless
+ * something says which it is. */
+.vostate {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  padding: 0 4px;
+}
+.vostate.quiet {
+  color: #69717a;
+}
+.vostate.on {
+  color: #7ea88c;
+}

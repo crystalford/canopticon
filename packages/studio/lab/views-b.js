@@ -16,6 +16,7 @@ function viewPreview(root) {
        <button class="btn" id="pp">${PLAY.on ? "PAUSE" : "PLAY"}</button>
        <div class="tl" id="tl"><div class="tlfill"></div><div class="tlhead"></div></div>
        <span class="mono tc" id="tc">0:00</span>
+       <span class="mono vostate" id="vostate"></span>
        <button class="btn primary" id="pvrender">RENDER…</button>
      </div>
    </div>
@@ -176,6 +177,28 @@ function viewPreview(root) {
     stopNarration();
     if (PLAY.on && window.STUDIO.plan) await playNarration(window.STUDIO.plan, PLAY.t * 1000);
   };
+  /* WHETHER THIS FILM CAN BE HEARD, said on the transport.
+   *
+   * A plan is fetched once when a film is opened, and the plan is what
+   * carries the audio. So a film narrated after it was opened has a voice
+   * in storage and none in the tab — and PLAY did nothing, silently,
+   * which is indistinguishable from a broken feature.
+   *
+   * It is not the compiler's job to poll for this. It IS its job to say
+   * which of the two states you are in. */
+  const state = document.getElementById("vostate");
+  if (state) {
+    const vo = narrationStatus(window.STUDIO.plan || {});
+    state.textContent = window.STUDIO.demo
+      ? "EXAMPLE · SILENT"
+      : vo.narrated === 0
+        ? "SILENT — reopen from FILMS if you have narrated it"
+        : vo.silent > 0
+          ? `VOICE · ${vo.narrated}/${vo.total} SCENES`
+          : `VOICE · ${fmt(vo.ms / 1000)}`;
+    state.className = `mono vostate ${vo.narrated === 0 ? "quiet" : "on"}`;
+  }
+
   drawPvRight(sceneAt(PLAY.t));
 }
 
