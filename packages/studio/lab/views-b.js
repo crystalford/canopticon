@@ -331,9 +331,29 @@ const CONSTRUCTION_WORDS = {
   space: "A space rather than a word",
   type: "The sentence, set",
 };
+/** Operators as past participles. "then quantise, then scanline" is a list
+ *  of identifiers with a conjunction between them; "then quantised, then
+ *  scanned" is a sentence. This panel is the one surface written for a
+ *  person rather than for the compiler, so it should read like one. */
+const OPERATOR_WORDS = {
+  quantise: "quantised",
+  pixelate: "resolved down",
+  dither: "dithered",
+  scanline: "scanned",
+  halftone: "halftoned",
+  threshold: "reduced to light and dark",
+  sort: "sorted along its own rows",
+  split: "pulled apart into channels",
+  fragment: "taken apart into its own points",
+  trace: "transcribed as characters",
+  grade: "graded",
+  soften: "softened",
+};
 function ideaSentence(idea) {
   const head = CONSTRUCTION_WORDS[idea.construction] || idea.construction;
-  return idea.operators.length ? `${head} — then ${idea.operators.join(", then ")}.` : `${head}.`;
+  if (!idea.operators.length) return `${head}.`;
+  const words = idea.operators.map((o) => OPERATOR_WORDS[o] || o);
+  return `${head} — then ${words.join(", then ")}.`;
 }
 
 function drawPvRight(c) {
