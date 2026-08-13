@@ -7,7 +7,10 @@
 
 import { Hono } from "hono";
 import type { CacheSnapshot } from "../compile/cache.ts";
+import { EXTRACTION_MODEL, proposeReading } from "../compile/extract-reading.ts";
+import { buildFilmPlan } from "../compile/film.ts";
 import { compile } from "../compile/index.ts";
+import { segmentEssay } from "../compile/segment.ts";
 import type { Env } from "../env.ts";
 import { type EditorialIR, parseIR } from "../ir/schema.ts";
 import { all, newId, nowIso, one, run } from "../lib/d1.ts";
@@ -51,6 +54,151 @@ app.post("/project", async (c) => {
     return c.json({ projectId: id, irVersion: 1 }, 201);
   }
   return c.json({ projectId: id, irVersion: 0 }, 201);
+});
+
+/** ESSAY IN.
+ *
+ *  The intake the compiler did not have. Post prose, get a project whose
+ *  IR is a real, compilable film: acts from the essay's own headings,
+ *  scenes bound to it by character offset, quantities lifted verbatim.
+ *
+ *  Nothing here calls a model, so this costs nothing and always answers.
+ *  What it does NOT produce is readings — what each sentence is ABOUT is an
+ *  interpretation, it goes through `POST /project/:id/read` where an
+ *  operator ratifies it, and a scene without one falls back to the film's
+ *  abstraction curve rather than to a guess.
+ *
+ *  Re-posting an essay to an existing project appends a new IR version
+ *  rather than overwriting: an edit to the prose is a version of the film,
+ *  and the cache diff will report exactly which scenes it touched. */
+/** Every project, newest first. The front door's data.
+ *
+ *  Cheap on purpose — a list view that compiled each project to show a
+ *  duration would make opening the app cost the whole corpus. Scene count
+ *  and last-compiled come from stored rows; the film itself is computed
+ *  when someone actually asks for one. */
+app.get("/projects", async (c) => {
+  const rows = await all<ProjectRow>(
+    c.env.DB,
+    "SELECT * FROM projects ORDER BY created_at DESC LIMIT 200",
+  );
+  const out = [];
+  for (const r of rows) {
+    const version = r.current_ir_version
+      ? await loadVersion(c.env, r.id, r.current_ir_version)
+      : null;
+    let scenes = 0;
+    let acts = 0;
+    let readings = 0;
+    if (version) {
+      try {
+        const ir = JSON.parse(version.ir_json) as {
+          scenes?: { reading?: unknown }[];
+          acts?: unknown[];
+        };
+        scenes = ir.scenes?.length ?? 0;
+        acts = ir.acts?.length ?? 0;
+        readings = (ir.scenes ?? []).filter((s) => s.reading).length;
+      } catch {
+        // A project whose stored IR will not parse is still a project. It
+        // lists with zero counts rather than taking the whole page down.
+      }
+    }
+    const lastRun = await one<{ created_at: string; nodes_total: number }>(
+      c.env.DB,
+      "SELECT created_at, nodes_total FROM compile_runs WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+      [r.id],
+    );
+    out.push({
+      projectId: r.id,
+      title: r.title,
+      createdAt: r.created_at,
+      irVersion: r.current_ir_version,
+      scenes,
+      acts,
+      readings,
+      lastCompiledAt: lastRun?.created_at ?? null,
+      lastNodes: lastRun?.nodes_total ?? null,
+    });
+  }
+  return c.json({ count: out.length, projects: out });
+});
+
+/** Remove a project and everything hanging off it. The IR versions are
+ *  append-only WITHIN a project's life, not immortal — an operator who
+ *  pasted the wrong essay should be able to say so. */
+app.delete("/project/:id", async (c) => {
+  const id = c.req.param("id");
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [id]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  await run(c.env.DB, "DELETE FROM compile_runs WHERE project_id = ?", [id]);
+  await run(c.env.DB, "DELETE FROM ir_versions WHERE project_id = ?", [id]);
+  await run(c.env.DB, "DELETE FROM projects WHERE id = ?", [id]);
+  return c.json({ deleted: id, title: project.title });
+});
+
+app.post("/project/ingest", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as {
+    essay?: string;
+    title?: string;
+    projectId?: string;
+  };
+  const essay = body.essay?.trim();
+  if (!essay) return c.json({ error: "essay is required" }, 400);
+
+  let projectId = body.projectId;
+  let parentVersion: number | null = null;
+  let nextVersion = 1;
+
+  if (projectId) {
+    const existing = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+      projectId,
+    ]);
+    if (!existing) return c.json({ error: "not found" }, 404);
+    parentVersion = existing.current_ir_version || null;
+    nextVersion = existing.current_ir_version + 1;
+  }
+
+  const seed = segmentEssay(essay, {
+    projectId: projectId ?? "pending",
+    ...(body.title ? { title: body.title } : {}),
+  });
+
+  if (!projectId) {
+    projectId = newId("proj");
+    await run(
+      c.env.DB,
+      "INSERT INTO projects (id, title, created_at, current_ir_version) VALUES (?, ?, ?, 0)",
+      [projectId, seed.ir.title, nowIso()],
+    );
+  }
+  // The IR names its own project, so it is stamped after the id exists.
+  const ir: EditorialIR = { ...seed.ir, projectId };
+
+  const parsed = parseIR(JSON.parse(JSON.stringify(ir)));
+  if (!parsed.ok) {
+    // A segmenter that produced an invalid IR is a bug in the segmenter,
+    // not bad input — say so rather than blaming the essay.
+    return c.json({ error: "segmenter produced an invalid IR", details: parsed.errors }, 500);
+  }
+
+  await writeVersion(
+    c.env,
+    projectId,
+    parsed.ir,
+    nextVersion,
+    parentVersion,
+    `Segmented from essay (${seed.stats.scenes} scenes, ${seed.stats.acts} acts)`,
+  );
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+
+  return c.json(
+    { projectId, irVersion: nextVersion, title: parsed.ir.title, ...seed.stats, notes: seed.notes },
+    201,
+  );
 });
 
 app.get("/project/:id", async (c) => {
@@ -135,6 +283,152 @@ app.post("/project/:id/revert", async (c) => {
 
 /** Compile. Returns the full build report: resolved windows, composed
  *  chains, and the cache diff with a stated reason per recomputation. */
+/** PROPOSE READINGS — the only place in Studio that calls a model.
+ *
+ *  It runs at AUTHORING time, never at compile time, and what it produces
+ *  is a PROPOSAL: readings land on scenes whose status becomes
+ *  `ready_for_review`, and it is the operator's `POST /project/:id/ratify`
+ *  that promotes them. The system proposes; the human ratifies. Standing
+ *  rule 3, made structural rather than aspirational.
+ *
+ *  Bounded per call (`limit`, default 12) for a plain reason: a Worker
+ *  request has a wall clock and an essay has a hundred sentences. Call it
+ *  repeatedly; it always takes the next unread scenes, so it resumes.
+ *
+ *  A declined scene is a RESULT, not a failure. `proposeReading` returns
+ *  null rather than guessing, the scene keeps no reading, and the film's
+ *  own abstraction curve carries it — which on an abstract essay is a
+ *  better film than nineteen scenes of one wrongly-guessed body plan. */
+app.post("/project/:id/read", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { limit?: number };
+  const limit = Math.max(1, Math.min(40, body.limit ?? 12));
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+
+  const scenes = [...parsed.ir.scenes];
+  const pending = scenes.filter((s) => !s.reading).slice(0, limit);
+  if (pending.length === 0) {
+    return c.json({
+      projectId,
+      proposed: 0,
+      declined: 0,
+      remaining: 0,
+      message: "all scenes read",
+    });
+  }
+
+  let proposed = 0;
+  let declined = 0;
+  for (const scene of pending) {
+    const result = await proposeReading(c.env.AI, scene.narration.text);
+    if (!result.reading) {
+      declined++;
+      continue;
+    }
+    const at = scenes.findIndex((s) => s.sceneId === scene.sceneId);
+    scenes[at] = { ...scene, reading: result.reading, status: "ready_for_review" };
+    proposed++;
+  }
+
+  if (proposed === 0) {
+    return c.json({
+      projectId,
+      proposed,
+      declined,
+      remaining: scenes.filter((s) => !s.reading).length,
+    });
+  }
+
+  const nextVersion = project.current_ir_version + 1;
+  await writeVersion(
+    c.env,
+    projectId,
+    { ...parsed.ir, scenes },
+    nextVersion,
+    project.current_ir_version,
+    `Proposed ${proposed} readings (${declined} declined) via ${EXTRACTION_MODEL}`,
+  );
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+
+  return c.json({
+    projectId,
+    irVersion: nextVersion,
+    proposed,
+    declined,
+    remaining: scenes.filter((s) => !s.reading).length,
+    // Named so the Compile view can state provenance rather than presenting
+    // a machine's guess as a fact about the essay.
+    model: EXTRACTION_MODEL,
+  });
+});
+
+/** RATIFY — the human act. Moves reviewed scenes to `approved`, or rejects
+ *  a reading outright, which strips it and hands the scene back to the
+ *  abstraction curve. Nothing else in the system can set `approved`. */
+app.post("/project/:id/ratify", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    approve?: string[];
+    reject?: string[];
+  };
+  const approve = new Set(body.approve ?? []);
+  const reject = new Set(body.reject ?? []);
+  if (approve.size === 0 && reject.size === 0) {
+    return c.json({ error: "nothing to ratify — pass approve[] or reject[]" }, 400);
+  }
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+
+  let approved = 0;
+  let rejected = 0;
+  const scenes = parsed.ir.scenes.map((s) => {
+    if (approve.has(s.sceneId) && s.reading) {
+      approved++;
+      return { ...s, status: "approved" as const };
+    }
+    if (reject.has(s.sceneId)) {
+      rejected++;
+      const { reading: _dropped, ...rest } = s;
+      return { ...rest, status: "draft" as const };
+    }
+    return s;
+  });
+
+  const nextVersion = project.current_ir_version + 1;
+  await writeVersion(
+    c.env,
+    projectId,
+    { ...parsed.ir, scenes },
+    nextVersion,
+    project.current_ir_version,
+    `Operator ratified ${approved}, rejected ${rejected}`,
+  );
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+  return c.json({ projectId, irVersion: nextVersion, approved, rejected });
+});
+
 app.post("/project/:id/compile", async (c) => {
   const projectId = c.req.param("id");
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
@@ -178,6 +472,121 @@ app.post("/project/:id/compile", async (c) => {
   );
 
   return c.json({ ...report, wallMs });
+});
+
+/** THE DIRECTOR'S EDIT.
+ *
+ *  Writes a new creative state and nothing else. This is the loop the whole
+ *  architecture exists to make cheap: narration is a frozen input artifact,
+ *  so re-styling a film spends no TTS and no model call, and the
+ *  per-primitive cache means only the nodes whose inputs actually moved get
+ *  recomputed. Until this route existed the sliders moved and nothing was
+ *  saved — the thesis was a demo of itself.
+ *
+ *  Append-only, like every other write here: an edit is a VERSION, so a
+ *  director can drag a curve, dislike it, and revert to the exact film they
+ *  had before.
+ *
+ *  Control points keep their ORIGINAL binding. An act-bound point is the
+ *  preferred authoring form precisely because it survives re-timing, so the
+ *  client sends back the descriptor it was given rather than the position
+ *  that descriptor happened to resolve to. */
+app.post("/project/:id/creative-state", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    identity?: Record<string, number>;
+    controlPoints?: { at: unknown; values: Record<string, number> }[];
+    invariants?: { param: string; min?: number; max?: number }[];
+  };
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const current = parseIR(JSON.parse(version.ir_json));
+  if (!current.ok) return c.json({ error: "stored IR is invalid", details: current.errors }, 500);
+
+  const next: EditorialIR = {
+    ...current.ir,
+    creativeState: {
+      ...current.ir.creativeState,
+      identity: body.identity ?? current.ir.creativeState.identity,
+      controlPoints: (body.controlPoints ??
+        current.ir.creativeState.controlPoints) as EditorialIR["creativeState"]["controlPoints"],
+      invariants: (body.invariants ??
+        current.ir.creativeState.invariants) as EditorialIR["creativeState"]["invariants"],
+    },
+  };
+
+  // Validated before it is stored, never after. A curve edit that produced
+  // an IR the compiler would reject should fail here, with the reason,
+  // rather than becoming a version that cannot be opened.
+  const parsed = parseIR(JSON.parse(JSON.stringify(next)));
+  if (!parsed.ok) return c.json({ error: "invalid creative state", details: parsed.errors }, 400);
+
+  const nextVersion = project.current_ir_version + 1;
+  await writeVersion(
+    c.env,
+    projectId,
+    parsed.ir,
+    nextVersion,
+    project.current_ir_version,
+    "Creative state edited",
+  );
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+
+  // Recompile against the stored snapshot and hand back the diff, because
+  // the interesting part of an edit is what it did NOT invalidate.
+  const snapshot = await loadSnapshot(c.env, projectId);
+  const report = await compile(parsed.ir, { snapshot });
+  await saveSnapshot(c.env, projectId, report.snapshot);
+  return c.json({
+    projectId,
+    irVersion: nextVersion,
+    cache: report.cache,
+    ttsCalls: report.ttsCalls,
+    warnings: report.warnings,
+  });
+});
+
+/** THE FILM, as something that can be played.
+ *
+ *  Compiles and returns a plan the Lab's executor can run directly: per
+ *  scene, the chain with its resolved parameters and seeds; per shot, its
+ *  window and what varies across it. No pixels are produced here — the
+ *  Worker plans, the browser paints — but everything needed to paint is in
+ *  the response, and nothing in it was invented by this route.
+ *
+ *  Costs nothing to call. `ttsCalls` comes back 0 for the same structural
+ *  reason it always does: narration is an input artifact, so watching the
+ *  film is free and so is watching it again after dragging a curve. */
+app.get("/project/:id/film", async (c) => {
+  const projectId = c.req.param("id");
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+
+  const snapshot = await loadSnapshot(c.env, projectId);
+  const report = await compile(parsed.ir, { snapshot });
+  // A REAL COMPILE UPDATES THE SNAPSHOT. Two routes compile and only one
+  // used to store what it produced, so the cache diff an operator saw
+  // depended on which route they had happened to hit last — opening a film
+  // and then dragging a curve reported 296/296 recomputed for an edit that
+  // genuinely touched 43 of 88 scenes. The cache should always mean "since
+  // the last time this film was compiled", whoever asked for it.
+  await saveSnapshot(c.env, projectId, report.snapshot);
+  return c.json(buildFilmPlan(parsed.ir, report));
 });
 
 app.get("/project/:id/compile-runs", async (c) => {

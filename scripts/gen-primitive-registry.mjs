@@ -15,7 +15,32 @@
 
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { chromium } from "playwright";
+
+// Playwright is a dev-machine tool, not a repo dependency — this script is
+// run by hand when the palette changes, not by CI. Resolve it from the
+// project if it's installed there, otherwise from wherever the environment
+// says (a global install won't resolve from a bare ESM specifier):
+//   PLAYWRIGHT_MODULE=/usr/lib/node_modules/playwright node scripts/...
+let chromium;
+try {
+  ({ chromium } = await import("playwright"));
+} catch {
+  const fallback = process.env.PLAYWRIGHT_MODULE;
+  if (!fallback) {
+    console.error(
+      "playwright not resolvable. Install it, or set PLAYWRIGHT_MODULE to the path of a global install.",
+    );
+    process.exit(1);
+  }
+  // A global install resolves to playwright's CommonJS entry, whose exports
+  // land on `.default` under ESM interop rather than as named exports.
+  const mod = await import(fallback);
+  chromium = mod.chromium ?? mod.default?.chromium;
+  if (!chromium) {
+    console.error(`PLAYWRIGHT_MODULE=${fallback} did not export chromium.`);
+    process.exit(1);
+  }
+}
 
 const TYPES = new Set([
   "FIELD",
@@ -26,6 +51,10 @@ const TYPES = new Set([
   "AUDIO",
   "ANIMATION",
   "ARTIFACT",
+  // A procedural SUBJECT — a creature, machine, or crowd generated from a
+  // body plan rather than painted as a texture. Distinct from GEOMETRY
+  // because an entity carries behaviour and gait, not just points.
+  "ENTITY",
 ]);
 
 // Shader and 3D output depends on GPU behaviour, so they can only honestly
@@ -53,6 +82,9 @@ const FAMILY_COST = {
   "P · INTERFACE": 4,
   "Q · CUT GRAMMAR": 2,
   "R · MAPS": 8,
+  // Entities carry geometry + gait + behaviour, so they cost more than a
+  // texture but far less than a video model.
+  "S · ENTITY": 10,
 };
 
 const appDir = process.argv[2];
@@ -78,7 +110,34 @@ const { reg, cost } = await page.evaluate(() => {
           ? { kind: "string", default: s.s }
           : { kind: s.int ? "int" : "float", default: s.v, min: s.lo, max: s.hi };
     }
-    out[id] = { id, family: d.family, io: d.io, params, note: d.note || "" };
+    // DOES IT ACTUALLY READ ITS UPSTREAM?
+    //
+    // Declaring an input type is a promise; reading the fifth argument of
+    // frame() is keeping it. The two came apart twice — `entity_render`
+    // synthesised a gradient and ignored what it was handed, and the whole
+    // motion-craft family painted an easing diagram over the shot — and
+    // both times the chain typechecked. Determined here by instantiating
+    // the primitive and reading frame's arity, which is mechanical and
+    // cannot drift from the truth the way a hand-maintained flag would.
+    let consumesUpstream = false;
+    try {
+      const probe = { seed: 1337 };
+      for (const k in d.params) {
+        const sp = d.params[k];
+        probe[k] = sp.s !== undefined ? sp.s : sp.v;
+      }
+      const inst = d.make(probe);
+      // Two honest ways to consume: read the upstream buffer in frame(), or
+      // expose warp() and re-time what came before. Motion craft does the
+      // second — an ease cannot be applied to an already-rendered frame —
+      // and counting only the first flagged all six as fakes.
+      consumesUpstream =
+        (typeof inst.frame === "function" && inst.frame.length >= 5) ||
+        typeof inst.warp === "function";
+    } catch {
+      consumesUpstream = false;
+    }
+    out[id] = { id, family: d.family, io: d.io, params, note: d.note || "", consumesUpstream };
   }
   return { reg: out, cost: typeof COST !== "undefined" ? COST : {} };
 });
@@ -127,6 +186,7 @@ ${params}
     },
     estimatedCostMsPerFrame: ${c},
     determinismGuarantee: ${JSON.stringify(det)},
+    consumesUpstream: ${r.consumesUpstream ? "true" : "false"},
     note: ${JSON.stringify(r.note)},
   },`;
   })
@@ -146,7 +206,8 @@ export type PrimitiveType =
   | "DATA"
   | "AUDIO"
   | "ANIMATION"
-  | "ARTIFACT";
+  | "ARTIFACT"
+  | "ENTITY";
 
 export type Determinism = "L1" | "L2" | "L2-GPU";
 
@@ -165,7 +226,36 @@ export interface PrimitiveSpec {
   parameters: Record<string, ParameterSpec>;
   estimatedCostMsPerFrame: number;
   determinismGuarantee: Determinism;
+  /** True when the primitive actually READS its upstream buffer rather than
+   *  clearing the frame and drawing its own thing. Detected mechanically at
+   *  generation time from frame()'s arity, not declared by hand.
+   *
+   *  This is the difference between a chain and a stack. A source composes
+   *  with anything and overwrites what came before it, so a chain of three
+   *  sources renders as its last element and the first two cost time for
+   *  nothing. chainOverwrites() reports where that happens. */
+  consumesUpstream: boolean;
   note: string;
+}
+
+/** Stages a chain will paint over. Every stage after the LAST source is
+ *  visible; everything before it is overwritten and its cost is wasted.
+ *
+ *  Reported rather than forbidden. A stack of sources is sometimes what a
+ *  director wants — a recipe reaching for one look — but it should be a
+ *  choice, not a thing the system does silently while presenting a
+ *  three-primitive chain as though all three were on screen. */
+export function chainOverwrites(chain: string[]): { at: number; id: string; by: string }[] {
+  const out: { at: number; id: string; by: string }[] = [];
+  for (let i = 0; i < chain.length - 1; i++) {
+    const later = chain
+      .slice(i + 1)
+      .findIndex((id) => PRIMITIVES[id] && !PRIMITIVES[id].consumesUpstream);
+    if (later < 0) continue;
+    const by = chain[i + 1 + later] as string;
+    out.push({ at: i, id: chain[i] as string, by });
+  }
+  return out;
 }
 
 export const PRIMITIVES: Record<string, PrimitiveSpec> = {

@@ -45,11 +45,26 @@ export type TimingFlag =
   | "clamped_max"
   | "missing_alignment";
 
+/** One cut within a scene. A scene is not necessarily one continuous shot:
+ *  an aphoristic essay of short declarative lines wants to be cut, and the
+ *  cut is a TIMING structure rather than a primitive. Editing is the axis
+ *  the palette could not express — you cannot make a fast cut by picking a
+ *  primitive, only by subdividing a window. */
+export interface Shot {
+  index: number;
+  startMs: number;
+  endMs: number;
+  /** Why this cut exists — a deliberate rhythm, or forced by overflow. */
+  reason: "rhythm" | "overflow" | "whole";
+}
+
 export interface SolvedScene {
   sceneId: string;
   startMs: number;
   endMs: number;
   durationMs: number;
+  /** The scene's cut structure. Always at least one shot. */
+  shots: Shot[];
   /** Sentence-boundary sub-windows when the scene was auto-split. Empty
    *  when the scene resolved to a single visual. */
   splits: Array<{ startMs: number; endMs: number; text: string }>;
@@ -73,7 +88,19 @@ const MAX_SINGLE_VISUAL_MS = 12_000;
 /** Below this, a visual reads as a flash rather than a shot. */
 const MIN_VISUAL_HOLD_MS = 1_800;
 
-export function solveTiming(ir: EditorialIR, alignments: Map<string, Alignment>): SolveResult {
+/** Below this a cut stops reading as an edit and starts reading as a
+ *  flicker. No rhythm setting may produce something unwatchable. */
+const MIN_SHOT_MS = 420;
+/** Above this the "fast cutting" instruction has stopped meaning anything. */
+const MAX_SHOT_MS = 4200;
+
+export function solveTiming(
+  ir: EditorialIR,
+  alignments: Map<string, Alignment>,
+  /** 0 = one continuous shot per scene. 1 = as fast as MIN_SHOT_MS allows.
+   *  Read from the film's creative state by the compile pipeline. */
+  cutRhythm = 0,
+): SolveResult {
   const warnings: string[] = [];
   const solved: SolvedScene[] = [];
 
@@ -141,6 +168,7 @@ export function solveTiming(ir: EditorialIR, alignments: Map<string, Alignment>)
       startMs,
       endMs: startMs + durationMs,
       durationMs,
+      shots: [],
       splits: [],
       flags,
       explanation: reasons.join("; "),
@@ -244,6 +272,37 @@ export function solveTiming(ir: EditorialIR, alignments: Map<string, Alignment>)
     });
     s.flags.push("auto_split");
     s.explanation += `; auto-split into ${sentences.length} blocks at sentence boundaries (${Math.round(s.durationMs / 1000)}s exceeds the ${MAX_SINGLE_VISUAL_MS / 1000}s single-visual ceiling)`;
+  }
+
+  // Pass 5 — the cut. Subdivide each settled window into shots at the
+  // film's rhythm. Runs after the cascade for the same reason splitting
+  // does: a shot list computed against a window the scene later vacates is
+  // silently wrong.
+  //
+  // A cut is never shorter than MIN_SHOT_MS. Past that it stops reading as
+  // an edit and starts reading as a flicker, and no rhythm setting should
+  // be able to produce something unwatchable.
+  for (const s of solved) {
+    const target = cutRhythm > 0 ? MAX_SHOT_MS - cutRhythm * (MAX_SHOT_MS - MIN_SHOT_MS) : 0;
+    const count =
+      target > 0
+        ? Math.max(1, Math.min(12, Math.floor(s.durationMs / Math.max(MIN_SHOT_MS, target))))
+        : 1;
+
+    if (count <= 1) {
+      s.shots = [{ index: 0, startMs: s.startMs, endMs: s.endMs, reason: "whole" }];
+      continue;
+    }
+    const each = s.durationMs / count;
+    s.shots = Array.from({ length: count }, (_, i) => ({
+      index: i,
+      startMs: Math.round(s.startMs + i * each),
+      // Pin the last shot to the scene end so rounding cannot leave a
+      // sliver of unpainted time at the tail.
+      endMs: i === count - 1 ? s.endMs : Math.round(s.startMs + (i + 1) * each),
+      reason: "rhythm" as const,
+    }));
+    s.explanation += `; cut into ${count} shots at rhythm ${cutRhythm.toFixed(2)} (~${Math.round(each)}ms each)`;
   }
 
   const last = solved[solved.length - 1];

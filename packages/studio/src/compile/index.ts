@@ -18,7 +18,9 @@ import {
 } from "./cache.ts";
 import { type ComposedScene, composeAll } from "./compose.ts";
 import { hashSceneNodes } from "./hash.ts";
+import { type ShotVariation, planShots } from "./shot-plan.ts";
 import { type Alignment, type SolveResult, nominalAlignment, solveTiming } from "./solver.ts";
+import { type UsageReport, analyseUsage } from "./usage.ts";
 
 export interface HashedNode {
   primitiveId: string;
@@ -34,9 +36,19 @@ export interface HashedScene {
   nodes: HashedNode[];
 }
 
+/** A scene's shots, with what varies across each cut. Carried on the report
+ *  so the Compile view can show the edit, and hashed into the nodes so a
+ *  changed cut recomputes only the shots it touched. */
+export interface SceneShots {
+  sceneId: string;
+  shots: ShotVariation[];
+}
+
 export interface CompileReport {
   projectId: string;
   timing: SolveResult;
+  /** Per-scene cut plans. Empty shots array when a scene is one take. */
+  shotPlans: SceneShots[];
   composed: ComposedScene[];
   cache: CacheReport;
   snapshot: CacheSnapshot;
@@ -45,6 +57,9 @@ export interface CompileReport {
   peakCostMsPerFrame: number;
   /** Honest determinism claim for the whole film: the weakest scene. */
   determinism: "L1" | "L2" | "L2-GPU";
+  /** Which primitives were load-bearing in this build, so the palette can
+   *  be pruned on evidence rather than instinct. */
+  usage: UsageReport;
   /** TTS calls this compile made. Structurally always 0 — narration is an
    *  input artifact — and reported so the operator can see that. */
   ttsCalls: 0;
@@ -72,8 +87,37 @@ export async function compile(
     cursor += nominalMs;
   }
 
-  const timing = solveTiming(ir, alignments);
+  // Cut rhythm is a creative-state parameter like any other, so a director
+  // drags it rather than setting a shot length. Sampled at mid-runtime;
+  // per-scene rhythm curves are a later refinement.
+  const cutRhythm = ir.creativeState.identity.cutRhythm ?? 0;
+  const timing = solveTiming(ir, alignments, cutRhythm);
   const composed = composeAll(ir);
+
+  // Plan what varies across each scene's cuts. Intensity rides the film's
+  // motion energy, so a director dragging that curve re-cuts the film
+  // rather than only re-styling it.
+  const shotPlans: SceneShots[] = ir.scenes.map((scene, i) => {
+    const solved = timing.scenes.find((s) => s.sceneId === scene.sceneId);
+    const shotCount = solved?.shots.length ?? 1;
+    const composedScene = composed.find((c) => c.sceneId === scene.sceneId);
+    const intensity = composedScene?.state.values.motionEnergy ?? 0.5;
+    return {
+      sceneId: scene.sceneId,
+      shots:
+        shotCount > 1
+          ? planShots({
+              line: scene.narration.text,
+              shotCount,
+              sceneIndex: i,
+              intensity,
+              // The hedge reaches all the way here: a claim is not allowed
+              // to be dramatised into looking like a finding.
+              contested: scene.reading?.contested ?? false,
+            })
+          : [],
+    };
+  });
 
   const hashed: HashedScene[] = [];
   for (const scene of composed) {
@@ -92,6 +136,16 @@ export async function compile(
       }
       if (!irScene.narration.voAssetId) {
         assetHashes.push(`text:${irScene.narration.text}`);
+      }
+      // The cut plan is part of what a scene IS. Without it in the hash,
+      // re-cutting a scene would leave every node unchanged and the film
+      // would keep rendering the old edit — the same class of bug as
+      // narration text not reaching the hash.
+      const plan = shotPlans.find((sp) => sp.sceneId === irScene.sceneId);
+      if (plan && plan.shots.length > 0) {
+        assetHashes.push(
+          `cut:${plan.shots.map((v) => `${v.text}/${v.mode}/${v.amount}/${v.invert}`).join("|")}`,
+        );
       }
     }
     const pairs = await hashSceneNodes(
@@ -145,11 +199,13 @@ export async function compile(
   return {
     projectId: ir.projectId,
     timing,
+    shotPlans,
     composed,
     cache,
     snapshot: snapshotFrom(hashed),
     peakCostMsPerFrame,
     determinism,
+    usage: analyseUsage(composed),
     ttsCalls: 0,
     warnings,
   };

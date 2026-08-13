@@ -23,12 +23,13 @@
 // No Math.random anywhere. Every seed is derived from scene index and
 // chain position, so the same IR always composes to the same chains.
 
-import type { EditorialIR, Motif, Override, Rule, Scene } from "../ir/schema.ts";
+import type { EditorialIR, Motif, Override, Rule, Scene, SemanticReading } from "../ir/schema.ts";
 import {
   type Determinism,
   PRIMITIVES,
   chainCost,
   chainDeterminism,
+  chainOverwrites,
 } from "../primitives/registry.ts";
 import {
   type ResolvedState,
@@ -36,6 +37,10 @@ import {
   resolveStateAt,
   scenePosition,
 } from "./creative-state.ts";
+import { looksContested } from "./extract-reading.ts";
+import { chainForKind, readSceneKind } from "./scene-kind.ts";
+import { displayPhrase, textParamsFor } from "./text-params.ts";
+import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
 
 /** The abstraction ladder — how far the image sits from literal depiction.
  *  Each rung names the base chain the film reaches for at that distance.
@@ -107,6 +112,9 @@ export interface ComposedScene {
   ruleHits: RuleHit[];
   notes: string[];
   override: Override | undefined;
+  /** Present when the scene carried a reading and a treatment was planned
+   *  from it. Null when the engine fell back to the abstraction ladder. */
+  treatment: Treatment | null;
   costMsPerFrame: number;
   determinism: Determinism;
 }
@@ -117,7 +125,20 @@ export interface ComposedScene {
 const DENSITY_BLEND_AT = 0.55;
 const DENSITY_NEST_AT = 0.75;
 const TYPO_VARIABLE_AXIS_AT = 0.55;
-const FRAME_BUDGET_MS = 16;
+/** Real-time playback: 60fps leaves 16ms a frame. The Preview plays at this
+ *  rate, so a chain above it will drop frames while a director is watching. */
+const REALTIME_FRAME_MS = 16;
+/** The hard ceiling a chain may not exceed. Deliberately four times the
+ *  real-time budget, because an EXPORT is not real time — frames can take
+ *  as long as they take — and refusing a rich chain outright would make the
+ *  top of the abstraction ladder unreachable for a film nobody intends to
+ *  scrub live.
+ *
+ *  Named separately because it was not: the constant said 16 and the guard
+ *  allowed four times that, so the number the code appeared to enforce and
+ *  the number it enforced were different, and the Compile view reported
+ *  against the one it wasn't using. */
+const MAX_CHAIN_MS = REALTIME_FRAME_MS * 4;
 
 export function composeScene(
   ir: EditorialIR,
@@ -151,10 +172,54 @@ export function composeScene(
 
   const rung =
     LADDER.find((r) => abstraction < r.maxAbstraction) ?? (LADDER[LADDER.length - 1] as Rung);
-  let chain = [...rung.base];
+
+  // A scene that carries a reading gets a TREATMENT: a chain planned from
+  // what the prose is actually about. Without one the engine falls back to
+  // the abstraction ladder's default, which knows the film's mood but
+  // nothing about its subject. Either way the nodes are hashed identically
+  // downstream, so a treatment caches exactly like any other chain.
+  let treatment: Treatment | null = null;
+  let chain: string[];
   const reasons = new Map<string, string>();
-  for (const p of chain)
-    reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
+
+  const reading = readingFor(scene);
+  if (reading) {
+    const language = scene.visualLanguage ?? ir.visualLanguage;
+    treatment = planTreatment(reading, language);
+    chain = treatment.nodes.map((n) => n.primitiveId);
+    for (const node of treatment.nodes) reasons.set(node.primitiveId, node.reason);
+    if (!treatment.valid) {
+      // A treatment that does not typecheck is reported and discarded, not
+      // rendered. Falling back is better than emitting a chain the executor
+      // will refuse — the scene degrades, the film still compiles.
+      notes.push(
+        `treatment rejected (${treatment.errors.map((e) => e.message).join("; ")}) — fell back to the ${rung.tier} rung`,
+      );
+      chain = [...rung.base];
+      reasons.clear();
+      for (const p of chain)
+        reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
+    }
+  } else {
+    // NO RATIFIED READING — but the sentence is still wearing a great deal
+    // on its surface. The curve says how far from literal this moment sits;
+    // the sentence's KIND says what sort of thing is depicted there. With
+    // only the curve, an 89-scene film compiled to twelve chains and three
+    // of them covered sixty-six scenes, because a smooth curve necessarily
+    // gives neighbouring scenes the same rung.
+    const kind = readSceneKind(scene);
+    const byKind = chainForKind(kind.kind, rung.tier, sceneIndex);
+    if (byKind) {
+      chain = [...byKind];
+      for (const p of chain) {
+        reasons.set(p, `${kind.kind} — ${kind.because} — at the ${rung.tier} rung`);
+      }
+    } else {
+      chain = [...rung.base];
+      for (const p of chain)
+        reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
+    }
+  }
 
   // ── precedence 5: motif continuity ─────────────────────────────────
   // Developing an established motif is the DEFAULT. Its chain is appended
@@ -223,10 +288,41 @@ export function composeScene(
     );
   }
 
-  // Refuse a chain that would blow the frame budget (Atlas 7.1.4).
-  while (chain.length > 1 && chainCost(chain) > FRAME_BUDGET_MS * 4) {
+  // Refuse a chain that would blow the ceiling (Atlas 7.1.4).
+  while (chain.length > 1 && chainCost(chain) > MAX_CHAIN_MS) {
     const removed = chain.pop() as string;
-    notes.push(`dropped ${removed} — chain exceeded the frame budget`);
+    notes.push(`dropped ${removed} — chain exceeded ${MAX_CHAIN_MS}ms, the export ceiling`);
+  }
+  // Over real time but under the ceiling is a legitimate, deliberate state —
+  // and one a director should be told about, because it is the difference
+  // between a film they can scrub and a film they must export to watch.
+  const cost = chainCost(chain);
+  if (cost > REALTIME_FRAME_MS) {
+    notes.push(
+      `${cost}ms/frame — above the ${REALTIME_FRAME_MS}ms real-time budget, so this scene will drop frames in Preview but renders correctly on export`,
+    );
+  }
+
+  // Validate the FINAL chain, not just the planned treatment. Motif,
+  // density and anti-repetition primitives are appended after planning, and
+  // an append that doesn't typecheck would otherwise ride through unchecked
+  // — which is precisely how a typed palette decays back into a menu of
+  // things stapled together because they look good side by side.
+  //
+  // Offending appends are dropped rather than the whole chain rejected: the
+  // rung and the treatment are what the scene is about, and a motif that
+  // cannot legally attach should lose, loudly.
+  {
+    let guard = chain.length;
+    while (guard-- > 0) {
+      const { errors } = validateChain(chain);
+      const first = errors[0];
+      if (!first) break;
+      const dropped = chain[first.at] as string;
+      chain.splice(first.at, 1);
+      reasons.delete(dropped);
+      notes.push(`dropped ${dropped} — ${first.message}`);
+    }
   }
 
   // ── precedence 1: explicit human override ──────────────────────────
@@ -243,6 +339,17 @@ export function composeScene(
     notes.push(`pinned — composition bypassed${override.note ? ` (${override.note})` : ""}`);
   }
 
+  // THE SCENE'S OWN WORDS.
+  //
+  // Eleven primitives set type from a string parameter and the engine set
+  // none of them, so an 89-scene investigation rendered `text_stagger`'s
+  // default — "NOBODY VOTED AGAINST" — thirty-one times, and
+  // `particle_seek`'s "NINETY DAYS" twenty-one times, over narration about
+  // asylum hotels. Four hardcoded phrases from a different essay, looping
+  // for six minutes. It typechecked, it cached, and every number in the
+  // Compile view was correct about it.
+  const phrase = displayPhrase(scene.label, scene.narration.text);
+
   const nodes: ComposedNode[] = chain.map((primitiveId, i) => {
     const spec = PRIMITIVES[primitiveId];
     const params: Record<string, number | string> = {
@@ -250,7 +357,13 @@ export function composeScene(
       energy: round3(state.values.motionEnergy ?? 0),
       abstraction: round3(abstraction),
       human: round3(state.values.humanPresence ?? 0),
+      ...textParamsFor(primitiveId, phrase, spec?.parameters ?? {}),
     };
+    // A treatment's parameters are the whole point of planning one — they
+    // carry the representation rung and the camera, and a claim's colder
+    // grade. Without this merge the plan would be decorative.
+    const planned = treatment?.nodes.find((n) => n.primitiveId === primitiveId);
+    if (planned) Object.assign(params, planned.params);
     if (override?.type === "pin" && override.params) {
       Object.assign(params, override.params);
     }
@@ -265,6 +378,22 @@ export function composeScene(
     };
   });
 
+  // A CHAIN OF SOURCES IS A STACK, NOT A CHAIN.
+  //
+  // Eleven of the palette's 123 primitives read their upstream buffer; the
+  // rest clear the frame and draw their own thing. So a three-primitive
+  // chain of sources renders as its LAST element and the first two cost
+  // time for nothing — which is true of the abstraction ladder's own
+  // ANNOTATED and DECOMPOSED rungs, and was invisible until the plan was
+  // played rather than measured.
+  //
+  // Reported, not forbidden. Reaching for a look with a recipe is a
+  // legitimate thing for a director to do; presenting three primitives as
+  // though all three were on screen is not.
+  for (const o of chainOverwrites(chain)) {
+    notes.push(`${o.id} is painted over by ${o.by} — it costs time and is never seen`);
+  }
+
   return {
     sceneId: scene.sceneId,
     actId: scene.actId,
@@ -276,8 +405,73 @@ export function composeScene(
     ruleHits,
     notes,
     override,
+    treatment,
     costMsPerFrame: chainCost(chain),
     determinism: chainDeterminism(chain),
+  };
+}
+
+/** The reading a scene will actually be planned from.
+ *
+ *  Three cases, and the middle one is the point of this function:
+ *
+ *  1. A RATIFIED READING. The operator approved an interpretation of the
+ *     sentence. Mechanically extracted figures and routes are merged onto
+ *     it — the reading says what the sentence is about, the prose says what
+ *     numbers are in it, and neither overrules the other.
+ *
+ *  2. NO READING, BUT FIGURES OR A ROUTE. The scene is planned anyway,
+ *     from a reading synthesised out of the prose alone. This is legitimate
+ *     precisely because nothing here is an interpretation: "$282,345.84" is
+ *     in the sentence or it is not, and "Ottawa → IRCC → hotels" is drawn
+ *     in the sentence or it is not. No model proposed either, so there is
+ *     nothing for an operator to ratify. The subject is marked `concept`
+ *     with modest weight, which routes it to the data family without
+ *     pretending to know what the sentence is otherwise about.
+ *
+ *     Without this case, an institutional essay could not compile to
+ *     anything but the abstraction ladder until every one of its sentences
+ *     had been through a model and a human — which for the essay that
+ *     motivated all of this is a hundred and four sentences of gate before
+ *     a single frame.
+ *
+ *  3. NEITHER. Declines, and the abstraction ladder carries the scene. A
+ *     guessed reading would override the film's curve, which is worse than
+ *     no reading at all.
+ */
+function readingFor(scene: Scene): SemanticReading | null {
+  const figures = scene.figures ?? [];
+  const route = scene.route ?? [];
+  if (scene.reading) {
+    return {
+      ...scene.reading,
+      figures: scene.reading.figures ?? (figures.length > 0 ? figures : undefined),
+      route: scene.reading.route ?? (route.length > 0 ? route : undefined),
+    };
+  }
+  // A LONE YEAR IS A DATE, NOT A QUANTITY.
+  //
+  // "On September 30, 2025, the federal government ended its direct
+  // funding" is a sentence about an ending. Its only figure is the year,
+  // and the planner dutifully gave it a counter rolling up to 2025 —
+  // arithmetic performed on a date, which is the slideshow-of-charts
+  // failure arriving through the one door left open for it. Two or more
+  // years is a chronology and stays; a year alongside money stays; a year
+  // by itself hands the scene back to the abstraction ladder.
+  const quantities = figures.filter((f) => f.kind !== "year");
+  const years = figures.filter((f) => f.kind === "year");
+  const dataLed = route.length >= 2 || quantities.length > 0 || years.length >= 2;
+  if (!dataLed) return null;
+  return {
+    sentence: scene.narration.text,
+    subjects: [{ label: scene.label || "figures", kind: "concept", weight: 0.6 }],
+    // A route is something being followed; a bare quantity accumulates.
+    visualOpportunity: route.length >= 2 ? "contrast" : "accumulate",
+    // The hedge still applies. A number inside a reported claim is still
+    // inside a reported claim.
+    contested: looksContested(scene.narration.text),
+    figures,
+    route,
   };
 }
 

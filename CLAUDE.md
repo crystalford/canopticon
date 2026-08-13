@@ -91,34 +91,94 @@ and the code implements the amended version:
 
 If the latter, it belongs in an Advanced panel or nowhere.
 
-## What's built (Stage 1 — the skeleton)
+## What's built
 
 `packages/studio` — its own Worker, own D1 (`canopticon-studio`), own R2, own
 migration numbering in `supabase/migrations-studio/`.
 
-- `src/ir/schema.ts` — the Editorial IR + validation. Creative State control
-  points, motifs with development ladders, first-class overrides.
-- `src/compile/creative-state.ts` — control-point interpolation, invariant
-  floors/ceilings that **report** when they bite.
+**The pipeline, end to end.** An essay goes in as prose and comes out as a
+compiled plan. Verified on a real 88-scene institutional investigation:
+
+```
+POST /project/ingest       essay text → a compilable IR
+POST /project/:id/read     propose readings — the ONLY model call, bounded
+POST /project/:id/ratify   the human act: approve or reject
+POST /project/:id/compile  the plan, cached per primitive
+```
+
+- `src/compile/segment.ts` — the intake. **Deterministic, no model, by
+  design.** Acts from the essay's own headings; scenes bound by character
+  offset, scanning forward so a repeated line binds to its own occurrence;
+  bullets kept whole; a figure-bearing scene held rigid. It deliberately
+  does **not** decide what a sentence is about.
+- `src/compile/figures.ts` — quantities lifted by regex and checked as
+  literal substrings, plus routes the prose drew explicitly. **No model
+  ever touches a figure.** An approximation of `$282,345.84` is a different
+  finding.
+- `src/compile/extract-reading.ts` — the one model call, at authoring time,
+  frozen and ratified. Declines rather than guesses. The hedge floor
+  overrules the model, and reads the register — institutional framing
+  ("presented as", "framed as") and quoted spans count; bare "claims" does
+  not, because an essay about asylum *claimants* is not hedging.
+- `src/compile/treatment.ts` — reading + visual language → a type-checked
+  primitive chain. Body plans per subject kind, automatic bridges between
+  types, tails applied selectively.
 - `src/compile/compose.ts` — the composition engine. Abstraction ladder
   (GROUNDED → ANNOTATED → DECOMPOSED → DISSOLVED), the Constitution's
   8-level precedence order, motif development, restraint ceiling.
 - `src/compile/solver.ts` — anchor-based timing, overflow auto-split at
-  sentence boundaries, underflow J-cut/underrun, elastic-vs-rigid cascade.
-- `src/compile/hash.ts` · `cache.ts` — per-primitive SHA-256 node hashing over
-  canonical JSON; cache diff with a stated reason per recomputation.
-- `src/primitives/registry.ts` — **generated**, 111 primitives / 18 families.
+  sentence boundaries, underflow J-cut/underrun, elastic-vs-rigid cascade,
+  and the cut into shots.
+- `src/compile/shot-plan.ts` — what varies across a cut. Deterministic, and
+  it escalates. A contested line is held flatter.
+- `src/compile/hash.ts` · `cache.ts` — per-primitive SHA-256 node hashing
+  over canonical JSON; cache diff with a stated reason per recomputation.
+- `src/primitives/registry.ts` — **generated**, 123 primitives / 20 families.
   Regenerate with `node scripts/gen-primitive-registry.mjs packages/studio/lab`.
 - `lab/` — the Lab. Where primitives actually paint (canvas, seeded, in the
-  browser) and where one earns its place in the palette before being wired
-  into the pipeline.
+  browser) and where one earns its place before being wired in.
 
-**Stage 1 milestone is met and tested** (`packages/studio/tests/compile.test.ts`,
-31 tests): a hand-authored IR resolves to correct windows; an unchanged
-recompile is 100% cache hit; editing one sentence recomputes only what depends
-on it; dragging the abstraction curve spends zero TTS and leaves early scenes
-untouched; a pin survives a restyle with the tension reported; the same IR
-always produces the same hashes.
+**A figure is not an interpretation.** This is the distinction that makes the
+whole thing work on real material. A *reading* — what a sentence is about — is
+proposed by a model and ratified by a human, and a scene without one falls back
+to the film's own curve. A *figure* is checkable by anyone, so it needs neither.
+Which means an institutional essay reaches the chart family from prose alone,
+before a model has seen a single sentence.
+
+**The instrument.** `studio.canopticon.com` serves the Lab: six views over ONE
+compiler. FILMS lists what is stored and takes a pasted essay; NARRATIVE shows
+the prose with every scene bound to its own span; EDITORIAL is the creative
+state, and dragging it writes a new IR version and reports what the edit cost;
+PREVIEW runs the real chain and exports a `.webm`; COMPILE is the audit;
+LAB is where a primitive earns its place. Keyboard throughout, and `/` finds a
+scene by what it says.
+
+**There is no second engine.** The Lab used to reimplement the ladder, the
+resolver and the cost table in the browser. It reads the Worker's composition
+now — two implementations of one rule is how they disagreed about 57 of 88
+scenes without anyone noticing.
+
+**Tested** (125 tests): a hand-authored IR resolves to correct windows; an
+unchanged recompile is 100% cache hit; editing one sentence recomputes only
+what depends on it; moving the last control point leaves the film's opening
+untouched and spends zero TTS; a pin survives a restyle with the tension
+reported; the same IR always produces the same hashes; the real essay segments,
+validates, compiles and re-compiles clean; and the flagship chain is asserted
+to consume its own upstream at every stage.
+
+**Known gaps, stated plainly.**
+
+- **No server-side renderer.** Chains execute in the browser, so a compile
+  produces a plan and the export records the canvas in real time. That is L2
+  honestly — frames are captured on the browser's clock — not L3.
+- **51 of 74 consumers still ignore their declared input.** The compiler
+  measures this (`usage.linkHonesty`, `usage.decorativeLinks`) and the Compile
+  view prints it, so pruning happens on evidence. A real film currently has
+  zero decorative links but roughly half its chain links are a source drawing
+  over the stage before it. That is the remaining debt and it is a list, not a
+  feeling.
+- **`POST /project/:id/read` has never run against a live model.** It needs the
+  deployed AI binding; every other path is exercised end to end.
 
 ## What's next
 

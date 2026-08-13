@@ -26,6 +26,37 @@ function range(text: string): { startChar: number; endChar: number } {
   return { startChar, endChar: startChar + text.length };
 }
 
+/** Frozen readings for The Temporary Measure. These stand in for the
+ *  extraction artifact an operator would ratify: what each sentence is
+ *  about, and whether it reports a claim. Only scenes with something
+ *  depictable carry one — the rest fall back to the abstraction ladder,
+ *  which is the intended behaviour, not a gap. */
+const READINGS: Record<string, EditorialIR["scenes"][number]["reading"]> = {
+  s02: {
+    sentence: "The statute ran to eleven pages.",
+    subjects: [{ label: "statute", kind: "document", weight: 0.9 }],
+    visualOpportunity: "inspect",
+    contested: false,
+  },
+  s05: {
+    sentence: "Nobody has ever voted against a renewal.",
+    subjects: [{ label: "renewal", kind: "document", weight: 0.8 }],
+    visualOpportunity: "accumulate",
+    contested: false,
+  },
+  s08: {
+    sentence: "The department now cites the measure as settled law.",
+    subjects: [
+      { label: "measure", kind: "document", weight: 0.85 },
+      { label: "department", kind: "concept", weight: 0.4 },
+    ],
+    visualOpportunity: "inspect",
+    // "cites ... as settled law" is the department's characterisation, not
+    // the film's finding. The whole essay turns on that distinction.
+    contested: true,
+  },
+};
+
 interface SceneSeed {
   id: string;
   actId: string;
@@ -168,6 +199,7 @@ export function buildFixtureIR(): EditorialIR {
       },
       entities: s.entities,
       blocks: [],
+      ...(READINGS[s.id] ? { reading: READINGS[s.id] } : {}),
     })),
     entities: [
       { id: "time", type: "concept", label: "Time" },
@@ -268,6 +300,7 @@ export function buildFixtureIR(): EditorialIR {
         params: { density: 0.35, energy: 0.1, abstraction: 0.15 },
       },
     ],
+    visualLanguage: "documentary",
     renderProfile: "default",
   };
 }
