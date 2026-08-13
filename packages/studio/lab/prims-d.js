@@ -225,21 +225,39 @@ reg(
     amount: { v: 0.5, lo: 0.1, hi: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t) {
+    frame(ctx, w, h, t, upstream) {
       bg(ctx, w, h);
       const K = Math.round(p.kind);
-      const doc = document.createElement("canvas");
-      doc.width = w * 1.7;
-      doc.height = h * 1.7;
-      const o = doc.getContext("2d");
-      paper(o, doc.width, doc.height, 0.4);
-      const r = mulberry(3);
-      o.fillStyle = "rgba(24,20,16,.9)";
-      o.font = '700 26px "Space Grotesk",sans-serif';
-      o.fillText("ORDER 03-114", 26, 44);
-      lines(o, 26, 64, doc.width - 52, Math.floor((doc.height - 90) / 9), r);
-      o.fillStyle = "#14120f";
-      o.fillRect(26, doc.height * 0.42, doc.width * 0.42, 11);
+      // MOVE THE CAMERA OVER WHAT IT WAS HANDED.
+      //
+      // It declared "ARTIFACT → ANIMATION" and then drew its own document —
+      // the same "ORDER 03-114" every time — so `document_surface →
+      // document_layout → camera_move`, the GROUNDED rung and the most-used
+      // chain in a real film, ended with a camera pushing across a document
+      // that had nothing to do with the two stages before it. Sixteen
+      // scenes of the IHAP film used that seam.
+      let doc;
+      if (upstream && upstream.canvas) {
+        // Oversampled so a push has somewhere to go: a camera move over an
+        // image exactly the size of the frame can only crop.
+        doc = document.createElement("canvas");
+        doc.width = Math.round(w * 1.7);
+        doc.height = Math.round(h * 1.7);
+        doc.getContext("2d").drawImage(upstream.canvas, 0, 0, doc.width, doc.height);
+      } else {
+        doc = document.createElement("canvas");
+        doc.width = w * 1.7;
+        doc.height = h * 1.7;
+        const o = doc.getContext("2d");
+        paper(o, doc.width, doc.height, 0.4);
+        const r = mulberry(3);
+        o.fillStyle = "rgba(24,20,16,.9)";
+        o.font = '700 26px "Space Grotesk",sans-serif';
+        o.fillText("ORDER 03-114", 26, 44);
+        lines(o, 26, 64, doc.width - 52, Math.floor((doc.height - 90) / 9), r);
+        o.fillStyle = "#14120f";
+        o.fillRect(26, doc.height * 0.42, doc.width * 0.42, 11);
+      }
       const ph = (t * p.rate * 0.22) % 1,
         e = ph < 0.5 ? ph * 2 : 2 - ph * 2;
       ctx.save();
@@ -991,10 +1009,40 @@ reg(
     rate: { v: 0.3, lo: 0.05, hi: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t) {
+    frame(ctx, w, h, t, upstream) {
       bg(ctx, w, h);
-      const N = Math.round(p.layers),
-        r = mulberry(17);
+      const N = Math.round(p.layers);
+      const src = upstream && upstream.canvas;
+
+      // PLANE THE IMAGE IT WAS GIVEN.
+      //
+      // It declared "IMAGE → ANIMATION" and drew its own drifting blocks,
+      // so anything upstream was erased — thirteen scenes of the IHAP film
+      // ended `particle_trail → parallax_layers`, throwing away the trail
+      // and replacing it with rectangles.
+      //
+      // Depth from differential motion needs planes that differ, and one
+      // flat image has no depth in it. So each plane is the SAME image at a
+      // different scale and rate, drifting at its own speed: the far plane
+      // large and faint and slow, the near one tight and bright and quick.
+      // That is a real parallax of the material rather than an invented
+      // scene beside it.
+      if (src) {
+        for (let i = 0; i < N; i++) {
+          const k = (i + 1) / N;
+          const scale = 1 + (1 - k) * 0.55 * p.depth;
+          const dw = w * scale;
+          const dh = h * scale;
+          const drift = ((t * p.rate * 22 * k * p.depth) % (dw * 0.3)) - dw * 0.15;
+          ctx.globalAlpha = i === N - 1 ? 0.9 : 0.1 + k * 0.22;
+          ctx.drawImage(src, (w - dw) / 2 + drift, (h - dh) / 2 - (1 - k) * 8, dw, dh);
+        }
+        ctx.globalAlpha = 1;
+        lab(ctx, N + " PLANES OF THE UPSTREAM IMAGE · DIFFERENTIAL RATE", 10, h - 14);
+        return;
+      }
+
+      const r = mulberry(17);
       for (let i = 0; i < N; i++) {
         const k = (i + 1) / N,
           off = ((t * p.rate * 30 * k * p.depth) % (w * 1.4)) - w * 0.2;
@@ -1007,10 +1055,10 @@ reg(
           ctx.fillRect((bx % (w * 1.3)) - w * 0.15, h - bh, bw, bh);
         }
       }
-      lab(ctx, N + " PLANES · DIFFERENTIAL RATE", 10, h - 14);
+      lab(ctx, N + " PLANES · NO UPSTREAM IMAGE", 10, h - 14);
     },
   }),
-  "Depth from differential motion. Cheaper and more legible than actual 3D for most documentary work.",
+  "Depth from differential motion, applied to the image it is handed: the same frame at several scales and rates, so the parallax is of the material rather than an invented scene beside it.",
   1,
 );
 

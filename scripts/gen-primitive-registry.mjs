@@ -127,7 +127,13 @@ const { reg, cost } = await page.evaluate(() => {
         probe[k] = sp.s !== undefined ? sp.s : sp.v;
       }
       const inst = d.make(probe);
-      consumesUpstream = typeof inst.frame === "function" && inst.frame.length >= 5;
+      // Two honest ways to consume: read the upstream buffer in frame(), or
+      // expose warp() and re-time what came before. Motion craft does the
+      // second — an ease cannot be applied to an already-rendered frame —
+      // and counting only the first flagged all six as fakes.
+      consumesUpstream =
+        (typeof inst.frame === "function" && inst.frame.length >= 5) ||
+        typeof inst.warp === "function";
     } catch {
       consumesUpstream = false;
     }

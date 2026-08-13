@@ -103,7 +103,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "A small counter-move before the main move. Cheap, and the single clearest signal of authored motion.",
   },
   artifact_render: {
@@ -251,7 +251,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Push, pan, crop-reveal across a generated artifact. Attention directed without cutting.",
   },
   cellular: {
@@ -479,7 +479,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Spring settle characteristics — how energy leaves a movement.",
   },
   data_series: {
@@ -642,7 +642,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Named curves the director can reason about. Raw cubic-bezier values are an implementation detail.",
   },
   entity_render: {
@@ -748,8 +748,8 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 7,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
-    note: "Directional field derived from noise. The substrate every particle chain moves through.",
+    consumesUpstream: true,
+    note: "A direction field. Derived from the gradient of the scalar field it is handed, rotated so particles travel along contours rather than straight up them — which is what reads as flow. Falls back to its own noise when nothing is upstream.",
   },
   follow_through: {
     primitiveId: "follow_through",
@@ -762,7 +762,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Secondary elements continue after the primary stops. This is the difference between tweened and animated.",
   },
   force_layout: {
@@ -1145,7 +1145,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
     consumesUpstream: false,
-    note: "Seeded value-noise fbm. Feeds particle motion, displacement, camera drift.",
+    note: "Seeded value-noise fbm, emitted as a sampled grid. Downstream primitives read THIS field rather than each generating their own — which is the difference between a chain and four pictures in a stack.",
   },
   orbital: {
     primitiveId: "orbital",
@@ -1172,7 +1172,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Pass the target and settle. Applied globally from the restraint parameter, it gives a film one motion character.",
   },
   parallax_layers: {
@@ -1187,8 +1187,8 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
-    note: "Depth from differential motion. Cheaper and more legible than actual 3D for most documentary work.",
+    consumesUpstream: true,
+    note: "Depth from differential motion, applied to the image it is handed: the same frame at several scales and rates, so the parallax is of the material rather than an invented scene beside it.",
   },
   parametric_curve: {
     primitiveId: "parametric_curve",
@@ -1249,8 +1249,8 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 14,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
-    note: "Advection through a field. Chain it after particle_seek and a word dissolves into drift.",
+    consumesUpstream: true,
+    note: "Advection through a field — the one it is handed, when it is handed one. Emits the particle positions so a downstream trail draws these particles and not a second population that merely resembles them.",
   },
   particle_seek: {
     primitiveId: "particle_seek",
@@ -1265,8 +1265,8 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 12,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
-    note: "Particles seek glyph geometry. This is how text forms out of chaos — the Canopticon signature move.",
+    consumesUpstream: true,
+    note: "Particles seek the point geometry they are handed — text out of chaos, the Canopticon signature move. Emits its own positions so a trail downstream draws these particles, not a second population.",
   },
   particle_trail: {
     primitiveId: "particle_trail",
@@ -1280,8 +1280,8 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 9,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
-    note: "Motion history as an image buffer. Cheap, and what makes movement read as authored.",
+    consumesUpstream: true,
+    note: "Motion history as an image buffer, drawn from the points it is handed. The decay wash is the idea: never clearing fully is what turns positions into movement.",
   },
   path_draw: {
     primitiveId: "path_draw",
@@ -1533,7 +1533,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "First frame identical to last. Cacheable ambient beds that cost one cycle to render and run forever.",
   },
   shader_surface: {
@@ -1714,7 +1714,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     },
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
-    consumesUpstream: false,
+    consumesUpstream: true,
     note: "Type used as a compositing mask: the letterform becomes the window onto another primitive.",
   },
   text_morph: {

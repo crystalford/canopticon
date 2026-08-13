@@ -269,3 +269,34 @@ describe("kinetic language and the cut", () => {
     }
   });
 });
+
+describe("the palette's honesty is measured, not assumed", () => {
+  it("reports links whose consumer ignores what it is handed", async () => {
+    // 74 primitives declare an input; 16 read it. So a chain of five can
+    // render as its last element while looking five times richer than one,
+    // and the only way to tell those two films apart from the outside is to
+    // measure it. This is the debt, named per film rather than felt.
+    const report = await compile(buildFixtureIR());
+    expect(report.usage.linkHonesty).toBeGreaterThanOrEqual(0);
+    expect(report.usage.linkHonesty).toBeLessThanOrEqual(1);
+    for (const d of report.usage.decorativeLinks) {
+      expect(d.link).toContain("→");
+      expect(d.uses).toBeGreaterThan(0);
+    }
+  });
+
+  it("the flagship chain is real end to end", async () => {
+    // noise_field → flow_field → particle_flow → particle_trail is the
+    // abstraction ladder's top rung and the Atlas's own Stage 2 milestone.
+    // Every stage after the first used to generate its own noise and draw
+    // over the one before it, so the rung was four unrelated images in a
+    // stack rendering as the last of them.
+    const { PRIMITIVES, chainOverwrites } = await import("../src/primitives/registry.ts");
+    for (const id of ["flow_field", "particle_flow", "particle_trail"]) {
+      expect(must(PRIMITIVES[id]).consumesUpstream, `${id} must read its upstream`).toBe(true);
+    }
+    expect(
+      chainOverwrites(["noise_field", "flow_field", "particle_flow", "particle_trail"]),
+    ).toEqual([]);
+  });
+});

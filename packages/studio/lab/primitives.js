@@ -101,7 +101,6 @@ reg(
   },
   (p) => {
     let n = vnoise(p.seed | 0 || 1337),
-      img = null,
       lastKey = "";
     return {
       frame(ctx, w, h, t) {
@@ -111,8 +110,20 @@ reg(
           n = vnoise(p.seed | 0 || 1337);
         }
         const cell = 4;
-        for (let y = 0; y < h; y += cell)
-          for (let x = 0; x < w; x += cell) {
+        // THE FIELD ITSELF, not only a picture of it.
+        //
+        // This declared "— → FIELD" and returned nothing, so every
+        // downstream consumer regenerated its own noise from a different
+        // seed and the four-primitive DISSOLVED chain was four unrelated
+        // images stacked, rendering as its last element. Sampling it once
+        // here and handing the grid on is what makes the chain a chain.
+        const cols = Math.ceil(w / cell);
+        const rows = Math.ceil(h / cell);
+        const data = new Float32Array(cols * rows);
+        for (let gy = 0; gy < rows; gy++)
+          for (let gx = 0; gx < cols; gx++) {
+            const x = gx * cell;
+            const y = gy * cell;
             const v =
               fbm(
                 n,
@@ -123,14 +134,16 @@ reg(
               ) *
                 0.5 +
               0.5;
-            const g = Math.round(cl01(v) * 230) + 6;
+            data[gy * cols + gx] = cl01(v);
+            const g = Math.round(data[gy * cols + gx] * 230) + 6;
             ctx.fillStyle = "rgb(" + g + "," + (g + 4) + "," + (g + 7) + ")";
             ctx.fillRect(x, y, cell, cell);
           }
+        return { field: { kind: "scalar", cols, rows, cell, w, h, data } };
       },
     };
   },
-  "Seeded value-noise fbm. Feeds particle motion, displacement, camera drift.",
+  "Seeded value-noise fbm, emitted as a sampled grid. Downstream primitives read THIS field rather than each generating their own — which is the difference between a chain and four pictures in a stack.",
 );
 
 reg(
@@ -145,18 +158,46 @@ reg(
   (p) => {
     const n = vnoise(1337);
     return {
-      frame(ctx, w, h, t) {
+      frame(ctx, w, h, t, upstream) {
         ctx.fillStyle = "#0d0f11";
         ctx.fillRect(0, 0, w, h);
         const gap = Math.round(30 - p.density * 18);
         ctx.strokeStyle = "rgba(155,163,170,.5)";
         ctx.lineWidth = 1;
-        for (let y = gap / 2; y < h; y += gap)
-          for (let x = gap / 2; x < w; x += gap) {
-            const a =
+        // A DIRECTION FIELD DERIVED FROM THE SCALAR ONE.
+        //
+        // Angles come from the gradient of the upstream field when there is
+        // one, so the flow genuinely follows the noise it was handed rather
+        // than following a private copy that happens to look similar. With
+        // no upstream it falls back to its own noise, which is what makes
+        // it still legible standing alone in the Lab.
+        const up = upstream && upstream.field && upstream.field.kind === "scalar" ? upstream.field : null;
+        const sample = (x, y) => {
+          if (!up) {
+            return (
               fbm(n, (x / w) * 6 * p.scale, (y / h) * 6 * p.scale + t * 0.1, 3, p.turbulence) *
               Math.PI *
-              2.2;
+              2.2
+            );
+          }
+          const gx = Math.min(up.cols - 2, Math.max(1, Math.round((x / w) * up.cols)));
+          const gy = Math.min(up.rows - 2, Math.max(1, Math.round((y / h) * up.rows)));
+          // Gradient of the field: the direction it climbs, rotated a
+          // quarter turn so particles travel ALONG contours rather than
+          // straight up them — which is what reads as flow.
+          const dx = up.data[gy * up.cols + gx + 1] - up.data[gy * up.cols + gx - 1];
+          const dy = up.data[(gy + 1) * up.cols + gx] - up.data[(gy - 1) * up.cols + gx];
+          return Math.atan2(dy, dx) + Math.PI / 2 + t * 0.05 * p.turbulence;
+        };
+        const cols = Math.max(2, Math.ceil(w / gap));
+        const rows = Math.max(2, Math.ceil(h / gap));
+        const ang = new Float32Array(cols * rows);
+        for (let gy = 0; gy < rows; gy++)
+          for (let gx = 0; gx < cols; gx++)
+            ang[gy * cols + gx] = sample(gx * gap + gap / 2, gy * gap + gap / 2);
+        for (let y = gap / 2; y < h; y += gap)
+          for (let x = gap / 2; x < w; x += gap) {
+            const a = sample(x, y);
             const L = gap * 0.6;
             ctx.beginPath();
             ctx.moveTo(x - (Math.cos(a) * L) / 2, y - (Math.sin(a) * L) / 2);
@@ -165,10 +206,12 @@ reg(
             ctx.fillStyle = "#d8624a";
             ctx.fillRect(x + (Math.cos(a) * L) / 2 - 1, y + (Math.sin(a) * L) / 2 - 1, 2, 2);
           }
+        lab(ctx, up ? "DERIVED FROM UPSTREAM FIELD" : "OWN NOISE · NO UPSTREAM", 10, h - 12);
+        return { field: { kind: "vector", cols, rows, cell: gap, w, h, ang } };
       },
     };
   },
-  "Directional field derived from noise. The substrate every particle chain moves through.",
+  "A direction field. Derived from the gradient of the scalar field it is handed, rotated so particles travel along contours rather than straight up them — which is what reads as flow. Falls back to its own noise when nothing is upstream.",
 );
 
 reg(
@@ -222,12 +265,22 @@ reg(
     let ps = [],
       key = "";
     return {
-      frame(ctx, w, h, t) {
-        const k = p.text + w;
+      frame(ctx, w, h, t, upstream) {
+        // SEEK THE GEOMETRY IT WAS GIVEN.
+        //
+        // It declared "GEOMETRY → GEOMETRY" and then rasterised its own
+        // `text` parameter into targets, so `glyph_to_points →
+        // particle_seek` — twenty-one scenes of the IHAP film, and the
+        // Atlas's own signature move — was two primitives forming two
+        // different words that happened to share a font.
+        const given = upstream && upstream.geometry;
+        const k = given ? "up:" + given.length + ":" + w : p.text + w;
         if (k !== key) {
           key = k;
-          const tg = glyphPoints(p.text, w, h, 5),
-            r = mulberry(4242);
+          const tg = given
+            ? given.map((q) => [q.x0 ?? q.x, q.y0 ?? q.y])
+            : glyphPoints(p.text, w, h, 5);
+          const r = mulberry(4242);
           ps = tg.map(([x, y]) => ({
             x: w / 2 + (r() - 0.5) * w * 1.1,
             y: h / 2 + (r() - 0.5) * h * 1.4,
@@ -251,10 +304,11 @@ reg(
             sp > 0.25 ? "rgba(216,98,74," + (0.4 + sp * 0.6) + ")" : "rgba(238,241,243,.8)";
           ctx.fillRect(q.x, q.y, 1.7, 1.7);
         }
+        return { geometry: ps.map((q) => ({ x: q.x, y: q.y, x0: q.tx, y0: q.ty })) };
       },
     };
   },
-  "Particles seek glyph geometry. This is how text forms out of chaos — the Canopticon signature move.",
+  "Particles seek the point geometry they are handed — text out of chaos, the Canopticon signature move. Emits its own positions so a trail downstream draws these particles, not a second population.",
 );
 
 reg(
@@ -272,7 +326,7 @@ reg(
       n = vnoise(1337),
       init = false;
     return {
-      frame(ctx, w, h, t) {
+      frame(ctx, w, h, t, upstream) {
         const N = Math.round(80 + p.count * 900);
         if (!init || ps.length !== N) {
           init = true;
@@ -283,9 +337,25 @@ reg(
         ctx.fillRect(0, 0, w, h);
         const r2 = mulberry(1234 + ((t * 60) | 0));
         ctx.lineWidth = 1;
+        // ADVECT THROUGH THE FIELD IT WAS GIVEN.
+        //
+        // It declared "FIELD → GEOMETRY" and then generated its own noise,
+        // so the flow field one stage upstream was decoration and this was
+        // an unrelated system that happened to look similar. Reading the
+        // vector field is what makes "advection through a field" true.
+        const vf =
+          upstream && upstream.field && upstream.field.kind === "vector" ? upstream.field : null;
+        const angleAt = (x, y) => {
+          if (!vf) {
+            return fbm(n, (x / w) * 5, (y / h) * 5 + t * 0.08, 3, p.turbulence) * Math.PI * 2.4;
+          }
+          const gx = Math.min(vf.cols - 1, Math.max(0, Math.floor((x / w) * vf.cols)));
+          const gy = Math.min(vf.rows - 1, Math.max(0, Math.floor((y / h) * vf.rows)));
+          return vf.ang[gy * vf.cols + gx];
+        };
+        const out = [];
         for (const q of ps) {
-          const a =
-            fbm(n, (q.x / w) * 5, (q.y / h) * 5 + t * 0.08, 3, p.turbulence) * Math.PI * 2.4;
+          const a = angleAt(q.x, q.y);
           const nx = q.x + Math.cos(a) * (0.6 + p.speed * 3.4),
             ny = q.y + Math.sin(a) * (0.6 + p.speed * 3.4);
           ctx.strokeStyle = "rgba(238,241,243,.22)";
@@ -301,11 +371,16 @@ reg(
             q.y = r2() * h;
             q.l = 60 + r2() * 180;
           }
+          out.push({ x: q.x, y: q.y, x0: q.x, y0: q.y });
         }
+        lab(ctx, vf ? out.length + " PTS · ADVECTED BY UPSTREAM FIELD" : out.length + " PTS · OWN NOISE", 10, h - 12);
+        // The declared GEOMETRY, actually emitted, so particle_trail draws
+        // THESE particles rather than a second population of its own.
+        return { geometry: out };
       },
     };
   },
-  "Advection through a field. Chain it after particle_seek and a word dissolves into drift.",
+  "Advection through a field — the one it is handed, when it is handed one. Emits the particle positions so a downstream trail draws these particles and not a second population that merely resembles them.",
 );
 
 reg(
@@ -320,8 +395,39 @@ reg(
   (p) => {
     let ps = [],
       init = false;
+    // Trails of the points it is GIVEN. It declared "GEOMETRY → IMAGE" and
+    // then animated its own lissajous population, so at the end of the
+    // flagship chain — noise → flow → particles → trail — the thing on
+    // screen was a decorative orbit that had never met any of the three
+    // stages before it.
+    //
+    // The decay wash is the whole idea: never clearing the buffer fully is
+    // what turns positions into motion history, so the trail is drawn from
+    // the upstream points and the previous frame is allowed to survive.
+    let history = null;
     return {
-      frame(ctx, w, h, t) {
+      frame(ctx, w, h, t, upstream) {
+        const pts = upstream && upstream.geometry;
+        if (!history || history.width !== w || history.height !== h) {
+          history = document.createElement("canvas");
+          history.width = w;
+          history.height = h;
+        }
+        const hx = history.getContext("2d");
+
+        if (pts && pts.length) {
+          hx.fillStyle = "rgba(13,15,17," + p.decay + ")";
+          hx.fillRect(0, 0, w, h);
+          const size = 1 + p.spread * 2.2;
+          for (const q of pts) {
+            hx.fillStyle = "rgba(216,98,74,.55)";
+            hx.fillRect(q.x, q.y, size, size);
+          }
+          ctx.drawImage(history, 0, 0);
+          lab(ctx, pts.length + " PTS · MOTION HISTORY", 10, h - 12);
+          return;
+        }
+
         const N = Math.round(30 + p.count * 260);
         if (!init || ps.length !== N) {
           init = true;
@@ -343,10 +449,11 @@ reg(
           ctx.fillStyle = "rgba(216,98,74,.5)";
           ctx.fillRect(x, y, 1.5, 1.5);
         }
+        lab(ctx, "OWN POPULATION · NO UPSTREAM GEOMETRY", 10, h - 12);
       },
     };
   },
-  "Motion history as an image buffer. Cheap, and what makes movement read as authored.",
+  "Motion history as an image buffer, drawn from the points it is handed. The decay wash is the idea: never clearing fully is what turns positions into movement.",
 );
 
 reg(

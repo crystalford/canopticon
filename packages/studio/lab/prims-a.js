@@ -748,6 +748,14 @@ reg(
   (p) => {
     const n = vnoise(1337);
     return {
+      // A loop is the plainest time transform there is: wrap the clock. An
+      // earlier edit put this on the wrong primitive, so the one member of
+      // the motion-craft family that most obviously re-times anything was
+      // still being counted — correctly — as a stage that ignores what it
+      // is handed.
+      warp(t, dur) {
+        return dur > 0 ? t % dur : t;
+      },
       frame(ctx, w, h, t) {
         bg(ctx, w, h);
         const T = 2 + p.period * 6,

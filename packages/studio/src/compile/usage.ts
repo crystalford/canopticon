@@ -35,11 +35,23 @@ export interface UsageReport {
   /** Sources whose output fed something else. Substrate; keep. */
   loadBearingSources: string[];
   unusedInPalette: number;
+  /** Links this film relies on where the CONSUMER declares an input type and
+   *  never reads it — a seam the type system approved that does nothing at
+   *  runtime. Named with counts so the debt is a list of specific
+   *  primitives to fix rather than a feeling that the palette is thin.
+   *
+   *  Across the whole palette: 74 primitives declare an input and 16 read
+   *  it. That is the real state of the thing, and it is why a chain of five
+   *  can render as its last element. */
+  decorativeLinks: { link: string; uses: number }[];
+  /** How much of this film's chaining is real, 0..1. */
+  linkHonesty: number;
 }
 
 export function analyseUsage(scenes: ComposedScene[]): UsageReport {
   const uses = new Map<string, number>();
   const consumed = new Map<string, number>();
+  const decorative = new Map<string, number>();
 
   for (const scene of scenes) {
     const ids = scene.nodes.map((n) => n.primitiveId);
@@ -48,8 +60,26 @@ export function analyseUsage(scenes: ComposedScene[]): UsageReport {
       // Consumed if any LATER node in this chain declares an input. The
       // chain is linear, so a downstream consumer is a real consumer.
       const downstream = ids.slice(i + 1);
-      const isConsumed = downstream.some((next) => (PRIMITIVES[next]?.inputs ?? []).length > 0);
+      // Consumed by something that ACTUALLY READS ITS INPUT. Declaring one
+      // is not the same as reading it, and this check used to accept the
+      // declaration — the same mistake the type system made, so the measure
+      // built to prune the palette on evidence was itself reporting a
+      // hopeful number.
+      const isConsumed = downstream.some(
+        (next) => (PRIMITIVES[next]?.inputs ?? []).length > 0 && PRIMITIVES[next]?.consumesUpstream,
+      );
       if (isConsumed) consumed.set(id, (consumed.get(id) ?? 0) + 1);
+      // A link where the consumer declares an input and ignores it. The
+      // chain typechecks, runs, and the later primitive draws over the
+      // earlier one having read nothing from it.
+      const next = ids[i + 1];
+      if (
+        next &&
+        (PRIMITIVES[next]?.inputs ?? []).length > 0 &&
+        !PRIMITIVES[next]?.consumesUpstream
+      ) {
+        decorative.set(`${id} → ${next}`, (decorative.get(`${id} → ${next}`) ?? 0) + 1);
+      }
     });
   }
 
@@ -78,5 +108,26 @@ export function analyseUsage(scenes: ComposedScene[]): UsageReport {
       .map((p) => p.primitiveId)
       .sort(),
     unusedInPalette: Object.keys(PRIMITIVES).length - uses.size,
+    decorativeLinks: [...decorative.entries()]
+      .map(([link, n]) => ({ link, uses: n }))
+      .sort((a, b) => b.uses - a.uses),
+    linkHonesty: honesty(scenes),
   };
+}
+
+/** The proportion of this film's chain LINKS that actually carry something.
+ *  A film of five-primitive chains where only the last one reads anything is
+ *  not five times richer than a film of one — and until this was measured
+ *  there was no way to tell those two films apart from the outside. */
+function honesty(scenes: ComposedScene[]): number {
+  let total = 0;
+  let real = 0;
+  for (const scene of scenes) {
+    const ids = scene.nodes.map((n) => n.primitiveId);
+    for (let i = 1; i < ids.length; i++) {
+      total++;
+      if (PRIMITIVES[ids[i] as string]?.consumesUpstream) real++;
+    }
+  }
+  return total === 0 ? 1 : Math.round((real / total) * 1000) / 1000;
 }
