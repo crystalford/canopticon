@@ -65,11 +65,19 @@ OBSERVES arrangement reads on the frame.
 
 Outstanding, in order of leverage:
 
-1. **`APERTURE` is a plane, not an opening.** The structural column is a
-   rectangle. `wireframe(form:1)` is the wrong source for "you see
-   through it"; this probably wants a real aperture — two nested paths
-   with the interior removed.
-2. **`CONNECT` reads as scattered points.** `force_layout` does not
+~~`APERTURE` is a plane, not an opening.~~ **DONE, and built as a
+RELATION rather than a graphic.** An aperture creates inside/outside,
+visible/hidden, foreground/background and reveal/conceal; a window, a
+doorway, a screen, a hole and a redaction are consequences of it rather
+than definitions. It paints a surface and cuts an opening filled with the
+ground colour, so the compositor's knockout lets whatever is behind it in
+the scene graph show through — two elements, one relation, no masks and
+no new compositing path. `REVEALS` and `CONCEALS` joined the relation
+vocabulary with it.
+
+Outstanding, in order of leverage:
+
+1. **`CONNECT` reads as scattered points.** `force_layout` does not
    cluster. Diagrammatic needs grouping and edges that are drawn.
 3. **Temporal grammar.** The scene graph is the right substrate: elements
    ENTER, ACCUMULATE, TRANSFORM, and the camera observes across time. The
@@ -93,6 +101,13 @@ Outstanding, in order of leverage:
 - **A constant tuned against one situation will break when the situation
   becomes directorial.** `formPoints`' 0.14 luminance floor assumed a
   near-black ground and broke the moment colour became a choice.
+- **The paired suite is the regression net, and it finds things.**
+  `tests/semantic-scene.test.ts` holds minimal pairs where only the
+  relationship changes. It caught `APPROACHES`/`DEPARTS` missing on its
+  first run — "the camera approached the door" and "the camera moved away
+  from the door" were producing one scene. Assert on the SCENE GRAPH, not
+  on pixels: a regression in meaning should fail before anyone looks at a
+  frame.
 - **The gallery is the laboratory.** `scratchpad/gal.mjs` regenerates the
   whole matrix in one command. Two columns that look alike means the
   abstraction is too shallow; two different sentences producing the same

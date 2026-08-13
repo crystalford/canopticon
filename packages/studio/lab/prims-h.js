@@ -471,3 +471,85 @@ reg(
   }),
   "A bounded body with a counted number of faces, a corner radius and a taper. The palette's missing polygon source: a triangle, a slab, a lozenge, a near-circle, or anything between. General enough to serve the literal, geometric and structural readings without being about any subject.",
 );
+
+/* ── APERTURE, AS A RELATION BETWEEN TWO SPACES ───────────────────────
+ *
+ * NOT a window, and deliberately not a better rectangle. An aperture is
+ * the operation that creates:
+ *
+ *     inside / outside · visible / hidden
+ *     foreground / background · revealed / concealed · through / behind
+ *
+ * A window is ONE CONSEQUENCE of it. So are a doorway, a screen, a hole,
+ * a portal, a redaction, a thing partly concealed, and a thing in the
+ * act of being revealed — none of which needs its own generator.
+ *
+ * HOW IT WORKS WITH THE STACK, which is the whole reason it can be a
+ * relation at all. It paints a SURFACE across the frame and cuts an
+ * opening in it filled with the film's ground colour. `knockout()` then
+ * makes the ground transparent when this element is composited, so
+ * whatever sits behind it in the scene graph shows through the opening
+ * and is hidden everywhere else. Two elements, one relation, no masks
+ * and no new compositing path.
+ */
+reg(
+  "aperture",
+  "B · VECTOR",
+  "— → IMAGE",
+  {
+    sides: { v: 4, lo: 3, hi: 32, int: 1 },
+    size: { v: 0.42, lo: 0.05, hi: 1.2 },
+    x: { v: 0.5, lo: 0, hi: 1 },
+    y: { v: 0.5, lo: 0, hi: 1 },
+    // 0 = the surface is solid and the opening is clean. Higher values
+    // erode the edge, so an opening can be a tear as well as a cut.
+    erode: { v: 0, lo: 0, hi: 1 },
+    // How present the surface is. At 0 the aperture is all opening —
+    // nothing is concealed — which is the honest reading of a sentence
+    // that reveals without withholding.
+    surface: { v: 0.85, lo: 0, hi: 1 },
+  },
+  (p) => ({
+    frame(ctx, w, h, t) {
+      bg(ctx, w, h);
+      if (p.surface > 0.02) {
+        // THE SURFACE — what conceals. Drawn in the film's mid tone so it
+        // reads as material rather than as a black card.
+        ctx.globalAlpha = p.surface;
+        ctx.fillStyle = MUT;
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = 1;
+      }
+      // THE OPENING — cut back to the ground, which the compositor's
+      // knockout turns transparent. What is behind is now visible only
+      // here, which IS the relation.
+      const cx = p.x * w;
+      const cy = p.y * h;
+      const R = p.size * Math.min(w, h) * 0.5;
+      const N = Math.max(3, Math.round(p.sides));
+      const jag = p.erode * R * 0.28;
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) {
+        const a = (i / N) * Math.PI * 2 - Math.PI / 2;
+        // Deterministic erosion — a seeded wobble on the radius, not a
+        // random one, so the same opening is the same opening.
+        const k = jag ? Math.sin(i * 12.9898 + N) * jag : 0;
+        const r = R + k;
+        const px = cx + Math.cos(a) * r;
+        const py = cy + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = BG;
+      ctx.fill();
+      // The edge of the opening, so the aperture reads as an edge rather
+      // than as an absence of paint.
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      lab(ctx, `APERTURE ${N} · ${Math.round(p.surface * 100)}% SURFACE`, 10, h - 16);
+    },
+  }),
+  "A surface with an opening cut through it. The general operation for inside/outside, visible/hidden, foreground/background and reveal/conceal — a window, a doorway, a screen, a hole and a redaction are consequences of it rather than definitions. What sits behind it in the scene graph shows through the opening and is concealed everywhere else.",
+);

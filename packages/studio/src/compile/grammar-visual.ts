@@ -141,15 +141,25 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
 
   // The opening rather than the wall. `wireframe` form 1 is an open
   // volume — you look through it, which is what an aperture is for.
+  /* AN OPENING, NOT A PLANE. This was `wireframe(form:1)` — an open
+   * volume — which drew a rectangle and made the structural column a
+   * rectangle in every row of every gallery. An aperture is a SURFACE
+   * WITH A HOLE, and the hole is what the scene behind is seen through;
+   * the compositor's knockout does the rest. */
   APERTURE: (m) => [
     n(
-      "wireframe",
+      "aperture",
       {
-        form: 1,
-        spin: clamp(0.1 + m.energy * 0.35, 0, 1),
-        subdiv: Math.round(clamp(4 + m.density * 6, 3, 14)),
+        sides: Math.round(clamp(m.count ? (m.count % 8) + 4 : 4 + (m.seed % 4), 3, 32)),
+        size: clamp(0.3 + (1 - m.density) * 0.45, 0.05, 1.2),
+        x: clamp(0.5 + (((m.seed * 29) % 100) / 100 - 0.5) * m.abstraction * 0.4, 0, 1),
+        y: 0.5,
+        // A film that has come apart tears its openings rather than
+        // cutting them.
+        erode: clamp((m.abstraction - 0.5) * 1.2, 0, 1),
+        surface: clamp(0.5 + m.density * 0.45, 0, 1),
       },
-      "an opening you see through rather than a surface you see",
+      "a surface with an opening — what is behind is seen only through it",
     ),
   ],
 
@@ -350,7 +360,7 @@ const ROLE: Record<Op, Role> = {
   MASS: "TRANSFORM",
   CONTOUR: "TRANSFORM",
   PLACE: "TRANSFORM",
-  APERTURE: "SOURCE",
+  APERTURE: "RENDER",
   WORD: "SOURCE",
   MARK: "SOURCE",
   REPEAT: "SOURCE",
@@ -367,7 +377,7 @@ const RECIPE: Record<Mode, Op[]> = {
   // was built on, repeated. Not a filled blob — that was the collapse.
   geometric: ["MARK", "CONTOUR", "PLACE", "FRAME"],
   // DEPTH: an open volume, peeled apart to show what is behind it.
-  structural: ["APERTURE", "PLACE", "LAYER"],
+  structural: ["SOLID", "PLACE", "APERTURE"],
   // LANGUAGE as material.
   typographic: ["WORD", "PLACE", "FRAME"],
   // WHAT CONNECTS TO WHAT.

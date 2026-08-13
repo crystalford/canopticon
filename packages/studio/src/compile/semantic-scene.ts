@@ -36,6 +36,17 @@
 //     ACCUMULATES many of one, gathering
 //     CONNECTS    two joined by something drawn
 //     EMERGES     one coming out of another
+//     REVEALS     one seen THROUGH an opening in another
+//     CONCEALS    one hidden BEHIND another, with no opening
+//     APPROACHES  the distance between two things closing
+//     DEPARTS     the distance opening
+//
+// APPROACHES and DEPARTS were added BY THE PAIRED TEST SUITE, which is
+// the point of it: "the camera approached the door" and "the camera
+// moved away from the door" both fell through to CONNECTS, so the system
+// had no way to say that proximity itself was the event. Two sentences
+// with opposite meanings produced one scene, and nothing downstream could
+// have recovered the difference.
 //
 // There is no `watches` and no `surveils`. "Watched", "monitored",
 // "recorded", "inspected" and "photographed" all mean OBSERVES for
@@ -53,7 +64,11 @@ export type RelationKind =
   | "OPPOSES"
   | "ACCUMULATES"
   | "CONNECTS"
-  | "EMERGES";
+  | "EMERGES"
+  | "REVEALS"
+  | "CONCEALS"
+  | "APPROACHES"
+  | "DEPARTS";
 
 export interface SceneEntity {
   /** The word the prose used. Carried for typography, never as a key. */
@@ -111,6 +126,24 @@ const CONSEQUENCE: Array<[RegExp, RelationKind]> = [
   [
     /\b(accumulat|gather|gathered|pile|piled|collect|collected|amass|multiplied|spread|grew)\b/i,
     "ACCUMULATES",
+  ],
+  // Proximity before connection: "moved toward" is a connection too, and
+  // the closing of distance is the more specific reading.
+  [
+    /\b(approach|approached|toward|towards|closer|nearer|arriv(?:ed|ing) at|converg)\b/i,
+    "APPROACHES",
+  ],
+  [
+    /\b(moved away|away from|receded|withdrew|retreat|depart|left|further from|diverg)\b/i,
+    "DEPARTS",
+  ],
+  [
+    /\b(reveal|revealed|expose[ds]?|uncover|uncovered|disclos|show(?:ed|s)? through|through)\b/i,
+    "REVEALS",
+  ],
+  [
+    /\b(conceal|concealed|hid|hidden|obscur|cover(?:ed)? up|behind|buried|withheld|redact)\b/i,
+    "CONCEALS",
   ],
   [/\b(emerg|arriv|appear|came out|rose|surfac|issued|arose)\b/i, "EMERGES"],
   [
@@ -276,6 +309,49 @@ export function arrange(kind: RelationKind, negated: boolean): Arrangement {
       field: false,
       nested: false,
       why: "two things, and what runs between them",
+    },
+    /* AN APERTURE IS A RELATION, NOT A SHAPE. The TO entity sits behind
+     * and is seen only through the opening the FROM entity carries; the
+     * FROM entity fills the frame because a surface that does not cover
+     * anything conceals nothing. A window, a doorway, a screen and a
+     * redaction are all this arrangement at different sizes. */
+    REVEALS: {
+      from: { x: 0.5, y: 0.5, scale: 1.4 },
+      to: { x: 0.5, y: 0.5, scale: 0.8 },
+      sight: false,
+      field: false,
+      nested: true,
+      why: "one seen through an opening in the other",
+    },
+    // The same arrangement with the opening closed to a slit: something
+    // is behind, and the sentence declines to show it.
+    CONCEALS: {
+      from: { x: 0.5, y: 0.5, scale: 1.6 },
+      to: { x: 0.5, y: 0.52, scale: 0.5 },
+      sight: false,
+      field: false,
+      nested: true,
+      why: "one behind the other, and mostly withheld",
+    },
+    /* PROXIMITY IS THE EVENT. Two things near each other with a great
+     * deal of frame outside them: the composition is about the gap. The
+     * departing pair sits at the edges with the gap in the middle, which
+     * is the same relation read the other way. */
+    APPROACHES: {
+      from: { x: 0.42, y: 0.5, scale: 0.4 },
+      to: { x: 0.58, y: 0.5, scale: 0.4 },
+      sight: false,
+      field: false,
+      nested: false,
+      why: "two things close together, the space around them empty",
+    },
+    DEPARTS: {
+      from: { x: 0.14, y: 0.5, scale: 0.36 },
+      to: { x: 0.86, y: 0.5, scale: 0.36 },
+      sight: false,
+      field: false,
+      nested: false,
+      why: "two things at opposite edges, the gap between them the subject",
     },
     EMERGES: {
       from: { x: 0.5, y: 0.78, scale: 0.9 },

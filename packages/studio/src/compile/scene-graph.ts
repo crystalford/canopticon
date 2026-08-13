@@ -68,14 +68,14 @@ function opsFor(role: Role, mode: Mode): Op[] {
   if (role === "TEXT") return ["WORD", "PLACE", "FRAME"];
   if (role === "FIELD") return ["REPEAT", "PLACE", "FRAME"];
   if (role === "GROUND")
-    return mode === "structural" ? ["APERTURE", "PLACE", "LAYER"] : ["MARK", "PLACE", "FRAME"];
+    return mode === "structural" ? ["MARK", "PLACE", "FRAME"] : ["MARK", "PLACE", "FRAME"];
   if (role === "SECONDARY") return ["SOLID", "PLACE", "FRAME"];
   // PRIMARY carries the representation's own idea.
   return (
     {
       literal: ["SOLID", "PLACE", "FRAME"],
       geometric: ["MARK", "CONTOUR", "PLACE", "FRAME"],
-      structural: ["APERTURE", "PLACE", "LAYER"],
+      structural: ["SOLID", "PLACE", "APERTURE"],
       typographic: ["WORD", "PLACE", "FRAME"],
       diagrammatic: ["CONNECT", "PLACE", "FRAME"],
       symbolic: ["REPEAT", "CONTOUR", "PLACE", "FRAME"],
