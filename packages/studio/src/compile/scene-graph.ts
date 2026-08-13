@@ -32,6 +32,7 @@
 import type { PlannedNode } from "./construct.ts";
 import { type Material, type Op, realiseOps } from "./grammar-visual.ts";
 import type { Mode } from "./represent.ts";
+import { type SemanticScene, arrange } from "./semantic-scene.ts";
 
 /** What an element is FOR in the frame. Roles, not shapes — the same
  *  operations serve any of them, and the role decides scale, placement
@@ -96,6 +97,88 @@ function opsFor(role: Role, mode: Mode): Op[] {
  *    how much emptiness  restraint spends the frame on nothing, which is
  *                        the decision the old one-form-centred layout
  *                        could not make either way */
+/* COMPOSE FROM THE SEMANTIC SCENE.
+ *
+ * The template version below produced `primary + text + optional
+ * secondary` for every sentence, which is why two sentences with
+ * opposite meanings produced the same arrangement. This one reads the
+ * RELATION and lets it decide how many elements exist, which dominates,
+ * where they sit, what repeats and what is drawn between them.
+ *
+ * Nothing here consults a noun or a verb. The relation kind was already
+ * turned into an arrangement by `semantic-scene.ts`; this places
+ * elements into it. One authoritative translation point, standing rule 9,
+ * applied to relations. */
+export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene): SceneGraph {
+  const rel = sem.relations[0];
+  if (!rel || sem.entities.length < 2) {
+    // No relation the prose actually drew — fall back to the single
+    // subject composition rather than inventing a second entity.
+    const g = composeScene(mode, m);
+    return { ...g, describes: `${g.describes} · ${sem.describes}` };
+  }
+  const a = arrange(rel.kind, sem.negated);
+  const els: Element[] = [];
+
+  // A ground only where the arrangement wants depth behind it.
+  if (a.nested || m.density > 0.45) {
+    els.push({
+      role: "GROUND",
+      ops: opsFor("GROUND", mode),
+      place: { scale: 1.7 + m.density * 0.8, x: 0.5, y: 0.5, crop: 1 },
+      depth: 0,
+      reason: "the world the relation happens in",
+    });
+  }
+
+  // THE TO-ENTITY. A field when the relation multiplies it — an observer
+  // watches MANY, an accumulation IS many — otherwise a single form.
+  els.push({
+    role: a.field ? "FIELD" : "SECONDARY",
+    ops: opsFor(a.field ? "FIELD" : "SECONDARY", mode),
+    place: { scale: a.to.scale, x: a.to.x, y: a.to.y, crop: a.to.scale > 1 ? 1 : 0 },
+    depth: 0.35,
+    reason: `${sem.entities[rel.to]?.text ?? "the other"} — ${a.why}`,
+  });
+
+  // THE FROM-ENTITY, which the arrangement usually makes dominant.
+  els.push({
+    role: "PRIMARY",
+    ops: opsFor("PRIMARY", mode),
+    place: { scale: a.from.scale, x: a.from.x, y: a.from.y, crop: a.from.scale > 1 ? 1 : 0 },
+    depth: a.nested ? 0.2 : 0.65,
+    reason: `${sem.entities[rel.from]?.text ?? "the subject"} — ${rel.kind.toLowerCase()}`,
+  });
+
+  // WHAT RUNS BETWEEN THEM. A line of sight, a link, a crossing — drawn
+  // only when the relation genuinely has one, and removed by negation.
+  if (a.sight) {
+    els.push({
+      role: "SECONDARY",
+      ops: ["CONNECT", "PLACE", "FRAME"],
+      place: { scale: 1.1, x: (a.from.x + a.to.x) / 2, y: (a.from.y + a.to.y) / 2, crop: 0 },
+      depth: 0.5,
+      reason: "what runs between them",
+    });
+  }
+
+  if (mode !== "typographic" && m.phrase && m.typography > 0.4) {
+    els.push({
+      role: "TEXT",
+      ops: opsFor("TEXT", mode),
+      place: { scale: 0.1 + m.typography * 0.1, x: 0.2, y: 0.88, crop: 0 },
+      depth: 0.95,
+      reason: "the words, as an accent",
+    });
+  }
+
+  els.sort((x, y) => x.depth - y.depth);
+  return {
+    elements: els,
+    describes: `${sem.describes} · ${els.length} elements · ${a.why}`,
+  };
+}
+
 export function composeScene(mode: Mode, m: Material): SceneGraph {
   const els: Element[] = [];
   const many = m.count !== null && m.count > 12;
