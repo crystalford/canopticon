@@ -1,0 +1,121 @@
+name: Studio probe
+
+# On-demand diagnostic probe for CANOPTICON STUDIO.
+#
+# The sandbox Claude Code runs in cannot reach canopticon.com at all — the
+# egress proxy refuses the CONNECT — so every claim about the deployed
+# Studio has had to be inferred from a local Worker. That is exactly how a
+# route ends up "built, tested, and never actually run": `/project/:id/read`
+# is the only path in the system that needs the AI binding, the binding only
+# exists in production, and production was unreachable.
+#
+# This is the same bridge `canopticon-admin-probe.yml` provides for the
+# Record, pointed at Studio. Two deliberate differences:
+#
+#   NO CLOUDFLARE ACCESS HEADERS. Studio is not behind Access. Sending
+#   service-token headers it does not check would imply a protection that
+#   is not there.
+#
+#   IT KEEPS A NAMED FILE PER PROBE, not one "latest". A read run is a
+#   sequence — ingest, read, read again — and overwriting one file loses
+#   the sequence, which is the only interesting part.
+#
+# Cost discipline: triggered only, ~15 seconds, never loops. No cron.
+
+on:
+  workflow_dispatch:
+    inputs:
+      path:
+        description: "Path to call, e.g. /v1/projects"
+        required: true
+        default: "/health"
+        type: string
+      method:
+        description: "HTTP method"
+        required: true
+        default: "GET"
+        type: choice
+        options: [GET, POST, DELETE]
+      body:
+        description: "Optional JSON request body"
+        required: false
+        default: ""
+        type: string
+      label:
+        description: "Short name for this probe, used in the filename"
+        required: false
+        default: "probe"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Call the deployed Studio
+        env:
+          PROBE_PATH: ${{ github.event.inputs.path }}
+          PROBE_METHOD: ${{ github.event.inputs.method }}
+          PROBE_BODY: ${{ github.event.inputs.body }}
+          PROBE_LABEL: ${{ github.event.inputs.label }}
+        run: |
+          set -euo pipefail
+          BASE="https://studio.canopticon.com"
+          URL="${BASE}${PROBE_PATH}"
+          echo "→ ${PROBE_METHOD} ${URL}"
+
+          mkdir -p ops/studio-probe
+
+          # A read of a dozen scenes is a dozen model calls; the 30s the
+          # Record's probe uses is not enough for that.
+          ARGS=(-sS -m 120 -X "${PROBE_METHOD}"
+                -H "content-type: application/json"
+                -w '\n%{http_code}')
+          if [ -n "${PROBE_BODY}" ]; then
+            ARGS+=(-d "${PROBE_BODY}")
+          fi
+
+          RAW="$(curl "${ARGS[@]}" "${URL}" || true)"
+          STATUS="$(printf '%s' "${RAW}" | tail -n1)"
+          PAYLOAD="$(printf '%s' "${RAW}" | sed '$d')"
+
+          if printf '%s' "${PAYLOAD}" | jq -e . >/dev/null 2>&1; then
+            PRETTY="$(printf '%s' "${PAYLOAD}" | jq .)"
+          else
+            PRETTY="${PAYLOAD}"
+          fi
+
+          SAFE="$(printf '%s' "${PROBE_LABEL}" | tr -cd '[:alnum:]-_' | cut -c1-40)"
+          OUT="ops/studio-probe/${SAFE:-probe}.json"
+
+          jq -n \
+            --arg path "${PROBE_PATH}" \
+            --arg method "${PROBE_METHOD}" \
+            --arg status "${STATUS}" \
+            --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg run "${GITHUB_RUN_ID}" \
+            --argjson payload "$(printf '%s' "${PRETTY}" | jq -Rs .)" \
+            '{requested_at:$ts, run_id:$run, method:$method, path:$path, status:($status|tonumber? // $status), body:$payload}' \
+            > "${OUT}"
+
+          echo "← status ${STATUS} → ${OUT}"
+
+      - name: Commit response
+        run: |
+          set -euo pipefail
+          git config user.name "canopticon-probe[bot]"
+          git config user.email "probe@users.noreply.github.com"
+          git add ops/studio-probe
+          if git diff --cached --quiet; then
+            echo "no change"
+            exit 0
+          fi
+          git commit -m "studio probe: ${{ github.event.inputs.method }} ${{ github.event.inputs.path }} [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
