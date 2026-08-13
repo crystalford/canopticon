@@ -4,16 +4,41 @@ const MARK = `<svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-h
 <path d="M14.69 13.58A4.5 4.5 0 1 0 14.69 8.42" stroke="#eef1f3" stroke-width="1.3" stroke-linecap="round"/>
 <circle cx="11" cy="11" r="1.6" fill="#d8624a"/></svg>`;
 
+/* THE NAV IS THE JOURNEY, not a list of compiler stages.
+ *
+ * It used to read FILMS · NARRATIVE · EDITORIAL · PREVIEW · OVERVIEW ·
+ * COMPILE · LAB — seven surfaces, every one named after a stage of the
+ * pipeline, in the order the pipeline runs rather than the order a
+ * director works. A person opening Studio met a compiler dashboard and
+ * had to learn the architecture before they could make anything.
+ *
+ * Now it reads in the order the work happens, and the FILM comes first
+ * because the film is the central object:
+ *
+ *   FILM     what am I looking at
+ *   STORY    what is it saying
+ *   VISUAL   how is it expressed, and how is it heard
+ *   ENGINE   how was it built                      ← backstage
+ *
+ * ENGINE holds everything that belongs to the compiler — the creative
+ * state, the shot inventory, the cache audit and the palette. That
+ * information is valuable and it is not the first thing anyone should
+ * meet. */
 const VIEWS = [
-  ["films", "FILMS"],
-  ["narrative", "NARRATIVE"],
-  ["editorial", "EDITORIAL"],
-  ["preview", "PREVIEW"],
-  ["overview", "OVERVIEW"],
-  ["compile", "COMPILE"],
-  ["lab", "LAB"],
+  ["preview", "FILM"],
+  ["narrative", "STORY"],
+  ["visual", "VISUAL"],
+  ["films", "LIBRARY"],
+  ["engine", "ENGINE"],
 ];
-const APP = { view: "films", dirty: false, saveState: "", sel: "s07", labPrim: "particle_seek", loops: [] };
+/** Backstage. Reachable from ENGINE, never from the top bar. */
+const ENGINE_VIEWS = [
+  ["editorial", "CREATIVE STATE", "The curves the film is composed against."],
+  ["overview", "SHOTS", "Every shot in the film, and what it is made of."],
+  ["compile", "COMPILE", "What was recomputed, and the stated reason for each."],
+  ["lab", "PALETTE", "All 129 primitives. Where one earns its place."],
+];
+const APP = { view: "preview", dirty: false, saveState: "", sel: "s07", labPrim: "particle_seek", loops: [] };
 
 function stopLoops() {
   APP.loops.forEach((t) => (t.alive = false));
@@ -106,7 +131,15 @@ async function saveNow() {
 function renderBar() {
   const run = window.__lastRun;
   document.getElementById("bar").innerHTML = `<div class="logo">${MARK}<b>CANOPTICON</b></div>
-   <div class="nav">${VIEWS.map(([id, l]) => `<button class="${APP.view === id ? "on" : ""}" data-go="${id}">${l}</button>`).join("")}</div>
+   <div class="nav">${VIEWS.map(([id, l]) => {
+       const backstage = ENGINE_VIEWS.some(([e]) => e === APP.view);
+       const on = APP.view === id || (id === "engine" && backstage);
+       return `<button class="${on ? "on" : ""}" data-go="${id}">${l}</button>`;
+     }).join("")}${
+       ENGINE_VIEWS.some(([e]) => e === APP.view)
+         ? `<button class="crumb" data-go="engine">${(ENGINE_VIEWS.find(([e]) => e === APP.view) || [])[1] || ""}</button>`
+         : ""
+     }</div>
    <div class="keyhint" id="keyhint"></div>
    <div class="barstate">
      <span title="${window.FILM.title.replace(/"/g, "&quot;")}">${window.FILM.title.length > 42 ? window.FILM.title.slice(0, 40).toUpperCase() + "…" : window.FILM.title.toUpperCase()}</span>
@@ -122,6 +155,34 @@ function renderBar() {
     hint.innerHTML = KEYS.map(([k, what]) => `<span><kbd>${k}</kbd>${what}</span>`).join("");
   }
 }
+/* ENGINE — the backstage door.
+ *
+ * Not a view of its own so much as an honest index of the four surfaces
+ * that belong to the compiler. Each one says what it is for in a sentence
+ * before you commit to opening it, because "COMPILE" and "OVERVIEW" told
+ * a director nothing about whether they wanted to look. */
+function viewEngine(root) {
+  root.innerHTML = `
+  <div class="vhead">
+    <h1>Engine</h1>
+    <div class="sub">How this film was built. Nothing here is required to make one.</div>
+  </div>
+  <section class="vsec">
+    <div class="vgrid">
+      ${ENGINE_VIEWS.map(
+        ([id, label, what]) =>
+          `<button class="vcard" data-go="${id}"><b>${label}</b><p>${what}</p></button>`,
+      ).join("")}
+    </div>
+    <div class="vfoot">
+      These are the compiler's own surfaces. They are deliberately dense and
+      deliberately not the first thing you meet — a director should be able to
+      make a film without reading any of them.
+    </div>
+  </section>`;
+  root.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => go(b.dataset.go)));
+}
+
 function dirtyCount() {
   const r = dryRun();
   return r.comps.filter((c) => c.misses > 0).length;
@@ -171,6 +232,8 @@ function render() {
     preview: viewPreview,
     compile: viewCompile,
     lab: viewLab,
+    visual: viewVisual,
+    engine: viewEngine,
   })[APP.view](v);
 }
 /* ── KEYBOARD ─────────────────────────────────────────────────────────

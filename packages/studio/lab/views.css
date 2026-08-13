@@ -1344,3 +1344,46 @@
   gap: 6px;
   margin-top: 10px;
 }
+
+/* ── VISUAL view ───────────────────────────────────────────────────────
+ * The director's two questions: how is this expressed, how is it heard.
+ * Deliberately roomier than the compiler views — this is a place to
+ * choose, not a place to audit. */
+.vhead{padding:22px 24px 4px}
+.vhead h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
+.vhead .sub{color:var(--mute,#8b949b);font-size:13px;margin-top:4px}
+.vsec{padding:18px 24px 26px;border-bottom:1px solid var(--line,#1d2124)}
+.vsech{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.vsech h2{margin:0;font:600 11px/1 "JetBrains Mono",monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--mute,#8b949b)}
+.vsech .note{font-size:12px;color:#c3cace}
+.vsech .note b{color:var(--ink,#eef1f3);font-weight:500}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
+.vcard{position:relative;text-align:left;background:#101315;border:1px solid var(--line,#1d2124);
+  border-radius:5px;padding:13px 14px;color:inherit;cursor:pointer;font:inherit}
+.vcard:hover{border-color:#39424a;background:#13171a}
+.vcard.on{border-color:#7fe3c0;background:#111a18}
+.vcard.sug{border-color:#3d5c53}
+.vcard b{display:block;font-size:14px;font-weight:600;margin-bottom:3px}
+.vcard i{display:block;font:11px/1.5 "JetBrains Mono",monospace;color:#7fe3c0;font-style:normal;margin-bottom:6px}
+.vcard p{margin:0;font-size:12px;line-height:1.5;color:#9ba3aa}
+.vcard .tag{position:absolute;top:11px;right:11px;font:600 8px/1 "JetBrains Mono",monospace;
+  letter-spacing:.12em;color:#7fe3c0;border:1px solid #2c4a41;border-radius:2px;padding:3px 5px}
+.vrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.vopt{position:relative;text-align:left;background:#101315;border:1px solid var(--line,#1d2124);
+  border-radius:5px;padding:13px 14px 12px 32px;color:inherit;cursor:pointer;font:inherit}
+.vopt:hover:not(.off){border-color:#39424a}
+.vopt.on{border-color:#7fe3c0;background:#111a18}
+.vopt.off{opacity:.45;cursor:not-allowed}
+.vopt .dot{position:absolute;left:13px;top:16px;width:11px;height:11px;border-radius:50%;
+  border:1px solid #4a545c;background:transparent}
+.vopt.on .dot{border-color:#7fe3c0;box-shadow:inset 0 0 0 3px #7fe3c0}
+.vopt b{display:block;font-size:13px;font-weight:600;margin-bottom:3px}
+.vopt p{margin:0;font-size:11.5px;line-height:1.45;color:#9ba3aa}
+.vopt em{display:block;margin-top:6px;font:10px/1.4 "JetBrains Mono",monospace;font-style:normal;color:#c08a5a}
+.vscenes{display:flex;flex-wrap:wrap;gap:3px;margin-top:14px}
+.vscenes i{width:20px;height:20px;border-radius:2px;border:1px solid #262c31;background:#0e1113;
+  font:9px/20px "JetBrains Mono",monospace;font-style:normal;text-align:center;color:#5c656d}
+.vscenes i.has{background:#1b3a32;border-color:#2c5a4d;color:#7fe3c0}
+.vfoot{margin-top:14px;font-size:12px;line-height:1.6;color:#79828a;max-width:70ch}
+.nav .crumb{color:#7fe3c0;border-left:1px solid var(--line,#1d2124);margin-left:2px}
+.nav .crumb::before{content:"› ";opacity:.6}
