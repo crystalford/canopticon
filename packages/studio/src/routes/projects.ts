@@ -15,9 +15,9 @@ import { applyVerb, verbById } from "../compile/verbs.ts";
 import type { Env } from "../env.ts";
 import { type EditorialIR, parseIR } from "../ir/schema.ts";
 import { all, newId, nowIso, one, run } from "../lib/d1.ts";
-import { sequenceAlignments } from "../narrate/align.ts";
+import { ASR_CANDIDATES, readTimings, sequenceAlignments } from "../narrate/align.ts";
 import { loadAlignments, narrateScenes } from "../narrate/index.ts";
-import { describeShape, sniff, synthesise } from "../narrate/tts.ts";
+import { TTS_CANDIDATES, describeShape, sniff, toBytes } from "../narrate/tts.ts";
 import { PRIMITIVES } from "../primitives/registry.ts";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -704,29 +704,117 @@ app.get("/project/:id/vo/:sceneId", async (c) => {
  *  AI response, and it survived because nothing could ask production what
  *  the shape was without also writing something. This asks, stores
  *  nothing, and reports what it saw — including on failure, which is the
- *  case that matters. */
+ *  case that matters.
+ *
+ *  IT TRIES EVERY CANDIDATE, not just until one works.
+ *
+ *  A ladder that stops at its first success answers "can we speak?" A
+ *  probe should answer "what is actually available here", because the next
+ *  question after the first success is always which of the others also
+ *  work and what they return — and a second round trip to find out is a
+ *  second deploy-and-wait. One run reports the whole shelf: every TTS
+ *  candidate, every ASR candidate, what each returned, how many bytes, and
+ *  the structural shape of anything unusable.
+ *
+ *  ASR is probed with the audio the TTS step just produced, because that
+ *  is exactly what alignment will be handed in production. Probing it with
+ *  a synthetic buffer would answer a question nobody is asking. */
 app.post("/tts/probe", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { text?: string; voice?: string };
+  const body = (await c.req.json().catch(() => ({}))) as {
+    text?: string;
+    voice?: string;
+    /** Skip the ASR half. Off by default — measuring the audio is half of
+     *  what narration does. */
+    speechOnly?: boolean;
+  };
   const text = (body.text ?? "Canopticon Studio. Narration probe.").slice(0, 300);
   const started = Date.now();
-  const result = await synthesise(c.env.AI, text, body.voice);
-  const wallMs = Date.now() - started;
 
-  if (!result.ok) {
-    const { ok: _ok, ...failure } = result;
-    return c.json({ ok: false, wallMs, text, ...failure });
+  const speech: Array<Record<string, unknown>> = [];
+  let firstAudio: Uint8Array | null = null;
+
+  for (const candidate of TTS_CANDIDATES) {
+    const at = Date.now();
+    let out: unknown;
+    try {
+      out = await c.env.AI.run(
+        candidate.model as never,
+        candidate.input(text, body.voice) as never,
+      );
+    } catch (err) {
+      speech.push({
+        model: candidate.model,
+        ok: false,
+        outcome: `threw: ${err instanceof Error ? err.message : String(err)}`,
+        wallMs: Date.now() - at,
+      });
+      continue;
+    }
+    const bytes = await toBytes(out);
+    if (!bytes) {
+      speech.push({
+        model: candidate.model,
+        ok: false,
+        outcome: "no recoverable audio",
+        shape: describeShape(out),
+        wallMs: Date.now() - at,
+      });
+      continue;
+    }
+    const sniffed = sniff(bytes.bytes);
+    if (!firstAudio) firstAudio = bytes.bytes;
+    speech.push({
+      model: candidate.model,
+      ok: true,
+      via: bytes.via,
+      bytes: bytes.bytes.length,
+      contentType: sniffed.contentType,
+      extension: sniffed.extension,
+      firstBytes: [...bytes.bytes.subarray(0, 8)].map((b) => b.toString(16).padStart(2, "0")),
+      wallMs: Date.now() - at,
+    });
   }
+
+  const transcription: Array<Record<string, unknown>> = [];
+  if (!body.speechOnly && firstAudio) {
+    for (const candidate of ASR_CANDIDATES) {
+      const at = Date.now();
+      let out: unknown;
+      try {
+        out = await c.env.AI.run(candidate.model as never, candidate.input(firstAudio) as never);
+      } catch (err) {
+        transcription.push({
+          model: candidate.model,
+          ok: false,
+          outcome: `threw: ${err instanceof Error ? err.message : String(err)}`,
+          wallMs: Date.now() - at,
+        });
+        continue;
+      }
+      const read = readTimings(out);
+      transcription.push({
+        model: candidate.model,
+        ok: read.durationMs > 0,
+        words: read.words.length,
+        durationMs: read.durationMs,
+        // The shape either way: on failure it is the diagnostic, and on
+        // success it is how the next person knows what was relied on.
+        shape: describeShape(out),
+        firstWords: read.words.slice(0, 4),
+        wallMs: Date.now() - at,
+      });
+    }
+  }
+
   return c.json({
-    ok: true,
-    wallMs,
+    ok: speech.some((s) => s.ok),
+    wallMs: Date.now() - started,
     text,
-    model: result.model,
-    via: result.via,
-    bytes: result.bytes.length,
-    contentType: result.contentType,
-    extension: result.extension,
-    firstBytes: [...result.bytes.subarray(0, 8)].map((b) => b.toString(16).padStart(2, "0")),
-    shape: describeShape(result.bytes),
+    speech,
+    transcription,
+    note: firstAudio
+      ? "ASR was run against the audio the first working TTS candidate produced."
+      : "No TTS candidate produced audio, so ASR was not probed.",
   });
 });
 
