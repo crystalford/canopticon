@@ -13,6 +13,32 @@
 
 ---
 
+## The standing principle, found the hard way
+
+**A semantic capability is not complete until it can reach pixels.**
+
+    detection    ≠  representation
+    planning     ≠  construction
+    construction ≠  composition
+    composition  ≠  rendering
+
+Nine times now, a layer has silently absorbed the one above it and looked
+correct doing so — operator parameters set on primitives that never had
+them, a `fit()` that took no Style, a setting detected and outranked, a
+scene plan that never reached the chain, a proposition that was an
+inventory, a `refersBack` that could not fire on the sentence that needed
+it, `namesOnlyAbstractions` exported and called by nothing, `sonify`
+declaring AUDIO and drawing a picture.
+
+Every one was found by MEASURING, never by reading the code — each of them
+reads correctly. So: a new semantic layer is tested across the whole path
+or it is not tested, and "the compiler now understands X" is not a claim
+about the compiler until a pixel differs.
+
+Full accounting in `CANOPTICON_WHAT_A_VISUAL_INTERPRETATION_IS.md`.
+
+---
+
 ## The headline
 
 **The brief describes an architecture Studio largely already has, and a
