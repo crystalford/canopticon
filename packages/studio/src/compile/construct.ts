@@ -78,6 +78,11 @@ export interface PlannedNode {
   primitiveId: string;
   params: Record<string, number | string>;
   reason: string;
+  /** A compositor's SECOND INPUT, when the planner built one. Present
+   *  only on two-input primitives; `language.ts` uses it to nest a
+   *  grammar's layers so that a world, a subject and a set of words
+   *  compose instead of overwriting each other. */
+  ground?: PlannedNode[];
 }
 
 /** What the sentence IS, as far as anything checkable can say. Assembled
