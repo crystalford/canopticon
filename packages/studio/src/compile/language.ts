@@ -531,18 +531,18 @@ const DIAGRAMMATIC: Grammar = {
   },
   words(ctx) {
     const h = ctx.type.headline;
-    if (!h) return null;
-    return [
-      n(
-        "annotation",
-        {
-          kind: h.role === "FIGURE" ? 2 : 1,
-          roughness: 0.2 + ctx.style.experimentalism * 0.4,
-          draw: 0.8,
-        },
-        `marked up around "${h.verbatim}"`,
-      ),
-    ];
+    // A DIAGRAM'S WORDS ARE ALREADY IN IT.
+    //
+    // The first version put an `annotation` layer over the graph, and
+    // `annotation` is a SOURCE that paints an opaque page — so it hid
+    // the topology underneath completely and the whole language rendered
+    // as ruled paper. The labels of a diagram are not a layer over the
+    // diagram; they are nodes of it, and `seriesFor` has already put the
+    // sentence's own terms into the series the graph is laid out from.
+    //
+    // Declining is the right answer, not a missing feature.
+    void h;
+    return null;
   },
   surface(ctx) {
     // A diagram may be printed but never dissolved. One reprographic
@@ -953,6 +953,54 @@ const ILLUSTRATIVE: Grammar = {
   words: () => null,
   surface: () => [],
 };
+
+/* ════════════════════════════════════════════════════════════════════
+   SYNTHESIS — a passage that changes what kind of thing it is.
+   ═══════════════════════════════════════════════════════════════════
+
+   Not an eighth vocabulary. A RULE about the other seven: take two
+   languages and hand successive beats to each, so the film crosses from
+   one representational system to another while the argument continues.
+
+   This is the territory the whole layer was built to reach. A city
+   becomes a grid becomes a word becomes a field is not a transition
+   effect between two shots — it is the same claim expressed in three
+   systems in sequence, and it is only possible once "what kind of visual
+   argument is this" is a thing the compiler can answer differently at
+   different moments.
+
+   Deliberately a PAIR rather than a free-for-all. A passage that visits
+   six languages is not synthesis, it is a showreel. */
+export interface SynthesisPlan {
+  from: LanguageId;
+  to: LanguageId;
+  /** Which language each beat is spoken in, in order. */
+  at: LanguageId[];
+  why: string;
+}
+
+/** Cross from one language to another across `beats` beats.
+ *
+ *  The crossing is not a dissolve at the midpoint — it INTERLEAVES near
+ *  the boundary, so a beat or two speak the new language before the old
+ *  one gives up. That is how a cut sequence actually turns: the new idea
+ *  appears, is withdrawn, and then takes over. */
+export function planSynthesis(from: LanguageId, to: LanguageId, beats: number): SynthesisPlan {
+  const at: LanguageId[] = [];
+  for (let i = 0; i < beats; i++) {
+    const t = beats <= 1 ? 1 : i / (beats - 1);
+    // A deterministic interleave: the second language starts appearing
+    // at a third of the way through and is the only one by two thirds.
+    const bias = t < 0.34 ? 0 : t > 0.66 ? 1 : i % 2 === 0 ? 0 : 1;
+    at.push(bias === 0 ? from : to);
+  }
+  return {
+    from,
+    to,
+    at,
+    why: `${from.toLowerCase()} crossing into ${to.toLowerCase()} — the same argument, changing what kind of thing it is`,
+  };
+}
 
 export const GRAMMARS: Record<LanguageId, Grammar> = {
   TYPOGRAPHIC,

@@ -77,7 +77,9 @@ fs.writeFileSync(path.join(outDir, "film.json"), JSON.stringify(plan, null, 2));
 
 const lines: string[] = [];
 const runtime = Math.max(...plan.scenes.map((s) => s.endMs)) / 1000;
-lines.push(`RUNTIME  ${Math.floor(runtime / 60)}m${String(Math.round(runtime % 60)).padStart(2, "0")}s`);
+lines.push(
+  `RUNTIME  ${Math.floor(runtime / 60)}m${String(Math.round(runtime % 60)).padStart(2, "0")}s`,
+);
 lines.push(`SCENES   ${plan.scenes.length}`);
 lines.push(`ACTS     ${ir.acts.length}`);
 lines.push(
@@ -94,9 +96,13 @@ lines.push(`GROUNDS  ${usage.grounds.length} distinct compositor pairings\n`);
 for (const [i, c] of composed.entries()) {
   const scene = ir.scenes.find((s) => s.sceneId === c.sceneId);
   const w = timing.scenes.find((s) => s.sceneId === c.sceneId);
-  lines.push(`─── ${String(i).padStart(2, "0")} · ${c.actId} · ${c.tier} · abstraction ${c.abstraction.toFixed(2)}`);
+  lines.push(
+    `─── ${String(i).padStart(2, "0")} · ${c.actId} · ${c.tier} · abstraction ${c.abstraction.toFixed(2)}`,
+  );
   lines.push(`    "${scene?.narration.text ?? ""}"`);
-  lines.push(`    ${((w?.startMs ?? 0) / 1000).toFixed(1)}s–${((w?.endMs ?? 0) / 1000).toFixed(1)}s · ${c.costMsPerFrame}ms/frame`);
+  lines.push(
+    `    ${((w?.startMs ?? 0) / 1000).toFixed(1)}s–${((w?.endMs ?? 0) / 1000).toFixed(1)}s · ${c.costMsPerFrame}ms/frame`,
+  );
   const flat: string[] = [];
   const walk = (ns: typeof c.nodes, d: number) => {
     for (const n of ns) {

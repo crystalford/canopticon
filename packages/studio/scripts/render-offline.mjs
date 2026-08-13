@@ -197,7 +197,9 @@ for (let frame = 0; frame < frames; frame++) {
   if (frame % Math.max(1, Math.floor(frames / 20)) === 0) {
     const pct = Math.round((frame / frames) * 100);
     const rate = frame / ((Date.now() - started) / 1000 || 1);
-    process.stdout.write(`  ${String(pct).padStart(3)}%  frame ${frame}/${frames}  ${rate.toFixed(1)} fps\n`);
+    process.stdout.write(
+      `  ${String(pct).padStart(3)}%  frame ${frame}/${frames}  ${rate.toFixed(1)} fps\n`,
+    );
   }
 }
 ff.stdin.end();
