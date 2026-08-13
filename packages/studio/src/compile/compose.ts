@@ -40,6 +40,7 @@ import {
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
 import { groundSatisfies, planGround } from "./ground.ts";
+import { describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
 import { type DetectedSubject, detectSubjects, refersBack, subjectReading } from "./subject.ts";
@@ -106,6 +107,12 @@ export interface ProgramSummary {
   operators: string[];
   why: string;
   chain: string[];
+  /** Built against the grain of what the sentence names. Carried to the
+   *  surface because "the city is the organism" and "the people are
+   *  insects" are different claims about the same sentence, and a director
+   *  reading a list of alternatives should not have to infer which one
+   *  they are being offered. */
+  dislocated?: boolean;
 }
 
 export interface MotifOccurrence {
@@ -148,7 +155,13 @@ export interface ComposedScene {
    *  applied to it — when the engine built rather than fell back to a
    *  recipe. Null on a scene planned from a ratified reading or from the
    *  ladder. */
-  program: { id: string; construction: string; operators: string[]; why: string } | null;
+  program: {
+    id: string;
+    construction: string;
+    operators: string[];
+    why: string;
+    dislocated?: boolean;
+  } | null;
   /** The other programs this sentence could have been, best first. */
   alternatives: ProgramSummary[];
 }
@@ -276,6 +289,20 @@ export function composeScene(
     // have been and switch — which is the system proposing and the human
     // ratifying, applied to depiction rather than only to meaning.
     const kind = readSceneKind(scene);
+    // THE DIRECTOR'S OWN INSTRUCTION, read before the beat is assembled.
+    //
+    // Deterministic and unratified, for the same reason a figure is:
+    // whether the word "absurd" appears in the direction is not a matter
+    // of interpretation. Reported either way, because a direction the
+    // compiler could not read is the one thing a director most needs to
+    // be told — silence there would look identical to a direction that
+    // was heard and ignored.
+    const intentReading = hasIntent(scene.directorIntent)
+      ? readIntent(scene.directorIntent)
+      : undefined;
+    if (intentReading) {
+      notes.push(`directed — ${describeIntent(intentReading)}`);
+    }
     const beat: Beat = {
       sentence: scene.narration.text,
       phrase: phrase.text,
@@ -285,6 +312,7 @@ export function composeScene(
       kind: kind.kind,
       contested: looksContested(scene.narration.text),
       index: sceneIndex,
+      ...(intentReading ? { intent: intentReading } : {}),
     };
     // ── the director's verbs ───────────────────────────────────────
     //
@@ -296,8 +324,21 @@ export function composeScene(
     const nudge = ir.overrides.find(
       (o) => o.sceneId === scene.sceneId && o.type === "constrain",
     )?.styleNudge;
-    const bend = (base: number, key: string) =>
-      Math.max(0, Math.min(1, base + (nudge?.[key] ?? 0)));
+    // A verb's nudge and a direction's register both move the same
+    // curves, and they compound rather than override: "make it colder"
+    // typed as a verb and "increasing unease" written as an intent are two
+    // ways of asking for related things, and a director who does both
+    // means it. Intent is weighted lower because it is a description of
+    // the FEELING and the verb is an instruction about the PICTURE.
+    const bend = (base: number, key: string) => {
+      const fromIntent =
+        key === "energy"
+          ? (intentReading?.energy ?? 0) * 0.25
+          : key === "density"
+            ? (intentReading?.density ?? 0) * 0.25
+            : 0;
+      return Math.max(0, Math.min(1, base + (nudge?.[key] ?? 0) + fromIntent));
+    };
     if (nudge) {
       notes.push(
         `directed — ${Object.entries(nudge)
@@ -342,6 +383,7 @@ export function composeScene(
           operators: p.operators,
           why: p.why,
           chain: p.nodes.map((n) => n.primitiveId),
+          ...(p.dislocated ? { dislocated: true } : {}),
         }));
       chain = best.nodes.map((n) => n.primitiveId);
       plannedParams = new Map(best.nodes.map((n) => [n.primitiveId, n.params]));
@@ -733,13 +775,27 @@ function readingFor(scene: Scene): SemanticReading | null {
  *  pointing back at them. */
 function sceneSubjects(sentence: string, carried: DetectedSubject | null): DetectedSubject[] {
   const own = detectSubjects(sentence);
-  if (own.length > 0) return own;
-  if (carried && refersBack(sentence)) {
-    // Carried at a lower weight: an inherited subject is a weaker signal
-    // than a named one, and should lose to a figure the sentence prints.
-    return [{ ...carried, weight: carried.weight * 0.8 }];
-  }
-  return [];
+  // A CARRIED SUBJECT COMPETES; IT IS NOT A FALLBACK.
+  //
+  // This used to return `own` whenever the sentence named anything at all,
+  // so the memory only ever applied to a sentence that named NOTHING. That
+  // held until "then there were dozens of them, moving through the streets
+  // in strange synchronized waves" — which refers back AND names its
+  // setting, and the setting immediately evicted the insects the sentence
+  // is entirely about. A film whose memory is switched off by the word
+  // "streets" does not have a memory.
+  //
+  // So the inherited subject joins the list and argues on weight like
+  // everything else. It loses to a named creature, and it beats a place —
+  // which is the correct reading of a sentence about them, in a street.
+  if (!carried || !refersBack(sentence)) return own;
+  // Discounted, because an inherited subject is a weaker signal than a
+  // named one and should lose to a figure the sentence prints. Skipped
+  // entirely when the sentence names the same thing again, or the memory
+  // would double a subject that is simply still there.
+  const again = own.some((s) => s.text.toLowerCase() === carried.text.toLowerCase());
+  if (again) return own;
+  return [...own, { ...carried, weight: carried.weight * 0.8 }].sort((a, b) => b.weight - a.weight);
 }
 
 export function composeAll(ir: EditorialIR): ComposedScene[] {

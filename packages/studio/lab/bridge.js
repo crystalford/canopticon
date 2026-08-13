@@ -153,6 +153,10 @@ function toFilm(ir, plan, storedVersion) {
       directed:
         (ir.overrides || []).find((o) => o.sceneId === s.sceneId && o.type === "constrain")?.note ||
         null,
+      // WHAT THE DIRECTOR SAID THIS SCENE IS FOR. Read straight off the
+      // IR rather than off the plan, because it is authored rather than
+      // derived — there is nothing for the compiler to have decided.
+      intent: irScene.directorIntent || null,
     };
   });
 
@@ -334,6 +338,29 @@ const directVerb = (projectId, sceneId, verb) =>
     body: JSON.stringify({ sceneId, verb }),
   });
 
+/** WHAT THE SCENE IS FOR, in the director's own words.
+ *
+ *  Not a verb and not a pin. A verb bends a curve; a pin freezes a chain;
+ *  an intent states what the audience should understand, feel and notice,
+ *  and the constructor reads it to decide WHAT TO BUILD — which is the
+ *  one thing neither of the other two could reach.
+ *
+ *  The response carries `heard`: the registers the compiler actually read
+ *  out of the prose. Show it. A direction that read as nothing must look
+ *  different from one that was heard and acted on, or the director cannot
+ *  tell the difference between a misread and a disagreement. */
+const directIntent = (projectId, sceneId, intent) =>
+  api(`/project/${projectId}/intend`, {
+    method: "POST",
+    body: JSON.stringify({ sceneId, ...intent }),
+  });
+
+const releaseIntent = (projectId, sceneId) =>
+  api(`/project/${projectId}/intend`, {
+    method: "POST",
+    body: JSON.stringify({ sceneId, release: true }),
+  });
+
 const releaseScene = (projectId, sceneId) =>
   api(`/project/${projectId}/direct`, {
     method: "POST",
@@ -360,6 +387,8 @@ Object.assign(window, {
   captureLook,
   directScene,
   directVerb,
+  directIntent,
+  releaseIntent,
   releaseScene,
   saveCreativeState,
   compileProject,

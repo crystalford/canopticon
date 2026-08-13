@@ -459,6 +459,44 @@ function drawPvRight(c) {
         <div class="meta pv-why">${s.reasons.map((r) => `<div>${esc(r)}</div>`).join("")}</div></div>`
     : "";
 
+/* WHAT THIS SCENE IS FOR — the director's own instruction.
+ *
+ * Deliberately NOT another row of chips. The verbs above are chips
+ * because "stranger" and "colder" are a closed set of nudges; this is
+ * prose because "make the crowd's synchronisation feel inevitable" is not
+ * a position on any axis, and turning it into one would be exactly the
+ * "make them specify implementation" failure the whole system is tested
+ * against.
+ *
+ * The readback under the fields is the important part. The compiler reads
+ * this deterministically, which is only useful if the director can SEE
+ * what was read — a direction that matched nothing has to look different
+ * from one that was heard and acted on, or a misread is indistinguishable
+ * from a disagreement. */
+function intentBlock(s) {
+  const i = s.intent || {};
+  const has = Boolean(i.feel || i.understand || i.notice || i.hide);
+  const field = (key, label, placeholder) =>
+    `<label class="int-f"><span class="k">${label}</span>
+      <input id="int-${key}" type="text" value="${esc(i[key] || "")}" placeholder="${esc(placeholder)}"></label>`;
+  return `<div class="sec secline int">
+    <span class="k">What this scene is for</span>
+    ${field("feel", "Feel", "increasing unease")}
+    ${field("understand", "Understand", "the crowd is becoming synchronized")}
+    ${field("notice", "Notice", "the movement pattern")}
+    ${field("hide", "Hide", "why it is happening")}
+    <div class="int-row">
+      <button class="chip" data-intend="1">DIRECT THIS SCENE</button>
+      ${has ? `<button class="chip" data-unintend="1">CLEAR</button>` : ""}
+    </div>
+    <div class="mono pv-note" id="int-msg">${
+      has
+        ? "Directed. The constructor reads this to decide what to BUILD, not only what to do to it."
+        : "Prose, not settings. What the audience should feel, understand, notice — or not."
+    }</div>
+   </div>`;
+}
+
   /* THE VISUAL IDEA — first, and in the director's language.
    *
    * "The system shows you what it thinks the visual idea is. You're not
@@ -497,6 +535,7 @@ function drawPvRight(c) {
             : ""
         }
         ${verbRow(s)}
+        ${intentBlock(s)}
         ${s.pinned ? `<button class="chip" data-release="1">RELEASE TO THE ENGINE</button>` : ""}
        </div>`
     : `<div class="sec"><span class="k">Visual idea</span>
@@ -525,6 +564,57 @@ function drawPvRight(c) {
       if (msg) msg.textContent = "directing…";
       try {
         await directScene(window.STUDIO.projectId, s.id, alt.chain, alt.id);
+        await loadProject(window.STUDIO.projectId);
+        window.__lastRun = dryRun();
+        commit(window.__lastRun);
+        render();
+      } catch (err) {
+        if (msg) msg.textContent = err.message;
+      }
+    };
+  }
+  const intendBtn = el.querySelector("[data-intend]");
+  if (intendBtn) {
+    intendBtn.onclick = async () => {
+      if (!window.STUDIO.projectId) return;
+      const msg = document.getElementById("int-msg");
+      const read = (k) => (document.getElementById(`int-${k}`)?.value || "").trim();
+      const intent = {
+        feel: read("feel"),
+        understand: read("understand"),
+        notice: read("notice"),
+        hide: read("hide"),
+      };
+      if (msg) msg.textContent = "directing…";
+      try {
+        const res = await directIntent(window.STUDIO.projectId, s.id, intent);
+        await loadProject(window.STUDIO.projectId);
+        window.__lastRun = dryRun();
+        commit(window.__lastRun);
+        render();
+        // Report what the compiler HEARD and what it did about it, in the
+        // same breath. A direction that read as nothing says so.
+        const after = document.getElementById("int-msg");
+        if (after) {
+          const heard = res.heard?.describe || "nothing read";
+          const built = res.built
+            ? ` → builds ${res.built.construction}${res.built.against ? " (against the grain)" : ""}`
+            : "";
+          after.textContent = `${heard}${built}`;
+        }
+      } catch (err) {
+        if (msg) msg.textContent = err.message;
+      }
+    };
+  }
+  const clearBtn = el.querySelector("[data-unintend]");
+  if (clearBtn) {
+    clearBtn.onclick = async () => {
+      if (!window.STUDIO.projectId) return;
+      const msg = document.getElementById("int-msg");
+      if (msg) msg.textContent = "clearing…";
+      try {
+        await releaseIntent(window.STUDIO.projectId, s.id);
         await loadProject(window.STUDIO.projectId);
         window.__lastRun = dryRun();
         commit(window.__lastRun);

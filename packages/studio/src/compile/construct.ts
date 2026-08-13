@@ -69,6 +69,7 @@
 import type { Figure, VisualLanguage } from "../ir/schema.ts";
 import { PRIMITIVES, canChain, chainCost } from "../primitives/registry.ts";
 import { chartFor, serialiseFigures } from "./figures.ts";
+import { EMPTY_READING, type IntentReading } from "./intent.ts";
 import type { SceneKind } from "./scene-kind.ts";
 import type { DetectedSubject } from "./subject.ts";
 
@@ -92,6 +93,10 @@ export interface Beat {
   /** Scene index, used as the seed for every deterministic choice below.
    *  Nothing here calls a random number generator. */
   index: number;
+  /** What the director asked this beat to do, already read. Absent means
+   *  no direction was given, which is not a failure — the film's own curve
+   *  decides, exactly as it does for a scene with no ratified reading. */
+  intent?: IntentReading | undefined;
 }
 
 /** The director's controls, resolved at this point in the film. These
@@ -207,14 +212,17 @@ function permitted(style: Style): Set<string> {
   return new Set([...keep, ...stylise, ...decompose]);
 }
 
-/** An operator's appetite, after the language and the film's own captured
- *  grammar have had their say — in that order, because a grammar is a
- *  refinement of a language rather than an alternative to one. */
-function appetiteFor(op: Operator, style: Style): number {
+/** An operator's appetite, after the language, the film's own captured
+ *  grammar and this beat's direction have had their say — in that order,
+ *  widest scope first. A language is the film's dialect, a grammar is the
+ *  refinement of it this film actually settled into, and a direction is
+ *  one scene asking for something; each may bend the one before it. */
+function appetiteFor(op: Operator, style: Style, intent?: IntentReading): number {
   return (
     op.appetite(style) +
     (LANGUAGE[style.language]?.ops[op.id] ?? 0) +
-    (style.grammar?.ops[op.id] ?? 0)
+    (style.grammar?.ops[op.id] ?? 0) +
+    (intent?.ops[op.id] ?? 0)
   );
 }
 
@@ -240,6 +248,12 @@ export interface Program {
   why: string;
   costMsPerFrame: number;
   score: number;
+  /** Built against the grain of what the sentence names — a network made
+   *  of people, a space standing in for its occupants. Carried so the
+   *  Preview can say WHICH KIND of reading this is, because "the city is
+   *  the organism" and "the people are insects" are different claims and
+   *  a director should not have to infer which one they are looking at. */
+  dislocated?: boolean;
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -248,9 +262,26 @@ export interface Program {
 
 interface Construction {
   id: string;
-  /** How well this construction fits the beat, 0..1. Zero means it does
-   *  not apply at all and is never considered. */
+  /** How well this construction fits what the sentence NAMES, 0..1. Zero
+   *  means the prose does not reach it. Deliberately takes only the beat:
+   *  semantic fit is a claim about the text and must stay checkable
+   *  against the text. The director's influence is a separate, explicit
+   *  term in the score, so a `why` can say which of the two moved it. */
   fit(beat: Beat): number;
+  /** Can this construction build the sentence AGAINST THE GRAIN of its
+   *  noun, and how well — 0..1, and 0 means it refuses.
+   *
+   *  This is the mechanism that makes candidates different INTERPRETATIONS
+   *  rather than the same interpretation wearing different operators.
+   *  "They walked around the cities like insects" has one honest
+   *  construction — a body — and the interesting alternatives are the ones
+   *  that build it as something it is not: a network of nodes, a space
+   *  that is itself the organism, a document about people.
+   *
+   *  Absent means the construction is always available (it has no noun to
+   *  be against the grain of). A construction that returns 0 is stating a
+   *  reason, not missing a feature — see each site. */
+  dislocate?(beat: Beat): number;
   build(beat: Beat, style: Style): { nodes: PlannedNode[]; why: string };
 }
 
@@ -321,6 +352,11 @@ const CONSTRUCTIONS: Construction[] = [
       if (s.kind === "person") return 0.85;
       return 0;
     },
+    // Anything can be given a body. The build reads its numbers off the
+    // prose (how many, how fast, growing or not) and falls back to "the
+    // subject" for its own account of itself, so a sentence naming no
+    // creature still produces a specific body rather than a generic one.
+    dislocate: () => 0.7,
     build(beat, style) {
       const many = MANY.test(beat.sentence);
       const stated = statedCount(beat) ?? wordCount(beat.sentence);
@@ -401,6 +437,13 @@ const CONSTRUCTIONS: Construction[] = [
   {
     id: "fixture",
     fit: (beat) => (beat.subjects[0]?.kind === "object" ? 1 : 0),
+    // REFUSES. The whole point of this construction is that the noun
+    // decides: a detector vents and blinks, a camera domes and does not.
+    // With no object noun every one of those lookups misses and it builds
+    // a generic fixture — which is the thing it was written to replace.
+    // A construction that can only produce its own default is not an
+    // interpretation of the sentence.
+    dislocate: () => 0,
     build(beat, style) {
       const noun = (beat.subjects[0]?.text ?? "").toLowerCase();
       // A detector vents and blinks. A camera domes and does not. A
@@ -453,6 +496,12 @@ const CONSTRUCTIONS: Construction[] = [
       if (beat.kind === "attribution") return 0.7;
       return 0;
     },
+    // Any sentence can be shown as the record of itself. This is a real
+    // reading rather than a fallback — an essay's claim rendered as the
+    // document it would have to be to count is exactly the move the
+    // Record's own material invites, and it is the strongest dislocation
+    // available in an institutional film.
+    dislocate: () => 0.75,
     build(beat, style) {
       const words = beat.sentence.split(/\s+/).length;
       return {
@@ -498,6 +547,14 @@ const CONSTRUCTIONS: Construction[] = [
       if (real.length > 0) return 1;
       return beat.figures.length >= 2 ? 0.8 : 0;
     },
+    // REFUSES when the prose printed no numbers. A chart drawn from
+    // nothing is a picture of a chart, and this is the same firewall that
+    // keeps a model away from a figure: an axis implies a measurement, and
+    // inventing one to satisfy a directorial mood is the single most
+    // dishonest thing this compiler could do. With real figures present,
+    // charting a sentence that is not about its numbers is a legitimate
+    // reading and is allowed.
+    dislocate: (beat) => (beat.figures.some((f) => f.kind !== "year") ? 0.6 : 0),
     build(beat, style) {
       const chart = chartFor(beat.figures, beat.route.length >= 2);
       return {
@@ -532,6 +589,10 @@ const CONSTRUCTIONS: Construction[] = [
   {
     id: "route",
     fit: (beat) => (beat.route.length >= 2 ? 1 : 0),
+    // REFUSES. A route IS its stages; the sankey has nothing to flow
+    // between without them. Unlike the fixture, this is not a quality
+    // objection — there is literally no drawing to make.
+    dislocate: () => 0,
     build(beat, style) {
       return {
         nodes: [
@@ -563,6 +624,11 @@ const CONSTRUCTIONS: Construction[] = [
       const caps = beat.sentence.match(/\b[A-Z][a-z]{2,}\b/g) ?? [];
       return caps.length >= 3 && beat.route.length < 2 ? 0.75 : 0;
     },
+    // Anything with more than one thing in it can be shown as a relation
+    // between them — people as nodes, a city as a topology. Guarded on
+    // there being at least two things to relate, because a force layout
+    // over one node is a dot.
+    dislocate: (beat) => (beat.subjects.length + beat.figures.length >= 2 ? 0.7 : 0.4),
     build(beat, style) {
       return {
         nodes: [
@@ -594,6 +660,12 @@ const CONSTRUCTIONS: Construction[] = [
       if (beat.subjects[0]?.kind === "place") return 0.95;
       return beat.kind === "place" ? 0.8 : 0;
     },
+    // Every sentence happens somewhere, and building the SETTING rather
+    // than the subject is one of the oldest moves in documentary — the
+    // room the thing happened in, held while the narration says what
+    // happened. It is also how "the city becomes the organism" is
+    // reachable from a sentence whose subject is the people in it.
+    dislocate: () => 0.7,
     build(beat, style) {
       return {
         nodes: [
@@ -791,23 +863,58 @@ export function constructPrograms(beat: Beat, style: Style, budgetMs: number): P
   // about the movement between them. Stated once here rather than as five
   // edits to five `fit` functions, so the rule can be read.
   const drewRoute = beat.route.length >= 2;
-  const applicable = CONSTRUCTIONS.map((c) => ({
-    c,
-    fit: c.fit(beat) * (drewRoute && c.id !== "route" ? 0.5 : 1),
-  }))
-    .filter((x) => x.fit > 0)
-    .sort((a, b) => b.fit - a.fit)
-    // Three is enough to be a real choice and few enough to read.
-    .slice(0, 3);
+  const intent = beat.intent ?? EMPTY_READING;
 
-  const stacks = operatorStacks(style, beat.index);
+  // HOW FAR THE DIRECTOR WILL LET THIS GO AGAINST THE GRAIN.
+  //
+  // Mostly the direction, because "make it absurd" is a request for
+  // category error and "make it inevitable" is a request to watch the
+  // thing itself keep going. Experimentalism and abstraction contribute a
+  // little, so a film with no directed scenes still opens the space
+  // slightly as it climbs the ladder — but never enough to take the
+  // literal reading away from a director who did not ask.
+  const appetite = Math.max(
+    0,
+    Math.min(1, intent.dislocation * 0.7 + style.experimentalism * 0.2 + style.abstraction * 0.2),
+  );
+
+  const applicable: { c: Construction; fit: number; dislocated: boolean }[] = [];
+  for (const c of CONSTRUCTIONS) {
+    const semantic = c.fit(beat) * (drewRoute && c.id !== "route" ? 0.5 : 1);
+    if (semantic > 0) {
+      // A DIRECTION THAT WANTS DISLOCATION DISCOUNTS THE LITERAL READING.
+      //
+      // This is the half that is easy to miss and without which the test
+      // fails: absurdity is a DEPARTURE from faithfulness, so it is not
+      // enough to make the strange reading available — the faithful one
+      // has to become less compelling in proportion. Capped at 0.55 so
+      // even a maximally strange direction can never make the sentence's
+      // own subject unreachable.
+      applicable.push({ c, fit: semantic * (1 - appetite * 0.55), dislocated: false });
+    }
+    // Against the grain. Offered even at zero appetite so the picker can
+    // always show what else the sentence could have been — it simply
+    // scores too low to win until the director asks for it.
+    const against = c.dislocate?.(beat) ?? 0;
+    if (against > 0 && semantic <= 0) {
+      applicable.push({ c, fit: against * appetite, dislocated: true });
+    }
+  }
+
+  // Enough to be a real choice, few enough to read — and now drawn from
+  // both readings rather than from the nouns alone.
+  applicable.sort((a, b) => b.fit - a.fit);
+  const considered = applicable.slice(0, 5);
+
+  const stacks = operatorStacks(style, beat.index, intent);
   const programs: Program[] = [];
 
-  for (const { c, fit } of applicable) {
+  for (const { c, fit, dislocated } of considered) {
     const built = c.build(beat, style);
     for (const stack of stacks) {
       const program = assemble(c.id, built, stack, style, budgetMs);
       if (!program) continue;
+      program.dislocated = dislocated;
       // FIT DOMINATES. Weighted so that no operator stack can lift a
       // worse-fitting construction over a better one: a sentence that
       // draws a route through four stages is a route, and no amount of
@@ -818,16 +925,48 @@ export function constructPrograms(beat: Beat, style: Style, budgetMs: number): P
       // layer exists to prevent.
       program.score =
         fit * 4 +
+        // WHAT THE DIRECTION REACHED FOR. Weighted at 2 — heavy enough
+        // that a stated intention can move which construction wins, light
+        // enough that it cannot overturn a strongly-fitting subject on a
+        // scene the direction barely touched. This term is the whole
+        // reason `fit` was allowed to stay a claim about the text.
+        (intent.constructions[c.id] ?? 0) * 2 +
         // How much the director's state wanted these operations. Breaks
         // ties BETWEEN stacks; never decides what is being built.
-        stack.reduce((a, op) => a + Math.max(0, appetiteFor(op, style)), 0) * 0.5 -
+        stack.reduce((a, op) => a + Math.max(0, appetiteFor(op, style, intent)), 0) * 0.5 -
         // A restrained film pays for every extra stage.
         program.nodes.length * style.restraint * 0.15;
       programs.push(program);
     }
   }
 
-  return programs.sort((a, b) => b.score - a.score);
+  programs.sort((a, b) => b.score - a.score);
+  return diversify(programs);
+}
+
+/** Put a genuinely different program second.
+ *
+ *  Sorting by score alone put the same construction in the top two slots
+ *  differing by a single operator — which is a picker offering the same
+ *  thing twice, and was half of why the alternatives read as noise. The
+ *  first program of each distinct construction is promoted in score order,
+ *  then everything else follows. Nothing is discarded and nothing is
+ *  reordered within a construction, so the best program is still the best
+ *  program; only the ORDER of the also-rans changes, which is exactly the
+ *  part a director reads. */
+function diversify(programs: Program[]): Program[] {
+  const seen = new Set<string>();
+  const first: Program[] = [];
+  const rest: Program[] = [];
+  for (const p of programs) {
+    const key = `${p.construction}:${p.dislocated ? "against" : "with"}`;
+    if (seen.has(key)) rest.push(p);
+    else {
+      seen.add(key);
+      first.push(p);
+    }
+  }
+  return [...first, ...rest];
 }
 
 /** Operator stacks worth trying, best-appetite first, plus a deliberately
@@ -839,11 +978,11 @@ export function constructPrograms(beat: Beat, style: Style, budgetMs: number): P
  *  precisely the reported symptom. Offering the top pair, the single
  *  strongest, and a rotated pair gives three real alternatives whose
  *  differences a viewer can see. */
-function operatorStacks(style: Style, seed: number): Operator[][] {
+function operatorStacks(style: Style, seed: number, intent?: IntentReading): Operator[][] {
   const allowed = permitted(style);
   const ranked = [...OPERATORS]
     .filter((op) => allowed.has(op.id))
-    .map((op) => ({ op, want: appetiteFor(op, style) }))
+    .map((op) => ({ op, want: appetiteFor(op, style, intent) }))
     .filter((x) => x.want > 0.15)
     .sort((a, b) => b.want - a.want || (a.op.id < b.op.id ? -1 : 1));
 

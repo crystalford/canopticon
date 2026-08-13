@@ -11,10 +11,11 @@ import { EXTRACTION_MODEL, proposeReading } from "../compile/extract-reading.ts"
 import { buildFilmPlan } from "../compile/film.ts";
 import { captureGrammar, describeGrammar } from "../compile/grammar.ts";
 import { compile } from "../compile/index.ts";
+import { EMPTY_READING, describeIntent, readIntent } from "../compile/intent.ts";
 import { segmentEssay } from "../compile/segment.ts";
 import { applyVerb, verbById } from "../compile/verbs.ts";
 import type { Env } from "../env.ts";
-import { type EditorialIR, parseIR } from "../ir/schema.ts";
+import { type DirectorIntentIR, type EditorialIR, parseIR } from "../ir/schema.ts";
 import { all, newId, nowIso, one, run } from "../lib/d1.ts";
 import { ASR_CANDIDATES, readTimings, sequenceAlignments } from "../narrate/align.ts";
 import { loadAlignments, narrateScenes, voiceStates } from "../narrate/index.ts";
@@ -479,6 +480,117 @@ app.post("/project/:id/ratify", async (c) => {
  *
  *  A pin is reversible: post with no chain to release the scene back to the
  *  engine. */
+/* ── THE DIRECTOR STATES WHAT THE SCENE IS FOR ──────────────────────
+ *
+ * The third kind of input this compiler takes, and the one it had no
+ * channel for at all. A FIGURE is checkable against the prose, so it needs
+ * no ratification. A READING is an interpretation of the prose, so a model
+ * proposes and a human ratifies. An INTENT is neither — it is not about
+ * the prose, it is the director's own instruction, so it is authored
+ * outright and there is nothing to ratify.
+ *
+ * Writes a new IR version like every other edit, and RETURNS WHAT IT
+ * HEARD. That readback is the point: the reading is deterministic
+ * precisely so a director can see it was misread and reword, which is
+ * impossible when the reading is a model's private opinion. */
+app.post("/project/:id/intend", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    sceneId?: string;
+    understand?: string;
+    feel?: string;
+    notice?: string;
+    hide?: string;
+    /** Clear the direction on this scene. */
+    release?: boolean;
+  };
+  if (!body.sceneId) return c.json({ error: "sceneId is required" }, 400);
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+  if (!parsed.ir.scenes.some((s) => s.sceneId === body.sceneId)) {
+    return c.json({ error: `no scene ${body.sceneId}` }, 404);
+  }
+
+  const fields = ["understand", "feel", "notice", "hide"] as const;
+  const intent: DirectorIntentIR = {};
+  for (const key of fields) {
+    const value = body[key]?.trim();
+    if (value) intent[key] = value;
+  }
+  const clearing = body.release || Object.keys(intent).length === 0;
+
+  const scenes = parsed.ir.scenes.map((s) => {
+    if (s.sceneId !== body.sceneId) return s;
+    if (clearing) {
+      const { directorIntent: _dropped, ...rest } = s;
+      return rest;
+    }
+    return { ...s, directorIntent: intent };
+  });
+
+  const reading = clearing ? EMPTY_READING : readIntent(intent);
+  const nextV = project.current_ir_version + 1;
+  await writeVersion(
+    c.env,
+    projectId,
+    { ...parsed.ir, scenes },
+    nextV,
+    project.current_ir_version,
+    clearing
+      ? `${body.sceneId} — direction cleared`
+      : `${body.sceneId} — directed: ${describeIntent(reading)}`,
+  );
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextV,
+    projectId,
+  ]);
+
+  const snap = await loadSnapshot(c.env, projectId);
+  const t = await frozenAlignments(c.env, { ...parsed.ir, scenes });
+  const rep = await compile({ ...parsed.ir, scenes }, { snapshot: snap, alignments: t.alignments });
+  await saveSnapshot(c.env, projectId, rep.snapshot);
+  const scene = rep.composed.find((s) => s.sceneId === body.sceneId);
+
+  return c.json({
+    projectId,
+    irVersion: nextV,
+    sceneId: body.sceneId,
+    cleared: clearing,
+    intent: clearing ? null : intent,
+    // WHAT THE COMPILER HEARD, not what was typed. A director whose
+    // direction read as nothing needs to be told so, in the same breath.
+    heard: {
+      registers: reading.registers,
+      matched: reading.matched,
+      dislocation: reading.dislocation,
+      describe: describeIntent(reading),
+    },
+    // AND WHAT IT DID ABOUT IT. The visual idea and its alternatives after
+    // the direction landed, so the effect is visible in the response
+    // rather than only on the next fetch.
+    built: scene
+      ? {
+          construction: scene.program?.construction ?? null,
+          against: Boolean(scene.program?.dislocated),
+          why: scene.program?.why ?? null,
+          chain: scene.nodes.map((n) => n.primitiveId),
+          alternatives: scene.alternatives.map((a) => ({
+            construction: a.construction,
+            why: a.why,
+          })),
+        }
+      : null,
+    cache: rep.cache,
+  });
+});
+
 app.post("/project/:id/direct", async (c) => {
   const projectId = c.req.param("id");
   const body = (await c.req.json().catch(() => ({}))) as {

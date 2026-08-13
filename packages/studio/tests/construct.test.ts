@@ -18,6 +18,7 @@ import {
   type Style,
   constructPrograms,
 } from "../src/compile/construct.ts";
+import { type DirectorIntent, describeIntent, readIntent } from "../src/compile/intent.ts";
 import { segmentEssay } from "../src/compile/segment.ts";
 import { detectSubjects } from "../src/compile/subject.ts";
 import type { VisualLanguage } from "../src/ir/schema.ts";
@@ -372,5 +373,123 @@ describe("a look you can ask for again", () => {
     expect(after.join("|")).not.toBe(before.join("|"));
     // A grammar names appetites, never a primitive.
     expect(Object.keys(grammar.ops).some((k) => k.includes("_"))).toBe(false);
+  });
+});
+
+describe("the sentence test — does direction change the IDEA, or only the effect", () => {
+  // The challenge, verbatim: "Take the sentence 'They walked around the
+  // cities like insects.' Generate five candidates. Do not use the same
+  // underlying construction or simply vary parameters... Then change
+  // DirectorIntent from 'make this feel inevitable' to 'make this feel
+  // absurd' and demonstrate that the candidate space changes, rather than
+  // merely changing colour, speed, or an effect parameter."
+  //
+  // Run before any of this existed, the compiler answered with four
+  // programs across two constructions whose top two were the same
+  // construction differing by one operator. The cause was a type
+  // signature — `fit(beat: Beat)` took no Style, so the director's state
+  // could not influence WHAT was built, only what was done to it. These
+  // tests exist so that can never quietly come back.
+  const SENTENCE = "They walked around the cities like insects.";
+
+  function candidates(intent?: DirectorIntent) {
+    const beat: Beat = {
+      sentence: SENTENCE,
+      phrase: "CITIES LIKE INSECTS",
+      subjects: detectSubjects(SENTENCE),
+      figures: [],
+      route: [],
+      kind: "statement",
+      contested: false,
+      index: 7,
+      intent: readIntent(intent),
+    };
+    const style: Style = {
+      abstraction: 0.5,
+      density: 0.5,
+      energy: 0.6,
+      human: 0.7,
+      typography: 0.4,
+      archival: 0.3,
+      data: 0.2,
+      experimentalism: 0.5,
+      restraint: 0.4,
+      tier: "DECOMPOSED",
+      language: "documentary",
+    };
+    return constructPrograms(beat, style, 40);
+  }
+
+  it("offers five candidates that BUILD DIFFERENT THINGS", () => {
+    const top = candidates().slice(0, 5);
+    expect(top.length).toBe(5);
+    // Five distinct constructions — not one construction wearing five
+    // operator stacks, which is the failure this replaced.
+    expect(new Set(top.map((p) => p.construction)).size).toBe(5);
+  });
+
+  it("sees the city, which it could not before", () => {
+    // The lexicon had been grown entirely from one institutional housing
+    // essay, so it knew "corridor" and not "city" — which made the space
+    // construction UNREACHABLE for this sentence rather than merely
+    // outranked. A missing noun is a worse failure than a losing one.
+    const found = detectSubjects(SENTENCE).map((s) => s.text.toLowerCase());
+    expect(found).toContain("cities");
+    expect(found).toContain("insects");
+  });
+
+  it("keeps the literal reading when the direction is INEVITABLE", () => {
+    const best = must(candidates({ feel: "Make this feel inevitable." })[0]);
+    // Inevitability is a property of watching the thing itself continue.
+    expect(best.construction).toBe("body");
+    expect(best.dislocated).toBeFalsy();
+  });
+
+  it("builds it as something it is NOT when the direction is ABSURD", () => {
+    const best = must(candidates({ feel: "Make this feel absurd." })[0]);
+    expect(best.dislocated).toBe(true);
+    expect(best.construction).not.toBe("body");
+  });
+
+  it("changes the candidate SPACE, not one effect parameter", () => {
+    const inevitable = candidates({ feel: "Make this feel inevitable." }).slice(0, 5);
+    const absurd = candidates({ feel: "Make this feel absurd." }).slice(0, 5);
+    // The ORDER of interpretations differs — this is the whole claim.
+    expect(absurd.map((p) => p.construction)).not.toEqual(inevitable.map((p) => p.construction));
+    // And it is not merely that the same programs were re-sorted by a
+    // recoloured tail: the winning construction is a different one.
+    expect(must(absurd[0]).construction).not.toBe(must(inevitable[0]).construction);
+  });
+
+  it("never invents an axis to satisfy a mood", () => {
+    // The figure firewall, applied to direction. A chart drawn from a
+    // sentence that printed no numbers is a picture of a chart, and no
+    // directorial appetite may reach one.
+    for (const intent of [
+      { feel: "Make this feel absurd." },
+      { feel: "Make it overwhelming and vast and strange." },
+    ]) {
+      for (const p of candidates(intent)) {
+        expect(p.construction).not.toBe("quantity");
+      }
+    }
+  });
+
+  it("reports what it HEARD, so a misread direction is visible", () => {
+    const reading = readIntent({ feel: "Make this feel absurd and overwhelming." });
+    expect(reading.registers).toContain("absurd");
+    expect(reading.registers).toContain("overwhelm");
+    expect(reading.matched).toContain("absurd");
+    expect(describeIntent(reading)).toMatch(/absurd/);
+    // A direction it cannot read says so rather than pretending.
+    expect(describeIntent(readIntent({ feel: "make it good" }))).toMatch(/nothing read/);
+  });
+
+  it("leaves an undirected film exactly as it was", () => {
+    // Standing rule 3 in its quietest form: a feature the director did not
+    // ask for must not move their film.
+    const none = candidates().map((p) => p.id);
+    const empty = candidates({}).map((p) => p.id);
+    expect(empty).toEqual(none);
   });
 });

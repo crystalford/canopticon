@@ -1304,3 +1304,43 @@
 .vostate.on {
   color: #7ea88c;
 }
+
+/* WHAT THIS SCENE IS FOR — the director's own instruction, in prose.
+ *
+ * Styled as fields rather than chips on purpose: the verb row above is a
+ * closed set of nudges and reads as buttons; this is open text and has to
+ * read as writing, or it will be mistaken for another control surface. */
+.int {
+  margin-top: 14px;
+}
+.int-f {
+  display: block;
+  margin: 8px 0;
+}
+.int-f .k {
+  display: block;
+  margin-bottom: 3px;
+}
+.int-f input {
+  width: 100%;
+  background: #101416;
+  border: 1px solid #232a2f;
+  border-radius: 3px;
+  padding: 6px 8px;
+  color: var(--ink-1, #e6eaed);
+  font: inherit;
+  font-size: 11px;
+}
+.int-f input:focus {
+  outline: none;
+  border-color: #3a464e;
+}
+.int-f input::placeholder {
+  color: var(--ink-3, #6b7379);
+  font-style: italic;
+}
+.int-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}

@@ -305,6 +305,27 @@ const LEXICON: Array<{ kind: SubjectKind; weight: number; words: string[] }> = [
     kind: "place",
     weight: 0.58,
     words: [
+      // The settlement scale. Absent until the sentence test asked for
+      // "they walked around the cities like insects" and the compiler
+      // could not see the cities at all — the lexicon had been grown
+      // entirely from one institutional housing essay, so it knew
+      // "corridor" and "shelter" and not "city". A missing noun is not a
+      // ranking problem: the space construction was UNREACHABLE for that
+      // sentence, which is a different and worse failure than losing.
+      "city",
+      "cities",
+      "town",
+      "towns",
+      "street",
+      "streets",
+      "neighbourhood",
+      "neighbourhoods",
+      "neighborhood",
+      "neighborhoods",
+      "district",
+      "districts",
+      "block",
+      "blocks",
       "hotel",
       "hotels",
       "motel",
@@ -487,8 +508,21 @@ export function subjectReading(
  *  against the prose like everything else here. */
 const ANAPHOR = /\b(them|they|their|these|those|it|its)\b/i;
 
+/** A subject specific enough that the sentence is plainly about it, rather
+ *  than merely mentioning it. Above this, the sentence speaks for itself
+ *  and needs no memory; at or below it, a setting has been named and the
+ *  thing moving through that setting may still be two sentences back. */
+const SPEAKS_FOR_ITSELF = 0.7;
+
 export function refersBack(sentence: string): boolean {
-  if (detectSubjects(sentence).length > 0) return false;
+  // Naming ANYTHING used to disqualify a sentence from referring back,
+  // which quietly made the film's memory conditional on its prose never
+  // mentioning a room. "Then there were dozens of them, moving through the
+  // streets in strange synchronized waves" is the case that proved it: one
+  // low-weight place noun and the insects the sentence is entirely about
+  // were forgotten. A place is the SETTING; it does not displace a
+  // subject, and it should not silence one either.
+  if (detectSubjects(sentence).some((s) => s.weight > SPEAKS_FOR_ITSELF)) return false;
   const head = sentence.split(/[,;:]/)[0] ?? sentence;
   return ANAPHOR.test(head);
 }

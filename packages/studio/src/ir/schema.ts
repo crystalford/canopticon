@@ -153,6 +153,22 @@ export const VisualGrammarSchema = z.object({
 });
 export type VisualGrammarIR = z.infer<typeof VisualGrammarSchema>;
 
+/** The director's instruction for one scene, in their own words.
+ *
+ *  Four optional fields, all prose, all short by convention rather than by
+ *  constraint — a direction long enough to need scrolling is a note to
+ *  self, not an instruction to a compiler. `hide` is deliberately included
+ *  even though the compiler currently uses it only as register evidence:
+ *  what a director wants WITHHELD is a real directorial statement and
+ *  dropping the field would make it unsayable. See `compile/intent.ts`. */
+export const DirectorIntentSchema = z.object({
+  understand: z.string().optional(),
+  feel: z.string().optional(),
+  notice: z.string().optional(),
+  hide: z.string().optional(),
+});
+export type DirectorIntentIR = z.infer<typeof DirectorIntentSchema>;
+
 export const EntitySchema = z.object({
   id: z.string(),
   type: z.enum(["organization", "person", "document", "concept", "place"]),
@@ -315,6 +331,21 @@ export const SceneSchema = z.object({
   route: z.array(z.string()).optional(),
   /** Per-scene depiction override. Falls back to the film's default. */
   visualLanguage: VisualLanguageSchema.optional(),
+  /** WHAT THE DIRECTOR WANTS THIS SCENE TO DO. Prose, not settings.
+   *
+   *  The third kind of input this compiler takes, and it is genuinely
+   *  distinct from the other two. A FIGURE is checkable against the prose.
+   *  A READING is an interpretation of the prose, so a model proposes it
+   *  and a human ratifies it. An INTENT is neither — it is not about the
+   *  prose at all, it is the director's own instruction, so it is authored
+   *  outright and there is nothing to ratify. Written by the operator, read
+   *  deterministically by `intent.ts`, and absent on most scenes.
+   *
+   *  It exists because the constructor could previously infer everything
+   *  from the sentence's surface and had no channel at all for "this scene
+   *  should feel inevitable" — which is precisely the input that makes
+   *  candidates differ as INTERPRETATIONS rather than as effects. */
+  directorIntent: DirectorIntentSchema.optional(),
 });
 export type Scene = z.infer<typeof SceneSchema>;
 

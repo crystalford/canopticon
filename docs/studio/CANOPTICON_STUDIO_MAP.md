@@ -38,7 +38,8 @@ P0 "Coherent Director UX" is barely started.** That is where the work is.
 | A smoke detector produces a procedural smoke detector | **EXISTS** | `construct.ts` `fixture` — reads the noun and sets `vents`/`dome`/`led`; a detector vents and blinks where a camera domes and does not |
 | A centipede has morphology and gait | **EXISTS** | `creature_chain` parameterised from the prose: segments, legPairs, gait, count, wander. "Nine numbered rooms" is a nine-segment chain |
 | Candidate generation, several genuinely different | **EXISTS** | `constructPrograms` returns a sorted set; the film plan carries the alternatives; the Preview lists them |
-| Novelty scored against what the film already used | **MISSING** | Scoring has `fit`, style appetite and cost. It has **no memory of the film's own history**, so it cannot know typography has dominated three scenes |
+| Candidates differ as INTERPRETATIONS, not as effects | **EXISTS** | `construct.ts` — dislocation. Every construction states whether it can build a sentence AGAINST THE GRAIN of its noun; three refuse on stated grounds. Five distinct constructions per beat, asserted in `construct.test.ts` |
+| Novelty scored against what the film already used | **MISSING** | Scoring has `fit`, intent, style appetite and cost. It has **no memory of the film's own history**, so it cannot know typography has dominated three scenes |
 | Repetition surfaced at film level | **PARTIAL** | `views-overview.js` flags runs of 3+ scenes built the same way. It does not track construction-family usage, camera, or material across the whole film |
 
 **The gap is novelty-as-a-score.** Everything needed is present — the
@@ -54,12 +55,19 @@ constructor already receives `sceneIndex` and `composeAll` already threads
 | Directorial dimensions rather than technical controls | **PARTIAL** | Nine creative-state parameters exist and are real. They are *named* technically (`visualDensity`, `archivalWeight`) rather than directionally (`Tension`, `Surprise`, `Continuity`) |
 | Director verbs | **EXISTS** | `compile/verbs.ts` — six verbs writing a `constrain` override; survives restyle and recompile |
 | Natural-language directing | **MISSING** | No free-text instruction path. The verbs are the closest thing and they are buttons |
-| `DirectorIntent { understand, feel, notice, hide }` | **MISSING** | Nothing in the IR carries authorial intent per scene. This is the single largest *missing input* to candidate generation |
+| `DirectorIntent { understand, feel, notice, hide }` | **EXISTS** | `compile/intent.ts` · `DirectorIntentSchema` on the scene · `POST /project/:id/intend` · the Preview's "What this scene is for" panel |
 
-**`DirectorIntent` is the highest-value missing P0 item.** The constructor
-currently infers everything from the prose's surface. It has no channel for
-"this scene should feel inevitable" — and that is exactly the input that
-would make candidates differ meaningfully rather than stylistically.
+**`DirectorIntent` was the highest-value missing P0 item and it is built.**
+It is prose, not a slider, and it is read the way `subject.ts` reads nouns —
+a curated register lexicon matched as whole words, so the reading is
+checkable against what the director typed and needs no model and no
+ratification. The route returns what it HEARD, because a deterministic
+reading is only useful if a misread is visible.
+
+The cause of the original defect is worth recording because it was one
+line: `fit(beat: Beat): number` took no `Style`. **The director's state
+could not influence what was built, only what was done to it** — which is
+the exact definition of "different effects, not different ideas".
 
 ## §9 · Visual grammar
 
@@ -75,7 +83,7 @@ would make candidates differ meaningfully rather than stylistically.
 | Claim | State | Where |
 |---|---|---|
 | Motifs as first-class, with development | **EXISTS** | `MotifSchema` with states and a development rule; `developMotif` escalates by abstraction or density |
-| Persistent entity identity across a film | **PARTIAL** | `compose.ts` carries **one scene** of memory — a pronoun sentence inherits the last named subject. There is no entity registry and no visual identity that persists |
+| Persistent entity identity across a film | **PARTIAL** | `compose.ts` carries **one scene** of memory, and it now COMPETES rather than acting as a fallback — a carried subject argues on weight against what the sentence names, so a place noun no longer evicts the thing the sentence is about. Still no entity registry and no persisting visual identity |
 | World state as a thing narration mutates | **MISSING** | No `WorldState`. "There were dozens" escalates the *construction* within a scene; it does not update a population the next scene inherits |
 | Motif panel showing every appearance | **MISSING** | — |
 
@@ -178,8 +186,9 @@ the drift so "slow" is a number rather than a feeling.
 
 ## What I would build next, in order
 
-1. **`DirectorIntent` on the scene** — the missing P0 input. Four optional
-   strings, ratified like a reading, fed to candidate scoring.
+1. ~~**`DirectorIntent` on the scene**~~ — **done.** Built as prose with a
+   deterministic register lexicon, plus dislocation as the mechanism that
+   makes candidates differ as interpretations.
 2. **Novelty in the score** — the constructor already knows the scene
    index; give it the film's history so repetition becomes a cost.
 3. **Regeneration impact preview** — the numbers already exist; expose
