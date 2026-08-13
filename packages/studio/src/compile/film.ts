@@ -53,6 +53,19 @@ export interface FilmScene {
   reasons: string[];
   chain: FilmNode[];
   shots: FilmShot[];
+  /** Where this scene's frozen narration lives, when it has been recorded.
+   *  A URL rather than bytes: the plan is a document, and the audio is an
+   *  immutable object the browser fetches once and caches on its hash. */
+  vo?: {
+    url: string;
+    assetId: string;
+    sha256: string;
+    /** Measured off the audio, not estimated from the prose. */
+    durationMs: number;
+    /** How the window was arrived at, so the Preview can say whether it is
+     *  showing a measurement or a guess. */
+    method: string;
+  };
 }
 
 export interface FilmPlan {
@@ -130,6 +143,33 @@ function shotParams(chain: FilmNode[], variation: ShotVariation): Record<string,
   return out;
 }
 
+/** The scene's frozen narration, named on the plan so the browser can play
+ *  it. Absent — not null, not a placeholder — when the scene has not been
+ *  narrated, because a Preview that plays silence and a Preview that plays
+ *  nothing should not look the same in the plan. */
+function narrationFor(
+  ir: EditorialIR,
+  scene: EditorialIR["scenes"][number] | undefined,
+): Pick<FilmScene, "vo"> | Record<string, never> {
+  const assetId = scene?.narration.voAssetId;
+  if (!scene || !assetId) return {};
+  const asset = ir.assets.find((a) => a.assetId === assetId);
+  if (!asset) return {};
+  const alignment = scene.narration.alignmentAssetId
+    ? ir.assets.find((a) => a.assetId === scene.narration.alignmentAssetId)
+    : undefined;
+  const params = (alignment?.provenance.params ?? {}) as Record<string, unknown>;
+  return {
+    vo: {
+      url: `/v1/project/${ir.projectId}/vo/${scene.sceneId}`,
+      assetId,
+      sha256: asset.sha256,
+      durationMs: typeof params.durationMs === "number" ? params.durationMs : 0,
+      method: typeof params.method === "string" ? params.method : "unmeasured",
+    },
+  };
+}
+
 /** A compile report becomes something you can watch. */
 export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan {
   const scenes: FilmScene[] = [];
@@ -175,6 +215,7 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
       reasons: composed.nodes.map((n) => `${n.primitiveId} — ${n.reason}`),
       chain,
       shots,
+      ...narrationFor(ir, irScene),
     });
   }
 

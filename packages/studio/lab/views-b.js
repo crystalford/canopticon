@@ -117,9 +117,28 @@ function viewPreview(root) {
     }
   });
 
-  document.getElementById("pp").onclick = (e) => {
+  /* THE VOICE.
+   *
+   * Play starts the frozen narration from the playhead; pause and seek
+   * stop it. It is scheduled on the Web Audio clock rather than started
+   * with setTimeout, because the whole reason timing is anchor-based is
+   * that the picture is cut to the speech — so the picture's clock and the
+   * speech's clock have to be the same clock.
+   *
+   * Nothing is generated here. The audio is fetched from storage by the
+   * hash the compiler froze; a film with no narration simply plays silent
+   * and the transport says so. */
+  document.getElementById("pp").onclick = async (e) => {
     PLAY.on = !PLAY.on;
     e.target.textContent = PLAY.on ? "PAUSE" : "PLAY";
+    const plan = window.STUDIO.plan;
+    if (!plan || narrationStatus(plan).narrated === 0) return;
+    if (!PLAY.on) {
+      stopNarration();
+      return;
+    }
+    await loadNarration(plan);
+    await playNarration(plan, PLAY.t * 1000);
   };
   document.getElementById("pvrender").onclick = openRender;
 
@@ -130,9 +149,13 @@ function viewPreview(root) {
         `<i class="mk ${c.pin ? "pin" : c.misses ? "miss" : ""}" style="left:${(c.scene.t0 / F3.runtime) * 100}%"></i>`,
     )
     .join("");
-  tl.onpointerdown = (e) => {
+  tl.onpointerdown = async (e) => {
     const r = tl.getBoundingClientRect();
     PLAY.t = clamp((e.clientX - r.left) / r.width, 0, 0.999) * F3.runtime;
+    // A seek re-cues the voice rather than leaving the old line running
+    // over the new picture.
+    stopNarration();
+    if (PLAY.on && window.STUDIO.plan) await playNarration(window.STUDIO.plan, PLAY.t * 1000);
   };
   drawPvRight(sceneAt(PLAY.t));
 }
@@ -154,9 +177,17 @@ function openRender() {
   const el = document.createElement("div");
   el.id = "rend";
   const secs = Math.round(F3.runtime);
+  const vo = narrationStatus(window.STUDIO.plan || {});
   el.innerHTML = `<div class="rend-box">
     <div class="rend-head">RENDER · ${esc(F3.title)}</div>
     <div class="rend-meta mono">${F3.scenes.length} scenes · ${fmt(F3.runtime)} · plan compiled, nothing regenerated</div>
+    <div class="rend-meta mono">${
+      vo.narrated === 0
+        ? "SILENT — no narration recorded. Record it in FILMS; the export carries the voice once it exists."
+        : `VOICE · ${vo.narrated} of ${vo.total} scenes narrated${
+            vo.silent ? `, ${vo.silent} silent` : ""
+          } · ${vo.measured} timed off the audio`
+    }</div>
     <div class="rend-opts">
       <label>SIZE
         <select id="r-size">

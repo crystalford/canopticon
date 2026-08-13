@@ -66,6 +66,18 @@ const ratifyScenes = (id, approve, reject) =>
     body: JSON.stringify({ approve: approve || [], reject: reject || [] }),
   });
 
+/** NARRATE — the one operator action that spends TTS.
+ *
+ *  Bounded per call, like reading is, and for the same reason: an 88-scene
+ *  film is 176 model calls and a request has a wall clock. It always takes
+ *  the next un-narrated scenes, so calling it repeatedly finishes the film
+ *  and `remaining` says how far there is left to go. */
+const narrateProject = (id, opts) =>
+  api(`/project/${id}/narrate`, {
+    method: "POST",
+    body: JSON.stringify(opts || {}),
+  });
+
 /** Build the view model from the IR and the compiled plan.
  *
  *  Every field here is carried across, not invented. Where the prototype's
@@ -104,6 +116,11 @@ function toFilm(ir, plan, storedVersion) {
       tier: s.tier,
       chain: s.chain.map((n) => n.id),
       reasons: s.reasons || [],
+      // The frozen narration, when this scene has been recorded. Undefined
+      // rather than null when it has not — a scene that plays silence and
+      // a scene with no narration should not look the same to a view that
+      // is trying to tell the operator which is which.
+      vo: s.vo,
     };
   });
 
@@ -278,6 +295,7 @@ Object.assign(window, {
   loadProject,
   loadDemo,
   ratifyScenes,
+  narrateProject,
   saveCreativeState,
   compileProject,
   lastProjectId: () => {
