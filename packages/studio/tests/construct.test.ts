@@ -24,6 +24,7 @@ import {
   describeIntent,
   readIntent,
 } from "../src/compile/intent.ts";
+import { isComposite, planScene } from "../src/compile/scene-plan.ts";
 import { segmentEssay } from "../src/compile/segment.ts";
 import { detectSubjects } from "../src/compile/subject.ts";
 import type { VisualLanguage } from "../src/ir/schema.ts";
@@ -808,5 +809,97 @@ They walked around the city like insects. At first nobody noticed. Then there we
     // ...and yet nothing in the compiled film paints a space.
     const paints = compiled().flatMap((s) => s.nodes.map((n) => n.primitiveId));
     expect(paints).not.toContain("plate_scene");
+  });
+});
+
+describe("the scene plan — a shot is several things at once", () => {
+  // The fix for the 5/8 result. City and streets were never misread; they
+  // were outranked, because a scene built exactly one construction and a
+  // setting always loses to a subject. A plane is a semantic ROLE, so the
+  // setting can sit behind the subject instead of losing to it.
+  const style: Style = {
+    abstraction: 0.5,
+    density: 0.5,
+    energy: 0.6,
+    human: 0.7,
+    typography: 0.4,
+    archival: 0.3,
+    data: 0.2,
+    experimentalism: 0.5,
+    restraint: 0.4,
+    tier: "DECOMPOSED",
+    language: "documentary",
+  };
+  function beatFor(sentence: string, subjects = detectSubjects(sentence)): Beat {
+    return {
+      sentence,
+      phrase: "CITIES LIKE INSECTS",
+      subjects,
+      figures: [],
+      route: [],
+      kind: "statement",
+      contested: false,
+      index: 0,
+    };
+  }
+
+  it("holds the city AND the insects — the thing that was impossible", () => {
+    const plan = planScene(beatFor("They walked around the city like insects."), style);
+    expect(isComposite(plan)).toBe(true);
+    const roles = plan.planes.map((p) => p.role);
+    expect(roles).toContain("SETTING");
+    expect(roles).toContain("SUBJECT");
+    // Both are checkable against the prose, like a figure.
+    const from = plan.planes.map((p) => p.from);
+    expect(from).toContain("city");
+    expect(from).toContain("insects");
+  });
+
+  it("puts the setting behind its subject, because that is what a setting is", () => {
+    const plan = planScene(beatFor("They walked around the city like insects."), style);
+    const setting = must(plan.planes.find((p) => p.role === "SETTING"));
+    const subject = must(plan.planes.find((p) => p.role === "SUBJECT"));
+    expect(setting.depth).toBeLessThan(subject.depth);
+    // And is entitled to less of the frame — the sentence is about the
+    // people, in a city, not about a city containing people.
+    expect(setting.weight).toBeLessThan(subject.weight);
+  });
+
+  it("uses the film's memory, so a pronoun sentence still gets its subject", () => {
+    // "Then there were dozens of THEM, moving through the streets" names
+    // only a place on its own. Through the real compose path the carried
+    // subject supplies the rest — which is what makes this scene a
+    // composition rather than an empty street.
+    const carried = must(detectSubjects("They walked around the city like insects.")[0]);
+    const sentence =
+      "Then there were dozens of them, moving through the streets in strange synchronized waves.";
+    const withMemory = [carried, ...detectSubjects(sentence)];
+    const plan = planScene(beatFor(sentence, withMemory), style);
+    expect(isComposite(plan)).toBe(true);
+    expect(plan.planes.map((p) => p.from)).toContain("streets");
+    expect(plan.planes.map((p) => p.from)).toContain("insects");
+  });
+
+  it("leaves a one-thing sentence exactly as it was", () => {
+    // A single-plane plan is not a regression — it is the same shot with
+    // its composition made explicit. Paying for a composite to layer one
+    // thing over nothing is how a render gets slow for no picture.
+    const plan = planScene(
+      beatFor("The smoke detector had been disconnected for eleven months."),
+      style,
+    );
+    expect(isComposite(plan)).toBe(false);
+    expect(must(plan.planes[0]).role).toBe("SUBJECT");
+  });
+
+  it("weights the metaphor by abstraction, not by taste", () => {
+    // A literal film shows people who move like insects; an abstract one
+    // shows the insects. Same scene graph, different composition.
+    const sentence = "The residents moved through the corridor like insects.";
+    const literal = planScene(beatFor(sentence), { ...style, abstraction: 0.1 });
+    const far = planScene(beatFor(sentence), { ...style, abstraction: 0.9 });
+    const lm = literal.planes.find((p) => p.role === "METAPHOR");
+    const fm = far.planes.find((p) => p.role === "METAPHOR");
+    if (lm && fm) expect(fm.weight).toBeGreaterThan(lm.weight);
   });
 });
