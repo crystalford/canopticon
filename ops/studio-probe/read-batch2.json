@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-13T01:58:05Z",
+  "run_id": "31659334369",
+  "method": "POST",
+  "path": "/v1/project/proj_305611e441404d1e97fa/read",
+  "status": 200,
+  "body": "{\n  \"projectId\": \"proj_305611e441404d1e97fa\",\n  \"irVersion\": 7,\n  \"proposed\": 18,\n  \"declined\": 2,\n  \"why\": {\n    \"no-subjects\": 2\n  },\n  \"samples\": [\n    {\n      \"sentence\": \"This is not a lag.\",\n      \"reason\": \"no-subjects\",\n      \"said\": \"{\\\"contested\\\":false,\\\"subjects\\\":[],\\\"visualOpportunity\\\":\\\"\\\"}\"\n    },\n    {\n      \"sentence\": \"They do not summon rain.\",\n      \"reason\": \"no-subjects\",\n      \"said\": \"{\\\"contested\\\":false,\\\"subjects\\\":[],\\\"visualOpportunity\\\":\\\"establish\\\"}\"\n    }\n  ],\n  \"remaining\": 95,\n  \"model\": \"@cf/meta/llama-4-scout-17b-16e-instruct\"\n}"
+}
