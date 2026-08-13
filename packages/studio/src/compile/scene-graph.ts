@@ -401,3 +401,152 @@ export function observe(scene: SceneGraph, cam: Camera): SceneGraph {
           : "held";
   return { elements, describes: `${scene.describes} · ${how}` };
 }
+
+/* ── TIME OPERATES ON THE SCENE ───────────────────────────────────────
+ *
+ * The bar is no longer "an interesting frame". It is whether an essay's
+ * ARGUMENT can become a sequence of visual transformations — a field
+ * established, most of it removed, what survives isolated and carried
+ * forward; sight lines built and then reversed when the essay reverses.
+ *
+ * So time is expressed the same way the camera is: as a transform on the
+ * SCENE, before serialisation. Nothing downstream knows time exists, and
+ * a scene at t=0.2 is simply a different scene graph. That is what makes
+ * this a temporal GRAMMAR rather than an animation parameter bolted to a
+ * primitive — the same eight moves apply to any element in any
+ * representation, because they are operations on places and presences
+ * rather than on pictures.
+ */
+export type Move =
+  | "HOLD" // it is simply there
+  | "ENTER" // it arrives from outside the frame
+  | "EMERGE" // it grows into presence in place
+  | "ACCUMULATE" // there is more of it as time passes
+  | "WITHDRAW" // it leaves
+  | "DISSOLVE" // it thins out of presence
+  | "APPROACH" // it closes on something
+  | "REVERSE"; // the relation it is part of turns around
+
+export interface Choreography {
+  /** Per element index, the move it makes. Elements not named HOLD. */
+  moves: Record<number, Move>;
+  describes: string;
+}
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const ease = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t));
+
+/** THE SCENE AT A MOMENT. Returns a new graph — the scene is untouched,
+ *  the same way the camera leaves it untouched, because the whole point
+ *  is that one scene can be looked at from more than one time. */
+export function at(scene: SceneGraph, ch: Choreography, t: number): SceneGraph {
+  const e = ease(t);
+  const elements: Element[] = [];
+  scene.elements.forEach((el, i) => {
+    const move = ch.moves[i] ?? "HOLD";
+    const p = { ...el.place };
+    let present = true;
+    switch (move) {
+      case "ENTER":
+        // Arrives from outside the frame and settles. The direction is
+        // the side it is nearest, so a thing on the left comes in from
+        // the left rather than crossing the shot to get home.
+        p.x = lerp(el.place.x < 0.5 ? -0.35 : 1.35, el.place.x, e);
+        break;
+      case "EMERGE":
+        p.scale = el.place.scale * Math.max(0.02, e);
+        break;
+      case "ACCUMULATE":
+        // More of it, and it spreads. A field that accumulates should
+        // reach further than the one that started.
+        p.scale = el.place.scale * lerp(0.35, 1.25, e);
+        break;
+      case "WITHDRAW":
+        p.x = lerp(el.place.x, el.place.x < 0.5 ? -0.35 : 1.35, e);
+        break;
+      case "DISSOLVE":
+        p.scale = el.place.scale * Math.max(0.02, 1 - e);
+        present = e < 0.97;
+        break;
+      case "APPROACH": {
+        // Closes on the centre of the frame, which is where the thing it
+        // is approaching has been placed by the arrangement.
+        p.x = lerp(el.place.x, 0.5, e * 0.7);
+        p.y = lerp(el.place.y, 0.5, e * 0.7);
+        break;
+      }
+      case "REVERSE":
+        // THE ARGUMENT TURNING AROUND. The element crosses to the place
+        // its counterpart held, which is what makes "the residents
+        // watched the city" the same scene as its opposite, run the
+        // other way, rather than a second unrelated picture.
+        p.x = lerp(el.place.x, 1 - el.place.x, e);
+        p.y = lerp(el.place.y, 1 - el.place.y, e);
+        break;
+      default:
+        break;
+    }
+    if (present) elements.push({ ...el, place: p });
+  });
+  return { elements, describes: `${scene.describes} · ${ch.describes} @${t.toFixed(2)}` };
+}
+
+/** CHOREOGRAPH FROM THE RELATION. The move each element makes is read
+ *  off what the sentence says is happening, not chosen — an
+ *  ACCUMULATES relation accumulates its field, an EMERGES relation makes
+ *  its subject emerge, a denied relation dissolves the thing it denies.
+ *
+ *  This is the join between the semantic scene and time, and it is
+ *  deliberately the only one. */
+export function choreograph(scene: SceneGraph, sem: SemanticScene): Choreography {
+  const rel = sem.relations[0];
+  const moves: Record<number, Move> = {};
+  const roleAt = (r: Role) => scene.elements.findIndex((e) => e.role === r);
+  const field = roleAt("FIELD");
+  const primary = roleAt("PRIMARY");
+  const secondary = roleAt("SECONDARY");
+
+  if (!rel) {
+    if (primary >= 0) moves[primary] = "EMERGE";
+    return { moves, describes: "the subject arriving" };
+  }
+  switch (rel.kind) {
+    case "ACCUMULATES":
+      if (field >= 0) moves[field] = "ACCUMULATE";
+      if (primary >= 0) moves[primary] = "HOLD";
+      return { moves, describes: "more of it, gathering" };
+    case "OBSERVES":
+      // The observed field is there first; the observer arrives to it.
+      if (field >= 0) moves[field] = "HOLD";
+      if (primary >= 0) moves[primary] = "ENTER";
+      return { moves, describes: "the field, then the thing that watches it" };
+    case "EMERGES":
+      if (primary >= 0) moves[primary] = "EMERGE";
+      return { moves, describes: "coming up out of it" };
+    case "APPROACHES":
+      if (primary >= 0) moves[primary] = "APPROACH";
+      if (secondary >= 0) moves[secondary] = "HOLD";
+      return { moves, describes: "the distance closing" };
+    case "DEPARTS":
+      if (primary >= 0) moves[primary] = "WITHDRAW";
+      return { moves, describes: "the distance opening" };
+    case "BECOMES":
+      // A denial dissolves the thing that was claimed rather than
+      // transforming into it — which is the visual form of "never".
+      if (secondary >= 0) moves[secondary] = sem.negated ? "DISSOLVE" : "EMERGE";
+      if (primary >= 0) moves[primary] = sem.negated ? "HOLD" : "DISSOLVE";
+      return {
+        moves,
+        describes: sem.negated ? "the claim refusing to arrive" : "one turning into the other",
+      };
+    case "REVEALS":
+      if (secondary >= 0) moves[secondary] = "EMERGE";
+      return { moves, describes: "what is behind, becoming visible" };
+    case "CONCEALS":
+      if (secondary >= 0) moves[secondary] = "DISSOLVE";
+      return { moves, describes: "what is behind, being withheld" };
+    default:
+      if (primary >= 0) moves[primary] = "ENTER";
+      return { moves, describes: "arriving" };
+  }
+}

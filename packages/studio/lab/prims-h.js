@@ -553,3 +553,108 @@ reg(
   }),
   "A surface with an opening cut through it. The general operation for inside/outside, visible/hidden, foreground/background and reveal/conceal — a window, a doorway, a screen, a hole and a redaction are consequences of it rather than definitions. What sits behind it in the scene graph shows through the opening and is concealed everywhere else.",
 );
+
+/* ── A SYSTEM, NOT A SCATTER ──────────────────────────────────────────
+ *
+ * `force_layout` threw points at the frame, so the diagrammatic column
+ * read as noise in every gallery: a relationship was represented by dots
+ * that were not related to each other in any visible way.
+ *
+ * A diagram is CLUSTERS AND EDGES. Nodes gather into groups, groups are
+ * joined, and the drawing shows which things belong together and which
+ * things are merely connected. That is general — it serves a network, an
+ * organisation, a distribution, a supply chain, a family of documents and
+ * a crowd, without knowing what any of them are.
+ *
+ * Emits real PATHS, so the edges are strokes at any resolution rather
+ * than a raster sample of a line.
+ */
+reg(
+  "graph_field",
+  "G · NETWORK",
+  "DATA → GEOMETRY",
+  {
+    clusters: { v: 3, lo: 1, hi: 9, int: 1 },
+    per: { v: 6, lo: 2, hi: 30, int: 1 },
+    spread: { v: 0.6, lo: 0.1, hi: 1 },
+    // How much of the graph is drawn as edges rather than left as loose
+    // nodes. At 0 it is a distribution; at 1 it is a network.
+    linked: { v: 0.6, lo: 0, hi: 1 },
+    seed: { v: 11, lo: 1, hi: 9999, int: 1 },
+  },
+  (p) => ({
+    frame(ctx, w, h, t, upstream) {
+      bg(ctx, w, h);
+      const rnd = mulberry(Math.round(p.seed));
+      const K = Math.max(1, Math.round(p.clusters));
+      const N = Math.max(2, Math.round(p.per));
+      // Cluster centres on a ring, so the groups are legibly separate
+      // rather than piled on the middle.
+      const centres = [];
+      for (let k = 0; k < K; k++) {
+        const a = (k / K) * Math.PI * 2 + rnd() * 0.4;
+        const r = Math.min(w, h) * 0.3 * p.spread * (K === 1 ? 0 : 1);
+        centres.push([w / 2 + Math.cos(a) * r, h / 2 + Math.sin(a) * r]);
+      }
+      // Node values come off the upstream DATA when there is any, so a
+      // chart of the essay's own terms sizes its nodes by their weight.
+      const data = (upstream && upstream.data) || [];
+      const nodes = [];
+      for (let k = 0; k < K; k++) {
+        const [cx, cy] = centres[k];
+        const spanR = Math.min(w, h) * 0.14 * p.spread;
+        for (let i = 0; i < N; i++) {
+          const a = rnd() * Math.PI * 2;
+          const rr = Math.sqrt(rnd()) * spanR;
+          const d = data[(k * N + i) % (data.length || 1)];
+          nodes.push({
+            x: cx + Math.cos(a) * rr,
+            y: cy + Math.sin(a) * rr,
+            k,
+            v: d && d.value ? Math.max(0.25, Math.min(1, d.value / 100)) : 0.5,
+          });
+        }
+      }
+      const paths = [];
+      // WITHIN a cluster: every node to its own centre. That is what
+      // makes a group read as a group.
+      for (const nd of nodes) {
+        if (rnd() > p.linked) continue;
+        paths.push([[nd.x, nd.y], centres[nd.k]]);
+      }
+      // BETWEEN clusters: the ring, so the groups are a system rather
+      // than three unrelated piles.
+      if (K > 1 && p.linked > 0.2) {
+        for (let k = 0; k < K; k++) paths.push([centres[k], centres[(k + 1) % K]]);
+      }
+      ctx.strokeStyle = MUT;
+      ctx.lineWidth = 0.9;
+      for (const path of paths) {
+        ctx.beginPath();
+        ctx.moveTo(path[0][0], path[0][1]);
+        ctx.lineTo(path[1][0], path[1][1]);
+        ctx.stroke();
+      }
+      // Nodes on top of their edges, sized by value.
+      for (const nd of nodes) {
+        ctx.fillStyle = nd.v > 0.75 ? EMB : INK;
+        ctx.beginPath();
+        ctx.arc(nd.x, nd.y, 1.5 + nd.v * 3.5, 0, 6.3);
+        ctx.fill();
+      }
+      // Cluster centres, marked, so the hierarchy is visible.
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1.2;
+      for (const [cx, cy] of centres) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 5.5, 0, 6.3);
+        ctx.stroke();
+      }
+      lab(ctx, `${K} CLUSTERS · ${nodes.length} NODES · ${paths.length} EDGES`, 10, h - 16);
+      // The edges as real geometry, plus the node positions.
+      const geo = nodes.map((nd) => ({ x: nd.x, y: nd.y, x0: nd.x, y0: nd.y, v: nd.v }));
+      return { paths, geometry: geo };
+    },
+  }),
+  "Nodes gathered into clusters and joined by drawn edges. A diagram is groups and connections, not a scatter — this serves a network, an organisation, a distribution, a supply chain or a crowd without knowing what any of them are.",
+);

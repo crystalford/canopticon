@@ -77,8 +77,13 @@ vocabulary with it.
 
 Outstanding, in order of leverage:
 
-1. **`CONNECT` reads as scattered points.** `force_layout` does not
-   cluster. Diagrammatic needs grouping and edges that are drawn.
+~~`CONNECT` reads as scattered points.~~ **DONE.** `graph_field` gathers
+nodes into clusters, joins each to its own centre, and rings the clusters
+together — so a diagram is groups and connections rather than a scatter.
+Serves a network, an organisation, a distribution or a crowd without
+knowing what any of them are. Emits real paths.
+
+Outstanding, in order of leverage:
 3. **Temporal grammar.** The scene graph is the right substrate: elements
    ENTER, ACCUMULATE, TRANSFORM, and the camera observes across time. The
    compositional-strategy work (`experiments/strategy.ts`) is still
