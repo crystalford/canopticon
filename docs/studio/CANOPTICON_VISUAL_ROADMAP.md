@@ -21,13 +21,26 @@ permission; a tabled item is not a backlog.
 
 ### ROADMAP — build, but not yet
 
-- **Continuous / one-shot as a FILM MODE.** Visual state persists across
-  every semantic event so an essay morphs, accumulates and travels
-  without cuts. The mechanism already exists as a single constraint —
-  `allowCut: false` in `film-state.ts` — because a cut is a grammatical
-  operation rather than the absence of one. It is **one flag on the
-  continuity vocabulary, not a second engine**, and that is the whole
-  design: the modes are constraints over one grammar.
+- **Continuous / one-shot as a FILM MODE — the architecture is BUILT
+  (`film-mode.ts`), the visual demonstration is not.** `allowCut: false`
+  is necessary and not sufficient: it says what a one shot may not do.
+  What makes it a one shot is BRIDGING — a change of state resolved into
+  the intermediate states the film actually passes through, with identity
+  intact:
+
+  ```
+  NOT ENOUGH     state A → state B, with cutting forbidden
+  THE CAPABILITY state A → A' → A'' → B, identity intact throughout
+  ```
+
+  An element in both ends MORPHS; one in only one end grows into or out
+  of presence. A cut goes straight there (`bridge: 1`); a one shot passes
+  through four states; a montage deliberately does not bridge, because a
+  montage that eases between its images is not a montage.
+
+  Eleven proofs in `tests/film-mode.test.ts`, including the one that
+  matters: a wholly different semantic state reached WITHOUT a cut, by
+  passing through the world.
 
   | Mode | Continuity |
   |---|---|
