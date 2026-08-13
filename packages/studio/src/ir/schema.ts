@@ -135,6 +135,24 @@ export const OverrideSchema = z.object({
 });
 export type Override = z.infer<typeof OverrideSchema>;
 
+/** A VISUAL GRAMMAR — the film's look, named so it can be asked for again.
+ *
+ *  Not a chain and not a preset. A set of APPETITES: how much this film
+ *  wants to grade, to scanline, to come apart. They sit on top of the
+ *  director's curves and bias what the constructor reaches for, so the
+ *  same grammar over a different essay builds different things in a
+ *  recognisable way — which is what a house style actually is.
+ *
+ *  Captured from a film that already looks right rather than authored
+ *  from nothing. See `compile/grammar.ts`. */
+export const VisualGrammarSchema = z.object({
+  name: z.string(),
+  ops: z.record(z.string(), z.number()).default({}),
+  representation: z.number().min(0).max(4).optional(),
+  capturedFrom: z.object({ projectId: z.string(), scenes: z.number(), at: z.string() }).optional(),
+});
+export type VisualGrammarIR = z.infer<typeof VisualGrammarSchema>;
+
 export const EntitySchema = z.object({
   id: z.string(),
   type: z.enum(["organization", "person", "document", "concept", "place"]),
@@ -329,6 +347,9 @@ export const EditorialIRSchema = z.object({
   /** The film's default depiction. A director can travel this across the
    *  runtime the same way they travel abstraction. */
   visualLanguage: VisualLanguageSchema.default("documentary"),
+  /** The film's captured look, when it has one. Optional: a film without
+   *  a grammar is composed from the curves alone, exactly as before. */
+  grammar: VisualGrammarSchema.optional(),
   renderProfile: z.string().default("default"),
 });
 export type EditorialIR = z.infer<typeof EditorialIRSchema>;

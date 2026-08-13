@@ -155,6 +155,7 @@ function filmRow(p, cur) {
               p.stale ? "RE-RECORD" : "NARRATE"
             }</button>`
       }
+      <button class="btn" data-act="look" data-id="${esc(p.projectId)}">KEEP THE LOOK</button>
       <button class="btn" data-act="delete" data-id="${esc(p.projectId)}">DELETE</button>
     </div>
   </div>`;
@@ -208,6 +209,17 @@ async function filmAction(kind, id) {
           : `${r.proposed} proposed · ${r.declined} declined · ${r.remaining} still unread — ` +
               "declining is a result, not a failure",
       );
+    } else if (kind === "look") {
+      const name = prompt(
+        "Name this film's look.\n\nIt captures what the film ACTUALLY did — which operations it " +
+          "reached for and how far it drew things — not its chains. Applied to a different essay it " +
+          "builds different things in a recognisable way.",
+        PROJECTS.find((x) => x.projectId === id)?.title || "this look",
+      );
+      if (!name) return;
+      filmsSay("reading what this film did…");
+      const r = await captureLook(id, name);
+      filmsSay(`kept "${name}" — ${r.describes}`);
     } else if (kind === "narrate") {
       await narrateFilm(id);
     } else if (kind === "delete") {

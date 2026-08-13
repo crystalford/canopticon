@@ -90,6 +90,12 @@ const probeVoice = () => api("/tts/probe", { method: "POST", body: JSON.stringif
 /** Hear every candidate say the same line. The provider question is a
  *  product decision and this is how it gets settled — by ear, on the
  *  operator's own sentence, rather than by argument. Stores nothing. */
+/** KEEP THE LOOK. Compiles the film, reads what it actually did, and
+ *  stores that as a named grammar — so a style that happened can be asked
+ *  for again, and carried to a different essay. */
+const captureLook = (projectId, name) =>
+  api(`/project/${projectId}/grammar`, { method: "POST", body: JSON.stringify({ name }) });
+
 const auditionVoice = (text) =>
   api("/voice/audition", { method: "POST", body: JSON.stringify({ text }) });
 
@@ -351,6 +357,7 @@ Object.assign(window, {
   narrateProject,
   probeVoice,
   auditionVoice,
+  captureLook,
   directScene,
   directVerb,
   releaseScene,

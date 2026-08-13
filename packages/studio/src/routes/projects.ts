@@ -9,6 +9,7 @@ import { Hono } from "hono";
 import type { CacheSnapshot } from "../compile/cache.ts";
 import { EXTRACTION_MODEL, proposeReading } from "../compile/extract-reading.ts";
 import { buildFilmPlan } from "../compile/film.ts";
+import { captureGrammar, describeGrammar } from "../compile/grammar.ts";
 import { compile } from "../compile/index.ts";
 import { segmentEssay } from "../compile/segment.ts";
 import { applyVerb, verbById } from "../compile/verbs.ts";
@@ -599,6 +600,70 @@ app.post("/project/:id/direct", async (c) => {
     sceneId: body.sceneId,
     pinned: !body.release,
     cache: report.cache,
+  });
+});
+
+/** NAME THE LOOK THIS FILM ALREADY HAS.
+ *
+ *  "That's sorta the style I was envisioning... but it sorta happened
+ *  randomly." It did not happen randomly — it was the appetites the film's
+ *  own curves implied, and the same curve produces it again. But nothing
+ *  captured it, so it could not be asked for, and it could not be carried
+ *  to a different essay. A style you cannot ask for twice is a result, not
+ *  a style.
+ *
+ *  This compiles the film, reads what it ACTUALLY did — which operators it
+ *  reached for, how often, at what representation rung — and stores that
+ *  as a named grammar on the IR. From then on the constructor is biased
+ *  toward it, so a new essay under the same grammar builds different
+ *  things in a recognisable way.
+ *
+ *  Captured rather than authored. That is the whole point: you keep the
+ *  accident by naming it, and then you can do it on purpose. */
+app.post("/project/:id/grammar", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { name?: string; clear?: boolean };
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+
+  let next: EditorialIR;
+  let summary: string;
+  if (body.clear) {
+    const { grammar: _dropped, ...rest } = parsed.ir;
+    next = rest as EditorialIR;
+    summary = "Released the film's grammar — composed from the curves alone";
+  } else {
+    const name = body.name?.trim();
+    if (!name) return c.json({ error: "name is required" }, 400);
+    // Captured from the film as it stands WITHOUT its current grammar, so
+    // capturing twice does not compound a bias into a caricature of
+    // itself.
+    const { grammar: _existing, ...bare } = parsed.ir;
+    const report = await compile(bare as EditorialIR);
+    const grammar = captureGrammar(name, report.composed, projectId);
+    next = { ...parsed.ir, grammar };
+    summary = `Captured "${name}" — ${describeGrammar(grammar)}`;
+  }
+
+  const nextVersion = project.current_ir_version + 1;
+  await writeVersion(c.env, projectId, next, nextVersion, project.current_ir_version, summary);
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+
+  return c.json({
+    projectId,
+    irVersion: nextVersion,
+    grammar: next.grammar ?? null,
+    describes: next.grammar ? describeGrammar(next.grammar) : "none",
   });
 });
 

@@ -328,3 +328,49 @@ describe("director verbs", () => {
     );
   });
 });
+
+describe("a look you can ask for again", () => {
+  // "that's sorta the style I was envisioning... but it sorta happened
+  // randomly." It did not happen randomly. Nothing captured it.
+  it("captures what a film actually did, not what it might do", async () => {
+    const { captureGrammar, describeGrammar } = await import("../src/compile/grammar.ts");
+    const seed = segmentEssay(
+      "Rooms\n\nThe smoke detector in room 214 had been disconnected.\nThe contract named a warehouse.\nNothing changed.",
+      { projectId: "p" },
+    );
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid");
+    const scenes = composeAll(parsed.ir);
+
+    const grammar = captureGrammar("the glitch one", scenes, "p");
+    expect(grammar.name).toBe("the glitch one");
+    // Operators the film reached for score above the ones it did not.
+    const used = new Set(scenes.flatMap((s) => s.program?.operators ?? []));
+    for (const id of used) expect(must(grammar.ops)[id]).toBeGreaterThan(-0.25);
+    // And it reads as a sentence, not a table of floats.
+    expect(describeGrammar(grammar)).toMatch(/reaches for|avoids/);
+  });
+
+  it("changes what a DIFFERENT essay builds, without naming a primitive", async () => {
+    const { captureGrammar } = await import("../src/compile/grammar.ts");
+    const source = segmentEssay("A\n\nThe detector was removed at night.", { projectId: "a" });
+    const src = parseIR(JSON.parse(JSON.stringify(source.ir)));
+    if (!src.ok) throw new Error("invalid");
+    const grammar = captureGrammar("captured", composeAll(src.ir), "a");
+    // Force a strong, unambiguous preference so the effect is legible.
+    grammar.ops.fragment = 0.6;
+    grammar.ops.grade = -0.5;
+
+    const other = segmentEssay("B\n\nThe warehouse stood behind the fence.", { projectId: "b" });
+    const plain = parseIR(JSON.parse(JSON.stringify(other.ir)));
+    const styled = parseIR(JSON.parse(JSON.stringify(other.ir)));
+    if (!plain.ok || !styled.ok) throw new Error("invalid");
+    styled.ir.grammar = grammar;
+
+    const before = composeAll(plain.ir).map((s) => (s.program?.operators ?? []).join("+"));
+    const after = composeAll(styled.ir).map((s) => (s.program?.operators ?? []).join("+"));
+    expect(after.join("|")).not.toBe(before.join("|"));
+    // A grammar names appetites, never a primitive.
+    expect(Object.keys(grammar.ops).some((k) => k.includes("_"))).toBe(false);
+  });
+});

@@ -318,6 +318,7 @@ export function composeScene(
       restraint: bend(state.values.restraint ?? 0.5, "restraint"),
       tier: rung.tier,
       language: scene.visualLanguage ?? ir.visualLanguage,
+      ...(ir.grammar ? { grammar: ir.grammar } : {}),
     };
     // A nudge that raises abstraction should be able to reach the rung
     // above it, or "stranger" would open no doors the curve had shut.

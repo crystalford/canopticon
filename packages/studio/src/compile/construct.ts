@@ -111,6 +111,12 @@ export interface Style {
    *  and what may be done to them — never a template with a fixed tail.
    *  See LANGUAGE and PERMITTED below. */
   language: VisualLanguage;
+  /** The film's CAPTURED look, when it has one — a set of per-operator
+   *  appetites read off a film that already looked right. Applied on top
+   *  of the language's own bias, so a grammar sharpens a language rather
+   *  than replacing it. This is what makes a look askable-for instead of
+   *  something that happened. */
+  grammar?: { ops: Record<string, number>; representation?: number | undefined } | undefined;
 }
 
 /* ════════════════════════════════════════════════════════════════════
@@ -201,9 +207,15 @@ function permitted(style: Style): Set<string> {
   return new Set([...keep, ...stylise, ...decompose]);
 }
 
-/** An operator's appetite, after the language has had its say. */
+/** An operator's appetite, after the language and the film's own captured
+ *  grammar have had their say — in that order, because a grammar is a
+ *  refinement of a language rather than an alternative to one. */
 function appetiteFor(op: Operator, style: Style): number {
-  return op.appetite(style) + (LANGUAGE[style.language]?.ops[op.id] ?? 0);
+  return (
+    op.appetite(style) +
+    (LANGUAGE[style.language]?.ops[op.id] ?? 0) +
+    (style.grammar?.ops[op.id] ?? 0)
+  );
 }
 
 /** The representation rung for a construction that has one — the language's
@@ -211,7 +223,10 @@ function appetiteFor(op: Operator, style: Style): number {
  *  documentary film at high abstraction is still a documentary film, and a
  *  pixel film at low abstraction still has to be recognisable. */
 function representationRung(style: Style): number {
-  const preferred = LANGUAGE[style.language]?.representation ?? 0;
+  // A captured grammar's rung is what the film ACTUALLY drew, so it
+  // outranks the language's preference — but never the curve, which is
+  // still the director's.
+  const preferred = style.grammar?.representation ?? LANGUAGE[style.language]?.representation ?? 0;
   return Math.max(0, Math.min(4, Math.round(preferred * 0.6 + style.abstraction * 4 * 0.4)));
 }
 
