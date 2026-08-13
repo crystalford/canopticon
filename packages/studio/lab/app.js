@@ -141,11 +141,23 @@ function renderBar() {
          : ""
      }</div>
    <div class="keyhint" id="keyhint"></div>
+   <!-- THE STATUS BAR IS PERSISTENT CHROME, so it is the last place
+        compiler vocabulary should live. It used to read "IR v0.1.0 ·
+        COMPILED · 2:04" on every screen — a version number for an
+        intermediate representation nobody outside this codebase has heard
+        of, and a lamp whose lit state means "nothing is wrong". Now it
+        says which film, whether the work is saved, and how long it runs.
+        The IR version is still checkable, on hover, where it belongs. -->
    <div class="barstate">
      <span title="${window.FILM.title.replace(/"/g, "&quot;")}">${window.FILM.title.length > 42 ? window.FILM.title.slice(0, 40).toUpperCase() + "…" : window.FILM.title.toUpperCase()}</span>
      ${window.STUDIO && window.STUDIO.demo ? '<span class="tag">EXAMPLE</span>' : ""}
-     <span>IR v${window.FILM.irVersion}</span>
-     <span class="${APP.dirty ? "dirty" : ""}"><i class="led ${APP.dirty ? "w" : ""}"></i>${APP.dirty ? "DIRTY — " + dirtyCount() + " SCENES" : "COMPILED"}</span>
+     <span class="${APP.dirty ? "dirty" : ""}" title="IR v${window.FILM.irVersion}"><i class="led ${APP.dirty ? "w" : ""}"></i>${
+       window.STUDIO && window.STUDIO.demo
+         ? "NOT STORED"
+         : APP.dirty
+           ? "SAVING — " + dirtyCount() + " SCENES CHANGED"
+           : "SAVED"
+     }</span>
      ${APP.saveState ? `<span class="savestate">${APP.saveState}</span>` : ""}
      <span>${fmt(window.FILM.runtime)}</span>
    </div>`;

@@ -6,15 +6,28 @@ const F3 = new Proxy({}, { get: (_t, k) => (window.FILM ? window.FILM[k] : undef
 
 /* ══ PREVIEW ════════════════════════════════════════════ */
 const PLAY = { t: 0, on: false, last: 0 };
+/** Whether the compiler's own numbers are drawn over the picture. Off by
+ *  default — see the note where the HUD is built. */
+let HUD_DETAIL = false;
 function viewPreview(root) {
   root.innerHTML = `<div class="shell" style="grid-template-columns:minmax(0,1fr) 320px">
    <div class="col mcol">
-     <div class="vhead"><h2>Preview</h2><span class="k" id="pvstate"></span></div>
+     <!-- THE FILM IS THE CENTRAL OBJECT, so this says which film you are
+          looking at rather than which compiler surface you are on. The
+          determinism/primitive/seed line moved to a title attribute — it
+          is true, it is checkable, and it is not what a person needs to
+          read while watching. -->
+     <div class="vhead filmhead">
+       <h2 title="${esc(F3.title)}">${esc(F3.title)}</h2>
+       <span class="k">${F3.scenes.length} SCENES · ${F3.acts ? `${F3.acts.length} ACTS · ` : ""}${fmt(F3.runtime)}</span>
+       <span class="k dim" id="pvstate"></span>
+     </div>
      <div class="stage"><canvas id="film"></canvas><div class="vo" id="vo"></div>
        <div class="hud" id="hud"></div></div>
      <div class="transport">
        <button class="btn" id="pp">${PLAY.on ? "PAUSE" : "PLAY"}</button>
        <button class="btn" id="pscore">${SCORE.on ? "SCORE ON" : "SCORE"}</button>
+       <button class="btn" id="phud" title="Draw the compiler's own numbers over the picture">${HUD_DETAIL ? "NUMBERS ON" : "NUMBERS"}</button>
        <div class="tl" id="tl"><div class="tlfill"></div><div class="tlhead"></div></div>
        <span class="mono tc" id="tc">0:00</span>
        <span class="mono vostate" id="vostate"></span>
@@ -94,16 +107,29 @@ function viewPreview(root) {
     if (c.scene.id !== cur) {
       cur = c.scene.id;
       document.getElementById("vo").innerHTML = `<span>${esc(c.scene.text)}</span>`;
+      /* THE HUD USED TO BURN THE COMPILER OVER THE ARTWORK.
+       *
+       * Three lines of it: the chain, then `abstraction 0.15 · density
+       * 0.36 · energy 0.41 · human 0.00`. Raw dials, in the middle of the
+       * one surface whose entire job is to answer "does this look right".
+       * You cannot judge a frame you cannot see, and none of that told a
+       * director anything they could act on.
+       *
+       * What stays on the frame is what identifies the shot. Everything
+       * else is already in the right column, in sentences, and behind a
+       * toggle here for anyone who wants it while watching. */
       document.getElementById("hud").innerHTML =
-        `<div><b>SC ${String(c.scene.n).padStart(2, "0")}</b> ${c.scene.fn.toUpperCase()} · ${c.tier}${c.pin ? " · PINNED" : ""}${(c.shots || []).length > 1 ? " · " + c.shots.length + " SHOTS" : ""}</div>
-        <div>${c.nodes
-          .map((n) =>
-            n.b && n.b.length
-              ? `${n.prim} ⊕ (${n.b.map((g) => g.id).join(" → ")})`
-              : n.prim,
-          )
-          .join(" → ")}</div>
-        <div>abstraction ${c.abstraction.toFixed(2)} · density ${(c.state.visualDensity ?? 0).toFixed(2)} · energy ${(c.state.motionEnergy ?? 0).toFixed(2)} · human ${(c.state.humanPresence ?? 0).toFixed(2)}</div>`;
+        `<div><b>SC ${String(c.scene.n).padStart(2, "0")}</b> ${c.scene.fn.toUpperCase()}${c.pin ? " · PINNED" : ""}${(c.shots || []).length > 1 ? " · " + c.shots.length + " SHOTS" : ""}</div>
+        ${
+          HUD_DETAIL
+            ? `<div>${c.nodes
+                .map((n) =>
+                  n.b && n.b.length ? `${n.prim} ⊕ (${n.b.map((g) => g.id).join(" → ")})` : n.prim,
+                )
+                .join(" → ")}</div>
+              <div>${c.tier} · abstraction ${c.abstraction.toFixed(2)} · density ${(c.state.visualDensity ?? 0).toFixed(2)} · energy ${(c.state.motionEnergy ?? 0).toFixed(2)} · human ${(c.state.humanPresence ?? 0).toFixed(2)}</div>`
+            : ""
+        }`;
       document.getElementById("pvstate").textContent =
         c.det + " DETERMINISM · " + c.nodes.length + " PRIMITIVES · SEED " + (c.nodes[0]?.params.seed ?? 0);
       drawPvRight(c);
@@ -172,6 +198,14 @@ function viewPreview(root) {
       scoreBtn.textContent = SCORE.on ? "SCORE ON" : "SCORE";
       if (!SCORE.on) return stopScore();
       await playScore(window.STUDIO.plan || planFromFilm(), run.comps, PLAY.t * 1000);
+    };
+  }
+  const hudBtn = document.getElementById("phud");
+  if (hudBtn) {
+    hudBtn.onclick = () => {
+      HUD_DETAIL = !HUD_DETAIL;
+      hudBtn.textContent = HUD_DETAIL ? "NUMBERS ON" : "NUMBERS";
+      cur = ""; // force the HUD to rebuild on the next frame
     };
   }
   document.getElementById("pvrender").onclick = openRender;
@@ -541,20 +575,35 @@ function intentBlock(s) {
     : `<div class="sec"><span class="k">Visual idea</span>
         <div class="mono pv-note">${
           s.pinned
-            ? "Pinned by you — composition bypassed."
-            : "Planned from a ratified reading rather than constructed."
+            ? "You chose this shot yourself. The engine is not composing this scene."
+            : "This shot came from an interpretation you approved, so the engine did not construct one of its own."
         }</div>
         ${s.pinned ? `<button class="chip" data-release="1">RELEASE TO THE ENGINE</button>` : ""}</div>`;
 
-  el.innerHTML = `<div class="sec"><span class="k">Scene ${String(s.n).padStart(2, "0")} · ${esc(s.label)}</span>
+  /* WHAT THE SHOT IS, FIRST.
+   *
+   * This column used to open with the scene's identity and its
+   * ratification chips, and close with six raw dials under the heading
+   * "RESOLVED STATE AT PLAYHEAD". So the first thing a director read
+   * while watching their own film was a status widget, and the last
+   * thing was `archivalWeight 0.69`.
+   *
+   * The order is now: what this shot IS, then which scene it belongs to
+   * and whether it has been ratified, then the checkable things — the
+   * figures, the engine's stated reasons. The dials are still here,
+   * unchanged and to two decimal places, behind a disclosure that says
+   * in plain words what is inside it. Nothing was removed; it stopped
+   * being the headline. */
+  el.innerHTML = `${idea}
+   <div class="sec secline"><span class="k">Scene ${String(s.n).padStart(2, "0")} · ${esc(s.label)}</span>
    ${ratifyBlock}</div>
-   ${idea}
    ${figures}
    ${why}
-   <div class="sec secline"><span class="k">Resolved state at playhead</span>
+   <details class="pvmore">
+    <summary>The compiler's own numbers for this moment</summary>
     <div class="meta">${["abstraction", "archivalWeight", "dataWeight", "visualDensity", "humanPresence", "motionEnergy"].map((k) => `<div class="mrow"><span>${k}</span><i>${(c.state[k] ?? 0).toFixed(2)}</i></div>`).join("")}</div>
     ${(c.state._held || []).length ? `<div class="ruleHit soft">INVARIANT · ${c.state._held.join(" · ")}</div>` : ""}
-   </div>`;
+   </details>`;
 
   for (const b of el.querySelectorAll("[data-alt]")) {
     b.onclick = async () => {

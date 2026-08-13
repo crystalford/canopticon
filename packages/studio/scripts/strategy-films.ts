@@ -30,7 +30,7 @@ const outDir = process.argv[2];
 fs.mkdirSync(outDir, { recursive: true });
 
 function build(id: string, pick?: (mi: number, p: number) => (typeof STRATEGIES)[string]) {
-  const scenes: any[] = [];
+  const scenes: Record<string, unknown>[] = [];
   let t = 0;
   for (const [i, sentence] of PARAGRAPH.entries()) {
     const subs = detectSubjects(sentence);
@@ -38,10 +38,11 @@ function build(id: string, pick?: (mi: number, p: number) => (typeof STRATEGIES)
     const figs = extractFigures(sentence);
     const count =
       COUNTS[i] ??
-      (figs.length ? Number(String(figs[0]!.value).replace(/[^0-9.]/g, "")) || null : null);
+      (figs.length ? Number(String(figs[0]?.value).replace(/[^0-9.]/g, "")) || null : null);
     const progress = PARAGRAPH.length > 1 ? i / (PARAGRAPH.length - 1) : 0;
     const ctx = moveCtx(sentence, subs, rel, count, progress, 101 + i * 7);
-    const base = STRATEGIES[id]!;
+    const base = STRATEGIES[id];
+    if (!base) throw new Error(`no such strategy: ${id}`);
     const moves = base.arc(ctx);
     for (const [mi, mv] of moves.entries()) {
       const st = pick ? pick(mi, progress) : base;

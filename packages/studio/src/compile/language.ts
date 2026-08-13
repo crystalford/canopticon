@@ -109,15 +109,6 @@ const n = (
   reason: string,
 ): PlannedNode => ({ primitiveId, params, reason });
 
-/** A number in 0..1 derived from a seed, with no `Math.random()`. Standing
- *  rule 4: everything stochastic is a pure function of its seed. */
-function rand(seed: number, salt: number): number {
-  let h = (seed * 2654435761 + salt * 40503) >>> 0;
-  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
-  h = Math.imul(h ^ (h >>> 12), 0x297a2d39) >>> 0;
-  return ((h ^ (h >>> 15)) >>> 0) / 0xffffffff;
-}
-
 /** THE SERIES A DATA PRIMITIVE IS FED, and where it is allowed to come
  *  from.
  *

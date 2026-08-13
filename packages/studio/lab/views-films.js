@@ -1,104 +1,154 @@
-/* CANOPTICON — the FILMS view.
+/* CANOPTICON — LIBRARY. Everything you have made, and the way in.
  *
- * The first of the five was missing, and its absence is what made the whole
- * thing read as one film permanently sitting there: there was nowhere to
- * see that a second one could exist.
+ * WHAT THE PRODUCT AUDIT FOUND HERE, and what this rewrite answers.
  *
- * Built inside the shell rather than beside it. No new typography, no new
- * palette, no second design — it uses the same `.vhead`, `.sec`, `.k`,
- * `.btn`, `.mono` the other four views use, because the design was never
- * the problem and a parallel surface in a different style was the problem.
+ * 1. THE FRONT DOOR WAS A STATUS LINE. The first thing a person read was
+ *    "0 STORED · ONE COMPILER · ONE PALETTE", under a heading that said
+ *    FILMS while showing none. Three facts about the architecture and
+ *    nothing about what to do.
  *
- * What it shows about a film is what the compiler actually knows: how many
- * scenes, how many carry a figure the prose printed verbatim, how many have
- * been read by a model and ratified, and when it last compiled. Not a
- * thumbnail — this system's unit is an argument, not a picture.
+ * 2. THE WAY IN WAS BELOW THE FOLD AND CALLED SEGMENT. The one action
+ *    that matters — put writing in, get a film — sat under the list, and
+ *    its button was named after a compiler stage. A person who has never
+ *    read this codebase does not want to segment anything.
+ *
+ * 3. THE EMPTY TEXTAREA WAS THE WHOLE ONBOARDING. Nothing to try, so the
+ *    only way to find out what Studio does was to already have an essay
+ *    and be willing to gamble it.
+ *
+ * 4. ERRORS WERE BODY TEXT. "could not reach the compiler — Failed to
+ *    fetch" rendered as a grey paragraph with no recovery action and no
+ *    statement of what still worked. That is the state a first-time
+ *    visitor is MOST likely to hit, and it read like the product was
+ *    broken rather than offline.
+ *
+ * 5. FIVE BUTTONS PER ROW, NAMED FOR THE COMPILER. OPEN · READ 12 ·
+ *    NARRATE · KEEP THE LOOK · DELETE. "READ 12" is not a sentence in any
+ *    language. Now: one primary action, the rest behind MORE, in verbs
+ *    that describe an outcome.
+ *
+ * The compiler's own documentation — the three steps, the TTS probe, the
+ * voice audition — moved out. The probe and the audition belong with the
+ * audio decision in VISUAL; the three steps belong in ENGINE, where the
+ * machine explains itself to someone who asked.
  */
 
 let PROJECTS = [];
-let FILMS_MSG = "";
+/** The one place a message about the library lives. `{kind, text, action}`
+ *  where kind is "" | "working" | "ok" | "problem" — never a bare string
+ *  dropped into the page, because that is what produced a raw fetch error
+ *  as prose on the front door. */
+let FILMS_NOTE = null;
 let FILMS_BUSY = false;
 
-function filmsSay(msg) {
-  FILMS_MSG = msg;
-  const el = document.getElementById("films-msg");
-  if (el) el.textContent = msg;
+function filmsSay(text, kind, action) {
+  FILMS_NOTE = text ? { text, kind: kind || "", action: action || null } : null;
+  const el = document.getElementById("films-note");
+  if (el) el.outerHTML = noticeHTML(FILMS_NOTE, "films-note");
+  bindNotice();
+}
+
+/** A message the reader can act on. Every one of these says three things:
+ *  what happened, what it cost, and what to do next. */
+function noticeHTML(note, id) {
+  if (!note) return `<div id="${id}" class="notice-slot"></div>`;
+  return `<div id="${id}" class="notice ${note.kind}">
+    <span class="notice-dot"></span>
+    <span class="notice-text">${esc(note.text)}</span>
+    ${note.action ? `<button class="btn" data-notice="${esc(note.action.id)}">${esc(note.action.label)}</button>` : ""}
+  </div>`;
+}
+
+function bindNotice() {
+  for (const b of document.querySelectorAll("[data-notice]")) {
+    b.onclick = async () => {
+      if (b.dataset.notice === "retry") {
+        filmsSay("looking for the compiler…", "working");
+        await filmsRefresh();
+        render();
+      }
+    };
+  }
 }
 
 async function filmsRefresh() {
   try {
     PROJECTS = await listProjects();
+    if (FILMS_NOTE && FILMS_NOTE.kind === "problem") FILMS_NOTE = null;
   } catch (err) {
     PROJECTS = [];
-    filmsSay(`could not reach the compiler — ${err.message}`);
+    // NOT "Failed to fetch". The reader needs to know their work is safe
+    // and that there is still something to look at.
+    filmsSay(
+      `Studio can't reach the compiler right now (${err.message}). Nothing has been lost — ` +
+        "stored films are on the server and will be here when it answers. The example film below " +
+        "runs entirely in this page and works either way.",
+      "problem",
+      { id: "retry", label: "TRY AGAIN" },
+    );
   }
 }
 
+/* THE EXAMPLE ESSAY. Two paragraphs of real prose with a heading, a
+ * figure and a turn in it, so pressing one button produces a film that
+ * actually demonstrates something rather than a placeholder that
+ * demonstrates the button. */
+const SAMPLE_ESSAY = `The Nine Rooms
+
+The building has nine numbered rooms and one door. For eleven years the
+council recorded it as a single dwelling. Peak occupancy: 41 people.
+
+Nobody who signed the forms had been inside. The inspection that would have
+found the partitions was scheduled four times and carried out none. When the
+fire came it moved the way fire moves through a corridor, and afterwards the
+report described the layout as if it had always been visible.`;
+
 function viewFilms(el) {
   const cur = window.STUDIO.projectId;
+  const empty = PROJECTS.length === 0;
+
   el.innerHTML = `
-  <div class="vhead"><h2>Films</h2>
-    <span class="k">${PROJECTS.length} STORED · ONE COMPILER · ONE PALETTE</span></div>
-  <div class="pad">
-    <div class="sec">
-      <span class="k">OPEN</span>
-      <div id="films-list">${
-        PROJECTS.length === 0
-          ? `<p class="empty">Nothing stored yet. Paste an essay below — segmentation is
-             deterministic and costs nothing, so there is no reason not to try one.</p>`
-          : PROJECTS.map((p) => filmRow(p, cur)).join("")
-      }
-      <div class="film ${cur ? "" : "on"}" data-open="__demo">
-        <div class="film-main">
-          <div class="filmtitle">${esc(window.DEMO_FILM.title)} <span class="tag">EXAMPLE</span></div>
-          <div class="mono film-meta">${window.DEMO_FILM.scenes.length} scenes · compiled in the page ·
-            no project behind it</div>
-        </div>
-        <div class="film-acts"><button class="btn" data-open="__demo">OPEN</button></div>
-      </div>
-      </div>
-      <p class="mono film-msg" id="films-msg">${esc(FILMS_MSG)}</p>
-    </div>
+  <div class="vhead">
+    <h1>Library</h1>
+    <div class="sub">A film is a piece of writing that has been compiled. Everything you make lives here.</div>
+  </div>
 
-    <div class="sec secline">
-      <span class="k">NEW FILM</span>
-      <textarea id="films-essay" class="films-essay"
-        placeholder="Paste an essay. Headings become acts. Sentences become scenes. Bullets stay whole — splitting &quot;Peak occupancy: 7,000 people&quot; would strip the figure from the thing it is a figure of."></textarea>
-      <div class="films-actions">
-        <button class="btn primary" id="films-ingest">SEGMENT →</button>
-        <span class="mono films-hint">Deterministic. No model sees the essay. Free, and instant.</span>
-      </div>
-    </div>
+  ${noticeHTML(FILMS_NOTE, "films-note")}
 
-    <div class="sec secline">
-      <span class="k">THE VOICE</span>
-      <input id="films-line" class="films-line" type="text"
-        placeholder="A line to audition — your own sentence, not a demo reel."
-        value="The building is the same. The residents are the same.">
-      <div class="films-actions">
-        <button class="btn" id="films-audition">AUDITION THE VOICES</button>
-        <button class="btn" id="films-probe">PROBE THE BINDING</button>
-        <span class="mono films-hint">Asks production what its speech models actually return.
-          Stores nothing, spends one call per candidate, and is the check to run before
-          narrating anything for real.</span>
-      </div>
-      <pre class="mono probe-out" id="probe-out"></pre>
+  <section class="vsec">
+    <div class="vsech">
+      <h2>Start a film</h2>
+      <div class="note">Paste something you have written. It stays yours — nothing is sent to a model at this step.</div>
     </div>
+    <textarea id="films-essay" class="films-essay"
+      placeholder="Paste an essay, a piece of reporting, a script.&#10;&#10;Headings become acts. Sentences become scenes. A bulleted line stays whole, because splitting &quot;Peak occupancy: 7,000 people&quot; would strip the number from the thing it is a number of."></textarea>
+    <div class="films-actions">
+      <button class="btn primary" id="films-ingest">MAKE A FILM</button>
+      <button class="btn" id="films-sample">USE THE EXAMPLE ESSAY</button>
+      <span class="mono films-hint">Instant, free, and repeatable — the same words always cut the same way.</span>
+    </div>
+  </section>
 
-    <div class="sec secline">
-      <span class="k">THE THREE STEPS</span>
-      <div class="mono films-steps">
-        <p><b>SEGMENT</b> — acts from the essay's own headings, scenes bound to the prose by
-        character offset, quantities lifted out verbatim. Nothing here calls a model.</p>
-        <p><b>READ</b> — the one model call in the system. Bounded, resumable, and allowed to
-        decline a sentence rather than guess at it. <b>Optional:</b> a film that has never been
-        read is complete and watchable — the abstraction curve carries the unread scenes, and any
-        scene carrying a figure reaches the data family on the prose alone.</p>
-        <p><b>COMPILE</b> — the real composition engine plans every chain and reports what the
-        cache did. Structurally 0 TTS calls, which is why dragging a curve is free.</p>
-      </div>
+  <section class="vsec">
+    <div class="vsech">
+      <h2>Your films</h2>
+      <div class="note">${
+        empty
+          ? "Nothing here yet."
+          : `${PROJECTS.length} film${PROJECTS.length === 1 ? "" : "s"}.`
+      }</div>
     </div>
-  </div>`;
+    <div class="vgrid" id="films-list">
+      ${PROJECTS.map((p) => filmCard(p, cur)).join("")}
+      ${demoCard(cur)}
+    </div>
+    ${
+      empty
+        ? `<div class="vfoot">Open the example to see what a compiled film is before you commit any
+           of your own writing to it. It runs in this page and needs nothing behind it.</div>`
+        : ""
+    }
+  </section>`;
 
   for (const b of el.querySelectorAll("[data-open]")) {
     b.onclick = (e) => {
@@ -112,52 +162,84 @@ function viewFilms(el) {
       filmAction(b.dataset.act, b.dataset.id);
     };
   }
+  for (const b of el.querySelectorAll("[data-more]")) {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      const row = document.getElementById(`more-${b.dataset.more}`);
+      if (row) row.classList.toggle("open");
+    };
+  }
   const ing = document.getElementById("films-ingest");
   if (ing) ing.onclick = filmsIngest;
-  const probe = document.getElementById("films-probe");
-  if (probe) probe.onclick = runProbe;
-  const aud = document.getElementById("films-audition");
-  if (aud) aud.onclick = runAudition;
+  const samp = document.getElementById("films-sample");
+  if (samp) {
+    samp.onclick = () => {
+      const box = document.getElementById("films-essay");
+      box.value = SAMPLE_ESSAY;
+      box.focus();
+      filmsSay("The example is in the box. Press MAKE A FILM — it takes about a second.", "ok");
+    };
+  }
+  bindNotice();
 }
 
-function filmRow(p, cur) {
-  const read =
-    p.readings > 0
-      ? `<span class="tag on">${p.readings} READ</span>`
-      : `<span class="tag">UNREAD</span>`;
-  // Narration is the one thing here that costs money and cannot be undone
-  // by dragging a curve, so the row says how much of it exists rather than
-  // leaving the operator to press the button and find out.
-  // STALE OUTRANKS NARRATED. A film whose prose moved after recording is
-  // not done — it is saying the wrong words — and the row has to say the
-  // more urgent of the two things rather than the flattering one.
-  const voice = p.stale
-    ? `<span class="tag warn">${p.stale} STALE</span>`
-    : p.narrated > 0
-      ? `<span class="tag ${p.narrated >= p.scenes ? "on" : ""}">${
-          p.narrated >= p.scenes ? "NARRATED" : `${p.narrated}/${p.scenes} VOICED`
-        }</span>`
-      : `<span class="tag">SILENT</span>`;
+/** What state this film is in, in one sentence a person can act on.
+ *  Deliberately ordered by urgency: a film saying the wrong words is a
+ *  more important fact than a film being fully narrated. */
+function filmState(p) {
+  if (p.stale) {
+    return {
+      kind: "problem",
+      text: `${p.stale} scene${p.stale === 1 ? "" : "s"} now say something different from the recording — re-record before you export.`,
+    };
+  }
+  if (p.narrated >= p.scenes && p.scenes > 0) {
+    return { kind: "ok", text: "Narrated end to end. Timed off the audio." };
+  }
+  if (p.narrated > 0) {
+    return { kind: "", text: `${p.narrated} of ${p.scenes} scenes have a voice.` };
+  }
+  return { kind: "", text: "Silent. Watchable as it is; captions carry the script." };
+}
+
+function filmCard(p, cur) {
+  const st = filmState(p);
   const done = p.narrated >= p.scenes && p.scenes > 0 && !p.stale;
-  return `<div class="film ${p.projectId === cur ? "on" : ""}" data-open="${esc(p.projectId)}">
-    <div class="film-main">
-      <div class="filmtitle">${esc(p.title)}</div>
-      <div class="mono film-meta">${p.scenes} scenes · ${p.acts} acts · IR v${p.irVersion} ·
-        ${p.lastCompiledAt ? `${p.lastNodes} nodes compiled` : "never compiled"} ${read} ${voice}</div>
+  return `<div class="fcard ${p.projectId === cur ? "on" : ""}">
+    <button class="fcard-open" data-open="${esc(p.projectId)}">
+      <b>${esc(p.title)}</b>
+      <div class="fcard-meta mono">${p.scenes} scenes · ${p.acts} act${p.acts === 1 ? "" : "s"}${
+        p.readings > 0 ? ` · ${p.readings} interpreted` : ""
+      }</div>
+      <div class="fcard-state ${st.kind}">${esc(st.text)}</div>
+    </button>
+    <div class="fcard-acts">
+      <button class="btn primary" data-open="${esc(p.projectId)}">OPEN</button>
+      <button class="btn" data-more="${esc(p.projectId)}">MORE</button>
     </div>
-    <div class="film-acts">
-      <button class="btn" data-open="${esc(p.projectId)}">OPEN</button>
-      <button class="btn" data-act="read" data-id="${esc(p.projectId)}">READ 12</button>
+    <div class="fcard-more" id="more-${esc(p.projectId)}">
       ${
         done
           ? ""
           : `<button class="btn" data-act="narrate" data-id="${esc(p.projectId)}">${
-              p.stale ? "RE-RECORD" : "NARRATE"
+              p.stale ? "RE-RECORD THE VOICE" : "RECORD THE VOICE"
             }</button>`
       }
-      <button class="btn" data-act="look" data-id="${esc(p.projectId)}">KEEP THE LOOK</button>
-      <button class="btn" data-act="delete" data-id="${esc(p.projectId)}">DELETE</button>
+      <button class="btn" data-act="read" data-id="${esc(p.projectId)}">INTERPRET 12 SCENES</button>
+      <button class="btn" data-act="look" data-id="${esc(p.projectId)}">SAVE THIS LOOK</button>
+      <button class="btn danger" data-act="delete" data-id="${esc(p.projectId)}">DELETE</button>
     </div>
+  </div>`;
+}
+
+function demoCard(cur) {
+  return `<div class="fcard ${cur ? "" : "on"}">
+    <button class="fcard-open" data-open="__demo">
+      <b>${esc(window.DEMO_FILM.title)} <span class="tag">EXAMPLE</span></b>
+      <div class="fcard-meta mono">${window.DEMO_FILM.scenes.length} scenes · runs in this page</div>
+      <div class="fcard-state">A worked example. Nothing stored behind it, and it works offline.</div>
+    </button>
+    <div class="fcard-acts"><button class="btn" data-open="__demo">OPEN</button></div>
   </div>`;
 }
 
@@ -174,21 +256,26 @@ async function openFilm(id) {
   try {
     if (id === "__demo") {
       loadDemo();
-      filmsSay("built-in example — nothing behind it but this page");
+      filmsSay("");
     } else {
-      filmsSay("compiling…");
+      filmsSay("compiling…", "working");
       busy(true, "compiling the film");
-      const film = await loadProject(id);
-      filmsSay(`${film.title} — ${film.scenes.length} scenes, ${fmt(film.runtime)}`);
+      await loadProject(id);
+      filmsSay("");
     }
     // A new film means new hashes; the cache view starts from this one.
     window.__lastRun = dryRun();
     commit(window.__lastRun);
     APP.dirty = false;
     APP.sel = window.FILM.scenes[0] ? window.FILM.scenes[0].id : null;
-    go("narrative");
+    // THE FILM IS THE CENTRAL OBJECT. Opening one lands on the film, not
+    // on a reading view of its prose.
+    go("preview");
   } catch (err) {
-    filmsSay(err.message);
+    filmsSay(`That film would not compile — ${err.message}`, "problem", {
+      id: "retry",
+      label: "TRY AGAIN",
+    });
   } finally {
     busy(false);
     FILMS_BUSY = false;
@@ -200,14 +287,15 @@ async function filmAction(kind, id) {
   FILMS_BUSY = true;
   try {
     if (kind === "read") {
-      filmsSay("proposing readings — the one model call in the system…");
-      busy(true, "reading — one model call, bounded");
+      filmsSay("interpreting — the one model call in the system…", "working");
+      busy(true, "interpreting — one model call, bounded");
       const r = await readProject(id, 12);
       filmsSay(
         r.proposed === 0 && r.remaining === 0
-          ? "every scene has been read"
-          : `${r.proposed} proposed · ${r.declined} declined · ${r.remaining} still unread — ` +
-              "declining is a result, not a failure",
+          ? "Every scene has been interpreted."
+          : `${r.proposed} interpreted · ${r.declined} declined · ${r.remaining} still to go. ` +
+              "Declining is a result, not a failure — an unread scene is carried by the film's own curve.",
+        "ok",
       );
     } else if (kind === "look") {
       const name = prompt(
@@ -217,9 +305,9 @@ async function filmAction(kind, id) {
         PROJECTS.find((x) => x.projectId === id)?.title || "this look",
       );
       if (!name) return;
-      filmsSay("reading what this film did…");
+      filmsSay("reading what this film did…", "working");
       const r = await captureLook(id, name);
-      filmsSay(`kept "${name}" — ${r.describes}`);
+      filmsSay(`Kept "${name}" — ${r.describes}`, "ok");
     } else if (kind === "narrate") {
       await narrateFilm(id);
     } else if (kind === "delete") {
@@ -227,12 +315,12 @@ async function filmAction(kind, id) {
       if (!confirm(`Delete "${p ? p.title : id}" and all its versions?`)) return;
       await deleteProject(id);
       if (window.STUDIO.projectId === id) loadDemo();
-      filmsSay("deleted");
+      filmsSay("Deleted.", "ok");
     }
     await filmsRefresh();
     render();
   } catch (err) {
-    filmsSay(err.message);
+    filmsSay(`That didn't work — ${err.message}`, "problem", { id: "retry", label: "TRY AGAIN" });
   } finally {
     busy(false);
     FILMS_BUSY = false;
@@ -280,7 +368,7 @@ async function narrateFilm(id) {
   try {
     for (;;) {
       busy(true, `recording narration — ${done} done, ${failed ? `${failed} failed, ` : ""}esc to stop`);
-      filmsSay(`recording narration… ${done} scene${done === 1 ? "" : "s"} so far`);
+      filmsSay(`recording narration… ${done} scene${done === 1 ? "" : "s"} so far`, "working");
       const r = await narrateProject(id, { limit: 6 });
       done += r.narrated;
       failed += r.failed;
@@ -293,23 +381,25 @@ async function narrateFilm(id) {
         const attempt = first && first.attempts && first.attempts[0];
         filmsSay(
           r.remaining === 0
-            ? "every scene is narrated"
-            : `narration produced nothing — ${
+            ? "Every scene is narrated."
+            : `Narration produced nothing — ${
                 attempt ? `${attempt.model}: ${attempt.outcome}` : first ? first.reason : "no reason given"
               }`,
+          r.remaining === 0 ? "ok" : "problem",
         );
         break;
       }
       if (r.remaining === 0) {
         filmsSay(
-          `narrated — ${done} scene${done === 1 ? "" : "s"}, ${fmt(measuredMs / 1000)} of speech` +
+          `Narrated — ${done} scene${done === 1 ? "" : "s"}, ${fmt(measuredMs / 1000)} of speech` +
             (failed ? `, ${failed} failed` : "") +
-            " · the film is now timed off the audio, not off character counts",
+            ". The film is now timed off the audio, not off character counts.",
+          "ok",
         );
         break;
       }
       if (NARRATE_STOP) {
-        filmsSay(`stopped — ${done} recorded, ${r.remaining} still silent. Nothing was lost.`);
+        filmsSay(`Stopped — ${done} recorded, ${r.remaining} still silent. Nothing was lost.`, "ok");
         break;
       }
     }
@@ -326,98 +416,38 @@ async function narrateFilm(id) {
   }
 }
 
-/** Run the probe and print what came back, whole.
- *
- *  Deliberately a raw dump rather than a summary. The entire point of this
- *  button is to see the SHAPE — a summary would be one more layer between
- *  a person and the thing that was unverified. */
-async function runProbe() {
-  const out = document.getElementById("probe-out");
-  if (!out) return;
-  out.textContent = "asking…";
-  try {
-    const r = await probeVoice();
-    const lines = [];
-    for (const s of r.speech || []) {
-      lines.push(
-        s.ok
-          ? `SPEECH  ok    ${s.model}\n        ${s.bytes} bytes ${s.contentType} via ${s.via} · ${s.wallMs}ms\n        first bytes ${(s.firstBytes || []).join(" ")}`
-          : `SPEECH  FAIL  ${s.model}\n        ${s.outcome}${s.shape ? `\n        returned ${s.shape}` : ""}`,
-      );
-    }
-    for (const t of r.transcription || []) {
-      lines.push(
-        t.ok
-          ? `TIMING  ok    ${t.model}\n        ${t.words} words, ${t.durationMs}ms measured · ${t.wallMs}ms\n        ${t.shape}`
-          : `TIMING  FAIL  ${t.model}\n        ${t.outcome || "no usable timings"}${t.shape ? `\n        returned ${t.shape}` : ""}`,
-      );
-    }
-    lines.push("", r.note || "");
-    out.textContent = lines.join("\n");
-  } catch (err) {
-    out.textContent = `could not reach the compiler — ${err.message}`;
-  }
-}
-
-/** Speak one line through every candidate and put a player next to each.
- *
- *  Deliberately not a verdict. Two takes, side by side, and the operator
- *  decides — a system that told you which voice was better would be
- *  making a directorial choice on your behalf, which is the one thing
- *  this instrument is built not to do. */
-async function runAudition() {
-  const out = document.getElementById("probe-out");
-  const line = document.getElementById("films-line");
-  if (!out) return;
-  out.textContent = "speaking…";
-  try {
-    const r = await auditionVoice(line ? line.value : "");
-    out.innerHTML = "";
-    for (const take of r.takes || []) {
-      const row = document.createElement("div");
-      row.className = "take";
-      if (!take.ok) {
-        row.innerHTML = `<b>${esc(take.model)}</b><span>${esc(take.outcome)}</span>`;
-      } else {
-        row.innerHTML = `<b>${esc(take.model)}</b>
-          <span>${take.bytes} bytes · ${take.contentType} · ${take.wallMs}ms</span>`;
-        const audio = document.createElement("audio");
-        audio.controls = true;
-        audio.src = `data:${take.contentType};base64,${take.audio}`;
-        row.appendChild(audio);
-      }
-      out.appendChild(row);
-    }
-    if (!(r.takes || []).length) out.textContent = "no candidates answered";
-  } catch (err) {
-    out.textContent = `could not reach the compiler — ${err.message}`;
-  }
-}
-
 async function filmsIngest() {
   const box = document.getElementById("films-essay");
   const essay = box.value.trim();
-  if (!essay) return filmsSay("paste an essay first");
+  if (!essay) {
+    return filmsSay("There's nothing in the box yet. Paste some writing, or use the example.", "problem");
+  }
   if (FILMS_BUSY) return;
   FILMS_BUSY = true;
   try {
-    filmsSay("segmenting…");
-    busy(true, "segmenting — deterministic, no model");
+    filmsSay("reading your writing — deterministic, no model…", "working");
+    busy(true, "cutting the essay into scenes");
     const r = await ingestEssay(essay);
     busy(false);
     box.value = "";
     await filmsRefresh();
-    // Open it immediately. Segmenting and then being returned to a list is
-    // a step that exists only for the machine.
+    // Open it immediately. Making a film and then being returned to a list
+    // is a step that exists only for the machine.
     FILMS_BUSY = false;
     await openFilm(r.projectId);
     filmsSay(
-      `${r.title} — ${r.scenes} scenes, ${r.acts} acts, ${r.scenesWithFigures} carrying figures`,
+      `${r.title} — ${r.scenes} scenes across ${r.acts} act${r.acts === 1 ? "" : "s"}, ` +
+        `${r.scenesWithFigures} of them carrying a number lifted straight from your words.`,
+      "ok",
     );
   } catch (err) {
-    filmsSay(err.message);
+    filmsSay(
+      `Studio couldn't take that in — ${err.message}. Your writing is still in the box.`,
+      "problem",
+      { id: "retry", label: "TRY AGAIN" },
+    );
     FILMS_BUSY = false;
   }
 }
 
-Object.assign(window, { viewFilms, filmsRefresh, openFilm });
+Object.assign(window, { viewFilms, filmsRefresh, openFilm, noticeHTML, esc });

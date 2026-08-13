@@ -155,6 +155,26 @@ function viewVisual(root) {
         ? "Filled marks are scenes that have a recorded voice. Timing comes off the audio, not off character counts."
         : "A film with no audio is a finished film here — captions carry the script and the cut is unaffected."
     }</div>
+  </section>
+
+  <section class="vsec">
+    <div class="vsech">
+      <h2>The voice</h2>
+      <div class="note">Hear the candidates on your own sentence before you commit a film to one of them.</div>
+    </div>
+    <input id="films-line" class="films-line" type="text"
+      placeholder="A line to audition — your own sentence, not a demo reel."
+      value="${esc((window.FILM.scenes[0] && window.FILM.scenes[0].text) || "The building is the same. The residents are the same.").slice(0, 140)}">
+    <div class="films-actions">
+      <button class="btn" id="films-audition" ${live ? "" : "disabled"}>AUDITION THE VOICES</button>
+      <button class="btn" id="films-probe" ${live ? "" : "disabled"}>PROBE THE BINDING</button>
+      <span class="mono films-hint">${
+        live
+          ? "Two takes, side by side, no verdict. Stores nothing, spends one call per candidate."
+          : "unavailable here — needs the compiler. Open a stored film."
+      }</span>
+    </div>
+    <pre class="mono probe-out" id="probe-out"></pre>
   </section>`;
 
   root.querySelectorAll("[data-strategy]").forEach((b) => {
@@ -172,4 +192,76 @@ function viewVisual(root) {
       viewVisual(root);
     };
   });
+  const probe = root.querySelector("#films-probe");
+  if (probe) probe.onclick = runProbe;
+  const aud = root.querySelector("#films-audition");
+  if (aud) aud.onclick = runAudition;
+}
+
+/** Run the probe and print what came back, whole.
+ *
+ *  Deliberately a raw dump rather than a summary. The entire point of this
+ *  button is to see the SHAPE — a summary would be one more layer between
+ *  a person and the thing that was unverified. */
+async function runProbe() {
+  const out = document.getElementById("probe-out");
+  if (!out) return;
+  out.textContent = "asking…";
+  try {
+    const r = await probeVoice();
+    const lines = [];
+    for (const s of r.speech || []) {
+      lines.push(
+        s.ok
+          ? `SPEECH  ok    ${s.model}\n        ${s.bytes} bytes ${s.contentType} via ${s.via} · ${s.wallMs}ms\n        first bytes ${(s.firstBytes || []).join(" ")}`
+          : `SPEECH  FAIL  ${s.model}\n        ${s.outcome}${s.shape ? `\n        returned ${s.shape}` : ""}`,
+      );
+    }
+    for (const t of r.transcription || []) {
+      lines.push(
+        t.ok
+          ? `TIMING  ok    ${t.model}\n        ${t.words} words, ${t.durationMs}ms measured · ${t.wallMs}ms\n        ${t.shape}`
+          : `TIMING  FAIL  ${t.model}\n        ${t.outcome || "no usable timings"}${t.shape ? `\n        returned ${t.shape}` : ""}`,
+      );
+    }
+    lines.push("", r.note || "");
+    out.textContent = lines.join("\n");
+  } catch (err) {
+    out.textContent = `could not reach the compiler — ${err.message}`;
+  }
+}
+
+/** Speak one line through every candidate and put a player next to each.
+ *
+ *  Deliberately not a verdict. Two takes, side by side, and the operator
+ *  decides — a system that told you which voice was better would be
+ *  making a directorial choice on your behalf, which is the one thing
+ *  this instrument is built not to do. */
+async function runAudition() {
+  const out = document.getElementById("probe-out");
+  const line = document.getElementById("films-line");
+  if (!out) return;
+  out.textContent = "speaking…";
+  try {
+    const r = await auditionVoice(line ? line.value : "");
+    out.innerHTML = "";
+    for (const take of r.takes || []) {
+      const row = document.createElement("div");
+      row.className = "take";
+      if (!take.ok) {
+        row.innerHTML = `<b>${esc(take.model)}</b><span>${esc(take.outcome)}</span>`;
+      } else {
+        row.innerHTML = `<b>${esc(take.model)}</b>
+          <span>${take.bytes} bytes · ${take.contentType} · ${take.wallMs}ms</span>`;
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.src = `data:${take.contentType};base64,${take.audio}`;
+        row.appendChild(audio);
+      }
+      out.appendChild(row);
+    }
+    if (!(r.takes || []).length) out.textContent = "no candidates answered";
+  } catch (err) {
+    out.textContent = `could not reach the compiler — ${err.message}`;
+  }
 }

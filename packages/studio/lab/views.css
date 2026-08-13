@@ -915,6 +915,80 @@
 .films-steps { font-size: 10px; color: var(--faint); line-height: 1.85; max-width: 78ch; }
 .films-steps p { margin: 0 0 11px; }
 .films-steps b { color: var(--ink2); font-weight: 500; }
+.btn.danger { border-color: rgba(216,98,74,.35); color: #c07866; }
+.btn.danger:hover { border-color: var(--ember); color: var(--ember); }
+.btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+/* ── A FILM AS A CARD ──────────────────────────
+   A row of five compiler verbs became a card with one thing to press and
+   a sentence saying what state the film is in. The secondary actions are
+   still one click away — none of them was removed — but they no longer
+   compete with OPEN for the reader's first decision. */
+.fcard {
+  display: flex; flex-direction: column; gap: 10px;
+  background: #101315; border: 1px solid var(--line); padding: 14px 15px 13px;
+  transition: border-color .12s, background .12s;
+}
+.fcard:hover { border-color: #39424a; }
+.fcard.on { border-color: var(--ember); }
+.fcard-open {
+  display: block; width: 100%; text-align: left; background: none; border: 0;
+  color: inherit; padding: 0; cursor: pointer; font: inherit;
+}
+.fcard-open b {
+  display: block; font-size: 14.5px; font-weight: 600; letter-spacing: -.01em;
+  line-height: 1.35; margin-bottom: 6px;
+}
+.fcard-meta { font-size: 9.5px; color: var(--faint); line-height: 1.6; margin-bottom: 7px; }
+.fcard-state { font-size: 12px; line-height: 1.5; color: #9ba3aa; }
+.fcard-state.ok { color: var(--ok, #6fbf8f); }
+.fcard-state.problem { color: #c08a5a; }
+.fcard-acts { display: flex; gap: 6px; margin-top: auto; }
+.fcard-more { display: none; flex-wrap: wrap; gap: 6px; padding-top: 4px; }
+.fcard-more.open { display: flex; }
+
+/* ── A MESSAGE YOU CAN ACT ON ───────────────────
+   "could not reach the compiler — Failed to fetch" used to render as grey
+   body text with nothing to press. Every state this thing can be in now
+   says what happened, what it cost, and what to do. */
+/* The film's own name is the heading of the film view. It can be a whole
+   sentence long, so it is allowed to truncate rather than push the
+   metadata off the bar. */
+.filmhead h2 {
+  flex: 0 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.filmhead .k { margin-left: 0; }
+.filmhead .k.dim { margin-left: auto; opacity: .55; }
+
+/* The compiler's numbers: kept, checkable, no longer the last word on the
+   screen while someone is trying to watch their film. */
+.pvmore { border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; }
+.pvmore > summary {
+  cursor: pointer; list-style: none; font-family: var(--mono);
+  font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--faint); padding-bottom: 8px;
+}
+.pvmore > summary::-webkit-details-marker { display: none; }
+.pvmore > summary::before { content: "▸ "; }
+.pvmore[open] > summary::before { content: "▾ "; }
+.pvmore > summary:hover { color: var(--ink2); }
+
+.notice-slot { height: 0; }
+.notice {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 6px 24px 0; padding: 11px 14px;
+  border: 1px solid var(--line2); background: #101315;
+  font-size: 12.5px; line-height: 1.55; color: #c3cace;
+}
+.notice-text { flex: 1; min-width: 220px; }
+.notice-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+.notice.working .notice-dot { background: #c08a5a; animation: noticepulse 1.1s ease-in-out infinite; }
+.notice.ok { border-color: rgba(111,191,143,.32); }
+.notice.ok .notice-dot { background: var(--ok, #6fbf8f); }
+.notice.problem { border-color: rgba(216,98,74,.4); background: #161011; }
+.notice.problem .notice-dot { background: var(--ember); }
+@keyframes noticepulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
 
 /* A heading in the essay is a heading. The segmenter already decided which
    lines those are — it turned them into acts — so the layout follows the

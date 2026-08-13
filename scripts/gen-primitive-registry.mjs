@@ -205,9 +205,9 @@ const { reg, cost } = await page.evaluate(() => {
       };
       let r = null;
       for (let f = 0; f < 6; f++) r = inst.frame(cx, 240, 140, f / 24, upstream, upstream, 3);
-      if (r && r.geometry && r.geometry.length) emits.push("GEOMETRY");
-      if (r && r.field) emits.push("FIELD");
-      if (r && r.data) emits.push("DATA");
+      if (r?.geometry?.length) emits.push("GEOMETRY");
+      if (r?.field) emits.push("FIELD");
+      if (r?.data) emits.push("DATA");
     } catch {
       emits = [];
     }
