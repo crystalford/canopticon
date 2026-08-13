@@ -48,6 +48,7 @@ export type Op =
   | "MARK" // a sign that stands in for the thing
   | "CONTOUR" // the edge of a form rather than the form
   | "SOLID" // a bounded polygonal body, not a blob
+  | "DIVIDE" // that body given parts
   | "MASS" // that body given depth
   | "PLACE"; // how much of the frame it commands, and where
 
@@ -83,6 +84,60 @@ export interface Material {
    *  this element sits and how much of the frame it takes, and a second
    *  opinion here would fight it. */
   place?: { scale: number; x: number; y: number; crop: number };
+  /** 0..1 — how much of the reader's attention this element is entitled
+   *  to. Assigned by the scene graph's `emphasise`, consumed only through
+   *  `applyEmphasis` below. */
+  emphasis?: number;
+}
+
+/* ── HIERARCHY: THE ONE TRANSLATION POINT ─────────────────────────────
+ *
+ * Standing rule 9, applied to attention. The semantic layer says THIS
+ * ELEMENT IS ENTITLED TO 0.74 OF THE FRAME'S ATTENTION; it never says
+ * "draw it thinner" or "fade it to 0.6". Exactly one function turns that
+ * number into parameters, and every new consumer goes inside it.
+ *
+ * The failure this prevents already happened once here in miniature. The
+ * compositor keyed opacity and sink to a ROLE TABLE while the renderer
+ * keyed weight to DENSITY, so two unrelated mechanisms both claimed to
+ * decide how loudly an element speaks — and they disagreed. FIELD came in
+ * at 0.55 opacity with 0.5 sink and vanished, while the arrangement that
+ * placed it was computing perfectly. Both tables are gone; both consumers
+ * call this.
+ *
+ * FOUR LEVERS, ONE NUMBER, because a hierarchy made of only one of them
+ * is not a hierarchy:
+ *
+ *   weight    the focus is drawn heaviest — a mark's own presence
+ *   recede    subordinates soften and wash toward the ground, which is
+ *             what DISTANCE looks like rather than what turning something
+ *             down looks like
+ *   opacity   how loudly the compositor brings it in
+ *   sink      how far behind what is in front of it it sits
+ *
+ * The floors matter and are deliberate: nothing ever recedes past 0.62 or
+ * drops below 0.46 opacity. An element that cannot be seen is not a quiet
+ * element, it is a missing one — the exact bug that made a correctly
+ * computed five-element arrangement render as a single form.
+ */
+export interface Attention {
+  weight: number;
+  recede: number;
+  opacity: number;
+  sink: number;
+}
+
+export function applyEmphasis(emphasis: number, density = 0.5): Attention {
+  const e = clamp(emphasis, 0, 1);
+  return {
+    // Squared, so the drop from the focus to the next element is steep
+    // and the drop between two subordinates is shallow. A hierarchy is
+    // one thing and then everything else, not an even ramp.
+    weight: clamp(0.14 + e * e * (0.4 + density * 0.45), 0.08, 1),
+    recede: clamp((1 - e) * 0.62, 0, 1),
+    opacity: clamp(0.46 + e * 0.54, 0.46, 1),
+    sink: clamp((1 - e) * 0.5, 0, 1),
+  };
 }
 
 const n = (primitiveId: string, params: PlannedNode["params"], reason: string): PlannedNode => ({
@@ -102,19 +157,25 @@ const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi 
 const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
   // A boundary and what it encloses. `boolean_ops` subtracting one form
   // from another IS a frame — the negative space is the point.
-  FRAME: (m) => [
-    n(
-      "geometry_draw",
-      {
-        weight: clamp(0.35 + m.density * 0.4, 0.1, 1),
-        halftone: 0,
-        invert: 0,
-        trail: 0,
-        material: m.material ?? 0,
-      },
-      "a boundary drawn as line, not as a filled shape",
-    ),
-  ],
+  FRAME: (m) => {
+    const a = applyEmphasis(m.emphasis ?? 1, m.density);
+    return [
+      n(
+        "geometry_draw",
+        {
+          weight: a.weight,
+          halftone: 0,
+          invert: 0,
+          trail: 0,
+          material: m.material ?? 0,
+          recede: a.recede,
+        },
+        a.recede > 0.28
+          ? "held back — softened and washed toward the ground, so the eye passes over it"
+          : "a boundary drawn as line, not as a filled shape",
+      ),
+    ];
+  },
 
   /* NOT IN THE LITERAL RECIPE ANY MORE, and the reason is worth keeping.
    * `boolean_ops` flattened a 7-sided polygon, a wireframe volume and a
@@ -337,6 +398,41 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
     ];
   },
 
+  /* THE OPERATION THAT MAKES A BODY CONSTRUCTED.
+   *
+   * Materiality said what a body is MADE of; hierarchy said which body
+   * the frame is ABOUT. Neither could say that a body HAS PARTS, and
+   * having parts is most of what separates a depicted thing from a shape
+   * — which is why the literal column stayed one convex polygon in every
+   * row of every gallery through both of those passes.
+   *
+   * The axis is READ, not picked. A printed multitude is a grid because
+   * that is what many of something laid out looks like; an abstract body
+   * divides about its own centre; a dense one is columnar and a sparse
+   * one stacks. Nothing here knows what the body is. */
+  DIVIDE: (m) => {
+    const many = m.count !== null && m.count > 12;
+    const axis = many ? 2 : m.abstraction > 0.62 ? 3 : m.density > 0.58 ? 1 : 0;
+    return [
+      n(
+        "subdivide",
+        {
+          axis,
+          // The count is the prose's when the prose printed one.
+          parts: m.count ? clamp(Math.round(m.count), 1, 24) : Math.round(3 + m.density * 5),
+          gap: clamp(0.07 + m.abstraction * 0.2, 0, 0.6),
+          // A dense body crowds its divisions toward one end rather than
+          // spacing them evenly, which is the difference between a grid
+          // and a stack that settles.
+          grade: clamp((m.density - 0.5) * 0.9, -1, 1),
+        },
+        m.count
+          ? `divided into ${clamp(Math.round(m.count), 1, 24)} members — the count is the prose's`
+          : `given parts — ${["stacked", "columnar", "celled", "about its own centre"][axis]}`,
+      ),
+    ];
+  },
+
   MARK: (m) => [
     n(
       "parametric_curve",
@@ -370,6 +466,7 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
 type Role = "SOURCE" | "TRANSFORM" | "RENDER";
 const ROLE: Record<Op, Role> = {
   SOLID: "SOURCE",
+  DIVIDE: "TRANSFORM",
   MASS: "TRANSFORM",
   CONTOUR: "TRANSFORM",
   PLACE: "TRANSFORM",
@@ -385,12 +482,12 @@ const ROLE: Record<Op, Role> = {
 
 const RECIPE: Record<Mode, Op[]> = {
   // THE THING: a solid, bounded, placed in the frame. A silhouette.
-  literal: ["SOLID", "PLACE", "FRAME"],
+  literal: ["SOLID", "DIVIDE", "PLACE", "FRAME"],
   // ITS SHAPE: the same kind of form taken to its edge, with the lines it
   // was built on, repeated. Not a filled blob — that was the collapse.
   geometric: ["MARK", "CONTOUR", "PLACE", "FRAME"],
   // DEPTH: an open volume, peeled apart to show what is behind it.
-  structural: ["SOLID", "PLACE", "FRAME"],
+  structural: ["SOLID", "DIVIDE", "PLACE", "FRAME"],
   // LANGUAGE as material.
   typographic: ["WORD", "PLACE", "FRAME"],
   // WHAT CONNECTS TO WHAT.

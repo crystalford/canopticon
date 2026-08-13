@@ -135,6 +135,45 @@ describe("film continuity — the visual state remembers", () => {
     expect(endA).not.toBe(endB);
   });
 
+  /* THE GAP THAT LET A REAL BUG THROUGH.
+   *
+   * Every test above asserts on DECISIONS and PLACES. None of them ever
+   * asked what was left to DRAW — so `advance` pairing entities to
+   * elements BY INDEX, against a list sorted by depth, passed the whole
+   * suite while matching the first entity of every sentence to the GROUND
+   * and dropping every element past the entity count. It took rendering
+   * seventeen one-shot states and looking at them to find it. */
+  it("what the film hands the renderer is the whole composition", () => {
+    const sentence = "The city watched its residents.";
+    const subs = detectSubjects(sentence);
+    const sem = readScene(sentence, subs, readRelation(sentence), null);
+    const scene = composeFromMeaning("literal", { ...MAT, noun: subs[0]?.text ?? "" }, sem);
+    const step = advance(EMPTY_FILM, sem, scene.elements);
+    // Nothing the composition put in the frame is lost on the way to the
+    // renderer. A five-element scene renders as five elements.
+    expect(step.elements).toHaveLength(scene.elements.length);
+    // And it is ordered far to near, so the compositor stacks it right.
+    const depths = step.elements.map((e) => e.depth);
+    expect([...depths].sort((a, b) => a - b)).toEqual(depths);
+  });
+
+  it("an entity is matched to the element that depicts it, not to a position", () => {
+    const sentence = "The city watched its residents.";
+    const subs = detectSubjects(sentence);
+    const sem = readScene(sentence, subs, readRelation(sentence), null);
+    const scene = composeFromMeaning("literal", { ...MAT, noun: subs[0]?.text ?? "" }, sem);
+    const step = advance(EMPTY_FILM, sem, scene.elements);
+    for (const p of step.state.alive) {
+      expect(
+        p.element.depicts,
+        `${p.identity} was given an element that depicts something else`,
+      ).toBe(p.identity);
+    }
+    // The ground is scenery: in the frame, never held as a character.
+    expect(step.state.alive.some((p) => p.element.role === "GROUND")).toBe(false);
+    expect(step.elements.some((e) => e.role === "GROUND")).toBe(true);
+  });
+
   it("the film's memory is bounded — a long absence is a new arrival", () => {
     const long = [
       "The city watched its residents.",

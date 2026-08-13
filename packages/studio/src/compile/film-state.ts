@@ -89,6 +89,18 @@ export interface Advance {
   /** True when the film cut. Everything alive was retired. */
   cut: boolean;
   describes: string;
+  /* WHAT TO DRAW. The persistent elements in their inherited places,
+   * plus the incoming scene's SCENERY — the ground, the words, the
+   * surface, the line between two things. None of those depicts an
+   * entity, so none of them persists; they are recomposed every scene,
+   * which is correct, because a ground is not a character.
+   *
+   * This exists because the consumer had to reassemble it and the
+   * obvious way to do that was wrong: `present(state)` alone returns only
+   * what the film is holding, so every rendered one-shot state came back
+   * as one faint outline on empty ground with the composition stripped
+   * out of it. One authority, one list. */
+  elements: Element[];
 }
 
 export const EMPTY_FILM: FilmState = { alive: [], retired: [], sceneIndex: 0 };
@@ -128,6 +140,27 @@ export function advance(
   const decisions: Decision[] = [];
   const named = sem.entities.map((e) => norm(e.text)).filter(Boolean);
 
+  /* WHICH ELEMENT DEPICTS WHICH ENTITY.
+   *
+   * This was `elements[k]` — the k-th named entity paired with the k-th
+   * element of a list SORTED BY DEPTH. So the first entity in every
+   * sentence was matched to the GROUND, the second to the field behind
+   * it, and every element past the entity count was silently dropped
+   * from the film. The types were satisfied, the continuity suite passed
+   * (it asserted on decisions and places, never on what was left to
+   * draw), and it took rendering seventeen one-shot states and looking
+   * at them to see that a five-element scene had become one outline.
+   *
+   * Elements now say what they stand for. An entity with no element that
+   * claims it falls back to the most prominent unclaimed one, so a
+   * lexicon miss degrades rather than mispairing. */
+  const unclaimed = elements.filter((e) => !e.depicts);
+  const elementFor = (identity: string): Element | undefined =>
+    elements.find((e) => e.depicts === identity) ??
+    unclaimed.sort((a, b) => (b.emphasis ?? 0) - (a.emphasis ?? 0))[0];
+  /** The composition around the entities — recomposed each scene. */
+  const scenery = elements.filter((e) => !e.depicts || !named.includes(e.depicts));
+
   /* THE CUT, AS A DECISION.
    *
    * Taken when the new scene shares NO identity with what is on screen
@@ -159,13 +192,12 @@ export function advance(
       ...state.retired,
       ...state.alive.map((p) => ({ ...p, lastSeen: state.sceneIndex })),
     ];
-    const alive = elements.map((el, k) => ({
-      identity: named[k] ?? `el${k}`,
-      element: el,
-      bornAt: i,
-      lastSeen: i,
-      multiplicity: 1,
-    }));
+    const alive = named
+      .map((identity) => {
+        const el = elementFor(identity);
+        return el ? { identity, element: el, bornAt: i, lastSeen: i, multiplicity: 1 } : null;
+      })
+      .filter((p): p is Persistent => p !== null);
     for (const a of alive)
       decisions.push({ identity: a.identity, what: "ENTER", why: "after the cut" });
     return {
@@ -173,6 +205,7 @@ export function advance(
       decisions,
       cut: true,
       describes: `CUT — ${named.join(", ") || "nothing"} replaces what was there`,
+      elements: draw(alive, scenery),
     };
   }
 
@@ -181,9 +214,9 @@ export function advance(
   const accumulating = sem.relations.some((r) => r.kind === "ACCUMULATES");
   const transforming = sem.relations.some((r) => r.kind === "BECOMES" || r.kind === "EMERGES");
 
-  named.forEach((identity, k) => {
-    const el = elements[k] ?? elements[elements.length - 1];
-    if (!el) return;
+  for (const identity of named) {
+    const el = elementFor(identity);
+    if (!el) continue;
     const held = state.alive.find((p) => p.identity === identity);
     if (held) {
       // STILL HERE. Whether it merely continues or is transformed depends
@@ -225,7 +258,7 @@ export function advance(
         lastSeen: i,
         multiplicity: what === "ACCUMULATE" ? held.multiplicity + 1 : held.multiplicity,
       });
-      return;
+      continue;
     }
     // NOT HERE. Is the film remembering it, or meeting it?
     const rememberedAt = stillRetired.findIndex(
@@ -253,11 +286,11 @@ export function advance(
         },
         lastSeen: i,
       });
-      return;
+      continue;
     }
     decisions.push({ identity, what: "ENTER", why: "the film has not seen it before" });
     alive.push({ identity, element: el, bornAt: i, lastSeen: i, multiplicity: 1 });
-  });
+  }
 
   // WHAT LEFT. Retired rather than deleted, because the film may want it
   // again and a film that forgets cannot recall.
@@ -284,11 +317,19 @@ export function advance(
       Object.entries(counts)
         .map(([k, v]) => `${v}×${k}`)
         .join(" · ") || "nothing carried",
+    elements: draw(alive, scenery),
   };
 }
 
-/** The elements the film currently holds, far to near — what a renderer
- *  should actually draw for this scene. */
+/** The elements the film currently holds, far to near. What PERSISTS —
+ *  not what to render, which also needs the scene's own composition
+ *  around it. Use `Advance.elements` for that. */
 export function present(state: FilmState): Element[] {
   return [...state.alive].sort((a, b) => a.element.depth - b.element.depth).map((p) => p.element);
+}
+
+/** Assemble the frame: what the film is carrying, plus the composition
+ *  it is carried in, ordered far to near. */
+function draw(alive: Persistent[], scenery: Element[]): Element[] {
+  return [...alive.map((p) => p.element), ...scenery].sort((a, b) => a.depth - b.depth);
 }

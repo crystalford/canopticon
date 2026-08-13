@@ -200,6 +200,21 @@ reg(
      *   7 DATA     discrete nodes with a mark at each
      */
     material: { v: 0, lo: 0, hi: 7, int: 1 },
+    /* HOW FAR BACK IT SITS — atmospheric hierarchy.
+     *
+     * Every element in every frame was drawn at full strength with a hard
+     * edge, so a scene of five elements had five things all shouting the
+     * same volume and the eye had nowhere to land. Scale and position
+     * alone do not make a focal point; CONTRAST does, and contrast is a
+     * relation between elements rather than a property of one.
+     *
+     * Recede is deliberately not "opacity". It does what distance does:
+     * softens the edge and washes the element toward the GROUND, so a
+     * subordinate element reads as further away rather than as the same
+     * element turned down. Applied as a final pass over whatever the
+     * material branch drew, so it works identically for a stroked path, a
+     * filled body and a halftone plate — one control, one place. */
+    recede: { v: 0, lo: 0, hi: 1 },
   },
   (p) => ({
     frame(ctx, w, h, t, upstream) {
@@ -213,6 +228,20 @@ reg(
       ctx.globalAlpha = 1 - p.trail * 0.75;
       ctx.fillRect(0, 0, w, h);
       ctx.globalAlpha = 1;
+
+      /* The plate itself is never blurred — only what is drawn onto it.
+       * `recede` is applied around the marks and lifted before the label
+       * so the audit text stays legible at any depth. */
+      const far = p.recede;
+      if (far > 0.01) ctx.filter = `blur(${(far * far * 5 * Math.min(w, h)) / 400}px)`;
+      const settle = () => {
+        if (far <= 0.01) return;
+        ctx.filter = "none";
+        ctx.fillStyle = paper;
+        ctx.globalAlpha = far * 0.78;
+        ctx.fillRect(0, 0, w, h);
+        ctx.globalAlpha = 1;
+      };
 
       /* PATHS ARE STROKED, POINTS ARE PRINTED.
        *
@@ -302,12 +331,14 @@ reg(
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
         ctx.globalCompositeOperation = "source-over";
+        settle();
         lab(ctx, `${paths.length} PATHS · VECTOR`, 10, h - 14, inverted ? MUT : undefined);
         return { paths, geometry: upstream.geometry || [] };
       }
 
       const pts = upstream && upstream.geometry;
       if (!pts || pts.length === 0) {
+        ctx.filter = "none";
         lab(
           ctx,
           "geometry_draw: no upstream GEOMETRY",
@@ -334,6 +365,7 @@ reg(
           ctx.fillRect(q.x - r / 2, q.y - r / 2, r, r);
         }
       }
+      settle();
       lab(
         ctx,
         `${pts.length} PTS · ${inverted ? "REVERSED" : "PLATE"}`,
@@ -747,4 +779,183 @@ reg(
     },
   }),
   "Nodes gathered into clusters and joined by drawn edges. A diagram is groups and connections, not a scatter — this serves a network, an organisation, a distribution, a supply chain or a crowd without knowing what any of them are.",
+);
+
+/* ── DIVIDE, AS THE OPERATION THAT MAKES A BODY CONSTRUCTED ───────────
+ *
+ * The gallery's literal column was one convex polygon in every row —
+ * cleaner after materiality and hierarchy, and still a blob. Materiality
+ * says what a body is MADE of; hierarchy says which body the frame is
+ * ABOUT. Neither can say that a body HAS PARTS, and having parts is most
+ * of what separates a depicted thing from a shape.
+ *
+ * NOT a floor generator, a bar-chart generator or a grid generator. One
+ * operation with the same standing as `aperture`: a body, divided, its
+ * members separated by a gap. A building has floors, a chart has bars, a
+ * chain has links, a facade has bays, a document has columns and a
+ * rosette has petals — every one of them is this, and not one of them
+ * needs to be named.
+ *
+ * The division count comes off the prose the same way a face count does.
+ * "Nine numbered rooms" divides into nine.
+ *
+ * Exact for convex bodies, which is what `polygon` emits, via
+ * Sutherland–Hodgman half-plane clipping. A concave body clips
+ * approximately rather than throwing — degrade, flag, continue.
+ */
+
+/** Clip a closed path to the half-plane where `inside(pt) >= 0`. */
+function _clipHalf(path, inside) {
+  const out = [];
+  const n = path.length;
+  if (!n) return out;
+  for (let i = 0; i < n; i++) {
+    const a = path[i];
+    const b = path[(i + 1) % n];
+    const da = inside(a);
+    const db = inside(b);
+    if (da >= 0) out.push(a);
+    if ((da >= 0) !== (db >= 0)) {
+      const t = da / (da - db);
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+    }
+  }
+  return out;
+}
+
+/** Shrink a path toward its own centroid — the gap between members. */
+function _inset(path, k) {
+  if (!path.length || k <= 0) return path;
+  let cx = 0;
+  let cy = 0;
+  for (const [x, y] of path) {
+    cx += x;
+    cy += y;
+  }
+  cx /= path.length;
+  cy /= path.length;
+  const s = 1 - k;
+  return path.map(([x, y]) => [cx + (x - cx) * s, cy + (y - cy) * s]);
+}
+
+reg(
+  "subdivide",
+  "B · VECTOR",
+  "GEOMETRY → GEOMETRY",
+  {
+    /* 0 BANDS across · 1 BANDS down · 2 CELLS · 3 WEDGES */
+    axis: { v: 0, lo: 0, hi: 3, int: 1 },
+    parts: { v: 4, lo: 1, hi: 24, int: 1 },
+    gap: { v: 0.12, lo: 0, hi: 0.6 },
+    /* Members thin toward one end, so a division can be even (a grid) or
+     * graded (a stack that lightens as it rises, a chart that falls). */
+    grade: { v: 0, lo: -1, hi: 1 },
+  },
+  (p) => ({
+    frame(ctx, w, h, _t, upstream) {
+      bg(ctx, w, h);
+      const src = (upstream && upstream.paths) || null;
+      if (!src || !src.length) {
+        // Honest about what it could not use, like the narration ladders.
+        lab(ctx, "subdivide: no upstream PATHS", 10, h / 2);
+        return upstream && upstream.geometry ? { geometry: upstream.geometry } : { geometry: [] };
+      }
+      const N = Math.max(1, Math.round(p.parts));
+      const A = Math.round(p.axis);
+      const out = [];
+
+      for (const path0 of src) {
+        const path = path0.length > 1 && path0[0] === path0[path0.length - 1]
+          ? path0.slice(0, -1)
+          : path0;
+        if (path.length < 3) {
+          out.push(path0);
+          continue;
+        }
+        let mnx = 1e9;
+        let mny = 1e9;
+        let mxx = -1e9;
+        let mxy = -1e9;
+        let cx = 0;
+        let cy = 0;
+        for (const [x, y] of path) {
+          if (x < mnx) mnx = x;
+          if (x > mxx) mxx = x;
+          if (y < mny) mny = y;
+          if (y > mxy) mxy = y;
+          cx += x;
+          cy += y;
+        }
+        cx /= path.length;
+        cy /= path.length;
+
+        if (A === 3) {
+          // WEDGES — the body cut about its own centre.
+          for (let i = 0; i < N; i++) {
+            const a0 = (i / N) * Math.PI * 2 - Math.PI / 2;
+            const a1 = ((i + 1) / N) * Math.PI * 2 - Math.PI / 2;
+            // Each wedge is the body clipped by two half-planes through
+            // the centroid. N === 1 has no wedge to cut.
+            let m = path;
+            if (N > 1) {
+              m = _clipHalf(m, ([x, y]) => (x - cx) * Math.sin(a0) - (y - cy) * Math.cos(a0));
+              m = _clipHalf(m, ([x, y]) => -((x - cx) * Math.sin(a1) - (y - cy) * Math.cos(a1)));
+            }
+            if (m.length >= 3) out.push([..._inset(m, p.gap * 0.5), _inset(m, p.gap * 0.5)[0]]);
+          }
+          continue;
+        }
+
+        // BANDS and CELLS. `grade` leans the division so the members are
+        // not all the same size — the difference between a grid and a
+        // stack that settles.
+        const rows = A === 2 ? Math.max(1, Math.round(Math.sqrt(N))) : A === 0 ? N : 1;
+        const cols = A === 2 ? Math.max(1, Math.ceil(N / Math.max(1, Math.round(Math.sqrt(N))))) : A === 1 ? N : 1;
+        const at = (i, n) => {
+          const f = i / n;
+          // grade > 0 crowds the divisions toward the start, < 0 the end.
+          return p.grade === 0 ? f : f ** (1 + p.grade * 0.85);
+        };
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const y0 = mny + (mxy - mny) * at(r, rows);
+            const y1 = mny + (mxy - mny) * at(r + 1, rows);
+            const x0 = mnx + (mxx - mnx) * at(c, cols);
+            const x1 = mnx + (mxx - mnx) * at(c + 1, cols);
+            let m = path;
+            if (rows > 1) {
+              m = _clipHalf(m, ([, y]) => y - y0);
+              m = _clipHalf(m, ([, y]) => y1 - y);
+            }
+            if (cols > 1) {
+              m = _clipHalf(m, ([x]) => x - x0);
+              m = _clipHalf(m, ([x]) => x1 - x);
+            }
+            if (m.length >= 3) {
+              const k = _inset(m, p.gap * 0.5);
+              out.push([...k, k[0]]);
+            }
+          }
+        }
+      }
+
+      if (!out.length) {
+        // The body could not be cut — hand it back rather than emitting
+        // nothing, because a division that fails should cost the frame
+        // its detail, never its subject.
+        lab(ctx, `subdivide: ${src.length} PATHS UNCUT`, 10, h - 16);
+        return { paths: src, geometry: (upstream && upstream.geometry) || [] };
+      }
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1.2;
+      for (const m of out) {
+        ctx.beginPath();
+        m.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.stroke();
+      }
+      lab(ctx, `${out.length} MEMBERS · ${["BANDS", "COLUMNS", "CELLS", "WEDGES"][A]}`, 10, h - 16);
+      return vector(out, 7);
+    },
+  }),
+  "A body divided into members with a gap between them, across, down, into cells or about its own centre. The operation that makes a form read as CONSTRUCTED rather than as a shape — floors, bays, links, bars, columns, petals — without being about any of them. The division count comes off the prose.",
 );

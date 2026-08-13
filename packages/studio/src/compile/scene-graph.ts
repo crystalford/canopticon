@@ -30,7 +30,7 @@
 // is a compositional decision rather than an absence of one.
 
 import type { PlannedNode } from "./construct.ts";
-import { type Material, type Op, realiseOps } from "./grammar-visual.ts";
+import { type Material, type Op, applyEmphasis, realiseOps } from "./grammar-visual.ts";
 import type { Mode } from "./represent.ts";
 import { type SemanticScene, arrange } from "./semantic-scene.ts";
 
@@ -72,6 +72,26 @@ export interface Element {
   /** 0 = furthest, 1 = nearest. Sets composite order and how far the
    *  element is sunk behind what is in front of it. */
   depth: number;
+  /** 0..1 — how much of the reader's attention this element is entitled
+   *  to. Written by `emphasise`, read only through `applyEmphasis`. */
+  emphasis?: number;
+  /* WHAT THIS ELEMENT STANDS FOR, lowercased, when it stands for
+   * something the prose named.
+   *
+   * Continuity is a fact about ENTITIES, so the film needs to know which
+   * element depicts which — and it had no way to ask. `advance` paired
+   * them BY INDEX against a list sorted by depth, so the first entity in
+   * a sentence was matched to the GROUND, the second to the field, and
+   * every element past the entity count was dropped from the film
+   * entirely. It type-checked, it passed the continuity suite (which only
+   * ever asserted on decisions and places, never on what was left to
+   * draw), and it rendered a five-element scene as one faint outline.
+   *
+   * Elements that stand for nothing — the ground, the words, the surface,
+   * the line drawn between two things — leave this undefined. They are
+   * SCENERY: recomposed per scene rather than persisted, because a ground
+   * is not a character. */
+  depicts?: string;
   /** Why this element is in the scene, in the director's language. */
   reason: string;
 }
@@ -83,6 +103,78 @@ export interface SceneGraph {
 }
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+
+/* ── HIERARCHY ────────────────────────────────────────────────────────
+ *
+ * A frame of five elements all drawn at the same volume is not a
+ * composition, it is an inventory. The scene graph could already decide
+ * WHAT is in the frame and WHERE — it had no way to decide WHICH ONE THE
+ * FRAME IS ABOUT, so the eye had nowhere to land and every representation
+ * read as busy rather than as directed.
+ *
+ * Two properties make this a hierarchy rather than a set of numbers:
+ *
+ *   EXACTLY ONE FOCUS. Some element in every scene is at 1. Not "usually",
+ *   not "when the arrangement is clear" — a frame with no focal point is
+ *   the failure this exists to prevent, so it is made structurally
+ *   impossible rather than encouraged.
+ *
+ *   A GUARANTEED GAP. Ranked, not scored. Two elements with near-identical
+ *   claims still separate, because the thing that makes a hierarchy legible
+ *   is the DISTANCE between levels — a scene whose top two elements sit at
+ *   0.81 and 0.79 has no hierarchy no matter what the numbers say.
+ */
+const ENTITLEMENT: Record<Role, number> = {
+  // What the element is FOR, before the arrangement has its say. The
+  // subject of the sentence outranks the thing it acts on, which outranks
+  // the words about it, which outranks the world it happens in.
+  PRIMARY: 1,
+  FIELD: 0.66,
+  SURFACE: 0.6,
+  SECONDARY: 0.54,
+  TEXT: 0.36,
+  GROUND: 0.08,
+};
+
+/** Assign attention across a scene. Returns a new list — the arrangement
+ *  is not modified, because emphasis is a reading of a composition rather
+ *  than part of building one. */
+export function emphasise(els: Element[]): Element[] {
+  if (els.length === 0) return els;
+  // The claim: what it is for, weighted by how much frame it took. An
+  // element the arrangement made large has earned attention the role
+  // table alone would not have given it — which is how a FIELD becomes
+  // the subject of a frame when the sentence is about the many rather
+  // than the one.
+  const claim = els.map((e) => ENTITLEMENT[e.role] * (0.55 + Math.min(1.8, e.place.scale) * 0.45));
+  const order = els.map((_, i) => i).sort((a, b) => (claim[b] ?? 0) - (claim[a] ?? 0));
+  const out = [...els];
+  /* A LADDER THAT ALWAYS SPANS, whatever the scene's size.
+   *
+   * This was a fixed 0.15 step against a clamp floor, and the test caught
+   * what that does: a six-element structural scene ran 1 · 0.78 · 0.63 ·
+   * 0.48 · 0.33 · 0.24, and the bottom two rungs collapsed to 0.11 apart
+   * — indistinguishable, which is the exact thing hierarchy is for.
+   *
+   * The subordinates are spread evenly across a fixed range instead, so
+   * the ladder's bottom is the same whether the scene holds two elements
+   * or seven and the steps are as large as the count allows. The focus
+   * keeps its own gap above the range, because the distance between the
+   * subject and everything else is not one rung of the same ladder. */
+  const subs = els.length - 1;
+  const step = subs > 1 ? (0.8 - 0.26) / (subs - 1) : 0;
+  order.forEach((idx, rank) => {
+    const e = els[idx];
+    if (!e) return;
+    out[idx] = { ...e, emphasis: rank === 0 ? 1 : clamp(0.8 - (rank - 1) * step, 0.26, 0.8) };
+  });
+  return out;
+}
+
+/** The element the frame is about, for the report. */
+export function focusOf(els: Element[]): Element | undefined {
+  return els.find((e) => (e.emphasis ?? 0) >= 1);
+}
 
 /** The operations each ROLE is built from, per representation mode.
  *
@@ -106,13 +198,13 @@ function opsFor(role: Role, mode: Mode): Op[] {
   if (role === "FIELD") return ["REPEAT", "PLACE", "FRAME"];
   if (role === "GROUND")
     return mode === "structural" ? ["MARK", "PLACE", "FRAME"] : ["MARK", "PLACE", "FRAME"];
-  if (role === "SECONDARY") return ["SOLID", "PLACE", "FRAME"];
+  if (role === "SECONDARY") return ["SOLID", "DIVIDE", "PLACE", "FRAME"];
   // PRIMARY carries the representation's own idea.
   return (
     {
-      literal: ["SOLID", "PLACE", "FRAME"],
+      literal: ["SOLID", "DIVIDE", "PLACE", "FRAME"],
       geometric: ["MARK", "CONTOUR", "PLACE", "FRAME"],
-      structural: ["SOLID", "PLACE", "FRAME"],
+      structural: ["SOLID", "DIVIDE", "PLACE", "FRAME"],
       typographic: ["WORD", "PLACE", "FRAME"],
       diagrammatic: ["CONNECT", "PLACE", "FRAME"],
       symbolic: ["REPEAT", "CONTOUR", "PLACE", "FRAME"],
@@ -171,12 +263,16 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
 
   // THE TO-ENTITY. A field when the relation multiplies it — an observer
   // watches MANY, an accumulation IS many — otherwise a single form.
+  const to = sem.entities[rel.to]?.text;
+  const from = sem.entities[rel.from]?.text;
   els.push({
     role: a.field ? "FIELD" : "SECONDARY",
     ops: opsFor(a.field ? "FIELD" : "SECONDARY", mode),
+    material: MATERIAL[mode]?.[a.field ? "FIELD" : "SECONDARY"] ?? 0,
     place: { scale: a.to.scale, x: a.to.x, y: a.to.y, crop: a.to.scale > 1 ? 1 : 0 },
     depth: 0.35,
-    reason: `${sem.entities[rel.to]?.text ?? "the other"} — ${a.why}`,
+    ...(to ? { depicts: to.toLowerCase() } : {}),
+    reason: `${to ?? "the other"} — ${a.why}`,
   });
 
   // THE FROM-ENTITY, which the arrangement usually makes dominant.
@@ -186,7 +282,8 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
     material: MATERIAL[mode]?.PRIMARY ?? 0,
     place: { scale: a.from.scale, x: a.from.x, y: a.from.y, crop: a.from.scale > 1 ? 1 : 0 },
     depth: a.nested ? 0.2 : 0.65,
-    reason: `${sem.entities[rel.from]?.text ?? "the subject"} — ${rel.kind.toLowerCase()}`,
+    ...(from ? { depicts: from.toLowerCase() } : {}),
+    reason: `${from ?? "the subject"} — ${rel.kind.toLowerCase()}`,
   });
 
   // WHAT RUNS BETWEEN THEM. A line of sight, a link, a crossing — drawn
@@ -228,9 +325,13 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   }
 
   els.sort((x, y) => x.depth - y.depth);
+  const ranked = emphasise(els);
+  const focus = focusOf(ranked);
   return {
-    elements: els,
-    describes: `${sem.describes} · ${els.length} elements · ${a.why}`,
+    elements: ranked,
+    describes: `${sem.describes} · ${els.length} elements · ${a.why} · the frame is about the ${(
+      focus?.role ?? "primary"
+    ).toLowerCase()}`,
   };
 }
 
@@ -284,6 +385,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
       crop: pScale > 1 ? 1 : 0,
     },
     depth: 0.6,
+    ...(m.noun ? { depicts: m.noun.toLowerCase() } : {}),
     reason: many
       ? "one of the many, given the eye"
       : pScale > 1
@@ -348,9 +450,10 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   }
 
   els.sort((a, b) => a.depth - b.depth);
-  const parts = els.map((e) => e.role.toLowerCase()).join(" · ");
+  const ranked = emphasise(els);
+  const parts = ranked.map((e) => e.role.toLowerCase()).join(" · ");
   return {
-    elements: els,
+    elements: ranked,
     describes: `${els.length} element${els.length === 1 ? "" : "s"} — ${parts}${airy ? ", held sparse" : ""}`,
   };
 }
@@ -364,11 +467,20 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
  *
  *  `sink` rises with distance, which is what makes the stack read as
  *  depth rather than as several pictures fighting for the same frame. */
+/** `layer_over` takes only the two of the four levers that are its own.
+ *  The other two belong to `geometry_draw` and are applied there. */
+const pick = (a: { opacity: number; sink: number }) => ({ opacity: a.opacity, sink: a.sink });
+
 export function serialiseScene(scene: SceneGraph, m: Material): PlannedNode[] {
   const [first, ...rest] = scene.elements;
   if (!first) return [];
   const chainFor = (e: Element): PlannedNode[] =>
-    realiseOps(e.ops, { ...m, place: e.place, material: e.material ?? 0 } as Material);
+    realiseOps(e.ops, {
+      ...m,
+      place: e.place,
+      material: e.material ?? 0,
+      emphasis: e.emphasis ?? 1,
+    } as Material);
 
   // The first element is the chain's own image. When it is the GROUND it
   // is meant to sit quietly behind everything, so it starts sunk rather
@@ -380,44 +492,19 @@ export function serialiseScene(scene: SceneGraph, m: Material): PlannedNode[] {
       ...out,
       {
         primitiveId: "layer_over",
-        /* COMPOSITE STRENGTH IS A ROLE, NOT A DEPTH.
+        /* COMPOSITE STRENGTH IS EMPHASIS, AND ONLY EMPHASIS.
          *
-         * The first version keyed opacity to depth, so TEXT — nearest by
-         * construction — came in at 0.96 and the PRIMARY form was sunk
-         * beneath it. Every cell of the gallery became the same caption
-         * over a ghost, which collapsed the five representations back
-         * into one picture. Depth decides ORDER; the role decides how
-         * loudly the thing speaks, and a secondary element that arrives
-         * louder than the subject is not a composition. */
-        params: {
-          /* AN ELEMENT THAT CANNOT BE SEEN IS NOT IN THE SCENE.
-           *
-           * The arrangement was computing correctly — "one above and
-           * apart, many below, and a line of sight between them" — and
-           * the frame showed one form, because FIELD came in at opacity
-           * 0.55 with sink 0.5 and SECONDARY at 0.72/0.3. Both were
-           * suppressed to the point of invisibility, so every semantic
-           * distinction the scene made died at the compositor.
-           *
-           * Hierarchy is made with SCALE and PLACEMENT, which the
-           * arrangement already decides. It is not made by fading the
-           * subordinate elements until they disappear — that is not a
-           * quiet element, it is a missing one. Only the GROUND is
-           * genuinely sunk, because a ground is the one thing that is
-           * supposed to sit behind. */
-          opacity: {
-            PRIMARY: 1,
-            SECONDARY: 0.95,
-            TEXT: 0.85,
-            FIELD: 0.95,
-            GROUND: 0.45,
-            SURFACE: 1,
-          }[e.role],
-          front: 1,
-          sink: { PRIMARY: 0, SECONDARY: 0.05, TEXT: 0.05, FIELD: 0.05, GROUND: 0.6, SURFACE: 0 }[
-            e.role
-          ],
-        },
+         * This was a role table — PRIMARY 1, SECONDARY 0.95, GROUND 0.45 —
+         * sitting alongside a completely separate density-keyed weight in
+         * the renderer. Two mechanisms, both claiming to decide how loudly
+         * an element speaks, in different files, disagreeing. That is the
+         * exact failure standing rule 9 names, and it produced both of
+         * this file's earlier bugs: TEXT arriving louder than its subject,
+         * then FIELD suppressed until it was invisible.
+         *
+         * One number now, translated in one place. Depth still decides
+         * ORDER; emphasis decides everything about volume. */
+        params: { ...pick(applyEmphasis(e.emphasis ?? 1, m.density)), front: 1 },
         reason: e.reason,
         ground: chainFor(e),
       },
