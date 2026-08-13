@@ -178,6 +178,28 @@ reg(
     halftone: { v: 0.6, lo: 0, hi: 1 },
     invert: { v: 0, lo: 0, hi: 1, int: 1 },
     trail: { v: 0.3, lo: 0, hi: 1 },
+    /* WHAT THE MARK IS MADE OF.
+     *
+     * Every element in every representation was drawn the same way — a
+     * thin stroke or a small dot — so two representations could differ in
+     * ARRANGEMENT and never in SUBSTANCE. That is most of why five
+     * columns of the gallery still read as one family.
+     *
+     * Material is NOT a colour and NOT a texture pasted on top. It
+     * changes how the mark behaves: whether it is a line or a body,
+     * whether its edge is hard or diffuse, whether it accumulates,
+     * whether it is transparent, whether it is broken into a grid.
+     *
+     *   0 INK      a drawn stroke, weight varying with travel
+     *   1 PAPER    printed marks with grain and a physical edge
+     *   2 GLASS    transparent bodies that overlap and add
+     *   3 LIGHT    diffuse glow, no edge
+     *   4 SCREEN   quantised to a pixel grid
+     *   5 METAL    hard filled geometry with a bright edge
+     *   6 DUST     fine particles, diffusing
+     *   7 DATA     discrete nodes with a mark at each
+     */
+    material: { v: 0, lo: 0, hi: 7, int: 1 },
   },
   (p) => ({
     frame(ctx, w, h, t, upstream) {
@@ -201,17 +223,85 @@ reg(
        * but the vector is now the default when the upstream has one. */
       const paths = upstream && upstream.paths;
       if (paths && paths.length) {
-        ctx.strokeStyle = ink;
-        ctx.lineWidth = Math.max(0.6, (0.4 + p.weight * 2.6) * (Math.min(w, h) / 400));
+        const M = Math.round(p.material);
+        const k = Math.min(w, h) / 400;
+        const base = Math.max(0.6, (0.4 + p.weight * 2.6) * k);
         ctx.lineJoin = "round";
-        ctx.lineCap = "round";
+        ctx.lineCap = M === 1 ? "butt" : "round";
+        ctx.strokeStyle = ink;
+        ctx.fillStyle = ink;
+        // GLASS and LIGHT add rather than cover, so overlapping bodies
+        // brighten where they meet — which is what makes them read as
+        // transparent rather than as flat shapes at low opacity.
+        if (M === 2 || M === 3) ctx.globalCompositeOperation = KEY > 0.5 ? "multiply" : "screen";
+        if (M === 3) {
+          ctx.shadowColor = ink;
+          ctx.shadowBlur = base * 6;
+        }
+        ctx.globalAlpha = M === 2 ? 0.45 : M === 3 ? 0.6 : 1;
         for (const path of paths) {
           if (path.length < 2) continue;
           ctx.beginPath();
-          ctx.moveTo(path[0][0], path[0][1]);
-          for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1]);
-          ctx.stroke();
+          if (M === 4) {
+            // SCREEN — the path resolved onto a pixel grid, so a curve
+            // becomes a staircase and the frame reads as a display.
+            const g = Math.max(3, 10 * k - p.weight * 4);
+            let px = null;
+            for (const [x, y] of path) {
+              const qx = Math.round(x / g) * g;
+              const qy = Math.round(y / g) * g;
+              if (px && qx === px[0] && qy === px[1]) continue;
+              if (px) ctx.lineTo(qx, qy);
+              else ctx.moveTo(qx, qy);
+              px = [qx, qy];
+            }
+          } else {
+            ctx.moveTo(path[0][0], path[0][1]);
+            for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1]);
+          }
+          if (M === 5 || M === 2) {
+            // METAL and GLASS are BODIES, not outlines.
+            ctx.closePath();
+            ctx.globalAlpha = M === 2 ? 0.32 : 0.9;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            ctx.lineWidth = base * (M === 5 ? 1.6 : 0.8);
+            ctx.strokeStyle = M === 5 ? INK : ink;
+            ctx.stroke();
+          } else if (M === 6 || M === 7) {
+            // DUST and DATA are not lines at all — they are the points
+            // the line passes through, loose or marked.
+            ctx.beginPath();
+            for (const [x, y] of path) {
+              const r = M === 6 ? base * 0.45 : base * 1.1;
+              const jx = M === 6 ? ((x * 7919) % 13) - 6 : 0;
+              const jy = M === 6 ? ((y * 7907) % 13) - 6 : 0;
+              ctx.moveTo(x + jx + r, y + jy);
+              ctx.arc(x + jx, y + jy, r, 0, 6.3);
+            }
+            ctx.globalAlpha = M === 6 ? 0.5 : 1;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+          } else {
+            ctx.lineWidth = M === 1 ? base * 1.9 : base;
+            ctx.stroke();
+            if (M === 1) {
+              // PAPER — grain broken back into the stroke, deterministic
+              // so the same mark prints the same way twice.
+              ctx.globalAlpha = 0.35;
+              ctx.strokeStyle = paper;
+              ctx.lineWidth = base * 0.7;
+              ctx.setLineDash([base * 2, base * 3]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.globalAlpha = 1;
+              ctx.strokeStyle = ink;
+            }
+          }
         }
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        ctx.globalCompositeOperation = "source-over";
         lab(ctx, `${paths.length} PATHS · VECTOR`, 10, h - 14, inverted ? MUT : undefined);
         return { paths, geometry: upstream.geometry || [] };
       }

@@ -71,6 +71,13 @@ export interface Material {
    *  whether words appear as a second element beside a form. */
   typography: number;
   seed: number;
+  /** WHAT THE MARKS ARE MADE OF, 0..7 — see `geometry_draw`'s `material`.
+   *  Set by the scene graph from the ROLE and the REPRESENTATION, so the
+   *  same material can appear across representations and the same
+   *  representation can use different materials. Material and
+   *  representation stay separate on purpose: collapsing them would make
+   *  the five columns five hard-coded art styles. */
+  material?: number;
   /** Set by the SCENE GRAPH per element. When present, PLACE uses it
    *  instead of deriving one — the composition has already decided where
    *  this element sits and how much of the frame it takes, and a second
@@ -98,7 +105,13 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
   FRAME: (m) => [
     n(
       "geometry_draw",
-      { weight: clamp(0.35 + m.density * 0.4, 0.1, 1), halftone: 0, invert: 0, trail: 0 },
+      {
+        weight: clamp(0.35 + m.density * 0.4, 0.1, 1),
+        halftone: 0,
+        invert: 0,
+        trail: 0,
+        material: m.material ?? 0,
+      },
       "a boundary drawn as line, not as a filled shape",
     ),
   ],

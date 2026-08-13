@@ -196,8 +196,8 @@ export function representationsFor(beat: Beat, style: Style): Representation[] {
     drewRoute
       ? `the route itself — ${beat.route.join(" → ")}`
       : printedFigure
-        ? `the quantity as a measured figure`
-        : `what acts on what`,
+        ? "the quantity as a measured figure"
+        : "what acts on what",
     drewRoute
       ? "the prose drew a route"
       : printedFigure
@@ -214,7 +214,7 @@ export function representationsFor(beat: Beat, style: Style): Representation[] {
     "structural",
     0.2 + (figurative ? 0.5 : 0) + style.abstraction * 0.35 + (hasRelation ? 0.15 : 0),
     figurative
-      ? `a surface offered as transparent, with structure behind it`
+      ? "a surface offered as transparent, with structure behind it"
       : `${named ? noun : "the subject"} as layers — what is in front, what is behind`,
     figurative
       ? "a metaphor is a claim about what something is hiding"
@@ -227,7 +227,7 @@ export function representationsFor(beat: Beat, style: Style): Representation[] {
   add(
     "symbolic",
     0.1 + (figurative ? 0.25 : 0) + style.abstraction * 0.4 + style.experimentalism * 0.2,
-    `a mark that stands for it rather than shows it`,
+    "a mark that stands for it rather than shows it",
     "reached for at the abstract end of the ladder",
   );
 

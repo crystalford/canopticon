@@ -39,8 +39,33 @@ import { type SemanticScene, arrange } from "./semantic-scene.ts";
  *  and how loudly it is composited. */
 export type Role = "GROUND" | "PRIMARY" | "SECONDARY" | "FIELD" | "TEXT" | "SURFACE";
 
+/* WHAT EACH ROLE IS MADE OF, PER REPRESENTATION.
+ *
+ * Material is a compositional dimension in its own right — not a colour,
+ * not a texture pasted on. A literal PRIMARY is metal because a thing you
+ * are asked to believe in has weight; a diagrammatic FIELD is data
+ * because a distribution is discrete; a structural GROUND is glass
+ * because you are meant to see through it. The GROUND is dust in most
+ * modes for the same reason a ground is a ground: it is present without
+ * asking to be read.
+ *
+ * Deliberately a small table rather than a lexicon. Eight materials, six
+ * roles — and the same material appears across representations, which is
+ * what stops the five columns becoming five hard-coded art styles. */
+const MATERIAL: Record<Mode, Partial<Record<Role, number>>> = {
+  // ink · paper · glass · light · screen · metal · dust · data
+  literal: { PRIMARY: 5, SECONDARY: 5, GROUND: 6, FIELD: 6, TEXT: 1, SURFACE: 2 },
+  structural: { PRIMARY: 2, SECONDARY: 2, GROUND: 3, FIELD: 6, TEXT: 1, SURFACE: 2 },
+  geometric: { PRIMARY: 0, SECONDARY: 0, GROUND: 6, FIELD: 7, TEXT: 1, SURFACE: 2 },
+  typographic: { PRIMARY: 1, SECONDARY: 1, GROUND: 6, FIELD: 6, TEXT: 1, SURFACE: 2 },
+  diagrammatic: { PRIMARY: 7, SECONDARY: 7, GROUND: 4, FIELD: 7, TEXT: 1, SURFACE: 2 },
+  symbolic: { PRIMARY: 3, SECONDARY: 0, GROUND: 6, FIELD: 6, TEXT: 1, SURFACE: 2 },
+};
+
 export interface Element {
   role: Role;
+  /** 0..7 — see `geometry_draw`. Assigned from role × representation. */
+  material?: number;
   ops: Op[];
   /** Where it sits and how much of the frame it commands. */
   place: { scale: number; x: number; y: number; crop: number };
@@ -137,6 +162,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
     els.push({
       role: "GROUND",
       ops: opsFor("GROUND", mode),
+      material: MATERIAL[mode]?.GROUND ?? 0,
       place: { scale: 1.7 + m.density * 0.8, x: 0.5, y: 0.5, crop: 1 },
       depth: 0,
       reason: "the world the relation happens in",
@@ -157,6 +183,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   els.push({
     role: "PRIMARY",
     ops: opsFor("PRIMARY", mode),
+    material: MATERIAL[mode]?.PRIMARY ?? 0,
     place: { scale: a.from.scale, x: a.from.x, y: a.from.y, crop: a.from.scale > 1 ? 1 : 0 },
     depth: a.nested ? 0.2 : 0.65,
     reason: `${sem.entities[rel.from]?.text ?? "the subject"} — ${rel.kind.toLowerCase()}`,
@@ -168,6 +195,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
     els.push({
       role: "SECONDARY",
       ops: ["CONNECT", "PLACE", "FRAME"],
+      material: MATERIAL[mode]?.SECONDARY ?? 0,
       place: { scale: 1.1, x: (a.from.x + a.to.x) / 2, y: (a.from.y + a.to.y) / 2, crop: 0 },
       depth: 0.5,
       reason: "what runs between them",
@@ -181,6 +209,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
     els.push({
       role: "SURFACE",
       ops: opsFor("SURFACE", mode),
+      material: MATERIAL[mode]?.SURFACE ?? 0,
       place: { scale: 1, x: 0.5, y: 0.5, crop: 0 },
       depth: 0.99,
       reason: "a surface in front of it all — what is behind is seen only through the opening",
@@ -191,6 +220,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
     els.push({
       role: "TEXT",
       ops: opsFor("TEXT", mode),
+      material: MATERIAL[mode]?.TEXT ?? 0,
       place: { scale: 0.1 + m.typography * 0.1, x: 0.2, y: 0.88, crop: 0 },
       depth: 0.95,
       reason: "the words, as an accent",
@@ -217,6 +247,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
     els.push({
       role: "GROUND",
       ops: opsFor("GROUND", mode),
+      material: MATERIAL[mode]?.GROUND ?? 0,
       place: { scale: 1.6 + m.density * 0.9, x: 0.5, y: 0.5, crop: 1 },
       depth: 0,
       reason: "a field behind everything, cropped by the frame so it reads as bigger than the shot",
@@ -228,6 +259,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
     els.push({
       role: "FIELD",
       ops: opsFor("FIELD", mode),
+      material: MATERIAL[mode]?.FIELD ?? 0,
       place: { scale: 1.15, x: 0.5, y: 0.5, crop: 1 },
       depth: 0.25,
       reason: `many, because the prose counted ${m.count}`,
@@ -244,6 +276,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   els.push({
     role: "PRIMARY",
     ops: opsFor("PRIMARY", mode),
+    material: MATERIAL[mode]?.PRIMARY ?? 0,
     place: {
       scale: clamp(pScale, 0.05, 4),
       x: clamp(0.5 + (off - 0.5) * (0.25 + m.abstraction * 0.6), 0.12, 0.88),
@@ -265,6 +298,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
     els.push({
       role: "SECONDARY",
       ops: opsFor("SECONDARY", mode),
+      material: MATERIAL[mode]?.SECONDARY ?? 0,
       place: {
         scale: clamp(pScale * 0.42, 0.05, 4),
         x: clamp(1 - (0.5 + (off - 0.5) * 0.6), 0.1, 0.9),
@@ -280,6 +314,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
     els.push({
       role: "SURFACE",
       ops: opsFor("SURFACE", mode),
+      material: MATERIAL[mode]?.SURFACE ?? 0,
       place: { scale: 1, x: 0.5, y: 0.5, crop: 0 },
       depth: 0.99,
       reason: "a surface in front of it all — what is behind is seen only through the opening",
@@ -293,6 +328,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
     els.push({
       role: "TEXT",
       ops: opsFor("TEXT", mode),
+      material: MATERIAL[mode]?.TEXT ?? 0,
       /* AN ACCENT, NOT A HEADLINE.
        *
        * This was `0.3 + typography * 0.35` — roughly half the frame — so
@@ -332,7 +368,7 @@ export function serialiseScene(scene: SceneGraph, m: Material): PlannedNode[] {
   const [first, ...rest] = scene.elements;
   if (!first) return [];
   const chainFor = (e: Element): PlannedNode[] =>
-    realiseOps(e.ops, { ...m, place: e.place } as Material & { place: Element["place"] });
+    realiseOps(e.ops, { ...m, place: e.place, material: e.material ?? 0 } as Material);
 
   // The first element is the chain's own image. When it is the GROUND it
   // is meant to sit quietly behind everything, so it starts sunk rather
