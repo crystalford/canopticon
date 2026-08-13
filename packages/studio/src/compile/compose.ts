@@ -44,7 +44,14 @@ import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
-import { type Plane, type ScenePlan, isComposite, isUnnoticed, planScene } from "./scene-plan.ts";
+import {
+  type Plane,
+  type ScenePlan,
+  applyPlane,
+  isComposite,
+  isUnnoticed,
+  planScene,
+} from "./scene-plan.ts";
 import {
   type DetectedSubject,
   detectSubjects,
@@ -436,6 +443,18 @@ export function composeScene(
         }));
       chain = best.nodes.map((n) => n.primitiveId);
       plannedParams = new Map(best.nodes.map((n) => [n.primitiveId, n.params]));
+      // THE PLAN REACHES THE PARAMETERS. Weight and depth were computed
+      // and read by nothing — see the capability map. The subject plane's
+      // entitlement now sets how much of the frame its construction takes.
+      const subjectPlane = scenePlan?.planes.find((pl) => pl.role === "SUBJECT");
+      if (subjectPlane) {
+        for (const [id, ps] of plannedParams) {
+          plannedParams.set(id, applyPlane(id, ps, subjectPlane));
+        }
+        notes.push(
+          `weighted — ${subjectPlane.role.toLowerCase()} at ${subjectPlane.weight.toFixed(2)}, depth ${subjectPlane.depth.toFixed(2)}`,
+        );
+      }
       for (const node of best.nodes) reasons.set(node.primitiveId, node.reason);
       notes.push(
         `constructed "${best.id}" — ${best.why}${

@@ -208,8 +208,16 @@ export function planScene(
   // AGAINST. No noun in "at first nobody noticed" asked for it.
   const unnoticed = UNNOTICED.test(beat.sentence);
   if (unnoticed) {
+    // AN UNNOTICED ANOMALY IS NEVER DOMINANT. Once `compose` began
+    // carrying the subject into this sentence, the ordinary SUBJECT branch
+    // fired first and claimed 0.85 of the frame — a swarm filling the
+    // screen while the narration says nobody saw it. Weight is a claim
+    // about salience, so it is corrected here rather than left to whichever
+    // branch happened to run.
+    const existing = planes.find((pl) => pl.role === "SUBJECT");
+    if (existing) existing.weight = 0.3;
     const anomaly = subject ?? carried ?? null;
-    if (anomaly && !planes.some((pl) => pl.role === "SUBJECT")) {
+    if (anomaly && !existing) {
       planes.push({
         role: "SUBJECT",
         construction: constructionFor(anomaly),
@@ -326,4 +334,65 @@ function constructionFor(s: DetectedSubject): string {
  *  render gets slow for no picture. */
 export function isComposite(plan: ScenePlan): boolean {
   return plan.planes.length >= 2;
+}
+
+/** WEIGHT AND DEPTH, APPLIED TO A BUILT NODE'S PARAMETERS.
+ *
+ *  The capability map found `plane.weight` and `plane.depth` computed and
+ *  read by nothing — PLANNED, in its own vocabulary, which is the state
+ *  that looks finished from every angle except the screen. This is the
+ *  function that closes that loop, and it is deliberately the ONLY place
+ *  the mapping lives so it can be argued with in one file.
+ *
+ *  WEIGHT IS NOT ONE THING. It is how much of the frame a role is entitled
+ *  to, and different constructions spend that entitlement differently: a
+ *  body spends it on scale and population, a space on how much is in it,
+ *  type on its measure. Hardcoding "weight → opacity" would make the
+ *  emphasis a fade rather than a composition.
+ *
+ *  Returns a NEW params object; never mutates. Only touches keys the
+ *  primitive actually declares — the parameter-contract test is permanent
+ *  and this must not be the thing that breaks it. */
+export function applyPlane(
+  primitiveId: string,
+  params: Record<string, number | string>,
+  plane: Plane,
+): Record<string, number | string> {
+  const out = { ...params };
+  // Centred on 0.5 so a mid-weight plane is unchanged and the mapping is
+  // legible: below half it recedes, above half it takes the frame.
+  const w = plane.weight;
+  const lift = 0.6 + w * 0.8; // 0.6 … 1.4
+
+  switch (primitiveId) {
+    case "creature_chain":
+      // A low-weight anomaly is small and few. "Nobody noticed" is a claim
+      // about salience, so this is the parameter that makes the sentence
+      // true rather than merely illustrated.
+      if (typeof out.scale === "number") out.scale = clamp01(out.scale * lift);
+      if (typeof out.count === "number") {
+        out.count = Math.max(1, Math.round(out.count * lift));
+      }
+      break;
+    case "plate_scene":
+      // A space spends weight on how populated it is.
+      if (typeof out.cars === "number") out.cars = Math.max(0, Math.round(out.cars * lift));
+      if (typeof out.life === "number") out.life = clamp01(out.life * lift);
+      break;
+    case "text_layout":
+      if (typeof out.scale === "number") out.scale = clamp01(out.scale * lift);
+      break;
+    case "parallax_layers":
+      // DEPTH, at last reaching the one primitive that has always had a
+      // depth parameter and has never been told what the scene's depth is.
+      out.depth = clamp01(plane.depth);
+      break;
+    default:
+      break;
+  }
+  return out;
+}
+
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(1, n));
 }

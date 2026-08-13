@@ -998,7 +998,7 @@ describe("the proposition test — does it change what enters the frame", () => 
 
   it("the ordinary world reaches the picture, not just the plan", () => {
     const seed = segmentEssay(
-      `The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.`,
+      "The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.",
       { projectId: "p" },
     );
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
@@ -1022,7 +1022,7 @@ describe("the acceptance test — the anomaly is BUILT, not just planned", () =>
   // never reached the constructor. The proposition was decoration.
   function scenes() {
     const seed = segmentEssay(
-      `The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.`,
+      "The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.",
       { projectId: "p" },
     );
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
@@ -1060,5 +1060,49 @@ describe("the acceptance test — the anomaly is BUILT, not just planned", () =>
     const body = must(must(scenes()[1]).nodes.find((n) => n.primitiveId === "creature_chain"));
     const escalated = must(must(scenes()[2]).nodes.find((n) => n.primitiveId === "creature_chain"));
     expect(Number(body.params.count)).toBeLessThan(Number(escalated.params.count));
+  });
+});
+
+describe("weight and depth reach pixels", () => {
+  // The capability map found `plane.weight` and `plane.depth` computed and
+  // read by nothing — PLANNED, which looks finished from every angle
+  // except the screen. These assert the loop is closed.
+  function built() {
+    const seed = segmentEssay(
+      "The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.",
+      { projectId: "p" },
+    );
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+    return composeAll(parsed.ir).map((s) => ({
+      body: s.nodes.find((n) => n.primitiveId === "creature_chain"),
+      parallax: s.nodes.find((n) => n.primitiveId === "parallax_layers"),
+      notes: s.notes.join(" "),
+    }));
+  }
+
+  it("an unnoticed anomaly is smaller than a noticed one", () => {
+    // Plumbing weight through immediately exposed this: once compose began
+    // carrying the subject into "nobody noticed", the ordinary SUBJECT
+    // branch claimed 0.85 of the frame — a swarm filling the screen while
+    // the narration says nobody saw it.
+    const [first, unnoticed] = built();
+    expect(Number(must(unnoticed?.body).params.scale)).toBeLessThan(
+      Number(must(first?.body).params.scale),
+    );
+    expect(unnoticed?.notes).toMatch(/subject at 0\.30/);
+  });
+
+  it("depth reaches the primitive that has always had a depth parameter", () => {
+    const [first] = built();
+    // Not style.density, which is what parallax_layers used to be given.
+    expect(Number(must(first?.parallax).params.depth)).toBeCloseTo(0.55, 2);
+  });
+
+  it("escalation still reads, on top of weighting", () => {
+    const scenes = built();
+    expect(Number(must(scenes[2]?.body).params.count)).toBeGreaterThan(
+      Number(must(scenes[1]?.body).params.count),
+    );
   });
 });

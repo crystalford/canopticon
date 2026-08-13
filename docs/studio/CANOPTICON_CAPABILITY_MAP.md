@@ -14,6 +14,34 @@
 > `PLANNED` is the dangerous state and it is called out separately from
 > `MISSING` on purpose: a missing thing announces itself, a planned thing
 > looks finished from every angle except the screen.
+>
+> ### The six states, in full
+>
+> `PLANNED` is really one stop on a longer road, and every silent failure
+> this project has found sat at a different one:
+>
+> ```
+> DETECTED      the prose was read           subject.ts, figures.ts
+>     ↓
+> INTERPRETED   a meaning was assigned       relation.ts, intent.ts
+>     ↓
+> PLANNED       a decision was recorded      scene-plan.ts
+>     ↓
+> BOUND         a renderer was named         construction / ground slot
+>     ↓
+> COMPOSITED    it participates in the frame  layer_over, parallax depth
+>     ↓
+> RENDERED      a pixel differs               verified, not assumed
+> ```
+>
+> The instructive part is that the failures were spread across all of
+> them. `namesOnlyAbstractions` never left DETECTED. The `fit()` with no
+> Style stalled at INTERPRETED. `plane.weight` sat at PLANNED. `text_morph`
+> is BOUND and never COMPOSITED — it type-checks in a chain and ignores its
+> upstream. Operator parameters were COMPOSITED and never RENDERED, because
+> the names did not exist on the primitives.
+>
+> A capability claim should name which of the six it has actually reached.
 
 ---
 
@@ -83,7 +111,7 @@
 | **World density** (sparse ↔ dense) | **MISSING** | The gap this map exists to name — see below |
 | **Literalness** (literal ↔ displaced) | **PARTIAL** | `dislocation` moves *which construction*; it does not move *how displaced the depiction is* |
 | Abstraction (physical ↔ abstract) | **EXISTS** | The ladder, and a permission gate on operators |
-| Attention (subject ↔ environment) | **PLANNED** | `plane.weight` exists and **nothing reads it** |
+| Attention (subject ↔ environment) | **PARTIAL** | `plane.weight` now scales and populates the subject's construction; it is not yet a dial a director can move directly |
 | Transformation (stable ↔ mutating) | **MISSING** | The fourth program type, unbuilt |
 | Natural-language directing | **PARTIAL** | The register lexicon is the mechanism; there is no free-text UI path |
 
@@ -96,12 +124,13 @@
 | `COUNTERPOINT` | **EXISTS** | Becomes the ground; the only role no noun asks for |
 | **`METAPHOR`** | **PLANNED** | Computed, weighted by abstraction, **built by nothing** |
 | **`EDITORIAL`** | **PLANNED** | Same — typography arrives via the construction, not the plane |
-| **`plane.depth`** | **PLANNED** | Never read. `parallax_layers` gets its depth from `style.density` instead |
-| **`plane.weight`** | **PLANNED** | Never read anywhere |
+| `plane.depth` | **EXISTS** | `applyPlane` sets `parallax_layers.depth` from the plan, not from `style.density` |
+| `plane.weight` | **EXISTS** | Scale and population of the subject's construction. An unnoticed anomaly is 0.30 and visibly smaller |
 | `CONTEXT` / `SECOND-STORY` / `TRACE` / `RED-HERRING` | **MISSING** | Aldershot roles, deliberately unbuilt |
 
-**This block is the map's most useful finding.** Five of the eight rows are
-`PLANNED`. The scene plan is further from the screen than it looks — it
+**This block was the map's most useful finding.** Five of eight rows were
+`PLANNED`; two have since been closed (`plane.depth`, `plane.weight`) and
+three remain. The scene plan is further from the screen than it looks — it
 currently reaches pixels through exactly two channels (which construction
 is built, and what goes in the ground slot) and every richer thing it
 computes is inert.
@@ -113,7 +142,7 @@ computes is inert.
 | Two-input compositing | **EXISTS** | Five compositors; a ground is a real second chain |
 | Ground type-checking | **EXISTS** | `groundSatisfies` refuses a plate to a field compositor |
 | Ordered N-plane stack | **MISSING** | One ground slot, not a depth-sorted stack |
-| Depth from the plan | **PLANNED** | See `plane.depth` above |
+| Depth from the plan | **EXISTS** | `applyPlane` writes `parallax_layers.depth` from `plane.depth` — see the SCENE PLAN block |
 | Foreground / midground / background as roles | **MISSING** | — |
 
 ## CONSTRUCTIONS · BEHAVIOURS · MATERIAL
@@ -183,10 +212,11 @@ Nothing yet, by instruction. But the ordering falls out of the table
 rather than from preference:
 
 1. **Make the planned things reach pixels before adding new planned
-   things.** `plane.depth` → `parallax_layers`. `plane.weight` → density
-   and scale of what is built. `METAPHOR` → an actual second construction.
-   Five inert rows in one block is the same failure the principle names,
-   sitting in the newest code.
+   things.** `plane.depth` → `parallax_layers` and `plane.weight` →
+   density and scale of what is built are **done**, and doing them
+   immediately surfaced a live bug: the unnoticed anomaly was weighted
+   0.85 of the frame while the narration said nobody saw it. `METAPHOR`
+   → an actual second construction is the next of the three that remain.
 2. **World density as a real director dimension**, since the plan already
    computes its input.
 3. **The N-plane stack**, which is what makes 1 and 2 worth having.
