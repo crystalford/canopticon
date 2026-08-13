@@ -53,38 +53,43 @@ Every layer is inspectable and each has exactly one translation point.
 
 ## What is NOT yet true, stated plainly
 
-**The semantic scene reaches the plan and not the picture.** The
-arrangement is computed correctly and the frames still read as one form,
-because the FIELD and SECONDARY elements composite too faintly to be
-seen. This is the single highest-leverage next fix and it is a
-compositing-weight problem inside a working structure, not a new layer.
+~~The semantic scene reaches the plan and not the picture.~~ **DONE.** It
+was not a compositing WEIGHT problem — raising the weights made the
+gallery paler. `layer_over` composites two IMAGES and every primitive
+paints its own opaque `bg()`, so each layer's background covered the one
+beneath and opacity merely faded the top plate toward the ground colour.
+`knockout()` now treats pixels near the film's ground as transparent —
+the same "a form is what differs from the ground" insight `formPoints`
+needed. Layers genuinely stack; multiple elements are visible; the
+OBSERVES arrangement reads on the frame.
 
-Also outstanding, in order of leverage:
+Outstanding, in order of leverage:
 
-1. **Make the arrangement visible.** `serialiseScene`'s `layer_over`
-   opacity/sink per role is burying everything that is not PRIMARY. Until
-   this is fixed no semantic work can be judged from the gallery.
-2. **`APERTURE` is a plane, not an opening.** The structural column is a
+1. **`APERTURE` is a plane, not an opening.** The structural column is a
    rectangle. `wireframe(form:1)` is the wrong source for "you see
    through it"; this probably wants a real aperture — two nested paths
    with the interior removed.
-3. **`CONNECT` reads as scattered points.** `force_layout` does not
+2. **`CONNECT` reads as scattered points.** `force_layout` does not
    cluster. Diagrammatic needs grouping and edges that are drawn.
-4. **Temporal grammar.** The scene graph is the right substrate: elements
+3. **Temporal grammar.** The scene graph is the right substrate: elements
    ENTER, ACCUMULATE, TRANSFORM, and the camera observes across time. The
    compositional-strategy work (`experiments/strategy.ts`) is still
    outside the pipeline and this is where it rejoins.
-5. **Film-level motif.** Same aperture across scenes, developing.
+4. **Film-level motif.** Same aperture across scenes, developing.
 
 ## Rules that have earned their place
 
 - **No noun-specific generators.** The centipede and the smoke detector
   were feasibility proofs that became the ontology. Never again: ask what
   general operation is missing, not what object to code.
-- **A renderer must render the payload.** Three operations have now been
+- **A renderer must render the payload.** Four operations have now been
   caught declaring a type and destroying what they received —
   `particle_trail` on type, `extrude` on geometry, `boolean_ops` on every
-  form it touched. Check the picture, not the contract.
+  form it touched, and `layer_over` covering its own under-plate. Check
+  the picture, not the contract.
+- **Guessing twice is the signal to read the code.** The compositing
+  fix was guessed wrong twice from the symptom before anyone opened
+  `layer_over` and found it drawing two opaque plates.
 - **A constant tuned against one situation will break when the situation
   becomes directorial.** `formPoints`' 0.14 luminance floor assumed a
   near-black ground and broke the moment colour became a choice.

@@ -319,9 +319,24 @@ export function serialiseScene(scene: SceneGraph, m: Material): PlannedNode[] {
          * loudly the thing speaks, and a secondary element that arrives
          * louder than the subject is not a composition. */
         params: {
-          opacity: { PRIMARY: 1, SECONDARY: 0.72, TEXT: 0.6, FIELD: 0.55, GROUND: 0.3 }[e.role],
+          /* AN ELEMENT THAT CANNOT BE SEEN IS NOT IN THE SCENE.
+           *
+           * The arrangement was computing correctly — "one above and
+           * apart, many below, and a line of sight between them" — and
+           * the frame showed one form, because FIELD came in at opacity
+           * 0.55 with sink 0.5 and SECONDARY at 0.72/0.3. Both were
+           * suppressed to the point of invisibility, so every semantic
+           * distinction the scene made died at the compositor.
+           *
+           * Hierarchy is made with SCALE and PLACEMENT, which the
+           * arrangement already decides. It is not made by fading the
+           * subordinate elements until they disappear — that is not a
+           * quiet element, it is a missing one. Only the GROUND is
+           * genuinely sunk, because a ground is the one thing that is
+           * supposed to sit behind. */
+          opacity: { PRIMARY: 1, SECONDARY: 0.95, TEXT: 0.85, FIELD: 0.95, GROUND: 0.45 }[e.role],
           front: 1,
-          sink: { PRIMARY: 0, SECONDARY: 0.3, TEXT: 0.12, FIELD: 0.5, GROUND: 0.75 }[e.role],
+          sink: { PRIMARY: 0, SECONDARY: 0.05, TEXT: 0.05, FIELD: 0.05, GROUND: 0.6 }[e.role],
         },
         reason: e.reason,
         ground: chainFor(e),
