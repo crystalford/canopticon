@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-13T01:55:36Z",
+  "run_id": "31659222120",
+  "method": "POST",
+  "path": "/v1/project/proj_305611e441404d1e97fa/read",
+  "status": 200,
+  "body": "{\n  \"projectId\": \"proj_305611e441404d1e97fa\",\n  \"irVersion\": 6,\n  \"proposed\": 5,\n  \"declined\": 1,\n  \"why\": {\n    \"no-subjects\": 1\n  },\n  \"samples\": [\n    {\n      \"sentence\": \"This is not a lag.\",\n      \"reason\": \"no-subjects\",\n      \"said\": \"{\\\"contested\\\":false,\\\"subjects\\\":[],\\\"visualOpportunity\\\":\\\"\\\"}\"\n    }\n  ],\n  \"remaining\": 113,\n  \"model\": \"@cf/meta/llama-4-scout-17b-16e-instruct\"\n}"
+}
