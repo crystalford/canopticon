@@ -342,7 +342,15 @@ Shared across every Worker in the monorepo; nothing else is shared.
 
 - **Runtime**: Cloudflare Workers + **Hono**, TypeScript.
 - **Storage**: **D1** (SQLite) · **R2** · **Vectorize** (Record only).
-- **AI**: **Workers AI**. The Record routes by role
+- **AI**: **Workers AI**, and nothing else. Narration was reviewed against
+  MiniMax and ElevenLabs and Workers AI kept: a third-party voice provider
+  would be an external API key, an external outage surface, and the only
+  part of the pipeline able to fail for reasons off-platform — inside a
+  system whose whole premise is a reproducible artifact. `@cf/deepgram/aura-1`
+  answers in ~500ms and is billed inside Workers AI. (`packages/video` DOES
+  call MiniMax directly, for voice CLONING, with its own key. That is the
+  compartmentalized system and is not a precedent for Studio.) The Record
+  routes by role
   (`packages/api/src/llm/router.ts`). Studio uses it only at authoring time
   (segmentation, TTS) and freezes the output.
 - **Rendering**: server-rendered HTML by string concatenation. No JSX, no

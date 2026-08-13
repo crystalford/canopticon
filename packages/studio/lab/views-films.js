@@ -72,7 +72,11 @@ function viewFilms(el) {
 
     <div class="sec secline">
       <span class="k">THE VOICE</span>
+      <input id="films-line" class="films-line" type="text"
+        placeholder="A line to audition — your own sentence, not a demo reel."
+        value="The building is the same. The residents are the same.">
       <div class="films-actions">
+        <button class="btn" id="films-audition">AUDITION THE VOICES</button>
         <button class="btn" id="films-probe">PROBE THE BINDING</button>
         <span class="mono films-hint">Asks production what its speech models actually return.
           Stores nothing, spends one call per candidate, and is the check to run before
@@ -112,6 +116,8 @@ function viewFilms(el) {
   if (ing) ing.onclick = filmsIngest;
   const probe = document.getElementById("films-probe");
   if (probe) probe.onclick = runProbe;
+  const aud = document.getElementById("films-audition");
+  if (aud) aud.onclick = runAudition;
 }
 
 function filmRow(p, cur) {
@@ -336,6 +342,41 @@ async function runProbe() {
     }
     lines.push("", r.note || "");
     out.textContent = lines.join("\n");
+  } catch (err) {
+    out.textContent = `could not reach the compiler — ${err.message}`;
+  }
+}
+
+/** Speak one line through every candidate and put a player next to each.
+ *
+ *  Deliberately not a verdict. Two takes, side by side, and the operator
+ *  decides — a system that told you which voice was better would be
+ *  making a directorial choice on your behalf, which is the one thing
+ *  this instrument is built not to do. */
+async function runAudition() {
+  const out = document.getElementById("probe-out");
+  const line = document.getElementById("films-line");
+  if (!out) return;
+  out.textContent = "speaking…";
+  try {
+    const r = await auditionVoice(line ? line.value : "");
+    out.innerHTML = "";
+    for (const take of r.takes || []) {
+      const row = document.createElement("div");
+      row.className = "take";
+      if (!take.ok) {
+        row.innerHTML = `<b>${esc(take.model)}</b><span>${esc(take.outcome)}</span>`;
+      } else {
+        row.innerHTML = `<b>${esc(take.model)}</b>
+          <span>${take.bytes} bytes · ${take.contentType} · ${take.wallMs}ms</span>`;
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.src = `data:${take.contentType};base64,${take.audio}`;
+        row.appendChild(audio);
+      }
+      out.appendChild(row);
+    }
+    if (!(r.takes || []).length) out.textContent = "no candidates answered";
   } catch (err) {
     out.textContent = `could not reach the compiler — ${err.message}`;
   }

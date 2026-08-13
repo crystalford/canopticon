@@ -17,7 +17,7 @@ import { type EditorialIR, parseIR } from "../ir/schema.ts";
 import { all, newId, nowIso, one, run } from "../lib/d1.ts";
 import { ASR_CANDIDATES, readTimings, sequenceAlignments } from "../narrate/align.ts";
 import { loadAlignments, narrateScenes, voiceStates } from "../narrate/index.ts";
-import { TTS_CANDIDATES, describeShape, sniff, toBytes } from "../narrate/tts.ts";
+import { TTS_CANDIDATES, describeShape, sniff, toBase64, toBytes } from "../narrate/tts.ts";
 import { PRIMITIVES } from "../primitives/registry.ts";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -823,6 +823,63 @@ app.post("/tts/probe", async (c) => {
       ? "ASR was run against the audio the first working TTS candidate produced."
       : "No TTS candidate produced audio, so ASR was not probed.",
   });
+});
+
+/** AUDITION — hear the candidates before committing a film to one.
+ *
+ *  The provider question is a product decision and it should be settled by
+ *  ear rather than by argument. This speaks one line through every
+ *  available candidate and hands back the audio, so two voices can be
+ *  compared on the operator's own sentence rather than on a demo reel.
+ *
+ *  Stores nothing. Costs one call per candidate on a line the operator
+ *  chose, which is the cheapest possible way to make this decision and
+ *  considerably cheaper than narrating a film to find out.
+ *
+ *  Base64 rather than a URL for the same reason it stores nothing: an
+ *  audition is not an artifact. Nothing here is hashed, versioned, or
+ *  reachable again — if it were, it would be narration, and narration is
+ *  a deliberate act with a different button. */
+app.post("/voice/audition", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { text?: string; voice?: string };
+  const line = (body.text ?? "The building is the same. The residents are the same.").slice(0, 400);
+
+  const takes: Array<Record<string, unknown>> = [];
+  for (const candidate of TTS_CANDIDATES) {
+    const at = Date.now();
+    let out: unknown;
+    try {
+      out = await c.env.AI.run(
+        candidate.model as never,
+        candidate.input(line, body.voice) as never,
+      );
+    } catch (err) {
+      takes.push({
+        model: candidate.model,
+        ok: false,
+        outcome: `unavailable: ${err instanceof Error ? err.message : String(err)}`,
+      });
+      continue;
+    }
+    const bytes = await toBytes(out);
+    if (!bytes) {
+      takes.push({ model: candidate.model, ok: false, outcome: "no recoverable audio" });
+      continue;
+    }
+    const sniffed = sniff(bytes.bytes);
+    takes.push({
+      model: candidate.model,
+      ok: true,
+      contentType: sniffed.contentType,
+      bytes: bytes.bytes.length,
+      wallMs: Date.now() - at,
+      // The audio itself, so the browser can play it without a round trip
+      // to storage that would imply this was kept.
+      audio: toBase64(bytes.bytes),
+    });
+  }
+
+  return c.json({ text: line, takes });
 });
 
 app.post("/project/:id/compile", async (c) => {

@@ -87,6 +87,12 @@ const narrateProject = (id, opts) =>
  *  file. */
 const probeVoice = () => api("/tts/probe", { method: "POST", body: JSON.stringify({}) });
 
+/** Hear every candidate say the same line. The provider question is a
+ *  product decision and this is how it gets settled — by ear, on the
+ *  operator's own sentence, rather than by argument. Stores nothing. */
+const auditionVoice = (text) =>
+  api("/voice/audition", { method: "POST", body: JSON.stringify({ text }) });
+
 /** Build the view model from the IR and the compiled plan.
  *
  *  Every field here is carried across, not invented. Where the prototype's
@@ -344,6 +350,7 @@ Object.assign(window, {
   ratifyScenes,
   narrateProject,
   probeVoice,
+  auditionVoice,
   directScene,
   directVerb,
   releaseScene,
