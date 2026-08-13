@@ -177,7 +177,7 @@ const LEXICON: Array<{ kind: SubjectKind; weight: number; words: string[] }> = [
   },
   {
     kind: "creature",
-    weight: 0.7,
+    weight: 0.82,
     words: [
       "crowd",
       "crowds",
@@ -294,9 +294,16 @@ const LEXICON: Array<{ kind: SubjectKind; weight: number; words: string[] }> = [
   // ── somewhere. Not a named place — scene-kind already catches those —
   //    but a KIND of place, which is depictable as a space rather than a
   //    point on a map.
+  //
+  //    DELIBERATELY THE LOWEST WEIGHTS HERE. A place is usually the
+  //    SETTING of a sentence rather than its subject: "the crowd of
+  //    residents waited in the corridor" is about the crowd. Ranked above
+  //    the others, "corridor" won and the film built an empty room —
+  //    which is a correct reading of a lexicon and a wrong reading of the
+  //    sentence.
   {
     kind: "place",
-    weight: 0.8,
+    weight: 0.58,
     words: [
       "hotel",
       "hotels",

@@ -31,6 +31,7 @@ import {
   chainDeterminism,
   chainOverwrites,
 } from "../primitives/registry.ts";
+import { type Beat, type Program, type Style, constructPrograms } from "./construct.ts";
 import {
   type ResolvedState,
   controlPointPositions,
@@ -41,7 +42,7 @@ import { looksContested } from "./extract-reading.ts";
 import { groundSatisfies, planGround } from "./ground.ts";
 import { choosePhrase } from "./phrase.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
-import { subjectReading } from "./subject.ts";
+import { detectSubjects, subjectReading } from "./subject.ts";
 import { textParamsFor } from "./text-params.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
 
@@ -95,6 +96,18 @@ export interface ComposedNode {
   ground?: ComposedNode[];
 }
 
+/** A program the engine considered and did not use. Carried so the
+ *  Compile view can show what else this sentence could have been —
+ *  "what could express this" has more than one answer, and a director who
+ *  cannot see the others is being handed a decision dressed as a fact. */
+export interface ProgramSummary {
+  id: string;
+  construction: string;
+  operators: string[];
+  why: string;
+  chain: string[];
+}
+
 export interface MotifOccurrence {
   motifId: string;
   concept: string;
@@ -131,6 +144,13 @@ export interface ComposedScene {
    *  is indistinguishable from a truncation — which is what it used to
    *  be. */
   phrase: { text: string; source: string };
+  /** What was CONSTRUCTED here — the thing built and the operations
+   *  applied to it — when the engine built rather than fell back to a
+   *  recipe. Null on a scene planned from a ratified reading or from the
+   *  ladder. */
+  program: { id: string; construction: string; operators: string[]; why: string } | null;
+  /** The other programs this sentence could have been, best first. */
+  alternatives: ProgramSummary[];
 }
 
 /** Density and typography earn extra compositing depth; restraint takes it
@@ -197,12 +217,31 @@ export function composeScene(
   // the abstraction ladder's default, which knows the film's mood but
   // nothing about its subject. Either way the nodes are hashed identically
   // downstream, so a treatment caches exactly like any other chain.
+  // What this scene puts on screen, and how dense and typographic the film
+  // is here. Computed BEFORE the chain is chosen rather than after: a
+  // construction reads the phrase (a two-word phrase is set as one form, a
+  // longer one as a line) and reads the curves, so deciding them
+  // afterwards would mean building against numbers that did not exist yet.
+  const phrase = choosePhrase(scene.narration.text, scene.label, {
+    recent: recentPhrases,
+    figures: scene.figures ?? [],
+  });
+  const density = state.values.visualDensity ?? 0;
+  const typography = state.values.typographicWeight ?? 0;
+
   let treatment: Treatment | null = null;
   let chain: string[];
   const reasons = new Map<string, string>();
+  /** Parameters decided by whatever PLANNED this chain — a treatment or a
+   *  construction. Merged onto the nodes below, because a plan whose
+   *  numbers are thrown away is a plan in name only. */
+  let plannedParams = new Map<string, Record<string, number | string>>();
+  let program: Program | null = null;
+  let alternatives: ProgramSummary[] = [];
 
   const reading = readingFor(scene);
-  if (reading) {
+  const ratified = Boolean(scene.reading);
+  if (reading && ratified) {
     const language = scene.visualLanguage ?? ir.visualLanguage;
     treatment = planTreatment(reading, language);
     chain = treatment.nodes.map((n) => n.primitiveId);
@@ -220,23 +259,85 @@ export function composeScene(
         reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
     }
   } else {
-    // NO RATIFIED READING — but the sentence is still wearing a great deal
-    // on its surface. The curve says how far from literal this moment sits;
-    // the sentence's KIND says what sort of thing is depicted there. With
-    // only the curve, an 89-scene film compiled to twelve chains and three
-    // of them covered sixty-six scenes, because a smooth curve necessarily
-    // gives neighbouring scenes the same rung.
+    // NO RATIFIED READING — SO BUILD ONE.
+    //
+    // Not "pick an effect for this sentence". Construct a thing from what
+    // the sentence contains, then apply operations to it that the
+    // director's state asked for. `construct.ts` carries the argument for
+    // why those are two separate questions; what matters here is that this
+    // branch produces a PROGRAM with its own parameters rather than a list
+    // of primitive ids pulled from a table.
+    //
+    // Several programs, sorted. The first is used; the rest are carried on
+    // the report so the director can see what else this sentence could
+    // have been and switch — which is the system proposing and the human
+    // ratifying, applied to depiction rather than only to meaning.
     const kind = readSceneKind(scene);
-    const byKind = chainForKind(kind.kind, rung.tier, sceneIndex);
-    if (byKind) {
-      chain = [...byKind];
-      for (const p of chain) {
-        reasons.set(p, `${kind.kind} — ${kind.because} — at the ${rung.tier} rung`);
-      }
+    const beat: Beat = {
+      sentence: scene.narration.text,
+      phrase: phrase.text,
+      subjects: detectSubjects(scene.narration.text),
+      figures: scene.figures ?? [],
+      route: scene.route ?? [],
+      kind: kind.kind,
+      contested: looksContested(scene.narration.text),
+      index: sceneIndex,
+    };
+    const style: Style = {
+      abstraction,
+      density,
+      energy: state.values.motionEnergy ?? 0.5,
+      human: state.values.humanPresence ?? 0.5,
+      typography,
+      archival: state.values.archivalWeight ?? 0.5,
+      data: state.values.dataWeight ?? 0.5,
+      experimentalism: state.values.experimentalism ?? 0.3,
+      restraint: state.values.restraint ?? 0.5,
+      tier: rung.tier,
+      language: scene.visualLanguage ?? ir.visualLanguage,
+    };
+    const programs = constructPrograms(beat, style, MAX_CHAIN_MS);
+    const best = programs[0];
+    if (best) {
+      program = best;
+      alternatives = programs
+        .slice(1)
+        // Only alternatives that differ in what they BUILD or in what they
+        // do to it. Two programs differing by one operator's parameter are
+        // not a choice, they are noise in a picker.
+        .filter((p, i, all) => all.findIndex((q) => q.id === p.id) === i)
+        .slice(0, 3)
+        .map((p) => ({
+          id: p.id,
+          construction: p.construction,
+          operators: p.operators,
+          why: p.why,
+          chain: p.nodes.map((n) => n.primitiveId),
+        }));
+      chain = best.nodes.map((n) => n.primitiveId);
+      plannedParams = new Map(best.nodes.map((n) => [n.primitiveId, n.params]));
+      for (const node of best.nodes) reasons.set(node.primitiveId, node.reason);
+      notes.push(
+        `constructed "${best.id}" — ${best.why}` +
+          (alternatives.length
+            ? ` · ${alternatives.length} other reading${alternatives.length === 1 ? "" : "s"} available`
+            : ""),
+      );
     } else {
-      chain = [...rung.base];
-      for (const p of chain)
-        reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
+      // Nothing could be constructed at all. The kind recipes and the
+      // ladder remain as EXAMPLES the engine can reach past — kept
+      // because they are known-good shapes, demoted because a finite list
+      // of shapes is the thing this replaced.
+      const byKind = chainForKind(kind.kind, rung.tier, sceneIndex);
+      chain = byKind ? [...byKind] : [...rung.base];
+      for (const p of chain) {
+        reasons.set(
+          p,
+          byKind
+            ? `${kind.kind} recipe — ${kind.because} — at the ${rung.tier} rung`
+            : `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`,
+        );
+      }
     }
   }
 
@@ -277,8 +378,6 @@ export function composeScene(
   }
 
   // ── precedence 7 continued: density and typography from the curves ──
-  const density = state.values.visualDensity ?? 0;
-  const typography = state.values.typographicWeight ?? 0;
   if (density > DENSITY_BLEND_AT && !chain.includes("blend")) {
     chain.push("blend");
     reasons.set("blend", `density ${density.toFixed(2)} — compositing depth`);
@@ -419,10 +518,6 @@ export function composeScene(
   // asylum hotels. Four hardcoded phrases from a different essay, looping
   // for six minutes. It typechecked, it cached, and every number in the
   // Compile view was correct about it.
-  const phrase = choosePhrase(scene.narration.text, scene.label, {
-    recent: recentPhrases,
-    figures: scene.figures ?? [],
-  });
 
   const nodes: ComposedNode[] = chain.map((primitiveId, i) => {
     const spec = PRIMITIVES[primitiveId];
@@ -438,6 +533,14 @@ export function composeScene(
     // grade. Without this merge the plan would be decorative.
     const planned = treatment?.nodes.find((n) => n.primitiveId === primitiveId);
     if (planned) Object.assign(params, planned.params);
+    // A CONSTRUCTION'S NUMBERS ARE THE CONSTRUCTION. `creature_chain` with
+    // its defaults is a twenty-two-segment centipede whatever the sentence
+    // said; with `segments` and `count` read off the prose it is the thing
+    // the sentence named. Dropping these would leave the new layer
+    // choosing the same primitives as the old one and setting none of
+    // them, which is the failure it was built to end.
+    const constructed = plannedParams.get(primitiveId);
+    if (constructed) Object.assign(params, constructed);
     if (override?.type === "pin" && override.params) {
       Object.assign(params, override.params);
     }
@@ -497,6 +600,15 @@ export function composeScene(
     costMsPerFrame: chainCost(chain) + (groundNodes ? chainCost(ground?.ground ?? []) : 0),
     determinism: chainDeterminism([...chain, ...(ground?.ground ?? [])]),
     phrase: { text: phrase.text, source: phrase.source },
+    program: program
+      ? {
+          id: program.id,
+          construction: program.construction,
+          operators: program.operators,
+          why: program.why,
+        }
+      : null,
+    alternatives,
   };
 }
 

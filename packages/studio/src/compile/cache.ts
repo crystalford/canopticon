@@ -65,8 +65,24 @@ export function diffAgainstSnapshot(
     let h = 0;
     let m = 0;
 
-    for (const node of scene.nodes) {
-      const prior = before?.find((b) => b.primitiveId === node.primitiveId);
+    scene.nodes.forEach((node, at) => {
+      // MATCHED BY POSITION, NOT BY NAME.
+      //
+      // A chain can legitimately contain the same primitive twice — the
+      // `fragment` operator turns an image into points and draws them, so
+      // a constructed chart followed by a fragment ends
+      // `particle_trail → image_to_points → particle_trail`, and those two
+      // trails are different nodes doing different work at different
+      // seeds.
+      //
+      // Matching by primitiveId alone made the second one match the
+      // FIRST one's stored hash, never agree with it, and count as a miss
+      // on every compile forever. A permanent cache miss reported as a
+      // recomputation is worse than a slow build: it makes the diff — the
+      // one surface whose whole job is to be trusted — quietly wrong.
+      const prior =
+        (before?.[at]?.primitiveId === node.primitiveId ? before[at] : undefined) ??
+        before?.find((b) => b.primitiveId === node.primitiveId);
       if (prior && prior.hash === node.hash) {
         nodes.push({
           primitiveId: node.primitiveId,
@@ -92,7 +108,7 @@ export function diffAgainstSnapshot(
         });
         m++;
       }
-    }
+    });
 
     const removed = (before ?? [])
       .filter((b) => !scene.nodes.some((n) => n.primitiveId === b.primitiveId))
