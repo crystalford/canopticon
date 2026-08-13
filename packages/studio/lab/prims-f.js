@@ -39,7 +39,7 @@ const PIXEL_RAMP = [
 reg(
   "mounted_fixture",
   "S · ENTITY",
-  "— → ENTITY",
+  "— → IMAGE",
   {
     representation: { v: 0, lo: 0, hi: 4, int: 1 },
     radius: { v: 0.5, lo: 0.15, hi: 1 },
@@ -325,7 +325,7 @@ function drawPixel(ctx, w, h, geo, project, p, t) {
 reg(
   "entity_render",
   "S · ENTITY",
-  "ENTITY → IMAGE",
+  "IMAGE → IMAGE",
   {
     exposure: { v: 0.5, lo: 0, hi: 1 },
     contrast: { v: 0.5, lo: 0, hi: 1 },
@@ -399,7 +399,7 @@ reg(
 reg(
   "artifact_render",
   "S · ENTITY",
-  "ARTIFACT → IMAGE",
+  "IMAGE → IMAGE",
   {
     exposure: { v: 0.5, lo: 0, hi: 1 },
     contrast: { v: 0.5, lo: 0, hi: 1 },

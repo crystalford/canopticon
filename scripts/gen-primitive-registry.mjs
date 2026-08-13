@@ -154,6 +154,64 @@ const { reg, cost } = await page.evaluate(() => {
     } catch {
       consumesUpstream = false;
     }
+
+    // DOES IT ACTUALLY EMIT WHAT IT DECLARES?
+    //
+    // The output half of the same contract, and the one that was missing.
+    // 42 of 129 primitives declared GEOMETRY, FIELD, ARTIFACT or ENTITY
+    // and returned nothing but pixels — so a chain could type-check
+    // completely and the downstream node receive NOTHING, then fall back
+    // to its own synthetic default. That is how a film came to render
+    // `90 DAYS` from a different essay, and how a type-checked chain
+    // produced `geometry_draw: no upstream GEOMETRY`.
+    //
+    // Measured by running the primitive and reading the payload back,
+    // exactly as `consumesUpstream` is measured from arity: mechanical,
+    // and unable to drift from the truth the way a hand-kept flag can.
+    let emits = [];
+    try {
+      const probe = { seed: 1337 };
+      for (const k in d.params) {
+        const sp = d.params[k];
+        probe[k] = sp.s !== undefined ? sp.s : sp.v;
+      }
+      const inst = d.make(probe);
+      const c = document.createElement("canvas");
+      c.width = 240;
+      c.height = 140;
+      const cx = c.getContext("2d");
+      // A CONSUMER CANNOT EMIT WHAT IT WAS NEVER GIVEN. `geometry_morph`
+      // takes GEOMETRY and returns GEOMETRY; probed with nothing upstream
+      // it honestly returns an empty set, and judging it on that would
+      // punish the one kind of primitive that is behaving correctly. So
+      // the probe supplies a well-formed payload of every type.
+      const src = document.createElement("canvas");
+      src.width = 240;
+      src.height = 140;
+      const sx = src.getContext("2d");
+      sx.fillStyle = "#eef1f3";
+      sx.fillRect(60, 35, 120, 70);
+      const geo = [];
+      for (let gy = 0; gy < 12; gy++)
+        for (let gx = 0; gx < 20; gx++)
+          geo.push({ x: 20 + gx * 10, y: 15 + gy * 10, x0: 20 + gx * 10, y0: 15 + gy * 10, v: 1 });
+      const ang = new Float32Array(20 * 12);
+      for (let i = 0; i < ang.length; i++) ang[i] = (i % 7) * 0.4;
+      const upstream = {
+        canvas: src,
+        geometry: geo,
+        field: { kind: "vector", cols: 20, rows: 12, cell: 12, w: 240, h: 140, ang },
+        data: [2, 5, 3, 8, 4, 6, 1, 7],
+      };
+      let r = null;
+      for (let f = 0; f < 6; f++) r = inst.frame(cx, 240, 140, f / 24, upstream, upstream, 3);
+      if (r && r.geometry && r.geometry.length) emits.push("GEOMETRY");
+      if (r && r.field) emits.push("FIELD");
+      if (r && r.data) emits.push("DATA");
+    } catch {
+      emits = [];
+    }
+
     out[id] = {
       id,
       family: d.family,
@@ -162,6 +220,7 @@ const { reg, cost } = await page.evaluate(() => {
       note: d.note || "",
       consumesUpstream,
       secondInput,
+      emits,
     };
   }
   return { reg: out, cost: typeof COST !== "undefined" ? COST : {} };
@@ -187,6 +246,48 @@ function parseIO(io) {
 
 const ids = Object.keys(reg).sort();
 const families = [...new Set(ids.map((i) => reg[i].family))].sort();
+
+/* ── THE PAYLOAD CONTRACT GATE ────────────────────────────────────────
+ *
+ * A declared output type must be a payload the primitive actually emits.
+ * No warning, no graceful degradation, no synthetic fallback — the
+ * registry is refused, because a registry that lies is worse than no
+ * registry: it lets the compiler reason confidently about a dataflow
+ * graph that does not exist at runtime.
+ *
+ * IMAGE and ANIMATION are exempt and always will be. Every primitive
+ * paints a canvas, so "emits IMAGE" is unconstrained by construction and
+ * enforcing it would be theatre — the same reason `groundSatisfies`
+ * refuses to enforce an IMAGE second input. MASK is exempt for now and
+ * listed as unenforced rather than quietly ignored.
+ */
+const ENFORCED = new Set(["GEOMETRY", "FIELD", "DATA"]);
+const liars = [];
+for (const id of ids) {
+  const r = reg[id];
+  const { outputs } = parseIO(r.io);
+  for (const t of outputs) {
+    if (!ENFORCED.has(t)) continue;
+    if (!(r.emits ?? []).includes(t)) {
+      liars.push(
+        `  ${id.padEnd(22)} declares ${t.padEnd(9)} emits ${(r.emits ?? []).join("|") || "nothing but pixels"}`,
+      );
+    }
+  }
+}
+if (liars.length > 0) {
+  console.error(
+    `\n✗ PAYLOAD CONTRACT VIOLATED — ${liars.length} primitive${liars.length === 1 ? "" : "s"} declare a payload they do not emit:\n`,
+  );
+  console.error(liars.join("\n"));
+  console.error(
+    "\nA declared type must be a payload a consumer can actually read.\n" +
+      "Either emit it, or change the declaration to IMAGE — do not\n" +
+      "manufacture geometry to satisfy the type. Registry NOT written.\n",
+  );
+  process.exit(1);
+}
+console.log(`payload contract: ${ids.length}/${ids.length} declarations honoured`);
 
 const entries = ids
   .map((id) => {

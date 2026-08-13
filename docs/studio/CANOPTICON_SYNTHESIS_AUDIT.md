@@ -225,3 +225,126 @@ It was the first symptom of this same finding: incompatible representations
 were being forced through a converter because the architecture assumed a
 linear chain of canvases. A visual program is a graph, and a graph needs
 payloads that actually travel along its edges.
+
+
+---
+
+# ADDENDUM — the payload contract pass, and the rerun
+
+> Phase 1–6 of the mandate. The compiler, the Language Lab, the seven
+> languages and the synthesizer were all frozen; only the substrate moved.
+
+## The invariant now holds
+
+```
+129 primitives
+129 declared payload types actually emitted
+  0 false payload contracts
+```
+
+`scripts/gen-primitive-registry.mjs` will now **refuse to write a
+registry** that contains a declaration the runtime does not honour. No
+warning, no fallback. Verified by deliberately making `voronoi` claim
+FIELD: the generator exits non-zero and the registry is not written.
+
+The check probes each primitive with a well-formed upstream payload of
+every type, because a *consumer* like `geometry_morph` honestly returns an
+empty set when handed nothing, and judging it on that would punish the one
+kind of primitive behaving correctly.
+
+## The three classifications, as asked
+
+**A — should emit the declared payload (35).** Fixed at the single place
+every primitive is registered, not in thirty-four drawing loops. `reg()`
+wraps any primitive declaring GEOMETRY: if its `frame()` already returns a
+point set it is left completely alone; otherwise the form it just drew is
+sampled back into `[{x, y, x0, y0}]` — the same contract `glyph_to_points`
+established, carrying each point's origin so a morph can interpolate.
+
+Sampling the drawn form is not manufacturing geometry to satisfy a type.
+It is reading back the thing the primitive actually made, which is exactly
+what `image_to_points` already does deliberately. Sampled through a
+200px offscreen rather than the full canvas, so the contract stays
+affordable at render resolution.
+
+**B — genuinely an image generator (6).** `ARTIFACT` and `ENTITY` turned
+out to be **entirely fictional types**. Every consumer of either —
+`artifact_render`, `camera_move`, `entity_render` — reads
+`upstream.canvas`. They were names for "a picture from the documents
+family" and "a picture from the entity family". Both collapsed to IMAGE,
+which is what they always emitted. The type vocabulary lost two members
+and gained nothing false.
+
+**C — needs a contract this palette does not have (1, recorded not
+faked).** `creature_chain` and `mounted_fixture` genuinely contain
+structured information — segments, joints, gait, position. A real ENTITY
+payload would let a renderer draw *from* the body rather than grade a
+picture of it, and would make "people become insects" a transformation
+rather than a cut. That requires rewriting `entity_render` to draw from a
+payload, which is a renderer rewrite and explicitly out of scope. Declared
+IMAGE for now, which is truthful, and the required contract is written
+down here rather than invented.
+
+`data_to_field` was the last holdout and a clean category A: it computes a
+per-cell angle to draw its hatch and never collected it. Now returns the
+same `{kind:"vector", cols, rows, cell, ang}` shape `flow_field` emits, so
+the two are interchangeable upstream of anything reading a vector field.
+It also read a module-global array while declaring a DATA input; it now
+reads the numbers it was handed.
+
+## One real behaviour change, and why it was kept
+
+Removing ENTITY removed a *type bridge* — and that bridge was carrying a
+genuine editorial rule. `entity_render` was inserted to cross a type
+boundary and, while it was there, applied the under-exposure that says
+*this sentence reports a claim, not a fact*.
+
+With the fiction gone the grade would have silently disappeared: a real
+rule vanishing because an unrelated fiction was removed. So it is now
+stated in `treatment.ts` as a treatment decision, applied to the subject
+before the language's tail, and it applies whatever the subject was built
+from rather than only to things that happened to be entities.
+
+Five tests asserted the fiction and now assert the truth. 280 pass.
+
+## The rerun — same synthesizer, same languages, same sentence
+
+| | BEFORE | AFTER |
+|---|---|---|
+| Primitives reached | 86 / 129 | 85 / 129 |
+| Families | 17 / 20 | 17 / 20 |
+| Programs that **crashed the renderer** | 1 | **0** |
+| Frames carrying a runtime **dataflow error** | 2 | **0** |
+| Mean frame contrast | 0.042 | **0.068** |
+
+**Coverage did not move, and it was never what the payload fix addressed.**
+The synthesizer explores by type legality, and type legality was already
+permissive — that was the problem. What changed is whether the programs it
+finds can actually run.
+
+The clearest single piece of evidence is one chain:
+
+```
+glyph_to_path → extrude → geometry_morph
+```
+
+Before, that produced a flat grey frame reading `geometry_draw: no
+upstream GEOMETRY`. Now it produces the word WITHOUT, extruded, its points
+morphing — because the glyph geometry genuinely travels the graph. That is
+a transformation between representations, discovered by a synthesizer that
+was never told about typography, extrusion or morphing.
+
+## What this does and does not prove
+
+**Proved:** the type system is now a contract rather than a naming
+convention, and a type-valid graph is a graph that can run.
+
+**Not proved:** that direct synthesis produces *good* films. It does not
+yet. Language identity still collapses under pure type-legality —
+TYPOGRAPHIC reaches for cellular automata, DIAGRAMMATIC for wireframes —
+because family appetite is a far weaker constraint than a chain, and
+motion-craft tails still dominate because ANIMATION → ANIMATION accepts
+anything once a chain emits it.
+
+Those are the next questions, and they are now askable on a substrate that
+tells the truth.

@@ -86,8 +86,123 @@ function lab(ctx, t, x, y, c) {
   ctx.fillStyle = c || "#69717a";
   ctx.fillText(t, x, y);
 }
+/* ── THE PAYLOAD CONTRACT ─────────────────────────────────────────────
+ *
+ * A primitive's declared OUTPUT TYPE must equal the payload it actually
+ * emits. Until now it did not, and the gap was the largest single fact
+ * about this palette:
+ *
+ *   129 primitives · 42 declared GEOMETRY / FIELD / ARTIFACT / ENTITY
+ *   and returned nothing but pixels.
+ *
+ * Which meant a chain could type-check completely and the downstream node
+ * receive NOTHING. It then fell back to its own synthetic default, and the
+ * film rendered something plausible that no part of the compiler chose —
+ * `tile` returning the stock "90 DAYS", `geometry_draw: no upstream
+ * GEOMETRY` on a chain the type checker had already approved, and the
+ * raster bridges that were only ever necessary because a canvas is the
+ * one thing that really travelled between two nodes.
+ *
+ * `noise_field` was fixed by hand for exactly this reason and its comment
+ * says why. This does the same thing for the rest, in one place, at
+ * registration — because thirty-four separate edits to thirty-four
+ * drawing loops is how a mechanical problem becomes a rewrite.
+ *
+ * THE FORM A PRIMITIVE DREW *IS* ITS GEOMETRY. Sampling the canvas the
+ * primitive just painted is not manufacturing a fake payload to satisfy a
+ * type — it is reading back the thing it actually made, which is exactly
+ * what `image_to_points` and `glyph_to_points` already do on purpose. A
+ * primitive that computes a better point set of its own simply returns it
+ * and this never fires.
+ */
+
+/** Sample the drawn form to a point set: [{x, y, x0, y0, v}].
+ *
+ *  Points carry their ORIGIN because a morph interpolates from where a
+ *  point started — the same contract `glyph_to_points` established.
+ *
+ *  Sampled through a small offscreen rather than off the full-size canvas:
+ *  one getImageData on a ~200px buffer instead of a 1280×720 one, which
+ *  keeps the contract affordable at render resolution. */
+const _formBuf = document.createElement("canvas");
+const _formCtx = _formBuf.getContext("2d", { willReadFrequently: true });
+function formPoints(ctx, w, h) {
+  if (!w || !h) return [];
+  const SW = 200;
+  const sw = Math.min(SW, w);
+  const sh = Math.max(1, Math.round((h / w) * sw));
+  _formBuf.width = sw;
+  _formBuf.height = sh;
+  _formCtx.clearRect(0, 0, sw, sh);
+  try {
+    _formCtx.drawImage(ctx.canvas, 0, 0, sw, sh);
+  } catch (_) {
+    return [];
+  }
+  const d = _formCtx.getImageData(0, 0, sw, sh).data;
+  const kx = w / sw;
+  const ky = h / sh;
+  const pts = [];
+  for (let y = 0; y < sh; y++) {
+    for (let x = 0; x < sw; x++) {
+      const i = (y * sw + x) * 4;
+      const a = d[i + 3];
+      if (a < 24) continue;
+      // Luminance against the palette's own ground. A primitive that
+      // painted its background and nothing else emits no geometry, which
+      // is the honest answer for an empty frame.
+      const v = (d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722) / 255;
+      if (v < 0.14) continue;
+      const px = x * kx;
+      const py = y * ky;
+      pts.push({ x: px, y: py, x0: px, y0: py, v });
+    }
+  }
+  return pts;
+}
+
+/** The declared output types of an io string ("GEOMETRY → ANIMATION"). */
+function declaredOut(io) {
+  return String(io)
+    .split("→")
+    .pop()
+    .split("|")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function reg(id, family, io, params, make, note, phase) {
-  PRIMS[id] = { id, family, io, params, make, note, phase: phase || 0 };
+  const emits = declaredOut(io);
+  // ONLY GEOMETRY IS BACKFILLED. FIELD and DATA are numeric structures a
+  // canvas cannot be read back into — a primitive claiming those has to
+  // compute them, and `noise_field` and `data_series` do. A declaration
+  // that cannot be honoured is a declaration that must change, not one to
+  // paper over.
+  const backfill = emits.includes("GEOMETRY");
+  PRIMS[id] = {
+    id,
+    family,
+    io,
+    params,
+    note,
+    phase: phase || 0,
+    make: backfill
+      ? (p) => {
+          const inst = make(p);
+          const inner = inst.frame;
+          if (typeof inner !== "function") return inst;
+          inst.frame = function (ctx, w, h, t, a, b, dur) {
+            const out = inner.call(this, ctx, w, h, t, a, b, dur);
+            // A primitive that already emits its own geometry is left
+            // entirely alone — its point set is better than a resample.
+            if (out && out.geometry) return out;
+            const geometry = formPoints(ctx, w, h);
+            return out ? Object.assign({}, out, { geometry }) : { geometry };
+          };
+          return inst;
+        }
+      : make,
+  };
 }
 
 reg(
@@ -522,7 +637,10 @@ reg(
 reg(
   "document_surface",
   "I · DOCUMENTS",
-  "— → ARTIFACT",
+  // Declared ARTIFACT and emitted pixels. Every consumer of "ARTIFACT"
+  // reads `upstream.canvas`, so the type was a name for "a picture from
+  // the documents family" and nothing more. IMAGE is what it is.
+  "— → IMAGE",
   {
     age: { v: 0.5, lo: 0, hi: 1 },
     columns: { v: 1, lo: 1, hi: 3, int: 1 },

@@ -20,7 +20,7 @@ function lines(ctx, x, y, wd, n, r, c) {
 reg(
   "document_layout",
   "I · DOCUMENTS",
-  "— → ARTIFACT",
+  "— → IMAGE",
   {
     kind: { v: 0, lo: 0, hi: 3, int: 1 },
     columns: { v: 2, lo: 1, hi: 3, int: 1 },
@@ -238,7 +238,7 @@ reg(
 reg(
   "camera_move",
   "I · DOCUMENTS",
-  "ARTIFACT → ANIMATION",
+  "IMAGE → ANIMATION",
   {
     kind: { v: 0, lo: 0, hi: 2, int: 1 },
     rate: { v: 0.3, lo: 0.05, hi: 1 },
@@ -1129,7 +1129,7 @@ reg(
 reg(
   "device_frame",
   "P · INTERFACE",
-  "— → ARTIFACT",
+  "— → IMAGE",
   {
     kind: { v: 0, lo: 0, hi: 2, int: 1 },
     scale: { v: 0.8, lo: 0.4, hi: 1 },
@@ -1204,7 +1204,7 @@ reg(
 reg(
   "browser_chrome",
   "P · INTERFACE",
-  "— → ARTIFACT",
+  "— → IMAGE",
   {
     url: { s: "archive.gov/orders/03-114" },
     tabs: { v: 3, lo: 1, hi: 6, int: 1 },
@@ -1256,7 +1256,7 @@ reg(
 reg(
   "ui_surface",
   "P · INTERFACE",
-  "DATA → ARTIFACT",
+  "DATA → IMAGE",
   {
     kind: { v: 0, lo: 0, hi: 2, int: 1 },
     items: { v: 6, lo: 2, hi: 12, int: 1 },

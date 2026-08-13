@@ -457,7 +457,14 @@ describe("generative entities", () => {
     const entity = must(PRIMITIVES.creature_chain, "creature_chain");
     const texture = must(PRIMITIVES.noise_field, "noise_field");
     expect(entity.estimatedCostMsPerFrame).toBeGreaterThan(texture.estimatedCostMsPerFrame);
-    expect(entity.outputs).toContain("ENTITY");
+    // It used to declare ENTITY. It emitted pixels, and every consumer of
+    // "ENTITY" read the canvas — so the type was a name for "a picture
+    // from the entity family" and the payload-contract pass collapsed it
+    // to what it truthfully is. A real ENTITY — segments, joints, gait,
+    // consumable by a renderer that draws FROM it — is a contract this
+    // palette does not have yet, and is recorded as such rather than
+    // faked.
+    expect(entity.outputs).toContain("IMAGE");
   });
 
   it("treats a generated image as material, not as output", () => {
