@@ -38,6 +38,7 @@ import {
   scenePosition,
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
+import { chainForKind, readSceneKind } from "./scene-kind.ts";
 import { displayPhrase, textParamsFor } from "./text-params.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
 
@@ -200,9 +201,24 @@ export function composeScene(
         reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
     }
   } else {
-    chain = [...rung.base];
-    for (const p of chain)
-      reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
+    // NO RATIFIED READING — but the sentence is still wearing a great deal
+    // on its surface. The curve says how far from literal this moment sits;
+    // the sentence's KIND says what sort of thing is depicted there. With
+    // only the curve, an 89-scene film compiled to twelve chains and three
+    // of them covered sixty-six scenes, because a smooth curve necessarily
+    // gives neighbouring scenes the same rung.
+    const kind = readSceneKind(scene);
+    const byKind = chainForKind(kind.kind, rung.tier, sceneIndex);
+    if (byKind) {
+      chain = [...byKind];
+      for (const p of chain) {
+        reasons.set(p, `${kind.kind} — ${kind.because} — at the ${rung.tier} rung`);
+      }
+    } else {
+      chain = [...rung.base];
+      for (const p of chain)
+        reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
+    }
   }
 
   // ── precedence 5: motif continuity ─────────────────────────────────
