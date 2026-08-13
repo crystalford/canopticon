@@ -74,6 +74,21 @@ export interface ScenePlan {
   /** Stated in the report so a director can see the shot was understood as
    *  a composition rather than a single object. */
   why: string;
+  /** THE UNSTATED PROPOSITION — what a viewer would construct from the
+   *  relationships between these planes, in one sentence, WITHOUT the
+   *  narration.
+   *
+   *  Taken from the Aldershot archive's Pass 3, and it is the sharpest
+   *  test in that document: the sentence must not repeat the concept. If
+   *  the proposition for a scene about metacognition has to say
+   *  "metacognition", the scene is illustrating a noun rather than
+   *  composing a claim — the gavel problem, stated as a check you can run.
+   *
+   *  Deliberately NOT shown in the film and not required to be shown to
+   *  the director. It exists so the question "does this composition say
+   *  anything without the voiceover" has an answer that can be read and
+   *  disagreed with. */
+  proposition: string;
 }
 
 /** Words that mark a simile — the same closed, grammatical list
@@ -158,7 +173,43 @@ export function planScene(beat: Beat, style: Style): ScenePlan {
     why: planes.length
       ? planes.map((p) => `${p.role.toLowerCase()}${p.from ? ` (${p.from})` : ""}`).join(" · ")
       : "single plane — the sentence names one thing",
+    proposition: propose(planes),
   };
+}
+
+/** What the composition claims, without the narration.
+ *
+ *  Built from the ROLES rather than from the sentence, which is the whole
+ *  point: a proposition assembled by pasting the sentence back together
+ *  would prove nothing. This says what the arrangement of planes implies —
+ *  a subject inside a setting, a subject seen as something else — and it
+ *  is deliberately plain rather than literary, because it is a test
+ *  artifact and not a caption.
+ *
+ *  Deterministic: same planes, same sentence, always. */
+function propose(planes: Plane[]): string {
+  const setting = planes.find((p) => p.role === "SETTING");
+  const subject = planes.find((p) => p.role === "SUBJECT");
+  const metaphor = planes.find((p) => p.role === "METAPHOR");
+
+  if (!planes.length) return "nothing is claimed — the sentence names nothing depictable";
+  if (subject && setting && metaphor) {
+    return `Something is moving through ${setting.from}, and it is not behaving the way the people who belong there behave.`;
+  }
+  if (subject && setting) {
+    return `${cap(subject.from)} occupies ${setting.from}, and the place continues around it.`;
+  }
+  if (subject && metaphor) {
+    return `${cap(subject.from)} is being seen as something else, and the resemblance is the claim.`;
+  }
+  if (setting) return "A place is held, and whatever happened in it has already happened.";
+  if (subject) return `${cap(subject.from)} is presented alone, with nothing to compare it to.`;
+  return "The words are the image; there is nothing behind them.";
+}
+
+function cap(s: string | null | undefined): string {
+  if (!s) return "Something";
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /** Which construction builds a given detected subject. Mirrors the `fit`

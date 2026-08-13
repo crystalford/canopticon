@@ -806,9 +806,16 @@ They walked around the city like insects. At first nobody noticed. Then there we
     expect(scene0.map((s) => s.text)).toContain("city");
     expect(scene2.map((s) => s.text)).toContain("streets");
 
-    // ...and yet nothing in the compiled film paints a space.
-    const paints = compiled().flatMap((s) => s.nodes.map((n) => n.primitiveId));
-    expect(paints).not.toContain("plate_scene");
+    // INVERTED. This assertion used to read `.not.toContain` — the whole
+    // point of the measurement was that both nouns were read and neither
+    // reached the picture. The setting now paints, as the ground under its
+    // own subject, which is what a setting is.
+    const withGrounds = compiled().flatMap((s) =>
+      s.nodes.flatMap((n) => [n.primitiveId, ...(n.ground ?? []).map((g) => g.primitiveId)]),
+    );
+    expect(withGrounds).toContain("plate_scene");
+    // And the agents are still there — alongside, not instead of.
+    expect(withGrounds).toContain("creature_chain");
   });
 });
 

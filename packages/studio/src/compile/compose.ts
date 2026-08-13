@@ -44,6 +44,7 @@ import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
+import { type Plane, type ScenePlan, isComposite, planScene } from "./scene-plan.ts";
 import {
   type DetectedSubject,
   detectSubjects,
@@ -261,6 +262,9 @@ export function composeScene(
   let plannedParams = new Map<string, Record<string, number | string>>();
   let program: Program | null = null;
   let alternatives: ProgramSummary[] = [];
+  /** The scene's roles, when it has more than one. Function-scoped because
+   *  the compositing pass below needs it long after the constructor ran. */
+  let scenePlan: ScenePlan | null = null;
 
   const reading = readingFor(scene);
   const ratified = Boolean(scene.reading);
@@ -395,6 +399,12 @@ export function composeScene(
           : "no named subject — the picture comes from the film's curve and the direction, not from the sentence",
       );
     }
+    // THE SCENE PLAN. What roles this shot contains, before anything
+    // decides which single one wins. A setting that loses is a setting
+    // that was read and thrown away — see scene-plan.ts.
+    scenePlan = planScene(beat, style);
+    if (isComposite(scenePlan)) notes.push(`composed — ${scenePlan.why}`);
+
     const programs = constructPrograms(beat, style, MAX_CHAIN_MS);
     const best = programs[0];
     if (best) {
@@ -568,6 +578,16 @@ export function composeScene(
   // Appended as a node like any other, so it hashes, caches, and appears
   // in the Compile view exactly like the rest of the chain. The one thing
   // that is different is that it carries a chain of its own.
+  // A SETTING PLANE IS A GROUND. The mechanism already existed — a
+  // compositor's second input, a chain of its own on the same clock — and
+  // had no planner that could say "the city goes behind the people". It
+  // does now, so the setting is composited UNDER the subject rather than
+  // competing with it for the one slot a scene used to have.
+  const settingPlane =
+    scenePlan && isComposite(scenePlan)
+      ? scenePlan.planes.find((pl: Plane) => pl.role === "SETTING")
+      : undefined;
+
   const ground = planGround({
     chain,
     tier: rung.tier,
@@ -580,6 +600,19 @@ export function composeScene(
     sceneIndex,
     budgetMs: MAX_CHAIN_MS - chainCost(chain),
   });
+  // THE SETTING TAKES THE GROUND SLOT. When the scene plan found a place,
+  // the second input should be THAT PLACE — not the abstract field the
+  // generic planner would otherwise reach for. This is the line that turns
+  // "city was detected" into "city is painted".
+  // Only when the compositor can actually take a picture. A field
+  // compositor reads a field's NUMBERS, so handing it a painted plate
+  // would type-check nowhere and composite nothing — `groundSatisfies`
+  // catches it, and refusing here keeps the scene's real ground instead of
+  // trading it for a refusal.
+  if (ground && settingPlane && groundSatisfies(ground.compositor, ["plate_scene"]) === true) {
+    ground.ground = ["plate_scene"];
+    notes.push(`ground is the setting — ${settingPlane.from}`);
+  }
   let groundNodes: ComposedNode[] | null = null;
   if (ground) {
     const satisfied = groundSatisfies(ground.compositor, ground.ground);
