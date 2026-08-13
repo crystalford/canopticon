@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-13T01:44:00Z",
+  "run_id": "31658621991",
+  "method": "GET",
+  "path": "/v1/projects",
+  "status": 200,
+  "body": "{\n  \"count\": 1,\n  \"projects\": [\n    {\n      \"projectId\": \"proj_305611e441404d1e97fa\",\n      \"title\": \"SHELF LIFE IS CLASS WAR\",\n      \"createdAt\": \"2026-08-13T01:10:04.894Z\",\n      \"irVersion\": 5,\n      \"scenes\": 118,\n      \"acts\": 10,\n      \"readings\": 0,\n      \"lastCompiledAt\": null,\n      \"lastNodes\": null\n    }\n  ]\n}"
+}
