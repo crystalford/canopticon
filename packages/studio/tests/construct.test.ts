@@ -28,6 +28,7 @@ import { segmentEssay } from "../src/compile/segment.ts";
 import { detectSubjects } from "../src/compile/subject.ts";
 import type { VisualLanguage } from "../src/ir/schema.ts";
 import { parseIR } from "../src/ir/schema.ts";
+import { PRIMITIVES } from "../src/primitives/registry.ts";
 import { must } from "./must.ts";
 
 function beatFor(sentence: string, extra: Partial<Beat> = {}): Beat {
@@ -645,5 +646,100 @@ describe("the third sentence test — prose with nothing to point a camera at", 
     if (!parsed.ok) throw new Error("invalid IR");
     const scene = must(composeAll(parsed.ir)[0]);
     expect(scene.nodes.length).toBeGreaterThan(0);
+  });
+});
+
+describe("the parameters the compiler sets are the parameters the primitive has", () => {
+  // The check that found the largest bug in this system, and it fits in
+  // twenty lines.
+  //
+  // Chasing why "the city watched its residents" and "the city appeared to
+  // watch its residents" compiled byte-identically, the answer turned out
+  // to be that the space construction set `depth` and `haze` on
+  // `plate_scene`, which has neither — its knobs are `scene`, `cars`,
+  // `dusk` and `life`. Every space in every film had therefore rendered
+  // with the same eleven cars at the same dusk regardless of the film's
+  // state.
+  //
+  // Auditing the rest found the same defect in eight more places:
+  // `scanline` was given a `strength` it has never had, `halftone` a
+  // `dot`, `threshold` a `cut`, `color_transform` a `warmth` and a `lift`,
+  // `text_layout` a `weight`, `particle_trail` a `fade`, `ease_profile` a
+  // `depth`, and every two-primitive operator handed both primitives one
+  // bag of parameters meant for one of them.
+  //
+  // So most operators had been running at their DEFAULTS. That is very
+  // likely the whole of the original complaint — "it uses the same filter
+  // palettes" — and it was invisible because a canvas primitive reading
+  // `p.dot` when nothing set `dot` does not throw. It draws its default
+  // and looks like a decision.
+  const STATE_BAG = new Set(["density", "energy", "abstraction", "human"]);
+
+  it("holds across a film that reaches every construction", () => {
+    const essay = `Rooms
+
+The smoke detector in room 214 had been disconnected for eleven months.
+The city watched its residents. They walked around the city like insects.
+The contract named a single warehouse worth $282,345.84. Nine numbered companies held the lease.
+Ottawa sent money to provincial governments, which paid hotel operators.
+The residents were moved at night. The minister said the programme was working.`;
+    const seed = segmentEssay(essay, { projectId: "p" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+
+    const wrong: string[] = [];
+    for (const scene of composeAll(parsed.ir)) {
+      for (const node of scene.nodes) {
+        const spec = PRIMITIVES[node.primitiveId];
+        if (!spec) continue;
+        for (const key of Object.keys(node.params)) {
+          // The resolved creative state is deliberately passed to every
+          // node as a bag the renderer may read generically. It does not
+          // claim to be a parameter of anything.
+          if (STATE_BAG.has(key)) continue;
+          if (!(key in spec.parameters)) wrong.push(`${node.primitiveId}.${key}`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it("holds for every operator, on every primitive it is made of", () => {
+    // Directly rather than through a film, so an operator that no essay
+    // happens to reach is still checked.
+    const style: Style = {
+      abstraction: 0.5,
+      density: 0.5,
+      energy: 0.6,
+      human: 0.7,
+      typography: 0.4,
+      archival: 0.3,
+      data: 0.2,
+      experimentalism: 0.5,
+      restraint: 0.4,
+      tier: "DECOMPOSED",
+      language: "documentary",
+    };
+    const beat: Beat = {
+      sentence: "The detector was removed at night.",
+      phrase: "THE DETECTOR",
+      subjects: detectSubjects("The detector was removed at night."),
+      figures: [],
+      route: [],
+      kind: "statement",
+      contested: false,
+      index: 0,
+    };
+    const wrong: string[] = [];
+    for (const program of constructPrograms(beat, style, 40)) {
+      for (const node of program.nodes) {
+        const spec = PRIMITIVES[node.primitiveId];
+        if (!spec) continue;
+        for (const key of Object.keys(node.params)) {
+          if (!(key in spec.parameters)) wrong.push(`${program.id} → ${node.primitiveId}.${key}`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
   });
 });

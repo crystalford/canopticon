@@ -409,6 +409,12 @@ const LEXICON: Array<{ kind: SubjectKind; weight: number; words: string[] }> = [
  *  These lose to anything in the lexicon and, on their own, produce no
  *  subject at all. A film that renders a ceiling fixture every time an
  *  essay says "infrastructure" is worse than one that renders type. */
+/** Nouns that name a real thing in the argument and no thing you can point
+ *  a camera at. Used two ways, and the difference matters: a subject must
+ *  be depictable to be BUILT, but a relation's participants need only be
+ *  named — "the policy made the residents afraid" is a relation whose
+ *  agent cannot be drawn, and refusing to read it because of that would
+ *  discard the causal structure along with the picture. */
 const NOT_DEPICTABLE = new Set([
   "system",
   "systems",
@@ -479,6 +485,29 @@ export function namesOnlyAbstractions(sentence: string): boolean {
     .toLowerCase()
     .split(/[^a-z-]+/)
     .some((w) => NOT_DEPICTABLE.has(w));
+}
+
+/** The abstractions a sentence names, with their offsets — the same shape
+ *  as a detected subject so a relation can hold one at either end.
+ *
+ *  Weight is deliberately 0: these can never be BUILT, and returning them
+ *  in the same shape is only safe because that zero makes them lose every
+ *  comparison a construction makes. What they can do is stand at one end
+ *  of a relation, which is a different question from what can be drawn. */
+export function detectAbstractions(sentence: string): DetectedSubject[] {
+  const lower = sentence.toLowerCase();
+  const out: DetectedSubject[] = [];
+  for (const word of NOT_DEPICTABLE) {
+    const at = wholeWordIndex(lower, word);
+    if (at < 0) continue;
+    out.push({
+      text: sentence.slice(at, at + word.length),
+      offset: at,
+      kind: "concept",
+      weight: 0,
+    });
+  }
+  return out.sort((a, b) => a.offset - b.offset);
 }
 
 /** A reading synthesised from what the prose NAMES, when no human-ratified

@@ -100,8 +100,48 @@ decision, and was called by nothing — so an unread sentence got an answer
 indistinguishable from a closely-read one. The scene still compiles
 (standing rule 8); it just stops claiming the prose chose the picture.
 
-Relationships, metaphor, causality and narrative function are the next
-real layer, and they are **not** more lexicon.
+Relationships, causality and stance are now read — see below. Metaphor and
+narrative function are not, and they are **not** more lexicon either.
+
+### §10 · Relations — who acts on whom
+
+| Claim | State | Where |
+|---|---|---|
+| Agency: who does it, who it is done to | **EXISTS** | `compile/relation.ts` — read from the structure BETWEEN two named things, never from a verb list |
+| Topic vs agent | **EXISTS** | A passive puts the patient in front, and that is what the shot is about. `leadWithTopic` reorders the subjects, which is what makes "the city watched its residents" and "the residents watched the city" build different things |
+| Stance: asserted / believed / apparent | **EXISTS** | The Record's fact-vs-attributed-assertion firewall, arriving in the compiler. A belief is drawn further from the literal and more restrained, because dramatising what someone merely believes is the visual form of laundering an attributed claim |
+| Causality: which way it runs | **EXISTS** | `made` / `designed to` → forward; `because` / `since` → backward. Forward is denser and more restless, backward is held |
+| Abstractions as relation participants | **EXISTS** | "The policy made the residents afraid" has an agent no camera can point at. `detectAbstractions` returns them at weight 0 — they can stand in a relation and can never win a construction |
+| Metaphor, narrative function, entity identity across a film | **MISSING** | The next layer, and not more lexicon |
+
+**Measured on the five-sentence stress test** — five sentences sharing two
+nouns: 5/5 materially distinct shots, 2 distinct constructions. Asserted in
+`construct.test.ts`.
+
+### The parameter contract, and the largest bug in the system
+
+Chasing why two of those five sentences compiled byte-identically turned up
+something much bigger: **the compiler had been setting parameters that do
+not exist on the primitives it set them on.** `plate_scene` was given
+`depth` and `haze` and has neither — its knobs are `scene`, `cars`, `dusk`,
+`life`. So every space in every film rendered with the same eleven cars at
+the same dusk whatever the state said.
+
+The same defect was in nine more places: `scanline` given a `strength`,
+`halftone` a `dot`, `threshold` a `cut`, `color_transform` a `warmth` and a
+`lift`, `text_layout` and `glyph_geometry` a `weight` that belongs to
+`variable_axis`, `glyph_to_points` a `density`, `particle_trail` a `fade`,
+`ease_profile` a `depth` — and every two-primitive operator handed both of
+its primitives one bag of parameters meant for one of them.
+
+**Most operators had been running at their defaults.** That is very likely
+the whole of the original complaint — *"it uses the same filter palettes"* —
+and it was invisible because a canvas primitive reading `p.dot` when
+nothing set `dot` does not throw. It draws its default and looks like a
+decision.
+
+Now a test, over a whole film and over every operator directly, so it
+cannot come back.
 
 ## §9 · Visual grammar
 

@@ -70,6 +70,7 @@ import type { Figure, VisualLanguage } from "../ir/schema.ts";
 import { PRIMITIVES, canChain, chainCost } from "../primitives/registry.ts";
 import { chartFor, serialiseFigures } from "./figures.ts";
 import { EMPTY_READING, type IntentReading, bendStyle } from "./intent.ts";
+import { type Relation, relationBias } from "./relation.ts";
 import type { SceneKind } from "./scene-kind.ts";
 import type { DetectedSubject } from "./subject.ts";
 
@@ -97,6 +98,14 @@ export interface Beat {
    *  no direction was given, which is not a failure — the film's own curve
    *  decides, exactly as it does for a scene with no ratified reading. */
   intent?: IntentReading | undefined;
+  /** WHO ACTS ON WHOM, and whether the sentence claims it happened.
+   *
+   *  Absent on most beats: a relation needs two named things and most
+   *  prose names one. Where it IS present it outranks the noun reading of
+   *  the sentence, because "the city watched its residents" and "the
+   *  residents watched the city" name exactly the same two things and are
+   *  different shots. `subjects` arrives already ordered by it. */
+  relation?: Relation | null | undefined;
 }
 
 /** The director's controls, resolved at this point in the film. These
@@ -671,9 +680,21 @@ const CONSTRUCTIONS: Construction[] = [
         nodes: [
           {
             primitiveId: "plate_scene",
+            // `depth` and `haze` were set here and NEITHER EXISTS on
+            // `plate_scene`. So every space this compiler has ever built
+            // rendered with the same eleven cars at the same dusk, in
+            // every film, whatever the state said — which is why the two
+            // sentences "the city watched its residents" and "the city
+            // appeared to watch its residents" came out byte-identical.
+            //
+            // The real knobs are how many things are in it, how dark it
+            // is, and how much is moving. Read off the state so a space
+            // can be crowded or emptied, lit or dusk, alive or still.
             params: {
-              depth: 0.4 + style.density * 0.4,
-              haze: 0.2 + style.archival * 0.4,
+              scene: style.abstraction > 0.6 ? 1 : 0,
+              cars: Math.round(2 + style.density * 26 + style.human * 8),
+              dusk: 0.25 + style.archival * 0.45 + (1 - style.energy) * 0.2,
+              life: 0.1 + style.energy * 0.6 + style.human * 0.25,
             },
             reason: `a room rather than a word, from "${beat.subjects[0]?.text ?? "the place named"}"`,
           },
@@ -698,17 +719,49 @@ const CONSTRUCTIONS: Construction[] = [
         nodes: [
           {
             primitiveId: long ? "text_layout" : "glyph_geometry",
-            params: { text: beat.phrase, weight: 0.4 + style.typography * 0.5 },
+            // `weight` exists on `variable_axis` and on NEITHER of the
+            // two primitives this construction actually uses.
+            // `text_layout` sets its measure with mode, tracking and
+            // scale; `glyph_geometry` with sampling, scale and rotate.
+            // Setting a name neither has meant every line of type in
+            // every film was laid out identically — which is a large part
+            // of why the films looked repetitive.
+            params: {
+              text: beat.phrase,
+              ...(long
+                ? {
+                    mode: Math.round(style.typography * 2),
+                    tracking: 0.2 + style.typography * 0.5,
+                    scale: 0.3 + style.typography * 0.5,
+                  }
+                : {
+                    sampling: Math.round(3 + (1 - style.density) * 8),
+                    scale: 0.35 + style.typography * 0.45,
+                    rotate: style.experimentalism * 0.3,
+                  }),
+            },
             reason: `set as ${long ? "a line" : "a single form"} — the words are the image`,
           },
           {
             primitiveId: "glyph_to_points",
-            params: { text: beat.phrase, density: 0.4 + style.density * 0.5 },
+            // `density` is not one of its knobs — it samples with
+            // `sampling` and scatters with `jitter`.
+            params: {
+              text: beat.phrase,
+              sampling: Math.round(3 + (1 - style.density) * 9),
+              jitter: 0.05 + style.experimentalism * 0.4,
+            },
             reason: "decomposed to points so it can be acted on rather than only read",
           },
           {
             primitiveId: "particle_trail",
-            params: { fade: 0.3 + style.energy * 0.4 },
+            // `fade` does not exist. A trail decays, spreads and has a
+            // count.
+            params: {
+              decay: 0.02 + (1 - style.energy) * 0.1,
+              spread: 0.15 + style.energy * 0.5,
+              count: 0.2 + style.density * 0.5,
+            },
             reason: "drawn as accumulation",
           },
         ],
@@ -731,7 +784,14 @@ interface Operator {
   /** How much the director's state wants this, 0..1. Nothing about the
    *  SUBJECT appears here — that is the whole point of an operator. */
   appetite(style: Style): number;
-  params(style: Style): Record<string, number | string>;
+  /** The numbers, PER PRIMITIVE.
+   *
+   *  Takes the primitive id because an operator implemented by two of them
+   *  is two different things — `trace` is an ascii pass and then a trail,
+   *  and they share no parameter names. One bag applied to both meant each
+   *  primitive received the other's parameters and silently ignored them,
+   *  so half of every multi-primitive operator ran on its defaults. */
+  params(style: Style, primitiveId: string): Record<string, number | string>;
   why: string;
 }
 
@@ -768,21 +828,30 @@ const OPERATORS: Operator[] = [
     id: "scanline",
     chain: ["scanline"],
     appetite: (s) => s.archival * 0.7,
-    params: (s) => ({ gap: Math.round(2 + s.archival * 5), strength: 0.3 + s.archival * 0.4 }),
+    // `strength` was set for months and `scanline` has never had one. The
+    // knobs it does have are gap, roll and bleed, so every scanline in
+    // every film ran on defaults whatever the film's archival weight was.
+    params: (s) => ({
+      gap: Math.round(2 + s.archival * 5),
+      roll: 0.2 + s.energy * 0.5,
+      bleed: 0.25 + s.archival * 0.5,
+    }),
     why: "scanned — the image as a recording of an image",
   },
   {
     id: "halftone",
     chain: ["halftone"],
     appetite: (s) => s.archival * 0.5 + s.typography * 0.3,
-    params: (s) => ({ dot: 0.3 + s.density * 0.4, angle: 0.25 }),
+    // `dot` does not exist; a halftone cell's size is `size`.
+    params: (s) => ({ size: Math.round(4 + (1 - s.density) * 12), angle: 0.15 + s.energy * 0.5 }),
     why: "halftoned — reproduction, with its own texture",
   },
   {
     id: "threshold",
     chain: ["threshold"],
     appetite: (s) => (1 - s.human) * 0.3 + s.abstraction * 0.25,
-    params: (s) => ({ cut: 0.4 + s.density * 0.2 }),
+    // `cut` does not exist; the level to cut at is `level`.
+    params: (s) => ({ level: 0.3 + s.density * 0.35, steps: Math.round(2 + s.abstraction * 5) }),
     why: "thresholded — reduced to what is there and what is not",
   },
   {
@@ -796,7 +865,11 @@ const OPERATORS: Operator[] = [
     id: "split",
     chain: ["chromatic_split"],
     appetite: (s) => s.energy * 0.5 + s.experimentalism * 0.3 - s.restraint * 0.3,
-    params: (s) => ({ amount: 0.15 + s.energy * 0.4 }),
+    params: (s) => ({
+      amount: 0.15 + s.energy * 0.4,
+      angle: 0.1 + s.abstraction * 0.6,
+      pulse: 0.2 + s.energy * 0.5,
+    }),
     why: "separated — the channels pulled apart",
   },
   {
@@ -807,21 +880,52 @@ const OPERATORS: Operator[] = [
     // sentence, which is what makes it an operation rather than a look.
     chain: ["image_to_points", "particle_trail"],
     appetite: (s) => s.abstraction * 0.7 + s.energy * 0.2,
-    params: (s) => ({ density: 0.35 + s.density * 0.5, fade: 0.3 + s.energy * 0.4 }),
+    params: (s, id) =>
+      id === "image_to_points"
+        ? {
+            sampling: Math.round(3 + (1 - s.density) * 9),
+            threshold: 0.2 + (1 - s.density) * 0.4,
+            dissolve: s.abstraction * 0.6,
+            drift: 0.2 + s.energy * 0.6,
+          }
+        : {
+            decay: 0.02 + (1 - s.energy) * 0.12,
+            spread: 0.2 + s.energy * 0.6,
+            count: 0.2 + s.density * 0.6,
+          },
     why: "taken apart into its own points and redrawn",
   },
   {
     id: "trace",
     chain: ["ascii_render", "particle_trail"],
     appetite: (s) => s.typography * 0.6 + s.experimentalism * 0.2,
-    params: (s) => ({ cell: Math.round(6 + (1 - s.density) * 10), fade: 0.35 }),
+    params: (s, id) =>
+      id === "ascii_render"
+        ? {
+            cell: Math.round(6 + (1 - s.density) * 10),
+            scale: 0.2 + s.typography * 0.5,
+            ramp: 0.25 + s.archival * 0.5,
+          }
+        : {
+            decay: 0.03 + s.restraint * 0.1,
+            spread: 0.15 + s.energy * 0.5,
+            count: 0.2 + s.density * 0.5,
+          },
     why: "re-read as characters — the image transcribed",
   },
   {
     id: "grade",
     chain: ["color_transform"],
     appetite: (s) => 0.3 + s.archival * 0.2,
-    params: (s) => ({ warmth: 0.35 + s.archival * 0.3, lift: 0.2 + (1 - s.density) * 0.2 }),
+    // `warmth` and `lift` do not exist on `color_transform`. It grades by
+    // MODE — which grade — plus how much of it and how far the hue moves.
+    // This is why every graded shot in every film looked the same: mode 0
+    // at amount 0.7, the defaults, in all of them.
+    params: (s) => ({
+      mode: Math.round(Math.min(2, s.archival * 2 + (s.experimentalism > 0.7 ? 1 : 0))),
+      amount: 0.35 + s.archival * 0.5,
+      shift: 0.1 + s.experimentalism * 0.5,
+    }),
     why: "graded",
   },
   {
@@ -877,7 +981,18 @@ export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Pro
   // skipped by a caller. Every construction already reads these dials to
   // set its own numbers, so this reaches scale, speed, gait, wander,
   // segment count, depth and haze without naming any of them.
-  const style = bendStyle(raw, intent);
+  // THE DIRECTION AND THE RELATION BOTH BEND IT, in that order.
+  //
+  // The relation is a fact about the prose and the direction is the
+  // director's instruction, so the direction is applied first and the
+  // relation leans on the result — a passive is still a passive in a film
+  // directed to feel overwhelming, but it is an overwhelming passive.
+  const style = beat.relation
+    ? bendStyle(bendStyle(raw, intent), {
+        ...EMPTY_READING,
+        style: relationBias(beat.relation),
+      })
+    : bendStyle(raw, intent);
 
   // HOW FAR THE DIRECTOR WILL LET THIS GO AGAINST THE GRAIN.
   //
@@ -1058,7 +1173,7 @@ function assemble(
       }
       candidate.push({
         primitiveId,
-        params: op.params(style),
+        params: op.params(style, primitiveId),
         reason: op.why,
       });
     }
@@ -1077,7 +1192,18 @@ function assemble(
     if (chainCost(withTail) > budgetMs) break;
     nodes.push({
       primitiveId,
-      params: { depth: 0.3 + style.density * 0.3 },
+      // `depth` belongs to `parallax_layers`, not to `ease_profile`, and
+      // the tail set it on both — so every shot in every film has eased
+      // on `kind` 0 at `amount` 0.5, the defaults. The two primitives in
+      // this tail want different numbers and now get them.
+      params:
+        primitiveId === "parallax_layers"
+          ? {
+              layers: Math.round(2 + style.density * 4),
+              depth: 0.2 + style.density * 0.4,
+              rate: 0.15 + style.energy * 0.5,
+            }
+          : { kind: Math.round(style.restraint > 0.6 ? 0 : 1), amount: 0.25 + style.energy * 0.5 },
       reason: "given depth and eased, so the shot moves like a shot",
     });
   }

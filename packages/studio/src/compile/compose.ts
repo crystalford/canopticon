@@ -42,6 +42,7 @@ import { looksContested } from "./extract-reading.ts";
 import { groundSatisfies, planGround } from "./ground.ts";
 import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
+import { type Relation, describeRelation, readRelation } from "./relation.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
 import {
   type DetectedSubject,
@@ -309,10 +310,15 @@ export function composeScene(
     if (intentReading) {
       notes.push(`directed — ${describeIntent(intentReading)}`);
     }
+    // WHO ACTS ON WHOM. Read before the subjects are ordered, because it
+    // is what orders them.
+    const relation = readRelation(scene.narration.text);
+    if (relation) notes.push(`relation — ${describeRelation(relation)}`);
     const beat: Beat = {
       sentence: scene.narration.text,
       phrase: phrase.text,
-      subjects: sceneSubjects(scene.narration.text, carried),
+      subjects: leadWithTopic(sceneSubjects(scene.narration.text, carried), relation),
+      ...(relation ? { relation } : {}),
       figures: scene.figures ?? [],
       route: scene.route ?? [],
       kind: kind.kind,
@@ -796,6 +802,32 @@ function readingFor(scene: Scene): SemanticReading | null {
 
 /** What this scene is about — its own nouns, or the film's if it is
  *  pointing back at them. */
+/** Put what the sentence is ABOUT at the front of the subject list.
+ *
+ *  The single change that makes "the city watched its residents" and "the
+ *  residents watched the city" build different things. They name the same
+ *  two nouns, so a weight-ordered list puts the same one first in both and
+ *  the compiler answers them identically. Word order is the signal, and a
+ *  passive exists precisely to change it — which is why the topic is used
+ *  here rather than the agent.
+ *
+ *  Only reorders. Nothing is added or dropped, so a relation can change
+ *  which construction wins but can never introduce a subject the sentence
+ *  did not name. */
+function leadWithTopic(subjects: DetectedSubject[], relation: Relation | null): DetectedSubject[] {
+  const topic = relation?.topic;
+  if (!topic) return subjects;
+  const at = subjects.findIndex(
+    (s) => s.offset === topic.offset && s.text.toLowerCase() === topic.text.toLowerCase(),
+  );
+  // An abstraction can lead a RELATION and must never lead a BUILD — the
+  // policy is genuinely the agent of "the policy made the residents
+  // afraid" and there is still nothing to draw. Leaving the order alone
+  // hands the shot to the residents, which is the right picture of it.
+  if (at < 0 || topic.weight <= 0) return subjects;
+  return [subjects[at] as DetectedSubject, ...subjects.filter((_, i) => i !== at)];
+}
+
 function sceneSubjects(sentence: string, carried: DetectedSubject | null): DetectedSubject[] {
   const own = detectSubjects(sentence);
   // A CARRIED SUBJECT COMPETES; IT IS NOT A FALLBACK.
