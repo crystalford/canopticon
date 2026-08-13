@@ -32,9 +32,12 @@ NARRATIVE IR            acts → scenes, bound to the prose by character offset
      ↓
 CREATIVE STATE          the film's evolving personality, as curves
      ↓
-COMPOSITION ENGINE      intent → primitive chains
+COMPOSITION ENGINE      intent → a CONSTRUCTED program
      ↓
-PROCEDURAL PALETTE      111 primitives, typed inputs and outputs
+CONSTRUCTIONS           build a thing, parameterised from the prose
+OPERATORS               orthogonal — applied to anything constructed
+     ↓
+PROCEDURAL PALETTE      128 primitives — the instruction set, not the menu
      ↓
 CONSTRAINT SOLVER       narration anchors → time windows
      ↓
@@ -121,9 +124,26 @@ POST /project/:id/compile  the plan, cached per primitive
   overrules the model, and reads the register — institutional framing
   ("presented as", "framed as") and quoted spans count; bare "claims" does
   not, because an essay about asylum *claimants* is not hedging.
-- `src/compile/treatment.ts` — reading + visual language → a type-checked
-  primitive chain. Body plans per subject kind, automatic bridges between
-  types, tails applied selectively.
+- `src/compile/subject.ts` — **what the sentence names**, from a lexicon
+  matched as whole words, each hit carrying its verbatim text and offset.
+  The same distinction figures use: whether a sentence NAMES a depictable
+  thing is checkable against the prose, so it needs no model and no
+  ratification. It is what makes the object families reachable at all.
+- `src/compile/phrase.ts` — **the words on screen, chosen not truncated.**
+  Candidates from the sentence — the verbatim figure, a proper-noun run,
+  the noun it names, its first strong clause — trimmed so a phrase can
+  never begin or end on a function word, deduped against the last six
+  scenes.
+- `src/compile/construct.ts` — **the layer above the palette.**
+  CONSTRUCTIONS build a thing with its numbers read off the prose ("nine
+  numbered rooms" is a nine-segment chain; a detector vents and blinks
+  where a camera domes and does not). OPERATORS are orthogonal and apply
+  to anything constructed. CANDIDATES are several genuinely different
+  programs per beat, carried on the report. A visual language moves each
+  operator's appetite rather than naming a tail; abstraction is a
+  PERMISSION that opens and closes which operations may run at all.
+- `src/compile/treatment.ts` — the ratified-reading path. A human-approved
+  interpretation still outranks everything the constructor infers.
 - `src/compile/compose.ts` — the composition engine. Abstraction ladder
   (GROUNDED → ANNOTATED → DECOMPOSED → DISSOLVED), the Constitution's
   8-level precedence order, motif development, restraint ceiling.
@@ -192,7 +212,13 @@ resolver and the cost table in the browser. It reads the Worker's composition
 now — two implementations of one rule is how they disagreed about 57 of 88
 scenes without anyone noticing.
 
-**Tested** (178 tests): a hand-authored IR resolves to correct windows; an
+**The engine proposes; the director ratifies — applied to depiction.**
+`POST /project/:id/direct` pins one of the constructed alternatives to a
+scene, which is precedence 1 and was always meant to be reachable. The
+Preview's right column opens with the VISUAL IDEA — what the shot IS, in a
+sentence — above the chain rather than instead of it.
+
+**Tested** (212 tests): a hand-authored IR resolves to correct windows; an
 unchanged recompile is 100% cache hit; editing one sentence recomputes only
 what depends on it; moving the last control point leaves the film's opening
 untouched and spends zero TTS; a pin survives a restyle with the tension
@@ -202,19 +228,33 @@ to consume its own upstream at every stage. Narration: a frozen alignment
 clears `missing_alignment` AND moves the window to the measured time, audio
 survives a failed alignment, and one scene's failure degrades that scene
 only. Grounds: the ground reaches the hash, costs what it costs, and a field
-compositor refuses a ground that is not a field.
+compositor refuses a ground that is not a field. Construction: the same
+sentence in documentary, pixel and surreal produces three chains differing
+in their OPERATIONS rather than a swapped tail; none of the chains a real
+essay compiles to is a ladder rung; and the paragraph the architecture is
+judged on ("they walked around the city like insects... then there were
+dozens of them, moving in strange synchronized waves") builds bodies,
+carries them across a sentence made of pronouns, and escalates — more of
+them, with the wander taken out.
 
 **Known gaps, stated plainly.**
 
 - **No server-side renderer.** Chains execute in the browser, so a compile
   produces a plan and the export records the canvas in real time. That is L2
   honestly — frames are captured on the browser's clock — not L3.
-- **Roughly half of the palette's consumers still ignore their declared
-  input.** The compiler measures this (`usage.linkHonesty`,
-  `usage.decorativeLinks`, `usage.grounds`) and the Compile view prints it,
-  so pruning happens on evidence. A ground link is the one link that cannot
-  be decorative — a compositor reads both sides or draws nothing — which is
-  why grounds are counted separately rather than folded into the average.
+- **Some of the palette's consumers still ignore their declared input.**
+  The compiler measures this (`usage.linkHonesty`, `usage.decorativeLinks`,
+  `usage.grounds`) and the Compile view prints it, so pruning happens on
+  evidence. The whole raster family was fixed the moment it became
+  load-bearing: every one of them declared IMAGE → IMAGE and rastered a
+  synthetic "1997" plate, so an operator applied to a constructed object
+  replaced it rather than transforming it. That is the difference between
+  an operator and a slide, and it is the check to run on any primitive
+  before treating it as one.
+- **The Studio's information architecture is still the compiler's, not a
+  director's.** The VISUAL IDEA card and its alternatives are the first
+  piece of the creative loop; a shot-level inspector, a contact sheet, a
+  visual-rhythm view, and fork/compare are not built.
 - **`POST /project/:id/narrate` has not run against the live AI binding.**
   Both ladders were exercised against fakes covering every response shape
   Workers AI has been known to return, and `POST /v1/tts/probe` exists to ask
