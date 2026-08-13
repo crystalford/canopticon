@@ -266,7 +266,12 @@ function drawPvRight(c) {
 /* ══ COMPILE ════════════════════════════════════════════ */
 function viewCompile(root) {
   const run = dryRun();
-  const totalCost = run.comps.reduce((a, c) => a + c.cost, 0);
+  // PEAK, not sum. Summing per-frame costs across every scene produces a
+  // number in the thousands and calls it a frame budget — but scenes do not
+  // render simultaneously, so the only figure that decides whether a film
+  // plays in real time is its most expensive single scene.
+  const peakCost = run.comps.reduce((a, c) => Math.max(a, c.cost), 0);
+  const overRealtime = run.comps.filter((c) => c.cost > 16).length;
   root.innerHTML = `<div class="shell" style="grid-template-columns:minmax(0,1fr) 300px">
    <div class="col mcol">
     <div class="vhead"><h2>Compile</h2><span class="k">Deliberately boring. Every recomputation has a stated reason.</span></div>
@@ -288,7 +293,7 @@ function viewCompile(root) {
    <div class="col rcol"><div class="pad">
     <div class="sec"><span class="k">This build</span>
      <div class="big">${run.miss}<em>primitives recomputed</em></div>
-     <div class="meta">${M({ cached: run.hit + " / " + run.total, "scenes touched": run.comps.filter((c) => c.misses).length + " / " + F3.scenes.length, "est. wall time": ((400 + run.miss * 310) / 1000).toFixed(1) + "s", "frame budget": totalCost + " ms", "tts calls": "0", spend: "$0.00" })}</div></div>
+     <div class="meta">${M({ cached: run.hit + " / " + run.total, "scenes touched": run.comps.filter((c) => c.misses).length + " / " + F3.scenes.length, "est. wall time": ((400 + run.miss * 310) / 1000).toFixed(1) + "s", "peak frame": peakCost + " ms" + (peakCost > 16 ? " · over real time" : " · real time"), "scenes over 16ms": overRealtime + " / " + run.comps.length, "tts calls": "0", spend: "$0.00" })}</div></div>
     <div class="sec secline"><span class="k">Determinism</span>
      <div class="meta">${M({ "semantic L1": "GUARANTEED", "pixel L2": "PINNED ENV", "gpu chains": run.comps.filter((c) => c.det !== "L2").length + " · L2-GPU", "byte-identical": "NOT CLAIMED" })}</div></div>
     <div class="sec secline"><span class="k">Build history</span>

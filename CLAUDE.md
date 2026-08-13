@@ -145,18 +145,40 @@ to the film's own curve. A *figure* is checkable by anyone, so it needs neither.
 Which means an institutional essay reaches the chart family from prose alone,
 before a model has seen a single sentence.
 
-**Tested** (122 tests): a hand-authored IR resolves to correct windows; an
-unchanged recompile is 100% cache hit; editing one sentence recomputes only
-what depends on it; dragging the abstraction curve spends zero TTS and leaves
-early scenes untouched; a pin survives a restyle with the tension reported; the
-same IR always produces the same hashes; and the real essay segments, validates,
-compiles and re-compiles clean.
+**The instrument.** `studio.canopticon.com` serves the Lab: six views over ONE
+compiler. FILMS lists what is stored and takes a pasted essay; NARRATIVE shows
+the prose with every scene bound to its own span; EDITORIAL is the creative
+state, and dragging it writes a new IR version and reports what the edit cost;
+PREVIEW runs the real chain and exports a `.webm`; COMPILE is the audit;
+LAB is where a primitive earns its place. Keyboard throughout, and `/` finds a
+scene by what it says.
 
-**Known gaps, stated plainly.** There is no server-side renderer — the Lab is
-where chains execute, so a compile produces a *plan*, not pixels. Of the five
-views only the Lab exists. Most of the older primitives synthesise rather than
-consume input; prune the palette on usage evidence (`src/compile/usage.ts`
-reports which were load-bearing), not instinct.
+**There is no second engine.** The Lab used to reimplement the ladder, the
+resolver and the cost table in the browser. It reads the Worker's composition
+now — two implementations of one rule is how they disagreed about 57 of 88
+scenes without anyone noticing.
+
+**Tested** (125 tests): a hand-authored IR resolves to correct windows; an
+unchanged recompile is 100% cache hit; editing one sentence recomputes only
+what depends on it; moving the last control point leaves the film's opening
+untouched and spends zero TTS; a pin survives a restyle with the tension
+reported; the same IR always produces the same hashes; the real essay segments,
+validates, compiles and re-compiles clean; and the flagship chain is asserted
+to consume its own upstream at every stage.
+
+**Known gaps, stated plainly.**
+
+- **No server-side renderer.** Chains execute in the browser, so a compile
+  produces a plan and the export records the canvas in real time. That is L2
+  honestly — frames are captured on the browser's clock — not L3.
+- **51 of 74 consumers still ignore their declared input.** The compiler
+  measures this (`usage.linkHonesty`, `usage.decorativeLinks`) and the Compile
+  view prints it, so pruning happens on evidence. A real film currently has
+  zero decorative links but roughly half its chain links are a source drawing
+  over the stage before it. That is the remaining debt and it is a list, not a
+  feeling.
+- **`POST /project/:id/read` has never run against a live model.** It needs the
+  deployed AI binding; every other path is exercised end to end.
 
 ## What's next
 

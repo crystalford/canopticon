@@ -123,7 +123,20 @@ export interface ComposedScene {
 const DENSITY_BLEND_AT = 0.55;
 const DENSITY_NEST_AT = 0.75;
 const TYPO_VARIABLE_AXIS_AT = 0.55;
-const FRAME_BUDGET_MS = 16;
+/** Real-time playback: 60fps leaves 16ms a frame. The Preview plays at this
+ *  rate, so a chain above it will drop frames while a director is watching. */
+const REALTIME_FRAME_MS = 16;
+/** The hard ceiling a chain may not exceed. Deliberately four times the
+ *  real-time budget, because an EXPORT is not real time — frames can take
+ *  as long as they take — and refusing a rich chain outright would make the
+ *  top of the abstraction ladder unreachable for a film nobody intends to
+ *  scrub live.
+ *
+ *  Named separately because it was not: the constant said 16 and the guard
+ *  allowed four times that, so the number the code appeared to enforce and
+ *  the number it enforced were different, and the Compile view reported
+ *  against the one it wasn't using. */
+const MAX_CHAIN_MS = REALTIME_FRAME_MS * 4;
 
 export function composeScene(
   ir: EditorialIR,
@@ -258,10 +271,19 @@ export function composeScene(
     );
   }
 
-  // Refuse a chain that would blow the frame budget (Atlas 7.1.4).
-  while (chain.length > 1 && chainCost(chain) > FRAME_BUDGET_MS * 4) {
+  // Refuse a chain that would blow the ceiling (Atlas 7.1.4).
+  while (chain.length > 1 && chainCost(chain) > MAX_CHAIN_MS) {
     const removed = chain.pop() as string;
-    notes.push(`dropped ${removed} — chain exceeded the frame budget`);
+    notes.push(`dropped ${removed} — chain exceeded ${MAX_CHAIN_MS}ms, the export ceiling`);
+  }
+  // Over real time but under the ceiling is a legitimate, deliberate state —
+  // and one a director should be told about, because it is the difference
+  // between a film they can scrub and a film they must export to watch.
+  const cost = chainCost(chain);
+  if (cost > REALTIME_FRAME_MS) {
+    notes.push(
+      `${cost}ms/frame — above the ${REALTIME_FRAME_MS}ms real-time budget, so this scene will drop frames in Preview but renders correctly on export`,
+    );
   }
 
   // Validate the FINAL chain, not just the planned treatment. Motif,
