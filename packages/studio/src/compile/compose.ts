@@ -39,8 +39,10 @@ import {
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
 import { groundSatisfies, planGround } from "./ground.ts";
+import { choosePhrase } from "./phrase.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
-import { displayPhrase, textParamsFor } from "./text-params.ts";
+import { subjectReading } from "./subject.ts";
+import { textParamsFor } from "./text-params.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
 
 /** The abstraction ladder — how far the image sits from literal depiction.
@@ -124,6 +126,11 @@ export interface ComposedScene {
   treatment: Treatment | null;
   costMsPerFrame: number;
   determinism: Determinism;
+  /** The words this scene actually puts on screen, and which rule chose
+   *  them. Carried on the report because a phrase nobody can account for
+   *  is indistinguishable from a truncation — which is what it used to
+   *  be. */
+  phrase: { text: string; source: string };
 }
 
 /** Density and typography earn extra compositing depth; restraint takes it
@@ -153,6 +160,11 @@ export function composeScene(
   sceneIndex: number,
   positions: number[],
   recentChains: string[][],
+  /** What the last few scenes put on screen. Institutional prose opens
+   *  sentence after sentence the same way, so without this a film cutting
+   *  correctly between twenty chains still reads "THE FEDERAL GOVERNMENT"
+   *  twenty times. */
+  recentPhrases: string[] = [],
 ): ComposedScene {
   const state = resolveStateAt(ir, scenePosition(ir, sceneIndex), positions);
   const notes: string[] = [];
@@ -407,7 +419,10 @@ export function composeScene(
   // asylum hotels. Four hardcoded phrases from a different essay, looping
   // for six minutes. It typechecked, it cached, and every number in the
   // Compile view was correct about it.
-  const phrase = displayPhrase(scene.label, scene.narration.text);
+  const phrase = choosePhrase(scene.narration.text, scene.label, {
+    recent: recentPhrases,
+    figures: scene.figures ?? [],
+  });
 
   const nodes: ComposedNode[] = chain.map((primitiveId, i) => {
     const spec = PRIMITIVES[primitiveId];
@@ -416,7 +431,7 @@ export function composeScene(
       energy: round3(state.values.motionEnergy ?? 0),
       abstraction: round3(abstraction),
       human: round3(state.values.humanPresence ?? 0),
-      ...textParamsFor(primitiveId, phrase, spec?.parameters ?? {}),
+      ...textParamsFor(primitiveId, phrase.text, spec?.parameters ?? {}),
     };
     // A treatment's parameters are the whole point of planning one — they
     // carry the representation rung and the camera, and a claim's colder
@@ -481,6 +496,7 @@ export function composeScene(
     // that turns a budget into a decoration.
     costMsPerFrame: chainCost(chain) + (groundNodes ? chainCost(ground?.ground ?? []) : 0),
     determinism: chainDeterminism([...chain, ...(ground?.ground ?? [])]),
+    phrase: { text: phrase.text, source: phrase.source },
   };
 }
 
@@ -534,7 +550,30 @@ function readingFor(scene: Scene): SemanticReading | null {
   const quantities = figures.filter((f) => f.kind !== "year");
   const years = figures.filter((f) => f.kind === "year");
   const dataLed = route.length >= 2 || quantities.length > 0 || years.length >= 2;
-  if (!dataLed) return null;
+
+  if (!dataLed) {
+    // 3. WHAT THE SENTENCE NAMES.
+    //
+    // The palette has exactly two object generators, `creature_chain` and
+    // `mounted_fixture`, and until this branch existed the ONLY route to
+    // either ran through a ratified reading's subject kind. A reading is a
+    // model proposal a human approves, the model declines rather than
+    // guesses, and most scenes therefore had none — so every door to the
+    // object families was shut and the film fell back to type. "I've never
+    // seen it render an object yet" was a correct report of the
+    // architecture, not of the taste.
+    //
+    // Whether a sentence NAMES a depictable thing is checkable against the
+    // prose, exactly like a figure, so it needs no model and no
+    // ratification. It stays BELOW both of the things that outrank it: a
+    // human-approved reading is better information than a word match, and
+    // on an institutional essay the number is the finding — a picture of a
+    // building is not an improvement on $282,345.84.
+    const named = subjectReading(scene.narration.text, scene.label);
+    if (!named) return null;
+    return { ...named, contested: looksContested(scene.narration.text) };
+  }
+
   return {
     sentence: scene.narration.text,
     subjects: [{ label: scene.label || "figures", kind: "concept", weight: 0.6 }],
@@ -552,11 +591,17 @@ export function composeAll(ir: EditorialIR): ComposedScene[] {
   const positions = controlPointPositions(ir);
   const out: ComposedScene[] = [];
   const recent: string[][] = [];
+  const phrases: string[] = [];
   ir.scenes.forEach((scene, i) => {
-    const composed = composeScene(ir, scene, i, positions, recent);
+    const composed = composeScene(ir, scene, i, positions, recent, phrases);
     out.push(composed);
     recent.push(composed.nodes.map((n) => n.primitiveId));
     if (recent.length > 4) recent.shift();
+    phrases.push(composed.phrase.text);
+    // Six is about how far back a viewer notices a repeat at documentary
+    // pace. Longer and the film starts reaching for weaker phrases to
+    // avoid a repetition nobody would have seen.
+    if (phrases.length > 6) phrases.shift();
   });
   return out;
 }
