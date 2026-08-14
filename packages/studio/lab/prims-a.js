@@ -313,7 +313,7 @@ reg(
             }
         } else {
           for (let i = 0; i < 60; i++) {
-            o.strokeStyle = "rgba(216,98,74," + (0.2 + i / 120) + ")";
+            o.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + (0.2 + i / 120) + ")";
             o.lineWidth = 1;
             o.beginPath();
             o.moveTo(0, (i / 60) * h + Math.sin(t + i * 0.3) * 8);
@@ -359,7 +359,7 @@ reg(
             fbm(n, (x / w) * 5 * p.scale + 9, (y / h) * 5 * p.scale - t * 0.1, 3, 0.6) *
             p.amount *
             70;
-          ctx.fillStyle = Math.abs(dx) > 20 ? "rgba(216,98,74,.8)" : "rgba(238,241,243,.8)";
+          ctx.fillStyle = Math.abs(dx) > 20 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.8)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.8)`;
           ctx.fillRect(x + dx, y + dy, 1.6, 1.6);
         }
         lab(ctx, "GLYPH GEOMETRY × NOISE FIELD", 10, h - 16);
@@ -535,7 +535,7 @@ reg(
       ctx.strokeStyle = INK;
       ctx.lineWidth = 1.4;
       ctx.stroke();
-      ctx.fillStyle = "rgba(216,98,74,.10)";
+      ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.10)`;
       ctx.fill();
       lab(
         ctx,
@@ -565,7 +565,7 @@ reg(
   (p) => ({
     frame(ctx, w, h, t) {
       bg(ctx, w, h);
-      ctx.strokeStyle = "rgba(238,241,243,.7)";
+      ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.7)`;
       const sway = Math.sin(t * 0.5) * 0.06;
       let count = 0;
       (function br(x, y, len, ang, d) {
@@ -575,7 +575,7 @@ reg(
           y2 = y + Math.sin(ang) * len;
         ctx.lineWidth = Math.max(0.4, d * 0.35);
         ctx.strokeStyle =
-          d < 3 ? "rgba(216,98,74,.75)" : "rgba(238,241,243," + (0.25 + d * 0.07) + ")";
+          d < 3 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.75)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.25 + d * 0.07) + ")";
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.lineTo(x2, y2);
@@ -802,7 +802,7 @@ reg(
             Math.sin(a * (1 + Math.round(p.complexity * 3)) + u * 9) * h * 0.06;
           const x = w / 2 + Math.cos(a + u * 6.283) * r,
             y = h / 2 + Math.sin(a + u * 6.283) * r * 0.6;
-          ctx.fillStyle = u > 0.7 ? "rgba(216,98,74,.6)" : "rgba(238,241,243,.45)";
+          ctx.fillStyle = u > 0.7 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.6)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.45)`;
           ctx.fillRect(x, y, 2, 2);
         }
         ctx.strokeStyle = "rgba(155,163,170,.25)";
@@ -870,7 +870,7 @@ reg(
           // gone, which is what makes a repetition read as accumulation
           // rather than as wallpaper.
           const a = 0.16 + (1 - p.fade) * 0.5 + j2 * p.fade * 0.7;
-          ctx.fillStyle = i % 17 === 0 ? "rgba(216,98,74," + a + ")" : "rgba(238,241,243," + a + ")";
+          ctx.fillStyle = i % 17 === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + a + ")" : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + a + ")";
           ctx.fillText(p.text, px, py);
         }
       }

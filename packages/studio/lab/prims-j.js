@@ -147,7 +147,7 @@ function knockout(src) {
  *  two-input primitive with one input is not an error — it is a chain
  *  someone is still building — but it must not look like it worked. */
 function halfLit(ctx, w, h, which) {
-  ctx.fillStyle = "rgba(216,98,74,.9)";
+  ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.9)`;
   ctx.font = '500 10px "JetBrains Mono",monospace';
   ctx.fillText(`NO ${which} INPUT — SHOWING WHAT THERE IS`, 10, 16);
 }
