@@ -363,7 +363,13 @@ describe("the Stage 1 milestone", () => {
    * intent without knowing anything about colour. */
   it("carries the film's colour onto the plan without resolving it", async () => {
     const ir = buildFixtureIR();
-    ir.cinematography.colour = { key: 0.9, temperature: 0.66, saturation: 0.36, contrast: 0.72 };
+    ir.cinematography.colour = {
+      key: 0.9,
+      temperature: 0.66,
+      saturation: 0.36,
+      contrast: 0.72,
+      spread: 0.4,
+    };
     const report = await compile(ir);
     const plan = buildFilmPlan(ir, report);
     expect(plan.colour).toEqual(ir.cinematography.colour);

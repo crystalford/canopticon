@@ -64,7 +64,7 @@
  * reads as a picture rather than as a diagnostic buffer. It is the same
  * coordinates as `LOOKS[1]` — a position in the space, not a second
  * opinion about it. */
-const COLOUR_DEFAULT = { key: 0.16, temperature: 0.58, saturation: 0.34, contrast: 0.56 };
+const COLOUR_DEFAULT = { key: 0.16, temperature: 0.58, saturation: 0.34, contrast: 0.56, spread: 0.22 };
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const mix = (a, b, t) => a + (b - a) * t;
@@ -203,11 +203,60 @@ function resolvePalette(colour) {
   const dimL = mix(groundL, inkL, 0.14 + con * 0.06);
 
   const accentHue = hue === HUE_WARM ? ACCENT_COOL : ACCENT_WARM;
+
   // The accent is the one place saturation is allowed to be assertive:
   // a film at saturation 0 still needs a focal colour or nothing in the
   // frame can be emphasised at all.
   const accentS = 0.42 + sat * 0.52;
   const accentL = key > 0.5 ? mix(0.5, 0.4, con) : mix(0.56, 0.62, con);
+
+  /* ── THE RAMP. MORE THAN ONE COLOUR ON SCREEN ───────────────────────
+   *
+   * Every primitive in this system could reach exactly six colours —
+   * ink, accent, muted, cool, ground, dim — and only ONE of them was
+   * saturated. A frame of ten thousand particles had one hue available
+   * for all ten thousand. Anything with actual colour in it — a pixel-art
+   * palette, a spectrum, a heat map, marks that differ from each other —
+   * was impossible by construction, not by choice.
+   *
+   * The ramp is N stops around the film's own accent, and `spread`
+   * decides how far around the wheel they go. It is one more directorial
+   * number and it means exactly one thing:
+   *
+   *   0.0   every stop is the accent. A film with one colour.
+   *   0.3   a close harmony — the accent and its neighbours.
+   *   0.7   a wide scheme, still recognisably one film.
+   *   1.0   the whole wheel. Rainbows, deliberately asked for.
+   *
+   * WHY IT IS DERIVED AND NOT A LIST OF HEXES. `resolvePalette` is the
+   * single translation point between the director's four numbers and
+   * anything in hex — a stored list of colours would be a second opinion
+   * about what warm means, and would not move when the film's temperature
+   * did. The ramp travels with the palette: change the film's key and
+   * every stop follows it, which is what makes it a scheme rather than a
+   * swatch.
+   *
+   * Lightness alternates a little across the stops so adjacent marks
+   * separate on a dark ground as well as by hue — a spectrum where every
+   * stop has identical luminance reads as one colour to a squinting eye,
+   * which is most of what a moving frame is. */
+  const spread = clamp01(c.spread ?? 0);
+  const STOPS = 8;
+  const ramp = [];
+  const rampRgb = [];
+  for (let i = 0; i < STOPS; i++) {
+    // Centred on the accent so a ramp at spread 0 IS the accent, and the
+    // film does not jump when the control leaves zero.
+    const off = (i / (STOPS - 1) - 0.5) * 360 * spread;
+    const h = (((accentHue + off) % 360) + 360) % 360;
+    // Saturation eases off at the ends so the extremes read as part of the
+    // same scheme rather than as two unrelated primaries.
+    const sat = clamp01(accentS * (1 - Math.abs(i / (STOPS - 1) - 0.5) * 0.35 * spread));
+    const lift = (i % 2 === 0 ? 1 : -1) * 0.06 * (0.4 + spread * 0.6);
+    const l = clamp01(accentL + lift);
+    ramp.push(hsl(h, sat, l));
+    rampRgb.push(hexToRgb(hsl(h, sat, l)));
+  }
 
   return {
     bg: hsl(hue, groundS, groundL),
@@ -228,6 +277,15 @@ function resolvePalette(colour) {
     accent: hsl(accentHue, accentS, accentL),
     /** A second, cooler accent for the rare frame that needs two. */
     cool: hsl((accentHue + 40) % 360, accentS * 0.72, accentL * (key > 0.5 ? 0.85 : 1.05)),
+    /** THE SCHEME, as strings and as numbers. Eight stops around the
+     *  film's own accent — see above. A primitive that draws many marks
+     *  reads these; one that draws a single form still uses `accent` and
+     *  is unaffected. */
+    ramp,
+    rampRgb,
+    /** How wide the scheme runs, carried so a primitive can decide
+     *  whether the film is asking for colour at all. */
+    spread,
     /** Carried through so a primitive can ask how light the world is
      *  rather than guessing from the ground colour. */
     key,
@@ -242,26 +300,26 @@ function resolvePalette(colour) {
  * from a preset into an unnamed state. */
 const LOOKS = [
   { id: "noir", name: "Noir", blurb: "Near-black ground, hard light, almost no colour.",
-    colour: { key: 0.05, temperature: 0.35, saturation: 0.12, contrast: 0.85 } },
+    colour: { key: 0.05, temperature: 0.35, saturation: 0.12, contrast: 0.85, spread: 0.05 } },
   { id: "documentary", name: "Muted documentary", blurb: "Low-key, slightly warm, restrained.",
-    colour: { key: 0.16, temperature: 0.58, saturation: 0.28, contrast: 0.5 } },
+    colour: { key: 0.16, temperature: 0.58, saturation: 0.28, contrast: 0.5, spread: 0.22 } },
   { id: "editorial", name: "Warm editorial", blurb: "Paper ground, dark type, one cool accent.",
-    colour: { key: 0.9, temperature: 0.66, saturation: 0.36, contrast: 0.72 } },
+    colour: { key: 0.9, temperature: 0.66, saturation: 0.36, contrast: 0.72, spread: 0.3 } },
   { id: "technical", name: "Cold technical", blurb: "Blue-white, thin, diagrammatic, marked in red.",
-    colour: { key: 0.86, temperature: 0.1, saturation: 0.22, contrast: 0.66 } },
+    colour: { key: 0.86, temperature: 0.1, saturation: 0.22, contrast: 0.66, spread: 0.18 } },
   /* The blurb said "saturated red" and described the OLD hue path, on
    * which a warm film's ground itself landed near 14. With temperature
    * as a cast rather than a rotation, a warm ground is amber and the hot
    * mark is the accent's job. Said accurately rather than left to
    * promise a colour the coordinates no longer produce. */
   { id: "signal", name: "Signal", blurb: "Dark, hot ground with a cold mark. Maximum separation.",
-    colour: { key: 0.08, temperature: 0.9, saturation: 0.95, contrast: 0.9 } },
+    colour: { key: 0.08, temperature: 0.9, saturation: 0.95, contrast: 0.9, spread: 0.5 } },
   { id: "fluorescent", name: "Fluorescent", blurb: "Bright, cold, over-lit interior.",
-    colour: { key: 0.82, temperature: 0.05, saturation: 0.62, contrast: 0.4 } },
+    colour: { key: 0.82, temperature: 0.05, saturation: 0.62, contrast: 0.4, spread: 0.75 } },
   { id: "sodium", name: "Sodium", blurb: "Amber street light against dark.",
-    colour: { key: 0.14, temperature: 1, saturation: 0.72, contrast: 0.62 } },
+    colour: { key: 0.14, temperature: 1, saturation: 0.72, contrast: 0.62, spread: 0.12 } },
   { id: "bleached", name: "Bleached", blurb: "Washed-out, flat, overexposed.",
-    colour: { key: 0.95, temperature: 0.5, saturation: 0.14, contrast: 0.18 } },
+    colour: { key: 0.95, temperature: 0.5, saturation: 0.14, contrast: 0.18, spread: 0.35 } },
 ];
 
 /** Push the CURRENT FILM's colour into the primitives. Called at the top

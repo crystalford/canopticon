@@ -275,6 +275,25 @@ reg(
         ctx.lineCap = M === 1 ? "butt" : "round";
         ctx.strokeStyle = ink;
         ctx.fillStyle = ink;
+        /* THE SCHEME, ONE PATH AT A TIME.
+         *
+         * Every path in every form was drawn in the same `ink`, which is
+         * why a nine-segment chain, a subdivided body and a point cloud
+         * all came out one flat colour whatever the film's palette said.
+         * The palette could only offer one saturated hue anyway — see
+         * RAMP in `primitives.js`.
+         *
+         * `SPREAD` is the director's own control, so this does nothing at
+         * all on a film that asked for one colour: at spread 0 every stop
+         * IS the accent and the branch below is skipped. It is off by
+         * default and it is asked for, which is the difference between
+         * giving a film colour and painting over it.
+         *
+         * INK IS STILL INK. The ramp tints the marks toward the scheme
+         * rather than replacing them, so a light film keeps dark marks and
+         * a dark film keeps light ones — a spectrum that ignores the key
+         * is a spectrum nobody can read. */
+        const scheme = SPREAD > 0.02;
         // GLASS and LIGHT add rather than cover, so overlapping bodies
         // brighten where they meet — which is what makes them read as
         // transparent rather than as flat shapes at low opacity.
@@ -286,8 +305,18 @@ reg(
         // Presence, not fog. A receded element draws its own marks
         // lighter; it does not paint over the ones already on the plate.
         ctx.globalAlpha = (M === 2 ? 0.45 : M === 3 ? 0.6 : 1) * presence;
-        for (const path of paths) {
+        for (let pi = 0; pi < paths.length; pi++) {
+          const path = paths[pi];
           if (path.length < 2) continue;
+          if (scheme) {
+            // Indexed by path so adjacent parts of one form separate, and
+            // by the material so two elements drawn the same way do not
+            // land on the same stop.
+            const c = ramp(pi + M * 3);
+            ctx.strokeStyle = c;
+            ctx.fillStyle = c;
+            if (M === 3) ctx.shadowColor = c;
+          }
           ctx.beginPath();
           if (M === 4) {
             // SCREEN — the path resolved onto a pixel grid, so a curve

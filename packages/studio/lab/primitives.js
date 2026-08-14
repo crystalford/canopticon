@@ -108,6 +108,29 @@ let COOL_RGB = [111, 158, 196];
  *  know whether it is drawing light onto dark or marks onto paper asks
  *  this instead of trying to infer it from the ground colour. */
 let KEY = 0.12;
+/* THE SCHEME — eight stops around the film's own accent.
+ *
+ * Every primitive here could reach six colours and exactly one of them
+ * was saturated, so a frame of ten thousand particles had one hue for all
+ * ten thousand. A primitive that draws MANY marks reads `RAMP` (or
+ * `RAMP_RGB` if it touches pixels) and indexes it however it likes;
+ * `SPREAD` says how much colour the film asked for, so a primitive can
+ * stay monochrome when the director wanted monochrome.
+ *
+ * Resolved by `resolvePalette` like everything else — these are derived
+ * from the film's own four numbers, not a stored swatch, so they follow
+ * the film's temperature and key instead of arguing with them. */
+let RAMP = ["#d8624a"];
+let RAMP_RGB = [[216, 98, 74]];
+let SPREAD = 0;
+/** Stop `i` of the scheme, wrapping. The convenience every consumer would
+ *  otherwise write for itself, slightly differently. */
+function ramp(i) {
+  return RAMP[((i % RAMP.length) + RAMP.length) % RAMP.length];
+}
+function rampRgb(i) {
+  return RAMP_RGB[((i % RAMP_RGB.length) + RAMP_RGB.length) % RAMP_RGB.length];
+}
 
 function setPalette(p) {
   if (!p) return;
@@ -122,6 +145,9 @@ function setPalette(p) {
   if (p.accentRgb) ACCENT_RGB = p.accentRgb;
   if (p.coolRgb) COOL_RGB = p.coolRgb;
   KEY = p.key;
+  if (p.ramp && p.ramp.length) RAMP = p.ramp;
+  if (p.rampRgb && p.rampRgb.length) RAMP_RGB = p.rampRgb;
+  if (typeof p.spread === "number") SPREAD = p.spread;
 }
 
 function bg(ctx, w, h, a) {

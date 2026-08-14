@@ -298,6 +298,22 @@ export const ColourSchema = z.object({
   temperature: z.number().min(0).max(1).default(0.58),
   saturation: z.number().min(0).max(1).default(0.34),
   contrast: z.number().min(0).max(1).default(0.56),
+  /** HOW MANY COLOURS THE FILM IS ALLOWED.
+   *
+   *  Saturation says how intense one colour is; this says how many there
+   *  are. Until it existed a primitive could reach exactly one saturated
+   *  hue, so a frame of ten thousand particles had one colour for all ten
+   *  thousand — a pixel-art palette or a spectrum was impossible by
+   *  construction rather than by choice.
+   *
+   *    0     one colour. Everything is the accent.
+   *    0.3   a close harmony.
+   *    0.7   a wide scheme, still recognisably one film.
+   *    1     the whole wheel.
+   *
+   *  Resolved into eight stops by `resolvePalette`, which stays the only
+   *  thing that turns a director's numbers into hex. */
+  spread: z.number().min(0).max(1).default(0.22),
 });
 export type Colour = z.infer<typeof ColourSchema>;
 
@@ -326,6 +342,9 @@ export const DEFAULT_COLOUR: Colour = {
   temperature: 0.58,
   saturation: 0.34,
   contrast: 0.56,
+  // Enough that a frame of many marks is not one flat colour, far short
+  // of a spectrum. A film that wants the whole wheel asks for it.
+  spread: 0.22,
 };
 
 /** How the film is photographed. Colour is built; camera and light are
