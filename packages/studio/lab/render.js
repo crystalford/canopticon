@@ -40,6 +40,20 @@ const RENDER = {
 /** Build every scene's chain once, at render resolution. Instances hold
  *  state — particle positions, motion history — so they are created once
  *  and driven by index, never rebuilt mid-film. */
+/* THE WHOLE FILM'S CANVASES, ALL AT ONCE — the same leak as the Preview,
+ * in a worse form.
+ *
+ * This built EVERY scene's chain before a single frame was encoded, and
+ * released none of them. At 1280×720 a chain is tens of megabytes, a
+ * scene-graph scene nests one chain per element, and a multi-shot scene
+ * builds one per shot — so a thirty-nine scene film allocated the entire
+ * film's frame buffers up front and could exhaust memory before the
+ * encoder had drawn frame zero.
+ *
+ * Frames are computed in ORDER, so at most one scene is ever being drawn.
+ * Building on demand and releasing what the playhead has passed makes the
+ * export's memory a property of the SCENE rather than of the film, which
+ * is what lets a long film export at all. */
 function buildForRender(plan, w, h) {
   return plan.scenes.map((scene) => {
     const chain = scene.chain.map((n) => ({
@@ -58,10 +72,34 @@ function buildForRender(plan, w, h) {
       params: s.params || {},
     }));
     const dur = Math.max(0.1, (scene.endMs - scene.startMs) / 1000);
-    const built =
-      shots.length > 1 ? buildSequence(chain, shots, w, h) : buildChain(chain, w, h, dur);
-    return { scene, built, single: shots.length <= 1 };
+    return { scene, chain, shots, dur, w, h, built: null, single: shots.length <= 1 };
   });
+}
+
+/** Build one scene's chain, and release every other one. Deterministic
+ *  either way: a chain is a pure function of its plan, its seeds and the
+ *  frame index, so rebuilding one produces the identical film. */
+function realiseScene(entry, scenes) {
+  if (!entry.built) {
+    entry.built =
+      entry.shots.length > 1
+        ? buildSequence(entry.chain, entry.shots, entry.w, entry.h)
+        : buildChain(entry.chain, entry.w, entry.h, entry.dur);
+  }
+  for (const other of scenes) {
+    if (other === entry || !other.built) continue;
+    other.built.dispose?.();
+    other.built = null;
+  }
+  return entry.built;
+}
+
+/** Release everything, for the end of a render or an abandoned one. */
+function releaseScenes(scenes) {
+  for (const s of scenes) {
+    s.built?.dispose?.();
+    s.built = null;
+  }
 }
 
 /** Draw one frame of the film at an exact index. This is the whole reason
@@ -78,15 +116,20 @@ function drawFrame(ctx, scenes, frame, fps, w, h, chrome) {
   }
   if (!active) return;
 
+  // Built here rather than up front, and everything else released — see
+  // `buildForRender`. Frames are computed in order, so exactly one scene's
+  // buffers are alive at any moment.
+  const built = realiseScene(active, scenes);
+
   const localMs = ms - active.scene.startMs;
-  if (active.built.errors && active.built.errors.length) {
+  if (built.errors && built.errors.length) {
     ctx.fillStyle = "#0d0f11";
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = "#d8624a";
     ctx.font = '500 13px "JetBrains Mono",monospace';
-    active.built.errors.slice(0, 5).forEach((e, i) => ctx.fillText(e, 24, 50 + i * 20));
+    built.errors.slice(0, 5).forEach((e, i) => ctx.fillText(e, 24, 50 + i * 20));
   } else {
-    const buf = active.single ? active.built.run(localMs / 1000) : active.built.run(localMs);
+    const buf = active.single ? built.run(localMs / 1000) : built.run(localMs);
     // CLEAR FIRST. A chain's last stage can hand back a buffer with
     // transparency in it — field_erode does, by design — and drawing that
     // over an uncleared canvas leaves the PREVIOUS FRAME showing through
@@ -219,12 +262,102 @@ async function renderFilm(plan, options) {
  *   so a six-minute film still takes about six minutes — longer, if the
  *   chains are expensive. Stated here rather than implied, because the
  *   whole point of a render step is knowing what it costs before starting.
+ *
+ * ── AND THE PART THAT WAS STILL WRONG ────────────────────────────────
+ *
+ * An 8.36s film wrote a 73s file. Measured twice. The frames were correct
+ * and in order; the FILE'S CLOCK was not, and the reason is not a bug to
+ * patch — MediaRecorder timestamps a frame when it ARRIVES, by design. The
+ * loop below paced to the wall clock, but the chains cannot compute 30fps,
+ * so `wait` was always negative, frames arrived as fast as they could be
+ * drawn, and the file's duration became the time the RENDER took. The
+ * primary artifact of the whole product ran at about a ninth speed.
+ *
+ * So the work is split in two, and neither half needs a container of our
+ * own — which matters, because the first attempt at this DID own one and
+ * shipped corrupt files:
+ *
+ *   PASS 1 · COMPUTE. Every frame drawn at its exact index and kept as a
+ *   JPEG. No recorder running, no clock consulted, takes as long as it
+ *   takes.
+ *
+ *   PASS 2 · REPLAY. The stored frames pushed into the recorder paced to
+ *   the real clock. Decoding and blitting a finished image is 1–3ms
+ *   against a 33ms budget, so arrival time IS correct time and the file's
+ *   duration is the film's duration.
+ *
+ * Sound is why this is the right shape rather than a clever one: the voice
+ * plays on the audio clock, so picture only agrees with it if picture runs
+ * at true speed. Pass 2 does.
+ *
+ * The cost is memory, and it is BOUNDED BY MEASUREMENT rather than by a
+ * guessed constant — frame zero is encoded, its real size read, and the
+ * whole film extrapolated from it. Over budget, quality drops once; still
+ * over, it says so and falls back to the single pass rather than dying,
+ * carrying `durationExact: false` so the surface can tell the truth about
+ * the file it just produced.
  */
+
+/** The frame currently on the canvas, as a JPEG blob. */
+function frameToBlob(canvas, quality) {
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+}
+
+/** How much memory the whole film would take at this quality, measured
+ *  from one real frame rather than assumed from pixel count. */
+const REPLAY_BUDGET_BYTES = 640 * 1024 * 1024;
+
 async function encodeExact(ctx, canvas, scenes, cfg) {
   const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find(
     (m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m),
   );
   if (!mime) throw new Error("this browser cannot record a canvas");
+
+  /* ── PASS 1 · COMPUTE ───────────────────────────────────────────────
+   *
+   * Nothing is recording yet, so a frame may take as long as it needs.
+   * The budget is measured from frame zero rather than assumed: a flat
+   * graphic frame and a dense particle field differ by an order of
+   * magnitude in JPEG size, and guessing a constant would either waste
+   * memory or refuse films that would have fitted. */
+  let stills = null;
+  let quality = 0.9;
+  let durationExact = true;
+  let sized = 0;
+
+  {
+    drawFrame(ctx, scenes, 0, cfg.fps, cfg.w, cfg.h, cfg.chrome);
+    let probe = await frameToBlob(canvas, quality);
+    if (probe && probe.size * cfg.frames > REPLAY_BUDGET_BYTES) {
+      quality = 0.62;
+      probe = await frameToBlob(canvas, quality);
+    }
+    if (!probe || probe.size * cfg.frames > REPLAY_BUDGET_BYTES) {
+      // TOO BIG TO HOLD. Degrade, flag, continue: the film still renders,
+      // and the result says the duration is wrong rather than pretending.
+      durationExact = false;
+    } else {
+      stills = new Array(cfg.frames);
+      stills[0] = probe;
+      sized = probe.size;
+      for (let frame = 1; frame < cfg.frames; frame++) {
+        if (RENDER.cancel) break;
+        drawFrame(ctx, scenes, frame, cfg.fps, cfg.w, cfg.h, cfg.chrome);
+        const b = await frameToBlob(canvas, quality);
+        stills[frame] = b;
+        sized += b ? b.size : 0;
+        if (frame % 4 === 0) {
+          cfg.onProgress({
+            stage: "computing",
+            frame,
+            frames: cfg.frames,
+            pct: frame / cfg.frames,
+          });
+        }
+      }
+      if (RENDER.cancel) stills = null;
+    }
+  }
 
   // Zero fps: the stream produces a frame only when we hand it one.
   const stream = canvas.captureStream(0);
@@ -248,27 +381,39 @@ async function encodeExact(ctx, canvas, scenes, cfg) {
   // would have the first line half-spoken by the time frame zero is
   // written, and the film would open mid-sentence.
   const voices = cfg.voice ? cfg.voice.begin() : [];
+  const started = performance.now();
+  let late = 0;
 
   const frameMs = 1000 / cfg.fps;
-  const started = performance.now();
   let dropped = 0;
 
   for (let frame = 0; frame < cfg.frames; frame++) {
     if (RENDER.cancel) break;
-    drawFrame(ctx, scenes, frame, cfg.fps, cfg.w, cfg.h, cfg.chrome);
+    // Pre-computed in pass 1 when the film fits in memory; drawn here only
+    // on the fallback path, where the file's duration will be wrong and
+    // says so.
+    if (stills) {
+      const bmp = await createImageBitmap(stills[frame]);
+      ctx.drawImage(bmp, 0, 0, cfg.w, cfg.h);
+      bmp.close();
+    } else {
+      drawFrame(ctx, scenes, frame, cfg.fps, cfg.w, cfg.h, cfg.chrome);
+    }
     if (track.requestFrame) track.requestFrame();
     else dropped++;
 
     // Pace to the wall clock so the recorder's own timestamps line up with
-    // the frames it is being given. Falling behind is reported rather than
-    // silently producing a film that runs fast.
+    // the frames it is being given. With pass 1 done this is a real wait
+    // rather than a permanently-negative one, which is the entire
+    // difference between an 8s film and a 73s file.
     const due = started + frame * frameMs;
     const wait = due - performance.now();
+    if (wait < -frameMs * 2) late++;
     await new Promise((r) => setTimeout(r, Math.max(0, wait)));
 
     if (frame % 4 === 0) {
       cfg.onProgress({
-        stage: "rendering",
+        stage: stills ? "writing" : "rendering",
         frame,
         frames: cfg.frames,
         pct: frame / cfg.frames,
@@ -287,9 +432,22 @@ async function encodeExact(ctx, canvas, scenes, cfg) {
   }
   rec.stop();
   const blob = await finished;
+  // The buffers are the film's, not the page's — hand them back before the
+  // caller does anything else with this tab.
+  releaseScenes(scenes);
+  stills = null;
   return {
     blob,
     frameExact: dropped === 0,
+    /** Whether the FILE'S CLOCK is the film's clock. False only on the
+     *  fallback path, where the film was too large to hold and the export
+     *  reverts to writing on the wall clock — the caller must say so
+     *  rather than hand over a file that is silently nine times too long. */
+    durationExact,
+    /** Frames that still arrived late during replay. Zero on any healthy
+     *  render; non-zero means the duration is approximate even here. */
+    late,
+    heldBytes: sized,
     frames: cfg.frames,
     narrated: voices.length,
   };

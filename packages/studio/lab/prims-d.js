@@ -429,7 +429,7 @@ reg(
             Z = x * Math.sin(A) + z * Math.cos(A);
           const [px, py, d] = proj(X, y, Z, w, h, 0.6);
           ctx.fillStyle =
-            d > 1.05 ? "rgba(216,98,74," + (d - 0.6) + ")" : "rgba(238,241,243," + d * 0.5 + ")";
+            d > 1.05 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + (d - 0.6) + ")" : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + d * 0.5 + ")";
           ctx.fillRect(px, py, d * 1.4, d * 1.4);
         }
         lab(
@@ -520,7 +520,7 @@ reg(
           B2 = rot(b);
         const [x1, y1, d1] = proj(A2[0], A2[1], A2[2], w, h, 0.55),
           [x2, y2] = proj(B2[0], B2[1], B2[2], w, h, 0.55);
-        ctx.strokeStyle = "rgba(238,241,243," + cl01(d1 - 0.45) + ")";
+        ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + cl01(d1 - 0.45) + ")";
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
@@ -620,7 +620,7 @@ reg(
           tp = rot([x, 0.6 - hh, z]);
         const [x1, y1, d] = proj(b[0], b[1], b[2], w, h, Z + 0.4),
           [x2, y2] = proj(tp[0], tp[1], tp[2], w, h, Z + 0.4);
-        ctx.strokeStyle = i % 6 ? "rgba(238,241,243," + cl01(d * 0.7) + ")" : EMB;
+        ctx.strokeStyle = i % 6 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + cl01(d * 0.7) + ")" : EMB;
         ctx.lineWidth = 1.4 + d;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
@@ -659,9 +659,9 @@ reg(
         ctx.lineTo(w / 2 - wd / 2, y);
         ctx.closePath();
         ctx.fillStyle =
-          i === 0 ? "rgba(216,98,74,.30)" : "rgba(238,241,243," + (0.05 + i * 0.02) + ")";
+          i === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.30)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.05 + i * 0.02) + ")";
         ctx.fill();
-        ctx.strokeStyle = i === 0 ? EMB : "rgba(238,241,243,.5)";
+        ctx.strokeStyle = i === 0 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.5)`;
         ctx.lineWidth = 1;
         ctx.stroke();
         if (sep > 0.15) {
@@ -714,7 +714,7 @@ reg(
         g.addColorStop(1, "rgba(" + base.join(",") + "," + (0.24 + i * 0.05) + ")");
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, wd, hh);
-        ctx.strokeStyle = i === 0 ? EMB : "rgba(238,241,243,.4)";
+        ctx.strokeStyle = i === 0 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.4)`;
         ctx.lineWidth = 1;
         ctx.strokeRect(0, 0, wd, hh);
         ctx.restore();
@@ -738,7 +738,7 @@ function layerA(w, h, t, n) {
   for (let y = 0; y < h; y += cell)
     for (let x = 0; x < w; x += cell) {
       const v = fbm(n, (x / w) * 4, (y / h) * 4 + t * 0.08, 3, 0.6) * 0.5 + 0.5;
-      o.fillStyle = "rgba(216,98,74," + cl01(v) + ")";
+      o.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + cl01(v) + ")";
       o.fillRect(x, y, cell, cell);
     }
   return c;
@@ -750,7 +750,7 @@ function layerB(w, h, t) {
   const o = c.getContext("2d");
   o.fillStyle = "#000";
   o.fillRect(0, 0, w, h);
-  o.strokeStyle = "rgba(238,241,243,.85)";
+  o.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.85)`;
   o.lineWidth = 2;
   for (let i = 0; i < 16; i++) {
     o.beginPath();
@@ -903,21 +903,30 @@ reg(
           im = src.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, w, h),
           c = 4,
           M = Math.round(p.mode);
-        const PALS = [
-          [
-            [216, 98, 74],
-            [13, 15, 17],
-          ],
-          [
-            [111, 158, 196],
-            [238, 241, 243],
-          ],
-          [
-            [217, 164, 65],
-            [24, 20, 16],
-          ],
-        ];
-        const [hi, lo] = PALS[M];
+        /* A DUOTONE IN THE FILM'S OWN COLOURS.
+         *
+         * This was three hardcoded pairs, written before `palette.js`
+         * existed. Mode 1 mapped the LOW end of luminance to
+         * [238,241,243] — near white — so on a light film every dark mark
+         * became paper. Bisecting a real scene's chain stage by stage:
+         * 283 dark pixels after the words were composited, 0 after this
+         * primitive ran. It was not tinting the frame, it was erasing it,
+         * and the result read as one more abstract texture.
+         *
+         * The ramp now runs from the film's INK to its own accent, with
+         * the direction the film's key decides: on paper a dark input
+         * stays dark and takes the accent's hue, on a dark film a bright
+         * input stays bright. `mode` keeps its job — which accent — and
+         * loses the one it should never have had, which was deciding how
+         * light the world is. */
+        // Three casts: the film's accent, its cooler second, and none —
+        // a neutral ink-to-paper ramp, which a documentary register wants
+        // far more often than a colour wash.
+        const ACCENTS = [ACCENT_RGB, COOL_RGB, INK_RGB];
+        const accent = ACCENTS[M] || ACCENT_RGB;
+        // Ink end and paper end, in the film's terms rather than a table's.
+        const hi = KEY > 0.5 ? BG_RGB : accent;
+        const lo = KEY > 0.5 ? accent : BG_RGB;
         for (let y = 0; y < h; y += c)
           for (let x = 0; x < w; x += c) {
             const g = im.data[((y | 0) * w + (x | 0)) * 4] / 255,
@@ -999,7 +1008,7 @@ reg(
           ctx.rotate((p.rotate - 0.0) * 0.1 * d + Math.sin(t * 0.3) * p.rotate * 0.06);
           ctx.translate(-wd / 2, -hh / 2);
           ctx.drawImage(d % 2 ? layerA(w, h, t + d, n) : layerB(w, h, t + d), 0, 0, wd, hh);
-          ctx.strokeStyle = d === D ? EMB : "rgba(238,241,243,.35)";
+          ctx.strokeStyle = d === D ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.35)`;
           ctx.lineWidth = 1;
           ctx.strokeRect(0, 0, wd, hh);
           if (d > 1)
@@ -1067,7 +1076,7 @@ reg(
         const k = (i + 1) / N,
           off = ((t * p.rate * 30 * k * p.depth) % (w * 1.4)) - w * 0.2;
         ctx.fillStyle =
-          i === N - 1 ? "rgba(216,98,74,.55)" : "rgba(238,241,243," + (0.06 + k * 0.16) + ")";
+          i === N - 1 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.55)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.06 + k * 0.16) + ")";
         for (let j = 0; j < 7; j++) {
           const bx = off + j * w * 0.22 + r() * 40,
             bw = 18 + r() * 60 * k,
@@ -1182,7 +1191,7 @@ reg(
       const n = Math.round(3 + p.content * 11);
       for (let i = 0; i < n; i++) {
         ctx.fillStyle =
-          i === 0 ? "rgba(216,98,74,.8)" : "rgba(238,241,243," + (0.14 + r() * 0.3) + ")";
+          i === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.8)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.14 + r() * 0.3) + ")";
         ctx.fillRect(
           ix + 8,
           iy + 12 + (i * (ih - 20)) / n,
@@ -1221,7 +1230,7 @@ reg(
       for (let i = 0; i < T; i++) {
         ctx.fillStyle = i === 0 ? BG : DIM;
         ctx.fillRect(8 + i * (tw + 2), 6, tw, 22);
-        ctx.fillStyle = i === 0 ? "rgba(238,241,243,.75)" : "rgba(155,163,170,.4)";
+        ctx.fillStyle = i === 0 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.75)` : "rgba(155,163,170,.4)";
         ctx.fillRect(14 + i * (tw + 2), 15, tw * (0.4 + r() * 0.4), 3);
       }
       ctx.fillStyle = BG;
@@ -1245,7 +1254,7 @@ reg(
         ctx.fillRect(18, 108 + i * 13, (w - 46) * (0.5 + r() * 0.5), 3);
       }
       ctx.restore();
-      ctx.fillStyle = "rgba(216,98,74,.5)";
+      ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.5)`;
       ctx.fillRect(w - 4, 54 + p.scroll * (h - 100), 3, 44);
       lab(ctx, "SCROLL POSITION IS A PARAMETER", 10, h - 10);
     },
@@ -1273,7 +1282,7 @@ reg(
           const y = 10 + i * ((h - 20) / N);
           ctx.fillStyle = DIM;
           ctx.fillRect(10, y, w - 20, (h - 20) / N - 6);
-          ctx.fillStyle = i === 0 ? "rgba(216,98,74,.75)" : "rgba(238,241,243,.6)";
+          ctx.fillStyle = i === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.75)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.6)`;
           ctx.fillRect(20, y + 9, (w - 60) * (0.3 + r() * 0.55), 4);
           ctx.fillStyle = "rgba(155,163,170,.3)";
           ctx.fillRect(20, y + 19, (w - 60) * (0.2 + r() * 0.4), 3);
@@ -1291,7 +1300,7 @@ reg(
           ctx.fillStyle = DIM;
           ctx.fillRect(x, y, (w - 20) / C - 8, (h - 20) / R - 8);
           const v = Math.abs(Math.sin(t * (0.4 + i * 0.2))) * p.activity;
-          ctx.fillStyle = v > 0.7 ? EMB : "rgba(238,241,243,.6)";
+          ctx.fillStyle = v > 0.7 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.6)`;
           ctx.font = "600 " + Math.round((h / R) * 0.28) + 'px "Space Grotesk",sans-serif';
           ctx.fillText((v * 100).toFixed(0) + "%", x + 10, y + ((h - 20) / R) * 0.55);
         }
@@ -1299,11 +1308,11 @@ reg(
         ctx.fillStyle = DIM;
         ctx.fillRect(0, 0, w * 0.28, h);
         for (let i = 0; i < N; i++) {
-          ctx.fillStyle = i === 1 ? "rgba(216,98,74,.8)" : "rgba(155,163,170,.35)";
+          ctx.fillStyle = i === 1 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.8)` : "rgba(155,163,170,.35)";
           ctx.fillRect(12, 18 + i * 22, w * 0.28 - 30, 4);
         }
         for (let i = 0; i < 9; i++) {
-          ctx.fillStyle = "rgba(238,241,243," + (0.1 + r() * 0.3) + ")";
+          ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.1 + r() * 0.3) + ")";
           ctx.fillRect(w * 0.32, 20 + i * ((h - 40) / 9), w * 0.62 * (0.4 + r() * 0.6), 5);
         }
       }
@@ -1327,10 +1336,10 @@ reg(
       bg(ctx, w, h);
       const r = mulberry(12);
       for (let i = 0; i < 14; i++) {
-        ctx.fillStyle = "rgba(238,241,243," + (0.14 + r() * 0.3) + ")";
+        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.14 + r() * 0.3) + ")";
         ctx.fillRect(16, 16 + i * ((h - 40) / 14), (w - 40) * (0.35 + r() * 0.6), 5);
       }
-      ctx.fillStyle = "rgba(216,98,74,.8)";
+      ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.8)`;
       ctx.fillRect(16, 16 + 6 * ((h - 40) / 14), (w - 40) * 0.5, 5);
       const cx = w * 0.5 + Math.sin(t * p.move * 0.8) * w * 0.24,
         cy = 16 + 6 * ((h - 40) / 14) + 3 + Math.cos(t * p.move * 0.6) * h * 0.1;
@@ -1340,7 +1349,7 @@ reg(
       g.addColorStop(1, "rgba(8,9,10," + p.dim + ")");
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = "rgba(216,98,74,.4)";
+      ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.4)`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(cx, cy, R * 0.7, 0, 6.3);
@@ -1378,7 +1387,7 @@ reg(
           [w * 0.78, h * 0.72],
         ];
         targets.forEach(([bx, by], i) => {
-          ctx.fillStyle = i === Math.floor(last) % 4 ? "rgba(216,98,74,.3)" : DIM;
+          ctx.fillStyle = i === Math.floor(last) % 4 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.3)` : DIM;
           ctx.fillRect(bx - 42, by - 13, 84, 26);
           ctx.strokeStyle = "rgba(155,163,170,.3)";
           ctx.strokeRect(bx - 42, by - 13, 84, 26);
@@ -1396,7 +1405,7 @@ reg(
         y += (ty - y) * d;
         if (p.click > 0.5 && t - clicked < 0.5) {
           const k = (t - clicked) / 0.5;
-          ctx.strokeStyle = "rgba(216,98,74," + (1 - k) + ")";
+          ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + (1 - k) + ")";
           ctx.lineWidth = 1.4;
           ctx.beginPath();
           ctx.arc(x, y, k * 26, 0, 6.3);
@@ -1437,7 +1446,7 @@ reg(
       ctx.strokeRect(w * 0.12, h * 0.3, w * 0.76, h * 0.4);
       if (K === 0) {
         const k = cl01(cyc);
-        ctx.strokeStyle = "rgba(216,98,74," + (1 - k) + ")";
+        ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + (1 - k) + ")";
         ctx.lineWidth = 1.6;
         ctx.beginPath();
         ctx.arc(w / 2, h / 2, k * Math.min(w, h) * 0.3, 0, 6.3);
@@ -1452,9 +1461,9 @@ reg(
           ctx.fillRect(w * 0.17 + ctx.measureText(s.slice(0, n)).width + 2, h * 0.53 - 11, 2, 14);
       } else {
         const k = cl01(cyc);
-        ctx.fillStyle = "rgba(216,98,74,.85)";
+        ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.85)`;
         ctx.fillRect(w * 0.12, h * 0.7 - k * h * 0.4, w * 0.76, 3);
-        ctx.fillStyle = "rgba(238,241,243,.1)";
+        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.1)`;
         ctx.fillRect(w * 0.12, h * 0.7 - k * h * 0.4, w * 0.76, k * h * 0.4);
       }
       lab(ctx, ["TAP RIPPLE", "KEYSTROKE ENTRY", "SCROLL"][K], 10, h - 10);
@@ -1484,7 +1493,7 @@ reg(
         const r = mulberry(acc ? 9 : 3);
         for (let i = 0; i < 8; i++) {
           ctx.fillStyle =
-            i === 0 && acc ? "rgba(216,98,74,.8)" : "rgba(238,241,243," + (0.14 + r() * 0.3) + ")";
+            i === 0 && acc ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.8)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.14 + r() * 0.3) + ")";
           ctx.fillRect(x + 14, h * 0.2 + i * h * 0.08, w * 0.7 * (0.3 + r() * 0.55), 4);
         }
       };
@@ -1508,9 +1517,9 @@ reg(
         ctx.translate(w - 16 - e * w * 0.4, 16);
         ctx.fillStyle = DIM;
         ctx.fillRect(0, 0, w * 0.36, 44);
-        ctx.strokeStyle = "rgba(216,98,74,.6)";
+        ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.6)`;
         ctx.strokeRect(0, 0, w * 0.36, 44);
-        ctx.fillStyle = "rgba(238,241,243,.7)";
+        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.7)`;
         ctx.fillRect(10, 14, w * 0.2, 4);
         ctx.fillRect(10, 26, w * 0.14, 3);
         ctx.restore();
@@ -1525,7 +1534,7 @@ reg(
 /* ── Q. CUT GRAMMAR ─────────────────────────────────── */
 function shotA(ctx, w, h, t) {
   bg(ctx, w, h);
-  ctx.fillStyle = "rgba(238,241,243,.1)";
+  ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.1)`;
   for (let i = 0; i < 10; i++)
     ctx.fillRect(12, 16 + (i * (h - 30)) / 10, (w - 24) * (0.4 + ((i * 37) % 50) / 100), 4);
   ctx.fillStyle = INK;
@@ -1535,7 +1544,7 @@ function shotA(ctx, w, h, t) {
 function shotB(ctx, w, h, t) {
   ctx.fillStyle = DIM;
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = "rgba(216,98,74,.6)";
+  ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.6)`;
   for (let i = 0; i < 8; i++) {
     ctx.beginPath();
     ctx.arc(w * 0.5, h * 0.5, ((i + 1) / 8) * Math.min(w, h) * 0.45, 0, 6.3);
@@ -1557,7 +1566,7 @@ reg(
       else shotB(ctx, w, h, t);
       const since = cyc % 1;
       if (p.flash > 0.02 && since < 0.08) {
-        ctx.fillStyle = "rgba(238,241,243," + p.flash * (1 - since / 0.08) * 0.5 + ")";
+        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + p.flash * (1 - since / 0.08) * 0.5 + ")";
         ctx.fillRect(0, 0, w, h);
       }
       lab(ctx, "INSTANTANEOUS · NO TRANSITION IS A CHOICE", 10, h - 10);
@@ -1578,7 +1587,7 @@ reg(
       bg(ctx, w, h);
       const R = Math.min(w, h) * 0.28;
       if (side) {
-        ctx.fillStyle = "rgba(238,241,243,.08)";
+        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.08)`;
         for (let i = 0; i < 9; i++) ctx.fillRect(12, 14 + (i * (h - 26)) / 9, (w - 24) * 0.6, 4);
       } else {
         ctx.fillStyle = DIM;
@@ -1639,10 +1648,10 @@ reg(
       }
       bg(ctx, w, h);
       const k = idx / N;
-      ctx.fillStyle = "rgba(238,241,243," + (0.05 + k * 0.1) + ")";
+      ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.05 + k * 0.1) + ")";
       ctx.fillRect(0, 0, w, h);
       for (let i = 0; i < 8 + idx * 4; i++) {
-        ctx.fillStyle = idx % 3 === 0 ? "rgba(216,98,74,.5)" : "rgba(238,241,243,.35)";
+        ctx.fillStyle = idx % 3 === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.5)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.35)`;
         ctx.fillRect(r() * w, r() * h, r() * w * 0.3 + 8, r() * 8 + 3);
       }
       ctx.font = "600 " + Math.round(h * 0.3) + 'px "Space Grotesk",sans-serif';
@@ -1689,7 +1698,7 @@ reg(
       ctx.stroke();
       marks.forEach((m) => {
         const hot = Math.abs(m - cyc) < 0.012;
-        ctx.strokeStyle = hot ? EMB : "rgba(238,241,243,.55)";
+        ctx.strokeStyle = hot ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.55)`;
         ctx.lineWidth = hot ? 2 : 1;
         ctx.beginPath();
         ctx.moveTo(m * w, h * 0.5 - (hot ? 26 : 14));
@@ -1737,7 +1746,7 @@ reg(
       }
       if (p.sync > 0.5) {
         const beat = (t * 0.9) % 1;
-        ctx.strokeStyle = "rgba(216,98,74," + (1 - beat) + ")";
+        ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + (1 - beat) + ")";
         ctx.lineWidth = 2;
         ctx.strokeRect(1, 1, w - 2, h - 2);
       }
@@ -1804,9 +1813,9 @@ reg(
           i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
         });
         ctx.closePath();
-        ctx.fillStyle = k === 0 ? "rgba(216,98,74,.18)" : "rgba(238,241,243,.06)";
+        ctx.fillStyle = k === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.18)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.06)`;
         ctx.fill();
-        ctx.strokeStyle = k === 0 ? EMB : "rgba(238,241,243,.42)";
+        ctx.strokeStyle = k === 0 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.42)`;
         ctx.lineWidth = 1;
         ctx.stroke();
       }
@@ -1845,9 +1854,9 @@ reg(
           i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
         });
         ctx.closePath();
-        ctx.fillStyle = "rgba(238,241,243,.05)";
+        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.05)`;
         ctx.fill();
-        ctx.strokeStyle = "rgba(238,241,243," + 0.3 / Math.sqrt(z) + ")";
+        ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + 0.3 / Math.sqrt(z) + ")";
         ctx.lineWidth = 1 / z;
         ctx.stroke();
       }
@@ -1856,7 +1865,7 @@ reg(
       ctx.arc(tx, ty, 3 / z, 0, 6.3);
       ctx.fill();
       ctx.restore();
-      ctx.strokeStyle = "rgba(216,98,74,.5)";
+      ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.5)`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.arc(tx, ty, 16, 0, 6.3);
@@ -1895,9 +1904,9 @@ reg(
           i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
         });
         ctx.closePath();
-        ctx.fillStyle = "rgba(216,98,74," + q * 0.85 + ")";
+        ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + q * 0.85 + ")";
         ctx.fill();
-        ctx.strokeStyle = "rgba(238,241,243,.28)";
+        ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.28)`;
         ctx.lineWidth = 0.9;
         ctx.stroke();
       }
@@ -1905,7 +1914,7 @@ reg(
       ctx.fillStyle = INK;
       ctx.fillText(String(YEARS[yr]), 14, 30);
       for (let i = 0; i < Math.round(p.steps); i++) {
-        ctx.fillStyle = "rgba(216,98,74," + ((i + 1) / Math.round(p.steps)) * 0.85 + ")";
+        ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + ((i + 1) / Math.round(p.steps)) * 0.85 + ")";
         ctx.fillRect(14 + i * 16, h - 26, 14, 7);
       }
       lab(ctx, "REGION SHADING · ANIMATABLE BY YEAR", 10, h - 12);
@@ -1938,7 +1947,7 @@ reg(
           i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
         });
         ctx.closePath();
-        ctx.strokeStyle = "rgba(238,241,243,.16)";
+        ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.16)`;
         ctx.lineWidth = 1;
         ctx.stroke();
       }
@@ -2004,7 +2013,7 @@ reg(
           i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
         });
         ctx.closePath();
-        ctx.strokeStyle = "rgba(238,241,243,.14)";
+        ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.14)`;
         ctx.lineWidth = 1;
         ctx.stroke();
       }
@@ -2017,7 +2026,7 @@ reg(
         const mx = (x0 + x1) / 2,
           my = (y0 + y1) / 2 - Math.hypot(x1 - x0, y1 - y0) * p.height * 0.6;
         const big = r() > 0.8;
-        ctx.strokeStyle = big ? "rgba(216,98,74,.6)" : "rgba(238,241,243,.18)";
+        ctx.strokeStyle = big ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.6)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.18)`;
         ctx.lineWidth = big ? 1.6 : 0.8;
         ctx.beginPath();
         ctx.moveTo(x0, y0);
@@ -2027,7 +2036,7 @@ reg(
           const k = (t * 0.4 + i * 0.1) % 1;
           const px = (1 - k) * (1 - k) * x0 + 2 * (1 - k) * k * mx + k * k * x1,
             py = (1 - k) * (1 - k) * y0 + 2 * (1 - k) * k * my + k * k * y1;
-          ctx.fillStyle = big ? EMB : "rgba(238,241,243,.6)";
+          ctx.fillStyle = big ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.6)`;
           ctx.fillRect(px - 1, py - 1, 2.4, 2.4);
         }
       }
@@ -2061,9 +2070,9 @@ reg(
           i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
         });
         ctx.closePath();
-        ctx.fillStyle = "rgba(238,241,243,.04)";
+        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.04)`;
         ctx.fill();
-        ctx.strokeStyle = "rgba(238,241,243,.2)";
+        ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.2)`;
         ctx.lineWidth = 1;
         ctx.stroke();
       }
@@ -2087,7 +2096,7 @@ reg(
         ctx.fill();
         if (p.labels > 0.5 && k > 0.7) {
           ctx.font = "8px JetBrains Mono";
-          ctx.fillStyle = "rgba(238,241,243,.75)";
+          ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.75)`;
           ctx.fillText("SITE " + String(i + 1).padStart(2, "0"), x + 7, y - 14);
         }
       }

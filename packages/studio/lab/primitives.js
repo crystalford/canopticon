@@ -99,6 +99,11 @@ let BG = "#0d0f11";
  *  wanted one hardcoded its own near-black. */
 let DIM = "#191d21";
 let BG_RGB = [13, 15, 17];
+/** The palette as NUMBERS, for the primitives that touch pixels rather
+ *  than draw with a fillStyle. */
+let INK_RGB = [238, 241, 243];
+let ACCENT_RGB = [216, 98, 74];
+let COOL_RGB = [111, 158, 196];
 /** How light the world is (0 dark → 1 paper). A primitive that needs to
  *  know whether it is drawing light onto dark or marks onto paper asks
  *  this instead of trying to infer it from the ground colour. */
@@ -113,6 +118,9 @@ function setPalette(p) {
   BG = p.bg;
   DIM = p.dim;
   BG_RGB = p.bgRgb;
+  if (p.inkRgb) INK_RGB = p.inkRgb;
+  if (p.accentRgb) ACCENT_RGB = p.accentRgb;
+  if (p.coolRgb) COOL_RGB = p.coolRgb;
   KEY = p.key;
 }
 

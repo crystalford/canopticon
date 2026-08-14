@@ -10,11 +10,13 @@
 - **Studio** (primary): studio.canopticon.com · **Record**: canopticon.com
 - **Twitter**: @canoptics · **GitHub**: crystalford/canopticon
 
-> **One-time setup after the Studio Worker first deploys:** add
-> `studio.canopticon.com` in the Cloudflare dashboard under Workers & Pages →
-> `canopticon-studio` → Settings → Domains & Routes. The deploy token lacks
-> Workers Routes Edit on the zone, so this can't be automated and the Worker
-> stays on its workers.dev subdomain until it's done.
+> **`studio.canopticon.com` is attached and serving.** The custom domain was
+> added in the Cloudflare dashboard by hand and is DONE — this file used to
+> carry it as an outstanding one-time setup step, which then read as an open
+> blocker to every session that opened it. It stays out of `wrangler.toml`
+> because the deploy token lacks Workers Routes Edit on the zone and
+> declaring a route there would fail the deploy; that is a fact about the
+> config file, not a task.
 
 ---
 

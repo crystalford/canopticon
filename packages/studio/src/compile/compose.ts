@@ -31,7 +31,13 @@ import {
   chainDeterminism,
   chainOverwrites,
 } from "../primitives/registry.ts";
-import { type Beat, type Program, type Style, constructPrograms } from "./construct.ts";
+import {
+  type Beat,
+  type PlannedNode,
+  type Program,
+  type Style,
+  constructPrograms,
+} from "./construct.ts";
 import {
   type ResolvedState,
   controlPointPositions,
@@ -285,10 +291,29 @@ export function composeScene(
   let treatment: Treatment | null = null;
   let chain: string[];
   const reasons = new Map<string, string>();
-  /** Parameters decided by whatever PLANNED this chain — a treatment or a
-   *  construction. Merged onto the nodes below, because a plan whose
-   *  numbers are thrown away is a plan in name only. */
-  let plannedParams = new Map<string, Record<string, number | string>>();
+  /* THE PLAN, POSITION BY POSITION — and the reason this is an array and
+   * not a Map.
+   *
+   * It WAS a Map keyed by primitiveId, and that lost two different things
+   * at once. A scene graph emits `place` and `geometry_draw` once per
+   * element, so a five-element scene's five different parameter sets
+   * collapsed to whichever was written last. And a Map of parameters has
+   * nowhere to put a compositor's SECOND INPUT, so every nested element —
+   * the ground, the field, the words — was dropped on the floor.
+   *
+   * The measured effect on a real 36-scene essay: 27 scenes planned
+   * `typographic` and 3 that contained any text primitive. The other 24
+   * rendered their ground plus the operator tail, which is to say the old
+   * texture pipeline, which is exactly what it looked like.
+   *
+   * The flat `chain` stays, because everything after this point — motif
+   * append, density append, anti-repetition, the restraint and cost
+   * ceilings, the validity sweep, the pin — is written against a list of
+   * names. This array shadows it, index for index, through every one of
+   * those mutations. A `null` means "no construction planned this
+   * position", which is true of every appended motif and of every chain
+   * that came from a rung or a treatment rather than from a construction. */
+  let planned: (PlannedNode | null)[] = [];
   let program: Program | null = null;
   let alternatives: ProgramSummary[] = [];
   /** The scene's roles, when it has more than one. Function-scoped because
@@ -306,6 +331,7 @@ export function composeScene(
     const language = scene.visualLanguage ?? ir.visualLanguage;
     treatment = planTreatment(reading, language);
     chain = treatment.nodes.map((n) => n.primitiveId);
+    planned = chain.map(() => null);
     for (const node of treatment.nodes) reasons.set(node.primitiveId, node.reason);
     if (!treatment.valid) {
       // A treatment that does not typecheck is reported and discarded, not
@@ -315,6 +341,7 @@ export function composeScene(
         `treatment rejected (${treatment.errors.map((e) => e.message).join("; ")}) — fell back to the ${rung.tier} rung`,
       );
       chain = [...rung.base];
+      planned = chain.map(() => null);
       reasons.clear();
       for (const p of chain)
         reasons.set(p, `${rung.tier} rung at abstraction ${abstraction.toFixed(2)}`);
@@ -487,15 +514,29 @@ export function composeScene(
           ...(p.dislocated ? { dislocated: true } : {}),
         }));
       chain = best.nodes.map((n) => n.primitiveId);
-      plannedParams = new Map(best.nodes.map((n) => [n.primitiveId, n.params]));
+      // THE TREE, KEPT. Index for index with `chain`, so a compositor's
+      // second input survives every flat pass below.
+      planned = [...best.nodes];
       // THE PLAN REACHES THE PARAMETERS. Weight and depth were computed
       // and read by nothing — see the capability map. The subject plane's
       // entitlement now sets how much of the frame its construction takes.
       const subjectPlane = scenePlan?.planes.find((pl) => pl.role === "SUBJECT");
       if (subjectPlane) {
-        for (const [id, ps] of plannedParams) {
-          plannedParams.set(id, applyPlane(id, ps, subjectPlane));
-        }
+        /* WEIGHT REACHES THE WHOLE TREE, not just its trunk.
+         *
+         * Applied recursively because a scene's elements are nested: the
+         * words hang off a compositor, the field hangs off another.
+         * weighting only the top level would leave the subject plane's
+         * entitlement applied to the ground and to nothing the eye is
+         * meant to land on. Standing rule 11 — every system that operates
+         * on a compositional structure treats it recursively, or none do. */
+        const weigh = (ns: PlannedNode[]): PlannedNode[] =>
+          ns.map((n) => ({
+            ...n,
+            params: applyPlane(n.primitiveId, n.params, subjectPlane),
+            ...(n.ground ? { ground: weigh(n.ground) } : {}),
+          }));
+        planned = weigh(planned.filter((n): n is PlannedNode => n !== null));
         notes.push(
           `weighted — ${subjectPlane.role.toLowerCase()} at ${subjectPlane.weight.toFixed(2)}, depth ${subjectPlane.depth.toFixed(2)}`,
         );
@@ -515,6 +556,7 @@ export function composeScene(
       // of shapes is the thing this replaced.
       const byKind = chainForKind(kind.kind, rung.tier, sceneIndex);
       chain = byKind ? [...byKind] : [...rung.base];
+      planned = chain.map(() => null);
       for (const p of chain) {
         reasons.set(
           p,
@@ -541,6 +583,7 @@ export function composeScene(
     for (const p of motif.chain) {
       if (!chain.includes(p)) {
         chain.push(p);
+        planned.push(null);
         reasons.set(p, `${motif.concept} motif — ${occurrence.state}`);
       }
     }
@@ -557,6 +600,7 @@ export function composeScene(
     const variant = pickVariant(chain, motifPrimitives, sceneIndex);
     if (variant) {
       chain.push(variant);
+      planned.push(null);
       reasons.set(variant, `anti-repetition — same surface ${repeated} scenes running`);
       notes.push(`varied the surface after ${repeated} consecutive similar chains`);
     }
@@ -565,14 +609,17 @@ export function composeScene(
   // ── precedence 7 continued: density and typography from the curves ──
   if (density > DENSITY_BLEND_AT && !chain.includes("blend")) {
     chain.push("blend");
+    planned.push(null);
     reasons.set("blend", `density ${density.toFixed(2)} — compositing depth`);
   }
   if (density > DENSITY_NEST_AT && !chain.includes("nest")) {
     chain.push("nest");
+    planned.push(null);
     reasons.set("nest", `density ${density.toFixed(2)} — nested composition`);
   }
   if (typography > TYPO_VARIABLE_AXIS_AT && !chain.includes("variable_axis")) {
     chain.push("variable_axis");
+    planned.push(null);
     reasons.set("variable_axis", `typographic weight ${typography.toFixed(2)}`);
   }
 
@@ -586,20 +633,32 @@ export function composeScene(
     // Drop from the tail — motif and rung primitives are added first and
     // are the ones that carry meaning.
     chain = chain.slice(0, ceiling);
+    planned = planned.slice(0, ceiling);
     notes.push(
       `restraint ceiling ${ceiling} — ${dropped} primitive${dropped === 1 ? "" : "s"} dropped`,
     );
   }
 
+  /* COST WHAT ACTUALLY RENDERS, not the trunk of it.
+   *
+   * `chainCost(chain)` counts the flat list of names, and a scene graph
+   * hangs a whole element off every compositor — so a five-element scene
+   * was billed for its trunk and rendered five chains. The ceilings were
+   * being applied to something other than the film. */
+  const plannedCost = (): number =>
+    chainCost(chain) +
+    planned.reduce((sum, n) => sum + (n?.ground ? chainCost(flatIds(n.ground)) : 0), 0);
+
   // Refuse a chain that would blow the ceiling (Atlas 7.1.4).
-  while (chain.length > 1 && chainCost(chain) > MAX_CHAIN_MS) {
+  while (chain.length > 1 && plannedCost() > MAX_CHAIN_MS) {
     const removed = chain.pop() as string;
+    planned.pop();
     notes.push(`dropped ${removed} — chain exceeded ${MAX_CHAIN_MS}ms, the export ceiling`);
   }
   // Over real time but under the ceiling is a legitimate, deliberate state —
   // and one a director should be told about, because it is the difference
   // between a film they can scrub and a film they must export to watch.
-  const cost = chainCost(chain);
+  const cost = plannedCost();
   if (cost > REALTIME_FRAME_MS) {
     notes.push(
       `${cost}ms/frame — above the ${REALTIME_FRAME_MS}ms real-time budget, so this scene will drop frames in Preview but renders correctly on export`,
@@ -623,6 +682,7 @@ export function composeScene(
       if (!first) break;
       const dropped = chain[first.at] as string;
       chain.splice(first.at, 1);
+      planned.splice(first.at, 1);
       reasons.delete(dropped);
       notes.push(`dropped ${dropped} — ${first.message}`);
     }
@@ -637,10 +697,54 @@ export function composeScene(
     const pinned = override.chain && override.chain.length > 0 ? [...override.chain] : chain;
     notes.length = 0;
     chain = pinned;
+    // A pin bypasses composition entirely, so nothing here was planned by
+    // a construction — the director named the primitives.
+    planned = chain.map(() => null);
     reasons.clear();
     for (const p of chain) reasons.set(p, "pinned by the director");
     notes.push(`pinned — composition bypassed${override.note ? ` (${override.note})` : ""}`);
   }
+
+  /* A PLANNED SUBTREE, AS COMPOSED NODES.
+   *
+   * Recursive, because an element's own chain may itself composite — the
+   * scene graph nests one `layer_over` per element and a ground can carry
+   * a ground.
+   *
+   * SEEDED IN ITS OWN BAND, and the existing ground suite caught me
+   * getting this wrong. Two layers on the same seed move in lockstep and
+   * read as one image rather than two, so `graph.ts` puts its grounds at
+   * 7000+ to keep them clear of the trunk's 1000s. These sit higher again,
+   * clear of both — deterministic from the scene, the parent's position
+   * and the depth, so the same IR is still the same film.
+   *
+   * Text parameters are applied here too. A word set on an element two
+   * levels down is still this scene's word, and leaving it to the
+   * primitive's default is how thirty-one scenes came to read
+   * "NOBODY VOTED AGAINST". */
+  const asComposed = (
+    ns: PlannedNode[],
+    sceneIdx: number,
+    parentIdx: number,
+    text: string,
+    depth = 1,
+  ): ComposedNode[] =>
+    ns.map((n, k) => {
+      const spec = PRIMITIVES[n.primitiveId];
+      return {
+        primitiveId: n.primitiveId,
+        params: {
+          ...textParamsFor(n.primitiveId, text, spec?.parameters ?? {}),
+          ...n.params,
+        },
+        seed: 20000 + sceneIdx * 17 + parentIdx * 211 + depth * 1009 + k,
+        costMsPerFrame: spec?.estimatedCostMsPerFrame ?? 4,
+        reason: n.reason,
+        ...(n.ground && n.ground.length > 0
+          ? { ground: asComposed(n.ground, sceneIdx, parentIdx, text, depth + 1) }
+          : {}),
+      };
+    });
 
   // THE SCENE'S OWN WORDS.
   //
@@ -664,16 +768,16 @@ export function composeScene(
     // A treatment's parameters are the whole point of planning one — they
     // carry the representation rung and the camera, and a claim's colder
     // grade. Without this merge the plan would be decorative.
-    const planned = treatment?.nodes.find((n) => n.primitiveId === primitiveId);
-    if (planned) Object.assign(params, planned.params);
+    const fromTreatment = treatment?.nodes.find((n) => n.primitiveId === primitiveId);
+    if (fromTreatment) Object.assign(params, fromTreatment.params);
     // A CONSTRUCTION'S NUMBERS ARE THE CONSTRUCTION. `creature_chain` with
     // its defaults is a twenty-two-segment centipede whatever the sentence
     // said; with `segments` and `count` read off the prose it is the thing
     // the sentence named. Dropping these would leave the new layer
     // choosing the same primitives as the old one and setting none of
     // them, which is the failure it was built to end.
-    const constructed = plannedParams.get(primitiveId);
-    if (constructed) Object.assign(params, constructed);
+    const constructed = planned[i];
+    if (constructed) Object.assign(params, constructed.params);
     if (override?.type === "pin" && override.params) {
       Object.assign(params, override.params);
     }
@@ -685,6 +789,18 @@ export function composeScene(
       seed: 1000 + sceneIndex * 17 + i,
       costMsPerFrame: spec?.estimatedCostMsPerFrame ?? 4,
       reason: reasons.get(primitiveId) ?? "composed",
+      /* THE SECOND INPUT, CARRIED. This is the whole fix.
+       *
+       * A compositor planned by the scene graph holds an entire element —
+       * the words, a field, the ground — on its B side. It used to be
+       * dropped here, so a scene of two or more elements arrived at the
+       * renderer as its FIRST element plus a compositor pointing at
+       * nothing, and the renderer drew the ground and the operator tail.
+       * Which is a texture. Which is what every multi-element scene of
+       * every film has looked like. */
+      ...(constructed?.ground && constructed.ground.length > 0
+        ? { ground: asComposed(constructed.ground, sceneIndex, i, phrase.text) }
+        : {}),
     };
   });
 
@@ -718,7 +834,7 @@ export function composeScene(
     contested: Boolean(reading?.contested),
     pinned: override?.type === "pin",
     sceneIndex,
-    budgetMs: MAX_CHAIN_MS - chainCost(chain),
+    budgetMs: MAX_CHAIN_MS - chainCost(flattenGround(subjectNodes).map((n) => n.primitiveId)),
   });
   const planes = scenePlan && isComposite(scenePlan) ? scenePlan.planes : ([] as Plane[]);
   // A PIN BYPASSES COMPOSITION ENTIRELY — precedence 1. Layering under a
@@ -737,7 +853,7 @@ export function composeScene(
           atmosphere: atmosphere
             ? { program: atmosphere.ground, params: atmosphere.params, why: atmosphere.reason }
             : null,
-          budgetMs: MAX_CHAIN_MS - chainCost(chain),
+          budgetMs: MAX_CHAIN_MS - chainCost(flattenGround(subjectNodes).map((n) => n.primitiveId)),
         });
   const flat = graph ? flattenGraph(graph.root, baseParams) : null;
   const nodes: ComposedNode[] = flat && flat.chain.length > 0 ? flat.chain : subjectNodes;
@@ -1051,5 +1167,9 @@ function pickVariant(chain: string[], exempt: Set<string>, sceneIndex: number): 
   if (candidates.length === 0) return null;
   return candidates[sceneIndex % candidates.length] as string;
 }
+
+/** Every primitive id in a planned subtree, for costing. */
+const flatIds = (ns: PlannedNode[]): string[] =>
+  ns.flatMap((n) => [n.primitiveId, ...(n.ground ? flatIds(n.ground) : [])]);
 
 const round3 = (v: number): number => Math.round(v * 1000) / 1000;

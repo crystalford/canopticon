@@ -147,7 +147,7 @@ function knockout(src) {
  *  two-input primitive with one input is not an error — it is a chain
  *  someone is still building — but it must not look like it worked. */
 function halfLit(ctx, w, h, which) {
-  ctx.fillStyle = "rgba(216,98,74,.9)";
+  ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.9)`;
   ctx.font = '500 10px "JetBrains Mono",monospace';
   ctx.fillText(`NO ${which} INPUT — SHOWING WHAT THERE IS`, 10, 16);
 }
@@ -198,10 +198,21 @@ reg(
       ctx.drawImage(over, 0, 0, w, h);
       ctx.globalAlpha = 1;
       if (p.front <= 0.5) {
-        // The subject wins, but the ground is still there — so the ground
-        // is re-asserted at the operator's opacity in a mode that adds
-        // light rather than covering it.
-        ctx.globalCompositeOperation = "screen";
+        /* The subject wins, but the ground is still there — so it is
+         * re-asserted at the operator's opacity, in whichever direction
+         * the FILM'S OWN GROUND makes "present but behind" mean.
+         *
+         * This was `screen`, unconditionally, and that is only right on a
+         * dark film. Screen ADDS LIGHT: on the light palettes these films
+         * now use it washes the whole frame toward white, so a scene that
+         * had correctly composed its words underneath came out as a pale
+         * smear with nothing readable in it. The words were there. This
+         * line erased them.
+         *
+         * It is the same question `geometry_draw` answers for GLASS and
+         * LIGHT, and it is answered the same way: on paper you assert a
+         * ground by darkening, on darkness by lightening. */
+        ctx.globalCompositeOperation = KEY > 0.5 ? "multiply" : "screen";
         ctx.globalAlpha = p.opacity * 0.5;
         ctx.drawImage(B, 0, 0, w, h);
         ctx.globalCompositeOperation = "source-over";

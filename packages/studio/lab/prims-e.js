@@ -171,7 +171,7 @@ function drawCreature(ctx, c, p, S, t) {
           const kneeY = (hipY + footY) / 2 + py * side * S * lift * 2.2;
 
           ctx.strokeStyle = planted
-            ? `rgba(238,241,243,${0.5 * taper})`
+            ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},${0.5 * taper})`
             : `rgba(155,163,170,${0.3 * taper})`;
           ctx.lineWidth = planted ? 1.5 : 1;
           ctx.beginPath();
@@ -180,7 +180,7 @@ function drawCreature(ctx, c, p, S, t) {
           ctx.stroke();
 
           if (planted) {
-            ctx.fillStyle = `rgba(216,98,74,${0.5 * taper})`;
+            ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},${0.5 * taper})`;
             ctx.fillRect(footX - 1, footY - 1, 2, 2);
           }
         }
@@ -210,7 +210,7 @@ function drawCreature(ctx, c, p, S, t) {
   const next = pts[1] || pts[0];
   const ha = Math.atan2(head.y - next.y, head.x - next.x);
   const hp = ha + Math.PI / 2;
-  ctx.strokeStyle = "rgba(216,98,74,.75)";
+  ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.75)`;
   ctx.lineWidth = 1.2;
   for (const side of [-1, 1]) {
     const wag = Math.sin(cycle * 0.8 + (side > 0 ? 1.6 : 0)) * 0.36;
@@ -307,7 +307,7 @@ reg(
             y += Math.sin(a) * push + Math.sin(a) * Math.cos(t * 0.6 + q.seed) * push * 0.3;
           }
           const alpha = (0.25 + q.v * 0.7) * (1 - d * 0.35);
-          ctx.fillStyle = q.v > 0.82 ? `rgba(216,98,74,${alpha})` : `rgba(238,241,243,${alpha})`;
+          ctx.fillStyle = q.v > 0.82 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},${alpha})` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},${alpha})`;
           ctx.fillRect(x, y, 1.6, 1.6);
         }
 

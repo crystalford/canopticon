@@ -192,6 +192,30 @@ function buildChain(chain, w, h, duration) {
   return {
     errors: [],
     lastPayload: () => emitted,
+    /* GIVE THE MEMORY BACK.
+     *
+     * Every stage owns a full-size canvas and every compositor's ground
+     * owns a whole chain of its own, so one scene at 1076×760 is tens of
+     * megabytes and a scene built from a five-element scene graph is
+     * several times that again. Nothing could release any of it: the
+     * canvases live on `stages`, which this object never exposed.
+     *
+     * Dropping the reference is NOT enough, and that detail is the whole
+     * bug. Canvas backing store is not in the JS heap — which is exactly
+     * why the tab crashed at scene 21 of 39 while `performance.memory`
+     * read a healthy 64MB right up to the moment it died. Setting the
+     * dimensions to zero is what actually frees it. */
+    dispose() {
+      for (const s of stages) {
+        if (s.ground?.dispose) s.ground.dispose();
+        if (s.buf) {
+          s.buf.width = 0;
+          s.buf.height = 0;
+        }
+      }
+      stages.length = 0;
+      emitted = { canvas: null, geometry: null, field: null, data: null };
+    },
     run(t) {
       // The payload, not just a canvas. GEOMETRY is a point set and a
       // picture OF points is not the same thing: re-sampling a drawn point
@@ -293,6 +317,13 @@ function buildSequence(chain, shots, w, h) {
   return {
     errors: [],
     shots: built.length,
+    /** A shot is a whole chain, so a scene cut into four shots holds four
+     *  times the canvases of a scene that was not. Releasing one of these
+     *  and not the others would be most of a fix. */
+    dispose() {
+      for (const b of built) b.chain.dispose?.();
+      built.length = 0;
+    },
     /** `ms` is time on the FILM's clock. The shot whose window contains it
      *  renders, at its own local time — so a cut restarts the shot rather
      *  than joining it mid-motion. */

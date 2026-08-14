@@ -47,7 +47,7 @@ reg(
             }
             const edge = Math.sqrt(b2) - Math.sqrt(b);
             if (edge < 3.4) {
-              ctx.fillStyle = "rgba(238,241,243,.55)";
+              ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.55)`;
               ctx.fillRect(x, y, step, step);
             } else if (p.fill > 0.02) {
               const g = ((bi % 9) / 9) * 0.5;
@@ -87,7 +87,7 @@ reg(
       (function box(x, y, s, d) {
         if (d <= 0) return;
         n++;
-        ctx.strokeStyle = "rgba(238,241,243," + (0.12 + d * 0.11) + ")";
+        ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.12 + d * 0.11) + ")";
         ctx.lineWidth = 0.6;
         ctx.save();
         ctx.translate(x, y);
@@ -139,7 +139,7 @@ reg(
           len = (h * 0.4) / Math.pow(2.1, it - 1);
         const N = Math.floor(cache.length * p.grow);
         ctx.lineWidth = 0.8;
-        ctx.strokeStyle = "rgba(238,241,243,.6)";
+        ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.6)`;
         ctx.beginPath();
         for (let i = 0; i < N; i++) {
           const c = cache[i];
@@ -196,7 +196,7 @@ reg(
         const X = x * Math.cos(rot) - y * Math.sin(rot);
         const px = w / 2 + X * S,
           py = h * 0.62 - (z - 26) * S;
-        ctx.fillStyle = i % 7 ? "rgba(238,241,243,.30)" : "rgba(216,98,74,.45)";
+        ctx.fillStyle = i % 7 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.30)` : `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.45)`;
         ctx.fillRect(px, py, 1, 1);
       }
       lab(ctx, "LORENZ · " + N + " ITERATIONS · DETERMINISTIC", 10, h - 16);
@@ -234,7 +234,7 @@ reg(
           for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++)
               if (row[x]) {
-                ctx.fillStyle = x % 11 === 0 ? "rgba(216,98,74,.85)" : "rgba(238,241,243,.78)";
+                ctx.fillStyle = x % 11 === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.85)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.78)`;
                 ctx.fillRect(x * c, y * c, c, c);
               }
             row = row.map((_, i) => {
@@ -274,8 +274,8 @@ reg(
             const b = v > 0 ? 1 : 0,
               g = Math.abs(v);
             ctx.fillStyle = b
-              ? "rgba(216,98,74," + (0.15 + g * 0.5) + ")"
-              : "rgba(238,241,243," + g * 0.35 + ")";
+              ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + (0.15 + g * 0.5) + ")"
+              : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + g * 0.35 + ")";
             ctx.fillRect(x, y, c, c);
           }
         lab(ctx, "GRAY-SCOTT APPROXIMATION · PRECOMPUTE IN PRODUCTION", 10, h - 16);
@@ -317,7 +317,7 @@ reg(
           q.l -= dec;
           if (q.l <= 0) return false;
           ctx.fillStyle =
-            q.l > 0.6 ? "rgba(238,241,243," + q.l + ")" : "rgba(216,98,74," + q.l * 0.9 + ")";
+            q.l > 0.6 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + q.l + ")" : `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + q.l * 0.9 + ")";
           ctx.fillRect(q.x, q.y, 2, 2);
           return true;
         });
@@ -402,7 +402,7 @@ reg(
           q.x = (q.x + q.vx + w) % w;
           q.y = (q.y + q.vy + h) % h;
           const a = Math.atan2(q.vy, q.vx);
-          ctx.strokeStyle = i % 9 ? "rgba(238,241,243,.55)" : "rgba(216,98,74,.9)";
+          ctx.strokeStyle = i % 9 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.55)` : `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.9)`;
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.moveTo(q.x, q.y);
@@ -520,7 +520,7 @@ reg(
         ctx.stroke();
         ctx.fillStyle = EMB;
         ctx.fillRect(X, h / 2 - 13, 26, 26);
-        ctx.strokeStyle = "rgba(216,98,74,.35)";
+        ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.35)`;
         ctx.setLineDash([3, 4]);
         ctx.beginPath();
         ctx.moveTo(40 + tg * (w - 110), h * 0.2);
@@ -582,7 +582,7 @@ reg(
             q.y = h / 2;
             q.vx = q.vy = 0;
           }
-          ctx.fillStyle = "rgba(238,241,243,.32)";
+          ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.32)`;
           ctx.fillRect(q.x, q.y, 1.4, 1.4);
         }
         att.forEach(([x, y]) => {
@@ -695,7 +695,7 @@ reg(
               }
             }
           }
-          ctx.strokeStyle = i % 6 ? "rgba(238,241,243,.6)" : EMB;
+          ctx.strokeStyle = i % 6 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.6)` : EMB;
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.arc(q.x, q.y, q.r, 0, 6.3);
@@ -741,7 +741,7 @@ reg(
         ctx.beginPath();
         ctx.ellipse(w / 2, h / 2, rx, ry, 0, 0, 6.3);
         ctx.stroke();
-        ctx.fillStyle = i % 5 ? "rgba(238,241,243,.85)" : COOL;
+        ctx.fillStyle = i % 5 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.85)` : COOL;
         ctx.beginPath();
         ctx.arc(
           w / 2 + Math.cos(a) * rx,
@@ -921,7 +921,7 @@ rasterPrim(
         const v = im.data[((y | 0) * w + (x | 0)) * 4] / 255;
         const q = Math.floor(cl01(v - p.level + 0.5) * S) / S;
         if (q <= 0) continue;
-        ctx.fillStyle = q > 0.85 ? EMB : "rgba(238,241,243," + q + ")";
+        ctx.fillStyle = q > 0.85 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + q + ")";
         ctx.fillRect(x, y, c, c);
       }
   },
@@ -948,7 +948,7 @@ rasterPrim(
         } else i++;
       }
       row.forEach((v, x) => {
-        ctx.fillStyle = v > 0.88 ? EMB : "rgba(238,241,243," + v * 0.9 + ")";
+        ctx.fillStyle = v > 0.88 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + v * 0.9 + ")";
         ctx.fillRect(x * c, y, c, c);
       });
     }
@@ -973,11 +973,21 @@ rasterPrim(
       for (let x = 0; x < w; x += c) {
         const sx = Math.round(clampv(x + sh, 0, w - 1));
         const v = im.data[((y | 0) * w + sx) * 4] / 255;
-        ctx.fillStyle = "rgba(238,241,243," + v * 0.85 + ")";
+        /* A SCANLINE IS INK ON THE FILM'S OWN GROUND.
+         *
+         * This drew rgba(238,241,243) — near white — with alpha keyed to
+         * brightness, which is a CRT only if the film is dark. On paper it
+         * painted white onto white where the image was bright and nothing
+         * at all where it was dark, so every mark on the frame was wiped
+         * to the ground. Bisecting a real scene: 247 dark pixels in, 0
+         * out. The words survived the compositor and died here. */
+        const a = (KEY > 0.5 ? 1 - v : v) * 0.85;
+        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},${a})`;
         ctx.fillRect(x, y, c, c);
       }
     }
-    ctx.fillStyle = "rgba(216,98,74,.05)";
+    // The roll bar, in the film's accent rather than a fixed clay.
+    ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.05)`;
     ctx.fillRect(0, (t * 90) % h, w, 26);
   },
 );
@@ -1009,7 +1019,7 @@ reg(
             const g = cl01(s * 0.5 + 0.5);
             ctx.fillStyle =
               g > 0.72
-                ? "rgba(216,98,74," + g * 0.85 + ")"
+                ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + g * 0.85 + ")"
                 : "rgb(" + ((g * 160) | 0) + "," + ((g * 172) | 0) + "," + ((g * 182) | 0) + ")";
             ctx.fillRect(x, y, c, c);
           }
@@ -1083,7 +1093,7 @@ reg(
           amt = p.amount * 22 * (1 + Math.sin(t * 3) * p.pulse);
         ctx.globalCompositeOperation = "lighter";
         const chans = [
-          ["rgba(216,98,74,.9)", 1],
+          [`rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.9)`, 1],
           ["rgba(110,220,180,.7)", 0],
           ["rgba(111,158,196,.9)", -1],
         ];

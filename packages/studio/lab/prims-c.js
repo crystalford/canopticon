@@ -51,7 +51,7 @@ reg(
         const bw = pw / V.length;
         for (let i = 0; i < N; i++) {
           const bh = (V[i] / mx) * ph;
-          ctx.fillStyle = hot(V[i]) ? EMB : "rgba(238,241,243,.72)";
+          ctx.fillStyle = hot(V[i]) ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.72)`;
           ctx.fillRect(px + i * bw + 1.5, py + ph - bh, bw - 3, bh);
           // The verbatim string under its own bar. This is the whole point
           // of carrying `text` through the payload: the reader sees the
@@ -89,7 +89,7 @@ reg(
         }
         ctx.lineTo(px + ((N - 1) / span) * pw, py + ph);
         ctx.closePath();
-        ctx.fillStyle = "rgba(216,98,74,.22)";
+        ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.22)`;
         ctx.fill();
         ctx.strokeStyle = EMB;
         ctx.lineWidth = 1.5;
@@ -104,7 +104,7 @@ reg(
           // hundred and fifty million circles.
           const dots = Math.max(1, Math.round((V[i] / mx) * 24));
           for (let j = 0; j < dots; j++) {
-            ctx.fillStyle = "rgba(238,241,243,.6)";
+            ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.6)`;
             ctx.beginPath();
             ctx.arc(x + (r() - 0.5) * 7, py + ph - ((j + 0.5) / 24) * ph, 2.2, 0, 6.3);
             ctx.fill();
@@ -182,7 +182,7 @@ reg(
         const a0 = (i / DATA.length) * 6.283 * p.spread - 1.57,
           a1 = a0 + (6.283 / DATA.length) * p.spread * 0.86;
         const rr = r0 + (v / mx) * (R - r0);
-        ctx.fillStyle = v >= 5 ? EMB : "rgba(238,241,243,.6)";
+        ctx.fillStyle = v >= 5 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.6)`;
         if (K === 0) {
           ctx.beginPath();
           ctx.arc(w / 2, h / 2, rr, a0, a1);
@@ -255,7 +255,7 @@ reg(
         }
         ctx.closePath();
         ctx.fillStyle =
-          b === B - 1 ? "rgba(216,98,74,.55)" : "rgba(238,241,243," + (0.1 + b * 0.09) + ")";
+          b === B - 1 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.55)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.1 + b * 0.09) + ")";
         ctx.fill();
         for (let i = 0; i < N; i++) acc[i] += s[i];
       });
@@ -359,7 +359,7 @@ reg(
         ctx.strokeStyle = "rgba(155,163,170,.12)";
         ctx.strokeRect(cx + 3, cy + 3, cw - 6, ch - 6);
         const hot = v / Math.max(...DATA) > p.highlight;
-        ctx.strokeStyle = hot ? EMB : "rgba(238,241,243,.5)";
+        ctx.strokeStyle = hot ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.5)`;
         ctx.lineWidth = hot ? 1.6 : 1;
         ctx.beginPath();
         for (let j = 0; j < 9; j++) {
@@ -400,7 +400,7 @@ reg(
             let v = fbm(n, x * 0.4, y * 0.4 + t * 0.05, 2, 0.5) * 0.5 + 0.5;
             v = cl01((v - 0.5) * (1 + p.contrast * 3) + 0.5);
             ctx.fillStyle =
-              v > 0.72 ? "rgba(216,98,74," + v + ")" : "rgba(238,241,243," + v * 0.55 + ")";
+              v > 0.72 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + v + ")" : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + v * 0.55 + ")";
             ctx.fillRect(x * cw + g / 2, y * chh + g / 2, cw - g, chh - g);
           }
         lab(ctx, C + "×" + R + " MATRIX", 10, h - 14);
@@ -443,7 +443,7 @@ reg(
           q.y +=
             (q.y * (1 - p.gather) + ty * p.gather - q.y) * 0.06 +
             Math.sin(t + q.k * 9) * p.jitter * 0.7;
-          ctx.fillStyle = DATA[q.col] >= 5 ? "rgba(216,98,74,.6)" : "rgba(238,241,243,.45)";
+          ctx.fillStyle = DATA[q.col] >= 5 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.6)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.45)`;
           ctx.fillRect(q.x, q.y, 1.4, 1.4);
         }
         lab(ctx, N.toLocaleString() + " PARTICLES · ONE PER UNIT", 10, h - 14);
@@ -501,7 +501,7 @@ reg(
             ctx.stroke();
           } else {
             ctx.fillStyle =
-              v > 4 ? "rgba(216,98,74," + v / 8 + ")" : "rgba(238,241,243," + v / 14 + ")";
+              v > 4 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + v / 8 + ")" : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + v / 14 + ")";
             ctx.fillRect(x * gap, y * (h / R), gap, h / R);
           }
         }
@@ -536,7 +536,7 @@ reg(
             x = 10;
             y += h * 0.3;
           }
-          ctx.fillStyle = v >= 5 ? EMB : "rgba(238,241,243," + (0.35 + (v / mx) * 0.6) + ")";
+          ctx.fillStyle = v >= 5 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.35 + (v / mx) * 0.6) + ")";
           ctx.fillText(String(YEARS[i]), x, y);
           x += wd;
         });
@@ -548,7 +548,7 @@ reg(
           ctx.font = "600 " + s + 'px "Space Grotesk",sans-serif';
           const a = (i / DATA.length) * 6.283 - 1.57,
             R = Math.min(w, h) * (0.18 + (v / mx) * 0.26) * p.packing * 1.6;
-          ctx.fillStyle = v >= 5 ? EMB : "rgba(238,241,243,.7)";
+          ctx.fillStyle = v >= 5 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.7)`;
           ctx.fillText(String(v), w / 2 + Math.cos(a) * R, h / 2 + Math.sin(a) * R);
         });
         ctx.textAlign = "left";
@@ -581,10 +581,10 @@ reg(
           x = px + i * bw,
           y = py + ph - bh;
         ctx.fillStyle =
-          v >= 5 ? "rgba(216,98,74," + (1 - c) + ")" : "rgba(238,241,243," + 0.7 * (1 - c) + ")";
+          v >= 5 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + (1 - c) + ")" : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + 0.7 * (1 - c) + ")";
         ctx.fillRect(x + 1.5, y, bw - 3, bh);
       });
-      ctx.strokeStyle = "rgba(238,241,243," + c + ")";
+      ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + c + ")";
       ctx.lineWidth = 1.8;
       ctx.beginPath();
       DATA.forEach((v, i) => {
@@ -624,7 +624,7 @@ reg(
         bw = pw / DATA.length;
       DATA.forEach((v, i) => {
         const bh = (v / mx) * ph;
-        ctx.fillStyle = i === Math.round(p.index) ? EMB : "rgba(238,241,243,.28)";
+        ctx.fillStyle = i === Math.round(p.index) ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.28)`;
         ctx.fillRect(px + i * bw + 1.5, py + ph - bh, bw - 3, bh);
       });
       const i = Math.round(p.index),
@@ -759,7 +759,7 @@ reg(
         }
         ctx.stroke();
         G.nodes.forEach((q) => {
-          ctx.fillStyle = q.g === 0 ? EMB : q.g === 1 ? COOL : "rgba(238,241,243,.8)";
+          ctx.fillStyle = q.g === 0 ? EMB : q.g === 1 ? COOL : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.8)`;
           ctx.beginPath();
           ctx.arc(q.x, q.y, 2.4, 0, 6.3);
           ctx.fill();
@@ -801,7 +801,7 @@ reg(
             ctx.moveTo(x, y);
             ctx.lineTo(cx, cy);
             ctx.stroke();
-            ctx.fillStyle = d === 1 ? EMB : "rgba(238,241,243,.8)";
+            ctx.fillStyle = d === 1 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.8)`;
             ctx.beginPath();
             ctx.arc(cx, cy, 2.4, 0, 6.3);
             ctx.fill();
@@ -814,7 +814,7 @@ reg(
             ctx.strokeStyle = "rgba(155,163,170,.35)";
             ctx.strokeRect(x, y, wd, hh);
             if (r() > 0.72) {
-              ctx.fillStyle = "rgba(216,98,74,.35)";
+              ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.35)`;
               ctx.fillRect(x, y, wd, hh);
             }
             return;
@@ -831,7 +831,7 @@ reg(
       } else {
         (function pack(x, y, R, d) {
           if (d <= 0 || R < 3) return;
-          ctx.strokeStyle = "rgba(238,241,243," + (0.12 + d * 0.1) + ")";
+          ctx.strokeStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.12 + d * 0.1) + ")";
           ctx.beginPath();
           ctx.arc(x, y, R, 0, 6.3);
           ctx.stroke();
@@ -891,7 +891,7 @@ reg(
         pos.forEach(([x, y], i) => {
           if (i > shown) return;
           const fresh = i > shown - 3;
-          ctx.fillStyle = fresh ? EMB : "rgba(238,241,243,.8)";
+          ctx.fillStyle = fresh ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.8)`;
           ctx.beginPath();
           ctx.arc(x, y, fresh ? 4 : 2.4, 0, 6.3);
           ctx.fill();
@@ -943,7 +943,7 @@ reg(
         });
         ctx.stroke();
         pos.forEach(([x, y], i) => {
-          ctx.fillStyle = i % 7 ? "rgba(238,241,243,.85)" : EMB;
+          ctx.fillStyle = i % 7 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.85)` : EMB;
           ctx.beginPath();
           ctx.arc(x, y, 2.6, 0, 6.3);
           ctx.fill();
@@ -989,7 +989,7 @@ reg(
         // a cut of attention, never of the total. The endpoint is the point.
         for (let c = 0; c < stops.length - 1; c++) {
           const th = (10 + 22 * p.thickness) * (1 - c * 0.06);
-          ctx.strokeStyle = c === stops.length - 2 ? "rgba(216,98,74,.42)" : "rgba(238,241,243,.16)";
+          ctx.strokeStyle = c === stops.length - 2 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.42)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.16)`;
           ctx.lineWidth = th;
           ctx.beginPath();
           ctx.moveTo(colw * c + colw * 0.5, y);
@@ -1009,7 +1009,7 @@ reg(
           ctx.save();
           ctx.translate(colw * i + colw * 0.5 + 8, y - 40);
           ctx.font = '500 10px "JetBrains Mono",monospace';
-          ctx.fillStyle = i === stops.length - 1 ? EMB : "rgba(238,241,243,.8)";
+          ctx.fillStyle = i === stops.length - 1 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.8)`;
           ctx.fillText(s.toUpperCase().slice(0, 22), 0, 0);
           ctx.restore();
         });
@@ -1028,7 +1028,7 @@ reg(
             const th = (2 + r() * 16) * p.thickness;
             const y0 = ((i + 0.5) / L) * h,
               y1 = ((j + 0.5) / L) * h;
-            ctx.strokeStyle = th > 10 ? "rgba(216,98,74,.3)" : "rgba(238,241,243,.13)";
+            ctx.strokeStyle = th > 10 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.3)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.13)`;
             ctx.lineWidth = th;
             ctx.beginPath();
             ctx.moveTo(colw * c + 18, y0);
@@ -1080,7 +1080,7 @@ reg(
           big = r() > 0.76;
         const r0 = R - (big ? 13 : 5),
           r1 = R + (big ? 7 : 2);
-        ctx.strokeStyle = big ? EMB : "rgba(238,241,243,.65)";
+        ctx.strokeStyle = big ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.65)`;
         ctx.lineWidth = big ? 1.6 : 1;
         ctx.beginPath();
         ctx.moveTo(w / 2 + Math.cos(a) * r0, h / 2 + Math.sin(a) * r0);
@@ -1133,7 +1133,7 @@ reg(
             wd = 30 + r() * 90;
           if (x0 / w > pr) continue;
           const vis = Math.min(wd, pr * w - x0);
-          ctx.fillStyle = l === 0 ? "rgba(216,98,74,.7)" : "rgba(238,241,243,.4)";
+          ctx.fillStyle = l === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.7)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.4)`;
           ctx.fillRect(x0, y - 6, Math.max(2, vis), 12);
         }
       }
@@ -1170,12 +1170,12 @@ reg(
         const bw = w / B;
         sm.forEach((v, i) => {
           const bh = cl01(v) * h * 0.55;
-          ctx.fillStyle = v > 0.4 ? EMB : "rgba(238,241,243,.5)";
+          ctx.fillStyle = v > 0.4 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.5)`;
           ctx.fillRect(i * bw + 0.5, h * 0.66 - bh, bw - 1, bh);
         });
         const amp = cl01((sm.reduce((a, b) => a + b, 0) / B) * 3);
         const R = 14 + amp * p.drive * h * 0.24;
-        ctx.strokeStyle = "rgba(216,98,74," + (0.3 + amp * 0.6) + ")";
+        ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + (0.3 + amp * 0.6) + ")";
         ctx.lineWidth = 1.4;
         ctx.beginPath();
         ctx.arc(w / 2, h * 0.84, R, 0, 6.3);
@@ -1247,7 +1247,7 @@ reg(
               ? h / 2
               : h - (i / DATA.length) * h * 0.8;
         const r = M === 1 ? 4 + v * 2.2 * p.range : 3.4;
-        ctx.fillStyle = on ? EMB : "rgba(238,241,243,.4)";
+        ctx.fillStyle = on ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.4)`;
         ctx.beginPath();
         ctx.arc(
           i * bw + bw / 2,
@@ -1258,14 +1258,14 @@ reg(
         );
         ctx.fill();
         if (on) {
-          ctx.strokeStyle = "rgba(216,98,74,.4)";
+          ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.4)`;
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.arc(i * bw + bw / 2, M === 1 ? h / 2 + (v - 3) * 11 * p.range : y, r * 3.2, 0, 6.3);
           ctx.stroke();
         }
       });
-      ctx.strokeStyle = "rgba(216,98,74,.55)";
+      ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.55)`;
       ctx.beginPath();
       ctx.moveTo(head * w, 0);
       ctx.lineTo(head * w, h);

@@ -178,7 +178,7 @@ function drawFixture(ctx, geo, project, mode, p, t, w, h) {
     ctx.closePath();
 
     if (mode === 4) {
-      ctx.fillStyle = `rgba(238,241,243,${0.25 + u * 0.5})`;
+      ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},${0.25 + u * 0.5})`;
       for (const q of pts) ctx.fillRect(q.x - 1, q.y - 1, 2, 2);
       continue;
     }
@@ -206,7 +206,7 @@ function drawFixture(ctx, geo, project, mode, p, t, w, h) {
     const pa = project(a);
     const pb = project(b);
     if (mode === 4) {
-      ctx.fillStyle = "rgba(216,98,74,.6)";
+      ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.6)`;
       ctx.fillRect(pb.x - 1, pb.y - 1, 2, 2);
       continue;
     }
@@ -222,7 +222,7 @@ function drawFixture(ctx, geo, project, mode, p, t, w, h) {
   if (p.led > 0.5) {
     const l = project(geo.led);
     const blink = 0.35 + 0.65 * (Math.sin(t * 2.2) > 0.92 ? 1 : 0.12);
-    ctx.fillStyle = `rgba(216,98,74,${blink})`;
+    ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},${blink})`;
     ctx.beginPath();
     ctx.arc(l.x, l.y, Math.max(1.6, 4 - 0), 0, Math.PI * 2);
     ctx.fill();
