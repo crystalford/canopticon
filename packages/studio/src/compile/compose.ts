@@ -36,6 +36,7 @@ import {
 import type { Act } from "./act.ts";
 import {
   type Beat,
+  OPERATOR_CHAINS,
   type PlannedNode,
   type Program,
   type Style,
@@ -1076,10 +1077,42 @@ export function composeScene(
     planned.reduce((sum, n) => sum + (n?.ground ? chainCost(flatIds(n.ground)) : 0), 0);
 
   // Refuse a chain that would blow the ceiling (Atlas 7.1.4).
+  const cut: string[] = [];
   while (chain.length > 1 && plannedCost() > MAX_CHAIN_MS) {
     const removed = chain.pop() as string;
     planned.pop();
+    cut.push(removed);
     notes.push(`dropped ${removed} — chain exceeded ${MAX_CHAIN_MS}ms, the export ceiling`);
+  }
+  /* AND THE REPORT FOLLOWS THE CHAIN DOWN.
+   *
+   * This loop trims from the tail, which is where the operators and the
+   * act's motion character live — and it did not tell the PROGRAM. So a
+   * scene whose `color_transform` had just been cut for cost went on
+   * being labelled "scene · grade", and the Compile view, the VISUAL IDEA
+   * and the alternatives list all named a treatment that is not in the
+   * frame. Measured after the restraint fix: 7 claims of 30 were this,
+   * six `grade` and one `scanline`.
+   *
+   * `assemble` can only claim what it attached; this is the other half —
+   * what survives the cost ceiling. Both ends now, so an operator on the
+   * report is an operator on screen. The loss is said out loud rather
+   * than quietly corrected, because a scene too expensive to carry its
+   * own grade is a fact a director needs. */
+  if (program && cut.length > 0) {
+    const gone = program.operators.filter((op) =>
+      (OPERATOR_CHAINS.get(op) ?? [op]).some((prim) => cut.includes(prim)),
+    );
+    if (gone.length > 0) {
+      program = {
+        ...program,
+        operators: program.operators.filter((op) => !gone.includes(op)),
+        id: `${program.construction}${program.operators.filter((op) => !gone.includes(op)).length ? ` · ${program.operators.filter((op) => !gone.includes(op)).join(" + ")}` : ""}`,
+      };
+      notes.push(
+        `${gone.join(" and ")} ${gone.length === 1 ? "was" : "were"} planned for this shot and cost more than the frame had — the picture is the composition without ${gone.length === 1 ? "it" : "them"}`,
+      );
+    }
   }
   // Over real time but under the ceiling is a legitimate, deliberate state —
   // and one a director should be told about, because it is the difference

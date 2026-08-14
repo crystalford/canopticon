@@ -887,6 +887,15 @@ interface Operator {
   why: string;
 }
 
+/** WHICH PRIMITIVES AN OPERATOR ACTUALLY RUNS, by id.
+ *
+ *  Exported because `compose.ts` has to know whether a primitive it just
+ *  cut for cost belongs to an operator the program is claiming — and the
+ *  mapping is not the identity: `grade` runs `color_transform`. Derived
+ *  from the table below rather than restated, so an operator that changes
+ *  its chain cannot leave a second copy behind disagreeing with it. */
+export const OPERATOR_CHAINS: Map<string, string[]> = new Map();
+
 const OPERATORS: Operator[] = [
   {
     id: "quantise",
@@ -1038,6 +1047,7 @@ const OPERATORS: Operator[] = [
     why: "softened — held back",
   },
 ];
+for (const op of OPERATORS) OPERATOR_CHAINS.set(op.id, op.chain);
 
 /** The motion tail. Not an operator: it re-times what came before rather
  *  than drawing anything, which is why the executor folds it into the
