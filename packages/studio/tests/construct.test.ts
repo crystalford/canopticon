@@ -32,6 +32,7 @@ import { detectSubjects } from "../src/compile/subject.ts";
 import type { VisualLanguage } from "../src/ir/schema.ts";
 import { parseIR } from "../src/ir/schema.ts";
 import { PRIMITIVES } from "../src/primitives/registry.ts";
+import { allActive } from "./active.ts";
 import { must } from "./must.ts";
 
 function beatFor(sentence: string, extra: Partial<Beat> = {}): Beat {
@@ -218,7 +219,7 @@ The residents were moved at night. Nothing changed.`;
     const seed = segmentEssay(essay, { projectId: "p" });
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid IR");
-    const scenes = composeAll(parsed.ir);
+    const scenes = composeAll(parsed.ir, null, allActive(parsed.ir));
 
     const chains = scenes.map((s) => s.nodes.map((n) => n.primitiveId).join("→"));
     // Not one of them is a ladder rung.
@@ -248,7 +249,7 @@ They walked around the city like insects. At first nobody noticed. Then there we
     const seed = segmentEssay(PARAGRAPH, { projectId: "p" });
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid IR");
-    return composeAll(parsed.ir);
+    return composeAll(parsed.ir, null, allActive(parsed.ir));
   }
 
   it("builds bodies for the sentence that names insects", () => {
@@ -320,7 +321,7 @@ describe("director verbs", () => {
     });
     const base = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!base.ok) throw new Error("invalid");
-    const before = must(composeAll(base.ir)[0]);
+    const before = must(composeAll(base.ir, null, allActive(base.ir))[0]);
 
     const directed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!directed.ok) throw new Error("invalid");
@@ -329,7 +330,7 @@ describe("director verbs", () => {
       type: "constrain",
       styleNudge: { abstraction: 0.4, experimentalism: 0.3, restraint: -0.2 },
     });
-    const after = must(composeAll(directed.ir)[0]);
+    const after = must(composeAll(directed.ir, null, allActive(directed.ir))[0]);
 
     // The engine still composed it — it is not pinned.
     expect(after.override?.type).not.toBe("pin");
@@ -352,7 +353,7 @@ describe("a look you can ask for again", () => {
     );
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid");
-    const scenes = composeAll(parsed.ir);
+    const scenes = composeAll(parsed.ir, null, allActive(parsed.ir));
 
     const grammar = captureGrammar("the glitch one", scenes, "p");
     expect(grammar.name).toBe("the glitch one");
@@ -368,7 +369,7 @@ describe("a look you can ask for again", () => {
     const source = segmentEssay("A\n\nThe detector was removed at night.", { projectId: "a" });
     const src = parseIR(JSON.parse(JSON.stringify(source.ir)));
     if (!src.ok) throw new Error("invalid");
-    const grammar = captureGrammar("captured", composeAll(src.ir), "a");
+    const grammar = captureGrammar("captured", composeAll(src.ir, null, allActive(src.ir)), "a");
     // Force a strong, unambiguous preference so the effect is legible.
     grammar.ops.fragment = 0.6;
     grammar.ops.grade = -0.5;
@@ -379,8 +380,12 @@ describe("a look you can ask for again", () => {
     if (!plain.ok || !styled.ok) throw new Error("invalid");
     styled.ir.grammar = grammar;
 
-    const before = composeAll(plain.ir).map((s) => (s.program?.operators ?? []).join("+"));
-    const after = composeAll(styled.ir).map((s) => (s.program?.operators ?? []).join("+"));
+    const before = composeAll(plain.ir, null, allActive(plain.ir)).map((s) =>
+      (s.program?.operators ?? []).join("+"),
+    );
+    const after = composeAll(styled.ir, null, allActive(styled.ir)).map((s) =>
+      (s.program?.operators ?? []).join("+"),
+    );
     expect(after.join("|")).not.toBe(before.join("|"));
     // A grammar names appetites, never a primitive.
     expect(Object.keys(grammar.ops).some((k) => k.includes("_"))).toBe(false);
@@ -619,7 +624,7 @@ describe("the third sentence test — prose with nothing to point a camera at", 
     const seed = segmentEssay(`A\n\n${sentence}`, { projectId: "p" });
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid IR");
-    return must(composeAll(parsed.ir)[0]).notes.join(" · ");
+    return must(composeAll(parsed.ir, null, allActive(parsed.ir))[0]).notes.join(" · ");
   }
 
   it("says so when the sentence names nothing depictable", () => {
@@ -653,7 +658,7 @@ describe("the third sentence test — prose with nothing to point a camera at", 
     });
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid IR");
-    const scene = must(composeAll(parsed.ir)[0]);
+    const scene = must(composeAll(parsed.ir, null, allActive(parsed.ir))[0]);
     expect(scene.nodes.length).toBeGreaterThan(0);
   });
 });
@@ -697,7 +702,7 @@ The residents were moved at night. The minister said the programme was working.`
     if (!parsed.ok) throw new Error("invalid IR");
 
     const wrong: string[] = [];
-    for (const scene of composeAll(parsed.ir)) {
+    for (const scene of composeAll(parsed.ir, null, allActive(parsed.ir))) {
       for (const node of scene.nodes) {
         const spec = PRIMITIVES[node.primitiveId];
         if (!spec) continue;
@@ -784,7 +789,7 @@ They walked around the city like insects. At first nobody noticed. Then there we
     const seed = segmentEssay(PARA, { projectId: "p" });
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid IR");
-    return composeAll(parsed.ir);
+    return composeAll(parsed.ir, null, allActive(parsed.ir));
   }
 
   it("reads the population off the prose and escalates it", () => {
@@ -1017,7 +1022,7 @@ describe("the proposition test — does it change what enters the frame", () => 
     );
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid IR");
-    const scene = must(composeAll(parsed.ir)[1]);
+    const scene = must(composeAll(parsed.ir, null, allActive(parsed.ir))[1]);
     const grounds = scene.nodes.flatMap((n) => (n.ground ?? []).map((g) => g.primitiveId));
     expect(grounds).toContain("plate_scene");
     // The counterpoint is named in the stack, with its own depth and its
@@ -1034,7 +1039,7 @@ describe("N-plane composition", () => {
     const seed = segmentEssay(essay, { projectId: "p" });
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid IR");
-    return composeAll(parsed.ir);
+    return composeAll(parsed.ir, null, allActive(parsed.ir));
   }
   const CITY =
     "The City\n\nThey walked around the city like insects. At first nobody noticed. Then there were dozens of them, moving through the streets in strange synchronized waves.";
@@ -1169,7 +1174,7 @@ describe("the acceptance test — the anomaly is BUILT, not just planned", () =>
     );
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid IR");
-    return composeAll(parsed.ir);
+    return composeAll(parsed.ir, null, allActive(parsed.ir));
   }
 
   it("builds the anomaly in a sentence that names nothing", () => {
@@ -1216,7 +1221,7 @@ describe("weight and depth reach pixels", () => {
     );
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid IR");
-    return composeAll(parsed.ir).map((s) => ({
+    return composeAll(parsed.ir, null, allActive(parsed.ir)).map((s) => ({
       body: s.nodes.find((n) => n.primitiveId === "creature_chain"),
       parallax: s.nodes.find((n) => n.primitiveId === "parallax_layers"),
       notes: s.notes.join(" "),
@@ -1264,7 +1269,7 @@ describe("the director model — expression changes, meaning does not", () => {
     for (const cp of raw.creativeState.controlPoints) Object.assign(cp.values, over);
     const parsed = parseIR(raw);
     if (!parsed.ok) throw new Error("invalid IR");
-    return composeAll(parsed.ir);
+    return composeAll(parsed.ir, null, allActive(parsed.ir));
   }
   /** The unnoticed scene, flattened through the whole stack. */
   function probe(worldPopulation: number, attention: number) {
@@ -1367,7 +1372,7 @@ describe("the scene graph — a scene is a typed tree, not a chain plus a slot",
     const seed = segmentEssay(essay, { projectId: "p" });
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("invalid IR");
-    return composeAll(parsed.ir);
+    return composeAll(parsed.ir, null, allActive(parsed.ir));
   }
   function allNodes(scene: { nodes: { primitiveId: string; ground?: unknown }[] }): string[] {
     const out: string[] = [];
@@ -1552,7 +1557,7 @@ describe("the scene graph — a scene is a typed tree, not a chain plus a slot",
     raw.overrides = [{ sceneId: target, type: "pin", chain: ["plate_scene"] }];
     const parsed = parseIR(raw);
     if (!parsed.ok) throw new Error("invalid IR");
-    const scene = must(composeAll(parsed.ir)[1]);
+    const scene = must(composeAll(parsed.ir, null, allActive(parsed.ir))[1]);
     expect(scene.nodes.map((n) => n.primitiveId)).toEqual(["plate_scene"]);
     expect(scene.notes.join(" ")).not.toMatch(/graph —/);
   });

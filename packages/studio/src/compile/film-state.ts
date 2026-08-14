@@ -321,6 +321,23 @@ export function advance(
   };
 }
 
+/** THE FILM RESTS FOR A SCENE.
+ *
+ *  A scene the allocator decided is SILENT never reaches `advance` — it
+ *  returns early, before the world block, with no elements. So the film
+ *  did not age: `sceneIndex` stayed where it was, `lastSeen` did not move
+ *  further away, and every RECALL window silently extended by the length
+ *  of the silence. A film that fell quiet for four scenes would then treat
+ *  a twelve-scene-old identity as eight scenes old and call its return a
+ *  recall rather than an entrance.
+ *
+ *  This is the correct behaviour stated explicitly: time passes, nothing
+ *  enters, nothing leaves. Silence does not clear the world — but it is
+ *  not a pause in the film's clock either. */
+export function rest(state: FilmState): FilmState {
+  return { ...state, sceneIndex: state.sceneIndex + 1 };
+}
+
 /** The elements the film currently holds, far to near. What PERSISTS —
  *  not what to render, which also needs the scene's own composition
  *  around it. Use `Advance.elements` for that. */

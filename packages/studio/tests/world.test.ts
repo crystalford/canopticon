@@ -13,6 +13,7 @@ import { compile } from "../src/compile/index.ts";
 import { segmentEssay } from "../src/compile/segment.ts";
 import { type EditorialIR, parseIR } from "../src/ir/schema.ts";
 import type { FilmTimeline } from "../src/narrate/timeline.ts";
+import { allActive } from "./active.ts";
 
 /* A paragraph that names things the lexicon knows, refers back to them,
  * loses them and asks for them again — which is the whole continuity
@@ -85,9 +86,23 @@ const signatures = (scenes: ReturnType<typeof composeAll>): string[] =>
     ),
   );
 
+/* THE WORLD, WITH EVERY SCENE ACTIVE.
+ *
+ * These are tests of CONTINUITY — whether an identity keeps its place,
+ * whether a one-shot ever cuts, whether the same world is drawn every
+ * scene. A scene the allocator decided should be silent does not advance
+ * the world at all, and one it decided should hold inherits a chain rather
+ * than composing one, so neither reaches what is being tested here. The
+ * allocation is made explicit rather than arriving from an argument nobody
+ * passed. See `active.ts`. */
+const composed = (mode: Parameters<typeof irFor>[0], approach?: Parameters<typeof irFor>[1]) => {
+  const ir = irFor(mode, approach);
+  return composeAll(ir, null, allActive(ir));
+};
+
 describe("the world reaches the compiler", () => {
   it("carries identities across scenes rather than composing from nothing", () => {
-    const scenes = composeAll(irFor("oneshot"));
+    const scenes = composed("oneshot");
     const decided = scenes.flatMap((s) => s.world?.decisions ?? []);
     expect(decided.length).toBeGreaterThan(0);
     // The city is named in s001, absent by s004, and asked for again in
@@ -97,7 +112,7 @@ describe("the world reaches the compiler", () => {
   });
 
   it("a persistent identity keeps the place the film left it", () => {
-    const scenes = composeAll(irFor("oneshot"));
+    const scenes = composed("oneshot");
     const continued = scenes.find((s) => s.world?.decisions.some((d) => d.what === "CONTINUE"));
     expect(continued).toBeDefined();
     // CONTINUE inherits x and y exactly — see `advance()`. So the bridge
@@ -108,7 +123,7 @@ describe("the world reaches the compiler", () => {
   });
 
   it("ONE_SHOT never cuts", () => {
-    const scenes = composeAll(irFor("oneshot"));
+    const scenes = composed("oneshot");
     expect(scenes.every((s) => s.world?.cut === false)).toBe(true);
     expect(scenes.flatMap((s) => s.world?.decisions ?? []).some((d) => d.what === "CUT")).toBe(
       false,
@@ -121,7 +136,7 @@ describe("the world reaches the compiler", () => {
     // world film drew `scene · body · body · fixture · space · scene` and
     // the picture restarted four times while the identities persisted
     // perfectly. Persistence nothing can see is not continuity.
-    const scenes = composeAll(irFor("cut", "world"));
+    const scenes = composed("cut", "world");
     expect(scenes.map((s) => s.program?.construction)).toEqual(scenes.map(() => "scene"));
   });
 
@@ -134,8 +149,8 @@ describe("the world reaches the compiler", () => {
      * unreachable. Two axes: `visualApproach` decides what the picture is
      * made of, `continuity` decides whether the film cuts. */
     for (const approach of ["hybrid", "text", "abstract", "world"] as const) {
-      const cutFilm = composeAll(irFor("cut", approach));
-      const oneShot = composeAll(irFor("oneshot", approach));
+      const cutFilm = composed("cut", approach);
+      const oneShot = composed("oneshot", approach);
       expect(oneShot.map((s) => s.program?.construction)).toEqual(
         cutFilm.map((s) => s.program?.construction),
       );
@@ -143,12 +158,22 @@ describe("the world reaches the compiler", () => {
     // And the approaches genuinely differ from each other, or the axis
     // would be a label rather than a control.
     const modes = (a: "text" | "abstract" | "world") =>
-      composeAll(irFor("cut", a))
+      composed("cut", a)
         .map((s) => s.program?.mode)
         .join(" ");
     expect(modes("text")).not.toEqual(modes("abstract"));
     expect(modes("abstract")).not.toEqual(modes("world"));
-    expect(modes("text")).toContain("typographic");
+
+    /* AND THE TEXT APPROACH REACHES TYPE — on the FILM, not on the
+     * every-scene-active isolation above.
+     *
+     * A sentence can only be REPRESENTED as type where the film allocated
+     * type to it, which is the point of the layer: a typographic reading
+     * of a scene with no words is a label with nothing behind it. So this
+     * half of the claim has to be asked of the real allocation, and asking
+     * it of an isolation in which nothing was promoted would be asking
+     * whether type appears in a film that has no type in it. */
+    expect(composeAll(irFor("cut", "text")).map((s) => s.program?.mode)).toContain("typographic");
   });
 
   it("a figure still outranks the approach, because a figure is checkable", () => {
@@ -156,15 +181,21 @@ describe("the world reaches the compiler", () => {
     // quantity reaches the family that can show it whatever the director
     // asked the film to be made of — an approximation of $282,345.84 is a
     // different finding.
+    //
+    // The figure sentence is deliberately not the film's FIRST, because the
+    // first scene of any film shows the essay's own name — a title is
+    // outside the quota and competes with nothing, by design. A one-
+    // sentence fixture put the title and the figure in the same scene,
+    // which is a shape no real essay has.
     const seed = segmentEssay(
-      "# Cost\n\nThe programme cost $282,345.84 across nine numbered rooms.",
+      "# Cost\n\nThe review ran for two years.\n\nThe programme cost $282,345.84 across nine numbered rooms.",
       { projectId: "proj_fig" },
     );
     for (const approach of ["text", "abstract", "world"] as const) {
       const p = parseIR(JSON.parse(JSON.stringify({ ...seed.ir, visualApproach: approach })));
       if (!p.ok) throw new Error(JSON.stringify(p.errors));
-      const scene = composeAll(p.ir)[0];
-      expect(scene?.phrase.text).toContain("282,345.84");
+      const scene = composeAll(p.ir).find((s) => s.phrase.text.includes("282,345.84"));
+      expect(scene, `${approach}: the printed figure never reached the screen`).toBeDefined();
     }
   });
 
@@ -172,7 +203,7 @@ describe("the world reaches the compiler", () => {
     // The world still ADVANCES in a cut film — identity is remembered — but
     // it must not move which construction wins or where anything sits, or
     // this change would have restyled every film already made.
-    const cut = composeAll(irFor("cut"));
+    const cut = composed("cut");
     expect(cut.every((s) => s.world !== null)).toBe(true);
     expect(flat(cut.flatMap((s) => s.nodes)).every((n) => !n.tween)).toBe(true);
   });

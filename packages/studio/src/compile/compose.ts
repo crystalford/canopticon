@@ -50,12 +50,12 @@ import {
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
 import type { FilmMode } from "./film-mode.ts";
-import type { FilmState } from "./film-state.ts";
+import { type FilmState, rest } from "./film-state.ts";
 import { buildGraph, describeGraph, flattenGraph, flattenGround, graphDepth } from "./graph.ts";
 import { planGround } from "./ground.ts";
 import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
-import { type Intervention, textOf } from "./promote.ts";
+import { type Intervention, allocate, textOf } from "./promote.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
 import { representationsFor } from "./represent.ts";
 import type { SceneGraph } from "./scene-graph.ts";
@@ -1368,15 +1368,89 @@ function sceneSubjects(sentence: string, carried: DetectedSubject | null): Detec
   return [...own, { ...carried, weight: carried.weight * 0.8 }].sort((a, b) => b.weight - a.weight);
 }
 
+/** TAKE THE WORDS OFF A CHAIN, LEAVING THE PICTURE.
+ *
+ *  A node is carrying the caption when the promoted phrase is in its own
+ *  parameters, verbatim — the same test a figure keeps, and the reason
+ *  this needs no list of primitive names. A primitive added tomorrow that
+ *  sets type is found by this; a list would not have heard of it.
+ *
+ *  AND THE WORDS ARE USUALLY NOT IN THE TRUNK. Measured: the chain is
+ *  `parametric_curve → place → geometry_draw → layer_over`, and the words
+ *  are the layer_over's GROUND — its second input, composited over the
+ *  picture. So taking the caption off means dropping the compositor whose
+ *  ground was nothing but words, which leaves exactly the picture that was
+ *  underneath. A compositor pointing at an empty second input is not a
+ *  quiet composition, it is a deleted element, so the ground is emptied
+ *  and the compositor goes with it rather than being left dangling.
+ *
+ *  A COMPOSITOR MAY GO FROM ANYWHERE; A PAINTER ONLY FROM THE END. The
+ *  distinction is structural rather than a list of names — a node with a
+ *  `ground` is a two-input compositor, and what it contributes is a LAYER.
+ *  Remove a layer and the layers under and over it still compose: the next
+ *  stage takes the canvas that precedes it, and one canvas is as good as
+ *  another to something that paints onto it.
+ *
+ *  A node carrying the words in its own params is a painter, and removing
+ *  one from the middle changes what everything after it was built on. Those
+ *  come off the end only. Measured on the real essay, the caption is in a
+ *  compositor's ground every time — `parametric_curve → place →
+ *  geometry_draw → layer_over(words) → layer_over(plate)` — so the first
+ *  version of this, which only took trailing nodes, removed nothing at all
+ *  wherever a second layer sat on top of the line. */
+function withoutTrailingWords(nodes: ComposedNode[], phrase: string): ComposedNode[] {
+  const carries = (n: ComposedNode): boolean =>
+    Object.values(n.params).some(
+      (v) => typeof v === "string" && v.length > 2 && phrase.includes(v),
+    );
+  /** A compositor whose second input is nothing but the words. Emptying its
+   *  ground would leave it pointing at nothing, which is a deleted element
+   *  rather than a quiet composition — so it goes with them. */
+  const isCaptionLayer = (n: ComposedNode): boolean =>
+    Boolean(n.ground && n.ground.length > 0 && withoutTrailingWords(n.ground, phrase).length === 0);
+
+  const kept: ComposedNode[] = [];
+  for (let k = 0; k < nodes.length; k++) {
+    const n = nodes[k] as ComposedNode;
+    if (isCaptionLayer(n)) continue;
+    // A painter carrying the words survives unless everything after it is
+    // also going — i.e. unless it is at the end of what is left.
+    if (carries(n) && nodes.slice(k + 1).every((m) => carries(m) || isCaptionLayer(m))) break;
+    kept.push(n);
+  }
+  return kept.length === nodes.length ? nodes : kept;
+}
+
 export function composeAll(
   ir: EditorialIR,
   timeline?: FilmTimeline | null,
   promotions?: Intervention[] | null,
 ): ComposedScene[] {
+  /* THE ALLOCATION IS NOT OPTIONAL, AND USED TO BE.
+   *
+   * `promotions` was a parameter with no default, so `composeAll(ir)`
+   * composed a film in which NOTHING had been allocated: no silence, no
+   * hold, no promoted words, every scene drawing whatever the construction
+   * competition picked. One caller in `src/` passes it. Fifty in `tests/`
+   * do not — so the suite has been asserting properties of a film the
+   * product does not render, and a measurement I took of the real essay
+   * through this door reported zero silent scenes in a film that has
+   * thirteen.
+   *
+   * It is computed here when it is not supplied. The parameter stays, as
+   * an OVERRIDE: the Lab fetches the Worker's allocation and hands it back
+   * so the browser and the compiler cannot disagree about what was
+   * promoted — which is the same reason the Lab stopped reimplementing the
+   * ladder. */
+  const allocations = promotions ?? allocate(ir, timeline ?? null);
   const positions = controlPointPositions(ir);
   const out: ComposedScene[] = [];
   const recent: string[][] = [];
   const phrases: string[] = [];
+  /** THE WORDS CURRENTLY ON SCREEN, and the scene that put them there.
+   *  Read only by the hold, to decide whether a caption is still standing
+   *  or has become a subtitle. */
+  let caption: { text: string; at: number } | null = null;
   // THE FILM'S SHORT-TERM MEMORY. What was last named, so a sentence made
   // of pronouns continues the image rather than starting a new one.
   let carried: DetectedSubject | null = null;
@@ -1414,7 +1488,7 @@ export function composeAll(
       sceneStartMs: onTimeline?.startMs ?? 0,
       sceneDurationMs: onTimeline?.durationMs ?? 0,
     };
-    const allocated = promotions?.find((p) => p.sceneId === scene.sceneId) ?? null;
+    const allocated = allocations.find((p) => p.sceneId === scene.sceneId) ?? null;
     const composed = composeScene(
       ir,
       scene,
@@ -1466,8 +1540,81 @@ export function composeAll(
        * where it was. */
       const standing = [...out].reverse().find((c) => c.nodes.length > 0);
       if (standing) {
-        composed.nodes = standing.nodes;
+        /* AND THE CAPTION DOES NOT COME WITH IT.
+         *
+         * A held chain is the previous chain node for node — and it never
+         * occurred to the first version that the chain might contain the
+         * promoted WORDS. So a line was allocated once and then held for
+         * its whole run. Measured on the real essay: 42 of 65 scenes
+         * showed words, 27 of them by inheritance, and "he's tracking
+         * effect, not accuracy" stood on screen across six consecutive
+         * scenes.
+         *
+         * `HOLD` was one verb doing several jobs. Holding a GROUND while
+         * the argument develops is right; holding a caption for half a
+         * minute is a subtitle that forgot to leave. So the ground
+         * persists and the words decay, on two rules that are editorial
+         * rather than numeric:
+         *
+         *   1. A LINE STANDS FOR ITS OWN SCENE AND ONE MORE. It lands, it
+         *      gets a beat, it goes. Counted in cuts because that is what
+         *      an edit is counted in.
+         *   2. WORDS DO NOT COME BACK AFTER SILENCE. When the hold reached
+         *      back PAST an empty scene to find something standing, the
+         *      words already left the screen, and returning them is a
+         *      flicker rather than a hold.
+         *
+         * Only TRAILING word-nodes are dropped. If a caption is mid-chain
+         * something downstream is consuming it, and removing it would hand
+         * that consumer nothing — so the hold keeps it and says so. */
+        const reachedBack = out.length > 0 && out[out.length - 1] !== standing;
+        const stale = caption !== null && i - caption.at > 1;
+        let nodes = standing.nodes;
+        if (caption && (reachedBack || stale)) {
+          const kept = withoutTrailingWords(nodes, caption.text);
+          if (kept.length === nodes.length) {
+            // Only worth reporting if the words are actually in there. A
+            // chain that has already had them taken out is not a chain
+            // that refused to give them up.
+            const still = flattenGround(nodes).some((n) =>
+              Object.values(n.params).some(
+                (v) => typeof v === "string" && v.length > 2 && caption?.text.includes(v),
+              ),
+            );
+            if (still) {
+              composed.notes.push(
+                `the words are still in the held chain — "${caption.text}" is painted into it rather than layered over it, so taking it out would change what everything after it was built on`,
+              );
+            }
+          } else {
+            composed.notes.push(
+              reachedBack
+                ? "the words are gone — the film was silent, and a line does not come back from that"
+                : `the words are gone — "${caption.text}" stood for ${i - caption.at} scenes`,
+            );
+          }
+          nodes = kept;
+        }
+        composed.nodes = nodes;
         composed.held = true;
+        /* AND THE IDEA COMES WITH THE CHAIN.
+         *
+         * `program` is what the Preview prints as the VISUAL IDEA and what
+         * the Compile view audits the chain against — so a held scene that
+         * kept its OWN program was reporting a picture it did not draw. On
+         * a real fixture that showed up as two of nine scenes labelled
+         * typographic with no type anywhere in them, and the label was the
+         * thing that was wrong, not the chain.
+         *
+         * `alternatives` deliberately stay this scene's own: they are what
+         * the director may pin to BREAK the hold, and replacing them would
+         * offer the standing scene's options for a sentence that is not
+         * the standing scene's. */
+        composed.program = standing.program;
+        composed.costMsPerFrame = chainCost(
+          flattenGround(composed.nodes).map((n) => n.primitiveId),
+        );
+        composed.determinism = standing.determinism;
         composed.notes.push(`held — the same composition as ${standing.sceneId}, still standing`);
       } else {
         // Nothing has ever been drawn, so there is nothing to hold. The
@@ -1475,9 +1622,41 @@ export function composeAll(
         composed.notes.push("asked to hold, but the film has not drawn anything yet");
       }
     }
+
+    /* WHAT IS ON SCREEN AS WORDS, AFTER EVERY DECISION ABOVE.
+     *
+     * Set from the allocation rather than from the composed phrase,
+     * because the allocation is the film's decision and the phrase is the
+     * sentence's. Cleared by a scene that draws something new without
+     * words, and by silence — both of which take the caption off screen. */
+    const allocatedHere = textOf(allocated ?? ({} as Intervention));
+    if (allocatedHere?.text && !composed.held) {
+      caption = { text: allocatedHere.text, at: i };
+    } else if (!composed.held) {
+      // A scene that composed something FRESH without words has replaced
+      // them. Silence deliberately does NOT clear this: the words are off
+      // screen, but the hold that reaches back past the silence has to
+      // know what to take out of the chain it finds, and the first version
+      // of this cleared the reference and then could not.
+      caption = null;
+    }
     if (world.out) {
       film = world.out.advance.state;
       previous = world.out.graph;
+    } else if (composed.nodes.length === 0) {
+      /* A SILENT SCENE STILL COSTS THE FILM A SCENE.
+       *
+       * `composeScene` returns early on NONE, before the world block, so
+       * `world.out` is null and this branch never ran — which meant
+       * `sceneIndex` did not advance and every identity's `lastSeen`
+       * stayed the same distance away. A film that fell quiet for four
+       * scenes then read a twelve-scene-old identity as eight scenes old,
+       * and called its return a RECALL rather than an entrance.
+       *
+       * Silence does not clear the world. It is not a pause in the clock
+       * either. `previous` is deliberately untouched: the graph the film
+       * would bridge from is the last one it actually drew. */
+      film = rest(film);
     }
     const named = detectSubjects(scene.narration.text);
     const own = named[0];

@@ -1439,6 +1439,20 @@ export function constructPrograms(
     let best: Representation | null = null;
     let bestScore = 0;
     for (const rep of reps) {
+      /* AND THE OTHER HALF OF THE GATE. A TYPOGRAPHIC READING OF A SCENE
+       * WITH NO WORDS IS A LABEL WITH NOTHING BEHIND IT.
+       *
+       * The gate above stops a construction that cannot carry type from
+       * winning a scene whose intervention IS the words. This is its
+       * mirror: when the film allocated no words here, the sentence cannot
+       * be REPRESENTED as type either, because there is no type.
+       *
+       * Measured on the fixture: two of ten scenes came out labelled
+       * `typographic` with no text primitive anywhere in the chain. The
+       * chain was right — there was nothing to set — and the label was
+       * what was false, which is worse than either, because the Compile
+       * view audits the chain against the label. */
+      if (rep.mode === "typographic" && !beat.setsType) continue;
       const s2 = rep.weight * realisationFit(c.id, rep.mode);
       if (s2 > bestScore) {
         bestScore = s2;

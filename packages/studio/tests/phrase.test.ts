@@ -12,6 +12,7 @@ import { choosePhrase, properNounRuns, trimPhrase } from "../src/compile/phrase.
 import { segmentEssay } from "../src/compile/segment.ts";
 import { detectSubjects, subjectReading } from "../src/compile/subject.ts";
 import { parseIR } from "../src/ir/schema.ts";
+import { allActive } from "./active.ts";
 import { must } from "./must.ts";
 
 describe("trimming a phrase", () => {
@@ -116,15 +117,36 @@ The smoke detector in room 214 had been disconnected for eleven months.
 The contract named a single warehouse. The residents were moved at night.
 Nothing changed.`;
 
-  it("reaches the object families from prose alone, with no model and no ratification", () => {
+  /* WHAT A SENTENCE NAMES REACHES THE PICTURE, FROM PROSE ALONE.
+   *
+   * This test used to name four primitives, two of which were the
+   * feasibility proofs deleted as concepts — so it was asserting that a
+   * particular demo object still appears, which is the thing the suite is
+   * not for. The capability it was actually defending is the one worth
+   * keeping: an essay reaches a DIFFERENT picture for a sentence that
+   * names a depictable thing than for one that names nothing, before a
+   * model has seen a single sentence and with nothing ratified.
+   *
+   * `allActive` because this is a test of what gets BUILT — a scene the
+   * allocator decided should hold never reaches the constructor. */
+  it("draws a named thing differently from a sentence that names nothing", () => {
     const seed = segmentEssay(ESSAY, { projectId: "p" });
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("segmenter produced an invalid IR");
-    const scenes = composeAll(parsed.ir);
+    const scenes = composeAll(parsed.ir, null, allActive(parsed.ir));
 
-    const OBJECTS = ["mounted_fixture", "creature_chain", "entity_render", "document_surface"];
-    const reached = scenes.filter((s) => s.nodes.some((n) => OBJECTS.includes(n.primitiveId)));
-    expect(reached.length).toBeGreaterThan(0);
+    const shape = (i: number) =>
+      must(scenes[i], `scene ${i}`)
+        .nodes.map((n) => n.primitiveId)
+        .join(" → ");
+    const named = parsed.ir.scenes.map((s) => detectSubjects(s.narration.text).length > 0);
+    const withThing = named.indexOf(true);
+    const without = named.indexOf(false);
+    expect(withThing, "fixture should name something depictable").toBeGreaterThanOrEqual(0);
+    expect(without, "fixture should also contain a sentence naming nothing").toBeGreaterThanOrEqual(
+      0,
+    );
+    expect(shape(withThing)).not.toBe(shape(without));
 
     // And no scene carries a ratified reading — this is the whole point.
     expect(parsed.ir.scenes.every((s) => !s.reading)).toBe(true);
