@@ -55,6 +55,7 @@ import { buildGraph, describeGraph, flattenGraph, flattenGround, graphDepth } fr
 import { planGround } from "./ground.ts";
 import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
+import type { Act } from "./act.ts";
 import { type Intervention, allocate, textOf } from "./promote.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
 import { representationsFor } from "./represent.ts";
@@ -137,6 +138,126 @@ export interface ComposedNode {
    *  moment it is spoken rather than at the top of the scene. */
   tweenAtMs?: number;
 }
+
+/* ── A HOLD IS NOT A FREEZE ────────────────────────────────────────────
+ *
+ * MEASURED, on a real 65-scene film: 22 scenes compose their own picture,
+ * 30 are HELD, 13 draw nothing. And a held scene was `composed.nodes =
+ * standing.nodes` — the previous chain copied node for node, so for
+ * thirty scenes the frame was byte-identical while the narration kept
+ * going. Nearly half the film was a still.
+ *
+ * That is not what a hold means. Holding is the most ordinary move in
+ * documentary and it means the picture CONTINUES while the argument moves
+ * under it — the frame drifts, the shot settles, the eye is allowed to
+ * stay somewhere while a new sentence changes what it is looking at. A
+ * held picture that stops dead is a projector fault, not an edit.
+ *
+ * So a held scene inherits the standing chain and is given a MOVE across
+ * its own window, and the move is read off the act of the HELD sentence
+ * rather than the standing one — because the picture is the same and the
+ * sentence is not, and that difference is the entire reason to hold.
+ *
+ * ONLY `place` IS TOUCHED, and that restriction is load-bearing. It is
+ * the one primitive verified to read x/y/scale inside `frame()` rather
+ * than capturing them when the chain is built; a primitive that captures
+ * would ignore a tween silently, which is the failure this comment exists
+ * to stop someone re-introducing. The same rule already governs the
+ * bridge — see `serialiseScene`.
+ *
+ * RECURSIVE, because a `place` can sit on a compositor's ground and a
+ * held scene whose drift stopped at the trunk would move its foreground
+ * and leave its layers behind. Standing rule 11.
+ *
+ * AN INHERITED TWEEN IS REPLACED, NOT RESPECTED — and this is a second
+ * bug found by measuring the first. 16 of the 30 held scenes arrived
+ * carrying a `place` tween, because the chain they inherited was the
+ * STANDING scene's and the standing scene's tween was its own: a
+ * word-entry cue fired at the measured millisecond a word was spoken, or
+ * a bridge into a move that already happened. Copied forward, that cue
+ * re-fires every held scene — the same word landing again and again over
+ * a picture that never changed. A move belongs to the scene that earned
+ * it. On a held scene it is stale by definition, so the drift replaces
+ * it, `tweenAtMs` included. */
+const DRIFT: Partial<Record<Act, { scale: number; x: number; why: string }>> = {
+  // Still being said. The frame eases in — the classic slow push.
+  SUSTAIN: { scale: 0.035, x: 0, why: "still on it, easing in" },
+  // More of the same, and the push compounds across the run.
+  ACCUMULATE: { scale: 0.06, x: 0, why: "closing, as it gathers" },
+  INTENSIFY: { scale: 0.085, x: 0, why: "pressing in" },
+  // Narrowing onto one thing.
+  CONVERGE: { scale: 0.055, x: -0.012, why: "narrowing onto it" },
+  // Leaving. The frame gives it up rather than chasing it.
+  WITHDRAW: { scale: -0.05, x: 0, why: "letting it go" },
+  // A qualification steps aside rather than pressing.
+  QUALIFY: { scale: -0.015, x: 0.022, why: "stepping aside from it" },
+  // Turning against what was just said.
+  CONTRAST: { scale: -0.02, x: -0.03, why: "turning off it" },
+  // Coming back to something. The frame drifts the way it came.
+  RECALL: { scale: 0.02, x: 0.026, why: "drifting back over it" },
+  // Something is being shown. Barely moves — the reveal is the subject's.
+  REVEAL: { scale: 0.03, x: 0, why: "holding, while it shows" },
+  TRANSFORM: { scale: 0.04, x: -0.018, why: "moving as it becomes" },
+  // A held DECLARE is a restatement over the same picture: the least
+  // motion of any of them, because the words are doing the work.
+  DECLARE: { scale: 0.022, x: 0, why: "steady, while it states" },
+};
+
+/** The film's restraint where this scene sits. Read from the creative
+ *  state through the same resolver every other curve uses, so a
+ *  restrained film drifts less without a second opinion about what
+ *  restraint means. */
+function restraintAt(ir: EditorialIR, sceneIndex: number, positions: number[]): number {
+  const v = resolveStateAt(ir, scenePosition(ir, sceneIndex), positions).values.restraint;
+  return typeof v === "number" ? v : 0.5;
+}
+
+function driftHeld(
+  nodes: ComposedNode[],
+  act: Act | undefined,
+  /** How many scenes this hold has already run. The push compounds so a
+   *  long hold keeps moving instead of restarting its own small move
+   *  every scene, which would read as a stutter rather than a drift. */
+  depth: number,
+  ms: number,
+  restraint: number,
+): { nodes: ComposedNode[]; why: string } | null {
+  const d = DRIFT[act ?? "NONE"];
+  // A window the solver never measured cannot carry a timed move, and a
+  // move too short to see is noise in the hash.
+  if (!d || ms < 400) return null;
+  // A restrained film drifts less; it never drifts nothing, because a
+  // frozen frame is what this exists to stop.
+  const gain = (1 - restraint * 0.55) * Math.min(1.9, 1 + depth * 0.35);
+  const ds = d.scale * gain;
+  const dx = d.x * gain;
+  let touched = 0;
+  const walk = (list: ComposedNode[]): ComposedNode[] =>
+    list.map((n) => {
+      const inner = n.ground && n.ground.length > 0 ? { ground: walk(n.ground) } : {};
+      if (n.primitiveId !== "place") return { ...n, ...inner };
+      const scale = Number(n.params.scale ?? 1);
+      const x = Number(n.params.x ?? 0.5);
+      touched++;
+      // `tweenAtMs` goes with it: a cue timed to a word spoken in the
+      // scene BEFORE this one has no moment to fire on in this one.
+      const { tweenAtMs: _stale, ...rest } = n;
+      return {
+        ...rest,
+        ...inner,
+        tween: {
+          scale: [scale, Math.max(0.04, scale * (1 + ds))] as [number, number],
+          ...(dx ? { x: [x, x + dx] as [number, number] } : {}),
+        },
+        // Across the whole window: a hold is the shot continuing, not a
+        // gesture inside it.
+        tweenMs: Math.round(ms),
+      };
+    });
+  const out = walk(nodes);
+  return touched > 0 ? { nodes: out, why: d.why } : null;
+}
+
 
 /** A program the engine considered and did not use. Carried so the
  *  Compile view can show what else this sentence could have been —
@@ -1521,6 +1642,7 @@ export function composeAll(
   const mode = modeOf(ir.continuity);
   let film: FilmState = EMPTY_FILM;
   let previous: SceneGraph | null = null;
+  let heldRun = 0;
   ir.scenes.forEach((scene, i) => {
     const onTimeline = timeline?.scenes.find((s) => s.sceneId === scene.sceneId);
     const world: WorldContext = {
@@ -1607,6 +1729,11 @@ export function composeAll(
      * simulation hold conflicts head-on with the buffer disposal that
      * stopped the tab dying at scene 21 of 39. It is a real decision about
      * long-film export, not something to slip in here. */
+    /* HOW LONG THIS HOLD HAS RUN. The drift compounds along a run so a
+     * shot held for five scenes keeps travelling, instead of making the
+     * same small move five times over — which reads as a stutter. Reset
+     * by anything that composes its own picture. */
+    if (allocated?.kind !== "HOLD") heldRun = 0;
     if (allocated?.kind === "HOLD") {
       /* HOLD REACHES BACK PAST SILENCE.
        *
@@ -1702,6 +1829,31 @@ export function composeAll(
         );
         composed.determinism = standing.determinism;
         composed.notes.push(`held — the same composition as ${standing.sceneId}, still standing`);
+        /* AND IT KEEPS MOVING. See `driftHeld` — a held frame that stops
+         * dead is the single largest thing making these films feel like
+         * slides, and it was thirty scenes of sixty-five. */
+        const drifted = driftHeld(
+          composed.nodes,
+          allocated.act?.act,
+          heldRun,
+          /* THE WINDOW, MEASURED WHERE THERE IS ONE. A film compiled
+           * before it has been narrated has no measured windows at all,
+           * and requiring one meant every held scene in an unnarrated
+           * film stayed frozen — the exact failure this is here to fix,
+           * surviving in the case a person sees FIRST. The nominal
+           * three seconds is the same default `world` already uses for
+           * the same reason, and the drift is re-timed to the real
+           * window the moment the voice is recorded. */
+          onTimeline?.durationMs || 3_000,
+          restraintAt(ir, i, positions),
+        );
+        if (drifted) {
+          composed.nodes = drifted.nodes;
+          composed.notes.push(
+            `and it moves — ${drifted.why}${onTimeline ? "" : ", timed to a nominal window until this is narrated"}`,
+          );
+        }
+        heldRun++;
       } else {
         // Nothing has ever been drawn, so there is nothing to hold. The
         // scene composes, and says why rather than pretending it held.
