@@ -10,7 +10,13 @@
  */
 const PLAY = { t: 0, on: false, last: 0 };
 const APP = {
-  view: "start",
+  /* THE FRONT DOOR IS THE LIBRARY, and it is set here rather than
+   * corrected after the fetch. This said "start", so the first paint was
+   * always the CREATE page and a second paint swapped it for the list —
+   * a visible flash of the wrong room on every single visit. Nothing
+   * about the library needs the fetch to have landed: it renders its
+   * empty state and fills in. */
+  view: "films",
   sel: "s01",
   scope: "sentence",
   hood: false,
@@ -224,14 +230,27 @@ function renderBar() {
   <div class="bstate"><i class="dot ${demo ? "" : APP.dirty ? "clay" : "sage"}"></i>${demo ? "example — not saved" : APP.dirty ? "saving" : "saved"}</div>
   ${APP.cost ? `<div class="lab">${esc(APP.cost)}</div>` : ""}` : ""}
   <div class="btools">
-    <button class="b q sm" data-undo ${APP.past.length ? "" : "disabled"}>Undo</button>
-    <button class="b q sm" data-find>Find <kbd>/</kbd></button>
-    <div class="bardiv"></div>
-    <button class="b q sm" data-go="start">New</button>
-    <button class="b q sm ${APP.view === "films" ? "on" : ""}" data-go="films">Films</button>
-    ${onFilm ? `<button class="b q sm ${APP.hood ? "on" : ""}" data-hood>Under the hood</button>` : ""}
-    <button class="b q sm ${APP.view === "build" ? "on" : ""}" data-go="build">Backstage</button>
-    ${onFilm ? '<button class="b sm" data-reshoot title="Compose the same writing again \u2014 a different film from the same words">Shoot it again</button>' : ""}
+    ${/* THE BAR ONLY OFFERS WHAT IS REACHABLE FROM WHERE YOU ARE.
+        * Undo and Find both act on the open film and were shown on the
+        * library, where they do nothing; "New" pointed at a create page
+        * that is now the front door itself. Seven buttons of which three
+        * were inert is most of why a phone's bar had nothing useful left
+        * in it by the time it ran out of width. */ ""}
+    ${/* ON A PHONE THE BAR DROPS TO WHAT THE FILM NEEDS.
+        * Seven controls is 856px of buttons on a 390px screen, so RENDER
+        * — the button that produces the film — began off the right edge
+        * with nothing to say it was there. Undo and Find are
+        * keyboard-adjacent power moves, and the backstage page says in
+        * its own header that a director should be able to finish a film
+        * without ever opening it. `.phone-hide` takes them out below
+        * 720px; nothing is removed on a desktop. */ ""}
+    ${onFilm ? `<button class="b q sm phone-hide" data-undo ${APP.past.length ? "" : "disabled"}>Undo</button>
+    <button class="b q sm phone-hide" data-find>Find <kbd>/</kbd></button>
+    <div class="bardiv phone-hide"></div>` : ""}
+    <button class="b q sm ${APP.view === "films" ? "on" : ""}" data-go="films">Your films</button>
+    ${onFilm ? `<button class="b q sm ${APP.hood ? "on" : ""}" data-hood>Directing</button>` : ""}
+    <button class="b q sm phone-hide ${APP.view === "build" ? "on" : ""}" data-go="build">How it was made</button>
+    ${onFilm ? '<button class="b sm" data-reshoot title="Compose the same writing again \u2014 a different film from the same words"><span class="wide-only">Shoot it again</span><span class="phone-only">Again</span></button>' : ""}
     ${onFilm ? '<button class="b pri sm" data-render>Render</button>' : ""}
   </div>`;
   const q = (s, fn) => document.querySelectorAll(s).forEach((b) => (b.onclick = () => fn(b)));
@@ -394,17 +413,17 @@ window.addEventListener("DOMContentLoaded", async () => {
   window.__lastRun = dryRun();
   commit(window.__lastRun);
   APP.sel = f.scenes[0].id;
+  /* ONE PAINT, THEN FILL IN.
+   *
+   * The old boot rendered, awaited the film list, then rendered again as
+   * a different view — so the page flashed CREATE before settling on the
+   * library. It also used to auto-open the last project from
+   * localStorage, which meant the root URL dropped you inside whatever
+   * film you last had open, behind a "compiling the film" overlay you
+   * did not ask for. The library is the front door; the last film is one
+   * click away rather than unavoidable. */
   render();
   await filmsRefresh();
-  /* LAND ON THE LIBRARY.
-   *
-   * This auto-opened the last project from localStorage, so the root URL
-   * always dropped you back inside whatever film you last had open — no
-   * landing view, no list, and a "compiling the film" overlay you did not
-   * ask for. The last film is still one click away; it is no longer the
-   * only thing you can reach. */
-  APP.view = "films";
-  render();
 });
 
 Object.assign(window, {

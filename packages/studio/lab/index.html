@@ -1,5 +1,15 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Canopticon</title>
+<!-- WITHOUT THIS LINE THE RESPONSIVE RULES BELOW NEVER FIRE. A phone with
+     no viewport meta lays the page out at a 980px virtual width and then
+     scales the whole thing down, so the 860px breakpoint this stylesheet
+     has always carried was unreachable on every device it was written
+     for. The mobile layout was not missing; it was unreachable. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Canopticon Studio — an essay goes in, a film comes out.">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#101315">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Crect width='22' height='22' fill='%23101315'/%3E%3Cpath d='M17.55 15.59A8 8 0 1 0 17.55 6.41' stroke='%238a9a93' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="read.css">

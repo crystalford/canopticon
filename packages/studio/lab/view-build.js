@@ -13,7 +13,7 @@ const LABP = { params: {}, seed: 1337 };
 
 function viewBuild(root) {
   root.innerHTML = `<div class="page"><div class="wrap">
-    <div class="head"><span class="col"><span class="eyebrow">Backstage</span><h1>Backstage</h1><p class="sub">How the machine made it. Nothing here is required to direct a film — a director should be able to finish one without ever opening this room.</p></span></div>
+    <div class="head"><span class="col"><span class="eyebrow">How it was made</span><h1>How it was made</h1><p class="sub">How the machine made it. Nothing here is required to direct a film — a director should be able to finish one without ever opening this room.</p></span></div>
     <div class="etabs">${ETABS.map(([id, l]) => `<button data-etab="${id}" class="${APP.eng === id ? "on" : ""}">${l}</button>`).join("")}</div>
     <div id="ebody"></div>
   </div></div>`;
@@ -32,9 +32,17 @@ function engCompile(host) {
   <div class="stats">
     <span class="stat"><b>${run.total - run.miss} / ${run.total}</b><span>cache hits</span></span>
     <span class="stat"><b>${run.comps.filter((c) => c.misses).length}</b><span>scenes touched</span></span>
-    <span class="stat"><b>${((400 + run.miss * 310) / 1000).toFixed(1)}s</b><span>estimated wall time</span></span>
-    <span class="stat"><b>${Math.max(...run.comps.map((c) => c.cost))} ms</b><span>peak frame cost</span></span>
-    <span class="stat"></span>
+    ${/* NO INVENTED TIME. This printed `(400 + misses * 310) / 1000` and
+        * labelled it "estimated wall time" — a number computed from a
+        * miss count by a formula nobody measured, shown in the same row
+        * as three figures that are real. One fabricated statistic
+        * standing next to real ones makes the real ones unreadable,
+        * because a reader has no way to tell which is which. The
+        * compiler's own cache report is fetched into
+        * `window.STUDIO.cache` and was displayed nowhere; that is what
+        * belongs here, and it is what is here now. */ ""}
+    <span class="stat"><b>${Math.max(...run.comps.map((c) => c.cost))} ms</b><span>heaviest frame, as costed by the palette</span></span>
+    ${window.STUDIO && STUDIO.cache ? `<span class="stat"><b>${STUDIO.cache.hits ?? "\u2014"} / ${(STUDIO.cache.hits ?? 0) + (STUDIO.cache.misses ?? 0)}</b><span>the compiler's own cache, last compile</span></span>` : ""}
   </div>
   <table class="t"><thead><tr><th>Scene</th><th>Function</th><th>Rung</th><th>Chain</th><th>Cache</th><th>Reason</th><th>Cost</th></tr></thead><tbody>
   ${run.comps.map((c) => `<tr><td class="n">${String(c.scene.n).padStart(2, "0")}</td>

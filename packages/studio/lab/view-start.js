@@ -32,7 +32,15 @@ const NEW = {
   intensity: "expressive",
   register: "auto",
   duration: 0,
-  voice: "None",
+  /* A FILM HAS A VOICE UNLESS YOU SAY OTHERWISE.
+   *
+   * This defaulted to "None", so the front door made a silent film and
+   * the voice was something you had to know to go and ask for — which is
+   * how a film essay tool shipped films nobody could hear. The narration
+   * is what the picture is TIMED TO: without it every window is an
+   * estimate from a character count, so silent is not a lighter version
+   * of the same film, it is a less accurate one. */
+  voice: "Synthesised",
   speaker: "angus",
   err: null,
 };
@@ -141,7 +149,7 @@ function viewStart(root) {
   const chosenEdit = CHOICES.editing.find((a) => a.id === NEW.editing);
 
   root.innerHTML = `<div class="start"><div class="startwrap">
-    <div class="head"><span class="col"><span class="eyebrow">Create</span><h1>What are you making?</h1>
+    <div class="head"><span class="col"><span class="eyebrow">Create</span><h1>How should it look?</h1>
       <p class="sub">Paste something you have written. CANOPTICON reads it, finds the moments the argument turns on, and composes a film against your own voice — then you direct what it made.</p></span></div>
 
     <div class="panel composer">
