@@ -181,6 +181,13 @@
  * verb line. The meters and the Direct panel move below the argument rather
  * than standing between the reader and the writing. */
 @media (max-width:860px){.spreadin{grid-template-columns:minmax(0,1fr)}
+/* The state card and the voice panel are moved into the writing by
+ * `layOutForScreen` — see view-read.js. They keep their own spacing there
+ * rather than the stage's. */
+.argside > .offstage{padding:var(--s4) 0;border-top:none;border-bottom:1px solid var(--line);margin-bottom:var(--s4)}
+.argside > .offstage:first-child{padding-top:0}
+.argside > .statecard > .scgrid,.argside > .statecard > .scwhy,
+.argside > .traject,.argside > .tmeta,.argside > .direct{display:none}
 .stageside{position:sticky;top:0;z-index:5;border-right:none;border-bottom:1px solid var(--line);max-height:none;overflow:visible;padding:14px 20px 12px;background:linear-gradient(180deg,#16191c,#101315)}
 .stagein{gap:10px}
 .stagein>.statecard>.scgrid,.stagein>.statecard>.scwhy,.stagein>.traject,.stagein>.tmeta,.stagein>.direct{display:none}
@@ -309,4 +316,50 @@
   /* The wordmark keeps its mark and drops its letters — the word is 150px
    * of a 390px bar and the mark alone is still the way home. */
   .mark b{display:none}
+}
+
+/* ── SCROLLING ON A PHONE ──────────────────────────────────────────────
+ *
+ * REPORTED LIVE: "when I'm trying to scroll down it scrolls the actual
+ * script instead of scrolling", and the bottom of the page could not be
+ * reached.
+ *
+ * The whole app is a fixed-height shell with NESTED SCROLLERS —
+ * `body{overflow:hidden}`, `#view` at `calc(100% - var(--bar))`, and
+ * `.spread` / `.page` / `.start` each an inner `overflow-y:auto`. That is
+ * a correct desktop application layout and it is the single worst thing
+ * you can do to a phone browser:
+ *
+ *   · the DOCUMENT cannot scroll, so the address bar never collapses and
+ *     the visible area stays at its smallest
+ *   · `height:100%` resolves against the SMALL viewport while the browser
+ *     paints against the large one, so the last screenful of an inner
+ *     scroller sits below the fold and cannot be reached at all
+ *   · a touch that starts on the argument scrolls the argument's own
+ *     pane, so the gesture does something other than "move down the page"
+ *   · momentum and overscroll are the inner pane's, not the system's
+ *
+ * Below 860px there is no second column to keep in view, so there is
+ * nothing for a nested scroller to buy. The document scrolls, the bar
+ * sticks, the stage sticks under it, and the argument runs the length of
+ * the page — which is what every other reading surface on a phone does.
+ */
+@media (max-width:860px){
+  html,body{height:auto;min-height:100%;overflow:visible}
+  body{overflow-x:hidden;-webkit-text-size-adjust:100%}
+  #view{height:auto;overflow:visible}
+  .spread,.page,.start{height:auto;overflow:visible}
+  /* The bar carries Render and Again, so it stays reachable rather than
+   * scrolling away with the top of the film. */
+  .bar{position:sticky;top:0}
+  /* And the stage sticks UNDER the bar rather than under the top of a
+   * scroller that no longer exists. */
+  .stageside{top:var(--bar)}
+  /* A fixed drawer measured from `var(--bar)` assumed the bar never
+   * moved. It is the whole screen here. */
+  #hood{top:0}
+  /* `100vh` is the LARGE viewport on a phone, so a full-height overlay is
+   * taller than the screen and its buttons land under the browser
+   * chrome. `dvh` is the box actually being painted. */
+  #busy,#finder,#sheet{height:100dvh}
 }

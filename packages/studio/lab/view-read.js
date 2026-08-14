@@ -91,6 +91,7 @@ function viewRead(root) {
       <p class="argend">End of the argument. ${liveScenes().length} moments · ${fmt(f.runtime)}</p>
     </div>
   </div></div>`;
+  layOutForScreen(root);
   bindArgument(root);
   bindDirect(root);
   sizeFilm();
@@ -100,6 +101,71 @@ function viewRead(root) {
   if (APP.alts) showAlternatives();
   if (APP.heard) paintHeard();
   bringCurrentIntoView(true);
+}
+
+/* ── WHAT IS PINNED, AND WHAT SCROLLS ────────────────────────────────
+ *
+ * On a wide screen the stage is a COLUMN beside the writing, so pinning
+ * all of it costs nothing — the argument has its own column and the film,
+ * the state and the voice stay in view the whole way down.
+ *
+ * On a phone there is no second column. The stage becomes a band across
+ * the top of one scrolling page, and pinning the whole of it means the
+ * film, the state card and the voice panel together own 559 pixels of an
+ * 844-pixel screen, permanently. Measured, on a real phone viewport: 66%
+ * of the display is furniture and 225 pixels are left for the writing,
+ * which is why scrolling "doesn't do anything" — the thing you are trying
+ * to move is in a slot four lines tall.
+ *
+ * So on a narrow screen only the FILM and its scrubber stay pinned (252
+ * pixels, under a third of the screen) and the state card and the voice
+ * panel move to the top of the writing, where they scroll away like any
+ * other block. Nothing is hidden — "Add narration" in particular is a
+ * button a phone must be able to reach, and hiding it to save height
+ * would have been the same mistake in a new place.
+ *
+ * Done here rather than in CSS because it is a change of ORDER, not of
+ * appearance, and CSS cannot move a node between two parents. It runs on
+ * every render and on the resize that crosses the breakpoint, so rotating
+ * a phone puts things where that orientation wants them. */
+const NARROW = "(max-width:860px)";
+
+function layOutForScreen(root) {
+  const stage = root.querySelector(".stagein");
+  const arg = root.querySelector(".argside");
+  const wrap = root.querySelector("#argwrap");
+  if (!stage || !arg || !wrap) return;
+  const movable = [root.querySelector("#statecard"), root.querySelector("#voicebox")].filter(
+    Boolean,
+  );
+  const narrow = window.matchMedia(NARROW).matches;
+  for (const el of movable) {
+    // Into the writing on a phone, back onto the stage on a desktop.
+    const wanted = narrow ? arg : stage;
+    if (el.parentElement !== wanted) {
+      if (narrow) arg.insertBefore(el, wrap);
+      else stage.appendChild(el);
+    }
+  }
+  // A block that has left the stage is no longer a stage block, and the
+  // stage's own spacing would give it a hairline it should not have at
+  // the top of the writing.
+  for (const el of movable) el.classList.toggle("offstage", narrow);
+}
+
+/* Crossing the breakpoint re-lays the page out. Guarded on the MATCH
+ * changing rather than on every resize event, so a phone's address bar
+ * sliding away does not re-parent anything mid-scroll. */
+if (window.matchMedia) {
+  const mq = window.matchMedia(NARROW);
+  const onChange = () => {
+    if (APP.view === "read") {
+      const root = document.getElementById("view");
+      if (root) layOutForScreen(root);
+    }
+  };
+  if (mq.addEventListener) mq.addEventListener("change", onChange);
+  else if (mq.addListener) mq.addListener(onChange);
 }
 
 /* ── the argument ──────────────────────────────────────────────────── */
