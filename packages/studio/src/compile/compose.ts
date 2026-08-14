@@ -353,15 +353,14 @@ export function composeScene(
    * whole point of promoting "IT'S A DIAGNOSIS" is that those words appear,
    * and re-deriving a phrase here would silently overrule the layer above. */
   const allocatedText = promotion ? textOf(promotion) : null;
-  const phrase =
-    allocatedText?.text
-      ? { text: allocatedText.text, source: `promoted — ${promotion?.why[0] ?? "an anchor"}` }
-      : promotion
-        ? { text: "", source: promotion.why[0] ?? "spoken only" }
-        : choosePhrase(scene.narration.text, scene.label, {
-            recent: recentPhrases,
-            figures: scene.figures ?? [],
-          });
+  const phrase = allocatedText?.text
+    ? { text: allocatedText.text, source: `promoted — ${promotion?.why[0] ?? "an anchor"}` }
+    : promotion
+      ? { text: "", source: promotion.why[0] ?? "spoken only" }
+      : choosePhrase(scene.narration.text, scene.label, {
+          recent: recentPhrases,
+          figures: scene.figures ?? [],
+        });
   const density = state.values.visualDensity ?? 0;
   // TYPOGRAPHY FOLLOWS THE PROMOTION, not only the curve. A scene with
   // nothing to say on screen has no typographic weight whatever the film's
