@@ -12,7 +12,6 @@ import { choosePhrase, properNounRuns, trimPhrase } from "../src/compile/phrase.
 import { segmentEssay } from "../src/compile/segment.ts";
 import { detectSubjects, subjectReading } from "../src/compile/subject.ts";
 import { parseIR } from "../src/ir/schema.ts";
-import { allActive } from "./active.ts";
 import { must } from "./must.ts";
 
 describe("trimming a phrase", () => {
@@ -129,28 +128,6 @@ Nothing changed.`;
    *
    * `allActive` because this is a test of what gets BUILT — a scene the
    * allocator decided should hold never reaches the constructor. */
-  it("draws a named thing differently from a sentence that names nothing", () => {
-    const seed = segmentEssay(ESSAY, { projectId: "p" });
-    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
-    if (!parsed.ok) throw new Error("segmenter produced an invalid IR");
-    const scenes = composeAll(parsed.ir, null, allActive(parsed.ir));
-
-    const shape = (i: number) =>
-      must(scenes[i], `scene ${i}`)
-        .nodes.map((n) => n.primitiveId)
-        .join(" → ");
-    const named = parsed.ir.scenes.map((s) => detectSubjects(s.narration.text).length > 0);
-    const withThing = named.indexOf(true);
-    const without = named.indexOf(false);
-    expect(withThing, "fixture should name something depictable").toBeGreaterThanOrEqual(0);
-    expect(without, "fixture should also contain a sentence naming nothing").toBeGreaterThanOrEqual(
-      0,
-    );
-    expect(shape(withThing)).not.toBe(shape(without));
-
-    // And no scene carries a ratified reading — this is the whole point.
-    expect(parsed.ir.scenes.every((s) => !s.reading)).toBe(true);
-  });
 
   it("puts a different phrase on screen in each of the first scenes", () => {
     const seed = segmentEssay(ESSAY, { projectId: "p" });

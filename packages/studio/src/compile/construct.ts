@@ -68,6 +68,7 @@
 
 import type { Figure, VisualLanguage } from "../ir/schema.ts";
 import { PRIMITIVES, canChain, chainCost, chainOverwrites } from "../primitives/registry.ts";
+import type { Act } from "./act.ts";
 import { chartFor, serialiseFigures } from "./figures.ts";
 import type { FilmMode } from "./film-mode.ts";
 import type { Material } from "./grammar-visual.ts";
@@ -406,6 +407,23 @@ interface Construction {
     style: Style,
     rep?: Representation | null,
   ): { nodes: PlannedNode[]; why: string };
+  /** DOES THIS CONSTRUCTION DRAW WHAT THE FILM IS ALREADY CARRYING?
+   *
+   *  Declared rather than inferred, the same way a primitive declares
+   *  whether it preserves what it was handed. A construction that reads
+   *  `beat.world` draws the elements the film has established, in the
+   *  places it left them, and can therefore express something happening
+   *  TO them. One that builds its own object from the sentence cannot: it
+   *  starts again every scene, whatever the world was doing.
+   *
+   *  This is the fact the act gate turns on. Measured on the real essay:
+   *  on every scene where the world produced a MOVE, a construction that
+   *  ignores the world won the picture — so the move was computed,
+   *  attached, and thrown away. Not a coincidence, and the mechanism is
+   *  the centipede's from a third angle: the film only has a moving
+   *  element when the prose NAMED something, and a named noun is exactly
+   *  what makes an object construction win. */
+  usesWorld?: boolean;
 }
 
 /** A count the prose actually printed, if it printed one. This is what
@@ -490,6 +508,8 @@ export const CONSTRUCTIONS: Construction[] = [
    * through to a generic plate. */
   {
     id: "scene",
+    // The only construction that draws what the film is already carrying.
+    usesWorld: true,
     fit(beat) {
       const rel = beat.relation?.agent && beat.relation.patient;
       /* IT NEVER RETURNS ZERO, and the measurement is why.
@@ -580,180 +600,6 @@ export const CONSTRUCTIONS: Construction[] = [
       };
     },
   },
-  /* ── A BODY. Segments, appendages, phase offsets, locomotion.
-   *
-   * This is the construction the whole argument turns on. The centipede
-   * was never a primitive; it was a set of numbers. So the numbers come
-   * from the sentence: how many things, how big, how fast, and whether
-   * they have legs. */
-  {
-    id: "body",
-    fit: (beat) => {
-      const s = beat.subjects[0];
-      if (!s) return 0;
-      if (s.kind === "creature") return 1;
-      if (s.kind === "person") return 0.85;
-      return 0;
-    },
-    // Anything can be given a body. The build reads its numbers off the
-    // prose (how many, how fast, growing or not) and falls back to "the
-    // subject" for its own account of itself, so a sentence naming no
-    // creature still produces a specific body rather than a generic one.
-    dislocate: () => 0.7,
-    build(beat, style) {
-      const many = MANY.test(beat.sentence);
-      const stated = statedCount(beat) ?? wordCount(beat.sentence);
-      // A crowd is many small fast bodies. A named creature is one, large,
-      // and worth looking at. The prose decides which; the style decides
-      // how far from literal it is drawn.
-      const growing = GROWING.test(beat.sentence);
-      const swarming = SWARMING.test(beat.sentence);
-      const count =
-        many || growing
-          ? Math.min(12, Math.max(4, stated ?? (growing ? 12 : 8)))
-          : Math.min(3, stated ?? 1);
-      const segments = many
-        ? 6 + Math.round(style.density * 6)
-        : Math.min(
-            60,
-            Math.max(8, stated && !many ? stated * 3 : 18 + Math.round(style.density * 20)),
-          );
-      // Legs are what makes a thing read as alive rather than as a line.
-      // A crowd of people gets one pair; an insect gets two; an abstract
-      // chain of companies gets none, and reads as a mechanism.
-      const legPairs = beat.subjects[0]?.kind === "person" ? 1 : many ? 1 : 2;
-      return {
-        nodes: [
-          {
-            primitiveId: "creature_chain",
-            params: {
-              segments,
-              legPairs,
-              count,
-              scale: many ? 0.16 + style.density * 0.12 : 0.4 + style.human * 0.3,
-              speed: 0.25 + style.energy * 0.6,
-              gait: 0.3 + style.energy * 0.5,
-              // Synchronised means LOW wander: bodies moving together are
-              // bodies that have stopped choosing their own paths. The
-              // parameter that expresses "strange synchronized waves" is
-              // the ABSENCE of wandering, not the presence of an effect.
-              wander: swarming
-                ? 0.08 + style.energy * 0.12
-                : many
-                  ? 0.55 + style.energy * 0.35
-                  : 0.2 + style.energy * 0.3,
-              wave: 0.3 + style.energy * 0.4,
-              stride: 0.35 + style.energy * 0.4,
-            },
-            reason: swarming
-              ? `${count} bodies moving in step — the sentence says synchronised, which is these bodies with the wander taken out of them`
-              : many || growing
-                ? `${count} bodies of ${segments} segments — the sentence names a crowd, so the construction is many small fast ones`
-                : `one body of ${segments} segments with ${legPairs} leg pairs, built from "${beat.subjects[0]?.text ?? "the subject"}"`,
-          },
-          {
-            primitiveId: "entity_render",
-            params: {
-              exposure: beat.contested ? 0.36 : 0.5 + style.human * 0.2,
-              contrast: 0.4 + style.density * 0.3,
-              vignette: beat.contested ? 0.6 : 0.3,
-            },
-            reason: beat.contested
-              ? "lit cold and close — the line reports a claim, not a finding"
-              : "lit as a thing in a room",
-          },
-        ],
-        why: swarming
-          ? "a swarm, moving in step"
-          : many || growing
-            ? "a crowd, constructed"
-            : "a body, constructed",
-      };
-    },
-  },
-
-  /* ── A FIXTURE. The thing on the ceiling.
-   *
-   * Which fixture is decided by the noun; how it is drawn is decided by
-   * the abstraction rung, which is the director's. Same construction,
-   * four representations: solid, wireframe, technical, pixel. */
-  {
-    id: "fixture",
-    /* IT NOW REFUSES, which is what the comment below always said it
-     * should do and what the code did not.
-     *
-     * `kind === "object"` covers door, window, lock, gate, sign, screen,
-     * bed, mattress, bus, van, truck, pipe, valve, server and phone. This
-     * construction knows how to build exactly three of those shapes — a
-     * sensor, a sounder, a camera housing — and returned fit 1.0 for all
-     * of them, so every physical noun in a 257-word lexicon became a
-     * generic ceiling dome. That is the single line that made two
-     * feasibility demos into the ontology of the system.
-     *
-     * A construction may now only claim a sentence it can actually
-     * construct. With none of its three lookups hit it scores 0.12 — low
-     * enough to lose to any real reading, high enough to remain visible
-     * in the alternatives, because a director may still want a fixture. */
-    fit: (beat) => {
-      const s = beat.subjects[0];
-      if (!s || s.kind !== "object") return 0;
-      const noun = s.text.toLowerCase();
-      const knows =
-        /camera|dome|surveillance/.test(noun) ||
-        /speaker|alarm|siren/.test(noun) ||
-        /detector|sensor|thermostat|sprinkler/.test(noun);
-      return knows ? 1 : 0.12;
-    },
-    // REFUSES. The whole point of this construction is that the noun
-    // decides: a detector vents and blinks, a camera domes and does not.
-    // With no object noun every one of those lookups misses and it builds
-    // a generic fixture — which is the thing it was written to replace.
-    // A construction that can only produce its own default is not an
-    // interpretation of the sentence.
-    dislocate: () => 0,
-    build(beat, style) {
-      const noun = (beat.subjects[0]?.text ?? "").toLowerCase();
-      // A detector vents and blinks. A camera domes and does not. A
-      // speaker is all vents and no LED. This is a lookup on the NOUN, not
-      // on a category — which is the difference between constructing the
-      // thing the sentence named and constructing a generic fixture.
-      const isCamera = /camera|dome|surveillance/.test(noun);
-      const isSpeaker = /speaker|alarm|siren/.test(noun);
-      const isSensor = /detector|sensor|thermostat|sprinkler/.test(noun);
-      return {
-        nodes: [
-          {
-            primitiveId: "mounted_fixture",
-            params: {
-              // The language says what kind of picture; the curve says how
-              // far from literal. Neither alone.
-              representation: representationRung(style),
-              radius: isCamera ? 0.62 : 0.45 + style.density * 0.2,
-              depth: isCamera ? 0.7 : isSensor ? 0.32 : 0.5,
-              vents: isSpeaker ? 28 : isSensor ? 14 : isCamera ? 0 : 10,
-              dome: isCamera ? 0.85 : isSensor ? 0.3 : 0.15,
-              led: isSensor ? 1 : 0,
-              spin: 0.12 + style.energy * 0.5,
-              pitch: 0.35 + style.abstraction * 0.3,
-              push: beat.kind === "assertion" ? 0.7 : 0.25 + style.energy * 0.3,
-            },
-            reason: `built as ${isCamera ? "a camera housing" : isSpeaker ? "a sounder" : isSensor ? "a ceiling sensor" : "a mounted unit"} from the word "${beat.subjects[0]?.text ?? ""}"`,
-          },
-          {
-            primitiveId: "entity_render",
-            params: {
-              exposure: beat.contested ? 0.34 : 0.52,
-              contrast: 0.45 + style.density * 0.3,
-              vignette: beat.contested ? 0.62 : 0.28,
-            },
-            reason: "rendered as a lit object rather than a diagram of one",
-          },
-        ],
-        why: "a fixture, constructed from the noun",
-      };
-    },
-  },
-
   /* ── PAPER. A document is a thing you can photograph, and an
    *    institutional essay is mostly about documents. */
   {
@@ -1338,6 +1184,11 @@ export function constructPrograms(
   /** What the film allocated to this moment. When it allocated TEXT, only
    *  a construction that can put words on screen may realise it. */
   intervention?: "TEXT" | "COMPOSE",
+  /** WHAT KIND OF CHANGE this moment is. Only `DECLARE` may build a new
+   *  thing; every other act happens to what the film already has, and a
+   *  construction that ignores the world cannot express it. See the gate
+   *  below. */
+  act?: Act,
 ): Program[] {
   // AN EXPLICITLY DRAWN ROUTE IS THE STRONGEST THING A SENTENCE CAN DO.
   //
@@ -1424,10 +1275,41 @@ export function constructPrograms(
    * `REALISES` already records which constructions can carry typography.
    * This is that table used for its stated purpose rather than as another
    * multiplier. */
+  /* AND THE SECOND THING THE GATE IS FOR:
+   *
+   *     ONLY `DECLARE` MAY BUILD A NEW THING.
+   *
+   * Every other act is something happening to what is ALREADY on screen —
+   * it accumulates, it turns around, it comes back, it goes. A
+   * construction that ignores the film's world cannot express any of
+   * that: it starts again from the sentence every scene, whatever the
+   * world was doing.
+   *
+   * Measured, and it is the finding that made this necessary rather than
+   * tidy: on EVERY scene where the world produced a move, a construction
+   * that ignores the world won the picture. The move was computed,
+   * attached to the right node by `serialiseScene`, and thrown away with
+   * the losing candidate. Not a coincidence — the film only has a moving
+   * element when the prose NAMED something, and a named noun is exactly
+   * what makes an object construction win. The same mechanism as the
+   * centipede, from a third angle.
+   *
+   * So this is "semantic understanding ≠ visual depiction" as a filter
+   * rather than a weight, and it is the strongest form of it in the
+   * compiler: a sentence may contain a concrete entity, and unless the
+   * act is DECLARE that entity does not get built. */
+  const introducing = !act || act === "DECLARE" || act === "NONE" || act === "QUALIFY";
+  /* CHECKABLE MATERIAL IS NOT GATED. A printed quantity and a drawn route
+   * are facts about the prose that anyone can verify, and this compiler's
+   * standing position is that they outrank a preference. The gate is about
+   * what the film INFERS, never about what the essay printed. */
+  const printed = beat.figures.length > 0 || beat.route.length >= 2;
   const eligible =
     intervention === "TEXT"
       ? CONSTRUCTIONS.filter((c) => (REALISES[c.id] ?? []).includes("typographic"))
-      : CONSTRUCTIONS;
+      : introducing || printed || !beat.world
+        ? CONSTRUCTIONS
+        : CONSTRUCTIONS.filter((c) => c.usesWorld);
 
   for (const c of eligible) {
     const raw0 = c.fit(beat) * (drewRoute && c.id !== "route" ? 0.5 : 1);

@@ -205,7 +205,9 @@ describe("the world reaches the compiler", () => {
     // this change would have restyled every film already made.
     const cut = composed("cut");
     expect(cut.every((s) => s.world !== null)).toBe(true);
-    expect(flat(cut.flatMap((s) => s.nodes)).every((n) => !n.tween)).toBe(true);
+    // No BRIDGE. A cut film still MOVES within a scene — that is the act's
+    // choreography and it is not a bridge; a bridge is how a scene arrives.
+    expect(cut.every((s) => (s.world?.bridgeMs ?? 0) === 0)).toBe(true);
   });
 });
 
@@ -220,7 +222,6 @@ describe("the bridge", () => {
     // No narration means no measured pause, so there is nothing to arrive
     // between. Reported as zero rather than filled in with a default.
     expect(silent.every((s) => (s.world?.bridgeMs ?? 0) === 0)).toBe(true);
-    expect(flat(silent.flatMap((s) => s.nodes)).every((n) => !n.tween)).toBe(true);
   });
 
   it("reaches the nodes a renderer will actually run", () => {
@@ -269,6 +270,5 @@ describe("the bridge", () => {
     const ir = irFor("montage");
     const scenes = composeAll(ir, measuredTimeline(ir));
     expect(scenes.every((s) => (s.world?.bridgeMs ?? 0) === 0)).toBe(true);
-    expect(flat(scenes.flatMap((s) => s.nodes)).every((n) => !n.tween)).toBe(true);
   });
 });

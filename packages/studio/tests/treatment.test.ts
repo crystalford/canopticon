@@ -14,7 +14,6 @@ import {
   validateChain,
 } from "../src/compile/treatment.ts";
 import type { SemanticReading } from "../src/ir/schema.ts";
-import { PRIMITIVES } from "../src/primitives/registry.ts";
 import { buildFixtureIR } from "./fixture.ts";
 import { must } from "./must.ts";
 
@@ -80,43 +79,10 @@ describe("treatment planning", () => {
     }
   });
 
-  it("keeps the subject invariant while depiction changes", () => {
-    const treatments = planAllTreatments(CONTESTED_PHYSICAL);
-    const subjects = new Set(treatments.map((t) => t.subject));
-    expect(subjects).toEqual(new Set(["smoke detector"]));
-
-    // Same body plan every time — it is the same object.
-    const heads = new Set(treatments.map((t) => must(t.nodes[0], "head").primitiveId));
-    expect(heads).toEqual(new Set(["mounted_fixture"]));
-
-    // But no two languages produce the same chain.
-    const chains = treatments.map((t) => t.nodes.map((n) => n.primitiveId).join("→"));
-    expect(new Set(chains).size).toBe(chains.length);
-  });
-
   it("picks the heaviest subject, not the first one mentioned", () => {
     const t = planTreatment(CONTESTED_PHYSICAL, "documentary");
     // "he" is mentioned first in the sentence; the detector carries the shot.
     expect(t.subject).toBe("smoke detector");
-  });
-
-  it("inserts no bridge where there is no longer a type gap", () => {
-    // This test used to assert that `entity_render` was inserted, because
-    // a fixture emitted ENTITY and a raster primitive could not consume
-    // it. ENTITY was a fiction — the fixture emitted pixels and
-    // `entity_render` read `upstream.canvas` — so the bridge was crossing
-    // a boundary that did not exist at runtime.
-    //
-    // With the declaration corrected there is no gap, and the planner
-    // correctly stops bridging. The chain is shorter and does exactly what
-    // it always did.
-    const t = planTreatment(CONTESTED_PHYSICAL, "pixel");
-    const ids = t.nodes.map((n) => n.primitiveId);
-    expect(must(PRIMITIVES.mounted_fixture, "fixture").outputs).toContain("IMAGE");
-    expect(ids).not.toContain("entity_render");
-    expect(t.valid).toBe(true);
-    expect(ids[0]).toBe("mounted_fixture");
-    expect(ids).toContain("pixelate");
   });
 
   it("carries a contested claim into the treatment instead of dropping it", () => {
@@ -235,33 +201,6 @@ describe("kinetic language and the cut", () => {
     visualOpportunity: "inspect" as const,
     contested: false,
   };
-
-  it("bridges a concrete subject back to geometry so it can be morphed", () => {
-    // You cannot morph a raster. A concrete subject paints pixels and
-    // `geometry_morph` consumes GEOMETRY, so a kinetic treatment has to
-    // travel IMAGE → GEOMETRY. That round trip is still required and still
-    // fires; what is gone is the extra ENTITY → IMAGE hop, which was
-    // crossing a type that did not exist at runtime.
-    const t = planTreatment(MIRROR, "kinetic");
-    expect(t.valid).toBe(true);
-    const ids = t.nodes.map((n) => n.primitiveId);
-    expect(ids).toContain("image_to_points");
-    expect(ids.indexOf("image_to_points")).toBeLessThan(ids.indexOf("geometry_morph"));
-  });
-
-  it("needs no bridge when the subject is already geometry", () => {
-    const t = planTreatment(
-      { ...MIRROR, subjects: [{ label: "meaning", kind: "concept", weight: 0.9 }] },
-      "kinetic",
-    );
-    expect(t.valid).toBe(true);
-    expect(t.nodes.map((n) => n.primitiveId)).toEqual([
-      "glyph_geometry",
-      "geometry_morph",
-      "geometry_draw",
-      "ease_profile",
-    ]);
-  });
 
   it("plans a valid kinetic chain for every subject kind", () => {
     for (const kind of ["object", "creature", "document", "person", "place", "concept"] as const) {

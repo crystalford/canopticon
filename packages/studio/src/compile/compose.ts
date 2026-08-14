@@ -708,14 +708,23 @@ export function composeScene(
           ...(promotion ? { act: promotion.act.act } : {}),
           ...(scene.passageId ? { subject: `passage ${scene.passageId}` } : {}),
         },
+        /* HOW LONG THE MOVE HAS. The scene's own solved duration — a move
+         * is what the scene DOES, so it runs across the whole of it, where
+         * a bridge runs only in the measured silence at the head. Falls
+         * back to a nominal three seconds when the film has not been
+         * solved — which is  rather than absent, so this is  and not
+         * . That distinction cost an hour: the move never ran and left
+         * no trace, because a zero duration is indistinguishable from a
+         * scene that chose not to move. */
+        sceneMs: world.sceneDurationMs || 3_000,
       });
       world.out = sceneWorld;
       beat.world = {
         graph: sceneWorld.graph,
         material: sceneWorld.material,
         mode: world.mode,
-        ...(sceneWorld.tweens.size > 0 && sceneWorld.bridgeMs > 0
-          ? { bridge: { tweens: sceneWorld.tweens, ms: sceneWorld.bridgeMs } }
+        ...(sceneWorld.tweens.size > 0 && sceneWorld.bridgeMs + sceneWorld.moveMs > 0
+          ? { bridge: { tweens: sceneWorld.tweens, ms: sceneWorld.bridgeMs || sceneWorld.moveMs } }
           : {}),
       };
       notes.push(`world — ${sceneWorld.describes}`);
@@ -726,6 +735,7 @@ export function composeScene(
       style,
       MAX_CHAIN_MS,
       promotion?.kind === "TEXT" ? "TEXT" : "COMPOSE",
+      promotion?.act.act,
     );
     const best = programs[0];
     if (best) {

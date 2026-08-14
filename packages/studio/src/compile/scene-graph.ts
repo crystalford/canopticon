@@ -29,6 +29,7 @@
 // abstract sentence gets one form and a great deal of empty space, which
 // is a compositional decision rather than an absence of one.
 
+import type { Act } from "./act.ts";
 import type { PlannedNode } from "./construct.ts";
 import { elementKey } from "./film-mode.ts";
 import { type Material, type Op, applyEmphasis, realiseOps } from "./grammar-visual.ts";
@@ -824,6 +825,85 @@ export function at(scene: SceneGraph, ch: Choreography, t: number): SceneGraph {
     if (present) elements.push({ ...el, place: p });
   });
   return { elements, describes: `${scene.describes} · ${ch.describes} @${t.toFixed(2)}` };
+}
+
+/** CHOREOGRAPH FROM THE ACT, when no relation was read.
+ *
+ *  `choreograph` below is good and it has never run. Its gate is
+ *  `sem.relations[0]`, and a relation needs two lexicon-known nouns — so
+ *  on an essay of ideas there is nothing to key on, and the eight moves,
+ *  the whole semantic→time table and `at()` have sat behind a condition
+ *  that an argument cannot satisfy. `construct.ts:508` carries a comment
+ *  asserting the capability is wired. It was not.
+ *
+ *  The ACT is the same question asked of what the sentence DOES rather
+ *  than of what it names, so it is available on every scene. The relation
+ *  still wins where it exists: two named things is a more specific
+ *  reading than a verb over a whole sentence.
+ *
+ *  Every row below is a move that already existed. `REVERSE` in
+ *  particular — the element crossing to the place its counterpart held —
+ *  was written, is the most directly argumentative move in the table, and
+ *  `choreograph` emits it for NO relation, so it has been doubly
+ *  unreachable since the day it was written. A CONTRAST is exactly what it
+ *  is for.
+ *
+ *  Two acts deliberately produce no move. SUSTAIN is the world staying as
+ *  it is, which is what an empty choreography already means. QUALIFY is
+ *  the essay giving ground, and there is no move for "less than was
+ *  claimed" — inventing one here would be this file deciding what a
+ *  qualification looks like, which is the layer below's job. */
+export function choreographAct(scene: SceneGraph, act: Act, negated = false): Choreography {
+  const moves: Record<number, Move> = {};
+  const roleAt = (r: Role) => scene.elements.findIndex((e) => e.role === r);
+  const field = roleAt("FIELD");
+  const primary = roleAt("PRIMARY");
+  const secondary = roleAt("SECONDARY");
+  /** The thing the scene is about, whichever role carries it. A film of
+   *  ideas often has no PRIMARY at all. */
+  const subject = primary >= 0 ? primary : secondary >= 0 ? secondary : field;
+
+  switch (act) {
+    case "DECLARE":
+      if (subject >= 0) moves[subject] = "EMERGE";
+      return { moves, describes: "put on screen" };
+    case "WITHDRAW":
+      // A denial removes what was claimed rather than carrying it out of
+      // frame — the claim never arrived, so it thins rather than leaves.
+      if (subject >= 0) moves[subject] = negated ? "DISSOLVE" : "WITHDRAW";
+      return { moves, describes: negated ? "refusing to arrive" : "going" };
+    case "ACCUMULATE":
+      if (field >= 0) {
+        moves[field] = "ACCUMULATE";
+        if (primary >= 0) moves[primary] = "HOLD";
+      } else if (subject >= 0) moves[subject] = "ACCUMULATE";
+      return { moves, describes: "more of it, gathering" };
+    case "CONVERGE":
+      if (subject >= 0) moves[subject] = "APPROACH";
+      if (secondary >= 0 && secondary !== subject) moves[secondary] = "APPROACH";
+      return { moves, describes: "the distance closing" };
+    case "CONTRAST":
+      if (subject >= 0) moves[subject] = "REVERSE";
+      return { moves, describes: "the argument turning around" };
+    case "REVEAL":
+      if (secondary >= 0) moves[secondary] = "EMERGE";
+      else if (subject >= 0) moves[subject] = "EMERGE";
+      return { moves, describes: "what is behind, becoming visible" };
+    case "TRANSFORM":
+      if (secondary >= 0) {
+        moves[secondary] = "EMERGE";
+        if (primary >= 0) moves[primary] = "DISSOLVE";
+      } else if (subject >= 0) moves[subject] = "EMERGE";
+      return { moves, describes: "one turning into the other" };
+    case "INTENSIFY":
+      if (subject >= 0) moves[subject] = "ACCUMULATE";
+      return { moves, describes: "the same thing, pressed harder" };
+    case "RECALL":
+      if (subject >= 0) moves[subject] = "ENTER";
+      return { moves, describes: "back, from earlier" };
+    default:
+      return { moves, describes: "as it was" };
+  }
 }
 
 /** CHOREOGRAPH FROM THE RELATION. The move each element makes is read
