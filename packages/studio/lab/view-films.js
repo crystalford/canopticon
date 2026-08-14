@@ -175,30 +175,72 @@ function lookRow(colour) {
     .join("")}</div>`;
 }
 
-/** HOW MANY COLOURS, as a choice rather than a slider.
+/** HOW MUCH COLOUR, as a choice rather than a slider.
  *
- *  `spread` is the number — see `resolvePalette`. This is the same axis
- *  in the four words a person would actually use, because "0.45" is not
- *  a thing anyone wants to decide. It sits BESIDE the look rather than
- *  inside it: a look is a whole grade, and how much colour the film
- *  carries is a separate question a director asks about any of them. */
+ *  IT USED TO MOVE HALF OF WHAT IT PROMISED, and that is the whole reason
+ *  every film came out muted. There are TWO numbers that decide how
+ *  colourful a frame is — `saturation`, how intense one colour is, and
+ *  `spread`, how many there are — and this row wrote only `spread`. So
+ *  "Full spectrum" gave you the entire hue wheel still at the default
+ *  saturation: many muted colours instead of one. And "Black and white"
+ *  did not move saturation at all, so it was never black and white.
+ *
+ *  Each mode now carries both numbers, and they are the mode. The row
+ *  sits BESIDE the look rather than inside it: a look is a whole grade,
+ *  and how much colour the film carries is a separate question a director
+ *  asks about any of them. */
 const COLOURS = [
-  { id: 0, label: "Black and white", note: "One colour. The form does the work." },
-  { id: 0.25, label: "Muted", note: "A close harmony — colour you notice rather than see." },
-  { id: 0.6, label: "Colour", note: "A wide scheme, still recognisably one film." },
-  { id: 1, label: "Full spectrum", note: "The whole wheel. Ask for this on purpose." },
+  {
+    id: "mono",
+    label: "Black and white",
+    saturation: 0,
+    spread: 0,
+    note: "No colour at all. Key and contrast still decide the tonal world; the form does the rest.",
+  },
+  {
+    id: "muted",
+    label: "Muted",
+    saturation: 0.34,
+    spread: 0.22,
+    note: "A close harmony — colour you notice rather than see. What every film used to be by default.",
+  },
+  {
+    id: "colour",
+    label: "Colour",
+    saturation: 0.85,
+    spread: 0.6,
+    note: "Saturated, and a wide scheme — still recognisably one film.",
+  },
+  {
+    id: "spectrum",
+    label: "Full spectrum",
+    saturation: 1,
+    spread: 1,
+    note: "The whole wheel at full intensity. Ask for this on purpose.",
+  },
 ];
 
+/** Which mode a film's numbers are closest to.
+ *
+ *  Matched on BOTH numbers now — a mode is a pair, so a look declaring
+ *  saturation 0.9 / spread 0.55 should light "Colour" rather than whatever
+ *  its spread alone happened to be nearest. Distance is euclidean and
+ *  unweighted, which is the honest default when neither axis is more the
+ *  point than the other. */
+function nearestColour(colour) {
+  const c = { ...(window.COLOUR_DEFAULT || {}), ...(colour || {}) };
+  const s = c.saturation ?? 0.34;
+  const sp = c.spread ?? 0.22;
+  const away = (m) => (m.saturation - s) ** 2 + (m.spread - sp) ** 2;
+  return COLOURS.reduce((a, b) => (away(b) < away(a) ? b : a));
+}
+
 function colourRow(colour) {
-  const cur = (colour || window.COLOUR_DEFAULT || {}).spread ?? 0.22;
-  return `<div class="segs" data-choice="colour">${COLOURS.map((c) => {
-    // Nearest, so a look that declares 0.5 lights the row it is closest
-    // to rather than none of them.
-    const nearest = COLOURS.reduce((a, b) =>
-      Math.abs(b.id - cur) < Math.abs(a.id - cur) ? b : a,
-    );
-    return `<button data-opt="${c.id}" class="${nearest.id === c.id ? "on" : ""}" title="${esc(c.note)}">${esc(c.label)}</button>`;
-  }).join("")}</div>`;
+  const on = nearestColour(colour);
+  return `<div class="segs" data-choice="colour">${COLOURS.map(
+    (c) =>
+      `<button data-opt="${c.id}" class="${on.id === c.id ? "on" : ""}" title="${esc(c.note)}">${esc(c.label)}</button>`,
+  ).join("")}</div>`;
 }
 
 function viewFilms(root) {
@@ -316,7 +358,16 @@ function viewFilms(root) {
           // made afterwards wins, because it is the more specific ask.
           if (l) NEW.colour = { ...l.colour };
         } else if (row.dataset.choice === "colour") {
-          NEW.colour = { ...(NEW.colour || window.COLOUR_DEFAULT || {}), spread: Number(b.dataset.opt) };
+          // BOTH numbers, because both are the mode — see COLOURS. Writing
+          // only `spread` here is what made "Full spectrum" a wheel of
+          // muted colours and "Black and white" a colour film.
+          const m = COLOURS.find((x) => x.id === b.dataset.opt);
+          if (m)
+            NEW.colour = {
+              ...(NEW.colour || window.COLOUR_DEFAULT || {}),
+              saturation: m.saturation,
+              spread: m.spread,
+            };
         } else if (row.dataset.choice === "duration") {
           NEW.duration = Number(b.dataset.opt);
         } else {

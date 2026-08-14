@@ -1717,231 +1717,29 @@ reg(
   1,
 );
 
-/* ── Q. CUT GRAMMAR ─────────────────────────────────── */
-function shotA(ctx, w, h, t) {
-  bg(ctx, w, h);
-  ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.1)`;
-  for (let i = 0; i < 10; i++)
-    ctx.fillRect(12, 16 + (i * (h - 30)) / 10, (w - 24) * (0.4 + ((i * 37) % 50) / 100), 4);
-  ctx.fillStyle = INK;
-  ctx.font = "600 " + Math.round(h * 0.22) + 'px "Space Grotesk",sans-serif';
-  ctx.fillText("A", 16, h * 0.62);
-}
-function shotB(ctx, w, h, t) {
-  ctx.fillStyle = DIM;
-  ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.6)`;
-  for (let i = 0; i < 8; i++) {
-    ctx.beginPath();
-    ctx.arc(w * 0.5, h * 0.5, ((i + 1) / 8) * Math.min(w, h) * 0.45, 0, 6.3);
-    ctx.stroke();
-  }
-  ctx.fillStyle = EMB;
-  ctx.font = "600 " + Math.round(h * 0.22) + 'px "Space Grotesk",sans-serif';
-  ctx.fillText("B", w - 40, h * 0.62);
-}
-reg(
-  "hard_cut",
-  "Q · CUT GRAMMAR",
-  "— → ANIMATION",
-  { rate: { v: 0.4, lo: 0.05, hi: 1 }, flash: { v: 0, lo: 0, hi: 1 } },
-  (p) => ({
-    frame(ctx, w, h, t) {
-      const cyc = (t * p.rate * 1.2) % 2;
-      if (cyc < 1) shotA(ctx, w, h, t);
-      else shotB(ctx, w, h, t);
-      const since = cyc % 1;
-      if (p.flash > 0.02 && since < 0.08) {
-        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + p.flash * (1 - since / 0.08) * 0.5 + ")";
-        ctx.fillRect(0, 0, w, h);
-      }
-      lab(ctx, "INSTANTANEOUS · NO TRANSITION IS A CHOICE", 10, h - 10);
-    },
-  }),
-  "The default and usually the right one. Listing it as a primitive is what stops transitions being decoration.",
-);
-
-reg(
-  "match_cut",
-  "Q · CUT GRAMMAR",
-  "GEOMETRY → ANIMATION",
-  { rate: { v: 0.3, lo: 0.05, hi: 1 }, tolerance: { v: 0.5, lo: 0, hi: 1 } },
-  (p) => ({
-    frame(ctx, w, h, t) {
-      const cyc = (t * p.rate * 1.1) % 2,
-        side = cyc < 1;
-      bg(ctx, w, h);
-      const R = Math.min(w, h) * 0.28;
-      if (side) {
-        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.08)`;
-        for (let i = 0; i < 9; i++) ctx.fillRect(12, 14 + (i * (h - 26)) / 9, (w - 24) * 0.6, 4);
-      } else {
-        ctx.fillStyle = DIM;
-        ctx.fillRect(0, 0, w, h);
-      }
-      ctx.strokeStyle = side ? INK : EMB;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2, R, 0, 6.3);
-      ctx.stroke();
-      ctx.font = '600 12px "JetBrains Mono",monospace';
-      ctx.fillStyle = side ? INK : EMB;
-      ctx.fillText(side ? "SHOT A" : "SHOT B", w / 2 - 26, h / 2 + 4);
-      ctx.strokeStyle = "rgba(155,163,170,.25)";
-      ctx.setLineDash([3, 4]);
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2, R * (1 + p.tolerance * 0.28), 0, 6.3);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      lab(ctx, "SHARED GEOMETRY ACROSS THE CUT · NEEDS BOTH SHOTS", 10, h - 10);
-    },
-  }),
-  "Requires geometry from the outgoing AND incoming shot — a real architectural demand, not a transition preset.",
-  1,
-);
-
-reg(
-  "montage",
-  "Q · CUT GRAMMAR",
-  "— → ANIMATION",
-  {
-    rate: { v: 0.5, lo: 0.1, hi: 1 },
-    shots: { v: 6, lo: 2, hi: 12, int: 1 },
-    accel: { v: 0.4, lo: 0, hi: 1 },
-  },
-  (p) => ({
-    frame(ctx, w, h, t) {
-      const N = Math.round(p.shots),
-        r = mulberry(66);
-      const cycle = (t * p.rate * 0.5) % 1;
-      let acc = 0,
-        dur = [],
-        base = 1 / N;
-      for (let i = 0; i < N; i++) {
-        const d = base * (1 - p.accel * (i / N) * 0.7);
-        dur.push(d);
-        acc += d;
-      }
-      dur = dur.map((d) => d / acc);
-      let s = 0,
-        idx = 0;
-      for (let i = 0; i < N; i++) {
-        if (cycle >= s && cycle < s + dur[i]) {
-          idx = i;
-          break;
-        }
-        s += dur[i];
-      }
-      bg(ctx, w, h);
-      const k = idx / N;
-      ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.05 + k * 0.1) + ")";
-      ctx.fillRect(0, 0, w, h);
-      for (let i = 0; i < 8 + idx * 4; i++) {
-        ctx.fillStyle = idx % 3 === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.5)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.35)`;
-        ctx.fillRect(r() * w, r() * h, r() * w * 0.3 + 8, r() * 8 + 3);
-      }
-      ctx.font = "600 " + Math.round(h * 0.3) + 'px "Space Grotesk",sans-serif';
-      ctx.fillStyle = INK;
-      ctx.fillText(String(idx + 1), w - 46, h * 0.6);
-      ctx.fillStyle = "rgba(155,163,170,.2)";
-      ctx.fillRect(0, h - 5, w, 5);
-      ctx.fillStyle = EMB;
-      ctx.fillRect(0, h - 5, cycle * w, 5);
-      lab(ctx, N + " SHOTS UNDER ONE NARRATION LINE", 10, h - 14);
-    },
-  }),
-  "A rhythmic sequence under a single line of narration. Cut rate is a directed parameter, not an afterthought.",
-);
-
-reg(
-  "cut_rhythm",
-  "Q · CUT GRAMMAR",
-  "— → ANIMATION",
-  {
-    frequency: { v: 0.4, lo: 0.05, hi: 1 },
-    variance: { v: 0.3, lo: 0, hi: 1 },
-    build: { v: 0.4, lo: 0, hi: 1 },
-  },
-  (p) => ({
-    frame(ctx, w, h, t) {
-      bg(ctx, w, h);
-      const r = mulberry(11);
-      const N = Math.round(6 + p.frequency * 40),
-        cyc = (t * 0.16) % 1;
-      let x = 0,
-        i = 0,
-        marks = [];
-      while (x < 1 && i < 200) {
-        const d = (1 / N) * (1 - p.build * x * 0.7) * (1 + (r() - 0.5) * p.variance * 1.6);
-        marks.push(x);
-        x += Math.max(0.004, d);
-        i++;
-      }
-      ctx.strokeStyle = "rgba(155,163,170,.25)";
-      ctx.beginPath();
-      ctx.moveTo(0, h * 0.5);
-      ctx.lineTo(w, h * 0.5);
-      ctx.stroke();
-      marks.forEach((m) => {
-        const hot = Math.abs(m - cyc) < 0.012;
-        ctx.strokeStyle = hot ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.55)`;
-        ctx.lineWidth = hot ? 2 : 1;
-        ctx.beginPath();
-        ctx.moveTo(m * w, h * 0.5 - (hot ? 26 : 14));
-        ctx.lineTo(m * w, h * 0.5 + (hot ? 26 : 14));
-        ctx.stroke();
-      });
-      ctx.strokeStyle = EMB;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(cyc * w, 0);
-      ctx.lineTo(cyc * w, h);
-      ctx.stroke();
-      lab(ctx, marks.length + " CUTS · DRIVEN BY motionEnergy AND visualDensity", 10, h - 14);
-    },
-  }),
-  "Cut frequency driven by creative state. This is how a film accelerates without anyone editing faster.",
-);
-
-reg(
-  "split_screen_temporal",
-  "Q · CUT GRAMMAR",
-  "— → ANIMATION",
-  {
-    panes: { v: 2, lo: 2, hi: 4, int: 1 },
-    offset: { v: 0.4, lo: 0, hi: 1 },
-    sync: { v: 0.5, lo: 0, hi: 1 },
-  },
-  (p) => ({
-    frame(ctx, w, h, t) {
-      bg(ctx, w, h);
-      const N = Math.round(p.panes);
-      for (let i = 0; i < N; i++) {
-        const pw = w / N,
-          x = i * pw;
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(x + 1, 0, pw - 2, h);
-        ctx.clip();
-        ctx.translate(x, 0);
-        const lt = t - i * p.offset * 1.4;
-        const cyc = (lt * 0.5) % 2;
-        if (cyc < 1) shotA(ctx, pw, h, lt);
-        else shotB(ctx, pw, h, lt);
-        ctx.restore();
-      }
-      if (p.sync > 0.5) {
-        const beat = (t * 0.9) % 1;
-        ctx.strokeStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + (1 - beat) + ")";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(1, 1, w - 2, h - 2);
-      }
-      lab(ctx, N + " PARALLEL TIMELINES · OFFSET " + (p.offset * 1.4).toFixed(1) + "s", 10, h - 10);
-    },
-  }),
-  "Simultaneous parallel action. Two timelines at once, offset — the same event from two clocks.",
-  1,
-);
+/* Q · CUT GRAMMAR WAS HERE, AND IT WAS FIVE DIAGRAMS OF EDITING.
+ *
+ * `hard_cut`, `match_cut`, `montage`, `cut_rhythm` and
+ * `split_screen_temporal` drew hardcoded placeholder shots labelled "A"
+ * and "B" with captions explaining themselves — "INSTANTANEOUS · NO
+ * TRANSITION IS A CHOICE", "DRIVEN BY motionEnergy AND visualDensity".
+ * Four were `— → ANIMATION` sources that paint over everything they
+ * follow; `match_cut` declared `GEOMETRY → ANIMATION` and never took the
+ * parameter. Not one had ever rendered in a film, and not one could: the
+ * constructor's overwrite guard refused them, correctly.
+ *
+ * They were deleted rather than rewritten because the film ALREADY CUTS,
+ * and cuts better than any of them described. `solver.ts` pass 5
+ * subdivides a scene into shots and moves every cut to the nearest real
+ * gap between measured words; `shot-plan.ts` decides what varies across
+ * them and escalates so the last cut lands hardest; `chain.js`'s
+ * `buildSequence` builds a whole separate chain per shot and switches at
+ * the boundary. Film-level grammar is `continuity` — cut, oneshot,
+ * montage, hybrid — resolved by `world.ts` and `film-mode.ts`.
+ *
+ * A cut primitive INSIDE a shot is a contradiction anyway: the cut is the
+ * shot boundary. Nothing about editing was lost here; a second, worse
+ * account of it was. */
 
 /* ── R. MAPS ────────────────────────────────────────── */
 function coast(seed, n) {

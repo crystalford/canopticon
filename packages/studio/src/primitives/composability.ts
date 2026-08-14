@@ -30,6 +30,15 @@ import { PRIMITIVES, canChain, chainOverwrites } from "./registry.ts";
  *  the constructor refuses it — silently, because refusing is the correct
  *  answer.
  *
+ *  THERE ARE TWO ANSWERS, and Q · CUT GRAMMAR is the other one. Its five
+ *  primitives were diagrams of editing — hardcoded shots labelled "A" and
+ *  "B" under captions explaining the concept — and they were deleted
+ *  rather than rewritten, because the film already cuts and cuts better
+ *  than any of them described (`solver.ts` pass 5 → `shot-plan.ts` →
+ *  `buildSequence`). An overwriting primitive is not automatically
+ *  something to fix; sometimes it is something the system already does
+ *  elsewhere, wearing a primitive's type signature.
+ *
  *  L · 3D is the worked example of the fix. All three of `extrude`,
  *  `layer_peel` and `exploded_view` declared GEOMETRY → something and
  *  drew a hardcoded picture — a glyph reading "1997", four grey sheets,

@@ -296,7 +296,7 @@ export const ColourSchema = z.object({
   // Mirrors DEFAULT_COLOUR below, which is the authority.
   key: z.number().min(0).max(1).default(0.16),
   temperature: z.number().min(0).max(1).default(0.58),
-  saturation: z.number().min(0).max(1).default(0.34),
+  saturation: z.number().min(0).max(1).default(0.85),
   contrast: z.number().min(0).max(1).default(0.56),
   /** HOW MANY COLOURS THE FILM IS ALLOWED.
    *
@@ -313,7 +313,7 @@ export const ColourSchema = z.object({
    *
    *  Resolved into eight stops by `resolvePalette`, which stays the only
    *  thing that turns a director's numbers into hex. */
-  spread: z.number().min(0).max(1).default(0.22),
+  spread: z.number().min(0).max(1).default(0.6),
 });
 export type Colour = z.infer<typeof ColourSchema>;
 
@@ -327,11 +327,20 @@ export type Colour = z.infer<typeof ColourSchema>;
  *  practice every film ever made was this one ground whatever it said in
  *  the schema.
  *
- *  These coordinates are the `documentary` look — low-key, slightly warm,
- *  restrained, with enough saturation that a frame reads as a picture
- *  rather than a diagnostic buffer. It is the look a film should have to
- *  be talked out of rather than into. The front door can now choose any
- *  of the eight, so this is a starting point rather than a destination.
+ *  AND THEN THE DEFAULT WAS STILL MUTED, WHICH WAS THE POINT OF THE
+ *  COMPLAINT. `key`, `temperature` and `contrast` are the `documentary`
+ *  look's and stay there: low-key, slightly warm, restrained. The two
+ *  numbers that decide how COLOURFUL a frame is were not restrained, they
+ *  were timid — saturation 0.34 and spread 0.22 resolve to eight ramp
+ *  stops fanned ±39° around a single hue at 60% saturation, which is the
+ *  "murky" every film had, whatever look it claimed.
+ *
+ *  They now start at the Create screen's `Colour` mode. A muted film is a
+ *  choice one click away, which is the right way round: the default should
+ *  be the film someone wants, not the one they have to be talked out of.
+ *  Raising this changes how EXISTING films look when they recompile.
+ *  That is intended — the numbers live on the IR and a film that was
+ *  explicitly directed keeps whatever it was directed to.
  *
  *  `ColourSchema`'s own field defaults mirror these, and so does
  *  `COLOUR_DEFAULT` in `lab/palette.js`. Three copies of four numbers is
@@ -340,11 +349,11 @@ export type Colour = z.infer<typeof ColourSchema>;
 export const DEFAULT_COLOUR: Colour = {
   key: 0.16,
   temperature: 0.58,
-  saturation: 0.34,
+  saturation: 0.85,
   contrast: 0.56,
-  // Enough that a frame of many marks is not one flat colour, far short
-  // of a spectrum. A film that wants the whole wheel asks for it.
-  spread: 0.22,
+  // A wide scheme, still recognisably one film. The whole wheel is one
+  // click further and is still something a director asks for.
+  spread: 0.6,
 };
 
 /** How the film is photographed. Colour is built; camera and light are

@@ -58,13 +58,16 @@
  * implemented, coherent and unreachable from the screen where a film is
  * created.
  *
- * The default is now the `documentary` look, chosen because it is the one
- * a film should have to be talked out of rather than into: low-key,
- * slightly warm, restrained, and with enough saturation that a frame
- * reads as a picture rather than as a diagnostic buffer. It is the same
- * coordinates as `LOOKS[1]` — a position in the space, not a second
- * opinion about it. */
-const COLOUR_DEFAULT = { key: 0.16, temperature: 0.58, saturation: 0.34, contrast: 0.56, spread: 0.22 };
+ * And moving off it was STILL not enough, because only three of the five
+ * numbers moved. `key`, `temperature` and `contrast` came from the
+ * `documentary` look and are right. `saturation` and `spread` stayed at
+ * 0.34 and 0.22, which resolve to eight ramp stops fanned ±39° around one
+ * hue at 60% saturation — the murk, surviving every fix aimed at it,
+ * because the fixes were aimed at the tonal world and this is the chroma.
+ *
+ * They now start at the Create screen's `Colour` mode. Kept identical to
+ * DEFAULT_COLOUR in src/ir/schema.ts, which is the authority. */
+const COLOUR_DEFAULT = { key: 0.16, temperature: 0.58, saturation: 0.85, contrast: 0.56, spread: 0.6 };
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const mix = (a, b, t) => a + (b - a) * t;
@@ -178,6 +181,25 @@ function resolvePalette(colour) {
 
   const { hue, cast } = temperatureCast(temp);
 
+  /* BLACK AND WHITE IS A MODE, NOT THE BOTTOM OF A SLIDER.
+   *
+   * The Create screen has offered "Black and white" for as long as it has
+   * offered anything, and it never produced one. Every saturation below
+   * ran through `accentS = 0.42 + sat * 0.52`, whose floor is 0.42 — so a
+   * film asking for no colour got an accent 42% saturated, plus a tinted
+   * ground, plus an eight-stop ramp fanned around a hue. The floor is
+   * right for a LOW saturation: a film at 0.1 still needs a focal colour
+   * or nothing in the frame can be emphasised. It is wrong at zero,
+   * because zero is not "very little", it is a different intention.
+   *
+   * So zero means zero, everywhere at once — accent, ink, ground, mid and
+   * every ramp stop — and the mode is reachable from the control that
+   * names it. Everything else about the palette still works: key still
+   * decides dark or light, contrast still separates ink from ground. What
+   * is gone is the hue. */
+  const mono = sat < 0.02;
+  const chroma = (s) => (mono ? 0 : s);
+
   // THE GROUND. At key 0 it is near-black; at key 1 it is paper. Contrast
   // pushes it away from the middle in whichever direction key chose, so a
   // high-contrast dark film gets a deeper ground and a high-contrast
@@ -188,15 +210,15 @@ function resolvePalette(colour) {
   // Scaled by `cast`: a film at temperature 0.5 has a neutral ground
   // rather than a magenta one. A floor remains, because a completely grey
   // ground is what made every frame read as a diagnostic buffer.
-  const groundS = 0.03 + sat * 0.24 * (0.3 + cast * 0.7) * (1 - Math.abs(key - 0.5) * 0.6);
+  const groundS = chroma(0.03 + sat * 0.24 * (0.3 + cast * 0.7) * (1 - Math.abs(key - 0.5) * 0.6));
 
   // THE INK. Always the far side of the ground, separated by contrast.
   const inkL = key > 0.5 ? mix(0.28, 0.06, con) : mix(0.78, 0.985, con);
-  const inkS = sat * 0.1 * (0.3 + cast * 0.7);
+  const inkS = chroma(sat * 0.1 * (0.3 + cast * 0.7));
 
   // The mid tone carries structure that is present but not the subject.
   const midL = mix(groundL, inkL, mix(0.42, 0.3, con));
-  const midS = 0.04 + sat * 0.22 * (0.3 + cast * 0.7);
+  const midS = chroma(0.04 + sat * 0.22 * (0.3 + cast * 0.7));
 
   // DIM — barely off the ground. Grids, hairlines, the things that give a
   // frame depth without asking to be read.
@@ -207,7 +229,7 @@ function resolvePalette(colour) {
   // The accent is the one place saturation is allowed to be assertive:
   // a film at saturation 0 still needs a focal colour or nothing in the
   // frame can be emphasised at all.
-  const accentS = 0.42 + sat * 0.52;
+  const accentS = chroma(0.42 + sat * 0.52);
   const accentL = key > 0.5 ? mix(0.5, 0.4, con) : mix(0.56, 0.62, con);
 
   /* ── THE RAMP. MORE THAN ONE COLOUR ON SCREEN ───────────────────────
@@ -249,9 +271,16 @@ function resolvePalette(colour) {
     // film does not jump when the control leaves zero.
     const off = (i / (STOPS - 1) - 0.5) * 360 * spread;
     const h = (((accentHue + off) % 360) + 360) % 360;
-    // Saturation eases off at the ends so the extremes read as part of the
-    // same scheme rather than as two unrelated primaries.
-    const sat = clamp01(accentS * (1 - Math.abs(i / (STOPS - 1) - 0.5) * 0.35 * spread));
+    /* Saturation eases off at the ends so the extremes read as part of the
+     * same scheme rather than as two unrelated primaries — but only just.
+     *
+     * This ran at 0.35, which cost the end stops 17.5% of their saturation
+     * at spread 1. That is precisely backwards: spread 1 is a director
+     * asking for the whole wheel, and the palette answered by taking the
+     * colour out of the two stops furthest from the accent — the ones
+     * doing the most work. The easing is worth keeping at a third of the
+     * strength; past that it is the widening control fighting itself. */
+    const sat = clamp01(accentS * (1 - Math.abs(i / (STOPS - 1) - 0.5) * 0.12 * spread));
     const lift = (i % 2 === 0 ? 1 : -1) * 0.06 * (0.4 + spread * 0.6);
     const l = clamp01(accentL + lift);
     ramp.push(hsl(h, sat, l));
