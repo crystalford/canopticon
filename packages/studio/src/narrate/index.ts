@@ -234,12 +234,25 @@ export async function narrateScenes(
       continue;
     }
 
+    /* THE WORDS ARE PART OF THE MEASUREMENT.
+     *
+     * The artifact froze sentence boundaries and a count. The word timings
+     * were measured on the same call, used to derive those boundaries, and
+     * discarded — so anything downstream that wanted to know when a
+     * particular word was spoken had to interpolate, which is guessing
+     * against a measurement that was taken and thrown away.
+     *
+     * Costs one array. Changes the artifact's bytes, therefore its sha256,
+     * therefore every hash that depends on it — which is correct: a film
+     * whose narration artifact now carries more of the truth about the
+     * recording should recompile. */
     const alignJson = JSON.stringify({
       sceneId: scene.sceneId,
       method: aligned.method,
       model: aligned.model,
       durationMs: aligned.durationMs,
       chunks: aligned.alignment.chunks,
+      words: aligned.timedWords ?? [],
     });
     const alignSha = await sha256Hex(alignJson);
     const alignKey = `projects/${projectId}/alignment/${scene.sceneId}_v${version}.json`;
@@ -365,11 +378,22 @@ export async function loadAlignments(
       if (actual !== asset.sha256) {
         return { error: `${scene.sceneId}: alignment bytes do not match the approved hash` };
       }
-      const parsed = JSON.parse(text) as { chunks?: Alignment["chunks"] };
+      const parsed = JSON.parse(text) as {
+        chunks?: Alignment["chunks"];
+        words?: Alignment["words"];
+      };
       if (!parsed.chunks?.length) {
         return { error: `${scene.sceneId}: alignment artifact has no chunks` };
       }
-      return { sceneId: scene.sceneId, chunks: parsed.chunks };
+      // An artifact frozen before words were part of the measurement has
+      // none, and that is not an error — it is an older recording. The
+      // scene keeps its sentence boundaries and the promotion layer above
+      // will say it could not reach word precision here.
+      return {
+        sceneId: scene.sceneId,
+        chunks: parsed.chunks,
+        ...(parsed.words?.length ? { words: parsed.words } : {}),
+      };
     }),
   );
 

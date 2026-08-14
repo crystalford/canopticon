@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { compile } from "../src/compile/index.ts";
 import type { Alignment } from "../src/compile/solver.ts";
+import { sequenceAlignments } from "../src/narrate/align.ts";
 import { bridgeMsFor, buildTimeline } from "../src/narrate/timeline.ts";
 import { buildFixtureIR } from "./fixture.ts";
 
@@ -54,6 +55,60 @@ describe("the spine says which windows are real", () => {
     const alignments = new Map(ir.scenes.map((s) => [s.sceneId, aligned(s.sceneId, [[0, 3000]])]));
     const report = await compile(ir, { alignments });
     expect(report.timeline.spine).toBe("measured");
+  });
+});
+
+describe("the words are measured, and travel with their sentences", () => {
+  it("word timings survive the freeze and land on the film clock", () => {
+    const ir = buildFixtureIR();
+    const [a, b] = ir.scenes;
+    if (!a || !b) throw new Error("fixture needs two scenes");
+    // What a frozen artifact carries once words are part of the
+    // measurement. Scene-local, as `alignAudio` produces them.
+    const local = new Map<string, Alignment>([
+      [
+        a.sceneId,
+        {
+          ...aligned(a.sceneId, [[0, 2400]]),
+          words: [
+            { word: "ninety", startMs: 200, endMs: 700 },
+            { word: "days", startMs: 700, endMs: 1100 },
+          ],
+        },
+      ],
+      [b.sceneId, aligned(b.sceneId, [[0, 2400]])],
+    ]);
+    const sequenced = sequenceAlignments(ir.scenes, local);
+    // Scene A starts the film, so its words are unmoved; the point is that
+    // they SURVIVED, which they did not before — `alignAudio` measured
+    // them, reduced them to a count and threw them away.
+    expect(sequenced.get(a.sceneId)?.words).toHaveLength(2);
+    expect(sequenced.get(a.sceneId)?.words?.[0]?.word).toBe("ninety");
+    // And a scene that reached only sentence precision carries none rather
+    // than carrying interpolated ones, because an interpolated word time
+    // is not a measurement.
+    expect(sequenced.get(b.sceneId)?.words).toBeUndefined();
+  });
+
+  it("the timeline says how many scenes reached word precision", async () => {
+    const ir = buildFixtureIR();
+    const first = ir.scenes[0];
+    if (!first) throw new Error("fixture has no scenes");
+    const withWords = new Map<string, Alignment>([
+      [
+        first.sceneId,
+        {
+          ...aligned(first.sceneId, [[0, 2400]]),
+          words: [{ word: "ninety", startMs: 200, endMs: 700 }],
+        },
+      ],
+    ]);
+    const report = await compile(ir, { alignments: withWords });
+    expect(report.timeline.wordTimedScenes).toBe(1);
+    const sentenceOnly = await compile(ir, {
+      alignments: new Map([[first.sceneId, aligned(first.sceneId, [[0, 2400]])]]),
+    });
+    expect(sentenceOnly.timeline.wordTimedScenes).toBe(0);
   });
 });
 
@@ -146,6 +201,7 @@ describe("the silence is measured, not assumed", () => {
       leadPauseMs: 1600,
       wordsPerMin: 150,
       relativeRate: 1,
+      words: [],
     };
     // 1600ms of rest, but a two-second scene may not spend four fifths of
     // itself arriving.

@@ -53,6 +53,7 @@ import { buildGraph, describeGraph, flattenGraph, flattenGround, graphDepth } fr
 import { planGround } from "./ground.ts";
 import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
+import type { Promotion } from "./promote.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
 import { representationsFor } from "./represent.ts";
 import type { SceneGraph } from "./scene-graph.ts";
@@ -291,6 +292,11 @@ export function composeScene(
    *  film has no world and every scene composes from nothing, which is
    *  what every film did before `world.ts` had a caller. */
   world: WorldContext | null = null,
+  /** WHAT THIS SENTENCE IS ALLOWED TO PUT ON SCREEN. Decided film-wide,
+   *  before any visual decision, by `promote.ts`. Absent means the old
+   *  behaviour — every scene sets its phrase — which is what produced 36
+   *  title cards from a 36-scene essay. */
+  promotion: Promotion | null = null,
 ): ComposedScene {
   const state = resolveStateAt(ir, scenePosition(ir, sceneIndex), positions);
   const notes: string[] = [];
@@ -328,12 +334,36 @@ export function composeScene(
   // construction reads the phrase (a two-word phrase is set as one form, a
   // longer one as a line) and reads the curves, so deciding them
   // afterwards would mean building against numbers that did not exist yet.
-  const phrase = choosePhrase(scene.narration.text, scene.label, {
-    recent: recentPhrases,
-    figures: scene.figures ?? [],
-  });
+  /* WHAT GOES ON SCREEN — GATED BY WHETHER IT SHOULD.
+   *
+   * `choosePhrase` picks the best span of a sentence to set as type and is
+   * good at it. It ran on every scene, so every sentence put words on
+   * screen and a 36-scene essay became 36 title cards — subtitles
+   * sprinkled over a video rather than an argument with visual anchors in
+   * it. The promotion layer decides film-wide which moments earn text; the
+   * chooser now serves that decision instead of making it.
+   *
+   * A promoted scene uses the PROMOTED span, not a freshly chosen one: the
+   * whole point of promoting "IT'S A DIAGNOSIS" is that those words appear,
+   * and re-deriving a phrase here would silently overrule the layer above. */
+  const phrase =
+    promotion && promotion.level > 0 && promotion.text
+      ? { text: promotion.text, source: `promoted — ${promotion.why[0] ?? "an anchor"}` }
+      : promotion
+        ? { text: "", source: promotion.why[0] ?? "spoken only" }
+        : choosePhrase(scene.narration.text, scene.label, {
+            recent: recentPhrases,
+            figures: scene.figures ?? [],
+          });
   const density = state.values.visualDensity ?? 0;
-  const typography = state.values.typographicWeight ?? 0;
+  // TYPOGRAPHY FOLLOWS THE PROMOTION, not only the curve. A scene with
+  // nothing to say on screen has no typographic weight whatever the film's
+  // dial reads, and a scene the argument turns on gets the whole of it.
+  const typography = promotion
+    ? promotion.level === 0
+      ? 0
+      : Math.max(state.values.typographicWeight ?? 0, 0.25 + promotion.level * 0.18)
+    : (state.values.typographicWeight ?? 0);
 
   let treatment: Treatment | null = null;
   let chain: string[];
@@ -1191,7 +1221,11 @@ function sceneSubjects(sentence: string, carried: DetectedSubject | null): Detec
   return [...own, { ...carried, weight: carried.weight * 0.8 }].sort((a, b) => b.weight - a.weight);
 }
 
-export function composeAll(ir: EditorialIR, timeline?: FilmTimeline | null): ComposedScene[] {
+export function composeAll(
+  ir: EditorialIR,
+  timeline?: FilmTimeline | null,
+  promotions?: Promotion[] | null,
+): ComposedScene[] {
   const positions = controlPointPositions(ir);
   const out: ComposedScene[] = [];
   const recent: string[][] = [];
@@ -1241,6 +1275,7 @@ export function composeAll(ir: EditorialIR, timeline?: FilmTimeline | null): Com
       carried,
       carriedPlace,
       world,
+      promotions?.find((p) => p.sceneId === scene.sceneId) ?? null,
     );
     if (world.out) {
       film = world.out.advance.state;

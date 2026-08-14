@@ -22,8 +22,7 @@
 // windows as if they were measurements, which is what the compiler did
 // silently before.
 
-import type { Alignment } from "../compile/solver.ts";
-import type { SolveResult } from "../compile/solver.ts";
+import type { Alignment, SolveResult, TimedWord } from "../compile/solver.ts";
 import type { EditorialIR } from "../ir/schema.ts";
 
 /** Whether a scene's window came off a recording or out of an estimate.
@@ -46,6 +45,15 @@ export interface TimelineScene {
    *  normal pace; >1 is faster than the film usually speaks. Null when
    *  unmeasured, or when the film has nothing to compare against. */
   relativeRate: number | null;
+  /** THE MEASURED WORDS, on the film clock.
+   *
+   *  Empty when the recording gave only a duration, and empty for an
+   *  artifact frozen before words were part of the measurement — both of
+   *  which are older recordings rather than errors. What consumes this
+   *  must therefore degrade rather than assume: a phrase with no measured
+   *  words falls back to its sentence's window, which is a guess and is
+   *  reported as one. */
+  words: TimedWord[];
 }
 
 export interface TimelinePause {
@@ -66,6 +74,10 @@ export interface FilmTimeline {
   /** The film's own median speech rate, or null if nothing was measured. */
   medianWordsPerMin: number | null;
   spine: "measured" | "mixed" | "nominal";
+  /** How many scenes reached WORD precision rather than only sentence
+   *  boundaries. The distinction between a phrase that lands when its own
+   *  word is spoken and one that lands on a proportional guess. */
+  wordTimedScenes: number;
   /** Plain sentence for the operator. The Compile view prints this. */
   describes: string;
 }
@@ -123,6 +135,7 @@ export function buildTimeline(
       leadPauseMs: 0,
       wordsPerMin: wpm,
       relativeRate: null,
+      words: isMeasured ? (alignments.get(scene.sceneId)?.words ?? []) : [],
     });
   }
 
@@ -191,6 +204,8 @@ export function buildTimeline(
   const spine: FilmTimeline["spine"] =
     measuredCount === 0 ? "nominal" : measuredCount === scenes.length ? "measured" : "mixed";
 
+  const wordTimedScenes = scenes.filter((s) => s.words.length > 0).length;
+
   return {
     totalMs: timing.runtimeMs,
     measuredMs,
@@ -198,6 +213,7 @@ export function buildTimeline(
     pauses,
     medianWordsPerMin: med,
     spine,
+    wordTimedScenes,
     describes:
       spine === "measured"
         ? `every window measured off the recording — ${pauses.length} pause${pauses.length === 1 ? "" : "s"}, ${med ? Math.round(med) : "?"} wpm`

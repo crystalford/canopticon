@@ -52,10 +52,12 @@ function measuredTimeline(ir: EditorialIR, leadPauseMs = 600): FilmTimeline {
       leadPauseMs: i === 0 ? 0 : leadPauseMs,
       wordsPerMin: 150,
       relativeRate: 1,
+      words: [],
     })),
     pauses: [],
     medianWordsPerMin: 150,
     spine: "measured",
+    wordTimedScenes: 0,
     describes: "hand-built for this test",
   };
 }

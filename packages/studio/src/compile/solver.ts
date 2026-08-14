@@ -31,9 +31,24 @@ export interface AlignmentChunk {
   text?: string;
 }
 
+/** One word, measured. Lives here rather than in `align.ts` because it is
+ *  a TIMING type and `align.ts` already imports this module — and because
+ *  it now travels on the Alignment, which is the only way anything
+ *  downstream of the freeze can know when a particular word was spoken. */
+export interface TimedWord {
+  word: string;
+  startMs: number;
+  endMs: number;
+}
+
 export interface Alignment {
   sceneId: string;
   chunks: AlignmentChunk[];
+  /** THE MEASURED WORDS, scene-local. Present when the ASR gave word
+   *  timings — `method: "asr-proportional"` — and absent when it gave only
+   *  a duration. The distinction is kept rather than filled in: a word
+   *  time that was interpolated is not a measurement. */
+  words?: TimedWord[];
 }
 
 export type TimingFlag =

@@ -103,6 +103,20 @@ export interface FilmScene {
   /** WHAT THE FILM DID WITH ITS WORLD HERE — which identities continued,
    *  entered, were recalled; and how long the change took. Null in a film
    *  that cuts, which has no world to speak of. */
+  /** WHETHER THIS MOMENT EARNED THE SCREEN, and why.
+   *
+   *  Level 0 is most of an essay and means the line is spoken and not
+   *  shown. Carried on the plan so a person can see the compiler's
+   *  decision rather than only its consequence — a promotion nobody can
+   *  account for is indistinguishable from a guess. */
+  promotion?: {
+    level: number;
+    role: string;
+    text: string;
+    why: string[];
+    /** When it is spoken, and whether that was measured or interpolated. */
+    window: { startMs: number; endMs: number; measured: boolean } | null;
+  } | null;
   world?: {
     mode: string;
     describes: string;
@@ -136,6 +150,10 @@ export interface FilmPlan {
     measuredMs: number;
     medianWordsPerMin: number | null;
     pauses: number;
+    /** How many scenes reached WORD precision. A film narrated by a model
+     *  that returned only a duration is measured at the sentence and
+     *  should not be described as timed to the word. */
+    wordTimedScenes: number;
   };
   warnings: string[];
 }
@@ -229,6 +247,14 @@ function narrationFor(
   };
 }
 
+/** This scene's promotion, projected. Absent rather than faked when the
+ *  compile did not run the layer. */
+function promotionFor(report: CompileReport, sceneId: string) {
+  const p = report.promotions.find((x) => x.sceneId === sceneId);
+  if (!p) return null;
+  return { level: p.level, role: p.role, text: p.text, why: p.why, window: p.window };
+}
+
 /** A compile report becomes something you can watch. */
 export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan {
   const scenes: FilmScene[] = [];
@@ -287,6 +313,7 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
       alternatives: composed.alternatives,
       chain,
       shots,
+      promotion: promotionFor(report, composed.sceneId),
       world: composed.world,
       ...narrationFor(ir, irScene),
     });
@@ -309,6 +336,7 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
       measuredMs: report.timeline.measuredMs,
       medianWordsPerMin: report.timeline.medianWordsPerMin,
       pauses: report.timeline.pauses.length,
+      wordTimedScenes: report.timeline.wordTimedScenes,
     },
     warnings: report.warnings,
   };

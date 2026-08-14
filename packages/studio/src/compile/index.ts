@@ -19,6 +19,7 @@ import {
 } from "./cache.ts";
 import { type ComposedScene, composeAll } from "./compose.ts";
 import { hashSceneNodes } from "./hash.ts";
+import { type Promotion, promoteText } from "./promote.ts";
 import { type ShotVariation, planShots } from "./shot-plan.ts";
 import { type Alignment, type SolveResult, nominalAlignment, solveTiming } from "./solver.ts";
 import { type UsageReport, analyseUsage } from "./usage.ts";
@@ -52,6 +53,11 @@ export interface CompileReport {
    *  estimates, where the voice rests, and how fast it actually speaks —
    *  derived from the frozen alignments, never a new artifact. */
   timeline: FilmTimeline;
+  /** WHICH WORDS BECOME VISUAL OBJECTS, and at what level — decided once,
+   *  film-wide, BEFORE any visual decision. Most scenes come back at level
+   *  0, which is the point: an essay has eight or ten visual anchors, not
+   *  one per sentence. */
+  promotions: Promotion[];
   /** Per-scene cut plans. Empty shots array when a scene is one take. */
   shotPlans: SceneShots[];
   composed: ComposedScene[];
@@ -110,7 +116,16 @@ export async function compile(
   // the rate the line was actually spoken. Which is the whole point of
   // recording first: the film is edited to the voice rather than beside it.
   const timeline = buildTimeline(ir, alignments, timing, measured);
-  const composed = composeAll(ir, timeline);
+
+  /* WHAT MATTERS, BEFORE HOW TO SHOW IT.
+   *
+   * Two questions were being answered at once — which words deserve to be
+   * seen, and how to draw them — and the visual layer was left to work out
+   * both. So every sentence put words on screen and a 36-scene essay
+   * became 36 title cards. Promotion is film-level and scarce by
+   * construction; the visual languages downstream realise what it chose. */
+  const promotions = promoteText(ir, timeline);
+  const composed = composeAll(ir, timeline, promotions);
 
   // Plan what varies across each scene's cuts. Intensity rides the film's
   // motion energy, so a director dragging that curve re-cuts the film
@@ -223,6 +238,7 @@ export async function compile(
     projectId: ir.projectId,
     timing,
     timeline,
+    promotions,
     shotPlans,
     composed,
     cache,
