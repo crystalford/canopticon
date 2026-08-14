@@ -1247,21 +1247,37 @@ const MOTION_TAIL = ["parallax_layers", "ease_profile"];
  *  resampled. `glyph_geometry` is deliberately absent: a word made of
  *  points is ALREADY a resampling, and treating it further is the point of
  *  the kinetic register. */
-const isSetType = (id: string) => id === "text_layout" || id === "variable_axis";
+export const isSetType = (id: string) => id === "text_layout" || id === "variable_axis";
 
 /** Every primitive in a program, grounds included. */
 function flatIds(ns: PlannedNode[]): string[] {
   return ns.flatMap((n) => [n.primitiveId, ...(n.ground ? flatIds(n.ground) : [])]);
 }
 
-const RESAMPLES_THE_FRAME = new Set([
-  "parallax_layers",
-  "pixel_quantise",
-  "pixelate",
-  "dither",
-  "ascii_render",
-  "blur",
-]);
+/** May this primitive run over a frame that is PRESENTING TYPE?
+ *
+ *  This was `RESAMPLES_THE_FRAME`, a hand-kept set of six known
+ *  offenders. The flaw was the polarity: every primitive nobody had
+ *  thought about counted as safe. `field_displace` was one of them, and
+ *  measured on a real film it put holes through "one is exposure, not
+ *  corruption" — displacing a finished frame that already had the words
+ *  composited into it.
+ *
+ *  Inverted. A primitive DECLARES that it preserves what it was handed,
+ *  and anything that does not declare is assumed to move, sample or erode
+ *  it. Adding a destructive primitive to the palette can no longer break
+ *  presented type by omission, which is the only version of this rule
+ *  that stays true as the palette grows.
+ *
+ *  A primitive that reads nothing upstream cannot damage it either — it
+ *  simply draws its own thing — so the question only applies to
+ *  consumers. */
+export function mayFollowPresentedType(id: string): boolean {
+  const spec = PRIMITIVES[id];
+  if (!spec) return false;
+  if (!spec.consumesUpstream) return true;
+  return spec.preservesUpstream;
+}
 
 /* ════════════════════════════════════════════════════════════════════
    CANDIDATES — several programs, not one.
@@ -1645,7 +1661,7 @@ function assemble(
     // return nothing, documented as the one degree of freedom that stops a
     // language being turned into raster mush by an operator tail — and the
     // construction path was bypassing it entirely.
-    if (setsType && op.chain.some((id) => RESAMPLES_THE_FRAME.has(id))) continue;
+    if (setsType && !op.chain.every(mayFollowPresentedType)) continue;
     /* AN OPERATOR MAY NOT PAINT OVER WHAT IT WAS APPLIED TO.
      *
      * `chainOverwrites` has always been able to detect this and has only
@@ -1677,7 +1693,7 @@ function assemble(
 
   // The motion tail, if it still fits and can legally attach.
   for (const primitiveId of MOTION_TAIL) {
-    if (setsType && RESAMPLES_THE_FRAME.has(primitiveId)) continue;
+    if (setsType && !mayFollowPresentedType(primitiveId)) continue;
     const last = nodes[nodes.length - 1]?.primitiveId;
     if (!last || !canChain(last, primitiveId)) break;
     const withTail = [...nodes.map((n) => n.primitiveId), primitiveId];

@@ -177,6 +177,11 @@ reg(
   },
   (p) => ({
     two: "IMAGE",
+    /* PRESERVES WHAT IT WAS GIVEN. It draws the branch over or behind the
+     * upstream image and never moves, samples or re-quantises it — so a
+     * sentence composited by this is still the same sentence afterwards.
+     * See `preservesUpstream` in the registry for why that matters. */
+    preserves: true,
     frame(ctx, w, h, t, a, b) {
       const A = plate(a);
       const B = plate(b);

@@ -866,6 +866,9 @@ reg(
   (p) => {
     const n = vnoise(1337);
     return {
+      /* PRESERVES. It re-maps colour per pixel and moves nothing, so a
+       * letterform graded by this is still the same letterform. */
+      preserves: true,
       frame(ctx, w, h, t, upstream) {
         bg(ctx, w, h);
         const src = upstream?.canvas || layerB(w, h, t),

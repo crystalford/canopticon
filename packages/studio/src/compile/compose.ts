@@ -39,6 +39,8 @@ import {
   type Program,
   type Style,
   constructPrograms,
+  isSetType,
+  mayFollowPresentedType,
 } from "./construct.ts";
 import {
   type ResolvedState,
@@ -1102,7 +1104,45 @@ export function composeScene(
           budgetMs: MAX_CHAIN_MS - chainCost(flattenGround(subjectNodes).map((n) => n.primitiveId)),
         });
   const flat = graph ? flattenGraph(graph.root, baseParams) : null;
-  const nodes: ComposedNode[] = flat && flat.chain.length > 0 ? flat.chain : subjectNodes;
+  let nodes: ComposedNode[] = flat && flat.chain.length > 0 ? flat.chain : subjectNodes;
+
+  /* NOTHING RUNS OVER PRESENTED TYPE THAT WOULD DAMAGE IT.
+   *
+   * `assemble` already refuses to APPEND such an operator, and that guard
+   * was not enough, because it only sees the operator tail. The ground
+   * compositor is appended by a different path entirely — `planGround`
+   * chooses `field_displace` for a DECOMPOSED scene and the graph nests it
+   * — so a scene could pass the operator guard and then have its finished
+   * frame displaced by a gravity field. Measured on the real essay: "one
+   * is exposure, not corruption" rendered with holes through the letters
+   * and four scratches across the line.
+   *
+   * This is the one place that sees the WHOLE chain, whoever built it. A
+   * node that would move, sample or erode the frame is dropped once the
+   * words are in it, and the drop is reported rather than silent — a
+   * treatment the director asked for and did not get is exactly the kind
+   * of thing that must not disappear quietly.
+   *
+   * The words themselves are usually nested on a compositor's second
+   * input, so the search is over the flattened tree while the DROP is at
+   * the top level: only a top-level stage runs over the composed frame. */
+  const presentsType = flattenGround(nodes).some((n) => isSetType(n.primitiveId));
+  if (presentsType) {
+    const typeAt = nodes.findIndex((n) => flattenGround([n]).some((g) => isSetType(g.primitiveId)));
+    if (typeAt >= 0) {
+      const kept: ComposedNode[] = [];
+      for (const [i, n] of nodes.entries()) {
+        if (i <= typeAt || mayFollowPresentedType(n.primitiveId)) {
+          kept.push(n);
+          continue;
+        }
+        notes.push(
+          `${n.primitiveId} dropped — it would have moved the words this scene is presenting`,
+        );
+      }
+      nodes = kept;
+    }
+  }
 
   if (graph && flat && graph.root.children.length > 1) {
     notes.push(`graph — ${describeGraph(graph.root)}, ${graphDepth(graph.root)} levels`);
