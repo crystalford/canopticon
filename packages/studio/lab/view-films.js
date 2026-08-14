@@ -175,6 +175,32 @@ function lookRow(colour) {
     .join("")}</div>`;
 }
 
+/** HOW MANY COLOURS, as a choice rather than a slider.
+ *
+ *  `spread` is the number — see `resolvePalette`. This is the same axis
+ *  in the four words a person would actually use, because "0.45" is not
+ *  a thing anyone wants to decide. It sits BESIDE the look rather than
+ *  inside it: a look is a whole grade, and how much colour the film
+ *  carries is a separate question a director asks about any of them. */
+const COLOURS = [
+  { id: 0, label: "Black and white", note: "One colour. The form does the work." },
+  { id: 0.25, label: "Muted", note: "A close harmony — colour you notice rather than see." },
+  { id: 0.6, label: "Colour", note: "A wide scheme, still recognisably one film." },
+  { id: 1, label: "Full spectrum", note: "The whole wheel. Ask for this on purpose." },
+];
+
+function colourRow(colour) {
+  const cur = (colour || window.COLOUR_DEFAULT || {}).spread ?? 0.22;
+  return `<div class="segs" data-choice="colour">${COLOURS.map((c) => {
+    // Nearest, so a look that declares 0.5 lights the row it is closest
+    // to rather than none of them.
+    const nearest = COLOURS.reduce((a, b) =>
+      Math.abs(b.id - cur) < Math.abs(a.id - cur) ? b : a,
+    );
+    return `<button data-opt="${c.id}" class="${nearest.id === c.id ? "on" : ""}" title="${esc(c.note)}">${esc(c.label)}</button>`;
+  }).join("")}</div>`;
+}
+
 function viewFilms(root) {
   const ps = window.PROJECTS || [];
   const r = readWriting(NEW.text);
@@ -203,9 +229,25 @@ function viewFilms(root) {
           * drawer, so in practice every film ever made used the default
           * ground. Everything else the options page offers is a refinement
           * and stays one click away; these two are what the film IS. */ ""}
+      ${/* THE WHOLE PANEL, ON THE PAGE WHERE A FILM IS MADE.
+          *
+          * Reported twice, three days apart: "there aren't even any
+          * selections any more" and "I still don't know what the control
+          * panel is". Both times the settings existed — behind a button.
+          * A control a person cannot find is a control they do not have,
+          * and being right about where it lives is not the same as it
+          * being findable.
+          *
+          * Six rows, all on screen. `More options` keeps what genuinely
+          * is detail: which voice, and how the type is set. */ ""}
       <div class="cchoices">
         <div class="crow"><span class="clabel">Made of</span>${choiceRow("approach", CHOICES.approaches, NEW.approach)}</div>
         <div class="crow"><span class="clabel">Look</span>${lookRow(NEW.colour)}</div>
+        <div class="crow"><span class="clabel">Colour</span>${colourRow(NEW.colour)}</div>
+        <div class="crow"><span class="clabel">Length</span>
+          <div class="segs" data-choice="duration">${DURATIONS.map(([l, v]) => `<button data-opt="${v}" class="${NEW.duration === v ? "on" : ""}">${l}</button>`).join("")}</div></div>
+        <div class="crow"><span class="clabel">Editing</span>${choiceRow("editing", CHOICES.editing, NEW.editing)}</div>
+        <div class="crow"><span class="clabel">Intensity</span>${choiceRow("intensity", CHOICES.intensity, NEW.intensity)}</div>
       </div>
       <div class="cfoot">
         <button class="b pri big" id="create" ${r.words < 12 ? "disabled" : ""}>Make the film</button>
@@ -270,7 +312,13 @@ function viewFilms(root) {
       b.onclick = () => {
         if (row.dataset.choice === "look") {
           const l = (window.LOOKS || []).find((x) => x.id === b.dataset.opt);
+          // The look brings its own spread; an explicit Colour choice
+          // made afterwards wins, because it is the more specific ask.
           if (l) NEW.colour = { ...l.colour };
+        } else if (row.dataset.choice === "colour") {
+          NEW.colour = { ...(NEW.colour || window.COLOUR_DEFAULT || {}), spread: Number(b.dataset.opt) };
+        } else if (row.dataset.choice === "duration") {
+          NEW.duration = Number(b.dataset.opt);
         } else {
           NEW[row.dataset.choice] = b.dataset.opt;
         }
