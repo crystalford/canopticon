@@ -1222,6 +1222,63 @@ const OPERATORS: Operator[] = [
     params: (s) => ({ radius: 0.1 + s.restraint * 0.3, kind: 0 }),
     why: "softened — held back",
   },
+  /* ── K · SHADER. Two more treatments of a finished picture, and the
+   *    reason they were not here is the reason the raster family never
+   *    ran: nobody had written them down.
+   *
+   *    Structurally identical to `halftone` and `scanline` — IMAGE in,
+   *    IMAGE out — and the whole family had never appeared in a compiled
+   *    film. They cost 11ms against 4ms for a raster op, which is real,
+   *    and the frame budget is what decides whether a shot can afford
+   *    one.
+   *
+   *    Both sit on the DECOMPOSE rung with the operators that take an
+   *    image apart, and both declare their own language appetites, which
+   *    is what a previous attempt at this omitted — it added them to this
+   *    table alone and they were unreachable in three other ways. */
+  {
+    id: "fringe",
+    chain: ["chromatic_split"],
+    rung: "decompose",
+    // The one operator that reads as DAMAGE rather than as texture, so a
+    // film has to have said it is coming apart before it gets one.
+    appetite: (s) => s.experimentalism * 0.7 + s.abstraction * 0.3 - s.restraint * 0.35,
+    languages: { surreal: 0.45, kinetic: 0.25, pixel: 0.3, documentary: -0.7, technical: -0.4 },
+    params: (s) => ({
+      amount: 0.15 + s.experimentalism * 0.5,
+      angle: 0.1 + s.energy * 0.7,
+      pulse: s.energy * 0.6,
+    }),
+    why: "split into its channels — the image failing to hold together",
+  },
+  /* `feedback` IS NOT AN OPERATOR, AND IT SHOULD BE — the primitive is
+   * broken, not the idea.
+   *
+   * It was written here as `trail`, ranked FIRST on a kinetic film at
+   * 1.29 against fringe's 1.10, and never once applied. The cause is not
+   * the ladder, the language or the budget: `chainOverwrites` reports
+   * that `feedback` paints over every node before it. It declares
+   * IMAGE → IMAGE and does not consume its input.
+   *
+   * That is precisely the defect this project already recorded against
+   * the whole raster family — "every one of them declared IMAGE → IMAGE
+   * and rastered a synthetic plate, so an operator applied to a
+   * constructed object replaced it rather than transforming it." Those
+   * were fixed when they became load-bearing. `feedback` is in the same
+   * state and has never been load-bearing, so nobody found out.
+   *
+   * Shipping it as an operator would add a fifth silent no-op to a file
+   * whose whole point today was removing them. It stays out until the
+   * primitive reads its input, and the fix belongs in `lab/prims-*.js`
+   * with a frame to look at. */
+  /* `shader_surface` IS DELIBERATELY NOT HERE, and it is the fourth
+   * member of the family. It takes no input — it is a SOURCE — so
+   * appending it would paint over the composition and bill for it, the
+   * exact failure `chainOverwrites` exists to stop. An entry with a
+   * negative appetite would be worse than none: a declared operator that
+   * can never fire is the same silent promise as an unread enum value.
+   * It stays reachable where a source belongs, as a scene's own ground.
+   * Said here so the next reader does not rediscover it. */
 ];
 for (const op of OPERATORS) OPERATOR_CHAINS.set(op.id, op.chain);
 
