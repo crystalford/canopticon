@@ -215,17 +215,41 @@ reg(
     seedmode: { v: 0, lo: 0, hi: 1, int: 1 },
   },
   (p) => {
-    let img = null,
-      key = "";
+    /* IT PRECOMPUTED AND THEN NEVER DREW IT.
+     *
+     * `img` was declared and never assigned. The automaton was rendered
+     * straight onto the passed context and guarded by a param key, so it
+     * painted on the FIRST call and skipped the whole block on every call
+     * after — and the executor clears each stage's canvas before every
+     * frame. Measured: 16.9% of the frame lit at t=0.1, then 0.69% (the
+     * audit label, alone) at t=0.5, 1.5 and 3.0. Every film that reached
+     * this primitive showed one frame of it and then a blank.
+     *
+     * `cellular` is one of the four PICTURE_GROUNDS in `ground.ts`, so
+     * this was not a corner of the palette — it is one of the layers a
+     * scene composites over for depth, blank for the whole scene bar the
+     * opening instant.
+     *
+     * It now precomputes to the offscreen canvas the comment always
+     * claimed, and blits it every frame. And THE PALETTE IS IN THE KEY:
+     * caching on rule/scale/seedmode alone meant a film whose colour
+     * changed kept serving the old plate, which is the same class of bug
+     * as a stale node hash — the cache outliving the thing it cached. */
+    let img = null;
+    let key = "";
     return {
       frame(ctx, w, h, t) {
-        const k = [p.rule, p.scale, p.seedmode, w, h].join();
-        if (k !== key) {
+        const c = Math.round(p.scale);
+        const cols = Math.ceil(w / c);
+        const rows = Math.ceil(h / c);
+        const k = [p.rule, p.scale, p.seedmode, w, h, BG, INK, SPREAD, RAMP[0]].join();
+        if (k !== key || !img) {
           key = k;
-          const c = Math.round(p.scale),
-            cols = Math.ceil(w / c),
-            rows = Math.ceil(h / c);
-          bg(ctx, w, h);
+          if (!img) img = document.createElement("canvas");
+          img.width = w;
+          img.height = h;
+          const ic = img.getContext("2d");
+          bg(ic, w, h);
           const r = mulberry(7);
           let row = Array.from({ length: cols }, (_, i) =>
             p.seedmode < 0.5 ? (i === cols >> 1 ? 1 : 0) : r() > 0.5 ? 1 : 0,
@@ -234,8 +258,20 @@ reg(
           for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++)
               if (row[x]) {
-                ctx.fillStyle = x % 11 === 0 ? markColour(x, 0.85) : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.78)`;
-                ctx.fillRect(x * c, y * c, c, c);
+                /* THE RAMP, NOT ONE CELL IN ELEVEN.
+                 *
+                 * `x % 11 === 0` put a ramp colour on 9% of the live cells
+                 * and ink on the rest, which is why every percentile of
+                 * this primitive's measured saturation sat exactly on the
+                 * ground's. A row of an automaton is a row of DIFFERENT
+                 * cells; colouring it by position is what a scheme is for.
+                 * Ink still carries the structure — every third cell — so
+                 * the form does not dissolve into a gradient. */
+                ic.fillStyle =
+                  x % 3 === 0
+                    ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.78)`
+                    : markColour(x + y, 0.85);
+                ic.fillRect(x * c, y * c, c, c);
               }
             row = row.map((_, i) => {
               const idx = (row[(i - 1 + cols) % cols] << 2) | (row[i] << 1) | row[(i + 1) % cols];
@@ -243,6 +279,7 @@ reg(
             });
           }
         }
+        ctx.drawImage(img, 0, 0, w, h);
         lab(ctx, "RULE " + Math.round(p.rule) + " · PRECOMPUTED", 10, h - 16);
       },
     };
@@ -858,6 +895,19 @@ rasterPrim(
   "pixelate",
   "Mosaic and quantisation. Withheld detail is a documentary statement, not a censor bar.",
   { size: { v: 10, lo: 2, hi: 40, int: 1 }, quantize: { v: 4, lo: 2, hi: 16, int: 1 } },
+  /* IT READ ONE CHANNEL AND REBUILT A GREY OUT OF IT.
+   *
+   * `im.data[i]` is RED. Green and blue were sampled by nobody, and the
+   * fill was `rgb(g, g*1.02, g*1.04)` — a grey with a two-percent blue
+   * lean. So the most-reached operator in the palette took a composed
+   * colour frame and returned a monochrome mosaic, every time, whatever
+   * the film's scheme was.
+   *
+   * It now samples the real pixel and snaps it to the nearest stop of the
+   * ramp. `quantize` keeps its meaning — it steps the block's BRIGHTNESS,
+   * so the tonal structure of the picture survives — and the hue comes
+   * from the scheme. That is the pixel-art register the palette could
+   * describe and this operator was erasing. */
   (ctx, im, w, h, p) => {
     bg(ctx, w, h);
     const c = Math.round(p.size),
@@ -865,9 +915,21 @@ rasterPrim(
     for (let y = 0; y < h; y += c)
       for (let x = 0; x < w; x += c) {
         const i = ((y | 0) * w + (x | 0)) * 4;
-        let g = im.data[i];
-        g = (Math.round((g / 255) * q) / q) * 255;
-        ctx.fillStyle = "rgb(" + (g | 0) + "," + ((g * 1.02) | 0) + "," + ((g * 1.04) | 0) + ")";
+        const r = im.data[i];
+        const g = im.data[i + 1];
+        const b = im.data[i + 2];
+        // Stepped brightness, so a mosaic still reads as the picture it
+        // was made from rather than as a field of flat chips.
+        const lum = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+        const step = Math.round(lum * q) / q;
+        if (SPREAD > 0.02) {
+          const [pr, pg, pb] = nearestRamp(r, g, b);
+          const k = 0.25 + step * 0.75;
+          ctx.fillStyle = `rgb(${(pr * k) | 0},${(pg * k) | 0},${(pb * k) | 0})`;
+        } else {
+          const v = (step * 255) | 0;
+          ctx.fillStyle = `rgb(${v},${(v * 1.02) | 0},${(v * 1.04) | 0})`;
+        }
         ctx.fillRect(x, y, c, c);
       }
   },
@@ -892,7 +954,11 @@ rasterPrim(
         const v = im.data[i] / 255;
         const th = (B[((y / c) | 0) % 4][((x / c) | 0) % 4] / 16) * (1.4 - p.threshold);
         if (v > th) {
-          ctx.fillStyle = v > 0.85 ? EMB : INK;
+          // Two-value systems reconstruct TONE; nothing says the two
+          // values have to be ink and one accent. The lit cell takes the
+          // stop its own brightness lands on, so a dithered frame carries
+          // the film's scheme instead of reducing it to a duotone.
+          ctx.fillStyle = valueColour(v, 1, v > 0.85 ? ACCENT_RGB : INK_RGB);
           ctx.fillRect(x, y, c, c);
         }
       }
@@ -913,7 +979,10 @@ rasterPrim(
           sy = Math.round(y + Math.cos(a) * c * 0.5);
         if (sx < 0 || sx >= w || sy < 0 || sy >= h) continue;
         const v = im.data[(sy * w + sx) * 4] / 255;
-        ctx.fillStyle = v > 0.8 ? EMB : INK;
+        // Dot SIZE still carries the tone — that is what amplitude
+        // modulation is — so colouring the dot costs the register
+        // nothing and gives the scheme somewhere to land.
+        ctx.fillStyle = valueColour(v, 1, v > 0.8 ? ACCENT_RGB : INK_RGB);
         ctx.beginPath();
         ctx.arc(sx, sy, v * c * 0.62, 0, 6.3);
         ctx.fill();
@@ -932,9 +1001,23 @@ rasterPrim(
     for (let y = 0; y < h; y += c)
       for (let x = 0; x < w; x += c) {
         const v = im.data[((y | 0) * w + (x | 0)) * 4] / 255;
-        const q = Math.floor(cl01(v - p.level + 0.5) * S) / S;
-        if (q <= 0) continue;
-        ctx.fillStyle = q > 0.85 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + q + ")";
+        /* THE STEP INDEX, NOT THE STEP VALUE.
+         *
+         * `q = floor(x * S) / S` puts the steps at 0, 1/S, 2/S … which at
+         * the default S=2 means every lit cell has q = 0.5 exactly. Fed
+         * to the ramp that is ONE stop, and used as alpha it is a
+         * half-transparent one — measured, this operator produced 2 hues
+         * at the ground's own saturation, which is a posterise that
+         * posterises to a single colour.
+         *
+         * Normalising the index across S-1 spreads the steps over the
+         * whole scheme, which is what posterising into N values means
+         * when the N values are colours. Alpha floors at 0.45 so the
+         * lowest step is a colour rather than a suggestion of one. */
+        const idx = Math.floor(cl01(v - p.level + 0.5) * S);
+        if (idx <= 0) continue;
+        const q = S > 1 ? idx / (S - 1) : 1;
+        ctx.fillStyle = valueColour(q, 0.45 + q * 0.55, q > 0.85 ? ACCENT_RGB : INK_RGB);
         ctx.fillRect(x, y, c, c);
       }
   },
@@ -1003,7 +1086,9 @@ rasterPrim(
          * to the ground. Bisecting a real scene: 247 dark pixels in, 0
          * out. The words survived the compositor and died here. */
         const a = (KEY > 0.5 ? 1 - v : v) * 0.85 * p.strength;
-        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},${a})`;
+        // A CRT line is a phosphor, and a phosphor has a colour. Which
+        // one is the film's business, not this operator's.
+        ctx.fillStyle = valueColour(v, a);
         ctx.fillRect(x, y, c, c);
       }
     }

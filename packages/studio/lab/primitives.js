@@ -149,6 +149,80 @@ function markColour(i, alpha, fall) {
   return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
 }
 
+/* ── QUANTISING TO THE SCHEME ────────────────────────────────────────
+ *
+ * THE LAST THREE STAGES OF EVERY CHAIN THREW THE COLOUR AWAY.
+ *
+ * `language.ts` recorded the structural half of this: nine of the twelve
+ * operators the compiler reaches are raster or shader, so whatever a film
+ * builds, the last stages to touch each frame are pixelate, dither,
+ * halftone, scanline, threshold or chromatic_split. What none of it said
+ * is that all six quantise to LUMINANCE. So the palette could be made as
+ * vivid as anyone liked and the final operator would reduce it to grey —
+ * which is exactly what happened: the ramp resolved to eight saturated
+ * hues and the measured frame had no pixel more saturated than its own
+ * backdrop.
+ *
+ * These two are the one rule for "which colour does this value become".
+ * Six operators quantising with six slightly different ideas of that is
+ * the drift standing rule 9 exists to stop, and a scheme that means
+ * something different in the dither than in the halftone is not a scheme.
+ *
+ * BOTH RESPECT SPREAD BY CONSTRUCTION. At spread 0 the ramp IS the
+ * accent, so these behave as the old code did; at saturation 0 every stop
+ * is grey, so Black and white quantises to grey without a second code
+ * path. The mode is preserved by the palette rather than by a branch. */
+
+/** The stop a normalised value 0..1 lands on. Luminance still chooses —
+ *  what changes is what it chooses FROM. */
+function rampAt(v) {
+  const n = RAMP_RGB.length;
+  const i = Math.max(0, Math.min(n - 1, Math.floor(v * n)));
+  return RAMP_RGB[i];
+}
+
+/** The stop nearest an actual colour, by squared distance in RGB.
+ *
+ *  For the operators that already have a real pixel in hand — `pixelate`
+ *  averages a block, `halftone` samples a cell. Snapping that to the
+ *  scheme is what turns a muddy mean into a pixel-art palette, and it is
+ *  the one place a block's own hue is allowed to decide rather than its
+ *  brightness alone. */
+function nearestRamp(r, g, b) {
+  let best = RAMP_RGB[0];
+  let bd = Infinity;
+  for (const c of RAMP_RGB) {
+    const d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2;
+    if (d < bd) {
+      bd = d;
+      best = c;
+    }
+  }
+  return best;
+}
+
+/** A raster cell coloured by its VALUE — dither, halftone, threshold,
+ *  scanline, all of which have a brightness and no hue of their own.
+ *
+ *  Gated on SPREAD exactly like `markColour`, and for the same reason: at
+ *  spread 0 the whole ramp is the accent, and a dither drawn entirely in
+ *  the accent is worse than one drawn in ink with an accent for its
+ *  highlights. Below the gate every one of these operators behaves as it
+ *  did; above it they carry the film's scheme. */
+function valueColour(v, alpha, fall) {
+  const c = SPREAD > 0.02 ? rampAt(v) : fall || INK_RGB;
+  return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+}
+
+/** A raster cell coloured by the PIXEL IT SAMPLED — `pixelate`, which has
+ *  a real colour in hand rather than only a brightness. Snapping it to the
+ *  scheme is the difference between a mosaic of muddy averages and a
+ *  pixel-art palette. */
+function pixelColour(r, g, b, alpha, fall) {
+  const c = SPREAD > 0.02 ? nearestRamp(r, g, b) : fall || INK_RGB;
+  return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+}
+
 function setPalette(p) {
   if (!p) return;
   INK = p.ink;
@@ -773,9 +847,17 @@ reg(
       // supposed to be re-reading. With an upstream it now transcribes the
       // real luminance; with nothing upstream it falls back to its own
       // field, so it still reads as itself standing alone in the Lab.
+      /* AND IT PAINTED IN COLOURS NO DIRECTOR COULD REACH.
+       *
+       * Three hardcoded values survived every palette pass here: the
+       * ground was `#0d0f11`, the pre-palette black that `resolvePalette`
+       * exists to replace, and the glyphs were `rgba(216,98,74,.9)` and
+       * `rgba(155,163,170,…)` — a fixed clay and a fixed grey. So a film
+       * graded warm, cold, light or monochrome reached this operator and
+       * came out as the same dark plate with clay type on it. It is one
+       * of the two stages the constructor's flagship chain ends on. */
       frame(ctx, w, h, t, upstream) {
-        ctx.fillStyle = "#0d0f11";
-        ctx.fillRect(0, 0, w, h);
+        bg(ctx, w, h);
         const c = Math.round(p.cell);
         let im = null;
         if (upstream?.canvas) {
@@ -801,8 +883,13 @@ reg(
               : fbm(n, (x / w) * 7 * p.scale, (y / h) * 7 * p.scale + t * 0.15, 3, 0.5) * 0.5 + 0.5;
             v = Math.pow(v, 0.5 + p.ramp * 1.5);
             const ch = R[Math.min(R.length - 1, Math.floor(v * R.length))];
-            ctx.fillStyle =
-              v > 0.72 ? "rgba(216,98,74,.9)" : "rgba(155,163,170," + (0.25 + v * 0.6) + ")";
+            // The GLYPH still comes from luminance — that is what an ASCII
+            // render is. Its colour comes from the film's scheme.
+            ctx.fillStyle = valueColour(
+              v,
+              v > 0.72 ? 0.9 : 0.25 + v * 0.6,
+              v > 0.72 ? ACCENT_RGB : INK_RGB,
+            );
             ctx.fillText(ch, x, y);
           }
       },
