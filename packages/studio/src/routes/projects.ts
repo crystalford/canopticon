@@ -918,6 +918,12 @@ async function narrateWholeFilm(
   opts: { force?: boolean; voice?: string; limit?: number },
 ): Promise<void> {
   const CHUNK = 8;
+  const jobKey = `projects/${projectId}/narration/job.json`;
+  const mark = async (state: Record<string, unknown>): Promise<void> => {
+    await env.FILES.put(jobKey, JSON.stringify({ ...state, at: nowIso() }), {
+      httpMetadata: { contentType: "application/json" },
+    });
+  };
   for (let round = 0; round < 40; round++) {
     const project = await one<ProjectRow>(env.DB, "SELECT * FROM projects WHERE id = ?", [
       projectId,
@@ -941,10 +947,18 @@ async function narrateWholeFilm(
       ...(opts.voice ? { voice: opts.voice } : {}),
     });
     if (report.narrated === 0) {
-      // No progress. Either everything is done or the model is refusing;
-      // either way another round would spend calls for nothing.
-      const why = report.scenes.find((x) => x.status === "failed" && x.reason);
-      if (why) throw new Error(why.reason ?? "the voice could not be recorded");
+      /* NO PROGRESS. Either the film is done or the model is refusing
+       * these particular scenes; another round would spend calls for
+       * nothing. Which scenes, and why, is recorded rather than thrown
+       * away — "stuck at 56 of 65" with no reason is the exact shape of
+       * the failure this whole rebuild exists to end. */
+      const failures = report.scenes.filter((x) => x.status === "failed");
+      const why = failures.find((x) => x.reason)?.reason;
+      await mark({
+        running: false,
+        stalled: before.silent + before.stale,
+        ...(why ? { reason: `${failures.length} moment(s) would not record — ${why}` } : {}),
+      });
       return;
     }
     await writeVersion(
@@ -959,6 +973,10 @@ async function narrateWholeFilm(
       nextVersion,
       projectId,
     ]);
+    // A heartbeat per chunk. If the runtime kills this job mid-film the
+    // marker is at most one chunk stale, which is what lets the caller
+    // tell "still working" from "died holding the flag".
+    await mark({ running: true, done: report.narrated, remaining: report.remaining });
   }
 }
 
@@ -993,7 +1011,7 @@ app.post("/project/:id/narrate", async (c) => {
    * `GET /project/:id/narration` reports it from the IR itself. */
   if (body.background) {
     const jobKey = `projects/${projectId}/narration/job.json`;
-    await c.env.FILES.put(jobKey, JSON.stringify({ running: true, startedAt: nowIso() }), {
+    await c.env.FILES.put(jobKey, JSON.stringify({ running: true, at: nowIso() }), {
       httpMetadata: { contentType: "application/json" },
     });
     c.executionCtx.waitUntil(
@@ -1076,7 +1094,18 @@ app.get("/project/:id/narration", async (c) => {
   if (!parsed.ok) return c.json({ error: "stored IR is invalid" }, 500);
   const v = voiceStates(parsed.ir);
   const job = await c.env.FILES.get(`projects/${projectId}/narration/job.json`);
-  const running = job ? ((await job.json()) as { running?: boolean; reason?: string }) : null;
+  const state = job
+    ? ((await job.json()) as { running?: boolean; reason?: string; at?: string })
+    : null;
+  /* A JOB THAT STOPPED HEARTBEATING IS NOT A JOB THAT IS RUNNING.
+   *
+   * The marker is written per chunk. If the runtime kills the background
+   * work — a long film can outlive its request — the flag stays `true`
+   * forever and the operator watches a count that never moves and never
+   * finishes. Ninety seconds without a heartbeat is dead, and saying so is
+   * what lets the caller pick the work back up. */
+  const beat = state?.at ? Date.parse(state.at) : 0;
+  const alive = Boolean(state?.running) && beat > 0 && Date.now() - beat < 90_000;
   return c.json({
     projectId,
     total: parsed.ir.scenes.length,
@@ -1084,8 +1113,11 @@ app.get("/project/:id/narration", async (c) => {
     silent: v.silent,
     stale: v.stale,
     irVersion: project.current_ir_version,
-    running: Boolean(running?.running),
-    ...(running?.reason ? { reason: running.reason } : {}),
+    running: alive,
+    /** True when the flag says running and nothing has moved for a while —
+     *  the caller should start another round rather than keep waiting. */
+    stalled: Boolean(state?.running) && !alive,
+    ...(state?.reason ? { reason: state.reason } : {}),
   });
 });
 

@@ -652,6 +652,7 @@ function bindDirect(root) {
    * whole film now and keeps going without this tab; the page only
    * watches. */
   let poll = null;
+  let resumes = 0;
   const stopPoll = () => {
     if (poll) clearInterval(poll);
     poll = null;
@@ -674,6 +675,20 @@ function bindDirect(root) {
       if (fill) fill.style.width = pct + "%";
       if (snd) snd.textContent = `recording — ${st.narrated} of ${st.total}`;
       if (st.running) return;
+      /* THE JOB DIED HOLDING THE FLAG. A long film can outlive the request
+       * that started it, and the count then sits at 56 of 65 forever.
+       * Picking it up is safe: every chunk was versioned as it landed, so
+       * a new round simply records what is still silent. */
+      if (st.stalled && st.narrated < st.total && resumes < 6) {
+        resumes++;
+        if (snd) snd.textContent = `recording — ${st.narrated} of ${st.total}, continuing`;
+        try {
+          await narrateFilm(id, {});
+        } catch {
+          // The next poll reports it.
+        }
+        return;
+      }
       stopPoll();
       if (bar) bar.hidden = true;
       // A new recording is a new artifact, and the film has been re-timed
@@ -688,7 +703,7 @@ function bindDirect(root) {
       }
       toast(
         st.reason
-          ? `The voice failed — ${st.reason}`
+          ? st.reason
           : st.narrated >= st.total
             ? `Narrated — all ${st.total} moments. Press play.`
             : `Recorded ${st.narrated} of ${st.total}`,
