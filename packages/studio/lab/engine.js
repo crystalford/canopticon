@@ -120,6 +120,14 @@ function composeLocally(scene) {
   const st = resolveAt(scene.pos),
     notes = [],
     ruleHits = [];
+  /* A DIRECTOR'S BEND, HONOURED.
+   *
+   * `directVerb` on the Worker does this for a stored film. The example has
+   * no Worker behind it, so without the same three lines a verb pressed on
+   * the example changes nothing — and the causal loop the interface
+   * promises would be a demonstration of itself. */
+  const bend = (F.bends || {})[scene.id];
+  if (bend) for (const k in bend) if (typeof st[k] === "number") st[k] = clamp(st[k] + bend[k], 0, 1);
   let abstraction = st.abstraction;
   // rule precedence: hard rules first
   if (scene.act === "act_1" && abstraction > 0.3) {
@@ -132,8 +140,14 @@ function composeLocally(scene) {
   }
   const pin = F.overrides.find((o) => o.sceneId === scene.id && o.type === "pin");
 
-  const rung = LADDER.find((l) => abstraction < l.max);
+  /* THE DIRECTOR OUTRANKS THE LADDER. Taking a rung is not a pin: the
+   * engine keeps composing the scene, it is simply told which vocabulary to
+   * compose it from — so the choice survives a restyle of the film. */
+  const forced = (F.overrides || []).find((o) => o.sceneId === scene.id && o.type === "rung");
+  const rung =
+    (forced && LADDER.find((l) => l.tier === forced.tier)) || LADDER.find((l) => abstraction < l.max);
   let chain = rung.base.slice();
+  if (forced) notes.push("rung chosen by the director — " + forced.tier.toLowerCase());
   // motif continuity outranks anti-repetition
   const motifs = [];
   for (const e of scene.entities) {

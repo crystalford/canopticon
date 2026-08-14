@@ -1,0 +1,171 @@
+/* CANOPTICON — the reading spread.
+ *
+ * Two columns: the film and its state on the left, sticky; the argument on
+ * the right, scrolling. The page is the document. Nothing is a strip.
+ */
+/* ── create ───────────────────────────────────────────────── */
+.start{height:100%;overflow-y:auto}
+.startwrap{max-width:880px;margin:0 auto;padding:7vh var(--s6) 90px}
+.startwrap h1{font-size:44px;letter-spacing:-.025em}
+.startwrap .head{align-items:flex-start}
+/* the sheet */
+.composer{overflow:hidden}
+.cwrite{padding:var(--s4) 20px 18px;border-bottom:1px solid var(--line);background:var(--raise)}
+.clab{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s4);margin-bottom:11px}
+.creads{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.ask{width:100%;font-family:var(--serif);font-size:20px;line-height:1.6;color:var(--ink);min-height:186px;display:block}
+.ask::placeholder{color:var(--dim)}
+.cchoices{padding:18px 20px 20px;display:grid;gap:13px}
+.crow{display:grid;grid-template-columns:96px minmax(0,1fr);gap:var(--s4);align-items:center}
+.clabel{font-size:11.5px;color:var(--ink3)}
+.segs{display:flex;flex-wrap:wrap;gap:5px}
+.segs button{height:29px;padding:0 12px;font-size:12.5px;color:var(--ink3);border:1px solid var(--line2);border-radius:var(--r);transition:color .13s,border-color .13s,background .13s;white-space:nowrap}
+.segs button:hover{color:var(--ink);border-color:var(--line3)}
+.segs button.on{background:var(--sagebg);border-color:var(--sageline);color:var(--sage)}
+.cfoot{display:flex;align-items:center;gap:var(--s5);padding:18px 20px;border-top:1px solid var(--line)}
+.cfoot .note{max-width:46ch}
+.startalt{margin-top:var(--s5)}
+.startalt button{color:var(--sage);border-bottom:1px solid var(--sageline);padding-bottom:1px}
+.startalt button:hover{color:var(--sage2)}
+/* ── the spread ───────────────────────────────────────────── */
+.spread{height:100%;overflow-y:auto;overflow-x:hidden}
+.spreadin{display:grid;grid-template-columns:minmax(520px,55%) minmax(0,1fr);max-width:1620px;margin:0 auto;align-items:start}
+.stageside{position:sticky;top:0;padding:28px 32px 32px 36px;max-height:100vh;overflow-y:auto;background:var(--panel);border-right:1px solid var(--line)}
+.stagein{display:flex;flex-direction:column;gap:var(--s4);align-items:stretch}
+.stagein>.filmbox{align-self:center}
+.stagein>.block{padding-top:var(--s4)}
+/* The film is the one image in the room. A hairline, and the ground behind
+ * it a shade deeper than the surface — no drop shadow, because a shadow was
+ * the only material in the whole app and made everything else look flat. */
+.filmbox{position:relative;background:#070809;border:1px solid var(--line2);outline:8px solid var(--void);outline-offset:0}
+.filmbox canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.fmark{position:absolute;left:14px;top:13px;display:flex;gap:6px;align-items:center;pointer-events:none;opacity:0;transition:opacity .2s}
+.filmbox:hover .fmark{opacity:1}
+.fmark span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2);background:rgba(9,11,12,.74);padding:3px 8px}
+.fplay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+.filmbox:hover .fplay{opacity:1}
+.fplay button{width:60px;height:60px;border-radius:50%;border:1px solid rgba(244,246,246,.35);background:rgba(9,11,12,.45);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:.12em;color:var(--ink)}
+.fplay button:hover{border-color:var(--sage);color:var(--sage)}
+/* what the film is doing, right here */
+.statecard{}
+.sctop{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s4)}
+.verb{font-size:11px;font-weight:600;letter-spacing:.2em;color:var(--sage)}
+.slabel{font-family:var(--serif);font-size:22px;letter-spacing:-.01em;color:var(--ink)}
+.scgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px var(--s5)}
+.scrow{display:grid;grid-template-columns:74px minmax(0,1fr);gap:var(--s2);align-items:center}
+.scrow>span{font-size:11px;color:var(--ink3)}
+.vb{display:flex;gap:2px}
+.vb s{text-decoration:none;flex:1;height:7px;background:var(--line2)}
+.vb s.f{background:var(--sage)}
+.scwhy{font-size:12.5px;line-height:1.55;color:var(--ink3);margin-top:var(--s4)}
+.scwhy b{color:var(--ink2);font-weight:400}
+/* the trajectory: one line */
+.traject{position:relative}
+.traject canvas{display:block;width:100%;height:38px;cursor:crosshair}
+.tmeta{display:flex;align-items:center;gap:var(--s3);font-size:11.5px;color:var(--dim);margin-top:-4px}
+.tmeta .num{font-size:13px;color:var(--ink2)}
+.tmeta .of{margin-right:auto}
+.mode-word{color:var(--ink3)}
+/* direct */
+.direct{}
+.dhead{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)}
+.direct .said{background:var(--raise)}
+.dhead .key{margin-right:auto}
+.scope{font-size:11.5px;color:var(--sage);border-bottom:1px dotted var(--sageline);padding-bottom:1px}
+.scope:hover{color:var(--sage2)}
+.said{display:flex;align-items:center;height:40px;border:1px solid var(--line2);border-radius:var(--r);padding:0 13px;background:var(--raise)}
+.said:focus-within{border-color:var(--sageline)}
+.said input{flex:1;min-width:0;font-size:14px}
+.said input::placeholder{color:var(--dim)}
+.hints{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);margin-top:var(--s3)}
+.hints button{font-size:12.5px;color:var(--ink3);border-bottom:1px solid transparent;padding-bottom:1px}
+.hints button:hover{color:var(--sage);border-bottom-color:var(--sageline)}
+.dacts{display:flex;gap:6px;margin-top:var(--s4)}
+.heard2{border-left:2px solid var(--sage);padding:12px 14px;background:var(--raise);margin-top:var(--s3);border-radius:0 var(--r) var(--r) 0}
+.heard2.dead{border-left-color:var(--line3)}
+.heard2 .key{display:block;margin-bottom:5px}
+.heard2 p{font-size:13.5px;color:var(--ink);line-height:1.5}
+.heard2 .rows{display:flex;flex-wrap:wrap;gap:5px var(--s4);margin-top:9px}
+.heard2 .rows span{font-size:12px;color:var(--ink3)}
+.heard2 .rows i{font-style:normal;font-family:var(--mono);color:var(--sage)}
+.heard2 .act{display:flex;gap:6px;margin-top:var(--s3)}
+/* ── the argument ─────────────────────────────────────────── */
+.argside{padding:var(--s7) 56px 40vh 48px;background:var(--void)}
+.argwrap{max-width:60ch;position:relative}
+.acthead{display:flex;align-items:baseline;gap:var(--s3);margin:var(--s7) 0 var(--s5);padding-bottom:var(--s3);border-bottom:1px solid var(--line)}
+.acthead:first-child{margin-top:0}
+.anum{font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+.acthead h2{font-size:27px;color:var(--ink);margin-right:auto}
+.ameta{font-size:11px;color:var(--dim);white-space:nowrap}
+.argwrap p{font-family:var(--serif);font-size:21px;line-height:1.78;color:var(--ink2);margin-bottom:var(--s5)}
+.sn{cursor:pointer;transition:color .15s,background .15s}
+.sn:hover{color:var(--ink)}
+.sn.on{color:var(--ink);background:var(--sagebg);box-shadow:0 0 0 4px var(--sagebg),inset 0 -1px 0 var(--sageline)}
+.sn.cut{color:var(--line3);text-decoration:line-through}
+.argend{font-size:12px;color:var(--dim);margin-top:var(--s7);padding-top:var(--s4);border-top:1px solid var(--line);max-width:60ch}
+.editing{width:100%;font-family:var(--serif);font-size:21px;line-height:1.78;color:var(--ink);background:var(--raise);border:1px solid var(--sageline);border-radius:var(--r);padding:11px 13px;margin-bottom:var(--s3)}
+/* alternatives, inline where the sentence is */
+.alts2{margin:0 0 var(--s5);padding:var(--s4) 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.altrow{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3)}
+.alt2{border:1px solid var(--line);background:var(--panel);width:100%;display:block}
+.alt2 .frame{position:relative;display:block;aspect-ratio:16/9;background:#090b0c}
+.alt2 canvas{position:absolute;inset:0;width:100%;height:100%}
+.alt2 .cap{display:block;padding:9px 11px}
+.alt2 .cap b{display:block;font-size:12px;font-weight:600;color:var(--ink2)}
+.alt2 .cap i{display:block;font-style:normal;font-size:11px;line-height:1.45;color:var(--dim);margin-top:3px}
+.alt2:hover{border-color:var(--line3)}
+/* ── under the hood ───────────────────────────────────────── */
+#hood{position:fixed;top:var(--bar);right:0;bottom:0;width:392px;background:var(--panel);border-left:1px solid var(--line2);z-index:40;display:flex;flex-direction:column;box-shadow:-24px 0 60px rgba(0,0,0,.45)}
+.hoodhead{display:flex;align-items:flex-end;gap:var(--s3);padding:var(--s4);flex-shrink:0}
+.hoodhead .eyebrow{display:block;font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.hoodhead h3{font-family:var(--serif);font-size:20px;font-weight:400;letter-spacing:-.01em}
+.hoodhead h3{margin-right:auto}
+.hoodtabs{display:flex;gap:var(--s3);padding:0 var(--s4);border-bottom:1px solid var(--line);flex-shrink:0}
+.hoodtabs button{padding:0 0 10px;font-size:12px;color:var(--ink3);border-bottom:1px solid transparent;margin-bottom:-1px}
+.hoodtabs button.on{color:var(--ink);border-bottom-color:var(--sage)}
+.hoodbody{flex:1;min-height:0;overflow-y:auto;padding:var(--s5) var(--s4) var(--s7)}
+.grp{margin-bottom:var(--s6)}
+.grp>.key{display:block;margin-bottom:var(--s3)}
+.qq{margin-bottom:var(--s5)}
+.qq h4{font-family:var(--serif);font-size:18px;font-weight:400;color:var(--ink);margin-bottom:10px;letter-spacing:-.01em}
+.stops{display:flex;gap:var(--s4);flex-wrap:wrap}
+.stops button{font-size:13.5px;color:var(--dim)}
+.stops button:hover{color:var(--ink2)}
+.stops button.on{color:var(--sage)}
+.stops button.near{color:var(--ink2)}
+.fact{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s3);align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink3)}
+.fact:last-child{border-bottom:none}
+.fact i{font-style:normal;font-family:var(--mono);font-size:11.5px;color:var(--ink2);text-align:right}
+/* ── films ────────────────────────────────────────────────── */
+.filmlist{display:flex;flex-direction:column}
+.filmrow{display:grid;grid-template-columns:minmax(0,1fr) 96px 70px;gap:var(--s4);align-items:baseline;width:100%;padding:var(--s4) var(--s3);border-bottom:1px solid var(--line);text-align:left}
+.filmrow:hover{background:var(--raise)}
+.filmrow b{font-family:var(--serif);font-size:20px;font-weight:400;letter-spacing:-.01em;color:var(--ink)}
+.filmrow p{font-size:12.5px;color:var(--ink3);margin-top:3px;line-height:1.45}
+.filmrow .m{font-family:var(--mono);font-size:11px;color:var(--dim)}
+/* THE SPREAD SURVIVES DOWN TO 860px. The left column floors at 430 and the
+ * argument needs about 380, so a 924px window carries both — collapsing at
+ * 1080 put every word of the writing below the fold and unpinned the film,
+ * which kills both halves of the premise. */
+@media (max-width:1180px){.spreadin{grid-template-columns:minmax(420px,50%) minmax(0,1fr)}.stageside{padding:20px 22px 26px 24px}.argside{padding:var(--s6) 30px 40vh 30px}.argwrap p{font-size:19px;line-height:1.72}.acthead h2{font-size:23px}}
+/* Genuinely narrow: the stage stays PINNED but keeps only the film and the
+ * verb line. The meters and the Direct panel move below the argument rather
+ * than standing between the reader and the writing. */
+@media (max-width:860px){.spreadin{grid-template-columns:minmax(0,1fr)}
+.stageside{position:sticky;top:0;z-index:5;border-right:none;border-bottom:1px solid var(--line);max-height:none;overflow:visible;padding:14px 20px 12px;background:linear-gradient(180deg,#16191c,#101315)}
+.stagein{gap:10px}
+.stagein>.statecard>.scgrid,.stagein>.statecard>.scwhy,.stagein>.traject,.stagein>.tmeta,.stagein>.direct{display:none}
+.statecard{border-top:none;padding-top:0}
+.sctop{margin-bottom:0}
+.argside{padding:var(--s5) 24px 30vh}}
+
+/* the line, said in words */
+.tlab{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);margin-bottom:9px}
+.tnote{font-size:11px;color:var(--dim)}
+.sound .segs{margin-top:2px}
+.dacts{flex-wrap:wrap}
+/* the movement, in words and in sequence */
+.scwhat{font-family:var(--serif);font-size:16.5px;line-height:1.5;color:var(--ink2);margin:10px 0 14px;text-wrap:pretty}
+.moves{display:flex;flex-wrap:wrap;gap:0 12px;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--line2);margin-bottom:12px}
+.moves span.past{color:var(--dim)}
+.moves span.on{color:var(--sage)}
