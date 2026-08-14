@@ -1677,9 +1677,10 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     inputs: ["IMAGE"],
     outputs: ["IMAGE"],
     parameters: {
-      gap: { kind: "int", default: 3, min: 2, max: 9 },
+      gap: { kind: "int", default: 4, min: 2, max: 9 },
       roll: { kind: "float", default: 0.4, min: 0, max: 1 },
       bleed: { kind: "float", default: 0.4, min: 0, max: 1 },
+      strength: { kind: "float", default: 0.34, min: 0, max: 1 },
     },
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",

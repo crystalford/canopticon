@@ -111,18 +111,22 @@ async function create() {
  *  film is reloaded afterwards because the plan is what carries the audio,
  *  and it is fetched once when a film opens — narrate a film you already
  *  have open without this and the Preview stays silent. */
-async function narrateNow(projectId) {
+async function narrateNow(projectId, onProgress) {
   let done = 0;
   let failed = 0;
   let ms = 0;
   try {
     for (;;) {
       const total = liveScenes().length || 1;
-      busy(true, `recording the voice — ${done} of ${total}${failed ? `, ${failed} failed` : ""}`);
+      // Create shows a busy overlay; the editing area draws its own bar.
+      // Same runner either way — the caller decides how it is reported.
+      if (onProgress) onProgress({ done, failed, total, ms });
+      else busy(true, `recording the voice — ${done} of ${total}${failed ? `, ${failed} failed` : ""}`);
       const r = await narrateProject(projectId, { limit: 6 });
       done += r.narrated;
       failed += r.failed;
       ms += r.narratedMs || 0;
+      if (onProgress) onProgress({ done, failed, total, ms });
       if (r.narrated === 0 || r.remaining === 0) break;
     }
     if (done > 0) {

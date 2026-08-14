@@ -959,9 +959,17 @@ rasterPrim(
   "scanline",
   "CRT scanlines and roll. A period register — the archive as it was actually watched.",
   {
-    gap: { v: 3, lo: 2, hi: 9, int: 1 },
+    gap: { v: 4, lo: 2, hi: 9, int: 1 },
     roll: { v: 0.4, lo: 0, hi: 1 },
     bleed: { v: 0.4, lo: 0, hi: 1 },
+    /* HOW MUCH OF THE FRAME THIS IS ALLOWED TO BE.
+     *
+     * It ran at a fixed 0.85 and re-drew nearly every row, so a composed
+     * scene came out banded hard enough to read as a CRT rather than as a
+     * composition with a treatment on it. A register is something a film
+     * wears; this was wearing the film. Default low, reachable high for a
+     * film that genuinely wants the archive look. */
+    strength: { v: 0.34, lo: 0, hi: 1 },
   },
   (ctx, im, w, h, p, t) => {
     bg(ctx, w, h);
@@ -981,7 +989,7 @@ rasterPrim(
          * at all where it was dark, so every mark on the frame was wiped
          * to the ground. Bisecting a real scene: 247 dark pixels in, 0
          * out. The words survived the compositor and died here. */
-        const a = (KEY > 0.5 ? 1 - v : v) * 0.85;
+        const a = (KEY > 0.5 ? 1 - v : v) * 0.85 * p.strength;
         ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},${a})`;
         ctx.fillRect(x, y, c, c);
       }

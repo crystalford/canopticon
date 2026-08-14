@@ -30,6 +30,22 @@ function viewRead(root) {
         <div class="fmark" id="fmark"></div>
         <div class="fplay"><button id="pp">${PLAY.on ? "PAUSE" : "PLAY"}</button></div>
       </div>
+      <!-- THE TRANSPORT BELONGS TO THE FILM.
+           This column is sticky and it stacked film → state card →
+           trajectory → transport, so on any normal viewport the only way
+           to move through your own film was to scroll past its state and
+           click the abstraction line. A scrub control that is not beside
+           the picture is not a scrub control. -->
+      <div class="scrub" id="scrub">
+        <button class="scrubplay" id="pp3" aria-label="Play or pause">${PLAY.on ? "❚❚" : "▶"}</button>
+        <div class="scrubbar" id="scrubbar" role="slider" aria-label="Seek"
+             aria-valuemin="0" aria-valuemax="${Math.round(f.runtime)}" tabindex="0">
+          <div class="scrubfill" id="scrubfill"></div>
+          <div class="scrubticks" id="scrubticks"></div>
+          <div class="scrubhead" id="scrubhead"></div>
+        </div>
+        <span class="num" id="tc2">${fmt(PLAY.t)}</span>
+      </div>
       <div class="block statecard" id="statecard"></div>
       <div class="block traject" id="traject"><div class="tlab"><span class="key">How abstract it gets</span><span class="tnote">across the whole film</span></div><canvas id="tcv"></canvas></div>
       <div class="tmeta">
@@ -44,8 +60,18 @@ function viewRead(root) {
         <div id="heardhost"></div>
         <div class="dacts"><button class="b sm" id="explore">Explore readings</button><button class="b sm" id="editbtn">Rewrite this</button><button class="b q sm" id="cutbtn"></button></div>
       </div>
+      <!-- SOUND, WHICH USED TO REPORT RATHER THAN ACT.
+           Three buttons that set a field and repainted a label, under a
+           line that said "nothing is spent until you render" — and
+           renderFilm never records anything, it only reads narration
+           that already exists. So the product told you the voice would
+           arrive at render, it never would, and following the instruction
+           produced a permanently silent film. "My voice" is gone for the
+           same reason it went from Create: there is no recording path. -->
       <div class="block sound"><div class="dhead"><span class="key">Sound</span><span class="tnote" id="sndstate"></span></div>
-        <div class="segs" data-voice>${["My voice","Synthesised","None"].map((o) => `<button data-v="${o}" class="${(f.voice || "None") === o ? "on" : ""}">${o}</button>`).join("")}</div>
+        <div class="segs" data-voice>${["Synthesised", "None"].map((o) => `<button data-v="${o}" class="${(f.voice || "None") === o ? "on" : ""}">${o}</button>`).join("")}</div>
+        <div class="sndbar" id="sndbar" hidden><div class="sndfill" id="sndfill"></div></div>
+        <div class="dacts"><button class="b sm" id="recvoice">Record the voice</button></div>
       </div>
     </div></div>
     <div class="argside"><div class="argwrap" id="argwrap">${argumentHTML()}</div>
@@ -316,6 +342,7 @@ function runFilm() {
     }
     const tc = document.getElementById("tc");
     if (tc) tc.textContent = fmt(PLAY.t);
+    paintScrub();
   };
   tick();
   loop(tick);
@@ -323,8 +350,90 @@ function runFilm() {
     PLAY.on = !PLAY.on;
     document.querySelectorAll("#pp").forEach((b) => (b.textContent = PLAY.on ? "PAUSE" : "PLAY"));
     document.querySelectorAll("#pp2").forEach((b) => (b.textContent = PLAY.on ? "Pause" : "Play"));
+    const p3 = document.getElementById("pp3");
+    if (p3) p3.textContent = PLAY.on ? "\u275a\u275a" : "\u25b6";
   };
-  document.querySelectorAll("#pp,#pp2").forEach((b) => (b.onclick = toggle));
+  document.querySelectorAll("#pp,#pp2,#pp3").forEach((b) => (b.onclick = toggle));
+  bindScrub();
+}
+
+/* ── THE SCRUBBER ──────────────────────────────────────────────────────
+ *
+ * A second VIEW onto the film's clock, never a second clock: `PLAY.t` stays
+ * the single source, `runFilm`'s tick paints this, and dragging writes back
+ * to the same place a click on the trajectory does. Two transports that
+ * each kept their own time is the shape of bug this codebase has already
+ * paid for twice.
+ *
+ * The act boundaries are drawn on it because a film is not a featureless
+ * duration — knowing you are at the start of Act II is most of what a
+ * position means. */
+/** How many moments actually have a voice, from the plan the compiler
+ *  returned — never from a local flag, because a local flag is how a film
+ *  came to claim a voice it had never bought. */
+function narratedCount() {
+  const plan = window.STUDIO && window.STUDIO.plan;
+  if (!plan || !window.narrationStatus) return 0;
+  return narrationStatus(plan).narrated || 0;
+}
+
+function paintScrub() {
+  const f = window.FILM;
+  const fill = document.getElementById("scrubfill");
+  if (!fill) return;
+  const pct = Math.max(0, Math.min(1, PLAY.t / f.runtime)) * 100;
+  fill.style.width = pct + "%";
+  const head = document.getElementById("scrubhead");
+  if (head) head.style.left = pct + "%";
+  const tc2 = document.getElementById("tc2");
+  if (tc2) tc2.textContent = fmt(PLAY.t);
+}
+
+function scrubTicks() {
+  const f = window.FILM;
+  const host = document.getElementById("scrubticks");
+  if (!host || !f.acts) return;
+  // One mark per act boundary, at the act's first live scene.
+  const live = liveScenes();
+  const marks = f.acts
+    .map((a) => live.find((s) => s.actId === a.id))
+    .filter(Boolean)
+    .map((s) => (s.t0 / f.runtime) * 100);
+  host.innerHTML = marks.map((p) => `<i style="left:${p}%"></i>`).join("");
+}
+
+function bindScrub() {
+  const bar = document.getElementById("scrubbar");
+  if (!bar || bar.dataset.bound) return;
+  bar.dataset.bound = "1";
+  scrubTicks();
+  const seek = (clientX) => {
+    const r = bar.getBoundingClientRect();
+    const t = Math.max(0, Math.min(0.999, (clientX - r.left) / r.width)) * window.FILM.runtime;
+    PLAY.t = t;
+    paintScrub();
+    // The argument follows the picture — the two are one document.
+    const c = runOf().comps.find((x) => t >= x.scene.t0 && t < x.scene.t1);
+    if (c) setCurrent(c.scene.id, true);
+  };
+  bar.onpointerdown = (e) => {
+    bar.setPointerCapture(e.pointerId);
+    seek(e.clientX);
+    bar.onpointermove = (m) => seek(m.clientX);
+  };
+  bar.onpointerup = (e) => {
+    bar.onpointermove = null;
+    try { bar.releasePointerCapture(e.pointerId); } catch (_) {}
+  };
+  // Keyboard, because a slider that only takes a mouse is not a control.
+  bar.onkeydown = (e) => {
+    const step = e.shiftKey ? 10 : 1;
+    if (e.key === "ArrowLeft") PLAY.t = Math.max(0, PLAY.t - step);
+    else if (e.key === "ArrowRight") PLAY.t = Math.min(window.FILM.runtime - 0.01, PLAY.t + step);
+    else return;
+    e.preventDefault();
+    paintScrub();
+  };
 }
 
 /* ── EXPLORE ───────────────────────────────────────────────────────── */
@@ -376,6 +485,20 @@ function showAlternatives() {
       window.FILM.overrides.push({ sceneId: s.id, type: "rung", tier: l.tier });
       APP.alts = null;
       changed();
+      /* MIRRORED TO THE COMPILER, not just to this page.
+       *
+       * Taking a rung was local-only — the film changed in front of you
+       * and the Worker never heard about it, so it survived until you
+       * reloaded and no further. `directScene` is the route that already
+       * exists for exactly this and was called from nowhere. Failure is
+       * reported rather than swallowed: a choice that did not persist must
+       * not look identical to one that did. */
+      const pid = window.STUDIO && !window.STUDIO.demo && window.STUDIO.projectId;
+      if (pid) {
+        directScene(pid, s.id, l.base, `rung: ${l.tier.toLowerCase()}`).catch((e) =>
+          toast("Kept here, but the compiler did not take it — " + e.message),
+        );
+      }
       toast("Taken — " + l.tier.toLowerCase());
     };
   });
@@ -409,10 +532,25 @@ function bindDirect(root) {
   /* The voice chosen at Create has to be visible SOMEWHERE afterwards, or it
    * is a question the product asked and then forgot the answer to. */
   const snd = root.querySelector("#sndstate");
+  const rec = root.querySelector("#recvoice");
   const paintSnd = () => {
     const f = window.FILM;
-    const n = f.narration && f.narration.length ? f.narration.length : 0;
-    snd.textContent = (f.voice || "None") === "None" ? "silent \u2014 captions carry the words" : n ? n + " moments narrated" : "no voice bought yet \u2014 nothing is spent until you render";
+    const total = liveScenes().length;
+    const n = narratedCount();
+    const silent = (f.voice || "None") === "None";
+    /* WHAT IS TRUE, rather than what is reassuring. Recording spends model
+     * calls NOW; rendering never buys a voice. */
+    snd.textContent = silent
+      ? "silent \u2014 the words are burned into the frames"
+      : n >= total && total > 0
+        ? `narrated \u2014 all ${total} moments`
+        : n
+          ? `${n} of ${total} moments recorded`
+          : "not recorded yet \u2014 recording speaks each moment once and stores it";
+    if (rec) {
+      rec.hidden = silent;
+      rec.textContent = n >= total && total > 0 ? "Re-record the voice" : "Record the voice";
+    }
   };
   paintSnd();
   root.querySelectorAll("[data-voice] [data-v]").forEach((b) => (b.onclick = () => {
@@ -421,6 +559,29 @@ function bindDirect(root) {
     root.querySelectorAll("[data-voice] [data-v]").forEach((x) => x.classList.toggle("on", x === b));
     paintSnd();
   }));
+  if (rec) {
+    rec.onclick = async () => {
+      const id = window.STUDIO && window.STUDIO.projectId;
+      if (!id) {
+        toast("The example film has no compiler behind it \u2014 open a stored film to record a voice");
+        return;
+      }
+      const bar = root.querySelector("#sndbar");
+      const fill = root.querySelector("#sndfill");
+      const total = liveScenes().length || 1;
+      if (bar) bar.hidden = false;
+      rec.disabled = true;
+      // ONE runner, shared with Create. Narration spends money; two
+      // implementations of it is the last thing this codebase needs.
+      await narrateNow(id, (p) => {
+        if (fill) fill.style.width = Math.round((p.done / total) * 100) + "%";
+        if (snd) snd.textContent = `recording \u2014 ${p.done} of ${total}`;
+      });
+      rec.disabled = false;
+      if (bar) bar.hidden = true;
+      paintSnd();
+    };
+  }
   root.querySelector("#scope").onclick = () => {
     const order = ["sentence", "section", "film"];
     APP.scope = order[(order.indexOf(APP.scope) + 1) % 3];

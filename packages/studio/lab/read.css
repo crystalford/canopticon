@@ -60,6 +60,34 @@
 .scwhy{font-size:12.5px;line-height:1.55;color:var(--ink3);margin-top:var(--s4)}
 .scwhy b{color:var(--ink2);font-weight:400}
 /* the trajectory: one line */
+/* The recording bar. Determinate, because `narrateProject` returns how many
+ * moments remain — a spinner would be hiding a number we already have. */
+.sndbar{height:3px;background:var(--line2);margin-top:var(--s3);overflow:hidden}
+.sndfill{height:100%;width:0;background:var(--sage);transition:width .25s}
+
+/* THE SCRUBBER — the film's own transport, directly beneath it and inside
+ * the sticky region, so the picture and the means of moving through it are
+ * never separated by a scroll. */
+.scrub{display:flex;align-items:center;gap:var(--s3);margin-top:calc(var(--s3) * -1)}
+.scrubplay{width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--ink2);border:1px solid var(--line2);border-radius:var(--r);
+  transition:color .13s,border-color .13s}
+.scrubplay:hover{color:var(--ink);border-color:var(--ink3)}
+.scrubbar{position:relative;flex:1;height:22px;cursor:pointer;display:flex;align-items:center}
+/* The track is drawn as a child so the hit area can be tall enough to grab
+ * while the line itself stays a hairline. */
+.scrubbar::before{content:"";position:absolute;left:0;right:0;top:50%;height:3px;
+  transform:translateY(-50%);background:var(--line2)}
+.scrubfill{position:absolute;left:0;top:50%;height:3px;transform:translateY(-50%);
+  background:var(--sage);width:0}
+.scrubticks{position:absolute;inset:0;pointer-events:none}
+.scrubticks i{position:absolute;top:50%;width:1px;height:11px;transform:translate(-50%,-50%);
+  background:var(--ink3);opacity:.55}
+.scrubhead{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;
+  transform:translate(-50%,-50%);background:var(--sage);left:0}
+.scrubbar:focus-visible{outline:1px solid var(--sage);outline-offset:3px}
+.scrub .num{font-size:12.5px;color:var(--ink2);flex:none;font-variant-numeric:tabular-nums}
+
 .traject{position:relative}
 .traject canvas{display:block;width:100%;height:38px;cursor:crosshair}
 .tmeta{display:flex;align-items:center;gap:var(--s3);font-size:11.5px;color:var(--dim);margin-top:-4px}
@@ -155,6 +183,8 @@
 .stageside{position:sticky;top:0;z-index:5;border-right:none;border-bottom:1px solid var(--line);max-height:none;overflow:visible;padding:14px 20px 12px;background:linear-gradient(180deg,#16191c,#101315)}
 .stagein{gap:10px}
 .stagein>.statecard>.scgrid,.stagein>.statecard>.scwhy,.stagein>.traject,.stagein>.tmeta,.stagein>.direct{display:none}
+/* The scrubber is never hidden — it is how you move through the film. */
+.stagein>.scrub{display:flex}
 .statecard{border-top:none;padding-top:0}
 .sctop{margin-bottom:0}
 .argside{padding:var(--s5) 24px 30vh}}
