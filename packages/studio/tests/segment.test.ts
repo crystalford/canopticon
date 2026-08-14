@@ -229,3 +229,84 @@ describe("the cheap loop", () => {
     expect(firstChanged).toBeGreaterThan(0);
   });
 });
+
+/* THE PASSAGE — the level between the section and the sentence.
+ *
+ * The essay has four levels of structure and the IR kept two. The one it
+ * dropped is the one a director works at: a paragraph is one idea, and
+ * five sentences developing it deserve one visual development rather than
+ * five. `segment.ts` knew it — the loop is over paragraphs — and threw it
+ * away at the point where seeds were pushed.
+ *
+ * Deliberately no assertion about what a passage LOOKS like. This tests
+ * that the grouping survives and is checkable against the prose, which is
+ * the capability; what a director does with it is another layer's job. */
+describe("the passage survives segmentation", () => {
+  const ESSAY = `The Costume
+
+A claim to authority is a performance. It is renewed continuously. Nobody audits the renewal.
+
+The fallacy isn't a lapse. It's a diagnosis.
+
+Consider the record:
+
+* Forty-one renewals since 2003.
+* Not one of them contested.
+
+Which is the point.`;
+
+  const scenes = () => segmentEssay(ESSAY, { projectId: "p" }).ir.scenes;
+
+  it("gives every scene a passage", () => {
+    for (const s of scenes()) expect(s.passageId, s.sceneId).toBeTruthy();
+  });
+
+  it("groups the sentences of a paragraph together, and separates paragraphs", () => {
+    const byPassage = new Map<string, string[]>();
+    for (const s of scenes()) {
+      const id = must(s.passageId);
+      byPassage.set(id, [...(byPassage.get(id) ?? []), s.narration.text]);
+    }
+    expect(byPassage.size).toBeGreaterThan(1);
+    const sizes = [...byPassage.values()].map((v) => v.length);
+    expect(Math.max(...sizes)).toBeGreaterThan(1);
+    const withFallacy = [...byPassage.values()].find((v) =>
+      v.some((t) => t.includes("isn't a lapse")),
+    );
+    expect(must(withFallacy).some((t) => t.includes("a diagnosis"))).toBe(true);
+  });
+
+  it("treats a bullet list as one passage, not one per bullet", () => {
+    const bullets = scenes().filter(
+      (s) => s.narration.text.startsWith("Forty-one") || s.narration.text.startsWith("Not one"),
+    );
+    expect(bullets).toHaveLength(2);
+    expect(must(bullets[0]).passageId).toBe(must(bullets[1]).passageId);
+  });
+
+  it("keeps every passage inside one act", () => {
+    const actOf = new Map<string, string>();
+    for (const s of scenes()) {
+      const p = must(s.passageId);
+      const seen = actOf.get(p);
+      if (seen) expect(seen, `passage ${p} spans acts`).toBe(s.actId);
+      else actOf.set(p, s.actId);
+    }
+  });
+
+  it("is checkable against the prose — a passage's scenes are contiguous", () => {
+    const spans = new Map<string, { lo: number; hi: number }>();
+    for (const s of scenes()) {
+      const p = must(s.passageId);
+      const cur = spans.get(p);
+      spans.set(p, {
+        lo: Math.min(cur?.lo ?? s.sourceRange.startChar, s.sourceRange.startChar),
+        hi: Math.max(cur?.hi ?? s.sourceRange.endChar, s.sourceRange.endChar),
+      });
+    }
+    const ordered = [...spans.values()].sort((a, b) => a.lo - b.lo);
+    for (let i = 1; i < ordered.length; i++) {
+      expect(must(ordered[i]).lo).toBeGreaterThanOrEqual(must(ordered[i - 1]).hi);
+    }
+  });
+});

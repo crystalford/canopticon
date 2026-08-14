@@ -473,7 +473,34 @@ export function detectSubjects(sentence: string): DetectedSubject[] {
     }
   }
 
-  return found.sort((a, b) => b.weight - a.weight || a.offset - b.offset);
+  /* ONE NOUN, ONE SPAN.
+   *
+   * "smoke detector" and "detector" are both in the lexicon and both
+   * match "A smoke detector was installed in every room" — at offsets 2
+   * and 8, the second sitting INSIDE the first. Two subjects where the
+   * prose named one.
+   *
+   * That is not cosmetic. `readRelation` orders by offset, takes the
+   * first two and reads what sits between them; between offset 2+15 and
+   * offset 8 there is nothing, so it returns null. Measured: EVERY
+   * sentence containing a multi-word lexicon entry — smoke detector,
+   * smoke alarm, security camera, surveillance camera, line-up, chain of
+   * — silently lost its relation, and with it the whole
+   * relation → semantic scene → composeFromMeaning path. Six entries, and
+   * they are precisely the institutional vocabulary this was grown from.
+   *
+   * The longer span wins because it is the more specific reading: a
+   * sentence that said "smoke detector" did not say "detector". */
+  const spans = [...found].sort((a, b) => a.offset - b.offset || b.text.length - a.text.length);
+  const kept: DetectedSubject[] = [];
+  for (const s of spans) {
+    const inside = kept.some(
+      (k) => s.offset >= k.offset && s.offset + s.text.length <= k.offset + k.text.length,
+    );
+    if (!inside) kept.push(s);
+  }
+
+  return kept.sort((a, b) => b.weight - a.weight || a.offset - b.offset);
 }
 
 /** True when the sentence's only concrete-sounding nouns are the ones no

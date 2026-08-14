@@ -159,7 +159,33 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
   // itself, and taking that as an act would open the film on its own title
   // card.
   const acts: Act[] = [];
-  const seeds: { actId: string; text: string }[] = [];
+  /* THE PARAGRAPH SURVIVES.
+   *
+   * `raw` below IS a paragraph — the loop is over the essay's own lines —
+   * and until now only `actId` and `text` came out of it, so every
+   * sentence became a peer scene under an act and the paragraph was
+   * dropped on the floor.
+   *
+   * The essay has four levels of structure and the IR kept two:
+   *
+   *   essay      → film     kept
+   *   section    → act      kept — the essay's own headings
+   *   paragraph  → —        DISCARDED, here
+   *   sentence   → scene    kept
+   *
+   * The missing one is the level a director works at. "These five
+   * sentences are one idea and collectively deserve one visual
+   * development" cannot be said about five peers, and nothing downstream
+   * could reconstruct the grouping because the only thing tying them
+   * together was the loop iteration that had already ended.
+   *
+   * Carried, not inferred: `sourceRange` still binds every scene to its
+   * own span, so the grouping is checkable against the prose. */
+  const seeds: { actId: string; passageId: string; text: string }[] = [];
+  let passage = 0;
+  /** A bullet list is ONE idea enumerated, not N ideas. Consecutive
+   *  bullets share a passage; a paragraph after them starts a new one. */
+  let lastWasBullet = false;
   let title = options.title ?? "";
   let seenBody = false;
 
@@ -184,10 +210,19 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
     // (July 2023)" into fragments would strip the figure of the thing it is
     // a figure OF.
     if (line.startsWith("*") || line.startsWith("-")) {
-      seeds.push({ actId, text: line.replace(/^[*-]\s*/, "") });
+      if (!lastWasBullet) passage++;
+      lastWasBullet = true;
+      seeds.push({
+        actId,
+        passageId: `p${String(passage).padStart(3, "0")}`,
+        text: line.replace(/^[*-]\s*/, ""),
+      });
       continue;
     }
-    for (const s of sentencesOf(line)) seeds.push({ actId, text: s });
+    lastWasBullet = false;
+    passage++;
+    const passageId = `p${String(passage).padStart(3, "0")}`;
+    for (const s of sentencesOf(line)) seeds.push({ actId, passageId, text: s });
   }
 
   if (seeds.length === 0) {
@@ -224,6 +259,7 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
     scenes.push({
       sceneId,
       actId: seed.actId,
+      passageId: seed.passageId,
       label: labelOf(seed.text),
       narrativeFunction: narrativeFunction(
         seed.text,

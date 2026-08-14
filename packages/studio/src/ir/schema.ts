@@ -336,6 +336,18 @@ export type Block = z.infer<typeof BlockSchema>;
 export const SceneSchema = z.object({
   sceneId: z.string(),
   actId: z.string(),
+  /** WHICH PARAGRAPH OF THE ESSAY THIS SENTENCE CAME FROM.
+   *
+   *  The level between the section and the sentence, and the one a
+   *  director works at: a passage is one idea, and five sentences
+   *  developing it deserve one visual development rather than five.
+   *  Without it every sentence is a peer and the only available rhythm is
+   *  per-sentence.
+   *
+   *  Optional because IRs stored before it existed do not carry it —
+   *  a consumer that needs the grouping must handle its absence rather
+   *  than assume a re-segment has happened. */
+  passageId: z.string().optional(),
   label: z.string().default(""),
   narrativeFunction: z.enum(["hook", "establish", "evidence", "turn", "resolve"]),
   status: z.enum(["draft", "ready_for_review", "approved", "flagged"]).default("draft"),
