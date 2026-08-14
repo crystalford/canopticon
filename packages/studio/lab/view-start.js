@@ -280,7 +280,14 @@ async function create() {
  *  film is reloaded afterwards because the plan is what carries the audio,
  *  and it is fetched once when a film opens — narrate a film you already
  *  have open without this and the Preview stays silent. */
-async function narrateNow(projectId, onProgress, speaker) {
+/* `force` RE-RECORDS WHAT IS ALREADY THERE.
+ *
+ * Without it the server's filter (`narrate/index.ts:155`) selects only
+ * scenes whose voice state is not "ready" — so on a fully narrated film
+ * the batch is empty, nothing is recorded, and the toast says "No voice
+ * was recorded — the film is silent" about a film that has a voice. The
+ * button that says "Re-record the voice" has never re-recorded anything. */
+async function narrateNow(projectId, onProgress, speaker, force) {
   let done = 0;
   let failed = 0;
   let ms = 0;
@@ -294,6 +301,7 @@ async function narrateNow(projectId, onProgress, speaker) {
       const r = await narrateProject(projectId, {
         limit: 6,
         ...(speaker ? { voice: speaker } : {}),
+        ...(force ? { force: true } : {}),
       });
       done += r.narrated;
       failed += r.failed;

@@ -217,6 +217,19 @@ function toFilm(ir, plan, storedVersion) {
   return {
     projectId: ir.projectId,
     title: ir.title,
+    /* THE ESSAY ITSELF, which was never carried — and which is why the
+     * argument column has been inert on every stored film.
+     *
+     * `sourceRange` offsets index the ORIGINAL essay. `argumentHTML`
+     * (`view-read.js:96`) falls back to `f.scenes.map(s => s.text).join(" ")`
+     * when `f.essay` is missing, and those two strings do not agree about a
+     * single character position: the joined text has no headings, no
+     * paragraph breaks, and one space between sentences where the essay had
+     * whatever the author wrote. So every span was sliced from the wrong
+     * offsets, nothing highlighted, nothing was clickable, and Explore /
+     * Rewrite / Leave-it-out silently did nothing because they look up a
+     * span that has no width. The whole working surface of the product. */
+    essay: ir.essay || "",
     // The STORED version, not the schema version. The bar read "IR v0.1.0"
     // forever — that is the IR format's number, and it never changes, so
     // the one place a director could see that their edit had produced a new

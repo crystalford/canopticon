@@ -63,8 +63,9 @@ function viewFilms(root) {
     </div>
     ${ps.length
       ? `<span class="key">Yours · ${ps.length}</span><div class="filmlist">${ps.map((p) => `<button class="filmrow" data-open="${p.projectId}">
-          <span><b>${esc(p.title || "Untitled")}</b><p>${esc(p.logline || "No logline.")}</p></span>
-          <span class="m">${p.sceneCount ?? "—"} moments</span><span class="m">v${p.irVersion ?? "—"}</span></button>`).join("")}</div>`
+          <span><b>${esc(p.title || "Untitled")}</b><p>${p.acts ? `${p.acts} part${p.acts === 1 ? "" : "s"}` : "Not yet cut"}${p.stale ? ` · ${p.stale} to re-record` : ""}</p></span>
+          <span class="m">${p.scenes ?? "—"} moments</span>
+          <span class="m">${p.narrated ? (p.narrated >= (p.scenes || 0) ? "narrated" : `${p.narrated}/${p.scenes} voiced`) : "silent"}</span></button>`).join("")}</div>`
       : `<div class="empty"><h2 style="margin-bottom:8px">Nothing here yet</h2><p class="note">Make one from something you have already written. CANOPTICON reads it, cuts it into moments, and composes a shot for every sentence — then you direct what it made.</p></div>`}
   </div></div>`;
   const on = (id, fn) => {

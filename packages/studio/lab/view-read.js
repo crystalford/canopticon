@@ -313,6 +313,51 @@ function filmRunner(c, cv) {
   return w;
 }
 
+/* ── THE VOICE, IN THE PREVIEW ────────────────────────────────────────
+ *
+ * `narration.js` was written in full — fetch, decode, schedule on the Web
+ * Audio clock, seek into a line already in progress — and NOTHING CALLED
+ * IT. Its own header says it schedules audio "in the Preview so the
+ * operator can hear the film"; that wiring was never done, so the only
+ * consumer was the render exporter, and the render button has never been
+ * enabled. Both routes to hearing a narrated film were dead. The voice was
+ * bought, frozen, hashed and stored, and could not be played.
+ *
+ * The load is lazy and once: decoding 65 files on open would stall a view
+ * the operator may never press play on. */
+const VOICE = { loading: null, loadedFor: null };
+
+async function voiceOn() {
+  const plan = window.STUDIO && window.STUDIO.plan;
+  if (!plan || !window.loadNarration) return;
+  const key = window.STUDIO.projectId || "demo";
+  if (VOICE.loadedFor !== key) {
+    if (!VOICE.loading) {
+      VOICE.loading = loadNarration(plan).then((r) => {
+        VOICE.loadedFor = key;
+        VOICE.loading = null;
+        if (r.failed && r.failed.length) toast(`Voice: ${r.failed.length} moment(s) would not decode`);
+        return r;
+      });
+    }
+    await VOICE.loading;
+  }
+  if (PLAY.on) await playNarration(plan, PLAY.t * 1000);
+}
+
+function voiceOff() {
+  if (window.stopNarration) stopNarration();
+}
+
+/** A seek moves the picture; the voice has to follow it to the same
+ *  millisecond or the two clocks part company. */
+function voiceSeek() {
+  if (!PLAY.on) return;
+  const plan = window.STUDIO && window.STUDIO.plan;
+  if (!plan || !window.playNarration || VOICE.loadedFor === null) return;
+  playNarration(plan, PLAY.t * 1000);
+}
+
 function runFilm() {
   const cv = document.getElementById("fcv");
   if (!cv) return;
@@ -354,12 +399,14 @@ function runFilm() {
   };
   tick();
   loop(tick);
-  const toggle = () => {
+  const toggle = async () => {
     PLAY.on = !PLAY.on;
     document.querySelectorAll("#pp").forEach((b) => (b.textContent = PLAY.on ? "PAUSE" : "PLAY"));
     document.querySelectorAll("#pp2").forEach((b) => (b.textContent = PLAY.on ? "Pause" : "Play"));
     const p3 = document.getElementById("pp3");
     if (p3) p3.textContent = PLAY.on ? "\u275a\u275a" : "\u25b6";
+    if (PLAY.on) await voiceOn();
+    else voiceOff();
   };
   document.querySelectorAll("#pp,#pp2,#pp3").forEach((b) => (b.onclick = toggle));
   bindScrub();
@@ -403,8 +450,11 @@ function scrubTicks() {
   if (!host || !f.acts) return;
   // One mark per act boundary, at the act's first live scene.
   const live = liveScenes();
+  /* `s.actId === a.id` — and scenes carry `act`, acts carry `actId`. Both
+   * sides were `undefined`, so every act matched the FIRST live scene and
+   * all the marks stacked at 0%. */
   const marks = f.acts
-    .map((a) => live.find((s) => s.actId === a.id))
+    .map((a) => live.find((s) => s.act === a.actId))
     .filter(Boolean)
     .map((s) => (s.t0 / f.runtime) * 100);
   host.innerHTML = marks.map((p) => `<i style="left:${p}%"></i>`).join("");
@@ -423,6 +473,7 @@ function bindScrub() {
     // The argument follows the picture — the two are one document.
     const c = runOf().comps.find((x) => t >= x.scene.t0 && t < x.scene.t1);
     if (c) setCurrent(c.scene.id, true);
+    voiceSeek();
   };
   bar.onpointerdown = (e) => {
     bar.setPointerCapture(e.pointerId);
@@ -545,7 +596,15 @@ function bindDirect(root) {
     const f = window.FILM;
     const total = liveScenes().length;
     const n = narratedCount();
-    const silent = (f.voice || "None") === "None";
+    /* SILENT MEANS "NO VOICE ON THE PLAN", NOT "NO CHIP CLICKED".
+     *
+     * This was `(f.voice || "None") === "None"`. `f.voice` is only ever set
+     * by clicking a chip on this panel \u2014 `toFilm` never populates it from
+     * the IR \u2014 so on every reopened film it was undefined, the panel said
+     * the film was silent, and `rec.hidden = silent` REMOVED the only
+     * recording control from a film that already had a voice. The plan
+     * knows the truth and `narratedCount()` has been reading it all along. */
+    const silent = n === 0 && (f.voice || "None") === "None";
     /* WHAT IS TRUE, rather than what is reassuring. Recording spends model
      * calls NOW; rendering never buys a voice. */
     snd.textContent = silent
@@ -556,7 +615,9 @@ function bindDirect(root) {
           ? `${n} of ${total} moments recorded`
           : "not recorded yet \u2014 recording speaks each moment once and stores it";
     if (rec) {
-      rec.hidden = silent;
+      // Never hidden on a real project: recording is how a silent film
+      // stops being one, so hiding it on a silent film hid the fix.
+      rec.hidden = !(window.STUDIO && window.STUDIO.projectId);
       rec.textContent = n >= total && total > 0 ? "Re-record the voice" : "Record the voice";
     }
   };
@@ -581,10 +642,22 @@ function bindDirect(root) {
       rec.disabled = true;
       // ONE runner, shared with Create. Narration spends money; two
       // implementations of it is the last thing this codebase needs.
-      await narrateNow(id, (p) => {
-        if (fill) fill.style.width = Math.round((p.done / total) * 100) + "%";
-        if (snd) snd.textContent = `recording \u2014 ${p.done} of ${total}`;
-      });
+      // Re-record means re-record. `force` is what makes the server pick
+      // up scenes it has already voiced; without it this button reported
+      // "no voice was recorded" on a fully narrated film.
+      const again = narratedCount() >= total && total > 0;
+      await narrateNow(
+        id,
+        (p) => {
+          if (fill) fill.style.width = Math.round((p.done / total) * 100) + "%";
+          if (snd) snd.textContent = `recording \u2014 ${p.done} of ${total}`;
+        },
+        undefined,
+        again,
+      );
+      // A new recording is a new artifact — the decoded buffers are keyed
+      // by sha256, so the preview must be told to fetch again.
+      VOICE.loadedFor = null;
       rec.disabled = false;
       if (bar) bar.hidden = true;
       paintSnd();

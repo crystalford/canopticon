@@ -339,13 +339,8 @@ function appetiteFor(op: Operator, style: Style, intent?: IntentReading): number
  *  preference, pulled toward the curve. Neither wins outright: a
  *  documentary film at high abstraction is still a documentary film, and a
  *  pixel film at low abstraction still has to be recognisable. */
-function representationRung(style: Style): number {
-  // A captured grammar's rung is what the film ACTUALLY drew, so it
-  // outranks the language's preference — but never the curve, which is
-  // still the director's.
-  const preferred = style.grammar?.representation ?? LANGUAGE[style.language]?.representation ?? 0;
-  return Math.max(0, Math.min(4, Math.round(preferred * 0.6 + style.abstraction * 4 * 0.4)));
-}
+// `representationRung` and `wordCount` were only ever read by the two
+// deleted noun-object constructions. Removed with them.
 
 export interface Program {
   /** Readable identity — "fixture · quantise + scanline". Content-derived,
@@ -434,31 +429,6 @@ function statedCount(beat: Beat): number | null {
   const counted = beat.figures.find((f) => f.kind === "count");
   if (!counted || !Number.isFinite(counted.value)) return null;
   return Math.max(1, Math.round(counted.value));
-}
-
-/** Small integers written as words, which regex-based figure extraction
- *  deliberately does not lift — "seven thousand people" is a figure,
- *  "seven companies" written out is not, and a body plan can use it. */
-const WORD_NUMBERS: Record<string, number> = {
-  two: 2,
-  three: 3,
-  four: 4,
-  five: 5,
-  six: 6,
-  seven: 7,
-  eight: 8,
-  nine: 9,
-  ten: 10,
-  eleven: 11,
-  twelve: 12,
-  dozen: 12,
-};
-
-function wordCount(sentence: string): number | null {
-  for (const [word, n] of Object.entries(WORD_NUMBERS)) {
-    if (new RegExp(`\\b${word}\\b`, "i").test(sentence)) return n;
-  }
-  return null;
 }
 
 /* THE CROWD, SWARM AND ESCALATION LEXICONS WERE HERE AND ARE GONE.

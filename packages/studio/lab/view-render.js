@@ -30,7 +30,17 @@ function paintRender(prog, done) {
   const f = window.FILM;
   const [w, h] = SIZES[ROPT.size];
   const frames = Math.ceil(f.runtime * ROPT.fps);
-  const plan = f.plan || window.PLAN || null;
+  /* THE PLAN, FROM WHERE IT ACTUALLY LIVES.
+   *
+   * This read `f.plan || window.PLAN`. Neither is ever assigned: `toFilm`
+   * does not produce a `plan` key and `window.PLAN` appears nowhere in the
+   * codebase. So `plan` was ALWAYS null, the Render button was ALWAYS
+   * disabled, and the notice below always told the operator to "make a
+   * film from your own writing" — which does not fix it, because the
+   * compiled plan has always been at `window.STUDIO.plan`. This is the
+   * one line that has kept the end of the workflow unreachable, and with
+   * it the only place narration was ever wired to audio. */
+  const plan = (window.STUDIO && window.STUDIO.plan) || f.plan || null;
   const nar = plan && window.narrationStatus ? narrationStatus(plan) : null;
   const voiced = nar ? nar.narrated : 0;
 
@@ -80,6 +90,9 @@ function paintRender(prog, done) {
   if (plan) run.onclick = async () => {
     try {
       const out = await renderFilm(plan, { width: w, height: h, fps: ROPT.fps, captions: ROPT.captions, narration: ROPT.narration, onProgress: (p) => paintRender(p) });
+      // A cancelled render is not a finished one, and must not paint the
+      // success screen with a Download button for a partial file.
+      if (out.cancelled) { paintRender(); toast("Render cancelled \u2014 nothing was written"); return; }
       paintRender(null, out);
     } catch (e) { paintRender(); toast("Render failed \u2014 " + e.message); }
   };

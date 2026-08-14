@@ -483,6 +483,11 @@ async function encodeExact(ctx, canvas, scenes, cfg) {
     heldBytes: sized,
     frames: cfg.frames,
     narrated: voices.length,
+    /* CANCELLED IS NOT DONE. The frame loop breaks on `RENDER.cancel` and
+     * then returned `cfg.frames` regardless, so cancelling produced a
+     * success screen — "The film is made, 3600 frames" — with a Download
+     * button for a file holding forty. */
+    cancelled: Boolean(RENDER.cancel),
   };
 }
 

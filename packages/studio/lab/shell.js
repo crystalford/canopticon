@@ -363,9 +363,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   APP.sel = f.scenes[0].id;
   render();
   await filmsRefresh();
-  const last = lastProjectId();
-  if (last && (window.PROJECTS || []).some((p) => p.projectId === last)) await openFilm(last);
-  else render();
+  /* LAND ON THE LIBRARY.
+   *
+   * This auto-opened the last project from localStorage, so the root URL
+   * always dropped you back inside whatever film you last had open — no
+   * landing view, no list, and a "compiling the film" overlay you did not
+   * ask for. The last film is still one click away; it is no longer the
+   * only thing you can reach. */
+  APP.view = "films";
+  render();
 });
 
 Object.assign(window, {

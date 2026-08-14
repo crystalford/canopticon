@@ -62,27 +62,39 @@ async function loadNarration(plan, onProgress) {
   const failed = [];
   if (!ctx || scenes.length === 0) return { loaded: 0, failed, total: scenes.length };
 
+  /* IN PARALLEL, BOUNDED. This was a strictly serial `for … await fetch`,
+   * so a 65-scene film made 65 round trips end to end before the first
+   * sound could play — which is most of the wait between pressing play and
+   * hearing anything. Bounded rather than unbounded because 65 simultaneous
+   * requests to one Worker is its own kind of slow. */
   let loaded = 0;
-  for (const scene of scenes) {
-    if (NARRATION.buffers.has(scene.vo.sha256)) {
-      loaded++;
+  const LANES = 6;
+  const queue = scenes.slice();
+  const lane = async () => {
+    for (;;) {
+      const scene = queue.shift();
+      if (!scene) return;
+      if (NARRATION.buffers.has(scene.vo.sha256)) {
+        loaded++;
+        if (onProgress) onProgress({ loaded, total: scenes.length });
+        continue;
+      }
+      try {
+        const res = await fetch(scene.vo.url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const bytes = await res.arrayBuffer();
+        const buffer = await ctx.decodeAudioData(bytes);
+        NARRATION.buffers.set(scene.vo.sha256, buffer);
+        loaded++;
+      } catch (err) {
+        // Degrade, flag, continue. One scene that will not decode must not
+        // silence the film, and it must not be invisible either.
+        failed.push(`${scene.sceneId}: ${err.message}`);
+      }
       if (onProgress) onProgress({ loaded, total: scenes.length });
-      continue;
     }
-    try {
-      const res = await fetch(scene.vo.url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const bytes = await res.arrayBuffer();
-      const buffer = await ctx.decodeAudioData(bytes);
-      NARRATION.buffers.set(scene.vo.sha256, buffer);
-      loaded++;
-    } catch (err) {
-      // Degrade, flag, continue. One scene that will not decode must not
-      // silence the film, and it must not be invisible either.
-      failed.push(`${scene.sceneId}: ${err.message}`);
-    }
-    if (onProgress) onProgress({ loaded, total: scenes.length });
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(LANES, scenes.length) }, lane));
   return { loaded, failed, total: scenes.length };
 }
 
