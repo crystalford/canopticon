@@ -68,6 +68,13 @@ export interface Material {
   density: number;
   energy: number;
   abstraction: number;
+  /** How far the film has said it will go, and how much it holds back.
+   *  Carried because the SHIVER is read off them — a line that will not
+   *  sit still is a claim about the film, not about the sentence. Both
+   *  default to the film's own middle when a caller does not set them, so
+   *  nothing composed before this parameter existed moves. */
+  experimentalism?: number;
+  restraint?: number;
   /** How loud the film's typography is. Read by the scene graph to decide
    *  whether words appear as a second element beside a form. */
   typography: number;
@@ -188,6 +195,20 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
           trail: 0,
           material: m.material ?? 0,
           recede: a.recede,
+          /* THE SHIVER, read off the film rather than set to taste.
+           *
+           * A film that has said it is experimental and moving gets a
+           * line that will not sit still; a restrained one gets none at
+           * all. Restraint subtracts rather than scales, so a restrained
+           * film reaches exactly zero and is byte-identical to a film
+           * compiled before this parameter existed. */
+          shiver: Math.max(
+            0,
+            Math.min(
+              1,
+              (m.experimentalism ?? 0.3) * 0.7 + m.energy * 0.35 - (m.restraint ?? 0.5) * 0.8,
+            ),
+          ),
         },
         a.recede > 0.28
           ? "held back — softened and washed toward the ground, so the eye passes over it"

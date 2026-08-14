@@ -831,6 +831,8 @@ export function composeScene(
         energy: style.energy,
         abstraction: style.abstraction,
         typography: style.typography,
+        experimentalism: style.experimentalism,
+        restraint: style.restraint,
         seed: 101 + sceneIndex * 7 + take * 9973,
         // WHAT THIS MOMENT EARNED, and when it is spoken. The typographic
         // recipe branches on the level and the arrival is cued to the

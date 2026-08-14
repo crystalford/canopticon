@@ -200,6 +200,24 @@ reg(
      *   7 DATA     discrete nodes with a mark at each
      */
     material: { v: 0, lo: 0, hi: 7, int: 1 },
+    /* THE SHIVER — how much the drawing disagrees with itself.
+     *
+     * Every motion this system had was SMOOTH: `ease_profile`,
+     * `parallax_layers`, the bridges, the drift. All of them move a thing
+     * along a curve. None of them makes the thing itself unstable, and
+     * that instability is most of what makes a hand-drawn loop feel alive
+     * rather than played — animators call it a boiling line.
+     *
+     * IT BOILS RATHER THAN VIBRATES, and the difference is the whole
+     * point. The offsets are quantised to a low rate, so the line
+     * redraws on 2s or 3s the way hand-inked animation does. Jitter
+     * recomputed every frame at 60fps is not a shiver, it is noise, and
+     * it reads as a broken renderer.
+     *
+     * Deterministic — standing rule 4. The offset is a hash of (which
+     * step, which point), so the same film shivers the same way every
+     * time it is compiled and the cache stays honest. */
+    shiver: { v: 0, lo: 0, hi: 1 },
     /* HOW FAR BACK IT SITS — atmospheric hierarchy.
      *
      * Every element in every frame was drawn at full strength with a hard
@@ -294,6 +312,27 @@ reg(
          * a dark film keeps light ones — a spectrum that ignores the key
          * is a spectrum nobody can read. */
         const scheme = SPREAD > 0.02;
+        /* ── THE BOIL ────────────────────────────────────────────────
+         * `hz` is the redraw rate, not the frame rate: 6 steps a second
+         * at full shiver, which is roughly what a hand-inked loop runs
+         * at. `wob` is how far a point may wander, in the same units as
+         * the stroke weight, so a heavy line shivers proportionally and a
+         * hairline does not tear itself apart. */
+        const shiver = p.shiver;
+        const boiling = shiver > 0.01;
+        const step = boiling ? Math.floor(t * (3 + shiver * 4)) : 0;
+        const wob = base * (0.35 + shiver * 2.4);
+        // A cheap seeded hash — integer in, two offsets out. Not
+        // `mulberry`, because this is called per point per frame and a
+        // generator would allocate; not `Math.random`, because nothing
+        // here is unseeded.
+        const jitter = (i) => {
+          let n = (i * 374761393 + step * 668265263) >>> 0;
+          n = ((n ^ (n >>> 13)) * 1274126177) >>> 0;
+          const a2 = ((n & 1023) / 1023 - 0.5) * 2;
+          const b2 = (((n >>> 10) & 1023) / 1023 - 0.5) * 2;
+          return [a2 * wob, b2 * wob];
+        };
         // GLASS and LIGHT add rather than cover, so overlapping bodies
         // brighten where they meet — which is what makes them read as
         // transparent rather than as flat shapes at low opacity.
@@ -330,6 +369,16 @@ reg(
               if (px) ctx.lineTo(qx, qy);
               else ctx.moveTo(qx, qy);
               px = [qx, qy];
+            }
+          } else if (boiling) {
+            // Seeded on the PATH as well as the point, so two paths that
+            // share a vertex do not shiver in lockstep — which would read
+            // as the whole form wobbling rather than as a drawn line.
+            const j0 = jitter(pi * 9973);
+            ctx.moveTo(path[0][0] + j0[0], path[0][1] + j0[1]);
+            for (let i = 1; i < path.length; i++) {
+              const j = jitter(pi * 9973 + i);
+              ctx.lineTo(path[i][0] + j[0], path[i][1] + j[1]);
             }
           } else {
             ctx.moveTo(path[0][0], path[0][1]);

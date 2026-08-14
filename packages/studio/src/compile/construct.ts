@@ -568,6 +568,8 @@ export const CONSTRUCTIONS: Construction[] = [
         energy: style.energy,
         abstraction: style.abstraction,
         typography: style.typography,
+        experimentalism: style.experimentalism,
+        restraint: style.restraint,
         seed: 101 + beat.index * 7,
       };
       const mode = (rep?.mode ?? "literal") as Mode;

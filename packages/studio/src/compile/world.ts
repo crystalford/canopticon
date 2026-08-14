@@ -89,6 +89,10 @@ export interface WorldInputs {
   energy: number;
   abstraction: number;
   typography: number;
+  /** Carried through to the grammar's Material — the SHIVER is read off
+   *  them. See `grammar-visual.ts`. */
+  experimentalism?: number;
+  restraint?: number;
   seed: number;
   /** What this moment earned, and when it is spoken — see `promote.ts`. */
   level?: number;
@@ -130,6 +134,10 @@ export function stepWorld(input: WorldInputs): SceneWorld {
     energy: input.energy,
     abstraction: input.abstraction,
     typography: input.typography,
+    // The shiver is read off these — a world scene should not sit still
+    // while a cut scene in the same film boils. See `grammar-visual.ts`.
+    ...(input.experimentalism !== undefined ? { experimentalism: input.experimentalism } : {}),
+    ...(input.restraint !== undefined ? { restraint: input.restraint } : {}),
     seed: input.seed,
     ...(input.level !== undefined ? { level: input.level } : {}),
     ...(input.register !== undefined ? { register: input.register } : {}),
