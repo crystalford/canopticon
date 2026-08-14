@@ -754,7 +754,14 @@ function layerB(w, h, t) {
   o.lineWidth = 2;
   for (let i = 0; i < 16; i++) {
     o.beginPath();
-    o.arc(w / 2, h / 2, (i / 16) * Math.min(w, h) * 0.6 + Math.sin(t + i * 0.4) * 7, 0, 6.3);
+    /* CLAMPED — `arc` throws on a negative radius and takes the whole
+     * frame down with it. The innermost ring is at radius 0, and the
+     * ±7px wobble pushes it below zero for part of every cycle: a hard
+     * IndexSizeError, thrown from inside a chain, on a film that had
+     * compiled and validated cleanly. Found by rendering, not by
+     * reasoning — nothing upstream can see it. */
+    const r = (i / 16) * Math.min(w, h) * 0.6 + Math.sin(t + i * 0.4) * 7;
+    o.arc(w / 2, h / 2, Math.max(0.5, r), 0, 6.3);
     o.stroke();
   }
   o.fillStyle = INK;

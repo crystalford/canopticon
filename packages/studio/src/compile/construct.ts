@@ -135,6 +135,9 @@ export interface Beat {
    *  route in every approach, since both are checkable facts about the
    *  prose and outrank a preference. `hybrid` leaves everything alone. */
   approach?: "text" | "abstract" | "world" | "image" | "hybrid" | undefined;
+  /** True when this scene has a promoted phrase to put on screen. Read
+   *  only by `assemble`, to keep a typeset frame out of the resamplers. */
+  setsType?: boolean | undefined;
   /** THE FILM'S WORLD, ALREADY ADVANCED.
    *
    *  Present when the film has continuity. The graph's elements arrive with
@@ -1172,7 +1175,17 @@ const OPERATORS: Operator[] = [
   {
     id: "trace",
     chain: ["ascii_render", "particle_trail"],
-    appetite: (s) => s.typography * 0.6 + s.experimentalism * 0.2,
+    /* NOT KEYED ON TYPOGRAPHY. This was `s.typography * 0.6`, and
+     * `ascii_render` re-reads the whole frame as character cells — so the
+     * more the argument turned on a line, the more likely the engine was
+     * to transcribe that line into a grid of dots. Measured: a level-4
+     * statement rendered through `ascii_render{scale: 0.685}` and could
+     * not be read at any size.
+     *
+     * Transcribing an IMAGE into characters is a real and good idea; it is
+     * a treatment for a picture. Applied to words it destroys the thing it
+     * was reaching for, which is the definition of the wrong appetite. */
+    appetite: (s) => s.experimentalism * 0.5 + (1 - s.typography) * 0.3,
     params: (s, id) =>
       id === "ascii_render"
         ? {
@@ -1215,6 +1228,34 @@ const OPERATORS: Operator[] = [
  *  than drawing anything, which is why the executor folds it into the
  *  clock instead of running it as a stage. */
 const MOTION_TAIL = ["parallax_layers", "ease_profile"];
+
+/** Primitives that RESAMPLE the finished frame — they slice it, offset it,
+ *  quantise it or re-read it as characters. Every one is a good treatment
+ *  for a picture and every one destroys type.
+ *
+ *  Measured at 1280×720: `parallax_layers` shifted the slice carrying the
+ *  first word off the left edge, so "position, not a person" rendered as
+ *  "osition, not a person" in all three sampled frames. It was not a
+ *  centring bug — the type was drawn correctly and then moved. */
+/** Type drawn as real glyphs — the stack whose frame must not be
+ *  resampled. `glyph_geometry` is deliberately absent: a word made of
+ *  points is ALREADY a resampling, and treating it further is the point of
+ *  the kinetic register. */
+const isSetType = (id: string) => id === "text_layout" || id === "variable_axis";
+
+/** Every primitive in a program, grounds included. */
+function flatIds(ns: PlannedNode[]): string[] {
+  return ns.flatMap((n) => [n.primitiveId, ...(n.ground ? flatIds(n.ground) : [])]);
+}
+
+const RESAMPLES_THE_FRAME = new Set([
+  "parallax_layers",
+  "pixel_quantise",
+  "pixelate",
+  "dither",
+  "ascii_render",
+  "blur",
+]);
 
 /* ════════════════════════════════════════════════════════════════════
    CANDIDATES — several programs, not one.
@@ -1382,8 +1423,26 @@ export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Pro
 
   for (const { c, fit, dislocated, rep } of considered) {
     const built = c.build(beat, style, rep);
+    /* DOES THIS PROGRAM PUT SET WORDS ON SCREEN? Asked of what was
+     * actually built rather than of the beat, because the answer depends
+     * on which construction won and which register it used — and the
+     * treatment that must not run is a fact about the picture, not about
+     * the sentence. */
+    /* FLATTENED, because the type is almost never at the top level.
+     *
+     * `serialiseScene` puts every element after the first on a
+     * compositor's SECOND INPUT, so a scene of a ground plus a phrase has
+     * `text_layout` inside `layer_over.ground` — and a `.some()` over
+     * `built.nodes` finds nothing. Measured: the guard was written,
+     * typechecked, and did not fire once; the frame still came back
+     * resampled by `parallax_layers`, with the first word sliced off.
+     *
+     * Standing rule 11 — a compositional structure is not implemented
+     * until every system that operates on a visual program treats it
+     * recursively. This is the fourth consumer to need that reminder. */
+    const setsType = Boolean(beat.setsType) && flatIds(built.nodes).some(isSetType);
     for (const stack of stacks) {
-      const program = assemble(c.id, built, stack, style, budgetMs);
+      const program = assemble(c.id, built, stack, style, budgetMs, setsType);
       if (!program) continue;
       program.dislocated = dislocated;
       // The visual IDEA this program is a realisation of, carried onto
@@ -1518,6 +1577,7 @@ function assemble(
   stack: Operator[],
   style: Style,
   budgetMs: number,
+  setsType = false,
 ): Program | null {
   const nodes = [...built.nodes];
   const applied: string[] = [];
@@ -1543,6 +1603,12 @@ function assemble(
     }
     if (!ok) continue;
     if (chainCost(candidate.map((n) => n.primitiveId)) > budgetMs) continue;
+    // A scene whose subject is WORDS does not get its frame resampled.
+    // `language.ts` already keeps this discipline — its `surface()` may
+    // return nothing, documented as the one degree of freedom that stops a
+    // language being turned into raster mush by an operator tail — and the
+    // construction path was bypassing it entirely.
+    if (setsType && op.chain.some((id) => RESAMPLES_THE_FRAME.has(id))) continue;
     /* AN OPERATOR MAY NOT PAINT OVER WHAT IT WAS APPLIED TO.
      *
      * `chainOverwrites` has always been able to detect this and has only
@@ -1574,6 +1640,7 @@ function assemble(
 
   // The motion tail, if it still fits and can legally attach.
   for (const primitiveId of MOTION_TAIL) {
+    if (setsType && RESAMPLES_THE_FRAME.has(primitiveId)) continue;
     const last = nodes[nodes.length - 1]?.primitiveId;
     if (!last || !canChain(last, primitiveId)) break;
     const withTail = [...nodes.map((n) => n.primitiveId), primitiveId];

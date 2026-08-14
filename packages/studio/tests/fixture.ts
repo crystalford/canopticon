@@ -171,6 +171,7 @@ export function buildFixtureIR(): EditorialIR {
     irVersion: "0.1.0",
     continuity: "cut",
     visualApproach: "hybrid",
+    typeRegister: "auto",
     logline:
       "An emergency order written for ninety days, renewed forty-one times, now cited as settled law.",
     essay: ESSAY,

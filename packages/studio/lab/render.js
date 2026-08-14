@@ -129,7 +129,7 @@ function drawFrame(ctx, scenes, frame, fps, w, h, chrome) {
 
   const localMs = ms - active.scene.startMs;
   if (built.errors && built.errors.length) {
-    ctx.fillStyle = "#0d0f11";
+    ctx.fillStyle = BG;
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = "#d8624a";
     ctx.font = '500 13px "JetBrains Mono",monospace';
@@ -141,7 +141,14 @@ function drawFrame(ctx, scenes, frame, fps, w, h, chrome) {
     // over an uncleared canvas leaves the PREVIOUS FRAME showing through
     // the holes. The film smears, and it smears in a way that looks like a
     // deliberate effect until you step through it.
-    ctx.fillStyle = "#0d0f11";
+    /* THE DIRECTOR'S OWN GROUND, not a constant.
+     *
+     * This cleared to `#0d0f11` — the pre-palette black, hardcoded, still
+     * here after `resolvePalette` became the single translation point. So
+     * wherever a chain's last buffer carried transparency, the film showed
+     * a near-black no director could reach, underneath everything, on
+     * every frame of every film including the light ones. */
+    ctx.fillStyle = BG;
     ctx.fillRect(0, 0, w, h);
     ctx.drawImage(buf, 0, 0, w, h);
   }

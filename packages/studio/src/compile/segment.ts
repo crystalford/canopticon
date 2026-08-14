@@ -282,6 +282,7 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
     // HYBRID leaves every representation weight alone, so a segmented
     // film composes exactly as it did before the axis existed.
     visualApproach: "hybrid",
+    typeRegister: "auto",
     essay,
     acts,
     // THE FULL VOCABULARY, not a subset.

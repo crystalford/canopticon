@@ -182,7 +182,17 @@ export function focusOf(els: Element[]): Element | undefined {
  *  Deliberately reuses the same eight verbs — a field of many is REPEAT,
  *  a ground is FRAME at low weight, typography is WORD. Nothing here is a
  *  new vocabulary; it is the existing one used more than once per frame. */
-function opsFor(role: Role, mode: Mode, words = true): Op[] {
+/** Whether this element's words are SET by a glyph primitive that draws
+ *  its own finished frame, rather than SAMPLED into geometry the scene
+ *  composes. The single source of truth for the branch `WORD` takes. */
+export function setsOwnType(mode: Mode, level?: number, register?: string): boolean {
+  if (mode !== "typographic") return false;
+  if (register === "kinetic") return false;
+  if (register === "auto" && (level ?? 2) >= 4) return false;
+  return true;
+}
+
+function opsFor(role: Role, mode: Mode, words = true, level?: number, register?: string): Op[] {
   /* NO WORDS MEANS NO WORD OP — and this is what a text-driven film
    * actually is.
    *
@@ -200,6 +210,22 @@ function opsFor(role: Role, mode: Mode, words = true): Op[] {
    * a caption nobody wrote. */
   if (!words && (role === "PRIMARY" || role === "TEXT") && mode === "typographic") {
     return role === "TEXT" ? [] : ["MARK", "CONTOUR", "PLACE", "FRAME"];
+  }
+  /* A SET WORD DRAWS ITS OWN FRAME.
+   *
+   * `WORD → PLACE → FRAME` is right for the sampled stack, where the type
+   * is a point cloud that has to be composed like any other form. It is
+   * wrong for `text_layout` and `variable_axis`, which measure the string
+   * and fill the frame themselves: `place` would re-sample the finished
+   * canvas and then size it by `min(w,h) / max(fw,fh)`, shrinking a wide
+   * line by its own aspect ratio. Measured — that is why every set phrase
+   * came out a fifth the size of the title.
+   *
+   * `setsOwnType` is decided in one place, by the same rule the WORD op
+   * branches on, so the recipe and the primitive can never disagree about
+   * which stack is running. */
+  if (words && setsOwnType(mode, level, register)) {
+    if (role === "PRIMARY" || role === "TEXT") return ["WORD"];
   }
   /* THE SURFACE THAT CONCEALS. An aperture is a RELATION BETWEEN TWO
    * SPACES, so it cannot live inside one element's chain — it needs
@@ -318,7 +344,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   if (a.nested || m.density > 0.45) {
     els.push({
       role: "GROUND",
-      ops: opsFor("GROUND", mode, hasWords),
+      ops: opsFor("GROUND", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.GROUND ?? 0,
       place: { scale: 1.7 + m.density * 0.8, x: 0.5, y: 0.5, crop: 1 },
       depth: 0,
@@ -332,7 +358,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   const from = sem.entities[rel.from]?.text;
   els.push({
     role: a.field ? "FIELD" : "SECONDARY",
-    ops: opsFor(a.field ? "FIELD" : "SECONDARY", mode, hasWords),
+    ops: opsFor(a.field ? "FIELD" : "SECONDARY", mode, hasWords, m.level, m.register),
     material: MATERIAL[mode]?.[a.field ? "FIELD" : "SECONDARY"] ?? 0,
     place: { scale: a.to.scale, x: a.to.x, y: a.to.y, crop: a.to.scale > 1 ? 1 : 0 },
     depth: 0.35,
@@ -343,7 +369,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   // THE FROM-ENTITY, which the arrangement usually makes dominant.
   els.push({
     role: "PRIMARY",
-    ops: opsFor("PRIMARY", mode, hasWords),
+    ops: opsFor("PRIMARY", mode, hasWords, m.level, m.register),
     material: MATERIAL[mode]?.PRIMARY ?? 0,
     place: { scale: a.from.scale, x: a.from.x, y: a.from.y, crop: a.from.scale > 1 ? 1 : 0 },
     depth: a.nested ? 0.2 : 0.65,
@@ -370,7 +396,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   if (mode === "structural") {
     els.push({
       role: "SURFACE",
-      ops: opsFor("SURFACE", mode, hasWords),
+      ops: opsFor("SURFACE", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.SURFACE ?? 0,
       place: { scale: 1, x: 0.5, y: 0.5, crop: 0 },
       depth: 0.99,
@@ -381,7 +407,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   if (mode !== "typographic" && m.phrase && m.typography > 0.4) {
     els.push({
       role: "TEXT",
-      ops: opsFor("TEXT", mode, hasWords),
+      ops: opsFor("TEXT", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.TEXT ?? 0,
       place: { scale: 0.1 + m.typography * 0.1, x: 0.2, y: 0.88, crop: 0 },
       depth: 0.95,
@@ -414,7 +440,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   if (!airy || mode === "structural") {
     els.push({
       role: "GROUND",
-      ops: opsFor("GROUND", mode, hasWords),
+      ops: opsFor("GROUND", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.GROUND ?? 0,
       place: { scale: 1.6 + m.density * 0.9, x: 0.5, y: 0.5, crop: 1 },
       depth: 0,
@@ -426,7 +452,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   if (many) {
     els.push({
       role: "FIELD",
-      ops: opsFor("FIELD", mode, hasWords),
+      ops: opsFor("FIELD", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.FIELD ?? 0,
       place: { scale: 1.15, x: 0.5, y: 0.5, crop: 1 },
       depth: 0.25,
@@ -443,7 +469,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
       : 0.75 + (1 - m.density) * 0.5;
   els.push({
     role: "PRIMARY",
-    ops: opsFor("PRIMARY", mode, hasWords),
+    ops: opsFor("PRIMARY", mode, hasWords, m.level, m.register),
     material: MATERIAL[mode]?.PRIMARY ?? 0,
     place: {
       scale: clamp(pScale, 0.05, 4),
@@ -466,7 +492,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   if (m.relation) {
     els.push({
       role: "SECONDARY",
-      ops: opsFor("SECONDARY", mode, hasWords),
+      ops: opsFor("SECONDARY", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.SECONDARY ?? 0,
       place: {
         scale: clamp(pScale * 0.42, 0.05, 4),
@@ -482,7 +508,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   if (mode === "structural") {
     els.push({
       role: "SURFACE",
-      ops: opsFor("SURFACE", mode, hasWords),
+      ops: opsFor("SURFACE", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.SURFACE ?? 0,
       place: { scale: 1, x: 0.5, y: 0.5, crop: 0 },
       depth: 0.99,
@@ -496,7 +522,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   if (mode !== "typographic" && m.phrase && m.typography > 0.4) {
     els.push({
       role: "TEXT",
-      ops: opsFor("TEXT", mode, hasWords),
+      ops: opsFor("TEXT", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.TEXT ?? 0,
       /* AN ACCENT, NOT A HEADLINE.
        *

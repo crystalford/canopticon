@@ -128,10 +128,20 @@ function bg(ctx, w, h, a) {
   ctx.fillStyle = a ? `rgba(${BG_RGB[0]},${BG_RGB[1]},${BG_RGB[2]},${a})` : BG;
   ctx.fillRect(0, 0, w, h);
 }
+/* THE AUDIT LABEL — and it takes the film's palette like everything else.
+ *
+ * `#69717a` was hardcoded, and this is called 124 times across the ten
+ * prims files. On the default resolved ground `#252e24` that is about
+ * 2.5:1: the one piece of type in many frames, drawn palette-blind and
+ * illegible, while the film's own ink resolves at 12:1. It is also the
+ * only reason a rendered frame has grey strings in its corners.
+ *
+ * `MUT` is the palette's own muted tone, which is what a label wants:
+ * present, subordinate, and made of the same world as everything else. */
 function lab(ctx, t, x, y, c) {
   ctx.font = "8px JetBrains Mono";
   ctx.textBaseline = "top";
-  ctx.fillStyle = c || "#69717a";
+  ctx.fillStyle = c || MUT;
   ctx.fillText(t, x, y);
 }
 /* ── THE PAYLOAD CONTRACT ─────────────────────────────────────────────

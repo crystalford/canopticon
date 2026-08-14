@@ -451,6 +451,19 @@ export const EditorialIRSchema = z.object({
    *  preference. `hybrid` is the default and leaves every weight alone, so
    *  every film composed before this field existed composes identically. */
   visualApproach: z.enum(["text", "abstract", "world", "image", "hybrid"]).default("hybrid"),
+  /** HOW THE TYPE IS SET — one layer below the approach, and only
+   *  meaningful when the words are on screen at all.
+   *
+   *    editorial  set, large, composed. Legibility is the point.
+   *    fiore      violent scale, cropped by the frame, halftone ground —
+   *               the Medium is the Massage register the palette's own
+   *               A-family docs already describe.
+   *    kinetic    letterforms sampled into points and taken apart. The
+   *               only register the sampled stack is genuinely for.
+   *    auto       set for a marker or a phrase, kinetic for the thesis.
+   *
+   *  `auto` is the default, so a film that never touches this reads. */
+  typeRegister: z.enum(["editorial", "fiore", "kinetic", "auto"]).default("auto"),
   /** The film's captured look, when it has one. Optional: a film without
    *  a grammar is composed from the curves alone, exactly as before. */
   grammar: VisualGrammarSchema.optional(),

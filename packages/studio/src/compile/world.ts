@@ -80,6 +80,7 @@ export interface WorldInputs {
   seed: number;
   /** What this moment earned, and when it is spoken — see `promote.ts`. */
   level?: number;
+  register?: string;
   enterAtMs?: number | null;
   holdMs?: number | null;
   rep: Representation | null;
@@ -111,6 +112,7 @@ export function stepWorld(input: WorldInputs): SceneWorld {
     typography: input.typography,
     seed: input.seed,
     ...(input.level !== undefined ? { level: input.level } : {}),
+    ...(input.register !== undefined ? { register: input.register } : {}),
     ...(input.enterAtMs !== undefined ? { enterAtMs: input.enterAtMs } : {}),
     ...(input.holdMs !== undefined ? { holdMs: input.holdMs } : {}),
   };

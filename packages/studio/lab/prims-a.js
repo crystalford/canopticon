@@ -27,6 +27,18 @@ const TXT = (t) => ({ s: t });
  * reads as broken software, which is worse than plain, so this measures and
  * shrinks until it actually fits.
  */
+/* THE CAP IS A FRACTION OF THE FRAME, NOT A NUMBER OF PIXELS.
+ *
+ * Every caller passed an absolute px ceiling — 44, 72, 30, 46, 58, 44 —
+ * so `text_layout` mode 0 topped out at 44px whatever it was rendering
+ * into. At a 1280×720 film that is SIX PER CENT of frame height: the
+ * title of the film, set at the size of a caption, and invisible as a bug
+ * at the 640×360 the preview happens to use. The one caller that got it
+ * right (`text_repeat`, `ch * 0.6`) is the model.
+ *
+ * Callers now pass `h * fraction`. `fit` still measures and shrinks to
+ * respect the width, so a long phrase comes down from the cap rather than
+ * running off the frame. */
 function fit(ctx, text, w, max, weight) {
   const face = (px) => (weight || 600) + " " + px + 'px "Space Grotesk",sans-serif';
   let size = Math.min(max, w / (Math.max(1, text.length) * 0.58));
@@ -62,18 +74,51 @@ reg(
       ctx.textBaseline = "middle";
       const names = ["CENTERED", "EDITORIAL", "ASYMMETRIC", "STACKED", "CIRCULAR", "SCATTERED"];
       if (M === 0) {
-        const s = fit(ctx, p.text, w * 0.9, 44);
-        ctx.textAlign = "center";
+        /* CENTRED — and it honours `scale` like every other mode.
+         *
+         * `scale` was read by modes 1–3 and ignored here, so the one mode
+         * the compiler reaches for most had exactly one size. A marker in
+         * the corner of a frame and a statement that carries the shot were
+         * the same height, which is not a register, it is a default. */
+        /* SPACING BEFORE MEASURING — the trap `fit` documents in its own
+         * comment, and this mode fell straight into it. Letter spacing was
+         * applied AFTER the string had been measured, so a phrase that
+         * `fit` had shrunk to 90% of the width was then widened past the
+         * frame and clipped at both ends. Rendered at 1280×720 it read
+         * "osition, not a person". */
         ctx.letterSpacing = p.tracking * 8 + "px";
-        ctx.fillText(p.text, w / 2, h / 2);
+        const s = fit(ctx, p.text, w * 0.9, h * 0.34 * p.scale);
+        /* CENTRED BY MEASUREMENT, NOT BY `textAlign`.
+         *
+         * Canvas letter spacing adds a gap after EVERY character including
+         * the last, and `textAlign: "center"` centres the advance box —
+         * which includes that trailing gap. So the visible glyphs sat left
+         * of centre by half the spacing and a phrase filling 90% of the
+         * width lost its first letter off the frame. Measured at 1280×720:
+         * "position, not a person" rendered as "osition, not a person". */
+        const adv = ctx.measureText(p.text).width;
+        ctx.textAlign = "left";
+        ctx.fillText(p.text, Math.max(0, (w - adv) / 2), h / 2);
       } else if (M === 1) {
         ctx.textAlign = "left";
         let y = h * 0.24;
         words.forEach((v, i) => {
           const s = h * 0.16 * p.scale * (i === 0 ? 1.6 : 1);
           ctx.font = "600 " + s + 'px "Space Grotesk",sans-serif';
-          ctx.fillStyle = i ? MUT : INK;
+          /* THE FIRST WORD LEADS; THE REST ARE STILL THE SENTENCE.
+           *
+           * This was `i ? MUT : INK` — every word after the first drawn in
+           * the palette's muted tone, which on the default film is a
+           * mid grey against near-white. The compiler picks this mode from
+           * `style.typography` without being asked, so a promoted phrase
+           * could arrive with four of its five words greyed out. A
+           * hierarchy within one line is a matter of weight and size,
+           * which this mode already varies; it does not need to take the
+           * ink away from most of the words. */
+          ctx.fillStyle = INK;
+          ctx.globalAlpha = i ? 0.82 : 1;
           ctx.fillText(v, w * 0.09, y);
+          ctx.globalAlpha = 1;
           y += s * 1.15;
         });
       } else if (M === 2) {
@@ -131,7 +176,7 @@ reg(
   (p) => ({
     frame(ctx, w, h, t) {
       bg(ctx, w, h);
-      const s = fit(ctx, p.text, w * 0.86, 72);
+      const s = fit(ctx, p.text, w * 0.86, h * 0.3);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.lineWidth = 0.5 + p.weight * 2.5;
@@ -162,7 +207,7 @@ reg(
       const cyc = (t * 0.5) % 2;
       const us =
         p.unit < 0.5 ? p.text.split("") : p.unit < 1.5 ? p.text.split(" ") : p.text.split("\n");
-      const s = fit(ctx, p.text, w * 0.9, 30);
+      const s = fit(ctx, p.text, w * 0.9, h * 0.17);
       ctx.textBaseline = "middle";
       const ws = us.map((u) => ctx.measureText(u + " ").width);
       let x = (w - ws.reduce((a, b) => a + b, 0)) / 2;
@@ -197,7 +242,7 @@ reg(
       const cs = sets[Math.round(p.charset)],
         cyc = (t * p.rate * 0.5) % 1.6,
         tg = p.text;
-      const s = fit(ctx, tg, w * 0.85, 46);
+      const s = fit(ctx, tg, w * 0.85, h * 0.2);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       const r = mulberry(Math.floor(t * 22));
@@ -237,7 +282,7 @@ reg(
       // `fit`, which measures. Letter spacing is applied FIRST because it
       // changes the measurement.
       ctx.letterSpacing = (p.width - 0.5) * 7 + "px";
-      const s = fit(ctx, p.text, w * 0.86, 58, weight);
+      const s = fit(ctx, p.text, w * 0.86, h * 0.28, weight);
       ctx.font = weight + " " + s + 'px "Space Grotesk",sans-serif';
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -260,7 +305,7 @@ reg(
     frame(ctx, w, h, t) {
       bg(ctx, w, h);
       const c = Math.sin(t * p.rate * 2) * 0.5 + 0.5;
-      const s = fit(ctx, p.from.length > p.to.length ? p.from : p.to, w * 0.85, 44);
+      const s = fit(ctx, p.from.length > p.to.length ? p.from : p.to, w * 0.85, h * 0.24);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.globalAlpha = 1 - c;

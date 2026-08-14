@@ -237,12 +237,10 @@ export interface ComposedScene {
   } | null;
 }
 
-/** Density and typography earn extra compositing depth; restraint takes it
- *  away. Kept as named constants so the Lab can tune them against measured
- *  cost rather than taste alone. */
-const DENSITY_BLEND_AT = 0.55;
-const DENSITY_NEST_AT = 0.75;
-const TYPO_VARIABLE_AXIS_AT = 0.55;
+/* THE DENSITY THRESHOLDS ARE GONE WITH WHAT THEY DROVE. They appended a
+ * two-input compositor with nothing on its second input, which is not
+ * depth — it is a stock plate painted over the scene. Depth comes from
+ * the scene graph, which composes real elements onto real grounds. */
 /** Real-time playback: 60fps leaves 16ms a frame. The Preview plays at this
  *  rate, so a chain above it will drop frames while a director is watching. */
 const REALTIME_FRAME_MS = 16;
@@ -489,6 +487,10 @@ export function composeScene(
       // `fit` and by `representationsFor`, and by nothing else — it is a
       // preference about the picture, not a fact about the sentence.
       approach: ir.visualApproach,
+      // Whether this scene is allowed to have its frame resampled. A
+      // promoted phrase drawn as type and then sliced by `parallax_layers`
+      // loses its first word off the edge — measured, at 1280×720.
+      setsType: Boolean(promotion && promotion.level > 0 && promotion.text),
       ...(intentReading ? { intent: intentReading } : {}),
     };
     // ── the director's verbs ───────────────────────────────────────
@@ -620,6 +622,7 @@ export function composeScene(
         // measured word — see `grammar-visual.ts`'s WORD and
         // `serialiseScene`'s tween.
         level: promotion?.level ?? 2,
+        register: ir.typeRegister,
         /* CLAMPED INTO THE SCENE IT PLAYS IN.
          *
          * A measured word can sit outside its own scene's solved window —
@@ -768,21 +771,32 @@ export function composeScene(
   }
 
   // ── precedence 7 continued: density and typography from the curves ──
-  if (density > DENSITY_BLEND_AT && !chain.includes("blend")) {
-    chain.push("blend");
-    planned.push(null);
-    reasons.set("blend", `density ${density.toFixed(2)} — compositing depth`);
-  }
-  if (density > DENSITY_NEST_AT && !chain.includes("nest")) {
-    chain.push("nest");
-    planned.push(null);
-    reasons.set("nest", `density ${density.toFixed(2)} — nested composition`);
-  }
-  if (typography > TYPO_VARIABLE_AXIS_AT && !chain.includes("variable_axis")) {
-    chain.push("variable_axis");
-    planned.push(null);
-    reasons.set("variable_axis", `typographic weight ${typography.toFixed(2)}`);
-  }
+  /* A COMPOSITOR WITH NOTHING ON ITS SECOND INPUT IS NOT DEPTH.
+   *
+   * `blend` and `nest` were appended whenever density crossed a threshold,
+   * with `planned.push(null)` — meaning no ground, ever. A two-input
+   * primitive given nothing on its B side falls back to a STOCK PLATE, and
+   * the stock plate reads "90 DAYS": a phrase from a different essay,
+   * painted over the sentence the scene was about.
+   *
+   * Measured at 1280×720 on the test film: one of eight scenes rendered
+   * "90 DAYS" in place of "position, not a person". It is the same
+   * empty-compositor signature this codebase already names — an operator
+   * that consumes a second input it was never given.
+   *
+   * Depth comes from the scene graph, which composes real elements onto
+   * real grounds. A density dial cannot manufacture a second layer out of
+   * nothing, and appending the compositor that pretends it can is how a
+   * film ends up quoting an essay nobody wrote. */
+  /* `variable_axis` WAS APPENDED HERE AND IS NOT A TAIL. It is a SOURCE — it draws its own
+   * frame from nothing — so appending it to a composed scene deleted the
+   * scene and drew the phrase instead. That is why the title was the one
+   * frame that looked right, and why it was right for the wrong reason:
+   * the composition underneath it was never visible.
+   *
+   * It is reachable where it belongs, as the level-4 statement in the WORD
+   * op, chosen because a thesis should take the frame rather than because
+   * a curve crossed 0.55. */
 
   // Restraint caps how much can be on screen at once. Experimentalism buys
   // headroom back.

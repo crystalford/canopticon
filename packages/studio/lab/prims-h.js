@@ -232,14 +232,30 @@ reg(
       /* The plate itself is never blurred — only what is drawn onto it.
        * `recede` is applied around the marks and lifted before the label
        * so the audit text stays legible at any depth. */
+      /* RECEDING IS BLUR AND WEIGHT, NOT A WASH OVER THE WHOLE FRAME.
+       *
+       * `settle()` used to flood the ENTIRE canvas with ground colour at
+       * `recede * 0.78`. The compiler assigns `recede = (1 - emphasis) *
+       * 0.62` in `applyEmphasis`, so any element that was not the focus
+       * poured up to 48% of the ground over everything drawn before it —
+       * not over itself, over the frame. Measured: the palette resolves
+       * near-white ink `#e7e8e6` on `#252e24`, about 12:1, and the frames
+       * came out around `#8a9088`. That is where "low-contrast grey on
+       * near-black" came from, and it was a hierarchy control doing
+       * exactly what it was told, one layer too broadly.
+       *
+       * A thing that is further away is softer and lighter-weight. It is
+       * not a thing with fog poured over the room. So the blur stays, the
+       * marks themselves are drawn at a reduced alpha, and nothing is
+       * painted over the frame afterwards. */
       const far = p.recede;
       if (far > 0.01) ctx.filter = `blur(${(far * far * 5 * Math.min(w, h)) / 400}px)`;
+      // How present this element's own marks are. Floored well above zero:
+      // an element that cannot be seen is not a quiet element, it is a
+      // missing one — the same floor `applyEmphasis` keeps on opacity.
+      const presence = 1 - far * 0.45;
       const settle = () => {
-        if (far <= 0.01) return;
         ctx.filter = "none";
-        ctx.fillStyle = paper;
-        ctx.globalAlpha = far * 0.78;
-        ctx.fillRect(0, 0, w, h);
         ctx.globalAlpha = 1;
       };
 
@@ -267,7 +283,9 @@ reg(
           ctx.shadowColor = ink;
           ctx.shadowBlur = base * 6;
         }
-        ctx.globalAlpha = M === 2 ? 0.45 : M === 3 ? 0.6 : 1;
+        // Presence, not fog. A receded element draws its own marks
+        // lighter; it does not paint over the ones already on the plate.
+        ctx.globalAlpha = (M === 2 ? 0.45 : M === 3 ? 0.6 : 1) * presence;
         for (const path of paths) {
           if (path.length < 2) continue;
           ctx.beginPath();
@@ -357,6 +375,7 @@ reg(
         const moved = Math.hypot(q.x - q.x0, q.y - q.y0);
         const r = base * (1 + Math.min(1.6, moved / 90) * p.halftone);
         ctx.fillStyle = ink;
+        ctx.globalAlpha = presence;
         if (p.halftone > 0.05) {
           ctx.beginPath();
           ctx.arc(q.x, q.y, r * 0.5, 0, Math.PI * 2);

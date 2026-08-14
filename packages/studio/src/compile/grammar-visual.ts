@@ -102,6 +102,11 @@ export interface Material {
    *  simply there rather than arriving. */
   enterAtMs?: number | null;
   holdMs?: number | null;
+  /** WHICH TYPOGRAPHIC REGISTER this film is in — `editorial`, `fiore`,
+   *  `kinetic` or `auto`. Decides whether the words are SET or SAMPLED,
+   *  which is the difference between type that can be read and type that
+   *  is coming apart. */
+  register?: string;
 }
 
 /* ── HIERARCHY: THE ONE TRANSLATION POINT ─────────────────────────────
@@ -321,63 +326,91 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
     const level = m.level ?? 2;
     const phrase = m.phrase;
     if (!phrase.trim()) return [];
-    /* LEVEL 1 — A MARKER. Set flat and small, and that is all it should
-     * be. It was 0.75 scale at every level, which is why a passing label
-     * and the film's thesis were the same size on screen. */
-    if (level <= 1) {
+
+    /* THE TWO TYPOGRAPHIC STACKS, AND WHICH ONE READS.
+     *
+     * The palette has both, and the compiler was routing every promoted
+     * phrase through the one that cannot be read:
+     *
+     *   fillText    text_layout · variable_axis — real glyphs, real
+     *               weights, sized by measuring the actual string
+     *   sampled     glyph_geometry → geometry_draw — a stride-2 grid scan
+     *               of a rasterised word, printed as separated dots
+     *
+     * The sampled stack cannot be tuned into legibility and the audit is
+     * unambiguous about why: its input carries no coverage value, its
+     * points branch ignores `material` entirely, sets no per-point alpha,
+     * and tops out at a 4.4px dot. On top of that `place` sizes a form by
+     * `min(w, h) / max(fw, fh)`, so a WIDE line of type — which every
+     * phrase is — gets shrunk by its own aspect ratio. Measured at
+     * 1280×720: the title through `variable_axis` filled the frame; the
+     * same-level statement through the sampled stack was a grey smear a
+     * fifth the size.
+     *
+     * So type is drawn as type. The sampled stack keeps the one job it is
+     * genuinely the only way to do — a word COMING APART, where the points
+     * are the point — and that is the KINETIC register, chosen rather than
+     * arrived at.
+     *
+     * These emit their own finished frame, so the element's op list is
+     * just WORD: no PLACE, no FRAME. `place` after a fillText source would
+     * re-sample the canvas and shrink it again, which is the bug above
+     * wearing a different hat. */
+    if (m.register === "kinetic" || (m.register === "auto" && level >= 4)) {
       return [
         n(
-          "text_layout",
+          "glyph_geometry",
+          { text: phrase, sampling: level >= 4 ? 2 : 3, scale: 0.94, rotate: 0 },
+          `the words as letterforms, to be taken apart — "${phrase}"`,
+        ),
+        n(
+          "geometry_morph",
           {
-            text: phrase,
-            mode: Math.round(clamp(m.abstraction * 4, 0, 5)),
-            tracking: clamp(0.1 + m.abstraction * 0.5, 0, 1),
-            scale: clamp(0.3 - m.density * 0.08, 0.1, 1),
+            amount: clamp(0.1 + m.energy * 0.28, 0, 1),
+            mode: 1,
+            turbulence: clamp(0.25 + m.abstraction * 0.5, 0, 1),
+            period: clamp(0.2 + m.energy * 0.5, 0.05, 1),
           },
-          `a marker, set small — "${phrase}"`,
+          "coming apart — the statement under strain",
+        ),
+        // NO `geometry_draw` HERE. The kinetic element keeps the full
+        // `WORD → PLACE → FRAME` recipe, and FRAME is what prints it —
+        // appending the printer inside WORD left `place` consuming an
+        // ANIMATION and the whole scene refused to build. Two scenes of
+        // the test film came back as chain errors rather than pictures.
+      ];
+    }
+
+    /* THE THESIS TAKES THE FRAME. `variable_axis` measures the string and
+     * fills the width, and drives the weight axis while it holds — which
+     * is what a statement that has to carry a shot on its own needs. */
+    if (level >= 4) {
+      return [
+        n(
+          "variable_axis",
+          { text: phrase, weight: clamp(0.5 + m.energy * 0.4, 0, 1), animate: 1, width: 0.5 },
+          `the statement, taking the frame — "${phrase}"`,
         ),
       ];
     }
-    /* LEVEL 2+ — LETTERFORMS AS GEOMETRY.
-     *
-     * `glyph_geometry` samples the type into points, so the words become
-     * an ELEMENT of the scene that can be placed, cropped, composited and
-     * deformed — rather than a plate pasted over one. Sampling tightens
-     * with the level: the same word is READ at 2 and LOOKED AT at 4.
-     *
-     * `text_stagger_units` was the obvious choice for "the words arrive"
-     * and is the wrong one twice over: it emits ANIMATION where the
-     * recipe's next op needs GEOMETRY, and it animates on its own
-     * `(t*0.5)%2` cycle, which knows nothing about the narration. An
-     * arrival timed to a primitive's internal loop is exactly the
-     * animation-beside-the-voice this pass exists to end. The arrival is
-     * a TWEEN on `place`, cued to the measured word — see `promote.ts`. */
-    /* SAMPLING IS THE STRIDE, so a LOWER number is a denser letterform.
-     * Measured on the frames: 6 and 5 gave sparse grey specks that could
-     * not be read at any size — type as a suggestion of type. A word has
-     * to be legible before any of the rest of this means anything. */
-    const sampling = level >= 4 ? 2 : 3;
-    const scale = level >= 4 ? 0.94 : level >= 3 ? 0.78 : 0.6;
+
+    /* EVERYTHING ELSE IS SET. The mode is the composition — centred,
+     * editorial, asymmetric — and the scale is what the level earned. A
+     * marker and a statement are not one line at two sizes only because
+     * they are also two arrangements. */
+    const mode = level >= 3 ? (m.abstraction > 0.55 ? 2 : 0) : level === 2 ? 0 : 1;
+    const scale = level >= 3 ? 0.9 : level === 2 ? 0.62 : 0.34;
     return [
       n(
-        "glyph_geometry",
-        { text: phrase, sampling, scale, rotate: 0 },
-        `the words as letterforms — "${phrase}"`,
+        "text_layout",
+        {
+          text: phrase,
+          mode,
+          tracking: clamp(0.08 + m.abstraction * 0.4, 0, 1),
+          scale,
+        },
+        level >= 3 ? `set to carry the frame — "${phrase}"` : `set — "${phrase}"`,
       ),
-      ...(level >= 4
-        ? [
-            n(
-              "geometry_morph",
-              {
-                amount: clamp(0.1 + m.energy * 0.28, 0, 1),
-                mode: 1,
-                turbulence: clamp(0.25 + m.abstraction * 0.5, 0, 1),
-                period: clamp(0.2 + m.energy * 0.5, 0.05, 1),
-              },
-              "the letterforms under strain — a thesis is not still",
-            ),
-          ]
-        : []),
     ];
   },
 
