@@ -902,6 +902,66 @@ app.post("/project/:id/grammar", async (c) => {
  *  A failure here degrades one scene. The audio it did produce is kept
  *  even when the alignment fails, because good audio with a nominal window
  *  is worth more than no audio. */
+/** NARRATE EVERY REMAINING SCENE, in chunks, writing a version per chunk.
+ *
+ *  Chunked rather than one enormous pass for two reasons that are both
+ *  about not losing work: a version written per chunk means a failure
+ *  half way through keeps the audio it already bought, and re-reading the
+ *  IR each round picks up the scenes the previous round finished so the
+ *  loop terminates on real progress rather than on a counter.
+ *
+ *  Runs inside `waitUntil`, so it survives the operator closing the tab —
+ *  which is the whole point. Narration is part of making the film. */
+async function narrateWholeFilm(
+  env: Env,
+  projectId: string,
+  opts: { force?: boolean; voice?: string; limit?: number },
+): Promise<void> {
+  const CHUNK = 8;
+  for (let round = 0; round < 40; round++) {
+    const project = await one<ProjectRow>(env.DB, "SELECT * FROM projects WHERE id = ?", [
+      projectId,
+    ]);
+    if (!project) return;
+    const version = await loadVersion(env, projectId, project.current_ir_version);
+    if (!version) return;
+    const parsed = parseIR(JSON.parse(version.ir_json));
+    if (!parsed.ok) return;
+
+    const before = voiceStates(parsed.ir);
+    // `force` only applies to the FIRST round; after that the scenes it
+    // re-recorded are ready, and forcing again would loop forever.
+    const force = round === 0 ? opts.force : false;
+    if (!force && before.silent + before.stale === 0) return;
+
+    const nextVersion = project.current_ir_version + 1;
+    const { ir: narratedIR, report } = await narrateScenes(env, projectId, parsed.ir, nextVersion, {
+      limit: CHUNK,
+      ...(force ? { force: true } : {}),
+      ...(opts.voice ? { voice: opts.voice } : {}),
+    });
+    if (report.narrated === 0) {
+      // No progress. Either everything is done or the model is refusing;
+      // either way another round would spend calls for nothing.
+      const why = report.scenes.find((x) => x.status === "failed" && x.reason);
+      if (why) throw new Error(why.reason ?? "the voice could not be recorded");
+      return;
+    }
+    await writeVersion(
+      env,
+      projectId,
+      narratedIR,
+      nextVersion,
+      project.current_ir_version,
+      `Narrated ${report.narrated} scene${report.narrated === 1 ? "" : "s"}${report.failed ? ` (${report.failed} failed)` : ""}`,
+    );
+    await run(env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+      nextVersion,
+      projectId,
+    ]);
+  }
+}
+
 app.post("/project/:id/narrate", async (c) => {
   const projectId = c.req.param("id");
   const body = (await c.req.json().catch(() => ({}))) as {
@@ -909,12 +969,54 @@ app.post("/project/:id/narrate", async (c) => {
     sceneIds?: string[];
     force?: boolean;
     voice?: string;
+    /** Narrate the WHOLE film, in the background, and answer immediately.
+     *  The operator presses once and may close the tab. */
+    background?: boolean;
   };
 
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
     projectId,
   ]);
   if (!project) return c.json({ error: "not found" }, 404);
+
+  /* THE VOICE IS NOT A BATCH JOB THE OPERATOR SUPERVISES.
+   *
+   * Narration used to be driven from the page: six scenes per request, in
+   * a loop, with the progress held in a browser variable — so a 65-scene
+   * film took eleven presses, navigating away abandoned it, and nothing on
+   * the server knew a recording had been started. A film is timed to its
+   * voice; producing that voice belongs to the film being made, not to a
+   * tab staying open.
+   *
+   * `background` starts the whole film and returns at once. The work
+   * continues in `waitUntil`, writes its own progress marker to R2, and
+   * `GET /project/:id/narration` reports it from the IR itself. */
+  if (body.background) {
+    const jobKey = `projects/${projectId}/narration/job.json`;
+    await c.env.FILES.put(jobKey, JSON.stringify({ running: true, startedAt: nowIso() }), {
+      httpMetadata: { contentType: "application/json" },
+    });
+    c.executionCtx.waitUntil(
+      (async () => {
+        try {
+          await narrateWholeFilm(c.env, projectId, { ...body, limit: 0 });
+          await c.env.FILES.put(jobKey, JSON.stringify({ running: false, finishedAt: nowIso() }), {
+            httpMetadata: { contentType: "application/json" },
+          });
+        } catch (err) {
+          // The reason has to survive, or the operator gets a count that
+          // stops moving and no explanation — which is exactly the failure
+          // this whole route is being rebuilt to end.
+          await c.env.FILES.put(
+            jobKey,
+            JSON.stringify({ running: false, reason: (err as Error).message }),
+            { httpMetadata: { contentType: "application/json" } },
+          );
+        }
+      })(),
+    );
+    return c.json({ projectId, started: true, total: 0 }, 202);
+  }
 
   const version = await loadVersion(c.env, projectId, project.current_ir_version);
   if (!version) return c.json({ error: "no IR stored for this project" }, 400);
@@ -950,6 +1052,41 @@ app.post("/project/:id/narrate", async (c) => {
   ]);
 
   return c.json({ projectId, irVersion: nextVersion, ...report });
+});
+
+/** WHERE THE VOICE HAS GOT TO — asked of the film itself.
+ *
+ *  The browser used to be the only thing that knew: it drove narration in
+ *  a loop of six-scene requests and kept the count in a local variable, so
+ *  navigating away lost the progress and reopening the film could not say
+ *  whether a recording was half done. The IR is the record; `voiceStates`
+ *  has always been able to answer this and nothing asked it.
+ *
+ *  Cheap on purpose — one D1 read, no compile — because the Lab polls it
+ *  while a background narration runs. */
+app.get("/project/:id/narration", async (c) => {
+  const projectId = c.req.param("id");
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid" }, 500);
+  const v = voiceStates(parsed.ir);
+  const job = await c.env.FILES.get(`projects/${projectId}/narration/job.json`);
+  const running = job ? ((await job.json()) as { running?: boolean; reason?: string }) : null;
+  return c.json({
+    projectId,
+    total: parsed.ir.scenes.length,
+    narrated: v.ready,
+    silent: v.silent,
+    stale: v.stale,
+    irVersion: project.current_ir_version,
+    running: Boolean(running?.running),
+    ...(running?.reason ? { reason: running.reason } : {}),
+  });
 });
 
 /** The narration audio itself, so the Lab can play it and the render can

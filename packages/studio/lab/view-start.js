@@ -263,7 +263,19 @@ async function create() {
      * hashed as an input artifact. What changed is that choosing it on the
      * front door starts it, with a bar, instead of leaving it to be found
      * three buttons deep in the library. */
-    if (NEW.voice === "Synthesised") await narrateNow(r.projectId, null, NEW.speaker);
+    /* THE VOICE IS PART OF MAKING THE FILM.
+       *
+       * This looped `narrateNow` from the page — six scenes a request,
+       * with a busy overlay the operator had to sit through, and closing
+       * the tab abandoned it. The server takes the whole film now and
+       * keeps recording after this page has moved on; the film view
+       * reports where it has got to. */
+      if (NEW.voice === "Synthesised") {
+        busy(true, "recording the voice — this continues on the server");
+        await narrateFilm(r.projectId, NEW.speaker ? { voice: NEW.speaker } : {}).catch((e) =>
+          toast("The film is made, but the voice could not start — " + e.message),
+        );
+      }
   } catch (e) {
     busy(false);
     NEW.err = `Couldn't reach the compiler (${e.message}). Your writing is safe in this page — try again, or open the example film and direct that.`;
@@ -291,6 +303,7 @@ async function narrateNow(projectId, onProgress, speaker, force) {
   let done = 0;
   let failed = 0;
   let ms = 0;
+  let lastReason = "";
   try {
     for (;;) {
       const total = liveScenes().length || 1;
@@ -305,6 +318,15 @@ async function narrateNow(projectId, onProgress, speaker, force) {
       });
       done += r.narrated;
       failed += r.failed;
+      /* WHY IT FAILED, IN FRONT OF THE OPERATOR.
+       *
+       * The server reports a `reason` and the model `attempts` for every
+       * scene it could not record — the whole recovery ladder's findings —
+       * and this discarded all of it and toasted "No voice was recorded".
+       * So a broken TTS binding, a rate limit and a bad essay were the same
+       * message, for days. */
+      const why = (r.scenes || []).find((x) => x.status === "failed" && x.reason);
+      if (why) lastReason = why.reason;
       ms += r.narratedMs || 0;
       if (onProgress) onProgress({ done, failed, total, ms });
       if (r.narrated === 0 || r.remaining === 0) break;
@@ -315,8 +337,10 @@ async function narrateNow(projectId, onProgress, speaker, force) {
     }
     toast(
       done > 0
-        ? `Voiced — ${done} moment${done === 1 ? "" : "s"}, ${fmt(ms / 1000)} of speech`
-        : "No voice was recorded — the film is silent",
+        ? `Voiced — ${done} moment${done === 1 ? "" : "s"}, ${fmt(ms / 1000)} of speech${failed ? `, ${failed} failed` : ""}`
+        : lastReason
+          ? `No voice was recorded — ${lastReason}`
+          : "No voice was recorded, and the server gave no reason. Use Test the voice.",
     );
   } catch (e) {
     // Degrade, flag, continue: the film exists and is watchable silent.

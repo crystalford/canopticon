@@ -644,32 +644,83 @@ function bindDirect(root) {
     again.hidden = !(n > 0);
   };
   paintSnd();
+  /* PRESS ONCE. WALK AWAY.
+   *
+   * This drove narration from the page — six scenes per request, in a
+   * loop, with the count in a local variable — so a long film needed
+   * eleven presses and navigating away abandoned it. The server takes the
+   * whole film now and keeps going without this tab; the page only
+   * watches. */
+  let poll = null;
+  const stopPoll = () => {
+    if (poll) clearInterval(poll);
+    poll = null;
+  };
+  const watch = () => {
+    const id = window.STUDIO && window.STUDIO.projectId;
+    if (!id || poll) return;
+    const bar = root.querySelector("#sndbar");
+    const fill = root.querySelector("#sndfill");
+    if (bar) bar.hidden = false;
+    poll = setInterval(async () => {
+      if (!document.getElementById("voicebox")) return stopPoll();
+      let st;
+      try {
+        st = await narrationStatusOf(id);
+      } catch {
+        return; // A dropped poll is not a failed recording.
+      }
+      const pct = st.total ? Math.round((st.narrated / st.total) * 100) : 0;
+      if (fill) fill.style.width = pct + "%";
+      if (snd) snd.textContent = `recording — ${st.narrated} of ${st.total}`;
+      if (st.running) return;
+      stopPoll();
+      if (bar) bar.hidden = true;
+      // A new recording is a new artifact, and the film has been re-timed
+      // to it — so the plan has to come back, not just the count.
+      VOICE.loadedFor = null;
+      try {
+        await loadProject(id);
+        adoptFilm();
+        render();
+      } catch {
+        paintSnd();
+      }
+      toast(
+        st.reason
+          ? `The voice failed — ${st.reason}`
+          : st.narrated >= st.total
+            ? `Narrated — all ${st.total} moments. Press play.`
+            : `Recorded ${st.narrated} of ${st.total}`,
+      );
+    }, 2500);
+  };
   const runVoice = async (force) => {
     const id = window.STUDIO && window.STUDIO.projectId;
     if (!id) return;
-    const bar = root.querySelector("#sndbar");
-    const fill = root.querySelector("#sndfill");
-    const total = liveScenes().length || 1;
-    if (bar) bar.hidden = false;
     rec.disabled = true;
     again.disabled = true;
-    await narrateNow(
-      id,
-      (p) => {
-        if (fill) fill.style.width = Math.round((p.done / total) * 100) + "%";
-        if (snd) snd.textContent = `recording — ${p.done} of ${total}`;
-      },
-      undefined,
-      force,
-    );
-    // A new recording is a new artifact. The decoded buffers are keyed by
-    // sha256, so the preview has to fetch again or it plays the old voice.
-    VOICE.loadedFor = null;
-    rec.disabled = false;
-    again.disabled = false;
-    if (bar) bar.hidden = true;
-    paintSnd();
+    if (snd) snd.textContent = "starting…";
+    try {
+      await narrateFilm(id, force ? { force: true } : {});
+      watch();
+    } catch (e) {
+      rec.disabled = false;
+      again.disabled = false;
+      paintSnd();
+      toast("Could not start the recording — " + e.message);
+    }
   };
+  // A recording already running on the server when this view opened —
+  // because the operator started it and navigated away — is picked up
+  // rather than looking like nothing is happening.
+  if (real) {
+    narrationStatusOf(window.STUDIO.projectId)
+      .then((st) => {
+        if (st.running) watch();
+      })
+      .catch(() => {});
+  }
   if (rec) rec.onclick = () => runVoice(false);
   if (again) again.onclick = () => runVoice(true);
   root.querySelector("#scope").onclick = () => {

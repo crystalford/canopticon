@@ -133,6 +133,14 @@ export interface NarrateReport {
 }
 
 const DEFAULT_LIMIT = 6;
+/** How many scenes are spoken at once.
+ *
+ *  Each scene costs two model calls — TTS then ASR — and they were run one
+ *  scene after another, so a 65-scene film was 130 round trips end to end
+ *  and needed eleven presses of a button from a browser that had to stay
+ *  open. Four lanes is well inside a Worker's subrequest budget and cuts
+ *  the wall clock by roughly the same factor. */
+const LANES = 4;
 
 export async function narrateScenes(
   env: Env,
@@ -142,7 +150,14 @@ export async function narrateScenes(
   options: NarrateOptions = {},
 ): Promise<{ ir: EditorialIR; report: NarrateReport }> {
   const next: EditorialIR = JSON.parse(JSON.stringify(ir));
-  const limit = Math.max(1, Math.min(24, options.limit ?? DEFAULT_LIMIT));
+  /* THE WHOLE FILM, IF THAT IS WHAT WAS ASKED FOR.
+   *
+   * The cap was 24 with a default of 6, so narrating a 65-scene film meant
+   * eleven separate requests driven from a browser that had to stay open.
+   * A film's voice is not a batch job the operator supervises — it is part
+   * of making the film. `limit: 0` means "all of it". */
+  const limit =
+    options.limit === 0 ? next.scenes.length : Math.max(1, options.limit ?? DEFAULT_LIMIT);
 
   // STALE SCENES ARE RE-RECORDED WITHOUT BEING ASKED TWICE.
   //
@@ -160,10 +175,14 @@ export async function narrateScenes(
   let ttsCalls = 0;
   let asrCalls = 0;
 
-  for (const scene of batch) {
+  /* ONE SCENE, START TO FINISH. Pulled out of the loop so the lanes below
+   * can run several at once — the work per scene is independent, and every
+   * mutation it makes (`scene.narration.voAssetId`, a push onto
+   * `next.assets` and onto `results`) belongs to that scene alone. */
+  const speak = async (scene: (typeof batch)[number]): Promise<void> => {
     if (!options.force && options.sceneIds?.length && scene.narration.voAssetId) {
       results.push({ sceneId: scene.sceneId, status: "skipped", reason: "already narrated" });
-      continue;
+      return;
     }
 
     ttsCalls++;
@@ -176,7 +195,7 @@ export async function narrateScenes(
         reason: spoken.detail,
         attempts: spoken.attempts,
       });
-      continue;
+      return;
     }
 
     const audioSha = await sha256Hex(spoken.bytes);
@@ -231,7 +250,7 @@ export async function narrateScenes(
         reason: aligned.reason ?? "alignment declined — nominal window retained",
         attempts: aligned.attempts,
       });
-      continue;
+      return;
     }
 
     /* THE WORDS ARE PART OF THE MEASUREMENT.
@@ -296,7 +315,31 @@ export async function narrateScenes(
       alignmentMethod: aligned.method,
       words: aligned.words ?? 0,
     });
-  }
+  };
+
+  /* IN PARALLEL, BOUNDED. Serial, this was two model calls per scene end
+   * to end — the reason narrating a film took eleven button presses and
+   * several minutes of a browser being left open. */
+  const queue = batch.slice();
+  const lane = async (): Promise<void> => {
+    for (;;) {
+      const scene = queue.shift();
+      if (!scene) return;
+      try {
+        await speak(scene);
+      } catch (err) {
+        // Degrade, flag, continue. One scene that throws must not take the
+        // rest of the film down with it, and must not vanish either.
+        results.push({
+          sceneId: scene.sceneId,
+          status: "failed",
+          label: scene.label,
+          reason: (err as Error).message,
+        });
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(LANES, batch.length) }, lane));
 
   const narrated = results.filter((r) => r.status === "narrated").length;
   const after = voiceStates(next);

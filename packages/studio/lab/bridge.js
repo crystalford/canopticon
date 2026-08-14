@@ -88,6 +88,22 @@ const narrateProject = (id, opts) =>
     body: JSON.stringify(opts || {}),
   });
 
+/** START THE WHOLE FILM'S VOICE AND WALK AWAY.
+ *
+ *  Returns as soon as the server has taken the job. The work continues on
+ *  the Worker whether or not this page is open — narration used to be a
+ *  loop in the browser, six scenes per request, and closing the tab
+ *  abandoned it half done with nothing on the server aware it had begun. */
+const narrateFilm = (id, opts) =>
+  api(`/project/${id}/narrate`, {
+    method: "POST",
+    body: JSON.stringify({ background: true, ...(opts || {}) }),
+  });
+
+/** How far the voice has got, asked of the film rather than remembered by
+ *  this page. Safe to poll. */
+const narrationStatusOf = (id) => api(`/project/${id}/narration`);
+
 /** ASK PRODUCTION WHAT THE VOICE ACTUALLY IS.
  *
  *  Stores nothing, changes nothing, and reports every TTS and ASR
@@ -461,6 +477,8 @@ Object.assign(window, {
   loadDemo,
   ratifyScenes,
   narrateProject,
+  narrateFilm,
+  narrationStatusOf,
   probeVoice,
   auditionVoice,
   captureLook,

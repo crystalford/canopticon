@@ -313,12 +313,22 @@ describe("narrating a project", () => {
 
   it("degrades one scene rather than the batch when synthesis fails", async () => {
     const ir = must(parseFixture());
-    let call = 0;
-    const env = fakeEnv((model) => {
+    /* KEYED ON THE SCENE, NOT ON CALL ORDER.
+     *
+     * This counted TTS calls and failed the first two, which only picked
+     * out one scene while narration ran strictly serially. It records
+     * several scenes at once now, so calls one and two belong to different
+     * scenes — the mock has to say WHICH scene it refuses, which is what
+     * it meant all along. */
+    const firstText = must(ir.scenes[0]).narration.text;
+    const env = fakeEnv((model, input) => {
       if (model.includes("whisper")) return { words: [{ word: "a", start: 0, end: 2 }] };
-      call++;
-      // Both TTS candidates fail for the first scene only.
-      if (call <= 2) return new Error("upstream unavailable");
+      const said = String(
+        (input as { prompt?: string; text?: string })?.prompt ??
+          (input as { text?: string })?.text ??
+          "",
+      );
+      if (said === firstText) return new Error("upstream unavailable");
       return { audio: toBase64(pad(MP3)) };
     });
     const { report } = await narrateScenes(env.env, "proj_x", ir, 2, { limit: 2 });
