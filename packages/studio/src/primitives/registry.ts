@@ -75,63 +75,6 @@ export interface PrimitiveSpec {
  *  director wants — a recipe reaching for one look — but it should be a
  *  choice, not a thing the system does silently while presenting a
  *  three-primitive chain as though all three were on screen. */
-/** EVERY PRIMITIVE THAT DECLARES AN INPUT AND PAINTS OVER IT.
- *
- *  A STATIC PROPERTY OF THE PALETTE, which is what separates this from
- *  `usage.linkHonesty`. That measures one film — which links a particular
- *  compile happened to use. This asks a question no film is needed to
- *  answer: given a real input of the type it declares, does this
- *  primitive CONSUME it or REPLACE it? The answer cannot change between
- *  compiles, so it can be asked once and acted on.
- *
- *  THE MEASUREMENT, the first time it was run: 40 of the 79 primitives
- *  that declare an input paint over it. Fifty-one per cent of the
- *  composable half of the palette is not composable.
- *
- *  And the correlation explains a 135-primitive palette from which a film
- *  draws 33. Sorted by how much of each family lies:
- *
- *      5/5   R · MAPS          never runs
- *      3/3   L · 3D            never runs
- *      2/2   N · AUDIO         never runs
- *      1/1   Q · CUT GRAMMAR   never runs
- *      9/11  F · DATA          barely runs
- *      ...
- *      0/7   J · RASTER        runs
- *      0/6   O · MOTION CRAFT  runs
- *      0/3   S · ENTITY        runs
- *
- *  The families that never reach a frame are the families that cannot be
- *  composed. Not a coincidence and not a scheduling accident: an operator
- *  that replaces what it was applied to deletes the composition and bills
- *  for it, so every guard in the constructor refuses it — silently,
- *  because refusing is the correct answer.
- *
- *  Deliberately NOT a throw. Forty of these exist today; a compiler that
- *  will not start is worse than one that is honest about its own palette.
- *  Carried onto every compile report instead, so it is a number on a
- *  screen rather than something someone found once. */
-export function overwritingPrimitives(): Array<{ id: string; family: string; fedBy: string }> {
-  // One source per payload type, so every consumer can be handed a real
-  // input of the kind it says it wants.
-  const producer: Record<string, string> = {};
-  for (const [id, spec] of Object.entries(PRIMITIVES)) {
-    if ((spec.inputs ?? []).length) continue;
-    for (const out of spec.outputs ?? []) if (!producer[out]) producer[out] = id;
-  }
-  const found: Array<{ id: string; family: string; fedBy: string }> = [];
-  for (const [id, spec] of Object.entries(PRIMITIVES)) {
-    const first = (spec.inputs ?? [])[0];
-    if (!first) continue;
-    const fedBy = producer[first];
-    if (!fedBy || !canChain(fedBy, id)) continue;
-    if (chainOverwrites([fedBy, id]).some((o) => o.by === id)) {
-      found.push({ id, family: spec.family, fedBy });
-    }
-  }
-  return found;
-}
-
 export function chainOverwrites(chain: string[]): { at: number; id: string; by: string }[] {
   const out: { at: number; id: string; by: string }[] = [];
   for (let i = 0; i < chain.length - 1; i++) {
@@ -825,13 +768,12 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     inputs: ["GEOMETRY"],
     outputs: ["ANIMATION"],
     parameters: {
-      layers: { kind: "int", default: 5, min: 2, max: 9 },
       separation: { kind: "float", default: 0.5, min: 0, max: 1 },
       tilt: { kind: "float", default: 0.5, min: 0.1, max: 1 },
     },
     estimatedCostMsPerFrame: 13,
     determinismGuarantee: "L2-GPU",
-    consumesUpstream: false,
+    consumesUpstream: true,
     preservesUpstream: false,
     note: "Pulling a stacked system apart. Jurisdictions, protocol layers, decision tiers — structure made spatial.",
   },
@@ -841,7 +783,6 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     inputs: ["GEOMETRY"],
     outputs: ["GEOMETRY"],
     parameters: {
-      text: { kind: "string", default: "1997" },
       depth: { kind: "float", default: 0.45, min: 0.05, max: 1 },
       spin: { kind: "float", default: 0.3, min: 0, max: 1 },
     },
@@ -849,7 +790,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     determinismGuarantee: "L2-GPU",
     consumesUpstream: true,
     preservesUpstream: false,
-    note: "Glyph paths pushed into depth. Validates that the renderer interface accepts a spatial backend at all.",
+    note: "The upstream outline pushed into depth: a back face, and the walls between it and the front.",
   },
   feedback: {
     primitiveId: "feedback",
@@ -1008,6 +949,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
       invert: { kind: "int", default: 0, min: 0, max: 1 },
       trail: { kind: "float", default: 0.3, min: 0, max: 1 },
       material: { kind: "int", default: 0, min: 0, max: 7 },
+      shiver: { kind: "float", default: 0, min: 0, max: 1 },
       recede: { kind: "float", default: 0, min: 0, max: 1 },
     },
     estimatedCostMsPerFrame: 4,
@@ -1299,15 +1241,14 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     inputs: ["GEOMETRY"],
     outputs: ["ANIMATION"],
     parameters: {
-      layers: { kind: "int", default: 4, min: 2, max: 7 },
       rate: { kind: "float", default: 0.3, min: 0.05, max: 1 },
       curl: { kind: "float", default: 0.5, min: 0, max: 1 },
     },
     estimatedCostMsPerFrame: 13,
     determinismGuarantee: "L2-GPU",
-    consumesUpstream: false,
+    consumesUpstream: true,
     preservesUpstream: false,
-    note: "Sheets lifting off one another. Sequential reveal that keeps the whole stack visible.",
+    note: "Every upstream path lifted off the others as its own plane, about its own centre.",
   },
   map_camera: {
     primitiveId: "map_camera",

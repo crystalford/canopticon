@@ -685,48 +685,117 @@ reg(
   1,
 );
 
+/* A form that comes apart gets bigger. Both L · 3D primitives below move
+ * their pieces away from where they started, which on a form already
+ * filling the frame walks the outer pieces off the edge — the separation
+ * is real and invisible. Every piece is transformed first, measured, then
+ * the whole assembly is scaled about the frame's centre to fit. Scaling
+ * the assembly rather than clamping each piece is what keeps the
+ * separation legible: the parts stay in the same relation, the camera
+ * pulls back. */
+function fitPaths(out, w, h, pad) {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const path of out)
+    for (const [x, y] of path) {
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  const bw = x1 - x0;
+  const bh = y1 - y0;
+  if (!(bw > 0) || !(bh > 0)) return out;
+  const k = pad === undefined ? 0.94 : pad;
+  const s = Math.min(1, (w * k) / bw, (h * k) / bh);
+  if (s >= 0.999) return out;
+  const cx = w / 2;
+  const cy = h / 2;
+  // The assembly's own centre, not the frame's, so a form drawn off-centre
+  // is not dragged to the middle by the act of fitting.
+  const mx = (x0 + x1) / 2;
+  const my = (y0 + y1) / 2;
+  return out.map((path) => path.map(([x, y]) => [cx + (x - mx) * s, cy + (y - my) * s]));
+}
+
 reg(
   "exploded_view",
   "L · 3D",
   "GEOMETRY → ANIMATION",
   {
-    layers: { v: 5, lo: 2, hi: 9, int: 1 },
     separation: { v: 0.5, lo: 0, hi: 1 },
     tilt: { v: 0.5, lo: 0.1, hi: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t) {
+    /* IT EXPLODES WHAT IT IS HANDED.
+     *
+     * This drew a fixed stack of isometric diamonds — a diagram of an
+     * exploded view rather than an exploded view of anything — and never
+     * took `upstream`. Same failure as its two siblings, same
+     * consequence: declared GEOMETRY → ANIMATION, refused on sight,
+     * family never rendered.
+     *
+     * The upstream paths now separate along their own bearing from the
+     * form's centroid, so a nine-segment chain comes apart into nine
+     * pieces moving outward from where they actually sit. `layers` is
+     * gone: the count is the geometry's. */
+    frame(ctx, w, h, t, upstream) {
       bg(ctx, w, h);
-      const N = Math.round(p.layers);
-      const sep = p.separation * (Math.sin(t * 0.5) * 0.35 + 0.65);
-      for (let i = N - 1; i >= 0; i--) {
-        const y = h / 2 + (i - (N - 1) / 2) * h * 0.09 * (1 + sep * 3.4);
-        const wd = w * 0.5,
-          hh = h * 0.14 * p.tilt * 2;
-        ctx.beginPath();
-        ctx.moveTo(w / 2, y - hh / 2);
-        ctx.lineTo(w / 2 + wd / 2, y);
-        ctx.lineTo(w / 2, y + hh / 2);
-        ctx.lineTo(w / 2 - wd / 2, y);
-        ctx.closePath();
-        ctx.fillStyle =
-          i === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.30)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.05 + i * 0.02) + ")";
-        ctx.fill();
-        ctx.strokeStyle = i === 0 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.5)`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        if (sep > 0.15) {
-          ctx.strokeStyle = "rgba(155,163,170,.25)";
-          ctx.setLineDash([2, 4]);
-          ctx.beginPath();
-          ctx.moveTo(w / 2 + wd / 2, y);
-          ctx.lineTo(w * 0.9, y);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          lab(ctx, "LAYER " + (i + 1), w * 0.9 + 5, y - 4);
-        }
+      const paths = (upstream && upstream.paths) || null;
+      if (!paths || !paths.length) {
+        lab(ctx, "exploded_view: no upstream GEOMETRY", 10, h / 2);
+        return;
       }
-      lab(ctx, "STACKED SYSTEM · SEPARATION " + sep.toFixed(2), 10, h - 14);
+      const sep = p.separation * (Math.sin(t * 0.5) * 0.35 + 0.65);
+      // The whole form's centre, so every piece knows which way is out.
+      let fx = 0;
+      let fy = 0;
+      let n = 0;
+      for (const path of paths)
+        for (const [x, y] of path) {
+          fx += x;
+          fy += y;
+          n++;
+        }
+      fx /= n || 1;
+      fy /= n || 1;
+      const moved = [];
+      for (const path of paths) {
+        if (!path || path.length < 2) {
+          moved.push([]);
+          continue;
+        }
+        let cx = 0;
+        let cy = 0;
+        for (const [x, y] of path) {
+          cx += x;
+          cy += y;
+        }
+        cx /= path.length;
+        cy /= path.length;
+        // Outward along its own bearing, flattened vertically so the
+        // separation reads as depth rather than as a scatter.
+        const dx = (cx - fx) * sep * 1.6;
+        const dy = (cy - fy) * sep * 1.6 * p.tilt;
+        moved.push(path.map(([x, y]) => [x + dx, y + dy]));
+      }
+      const out = fitPaths(moved, w, h);
+      out.forEach((path, i) => {
+        if (path.length < 2) return;
+        ctx.beginPath();
+        ctx.moveTo(path[0][0], path[0][1]);
+        for (let k = 1; k < path.length; k++) ctx.lineTo(path[k][0], path[k][1]);
+        ctx.closePath();
+        const c = SPREAD > 0.02 ? rampRgb(i) : i === 0 ? ACCENT_RGB : INK_RGB;
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},.12)`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},.7)`;
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+      });
+      lab(ctx, paths.length + " PARTS SEPARATED", 10, h - 14);
     },
   }),
   "Pulling a stacked system apart. Jurisdictions, protocol layers, decision tiers — structure made spatial.",
@@ -738,42 +807,86 @@ reg(
   "L · 3D",
   "GEOMETRY → ANIMATION",
   {
-    layers: { v: 4, lo: 2, hi: 7, int: 1 },
     rate: { v: 0.3, lo: 0.05, hi: 1 },
     curl: { v: 0.5, lo: 0, hi: 1 },
   },
   (p) => ({
-    frame(ctx, w, h, t) {
+    /* IT PEELS WHAT IT IS HANDED.
+     *
+     * This drew a hardcoded stack of rectangles and never took the
+     * `upstream` parameter, so a subdivided body, a nine-segment chain
+     * and a glyph cloud all peeled as the same four grey sheets. It
+     * declared GEOMETRY → ANIMATION, so the constructor refused it and
+     * L · 3D never rendered.
+     *
+     * Every upstream PATH is now a plane. A form divided into sixteen
+     * parts peels as sixteen; a form of one peels as one. `layers` is
+     * gone as a parameter because the count is the geometry's, not a
+     * dial — the same rule the prose-read counts follow everywhere else
+     * in this system. */
+    frame(ctx, w, h, t, upstream) {
       bg(ctx, w, h);
-      const N = Math.round(p.layers),
-        cyc = (t * p.rate * 0.3) % 1.4;
-      for (let i = N - 1; i >= 0; i--) {
-        const pr = cl01(cyc * N - (N - 1 - i));
-        const x0 = w * 0.16,
-          y0 = h * 0.14,
-          wd = w * 0.68,
-          hh = h * 0.72;
-        ctx.save();
-        ctx.translate(x0, y0);
-        if (pr > 0) {
-          ctx.translate(wd * pr * 0.9, 0);
-          ctx.rotate(-pr * p.curl * 0.5);
-        }
-        const g = ctx.createLinearGradient(0, 0, wd, 0);
-        const base = i === 0 ? [216, 98, 74] : [210, 214, 218];
-        g.addColorStop(0, "rgba(" + base.join(",") + "," + (0.1 + i * 0.05) + ")");
-        g.addColorStop(1, "rgba(" + base.join(",") + "," + (0.24 + i * 0.05) + ")");
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, wd, hh);
-        ctx.strokeStyle = i === 0 ? EMB : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.4)`;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(0, 0, wd, hh);
-        ctx.restore();
+      const paths = (upstream && upstream.paths) || null;
+      if (!paths || !paths.length) {
+        lab(ctx, "layer_peel: no upstream GEOMETRY", 10, h / 2);
+        return;
       }
-      lab(ctx, N + " LAYERS PEELING", 10, h - 14);
+      const N = paths.length;
+      const cyc = (t * p.rate * 0.3) % 1.4;
+      const lift = Math.min(w, h);
+      // Back to front, so a peeled sheet passes over the ones still down.
+      // Every plane is transformed into plain points first — the lifted
+      // ones travel, and a form already filling the frame would carry them
+      // off the edge, so the whole set is fitted once before anything is
+      // drawn.
+      const order = [];
+      const moved = [];
+      for (let i = N - 1; i >= 0; i--) {
+        const path = paths[i];
+        if (!path || path.length < 2) continue;
+        const pr = cl01(cyc * N - (N - 1 - i));
+        // Each plane lifts about its own centroid rather than about the
+        // frame, so a form comes apart where it actually is.
+        let cx = 0;
+        let cy = 0;
+        for (const [x, y] of path) {
+          cx += x;
+          cy += y;
+        }
+        cx /= path.length;
+        cy /= path.length;
+        const a = -pr * p.curl * 0.6;
+        const ca = Math.cos(a);
+        const sa = Math.sin(a);
+        const tx = cx + lift * pr * 0.34;
+        const ty = cy - lift * pr * 0.06;
+        moved.push(
+          path.map(([x, y]) => {
+            const rx = x - cx;
+            const ry = y - cy;
+            return [tx + rx * ca - ry * sa, ty + rx * sa + ry * ca];
+          }),
+        );
+        order.push({ i, pr });
+      }
+      const out = fitPaths(moved, w, h);
+      out.forEach((path, k0) => {
+        const { i, pr } = order[k0];
+        ctx.beginPath();
+        ctx.moveTo(path[0][0], path[0][1]);
+        for (let k = 1; k < path.length; k++) ctx.lineTo(path[k][0], path[k][1]);
+        ctx.closePath();
+        const c = SPREAD > 0.02 ? rampRgb(i) : i === 0 ? ACCENT_RGB : INK_RGB;
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.08 + (1 - pr) * 0.14})`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(${c[0]},${c[1]},${c[2]},${0.45 + pr * 0.4})`;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      });
+      lab(ctx, N + " PLANES PEELING", 10, h - 14);
     },
   }),
-  "Sheets lifting off one another. Sequential reveal that keeps the whole stack visible.",
+  "Every upstream path lifted off the others as its own plane, about its own centre.",
   1,
 );
 

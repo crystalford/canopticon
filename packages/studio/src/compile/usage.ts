@@ -12,7 +12,8 @@
 // evidence rather than on instinct — and so a source that turns out to be
 // substrate is never cut for looking decorative.
 
-import { PRIMITIVES, overwritingPrimitives } from "../primitives/registry.ts";
+import { overwritingPrimitives } from "../primitives/composability.ts";
+import { PRIMITIVES } from "../primitives/registry.ts";
 import type { ComposedScene } from "./compose.ts";
 
 export interface PrimitiveUsage {
