@@ -157,14 +157,51 @@ function buildChain(chain, w, h, duration) {
     // the main chain was carefully written to avoid.
     const ground =
       node.b && node.b.length && takesTwo(node.id) ? buildChain(node.b, w, h, dur) : null;
+    /* THE BRIDGE, AS A LIVE PARAMETER.
+     *
+     * A one shot needs a value to CHANGE over a scene without the chain
+     * being rebuilt, and the only mechanism that existed was `buildSequence`,
+     * which gives every shot its own instance — a deliberate hard reset,
+     * correct for a cut and fatal for a film that is forbidden to cut. A
+     * one shot bridged through shots is a slideshow with the label filed
+     * off.
+     *
+     * What makes this possible is that primitives close over the params
+     * OBJECT and read `p.x` inside `frame`, not into a local at make time
+     * (`place` in prims-h.js is the one that matters and it does). So the
+     * object is live: writing to it between frames is a continuous change
+     * with no rebuild, no reseed and no lost particle state.
+     *
+     * Not every primitive can be tweened — one that reads a param once in
+     * its make prologue will ignore this silently. The compiler only ever
+     * tweens `place`, which is verified. Widening that set means checking
+     * the primitive first, not assuming. */
+    const tween = node.tween && Object.keys(node.tween).length ? node.tween : null;
     return {
       id: node.id,
       inst: def.make(params),
+      params,
+      tween,
+      tweenSec: Math.max(0, node.tweenMs ?? 0) / 1000,
       buf,
       ctx: buf.getContext("2d"),
       ground: ground && !ground.errors.length ? ground : null,
     };
   });
+
+  /** Move a stage's live params along the bridge. Eased, clamped, and on
+   *  the chain's own clock — not the warped one, because a bridge is a
+   *  fact about the film's time and motion craft re-times the shot. */
+  const smooth = (u) => u * u * (3 - 2 * u);
+  function tweenStage(stage, t) {
+    const u = stage.tweenSec > 0 ? Math.min(1, Math.max(0, t / stage.tweenSec)) : 1;
+    const e = smooth(u);
+    for (const k in stage.tween) {
+      const pair = stage.tween[k];
+      if (!Array.isArray(pair) || pair.length !== 2) continue;
+      stage.params[k] = pair[0] + (pair[1] - pair[0]) * e;
+    }
+  }
 
   // MOTION CRAFT RE-TIMES; IT DOES NOT DRAW.
   //
@@ -225,6 +262,10 @@ function buildChain(chain, w, h, duration) {
       // guessing from pixels. That is the type system being real at
       // runtime rather than only at plan time.
       const tt = painters.length > 0 ? warpTime(t) : t;
+      // Before anything draws, and on every stage rather than only the
+      // painters — a shaper carrying a bridge is legal and would otherwise
+      // be silently frozen at its start value.
+      for (const s of stages) if (s.tween) tweenStage(s, t);
       let payload = null;
       for (const stage of draw) {
         stage.ctx.clearRect(0, 0, w, h);
@@ -302,6 +343,24 @@ function buildSequence(chain, shots, w, h) {
       // own fresh instance per shot for the same reason the subject does:
       // at a cut, state resets.
       ...(node.b ? { b: node.b } : {}),
+      /* A BRIDGE BELONGS TO THE SCENE, NOT TO EVERY SHOT.
+       *
+       * Each shot runs on its own local clock, so leaving the tween on
+       * all of them would replay the arrival at every cut — the thing
+       * would slide in from its old position four times. It runs on the
+       * first shot and every later shot is pinned at the value the bridge
+       * arrived at. A cut scene is not a one shot anyway; this only
+       * matters for HYBRID, where both happen in the same film. */
+      ...(node.tween && i > 0
+        ? {
+            tween: null,
+            params: Object.fromEntries(
+              Object.entries({ ...(node.params || {}), ...(shot.params || {}) }).concat(
+                Object.entries(node.tween).map(([k, v]) => [k, Array.isArray(v) ? v[1] : v]),
+              ),
+            ),
+          }
+        : {}),
     }));
     // The shot's own length, so a motion-craft ease spans the shot rather
     // than an arbitrary second.

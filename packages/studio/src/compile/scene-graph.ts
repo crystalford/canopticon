@@ -30,6 +30,7 @@
 // is a compositional decision rather than an absence of one.
 
 import type { PlannedNode } from "./construct.ts";
+import { elementKey } from "./film-mode.ts";
 import { type Material, type Op, applyEmphasis, realiseOps } from "./grammar-visual.ts";
 import type { Mode } from "./represent.ts";
 import { type SemanticScene, arrange } from "./semantic-scene.ts";
@@ -471,16 +472,36 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
  *  The other two belong to `geometry_draw` and are applied there. */
 const pick = (a: { opacity: number; sink: number }) => ({ opacity: a.opacity, sink: a.sink });
 
-export function serialiseScene(scene: SceneGraph, m: Material): PlannedNode[] {
+export function serialiseScene(
+  scene: SceneGraph,
+  m: Material,
+  /* THE BRIDGE, ATTACHED WHERE IT CAN ACT.
+   *
+   * Keyed by element, because that is what the bridge is computed over —
+   * "this element was there and is now here". It has to be applied to the
+   * ONE node in that element's chain which reads a place, and this is the
+   * only function that knows which nodes belong to which element. Passing
+   * it down instead of stamping it afterwards is what stops the caller
+   * having to reverse-engineer the correspondence. */
+  bridge?: { tweens: Map<string, Record<string, [number, number]>>; ms: number },
+): PlannedNode[] {
   const [first, ...rest] = scene.elements;
   if (!first) return [];
-  const chainFor = (e: Element): PlannedNode[] =>
-    realiseOps(e.ops, {
+  const chainFor = (e: Element): PlannedNode[] => {
+    const nodes = realiseOps(e.ops, {
       ...m,
       place: e.place,
       material: e.material ?? 0,
       emphasis: e.emphasis ?? 1,
     } as Material);
+    const tween = bridge?.tweens.get(elementKey(e));
+    if (!tween || !bridge || bridge.ms <= 0) return nodes;
+    // Only `place` reads x/y/scale, and only `place` has been verified to
+    // read its params inside `frame()` rather than capturing them at make
+    // time. A primitive that captures would ignore this silently, which is
+    // why the set is one and widening it means checking first.
+    return nodes.map((n) => (n.primitiveId === "place" ? { ...n, tween, tweenMs: bridge.ms } : n));
+  };
 
   // The first element is the chain's own image. When it is the GROUND it
   // is meant to sit quietly behind everything, so it starts sunk rather

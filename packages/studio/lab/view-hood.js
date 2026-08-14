@@ -125,7 +125,7 @@ function paintHood() {
             <span style="font-size:12px;color:var(--dim);display:block;margin-top:2px;max-width:40ch;line-height:1.45">${MODE_BLURB[id]}</span></button>`).join("")}
         </div></div>
         <p class="note">One shot is not a different renderer. It is a constraint: the film may not solve a transition by cutting, so it has to travel through the states in between.</p>
-        <p class="note" style="margin-top:10px;color:var(--clay)">Not yet sent to the compiler — map these to <span class="id">film-mode.ts</span> before shipping.</p>
+        <p class="note" style="margin-top:10px">Changing this recompiles the film. In a continuous mode the world persists between moments — a thing established early keeps its place, and comes back where it was — and the change from one moment to the next travels in the measured silence of the narration. A film with no voice has no measured silence, so it has nothing to travel between.</p>
       </div>`,
   })[APP.hoodTab]();
   bindHood(host, s, c);
@@ -172,11 +172,29 @@ function bindHood(host, s, c) {
     if (window.STUDIO && !window.STUDIO.demo && window.STUDIO.projectId) setColour(f.colour).catch(() => {});
     changed();
   }));
-  host.querySelectorAll("[data-mode]").forEach((b) => (b.onclick = () => {
+  /* THE ONE CONTROL THAT USED TO SAY SO ITSELF.
+   *
+   * This panel carried the note "not yet sent to the compiler" — honest,
+   * and the third instance of a control that reported rather than acted.
+   * It acts now: same rail as a curve drag or a colour change, so the
+   * choice is versioned, recompiled and its cost reported, and it decides
+   * whether the film composes as one persistent world or as a sequence of
+   * independent scenes. */
+  host.querySelectorAll("[data-mode]").forEach((b) => (b.onclick = async () => {
     mark("the continuity");
     f.continuity = b.dataset.mode;
     changed();
     toast(MODE_BLURB[b.dataset.mode]);
+    if (window.STUDIO && !window.STUDIO.demo && window.STUDIO.projectId) {
+      try {
+        await setContinuity(b.dataset.mode);
+        await loadProject(window.STUDIO.projectId);
+        adoptFilm();
+        render();
+      } catch (e) {
+        toast("The film could not be recomposed — " + e.message);
+      }
+    }
   }));
   const rel = host.querySelector("[data-release]");
   if (rel) rel.onclick = () => {

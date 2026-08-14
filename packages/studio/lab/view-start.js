@@ -75,7 +75,14 @@ async function create() {
   NEW.err = null;
   busy(true, "reading it, cutting it into moments");
   try {
-    const r = await ingestEssay(NEW.text.trim());
+    /* The choices reach the COMPILER, not only this page. `continuity`
+     * decides whether the film composes as one continuous world or as a
+     * sequence of independent scenes — a question no amount of local
+     * state could answer, because the world lives in the compiler. */
+    const r = await ingestEssay(NEW.text.trim(), {
+      continuity: STRUCTURE_MODE[NEW.structure] || "cut",
+      ...(MADE_LANG[NEW.made] ? { visualLanguage: MADE_LANG[NEW.made] } : {}),
+    });
     await filmsRefresh();
     await loadProject(r.projectId);
     applyChoices();

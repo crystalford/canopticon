@@ -69,11 +69,12 @@
 import type { Figure, VisualLanguage } from "../ir/schema.ts";
 import { PRIMITIVES, canChain, chainCost } from "../primitives/registry.ts";
 import { chartFor, serialiseFigures } from "./figures.ts";
+import type { FilmMode } from "./film-mode.ts";
 import type { Material } from "./grammar-visual.ts";
 import { EMPTY_READING, type IntentReading, bendStyle } from "./intent.ts";
 import { type Relation, relationBias } from "./relation.ts";
 import { type Mode, type Representation, realisationFit, representationsFor } from "./represent.ts";
-import { composeFromMeaning, serialiseScene } from "./scene-graph.ts";
+import { type SceneGraph, composeFromMeaning, serialiseScene } from "./scene-graph.ts";
 import type { SceneKind } from "./scene-kind.ts";
 import { readScene } from "./semantic-scene.ts";
 import type { DetectedSubject } from "./subject.ts";
@@ -87,6 +88,12 @@ export interface PlannedNode {
    *  grammar's layers so that a world, a subject and a set of words
    *  compose instead of overwriting each other. */
   ground?: PlannedNode[];
+  /** THE BRIDGE. `{param: [from, to]}`, applied to this node's live params
+   *  by the chain executor over `tweenMs` without rebuilding the chain.
+   *  Written only by `serialiseScene`, only on `place`, and only in a film
+   *  whose mode bridges. */
+  tween?: Record<string, [number, number]>;
+  tweenMs?: number;
 }
 
 /** What the sentence IS, as far as anything checkable can say. Assembled
@@ -115,6 +122,34 @@ export interface Beat {
    *  residents watched the city" name exactly the same two things and are
    *  different shots. `subjects` arrives already ordered by it. */
   relation?: Relation | null | undefined;
+  /** THE FILM'S WORLD, ALREADY ADVANCED.
+   *
+   *  Present when the film has continuity. The graph's elements arrive with
+   *  their INHERITED places — a thing established three scenes ago is where
+   *  the film left it, not where a fresh composition would put it — so the
+   *  scene construction serialises this rather than recomposing.
+   *
+   *  Computed once per scene, in `composeScene`, above the constructor.
+   *  Doing it in here would advance the film once for every candidate
+   *  program that lost. */
+  world?:
+    | {
+        graph: SceneGraph;
+        material: Material;
+        /** How the world gets here from the last scene. Empty in a film
+         *  that cuts, where arriving instantly is the point. */
+        bridge?: { tweens: Map<string, Record<string, [number, number]>>; ms: number };
+        /** How this film moves. Read by the scene construction's `fit`: a
+         *  film that may never cut is a film that draws ONE WORLD, so the
+         *  construction that draws worlds is the one that wins. Without
+         *  this the world's identities persisted film-wide while the
+         *  picture came from a different construction every scene, and a
+         *  "one shot" was a slideshow that merely was not allowed to say
+         *  so. */
+        mode?: FilmMode;
+      }
+    | null
+    | undefined;
 }
 
 /** The director's controls, resolved at this point in the film. These
@@ -454,6 +489,26 @@ export const CONSTRUCTIONS: Construction[] = [
        * oversight. A sentence about accumulation has an ACCUMULATES
        * relation and a choreography built for it; a text card is the
        * poorest available answer to it. */
+      /* A ONE SHOT DRAWS ONE WORLD.
+       *
+       * Measured, and it is the difference between a one shot and a
+       * slideshow forbidden to say so. With the world threaded but this
+       * absent, a six-scene continuous film drew `scene · body · body ·
+       * fixture · scene · scene`: the identities persisted correctly
+       * film-wide — the city was RECALLED five scenes after it left — and
+       * the PICTURE came from a different construction most scenes, so
+       * nothing carried on screen and only the last two transitions
+       * bridged. Persistence nothing can see is not continuity.
+       *
+       * ONE_SHOT takes the sentence outright, because that is what
+       * choosing "never cut" MEANS: the film is one continuous world and
+       * a specialised construction replacing it is a cut with the label
+       * filed off. HYBRID only competes hard, because a hybrid is
+       * continuous passages punctuated where a cut is earned, and a body
+       * or a chart is exactly how one gets earned. A CUT film sets
+       * nothing and composes byte-identically to before this existed. */
+      if (beat.world?.mode === "ONE_SHOT") return 1.02;
+      if (beat.world?.mode === "HYBRID") return rel ? 0.97 : 0.93;
       if (!beat.subjects.length && !rel) return 0.55;
       // A relation is two things and what stands between them, which is a
       // COMPOSITION. A lone named subject is a single form in a frame,
@@ -461,6 +516,24 @@ export const CONSTRUCTIONS: Construction[] = [
       return rel ? 0.86 : 0.72;
     },
     build(beat, style, rep) {
+      /* THE WORLD, WHEN THE FILM HAS ONE.
+       *
+       * Already composed and already advanced through the film's state, so
+       * what arrives here is what PERSISTS plus this scene's own scenery,
+       * in the places the film left them. Recomposing from the sentence at
+       * this point would throw that away and put every element back where a
+       * first-time composition would have placed it — which is exactly the
+       * behaviour a persistent world is supposed to replace. */
+      if (beat.world) {
+        return {
+          nodes: serialiseScene(
+            beat.world.graph,
+            beat.world.material,
+            beat.world.bridge ?? undefined,
+          ),
+          why: beat.world.graph.describes,
+        };
+      }
       const count = statedCount(beat);
       const sem = readScene(beat.sentence, beat.subjects, beat.relation ?? null, count);
       const m: Material = {

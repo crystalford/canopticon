@@ -163,7 +163,8 @@ const ease = (t: number) => t * t * (3 - 2 * t);
  *  plus the operation list is what says "this is the same thing" — two
  *  elements that do the same job with the same operations are the same
  *  element wearing different numbers. */
-const key = (e: Element) => `${e.role}:${e.ops.join(">")}`;
+export const elementKey = (e: Element) => `${e.role}:${e.ops.join(">")}`;
+const key = elementKey;
 
 export function bridge(from: SceneGraph, to: SceneGraph, mode: FilmMode): Bridged {
   const steps = MODES[mode].bridge;

@@ -65,6 +65,10 @@ function buildForRender(plan, w, h) {
       // surfaces disagreeing about one plan is exactly the failure that
       // made the Lab stop having a second engine.
       ...(n.b ? { b: n.b } : {}),
+      // The bridge, exported exactly as it is previewed. The Preview and
+      // the export reading one plan differently is the failure that made
+      // the Lab stop having a second engine.
+      ...(n.tween && n.tweenMs ? { tween: n.tween, tweenMs: n.tweenMs } : {}),
     }));
     const shots = (scene.shots || []).map((s) => ({
       startMs: s.startMs - scene.startMs,

@@ -32,6 +32,12 @@ export interface FilmNode {
    *  executor. Absent on every one-input node, which is how the browser
    *  tells a compositor with a ground from one without. */
   b?: FilmNode[];
+  /** THE BRIDGE. `{param: [from, to]}` applied to this node's LIVE params
+   *  by the executor over `tweenMs`, with no chain rebuild — so a one shot
+   *  travels instead of cutting. Absent on every node of a film that
+   *  cuts. */
+  tween?: Record<string, [number, number]>;
+  tweenMs?: number;
 }
 
 export interface FilmShot {
@@ -94,6 +100,17 @@ export interface FilmScene {
      *  showing a measurement or a guess. */
     method: string;
   };
+  /** WHAT THE FILM DID WITH ITS WORLD HERE — which identities continued,
+   *  entered, were recalled; and how long the change took. Null in a film
+   *  that cuts, which has no world to speak of. */
+  world?: {
+    mode: string;
+    describes: string;
+    decisions: Array<{ identity: string; what: string; why: string }>;
+    alive: string[];
+    bridgeMs: number;
+    cut: boolean;
+  } | null;
 }
 
 export interface FilmPlan {
@@ -110,6 +127,16 @@ export interface FilmPlan {
    *  that turns it into a palette. */
   colour: Colour;
   scenes: FilmScene[];
+  /** THE NARRATION SPINE — measured or estimated, where the voice rests,
+   *  how fast it speaks. Carried so a view can say which it is looking at
+   *  rather than presenting an estimate as a measurement. */
+  timeline: {
+    spine: string;
+    describes: string;
+    measuredMs: number;
+    medianWordsPerMin: number | null;
+    pauses: number;
+  };
   warnings: string[];
 }
 
@@ -221,6 +248,10 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
       params: n.params,
       seed: n.seed,
       ...(n.ground && n.ground.length > 0 ? { b: n.ground.map(toFilmNode) } : {}),
+      // Carried, and carried RECURSIVELY — most of a scene's elements hang
+      // off a compositor's B side, so a conversion that only copied the
+      // top level would have delivered a bridge that reached one element.
+      ...(n.tween && n.tweenMs ? { tween: n.tween, tweenMs: n.tweenMs } : {}),
     });
     const chain: FilmNode[] = composed.nodes.map(toFilmNode);
 
@@ -256,6 +287,7 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
       alternatives: composed.alternatives,
       chain,
       shots,
+      world: composed.world,
       ...narrationFor(ir, irScene),
     });
   }
@@ -271,6 +303,13 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
     peakCostMsPerFrame: report.peakCostMsPerFrame,
     colour: ir.cinematography.colour,
     scenes,
+    timeline: {
+      spine: report.timeline.spine,
+      describes: report.timeline.describes,
+      measuredMs: report.timeline.measuredMs,
+      medianWordsPerMin: report.timeline.medianWordsPerMin,
+      pauses: report.timeline.pauses.length,
+    },
     warnings: report.warnings,
   };
 }

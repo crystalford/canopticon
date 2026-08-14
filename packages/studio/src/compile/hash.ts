@@ -39,6 +39,15 @@ export interface HashableNode {
    *  the old layer — the same class of bug as narration text not reaching
    *  the hash, and just as silent. */
   ground?: string[];
+  /** THE BRIDGE, in the payload.
+   *
+   *  A node that arrives over 600ms of measured silence paints something
+   *  different from the same node arriving instantly, and the bridge is
+   *  derived from the NARRATION — so re-recording a line can change it
+   *  without changing a single parameter. Leaving it out would mean a
+   *  re-narrated film kept rendering the old motion with every hash
+   *  identical. Exactly the failure `ground` is in here to prevent. */
+  bridge?: string;
 }
 
 /** Deterministic JSON: object keys sorted at every depth. */
@@ -64,6 +73,7 @@ export function hashPayload(node: HashableNode): string {
     // Order matters here and must NOT be sorted: a ground is a chain, and
     // noise_field → flow_field is not flow_field → noise_field.
     ground: node.ground ?? [],
+    bridge: node.bridge ?? "",
   });
 }
 
@@ -118,7 +128,24 @@ export async function hashSceneNodes(
         endMs: window.endMs,
         assetHashes,
         ...(node.ground ? { ground: groundSignature(node.ground) } : {}),
+        ...(node.tween && node.tweenMs
+          ? { bridge: bridgeSignature(node.tween, node.tweenMs) }
+          : {}),
       }),
     })),
   );
+}
+
+/** A bridge, as a stable string. Sorted by parameter so the same move
+ *  always signs the same way, and rounded so floating-point noise in a
+ *  place computation cannot invalidate a cache entry that renders
+ *  identically. */
+export function bridgeSignature(tween: Record<string, [number, number]>, ms: number): string {
+  const r = (n: number) => Math.round(n * 1000) / 1000;
+  return `${Math.round(ms)}:${Object.keys(tween)
+    .sort()
+    .map(
+      (k) => `${k}=${r((tween[k] as [number, number])[0])}>${r((tween[k] as [number, number])[1])}`,
+    )
+    .join(",")}`;
 }

@@ -416,6 +416,20 @@ export const EditorialIRSchema = z.object({
   /** The film's default depiction. A director can travel this across the
    *  runtime the same way they travel abstraction. */
   visualLanguage: VisualLanguageSchema.default("documentary"),
+  /** HOW THE FILM MOVES BETWEEN ITS IDEAS.
+   *
+   *  The Create screen has asked this question since the new front end
+   *  shipped ("cut between ideas" / "never cut" / "collide ideas") and the
+   *  answer reached a field on the browser's own film object and stopped
+   *  there — the compiler had nowhere to put it and no world to apply it
+   *  to. Both now exist. `cut` is the default and is what every film
+   *  composed before this was, so nothing already made is restyled by the
+   *  field arriving.
+   *
+   *  These are constraints over ONE grammar, not four renderers — see
+   *  `film-mode.ts`. `oneshot` forbids the cut and bridges every change;
+   *  `montage` cuts freely and never bridges. */
+  continuity: z.enum(["cut", "oneshot", "montage", "hybrid"]).default("cut"),
   /** The film's captured look, when it has one. Optional: a film without
    *  a grammar is composed from the curves alone, exactly as before. */
   grammar: VisualGrammarSchema.optional(),

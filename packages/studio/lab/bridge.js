@@ -52,8 +52,18 @@ async function api(path, options) {
 }
 
 const listProjects = () => api("/projects").then((b) => b.projects);
-const ingestEssay = (essay) =>
-  api("/project/ingest", { method: "POST", body: JSON.stringify({ essay }) });
+/** THE ANSWERS TRAVEL WITH THE ESSAY.
+ *
+ *  "How it moves" and "Made of" were captured on the Create screen and
+ *  applied to the browser's own film object, which is thrown away on
+ *  reload and was never seen by the compiler. `continuity` in particular
+ *  now decides whether the film has a persistent world at all, so leaving
+ *  it here would mean the one-shot mode existed and could not be chosen. */
+const ingestEssay = (essay, choices) =>
+  api("/project/ingest", {
+    method: "POST",
+    body: JSON.stringify({ essay, ...(choices || {}) }),
+  });
 const readProject = (id, limit) =>
   api(`/project/${id}/read`, { method: "POST", body: JSON.stringify({ limit: limit || 12 }) });
 const deleteProject = (id) => api(`/project/${id}`, { method: "DELETE" });
@@ -219,6 +229,11 @@ function toFilm(ir, plan, storedVersion) {
     // since construct.ts was written, and until now unreachable from any
     // surface — see the creative-state route.
     visualLanguage: ir.visualLanguage || "documentary",
+    // HOW THE FILM MOVES, read from the stored IR rather than defaulted in
+    // the browser. The Continuity panel shows what the compiler is actually
+    // using; a panel showing a local guess would be the same class of thing
+    // as a control that reports rather than acts.
+    continuity: ir.continuity || "cut",
     // The film's colour, as the four directorial numbers. Never hex —
     // resolvePalette() is the only thing that turns these into colours.
     colour: { ...COLOUR_DEFAULT, ...((ir.cinematography && ir.cinematography.colour) || {}) },
@@ -354,6 +369,20 @@ async function setColour(colour) {
   return r;
 }
 
+/** HOW THE FILM MOVES. Same rail as the colour and the curves: validated,
+ *  versioned, recompiled, cost reported — and, unlike them, it changes
+ *  whether the film has a persistent world at all. */
+async function setContinuity(continuity) {
+  const id = window.STUDIO.projectId;
+  if (!id) throw new Error("no film open");
+  const r = await api(`/project/${id}/creative-state`, {
+    method: "POST",
+    body: JSON.stringify({ continuity }),
+  });
+  window.STUDIO.cache = r.cache || null;
+  return r;
+}
+
 /** DIRECT — choose one of the interpretations the engine proposed.
  *
  *  Writes a pin, which precedence 1 already honours. The engine stops
@@ -430,6 +459,7 @@ Object.assign(window, {
   saveCreativeState,
   setVisualLanguage,
   setColour,
+  setContinuity,
   compileProject,
   lastProjectId: () => {
     try {

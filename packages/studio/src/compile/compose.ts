@@ -24,6 +24,8 @@
 // chain position, so the same IR always composes to the same chains.
 
 import type { EditorialIR, Motif, Override, Rule, Scene, SemanticReading } from "../ir/schema.ts";
+import type { FilmTimeline } from "../narrate/timeline.ts";
+import { bridgeMsFor } from "../narrate/timeline.ts";
 import {
   type Determinism,
   PRIMITIVES,
@@ -45,11 +47,15 @@ import {
   scenePosition,
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
+import type { FilmMode } from "./film-mode.ts";
+import type { FilmState } from "./film-state.ts";
 import { buildGraph, describeGraph, flattenGraph, flattenGround, graphDepth } from "./graph.ts";
 import { planGround } from "./ground.ts";
 import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
+import { representationsFor } from "./represent.ts";
+import type { SceneGraph } from "./scene-graph.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
 import {
   type Plane,
@@ -68,6 +74,7 @@ import {
 } from "./subject.ts";
 import { textParamsFor } from "./text-params.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
+import { EMPTY_FILM, type SceneWorld, modeOf, stepWorld } from "./world.ts";
 
 /** The abstraction ladder — how far the image sits from literal depiction.
  *  Each rung names the base chain the film reaches for at that distance.
@@ -117,6 +124,12 @@ export interface ComposedNode {
    *  rather than being painted over by it — the one relation a linear
    *  chain could not express. */
   ground?: ComposedNode[];
+  /** THE BRIDGE, per parameter: `{x: [from, to]}`. Applied to this node's
+   *  live params by the chain executor over `tweenMs`, without rebuilding
+   *  the chain — which is what separates a one shot from a film with the
+   *  cuts removed. Absent on every node in a CUT film. */
+  tween?: Record<string, [number, number]>;
+  tweenMs?: number;
 }
 
 /** A program the engine considered and did not use. Carried so the
@@ -204,6 +217,20 @@ export interface ComposedScene {
   } | null;
   /** The other programs this sentence could have been, best first. */
   alternatives: ProgramSummary[];
+  /** WHAT THE FILM DID WITH ITS WORLD HERE. Which identities continued,
+   *  entered, were recalled or accumulated, and how long the change took.
+   *  Null when the film has no world — which is every film compiled before
+   *  `world.ts` had a caller. */
+  world: {
+    mode: FilmMode;
+    decisions: Array<{ identity: string; what: string; why: string }>;
+    describes: string;
+    /** Identities the film is holding after this scene. */
+    alive: string[];
+    bridgeMs: number;
+    /** True when this scene refused continuity and started again. */
+    cut: boolean;
+  } | null;
 }
 
 /** Density and typography earn extra compositing depth; restraint takes it
@@ -227,6 +254,22 @@ const REALTIME_FRAME_MS = 16;
  *  against the one it wasn't using. */
 const MAX_CHAIN_MS = REALTIME_FRAME_MS * 4;
 
+/** What the film carries into a scene, and what the scene hands back. Held
+ *  as one object rather than three more positional arguments because it is
+ *  ONE thing — the film's state — and splitting it would let a caller
+ *  advance the identities without advancing the picture they are in. */
+export interface WorldContext {
+  state: FilmState;
+  mode: FilmMode;
+  /** The graph the last scene left on screen, for bridging. */
+  previous: SceneGraph | null;
+  /** How long this scene's world may take to arrive, from the measured
+   *  silence at its head. Zero means it cuts. */
+  bridgeMs: number;
+  /** Written by `composeScene` — the advanced state, for the next scene. */
+  out?: SceneWorld;
+}
+
 export function composeScene(
   ir: EditorialIR,
   scene: Scene,
@@ -244,6 +287,10 @@ export function composeScene(
   /** The last PLACE this film named. A setting outlives the sentence that
    *  established it — see `planScene`. */
   carriedPlace: DetectedSubject | null = null,
+  /** THE FILM'S WORLD, arriving from the scene before. Absent means the
+   *  film has no world and every scene composes from nothing, which is
+   *  what every film did before `world.ts` had a caller. */
+  world: WorldContext | null = null,
 ): ComposedScene {
   const state = resolveStateAt(ir, scenePosition(ir, sceneIndex), positions);
   const notes: string[] = [];
@@ -324,6 +371,7 @@ export function composeScene(
    *  same two, or the shot is composed against two different films. */
   let composedBeat: Beat | null = null;
   let composedStyle: Style | null = null;
+  let sceneWorld: SceneWorld | null = null;
 
   const reading = readingFor(scene);
   const ratified = Boolean(scene.reading);
@@ -491,6 +539,55 @@ export function composeScene(
     composedBeat = beat;
     composedStyle = style;
     if (isComposite(scenePlan)) notes.push(`composed — ${scenePlan.why}`);
+
+    /* ── THE WORLD ADVANCES ─────────────────────────────────────────────
+     *
+     * Once, here, above the constructor — which builds many candidate
+     * programs and keeps one. Stepping the film inside a candidate would
+     * step it once for every candidate that LOST.
+     *
+     * The representation is asked for the same way `constructPrograms`
+     * asks for it, so the world is built as the same KIND of image the
+     * construction will be. `representationsFor` is pure and deterministic,
+     * so asking twice costs arithmetic and changes nothing.
+     *
+     * The elements come back with their INHERITED places: a thing the film
+     * already established does not jump to wherever a fresh composition
+     * would have put it. That single fact is most of what a persistent
+     * world means on screen. */
+    if (world) {
+      const rep = representationsFor(beat, style).sort((a, b) => b.weight - a.weight)[0] ?? null;
+      const counted = (scene.figures ?? []).find((f) => f.kind === "count");
+      sceneWorld = stepWorld({
+        state: world.state,
+        mode: world.mode,
+        sentence: scene.narration.text,
+        subjects: beat.subjects,
+        relation: beat.relation ?? null,
+        count:
+          counted && Number.isFinite(counted.value) ? Math.max(1, Math.round(counted.value)) : null,
+        phrase: phrase.text,
+        noun: beat.subjects[0]?.text ?? "",
+        density: style.density,
+        energy: style.energy,
+        abstraction: style.abstraction,
+        typography: style.typography,
+        seed: 101 + sceneIndex * 7,
+        rep,
+        previous: world.previous,
+        bridgeMs: world.bridgeMs,
+      });
+      world.out = sceneWorld;
+      beat.world = {
+        graph: sceneWorld.graph,
+        material: sceneWorld.material,
+        mode: world.mode,
+        ...(sceneWorld.tweens.size > 0 && sceneWorld.bridgeMs > 0
+          ? { bridge: { tweens: sceneWorld.tweens, ms: sceneWorld.bridgeMs } }
+          : {}),
+      };
+      notes.push(`world — ${sceneWorld.describes}`);
+    }
 
     const programs = constructPrograms(beat, style, MAX_CHAIN_MS);
     const best = programs[0];
@@ -743,6 +840,11 @@ export function composeScene(
         ...(n.ground && n.ground.length > 0
           ? { ground: asComposed(n.ground, sceneIdx, parentIdx, text, depth + 1) }
           : {}),
+        // The bridge travels with the node it was attached to. A nested
+        // element's `place` sits on a compositor's B side, which is where
+        // most of a scene's elements live — dropping it here would leave
+        // the bridge reaching only the element drawn first.
+        ...(n.tween && n.tweenMs ? { tween: n.tween, tweenMs: n.tweenMs } : {}),
       };
     });
 
@@ -800,6 +902,9 @@ export function composeScene(
        * every film has looked like. */
       ...(constructed?.ground && constructed.ground.length > 0
         ? { ground: asComposed(constructed.ground, sceneIndex, i, phrase.text) }
+        : {}),
+      ...(constructed?.tween && constructed.tweenMs
+        ? { tween: constructed.tween, tweenMs: constructed.tweenMs }
         : {}),
     };
   });
@@ -924,6 +1029,21 @@ export function composeScene(
         }
       : null,
     alternatives,
+    world:
+      world && sceneWorld
+        ? {
+            mode: world.mode,
+            decisions: sceneWorld.advance.decisions.map((d) => ({
+              identity: d.identity,
+              what: d.what,
+              why: d.why,
+            })),
+            describes: sceneWorld.describes,
+            alive: sceneWorld.advance.state.alive.map((p) => p.identity),
+            bridgeMs: sceneWorld.bridgeMs,
+            cut: sceneWorld.advance.cut,
+          }
+        : null,
   };
 }
 
@@ -1067,7 +1187,7 @@ function sceneSubjects(sentence: string, carried: DetectedSubject | null): Detec
   return [...own, { ...carried, weight: carried.weight * 0.8 }].sort((a, b) => b.weight - a.weight);
 }
 
-export function composeAll(ir: EditorialIR): ComposedScene[] {
+export function composeAll(ir: EditorialIR, timeline?: FilmTimeline | null): ComposedScene[] {
   const positions = controlPointPositions(ir);
   const out: ComposedScene[] = [];
   const recent: string[][] = [];
@@ -1080,8 +1200,48 @@ export function composeAll(ir: EditorialIR): ComposedScene[] {
   // is — folding the two into one slot would mean the city stopped
   // existing the moment a sentence named a person.
   let carriedPlace: DetectedSubject | null = null;
+  /* THE FILM'S LONG-TERM MEMORY — the world itself.
+   *
+   * `carried` remembers a WORD. This remembers a WORLD: which identities
+   * are on screen, where they are, how many of them there are, and what
+   * left but might come back. It is the state `film-state.ts` was written
+   * for and never given, which is why every scene composed from nothing
+   * and a film was 36 independent animations.
+   *
+   * The mode comes off the IR's own continuity setting — the Create
+   * screen's "How it moves" writes it — and CUT is the default, which is
+   * what every film already was. So a film that predates this composes
+   * identically except that its identities are now remembered, and a film
+   * asked never to cut can finally be one. */
+  const mode = modeOf(ir.continuity);
+  let film: FilmState = EMPTY_FILM;
+  let previous: SceneGraph | null = null;
   ir.scenes.forEach((scene, i) => {
-    const composed = composeScene(ir, scene, i, positions, recent, phrases, carried, carriedPlace);
+    const onTimeline = timeline?.scenes.find((s) => s.sceneId === scene.sceneId);
+    const world: WorldContext = {
+      state: film,
+      mode,
+      previous,
+      // THE BRIDGE RUNS IN THE SILENCE. Measured, from the recording. A
+      // film with no narration has no measured silence, so it has no
+      // bridge — which is honest: there is nothing to arrive between.
+      bridgeMs: onTimeline ? bridgeMsFor(onTimeline) : 0,
+    };
+    const composed = composeScene(
+      ir,
+      scene,
+      i,
+      positions,
+      recent,
+      phrases,
+      carried,
+      carriedPlace,
+      world,
+    );
+    if (world.out) {
+      film = world.out.advance.state;
+      previous = world.out.graph;
+    }
     const named = detectSubjects(scene.narration.text);
     const own = named[0];
     if (own) carried = own;

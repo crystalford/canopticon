@@ -154,11 +154,29 @@ app.delete("/project/:id", async (c) => {
   return c.json({ deleted: id, title: project.title });
 });
 
+/** The four ways a film may move. Validated here rather than trusted,
+ *  because an unknown value should fall back to the conventional cut
+ *  rather than reach the schema and fail the whole ingest. */
+const CONTINUITIES = ["cut", "oneshot", "montage", "hybrid"];
+
 app.post("/project/ingest", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
     essay?: string;
     title?: string;
     projectId?: string;
+    /* THE ANSWERS THE CREATE SCREEN ALREADY COLLECTS.
+     *
+     * "How it moves" and "Made of" have been on the front door since the
+     * new interface shipped and reached a field on the browser's own film
+     * object, which is thrown away on reload and never seen by the
+     * compiler. `continuity` in particular now decides whether the film
+     * has a world at all, so leaving it in the browser would mean the
+     * one-shot mode existed and could not be chosen.
+     *
+     * Both are validated by the IR schema below rather than trusted; an
+     * unknown value falls back to the schema's default. */
+    continuity?: string;
+    visualLanguage?: string;
   };
   const essay = body.essay?.trim();
   if (!essay) return c.json({ error: "essay is required" }, 400);
@@ -190,7 +208,16 @@ app.post("/project/ingest", async (c) => {
     );
   }
   // The IR names its own project, so it is stamped after the id exists.
-  const ir: EditorialIR = { ...seed.ir, projectId };
+  const ir: EditorialIR = {
+    ...seed.ir,
+    projectId,
+    ...(CONTINUITIES.includes(body.continuity ?? "")
+      ? { continuity: body.continuity as EditorialIR["continuity"] }
+      : {}),
+    ...(body.visualLanguage
+      ? { visualLanguage: body.visualLanguage as EditorialIR["visualLanguage"] }
+      : {}),
+  };
 
   const parsed = parseIR(JSON.parse(JSON.stringify(ir)));
   if (!parsed.ok) {
@@ -1257,6 +1284,15 @@ app.post("/project/:id/creative-state", async (c) => {
     /** The film's colour, as the four directorial numbers. Same rail as a
      *  curve drag: validated, versioned, recompiled, cost reported. */
     colour?: Record<string, number>;
+    /** HOW THE FILM MOVES — cut, one shot, montage, hybrid.
+     *
+     *  The Continuity panel has offered this choice since the new front end
+     *  shipped, under a note reading "not yet sent to the compiler". It is
+     *  now the largest single decision a director can make here: it decides
+     *  whether the film composes as one persistent world that travels
+     *  between its ideas or as a sequence of independent scenes. Same rail,
+     *  same zero TTS. */
+    continuity?: string;
   };
 
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
@@ -1272,6 +1308,9 @@ app.post("/project/:id/creative-state", async (c) => {
     ...current.ir,
     visualLanguage: (body.visualLanguage ??
       current.ir.visualLanguage) as EditorialIR["visualLanguage"],
+    continuity: (CONTINUITIES.includes(body.continuity ?? "")
+      ? body.continuity
+      : current.ir.continuity) as EditorialIR["continuity"],
     cinematography: {
       ...current.ir.cinematography,
       colour: {
@@ -1299,17 +1338,21 @@ app.post("/project/:id/creative-state", async (c) => {
   const changedLanguage =
     body.visualLanguage !== undefined && body.visualLanguage !== current.ir.visualLanguage;
   const changedColour = body.colour !== undefined;
+  const changedContinuity =
+    body.continuity !== undefined && body.continuity !== current.ir.continuity;
   await writeVersion(
     c.env,
     projectId,
     parsed.ir,
     nextVersion,
     project.current_ir_version,
-    changedLanguage
-      ? `Visual language → ${parsed.ir.visualLanguage}`
-      : changedColour
-        ? "Colour changed"
-        : "Creative state edited",
+    changedContinuity
+      ? `Continuity → ${parsed.ir.continuity}`
+      : changedLanguage
+        ? `Visual language → ${parsed.ir.visualLanguage}`
+        : changedColour
+          ? "Colour changed"
+          : "Creative state edited",
   );
   await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
     nextVersion,
