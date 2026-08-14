@@ -792,15 +792,30 @@ function bindDirect(root) {
       toast("Could not start the recording — " + e.message);
     }
   };
-  // A recording already running on the server when this view opened —
-  // because the operator started it and navigated away — is picked up
-  // rather than looking like nothing is happening.
+  /* A RECORDING THIS PAGE DID NOT START, AND ONE IT DID.
+   *
+   * The first case is the operator starting a recording and navigating
+   * away: the server says `running` and the bar is picked up rather than
+   * looking like nothing is happening.
+   *
+   * The second is the one that shipped broken. Making a film starts the
+   * voice and then opens the film, and this check ran in the gap between
+   * the job being accepted and its marker being readable — so a brand
+   * new film with a recording under way was told nothing was running,
+   * never polled, and never went back for the plan once the voice
+   * landed. `narrationWasAsked` remembers that this page asked, which
+   * covers the gap without polling a film that was deliberately made
+   * silent. */
   if (real) {
-    narrationStatusOf(window.STUDIO.projectId)
-      .then((st) => {
-        if (st.running) watch();
-      })
-      .catch(() => {});
+    const id = window.STUDIO.projectId;
+    if (window.narrationWasAsked && narrationWasAsked(id)) watch();
+    else {
+      narrationStatusOf(id)
+        .then((st) => {
+          if (st.running) watch();
+        })
+        .catch(() => {});
+    }
   }
   if (rec) rec.onclick = () => runVoice(false);
   if (again) again.onclick = () => runVoice(true);

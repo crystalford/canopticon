@@ -94,11 +94,30 @@ const narrateProject = (id, opts) =>
  *  the Worker whether or not this page is open — narration used to be a
  *  loop in the browser, six scenes per request, and closing the tab
  *  abandoned it half done with nothing on the server aware it had begun. */
-const narrateFilm = (id, opts) =>
-  api(`/project/${id}/narrate`, {
+/* AND IT REMEMBERS THAT IT ASKED.
+ *
+ * The film view attaches its progress bar by asking the server, once on
+ * mount, whether a recording is running. There is a gap between this
+ * request being accepted (202) and the server's job marker being
+ * readable, and a film opened inside that gap gets "no recording is
+ * running" for a recording that is about to run — so the poll never
+ * starts and a narrated film sits there silent.
+ *
+ * A local note that a recording was asked for, in the last few minutes,
+ * closes the gap without polling films nobody asked to narrate: a film
+ * deliberately made silent is never marked, so it is never watched. */
+const NARRATION_ASKED = new Map();
+const narrationWasAsked = (id) => {
+  const at = NARRATION_ASKED.get(id);
+  return typeof at === "number" && Date.now() - at < 5 * 60 * 1000;
+};
+const narrateFilm = (id, opts) => {
+  NARRATION_ASKED.set(id, Date.now());
+  return api(`/project/${id}/narrate`, {
     method: "POST",
     body: JSON.stringify({ background: true, ...(opts || {}) }),
   });
+};
 
 /** How far the voice has got, asked of the film rather than remembered by
  *  this page. Safe to poll. */
@@ -501,6 +520,7 @@ Object.assign(window, {
   ratifyScenes,
   narrateProject,
   narrateFilm,
+  narrationWasAsked,
   narrationStatusOf,
   probeVoice,
   auditionVoice,

@@ -260,30 +260,39 @@ async function create() {
       intensity: NEW.intensity,
       ...(NEW.duration ? { durationTargetSec: NEW.duration } : {}),
     });
+    /* THE VOICE IS STARTED BEFORE THE FILM IS OPENED, and that order is
+     * the whole bug.
+     *
+     * REPORTED LIVE: "I just made a new essay and there was no audio
+     * track." The recording WAS running — it was started three lines
+     * below this, right after `adoptFilm()`. But `adoptFilm()` opens the
+     * film, and the film view asks the server ONCE on mount whether a
+     * recording is in progress so it can attach its progress bar and
+     * reload the plan when the voice lands. That question was being
+     * asked before the recording had been started, so the answer was
+     * always no: the poll never began, the narration finished on the
+     * server, and the page that was already open never went back for it.
+     * A film with a voice, showing no voice, with nothing on screen
+     * saying why.
+     *
+     * Started first, the mount check finds a live job and attaches to it.
+     * `narrateFilm` returns 202 as soon as the job is accepted, so this
+     * costs the page nothing — the recording continues on the server
+     * whatever this tab does next. */
+    if (NEW.voice === "Synthesised") {
+      busy(true, "cutting it, and starting the voice");
+      await narrateFilm(r.projectId, NEW.speaker ? { voice: NEW.speaker } : {}).catch((e) =>
+        toast("The film is made, but the voice could not start — " + e.message),
+      );
+    }
     await filmsRefresh();
     await loadProject(r.projectId);
     adoptFilm();
-    toast(`Made — ${liveScenes().length} moments`);
-    /* THE VOICE, WHEN IT WAS ASKED FOR.
-     *
-     * A separate, deliberate, chargeable step and it stays one — the only
-     * thing here that spends model calls, and its output is frozen and
-     * hashed as an input artifact. What changed is that choosing it on the
-     * front door starts it, with a bar, instead of leaving it to be found
-     * three buttons deep in the library. */
-    /* THE VOICE IS PART OF MAKING THE FILM.
-       *
-       * This looped `narrateNow` from the page — six scenes a request,
-       * with a busy overlay the operator had to sit through, and closing
-       * the tab abandoned it. The server takes the whole film now and
-       * keeps recording after this page has moved on; the film view
-       * reports where it has got to. */
-      if (NEW.voice === "Synthesised") {
-        busy(true, "recording the voice — this continues on the server");
-        await narrateFilm(r.projectId, NEW.speaker ? { voice: NEW.speaker } : {}).catch((e) =>
-          toast("The film is made, but the voice could not start — " + e.message),
-        );
-      }
+    toast(
+      NEW.voice === "Synthesised"
+        ? `Made — ${liveScenes().length} moments. Recording the voice now.`
+        : `Made — ${liveScenes().length} moments`,
+    );
   } catch (e) {
     busy(false);
     NEW.err = `Couldn't reach the compiler (${e.message}). Your writing is safe in this page — try again, or open the example film and direct that.`;
