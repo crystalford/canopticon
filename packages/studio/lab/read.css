@@ -363,3 +363,10 @@
    * chrome. `dvh` is the box actually being painted. */
   #busy,#finder,#sheet{height:100dvh}
 }
+
+/* A film being spoken, in the library. */
+.making{border:1px solid var(--sageline);background:var(--sagebg);border-radius:var(--r);padding:var(--s4);margin-top:var(--s5)}
+.makinghead{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s4);margin-bottom:10px}
+.makinghead .m{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.making .sndbar{margin-bottom:10px}
+.making .note{margin:0}

@@ -404,7 +404,7 @@ function filmRunner(c, cv) {
  *
  * The load is lazy and once: decoding 65 files on open would stall a view
  * the operator may never press play on. */
-const VOICE = { loading: null, loadedFor: null };
+const VOICE = { loading: null, loadedFor: null, poll: null, resumes: 0, failed: [] };
 
 async function voiceOn() {
   const plan = window.STUDIO && window.STUDIO.plan;
@@ -422,7 +422,20 @@ async function voiceOn() {
       VOICE.loading = loadNarration(plan).then((r) => {
         VOICE.loadedFor = key;
         VOICE.loading = null;
-        if (r.failed && r.failed.length) toast(`Voice: ${r.failed.length} moment(s) would not decode`);
+        /* A FAILED LOAD IS NOT A TOAST.
+         *
+         * This reported "N moment(s) would not decode" in a message that
+         * disappears after a few seconds, which is the same as not
+         * reporting it: a film whose audio will not fetch looks exactly
+         * like a film with no audio, and the operator is left saying "it
+         * says it worked and I hear nothing". Kept on VOICE and printed
+         * in the panel, with the first reason, until it loads. */
+        VOICE.failed = r.failed || [];
+        VOICE.loaded = r.loaded || 0;
+        if (VOICE.failed.length) {
+          toast(`Voice: ${VOICE.failed.length} of ${r.total} would not load`);
+          if (typeof paintVoicePanel === "function") paintVoicePanel();
+        }
         return r;
       });
     }
@@ -699,6 +712,19 @@ function bindDirect(root) {
       return;
     }
     snd.textContent = n === 0 ? "silent" : n >= total ? `narrated · ${total} moments` : `${n} of ${total} recorded`;
+    /* WHAT THE PANEL SAYS WHEN THE AUDIO IS THERE AND WILL NOT PLAY.
+     *
+     * The three states below describe what the PLAN carries. They cannot
+     * describe the case that actually kept a narrated film silent — the
+     * recordings exist, the plan names them, and fetching them fails. That
+     * has to be its own sentence or the panel is confidently wrong. */
+    if (VOICE.failed && VOICE.failed.length) {
+      note.textContent = `The recordings exist but ${VOICE.failed.length} would not load — ${VOICE.failed[0]}. The film is narrated; this page cannot reach the audio.`;
+      rec.hidden = true;
+      again.hidden = false;
+      again.textContent = "Record it again";
+      return;
+    }
     note.textContent =
       n === 0
         ? "This film has no voice yet. Adding one speaks each moment once, stores it, and re-times the film to the real recording — then PLAY has sound."
@@ -710,6 +736,9 @@ function bindDirect(root) {
     again.hidden = !(n > 0);
   };
   paintSnd();
+  // So a load failure discovered after this render can repaint the panel
+  // rather than only flashing a toast.
+  window.paintVoicePanel = paintSnd;
   /* PRESS ONCE. WALK AWAY.
    *
    * This drove narration from the page — six scenes per request, in a
@@ -717,19 +746,26 @@ function bindDirect(root) {
    * eleven presses and navigating away abandoned it. The server takes the
    * whole film now and keeps going without this tab; the page only
    * watches. */
-  let poll = null;
-  let resumes = 0;
+  /* THE POLL OUTLIVES THE RENDER, so it is not owned by one.
+   *
+   * `poll` was a local of `viewRead`, and `viewRead` re-runs on every
+   * render — selecting a scene, dragging a curve, anything. Each run got
+   * a fresh `poll` of its own, so the `if (poll) return` guard could not
+   * see the interval the previous render had left running: a few clicks
+   * during a recording stacked several intervals, all polling, all
+   * holding detached DOM, and each one racing the others to reload the
+   * plan and re-render. */
   const stopPoll = () => {
-    if (poll) clearInterval(poll);
-    poll = null;
+    if (VOICE.poll) clearInterval(VOICE.poll);
+    VOICE.poll = null;
   };
   const watch = () => {
     const id = window.STUDIO && window.STUDIO.projectId;
-    if (!id || poll) return;
+    if (!id || VOICE.poll) return;
     const bar = root.querySelector("#sndbar");
     const fill = root.querySelector("#sndfill");
     if (bar) bar.hidden = false;
-    poll = setInterval(async () => {
+    VOICE.poll = setInterval(async () => {
       if (!document.getElementById("voicebox")) return stopPoll();
       let st;
       try {
@@ -745,8 +781,8 @@ function bindDirect(root) {
        * that started it, and the count then sits at 56 of 65 forever.
        * Picking it up is safe: every chunk was versioned as it landed, so
        * a new round simply records what is still silent. */
-      if (st.stalled && st.narrated < st.total && resumes < 6) {
-        resumes++;
+      if (st.stalled && st.narrated < st.total && VOICE.resumes < 6) {
+        VOICE.resumes++;
         if (snd) snd.textContent = `recording — ${st.narrated} of ${st.total}, continuing`;
         try {
           await narrateFilm(id, {});
@@ -808,14 +844,38 @@ function bindDirect(root) {
    * silent. */
   if (real) {
     const id = window.STUDIO.projectId;
-    if (window.narrationWasAsked && narrationWasAsked(id)) watch();
-    else {
-      narrationStatusOf(id)
-        .then((st) => {
-          if (st.running) watch();
-        })
-        .catch(() => {});
-    }
+    /* AND THE PLAN IS RECONCILED AGAINST THE SERVER, EVERY TIME.
+     *
+     * This is the fix that does not depend on a poll surviving. A plan is
+     * fetched when a film opens and never again, so any route by which
+     * narration lands while this page is not watching — a poll dropped by
+     * a re-render, a recording finished in another tab, a job that
+     * completed after the tab was closed and reopened — leaves the page
+     * holding a plan with no audio in it for a film that has audio. Press
+     * PLAY and you get "this film has no voice yet" about a fully
+     * narrated film. Reported live, twice.
+     *
+     * So the page asks what the server actually has and compares it with
+     * what its own plan carries. More on the server means go and get it.
+     * One request on open, and it makes the silent-film case
+     * self-correcting instead of needing the operator to know they should
+     * reopen from the library. */
+    narrationStatusOf(id)
+      .then(async (st) => {
+        if (st.running || (window.narrationWasAsked && narrationWasAsked(id))) return watch();
+        if ((st.narrated ?? 0) > narratedCount()) {
+          VOICE.loadedFor = null;
+          try {
+            await loadProject(id);
+            adoptFilm();
+            render();
+            toast(`Voice found — ${st.narrated} recorded moments loaded. Press play.`);
+          } catch {
+            // Leave the film as it is; the panel still reports the truth.
+          }
+        }
+      })
+      .catch(() => {});
   }
   if (rec) rec.onclick = () => runVoice(false);
   if (again) again.onclick = () => runVoice(true);

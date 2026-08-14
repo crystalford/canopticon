@@ -230,6 +230,12 @@ app.post("/project/ingest", async (c) => {
      *  same thing is how two mechanisms end up disagreeing about how
      *  loudly a film speaks. */
     intensity?: string;
+    /** WHICH VOICE SPEAKS IT — a Deepgram speaker id.
+     *
+     *  Present or absent means SPEAK IT, because a film is timed to its
+     *  voice and one without a voice has no clock. Pass `null` (or
+     *  "none") to make a silent film on purpose. */
+    voice?: string | null;
     /** A DURATION TARGET, IN SECONDS — and a SOFT one.
      *
      *  It never drops a sentence. Your writing's length is the film's
@@ -318,8 +324,73 @@ app.post("/project/ingest", async (c) => {
     projectId,
   ]);
 
+  /* ── THE VOICE IS PART OF MAKING THE FILM ──────────────────────────
+   *
+   * THE ORDER WAS BACKWARDS, and every narration bug reported against
+   * this system was a symptom of it rather than a bug of its own.
+   *
+   * The film was cut here and compiled on open, timed to an ESTIMATE
+   * from character counts. The voice was a separate step afterwards.
+   * That leaves a window in which a film exists without the thing it is
+   * supposed to be timed to — and everything that went wrong lived in
+   * that window: a new film with no audio; a recording that landed while
+   * the page was not watching; a plan that went stale the instant the
+   * voice arrived; windows that stayed estimates until something thought
+   * to re-time them. Each was closed separately, and the next one opened
+   * somewhere else, because the window itself was the defect.
+   *
+   * The voice is not a feature of the film. It is the CLOCK. Anchor-based
+   * timing is the premise of this compiler, and an anchor cannot resolve
+   * to a time until something has been spoken and measured.
+   *
+   * So making a film speaks it. The essay is cut, the recording starts in
+   * the same request, and the film is not a film until its voice exists —
+   * at which point the first compile anyone ever sees is already against
+   * measured word times rather than a guess that gets corrected later.
+   *
+   * `voice: null` still makes a silent film, deliberately and on the
+   * record. That is a choice; it is no longer the default that happens
+   * to you. */
+  const wantsVoice = body.voice !== null && body.voice !== "none";
+  if (wantsVoice) {
+    const jobKey = `projects/${projectId}/narration/job.json`;
+    await c.env.FILES.put(
+      jobKey,
+      JSON.stringify({ running: true, startedAt: nowIso(), from: "ingest" }),
+      { httpMetadata: { contentType: "application/json" } },
+    );
+    const id = projectId;
+    c.executionCtx.waitUntil(
+      narrateWholeFilm(c.env, id, typeof body.voice === "string" ? { voice: body.voice } : {}).catch(
+        async (err) => {
+          // Degrade, flag, continue. A film whose voice failed is still a
+          // film, and the failure has to be readable rather than a job
+          // marker that never clears.
+          await c.env.FILES.put(
+            jobKey,
+            JSON.stringify({
+              running: false,
+              failedAt: nowIso(),
+              reason: err instanceof Error ? err.message : String(err),
+            }),
+            { httpMetadata: { contentType: "application/json" } },
+          );
+        },
+      ),
+    );
+  }
+
   return c.json(
-    { projectId, irVersion: nextVersion, title: parsed.ir.title, ...seed.stats, notes: seed.notes },
+    {
+      projectId,
+      irVersion: nextVersion,
+      title: parsed.ir.title,
+      ...seed.stats,
+      notes: seed.notes,
+      /** Whether this film is being spoken right now. The client uses it
+       *  to wait rather than to open a film that has no clock yet. */
+      narrating: wantsVoice,
+    },
     201,
   );
 });

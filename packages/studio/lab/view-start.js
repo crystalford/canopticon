@@ -259,6 +259,11 @@ async function create() {
       continuity: NEW.editing,
       intensity: NEW.intensity,
       ...(NEW.duration ? { durationTargetSec: NEW.duration } : {}),
+      /* THE VOICE TRAVELS WITH THE ESSAY. Making a film speaks it: the
+       * server starts recording in the same request that cuts the
+       * writing, so there is never a moment when a film exists without
+       * the clock it is timed to. `null` is a silent film, asked for. */
+      voice: NEW.voice === "Synthesised" ? NEW.speaker || "angus" : null,
     });
     /* THE VOICE IS STARTED BEFORE THE FILM IS OPENED, and that order is
      * the whole bug.
@@ -279,20 +284,33 @@ async function create() {
      * `narrateFilm` returns 202 as soon as the job is accepted, so this
      * costs the page nothing — the recording continues on the server
      * whatever this tab does next. */
-    if (NEW.voice === "Synthesised") {
-      busy(true, "cutting it, and starting the voice");
-      await narrateFilm(r.projectId, NEW.speaker ? { voice: NEW.speaker } : {}).catch((e) =>
-        toast("The film is made, but the voice could not start — " + e.message),
-      );
+    /* AND THE FILM IS NOT OPENED UNTIL IT HAS ONE.
+     *
+     * This opened the film the instant the writing was cut. The film
+     * therefore compiled against a character-count ESTIMATE, and the
+     * voice — the thing the whole compiler times itself to — arrived
+     * afterwards into a page already holding a plan built without it.
+     * Every "I made a film and there's no audio" and every "I narrated it
+     * and I still hear nothing" came out of that gap.
+     *
+     * Waiting is the honest behaviour: making a film takes as long as it
+     * takes to speak it, the library says how far it has got, and the
+     * first compile anyone sees is already cut to measured word times.
+     * The recording runs on the server, so leaving is safe — the film
+     * finishes whether this tab stays or not. */
+    if (r.narrating) {
+      await filmsRefresh();
+      go("films");
+      MAKING.id = r.projectId;
+      MAKING.title = r.title || "your film";
+      watchMaking();
+      toast("Cut. Now speaking it — the film opens when it has its voice.");
+      return;
     }
     await filmsRefresh();
     await loadProject(r.projectId);
     adoptFilm();
-    toast(
-      NEW.voice === "Synthesised"
-        ? `Made — ${liveScenes().length} moments. Recording the voice now.`
-        : `Made — ${liveScenes().length} moments`,
-    );
+    toast(`Made — ${liveScenes().length} moments`);
   } catch (e) {
     busy(false);
     NEW.err = `Couldn't reach the compiler (${e.message}). Your writing is safe in this page — try again, or open the example film and direct that.`;

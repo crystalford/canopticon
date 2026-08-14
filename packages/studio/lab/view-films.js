@@ -15,6 +15,71 @@
  */
 let LIB = { error: null };
 
+/* ── A FILM BEING MADE ────────────────────────────────────────────────
+ *
+ * Making a film speaks it, and speaking sixty moments takes minutes. The
+ * old flow opened the film immediately and let the voice catch up, which
+ * is the whole reason a compiled plan could exist without the clock it
+ * was supposed to be timed to. So the film is not opened until it has a
+ * voice, and while it is being spoken the library says so and counts.
+ *
+ * The recording is the server's, not this page's — closing the tab does
+ * not stop it and reopening the library picks the count back up. */
+const MAKING = { id: null, title: "", narrated: 0, total: 0, timer: null, reason: null };
+
+function stopMaking() {
+  if (MAKING.timer) clearInterval(MAKING.timer);
+  MAKING.timer = null;
+}
+
+function watchMaking() {
+  stopMaking();
+  if (!MAKING.id) return;
+  const tick = async () => {
+    let st;
+    try {
+      st = await narrationStatusOf(MAKING.id);
+    } catch {
+      return; // A dropped poll is not a failed recording.
+    }
+    MAKING.narrated = st.narrated ?? 0;
+    MAKING.total = st.total ?? 0;
+    if (APP.view === "films") render();
+    if (st.running) return;
+    /* THE JOB CAN DIE HOLDING THE FLAG on a long film. Every chunk was
+     * versioned as it landed, so picking it up records only what is
+     * still silent. */
+    if (st.stalled && MAKING.narrated < MAKING.total) {
+      try {
+        await narrateFilm(MAKING.id, {});
+      } catch {
+        // The next tick reports it.
+      }
+      return;
+    }
+    stopMaking();
+    const id = MAKING.id;
+    MAKING.reason = st.reason || null;
+    MAKING.id = null;
+    if (MAKING.narrated > 0) {
+      // Open it now. This is the first compile anyone sees of this film
+      // and it is against measured word times, not an estimate.
+      try {
+        await openFilm(id);
+        toast(`Made — spoken in ${MAKING.narrated} moments, and cut to the voice.`);
+      } catch {
+        await filmsRefresh();
+      }
+    } else {
+      await filmsRefresh();
+      render();
+      toast(st.reason ? `No voice was recorded — ${st.reason}` : "No voice was recorded");
+    }
+  };
+  MAKING.timer = setInterval(tick, 2500);
+  tick();
+}
+
 async function filmsRefresh() {
   try {
     window.PROJECTS = await listProjects();
@@ -94,6 +159,13 @@ function viewFilms(root) {
       </div>
     </div>
     ${NEW.err ? `<div class="notice" style="margin-top:var(--s5)"><i class="dot clay"></i><span>${esc(NEW.err)}</span></div>` : ""}
+    ${
+      MAKING.id
+        ? `<div class="making"><div class="makinghead"><span class="key">Making “${esc(MAKING.title)}”</span><span class="m">${MAKING.total ? `${MAKING.narrated} of ${MAKING.total} moments spoken` : "starting the voice"}</span></div>
+           <div class="sndbar"><div class="sndfill" style="width:${MAKING.total ? Math.round((MAKING.narrated / MAKING.total) * 100) : 0}%"></div></div>
+           <p class="note">A film is cut to its voice, so it is spoken before it is composed. This is the only step that costs anything. It carries on if you leave — come back and it will be here.</p></div>`
+        : ""
+    }
 
     ${
       LIB.error
@@ -164,4 +236,4 @@ function viewFilms(root) {
   );
 }
 
-Object.assign(window, { viewFilms, filmsRefresh, openFilm, useExample, adoptFilm });
+Object.assign(window, { viewFilms, filmsRefresh, openFilm, useExample, adoptFilm, watchMaking, MAKING });
