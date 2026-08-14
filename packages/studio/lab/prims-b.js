@@ -973,11 +973,21 @@ rasterPrim(
       for (let x = 0; x < w; x += c) {
         const sx = Math.round(clampv(x + sh, 0, w - 1));
         const v = im.data[((y | 0) * w + sx) * 4] / 255;
-        ctx.fillStyle = "rgba(238,241,243," + v * 0.85 + ")";
+        /* A SCANLINE IS INK ON THE FILM'S OWN GROUND.
+         *
+         * This drew rgba(238,241,243) — near white — with alpha keyed to
+         * brightness, which is a CRT only if the film is dark. On paper it
+         * painted white onto white where the image was bright and nothing
+         * at all where it was dark, so every mark on the frame was wiped
+         * to the ground. Bisecting a real scene: 247 dark pixels in, 0
+         * out. The words survived the compositor and died here. */
+        const a = (KEY > 0.5 ? 1 - v : v) * 0.85;
+        ctx.fillStyle = `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},${a})`;
         ctx.fillRect(x, y, c, c);
       }
     }
-    ctx.fillStyle = "rgba(216,98,74,.05)";
+    // The roll bar, in the film's accent rather than a fixed clay.
+    ctx.fillStyle = `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.05)`;
     ctx.fillRect(0, (t * 90) % h, w, 26);
   },
 );

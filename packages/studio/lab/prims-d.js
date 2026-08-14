@@ -903,21 +903,30 @@ reg(
           im = src.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, w, h),
           c = 4,
           M = Math.round(p.mode);
-        const PALS = [
-          [
-            [216, 98, 74],
-            [13, 15, 17],
-          ],
-          [
-            [111, 158, 196],
-            [238, 241, 243],
-          ],
-          [
-            [217, 164, 65],
-            [24, 20, 16],
-          ],
-        ];
-        const [hi, lo] = PALS[M];
+        /* A DUOTONE IN THE FILM'S OWN COLOURS.
+         *
+         * This was three hardcoded pairs, written before `palette.js`
+         * existed. Mode 1 mapped the LOW end of luminance to
+         * [238,241,243] — near white — so on a light film every dark mark
+         * became paper. Bisecting a real scene's chain stage by stage:
+         * 283 dark pixels after the words were composited, 0 after this
+         * primitive ran. It was not tinting the frame, it was erasing it,
+         * and the result read as one more abstract texture.
+         *
+         * The ramp now runs from the film's INK to its own accent, with
+         * the direction the film's key decides: on paper a dark input
+         * stays dark and takes the accent's hue, on a dark film a bright
+         * input stays bright. `mode` keeps its job — which accent — and
+         * loses the one it should never have had, which was deciding how
+         * light the world is. */
+        // Three casts: the film's accent, its cooler second, and none —
+        // a neutral ink-to-paper ramp, which a documentary register wants
+        // far more often than a colour wash.
+        const ACCENTS = [ACCENT_RGB, COOL_RGB, INK_RGB];
+        const accent = ACCENTS[M] || ACCENT_RGB;
+        // Ink end and paper end, in the film's terms rather than a table's.
+        const hi = KEY > 0.5 ? BG_RGB : accent;
+        const lo = KEY > 0.5 ? accent : BG_RGB;
         for (let y = 0; y < h; y += c)
           for (let x = 0; x < w; x += c) {
             const g = im.data[((y | 0) * w + (x | 0)) * 4] / 255,

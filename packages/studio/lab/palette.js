@@ -147,6 +147,16 @@ function resolvePalette(colour) {
     bg: hsl(hue, groundS, groundL),
     bgRgb: hexToRgb(hsl(hue, groundS, groundL)),
     ink: hsl(hue, inkS, inkL),
+    /* THE SAME THREE COLOURS, AS NUMBERS.
+     *
+     * A primitive that manipulates pixels cannot use a CSS string. Until
+     * these existed the only numeric colour in the palette was the ground,
+     * so `color_transform` carried its own hardcoded duotone table and
+     * mapped ink to near-white on a light film — which erased every word
+     * on screen and looked exactly like a texture. */
+    inkRgb: hexToRgb(hsl(hue, inkS, inkL)),
+    accentRgb: hexToRgb(hsl(accentHue, accentS, accentL)),
+    coolRgb: hexToRgb(hsl((hue + 300) % 360, accentS * 0.72, accentL * (key > 0.5 ? 0.85 : 1.05))),
     muted: hsl(hue, midS, midL),
     dim: hsl(hue, midS * 0.7, dimL),
     accent: hsl(accentHue, accentS, accentL),
