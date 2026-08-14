@@ -167,6 +167,30 @@ const APPROACHES = ["text", "abstract", "world", "image", "hybrid"];
  *  is how far it will go against the grain, `motionEnergy` is how much it
  *  moves. A director asking for "chaotic" is asking for all three at once,
  *  and asking for them by name is asking them to specify implementation. */
+/** A DURATION TARGET, TURNED INTO AN EDIT.
+ *
+ *  The honest reading of "make it a minute" when the writing narrates to
+ *  five: the film is still five minutes and it is CUT as if it were a
+ *  minute — faster, denser, less room per idea. What the operator asked
+ *  for was a register, and the register is reachable; the runtime is not,
+ *  without deleting their sentences.
+ *
+ *  Returns nothing when there is no target, so a film without one is
+ *  composed exactly as it was. */
+function paceFor(targetSec: number | undefined, words: number): Record<string, number> {
+  if (!targetSec || targetSec <= 0 || words <= 0) return {};
+  // 150 wpm is documentary pace and is what the Create screen shows the
+  // writer as they type — one number, one place.
+  const spokenSec = (words / 150) * 60;
+  if (spokenSec <= 0) return {};
+  // >1 means the writing is longer than the target: cut faster.
+  const pressure = Math.max(0.25, Math.min(4, spokenSec / targetSec));
+  return {
+    cutRhythm: Math.max(0, Math.min(1, (pressure - 1) / 2.2)),
+    visualDensity: Math.max(0.15, Math.min(0.95, 0.35 + (pressure - 1) * 0.2)),
+  };
+}
+
 const INTENSITY: Record<string, Record<string, number>> = {
   restrained: { restraint: 0.78, experimentalism: 0.15, motionEnergy: 0.25 },
   expressive: { restraint: 0.45, experimentalism: 0.4, motionEnergy: 0.55 },
@@ -201,6 +225,14 @@ app.post("/project/ingest", async (c) => {
      *  same thing is how two mechanisms end up disagreeing about how
      *  loudly a film speaks. */
     intensity?: string;
+    /** A DURATION TARGET, IN SECONDS — and a SOFT one.
+     *
+     *  It never drops a sentence. Your writing's length is the film's
+     *  length; the target shapes the EDIT — how fast it cuts and how much
+     *  is on screen at once — and the runtime that comes back is the real
+     *  one. A control that silently deleted prose to hit a number would be
+     *  the compiler editing the writing, which is the operator's job. */
+    durationTargetSec?: number;
   };
   const essay = body.essay?.trim();
   if (!essay) return c.json({ error: "essay is required" }, 400);
@@ -244,13 +276,14 @@ app.post("/project/ingest", async (c) => {
     ...(APPROACHES.includes(body.visualApproach ?? "")
       ? { visualApproach: body.visualApproach as EditorialIR["visualApproach"] }
       : {}),
-    ...(INTENSITY[body.intensity ?? ""]
+    ...(INTENSITY[body.intensity ?? ""] || body.durationTargetSec
       ? {
           creativeState: {
             ...seed.ir.creativeState,
             identity: {
               ...seed.ir.creativeState.identity,
               ...INTENSITY[body.intensity ?? ""],
+              ...paceFor(body.durationTargetSec, essay.split(/\s+/).filter(Boolean).length),
             },
           },
         }

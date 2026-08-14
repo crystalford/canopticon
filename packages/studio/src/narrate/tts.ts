@@ -70,6 +70,29 @@ export const TTS_CANDIDATES: Array<{
   },
 ];
 
+/** THE VOICES THE BINDING ACTUALLY OFFERS.
+ *
+ *  `@cf/deepgram/aura-1` takes a `speaker`, and these are its documented
+ *  ones. Listed here — on the compiler, not in the browser — so the picker
+ *  offers what exists rather than what a front end imagined, and so
+ *  `POST /v1/tts/probe` and this list can disagree loudly rather than
+ *  quietly. An unknown speaker falls back to the model's own default, so a
+ *  stale entry costs a different voice rather than a failed film.
+ *
+ *  The second candidate takes no voice at all. A picker shown while
+ *  melotts is answering would be a control that reports rather than acts,
+ *  which is why the report says which model spoke. */
+export const VOICES: Array<{ id: string; label: string; note: string }> = [
+  { id: "angus", label: "Angus", note: "warm, unhurried — the default" },
+  { id: "asteria", label: "Asteria", note: "clear and level" },
+  { id: "arcas", label: "Arcas", note: "low, close, documentary" },
+  { id: "orion", label: "Orion", note: "measured, formal" },
+  { id: "luna", label: "Luna", note: "light, quick" },
+  { id: "athena", label: "Athena", note: "cool, precise" },
+  { id: "zeus", label: "Zeus", note: "heavy, declarative" },
+  { id: "hera", label: "Hera", note: "even, reportorial" },
+];
+
 /** Speak one scene's narration.
  *
  *  Deliberately takes the binding rather than the Env, so a test can hand
