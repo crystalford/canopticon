@@ -159,23 +159,6 @@ describe("the planner reaches the data family", () => {
     expect(t.valid).toBe(true);
   });
 
-  it("figures lead only when there is nothing concrete to depict", () => {
-    const figures = extractFigures("the program cost $750 million");
-    // A concept subject: the number is the most depictable thing present.
-    expect(must(planTreatment(reading({ figures }), "documentary").nodes[0]).primitiveId).toBe(
-      "data_series",
-    );
-    // A real object: the object still wins. A stray figure must not turn
-    // an investigation into a slideshow of charts.
-    const concrete = reading({
-      figures,
-      subjects: [{ label: "the Wyndham Garden", kind: "object", weight: 0.9 }],
-    });
-    expect(must(planTreatment(concrete, "documentary").nodes[0]).primitiveId).toBe(
-      "mounted_fixture",
-    );
-  });
-
   it("the verbatim series travels to the primitive as a parameter", () => {
     const figures = extractFigures("$282,345.84 for 2024-2025");
     const t = planTreatment(reading({ figures }), "documentary");

@@ -39,8 +39,62 @@
 
 import type { EditorialIR, Scene } from "../ir/schema.ts";
 import type { FilmTimeline } from "../narrate/timeline.ts";
+import { ASSERTS, type Act, type ActReading, DENIES, HEDGE, readAct } from "./act.ts";
+import { detectSubjects } from "./subject.ts";
 
-export type PromotionLevel = 0 | 1 | 2 | 3 | 4;
+/** HOW MUCH OF THE FILM'S ATTENTION THIS MOMENT GETS, 0..4.
+ *
+ *  Read as "how much text" for as long as TEXT was the only thing that
+ *  could be allocated. It is the INTENSITY of whatever the moment was
+ *  given, and the scale is unchanged — 0 is the film spending nothing
+ *  here, 4 is a moment taking the screen. */
+export type Intensity = 0 | 1 | 2 | 3 | 4;
+
+/** WHAT THE FILM SPENDS ON A MOMENT.
+ *
+ *  Two kinds today, and the honest reason there are only two: those are
+ *  the two this compiler can actually carry out. `SPOKEN` is not a
+ *  failure and not an absence of decision — it is the allocator deciding
+ *  that the voice carries this moment alone, which is what most of an
+ *  essay should be.
+ *
+ *  Deliberately NOT called `NONE`. A moment can be spoken-only and still
+ *  have a picture behind it: this layer allocates the film's ATTENTION,
+ *  and whether a scene draws anything at all is a separate question that
+ *  nothing in this compiler can currently answer. Naming this `NONE`
+ *  would claim a capability that does not exist. */
+export type InterventionKind =
+  /** Nothing is drawn. The film's own ground, and the voice alone.
+   *
+   *  The decision the compiler could not previously express — not because
+   *  nobody wanted it, but because four separate layers each independently
+   *  guaranteed a picture, so a higher layer asking for silence was
+   *  overruled by a lower one manufacturing something. */
+  | "NONE"
+  /** What is already on screen stays on screen. Nothing new arrives.
+   *
+   *  COMPOSITIONAL, not simulated: the world's persistent elements are
+   *  recomposed at their inherited places. A particle field does not keep
+   *  running across the boundary — retaining live chain instances is the
+   *  exact opposite of the buffer disposal that stopped the tab dying
+   *  mid-film, and that is a decision about long-film export rather than
+   *  something to slip into a change about breathing room. */
+  | "HOLD"
+  /** The words are the intervention. */
+  | "TEXT"
+  /** The compiler builds a picture for this moment. Today's default, and
+   *  now one option among four rather than the only outcome. */
+  | "COMPOSE";
+
+/** What a TEXT intervention needs in order to happen: the words, and
+ *  where they sit in the sentence so they can be timed to the voice. */
+export interface TextPayload {
+  /** The span to put on screen — verbatim from the narration, always. */
+  text: string;
+  /** Its character offset in the sentence, which is what lets it be timed
+   *  to the measured words rather than to the sentence's whole window. */
+  offset: number;
+}
 
 /** What this sentence is DOING in the argument — as distinct from what it
  *  is about. The visual rhythm should follow the argument, not the
@@ -58,15 +112,33 @@ export type ArgumentRole =
   | "STANDARD"
   | "CONCLUSION";
 
-export interface Promotion {
+/** ONE MOMENT'S SHARE OF THE FILM'S VISUAL ATTENTION.
+ *
+ *  Everything on this record except `payload` is already
+ *  intervention-agnostic — `role`, `window`, `why` and `score` say
+ *  nothing about type — which is why generalising the allocator was a
+ *  smaller change than it looked. What was welded to typography was two
+ *  fields, and they are now the payload of a kind rather than the point
+ *  of the record. */
+export interface Intervention {
   sceneId: string;
-  level: PromotionLevel;
+  kind: InterventionKind;
+  /** WHAT KIND OF CHANGE THIS MOMENT IS.
+   *
+   *  `kind` answers whether the moment is active and how; `act` answers
+   *  what it DOES. They are separate fields because they are separate
+   *  questions, and collapsing them is how `COMPOSE` came to mean "draw
+   *  something" and therefore to mean nothing — 63% of a real film's
+   *  pictures came out of that one bucket, on one chain shape.
+   *
+   *  Read `act.ts` for the vocabulary. Nothing below the allocator reads
+   *  this yet; it is decided and reported first so that the decision can
+   *  be checked against a real essay before anything is drawn from it. */
+  act: ActReading;
+  intensity: Intensity;
   role: ArgumentRole;
-  /** The span to put on screen — verbatim from the narration, always. */
-  text: string;
-  /** Its character offset in the sentence, which is what lets it be timed
-   *  to the measured words rather than to the sentence's whole window. */
-  offset: number;
+  /** Present when `kind` needs one. Null for `SPOKEN`. */
+  payload: TextPayload | null;
   /** WHEN it is spoken. `measured` false means the recording gave only a
    *  sentence boundary, so this is the sentence's window and the phrase is
    *  landing on a guess. Kept as a distinct fact rather than smoothed
@@ -76,6 +148,13 @@ export interface Promotion {
    *  account for is indistinguishable from a guess. */
   why: string[];
   score: number;
+}
+
+/** The film's text, as the allocator left it. A consumer that wants the
+ *  words asks for them rather than reaching into a shape that will gain
+ *  more kinds. */
+export function textOf(i: Intervention): TextPayload | null {
+  return i.kind === "TEXT" ? i.payload : null;
 }
 
 /* ── THE SIGNALS ──────────────────────────────────────────────────────
@@ -108,17 +187,16 @@ const CONTRAST = [
  *
  * So it is detected across ADJACENT SCENES, and both halves are promoted
  * together — which is also how it should read on screen: two lines, the
- * second landing when the second is spoken. */
-const DENIES = /\b(?:is|was|are|were|do|does|did)(?:n['’]t| not)\b|\bnever\b/i;
-const ASSERTS = /^\s*(?:it|they|that|this|he|she)\b/i;
-
-/** Hedges. A hedged sentence is not a thesis, whatever else it looks like.
- *  Same discipline as `extract-reading.ts`'s hedge floor and for the same
- *  reason: an essay is allowed to be uncertain, and dramatising an
- *  uncertainty into a full-screen statement is the compiler putting words
- *  in the author's mouth. */
-const HEDGE =
-  /\b(?:probably|perhaps|maybe|arguably|seems?|appears?|suggests?|might|may|could|allegedly|reportedly|apparently|roughly|approximately|tends? to|often|usually|sometimes)\b/i;
+ * second landing when the second is spoken.
+ *
+ * `DENIES`, `ASSERTS` and `HEDGE` now live in `act.ts` and are imported
+ * rather than declared here. They were only ever used to move a SCORE —
+ * a hedge became `× 0.45`, a denial/assertion pair became a shared quota
+ * slot — and in both cases the finding itself, that the essay is
+ * qualifying or that the argument has just reversed across a cut, was
+ * destroyed. They are read as state changes there and as score inputs
+ * here, from one definition, because two implementations of one rule is
+ * how the Lab and the Worker came to disagree about 57 of 88 scenes. */
 
 /** A short, unhedged declarative. Nine words is about the length past
  *  which a line stops being a statement and starts being a sentence. */
@@ -248,7 +326,7 @@ interface Candidate {
 }
 
 /** Everything this sentence offers, with what it is worth. */
-function candidatesFor(scene: Scene, refrains: Set<string>): Candidate[] {
+function candidatesFor(scene: Scene, refrains: Map<string, number>): Candidate[] {
   const t = scene.narration.text.trim();
   const out: Candidate[] = [];
   const hedged = HEDGE.test(t);
@@ -298,15 +376,31 @@ function candidatesFor(scene: Scene, refrains: Set<string>): Candidate[] {
 
   // THE AUTHOR'S OWN REFRAIN. A phrase they wrote twice is a phrase they
   // meant; nothing about this is the compiler's opinion.
-  for (const phrase of refrains) {
+  for (const phrase of refrains.keys()) {
     const at = norm(t).indexOf(phrase);
     if (at < 0) continue;
     // Recover the verbatim span rather than the normalised one — what goes
     // on screen is always something the essay actually says.
     const re = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+"), "i");
     const m = re.exec(t);
-    const span = m ? trimVerbatim(t, m[0]) : "";
-    if (span) out.push({ text: span, score: 0.78, why: "the essay says this more than once" });
+    /* A REFRAIN IS PROMOTED WHOLE OR NOT AT ALL.
+     *
+     * `trimVerbatim` strips function words from both ends, which is right
+     * for a span the compiler chose and wrong for one the AUTHOR chose:
+     * it guts the refrain and promotes the wreckage. Measured on the real
+     * essay, this produced "while", "front", "audience", "It's" and "I am"
+     * as full-screen interventions — "for a while" trimmed to "while",
+     * "in front of" to "front" — and one of them was the film's closing
+     * thesis at intensity 4.
+     *
+     * If trimming has anything to remove, the refrain was not a phrase
+     * worth showing. The essay repeating "in front of" is not the essay
+     * making a point. */
+    const raw = m ? m[0] : "";
+    const span = raw ? trimVerbatim(t, raw) : "";
+    if (span && span === raw.replace(/[.,;:]+$/, "")) {
+      out.push({ text: span, score: 0.78, why: "the essay says this more than once" });
+    }
     break;
   }
 
@@ -316,8 +410,15 @@ function candidatesFor(scene: Scene, refrains: Set<string>): Candidate[] {
 
 /** Phrases the essay repeats. Three to six words, normalised, seen twice
  *  or more — the author's refrain, found by counting rather than by
- *  interpretation. */
-function findRefrains(ir: EditorialIR): Set<string> {
+ *  interpretation.
+ *
+ *  THE COUNTS WERE ALREADY HERE AND WERE THROWN AWAY. `seen` knows exactly
+ *  how many times the essay says each phrase; the old version reduced it
+ *  to a Set on the way out, so "this is the third time" was one line from
+ *  existing and was never available to anything. It is returned now,
+ *  because a refrain RETURNING is a different visual event from a refrain
+ *  arriving, and the film could not previously tell them apart. */
+function findRefrains(ir: EditorialIR): Map<string, number> {
   const seen = new Map<string, number>();
   for (const scene of ir.scenes) {
     const w = norm(scene.narration.text).split(" ");
@@ -328,9 +429,66 @@ function findRefrains(ir: EditorialIR): Set<string> {
       }
     }
   }
-  const out = new Set<string>();
-  for (const [g, n] of seen) if (n >= 2 && g.split(" ").length >= 3) out.add(g);
+  /* AND A REFRAIN HAS TO BE SOMETHING THE ESSAY CHOSE TO REPEAT.
+   *
+   * Measured on the real essay before this filter: 24 "refrains", of which
+   * "this is the", "in front of", "for a while", "it's not a" and "the
+   * only one" are not refrains at all. They are English. An author does
+   * not decide to say "in front of" twice; the language does.
+   *
+   * So a repeated span counts only if something survives when the weak
+   * words are trimmed off both ends — the same test that governs what may
+   * go on screen, applied to what may count as repetition. It is not a new
+   * threshold: `WEAK` and this trim already decide every promoted phrase.
+   *
+   * This also corrects the existing candidate scorer, which was only
+   * protected from the same grammar by accident: `candidatesFor` runs the
+   * trim afterwards and drops what changed under it, so a grammar refrain
+   * was silently rejected there rather than never being one.
+   *
+   * AND FOUR WORDS RATHER THAN THREE, which is the difference between the
+   * essay's VOCABULARY and its ECHOES. Measured: "the debate bro" appears
+   * six times in a 65-scene essay about a debate bro. That is the subject
+   * being named, and reporting the sixth mention as "the sixth time the
+   * essay says this" is the compiler mistaking a noun for an event — the
+   * same error, in a new place. "The debate bro AT his best" and "the
+   * debate bro AT the fallacy moment" are four words, appear twice, and
+   * are a deliberate parallel the author built. */
+  const out = new Map<string, number>();
+  for (const [g, n] of seen) {
+    if (n < 2) continue;
+    const w = g.split(" ");
+    if (w.length < 4) continue;
+    if (w.filter((x) => !WEAK.has(x)).length < 2) continue;
+    out.set(g, n);
+  }
   return out;
+}
+
+/** WHICH TIME THIS IS.
+ *
+ *  How many of the film's refrains this scene contains that have already
+ *  been said — so the first use of a refrain reads as 1 and every return
+ *  reads as 2, 3, 4. Accumulated in scene order by the caller, because
+ *  the answer depends on where in the film you are standing, which is
+ *  exactly what a Set could not express. */
+function refrainOccurrence(
+  text: string,
+  refrains: Map<string, number>,
+  said: Map<string, number>,
+): number {
+  let occurrence = 1;
+  const t = norm(text);
+  for (const phrase of refrains.keys()) {
+    if (!t.includes(phrase)) continue;
+    const n = (said.get(phrase) ?? 0) + 1;
+    said.set(phrase, n);
+    // The LONGEST refrain in the sentence wins by being counted highest —
+    // a scene containing both a twice-said phrase and a fourth-said one is
+    // the fourth time, not the second.
+    occurrence = Math.max(occurrence, n);
+  }
+  return occurrence;
 }
 
 /** How many moments an essay of this length should actually SHOW.
@@ -341,8 +499,22 @@ function findRefrains(ir: EditorialIR): Set<string> {
  *  because the two minutes around it did not. Roughly one visual anchor
  *  per four scenes, floored so a very short film still has some, capped so
  *  a long one does not become a slideshow again. */
-function quota(sceneCount: number): { shown: number; major: number } {
-  const shown = Math.max(3, Math.min(14, Math.round(sceneCount * 0.34)));
+function quota(sceneCount: number, totalMs?: number): { shown: number; major: number } {
+  /* A BUDGET IS A FUNCTION OF HOW LONG THE FILM LASTS.
+   *
+   * This read scene count alone, which is a proxy that drifts badly: an
+   * essay of long sentences and an essay of short ones can have the same
+   * scene count and twice the runtime between them, and the second was
+   * being given a caption every few seconds while the first went quiet.
+   *
+   * The measured timeline is already available at the call site — it is
+   * passed in for `windowFor` — so the honest denominator was there all
+   * along. Roughly one anchor per half-minute of speech, which puts a
+   * seven-minute essay at the top of the range without reaching for the
+   * cap. Scene count stays as the fallback for a film that has not been
+   * narrated yet, where there is no runtime to divide. */
+  const bySpeech = totalMs && totalMs > 0 ? Math.round(totalMs / 30_000) : null;
+  const shown = Math.max(3, Math.min(14, bySpeech ?? Math.round(sceneCount * 0.34)));
   return { shown, major: Math.max(1, Math.round(shown * 0.35)) };
 }
 
@@ -350,14 +522,104 @@ function quota(sceneCount: number): { shown: number; major: number } {
  *  development paragraph is never a thesis however well it is written. */
 const MAJOR: ArgumentRole[] = ["TITLE", "THESIS", "DIAGNOSTIC", "CONCLUSION", "STANDARD"];
 
-/** PROMOTE THE FILM'S TEXT.
+/* ── WHAT HAPPENS TO THE VISUAL WORLD ────────────────────────────────
+ *
+ * The decision the compiler could not make. Every scene got a picture,
+ * so the only question ever asked was WHICH one — and with four layers
+ * independently guaranteeing that something be drawn, whatever the
+ * semantic material could be bent into was going to win.
+ *
+ * Everything below is checkable against the prose, which is the same bar
+ * the promotion signals keep. Nothing here reads a noun's KIND: the
+ * question is whether this sentence introduces something, not what that
+ * something is. A token may inform what is happening; it may never name
+ * what is drawn.
+ *
+ * DELIBERATELY NOT TUNED. The thresholds are the simplest defensible
+ * ones, because the point of this pass is to find out what the film
+ * grammar does when it finally has permission to breathe — and tuning
+ * before looking is how the last several passes went wrong. */
+function decide(
+  scene: Scene,
+  standing: Set<string>,
+  newPassage: boolean,
+): { kind: InterventionKind; why: string } {
+  // CHECKABLE MATERIAL OUTRANKS SILENCE. A printed figure or a drawn
+  // route is the prose asking for a picture, and holding through one
+  // would be the machine ignoring its own evidence.
+  if ((scene.figures ?? []).length > 0) {
+    return { kind: "COMPOSE", why: "composed — the prose printed a figure" };
+  }
+  if ((scene.route ?? []).length >= 2) {
+    return { kind: "COMPOSE", why: "composed — the prose drew a route" };
+  }
+
+  // SOMETHING NEW ARRIVES. Not "this sentence names a thing" — this
+  // sentence names a thing the film has not established yet.
+  const named = detectSubjects(scene.narration.text).map((x) => x.text.toLowerCase());
+  const arriving = named.filter((n) => !standing.has(n));
+  if (arriving.length > 0) {
+    return { kind: "COMPOSE", why: `composed — "${arriving[0]}" arrives` };
+  }
+
+  /* A BREATH BETWEEN IDEAS.
+   *
+   * Measured before this existed: NONE fired zero times in seventeen
+   * scenes. `standing` never empties, so once anything is established
+   * every non-arriving scene becomes a HOLD and the film can persist but
+   * can never clear. A world that only ever accumulates is not breathing
+   * either — it is just a picture that refuses to leave.
+   *
+   * So the film clears when a NEW PARAGRAPH opens by introducing
+   * nothing. That is punctuation rather than a threshold: the author has
+   * finished developing one idea, the next has not arrived yet, and the
+   * frame goes quiet in the gap. The boundary is the author's own —
+   * `passageId` is their paragraph — so the prose decides where the film
+   * breathes rather than a number I picked.
+   *
+   * The first version also required a run of holds immediately before the
+   * boundary, and that was me inventing a threshold. It never fired:
+   * a paragraph's last sentence is usually its payoff and usually
+   * promoted, which resets the run at exactly the point being tested. */
+  if (newPassage && standing.size > 0) {
+    return {
+      kind: "NONE",
+      why: "nothing on screen — a new idea begins and the last one has finished developing",
+    };
+  }
+
+  // NOTHING NEW, BUT SOMETHING IS ALREADY STANDING. The world persists
+  // and the sentence develops it. This is the one that stops a film
+  // generating an unrelated picture every time the narrator opens their
+  // mouth.
+  if (standing.size > 0) {
+    return { kind: "HOLD", why: "held — nothing new arrives, and the world is already standing" };
+  }
+
+  /* NOTHING NAMED IS NOT NOTHING TO SHOW.
+   *
+   * This returned NONE, and the measurement was immediate and total: a
+   * hand-authored fixture whose prose names nothing depictable came out
+   * as a film of entirely empty scenes. Which is the exact error the
+   * proposition layer exists to prevent, arriving from the opposite
+   * direction — the old compiler read "no noun" as "reach for a noun
+   * anyway", and this read it as "there is nothing here".
+   *
+   * An essay of ideas names nothing and is most of what this system is
+   * for. So the default is to compose. Silence is a decision the film
+   * makes at a boundary, never the residue of a sentence that happened
+   * not to mention an object. */
+  return { kind: "COMPOSE", why: "composed — the film's own state carries this moment" };
+}
+
+/** ALLOCATE THE FILM'S VISUAL ATTENTION.
  *
  *  Film-level, before any visual decision. Returns one entry per scene —
  *  most of them level 0, which is the whole point. */
-export function promoteText(ir: EditorialIR, timeline?: FilmTimeline | null): Promotion[] {
+export function allocate(ir: EditorialIR, timeline?: FilmTimeline | null): Intervention[] {
   const refrains = findRefrains(ir);
   const total = ir.scenes.length;
-  const { shown, major } = quota(total);
+  const { shown, major } = quota(total, timeline?.totalMs);
 
   /* THE PAIRS, FOUND ACROSS THE CUT. A denial followed by an assertion is
    * one claim in two sentences, and the segmenter has already separated
@@ -457,32 +719,164 @@ export function promoteText(ir: EditorialIR, timeline?: FilmTimeline | null): Pr
     if (group) group.push(s);
     else claims.set(id, [s]);
   }
-  const ranked = [...claims.values()].sort(
+  /* SPENT ACROSS THE FILM, NOT MERELY CAPPED.
+   *
+   * This was a single global sort followed by `.slice(0, shown)` — scene
+   * order was the tiebreak and nothing else consulted position. So the
+   * budget was a CEILING on how many anchors a film could have and said
+   * nothing about WHERE they went, and since an argument puts its title
+   * and its thesis at the front, they all went to the front. Measured on
+   * an 18-scene fixture: seven of ten anchors inside the first 40%, then
+   * nothing at all between 39% and 83%.
+   *
+   * A scarcity rule that does not distribute is not a rhythm, it is a
+   * cap. The runtime is divided into as many bands as there are slots and
+   * each band offers its best claim.
+   *
+   * Two consequences, both intended:
+   *
+   *   A BAND WITH NOTHING WORTH SHOWING YIELDS NOTHING. The count can come
+   *   in under quota and that is correct — an essay with a quiet middle
+   *   should have a quiet middle. The quota becomes a ceiling on density
+   *   rather than a target to fill.
+   *
+   *   A PAIR STILL TRAVELS TOGETHER even when it straddles a boundary,
+   *   because a claim is banded by where it STARTS and the group is
+   *   already one entry here. */
+  const bandOf = (group: typeof scored): number => {
+    const first = Math.min(...group.map((x) => ir.scenes.indexOf(x.scene)));
+    return Math.min(shown - 1, Math.floor((first / Math.max(1, total)) * shown));
+  };
+  const peak = (group: typeof scored): number => Math.max(...group.map((x) => x.score));
+  const byBand = new Map<number, typeof scored>();
+  for (const group of claims.values()) {
+    const band = bandOf(group);
+    const held = byBand.get(band);
+    if (!held || peak(group) > peak(held)) byBand.set(band, group);
+  }
+
+  /* AN UNSPENT SLOT IS RE-OFFERED, NOT LOST.
+   *
+   * Coverage first, merit second. One-per-band alone throws away a real
+   * claim whenever two strong ones share a band — measured: a 0.9
+   * contrast lost its slot to a neighbour and vanished from a film that
+   * had a silent band elsewhere. The budget is film-wide; a band that
+   * declined has not consumed anything, so the slot should go back.
+   *
+   * The bar is what keeps this from undoing the distribution. A leftover
+   * slot is filled only by a claim that would have carried a band on its
+   * own — not by the next thing down. So a quiet middle still stays
+   * quiet, because filling a slot requires a real signal rather than
+   * merely being the best of what is left. */
+  const STRONG_ENOUGH = 0.7;
+  const chosen = new Set(byBand.values());
+  if (chosen.size < shown) {
+    const leftovers = [...claims.values()]
+      .filter((g) => !chosen.has(g) && peak(g) >= STRONG_ENOUGH)
+      .sort(
+        (a, b) =>
+          peak(b) - peak(a) ||
+          ir.scenes.indexOf((a[0] as (typeof scored)[number]).scene) -
+            ir.scenes.indexOf((b[0] as (typeof scored)[number]).scene),
+      );
+    for (const g of leftovers) {
+      if (chosen.size >= shown) break;
+      chosen.add(g);
+    }
+  }
+
+  /* Ranked AFTER selection, by score, because rank drives the LEVEL
+   * ladder — the strongest claim of those shown is the one allowed to
+   * take the screen, and that is a different question from where in the
+   * film it sits. Scene order breaks ties so the same IR always promotes
+   * the same moments. */
+  const ranked = [...chosen].sort(
     (a, b) =>
-      Math.max(...b.map((x) => x.score)) - Math.max(...a.map((x) => x.score)) ||
+      peak(b) - peak(a) ||
       ir.scenes.indexOf((a[0] as (typeof scored)[number]).scene) -
         ir.scenes.indexOf((b[0] as (typeof scored)[number]).scene),
   );
   const promoted = new Map<string, number>();
   for (const s of scored) if (s.pinned) promoted.set(s.scene.sceneId, -1);
-  ranked.slice(0, shown).forEach((group, rank) => {
+  ranked.forEach((group, rank) => {
     for (const s of group) promoted.set(s.scene.sceneId, rank);
   });
 
+  /* WHAT THE FILM HAS ALREADY ESTABLISHED, accumulated in scene order.
+   *
+   * `.map` runs in order, so this is the world as it stood when each
+   * scene arrived. It is what lets HOLD mean "the thing is already there"
+   * rather than "nothing was promoted here" — the difference between a
+   * film that persists and a film that merely fails to draw. */
+  const standing = new Set<string>();
+  /** The passage the previous scene belonged to. Read only by the
+   *  breathing rule: the film may clear where the author started a new
+   *  paragraph, and nowhere else. */
+  let lastPassage: string | undefined;
+  /** Which refrains the film has already said, and how many times. */
+  const said = new Map<string, number>();
+  /** The previous scene, for the signals that only exist across a cut —
+   *  the denial/assertion reversal, the long-then-short compression, and
+   *  the essay stopping hedging. All three have been computable since this
+   *  compiler was written and none of them has ever been compared. */
+  let previous: { sentence: string; act: Act } | null = null;
+  const timed = new Map((timeline?.scenes ?? []).map((s) => [s.sceneId, s]));
+  const pauseBefore = new Map((timeline?.pauses ?? []).map((p) => [p.beforeSceneId, p]));
+
   return scored.map(({ scene, role, best, score }) => {
     const rank = promoted.get(scene.sceneId);
+    const namesHere = detectSubjects(scene.narration.text).map((x) => x.text.toLowerCase());
+    const wasStanding = new Set(standing);
+    for (const n of namesHere) standing.add(n);
+    const newPassage = scene.passageId !== lastPassage;
+
+    /* THE ACT. Read once, for every scene, promoted or not — what a moment
+     * DOES is independent of whether it is one of the ones carrying words,
+     * and a held scene still develops the argument.
+     *
+     * `decide` runs first only because silence is its decision and this
+     * layer does not overrule it. Everything else the act reads, it reads
+     * for itself. `refrainOccurrence` mutates `said`, so it is called
+     * exactly once per scene and in scene order. */
+    const decided =
+      rank === undefined || !best
+        ? decide(scene, wasStanding, newPassage)
+        : { kind: "TEXT" as InterventionKind, why: "" };
+    const counted = (scene.figures ?? []).find((f) => f.kind === "count");
+    const t = timed.get(scene.sceneId);
+    const rest = pauseBefore.get(scene.sceneId);
+    const act = readAct({
+      sentence: scene.narration.text,
+      role,
+      previous,
+      named: namesHere,
+      standing: wasStanding,
+      figures: (scene.figures ?? []).length,
+      route: (scene.route ?? []).length,
+      count: counted && Number.isFinite(counted.value) ? Math.round(counted.value) : null,
+      refrainOccurrence: refrainOccurrence(scene.narration.text, refrains, said),
+      relativeRate: t?.relativeRate ?? null,
+      leadPause: rest ? { ms: rest.ms, kind: rest.kind } : null,
+      silent: decided.kind === "NONE",
+    });
+    lastPassage = scene.passageId;
+    previous = { sentence: scene.narration.text, act: act.act };
+
     if (rank === undefined || !best) {
       return {
         sceneId: scene.sceneId,
-        level: 0 as const,
+        kind: decided.kind,
+        act,
+        intensity: 0 as const,
         role,
-        text: "",
-        offset: -1,
+        payload: null,
         window: null,
         why: [
           best
-            ? `spoken only — ${shown} of ${total} moments carry text, and this was not among them`
-            : "spoken only — nothing in this sentence is a visual anchor",
+            ? `no text — ${shown} of ${total} moments carry it, and this was not among them`
+            : "no text — nothing in this sentence is a visual anchor",
+          decided.why,
+          `${act.act.toLowerCase()} — ${act.why}`,
         ],
         score,
       };
@@ -490,7 +884,7 @@ export function promoteText(ir: EditorialIR, timeline?: FilmTimeline | null): Pr
     /* THE LADDER. Rank within the promoted set, gated by role: only a
      * TITLE, a THESIS, a DIAGNOSTIC, a STANDARD or a CONCLUSION may take
      * the whole screen, however strongly a development paragraph scored. */
-    const level: PromotionLevel =
+    const intensity: Intensity =
       rank < 0
         ? 4
         : rank < major && MAJOR.includes(role)
@@ -503,14 +897,16 @@ export function promoteText(ir: EditorialIR, timeline?: FilmTimeline | null): Pr
     const offset = locate(scene.narration.text, best.text);
     return {
       sceneId: scene.sceneId,
-      level,
+      kind: "TEXT" as const,
+      act,
+      intensity,
       role,
-      text: best.text,
-      offset,
+      payload: { text: best.text, offset },
       window: windowFor(scene, best.text, timeline),
       why: [
         best.why,
         rank < 0 ? role.toLowerCase() : `${role.toLowerCase()} · rank ${rank + 1} of ${shown}`,
+        `${act.act.toLowerCase()} — ${act.why}`,
       ],
       score,
     };
@@ -529,7 +925,7 @@ export function windowFor(
   scene: Scene,
   span: string,
   timeline?: FilmTimeline | null,
-): Promotion["window"] {
+): Intervention["window"] {
   const on = timeline?.scenes.find((s) => s.sceneId === scene.sceneId);
   if (!on) return null;
   const wanted = norm(span).split(" ").filter(Boolean);

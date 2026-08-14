@@ -128,6 +128,7 @@ const { reg, cost } = await page.evaluate(() => {
     // cannot drift from the truth the way a hand-maintained flag would.
     let consumesUpstream = false;
     let secondInput = null;
+    let preserves = false;
     try {
       const probe = { seed: 1337 };
       for (const k in d.params) {
@@ -151,6 +152,20 @@ const { reg, cost } = await page.evaluate(() => {
       // primitive produces, so it is recorded and deliberately not
       // enforced; anything else is a real constraint the compiler checks.
       secondInput = typeof inst.two === "string" ? inst.two : null;
+      /* DOES THIS PRIMITIVE LEAVE WHAT IT WAS GIVEN INTACT?
+       *
+       * Read off the instance like `two`, and DEFAULTED TO FALSE, which
+       * is the whole point: a primitive that consumes upstream pixels is
+       * assumed to move, sample or destroy them unless it says otherwise.
+       * The old rule was a six-name blacklist of known offenders, so
+       * every primitive nobody had thought about was implicitly safe —
+       * and `field_displace` was one of them, which is how a promoted
+       * sentence came out with holes in it.
+       *
+       * Motion craft never draws at all: the executor folds a stage
+       * exposing `warp` into the clock rather than the draw order, so it
+       * cannot damage anything and does not need to declare. */
+      preserves = inst.preserves === true || typeof inst.warp === "function";
     } catch {
       consumesUpstream = false;
     }
@@ -219,6 +234,7 @@ const { reg, cost } = await page.evaluate(() => {
       params,
       note: d.note || "",
       consumesUpstream,
+      preservesUpstream: preserves,
       secondInput,
       emits,
     };
@@ -313,7 +329,8 @@ ${params}
     },
     estimatedCostMsPerFrame: ${c},
     determinismGuarantee: ${JSON.stringify(det)},
-    consumesUpstream: ${r.consumesUpstream ? "true" : "false"},${second}
+    consumesUpstream: ${r.consumesUpstream ? "true" : "false"},
+    preservesUpstream: ${r.preservesUpstream ? "true" : "false"},${second}
     note: ${JSON.stringify(r.note)},
   },`;
   })
@@ -362,6 +379,19 @@ export interface PrimitiveSpec {
    *  sources renders as its last element and the first two cost time for
    *  nothing. chainOverwrites() reports where that happens. */
   consumesUpstream: boolean;
+  /** Does this primitive leave the pixels it was handed WHERE THEY WERE?
+   *
+   *  True means it composites, tints or overlays; false means it moves,
+   *  samples, quantises or erodes them. DEFAULTED TO FALSE, and that
+   *  default is the rule: anything that consumes upstream is assumed to
+   *  transform it unless the primitive declares otherwise.
+   *
+   *  The predecessor was a hardcoded set of six known offenders, so every
+   *  primitive nobody had considered counted as safe. field_displace was
+   *  one of them, and it is what put holes through a promoted sentence —
+   *  displacing a finished frame that had type composited into it, after
+   *  the operator guard had already run and passed. */
+  preservesUpstream: boolean;
   /** The TYPE this primitive takes on a SECOND input, when it takes one.
    *
    *  An io string has one arrow, so a two-input primitive cannot declare

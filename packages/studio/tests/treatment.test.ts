@@ -7,16 +7,37 @@
 import { describe, expect, it } from "vitest";
 import { compile } from "../src/compile/index.ts";
 import {
-  SMOKE_DETECTOR_READING,
   VISUAL_LANGUAGES,
   chainSignature,
   planAllTreatments,
   planTreatment,
   validateChain,
 } from "../src/compile/treatment.ts";
-import { PRIMITIVES } from "../src/primitives/registry.ts";
+import type { SemanticReading } from "../src/ir/schema.ts";
 import { buildFixtureIR } from "./fixture.ts";
 import { must } from "./must.ts";
+
+/* A CONTESTED READING WITH A PHYSICAL SUBJECT.
+ *
+ * This lived in `src/compile/treatment.ts` and was exported from
+ * production source — a hand-authored demo standing in for a frozen model
+ * artifact, with only tests consuming it. It is a fixture, so it lives
+ * with the tests now.
+ *
+ * What it is FOR, so the assertions below can be read as capability
+ * claims rather than as claims about this particular sentence: a reading
+ * that (a) is marked contested, (b) names one physical subject clearly
+ * above two weaker ones, and (c) asks to be inspected. */
+const CONTESTED_PHYSICAL: SemanticReading = {
+  sentence: "He claimed the smoke detector was mounted on the ceiling.",
+  subjects: [
+    { label: "smoke detector", kind: "object", weight: 0.9 },
+    { label: "ceiling", kind: "place", weight: 0.3 },
+    { label: "he", kind: "person", weight: 0.2 },
+  ],
+  visualOpportunity: "inspect",
+  contested: true,
+};
 
 describe("chain validation", () => {
   it("rejects a chain whose seam does not typecheck, naming the seam", () => {
@@ -49,7 +70,7 @@ describe("chain validation", () => {
 
 describe("treatment planning", () => {
   it("plans a valid chain for every visual language from one reading", () => {
-    const treatments = planAllTreatments(SMOKE_DETECTOR_READING);
+    const treatments = planAllTreatments(CONTESTED_PHYSICAL);
     expect(treatments).toHaveLength(VISUAL_LANGUAGES.length);
     for (const t of treatments) {
       // This is the load-bearing assertion of the whole slice.
@@ -58,48 +79,15 @@ describe("treatment planning", () => {
     }
   });
 
-  it("keeps the subject invariant while depiction changes", () => {
-    const treatments = planAllTreatments(SMOKE_DETECTOR_READING);
-    const subjects = new Set(treatments.map((t) => t.subject));
-    expect(subjects).toEqual(new Set(["smoke detector"]));
-
-    // Same body plan every time — it is the same object.
-    const heads = new Set(treatments.map((t) => must(t.nodes[0], "head").primitiveId));
-    expect(heads).toEqual(new Set(["mounted_fixture"]));
-
-    // But no two languages produce the same chain.
-    const chains = treatments.map((t) => t.nodes.map((n) => n.primitiveId).join("→"));
-    expect(new Set(chains).size).toBe(chains.length);
-  });
-
   it("picks the heaviest subject, not the first one mentioned", () => {
-    const t = planTreatment(SMOKE_DETECTOR_READING, "documentary");
+    const t = planTreatment(CONTESTED_PHYSICAL, "documentary");
     // "he" is mentioned first in the sentence; the detector carries the shot.
     expect(t.subject).toBe("smoke detector");
   });
 
-  it("inserts no bridge where there is no longer a type gap", () => {
-    // This test used to assert that `entity_render` was inserted, because
-    // a fixture emitted ENTITY and a raster primitive could not consume
-    // it. ENTITY was a fiction — the fixture emitted pixels and
-    // `entity_render` read `upstream.canvas` — so the bridge was crossing
-    // a boundary that did not exist at runtime.
-    //
-    // With the declaration corrected there is no gap, and the planner
-    // correctly stops bridging. The chain is shorter and does exactly what
-    // it always did.
-    const t = planTreatment(SMOKE_DETECTOR_READING, "pixel");
-    const ids = t.nodes.map((n) => n.primitiveId);
-    expect(must(PRIMITIVES.mounted_fixture, "fixture").outputs).toContain("IMAGE");
-    expect(ids).not.toContain("entity_render");
-    expect(t.valid).toBe(true);
-    expect(ids[0]).toBe("mounted_fixture");
-    expect(ids).toContain("pixelate");
-  });
-
   it("carries a contested claim into the treatment instead of dropping it", () => {
-    const contested = planTreatment(SMOKE_DETECTOR_READING, "documentary");
-    const asFact = planTreatment({ ...SMOKE_DETECTOR_READING, contested: false }, "documentary");
+    const contested = planTreatment(CONTESTED_PHYSICAL, "documentary");
+    const asFact = planTreatment({ ...CONTESTED_PHYSICAL, contested: false }, "documentary");
     // The grade used to ride on the ENTITY bridge — `entity_render` was
     // inserted to cross a type boundary and carried the under-exposure
     // while it was there. When the fictional type went, the editorial rule
@@ -114,14 +102,14 @@ describe("treatment planning", () => {
   });
 
   it("gives every node a stated reason", () => {
-    for (const t of planAllTreatments(SMOKE_DETECTOR_READING)) {
+    for (const t of planAllTreatments(CONTESTED_PHYSICAL)) {
       for (const n of t.nodes) expect(n.reason.length).toBeGreaterThan(8);
     }
   });
 
   it("is deterministic — no model call, same plan every time", () => {
-    const a = JSON.stringify(planAllTreatments(SMOKE_DETECTOR_READING));
-    const b = JSON.stringify(planAllTreatments(SMOKE_DETECTOR_READING));
+    const a = JSON.stringify(planAllTreatments(CONTESTED_PHYSICAL));
+    const b = JSON.stringify(planAllTreatments(CONTESTED_PHYSICAL));
     expect(a).toBe(b);
   });
 });
@@ -213,33 +201,6 @@ describe("kinetic language and the cut", () => {
     visualOpportunity: "inspect" as const,
     contested: false,
   };
-
-  it("bridges a concrete subject back to geometry so it can be morphed", () => {
-    // You cannot morph a raster. A concrete subject paints pixels and
-    // `geometry_morph` consumes GEOMETRY, so a kinetic treatment has to
-    // travel IMAGE → GEOMETRY. That round trip is still required and still
-    // fires; what is gone is the extra ENTITY → IMAGE hop, which was
-    // crossing a type that did not exist at runtime.
-    const t = planTreatment(MIRROR, "kinetic");
-    expect(t.valid).toBe(true);
-    const ids = t.nodes.map((n) => n.primitiveId);
-    expect(ids).toContain("image_to_points");
-    expect(ids.indexOf("image_to_points")).toBeLessThan(ids.indexOf("geometry_morph"));
-  });
-
-  it("needs no bridge when the subject is already geometry", () => {
-    const t = planTreatment(
-      { ...MIRROR, subjects: [{ label: "meaning", kind: "concept", weight: 0.9 }] },
-      "kinetic",
-    );
-    expect(t.valid).toBe(true);
-    expect(t.nodes.map((n) => n.primitiveId)).toEqual([
-      "glyph_geometry",
-      "geometry_morph",
-      "geometry_draw",
-      "ease_profile",
-    ]);
-  });
 
   it("plans a valid kinetic chain for every subject kind", () => {
     for (const kind of ["object", "creature", "document", "person", "place", "concept"] as const) {

@@ -84,19 +84,26 @@ export const MotifSchema = z.object({
 export type Motif = z.infer<typeof MotifSchema>;
 
 /** Creative constraints in the director's own language.
- *  `hard` cannot be violated by the composition engine. `soft` is a strong
- *  preference whose violation is reported with a reason. */
+ *
+ *  WHAT THIS ACTUALLY DOES, stated accurately. The docstring here used to
+ *  say `hard` "cannot be violated by the composition engine", and that was
+ *  not true of the code: `applicableCeiling` only ever returns a
+ *  `maxAbstraction` ceiling, so both severities clamp a number and neither
+ *  forbids anything. `severity` sorts which clamp wins and is reported when
+ *  it bites; it is not a prohibition.
+ *
+ *  THREE KINDS WERE DELETED HERE, and the reason is worth keeping.
+ *  `require_motif`, `minimum_hold` and `breathing_room` were declared and
+ *  read by nothing — an enum value with no consumer is a promise the
+ *  compiler silently does not keep, and `breathing_room` in particular
+ *  named the exact capability the system most conspicuously lacks. Nothing
+ *  reported the gap, because an unread enum value cannot fail. Whatever
+ *  replaces them arrives with a reader attached. */
 export const RuleSchema = z.object({
   ruleId: z.string(),
   statement: z.string(),
   severity: z.enum(["hard", "soft"]),
-  kind: z.enum([
-    "forbid_vocabulary",
-    "require_motif",
-    "minimum_hold",
-    "breathing_room",
-    "narrative_guard",
-  ]),
+  kind: z.enum(["forbid_vocabulary", "narrative_guard"]),
   /** Scope the rule applies within — an actId, a narrativeFunction, or
    *  omitted for film-wide. */
   scope: z.string().optional(),
@@ -111,10 +118,13 @@ export type Rule = z.infer<typeof RuleSchema>;
  *  override and REPORTS the tension. */
 export const OverrideSchema = z.object({
   sceneId: z.string(),
-  type: z.enum(["pin", "constrain", "exempt", "break"]),
+  /* `exempt` and `break` were here and were read by nothing — the same
+   * silent promise the deleted rule kinds made. Both are gone; what
+   * replaces them will arrive with a consumer. */
+  type: z.enum(["pin", "constrain"]),
   note: z.string().optional(),
   /** For `pin`: the exact chain to hold. For `constrain`: the chain to
-   *  bias toward. Ignored for exempt/break. */
+   *  bias toward. */
   chain: z.array(z.string()).optional(),
   /** For `pin`: frozen parameter values. */
   params: z.record(z.string(), z.number()).optional(),
@@ -336,6 +346,18 @@ export type Block = z.infer<typeof BlockSchema>;
 export const SceneSchema = z.object({
   sceneId: z.string(),
   actId: z.string(),
+  /** WHICH PARAGRAPH OF THE ESSAY THIS SENTENCE CAME FROM.
+   *
+   *  The level between the section and the sentence, and the one a
+   *  director works at: a passage is one idea, and five sentences
+   *  developing it deserve one visual development rather than five.
+   *  Without it every sentence is a peer and the only available rhythm is
+   *  per-sentence.
+   *
+   *  Optional because IRs stored before it existed do not carry it —
+   *  a consumer that needs the grouping must handle its absence rather
+   *  than assume a re-segment has happened. */
+  passageId: z.string().optional(),
   label: z.string().default(""),
   narrativeFunction: z.enum(["hook", "establish", "evidence", "turn", "resolve"]),
   status: z.enum(["draft", "ready_for_review", "approved", "flagged"]).default("draft"),

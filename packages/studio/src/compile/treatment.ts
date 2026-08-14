@@ -44,18 +44,20 @@ export const VISUAL_LANGUAGES: VisualLanguage[] = [
   "kinetic",
 ];
 
-/** Which body plan realises a kind of subject. Deliberately small: a body
- *  plan is a parameterised generator, not an asset, so a handful of them
- *  covers a lot of nouns. `mounted_fixture` is a smoke detector, a ceiling
- *  speaker, a sprinkler head or a camera dome depending on its parameters. */
-const BODY_PLANS: Record<SemanticReading["subjects"][number]["kind"], string> = {
-  object: "mounted_fixture",
-  creature: "creature_chain",
-  document: "document_surface",
-  person: "creature_chain",
-  place: "noise_field",
-  concept: "glyph_geometry",
-};
+/* THE KIND→PRIMITIVE DICTIONARY WAS HERE AND IS GONE.
+ *
+ * It read `object → mounted_fixture, creature → creature_chain, person →
+ * creature_chain` — a table whose entire content is "this noun is drawn
+ * with that generator". It is the sentence the whole architecture is
+ * against:
+ *
+ *     A TOKEN MAY INFORM WHAT IS HAPPENING.
+ *     A TOKEN MAY NEVER NAME WHAT IS DRAWN.
+ *
+ * A ratified reading is a human-approved interpretation and it still does
+ * not get to pick a primitive off a noun. What it says about the sentence
+ * — the representation rung, the opportunity, the camera — is real and is
+ * kept. What it named is not a picture. */
 
 /** The representation rung each language sits on, and what it appends after
  *  rasterisation. Each tail is written against the palette's real type
@@ -210,7 +212,11 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
       reason: `${chart} — chosen by what the figures are, not by a house style`,
     });
   } else {
-    const bodyPlan = subject ? BODY_PLANS[subject.kind] : "glyph_to_points";
+    /* THE SUBJECT IS DRAWN AS FORM, NOT AS ITS NOUN. One generator for
+     * every kind of subject, parameterised by the reading — which is what
+     * a body plan was always claimed to be and never was while a table
+     * chose between six of them by noun. */
+    const bodyPlan = "glyph_to_points";
     nodes.push({
       primitiveId: bodyPlan,
       params: {
@@ -220,7 +226,7 @@ export function planTreatment(reading: SemanticReading, language: VisualLanguage
         push: reading.visualOpportunity === "inspect" ? 0.62 : 0.25,
         spin: reading.visualOpportunity === "inspect" ? 0.4 : 0.15,
       },
-      reason: `${subject?.label ?? "subject"} realised as a ${bodyPlan} body plan`,
+      reason: `${subject?.label ?? "subject"} realised as form — the reading says what is happening, not what to draw`,
     });
   }
 
@@ -370,16 +376,10 @@ export function planAllTreatments(reading: SemanticReading): Treatment[] {
   return VISUAL_LANGUAGES.map((l) => planTreatment(reading, l));
 }
 
-/** The reading for the worked example, hand-authored to stand in for the
- *  frozen LLM artifact. Kept here so the vertical slice is testable before
- *  the segmentation call exists. */
-export const SMOKE_DETECTOR_READING: SemanticReading = {
-  sentence: "He claimed the smoke detector was mounted on the ceiling.",
-  subjects: [
-    { label: "smoke detector", kind: "object", weight: 0.9 },
-    { label: "ceiling", kind: "place", weight: 0.3 },
-    { label: "he", kind: "person", weight: 0.2 },
-  ],
-  visualOpportunity: "inspect",
-  contested: true,
-};
+/* A HAND-AUTHORED DEMO READING USED TO LIVE HERE, exported from production
+ * source, and its own docstring said what it was: "hand-authored to stand
+ * in for the frozen LLM artifact… so the vertical slice is testable before
+ * the segmentation call exists." That call has existed for some time. Its
+ * only consumers were tests, so it is a fixture, and it now lives with
+ * them. A fixture shipped in `src/` is an example the compiler can be
+ * mistaken for depending on. */

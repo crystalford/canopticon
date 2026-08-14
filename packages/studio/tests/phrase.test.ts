@@ -116,19 +116,18 @@ The smoke detector in room 214 had been disconnected for eleven months.
 The contract named a single warehouse. The residents were moved at night.
 Nothing changed.`;
 
-  it("reaches the object families from prose alone, with no model and no ratification", () => {
-    const seed = segmentEssay(ESSAY, { projectId: "p" });
-    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
-    if (!parsed.ok) throw new Error("segmenter produced an invalid IR");
-    const scenes = composeAll(parsed.ir);
-
-    const OBJECTS = ["mounted_fixture", "creature_chain", "entity_render", "document_surface"];
-    const reached = scenes.filter((s) => s.nodes.some((n) => OBJECTS.includes(n.primitiveId)));
-    expect(reached.length).toBeGreaterThan(0);
-
-    // And no scene carries a ratified reading — this is the whole point.
-    expect(parsed.ir.scenes.every((s) => !s.reading)).toBe(true);
-  });
+  /* WHAT A SENTENCE NAMES REACHES THE PICTURE, FROM PROSE ALONE.
+   *
+   * This test used to name four primitives, two of which were the
+   * feasibility proofs deleted as concepts — so it was asserting that a
+   * particular demo object still appears, which is the thing the suite is
+   * not for. The capability it was actually defending is the one worth
+   * keeping: an essay reaches a DIFFERENT picture for a sentence that
+   * names a depictable thing than for one that names nothing, before a
+   * model has seen a single sentence and with nothing ratified.
+   *
+   * `allActive` because this is a test of what gets BUILT — a scene the
+   * allocator decided should hold never reaches the constructor. */
 
   it("puts a different phrase on screen in each of the first scenes", () => {
     const seed = segmentEssay(ESSAY, { projectId: "p" });

@@ -239,6 +239,41 @@ function buildChain(chain, w, h, duration) {
   const draw = painters.length > 0 ? painters : stages;
   const warpTime = (t) => shapers.reduce((acc, s) => s.inst.warp(acc, dur), t);
 
+  /* A SCENE MAY DRAW NOTHING, AND IT MUST NOT DO IT BY CRASHING.
+   *
+   * `validate([])` returns no errors — the forEach body never runs — so an
+   * empty chain passed every guard and then died on the last line of
+   * `run`: `draw[draw.length - 1].buf` with `draw` empty. Not a black
+   * frame; an uncaught TypeError, thrown per frame, out of `drawFrame`,
+   * with `render.js` on its SUCCESS branch because there were no errors to
+   * report.
+   *
+   * So the compiler could not express "nothing happens here" at all:
+   * something visual was valid and nothing visual was broken. That is the
+   * floor beneath every other floor, and it is why this is the first
+   * change and not a null-guard bolted on later.
+   *
+   * A held frame is the film's own ground and nothing else. No marker, no
+   * label — an exported film must not annotate itself, and the instrument
+   * is where an operator finds out that this moment was held on purpose.
+   *
+   * `empty` is the flag that keeps this honest. An empty chain arriving by
+   * ACCIDENT would otherwise render as clean ground and be
+   * indistinguishable from an intended hold — the invisible blank. The
+   * caller checks it against the scene's own declaration. */
+  let blank = null;
+  const blankBuffer = () => {
+    if (!blank) {
+      blank = document.createElement("canvas");
+      blank.width = w;
+      blank.height = h;
+    }
+    const c = blank.getContext("2d");
+    c.clearRect(0, 0, w, h);
+    bg(c, w, h);
+    return blank;
+  };
+
   // What the chain last emitted, typed. A ground is consumed by its
   // compositor as a PAYLOAD, not a picture — `field_displace` reads the
   // field's numbers — so the branch has to be able to hand back what it
@@ -247,6 +282,9 @@ function buildChain(chain, w, h, duration) {
 
   return {
     errors: [],
+    /** True when this chain paints nothing. Read by the renderer, which
+     *  must tell an intended hold from a chain that went missing. */
+    empty: draw.length === 0,
     lastPayload: () => emitted,
     /* GIVE THE MEMORY BACK.
      *
@@ -270,9 +308,18 @@ function buildChain(chain, w, h, duration) {
         }
       }
       stages.length = 0;
+      if (blank) {
+        blank.width = 0;
+        blank.height = 0;
+        blank = null;
+      }
       emitted = { canvas: null, geometry: null, field: null, data: null };
     },
     run(t) {
+      if (draw.length === 0) {
+        emitted = { canvas: null, geometry: null, field: null, data: null };
+        return blankBuffer();
+      }
       // The payload, not just a canvas. GEOMETRY is a point set and a
       // picture OF points is not the same thing: re-sampling a drawn point
       // cloud loses which point is which, so a morph between two of them
@@ -341,7 +388,13 @@ function buildSequence(chain, shots, w, h) {
     const single = buildChain(chain, w, h);
     return single.errors.length
       ? { errors: single.errors, run: null }
-      : { errors: [], shots: 1, run: (ms) => single.run(ms / 1000) };
+      : {
+          errors: [],
+          shots: 1,
+          empty: single.empty,
+          dispose: () => single.dispose?.(),
+          run: (ms) => single.run(ms / 1000),
+        };
   }
 
   const built = shots.map((shot, i) => {
@@ -395,6 +448,8 @@ function buildSequence(chain, shots, w, h) {
   return {
     errors: [],
     shots: built.length,
+    // A cut scene is empty only if every shot of it is.
+    empty: built.every((b) => b.chain.empty),
     /** A shot is a whole chain, so a scene cut into four shots holds four
      *  times the canvases of a scene that was not. Releasing one of these
      *  and not the others would be most of a fix. */

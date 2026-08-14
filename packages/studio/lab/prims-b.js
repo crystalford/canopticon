@@ -775,11 +775,16 @@ function srcImage(w, h, t, n) {
       o.fillStyle = "rgb(" + g + "," + g + "," + g + ")";
       o.fillRect(x, y, cell, cell);
     }
+  /* NAMES ITS OWN CONDITION. This read "1997", so a raster operator
+   * reached with no upstream painted a year over the film and the chain
+   * typechecked — the failure the comment below describes. The plate is
+   * still the right fallback for a primitive standing alone in the Lab;
+   * it simply must not look like content. */
   o.fillStyle = "#fff";
-  o.font = "700 " + Math.round(h * 0.3) + 'px "Space Grotesk",sans-serif';
+  o.font = "600 " + Math.round(h * 0.14) + 'px "JetBrains Mono",monospace';
   o.textAlign = "center";
   o.textBaseline = "middle";
-  o.fillText("1997", w / 2, h / 2);
+  o.fillText("NO UPSTREAM", w / 2, h / 2);
   return c;
 }
 /** THE RASTER FAMILY READS WHAT IT WAS HANDED.

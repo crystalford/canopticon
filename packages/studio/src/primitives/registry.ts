@@ -39,6 +39,19 @@ export interface PrimitiveSpec {
    *  sources renders as its last element and the first two cost time for
    *  nothing. chainOverwrites() reports where that happens. */
   consumesUpstream: boolean;
+  /** Does this primitive leave the pixels it was handed WHERE THEY WERE?
+   *
+   *  True means it composites, tints or overlays; false means it moves,
+   *  samples, quantises or erodes them. DEFAULTED TO FALSE, and that
+   *  default is the rule: anything that consumes upstream is assumed to
+   *  transform it unless the primitive declares otherwise.
+   *
+   *  The predecessor was a hardcoded set of six known offenders, so every
+   *  primitive nobody had considered counted as safe. field_displace was
+   *  one of them, and it is what put holes through a promoted sentence —
+   *  displacing a finished frame that had type composited into it, after
+   *  the operator guard had already run and passed. */
+  preservesUpstream: boolean;
   /** The TYPE this primitive takes on a SECOND input, when it takes one.
    *
    *  An io string has one arrow, so a two-input primitive cannot declare
@@ -89,6 +102,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "A label landing on one data point. The difference between showing data and making a claim about it.",
   },
   annotation: {
@@ -104,6 +118,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Hand-drawn marks with seeded roughness. The gesture of a reader, which no stock graphic supplies.",
   },
   anticipation: {
@@ -117,6 +132,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: true,
     note: "A small counter-move before the main move. Cheap, and the single clearest signal of authored motion.",
   },
   aperture: {
@@ -135,6 +151,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A surface with an opening cut through it. The general operation for inside/outside, visible/hidden, foreground/background and reveal/conceal — a window, a doorway, a screen, a hole and a redaction are consequences of it rather than definitions. What sits behind it in the scene graph shows through the opening and is concealed everywhere else.",
   },
   artifact_render: {
@@ -150,6 +167,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 10,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Rasterises a constructed ARTIFACT — a document, a chart — so the compositing and raster families can consume it. The counterpart to entity_render, and found the same way: by a real treatment failing to typecheck.",
   },
   ascii_render: {
@@ -165,6 +183,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Closes the loop: any image becomes typography again. Very much the house sensibility.",
   },
   attractor: {
@@ -180,6 +199,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 7,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Strange attractors: bounded systems that never repeat. Deterministic chaos, which is often the actual subject.",
   },
   audio_analyze: {
@@ -195,6 +215,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "The loop closed the other way: the narration drives the image. Cheap, and immediately makes a film feel scored.",
   },
   blend: {
@@ -209,6 +230,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Compositing is a creative primitive, not plumbing. The blend mode changes what the layering means.",
   },
   blur: {
@@ -223,6 +245,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: true,
     note: "Three blurs with three different meanings: softness, speed, and attention.",
   },
   boolean_ops: {
@@ -238,6 +261,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Union, subtract, intersect, xor. Overlap and exclusion made geometric rather than metaphorical.",
   },
   browser_chrome: {
@@ -253,6 +277,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "URL bar, tabs, scroll position — all parameters, so the page can be scrolled by the narration.",
   },
   camera_3d: {
@@ -268,6 +293,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 13,
     determinismGuarantee: "L2-GPU",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A camera is an animation output, so it can be driven by the same curves as everything else.",
   },
   camera_move: {
@@ -283,6 +309,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Push, pan, crop-reveal across a generated artifact. Attention directed without cutting.",
   },
   cellular: {
@@ -298,6 +325,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 7,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "One-dimensional automata unrolled through time. Expensive per frame, so precompute to an image and hold.",
   },
   chart_cartesian: {
@@ -313,6 +341,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Bar, line, area, scatter from one data input. The chart type is a parameter, so it can change mid-shot. Bars are labelled with the source strings, never with a reformatting of the parsed value.",
   },
   chart_flow: {
@@ -328,6 +357,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Stream and sankey-like flows. Composition over time, where the shape of the whole is the point.",
   },
   chart_morph: {
@@ -342,6 +372,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A bar chart becoming a line chart is a claim about what the data is — discrete events or a trend.",
   },
   chart_radial: {
@@ -357,6 +388,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Radial encoding reads as cyclical rather than progressive — right when the subject is a repeating cycle.",
   },
   choropleth: {
@@ -372,6 +404,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 8,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: 'Region shading that animates through time. The map redrawn each year is the clearest form of "this spread".',
   },
   chromatic_split: {
@@ -387,6 +420,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 11,
     determinismGuarantee: "L2-GPU",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Channel separation. Reserved for moments where the image itself should read as unreliable.",
   },
   collision: {
@@ -402,6 +436,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 8,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Elastic collision with a fixed timestep. Contention, capacity, pressure in a bounded system.",
   },
   color_transform: {
@@ -417,6 +452,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Grade, duotone, palette map. One transform applied film-wide is most of what people call a look.",
   },
   comparison_matrix: {
@@ -432,6 +468,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A matrix that fills in cell by cell. Comparison delivered at the pace of the narration.",
   },
   contour: {
@@ -447,6 +484,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Reduces a filled form to its own edge, and optionally lays construction lines across its bounds. The operation that separates depicting a thing from describing its shape — and the reason LITERAL and GEOMETRIC stop being the same picture.",
   },
   counter: {
@@ -462,6 +500,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "An animated number. Trivial to build, and it carries more weight than a chart when the figure is the argument. Counts up through the digits of the figure as the essay printed it, so the last frame is the source string and not a rounding of it.",
   },
   creature_chain: {
@@ -483,6 +522,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 10,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A body plan, not an asset. Segment count, leg pairs and gait phase are axes — the same machinery gives a worm, a millipede, or an arthropod that never existed. `wave` is the metachronal phase offset: set it to 0 and the legs move in lockstep and the thing dies.",
   },
   cursor: {
@@ -498,6 +538,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A pointer that targets named elements rather than coordinates, damped so it reads as a hand.",
   },
   cut_rhythm: {
@@ -513,6 +554,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Cut frequency driven by creative state. This is how a film accelerates without anyone editing faster.",
   },
   damping: {
@@ -526,6 +568,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: true,
     note: "Spring settle characteristics — how energy leaves a movement.",
   },
   data_series: {
@@ -541,6 +584,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Carries the figures lifted verbatim out of the prose. The palette's only DATA source — every chart, counter and flow in family F consumes this type and, until it existed, none of them could be reached from an essay.",
   },
   data_to_field: {
@@ -556,6 +600,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Data used as a field rather than a chart. Everything downstream — particles, type, geometry — inherits the numbers, because the field is emitted rather than merely drawn.",
   },
   data_to_particles: {
@@ -571,6 +616,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "One particle per unit counted. A population stops being a bar and becomes a quantity you can watch move.",
   },
   data_to_type: {
@@ -586,6 +632,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Numbers set as type rather than plotted. Reading the figure and seeing the magnitude become one act.",
   },
   device_frame: {
@@ -601,6 +648,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Screen-recording a platform is a rights, quality and reproducibility problem. Constructing it from code is not.",
   },
   displacement: {
@@ -616,6 +664,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 11,
     determinismGuarantee: "L2-GPU",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Distortion driven by a field, with optional chromatic separation. Instability as a controlled parameter.",
   },
   dither: {
@@ -630,6 +679,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Ordered and error-diffusion dithering. Tone reconstructed from a two-value system.",
   },
   document_layout: {
@@ -646,6 +696,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Columns, headers, tables, marginalia. A generated document can reorganise itself; a scan cannot.",
   },
   document_surface: {
@@ -661,6 +712,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Documents are constructed, not photographed — so they can be animated structurally. A table can reorganise; a redaction can slide.",
   },
   drift_parallax: {
@@ -676,6 +728,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Lateral drift with per-band parallax, at whole-pixel offsets. Motion without a zoom: zooming a quantised frame inflates the art pixels with the camera, which reads as the grid growing rather than the world moving.",
   },
   ease_profile: {
@@ -690,6 +743,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: true,
     note: "Named curves the director can reason about. Raw cubic-bezier values are an implementation detail.",
   },
   entity_render: {
@@ -705,6 +759,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 10,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "The rasterisation step. An ENTITY carries geometry and behaviour; a raster or compositing primitive needs pixels. Without this a subject cannot legally reach the pixel, particle or raster families — the type system doing its job, not obstructing it.",
   },
   exploded_view: {
@@ -720,6 +775,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 13,
     determinismGuarantee: "L2-GPU",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Pulling a stacked system apart. Jurisdictions, protocol layers, decision tiers — structure made spatial.",
   },
   extrude: {
@@ -735,6 +791,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 13,
     determinismGuarantee: "L2-GPU",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Glyph paths pushed into depth. Validates that the renderer interface accepts a spatial backend at all.",
   },
   feedback: {
@@ -750,6 +807,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 11,
     determinismGuarantee: "L2-GPU",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Previous frame as input. Excluded from Phase 0 chunked rendering: it breaks per-frame independence.",
   },
   field_displace: {
@@ -765,6 +823,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     secondInput: "FIELD",
     note: "A field and an image at once: the field's own vectors move the picture. This is the primitive the palette was missing — a gravity field combined with a sentence, where the field actually moves the letters rather than being painted over by them.",
   },
@@ -781,6 +840,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     secondInput: "FIELD",
     note: "Dissolution in the shape of the thing causing it. The subject is eaten where the field is weakest and the field itself shows through, so a sentence comes apart along the thing acting on it rather than under a random mask.",
   },
@@ -798,6 +858,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 12,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Boids. Crowd, migration, consensus — emergent behaviour from three local rules and no central plan.",
   },
   flow_arc: {
@@ -813,6 +874,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 8,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Origin-destination arcs. Movement between places without pretending to be a satellite image.",
   },
   flow_field: {
@@ -828,6 +890,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 7,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "A direction field. Derived from the gradient of the scalar field it is handed, rotated so particles travel along contours rather than straight up them — which is what reads as flow. Falls back to its own noise when nothing is upstream.",
   },
   follow_through: {
@@ -842,6 +905,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: true,
     note: "Secondary elements continue after the primary stops. This is the difference between tweened and animated.",
   },
   force_layout: {
@@ -857,6 +921,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 9,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "d3-force is deterministic when its random source is seeded. Precompute headless, serialise positions, then render.",
   },
   fractal: {
@@ -872,6 +937,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 7,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Self-similar recursion. Scale-invariance is the visual argument that a pattern repeats at every level.",
   },
   geometry_draw: {
@@ -890,6 +956,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Prints point geometry as a halftone plate. Dot weight keyed to how far each point has travelled, so the mark carries the deformation rather than only showing its result. Invert for the reversed spreads that alternate through Fiore's pages.",
   },
   geometry_morph: {
@@ -906,6 +973,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Consumes point geometry and returns point geometry. Each point keeps its origin, so a morph interpolates rather than cross-fading — which is the difference between a transformation and a dissolve.",
   },
   glyph_geometry: {
@@ -922,6 +990,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Text as a point set. Emits the geometry itself, not a picture of it — a downstream morph needs points it can interpolate, and a rasterised cloud has none.",
   },
   glyph_to_path: {
@@ -937,6 +1006,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Glyph outlines as path commands — the input to stroke reveal, extrusion, and point sampling.",
   },
   glyph_to_points: {
@@ -952,6 +1022,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "The highest-value primitive in the atlas: it turns language into geometry any other primitive can consume.",
   },
   graph_field: {
@@ -969,6 +1040,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 9,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Nodes gathered into clusters and joined by drawn edges. A diagram is groups and connections, not a scatter — this serves a network, an organisation, a distribution, a supply chain or a crowd without knowing what any of them are.",
   },
   graph_reveal: {
@@ -984,6 +1056,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 9,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Staged appearance of nodes and edges. A network arriving in order is an explanation; all at once is a wall.",
   },
   gravity_field: {
@@ -999,6 +1072,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 8,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Attraction as a field other primitives can consume — emitted as a sampled grid of directions computed from the attractors themselves. Influence, gravity of an institution, pull. Combine it with a sentence through field_displace and the pull moves the letters.",
   },
   halftone: {
@@ -1013,6 +1087,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Amplitude-modulated dots. Print reproduction as a temporal register — this is the 1970s.",
   },
   hard_cut: {
@@ -1027,6 +1102,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "The default and usually the right one. Listing it as a primitive is what stops transitions being decoration.",
   },
   heatmap: {
@@ -1042,6 +1118,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Matrix and calendar views. Density across two axes, which is usually where the anomaly hides.",
   },
   hierarchy_layout: {
@@ -1057,6 +1134,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 9,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Tree, treemap, pack, partition. Containment and subordination — the shape of an organisation.",
   },
   image_to_points: {
@@ -1074,6 +1152,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 10,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Turns a raster into geometry the engine can move. The Lab renders a procedural stand-in because it has no network, but the sampling path is identical for a generated image — which is the point: generated imagery is raw material, not output.",
   },
   interaction: {
@@ -1088,6 +1167,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Tap, keystroke, hover, scroll. The grammar of using a thing, rather than a picture of the thing.",
   },
   l_system: {
@@ -1103,6 +1183,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 7,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Grammar-driven growth. A rewriting system is an unusually honest way to visualise a process that compounds.",
   },
   layer_blend: {
@@ -1117,6 +1198,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     secondInput: "IMAGE",
     note: "The second operand blend always needed. Mode is a meaning, not a setting: screen is light arriving, multiply is something being darkened by what is behind it, difference is two versions of a thing that disagree.",
   },
@@ -1133,6 +1215,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     secondInput: "IMAGE",
     note: "The subject appears only where the second image is bright. One source supplies the shape and another the picture — redaction as a compositing operation rather than a drawn rectangle.",
   },
@@ -1149,6 +1232,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: true,
     secondInput: "IMAGE",
     note: "Two images at once, which the linear chain could not express. The ground stays visible behind the subject instead of being painted over — the difference between a chain and a stack.",
   },
@@ -1165,6 +1249,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 13,
     determinismGuarantee: "L2-GPU",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Sheets lifting off one another. Sequential reveal that keeps the whole stack visible.",
   },
   map_camera: {
@@ -1180,6 +1265,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 8,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A camera over geography. Scale changes are arguments about jurisdiction and scope.",
   },
   map_projection: {
@@ -1195,6 +1281,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 8,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Geography is a primary documentary primitive. Projected from pinned vector data — never a tile server at render time.",
   },
   mask_apply: {
@@ -1210,6 +1297,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Apply an alpha channel from anywhere in the graph — geometry, type, or another primitive entirely.",
   },
   match_cut: {
@@ -1224,6 +1312,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Requires geometry from the outgoing AND incoming shot — a real architectural demand, not a transition preset.",
   },
   montage: {
@@ -1239,6 +1328,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A rhythmic sequence under a single line of narration. Cut rate is a directed parameter, not an afterthought.",
   },
   mounted_fixture: {
@@ -1260,6 +1350,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 10,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A body plan for a ceiling fixture — a smoke detector is one parameterisation, so is a speaker or a sprinkler. The `representation` axis draws ONE geometry as solid, illustrated, technical, pixel or points: the subject's identity is invariant, its mode of depiction is not.",
   },
   nest: {
@@ -1275,6 +1366,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "What makes the palette recursive rather than flat: any composition can be a layer inside another.",
   },
   noise_field: {
@@ -1290,6 +1382,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Seeded value-noise fbm, emitted as a sampled grid. Downstream primitives read THIS field rather than each generating their own — which is the difference between a chain and four pictures in a stack.",
   },
   orbital: {
@@ -1305,6 +1398,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 8,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Orbits at Keplerian rates. Cycles, returns, anniversaries — anything that comes back around.",
   },
   overshoot: {
@@ -1318,6 +1412,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: true,
     note: "Pass the target and settle. Applied globally from the restraint parameter, it gives a film one motion character.",
   },
   parallax_layers: {
@@ -1333,6 +1428,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Depth from differential motion, applied to the image it is handed: the same frame at several scales and rates, so the parallax is of the material rather than an invented scene beside it.",
   },
   parametric_curve: {
@@ -1348,6 +1444,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Rose curves, spirals, Lissajous figures. Mathematical form as a documentary register.",
   },
   particle_connect: {
@@ -1363,6 +1460,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 12,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Neighbour links — the cheap proto-network. Relationship without the cost of a force simulation.",
   },
   particle_emitter: {
@@ -1379,6 +1477,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 12,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Spawn, decay, count. The base of every particle chain — and the parameter density maps onto directly.",
   },
   particle_flow: {
@@ -1395,6 +1494,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 14,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Advection through a field — the one it is handed, when it is handed one. Emits the particle positions so a downstream trail draws these particles and not a second population that merely resembles them.",
   },
   particle_seek: {
@@ -1411,6 +1511,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 12,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Particles seek the point geometry they are handed — text out of chaos, the Canopticon signature move. Emits its own positions so a trail downstream draws these particles, not a second population.",
   },
   particle_trail: {
@@ -1426,6 +1527,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 9,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Motion history as an image buffer, drawn from the points it is handed. The decay wash is the idea: never clearing fully is what turns positions into movement.",
   },
   path_draw: {
@@ -1441,6 +1543,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Dash-offset reveal. The cheapest primitive in the atlas and one of the most legible.",
   },
   path_traverse: {
@@ -1456,6 +1559,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Objects moving along a path, optionally oriented to its tangent. Routes, flows, sequence.",
   },
   pin_drop: {
@@ -1471,6 +1575,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 8,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Located events arriving in sequence. Where and when, in the order the narration needs them.",
   },
   pixel_quantise: {
@@ -1486,6 +1591,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Consumes the upstream IMAGE and snaps it to a fixed ramp at a fixed grid. One ramp shared across all channels: quantising channels independently invents colour on neutral greys.",
   },
   pixel_sort: {
@@ -1500,6 +1606,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Rows sorted by luminance above a threshold. Glitch used as evidence of tampering.",
   },
   pixelate: {
@@ -1514,6 +1621,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Mosaic and quantisation. Withheld detail is a documentary statement, not a censor bar.",
   },
   place: {
@@ -1530,6 +1638,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Scales, positions and optionally crops a point set against the frame. The one operation that lets a composition decide how much of the frame a form commands and where the eye lands, without any primitive knowing what it is drawing.",
   },
   plate_scene: {
@@ -1546,6 +1655,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A stand-in for a generated plate. Scenes are big flat regions, which is why they survive quantisation where a small mechanical object does not. Swap it for a real generated frame and nothing downstream changes — that is what makes generated imagery material rather than output.",
   },
   point_cloud: {
@@ -1561,6 +1671,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 13,
     determinismGuarantee: "L2-GPU",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Depth without footage. A point cloud is a form the audience reads as scanned rather than drawn.",
   },
   polygon: {
@@ -1578,6 +1689,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "A bounded body with a counted number of faces, a corner radius and a taper. The palette's missing polygon source: a triangle, a slab, a lozenge, a near-circle, or anything between. General enough to serve the literal, geometric and structural readings without being about any subject.",
   },
   reaction_diffusion: {
@@ -1593,6 +1705,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 7,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Organic pattern formation. Genuinely expensive — in production this renders once to an image sequence.",
   },
   recursive_geometry: {
@@ -1608,6 +1721,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Subdivision and branching. Institutional structure, growth, proliferation — without an illustration.",
   },
   redaction: {
@@ -1623,6 +1737,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A blackout bar that moves is a different statement from one that was always there.",
   },
   roadmap_build: {
@@ -1638,6 +1753,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Bars constructing left to right. Plans, phases, overlapping mandates — a schedule that assembles as it is described.",
   },
   route_draw: {
@@ -1653,6 +1769,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 8,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A route drawing itself. Movement, supply, escalation — the map animated at the pace of the account.",
   },
   sankey_flow: {
@@ -1669,6 +1786,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 9,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Quantity moving between categories. Money, people, authority — where it enters and where it ends up. Given a route lifted from the prose it draws that route, labelled; given none it weaves an unnamed flow.",
   },
   scanline: {
@@ -1685,6 +1803,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "CRT scanlines and roll. A period register — the archive as it was actually watched.",
   },
   screen_transition: {
@@ -1699,6 +1818,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Movement between states of an interface, which is where most platform arguments actually live.",
   },
   seamless_loop: {
@@ -1713,6 +1833,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: true,
     note: "First frame identical to last. Cacheable ambient beds that cost one cycle to render and run forever.",
   },
   shader_surface: {
@@ -1728,6 +1849,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 11,
     determinismGuarantee: "L2-GPU",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Arbitrary fragment work. Honestly flagged L2-GPU: floating point differs between hardware and we say so.",
   },
   shape_morph: {
@@ -1743,6 +1865,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Arbitrary shape-to-shape with automatic point remapping. Structure changing while identity holds.",
   },
   small_multiples: {
@@ -1758,6 +1881,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 5,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "A grid of the same chart. Comparison without a single overloaded frame.",
   },
   sonify: {
@@ -1773,6 +1897,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Data mapped to pitch, pan or rhythm. Phase 1 — but the interface is defined now so the hook exists.",
   },
   split_screen: {
@@ -1788,6 +1913,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Simultaneity. Two things being true at once is often the whole editorial point.",
   },
   split_screen_temporal: {
@@ -1803,6 +1929,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Simultaneous parallel action. Two timelines at once, offset — the same event from two clocks.",
   },
   spotlight: {
@@ -1818,6 +1945,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Isolating one element of an interface. The most-needed move in any piece about a platform.",
   },
   spring: {
@@ -1833,6 +1961,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 8,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Free via Remotion. The only physics primitive in Phase 0 — iterative solvers need care to stay deterministic.",
   },
   subdivide: {
@@ -1849,6 +1978,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "A body divided into members with a gap between them, across, down, into cells or about its own centre. The operation that makes a form read as CONSTRUCTED rather than as a shape — floors, bays, links, bars, columns, petals — without being about any of them. The division count comes off the prose.",
   },
   synth_bed: {
@@ -1864,6 +1994,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "An ambient tone bed rendered offline, so it is as reproducible as the picture.",
   },
   text_displace: {
@@ -1879,6 +2010,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Deform letterforms by a field. The distortion is the argument, not an effect.",
   },
   text_layout: {
@@ -1895,6 +2027,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Layout is a parameter, not a template. Eleven named modes share one geometry output.",
   },
   text_mask: {
@@ -1910,6 +2043,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: true,
     note: "Type used as a compositing mask: the letterform becomes the window onto another primitive.",
   },
   text_morph: {
@@ -1925,6 +2059,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Path-level interpolation between two typographic states. One word becoming another is an argument.",
   },
   text_repeat: {
@@ -1941,6 +2076,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "One word, printed until it stops being a word. The count comes off the prose — 'thousands of ordinary decisions' is DECISION ninety-six times, not a caption reading THOUSANDS.",
   },
   text_scramble: {
@@ -1956,6 +2092,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Randomisation that resolves — seeded, so the same build produces the same noise every time.",
   },
   text_stagger: {
@@ -1972,6 +2109,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 2,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: 'Stagger unit and ease profile are where "generated" becomes "authored". Motion craft is a modifier layer, not a primitive.',
   },
   text_stagger_units: {
@@ -1987,6 +2125,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "The stagger unit changes the meaning of the reveal — characters read mechanical, words read spoken.",
   },
   threshold: {
@@ -2001,6 +2140,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 6,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Posterise or isolate. Output can be used directly as a mask.",
   },
   tile: {
@@ -2016,6 +2156,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 3,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Spatial repetition. Scale, multiplicity, the same thing happening everywhere at once.",
   },
   timeline_linear: {
@@ -2031,6 +2172,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "The primary motif carrier. Orientation, mark type, and behaviour are all axes — a timeline can fragment.",
   },
   timeline_radial: {
@@ -2046,6 +2188,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "The same timeline, wrapped. Radial reads as a cycle closing; linear reads as a line continuing.",
   },
   topology_shift: {
@@ -2061,6 +2204,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 9,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A network reorganising itself. Same actors, different structure — dramatically the most useful network move.",
   },
   ui_surface: {
@@ -2076,6 +2220,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 4,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "A generated feed can reorder, a metric can tick, a paywall can slide up. A screen recording can do none of that.",
   },
   variable_axis: {
@@ -2092,6 +2237,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 1,
     determinismGuarantee: "L2",
     consumesUpstream: false,
+    preservesUpstream: false,
     note: "Weight, width and optical size are animatable axes — type that breathes rather than fades.",
   },
   voronoi: {
@@ -2107,6 +2253,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 7,
     determinismGuarantee: "L2",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Cell decomposition. Territory, jurisdiction, coverage — geography without a map.",
   },
   wireframe: {
@@ -2122,6 +2269,7 @@ export const PRIMITIVES: Record<string, PrimitiveSpec> = {
     estimatedCostMsPerFrame: 13,
     determinismGuarantee: "L2-GPU",
     consumesUpstream: true,
+    preservesUpstream: false,
     note: "Wireframe reads as diagram, not render — exactly the register a documentary wants for a physical system.",
   },
 };

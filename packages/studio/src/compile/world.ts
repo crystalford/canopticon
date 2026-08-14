@@ -34,10 +34,16 @@
 // all — it would have a habit.
 
 import { type FilmMode, MODES, bridge, elementKey, step } from "./film-mode.ts";
-import { type Advance, EMPTY_FILM, type FilmState } from "./film-state.ts";
+import { type Advance, type ContinuityRead, EMPTY_FILM, type FilmState } from "./film-state.ts";
 import type { Material } from "./grammar-visual.ts";
 import type { Representation } from "./represent.ts";
-import { type SceneGraph, composeFromMeaning } from "./scene-graph.ts";
+import {
+  type SceneGraph,
+  at,
+  choreograph,
+  choreographAct,
+  composeFromMeaning,
+} from "./scene-graph.ts";
 import { type SemanticScene, readScene } from "./semantic-scene.ts";
 
 export { EMPTY_FILM };
@@ -59,8 +65,14 @@ export interface SceneWorld {
    *  Empty in CUT and MONTAGE, where arriving instantly is the point. */
   tweens: Map<string, Tween>;
   /** How long the bridge runs. Comes off the measured pause in the
-   *  narration — see `bridgeMsFor` in narrate/timeline.ts. */
+   *  narration — see `bridgeMsFor` in narrate/timeline.ts. Zero when the
+   *  scene is MOVING instead: there is one tween channel per node and a
+   *  move outranks a bridge, and reporting a move as a bridge would make
+   *  both illegible. A montage still never bridges. */
   bridgeMs: number;
+  /** How long the MOVE runs — the whole scene, because a move is what the
+   *  scene does. Zero when the scene is bridging or standing still. */
+  moveMs: number;
   describes: string;
 }
 
@@ -88,6 +100,14 @@ export interface WorldInputs {
    *  Null on the first scene, which arrives rather than travels. */
   previous: SceneGraph | null;
   bridgeMs: number;
+  /** WHAT THE SCENE SAID, read without the noun lexicon — the act, and
+   *  the passage to carry when the prose named nothing. Both exist because
+   *  the continuity model's own two inputs are lexicon-derived and an
+   *  essay of ideas satisfies neither. See `film-state.ts`. */
+  read?: ContinuityRead | undefined;
+  /** How long this scene lasts. The MOVE runs across it, where the bridge
+   *  runs only in the measured silence at its head. */
+  sceneMs?: number | undefined;
 }
 
 /** The same identity `film-mode.ts`'s `bridge` uses — imported rather than
@@ -126,7 +146,7 @@ export function stepWorld(input: WorldInputs): SceneWorld {
    * which is exactly what every scene did before this file existed. */
   let adv: Advance;
   try {
-    adv = step(input.mode, input.state, sem, fresh.elements);
+    adv = step(input.mode, input.state, sem, fresh.elements, input.read ?? {});
   } catch (e) {
     return {
       graph: fresh,
@@ -141,11 +161,68 @@ export function stepWorld(input: WorldInputs): SceneWorld {
       },
       tweens: new Map(),
       bridgeMs: 0,
+      moveMs: 0,
       describes: `composed fresh — ${(e as Error).message}`,
     };
   }
 
   const graph: SceneGraph = { elements: adv.elements, describes: fresh.describes };
+
+  /* THE MOVE — the temporal grammar, connected.
+   *
+   * `choreograph`, `at` and the eight moves in `scene-graph.ts` are the
+   * most directly cinematic code in this package and they have ZERO
+   * callers, including tests. Their gate is `sem.relations[0]`, and a
+   * relation needs two lexicon-known nouns, so an essay could not reach
+   * them. `REVERSE` — the element crossing to the place its counterpart
+   * held, which is what an argument turning around looks like — was
+   * emitted for no relation at all, so it was unreachable twice over.
+   *
+   * WHAT MAKES THIS A WIRE RATHER THAN A RENDERER PROJECT. `at()` returns
+   * the scene graph AT A MOMENT, and the renderer cannot execute a graph
+   * per frame — rebuilding a chain resets every particle in it. But the
+   * chain executor already lerps a node's live params between two values,
+   * with the same smoothstep `at()` eases with. So the move ships as its
+   * own ENDPOINTS: `at(g, 0)` and `at(g, 1)`, resolved into the from→to
+   * per element that the bridge channel already carries. One
+   * implementation of the moves, sampled rather than reimplemented.
+   *
+   * IDENTITY IS `elementKey`, the same role+ops the bridge uses. An
+   * element that `at()` removed at t=1 — a DISSOLVE completing — has no
+   * endpoint, so it thins to nothing instead, which is the same event
+   * expressed in the one channel available.
+   *
+   * ACROSS THE WHOLE SCENE, unlike the bridge: a move is what the scene
+   * DOES, where a bridge is how it arrived. And in any mode — a cut film
+   * still has scenes, and forbidding a scene to move because the film
+   * does not glide between them would confuse two different things. */
+  const moves = new Map<string, Tween>();
+  let moveMs = 0;
+  let moveDescribes = "";
+  const act = input.read?.act;
+  if (act && (input.sceneMs ?? 0) > 0) {
+    const ch = sem.relations[0] ? choreograph(graph, sem) : choreographAct(graph, act, sem.negated);
+    moveDescribes = ch.describes;
+    if (Object.keys(ch.moves).length > 0) {
+      const from = new Map(at(graph, ch, 0).elements.map((e) => [key(e), e]));
+      const to = new Map(at(graph, ch, 1).elements.map((e) => [key(e), e]));
+      for (const [k, a] of from) {
+        const b = to.get(k);
+        const moved: Tween = {};
+        if (!b) {
+          // It did not survive its own move. The one thing the executor
+          // can express is that it is no longer there.
+          moved.scale = [a.place.scale, 0.02];
+        } else {
+          if (!near(a.place.x, b.place.x)) moved.x = [a.place.x, b.place.x];
+          if (!near(a.place.y, b.place.y)) moved.y = [a.place.y, b.place.y];
+          if (!near(a.place.scale, b.place.scale)) moved.scale = [a.place.scale, b.place.scale];
+        }
+        if (Object.keys(moved).length > 0) moves.set(k, moved);
+      }
+      if (moves.size > 0) moveMs = input.sceneMs ?? 0;
+    }
+  }
 
   /* THE BRIDGE. `bridge()` resolves the change into the states the film
    * actually passes through; what a browser chain can execute is the
@@ -157,9 +234,28 @@ export function stepWorld(input: WorldInputs): SceneWorld {
    * Only in a mode that bridges. `MODES[mode].bridge <= 1` means "go
    * straight there", which is what a cut does even when it is not called
    * one, and easing into a montage would blunt the only thing a montage
-   * is for. */
+   * is for.
+   *
+   * AND THE MOVE OUTRANKS IT. There is one tween channel per node, so a
+   * scene that both arrives and acts has to choose. A bridge says "get
+   * from where you were to where you are"; a move says "and then do this".
+   * The second is the more meaningful motion, and the first only exists in
+   * ONE_SHOT and HYBRID with narration, so in an ordinary film the move
+   * has the channel to itself and nothing is being given up. */
   const tweens = new Map<string, Tween>();
   let bridgeMs = 0;
+  if (moves.size > 0) {
+    return {
+      graph,
+      material,
+      sem,
+      advance: adv,
+      tweens: moves,
+      bridgeMs: 0,
+      moveMs,
+      describes: `${adv.describes} · ${moveDescribes}`,
+    };
+  }
   if (input.previous && MODES[input.mode].bridge > 1 && input.bridgeMs > 0) {
     const was = new Map(input.previous.elements.map((e) => [key(e), e]));
     const bridged = bridge(input.previous, graph, input.mode);
@@ -193,12 +289,22 @@ export function stepWorld(input: WorldInputs): SceneWorld {
         advance: adv,
         tweens,
         bridgeMs,
+        moveMs: 0,
         describes: `${adv.describes} · ${bridged.describes}`,
       };
     }
   }
 
-  return { graph, material, sem, advance: adv, tweens, bridgeMs, describes: adv.describes };
+  return {
+    graph,
+    material,
+    sem,
+    advance: adv,
+    tweens,
+    bridgeMs,
+    moveMs: 0,
+    describes: adv.describes,
+  };
 }
 
 const near = (a: number, b: number) => Math.abs(a - b) < 0.004;

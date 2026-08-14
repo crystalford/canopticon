@@ -19,6 +19,7 @@ import type { Colour, EditorialIR } from "../ir/schema.ts";
 import { PRIMITIVES } from "../primitives/registry.ts";
 import type { ComposedNode } from "./compose.ts";
 import type { CompileReport } from "./index.ts";
+import { textOf } from "./promote.ts";
 import type { ShotVariation } from "./shot-plan.ts";
 
 export interface FilmNode {
@@ -56,6 +57,13 @@ export interface FilmShot {
 export interface FilmScene {
   sceneId: string;
   actId: string;
+  /** THE FILM CHOSE TO SHOW NOTHING NEW HERE.
+   *
+   *  Read by the renderer, and it is the whole difference between
+   *  silence and a bug: an empty chain that arrived by accident renders
+   *  as clean ground and looks exactly like an intended hold. With this,
+   *  one is drawn and the other is reported. */
+  held?: boolean;
   label: string;
   /** The prose this scene carries. Shown under the frame, because a
    *  documentary compiler that hides its own sentence from you is hard to
@@ -253,9 +261,16 @@ function narrationFor(
 /** This scene's promotion, projected. Absent rather than faked when the
  *  compile did not run the layer. */
 function promotionFor(report: CompileReport, sceneId: string) {
-  const p = report.promotions.find((x) => x.sceneId === sceneId);
+  const p = report.interventions.find((x) => x.sceneId === sceneId);
   if (!p) return null;
-  return { level: p.level, role: p.role, text: p.text, why: p.why, window: p.window };
+  const words = textOf(p);
+  return {
+    level: p.intensity,
+    role: p.role,
+    text: words?.text ?? "",
+    why: p.why,
+    window: p.window,
+  };
 }
 
 /** A compile report becomes something you can watch. */
@@ -306,6 +321,7 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
     scenes.push({
       sceneId: composed.sceneId,
       actId: composed.actId,
+      ...(composed.held ? { held: true } : {}),
       label: irScene?.label ?? "",
       text: irScene?.narration.text ?? "",
       startMs: window?.startMs ?? 0,
