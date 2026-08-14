@@ -30,6 +30,7 @@ const NEW = {
   approach: "hybrid",
   editing: "cut",
   intensity: "expressive",
+  register: "auto",
   duration: 0,
   voice: "None",
   speaker: "angus",
@@ -64,6 +65,12 @@ let CHOICES = {
     { id: "cut", label: "Scene based", note: "Each moment is its own shot." },
     { id: "hybrid", label: "Mixed", note: "Continuous passages, punctuated where a cut is earned." },
     { id: "montage", label: "Collide", note: "Cuts are the argument. Held apart, never eased." },
+  ],
+  registers: [
+    { id: "auto", label: "Let it decide", note: "Set for a phrase, taken apart for the statement the argument turns on." },
+    { id: "editorial", label: "Editorial", note: "Set large and composed. Legibility is the point; the writing does the work." },
+    { id: "fiore", label: "Fiore", note: "Violent scale, cropped by the frame, halftone. Each frame is one assertion." },
+    { id: "kinetic", label: "Kinetic", note: "Letterforms as points — the words assemble and come apart." },
   ],
   intensity: [
     { id: "restrained", label: "Restrained" },
@@ -145,6 +152,15 @@ function viewStart(root) {
       <div class="cchoices">
         <div class="crow"><span class="clabel">Visuals</span>${seg("approach", CHOICES.approaches, NEW.approach)}</div>
         ${chosen?.note ? `<p class="note choicenote">${esc(chosen.note)}</p>` : ""}
+        ${
+          /* CONTEXTUAL, not a fifth top-level question. The register only
+           * means anything once the words are the material, so it appears
+           * when — and only when — Text driven is the answer above it. */
+          NEW.approach === "text"
+            ? `<div class="crow"><span class="clabel">Type</span>${seg("register", CHOICES.registers || [], NEW.register)}</div>
+               ${(CHOICES.registers || []).find((r) => r.id === NEW.register)?.note ? `<p class="note choicenote">${esc((CHOICES.registers || []).find((r) => r.id === NEW.register).note)}</p>` : ""}`
+            : ""
+        }
 
         <div class="crow"><span class="clabel">Narration</span>${seg(
           "voice",
@@ -231,6 +247,7 @@ async function create() {
      * curves, and the duration shapes the edit without touching a word. */
     const r = await ingestEssay(NEW.text.trim(), {
       visualApproach: NEW.approach,
+      ...(NEW.approach === "text" ? { typeRegister: NEW.register } : {}),
       continuity: NEW.editing,
       intensity: NEW.intensity,
       ...(NEW.duration ? { durationTargetSec: NEW.duration } : {}),

@@ -98,6 +98,28 @@ app.get("/v1/vocabulary/choices", (c) =>
       },
       { id: "montage", label: "Collide", note: "Cuts are the argument. Held apart, never eased." },
     ],
+    registers: [
+      {
+        id: "auto",
+        label: "Let it decide",
+        note: "Set for a phrase, taken apart for the statement the argument turns on.",
+      },
+      {
+        id: "editorial",
+        label: "Editorial",
+        note: "Set large and composed. Legibility is the point; the writing does the work.",
+      },
+      {
+        id: "fiore",
+        label: "Fiore",
+        note: "Violent scale, cropped by the frame, halftone. Each frame is one assertion.",
+      },
+      {
+        id: "kinetic",
+        label: "Kinetic",
+        note: "Letterforms as points — the words assemble and come apart.",
+      },
+    ],
     intensity: [
       { id: "restrained", label: "Restrained" },
       { id: "expressive", label: "Expressive" },

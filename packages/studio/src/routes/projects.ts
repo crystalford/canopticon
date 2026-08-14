@@ -160,6 +160,9 @@ app.delete("/project/:id", async (c) => {
 const CONTINUITIES = ["cut", "oneshot", "montage", "hybrid"];
 /** The five visual languages. `hybrid` leaves every weight alone. */
 const APPROACHES = ["text", "abstract", "world", "image", "hybrid"];
+/** How the type is set. `auto` is the default and is what a film that
+ *  never opens Advanced gets. */
+const REGISTERS = ["editorial", "fiore", "kinetic", "auto"];
 
 /** INTENSITY, as the three curves it already means.
  *
@@ -217,6 +220,8 @@ app.post("/project/ingest", async (c) => {
     visualLanguage?: string;
     /** WHAT KIND OF PICTURE — text, abstract, world, image, hybrid. */
     visualApproach?: string;
+    /** HOW THE TYPE IS SET — one layer below the approach. */
+    typeRegister?: string;
     /** HOW HARD THE FILM PUSHES — restrained, expressive, chaotic.
      *
      *  Deliberately NOT a new dial. It is one honest name over three that
@@ -275,6 +280,9 @@ app.post("/project/ingest", async (c) => {
       : {}),
     ...(APPROACHES.includes(body.visualApproach ?? "")
       ? { visualApproach: body.visualApproach as EditorialIR["visualApproach"] }
+      : {}),
+    ...(REGISTERS.includes(body.typeRegister ?? "")
+      ? { typeRegister: body.typeRegister as EditorialIR["typeRegister"] }
       : {}),
     ...(INTENSITY[body.intensity ?? ""] || body.durationTargetSec
       ? {
@@ -1367,6 +1375,8 @@ app.post("/project/:id/creative-state", async (c) => {
     /** WHAT KIND OF PICTURE — the other half of the axis `continuity`
      *  used to carry on its own. Same rail, same zero TTS. */
     visualApproach?: string;
+    /** And how its type is set, when it has any. */
+    typeRegister?: string;
   };
 
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
@@ -1388,6 +1398,9 @@ app.post("/project/:id/creative-state", async (c) => {
     visualApproach: (APPROACHES.includes(body.visualApproach ?? "")
       ? body.visualApproach
       : current.ir.visualApproach) as EditorialIR["visualApproach"],
+    typeRegister: (REGISTERS.includes(body.typeRegister ?? "")
+      ? body.typeRegister
+      : current.ir.typeRegister) as EditorialIR["typeRegister"],
     cinematography: {
       ...current.ir.cinematography,
       colour: {
@@ -1419,21 +1432,25 @@ app.post("/project/:id/creative-state", async (c) => {
     body.continuity !== undefined && body.continuity !== current.ir.continuity;
   const changedApproach =
     body.visualApproach !== undefined && body.visualApproach !== current.ir.visualApproach;
+  const changedRegister =
+    body.typeRegister !== undefined && body.typeRegister !== current.ir.typeRegister;
   await writeVersion(
     c.env,
     projectId,
     parsed.ir,
     nextVersion,
     project.current_ir_version,
-    changedApproach
-      ? `Visuals → ${parsed.ir.visualApproach}`
-      : changedContinuity
-        ? `Continuity → ${parsed.ir.continuity}`
-        : changedLanguage
-          ? `Visual language → ${parsed.ir.visualLanguage}`
-          : changedColour
-            ? "Colour changed"
-            : "Creative state edited",
+    changedRegister
+      ? `Type → ${parsed.ir.typeRegister}`
+      : changedApproach
+        ? `Visuals → ${parsed.ir.visualApproach}`
+        : changedContinuity
+          ? `Continuity → ${parsed.ir.continuity}`
+          : changedLanguage
+            ? `Visual language → ${parsed.ir.visualLanguage}`
+            : changedColour
+              ? "Colour changed"
+              : "Creative state edited",
   );
   await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
     nextVersion,

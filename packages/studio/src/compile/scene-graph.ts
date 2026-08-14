@@ -282,6 +282,24 @@ export function placeForLevel(level: number, seed: number): Element["place"] {
   return { scale: 0.2, x: seed % 2 === 0 ? 0.22 : 0.78, y: 0.86, crop: 0 };
 }
 
+/* WHEN THE WORDS ARE THE SUBJECT, THE GROUND HOLDS BACK.
+ *
+ * A GROUND is placed at `1.6–1.7 + density * 0.8`, cropped by the frame —
+ * bigger than the shot, which is exactly right when it is the world a
+ * relation happens in. Behind a sentence it is wallpaper: measured on the
+ * text film, every level-0 scene was a full-bleed curve at 2.1× the frame
+ * and every promoted scene had one behind the type.
+ *
+ * A text-driven film composes its depth out of restraint. The ground
+ * stays — a frame with nothing behind it is flat — but it comes inside
+ * the frame, stops being cropped, and gives up its claim on the eye. */
+const groundPlace = (base: number, m: Material, mode: Mode): Element["place"] =>
+  // Keyed on the MODE, not on the register — the register is set on every
+  // film and a world film's ground is meant to be bigger than the shot.
+  mode === "typographic" && m.phrase?.trim()
+    ? { scale: 0.9 + m.density * 0.35, x: 0.5, y: 0.5, crop: 0 }
+    : { scale: base + m.density * 0.8, x: 0.5, y: 0.5, crop: 1 };
+
 /** Give every WORD-bearing element the size its level earned. Applied to
  *  the composed list rather than at each push site, so there is one rule
  *  and it cannot be forgotten by a new branch. */
@@ -346,7 +364,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
       role: "GROUND",
       ops: opsFor("GROUND", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.GROUND ?? 0,
-      place: { scale: 1.7 + m.density * 0.8, x: 0.5, y: 0.5, crop: 1 },
+      place: groundPlace(1.7, m, mode),
       depth: 0,
       reason: "the world the relation happens in",
     });
@@ -442,7 +460,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
       role: "GROUND",
       ops: opsFor("GROUND", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.GROUND ?? 0,
-      place: { scale: 1.6 + m.density * 0.9, x: 0.5, y: 0.5, crop: 1 },
+      place: groundPlace(1.6, m, mode),
       depth: 0,
       reason: "a field behind everything, cropped by the frame so it reads as bigger than the shot",
     });
