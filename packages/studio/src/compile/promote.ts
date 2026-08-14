@@ -40,7 +40,38 @@
 import type { EditorialIR, Scene } from "../ir/schema.ts";
 import type { FilmTimeline } from "../narrate/timeline.ts";
 
-export type PromotionLevel = 0 | 1 | 2 | 3 | 4;
+/** HOW MUCH OF THE FILM'S ATTENTION THIS MOMENT GETS, 0..4.
+ *
+ *  Read as "how much text" for as long as TEXT was the only thing that
+ *  could be allocated. It is the INTENSITY of whatever the moment was
+ *  given, and the scale is unchanged — 0 is the film spending nothing
+ *  here, 4 is a moment taking the screen. */
+export type Intensity = 0 | 1 | 2 | 3 | 4;
+
+/** WHAT THE FILM SPENDS ON A MOMENT.
+ *
+ *  Two kinds today, and the honest reason there are only two: those are
+ *  the two this compiler can actually carry out. `SPOKEN` is not a
+ *  failure and not an absence of decision — it is the allocator deciding
+ *  that the voice carries this moment alone, which is what most of an
+ *  essay should be.
+ *
+ *  Deliberately NOT called `NONE`. A moment can be spoken-only and still
+ *  have a picture behind it: this layer allocates the film's ATTENTION,
+ *  and whether a scene draws anything at all is a separate question that
+ *  nothing in this compiler can currently answer. Naming this `NONE`
+ *  would claim a capability that does not exist. */
+export type InterventionKind = "SPOKEN" | "TEXT";
+
+/** What a TEXT intervention needs in order to happen: the words, and
+ *  where they sit in the sentence so they can be timed to the voice. */
+export interface TextPayload {
+  /** The span to put on screen — verbatim from the narration, always. */
+  text: string;
+  /** Its character offset in the sentence, which is what lets it be timed
+   *  to the measured words rather than to the sentence's whole window. */
+  offset: number;
+}
 
 /** What this sentence is DOING in the argument — as distinct from what it
  *  is about. The visual rhythm should follow the argument, not the
@@ -58,15 +89,21 @@ export type ArgumentRole =
   | "STANDARD"
   | "CONCLUSION";
 
-export interface Promotion {
+/** ONE MOMENT'S SHARE OF THE FILM'S VISUAL ATTENTION.
+ *
+ *  Everything on this record except `payload` is already
+ *  intervention-agnostic — `role`, `window`, `why` and `score` say
+ *  nothing about type — which is why generalising the allocator was a
+ *  smaller change than it looked. What was welded to typography was two
+ *  fields, and they are now the payload of a kind rather than the point
+ *  of the record. */
+export interface Intervention {
   sceneId: string;
-  level: PromotionLevel;
+  kind: InterventionKind;
+  intensity: Intensity;
   role: ArgumentRole;
-  /** The span to put on screen — verbatim from the narration, always. */
-  text: string;
-  /** Its character offset in the sentence, which is what lets it be timed
-   *  to the measured words rather than to the sentence's whole window. */
-  offset: number;
+  /** Present when `kind` needs one. Null for `SPOKEN`. */
+  payload: TextPayload | null;
   /** WHEN it is spoken. `measured` false means the recording gave only a
    *  sentence boundary, so this is the sentence's window and the phrase is
    *  landing on a guess. Kept as a distinct fact rather than smoothed
@@ -76,6 +113,13 @@ export interface Promotion {
    *  account for is indistinguishable from a guess. */
   why: string[];
   score: number;
+}
+
+/** The film's text, as the allocator left it. A consumer that wants the
+ *  words asks for them rather than reaching into a shape that will gain
+ *  more kinds. */
+export function textOf(i: Intervention): TextPayload | null {
+  return i.kind === "TEXT" ? i.payload : null;
 }
 
 /* ── THE SIGNALS ──────────────────────────────────────────────────────
@@ -368,7 +412,7 @@ const MAJOR: ArgumentRole[] = ["TITLE", "THESIS", "DIAGNOSTIC", "CONCLUSION", "S
  *
  *  Film-level, before any visual decision. Returns one entry per scene —
  *  most of them level 0, which is the whole point. */
-export function promoteText(ir: EditorialIR, timeline?: FilmTimeline | null): Promotion[] {
+export function allocate(ir: EditorialIR, timeline?: FilmTimeline | null): Intervention[] {
   const refrains = findRefrains(ir);
   const total = ir.scenes.length;
   const { shown, major } = quota(total, timeline?.totalMs);
@@ -559,10 +603,10 @@ export function promoteText(ir: EditorialIR, timeline?: FilmTimeline | null): Pr
     if (rank === undefined || !best) {
       return {
         sceneId: scene.sceneId,
-        level: 0 as const,
+        kind: "SPOKEN" as const,
+        intensity: 0 as const,
         role,
-        text: "",
-        offset: -1,
+        payload: null,
         window: null,
         why: [
           best
@@ -575,7 +619,7 @@ export function promoteText(ir: EditorialIR, timeline?: FilmTimeline | null): Pr
     /* THE LADDER. Rank within the promoted set, gated by role: only a
      * TITLE, a THESIS, a DIAGNOSTIC, a STANDARD or a CONCLUSION may take
      * the whole screen, however strongly a development paragraph scored. */
-    const level: PromotionLevel =
+    const intensity: Intensity =
       rank < 0
         ? 4
         : rank < major && MAJOR.includes(role)
@@ -588,10 +632,10 @@ export function promoteText(ir: EditorialIR, timeline?: FilmTimeline | null): Pr
     const offset = locate(scene.narration.text, best.text);
     return {
       sceneId: scene.sceneId,
-      level,
+      kind: "TEXT" as const,
+      intensity,
       role,
-      text: best.text,
-      offset,
+      payload: { text: best.text, offset },
       window: windowFor(scene, best.text, timeline),
       why: [
         best.why,
@@ -614,7 +658,7 @@ export function windowFor(
   scene: Scene,
   span: string,
   timeline?: FilmTimeline | null,
-): Promotion["window"] {
+): Intervention["window"] {
   const on = timeline?.scenes.find((s) => s.sceneId === scene.sceneId);
   if (!on) return null;
   const wanted = norm(span).split(" ").filter(Boolean);

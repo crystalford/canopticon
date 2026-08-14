@@ -53,7 +53,7 @@ import { buildGraph, describeGraph, flattenGraph, flattenGround, graphDepth } fr
 import { planGround } from "./ground.ts";
 import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
-import type { Promotion } from "./promote.ts";
+import { type Intervention, textOf } from "./promote.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
 import { representationsFor } from "./represent.ts";
 import type { SceneGraph } from "./scene-graph.ts";
@@ -302,7 +302,7 @@ export function composeScene(
    *  before any visual decision, by `promote.ts`. Absent means the old
    *  behaviour — every scene sets its phrase — which is what produced 36
    *  title cards from a 36-scene essay. */
-  promotion: Promotion | null = null,
+  promotion: Intervention | null = null,
 ): ComposedScene {
   const state = resolveStateAt(ir, scenePosition(ir, sceneIndex), positions);
   const notes: string[] = [];
@@ -352,9 +352,10 @@ export function composeScene(
    * A promoted scene uses the PROMOTED span, not a freshly chosen one: the
    * whole point of promoting "IT'S A DIAGNOSIS" is that those words appear,
    * and re-deriving a phrase here would silently overrule the layer above. */
+  const allocatedText = promotion ? textOf(promotion) : null;
   const phrase =
-    promotion && promotion.level > 0 && promotion.text
-      ? { text: promotion.text, source: `promoted — ${promotion.why[0] ?? "an anchor"}` }
+    allocatedText?.text
+      ? { text: allocatedText.text, source: `promoted — ${promotion?.why[0] ?? "an anchor"}` }
       : promotion
         ? { text: "", source: promotion.why[0] ?? "spoken only" }
         : choosePhrase(scene.narration.text, scene.label, {
@@ -366,9 +367,9 @@ export function composeScene(
   // nothing to say on screen has no typographic weight whatever the film's
   // dial reads, and a scene the argument turns on gets the whole of it.
   const typography = promotion
-    ? promotion.level === 0
+    ? promotion.intensity === 0
       ? 0
-      : Math.max(state.values.typographicWeight ?? 0, 0.25 + promotion.level * 0.18)
+      : Math.max(state.values.typographicWeight ?? 0, 0.25 + promotion.intensity * 0.18)
     : (state.values.typographicWeight ?? 0);
 
   let treatment: Treatment | null = null;
@@ -490,7 +491,7 @@ export function composeScene(
       // Whether this scene is allowed to have its frame resampled. A
       // promoted phrase drawn as type and then sliced by `parallax_layers`
       // loses its first word off the edge — measured, at 1280×720.
-      setsType: Boolean(promotion && promotion.level > 0 && promotion.text),
+      setsType: Boolean(allocatedText?.text),
       ...(intentReading ? { intent: intentReading } : {}),
     };
     // ── the director's verbs ───────────────────────────────────────
@@ -621,7 +622,7 @@ export function composeScene(
         // recipe branches on the level and the arrival is cued to the
         // measured word — see `grammar-visual.ts`'s WORD and
         // `serialiseScene`'s tween.
-        level: promotion?.level ?? 2,
+        level: promotion?.intensity ?? 2,
         register: ir.typeRegister,
         /* CLAMPED INTO THE SCENE IT PLAYS IN.
          *
@@ -1279,7 +1280,7 @@ function sceneSubjects(sentence: string, carried: DetectedSubject | null): Detec
 export function composeAll(
   ir: EditorialIR,
   timeline?: FilmTimeline | null,
-  promotions?: Promotion[] | null,
+  promotions?: Intervention[] | null,
 ): ComposedScene[] {
   const positions = controlPointPositions(ir);
   const out: ComposedScene[] = [];

@@ -19,7 +19,7 @@ import {
 } from "./cache.ts";
 import { type ComposedScene, composeAll } from "./compose.ts";
 import { hashSceneNodes } from "./hash.ts";
-import { type Promotion, promoteText } from "./promote.ts";
+import { type Intervention, allocate } from "./promote.ts";
 import { type ShotVariation, planShots } from "./shot-plan.ts";
 import { type Alignment, type SolveResult, nominalAlignment, solveTiming } from "./solver.ts";
 import { type UsageReport, analyseUsage } from "./usage.ts";
@@ -57,7 +57,7 @@ export interface CompileReport {
    *  film-wide, BEFORE any visual decision. Most scenes come back at level
    *  0, which is the point: an essay has eight or ten visual anchors, not
    *  one per sentence. */
-  promotions: Promotion[];
+  interventions: Intervention[];
   /** Per-scene cut plans. Empty shots array when a scene is one take. */
   shotPlans: SceneShots[];
   composed: ComposedScene[];
@@ -124,8 +124,8 @@ export async function compile(
    * both. So every sentence put words on screen and a 36-scene essay
    * became 36 title cards. Promotion is film-level and scarce by
    * construction; the visual languages downstream realise what it chose. */
-  const promotions = promoteText(ir, timeline);
-  const composed = composeAll(ir, timeline, promotions);
+  const interventions = allocate(ir, timeline);
+  const composed = composeAll(ir, timeline, interventions);
 
   // Plan what varies across each scene's cuts. Intensity rides the film's
   // motion energy, so a director dragging that curve re-cuts the film
@@ -238,7 +238,7 @@ export async function compile(
     projectId: ir.projectId,
     timing,
     timeline,
-    promotions,
+    interventions,
     shotPlans,
     composed,
     cache,

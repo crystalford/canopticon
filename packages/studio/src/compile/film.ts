@@ -19,6 +19,7 @@ import type { Colour, EditorialIR } from "../ir/schema.ts";
 import { PRIMITIVES } from "../primitives/registry.ts";
 import type { ComposedNode } from "./compose.ts";
 import type { CompileReport } from "./index.ts";
+import { textOf } from "./promote.ts";
 import type { ShotVariation } from "./shot-plan.ts";
 
 export interface FilmNode {
@@ -253,9 +254,16 @@ function narrationFor(
 /** This scene's promotion, projected. Absent rather than faked when the
  *  compile did not run the layer. */
 function promotionFor(report: CompileReport, sceneId: string) {
-  const p = report.promotions.find((x) => x.sceneId === sceneId);
+  const p = report.interventions.find((x) => x.sceneId === sceneId);
   if (!p) return null;
-  return { level: p.level, role: p.role, text: p.text, why: p.why, window: p.window };
+  const words = textOf(p);
+  return {
+    level: p.intensity,
+    role: p.role,
+    text: words?.text ?? "",
+    why: p.why,
+    window: p.window,
+  };
 }
 
 /** A compile report becomes something you can watch. */

@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { compile } from "../src/compile/index.ts";
-import { promoteText } from "../src/compile/promote.ts";
+import { allocate, textOf } from "../src/compile/promote.ts";
 import { segmentEssay } from "../src/compile/segment.ts";
 import type { Alignment } from "../src/compile/solver.ts";
 import { type EditorialIR, parseIR } from "../src/ir/schema.ts";
@@ -40,25 +40,25 @@ function ir(): EditorialIR {
   return parsed.ir;
 }
 
-const shown = (p: ReturnType<typeof promoteText>) => p.filter((x) => x.level > 0);
-const textOf = (p: ReturnType<typeof promoteText>) =>
+const shown = (p: ReturnType<typeof allocate>) => p.filter((x) => x.intensity > 0);
+const promotedLines = (p: ReturnType<typeof allocate>) =>
   shown(p)
-    .map((x) => x.text.toLowerCase())
+    .map((x) => textOf(x)?.text.toLowerCase() ?? "")
     .join(" | ");
 
 describe("promotion is scarce", () => {
   it("most of the essay is spoken and not shown", () => {
-    const p = promoteText(ir(), null);
+    const p = allocate(ir(), null);
     // The whole point. A film that promotes every sentence has promoted
     // nothing: the level-4 statement only takes over the screen because
     // the minute around it did not.
     expect(shown(p).length).toBeLessThan(p.length);
-    expect(p.filter((x) => x.level === 0).length).toBeGreaterThan(0);
+    expect(p.filter((x) => x.intensity === 0).length).toBeGreaterThan(0);
   });
 
   it("a level-4 statement is rare and is never a development paragraph", () => {
-    const p = promoteText(ir(), null);
-    const major = p.filter((x) => x.level === 4);
+    const p = allocate(ir(), null);
+    const major = p.filter((x) => x.intensity === 4);
     expect(major.length).toBeGreaterThan(0);
     expect(major.length).toBeLessThanOrEqual(4);
     for (const m of major) {
@@ -67,28 +67,28 @@ describe("promotion is scarce", () => {
   });
 
   it("the same essay always promotes the same moments", () => {
-    expect(textOf(promoteText(ir(), null))).toEqual(textOf(promoteText(ir(), null)));
+    expect(promotedLines(allocate(ir(), null))).toEqual(promotedLines(allocate(ir(), null)));
   });
 });
 
 describe("promotion never invents", () => {
   it("every promoted span is literally in the essay", () => {
     const film = ir();
-    for (const p of shown(promoteText(film, null))) {
+    for (const p of shown(allocate(film, null))) {
       // The same standard a figure is held to. What appears on screen is
       // something the essay actually says — checkable by the person who
       // wrote it, without trusting the compiler.
-      expect(film.essay).toContain(p.text);
+      expect(film.essay).toContain(textOf(p)?.text);
     }
   });
 
   it("the title is the essay's own, without its markdown", () => {
-    const p = promoteText(ir(), null);
+    const p = allocate(ir(), null);
     const title = p.find((x) => x.role === "TITLE");
-    expect(title?.text).toBe("The Logic Costume");
+    expect(title ? textOf(title)?.text : null).toBe("The Logic Costume");
     // A title competes with nothing — a film withholding its own name to
     // save a slot for a sentence would be the scarcity rule misapplied.
-    expect(title?.level).toBe(4);
+    expect(title?.intensity).toBe(4);
   });
 
   it("a hedged sentence is not promoted to a statement", () => {
@@ -101,15 +101,15 @@ describe("promotion never invents", () => {
     // An essay is allowed to be uncertain. Dramatising an uncertainty into
     // a full-screen statement is the compiler putting words in the
     // author's mouth.
-    const body = promoteText(parsed.ir, null).filter((x) => x.role !== "TITLE");
-    expect(body.every((x) => x.level < 3)).toBe(true);
+    const body = allocate(parsed.ir, null).filter((x) => x.role !== "TITLE");
+    expect(body.every((x) => x.intensity < 3)).toBe(true);
   });
 });
 
 describe("a claim split across a full stop is one claim", () => {
   it("a denial and its assertion are promoted together or not at all", () => {
-    const p = promoteText(ir(), null);
-    const t = textOf(p);
+    const p = allocate(ir(), null);
+    const t = promotedLines(p);
     /* THE MEASURED FAILURE THIS EXISTS FOR. Run per-scene, the segmenter
      * has already cut "The fallacy isn't a lapse." from "It's a
      * diagnosis.", so one is a fragment and the other is a pronoun with
@@ -123,7 +123,7 @@ describe("a claim split across a full stop is one claim", () => {
 
   it("a contrast is found, and trimmed without leaving the prose", () => {
     const film = ir();
-    const t = textOf(promoteText(film, null));
+    const t = promotedLines(allocate(film, null));
     // `trimPhrase` uppercases, which is right for type and fatal here: the
     // uppercased span stopped being a literal substring and the promotion
     // was dropped in silence. "a position, not a person" scored 0.9 and
@@ -160,20 +160,23 @@ describe("promotion is timed to the voice when the voice was measured", () => {
   it("a promoted phrase lands on its own measured words", async () => {
     const film = ir();
     const dry = await compile(film);
-    const anchor = dry.promotions.find((p) => p.level > 0 && p.offset >= 0);
+    const anchor = dry.interventions.find((p) => p.intensity > 0 && (textOf(p)?.offset ?? -1) >= 0);
     if (!anchor) throw new Error("nothing promoted — the allocator has stopped allocating");
     const scene = film.scenes.find((s) => s.sceneId === anchor.sceneId);
     if (!scene) throw new Error("fixture changed");
 
     // 400ms per word, so a phrase starting at word N is spoken at N×400.
     const spoken = scene.narration.text.split(/\s+/);
-    const before = scene.narration.text.slice(0, anchor.offset).split(/\s+/).filter(Boolean).length;
+    const before = scene.narration.text
+      .slice(0, textOf(anchor)?.offset ?? -1)
+      .split(/\s+/)
+      .filter(Boolean).length;
 
     const report = await compile(film, {
       alignments: new Map([[scene.sceneId, aligned(scene.sceneId, spoken)]]),
     });
-    const p = report.promotions.find((x) => x.sceneId === scene.sceneId);
-    expect(p?.level).toBeGreaterThan(0);
+    const p = report.interventions.find((x) => x.sceneId === scene.sceneId);
+    expect(p?.intensity).toBeGreaterThan(0);
     expect(p?.window?.measured).toBe(true);
     // The whole reason the words were frozen: not the scene's start.
     expect(p?.window?.startMs).toBe(before * 400);
@@ -181,7 +184,7 @@ describe("promotion is timed to the voice when the voice was measured", () => {
 
   it("an unmeasured scene falls back to its window and says so", async () => {
     const report = await compile(ir());
-    for (const p of report.promotions.filter((x) => x.level > 0)) {
+    for (const p of report.interventions.filter((x) => x.intensity > 0)) {
       // Nominal windows exist for every scene, so a promotion still has a
       // window — it is simply not a measurement, and the flag is what
       // stops a guess being read as one.
@@ -194,9 +197,9 @@ describe("promotion gates what reaches the screen", () => {
   it("a scene at level 0 sets no words", async () => {
     const report = await compile(ir());
     for (const scene of report.composed) {
-      const p = report.promotions.find((x) => x.sceneId === scene.sceneId);
-      if (p?.level === 0) expect(scene.phrase.text).toBe("");
-      else expect(scene.phrase.text).toBe(p?.text);
+      const p = report.interventions.find((x) => x.sceneId === scene.sceneId);
+      if (p?.intensity === 0) expect(scene.phrase.text).toBe("");
+      else expect(scene.phrase.text).toBe(p ? (textOf(p)?.text ?? "") : "");
     }
     // And the film as a whole shows far less than it says.
     const withText = report.composed.filter((s) => s.phrase.text.length > 0);
@@ -239,9 +242,9 @@ Exposure, not corruption. The position doesn't produce more distortion. It produ
     const seed = segmentEssay(ESSAY, { projectId: "p" });
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("bad IR");
-    const promotions = promoteText(parsed.ir);
+    const promotions = allocate(parsed.ir);
     const total = parsed.ir.scenes.length;
-    return promotions.map((p, i) => ({ ...p, at: i / total })).filter((p) => p.level > 0);
+    return promotions.map((p, i) => ({ ...p, at: i / total })).filter((p) => p.intensity > 0);
   };
 
   it("reaches the last third of the film", () => {
@@ -277,8 +280,8 @@ Exposure, not corruption. The position doesn't produce more distortion. It produ
     const seed = segmentEssay(ESSAY, { projectId: "p" });
     const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
     if (!parsed.ok) throw new Error("bad IR");
-    const promotions = promoteText(parsed.ir);
-    const shown = promotions.filter((p) => p.level > 0).length;
+    const promotions = allocate(parsed.ir);
+    const shown = promotions.filter((p) => p.intensity > 0).length;
     expect(shown).toBeLessThan(promotions.length * 0.6);
   });
 
@@ -300,7 +303,7 @@ Exposure, not corruption. The position doesn't produce more distortion. It produ
       relativeRate: 1,
       words: [],
     }));
-    const short = promoteText(parsed.ir, {
+    const short = allocate(parsed.ir, {
       totalMs: 40_000,
       measuredMs: 40_000,
       scenes,
@@ -310,7 +313,7 @@ Exposure, not corruption. The position doesn't produce more distortion. It produ
       wordTimedScenes: scenes.length,
       describes: "test",
     });
-    const long = promoteText(parsed.ir, {
+    const long = allocate(parsed.ir, {
       totalMs: 400_000,
       measuredMs: 400_000,
       scenes,
@@ -320,8 +323,8 @@ Exposure, not corruption. The position doesn't produce more distortion. It produ
       wordTimedScenes: scenes.length,
       describes: "test",
     });
-    expect(short.filter((p) => p.level > 0).length).toBeLessThan(
-      long.filter((p) => p.level > 0).length,
+    expect(short.filter((p) => p.intensity > 0).length).toBeLessThan(
+      long.filter((p) => p.intensity > 0).length,
     );
   });
 });
