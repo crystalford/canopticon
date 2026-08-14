@@ -111,16 +111,28 @@ function scheduleNarration(plan, destination, fromMs, whenSec) {
   const at = whenSec == null ? ctx.currentTime + 0.05 : whenSec;
   const started = [];
 
+  /* NO TWO VOICES AT ONCE.
+   *
+   * Reported live: the narration crowded on top of itself. A scene whose
+   * solved window is shorter than its own recording is still speaking when
+   * the next one begins, and both were scheduled. The compiler no longer
+   * produces such a window — a measured recording outranks the cap — but
+   * this is the last line of defence, because an old plan compiled before
+   * that fix, or a scene the operator has shortened by hand, would put two
+   * people in the room. A line waits for the one before it to finish. */
+  let freeAtMs = 0;
   for (const scene of (plan && plan.scenes) || []) {
     if (!scene.vo || !scene.vo.url) continue;
     const buffer = NARRATION.buffers.get(scene.vo.sha256);
     if (!buffer) continue;
 
-    const endMs = scene.startMs + buffer.duration * 1000;
+    const beginMs = Math.max(scene.startMs, freeAtMs);
+    const endMs = beginMs + buffer.duration * 1000;
+    freeAtMs = endMs;
     if (endMs <= fromMs) continue;
 
-    const offsetSec = Math.max(0, (fromMs - scene.startMs) / 1000);
-    const startSec = at + Math.max(0, (scene.startMs - fromMs) / 1000);
+    const offsetSec = Math.max(0, (fromMs - beginMs) / 1000);
+    const startSec = at + Math.max(0, (beginMs - fromMs) / 1000);
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.connect(destination);

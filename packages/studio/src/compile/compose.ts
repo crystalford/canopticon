@@ -1447,6 +1447,17 @@ function withoutTrailingWords(nodes: ComposedNode[], phrase: string): ComposedNo
   return kept.length === nodes.length ? nodes : kept;
 }
 
+/** Primitives that put WORDS on screen. Used to stop one scene setting the
+ *  same line twice, which draws it on top of itself. */
+const TYPE_NODES = new Set([
+  "text_layout",
+  "glyph_geometry",
+  "text_stagger",
+  "type_specimen",
+  "text_scramble",
+  "variable_axis",
+]);
+
 export function composeAll(
   ir: EditorialIR,
   timeline?: FilmTimeline | null,
@@ -1527,6 +1538,46 @@ export function composeAll(
       world,
       allocated,
     );
+    /* ONE PRESENTED LINE PER SCENE.
+     *
+     * Measured on the real essay: 18 of 65 scenes carried the same words
+     * TWICE — `glyph_geometry:"The fallacy isn't a lapse"` beside another
+     * `glyph_geometry:"The fallacy isn't a lapse"`, or `text_layout` in the
+     * trunk and again on a compositor's ground. Two type nodes with the
+     * same string at the same place draw the sentence on top of itself,
+     * which reads as a rendering fault rather than as a composition.
+     *
+     * It happens because two layers can both legitimately decide to set
+     * type — the scene graph gives the TEXT element its own chain, and the
+     * construction's own recipe may set type as well — and neither knew
+     * about the other. The later one is dropped: the first is the one the
+     * composition placed. */
+    if (composed.nodes.length > 0) {
+      const words = (n: ComposedNode): string =>
+        String(n.params.text ?? n.params.heading ?? n.params.caption ?? "").trim();
+      const seen = new Set<string>();
+      const dedupe = (ns: ComposedNode[]): ComposedNode[] =>
+        ns.flatMap((n) => {
+          const w = words(n);
+          if (w.length > 2 && TYPE_NODES.has(n.primitiveId)) {
+            if (seen.has(w)) return [];
+            seen.add(w);
+          }
+          if (!n.ground) return [n];
+          const ground = dedupe(n.ground);
+          // A compositor whose second input just lost its only node is not
+          // a quiet composition, it is a deleted element — so it goes with
+          // it, and its first input stands.
+          if (n.ground.length > 0 && ground.length === 0) return [];
+          return [{ ...n, ground }];
+        });
+      const kept = dedupe(composed.nodes);
+      if (kept.length !== composed.nodes.length) {
+        composed.notes.push("the same line was set twice in this scene — the second was dropped");
+      }
+      composed.nodes = kept;
+    }
+
     /* HOLD — THE SAME PICTURE, STILL THERE.
      *
      * Compositional, and the implementation is the honest one: a held

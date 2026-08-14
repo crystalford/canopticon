@@ -57,6 +57,34 @@ export interface SegmentReport {
   };
 }
 
+/* ── MARKDOWN IS FORMATTING, NOT WORDS ────────────────────────────────
+ *
+ * An essay pasted from a markdown file carries `**bold**`, `*emphasis*`,
+ * `` `code` `` and `[links](url)`. Reported live: the voice SPOKE the
+ * asterisks and the phrase on screen read `*Track one is exposure, not
+ * corruption.**`. Neither is what the author wrote — they are the marks
+ * that say how it is written.
+ *
+ * Stripped from what is SPOKEN and SHOWN, never from `ir.essay`, because
+ * `sourceRange` binds every scene to the essay by character offset and
+ * the argument column highlights it. The writing stays exactly as pasted;
+ * only the reading of it is cleaned.
+ */
+export function plainProse(text: string): string {
+  return text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1") // [label](url) → label
+    .replace(/(\*\*\*|___)(.+?)\1/g, "$2") // ***both***
+    .replace(/(\*\*|__)(.+?)\1/g, "$2") // **bold**
+    .replace(/(?<![\w*])[*_](?![\s*])(.+?)(?<![\s*])[*_](?![\w*])/g, "$1") // *emphasis*
+    .replace(/`([^`]+)`/g, "$1") // `code`
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "") // # heading markers
+    .replace(/^\s{0,3}>\s?/gm, "") // > quote markers
+    .replace(/^\s{0,3}(?:[-*+]|\d+[.)])\s+/gm, "") // list bullets
+    .replace(/\*+/g, "") // any stray marker the shapes above missed
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** A heading is a short line with no terminal punctuation. That is the
  *  whole rule, and it is enough: an essay that uses headings marks its own
  *  structure, and an essay that does not gets one act, which is correct
@@ -260,7 +288,7 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
       sceneId,
       actId: seed.actId,
       passageId: seed.passageId,
-      label: labelOf(seed.text),
+      label: labelOf(plainProse(seed.text)),
       narrativeFunction: narrativeFunction(
         seed.text,
         i === 0,
@@ -270,7 +298,7 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
       ),
       status: "draft",
       sourceRange: { startChar, endChar },
-      narration: { text: seed.text, alignmentGranularity: "chunk" },
+      narration: { text: plainProse(seed.text), alignmentGranularity: "chunk" },
       timing: {
         // Anchors, never frames. Before narration exists these name chunks
         // that do not exist yet, which is exactly right: the solver falls

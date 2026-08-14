@@ -172,10 +172,31 @@ export function solveTiming(
       flags.push("clamped_min");
       reasons.push(`held to the ${scene.timing.minDurationMs}ms minimum`);
     }
+    /* A MEASURED RECORDING IS A FACT; A CAP IS A PREFERENCE.
+     *
+     * Reported live: the narration crowded on top of itself. This is why —
+     * `maxDurationMs` capped a scene BELOW the length of its own recording,
+     * so the next scene began, its line started speaking, and the previous
+     * one was still talking. Two voices at once.
+     *
+     * A cap can shorten a scene the film only ESTIMATED. It cannot shorten
+     * one that was spoken: the whole premise is that the picture is cut to
+     * the voice, and a window shorter than its own audio is the picture
+     * overruling it. */
+    const spokenMs = measuredDurationOf(alignments.get(scene.sceneId));
     if (durationMs > scene.timing.maxDurationMs) {
-      durationMs = scene.timing.maxDurationMs;
-      flags.push("clamped_max");
-      reasons.push(`capped at the ${scene.timing.maxDurationMs}ms maximum`);
+      const cap = Math.max(scene.timing.maxDurationMs, spokenMs);
+      if (cap > scene.timing.maxDurationMs) {
+        reasons.push(`held to ${Math.round(spokenMs)}ms — the length of the recording`);
+      } else {
+        flags.push("clamped_max");
+        reasons.push(`capped at the ${scene.timing.maxDurationMs}ms maximum`);
+      }
+      durationMs = cap;
+    } else if (spokenMs > durationMs) {
+      // The window was inside its bounds and still shorter than the line.
+      durationMs = spokenMs;
+      reasons.push(`held to ${Math.round(spokenMs)}ms — the length of the recording`);
     }
 
     solved.push({
@@ -339,20 +360,90 @@ export function solveTiming(
       s.shots = [{ index: 0, startMs: s.startMs, endMs: s.endMs, reason: "whole" }];
       continue;
     }
+    /* CUT WHERE THE SPEAKER BREAKS, NOT WHERE THE ARITHMETIC LANDS.
+     *
+     * This divided the scene into equal slices — `durationMs / count` — so
+     * an edit could land in the middle of a word however carefully the
+     * narration had been measured. The whole premise of this system is
+     * that the picture is cut TO the voice; dividing by N is cutting
+     * beside it.
+     *
+     * The word times are already here, on the alignment, and were read by
+     * exactly one thing: the arrival of a promoted phrase. Each cut is now
+     * moved to the nearest gap BETWEEN words — the real silence a speaker
+     * leaves — and the ideal position is only the starting guess.
+     *
+     * A film with no measured words falls back to the even division and
+     * says so, which is honest: with nothing recorded there is nothing to
+     * cut to. */
+    const measuredWords = alignments.get(s.sceneId)?.words ?? [];
+    const gaps = measuredWords
+      .slice(0, -1)
+      .map((w, i) => ({
+        at: s.startMs + (w.endMs + (measuredWords[i + 1]?.startMs ?? w.endMs)) / 2,
+        rest: (measuredWords[i + 1]?.startMs ?? w.endMs) - w.endMs,
+      }))
+      .filter((g) => g.at > s.startMs && g.at < s.endMs);
+
     const each = s.durationMs / count;
+    const cutAt = (i: number): number => {
+      const ideal = s.startMs + i * each;
+      if (gaps.length === 0) return Math.round(ideal);
+      /* The nearest real break, preferring a longer rest where two are
+       * close — a cut on a breath reads as an edit, a cut on the join
+       * between two words in a phrase reads as a glitch. A break more than
+       * a second from where the rhythm wanted it is not that beat's break,
+       * so the rhythm keeps its position. */
+      let best = null as null | { at: number; score: number };
+      for (const g of gaps) {
+        const away = Math.abs(g.at - ideal);
+        if (away > 1000) continue;
+        const score = away - Math.min(g.rest, 400) * 0.5;
+        if (!best || score < best.score) best = { at: g.at, score };
+      }
+      return Math.round(best ? best.at : ideal);
+    };
+
+    const edges = [
+      s.startMs,
+      ...Array.from({ length: count - 1 }, (_, i) => cutAt(i + 1)),
+      s.endMs,
+    ];
+    // A break that lands on top of its neighbour would make a zero-length
+    // shot, which is a dropped frame rather than an edit.
+    for (let i = 1; i < edges.length - 1; i++) {
+      const lo = (edges[i - 1] as number) + MIN_SHOT_MS;
+      const hi = (edges[i + 1] as number) - MIN_SHOT_MS;
+      edges[i] = Math.max(lo, Math.min(hi, edges[i] as number));
+    }
     s.shots = Array.from({ length: count }, (_, i) => ({
       index: i,
-      startMs: Math.round(s.startMs + i * each),
-      // Pin the last shot to the scene end so rounding cannot leave a
-      // sliver of unpainted time at the tail.
-      endMs: i === count - 1 ? s.endMs : Math.round(s.startMs + (i + 1) * each),
+      startMs: edges[i] as number,
+      endMs: edges[i + 1] as number,
       reason: "rhythm" as const,
     }));
-    s.explanation += `; cut into ${count} shots at rhythm ${cutRhythm.toFixed(2)} (~${Math.round(each)}ms each)`;
+    s.explanation += `; cut into ${count} shots at rhythm ${cutRhythm.toFixed(2)}${
+      gaps.length ? ", on the breaks in the speech" : " (evenly — no measured words to cut to)"
+    }`;
   }
 
   const last = solved[solved.length - 1];
   return { scenes: solved, runtimeMs: last ? last.endMs : 0, warnings };
+}
+
+/** How long this scene was actually SPOKEN, from the frozen measurement.
+ *  Zero when nothing was recorded, so an un-narrated film is untouched. */
+function measuredDurationOf(alignment: Alignment | undefined): number {
+  if (!alignment) return 0;
+  if (alignment.words?.length) {
+    const last = alignment.words[alignment.words.length - 1];
+    const first = alignment.words[0];
+    if (last && first) return Math.max(0, last.endMs - Math.min(0, first.startMs));
+  }
+  let span = 0;
+  for (const c of alignment.chunks) span = Math.max(span, c.endMs);
+  const base = alignment.chunks.reduce((m, c) => Math.min(m, c.startMs), Number.POSITIVE_INFINITY);
+  return Number.isFinite(base) ? Math.max(0, span - base) : 0;
 }
 
 function findChunk(alignment: Alignment, chunkId: string): AlignmentChunk | undefined {
