@@ -174,8 +174,15 @@ function buildChain(chain, w, h, duration) {
      *
      * Not every primitive can be tweened — one that reads a param once in
      * its make prologue will ignore this silently. The compiler only ever
-     * tweens `place`, which is verified. Widening that set means checking
-     * the primitive first, not assuming. */
+     * tweens `place` and the typographic sources, all of which are
+     * verified. Widening that set means checking the primitive first, not
+     * assuming.
+     *
+     * `tweenAtMs` is WHEN it starts, and it is what makes a word land on
+     * the moment it is spoken rather than at the top of the scene. Before
+     * it, a bridge could only run from t=0 — fine for a scene arriving,
+     * useless for a phrase whose measured word is four seconds in. Held at
+     * the start value until then, so nothing moves early. */
     const tween = node.tween && Object.keys(node.tween).length ? node.tween : null;
     return {
       id: node.id,
@@ -183,6 +190,7 @@ function buildChain(chain, w, h, duration) {
       params,
       tween,
       tweenSec: Math.max(0, node.tweenMs ?? 0) / 1000,
+      tweenAtSec: Math.max(0, node.tweenAtMs ?? 0) / 1000,
       buf,
       ctx: buf.getContext("2d"),
       ground: ground && !ground.errors.length ? ground : null,
@@ -194,7 +202,18 @@ function buildChain(chain, w, h, duration) {
    *  fact about the film's time and motion craft re-times the shot. */
   const smooth = (u) => u * u * (3 - 2 * u);
   function tweenStage(stage, t) {
-    const u = stage.tweenSec > 0 ? Math.min(1, Math.max(0, t / stage.tweenSec)) : 1;
+    const local = t - stage.tweenAtSec;
+    if (local < 0) {
+      // Not yet. Pinned to the start value rather than left wherever the
+      // last frame put it — a word that drifts before its cue is worse
+      // than one that appears late.
+      for (const k in stage.tween) {
+        const pair = stage.tween[k];
+        if (Array.isArray(pair) && pair.length === 2) stage.params[k] = pair[0];
+      }
+      return;
+    }
+    const u = stage.tweenSec > 0 ? Math.min(1, Math.max(0, local / stage.tweenSec)) : 1;
     const e = smooth(u);
     for (const k in stage.tween) {
       const pair = stage.tween[k];

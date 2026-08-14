@@ -103,6 +103,7 @@ function adoptComposed(scene, real) {
     // params without rebuilding, so nothing resets mid-move.
     tween: n.tween,
     tweenMs: n.tweenMs,
+    tweenAtMs: n.tweenAtMs,
   }));
   return {
     scene,

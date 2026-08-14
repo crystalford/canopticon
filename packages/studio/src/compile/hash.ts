@@ -129,7 +129,7 @@ export async function hashSceneNodes(
         assetHashes,
         ...(node.ground ? { ground: groundSignature(node.ground) } : {}),
         ...(node.tween && node.tweenMs
-          ? { bridge: bridgeSignature(node.tween, node.tweenMs) }
+          ? { bridge: bridgeSignature(node.tween, node.tweenMs, node.tweenAtMs) }
           : {}),
       }),
     })),
@@ -140,9 +140,13 @@ export async function hashSceneNodes(
  *  always signs the same way, and rounded so floating-point noise in a
  *  place computation cannot invalidate a cache entry that renders
  *  identically. */
-export function bridgeSignature(tween: Record<string, [number, number]>, ms: number): string {
+export function bridgeSignature(
+  tween: Record<string, [number, number]>,
+  ms: number,
+  atMs = 0,
+): string {
   const r = (n: number) => Math.round(n * 1000) / 1000;
-  return `${Math.round(ms)}:${Object.keys(tween)
+  return `${Math.round(atMs)}+${Math.round(ms)}:${Object.keys(tween)
     .sort()
     .map(
       (k) => `${k}=${r((tween[k] as [number, number])[0])}>${r((tween[k] as [number, number])[1])}`,

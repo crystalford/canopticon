@@ -300,7 +300,9 @@ function filmRunner(c, cv) {
     params: n.params,
     seed: n.params.seed,
     ...(n.b ? { b: n.b } : {}),
-    ...(n.tween && n.tweenMs ? { tween: n.tween, tweenMs: n.tweenMs } : {}),
+    ...(n.tween && n.tweenMs
+      ? { tween: n.tween, tweenMs: n.tweenMs, ...(n.tweenAtMs ? { tweenAtMs: n.tweenAtMs } : {}) }
+      : {}),
   }));
   const shots = (c.shots || []).map((sh) => ({ startMs: sh.startMs - c.scene.t0 * 1000, endMs: sh.endMs - c.scene.t0 * 1000, params: sh.params || {} }));
   const dur = Math.max(0.1, c.scene.t1 - c.scene.t0);

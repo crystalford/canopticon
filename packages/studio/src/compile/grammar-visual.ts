@@ -88,6 +88,20 @@ export interface Material {
    *  to. Assigned by the scene graph's `emphasise`, consumed only through
    *  `applyEmphasis` below. */
   emphasis?: number;
+  /** HOW MUCH THIS MOMENT EARNED THE SCREEN, 0..4 — see `promote.ts`.
+   *
+   *  It is not a style dial. It is the argument's own answer to "should
+   *  anyone see these words", and the typographic recipe branches on it:
+   *  a level-1 marker and a level-4 thesis are not the same line at
+   *  different sizes, they are different objects. Absent means the film
+   *  has no promotion layer, which is every film composed before it. */
+  level?: number;
+  /** WHEN the words are spoken, scene-local, and how long the phrase
+   *  lasts. From the measured recording — see `promote.ts`'s `window`.
+   *  Null when the film has no narration, in which case the type is
+   *  simply there rather than arriving. */
+  enterAtMs?: number | null;
+  holdMs?: number | null;
 }
 
 /* ── HIERARCHY: THE ONE TRANSLATION POINT ─────────────────────────────
@@ -282,18 +296,90 @@ const OPS: Record<Op, (m: Material) => PlannedNode[]> = {
     ),
   ],
 
-  WORD: (m) => [
-    n(
-      "text_layout",
-      {
-        text: m.phrase,
-        mode: Math.round(clamp(m.abstraction * 4, 0, 5)),
-        tracking: clamp(0.1 + m.abstraction * 0.5, 0, 1),
-        scale: clamp(0.75 - m.density * 0.25, 0.1, 1),
-      },
-      `the words themselves, set — "${m.phrase}"`,
-    ),
-  ],
+  /* THE WORDS — AND HOW MUCH OF THE FILM THEY ARE.
+   *
+   * This emitted `text_layout` and nothing else, at every level, in every
+   * film. One primitive out of a family of twelve, so every line of type
+   * in every film was the same object at a different size — which is a
+   * large part of "I see some of the same exact patterns".
+   *
+   * The recipe branches on what the moment EARNED (`promote.ts`), because
+   * a marker and a thesis are not one line at two sizes; they are
+   * different objects doing different jobs:
+   *
+   *   1 CONTEXT    set, small, quiet. A label.
+   *   2 EMPHASIS   the words arrive in units while they are spoken.
+   *   3 STATEMENT  letterforms as GEOMETRY, so they can be placed,
+   *                cropped and deformed rather than pasted.
+   *   4 THESIS     the same geometry, taken to the frame's edge, with the
+   *                weight axis driven — it takes over the screen because
+   *                that is what level 4 means.
+   *
+   * Every one of these is a primitive that already exists and was
+   * unreachable from the compiler. Nothing new was built to get here. */
+  WORD: (m) => {
+    const level = m.level ?? 2;
+    const phrase = m.phrase;
+    if (!phrase.trim()) return [];
+    /* LEVEL 1 — A MARKER. Set flat and small, and that is all it should
+     * be. It was 0.75 scale at every level, which is why a passing label
+     * and the film's thesis were the same size on screen. */
+    if (level <= 1) {
+      return [
+        n(
+          "text_layout",
+          {
+            text: phrase,
+            mode: Math.round(clamp(m.abstraction * 4, 0, 5)),
+            tracking: clamp(0.1 + m.abstraction * 0.5, 0, 1),
+            scale: clamp(0.3 - m.density * 0.08, 0.1, 1),
+          },
+          `a marker, set small — "${phrase}"`,
+        ),
+      ];
+    }
+    /* LEVEL 2+ — LETTERFORMS AS GEOMETRY.
+     *
+     * `glyph_geometry` samples the type into points, so the words become
+     * an ELEMENT of the scene that can be placed, cropped, composited and
+     * deformed — rather than a plate pasted over one. Sampling tightens
+     * with the level: the same word is READ at 2 and LOOKED AT at 4.
+     *
+     * `text_stagger_units` was the obvious choice for "the words arrive"
+     * and is the wrong one twice over: it emits ANIMATION where the
+     * recipe's next op needs GEOMETRY, and it animates on its own
+     * `(t*0.5)%2` cycle, which knows nothing about the narration. An
+     * arrival timed to a primitive's internal loop is exactly the
+     * animation-beside-the-voice this pass exists to end. The arrival is
+     * a TWEEN on `place`, cued to the measured word — see `promote.ts`. */
+    /* SAMPLING IS THE STRIDE, so a LOWER number is a denser letterform.
+     * Measured on the frames: 6 and 5 gave sparse grey specks that could
+     * not be read at any size — type as a suggestion of type. A word has
+     * to be legible before any of the rest of this means anything. */
+    const sampling = level >= 4 ? 2 : 3;
+    const scale = level >= 4 ? 0.94 : level >= 3 ? 0.78 : 0.6;
+    return [
+      n(
+        "glyph_geometry",
+        { text: phrase, sampling, scale, rotate: 0 },
+        `the words as letterforms — "${phrase}"`,
+      ),
+      ...(level >= 4
+        ? [
+            n(
+              "geometry_morph",
+              {
+                amount: clamp(0.1 + m.energy * 0.28, 0, 1),
+                mode: 1,
+                turbulence: clamp(0.25 + m.abstraction * 0.5, 0, 1),
+                period: clamp(0.2 + m.energy * 0.5, 0.05, 1),
+              },
+              "the letterforms under strain — a thesis is not still",
+            ),
+          ]
+        : []),
+    ];
+  },
 
   /* A BOUNDED BODY. The literal reading was `wireframe → boolean_ops`,
    * which produced a filled circle or a pair of them and nothing else —

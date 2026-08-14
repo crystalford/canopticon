@@ -67,7 +67,7 @@
 // would need to emit into: a program, not a primitive id.
 
 import type { Figure, VisualLanguage } from "../ir/schema.ts";
-import { PRIMITIVES, canChain, chainCost } from "../primitives/registry.ts";
+import { PRIMITIVES, canChain, chainCost, chainOverwrites } from "../primitives/registry.ts";
 import { chartFor, serialiseFigures } from "./figures.ts";
 import type { FilmMode } from "./film-mode.ts";
 import type { Material } from "./grammar-visual.ts";
@@ -94,6 +94,10 @@ export interface PlannedNode {
    *  whose mode bridges. */
   tween?: Record<string, [number, number]>;
   tweenMs?: number;
+  /** WHEN the tween starts, scene-local. Without it a bridge can only run
+   *  from the top of the scene — right for a world arriving, useless for a
+   *  phrase whose measured word is four seconds in. */
+  tweenAtMs?: number;
 }
 
 /** What the sentence IS, as far as anything checkable can say. Assembled
@@ -1539,6 +1543,30 @@ function assemble(
     }
     if (!ok) continue;
     if (chainCost(candidate.map((n) => n.primitiveId)) > budgetMs) continue;
+    /* AN OPERATOR MAY NOT PAINT OVER WHAT IT WAS APPLIED TO.
+     *
+     * `chainOverwrites` has always been able to detect this and has only
+     * ever REPORTED it — a stack of sources is sometimes what a director
+     * wants. But an operator TAIL is not a director's choice; it is
+     * appended by the engine, and appending a source to a constructed
+     * scene silently deletes the scene and bills for it.
+     *
+     * Measured, and it is the whole of "I see some of the same exact
+     * patterns": the frame carrying "The fallacy isn't a lapse." rendered
+     * a cityscape with no words in it, because `plate_scene` — a source —
+     * was appended after the composition and overwrote it. Two other
+     * frames were full-bleed reaction-diffusion for the same reason. And
+     * the ONE frame that looked right, the title, was right by accident:
+     * `variable_axis` had overwritten the scene and drawn the title
+     * itself.
+     *
+     * A source is still reachable as a CONSTRUCTION, which is where a
+     * director asking for that look should get it. It is no longer
+     * reachable as a tail. */
+    const overwritten = chainOverwrites(candidate.map((n) => n.primitiveId)).some(
+      (o) => o.at < built.nodes.length,
+    );
+    if (overwritten) continue;
     nodes.length = 0;
     nodes.push(...candidate);
     applied.push(op.id);

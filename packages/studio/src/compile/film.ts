@@ -38,6 +38,9 @@ export interface FilmNode {
    *  cuts. */
   tween?: Record<string, [number, number]>;
   tweenMs?: number;
+  /** When it starts, scene-local — a word landing on its own spoken
+   *  moment rather than at the top of the scene. */
+  tweenAtMs?: number;
 }
 
 export interface FilmShot {
@@ -277,7 +280,9 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
       // Carried, and carried RECURSIVELY — most of a scene's elements hang
       // off a compositor's B side, so a conversion that only copied the
       // top level would have delivered a bridge that reached one element.
-      ...(n.tween && n.tweenMs ? { tween: n.tween, tweenMs: n.tweenMs } : {}),
+      ...(n.tween && n.tweenMs
+        ? { tween: n.tween, tweenMs: n.tweenMs, ...(n.tweenAtMs ? { tweenAtMs: n.tweenAtMs } : {}) }
+        : {}),
     });
     const chain: FilmNode[] = composed.nodes.map(toFilmNode);
 

@@ -131,6 +131,9 @@ export interface ComposedNode {
    *  cuts removed. Absent on every node in a CUT film. */
   tween?: Record<string, [number, number]>;
   tweenMs?: number;
+  /** WHEN the tween starts, scene-local — what lets a word land on the
+   *  moment it is spoken rather than at the top of the scene. */
+  tweenAtMs?: number;
 }
 
 /** A program the engine considered and did not use. Carried so the
@@ -267,6 +270,11 @@ export interface WorldContext {
   /** How long this scene's world may take to arrive, from the measured
    *  silence at its head. Zero means it cuts. */
   bridgeMs: number;
+  /** Where this scene starts on the film's clock, so a measured word time
+   *  can be turned into a scene-local cue. */
+  sceneStartMs?: number;
+  /** And how long it lasts, so a cue cannot be scheduled past its end. */
+  sceneDurationMs?: number;
   /** Written by `composeScene` — the advanced state, for the next scene. */
   out?: SceneWorld;
 }
@@ -607,6 +615,28 @@ export function composeScene(
         abstraction: style.abstraction,
         typography: style.typography,
         seed: 101 + sceneIndex * 7,
+        // WHAT THIS MOMENT EARNED, and when it is spoken. The typographic
+        // recipe branches on the level and the arrival is cued to the
+        // measured word — see `grammar-visual.ts`'s WORD and
+        // `serialiseScene`'s tween.
+        level: promotion?.level ?? 2,
+        /* CLAMPED INTO THE SCENE IT PLAYS IN.
+         *
+         * A measured word can sit outside its own scene's solved window —
+         * the solver clamps a window to a minimum and a maximum, and the
+         * recording does not. Uncaught, the cue fires after the scene is
+         * over: measured on the frames as type that stayed at its
+         * entrance size for the whole shot and never arrived. Held to the
+         * first two thirds, so an arrival always has somewhere to land. */
+        enterAtMs: promotion?.window?.measured
+          ? Math.min(
+              Math.max(0, promotion.window.startMs - (world.sceneStartMs ?? 0)),
+              Math.max(0, (world.sceneDurationMs ?? 0) * 0.66),
+            )
+          : null,
+        holdMs: promotion?.window
+          ? Math.max(0, promotion.window.endMs - promotion.window.startMs)
+          : null,
         rep,
         previous: world.previous,
         bridgeMs: world.bridgeMs,
@@ -878,7 +908,13 @@ export function composeScene(
         // element's `place` sits on a compositor's B side, which is where
         // most of a scene's elements live — dropping it here would leave
         // the bridge reaching only the element drawn first.
-        ...(n.tween && n.tweenMs ? { tween: n.tween, tweenMs: n.tweenMs } : {}),
+        ...(n.tween && n.tweenMs
+          ? {
+              tween: n.tween,
+              tweenMs: n.tweenMs,
+              ...(n.tweenAtMs ? { tweenAtMs: n.tweenAtMs } : {}),
+            }
+          : {}),
       };
     });
 
@@ -938,7 +974,11 @@ export function composeScene(
         ? { ground: asComposed(constructed.ground, sceneIndex, i, phrase.text) }
         : {}),
       ...(constructed?.tween && constructed.tweenMs
-        ? { tween: constructed.tween, tweenMs: constructed.tweenMs }
+        ? {
+            tween: constructed.tween,
+            tweenMs: constructed.tweenMs,
+            ...(constructed.tweenAtMs ? { tweenAtMs: constructed.tweenAtMs } : {}),
+          }
         : {}),
     };
   });
@@ -973,6 +1013,7 @@ export function composeScene(
     contested: Boolean(reading?.contested),
     pinned: override?.type === "pin",
     sceneIndex,
+    approach: ir.visualApproach,
     budgetMs: MAX_CHAIN_MS - chainCost(flattenGround(subjectNodes).map((n) => n.primitiveId)),
   });
   const planes = scenePlan && isComposite(scenePlan) ? scenePlan.planes : ([] as Plane[]);
@@ -1264,6 +1305,8 @@ export function composeAll(
       // film with no narration has no measured silence, so it has no
       // bridge — which is honest: there is nothing to arrive between.
       bridgeMs: onTimeline ? bridgeMsFor(onTimeline) : 0,
+      sceneStartMs: onTimeline?.startMs ?? 0,
+      sceneDurationMs: onTimeline?.durationMs ?? 0,
     };
     const composed = composeScene(
       ir,
