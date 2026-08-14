@@ -34,7 +34,7 @@
 // all — it would have a habit.
 
 import { type FilmMode, MODES, bridge, elementKey, step } from "./film-mode.ts";
-import { type Advance, EMPTY_FILM, type FilmState } from "./film-state.ts";
+import { type Advance, type ContinuityRead, EMPTY_FILM, type FilmState } from "./film-state.ts";
 import type { Material } from "./grammar-visual.ts";
 import type { Representation } from "./represent.ts";
 import { type SceneGraph, composeFromMeaning } from "./scene-graph.ts";
@@ -88,6 +88,11 @@ export interface WorldInputs {
    *  Null on the first scene, which arrives rather than travels. */
   previous: SceneGraph | null;
   bridgeMs: number;
+  /** WHAT THE SCENE SAID, read without the noun lexicon — the act, and
+   *  the passage to carry when the prose named nothing. Both exist because
+   *  the continuity model's own two inputs are lexicon-derived and an
+   *  essay of ideas satisfies neither. See `film-state.ts`. */
+  read?: ContinuityRead | undefined;
 }
 
 /** The same identity `film-mode.ts`'s `bridge` uses — imported rather than
@@ -126,7 +131,7 @@ export function stepWorld(input: WorldInputs): SceneWorld {
    * which is exactly what every scene did before this file existed. */
   let adv: Advance;
   try {
-    adv = step(input.mode, input.state, sem, fresh.elements);
+    adv = step(input.mode, input.state, sem, fresh.elements, input.read ?? {});
   } catch (e) {
     return {
       graph: fresh,

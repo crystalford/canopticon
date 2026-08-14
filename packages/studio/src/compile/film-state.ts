@@ -39,6 +39,7 @@
 // transformation and recall. That is a constraint on this vocabulary, not
 // a second system.
 
+import type { Act } from "./act.ts";
 import type { Element } from "./scene-graph.ts";
 import type { SemanticScene } from "./semantic-scene.ts";
 
@@ -120,6 +121,20 @@ export interface ContinuityRules {
 
 export const DEFAULT_RULES: ContinuityRules = { allowCut: true, memory: 8 };
 
+/** WHAT THE SCENE SAID, read without the noun lexicon.
+ *
+ *  Both fields exist because this file's two inputs — `sem.entities` and
+ *  `sem.relations` — are lexicon-derived, and an essay of ideas satisfies
+ *  neither. Nothing here is required: a film whose prose names things
+ *  behaves exactly as it did. */
+export interface ContinuityRead {
+  /** What kind of change this moment is. See `act.ts`. */
+  act?: Act | undefined;
+  /** An identity to carry when the prose named nothing — the author's own
+   *  paragraph. Not a noun and not offered as one. */
+  subject?: string | undefined;
+}
+
 const norm = (s: string) => s.trim().toLowerCase();
 
 /** ADVANCE THE FILM ONE SCENE.
@@ -135,10 +150,34 @@ export function advance(
   sem: SemanticScene,
   elements: Element[],
   rules: ContinuityRules = DEFAULT_RULES,
+  read: ContinuityRead = {},
 ): Advance {
   const i = state.sceneIndex + 1;
   const decisions: Decision[] = [];
+  /* WHAT THE FILM IS CARRYING.
+   *
+   * `sem.entities` is the noun lexicon's reading, so on an essay of ideas
+   * it is EMPTY — which meant this loop never ran, nothing ever persisted,
+   * and the whole continuity model was inert on the material the system
+   * exists for. Every decision below it was unreachable.
+   *
+   * So the film also carries the PASSAGE: the author's own paragraph,
+   * already on every scene. It is not a noun and does not pretend to be
+   * one — it says "the picture for this idea", which is exactly the
+   * continuity an argument has.
+   *
+   * ALWAYS, not as a fallback. The first version added it only when the
+   * prose named nothing, and that put two identity spaces in one film:
+   * an abstract scene carried `passage 001`, the next sentence happened to
+   * name something and carried that instead, the two shared nothing, and
+   * the film CUT. Measured: 29 cuts across 20 paragraphs, most of them
+   * inside a paragraph, on an essay that changes subject twenty times.
+   *
+   * Carried always, the rule falls out clean: THE FILM CUTS WHERE THE
+   * AUTHOR STARTED A NEW PARAGRAPH. Anything the prose names is a figure
+   * on top of that ground and persists on its own terms. */
   const named = sem.entities.map((e) => norm(e.text)).filter(Boolean);
+  if (read.subject) named.push(norm(read.subject));
 
   /* WHICH ELEMENT DEPICTS WHICH ENTITY.
    *
@@ -153,11 +192,20 @@ export function advance(
    *
    * Elements now say what they stand for. An entity with no element that
    * claims it falls back to the most prominent unclaimed one, so a
-   * lexicon miss degrades rather than mispairing. */
-  const unclaimed = elements.filter((e) => !e.depicts);
+   * lexicon miss degrades rather than mispairing.
+   *
+   * AND THE FALLBACK IS CONSUMED. It used to return `unclaimed[0]` every
+   * time, so two identities with no element of their own were handed the
+   * SAME element — which was survivable while only a lexicon miss reached
+   * it and is not now that every scene carries a passage. Each identity
+   * takes the most prominent element still going, and an identity with
+   * nothing left gets nothing rather than a duplicate. */
+  const unclaimed = elements
+    .filter((e) => !e.depicts)
+    .sort((a, b) => (b.emphasis ?? 0) - (a.emphasis ?? 0));
+  let taken = 0;
   const elementFor = (identity: string): Element | undefined =>
-    elements.find((e) => e.depicts === identity) ??
-    unclaimed.sort((a, b) => (b.emphasis ?? 0) - (a.emphasis ?? 0))[0];
+    elements.find((e) => e.depicts === identity) ?? unclaimed[taken++];
   /** The composition around the entities — recomposed each scene. */
   const scenery = elements.filter((e) => !e.depicts || !named.includes(e.depicts));
 
@@ -211,8 +259,24 @@ export function advance(
 
   const alive: Persistent[] = [];
   const stillRetired = [...state.retired];
-  const accumulating = sem.relations.some((r) => r.kind === "ACCUMULATES");
-  const transforming = sem.relations.some((r) => r.kind === "BECOMES" || r.kind === "EMERGES");
+  /* WHAT HAPPENS TO WHAT IS ALREADY HERE.
+   *
+   * These read `sem.relations`, which needs TWO lexicon-known nouns
+   * (`semantic-scene.ts` requires `relation.agent && relation.patient`).
+   * On abstract prose that array is empty, so both were permanently false
+   * and every persisting identity got CONTINUE — the machinery was real
+   * and was being starved of input.
+   *
+   * The ACT is the same reading taken from what the sentence DOES rather
+   * than from what it names, so it needs no lexicon and it is available on
+   * every scene. The relation stays where it exists, because two named
+   * things is a more specific reading than a verb over a whole sentence;
+   * it simply stops being the gate. */
+  const accumulating =
+    sem.relations.some((r) => r.kind === "ACCUMULATES") || read.act === "ACCUMULATE";
+  const transforming =
+    sem.relations.some((r) => r.kind === "BECOMES" || r.kind === "EMERGES") ||
+    read.act === "TRANSFORM";
 
   for (const identity of named) {
     const el = elementFor(identity);

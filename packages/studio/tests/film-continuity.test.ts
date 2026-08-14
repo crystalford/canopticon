@@ -11,12 +11,15 @@
 // not building one.
 
 import { describe, expect, it } from "vitest";
+import { type ComposedNode, composeAll } from "../src/compile/compose.ts";
 import { EMPTY_FILM, advance, present } from "../src/compile/film-state.ts";
 import type { Material } from "../src/compile/grammar-visual.ts";
 import { readRelation } from "../src/compile/relation.ts";
 import { composeFromMeaning } from "../src/compile/scene-graph.ts";
+import { segmentEssay } from "../src/compile/segment.ts";
 import { readScene } from "../src/compile/semantic-scene.ts";
 import { detectSubjects } from "../src/compile/subject.ts";
+import { parseIR } from "../src/ir/schema.ts";
 
 const MAT: Material = {
   noun: "",
@@ -187,5 +190,108 @@ describe("film continuity — the visual state remembers", () => {
     // recalled — it arrives.
     const cityEvents = short.log.filter((l) => l.startsWith("city:"));
     expect(cityEvents.filter((l) => l === "city:ENTER").length).toBeGreaterThan(1);
+  });
+});
+
+/* ── THE FILM OF AN ARGUMENT ──────────────────────────────────────────
+ *
+ * Everything above tests continuity through the noun lexicon, which is
+ * what `advance` was written against. On an essay of IDEAS both of its
+ * inputs are empty — `sem.entities` needs a lexicon-known noun and
+ * `sem.relations` needs two — so nothing ever persisted, every decision
+ * was CONTINUE by default, and the whole model was inert on the material
+ * the system exists for. Measured before this: zero decisions of any kind
+ * across a 65-scene essay.
+ */
+describe("the film of an argument, which names nothing", () => {
+  const ABSTRACT = `# The Logic Costume
+
+A method and a brand fail differently under pressure. A method produces an update. That costs almost nothing.
+
+A brand cannot do that. Its whole authority is how it looks so far. It is not a credential you get once.
+
+The fallacy is not a lapse. It is a diagnosis. Nobody reasons perfectly under live pressure indefinitely.
+
+The position does not produce more distortion. It produces the only distortion anyone can catch. Logic was just never the load-bearing thing.`;
+
+  function film() {
+    const seed = segmentEssay(ABSTRACT, { projectId: "t", title: "The Logic Costume" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error(`fixture IR invalid: ${JSON.stringify(parsed.errors)}`);
+    return { ir: parsed.ir, scenes: composeAll(parsed.ir) };
+  }
+
+  it("carries something across scenes even though the prose names nothing", () => {
+    const { ir, scenes } = film();
+    for (const s of ir.scenes) {
+      expect(detectSubjects(s.narration.text).length, `"${s.narration.text}" names something`).toBe(
+        0,
+      );
+    }
+    const decided = scenes.flatMap((s) => s.world?.decisions ?? []);
+    expect(decided.length, "the continuity model produced no decisions at all").toBeGreaterThan(0);
+    expect(decided.some((d) => d.what === "CONTINUE")).toBe(true);
+  });
+
+  it("cuts where the author started a new paragraph, and not inside one", () => {
+    const { ir, scenes } = film();
+    const cutAt = scenes.map((s, i) => (s.world?.cut ? i : -1)).filter((i) => i >= 0);
+    expect(cutAt.length, "an essay that changes subject should cut somewhere").toBeGreaterThan(0);
+
+    /* The film goes SILENT at the boundary — the allocator's breathing rule
+     * fires on exactly the same event — so the cut lands on the next scene
+     * that draws. Either is the boundary being honoured; a cut two or more
+     * scenes into a paragraph is not. */
+    const boundary = new Set<number>();
+    ir.scenes.forEach((s, i) => {
+      if (i > 0 && s.passageId !== ir.scenes[i - 1]?.passageId) boundary.add(i);
+    });
+    for (const i of cutAt) {
+      const onIt = boundary.has(i) || boundary.has(i - 1);
+      expect(onIt, `scene ${i} cut in the middle of a paragraph`).toBe(true);
+    }
+  });
+
+  it("what the film carries is not offered as a thing the prose named", () => {
+    /* The passage is an IDENTITY, not a noun. The film carries it — that is
+     * the point — but it must never be drawn, or the compiler would have
+     * invented an entity, which is the failure the whole act layer exists
+     * to prevent. */
+    const { scenes } = film();
+    const carried = scenes.flatMap((s) => s.world?.alive ?? []);
+    expect(
+      carried.some((a) => a.startsWith("passage ")),
+      "nothing was carried",
+    ).toBe(true);
+    const flat = (ns: ComposedNode[]): ComposedNode[] =>
+      ns.flatMap((n) => [n, ...(n.ground ? flat(n.ground) : [])]);
+    for (const s of scenes) {
+      for (const n of flat(s.nodes)) {
+        for (const v of Object.values(n.params)) {
+          expect(String(v)).not.toMatch(/passage p?\d/);
+        }
+      }
+    }
+  });
+
+  it("the act moves an identity that no relation could have moved", () => {
+    /* `accumulating` and `transforming` read `sem.relations`, which needs
+     * two lexicon-known nouns. This asks the same question of a sentence
+     * that has none, through the act. */
+    const sem = readScene("It became something else entirely.", [], null, null);
+    expect(
+      sem.relations,
+      "the fixture must have no relation for this to test anything",
+    ).toHaveLength(0);
+    const graph = composeFromMeaning("literal", MAT, sem);
+    const held = advance(EMPTY_FILM, sem, graph.elements, undefined, { subject: "passage p001" });
+    const next = advance(held.state, sem, graph.elements, undefined, {
+      subject: "passage p001",
+      act: "TRANSFORM",
+    });
+    expect(next.decisions.map((d) => d.what)).toContain("TRANSFORM");
+
+    const flat = advance(held.state, sem, graph.elements, undefined, { subject: "passage p001" });
+    expect(flat.decisions.map((d) => d.what)).not.toContain("TRANSFORM");
   });
 });

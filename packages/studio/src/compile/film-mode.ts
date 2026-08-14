@@ -31,6 +31,7 @@
 import {
   type Advance,
   type Continuity,
+  type ContinuityRead,
   type ContinuityRules,
   type FilmState,
   advance,
@@ -121,9 +122,10 @@ export function step(
   state: FilmState,
   sem: SemanticScene,
   elements: Element[],
+  read: ContinuityRead = {},
 ): Advance {
   const spec = MODES[mode];
-  const out = advance(state, sem, elements, spec.rules);
+  const out = advance(state, sem, elements, spec.rules, read);
   const illegal = out.decisions.filter((d) => !spec.legal.includes(d.what));
   if (illegal.length > 0) {
     // Never observed in practice — `advance` already honours `allowCut`.

@@ -692,6 +692,22 @@ export function composeScene(
         rep,
         previous: world.previous,
         bridgeMs: world.bridgeMs,
+        /* THE ACT, AND SOMETHING TO CARRY IT ON.
+         *
+         * `advance` decided ACCUMULATE and TRANSFORM from `sem.relations`,
+         * which needs two lexicon-known nouns, and it carried identities
+         * from `sem.entities`, which needs one. On an essay of ideas both
+         * are empty — so nothing persisted, every decision was CONTINUE by
+         * default, and the entire continuity model was inert on the
+         * material this system exists for.
+         *
+         * The act says what the sentence DOES with no lexicon at all, and
+         * the passage is the author's own paragraph. Between them the film
+         * has an identity to carry and a reason to change it. */
+        read: {
+          ...(promotion ? { act: promotion.act.act } : {}),
+          ...(scene.passageId ? { subject: `passage ${scene.passageId}` } : {}),
+        },
       });
       world.out = sceneWorld;
       beat.world = {
