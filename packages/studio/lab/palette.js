@@ -98,7 +98,17 @@ const HUE_COLD = 210;
 const HUE_WARM = 32;
 /** The accent sits across the wheel from the ground, so it separates from
  *  it at any temperature rather than only at one end. */
-const ACCENT_OFFSET = 168;
+/* HOW FAR THE ACCENT SITS FROM THE FILM'S OWN HUE.
+ *
+ * This was 168 — a near-complement — which on a cool film lands on purple
+ * and on any film reads as a graphic-design choice rather than as a
+ * documentary one. An accent's job here is to mark what matters, not to
+ * oppose the ground. A short offset keeps it related: recognisably a
+ * different colour, recognisably the same film.
+ *
+ * A film that WANTS opposition can have it — that is what the visual
+ * language should decide, and `languages.js` is where that lives. */
+const ACCENT_OFFSET = 34;
 
 /** THE ONE TRANSLATION POINT. Four numbers in, a whole colour world out.
  *

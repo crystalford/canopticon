@@ -192,7 +192,19 @@ reg(
       // over-plate's own background paints over everything below it and
       // a stack is indistinguishable from a replacement.
       const over = knockout(p.front > 0.5 ? B : A);
-      ctx.globalAlpha = 1 - p.sink * 0.6;
+      /* OPACITY MEANS HOW PRESENT THE BRANCH IS — in both directions.
+       *
+       * It only ever reached the front-most plate, so when the branch sat
+       * BEHIND — the common case, and every atmosphere in every film — the
+       * one control named for the ground's presence did nothing to it and
+       * `sink` quietly did the whole job. Halving an atmosphere's opacity
+       * to quiet a backdrop that was drowning the sentence set over it
+       * changed precisely nothing, which is how this was caught.
+       *
+       * The BRANCH is now drawn at `opacity` whichever side it is on;
+       * `sink` keeps its own meaning, which is how far back it sits. */
+      const branchBehind = p.front <= 0.5;
+      ctx.globalAlpha = (branchBehind ? 0.35 + p.opacity * 0.65 : 1) * (1 - p.sink * 0.6);
       ctx.drawImage(under, 0, 0, w, h);
       ctx.globalAlpha = p.front > 0.5 ? p.opacity : 1;
       ctx.drawImage(over, 0, 0, w, h);

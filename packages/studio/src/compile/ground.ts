@@ -135,9 +135,20 @@ export function planGround(input: GroundInputs): GroundPlan | null {
         compositor: "layer_over",
         ground: [pick(PICTURE_GROUNDS)],
         params: {
-          opacity: 0.3 + input.density * 0.35,
+          /* A GROUND IS BEHIND. It is not a second subject.
+           *
+           * This ran to 0.65 at high density, and once the scanline stopped
+           * banding the frame that loudness became the thing you saw: a
+           * reaction-diffusion backdrop competing with the sentence set
+           * over it, so "EASY READ" was harder to read than before the
+           * treatment was softened. A ground's job is depth — present,
+           * placing the subject in a world, never arguing with it.
+           *
+           * Halved, and sunk further. The reader should be able to say
+           * what a scene is about without discounting its backdrop. */
+          opacity: 0.16 + input.density * 0.2,
           front: 0,
-          sink: input.contested ? 0.55 : 0.3,
+          sink: input.contested ? 0.62 : 0.45,
         },
         reason: input.contested
           ? `density ${input.density.toFixed(2)} — a ground behind the subject, sunk further because the line reports a claim`
