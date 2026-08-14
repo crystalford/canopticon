@@ -430,6 +430,27 @@ export const EditorialIRSchema = z.object({
    *  `film-mode.ts`. `oneshot` forbids the cut and bridges every change;
    *  `montage` cuts freely and never bridges. */
   continuity: z.enum(["cut", "oneshot", "montage", "hybrid"]).default("cut"),
+  /** WHAT KIND OF PICTURE THIS FILM MAKES — and the axis that was missing.
+   *
+   *  `continuity` is EDITING: does the film cut, or travel? This is the
+   *  VISUAL LANGUAGE: what the picture is made of. They were briefly
+   *  conflated — one-shot forced the scene-graph construction to win every
+   *  sentence — which made "never cut" secretly mean "build a world", and
+   *  put a text-driven continuous film and a hard-cutting world film both
+   *  out of reach. Two axes, independent:
+   *
+   *    TEXT      the writing itself is the primary visual material
+   *    ABSTRACT  no attempt to depict the nouns — geometry, fields, light
+   *    WORLD     persistent objects and spaces that evolve
+   *    IMAGE     supplied or generated imagery as a material in the world
+   *    HYBRID    the engine chooses, per sentence
+   *
+   *  A WEIGHTING, never a switch. Whatever the approach, a sentence that
+   *  prints a figure still reaches the chart family and a sentence that
+   *  draws a route is still a route — a figure is checkable and outranks a
+   *  preference. `hybrid` is the default and leaves every weight alone, so
+   *  every film composed before this field existed composes identically. */
+  visualApproach: z.enum(["text", "abstract", "world", "image", "hybrid"]).default("hybrid"),
   /** The film's captured look, when it has one. Optional: a film without
    *  a grammar is composed from the curves alone, exactly as before. */
   grammar: VisualGrammarSchema.optional(),

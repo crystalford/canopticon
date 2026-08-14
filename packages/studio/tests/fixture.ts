@@ -170,6 +170,7 @@ export function buildFixtureIR(): EditorialIR {
     title: "The Temporary Measure",
     irVersion: "0.1.0",
     continuity: "cut",
+    visualApproach: "hybrid",
     logline:
       "An emergency order written for ninety days, renewed forty-one times, now cited as settled law.",
     essay: ESSAY,

@@ -447,6 +447,10 @@ export function composeScene(
       kind: kind.kind,
       contested: looksContested(scene.narration.text),
       index: sceneIndex,
+      // WHAT KIND OF PICTURE THIS FILM MAKES. Read by the constructions'
+      // `fit` and by `representationsFor`, and by nothing else — it is a
+      // preference about the picture, not a fact about the sentence.
+      approach: ir.visualApproach,
       ...(intentReading ? { intent: intentReading } : {}),
     };
     // ── the director's verbs ───────────────────────────────────────

@@ -158,6 +158,20 @@ app.delete("/project/:id", async (c) => {
  *  because an unknown value should fall back to the conventional cut
  *  rather than reach the schema and fail the whole ingest. */
 const CONTINUITIES = ["cut", "oneshot", "montage", "hybrid"];
+/** The five visual languages. `hybrid` leaves every weight alone. */
+const APPROACHES = ["text", "abstract", "world", "image", "hybrid"];
+
+/** INTENSITY, as the three curves it already means.
+ *
+ *  `restraint` is how much elaboration the film will spend, `experimentalism`
+ *  is how far it will go against the grain, `motionEnergy` is how much it
+ *  moves. A director asking for "chaotic" is asking for all three at once,
+ *  and asking for them by name is asking them to specify implementation. */
+const INTENSITY: Record<string, Record<string, number>> = {
+  restrained: { restraint: 0.78, experimentalism: 0.15, motionEnergy: 0.25 },
+  expressive: { restraint: 0.45, experimentalism: 0.4, motionEnergy: 0.55 },
+  chaotic: { restraint: 0.16, experimentalism: 0.78, motionEnergy: 0.85 },
+};
 
 app.post("/project/ingest", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
@@ -177,6 +191,16 @@ app.post("/project/ingest", async (c) => {
      * unknown value falls back to the schema's default. */
     continuity?: string;
     visualLanguage?: string;
+    /** WHAT KIND OF PICTURE — text, abstract, world, image, hybrid. */
+    visualApproach?: string;
+    /** HOW HARD THE FILM PUSHES — restrained, expressive, chaotic.
+     *
+     *  Deliberately NOT a new dial. It is one honest name over three that
+     *  already exist and already drive the engine, so it can never drift
+     *  out of sync with them: adding a fourth number meaning roughly the
+     *  same thing is how two mechanisms end up disagreeing about how
+     *  loudly a film speaks. */
+    intensity?: string;
   };
   const essay = body.essay?.trim();
   if (!essay) return c.json({ error: "essay is required" }, 400);
@@ -216,6 +240,20 @@ app.post("/project/ingest", async (c) => {
       : {}),
     ...(body.visualLanguage
       ? { visualLanguage: body.visualLanguage as EditorialIR["visualLanguage"] }
+      : {}),
+    ...(APPROACHES.includes(body.visualApproach ?? "")
+      ? { visualApproach: body.visualApproach as EditorialIR["visualApproach"] }
+      : {}),
+    ...(INTENSITY[body.intensity ?? ""]
+      ? {
+          creativeState: {
+            ...seed.ir.creativeState,
+            identity: {
+              ...seed.ir.creativeState.identity,
+              ...INTENSITY[body.intensity ?? ""],
+            },
+          },
+        }
       : {}),
   };
 
@@ -1293,6 +1331,9 @@ app.post("/project/:id/creative-state", async (c) => {
      *  between its ideas or as a sequence of independent scenes. Same rail,
      *  same zero TTS. */
     continuity?: string;
+    /** WHAT KIND OF PICTURE — the other half of the axis `continuity`
+     *  used to carry on its own. Same rail, same zero TTS. */
+    visualApproach?: string;
   };
 
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
@@ -1311,6 +1352,9 @@ app.post("/project/:id/creative-state", async (c) => {
     continuity: (CONTINUITIES.includes(body.continuity ?? "")
       ? body.continuity
       : current.ir.continuity) as EditorialIR["continuity"],
+    visualApproach: (APPROACHES.includes(body.visualApproach ?? "")
+      ? body.visualApproach
+      : current.ir.visualApproach) as EditorialIR["visualApproach"],
     cinematography: {
       ...current.ir.cinematography,
       colour: {
@@ -1340,19 +1384,23 @@ app.post("/project/:id/creative-state", async (c) => {
   const changedColour = body.colour !== undefined;
   const changedContinuity =
     body.continuity !== undefined && body.continuity !== current.ir.continuity;
+  const changedApproach =
+    body.visualApproach !== undefined && body.visualApproach !== current.ir.visualApproach;
   await writeVersion(
     c.env,
     projectId,
     parsed.ir,
     nextVersion,
     project.current_ir_version,
-    changedContinuity
-      ? `Continuity → ${parsed.ir.continuity}`
-      : changedLanguage
-        ? `Visual language → ${parsed.ir.visualLanguage}`
-        : changedColour
-          ? "Colour changed"
-          : "Creative state edited",
+    changedApproach
+      ? `Visuals → ${parsed.ir.visualApproach}`
+      : changedContinuity
+        ? `Continuity → ${parsed.ir.continuity}`
+        : changedLanguage
+          ? `Visual language → ${parsed.ir.visualLanguage}`
+          : changedColour
+            ? "Colour changed"
+            : "Creative state edited",
   );
   await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
     nextVersion,

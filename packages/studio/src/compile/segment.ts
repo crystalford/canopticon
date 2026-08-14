@@ -279,6 +279,9 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
     // conventional default and what every film composed before the world
     // existed already was; the Create screen writes the operator's answer.
     continuity: "cut",
+    // HYBRID leaves every representation weight alone, so a segmented
+    // film composes exactly as it did before the axis existed.
+    visualApproach: "hybrid",
     essay,
     acts,
     // THE FULL VOCABULARY, not a subset.

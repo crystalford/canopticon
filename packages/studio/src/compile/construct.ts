@@ -122,6 +122,15 @@ export interface Beat {
    *  residents watched the city" name exactly the same two things and are
    *  different shots. `subjects` arrives already ordered by it. */
   relation?: Relation | null | undefined;
+  /** WHAT KIND OF PICTURE THIS FILM MAKES.
+   *
+   *  Read by `fit` — it is the one thing that legitimately moves which
+   *  construction wins for an ordinary sentence, because it is the
+   *  director saying what the film is made of. A WEIGHTING: a printed
+   *  figure still reaches the chart family and a drawn route is still a
+   *  route in every approach, since both are checkable facts about the
+   *  prose and outrank a preference. `hybrid` leaves everything alone. */
+  approach?: "text" | "abstract" | "world" | "image" | "hybrid" | undefined;
   /** THE FILM'S WORLD, ALREADY ADVANCED.
    *
    *  Present when the film has continuity. The graph's elements arrive with
@@ -139,13 +148,9 @@ export interface Beat {
         /** How the world gets here from the last scene. Empty in a film
          *  that cuts, where arriving instantly is the point. */
         bridge?: { tweens: Map<string, Record<string, [number, number]>>; ms: number };
-        /** How this film moves. Read by the scene construction's `fit`: a
-         *  film that may never cut is a film that draws ONE WORLD, so the
-         *  construction that draws worlds is the one that wins. Without
-         *  this the world's identities persisted film-wide while the
-         *  picture came from a different construction every scene, and a
-         *  "one shot" was a slideshow that merely was not allowed to say
-         *  so. */
+        /** How this film moves. Carried for the report; the CONSTRUCTION
+         *  reads `beat.approach` instead, because what the picture is made
+         *  of and whether the film cuts are two questions. */
         mode?: FilmMode;
       }
     | null
@@ -489,26 +494,30 @@ export const CONSTRUCTIONS: Construction[] = [
        * oversight. A sentence about accumulation has an ACCUMULATES
        * relation and a choreography built for it; a text card is the
        * poorest available answer to it. */
-      /* A ONE SHOT DRAWS ONE WORLD.
+      /* A WORLD FILM DRAWS ONE WORLD — and that is a decision about the
+       * PICTURE, not about the editing.
        *
-       * Measured, and it is the difference between a one shot and a
-       * slideshow forbidden to say so. With the world threaded but this
-       * absent, a six-scene continuous film drew `scene · body · body ·
-       * fixture · scene · scene`: the identities persisted correctly
-       * film-wide — the city was RECALLED five scenes after it left — and
-       * the PICTURE came from a different construction most scenes, so
-       * nothing carried on screen and only the last two transitions
-       * bridged. Persistence nothing can see is not continuity.
+       * The first version of this read `beat.world.mode` and gave ONE_SHOT
+       * the sentence outright, which quietly made "never cut" mean "build
+       * a world". Two different questions wearing one control: a
+       * text-driven film that never cuts and a world film that cuts hard
+       * were both unreachable. The approach decides what the picture is
+       * made of; continuity decides whether the film cuts; the film state
+       * advances either way, because identity persistence is pipeline
+       * rather than language.
        *
-       * ONE_SHOT takes the sentence outright, because that is what
-       * choosing "never cut" MEANS: the film is one continuous world and
-       * a specialised construction replacing it is a cut with the label
-       * filed off. HYBRID only competes hard, because a hybrid is
-       * continuous passages punctuated where a cut is earned, and a body
-       * or a chart is exactly how one gets earned. A CUT film sets
-       * nothing and composes byte-identically to before this existed. */
-      if (beat.world?.mode === "ONE_SHOT") return 1.02;
-      if (beat.world?.mode === "HYBRID") return rel ? 0.97 : 0.93;
+       * The measurement that motivated the forcing is still true and still
+       * applies — under `world`. With the state threaded but this
+       * construction left on its ordinary weight, a six-scene world film
+       * drew `scene · body · body · fixture · scene · scene`: identities
+       * persisting perfectly while the picture restarted four times.
+       * Persistence nothing can see is not continuity. */
+      if (beat.approach === "world") return 1.02;
+      if (beat.approach === "abstract") return rel ? 0.95 : 0.9;
+      // TEXT wants the typographic constructions; the scene graph still
+      // competes, because a text film is a COMPOSITION containing words
+      // rather than a card with words on it — it is simply not favoured.
+      if (beat.approach === "text") return rel ? 0.7 : 0.5;
       if (!beat.subjects.length && !rel) return 0.55;
       // A relation is two things and what stands between them, which is a
       // COMPOSITION. A lone named subject is a single form in a frame,

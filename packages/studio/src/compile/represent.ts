@@ -134,6 +134,23 @@ const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
  *  typography, data and language are already resolved per scene, so a
  *  film composed against a typographic language raises the typographic
  *  idea everywhere without this file knowing what a language is. */
+/** How each approach leans on the six readings. Multipliers, so nothing is
+ *  ever removed from the list — a film with an approach can still reach the
+ *  reading a particular sentence demands, it simply has a preference.
+ *
+ *  `image` leans exactly like `world` for now: generative imagery is not a
+ *  material this build can produce, so an approach that promised it would
+ *  be a control that reports rather than acts. It is listed so the axis is
+ *  complete and behaves as the nearest honest thing until the material
+ *  exists. */
+const APPROACH_LEAN: Record<string, Partial<Record<Mode, number>> | null> = {
+  hybrid: null,
+  text: { typographic: 2.6, symbolic: 1.2, literal: 0.5, structural: 0.6, geometric: 0.8 },
+  abstract: { geometric: 2.0, symbolic: 1.9, structural: 1.3, literal: 0.35, typographic: 0.7 },
+  world: { literal: 2.0, structural: 1.6, diagrammatic: 0.8, typographic: 0.5, symbolic: 0.7 },
+  image: { literal: 2.0, structural: 1.6, diagrammatic: 0.8, typographic: 0.5, symbolic: 0.7 },
+};
+
 export function representationsFor(beat: Beat, style: Style): Representation[] {
   const subject = beat.subjects[0];
   const noun = subject?.text ?? "";
@@ -231,6 +248,25 @@ export function representationsFor(beat: Beat, style: Style): Representation[] {
     "reached for at the abstract end of the ladder",
   );
 
+  /* THE DIRECTOR'S APPROACH, APPLIED AS A WEIGHT.
+   *
+   * The one thing above this layer that says what KIND of picture the film
+   * makes — and it belongs here rather than in `fit`, because `fit` asks
+   * "is this construction suitable for this sentence" and this asks "what
+   * is this film made of". Two questions; the second one is the director's.
+   *
+   * A MULTIPLIER, never a filter. Every mode stays in the list at a lower
+   * weight, so a text-driven film that hits a sentence the typographic
+   * reading cannot serve still reaches the one that can — and a printed
+   * figure or a drawn route still overrides everything, upstream of here,
+   * because both are checkable facts about the prose rather than
+   * preferences. `hybrid` multiplies by one and changes nothing, which is
+   * what makes every film composed before this field existed compose
+   * identically. */
+  const lean = APPROACH_LEAN[beat.approach ?? "hybrid"];
+  if (lean) {
+    for (const r of out) r.weight = clamp01(r.weight * (lean[r.mode] ?? 1));
+  }
   return out.sort((a, b) => b.weight - a.weight);
 }
 

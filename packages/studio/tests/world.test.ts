@@ -26,9 +26,12 @@ The camera in the corridor recorded every door.
 Years later the city forgot its residents.
 The tower still stands.`;
 
-function irFor(continuity: EditorialIR["continuity"]): EditorialIR {
+function irFor(
+  continuity: EditorialIR["continuity"],
+  visualApproach: EditorialIR["visualApproach"] = "world",
+): EditorialIR {
   const seed = segmentEssay(ESSAY, { projectId: "proj_world" });
-  const parsed = parseIR(JSON.parse(JSON.stringify({ ...seed.ir, continuity })));
+  const parsed = parseIR(JSON.parse(JSON.stringify({ ...seed.ir, continuity, visualApproach })));
   if (!parsed.ok) throw new Error(`fixture IR invalid: ${JSON.stringify(parsed.errors)}`);
   return parsed.ir;
 }
@@ -110,14 +113,57 @@ describe("the world reaches the compiler", () => {
     );
   });
 
-  it("ONE_SHOT draws one world — every scene, not most of them", () => {
-    // The measured failure this exists for: with the world threaded but
+  it("the WORLD approach draws one world — every scene, not most of them", () => {
+    // The measured failure this exists for: with the state threaded but
     // the construction left to compete on its ordinary weight, a six-scene
-    // continuous film drew `scene · body · body · fixture · scene · scene`
-    // and the picture restarted four times while the identities persisted
+    // world film drew `scene · body · body · fixture · space · scene` and
+    // the picture restarted four times while the identities persisted
     // perfectly. Persistence nothing can see is not continuity.
-    const scenes = composeAll(irFor("oneshot"));
+    const scenes = composeAll(irFor("cut", "world"));
     expect(scenes.map((s) => s.program?.construction)).toEqual(scenes.map(() => "scene"));
+  });
+
+  it("editing does not decide what the picture is made of", () => {
+    /* THE CONFLATION THIS TEST EXISTS TO PREVENT.
+     *
+     * The first version of the world made ONE_SHOT force the scene-graph
+     * construction, which quietly meant "never cut" chose the picture. A
+     * text-driven continuous film and a hard-cutting world film were both
+     * unreachable. Two axes: `visualApproach` decides what the picture is
+     * made of, `continuity` decides whether the film cuts. */
+    for (const approach of ["hybrid", "text", "abstract", "world"] as const) {
+      const cutFilm = composeAll(irFor("cut", approach));
+      const oneShot = composeAll(irFor("oneshot", approach));
+      expect(oneShot.map((s) => s.program?.construction)).toEqual(
+        cutFilm.map((s) => s.program?.construction),
+      );
+    }
+    // And the approaches genuinely differ from each other, or the axis
+    // would be a label rather than a control.
+    const modes = (a: "text" | "abstract" | "world") =>
+      composeAll(irFor("cut", a))
+        .map((s) => s.program?.mode)
+        .join(" ");
+    expect(modes("text")).not.toEqual(modes("abstract"));
+    expect(modes("abstract")).not.toEqual(modes("world"));
+    expect(modes("text")).toContain("typographic");
+  });
+
+  it("a figure still outranks the approach, because a figure is checkable", () => {
+    // The whole reason the approach is a WEIGHTING. An essay that prints a
+    // quantity reaches the family that can show it whatever the director
+    // asked the film to be made of — an approximation of $282,345.84 is a
+    // different finding.
+    const seed = segmentEssay(
+      "# Cost\n\nThe programme cost $282,345.84 across nine numbered rooms.",
+      { projectId: "proj_fig" },
+    );
+    for (const approach of ["text", "abstract", "world"] as const) {
+      const p = parseIR(JSON.parse(JSON.stringify({ ...seed.ir, visualApproach: approach })));
+      if (!p.ok) throw new Error(JSON.stringify(p.errors));
+      const scene = composeAll(p.ir)[0];
+      expect(scene?.phrase.text).toContain("282,345.84");
+    }
   });
 
   it("a CUT film composes exactly as it did before the world existed", () => {
