@@ -537,32 +537,83 @@ reg(
   "extrude",
   "L · 3D",
   "GEOMETRY → GEOMETRY",
-  { text: { s: "1997" }, depth: { v: 0.45, lo: 0.05, hi: 1 }, spin: { v: 0.3, lo: 0, hi: 1 } },
+  { depth: { v: 0.45, lo: 0.05, hi: 1 }, spin: { v: 0.3, lo: 0, hi: 1 } },
   (p) => ({
-    frame(ctx, w, h, t) {
+    /* IT EXTRUDES WHAT IT IS HANDED, which it did not before.
+     *
+     * This drew the literal string "1997" in 3D and ignored its input
+     * entirely — `frame(ctx, w, h, t)` did not even take `upstream`. It
+     * declared GEOMETRY → GEOMETRY, so the constructor's overwrite guard
+     * refused it on sight, silently and correctly, and the whole L · 3D
+     * family never rendered a frame. Its own description said what it
+     * was: "Validates that the renderer interface accepts a spatial
+     * backend at all" — a feasibility proof left in the palette wearing
+     * an operator's type signature.
+     *
+     * It now takes the upstream outline and gives it a back face, with
+     * the side walls between. A subdivided polygon extrudes as that
+     * polygon. Depth is the thing that separates a cinematic from a
+     * diagram, and it has to be depth OF something. */
+    frame(ctx, w, h, t, upstream) {
       bg(ctx, w, h);
-      const A = Math.sin(t * p.spin * 0.8) * 0.5,
-        D = Math.round(6 + p.depth * 40);
-      const s = Math.min(h * 0.5, w / (p.text.length * 0.62));
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      for (let i = D; i >= 0; i--) {
-        const k = i / D;
-        ctx.font = "700 " + s + 'px "Space Grotesk",sans-serif';
-        ctx.fillStyle = i
-          ? "rgba(" + (40 + k * 30) + "," + (44 + k * 30) + "," + (50 + k * 32) + ",1)"
-          : INK;
-        ctx.fillText(
-          p.text,
-          w / 2 + Math.sin(A) * i * 1.6,
-          h / 2 + Math.cos(A) * i * 0.5 - i * 0.25,
-        );
+      const src = (upstream && upstream.paths) || null;
+      const pts = (upstream && upstream.geometry) || null;
+      // A point cloud is still an outline if you connect it; a chain with
+      // neither is nothing to extrude, and says so rather than inventing.
+      const paths = src && src.length ? src : pts && pts.length ? [pts.map((q) => [q.x, q.y])] : null;
+      if (!paths) {
+        lab(ctx, "extrude: no upstream GEOMETRY", 10, h / 2);
+        return { geometry: [], paths: [] };
       }
-      ctx.textAlign = "left";
-      lab(ctx, "GLYPH PATHS EXTRUDED · " + D + " STEPS", 10, h - 14);
+      // Where the back face sits. The spin turns the vanishing direction
+      // rather than the form, so the object stays put and the light
+      // behind it moves — which is what reads as a camera rather than as
+      // a turntable.
+      const A = Math.sin(t * p.spin * 0.8) * 0.9;
+      const D = Math.round(4 + p.depth * 26);
+      const dx = Math.sin(A) * D * 0.9;
+      const dy = -Math.cos(A) * D * 0.45;
+
+      const out = [];
+      // BACK FIRST, so the walls and then the front face paint over it.
+      for (const path of paths) out.push(path.map(([x, y]) => [x + dx, y + dy]));
+      // The walls: one quad per edge, as a closed path so a renderer that
+      // fills gets a solid side and one that strokes gets its edges.
+      for (const path of paths) {
+        for (let i = 0; i < path.length - 1; i++) {
+          const [x1, y1] = path[i];
+          const [x2, y2] = path[i + 1];
+          out.push([
+            [x1, y1],
+            [x2, y2],
+            [x2 + dx, y2 + dy],
+            [x1 + dx, y1 + dy],
+            [x1, y1],
+          ]);
+        }
+      }
+      for (const path of paths) out.push(path);
+
+      // Drawn here too, so the Lab shows the thing without needing a
+      // renderer downstream — and drawn back-to-front, which is the whole
+      // of the depth cue.
+      ctx.lineJoin = "round";
+      out.forEach((path, i) => {
+        const front = i >= out.length - paths.length;
+        ctx.strokeStyle = front ? INK : DIM;
+        ctx.lineWidth = front ? 1.6 : 1;
+        ctx.beginPath();
+        ctx.moveTo(path[0][0], path[0][1]);
+        for (let k = 1; k < path.length; k++) ctx.lineTo(path[k][0], path[k][1]);
+        ctx.stroke();
+      });
+      lab(ctx, `EXTRUDED ${paths.length} PATHS · ${D}px`, 10, h - 14);
+      // Handed on as PATHS, because that is what a renderer downstream
+      // reads — see `geometry_draw`.
+      return { paths: out, geometry: pts || [] };
     },
   }),
-  "Glyph paths pushed into depth. Validates that the renderer interface accepts a spatial backend at all.",
+  "The upstream outline pushed into depth: a back face, and the walls between it and the front.",
 );
 
 reg(
