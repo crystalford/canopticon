@@ -314,12 +314,18 @@ function mayDecompose(style: Style): boolean {
  *  it opens and closes doors, and what walks through them is decided by
  *  the sentence. */
 function permitted(style: Style): Set<string> {
-  const keep = ["grade", "soften", "scanline", "halftone", "dither"];
-  const stylise = ["quantise", "threshold", "trace", "pixelate"];
-  const decompose = ["fragment", "sort", "split"];
-  if (style.abstraction < 0.32) return new Set(keep);
-  if (style.abstraction < 0.62) return new Set([...keep, ...stylise]);
-  return new Set([...keep, ...stylise, ...decompose]);
+  /* DERIVED FROM THE OPERATORS THEMSELVES rather than restated as three
+   * id lists. An operator added to `OPERATORS` and forgotten here could
+   * never fire, and nothing said so — a set that does not contain you
+   * raises nothing. Two operators were added and did not appear once, at
+   * any intensity, in any language, for exactly this reason. */
+  const upto =
+    style.abstraction < 0.32
+      ? ["keep"]
+      : style.abstraction < 0.62
+        ? ["keep", "stylise"]
+        : ["keep", "stylise", "decompose"];
+  return new Set(OPERATORS.filter((op) => upto.includes(op.rung)).map((op) => op.id));
 }
 
 /** An operator's appetite, after the language, the film's own captured
@@ -330,6 +336,10 @@ function permitted(style: Style): Set<string> {
 function appetiteFor(op: Operator, style: Style, intent?: IntentReading): number {
   return (
     op.appetite(style) +
+    // The operator's own declaration, then the language's table — which
+    // stays for the NEGATIVE opinions a language holds about operators it
+    // does not own ("a documentary does not glitch").
+    (op.languages?.[style.language] ?? 0) +
     (LANGUAGE[style.language]?.ops[op.id] ?? 0) +
     (style.grammar?.ops[op.id] ?? 0) +
     (intent?.ops[op.id] ?? 0)
@@ -1020,6 +1030,25 @@ interface Operator {
    *  so half of every multi-primitive operator ran on its defaults. */
   params(style: Style, primitiveId: string): Record<string, number | string>;
   why: string;
+  /** WHERE ON THE LADDER THIS OPERATOR MAY RUN.
+   *
+   *  `keep` is what a restrained film may still do to a picture — grade
+   *  it, soften it, give it a reproduction texture. `stylise` re-renders
+   *  the surface. `decompose` takes the image apart, and a film has to
+   *  have said it is coming apart before it gets one.
+   *
+   *  DECLARED HERE because it was a hardcoded id list inside
+   *  `permitted()`, and an operator missing from that list was silently
+   *  unreachable however much the film wanted it. */
+  rung: "keep" | "stylise" | "decompose";
+  /** How much a given visual language wants this.
+   *
+   *  Also a separate table until now (`LANGUAGE[lang].ops[id]`), and the
+   *  omission was not neutral: `operatorStacks` uses only the top two by
+   *  appetite, and every established operator carried a language bonus,
+   *  so an operator absent from that table was systematically outranked
+   *  everywhere. Two silent exclusions in two files for one operator. */
+  languages?: Partial<Record<VisualLanguage, number>>;
 }
 
 /** WHICH PRIMITIVES AN OPERATOR ACTUALLY RUNS, by id.
@@ -1035,6 +1064,7 @@ const OPERATORS: Operator[] = [
   {
     id: "quantise",
     chain: ["pixel_quantise"],
+    rung: "stylise",
     appetite: (s) => 0.25 + s.experimentalism * 0.4 + (1 - s.human) * 0.15,
     params: (s) => ({
       grid: Math.round(3 + s.experimentalism * 8),
@@ -1046,6 +1076,7 @@ const OPERATORS: Operator[] = [
   {
     id: "pixelate",
     chain: ["pixelate"],
+    rung: "stylise",
     appetite: (s) => s.experimentalism * 0.7 + s.abstraction * 0.2,
     params: (s) => ({
       size: Math.round(4 + s.abstraction * 22),
@@ -1056,6 +1087,7 @@ const OPERATORS: Operator[] = [
   {
     id: "dither",
     chain: ["dither"],
+    rung: "keep",
     appetite: (s) => s.archival * 0.6 + s.experimentalism * 0.2,
     params: (s) => ({ threshold: 0.4 + s.density * 0.2, size: Math.round(2 + s.archival * 4) }),
     why: "dithered — print rather than screen",
@@ -1063,6 +1095,7 @@ const OPERATORS: Operator[] = [
   {
     id: "scanline",
     chain: ["scanline"],
+    rung: "keep",
     appetite: (s) => s.archival * 0.7,
     // `strength` was set for months and `scanline` has never had one. The
     // knobs it does have are gap, roll and bleed, so every scanline in
@@ -1077,6 +1110,7 @@ const OPERATORS: Operator[] = [
   {
     id: "halftone",
     chain: ["halftone"],
+    rung: "keep",
     appetite: (s) => s.archival * 0.5 + s.typography * 0.3,
     // `dot` does not exist; a halftone cell's size is `size`.
     params: (s) => ({ size: Math.round(4 + (1 - s.density) * 12), angle: 0.15 + s.energy * 0.5 }),
@@ -1085,6 +1119,7 @@ const OPERATORS: Operator[] = [
   {
     id: "threshold",
     chain: ["threshold"],
+    rung: "stylise",
     appetite: (s) => (1 - s.human) * 0.3 + s.abstraction * 0.25,
     // `cut` does not exist; the level to cut at is `level`.
     params: (s) => ({ level: 0.3 + s.density * 0.35, steps: Math.round(2 + s.abstraction * 5) }),
@@ -1093,6 +1128,7 @@ const OPERATORS: Operator[] = [
   {
     id: "sort",
     chain: ["pixel_sort"],
+    rung: "decompose",
     appetite: (s) => s.experimentalism * 0.8 - s.restraint * 0.4,
     params: (s) => ({ threshold: 0.4 + s.energy * 0.3, direction: 0 }),
     why: "sorted — the frame's own material rearranged",
@@ -1100,6 +1136,7 @@ const OPERATORS: Operator[] = [
   {
     id: "split",
     chain: ["chromatic_split"],
+    rung: "decompose",
     appetite: (s) => s.energy * 0.5 + s.experimentalism * 0.3 - s.restraint * 0.3,
     params: (s) => ({
       amount: 0.15 + s.energy * 0.4,
@@ -1115,6 +1152,7 @@ const OPERATORS: Operator[] = [
     // It applies identically to a fixture, a document, a chart and a
     // sentence, which is what makes it an operation rather than a look.
     chain: ["image_to_points", "particle_trail"],
+    rung: "decompose",
     appetite: (s) => s.abstraction * 0.7 + s.energy * 0.2,
     params: (s, id) =>
       id === "image_to_points"
@@ -1134,6 +1172,7 @@ const OPERATORS: Operator[] = [
   {
     id: "trace",
     chain: ["ascii_render", "particle_trail"],
+    rung: "stylise",
     /* NOT KEYED ON TYPOGRAPHY. This was `s.typography * 0.6`, and
      * `ascii_render` re-reads the whole frame as character cells — so the
      * more the argument turned on a line, the more likely the engine was
@@ -1162,6 +1201,7 @@ const OPERATORS: Operator[] = [
   {
     id: "grade",
     chain: ["color_transform"],
+    rung: "keep",
     appetite: (s) => 0.3 + s.archival * 0.2,
     // `warmth` and `lift` do not exist on `color_transform`. It grades by
     // MODE — which grade — plus how much of it and how far the hue moves.
@@ -1177,12 +1217,52 @@ const OPERATORS: Operator[] = [
   {
     id: "soften",
     chain: ["blur"],
+    rung: "keep",
     appetite: (s) => s.restraint * 0.5 - s.density * 0.2,
     params: (s) => ({ radius: 0.1 + s.restraint * 0.3, kind: 0 }),
     why: "softened — held back",
   },
 ];
 for (const op of OPERATORS) OPERATOR_CHAINS.set(op.id, op.chain);
+
+/* ── AN OPERATOR THAT CAN NEVER FIRE IS A BUG, NOT A CHOICE ───────────
+ *
+ * The whole reason the palette has 135 primitives and a film draws 33 is
+ * that reachability was spread across four places — this table, the
+ * ladder gate, the language bias, and a top-two race — and omitting any
+ * one of them failed SILENTLY. Nothing was ever wrong; the operator
+ * simply never appeared, which is indistinguishable from a film that did
+ * not want it.
+ *
+ * Two of those are now derived from the declaration above and cannot be
+ * half-done. This is the third: every operator is checked, at module
+ * load, against the palette it claims to run and the type contract
+ * between its own primitives. A chain naming something that does not
+ * exist, or two primitives that cannot legally follow one another, is a
+ * dead operator and now says so at startup rather than at no point ever.
+ *
+ * It throws rather than warns because this is a static property of the
+ * source: it cannot depend on a film, a style or a sentence, so it is
+ * either right for every compile or wrong for every compile. A warning
+ * would be a note nobody reads in a Worker log. */
+for (const op of OPERATORS) {
+  for (const id of op.chain) {
+    if (!PRIMITIVES[id]) {
+      throw new Error(
+        `operator "${op.id}" names "${id}", which is not in the palette — it could never run`,
+      );
+    }
+  }
+  for (let i = 1; i < op.chain.length; i++) {
+    const from = op.chain[i - 1] as string;
+    const to = op.chain[i] as string;
+    if (!canChain(from, to)) {
+      throw new Error(
+        `operator "${op.id}" chains ${from} → ${to}, which the payload contract forbids — it could never run`,
+      );
+    }
+  }
+}
 
 /** The motion tail. Not an operator: it re-times what came before rather
  *  than drawing anything, which is why the executor folds it into the
