@@ -144,25 +144,39 @@ describe("promotion is timed to the voice when the voice was measured", () => {
     })),
   });
 
+  /* THE CAPABILITY, not the fixture's shape.
+   *
+   * This used to name one sentence and assert it was promoted, which made
+   * it a claim about which scenes the allocator picks rather than about
+   * timing. When the budget started coming off measured runtime the
+   * fixture — thirty seconds, ten scenes, three anchors — stopped
+   * including that particular line, and the test failed for a reason that
+   * had nothing to do with what it was testing.
+   *
+   * What matters is: a promoted phrase is timed to ITS OWN words, not to
+   * the top of the scene a proportional guess would give it. So: ask the
+   * allocator what it promoted, hand THAT scene a recording, and check
+   * the phrase lands where its words were actually spoken. */
   it("a promoted phrase lands on its own measured words", async () => {
     const film = ir();
-    const target = film.scenes.find((s) => /exposure, not corruption/i.test(s.narration.text));
-    if (!target) throw new Error("fixture changed");
+    const dry = await compile(film);
+    const anchor = dry.promotions.find((p) => p.level > 0 && p.offset >= 0);
+    if (!anchor) throw new Error("nothing promoted — the allocator has stopped allocating");
+    const scene = film.scenes.find((s) => s.sceneId === anchor.sceneId);
+    if (!scene) throw new Error("fixture changed");
+
+    // 400ms per word, so a phrase starting at word N is spoken at N×400.
+    const spoken = scene.narration.text.split(/\s+/);
+    const before = scene.narration.text.slice(0, anchor.offset).split(/\s+/).filter(Boolean).length;
+
     const report = await compile(film, {
-      alignments: new Map([
-        [
-          target.sceneId,
-          aligned(target.sceneId, ["but", "that", "is", "exposure", "not", "corruption"]),
-        ],
-      ]),
+      alignments: new Map([[scene.sceneId, aligned(scene.sceneId, spoken)]]),
     });
-    const p = report.promotions.find((x) => x.sceneId === target.sceneId);
+    const p = report.promotions.find((x) => x.sceneId === scene.sceneId);
     expect(p?.level).toBeGreaterThan(0);
-    // "exposure" is the fourth word, so the phrase starts at 1200ms — not
-    // at the scene's start, which is where a proportional guess would put
-    // it. That difference is the whole reason the words were frozen.
     expect(p?.window?.measured).toBe(true);
-    expect(p?.window?.startMs).toBe(1200);
+    // The whole reason the words were frozen: not the scene's start.
+    expect(p?.window?.startMs).toBe(before * 400);
   });
 
   it("an unmeasured scene falls back to its window and says so", async () => {
@@ -187,5 +201,127 @@ describe("promotion gates what reaches the screen", () => {
     // And the film as a whole shows far less than it says.
     const withText = report.composed.filter((s) => s.phrase.text.length > 0);
     expect(withText.length).toBeLessThan(report.composed.length);
+  });
+});
+
+/* THE BUDGET IS SPENT ACROSS THE FILM, NOT MERELY CAPPED.
+ *
+ * The allocator ranked every claim by score and took the top N. Scene
+ * order was the tiebreak and nothing else consulted position, so the
+ * quota said how MANY anchors a film could have and nothing about WHERE
+ * — and since an argument puts its title and its thesis at the front,
+ * that is where they went. Measured before this: seven of ten anchors
+ * inside the first 40%, and nothing at all between 39% and 83%.
+ *
+ * These assert the DISTRIBUTION. A count alone cannot tell the two
+ * behaviours apart, which is why the front-loading survived a test suite
+ * that already checked scarcity. */
+describe("the visual budget is distributed across the runtime", () => {
+  const ESSAY = `The Costume
+
+A claim to authority is a live, continuously-renewed performance. It is renewed in public. Nobody audits the renewal.
+
+The fallacy isn't a lapse. It's a diagnosis.
+
+Logic was never really being tested. It was being displayed as a brand.
+
+When reality stops cooperating the brand has two options: concede, or manufacture the win.
+
+Given a live audience and a persona built on winning, the manufacture option wins almost every time. Not through conscious deception, usually. Through the ordinary mechanism of motivated reasoning under identity threat.
+
+The record can show this. A single clip cannot.
+
+Total spend reached $282,345.84 across 2024-2025. Peak occupancy reached 7,000 people in July 2023.
+
+Exposure, not corruption. The position doesn't produce more distortion. It produces the only distortion anyone can catch.`;
+
+  const anchors = () => {
+    const seed = segmentEssay(ESSAY, { projectId: "p" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("bad IR");
+    const promotions = promoteText(parsed.ir);
+    const total = parsed.ir.scenes.length;
+    return promotions.map((p, i) => ({ ...p, at: i / total })).filter((p) => p.level > 0);
+  };
+
+  it("reaches the last third of the film", () => {
+    const late = anchors().filter((a) => a.at >= 0.66);
+    expect(late.length, "no anchor in the final third").toBeGreaterThan(0);
+  });
+
+  it("does not spend most of the budget on the opening", () => {
+    const all = anchors();
+    const early = all.filter((a) => a.at < 0.4);
+    expect(early.length / all.length).toBeLessThan(0.7);
+  });
+
+  it("puts an anchor in every third", () => {
+    const all = anchors();
+    for (const [lo, hi, name] of [
+      [0, 1 / 3, "first"],
+      [1 / 3, 2 / 3, "middle"],
+      [2 / 3, 1.01, "last"],
+    ] as const) {
+      expect(
+        all.some((a) => a.at >= lo && a.at < hi),
+        `${name} third carries no anchor`,
+      ).toBe(true);
+    }
+  });
+
+  /* A band that has nothing worth showing yields nothing, so the count is
+   * a CEILING rather than a target. The re-offer pass fills an unspent
+   * slot only from a claim strong enough to have carried a band on its
+   * own — so a film still cannot end up with an anchor on every scene. */
+  it("stays scarce — the ceiling holds and most of the film is spoken", () => {
+    const seed = segmentEssay(ESSAY, { projectId: "p" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("bad IR");
+    const promotions = promoteText(parsed.ir);
+    const shown = promotions.filter((p) => p.level > 0).length;
+    expect(shown).toBeLessThan(promotions.length * 0.6);
+  });
+
+  /* The budget follows how long the film LASTS, not how many sentences it
+   * was cut into. Two essays with the same scene count and twice the
+   * runtime between them were getting the same number of anchors. */
+  it("takes its budget from measured runtime when there is one", () => {
+    const seed = segmentEssay(ESSAY, { projectId: "p" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("bad IR");
+    const scenes = parsed.ir.scenes.map((s, i) => ({
+      sceneId: s.sceneId,
+      startMs: i * 1000,
+      endMs: i * 1000 + 1000,
+      durationMs: 1000,
+      source: "measured" as const,
+      leadPauseMs: 0,
+      wordsPerMin: 140,
+      relativeRate: 1,
+      words: [],
+    }));
+    const short = promoteText(parsed.ir, {
+      totalMs: 40_000,
+      measuredMs: 40_000,
+      scenes,
+      pauses: [],
+      medianWordsPerMin: 140,
+      spine: "measured",
+      wordTimedScenes: scenes.length,
+      describes: "test",
+    });
+    const long = promoteText(parsed.ir, {
+      totalMs: 400_000,
+      measuredMs: 400_000,
+      scenes,
+      pauses: [],
+      medianWordsPerMin: 140,
+      spine: "measured",
+      wordTimedScenes: scenes.length,
+      describes: "test",
+    });
+    expect(short.filter((p) => p.level > 0).length).toBeLessThan(
+      long.filter((p) => p.level > 0).length,
+    );
   });
 });

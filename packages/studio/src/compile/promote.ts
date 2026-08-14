@@ -341,8 +341,22 @@ function findRefrains(ir: EditorialIR): Set<string> {
  *  because the two minutes around it did not. Roughly one visual anchor
  *  per four scenes, floored so a very short film still has some, capped so
  *  a long one does not become a slideshow again. */
-function quota(sceneCount: number): { shown: number; major: number } {
-  const shown = Math.max(3, Math.min(14, Math.round(sceneCount * 0.34)));
+function quota(sceneCount: number, totalMs?: number): { shown: number; major: number } {
+  /* A BUDGET IS A FUNCTION OF HOW LONG THE FILM LASTS.
+   *
+   * This read scene count alone, which is a proxy that drifts badly: an
+   * essay of long sentences and an essay of short ones can have the same
+   * scene count and twice the runtime between them, and the second was
+   * being given a caption every few seconds while the first went quiet.
+   *
+   * The measured timeline is already available at the call site — it is
+   * passed in for `windowFor` — so the honest denominator was there all
+   * along. Roughly one anchor per half-minute of speech, which puts a
+   * seven-minute essay at the top of the range without reaching for the
+   * cap. Scene count stays as the fallback for a film that has not been
+   * narrated yet, where there is no runtime to divide. */
+  const bySpeech = totalMs && totalMs > 0 ? Math.round(totalMs / 30_000) : null;
+  const shown = Math.max(3, Math.min(14, bySpeech ?? Math.round(sceneCount * 0.34)));
   return { shown, major: Math.max(1, Math.round(shown * 0.35)) };
 }
 
@@ -357,7 +371,7 @@ const MAJOR: ArgumentRole[] = ["TITLE", "THESIS", "DIAGNOSTIC", "CONCLUSION", "S
 export function promoteText(ir: EditorialIR, timeline?: FilmTimeline | null): Promotion[] {
   const refrains = findRefrains(ir);
   const total = ir.scenes.length;
-  const { shown, major } = quota(total);
+  const { shown, major } = quota(total, timeline?.totalMs);
 
   /* THE PAIRS, FOUND ACROSS THE CUT. A denial followed by an assertion is
    * one claim in two sentences, and the segmenter has already separated
@@ -457,15 +471,86 @@ export function promoteText(ir: EditorialIR, timeline?: FilmTimeline | null): Pr
     if (group) group.push(s);
     else claims.set(id, [s]);
   }
-  const ranked = [...claims.values()].sort(
+  /* SPENT ACROSS THE FILM, NOT MERELY CAPPED.
+   *
+   * This was a single global sort followed by `.slice(0, shown)` — scene
+   * order was the tiebreak and nothing else consulted position. So the
+   * budget was a CEILING on how many anchors a film could have and said
+   * nothing about WHERE they went, and since an argument puts its title
+   * and its thesis at the front, they all went to the front. Measured on
+   * an 18-scene fixture: seven of ten anchors inside the first 40%, then
+   * nothing at all between 39% and 83%.
+   *
+   * A scarcity rule that does not distribute is not a rhythm, it is a
+   * cap. The runtime is divided into as many bands as there are slots and
+   * each band offers its best claim.
+   *
+   * Two consequences, both intended:
+   *
+   *   A BAND WITH NOTHING WORTH SHOWING YIELDS NOTHING. The count can come
+   *   in under quota and that is correct — an essay with a quiet middle
+   *   should have a quiet middle. The quota becomes a ceiling on density
+   *   rather than a target to fill.
+   *
+   *   A PAIR STILL TRAVELS TOGETHER even when it straddles a boundary,
+   *   because a claim is banded by where it STARTS and the group is
+   *   already one entry here. */
+  const bandOf = (group: typeof scored): number => {
+    const first = Math.min(...group.map((x) => ir.scenes.indexOf(x.scene)));
+    return Math.min(shown - 1, Math.floor((first / Math.max(1, total)) * shown));
+  };
+  const peak = (group: typeof scored): number => Math.max(...group.map((x) => x.score));
+  const byBand = new Map<number, typeof scored>();
+  for (const group of claims.values()) {
+    const band = bandOf(group);
+    const held = byBand.get(band);
+    if (!held || peak(group) > peak(held)) byBand.set(band, group);
+  }
+
+  /* AN UNSPENT SLOT IS RE-OFFERED, NOT LOST.
+   *
+   * Coverage first, merit second. One-per-band alone throws away a real
+   * claim whenever two strong ones share a band — measured: a 0.9
+   * contrast lost its slot to a neighbour and vanished from a film that
+   * had a silent band elsewhere. The budget is film-wide; a band that
+   * declined has not consumed anything, so the slot should go back.
+   *
+   * The bar is what keeps this from undoing the distribution. A leftover
+   * slot is filled only by a claim that would have carried a band on its
+   * own — not by the next thing down. So a quiet middle still stays
+   * quiet, because filling a slot requires a real signal rather than
+   * merely being the best of what is left. */
+  const STRONG_ENOUGH = 0.7;
+  const chosen = new Set(byBand.values());
+  if (chosen.size < shown) {
+    const leftovers = [...claims.values()]
+      .filter((g) => !chosen.has(g) && peak(g) >= STRONG_ENOUGH)
+      .sort(
+        (a, b) =>
+          peak(b) - peak(a) ||
+          ir.scenes.indexOf((a[0] as (typeof scored)[number]).scene) -
+            ir.scenes.indexOf((b[0] as (typeof scored)[number]).scene),
+      );
+    for (const g of leftovers) {
+      if (chosen.size >= shown) break;
+      chosen.add(g);
+    }
+  }
+
+  /* Ranked AFTER selection, by score, because rank drives the LEVEL
+   * ladder — the strongest claim of those shown is the one allowed to
+   * take the screen, and that is a different question from where in the
+   * film it sits. Scene order breaks ties so the same IR always promotes
+   * the same moments. */
+  const ranked = [...chosen].sort(
     (a, b) =>
-      Math.max(...b.map((x) => x.score)) - Math.max(...a.map((x) => x.score)) ||
+      peak(b) - peak(a) ||
       ir.scenes.indexOf((a[0] as (typeof scored)[number]).scene) -
         ir.scenes.indexOf((b[0] as (typeof scored)[number]).scene),
   );
   const promoted = new Map<string, number>();
   for (const s of scored) if (s.pinned) promoted.set(s.scene.sceneId, -1);
-  ranked.slice(0, shown).forEach((group, rank) => {
+  ranked.forEach((group, rank) => {
     for (const s of group) promoted.set(s.scene.sceneId, rank);
   });
 
