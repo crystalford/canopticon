@@ -1407,12 +1407,32 @@ export function composeAll(
      * simulation hold conflicts head-on with the buffer disposal that
      * stopped the tab dying at scene 21 of 39. It is a real decision about
      * long-film export, not something to slip in here. */
-    if (allocated?.kind === "HOLD" && out.length > 0) {
-      const before = out[out.length - 1] as ComposedScene;
-      if (before.nodes.length > 0) {
-        composed.nodes = before.nodes;
+    if (allocated?.kind === "HOLD") {
+      /* HOLD REACHES BACK PAST SILENCE.
+       *
+       * This looked only at the immediately previous scene, so a HOLD
+       * following a NONE found an empty chain and fell through — building
+       * a fresh, unrelated picture at exactly the moment the film was
+       * meant to resume what it had been showing.
+       *
+       * Measured on the real essay: 29 scenes allocated HOLD and only 20
+       * of them held. Nine composed something new, silently, and the only
+       * way to see it was that the held count did not match the
+       * allocation.
+       *
+       * What is STANDING is the last thing actually drawn, which is not
+       * the same as the last scene. Silence does not clear the world — it
+       * is the film looking away from it, and looking back should find it
+       * where it was. */
+      const standing = [...out].reverse().find((c) => c.nodes.length > 0);
+      if (standing) {
+        composed.nodes = standing.nodes;
         composed.held = true;
-        composed.notes.push(`held — the same composition as ${before.sceneId}, still standing`);
+        composed.notes.push(`held — the same composition as ${standing.sceneId}, still standing`);
+      } else {
+        // Nothing has ever been drawn, so there is nothing to hold. The
+        // scene composes, and says why rather than pretending it held.
+        composed.notes.push("asked to hold, but the film has not drawn anything yet");
       }
     }
     if (world.out) {

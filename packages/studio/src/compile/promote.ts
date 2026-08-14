@@ -371,8 +371,24 @@ function candidatesFor(scene: Scene, refrains: Set<string>): Candidate[] {
     // on screen is always something the essay actually says.
     const re = new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/ /g, "\\s+"), "i");
     const m = re.exec(t);
-    const span = m ? trimVerbatim(t, m[0]) : "";
-    if (span) out.push({ text: span, score: 0.78, why: "the essay says this more than once" });
+    /* A REFRAIN IS PROMOTED WHOLE OR NOT AT ALL.
+     *
+     * `trimVerbatim` strips function words from both ends, which is right
+     * for a span the compiler chose and wrong for one the AUTHOR chose:
+     * it guts the refrain and promotes the wreckage. Measured on the real
+     * essay, this produced "while", "front", "audience", "It's" and "I am"
+     * as full-screen interventions — "for a while" trimmed to "while",
+     * "in front of" to "front" — and one of them was the film's closing
+     * thesis at intensity 4.
+     *
+     * If trimming has anything to remove, the refrain was not a phrase
+     * worth showing. The essay repeating "in front of" is not the essay
+     * making a point. */
+    const raw = m ? m[0] : "";
+    const span = raw ? trimVerbatim(t, raw) : "";
+    if (span && span === raw.replace(/[.,;:]+$/, "")) {
+      out.push({ text: span, score: 0.78, why: "the essay says this more than once" });
+    }
     break;
   }
 
