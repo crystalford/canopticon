@@ -1187,10 +1187,18 @@ app.post("/voice/audition", async (c) => {
  *  by ear. */
 app.post("/voice/fidelity", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { text?: string };
+  /* A PROBE LINE, NOT AN ESSAY. This defaulted to three sentences lifted
+   * verbatim from one real investigation, which made a general capability
+   * check read as a check about that investigation — and put its figures
+   * into a live route handler where they could be mistaken for data.
+   *
+   * What the default has to CONTAIN is the thing under test: money to the
+   * cent, a spelled range, a grouped count, a month and year, and a
+   * capitalised name. Synthetic, and obviously so. */
   const line =
     body.text ??
-    "The City of Niagara Falls received a federal IHAP grant of $282,345.84 for 2024-2025. " +
-      "Peak occupancy reached 7,000 people in July 2023. The building is the same.";
+    "The Northern Authority recorded $148,220.75 across 2019-2020. " +
+      "Filings reached 3,400 in March 2021. Twelve sites remained open.";
 
   // What must survive verbatim: money, counts, years, and capitalised
   // names. Anything a viewer would read off the screen and check.

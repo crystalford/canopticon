@@ -7,16 +7,38 @@
 import { describe, expect, it } from "vitest";
 import { compile } from "../src/compile/index.ts";
 import {
-  SMOKE_DETECTOR_READING,
   VISUAL_LANGUAGES,
   chainSignature,
   planAllTreatments,
   planTreatment,
   validateChain,
 } from "../src/compile/treatment.ts";
+import type { SemanticReading } from "../src/ir/schema.ts";
 import { PRIMITIVES } from "../src/primitives/registry.ts";
 import { buildFixtureIR } from "./fixture.ts";
 import { must } from "./must.ts";
+
+/* A CONTESTED READING WITH A PHYSICAL SUBJECT.
+ *
+ * This lived in `src/compile/treatment.ts` and was exported from
+ * production source — a hand-authored demo standing in for a frozen model
+ * artifact, with only tests consuming it. It is a fixture, so it lives
+ * with the tests now.
+ *
+ * What it is FOR, so the assertions below can be read as capability
+ * claims rather than as claims about this particular sentence: a reading
+ * that (a) is marked contested, (b) names one physical subject clearly
+ * above two weaker ones, and (c) asks to be inspected. */
+const CONTESTED_PHYSICAL: SemanticReading = {
+  sentence: "He claimed the smoke detector was mounted on the ceiling.",
+  subjects: [
+    { label: "smoke detector", kind: "object", weight: 0.9 },
+    { label: "ceiling", kind: "place", weight: 0.3 },
+    { label: "he", kind: "person", weight: 0.2 },
+  ],
+  visualOpportunity: "inspect",
+  contested: true,
+};
 
 describe("chain validation", () => {
   it("rejects a chain whose seam does not typecheck, naming the seam", () => {
@@ -49,7 +71,7 @@ describe("chain validation", () => {
 
 describe("treatment planning", () => {
   it("plans a valid chain for every visual language from one reading", () => {
-    const treatments = planAllTreatments(SMOKE_DETECTOR_READING);
+    const treatments = planAllTreatments(CONTESTED_PHYSICAL);
     expect(treatments).toHaveLength(VISUAL_LANGUAGES.length);
     for (const t of treatments) {
       // This is the load-bearing assertion of the whole slice.
@@ -59,7 +81,7 @@ describe("treatment planning", () => {
   });
 
   it("keeps the subject invariant while depiction changes", () => {
-    const treatments = planAllTreatments(SMOKE_DETECTOR_READING);
+    const treatments = planAllTreatments(CONTESTED_PHYSICAL);
     const subjects = new Set(treatments.map((t) => t.subject));
     expect(subjects).toEqual(new Set(["smoke detector"]));
 
@@ -73,7 +95,7 @@ describe("treatment planning", () => {
   });
 
   it("picks the heaviest subject, not the first one mentioned", () => {
-    const t = planTreatment(SMOKE_DETECTOR_READING, "documentary");
+    const t = planTreatment(CONTESTED_PHYSICAL, "documentary");
     // "he" is mentioned first in the sentence; the detector carries the shot.
     expect(t.subject).toBe("smoke detector");
   });
@@ -88,7 +110,7 @@ describe("treatment planning", () => {
     // With the declaration corrected there is no gap, and the planner
     // correctly stops bridging. The chain is shorter and does exactly what
     // it always did.
-    const t = planTreatment(SMOKE_DETECTOR_READING, "pixel");
+    const t = planTreatment(CONTESTED_PHYSICAL, "pixel");
     const ids = t.nodes.map((n) => n.primitiveId);
     expect(must(PRIMITIVES.mounted_fixture, "fixture").outputs).toContain("IMAGE");
     expect(ids).not.toContain("entity_render");
@@ -98,8 +120,8 @@ describe("treatment planning", () => {
   });
 
   it("carries a contested claim into the treatment instead of dropping it", () => {
-    const contested = planTreatment(SMOKE_DETECTOR_READING, "documentary");
-    const asFact = planTreatment({ ...SMOKE_DETECTOR_READING, contested: false }, "documentary");
+    const contested = planTreatment(CONTESTED_PHYSICAL, "documentary");
+    const asFact = planTreatment({ ...CONTESTED_PHYSICAL, contested: false }, "documentary");
     // The grade used to ride on the ENTITY bridge — `entity_render` was
     // inserted to cross a type boundary and carried the under-exposure
     // while it was there. When the fictional type went, the editorial rule
@@ -114,14 +136,14 @@ describe("treatment planning", () => {
   });
 
   it("gives every node a stated reason", () => {
-    for (const t of planAllTreatments(SMOKE_DETECTOR_READING)) {
+    for (const t of planAllTreatments(CONTESTED_PHYSICAL)) {
       for (const n of t.nodes) expect(n.reason.length).toBeGreaterThan(8);
     }
   });
 
   it("is deterministic — no model call, same plan every time", () => {
-    const a = JSON.stringify(planAllTreatments(SMOKE_DETECTOR_READING));
-    const b = JSON.stringify(planAllTreatments(SMOKE_DETECTOR_READING));
+    const a = JSON.stringify(planAllTreatments(CONTESTED_PHYSICAL));
+    const b = JSON.stringify(planAllTreatments(CONTESTED_PHYSICAL));
     expect(a).toBe(b);
   });
 });

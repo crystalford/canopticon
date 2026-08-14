@@ -370,16 +370,10 @@ export function planAllTreatments(reading: SemanticReading): Treatment[] {
   return VISUAL_LANGUAGES.map((l) => planTreatment(reading, l));
 }
 
-/** The reading for the worked example, hand-authored to stand in for the
- *  frozen LLM artifact. Kept here so the vertical slice is testable before
- *  the segmentation call exists. */
-export const SMOKE_DETECTOR_READING: SemanticReading = {
-  sentence: "He claimed the smoke detector was mounted on the ceiling.",
-  subjects: [
-    { label: "smoke detector", kind: "object", weight: 0.9 },
-    { label: "ceiling", kind: "place", weight: 0.3 },
-    { label: "he", kind: "person", weight: 0.2 },
-  ],
-  visualOpportunity: "inspect",
-  contested: true,
-};
+/* A HAND-AUTHORED DEMO READING USED TO LIVE HERE, exported from production
+ * source, and its own docstring said what it was: "hand-authored to stand
+ * in for the frozen LLM artifact… so the vertical slice is testable before
+ * the segmentation call exists." That call has existed for some time. Its
+ * only consumers were tests, so it is a fixture, and it now lives with
+ * them. A fixture shipped in `src/` is an example the compiler can be
+ * mistaken for depending on. */

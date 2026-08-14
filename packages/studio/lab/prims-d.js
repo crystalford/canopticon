@@ -764,11 +764,23 @@ function layerB(w, h, t) {
     o.arc(w / 2, h / 2, Math.max(0.5, r), 0, 6.3);
     o.stroke();
   }
+  /* THE FALLBACK SAYS WHAT IT IS.
+   *
+   * This read "90 DAYS" — a phrase from one investigation — so a
+   * compositor reached with nothing on its B side painted that essay's
+   * words over an unrelated film, and it looked deliberate. A stand-in
+   * that impersonates content is indistinguishable from content.
+   *
+   * The plate is still needed: it is what a two-input primitive shows
+   * standing alone in the Lab with nothing upstream. So it names its own
+   * condition instead, which turns a silent wrong render into a legible
+   * one — the same discipline as flagging a degraded scene rather than
+   * quietly substituting for it. */
   o.fillStyle = INK;
-  o.font = "700 " + Math.round(h * 0.3) + 'px "Space Grotesk",sans-serif';
+  o.font = "600 " + Math.round(h * 0.14) + 'px "JetBrains Mono",monospace';
   o.textAlign = "center";
   o.textBaseline = "middle";
-  o.fillText("90 DAYS", w / 2, h / 2);
+  o.fillText("NO GROUND", w / 2, h / 2);
   return c;
 }
 reg(
