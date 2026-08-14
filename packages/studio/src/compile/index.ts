@@ -10,6 +10,7 @@
 // not part of the loop.
 
 import type { EditorialIR } from "../ir/schema.ts";
+import { type FilmTimeline, buildTimeline } from "../narrate/timeline.ts";
 import {
   type CacheReport,
   type CacheSnapshot,
@@ -18,6 +19,7 @@ import {
 } from "./cache.ts";
 import { type ComposedScene, composeAll } from "./compose.ts";
 import { hashSceneNodes } from "./hash.ts";
+import { type Promotion, promoteText } from "./promote.ts";
 import { type ShotVariation, planShots } from "./shot-plan.ts";
 import { type Alignment, type SolveResult, nominalAlignment, solveTiming } from "./solver.ts";
 import { type UsageReport, analyseUsage } from "./usage.ts";
@@ -47,6 +49,15 @@ export interface SceneShots {
 export interface CompileReport {
   projectId: string;
   timing: SolveResult;
+  /** THE NARRATION SPINE. Which windows are measurements and which are
+   *  estimates, where the voice rests, and how fast it actually speaks —
+   *  derived from the frozen alignments, never a new artifact. */
+  timeline: FilmTimeline;
+  /** WHICH WORDS BECOME VISUAL OBJECTS, and at what level — decided once,
+   *  film-wide, BEFORE any visual decision. Most scenes come back at level
+   *  0, which is the point: an essay has eight or ten visual anchors, not
+   *  one per sentence. */
+  promotions: Promotion[];
   /** Per-scene cut plans. Empty shots array when a scene is one take. */
   shotPlans: SceneShots[];
   composed: ComposedScene[];
@@ -77,6 +88,13 @@ export async function compile(
 ): Promise<CompileReport> {
   // Fall back to nominal alignment for any scene without a frozen one, so
   // an un-narrated film still resolves to real windows.
+  //
+  // WHICH ONES ARE REAL IS REMEMBERED. The fallback below is invisible
+  // once it has run — every scene has an Alignment afterwards and nothing
+  // downstream could tell an estimate from a measurement. That is how a
+  // film with no voice came to present fabricated windows with the same
+  // confidence as recorded ones. Captured before the map is filled.
+  const measured = new Set((options.alignments ?? new Map()).keys());
   const alignments = new Map(options.alignments ?? []);
   let cursor = 0;
   for (const scene of ir.scenes) {
@@ -92,7 +110,22 @@ export async function compile(
   // per-scene rhythm curves are a later refinement.
   const cutRhythm = ir.creativeState.identity.cutRhythm ?? 0;
   const timing = solveTiming(ir, alignments, cutRhythm);
-  const composed = composeAll(ir);
+
+  // THE SPINE, BEFORE THE PICTURE. The composition reads it — a scene's
+  // world arrives during the measured silence at its head, and moves at
+  // the rate the line was actually spoken. Which is the whole point of
+  // recording first: the film is edited to the voice rather than beside it.
+  const timeline = buildTimeline(ir, alignments, timing, measured);
+
+  /* WHAT MATTERS, BEFORE HOW TO SHOW IT.
+   *
+   * Two questions were being answered at once — which words deserve to be
+   * seen, and how to draw them — and the visual layer was left to work out
+   * both. So every sentence put words on screen and a 36-scene essay
+   * became 36 title cards. Promotion is film-level and scarce by
+   * construction; the visual languages downstream realise what it chose. */
+  const promotions = promoteText(ir, timeline);
+  const composed = composeAll(ir, timeline, promotions);
 
   // Plan what varies across each scene's cuts. Intensity rides the film's
   // motion energy, so a director dragging that curve re-cuts the film
@@ -172,6 +205,11 @@ export async function compile(
   // system honours the override and REPORTS this rather than resolving it
   // unilaterally — the difference between an instrument and an automaton.
   const warnings = [...timing.warnings];
+  // Said once, at film level, rather than only as a per-scene flag. A film
+  // built entirely on estimates is a different object from a film built on
+  // a recording, and the operator should not have to infer that from 36
+  // instances of `missing_alignment`.
+  if (timeline.spine !== "measured") warnings.push(`NARRATION — ${timeline.describes}`);
   for (const scene of composed) {
     if (scene.override?.type === "pin") {
       const curveAbstraction = scene.state.values.abstraction ?? 0;
@@ -199,6 +237,8 @@ export async function compile(
   return {
     projectId: ir.projectId,
     timing,
+    timeline,
+    promotions,
     shotPlans,
     composed,
     cache,

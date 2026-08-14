@@ -275,6 +275,14 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
     projectId: options.projectId,
     title: title || "Untitled",
     irVersion: "0.1.0",
+    // The segmenter never guesses how a film should move. CUT is the
+    // conventional default and what every film composed before the world
+    // existed already was; the Create screen writes the operator's answer.
+    continuity: "cut",
+    // HYBRID leaves every representation weight alone, so a segmented
+    // film composes exactly as it did before the axis existed.
+    visualApproach: "hybrid",
+    typeRegister: "auto",
     essay,
     acts,
     // THE FULL VOCABULARY, not a subset.

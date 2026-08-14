@@ -67,13 +67,14 @@
 // would need to emit into: a program, not a primitive id.
 
 import type { Figure, VisualLanguage } from "../ir/schema.ts";
-import { PRIMITIVES, canChain, chainCost } from "../primitives/registry.ts";
+import { PRIMITIVES, canChain, chainCost, chainOverwrites } from "../primitives/registry.ts";
 import { chartFor, serialiseFigures } from "./figures.ts";
+import type { FilmMode } from "./film-mode.ts";
 import type { Material } from "./grammar-visual.ts";
 import { EMPTY_READING, type IntentReading, bendStyle } from "./intent.ts";
 import { type Relation, relationBias } from "./relation.ts";
 import { type Mode, type Representation, realisationFit, representationsFor } from "./represent.ts";
-import { composeFromMeaning, serialiseScene } from "./scene-graph.ts";
+import { type SceneGraph, composeFromMeaning, serialiseScene } from "./scene-graph.ts";
 import type { SceneKind } from "./scene-kind.ts";
 import { readScene } from "./semantic-scene.ts";
 import type { DetectedSubject } from "./subject.ts";
@@ -87,6 +88,16 @@ export interface PlannedNode {
    *  grammar's layers so that a world, a subject and a set of words
    *  compose instead of overwriting each other. */
   ground?: PlannedNode[];
+  /** THE BRIDGE. `{param: [from, to]}`, applied to this node's live params
+   *  by the chain executor over `tweenMs` without rebuilding the chain.
+   *  Written only by `serialiseScene`, only on `place`, and only in a film
+   *  whose mode bridges. */
+  tween?: Record<string, [number, number]>;
+  tweenMs?: number;
+  /** WHEN the tween starts, scene-local. Without it a bridge can only run
+   *  from the top of the scene — right for a world arriving, useless for a
+   *  phrase whose measured word is four seconds in. */
+  tweenAtMs?: number;
 }
 
 /** What the sentence IS, as far as anything checkable can say. Assembled
@@ -115,6 +126,42 @@ export interface Beat {
    *  residents watched the city" name exactly the same two things and are
    *  different shots. `subjects` arrives already ordered by it. */
   relation?: Relation | null | undefined;
+  /** WHAT KIND OF PICTURE THIS FILM MAKES.
+   *
+   *  Read by `fit` — it is the one thing that legitimately moves which
+   *  construction wins for an ordinary sentence, because it is the
+   *  director saying what the film is made of. A WEIGHTING: a printed
+   *  figure still reaches the chart family and a drawn route is still a
+   *  route in every approach, since both are checkable facts about the
+   *  prose and outrank a preference. `hybrid` leaves everything alone. */
+  approach?: "text" | "abstract" | "world" | "image" | "hybrid" | undefined;
+  /** True when this scene has a promoted phrase to put on screen. Read
+   *  only by `assemble`, to keep a typeset frame out of the resamplers. */
+  setsType?: boolean | undefined;
+  /** THE FILM'S WORLD, ALREADY ADVANCED.
+   *
+   *  Present when the film has continuity. The graph's elements arrive with
+   *  their INHERITED places — a thing established three scenes ago is where
+   *  the film left it, not where a fresh composition would put it — so the
+   *  scene construction serialises this rather than recomposing.
+   *
+   *  Computed once per scene, in `composeScene`, above the constructor.
+   *  Doing it in here would advance the film once for every candidate
+   *  program that lost. */
+  world?:
+    | {
+        graph: SceneGraph;
+        material: Material;
+        /** How the world gets here from the last scene. Empty in a film
+         *  that cuts, where arriving instantly is the point. */
+        bridge?: { tweens: Map<string, Record<string, [number, number]>>; ms: number };
+        /** How this film moves. Carried for the report; the CONSTRUCTION
+         *  reads `beat.approach` instead, because what the picture is made
+         *  of and whether the film cuts are two questions. */
+        mode?: FilmMode;
+      }
+    | null
+    | undefined;
 }
 
 /** The director's controls, resolved at this point in the film. These
@@ -454,6 +501,30 @@ export const CONSTRUCTIONS: Construction[] = [
        * oversight. A sentence about accumulation has an ACCUMULATES
        * relation and a choreography built for it; a text card is the
        * poorest available answer to it. */
+      /* A WORLD FILM DRAWS ONE WORLD — and that is a decision about the
+       * PICTURE, not about the editing.
+       *
+       * The first version of this read `beat.world.mode` and gave ONE_SHOT
+       * the sentence outright, which quietly made "never cut" mean "build
+       * a world". Two different questions wearing one control: a
+       * text-driven film that never cuts and a world film that cuts hard
+       * were both unreachable. The approach decides what the picture is
+       * made of; continuity decides whether the film cuts; the film state
+       * advances either way, because identity persistence is pipeline
+       * rather than language.
+       *
+       * The measurement that motivated the forcing is still true and still
+       * applies — under `world`. With the state threaded but this
+       * construction left on its ordinary weight, a six-scene world film
+       * drew `scene · body · body · fixture · scene · scene`: identities
+       * persisting perfectly while the picture restarted four times.
+       * Persistence nothing can see is not continuity. */
+      if (beat.approach === "world") return 1.02;
+      if (beat.approach === "abstract") return rel ? 0.95 : 0.9;
+      // TEXT wants the typographic constructions; the scene graph still
+      // competes, because a text film is a COMPOSITION containing words
+      // rather than a card with words on it — it is simply not favoured.
+      if (beat.approach === "text") return rel ? 0.7 : 0.5;
       if (!beat.subjects.length && !rel) return 0.55;
       // A relation is two things and what stands between them, which is a
       // COMPOSITION. A lone named subject is a single form in a frame,
@@ -461,6 +532,24 @@ export const CONSTRUCTIONS: Construction[] = [
       return rel ? 0.86 : 0.72;
     },
     build(beat, style, rep) {
+      /* THE WORLD, WHEN THE FILM HAS ONE.
+       *
+       * Already composed and already advanced through the film's state, so
+       * what arrives here is what PERSISTS plus this scene's own scenery,
+       * in the places the film left them. Recomposing from the sentence at
+       * this point would throw that away and put every element back where a
+       * first-time composition would have placed it — which is exactly the
+       * behaviour a persistent world is supposed to replace. */
+      if (beat.world) {
+        return {
+          nodes: serialiseScene(
+            beat.world.graph,
+            beat.world.material,
+            beat.world.bridge ?? undefined,
+          ),
+          why: beat.world.graph.describes,
+        };
+      }
       const count = statedCount(beat);
       const sem = readScene(beat.sentence, beat.subjects, beat.relation ?? null, count);
       const m: Material = {
@@ -1086,7 +1175,17 @@ const OPERATORS: Operator[] = [
   {
     id: "trace",
     chain: ["ascii_render", "particle_trail"],
-    appetite: (s) => s.typography * 0.6 + s.experimentalism * 0.2,
+    /* NOT KEYED ON TYPOGRAPHY. This was `s.typography * 0.6`, and
+     * `ascii_render` re-reads the whole frame as character cells — so the
+     * more the argument turned on a line, the more likely the engine was
+     * to transcribe that line into a grid of dots. Measured: a level-4
+     * statement rendered through `ascii_render{scale: 0.685}` and could
+     * not be read at any size.
+     *
+     * Transcribing an IMAGE into characters is a real and good idea; it is
+     * a treatment for a picture. Applied to words it destroys the thing it
+     * was reaching for, which is the definition of the wrong appetite. */
+    appetite: (s) => s.experimentalism * 0.5 + (1 - s.typography) * 0.3,
     params: (s, id) =>
       id === "ascii_render"
         ? {
@@ -1129,6 +1228,34 @@ const OPERATORS: Operator[] = [
  *  than drawing anything, which is why the executor folds it into the
  *  clock instead of running it as a stage. */
 const MOTION_TAIL = ["parallax_layers", "ease_profile"];
+
+/** Primitives that RESAMPLE the finished frame — they slice it, offset it,
+ *  quantise it or re-read it as characters. Every one is a good treatment
+ *  for a picture and every one destroys type.
+ *
+ *  Measured at 1280×720: `parallax_layers` shifted the slice carrying the
+ *  first word off the left edge, so "position, not a person" rendered as
+ *  "osition, not a person" in all three sampled frames. It was not a
+ *  centring bug — the type was drawn correctly and then moved. */
+/** Type drawn as real glyphs — the stack whose frame must not be
+ *  resampled. `glyph_geometry` is deliberately absent: a word made of
+ *  points is ALREADY a resampling, and treating it further is the point of
+ *  the kinetic register. */
+const isSetType = (id: string) => id === "text_layout" || id === "variable_axis";
+
+/** Every primitive in a program, grounds included. */
+function flatIds(ns: PlannedNode[]): string[] {
+  return ns.flatMap((n) => [n.primitiveId, ...(n.ground ? flatIds(n.ground) : [])]);
+}
+
+const RESAMPLES_THE_FRAME = new Set([
+  "parallax_layers",
+  "pixel_quantise",
+  "pixelate",
+  "dither",
+  "ascii_render",
+  "blur",
+]);
 
 /* ════════════════════════════════════════════════════════════════════
    CANDIDATES — several programs, not one.
@@ -1296,8 +1423,26 @@ export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Pro
 
   for (const { c, fit, dislocated, rep } of considered) {
     const built = c.build(beat, style, rep);
+    /* DOES THIS PROGRAM PUT SET WORDS ON SCREEN? Asked of what was
+     * actually built rather than of the beat, because the answer depends
+     * on which construction won and which register it used — and the
+     * treatment that must not run is a fact about the picture, not about
+     * the sentence. */
+    /* FLATTENED, because the type is almost never at the top level.
+     *
+     * `serialiseScene` puts every element after the first on a
+     * compositor's SECOND INPUT, so a scene of a ground plus a phrase has
+     * `text_layout` inside `layer_over.ground` — and a `.some()` over
+     * `built.nodes` finds nothing. Measured: the guard was written,
+     * typechecked, and did not fire once; the frame still came back
+     * resampled by `parallax_layers`, with the first word sliced off.
+     *
+     * Standing rule 11 — a compositional structure is not implemented
+     * until every system that operates on a visual program treats it
+     * recursively. This is the fourth consumer to need that reminder. */
+    const setsType = Boolean(beat.setsType) && flatIds(built.nodes).some(isSetType);
     for (const stack of stacks) {
-      const program = assemble(c.id, built, stack, style, budgetMs);
+      const program = assemble(c.id, built, stack, style, budgetMs, setsType);
       if (!program) continue;
       program.dislocated = dislocated;
       // The visual IDEA this program is a realisation of, carried onto
@@ -1432,6 +1577,7 @@ function assemble(
   stack: Operator[],
   style: Style,
   budgetMs: number,
+  setsType = false,
 ): Program | null {
   const nodes = [...built.nodes];
   const applied: string[] = [];
@@ -1457,6 +1603,36 @@ function assemble(
     }
     if (!ok) continue;
     if (chainCost(candidate.map((n) => n.primitiveId)) > budgetMs) continue;
+    // A scene whose subject is WORDS does not get its frame resampled.
+    // `language.ts` already keeps this discipline — its `surface()` may
+    // return nothing, documented as the one degree of freedom that stops a
+    // language being turned into raster mush by an operator tail — and the
+    // construction path was bypassing it entirely.
+    if (setsType && op.chain.some((id) => RESAMPLES_THE_FRAME.has(id))) continue;
+    /* AN OPERATOR MAY NOT PAINT OVER WHAT IT WAS APPLIED TO.
+     *
+     * `chainOverwrites` has always been able to detect this and has only
+     * ever REPORTED it — a stack of sources is sometimes what a director
+     * wants. But an operator TAIL is not a director's choice; it is
+     * appended by the engine, and appending a source to a constructed
+     * scene silently deletes the scene and bills for it.
+     *
+     * Measured, and it is the whole of "I see some of the same exact
+     * patterns": the frame carrying "The fallacy isn't a lapse." rendered
+     * a cityscape with no words in it, because `plate_scene` — a source —
+     * was appended after the composition and overwrote it. Two other
+     * frames were full-bleed reaction-diffusion for the same reason. And
+     * the ONE frame that looked right, the title, was right by accident:
+     * `variable_axis` had overwritten the scene and drawn the title
+     * itself.
+     *
+     * A source is still reachable as a CONSTRUCTION, which is where a
+     * director asking for that look should get it. It is no longer
+     * reachable as a tail. */
+    const overwritten = chainOverwrites(candidate.map((n) => n.primitiveId)).some(
+      (o) => o.at < built.nodes.length,
+    );
+    if (overwritten) continue;
     nodes.length = 0;
     nodes.push(...candidate);
     applied.push(op.id);
@@ -1464,6 +1640,7 @@ function assemble(
 
   // The motion tail, if it still fits and can legally attach.
   for (const primitiveId of MOTION_TAIL) {
+    if (setsType && RESAMPLES_THE_FRAME.has(primitiveId)) continue;
     const last = nodes[nodes.length - 1]?.primitiveId;
     if (!last || !canChain(last, primitiveId)) break;
     const withTail = [...nodes.map((n) => n.primitiveId), primitiveId];

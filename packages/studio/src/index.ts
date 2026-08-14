@@ -14,6 +14,7 @@ import { Hono } from "hono";
 import { CONSTRUCTION_IDS, OPERATOR_IDS } from "./compile/construct.ts";
 import { VERBS } from "./compile/verbs.ts";
 import type { Env } from "./env.ts";
+import { VOICES } from "./narrate/tts.ts";
 import { FAMILIES, PRIMITIVES, PRIMITIVE_IDS } from "./primitives/registry.ts";
 import projects from "./routes/projects.ts";
 
@@ -51,6 +52,79 @@ app.get("/vocabulary", (c) =>
     operators: OPERATOR_IDS,
     verbs: VERBS,
     primitives: PRIMITIVE_IDS.length,
+  }),
+);
+
+/** THE VOICES, AND THE APPROACHES. Both lists live on the compiler so the
+ *  front door can only offer what exists — the third occurrence of "a
+ *  control that reports rather than acts" was a picker the browser
+ *  invented, and the fix is that the browser stops inventing. */
+app.get("/v1/vocabulary/choices", (c) =>
+  c.json({
+    voices: VOICES,
+    approaches: [
+      {
+        id: "text",
+        label: "Text driven",
+        note: "The writing itself is the material — typography, kinetic text, particles, hard cuts.",
+      },
+      {
+        id: "abstract",
+        label: "Abstract",
+        note: "No attempt to depict the nouns. Geometry, fields, light, motion, spatial relation.",
+      },
+      {
+        id: "world",
+        label: "World",
+        note: "Persistent objects and spaces that evolve as the narration goes on.",
+      },
+      {
+        id: "hybrid",
+        label: "Let CANOPTICON decide",
+        note: "The system chooses the visual language from the writing, sentence by sentence.",
+      },
+    ],
+    editing: [
+      {
+        id: "oneshot",
+        label: "Continuous",
+        note: "Never cuts. Every change is travelled through.",
+      },
+      { id: "cut", label: "Scene based", note: "Each moment is its own shot." },
+      {
+        id: "hybrid",
+        label: "Mixed",
+        note: "Continuous passages, punctuated where a cut is earned.",
+      },
+      { id: "montage", label: "Collide", note: "Cuts are the argument. Held apart, never eased." },
+    ],
+    registers: [
+      {
+        id: "auto",
+        label: "Let it decide",
+        note: "Set for a phrase, taken apart for the statement the argument turns on.",
+      },
+      {
+        id: "editorial",
+        label: "Editorial",
+        note: "Set large and composed. Legibility is the point; the writing does the work.",
+      },
+      {
+        id: "fiore",
+        label: "Fiore",
+        note: "Violent scale, cropped by the frame, halftone. Each frame is one assertion.",
+      },
+      {
+        id: "kinetic",
+        label: "Kinetic",
+        note: "Letterforms as points — the words assemble and come apart.",
+      },
+    ],
+    intensity: [
+      { id: "restrained", label: "Restrained" },
+      { id: "expressive", label: "Expressive" },
+      { id: "chaotic", label: "Chaotic" },
+    ],
   }),
 );
 

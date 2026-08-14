@@ -47,9 +47,9 @@ Nobody reasons perfectly under live pressure indefinitely. The base rate gets ro
 
 The position does not produce more distortion. It produces the only distortion anyone can catch.`;
 
-function compile() {
+function compile(approach: "hybrid" | "world" = "hybrid") {
   const seg = segmentEssay(ESSAY, { projectId: "t", title: "The Logic Costume" });
-  const parsed = parseIR(seg.ir);
+  const parsed = parseIR(JSON.parse(JSON.stringify({ ...seg.ir, visualApproach: approach })));
   if (!parsed.ok) throw new Error(`fixture IR invalid: ${JSON.stringify(parsed.errors)}`);
   return composeAll(parsed.ir);
 }
@@ -98,7 +98,14 @@ describe("the composed scene survives the compiler", () => {
    * each placing a different thing somewhere different. Keyed by name they
    * became one. Two nodes sharing an id must be allowed to differ. */
   it("two elements using the same primitive keep their own parameters", () => {
-    const scenes = compile();
+    /* COMPILED AS A WORLD, and the reason is the finding rather than a
+     * convenience. A SET word draws its own finished frame, so it
+     * correctly emits no `place` at all — which means a text film stopped
+     * being able to demonstrate two placements, and the guard against the
+     * parameter collapse lost its subject. A world film places every
+     * element it composes, which is exactly where the collapse happened
+     * and exactly where it must stay impossible. */
+    const scenes = compile("world");
     let checked = 0;
     for (const scene of scenes) {
       const places = everyNode(scene.nodes).filter((n) => n.primitiveId === "place");

@@ -30,6 +30,7 @@
 // is a compositional decision rather than an absence of one.
 
 import type { PlannedNode } from "./construct.ts";
+import { elementKey } from "./film-mode.ts";
 import { type Material, type Op, applyEmphasis, realiseOps } from "./grammar-visual.ts";
 import type { Mode } from "./represent.ts";
 import { type SemanticScene, arrange } from "./semantic-scene.ts";
@@ -181,7 +182,51 @@ export function focusOf(els: Element[]): Element | undefined {
  *  Deliberately reuses the same eight verbs — a field of many is REPEAT,
  *  a ground is FRAME at low weight, typography is WORD. Nothing here is a
  *  new vocabulary; it is the existing one used more than once per frame. */
-function opsFor(role: Role, mode: Mode): Op[] {
+/** Whether this element's words are SET by a glyph primitive that draws
+ *  its own finished frame, rather than SAMPLED into geometry the scene
+ *  composes. The single source of truth for the branch `WORD` takes. */
+export function setsOwnType(mode: Mode, level?: number, register?: string): boolean {
+  if (mode !== "typographic") return false;
+  if (register === "kinetic") return false;
+  if (register === "auto" && (level ?? 2) >= 4) return false;
+  return true;
+}
+
+function opsFor(role: Role, mode: Mode, words = true, level?: number, register?: string): Op[] {
+  /* NO WORDS MEANS NO WORD OP — and this is what a text-driven film
+   * actually is.
+   *
+   * Promotion decides film-wide that most of an essay is spoken and not
+   * shown, so most scenes of a TEXT film arrive with an empty phrase. The
+   * typographic recipe is `WORD → PLACE → FRAME`, and `text_layout` with
+   * an empty string draws nothing: a text-driven film would have been
+   * mostly blank frames, which is a worse failure than the 36 title cards
+   * it replaced.
+   *
+   * "Text driven" does not mean "type in every frame". It means the
+   * writing is the primary material WHEN there is something to show, and
+   * the film's own marks and fields carry the space between. So a scene
+   * with nothing promoted composes as GEOMETRIC — the same forms, without
+   * a caption nobody wrote. */
+  if (!words && (role === "PRIMARY" || role === "TEXT") && mode === "typographic") {
+    return role === "TEXT" ? [] : ["MARK", "CONTOUR", "PLACE", "FRAME"];
+  }
+  /* A SET WORD DRAWS ITS OWN FRAME.
+   *
+   * `WORD → PLACE → FRAME` is right for the sampled stack, where the type
+   * is a point cloud that has to be composed like any other form. It is
+   * wrong for `text_layout` and `variable_axis`, which measure the string
+   * and fill the frame themselves: `place` would re-sample the finished
+   * canvas and then size it by `min(w,h) / max(fw,fh)`, shrinking a wide
+   * line by its own aspect ratio. Measured — that is why every set phrase
+   * came out a fifth the size of the title.
+   *
+   * `setsOwnType` is decided in one place, by the same rule the WORD op
+   * branches on, so the recipe and the primitive can never disagree about
+   * which stack is running. */
+  if (words && setsOwnType(mode, level, register)) {
+    if (role === "PRIMARY" || role === "TEXT") return ["WORD"];
+  }
   /* THE SURFACE THAT CONCEALS. An aperture is a RELATION BETWEEN TWO
    * SPACES, so it cannot live inside one element's chain — it needs
    * something behind it to reveal. Put in the element's op list it
@@ -212,6 +257,69 @@ function opsFor(role: Role, mode: Mode): Op[] {
   )[mode];
 }
 
+/** HOW MUCH OF THE FRAME THE WORDS COMMAND.
+ *
+ *  Standing rule 9. `glyph_geometry` has a `scale` of its own and setting
+ *  it there did almost nothing, because `place` is what actually decides
+ *  how much frame a form takes and it ran afterwards — a level-4 thesis
+ *  and a level-2 phrase came out at 0.97 and 0.94, a difference nobody
+ *  would ever see. The level is a semantic quantity and this is the one
+ *  place it becomes a size.
+ *
+ *    4  larger than the frame, cropped by it — it TAKES OVER the screen,
+ *       which is what level 4 means and the only thing that makes level 3
+ *       mean anything by contrast
+ *    3  commands the frame without leaving it
+ *    2  present and readable, with room around it
+ *    1  a marker in the corner
+ */
+export function placeForLevel(level: number, seed: number): Element["place"] {
+  if (level >= 4) return { scale: 1.35, x: 0.5, y: 0.48, crop: 1 };
+  if (level === 3) return { scale: 0.86, x: 0.5, y: 0.5, crop: 0 };
+  if (level === 2) return { scale: 0.62, x: 0.5, y: 0.54, crop: 0 };
+  // The one level that is deliberately off-centre and small: a marker is
+  // a note on the frame, not the subject of it.
+  return { scale: 0.2, x: seed % 2 === 0 ? 0.22 : 0.78, y: 0.86, crop: 0 };
+}
+
+/* WHEN THE WORDS ARE THE SUBJECT, THE GROUND HOLDS BACK.
+ *
+ * A GROUND is placed at `1.6–1.7 + density * 0.8`, cropped by the frame —
+ * bigger than the shot, which is exactly right when it is the world a
+ * relation happens in. Behind a sentence it is wallpaper: measured on the
+ * text film, every level-0 scene was a full-bleed curve at 2.1× the frame
+ * and every promoted scene had one behind the type.
+ *
+ * A text-driven film composes its depth out of restraint. The ground
+ * stays — a frame with nothing behind it is flat — but it comes inside
+ * the frame, stops being cropped, and gives up its claim on the eye. */
+const groundPlace = (base: number, m: Material, mode: Mode): Element["place"] =>
+  // Keyed on the MODE, not on the register — the register is set on every
+  // film and a world film's ground is meant to be bigger than the shot.
+  mode === "typographic" && m.phrase?.trim()
+    ? { scale: 0.9 + m.density * 0.35, x: 0.5, y: 0.5, crop: 0 }
+    : { scale: base + m.density * 0.8, x: 0.5, y: 0.5, crop: 1 };
+
+/** Give every WORD-bearing element the size its level earned. Applied to
+ *  the composed list rather than at each push site, so there is one rule
+ *  and it cannot be forgotten by a new branch. */
+function sizeWords(els: Element[], m: Material): Element[] {
+  if (m.level === undefined || !m.phrase?.trim()) return els;
+  return els.map((e) =>
+    e.ops.includes("WORD")
+      ? {
+          ...e,
+          place: placeForLevel(m.level as number, m.seed),
+          /* AND THE WORDS ARE THE SUBJECT. In a promoted scene the type is
+           * what the frame is about, so it takes the focus outright rather
+           * than competing for it on depth — which is what left it drawn
+           * at a subordinate's weight and unreadable. */
+          emphasis: 1,
+        }
+      : e,
+  );
+}
+
 /** COMPOSE THE SCENE.
  *
  *  The decisions here are compositional, and each one is answerable from
@@ -239,6 +347,7 @@ function opsFor(role: Role, mode: Mode): Op[] {
  * elements into it. One authoritative translation point, standing rule 9,
  * applied to relations. */
 export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene): SceneGraph {
+  const hasWords = Boolean(m.phrase?.trim());
   const rel = sem.relations[0];
   if (!rel || sem.entities.length < 2) {
     // No relation the prose actually drew — fall back to the single
@@ -253,9 +362,9 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   if (a.nested || m.density > 0.45) {
     els.push({
       role: "GROUND",
-      ops: opsFor("GROUND", mode),
+      ops: opsFor("GROUND", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.GROUND ?? 0,
-      place: { scale: 1.7 + m.density * 0.8, x: 0.5, y: 0.5, crop: 1 },
+      place: groundPlace(1.7, m, mode),
       depth: 0,
       reason: "the world the relation happens in",
     });
@@ -267,7 +376,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   const from = sem.entities[rel.from]?.text;
   els.push({
     role: a.field ? "FIELD" : "SECONDARY",
-    ops: opsFor(a.field ? "FIELD" : "SECONDARY", mode),
+    ops: opsFor(a.field ? "FIELD" : "SECONDARY", mode, hasWords, m.level, m.register),
     material: MATERIAL[mode]?.[a.field ? "FIELD" : "SECONDARY"] ?? 0,
     place: { scale: a.to.scale, x: a.to.x, y: a.to.y, crop: a.to.scale > 1 ? 1 : 0 },
     depth: 0.35,
@@ -278,7 +387,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   // THE FROM-ENTITY, which the arrangement usually makes dominant.
   els.push({
     role: "PRIMARY",
-    ops: opsFor("PRIMARY", mode),
+    ops: opsFor("PRIMARY", mode, hasWords, m.level, m.register),
     material: MATERIAL[mode]?.PRIMARY ?? 0,
     place: { scale: a.from.scale, x: a.from.x, y: a.from.y, crop: a.from.scale > 1 ? 1 : 0 },
     depth: a.nested ? 0.2 : 0.65,
@@ -305,7 +414,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   if (mode === "structural") {
     els.push({
       role: "SURFACE",
-      ops: opsFor("SURFACE", mode),
+      ops: opsFor("SURFACE", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.SURFACE ?? 0,
       place: { scale: 1, x: 0.5, y: 0.5, crop: 0 },
       depth: 0.99,
@@ -316,7 +425,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
   if (mode !== "typographic" && m.phrase && m.typography > 0.4) {
     els.push({
       role: "TEXT",
-      ops: opsFor("TEXT", mode),
+      ops: opsFor("TEXT", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.TEXT ?? 0,
       place: { scale: 0.1 + m.typography * 0.1, x: 0.2, y: 0.88, crop: 0 },
       depth: 0.95,
@@ -324,8 +433,9 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
     });
   }
 
-  els.sort((x, y) => x.depth - y.depth);
-  const ranked = emphasise(els);
+  const sized = sizeWords(els, m);
+  sized.sort((x, y) => x.depth - y.depth);
+  const ranked = emphasise(sized);
   const focus = focusOf(ranked);
   return {
     elements: ranked,
@@ -336,6 +446,7 @@ export function composeFromMeaning(mode: Mode, m: Material, sem: SemanticScene):
 }
 
 export function composeScene(mode: Mode, m: Material): SceneGraph {
+  const hasWords = Boolean(m.phrase?.trim());
   const els: Element[] = [];
   const many = m.count !== null && m.count > 12;
   const off = ((m.seed * 37) % 100) / 100;
@@ -347,9 +458,9 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   if (!airy || mode === "structural") {
     els.push({
       role: "GROUND",
-      ops: opsFor("GROUND", mode),
+      ops: opsFor("GROUND", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.GROUND ?? 0,
-      place: { scale: 1.6 + m.density * 0.9, x: 0.5, y: 0.5, crop: 1 },
+      place: groundPlace(1.6, m, mode),
       depth: 0,
       reason: "a field behind everything, cropped by the frame so it reads as bigger than the shot",
     });
@@ -359,7 +470,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   if (many) {
     els.push({
       role: "FIELD",
-      ops: opsFor("FIELD", mode),
+      ops: opsFor("FIELD", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.FIELD ?? 0,
       place: { scale: 1.15, x: 0.5, y: 0.5, crop: 1 },
       depth: 0.25,
@@ -376,7 +487,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
       : 0.75 + (1 - m.density) * 0.5;
   els.push({
     role: "PRIMARY",
-    ops: opsFor("PRIMARY", mode),
+    ops: opsFor("PRIMARY", mode, hasWords, m.level, m.register),
     material: MATERIAL[mode]?.PRIMARY ?? 0,
     place: {
       scale: clamp(pScale, 0.05, 4),
@@ -399,7 +510,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   if (m.relation) {
     els.push({
       role: "SECONDARY",
-      ops: opsFor("SECONDARY", mode),
+      ops: opsFor("SECONDARY", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.SECONDARY ?? 0,
       place: {
         scale: clamp(pScale * 0.42, 0.05, 4),
@@ -415,7 +526,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   if (mode === "structural") {
     els.push({
       role: "SURFACE",
-      ops: opsFor("SURFACE", mode),
+      ops: opsFor("SURFACE", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.SURFACE ?? 0,
       place: { scale: 1, x: 0.5, y: 0.5, crop: 0 },
       depth: 0.99,
@@ -429,7 +540,7 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
   if (mode !== "typographic" && m.phrase && m.typography > 0.4) {
     els.push({
       role: "TEXT",
-      ops: opsFor("TEXT", mode),
+      ops: opsFor("TEXT", mode, hasWords, m.level, m.register),
       material: MATERIAL[mode]?.TEXT ?? 0,
       /* AN ACCENT, NOT A HEADLINE.
        *
@@ -449,8 +560,9 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
     });
   }
 
-  els.sort((a, b) => a.depth - b.depth);
-  const ranked = emphasise(els);
+  const sized = sizeWords(els, m);
+  sized.sort((a, b) => a.depth - b.depth);
+  const ranked = emphasise(sized);
   const parts = ranked.map((e) => e.role.toLowerCase()).join(" · ");
   return {
     elements: ranked,
@@ -471,16 +583,72 @@ export function composeScene(mode: Mode, m: Material): SceneGraph {
  *  The other two belong to `geometry_draw` and are applied there. */
 const pick = (a: { opacity: number; sink: number }) => ({ opacity: a.opacity, sink: a.sink });
 
-export function serialiseScene(scene: SceneGraph, m: Material): PlannedNode[] {
+export function serialiseScene(
+  scene: SceneGraph,
+  m: Material,
+  /* THE BRIDGE, ATTACHED WHERE IT CAN ACT.
+   *
+   * Keyed by element, because that is what the bridge is computed over —
+   * "this element was there and is now here". It has to be applied to the
+   * ONE node in that element's chain which reads a place, and this is the
+   * only function that knows which nodes belong to which element. Passing
+   * it down instead of stamping it afterwards is what stops the caller
+   * having to reverse-engineer the correspondence. */
+  bridge?: { tweens: Map<string, Record<string, [number, number]>>; ms: number },
+): PlannedNode[] {
   const [first, ...rest] = scene.elements;
   if (!first) return [];
-  const chainFor = (e: Element): PlannedNode[] =>
-    realiseOps(e.ops, {
+  const chainFor = (e: Element): PlannedNode[] => {
+    const nodes = realiseOps(e.ops, {
       ...m,
       place: e.place,
       material: e.material ?? 0,
       emphasis: e.emphasis ?? 1,
     } as Material);
+    /* THE WORDS ARRIVE WHEN THEY ARE SPOKEN.
+     *
+     * A tween on this element's `place`, cued to the measured moment the
+     * phrase begins. It grows into presence from a fraction of its final
+     * size, which is why the cue matters: a level-4 statement snapping to
+     * full scale four seconds into a scene reads as an EVENT, and the
+     * same statement present from the first frame reads as a caption.
+     *
+     * Only on an element that carries words, and only when the recording
+     * measured them. A film with no narration has no cue, so the type is
+     * simply there — which is honest, and is what it did before. */
+    if (
+      m.enterAtMs != null &&
+      m.enterAtMs > 0 &&
+      e.ops.includes("WORD") &&
+      m.phrase?.trim() &&
+      !bridge
+    ) {
+      const at = m.enterAtMs;
+      const over = Math.max(180, Math.min(m.holdMs ?? 420, 900));
+      return nodes.map((node) =>
+        node.primitiveId === "place"
+          ? {
+              ...node,
+              tween: {
+                scale: [Number(node.params.scale ?? 1) * 0.55, Number(node.params.scale ?? 1)] as [
+                  number,
+                  number,
+                ],
+              },
+              tweenMs: over,
+              tweenAtMs: at,
+            }
+          : node,
+      );
+    }
+    const tween = bridge?.tweens.get(elementKey(e));
+    if (!tween || !bridge || bridge.ms <= 0) return nodes;
+    // Only `place` reads x/y/scale, and only `place` has been verified to
+    // read its params inside `frame()` rather than capturing them at make
+    // time. A primitive that captures would ignore this silently, which is
+    // why the set is one and widening it means checking first.
+    return nodes.map((n) => (n.primitiveId === "place" ? { ...n, tween, tweenMs: bridge.ms } : n));
+  };
 
   // The first element is the chain's own image. When it is the GROUND it
   // is meant to sit quietly behind everything, so it starts sunk rather

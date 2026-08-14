@@ -24,6 +24,8 @@
 // chain position, so the same IR always composes to the same chains.
 
 import type { EditorialIR, Motif, Override, Rule, Scene, SemanticReading } from "../ir/schema.ts";
+import type { FilmTimeline } from "../narrate/timeline.ts";
+import { bridgeMsFor } from "../narrate/timeline.ts";
 import {
   type Determinism,
   PRIMITIVES,
@@ -45,11 +47,16 @@ import {
   scenePosition,
 } from "./creative-state.ts";
 import { looksContested } from "./extract-reading.ts";
+import type { FilmMode } from "./film-mode.ts";
+import type { FilmState } from "./film-state.ts";
 import { buildGraph, describeGraph, flattenGraph, flattenGround, graphDepth } from "./graph.ts";
 import { planGround } from "./ground.ts";
 import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
+import type { Promotion } from "./promote.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
+import { representationsFor } from "./represent.ts";
+import type { SceneGraph } from "./scene-graph.ts";
 import { chainForKind, readSceneKind } from "./scene-kind.ts";
 import {
   type Plane,
@@ -68,6 +75,7 @@ import {
 } from "./subject.ts";
 import { textParamsFor } from "./text-params.ts";
 import { type Treatment, planTreatment, validateChain } from "./treatment.ts";
+import { EMPTY_FILM, type SceneWorld, modeOf, stepWorld } from "./world.ts";
 
 /** The abstraction ladder — how far the image sits from literal depiction.
  *  Each rung names the base chain the film reaches for at that distance.
@@ -117,6 +125,15 @@ export interface ComposedNode {
    *  rather than being painted over by it — the one relation a linear
    *  chain could not express. */
   ground?: ComposedNode[];
+  /** THE BRIDGE, per parameter: `{x: [from, to]}`. Applied to this node's
+   *  live params by the chain executor over `tweenMs`, without rebuilding
+   *  the chain — which is what separates a one shot from a film with the
+   *  cuts removed. Absent on every node in a CUT film. */
+  tween?: Record<string, [number, number]>;
+  tweenMs?: number;
+  /** WHEN the tween starts, scene-local — what lets a word land on the
+   *  moment it is spoken rather than at the top of the scene. */
+  tweenAtMs?: number;
 }
 
 /** A program the engine considered and did not use. Carried so the
@@ -204,14 +221,26 @@ export interface ComposedScene {
   } | null;
   /** The other programs this sentence could have been, best first. */
   alternatives: ProgramSummary[];
+  /** WHAT THE FILM DID WITH ITS WORLD HERE. Which identities continued,
+   *  entered, were recalled or accumulated, and how long the change took.
+   *  Null when the film has no world — which is every film compiled before
+   *  `world.ts` had a caller. */
+  world: {
+    mode: FilmMode;
+    decisions: Array<{ identity: string; what: string; why: string }>;
+    describes: string;
+    /** Identities the film is holding after this scene. */
+    alive: string[];
+    bridgeMs: number;
+    /** True when this scene refused continuity and started again. */
+    cut: boolean;
+  } | null;
 }
 
-/** Density and typography earn extra compositing depth; restraint takes it
- *  away. Kept as named constants so the Lab can tune them against measured
- *  cost rather than taste alone. */
-const DENSITY_BLEND_AT = 0.55;
-const DENSITY_NEST_AT = 0.75;
-const TYPO_VARIABLE_AXIS_AT = 0.55;
+/* THE DENSITY THRESHOLDS ARE GONE WITH WHAT THEY DROVE. They appended a
+ * two-input compositor with nothing on its second input, which is not
+ * depth — it is a stock plate painted over the scene. Depth comes from
+ * the scene graph, which composes real elements onto real grounds. */
 /** Real-time playback: 60fps leaves 16ms a frame. The Preview plays at this
  *  rate, so a chain above it will drop frames while a director is watching. */
 const REALTIME_FRAME_MS = 16;
@@ -226,6 +255,27 @@ const REALTIME_FRAME_MS = 16;
  *  the number it enforced were different, and the Compile view reported
  *  against the one it wasn't using. */
 const MAX_CHAIN_MS = REALTIME_FRAME_MS * 4;
+
+/** What the film carries into a scene, and what the scene hands back. Held
+ *  as one object rather than three more positional arguments because it is
+ *  ONE thing — the film's state — and splitting it would let a caller
+ *  advance the identities without advancing the picture they are in. */
+export interface WorldContext {
+  state: FilmState;
+  mode: FilmMode;
+  /** The graph the last scene left on screen, for bridging. */
+  previous: SceneGraph | null;
+  /** How long this scene's world may take to arrive, from the measured
+   *  silence at its head. Zero means it cuts. */
+  bridgeMs: number;
+  /** Where this scene starts on the film's clock, so a measured word time
+   *  can be turned into a scene-local cue. */
+  sceneStartMs?: number;
+  /** And how long it lasts, so a cue cannot be scheduled past its end. */
+  sceneDurationMs?: number;
+  /** Written by `composeScene` — the advanced state, for the next scene. */
+  out?: SceneWorld;
+}
 
 export function composeScene(
   ir: EditorialIR,
@@ -244,6 +294,15 @@ export function composeScene(
   /** The last PLACE this film named. A setting outlives the sentence that
    *  established it — see `planScene`. */
   carriedPlace: DetectedSubject | null = null,
+  /** THE FILM'S WORLD, arriving from the scene before. Absent means the
+   *  film has no world and every scene composes from nothing, which is
+   *  what every film did before `world.ts` had a caller. */
+  world: WorldContext | null = null,
+  /** WHAT THIS SENTENCE IS ALLOWED TO PUT ON SCREEN. Decided film-wide,
+   *  before any visual decision, by `promote.ts`. Absent means the old
+   *  behaviour — every scene sets its phrase — which is what produced 36
+   *  title cards from a 36-scene essay. */
+  promotion: Promotion | null = null,
 ): ComposedScene {
   const state = resolveStateAt(ir, scenePosition(ir, sceneIndex), positions);
   const notes: string[] = [];
@@ -281,12 +340,36 @@ export function composeScene(
   // construction reads the phrase (a two-word phrase is set as one form, a
   // longer one as a line) and reads the curves, so deciding them
   // afterwards would mean building against numbers that did not exist yet.
-  const phrase = choosePhrase(scene.narration.text, scene.label, {
-    recent: recentPhrases,
-    figures: scene.figures ?? [],
-  });
+  /* WHAT GOES ON SCREEN — GATED BY WHETHER IT SHOULD.
+   *
+   * `choosePhrase` picks the best span of a sentence to set as type and is
+   * good at it. It ran on every scene, so every sentence put words on
+   * screen and a 36-scene essay became 36 title cards — subtitles
+   * sprinkled over a video rather than an argument with visual anchors in
+   * it. The promotion layer decides film-wide which moments earn text; the
+   * chooser now serves that decision instead of making it.
+   *
+   * A promoted scene uses the PROMOTED span, not a freshly chosen one: the
+   * whole point of promoting "IT'S A DIAGNOSIS" is that those words appear,
+   * and re-deriving a phrase here would silently overrule the layer above. */
+  const phrase =
+    promotion && promotion.level > 0 && promotion.text
+      ? { text: promotion.text, source: `promoted — ${promotion.why[0] ?? "an anchor"}` }
+      : promotion
+        ? { text: "", source: promotion.why[0] ?? "spoken only" }
+        : choosePhrase(scene.narration.text, scene.label, {
+            recent: recentPhrases,
+            figures: scene.figures ?? [],
+          });
   const density = state.values.visualDensity ?? 0;
-  const typography = state.values.typographicWeight ?? 0;
+  // TYPOGRAPHY FOLLOWS THE PROMOTION, not only the curve. A scene with
+  // nothing to say on screen has no typographic weight whatever the film's
+  // dial reads, and a scene the argument turns on gets the whole of it.
+  const typography = promotion
+    ? promotion.level === 0
+      ? 0
+      : Math.max(state.values.typographicWeight ?? 0, 0.25 + promotion.level * 0.18)
+    : (state.values.typographicWeight ?? 0);
 
   let treatment: Treatment | null = null;
   let chain: string[];
@@ -324,6 +407,7 @@ export function composeScene(
    *  same two, or the shot is composed against two different films. */
   let composedBeat: Beat | null = null;
   let composedStyle: Style | null = null;
+  let sceneWorld: SceneWorld | null = null;
 
   const reading = readingFor(scene);
   const ratified = Boolean(scene.reading);
@@ -399,6 +483,14 @@ export function composeScene(
       kind: kind.kind,
       contested: looksContested(scene.narration.text),
       index: sceneIndex,
+      // WHAT KIND OF PICTURE THIS FILM MAKES. Read by the constructions'
+      // `fit` and by `representationsFor`, and by nothing else — it is a
+      // preference about the picture, not a fact about the sentence.
+      approach: ir.visualApproach,
+      // Whether this scene is allowed to have its frame resampled. A
+      // promoted phrase drawn as type and then sliced by `parallax_layers`
+      // loses its first word off the edge — measured, at 1280×720.
+      setsType: Boolean(promotion && promotion.level > 0 && promotion.text),
       ...(intentReading ? { intent: intentReading } : {}),
     };
     // ── the director's verbs ───────────────────────────────────────
@@ -491,6 +583,78 @@ export function composeScene(
     composedBeat = beat;
     composedStyle = style;
     if (isComposite(scenePlan)) notes.push(`composed — ${scenePlan.why}`);
+
+    /* ── THE WORLD ADVANCES ─────────────────────────────────────────────
+     *
+     * Once, here, above the constructor — which builds many candidate
+     * programs and keeps one. Stepping the film inside a candidate would
+     * step it once for every candidate that LOST.
+     *
+     * The representation is asked for the same way `constructPrograms`
+     * asks for it, so the world is built as the same KIND of image the
+     * construction will be. `representationsFor` is pure and deterministic,
+     * so asking twice costs arithmetic and changes nothing.
+     *
+     * The elements come back with their INHERITED places: a thing the film
+     * already established does not jump to wherever a fresh composition
+     * would have put it. That single fact is most of what a persistent
+     * world means on screen. */
+    if (world) {
+      const rep = representationsFor(beat, style).sort((a, b) => b.weight - a.weight)[0] ?? null;
+      const counted = (scene.figures ?? []).find((f) => f.kind === "count");
+      sceneWorld = stepWorld({
+        state: world.state,
+        mode: world.mode,
+        sentence: scene.narration.text,
+        subjects: beat.subjects,
+        relation: beat.relation ?? null,
+        count:
+          counted && Number.isFinite(counted.value) ? Math.max(1, Math.round(counted.value)) : null,
+        phrase: phrase.text,
+        noun: beat.subjects[0]?.text ?? "",
+        density: style.density,
+        energy: style.energy,
+        abstraction: style.abstraction,
+        typography: style.typography,
+        seed: 101 + sceneIndex * 7,
+        // WHAT THIS MOMENT EARNED, and when it is spoken. The typographic
+        // recipe branches on the level and the arrival is cued to the
+        // measured word — see `grammar-visual.ts`'s WORD and
+        // `serialiseScene`'s tween.
+        level: promotion?.level ?? 2,
+        register: ir.typeRegister,
+        /* CLAMPED INTO THE SCENE IT PLAYS IN.
+         *
+         * A measured word can sit outside its own scene's solved window —
+         * the solver clamps a window to a minimum and a maximum, and the
+         * recording does not. Uncaught, the cue fires after the scene is
+         * over: measured on the frames as type that stayed at its
+         * entrance size for the whole shot and never arrived. Held to the
+         * first two thirds, so an arrival always has somewhere to land. */
+        enterAtMs: promotion?.window?.measured
+          ? Math.min(
+              Math.max(0, promotion.window.startMs - (world.sceneStartMs ?? 0)),
+              Math.max(0, (world.sceneDurationMs ?? 0) * 0.66),
+            )
+          : null,
+        holdMs: promotion?.window
+          ? Math.max(0, promotion.window.endMs - promotion.window.startMs)
+          : null,
+        rep,
+        previous: world.previous,
+        bridgeMs: world.bridgeMs,
+      });
+      world.out = sceneWorld;
+      beat.world = {
+        graph: sceneWorld.graph,
+        material: sceneWorld.material,
+        mode: world.mode,
+        ...(sceneWorld.tweens.size > 0 && sceneWorld.bridgeMs > 0
+          ? { bridge: { tweens: sceneWorld.tweens, ms: sceneWorld.bridgeMs } }
+          : {}),
+      };
+      notes.push(`world — ${sceneWorld.describes}`);
+    }
 
     const programs = constructPrograms(beat, style, MAX_CHAIN_MS);
     const best = programs[0];
@@ -607,21 +771,32 @@ export function composeScene(
   }
 
   // ── precedence 7 continued: density and typography from the curves ──
-  if (density > DENSITY_BLEND_AT && !chain.includes("blend")) {
-    chain.push("blend");
-    planned.push(null);
-    reasons.set("blend", `density ${density.toFixed(2)} — compositing depth`);
-  }
-  if (density > DENSITY_NEST_AT && !chain.includes("nest")) {
-    chain.push("nest");
-    planned.push(null);
-    reasons.set("nest", `density ${density.toFixed(2)} — nested composition`);
-  }
-  if (typography > TYPO_VARIABLE_AXIS_AT && !chain.includes("variable_axis")) {
-    chain.push("variable_axis");
-    planned.push(null);
-    reasons.set("variable_axis", `typographic weight ${typography.toFixed(2)}`);
-  }
+  /* A COMPOSITOR WITH NOTHING ON ITS SECOND INPUT IS NOT DEPTH.
+   *
+   * `blend` and `nest` were appended whenever density crossed a threshold,
+   * with `planned.push(null)` — meaning no ground, ever. A two-input
+   * primitive given nothing on its B side falls back to a STOCK PLATE, and
+   * the stock plate reads "90 DAYS": a phrase from a different essay,
+   * painted over the sentence the scene was about.
+   *
+   * Measured at 1280×720 on the test film: one of eight scenes rendered
+   * "90 DAYS" in place of "position, not a person". It is the same
+   * empty-compositor signature this codebase already names — an operator
+   * that consumes a second input it was never given.
+   *
+   * Depth comes from the scene graph, which composes real elements onto
+   * real grounds. A density dial cannot manufacture a second layer out of
+   * nothing, and appending the compositor that pretends it can is how a
+   * film ends up quoting an essay nobody wrote. */
+  /* `variable_axis` WAS APPENDED HERE AND IS NOT A TAIL. It is a SOURCE — it draws its own
+   * frame from nothing — so appending it to a composed scene deleted the
+   * scene and drew the phrase instead. That is why the title was the one
+   * frame that looked right, and why it was right for the wrong reason:
+   * the composition underneath it was never visible.
+   *
+   * It is reachable where it belongs, as the level-4 statement in the WORD
+   * op, chosen because a thesis should take the frame rather than because
+   * a curve crossed 0.55. */
 
   // Restraint caps how much can be on screen at once. Experimentalism buys
   // headroom back.
@@ -743,6 +918,17 @@ export function composeScene(
         ...(n.ground && n.ground.length > 0
           ? { ground: asComposed(n.ground, sceneIdx, parentIdx, text, depth + 1) }
           : {}),
+        // The bridge travels with the node it was attached to. A nested
+        // element's `place` sits on a compositor's B side, which is where
+        // most of a scene's elements live — dropping it here would leave
+        // the bridge reaching only the element drawn first.
+        ...(n.tween && n.tweenMs
+          ? {
+              tween: n.tween,
+              tweenMs: n.tweenMs,
+              ...(n.tweenAtMs ? { tweenAtMs: n.tweenAtMs } : {}),
+            }
+          : {}),
       };
     });
 
@@ -801,6 +987,13 @@ export function composeScene(
       ...(constructed?.ground && constructed.ground.length > 0
         ? { ground: asComposed(constructed.ground, sceneIndex, i, phrase.text) }
         : {}),
+      ...(constructed?.tween && constructed.tweenMs
+        ? {
+            tween: constructed.tween,
+            tweenMs: constructed.tweenMs,
+            ...(constructed.tweenAtMs ? { tweenAtMs: constructed.tweenAtMs } : {}),
+          }
+        : {}),
     };
   });
 
@@ -834,6 +1027,7 @@ export function composeScene(
     contested: Boolean(reading?.contested),
     pinned: override?.type === "pin",
     sceneIndex,
+    approach: ir.visualApproach,
     budgetMs: MAX_CHAIN_MS - chainCost(flattenGround(subjectNodes).map((n) => n.primitiveId)),
   });
   const planes = scenePlan && isComposite(scenePlan) ? scenePlan.planes : ([] as Plane[]);
@@ -924,6 +1118,21 @@ export function composeScene(
         }
       : null,
     alternatives,
+    world:
+      world && sceneWorld
+        ? {
+            mode: world.mode,
+            decisions: sceneWorld.advance.decisions.map((d) => ({
+              identity: d.identity,
+              what: d.what,
+              why: d.why,
+            })),
+            describes: sceneWorld.describes,
+            alive: sceneWorld.advance.state.alive.map((p) => p.identity),
+            bridgeMs: sceneWorld.bridgeMs,
+            cut: sceneWorld.advance.cut,
+          }
+        : null,
   };
 }
 
@@ -1067,7 +1276,11 @@ function sceneSubjects(sentence: string, carried: DetectedSubject | null): Detec
   return [...own, { ...carried, weight: carried.weight * 0.8 }].sort((a, b) => b.weight - a.weight);
 }
 
-export function composeAll(ir: EditorialIR): ComposedScene[] {
+export function composeAll(
+  ir: EditorialIR,
+  timeline?: FilmTimeline | null,
+  promotions?: Promotion[] | null,
+): ComposedScene[] {
   const positions = controlPointPositions(ir);
   const out: ComposedScene[] = [];
   const recent: string[][] = [];
@@ -1080,8 +1293,51 @@ export function composeAll(ir: EditorialIR): ComposedScene[] {
   // is — folding the two into one slot would mean the city stopped
   // existing the moment a sentence named a person.
   let carriedPlace: DetectedSubject | null = null;
+  /* THE FILM'S LONG-TERM MEMORY — the world itself.
+   *
+   * `carried` remembers a WORD. This remembers a WORLD: which identities
+   * are on screen, where they are, how many of them there are, and what
+   * left but might come back. It is the state `film-state.ts` was written
+   * for and never given, which is why every scene composed from nothing
+   * and a film was 36 independent animations.
+   *
+   * The mode comes off the IR's own continuity setting — the Create
+   * screen's "How it moves" writes it — and CUT is the default, which is
+   * what every film already was. So a film that predates this composes
+   * identically except that its identities are now remembered, and a film
+   * asked never to cut can finally be one. */
+  const mode = modeOf(ir.continuity);
+  let film: FilmState = EMPTY_FILM;
+  let previous: SceneGraph | null = null;
   ir.scenes.forEach((scene, i) => {
-    const composed = composeScene(ir, scene, i, positions, recent, phrases, carried, carriedPlace);
+    const onTimeline = timeline?.scenes.find((s) => s.sceneId === scene.sceneId);
+    const world: WorldContext = {
+      state: film,
+      mode,
+      previous,
+      // THE BRIDGE RUNS IN THE SILENCE. Measured, from the recording. A
+      // film with no narration has no measured silence, so it has no
+      // bridge — which is honest: there is nothing to arrive between.
+      bridgeMs: onTimeline ? bridgeMsFor(onTimeline) : 0,
+      sceneStartMs: onTimeline?.startMs ?? 0,
+      sceneDurationMs: onTimeline?.durationMs ?? 0,
+    };
+    const composed = composeScene(
+      ir,
+      scene,
+      i,
+      positions,
+      recent,
+      phrases,
+      carried,
+      carriedPlace,
+      world,
+      promotions?.find((p) => p.sceneId === scene.sceneId) ?? null,
+    );
+    if (world.out) {
+      film = world.out.advance.state;
+      previous = world.out.graph;
+    }
     const named = detectSubjects(scene.narration.text);
     const own = named[0];
     if (own) carried = own;

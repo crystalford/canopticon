@@ -96,6 +96,19 @@ function hexToRgb(hex) {
  * sit between. */
 const HUE_COLD = 210;
 const HUE_WARM = 32;
+/* WHICH WAY ROUND THE WHEEL.
+ *
+ * `mix(210, 32, temp)` interpolates DOWNWARD — through 180 cyan and 120
+ * green — so at the default `temperature: 0.55` the hue was 112. Every
+ * film that had not been colour-directed was olive: the ground, the ink
+ * tint, the muted and the dim, all of it. The axis says "cold ↔ warm" and
+ * its midpoint was neither.
+ *
+ * Warm is reached the other way, through violet and red, which is the
+ * perceptual journey the axis names and also the only route on which a
+ * film can have a RED accent at all. 32 + 360 keeps the arithmetic a
+ * plain mix; the modulo brings it back onto the wheel. */
+const HUE_WARM_WAY = HUE_WARM + 360;
 /** The accent sits across the wheel from the ground, so it separates from
  *  it at any temperature rather than only at one end. */
 /* HOW FAR THE ACCENT SITS FROM THE FILM'S OWN HUE.
@@ -123,7 +136,7 @@ function resolvePalette(colour) {
   const sat = clamp01(c.saturation);
   const con = clamp01(c.contrast);
 
-  const hue = mix(HUE_COLD, HUE_WARM, temp);
+  const hue = mix(HUE_COLD, HUE_WARM_WAY, temp) % 360;
 
   // THE GROUND. At key 0 it is near-black; at key 1 it is paper. Contrast
   // pushes it away from the middle in whichever direction key chose, so a

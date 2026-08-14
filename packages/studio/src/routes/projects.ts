@@ -154,11 +154,90 @@ app.delete("/project/:id", async (c) => {
   return c.json({ deleted: id, title: project.title });
 });
 
+/** The four ways a film may move. Validated here rather than trusted,
+ *  because an unknown value should fall back to the conventional cut
+ *  rather than reach the schema and fail the whole ingest. */
+const CONTINUITIES = ["cut", "oneshot", "montage", "hybrid"];
+/** The five visual languages. `hybrid` leaves every weight alone. */
+const APPROACHES = ["text", "abstract", "world", "image", "hybrid"];
+/** How the type is set. `auto` is the default and is what a film that
+ *  never opens Advanced gets. */
+const REGISTERS = ["editorial", "fiore", "kinetic", "auto"];
+
+/** INTENSITY, as the three curves it already means.
+ *
+ *  `restraint` is how much elaboration the film will spend, `experimentalism`
+ *  is how far it will go against the grain, `motionEnergy` is how much it
+ *  moves. A director asking for "chaotic" is asking for all three at once,
+ *  and asking for them by name is asking them to specify implementation. */
+/** A DURATION TARGET, TURNED INTO AN EDIT.
+ *
+ *  The honest reading of "make it a minute" when the writing narrates to
+ *  five: the film is still five minutes and it is CUT as if it were a
+ *  minute — faster, denser, less room per idea. What the operator asked
+ *  for was a register, and the register is reachable; the runtime is not,
+ *  without deleting their sentences.
+ *
+ *  Returns nothing when there is no target, so a film without one is
+ *  composed exactly as it was. */
+function paceFor(targetSec: number | undefined, words: number): Record<string, number> {
+  if (!targetSec || targetSec <= 0 || words <= 0) return {};
+  // 150 wpm is documentary pace and is what the Create screen shows the
+  // writer as they type — one number, one place.
+  const spokenSec = (words / 150) * 60;
+  if (spokenSec <= 0) return {};
+  // >1 means the writing is longer than the target: cut faster.
+  const pressure = Math.max(0.25, Math.min(4, spokenSec / targetSec));
+  return {
+    cutRhythm: Math.max(0, Math.min(1, (pressure - 1) / 2.2)),
+    visualDensity: Math.max(0.15, Math.min(0.95, 0.35 + (pressure - 1) * 0.2)),
+  };
+}
+
+const INTENSITY: Record<string, Record<string, number>> = {
+  restrained: { restraint: 0.78, experimentalism: 0.15, motionEnergy: 0.25 },
+  expressive: { restraint: 0.45, experimentalism: 0.4, motionEnergy: 0.55 },
+  chaotic: { restraint: 0.16, experimentalism: 0.78, motionEnergy: 0.85 },
+};
+
 app.post("/project/ingest", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
     essay?: string;
     title?: string;
     projectId?: string;
+    /* THE ANSWERS THE CREATE SCREEN ALREADY COLLECTS.
+     *
+     * "How it moves" and "Made of" have been on the front door since the
+     * new interface shipped and reached a field on the browser's own film
+     * object, which is thrown away on reload and never seen by the
+     * compiler. `continuity` in particular now decides whether the film
+     * has a world at all, so leaving it in the browser would mean the
+     * one-shot mode existed and could not be chosen.
+     *
+     * Both are validated by the IR schema below rather than trusted; an
+     * unknown value falls back to the schema's default. */
+    continuity?: string;
+    visualLanguage?: string;
+    /** WHAT KIND OF PICTURE — text, abstract, world, image, hybrid. */
+    visualApproach?: string;
+    /** HOW THE TYPE IS SET — one layer below the approach. */
+    typeRegister?: string;
+    /** HOW HARD THE FILM PUSHES — restrained, expressive, chaotic.
+     *
+     *  Deliberately NOT a new dial. It is one honest name over three that
+     *  already exist and already drive the engine, so it can never drift
+     *  out of sync with them: adding a fourth number meaning roughly the
+     *  same thing is how two mechanisms end up disagreeing about how
+     *  loudly a film speaks. */
+    intensity?: string;
+    /** A DURATION TARGET, IN SECONDS — and a SOFT one.
+     *
+     *  It never drops a sentence. Your writing's length is the film's
+     *  length; the target shapes the EDIT — how fast it cuts and how much
+     *  is on screen at once — and the runtime that comes back is the real
+     *  one. A control that silently deleted prose to hit a number would be
+     *  the compiler editing the writing, which is the operator's job. */
+    durationTargetSec?: number;
   };
   const essay = body.essay?.trim();
   if (!essay) return c.json({ error: "essay is required" }, 400);
@@ -190,7 +269,34 @@ app.post("/project/ingest", async (c) => {
     );
   }
   // The IR names its own project, so it is stamped after the id exists.
-  const ir: EditorialIR = { ...seed.ir, projectId };
+  const ir: EditorialIR = {
+    ...seed.ir,
+    projectId,
+    ...(CONTINUITIES.includes(body.continuity ?? "")
+      ? { continuity: body.continuity as EditorialIR["continuity"] }
+      : {}),
+    ...(body.visualLanguage
+      ? { visualLanguage: body.visualLanguage as EditorialIR["visualLanguage"] }
+      : {}),
+    ...(APPROACHES.includes(body.visualApproach ?? "")
+      ? { visualApproach: body.visualApproach as EditorialIR["visualApproach"] }
+      : {}),
+    ...(REGISTERS.includes(body.typeRegister ?? "")
+      ? { typeRegister: body.typeRegister as EditorialIR["typeRegister"] }
+      : {}),
+    ...(INTENSITY[body.intensity ?? ""] || body.durationTargetSec
+      ? {
+          creativeState: {
+            ...seed.ir.creativeState,
+            identity: {
+              ...seed.ir.creativeState.identity,
+              ...INTENSITY[body.intensity ?? ""],
+              ...paceFor(body.durationTargetSec, essay.split(/\s+/).filter(Boolean).length),
+            },
+          },
+        }
+      : {}),
+  };
 
   const parsed = parseIR(JSON.parse(JSON.stringify(ir)));
   if (!parsed.ok) {
@@ -1257,6 +1363,20 @@ app.post("/project/:id/creative-state", async (c) => {
     /** The film's colour, as the four directorial numbers. Same rail as a
      *  curve drag: validated, versioned, recompiled, cost reported. */
     colour?: Record<string, number>;
+    /** HOW THE FILM MOVES — cut, one shot, montage, hybrid.
+     *
+     *  The Continuity panel has offered this choice since the new front end
+     *  shipped, under a note reading "not yet sent to the compiler". It is
+     *  now the largest single decision a director can make here: it decides
+     *  whether the film composes as one persistent world that travels
+     *  between its ideas or as a sequence of independent scenes. Same rail,
+     *  same zero TTS. */
+    continuity?: string;
+    /** WHAT KIND OF PICTURE — the other half of the axis `continuity`
+     *  used to carry on its own. Same rail, same zero TTS. */
+    visualApproach?: string;
+    /** And how its type is set, when it has any. */
+    typeRegister?: string;
   };
 
   const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
@@ -1272,6 +1392,15 @@ app.post("/project/:id/creative-state", async (c) => {
     ...current.ir,
     visualLanguage: (body.visualLanguage ??
       current.ir.visualLanguage) as EditorialIR["visualLanguage"],
+    continuity: (CONTINUITIES.includes(body.continuity ?? "")
+      ? body.continuity
+      : current.ir.continuity) as EditorialIR["continuity"],
+    visualApproach: (APPROACHES.includes(body.visualApproach ?? "")
+      ? body.visualApproach
+      : current.ir.visualApproach) as EditorialIR["visualApproach"],
+    typeRegister: (REGISTERS.includes(body.typeRegister ?? "")
+      ? body.typeRegister
+      : current.ir.typeRegister) as EditorialIR["typeRegister"],
     cinematography: {
       ...current.ir.cinematography,
       colour: {
@@ -1299,17 +1428,29 @@ app.post("/project/:id/creative-state", async (c) => {
   const changedLanguage =
     body.visualLanguage !== undefined && body.visualLanguage !== current.ir.visualLanguage;
   const changedColour = body.colour !== undefined;
+  const changedContinuity =
+    body.continuity !== undefined && body.continuity !== current.ir.continuity;
+  const changedApproach =
+    body.visualApproach !== undefined && body.visualApproach !== current.ir.visualApproach;
+  const changedRegister =
+    body.typeRegister !== undefined && body.typeRegister !== current.ir.typeRegister;
   await writeVersion(
     c.env,
     projectId,
     parsed.ir,
     nextVersion,
     project.current_ir_version,
-    changedLanguage
-      ? `Visual language → ${parsed.ir.visualLanguage}`
-      : changedColour
-        ? "Colour changed"
-        : "Creative state edited",
+    changedRegister
+      ? `Type → ${parsed.ir.typeRegister}`
+      : changedApproach
+        ? `Visuals → ${parsed.ir.visualApproach}`
+        : changedContinuity
+          ? `Continuity → ${parsed.ir.continuity}`
+          : changedLanguage
+            ? `Visual language → ${parsed.ir.visualLanguage}`
+            : changedColour
+              ? "Colour changed"
+              : "Creative state edited",
   );
   await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
     nextVersion,

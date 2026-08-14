@@ -224,11 +224,27 @@ reg(
          * It is the same question `geometry_draw` answers for GLASS and
          * LIGHT, and it is answered the same way: on paper you assert a
          * ground by darkening, on darkness by lightening. */
-        ctx.globalCompositeOperation = KEY > 0.5 ? "multiply" : "screen";
-        ctx.globalAlpha = p.opacity * 0.5;
-        ctx.drawImage(B, 0, 0, w, h);
-        ctx.globalCompositeOperation = "source-over";
-        ctx.globalAlpha = 1;
+/* AND IT IS SCALED BY HOW PRESENT THE GROUND IS ENTITLED TO BE.
+         *
+         * `p.opacity * 0.5` still ran at a third of full strength for an
+         * ordinary ground, over the finished frame, on every dark film —
+         * so a sentence composed correctly underneath came back veiled.
+         * Measured on a text film: the palette resolves 12:1 and the
+         * frames read about 3:1.
+         *
+         * `sink` is the control that already means "how far back this
+         * sits", and a ground that is sunk should assert itself less, not
+         * the same amount. Folded in, and the ceiling dropped: a
+         * re-assert is a reminder that the ground is there, not a second
+         * pass at drawing it. */
+        const assert = p.opacity * 0.26 * (1 - p.sink * 0.75);
+        if (assert > 0.02) {
+          ctx.globalCompositeOperation = KEY > 0.5 ? "multiply" : "screen";
+          ctx.globalAlpha = assert;
+          ctx.drawImage(B, 0, 0, w, h);
+          ctx.globalCompositeOperation = "source-over";
+          ctx.globalAlpha = 1;
+        }
       }
     },
   }),

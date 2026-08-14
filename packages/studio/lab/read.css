@@ -199,3 +199,8 @@
 .moves{display:flex;flex-wrap:wrap;gap:0 12px;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--line2);margin-bottom:12px}
 .moves span.past{color:var(--dim)}
 .moves span.on{color:var(--sage)}
+/* A choice that says what it means. Each segmented row can carry one line
+ * under it — the note the compiler itself supplies for that option, not a
+ * caption the front end wrote. */
+.choicenote{margin:-2px 0 var(--s3);padding-left:0;max-width:62ch;line-height:1.5}
+.cchoices .crow + .choicenote{margin-top:-6px}

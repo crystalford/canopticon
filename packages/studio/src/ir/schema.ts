@@ -416,6 +416,54 @@ export const EditorialIRSchema = z.object({
   /** The film's default depiction. A director can travel this across the
    *  runtime the same way they travel abstraction. */
   visualLanguage: VisualLanguageSchema.default("documentary"),
+  /** HOW THE FILM MOVES BETWEEN ITS IDEAS.
+   *
+   *  The Create screen has asked this question since the new front end
+   *  shipped ("cut between ideas" / "never cut" / "collide ideas") and the
+   *  answer reached a field on the browser's own film object and stopped
+   *  there — the compiler had nowhere to put it and no world to apply it
+   *  to. Both now exist. `cut` is the default and is what every film
+   *  composed before this was, so nothing already made is restyled by the
+   *  field arriving.
+   *
+   *  These are constraints over ONE grammar, not four renderers — see
+   *  `film-mode.ts`. `oneshot` forbids the cut and bridges every change;
+   *  `montage` cuts freely and never bridges. */
+  continuity: z.enum(["cut", "oneshot", "montage", "hybrid"]).default("cut"),
+  /** WHAT KIND OF PICTURE THIS FILM MAKES — and the axis that was missing.
+   *
+   *  `continuity` is EDITING: does the film cut, or travel? This is the
+   *  VISUAL LANGUAGE: what the picture is made of. They were briefly
+   *  conflated — one-shot forced the scene-graph construction to win every
+   *  sentence — which made "never cut" secretly mean "build a world", and
+   *  put a text-driven continuous film and a hard-cutting world film both
+   *  out of reach. Two axes, independent:
+   *
+   *    TEXT      the writing itself is the primary visual material
+   *    ABSTRACT  no attempt to depict the nouns — geometry, fields, light
+   *    WORLD     persistent objects and spaces that evolve
+   *    IMAGE     supplied or generated imagery as a material in the world
+   *    HYBRID    the engine chooses, per sentence
+   *
+   *  A WEIGHTING, never a switch. Whatever the approach, a sentence that
+   *  prints a figure still reaches the chart family and a sentence that
+   *  draws a route is still a route — a figure is checkable and outranks a
+   *  preference. `hybrid` is the default and leaves every weight alone, so
+   *  every film composed before this field existed composes identically. */
+  visualApproach: z.enum(["text", "abstract", "world", "image", "hybrid"]).default("hybrid"),
+  /** HOW THE TYPE IS SET — one layer below the approach, and only
+   *  meaningful when the words are on screen at all.
+   *
+   *    editorial  set, large, composed. Legibility is the point.
+   *    fiore      violent scale, cropped by the frame, halftone ground —
+   *               the Medium is the Massage register the palette's own
+   *               A-family docs already describe.
+   *    kinetic    letterforms sampled into points and taken apart. The
+   *               only register the sampled stack is genuinely for.
+   *    auto       set for a marker or a phrase, kinetic for the thesis.
+   *
+   *  `auto` is the default, so a film that never touches this reads. */
+  typeRegister: z.enum(["editorial", "fiore", "kinetic", "auto"]).default("auto"),
   /** The film's captured look, when it has one. Optional: a film without
    *  a grammar is composed from the curves alone, exactly as before. */
   grammar: VisualGrammarSchema.optional(),

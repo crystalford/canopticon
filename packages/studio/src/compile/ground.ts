@@ -57,6 +57,9 @@ export interface GroundInputs {
   /** What is left of the per-frame budget after the subject's own chain.
    *  A ground is a whole second chain and its cost is real. */
   budgetMs: number;
+  /** WHAT THIS FILM IS MADE OF. A picture ground is an atmosphere, and a
+   *  text-driven film's atmosphere is not a reaction-diffusion plate. */
+  approach?: string;
 }
 
 /** Above this, the director has asked for restraint and a second layer is
@@ -81,6 +84,21 @@ const PICTURE_GROUNDS = ["cellular", "reaction_diffusion", "plate_scene", "noise
 export function planGround(input: GroundInputs): GroundPlan | null {
   if (input.pinned) return null;
   if (input.restraint > RESTRAINT_CEILING) return null;
+  /* A TEXT FILM'S GROUND IS NOT A PICTURE.
+   *
+   * Measured, on the frames: two of eight scenes of a text-driven film
+   * were full-bleed reaction-diffusion, and the sentence the argument
+   * turns on rendered as a cityscape with no words in it. Not a
+   * compositing bug — `opacity` and `sink` are doing exactly what they
+   * are set to. It is a COMPOSITION decision, and it was being made by a
+   * planner that had never been told what the film is made of.
+   *
+   * Refused rather than quietened, because quietening it is the thing
+   * that has already been tried twice. A film whose material is the
+   * writing composes its depth out of its own marks; an atmosphere plate
+   * behind type is a different film. `world` and `hybrid` keep it — for
+   * them it is exactly right. */
+  if (input.approach === "text") return null;
 
   // There has to be something to composite. A compositor's first input is
   // the previous stage's CANVAS — every primitive paints one, which is why

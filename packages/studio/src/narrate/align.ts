@@ -24,15 +24,11 @@
 // guess — and it is not the same thing as knowing which word it was.
 // Determinism is claimed honestly (standing rule 7); so is alignment.
 
-import type { Alignment, AlignmentChunk } from "../compile/solver.ts";
+import type { Alignment, AlignmentChunk, TimedWord } from "../compile/solver.ts";
 import { splitSentences } from "../compile/solver.ts";
 import { describeShape, toBase64 } from "./tts.ts";
 
-export interface TimedWord {
-  word: string;
-  startMs: number;
-  endMs: number;
-}
+export type { TimedWord };
 
 export type AlignmentMethod = "asr-proportional" | "asr-duration" | "declined";
 
@@ -45,6 +41,18 @@ export interface AlignmentResult {
   durationMs: number;
   model?: string;
   words?: number;
+  /** THE MEASURED WORDS THEMSELVES, scene-local.
+   *
+   *  Computed on every successful ASR pass since this file was written and
+   *  reduced to a COUNT before anything could use them. `words: 41` tells
+   *  you the measurement happened; the 41 `{word, startMs, endMs}` triples
+   *  are what lets a word land on its own measured moment instead of on a
+   *  proportional guess — which is the whole difference between typography
+   *  that is animated and typography that is timed to a voice.
+   *
+   *  Empty when the ASR gave only a duration; the method already says so
+   *  (`asr-duration` rather than `asr-proportional`). */
+  timedWords?: TimedWord[];
   reason?: string;
   attempts: Array<{ model: string; outcome: string; shape?: string }>;
 }
@@ -115,11 +123,12 @@ export async function alignAudio(
 
     return {
       ok: true,
-      alignment: withEndpoints(sceneId, chunks),
+      alignment: { ...withEndpoints(sceneId, chunks), words: read.words },
       method: read.words.length ? "asr-proportional" : "asr-duration",
       durationMs: read.durationMs,
       model: candidate.model,
       words: read.words.length,
+      timedWords: read.words,
       attempts,
     };
   }
@@ -331,6 +340,19 @@ export function sequenceAlignments(
         startMs: c.startMs + cursor,
         endMs: c.endMs + cursor,
       })),
+      // The words move with the sentences they were measured inside. A
+      // word left on the scene's own clock while its chunk moved to the
+      // film's would be a measurement pointing at the wrong second — the
+      // exact failure this function exists to prevent for chunks.
+      ...(found.words?.length
+        ? {
+            words: found.words.map((w) => ({
+              ...w,
+              startMs: w.startMs + cursor,
+              endMs: w.endMs + cursor,
+            })),
+          }
+        : {}),
     });
     cursor += span;
   }

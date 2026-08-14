@@ -98,6 +98,12 @@ function adoptComposed(scene, real) {
     // have the Preview render a compositor with nothing on its B side —
     // which draws the subject and looks exactly like it worked.
     b: n.b,
+    // THE BRIDGE. A one shot's elements travel into the scene over the
+    // measured silence at its head; the executor lerps these onto the live
+    // params without rebuilding, so nothing resets mid-move.
+    tween: n.tween,
+    tweenMs: n.tweenMs,
+    tweenAtMs: n.tweenAtMs,
   }));
   return {
     scene,
