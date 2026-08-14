@@ -179,11 +179,61 @@ function loop(fn) {
   };
   requestAnimationFrame(step);
 }
+/* ── WHERE YOU ARE HAS A URL ─────────────────────────────────────────
+ *
+ * REFRESHING INSIDE A FILM THREW YOU OUT OF IT. Every view lived in a
+ * variable and nothing lived in the address bar, so the browser's most
+ * ordinary control — reload — could only ever land on the library, and
+ * Back went to whatever site you were on before rather than out of the
+ * film.
+ *
+ * The boot deliberately does NOT auto-open the last project, and that
+ * decision was right: the root URL dropping you inside whatever film you
+ * last had open, behind a "compiling the film" overlay you did not ask
+ * for, is worse than a library. The hash resolves both. A bare URL is
+ * still the library; a film has its own address; reload restores exactly
+ * what the address says.
+ *
+ *     #             the library
+ *     #/how        how it was made
+ *     #/f/<id>     that film, opened
+ *
+ * `replace` is for writing the state we are already in — adopting a film
+ * we just opened — so the history stack gets one entry per navigation
+ * rather than two. */
+function pathOf() {
+  const id = window.STUDIO && window.STUDIO.projectId;
+  if (APP.view === "read") return id ? `#/f/${id}` : "#/example";
+  if (APP.view === "build") return "#/how";
+  return "#";
+}
+function syncURL(replace) {
+  const want = pathOf();
+  if (location.hash === want || (want === "#" && !location.hash)) return;
+  try {
+    history[replace ? "replaceState" : "pushState"](null, "", want);
+  } catch {
+    // A file:// page can refuse pushState. The app still works; only the
+    // address bar does not follow.
+  }
+}
+
 function go(v) {
+  /* ALREADY THERE IS NOT NOTHING. Pressing "Your films" on the library
+   * set the same view, re-rendered the same markup and produced no
+   * visible change — a control that looks live and is inert. The library
+   * leads with the composer and the list is below it, so the useful
+   * answer to "your films" when you are already on the page is to take
+   * you to them. */
+  if (v === APP.view && v === "films") {
+    const list = document.querySelector(".libhead") || document.querySelector(".filmlist");
+    if (list) return list.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   APP.view = v;
   APP.alts = null;
   APP.editing = null;
   render();
+  syncURL();
 }
 function selectScene(id, seek) {
   APP.sel = id;
@@ -458,13 +508,59 @@ window.addEventListener("DOMContentLoaded", async () => {
    * localStorage, which meant the root URL dropped you inside whatever
    * film you last had open, behind a "compiling the film" overlay you
    * did not ask for. The library is the front door; the last film is one
-   * click away rather than unavoidable. */
+   * click away rather than unavoidable.
+   *
+   * WHAT THE ADDRESS SAYS IS DIFFERENT FROM WHAT YOU LAST DID. A hash is
+   * not a remembered preference — it is a place someone asked for, by
+   * reloading, by pressing Back, or by opening a link. So the library
+   * still wins on a bare URL and `#/f/<id>` still opens that film, and
+   * neither of those contradicts the other. */
   render();
+  await routeFromURL();
   await filmsRefresh();
+});
+
+/** Put the app where the address bar says it is.
+ *
+ *  Called on boot and on every Back/Forward. A film id that no longer
+ *  exists — deleted, or a link from another account — falls back to the
+ *  library and says so, rather than sitting on a dead overlay. */
+async function routeFromURL() {
+  const h = location.hash || "";
+  const film = h.match(/^#\/f\/([\w-]+)$/);
+  if (film) {
+    const id = film[1];
+    if (window.STUDIO && window.STUDIO.projectId === id && APP.view === "read") return;
+    try {
+      await openFilm(id);
+    } catch {
+      APP.view = "films";
+      render();
+      toast("That film could not be opened");
+    }
+    return;
+  }
+  if (h === "#/example") {
+    useExample();
+    return;
+  }
+  const want = h === "#/how" ? "build" : "films";
+  if (APP.view !== want) {
+    APP.view = want;
+    APP.alts = null;
+    APP.editing = null;
+    render();
+  }
+}
+
+/* BACK AND FORWARD ARE NAVIGATION, and they were doing nothing here —
+ * pressing Back inside a film left the site entirely. */
+window.addEventListener("popstate", () => {
+  routeFromURL();
 });
 
 Object.assign(window, {
   APP, PLAY, VERBS, MARK, go, render, renderBar, changed, mark, undo, redo, retime, snapshot,
   selectScene, selScene, stepScene, toast, busy, esc, fmt, loop, stopLoops, sliderHTML, bindSliders,
-  openFinder, closeFinder, jumpTo, readIntent, saveNow, queueSave, renderNow,
+  openFinder, closeFinder, jumpTo, readIntent, saveNow, queueSave, renderNow, syncURL, routeFromURL,
 });

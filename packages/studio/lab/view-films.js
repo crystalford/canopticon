@@ -92,6 +92,15 @@ async function filmsRefresh() {
 }
 
 function adoptFilm() {
+  /* WHICH KIND OF NAVIGATION THIS IS.
+   *
+   * Coming from the library into a film is a real move and has to PUSH,
+   * or Back has nothing to go back to and leaves the site — which is what
+   * it did. Re-adopting the film you are already in (RENDER writes a new
+   * take and re-opens it) is the same place with new contents, so it
+   * REPLACES and Back still goes to the library rather than to the
+   * previous take of the film you are looking at. */
+  const wasInFilm = APP.view === "read";
   const f = window.FILM;
   f.bends = f.bends || {};
   f.continuity = f.continuity || "cut";
@@ -111,6 +120,7 @@ function adoptFilm() {
   if (window.FILM_CHAINS) FILM_CHAINS.clear();
   APP.view = "read";
   render();
+  if (window.syncURL) syncURL(wasInFilm);
 }
 
 async function openFilm(id) {
@@ -122,6 +132,7 @@ async function openFilm(id) {
     LIB.error = e.message;
     APP.view = "films";
     render();
+    if (window.syncURL) syncURL(true);
   } finally {
     busy(false);
   }
