@@ -40,6 +40,11 @@ const NEW = {
    * is what the picture is TIMED TO: without it every window is an
    * estimate from a character count, so silent is not a lighter version
    * of the same film, it is a less accurate one. */
+  /** THE FILM'S LOOK — the four numbers a named look is a position in.
+   *  Null means "whatever the compiler's default is", which is now the
+   *  documentary look rather than a near-black ground. Shared with the
+   *  front door, which is where it is usually chosen. */
+  colour: null,
   voice: "Synthesised",
   speaker: "angus",
   err: null,
@@ -158,7 +163,8 @@ function viewStart(root) {
         <textarea class="ask" id="ask" placeholder="An essay, a script, a transcript, a piece of reporting.">${esc(NEW.text)}</textarea>
       </div>
       <div class="cchoices">
-        <div class="crow"><span class="clabel">Visuals</span>${seg("approach", CHOICES.approaches, NEW.approach)}</div>
+        <div class="crow"><span class="clabel">Made of</span>${seg("approach", CHOICES.approaches, NEW.approach)}</div>
+        <div class="crow"><span class="clabel">Look</span>${typeof lookRow === "function" ? lookRow(NEW.colour) : ""}</div>
         ${chosen?.note ? `<p class="note choicenote">${esc(chosen.note)}</p>` : ""}
         ${
           /* CONTEXTUAL, not a fifth top-level question. The register only
@@ -215,7 +221,12 @@ function viewStart(root) {
     row.querySelectorAll("[data-opt]").forEach((b) => {
       b.onclick = () => {
         const k = row.dataset.choice;
-        NEW[k] = k === "duration" ? +b.dataset.opt : b.dataset.opt;
+        if (k === "look") {
+          const l = (window.LOOKS || []).find((x) => x.id === b.dataset.opt);
+          if (l) NEW.colour = { ...l.colour };
+        } else {
+          NEW[k] = k === "duration" ? +b.dataset.opt : b.dataset.opt;
+        }
         // Repainted rather than toggled: choosing Synthesised reveals the
         // voice row, and every choice carries a line saying what it means.
         render();
@@ -264,6 +275,9 @@ async function create() {
        * writing, so there is never a moment when a film exists without
        * the clock it is timed to. `null` is a silent film, asked for. */
       voice: NEW.voice === "Synthesised" ? NEW.speaker || "angus" : null,
+      // Only when chosen: an absent colour lets the compiler's own default
+      // stand rather than this page asserting one.
+      ...(NEW.colour ? { colour: NEW.colour } : {}),
     });
     /* THE VOICE IS STARTED BEFORE THE FILM IS OPENED, and that order is
      * the whole bug.

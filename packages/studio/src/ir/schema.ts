@@ -293,22 +293,39 @@ export type SemanticReading = z.infer<typeof SemanticReadingSchema>;
  *  an enum — "slightly warmer" has to be a real position or the director
  *  is choosing from a filter menu again. */
 export const ColourSchema = z.object({
-  key: z.number().min(0).max(1).default(0.14),
-  temperature: z.number().min(0).max(1).default(0.55),
-  saturation: z.number().min(0).max(1).default(0.42),
-  contrast: z.number().min(0).max(1).default(0.62),
+  // Mirrors DEFAULT_COLOUR below, which is the authority.
+  key: z.number().min(0).max(1).default(0.16),
+  temperature: z.number().min(0).max(1).default(0.58),
+  saturation: z.number().min(0).max(1).default(0.34),
+  contrast: z.number().min(0).max(1).default(0.56),
 });
 export type Colour = z.infer<typeof ColourSchema>;
 
-/** WHAT A NEW FILM STARTS AS. Deliberately not the old world: the
- *  previous constants put every frame at a near-black ground with almost
- *  no colour, which is why 105 of 129 primitives measured below luminance
- *  40/255. A film should open somewhere a person would choose. */
+/** WHAT A NEW FILM STARTS AS, and the ONLY place that decides it.
+ *
+ *  The previous constants put every frame at a near-black, half-
+ *  desaturated ground — which is why 105 of 129 primitives measured below
+ *  luminance 40/255. Moving off it was not enough on its own: the eight
+ *  named looks in `lab/palette.js` were coherent, implemented, and
+ *  reachable only from a row buried in the Directing drawer, so in
+ *  practice every film ever made was this one ground whatever it said in
+ *  the schema.
+ *
+ *  These coordinates are the `documentary` look — low-key, slightly warm,
+ *  restrained, with enough saturation that a frame reads as a picture
+ *  rather than a diagnostic buffer. It is the look a film should have to
+ *  be talked out of rather than into. The front door can now choose any
+ *  of the eight, so this is a starting point rather than a destination.
+ *
+ *  `ColourSchema`'s own field defaults mirror these, and so does
+ *  `COLOUR_DEFAULT` in `lab/palette.js`. Three copies of four numbers is
+ *  exactly the drift standing rule 9 warns about, so they are stated
+ *  together here and the other two carry a pointer back. */
 export const DEFAULT_COLOUR: Colour = {
-  key: 0.14,
-  temperature: 0.55,
-  saturation: 0.42,
-  contrast: 0.62,
+  key: 0.16,
+  temperature: 0.58,
+  saturation: 0.34,
+  contrast: 0.56,
 };
 
 /** How the film is photographed. Colour is built; camera and light are

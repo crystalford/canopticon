@@ -370,3 +370,14 @@
 .makinghead .m{font-family:var(--mono);font-size:11px;color:var(--dim)}
 .making .sndbar{margin-bottom:10px}
 .making .note{margin:0}
+
+/* ── the look row ─────────────────────────────────────────────────────
+ * A named look shows the ground and accent it will actually produce,
+ * painted by `resolvePalette` — see `lookRow` in view-films.js. */
+.looks button{display:inline-flex;align-items:center;gap:7px}
+.swatch{width:16px;height:16px;border-radius:2px;border:1px solid var(--line2);flex:none;display:block}
+.composer .cchoices{border-top:1px solid var(--line);padding:16px 20px}
+@media (max-width:720px){
+  .looks{gap:6px}
+  .looks button{flex:1 1 auto;justify-content:flex-start;min-width:calc(50% - 3px)}
+}

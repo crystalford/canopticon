@@ -230,6 +230,16 @@ app.post("/project/ingest", async (c) => {
      *  same thing is how two mechanisms end up disagreeing about how
      *  loudly a film speaks. */
     intensity?: string;
+    /** THE FILM'S LOOK, as the four directorial numbers.
+     *
+     *  The named looks — Noir, Signal, Sodium, Bleached — are positions
+     *  in this space, not presets, so a film can be created in one and
+     *  then nudged without escaping into an unnamed state. Chosen on the
+     *  front door and carried here the same way `visualApproach` is;
+     *  before this the only way to reach any of them was a row buried in
+     *  the Directing drawer, so every film ever made used the default
+     *  near-black ground. */
+    colour?: Record<string, number>;
     /** WHICH VOICE SPEAKS IT — a Deepgram speaker id.
      *
      *  Present or absent means SPEAK IT, because a film is timed to its
@@ -289,6 +299,17 @@ app.post("/project/ingest", async (c) => {
       : {}),
     ...(REGISTERS.includes(body.typeRegister ?? "")
       ? { typeRegister: body.typeRegister as EditorialIR["typeRegister"] }
+      : {}),
+    // Merged onto the schema's defaults rather than replacing them, so a
+    // client that sends two of the four numbers gets the other two from
+    // the default rather than zero.
+    ...(body.colour && typeof body.colour === "object"
+      ? {
+          cinematography: {
+            ...seed.ir.cinematography,
+            colour: { ...seed.ir.cinematography.colour, ...body.colour },
+          },
+        }
       : {}),
     ...(INTENSITY[body.intensity ?? ""] || body.durationTargetSec
       ? {
@@ -361,22 +382,24 @@ app.post("/project/ingest", async (c) => {
     );
     const id = projectId;
     c.executionCtx.waitUntil(
-      narrateWholeFilm(c.env, id, typeof body.voice === "string" ? { voice: body.voice } : {}).catch(
-        async (err) => {
-          // Degrade, flag, continue. A film whose voice failed is still a
-          // film, and the failure has to be readable rather than a job
-          // marker that never clears.
-          await c.env.FILES.put(
-            jobKey,
-            JSON.stringify({
-              running: false,
-              failedAt: nowIso(),
-              reason: err instanceof Error ? err.message : String(err),
-            }),
-            { httpMetadata: { contentType: "application/json" } },
-          );
-        },
-      ),
+      narrateWholeFilm(
+        c.env,
+        id,
+        typeof body.voice === "string" ? { voice: body.voice } : {},
+      ).catch(async (err) => {
+        // Degrade, flag, continue. A film whose voice failed is still a
+        // film, and the failure has to be readable rather than a job
+        // marker that never clears.
+        await c.env.FILES.put(
+          jobKey,
+          JSON.stringify({
+            running: false,
+            failedAt: nowIso(),
+            reason: err instanceof Error ? err.message : String(err),
+          }),
+          { httpMetadata: { contentType: "application/json" } },
+        );
+      }),
     );
   }
 

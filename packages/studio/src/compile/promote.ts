@@ -40,8 +40,8 @@
 import type { EditorialIR, Scene } from "../ir/schema.ts";
 import type { FilmTimeline } from "../narrate/timeline.ts";
 import { ASSERTS, type Act, type ActReading, DENIES, HEDGE, readAct } from "./act.ts";
-import { detectSubjects } from "./subject.ts";
 import { isWeakWord } from "./phrase.ts";
+import { detectSubjects } from "./subject.ts";
 
 /** HOW MUCH OF THE FILM'S ATTENTION THIS MOMENT GETS, 0..4.
  *
@@ -226,7 +226,6 @@ function locate(sentence: string, span: string): number {
  * "how humans move, not punish us because" reached the screen. Two lists
  * of one rule is precisely the failure standing rule 9 names. */
 const WEAK = { has: (w: string) => isWeakWord(w) };
-
 
 /* TRIM WITHOUT LEAVING THE PROSE.
  *

@@ -131,6 +131,50 @@ function useExample() {
   adoptFilm();
 }
 
+/** A segmented row, the same one the options page uses. Shared rather than
+ *  copied: two renderings of one control is how the Lab and the Worker
+ *  came to disagree about 57 of 88 scenes. */
+const choiceRow = (id, opts, current) =>
+  `<div class="segs" data-choice="${id}">${(opts || [])
+    .map(
+      (o) =>
+        `<button data-opt="${esc(o.id)}" class="${current === o.id ? "on" : ""}" title="${esc(o.note || "")}">${esc(o.label)}</button>`,
+    )
+    .join("")}</div>`;
+
+/** THE EIGHT LOOKS, SHOWING THEIR OWN COLOUR.
+ *
+ *  Each swatch is painted by `resolvePalette` from that look's own four
+ *  numbers — the same function the renderer uses — so what you see on the
+ *  button is the ground and accent the film will actually have. A hand-
+ *  written hex here would be a second opinion about colour, which is the
+ *  one thing `resolvePalette` exists to prevent (standing rule 9).
+ *
+ *  Matched by coordinates rather than by a stored id, so nudging a film's
+ *  colour later moves it OFF a named look honestly instead of leaving a
+ *  name attached to numbers that have drifted from it. */
+function lookRow(colour) {
+  const looks = window.LOOKS || [];
+  const cur = colour || (window.COLOUR_DEFAULT ?? {});
+  return `<div class="segs looks" data-choice="look">${looks
+    .map((l) => {
+      const p = window.resolvePalette ? resolvePalette(l.colour) : null;
+      const on =
+        Math.abs((cur.key ?? 0) - l.colour.key) < 0.03 &&
+        Math.abs((cur.temperature ?? 0) - l.colour.temperature) < 0.06;
+      /* GROUND AND ACCENT, SIDE BY SIDE. An inset ring put the accent
+       * around the whole chip and the ground was a dot in the middle of
+       * it — which made every look read as its accent. The split shows
+       * what the frame is mostly made of, and what marks the thing that
+       * matters in it, in their real proportion. */
+      const chip = p
+        ? `<i class="swatch" style="background:linear-gradient(105deg,${p.bg} 0 66%,${p.accent} 66% 100%);border-color:${p.dim}"></i>`
+        : "";
+      return `<button data-opt="${esc(l.id)}" class="${on ? "on" : ""}" title="${esc(l.blurb)}">${chip}${esc(l.name)}</button>`;
+    })
+    .join("")}</div>`;
+}
+
 function viewFilms(root) {
   const ps = window.PROJECTS || [];
   const r = readWriting(NEW.text);
@@ -148,9 +192,24 @@ function viewFilms(root) {
         <div class="clab"><span class="key">Your writing</span><span class="creads" id="creads">${readLine(r)}</span></div>
         <textarea class="ask" id="ask" placeholder="An essay, a script, a transcript, a piece of reporting.">${esc(NEW.text)}</textarea>
       </div>
+      ${/* THE TWO CHOICES THAT CHANGE THE FILM MOST, ON THE SCREEN WHERE A
+          * FILM IS MADE.
+          *
+          * Rebuilding this as a bare paste box moved both behind a button,
+          * which is why "there aren't even any selections any more" — a
+          * text-only film went from one click to three. And the LOOK had
+          * never been here at all: eight named looks, coherent and
+          * implemented, reachable only from a row buried in the Directing
+          * drawer, so in practice every film ever made used the default
+          * ground. Everything else the options page offers is a refinement
+          * and stays one click away; these two are what the film IS. */ ""}
+      <div class="cchoices">
+        <div class="crow"><span class="clabel">Made of</span>${choiceRow("approach", CHOICES.approaches, NEW.approach)}</div>
+        <div class="crow"><span class="clabel">Look</span>${lookRow(NEW.colour)}</div>
+      </div>
       <div class="cfoot">
         <button class="b pri big" id="create" ${r.words < 12 ? "disabled" : ""}>Make the film</button>
-        <button class="b" id="opts">Choose how it looks</button>
+        <button class="b" id="opts">More options</button>
         ${/* ONE SENTENCE, NOT A PARAGRAPH. Five lines of small print beside
             * the primary button outweighed it — the eye went to the
             * explanation rather than the thing to press. What is left is
@@ -204,6 +263,21 @@ function viewFilms(root) {
       root.querySelector("#create").disabled = x.words < 12;
     };
   }
+  /* Both rows write to the SAME `NEW` the options page uses, so a choice
+   * made here survives opening More options and vice versa. */
+  root.querySelectorAll("[data-choice]").forEach((row) =>
+    row.querySelectorAll("[data-opt]").forEach((b) => {
+      b.onclick = () => {
+        if (row.dataset.choice === "look") {
+          const l = (window.LOOKS || []).find((x) => x.id === b.dataset.opt);
+          if (l) NEW.colour = { ...l.colour };
+        } else {
+          NEW[row.dataset.choice] = b.dataset.opt;
+        }
+        render();
+      };
+    }),
+  );
   on("#create", () => create());
   on("#opts", () => go("start"));
   on("#opts2", () => go("start"));

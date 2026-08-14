@@ -33,6 +33,7 @@ import {
   chainDeterminism,
   chainOverwrites,
 } from "../primitives/registry.ts";
+import type { Act } from "./act.ts";
 import {
   type Beat,
   type PlannedNode,
@@ -55,7 +56,6 @@ import { buildGraph, describeGraph, flattenGraph, flattenGround, graphDepth } fr
 import { planGround } from "./ground.ts";
 import { bendStyle, describeIntent, hasIntent, readIntent } from "./intent.ts";
 import { choosePhrase } from "./phrase.ts";
-import type { Act } from "./act.ts";
 import { type Intervention, allocate, textOf } from "./promote.ts";
 import { type Relation, describeRelation, readRelation } from "./relation.ts";
 import { representationsFor } from "./represent.ts";
@@ -284,7 +284,6 @@ function driftHeld(
   const out = walk(nodes);
   return touched > 0 ? { nodes: out, why: d.why } : null;
 }
-
 
 /** A program the engine considered and did not use. Carried so the
  *  Compile view can show what else this sentence could have been —

@@ -50,7 +50,21 @@
  */
 // Kept identical to DEFAULT_COLOUR in src/ir/schema.ts — the compiler
 // owns the number, this file owns what it means in hex.
-const COLOUR_DEFAULT = { key: 0.14, temperature: 0.55, saturation: 0.42, contrast: 0.62 };
+/* THE DEFAULT LOOK.
+ *
+ * This was `key 0.14, saturation 0.42` — a dark, half-desaturated ground —
+ * and because the only control for it lived in the Directing drawer,
+ * EVERY film ever made was that ground. The eight named looks below were
+ * implemented, coherent and unreachable from the screen where a film is
+ * created.
+ *
+ * The default is now the `documentary` look, chosen because it is the one
+ * a film should have to be talked out of rather than into: low-key,
+ * slightly warm, restrained, and with enough saturation that a frame
+ * reads as a picture rather than as a diagnostic buffer. It is the same
+ * coordinates as `LOOKS[1]` — a position in the space, not a second
+ * opinion about it. */
+const COLOUR_DEFAULT = { key: 0.16, temperature: 0.58, saturation: 0.34, contrast: 0.56 };
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const mix = (a, b, t) => a + (b - a) * t;
@@ -96,32 +110,58 @@ function hexToRgb(hex) {
  * sit between. */
 const HUE_COLD = 210;
 const HUE_WARM = 32;
-/* WHICH WAY ROUND THE WHEEL.
+/* TEMPERATURE IS NOT A HUE ROTATION, and this axis has now been wrong
+ * twice in two different directions for the same reason.
  *
- * `mix(210, 32, temp)` interpolates DOWNWARD — through 180 cyan and 120
- * green — so at the default `temperature: 0.55` the hue was 112. Every
- * film that had not been colour-directed was olive: the ground, the ink
- * tint, the muted and the dim, all of it. The axis says "cold ↔ warm" and
- * its midpoint was neither.
+ * First it was `mix(210, 32, temp)`, interpolating DOWN through cyan and
+ * green: at the default the hue was 112 and every undirected film was
+ * olive. That was fixed by routing the other way, `mix(210, 392, temp)`,
+ * up through violet and red — which moved the midpoint from olive to
+ * MAGENTA. Measured across the named looks: noir resolved to hue 274,
+ * muted documentary to 316, warm editorial to 330. Four of the eight
+ * looks landed in the violet-pink band, and since the default sits at
+ * 0.58, every film ever made here has had a magenta cast on its ground,
+ * its ink tint and its accent.
  *
- * Warm is reached the other way, through violet and red, which is the
- * perceptual journey the axis names and also the only route on which a
- * film can have a RED accent at all. 32 + 360 keeps the arithmetic a
- * plain mix; the modulo brings it back onto the wheel. */
-const HUE_WARM_WAY = HUE_WARM + 360;
+ * Both attempts assumed the axis is a path between two hues. It is not.
+ * Colour temperature runs blue → NEUTRAL → amber: the middle of the dial
+ * is the absence of a cast, not a third colour. Travelling any route
+ * between 210 and 32 must pass through some unrelated hue, so there is no
+ * correct direction to pick — the model itself was the bug.
+ *
+ * So: two poles and a distance. Which side of neutral chooses the hue,
+ * how far from neutral decides how much of it there is. The hue snaps at
+ * the midpoint and that is invisible, because at the midpoint the cast is
+ * zero and both sides are the same grey. */
+function temperatureCast(temp) {
+  return {
+    hue: temp >= 0.5 ? HUE_WARM : HUE_COLD,
+    /** 0 at neutral, 1 at either end. */
+    cast: Math.abs(temp - 0.5) * 2,
+  };
+}
 /** The accent sits across the wheel from the ground, so it separates from
  *  it at any temperature rather than only at one end. */
-/* HOW FAR THE ACCENT SITS FROM THE FILM'S OWN HUE.
+/* THE ACCENT SITS ON THE OTHER SIDE OF NEUTRAL FROM THE GROUND.
  *
- * This was 168 — a near-complement — which on a cool film lands on purple
- * and on any film reads as a graphic-design choice rather than as a
- * documentary one. An accent's job here is to mark what matters, not to
- * oppose the ground. A short offset keeps it related: recognisably a
- * different colour, recognisably the same film.
+ * A fixed +34 offset was right while the ground's hue moved continuously
+ * around the wheel. It is wrong now that the ground snaps to one of two
+ * poles: 32 + 34 lands every warm film's accent on yellow-green and
+ * 210 + 34 lands every cold film's on indigo, so "Signal — saturated
+ * red" resolved to a lime mark and Noir to a violet one.
  *
- * A film that WANTS opposition can have it — that is what the visual
- * language should decide, and `languages.js` is where that lives. */
-const ACCENT_OFFSET = 34;
+ * Warm ground, cool accent; cool ground, warm accent. That is the oldest
+ * grade in the medium and it is the same idea as the ground's own axis:
+ * temperature has two sides, and the thing that must be READ sits on the
+ * side the frame is not. It also means the accent is legible on every
+ * film rather than only on the ones whose ground happened to be far from
+ * it.
+ *
+ * The warm accent runs hotter than the warm GROUND — 14 rather than 32 —
+ * so a mark on a cold film is red rather than merely less blue, which is
+ * what "the one place saturation is allowed to be assertive" was for. */
+const ACCENT_WARM = 14;
+const ACCENT_COOL = 194;
 
 /** THE ONE TRANSLATION POINT. Four numbers in, a whole colour world out.
  *
@@ -136,7 +176,7 @@ function resolvePalette(colour) {
   const sat = clamp01(c.saturation);
   const con = clamp01(c.contrast);
 
-  const hue = mix(HUE_COLD, HUE_WARM_WAY, temp) % 360;
+  const { hue, cast } = temperatureCast(temp);
 
   // THE GROUND. At key 0 it is near-black; at key 1 it is paper. Contrast
   // pushes it away from the middle in whichever direction key chose, so a
@@ -145,21 +185,24 @@ function resolvePalette(colour) {
   const groundL = mix(0.055, 0.94, key) + (key > 0.5 ? con * 0.04 : -con * 0.03);
   // A ground is never fully neutral — a completely grey ground is what
   // made every frame read as a diagnostic buffer rather than a picture.
-  const groundS = 0.05 + sat * 0.22 * (1 - Math.abs(key - 0.5) * 0.6);
+  // Scaled by `cast`: a film at temperature 0.5 has a neutral ground
+  // rather than a magenta one. A floor remains, because a completely grey
+  // ground is what made every frame read as a diagnostic buffer.
+  const groundS = 0.03 + sat * 0.24 * (0.3 + cast * 0.7) * (1 - Math.abs(key - 0.5) * 0.6);
 
   // THE INK. Always the far side of the ground, separated by contrast.
   const inkL = key > 0.5 ? mix(0.28, 0.06, con) : mix(0.78, 0.985, con);
-  const inkS = sat * 0.1;
+  const inkS = sat * 0.1 * (0.3 + cast * 0.7);
 
   // The mid tone carries structure that is present but not the subject.
   const midL = mix(groundL, inkL, mix(0.42, 0.3, con));
-  const midS = 0.06 + sat * 0.2;
+  const midS = 0.04 + sat * 0.22 * (0.3 + cast * 0.7);
 
   // DIM — barely off the ground. Grids, hairlines, the things that give a
   // frame depth without asking to be read.
   const dimL = mix(groundL, inkL, 0.14 + con * 0.06);
 
-  const accentHue = (hue + ACCENT_OFFSET) % 360;
+  const accentHue = hue === HUE_WARM ? ACCENT_COOL : ACCENT_WARM;
   // The accent is the one place saturation is allowed to be assertive:
   // a film at saturation 0 still needs a focal colour or nothing in the
   // frame can be emphasised at all.
@@ -179,12 +222,12 @@ function resolvePalette(colour) {
      * on screen and looked exactly like a texture. */
     inkRgb: hexToRgb(hsl(hue, inkS, inkL)),
     accentRgb: hexToRgb(hsl(accentHue, accentS, accentL)),
-    coolRgb: hexToRgb(hsl((hue + 300) % 360, accentS * 0.72, accentL * (key > 0.5 ? 0.85 : 1.05))),
+    coolRgb: hexToRgb(hsl((accentHue + 40) % 360, accentS * 0.72, accentL * (key > 0.5 ? 0.85 : 1.05))),
     muted: hsl(hue, midS, midL),
     dim: hsl(hue, midS * 0.7, dimL),
     accent: hsl(accentHue, accentS, accentL),
     /** A second, cooler accent for the rare frame that needs two. */
-    cool: hsl((hue + 300) % 360, accentS * 0.72, accentL * (key > 0.5 ? 0.85 : 1.05)),
+    cool: hsl((accentHue + 40) % 360, accentS * 0.72, accentL * (key > 0.5 ? 0.85 : 1.05)),
     /** Carried through so a primitive can ask how light the world is
      *  rather than guessing from the ground colour. */
     key,
@@ -202,11 +245,16 @@ const LOOKS = [
     colour: { key: 0.05, temperature: 0.35, saturation: 0.12, contrast: 0.85 } },
   { id: "documentary", name: "Muted documentary", blurb: "Low-key, slightly warm, restrained.",
     colour: { key: 0.16, temperature: 0.58, saturation: 0.28, contrast: 0.5 } },
-  { id: "editorial", name: "Warm editorial", blurb: "Paper ground, dark type, one hot accent.",
+  { id: "editorial", name: "Warm editorial", blurb: "Paper ground, dark type, one cool accent.",
     colour: { key: 0.9, temperature: 0.66, saturation: 0.36, contrast: 0.72 } },
-  { id: "technical", name: "Cold technical", blurb: "Blue-white, thin, diagrammatic.",
+  { id: "technical", name: "Cold technical", blurb: "Blue-white, thin, diagrammatic, marked in red.",
     colour: { key: 0.86, temperature: 0.1, saturation: 0.22, contrast: 0.66 } },
-  { id: "signal", name: "Signal", blurb: "Dark ground, saturated red, high separation.",
+  /* The blurb said "saturated red" and described the OLD hue path, on
+   * which a warm film's ground itself landed near 14. With temperature
+   * as a cast rather than a rotation, a warm ground is amber and the hot
+   * mark is the accent's job. Said accurately rather than left to
+   * promise a colour the coordinates no longer produce. */
+  { id: "signal", name: "Signal", blurb: "Dark, hot ground with a cold mark. Maximum separation.",
     colour: { key: 0.08, temperature: 0.9, saturation: 0.95, contrast: 0.9 } },
   { id: "fluorescent", name: "Fluorescent", blurb: "Bright, cold, over-lit interior.",
     colour: { key: 0.82, temperature: 0.05, saturation: 0.62, contrast: 0.4 } },
