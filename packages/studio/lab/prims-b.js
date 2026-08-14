@@ -196,7 +196,7 @@ reg(
         const X = x * Math.cos(rot) - y * Math.sin(rot);
         const px = w / 2 + X * S,
           py = h * 0.62 - (z - 26) * S;
-        ctx.fillStyle = i % 7 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.30)` : `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.45)`;
+        ctx.fillStyle = i % 7 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.30)` : markColour(i, 0.45);
         ctx.fillRect(px, py, 1, 1);
       }
       lab(ctx, "LORENZ · " + N + " ITERATIONS · DETERMINISTIC", 10, h - 16);
@@ -234,7 +234,7 @@ reg(
           for (let y = 0; y < rows; y++) {
             for (let x = 0; x < cols; x++)
               if (row[x]) {
-                ctx.fillStyle = x % 11 === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.85)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.78)`;
+                ctx.fillStyle = x % 11 === 0 ? markColour(x, 0.85) : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.78)`;
                 ctx.fillRect(x * c, y * c, c, c);
               }
             row = row.map((_, i) => {
@@ -299,7 +299,11 @@ reg(
   },
   (p) => {
     let ps = [],
-      r = mulberry(19);
+      r = mulberry(19),
+      // A stable identity per particle. The array is filtered every frame,
+      // so an array index would recolour every survivor whenever a
+      // neighbour died — a strobe, not a scheme. See `markColour`.
+      born = 0;
     return {
       frame(ctx, w, h, t) {
         bg(ctx, w, h, 0.14);
@@ -307,7 +311,7 @@ reg(
         for (let i = 0; i < N; i++) {
           const a = -Math.PI / 2 + (r() - 0.5) * p.spread * 3;
           const sp = 1.4 + r() * 2.6;
-          ps.push({ x: w / 2, y: h * 0.86, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, l: 1 });
+          ps.push({ x: w / 2, y: h * 0.86, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, l: 1, k: born++ });
         }
         const dec = 0.004 + (1 - p.life) * 0.016;
         ps = ps.filter((q) => {
@@ -316,8 +320,12 @@ reg(
           q.y += q.vy;
           q.l -= dec;
           if (q.l <= 0) return false;
+          // Fresh particles keep the film's ink, so a spray still reads as
+          // coming FROM somewhere; the scheme takes over as they age.
           ctx.fillStyle =
-            q.l > 0.6 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + q.l + ")" : `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + q.l * 0.9 + ")";
+            q.l > 0.6
+              ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},${q.l})`
+              : markColour(q.k, q.l * 0.9);
           ctx.fillRect(q.x, q.y, 2, 2);
           return true;
         });
@@ -402,7 +410,7 @@ reg(
           q.x = (q.x + q.vx + w) % w;
           q.y = (q.y + q.vy + h) % h;
           const a = Math.atan2(q.vy, q.vx);
-          ctx.strokeStyle = i % 9 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.55)` : `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.9)`;
+          ctx.strokeStyle = i % 9 ? `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.55)` : markColour(i, 0.9);
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.moveTo(q.x, q.y);

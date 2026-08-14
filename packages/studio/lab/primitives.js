@@ -131,6 +131,23 @@ function ramp(i) {
 function rampRgb(i) {
   return RAMP_RGB[((i % RAMP_RGB.length) + RAMP_RGB.length) % RAMP_RGB.length];
 }
+/** THE COLOUR OF ONE MARK AMONG MANY.
+ *
+ *  The helper every primitive that draws a crowd would otherwise write
+ *  for itself, slightly differently — and the reason a frame of ten
+ *  thousand particles had one hue is that none of them wrote it at all.
+ *
+ *  `i` identifies the mark, not its position in an array: a particle
+ *  system filters its dead every frame, so indexing by array slot would
+ *  make every surviving particle change colour whenever a neighbour
+ *  died, which reads as a strobing frame rather than as a scheme.
+ *
+ *  At spread 0 every stop IS the accent, so a film that asked for one
+ *  colour gets `fall` — the film's own two-tone — unchanged. */
+function markColour(i, alpha, fall) {
+  const c = SPREAD > 0.02 ? rampRgb(i) : fall || ACCENT_RGB;
+  return `rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+}
 
 function setPalette(p) {
   if (!p) return;

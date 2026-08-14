@@ -255,7 +255,7 @@ reg(
         }
         ctx.closePath();
         ctx.fillStyle =
-          b === B - 1 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.55)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + (0.1 + b * 0.09) + ")";
+          b === B - 1 ? markColour(b, 0.55) : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},${0.1 + b * 0.09})`;
         ctx.fill();
         for (let i = 0; i < N; i++) acc[i] += s[i];
       });
@@ -443,7 +443,7 @@ reg(
           q.y +=
             (q.y * (1 - p.gather) + ty * p.gather - q.y) * 0.06 +
             Math.sin(t + q.k * 9) * p.jitter * 0.7;
-          ctx.fillStyle = DATA[q.col] >= 5 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},.6)` : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.45)`;
+          ctx.fillStyle = DATA[q.col] >= 5 ? markColour(q.col, 0.6) : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},.45)`;
           ctx.fillRect(q.x, q.y, 1.4, 1.4);
         }
         lab(ctx, N.toLocaleString() + " PARTICLES · ONE PER UNIT", 10, h - 14);

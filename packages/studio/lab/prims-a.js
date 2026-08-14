@@ -915,7 +915,7 @@ reg(
           // gone, which is what makes a repetition read as accumulation
           // rather than as wallpaper.
           const a = 0.16 + (1 - p.fade) * 0.5 + j2 * p.fade * 0.7;
-          ctx.fillStyle = i % 17 === 0 ? `rgba(${ACCENT_RGB[0]},${ACCENT_RGB[1]},${ACCENT_RGB[2]},` + a + ")" : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},` + a + ")";
+          ctx.fillStyle = i % 17 === 0 ? markColour(i, a) : `rgba(${INK_RGB[0]},${INK_RGB[1]},${INK_RGB[2]},${a})`;
           ctx.fillText(p.text, px, py);
         }
       }
