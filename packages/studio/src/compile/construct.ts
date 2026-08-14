@@ -461,21 +461,14 @@ function wordCount(sentence: string): number | null {
   return null;
 }
 
-/** Nouns that mean "many of them, small, moving" rather than "one of them,
- *  large, inspected". The difference between a crowd and a centipede in
- *  the same construction grammar. */
-const MANY =
-  /\b(crowd|crowds|queue|queues|swarm|swarms|colony|people|residents|claimants|workers|migration|convoy|procession|dozens|hundreds|thousands|many|several)\b/i;
-
-/** Words that say the thing is MULTIPLYING or FALLING INTO STEP.
+/* THE CROWD, SWARM AND ESCALATION LEXICONS WERE HERE AND ARE GONE.
  *
- *  "Then there were dozens of them, moving through the streets in strange
- *  synchronized waves" is the sentence that introduced them, escalated:
- *  more of them, and moving together rather than wandering. A film that
- *  builds a creature and then sets type when the creature multiplies has
- *  not understood the paragraph. */
-const SWARMING = /\b(synchron\w*|waves?|together|in step|coordinated|unison|formation|columns?)\b/i;
-const GROWING = /\b(dozens|hundreds|thousands|more|multiplied|spread|grew|growing|increasingly)\b/i;
+ * They existed to parameterise a body: how many of them, whether they
+ * moved in step, whether they were multiplying. That construction read a
+ * noun and drew a creature, and it is deleted — so are the word lists that
+ * fed it. What a sentence says about accumulation is read by `act.ts` from
+ * what the sentence DOES, and reaches the picture as a MOVE rather than as
+ * a leg count. */
 
 export const CONSTRUCTIONS: Construction[] = [
   /* ── A SCENE. The composition itself, as a construction.
