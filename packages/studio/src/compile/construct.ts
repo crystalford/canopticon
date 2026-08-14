@@ -1557,6 +1557,30 @@ function assemble(
   /** What kind of change this moment is — decides the film's motion
    *  character for this shot. See `MOTION_CHARACTER`. */
   act?: Act,
+  /* WHY THERE IS NO RESTRAINT CEILING IN THIS FUNCTION.
+   *
+   *  It used to be applied to the finished chain in `compose.ts`:
+   *
+   *  It was a post-hoc truncation in `compose.ts`: build the whole
+   *  program, then `chain.slice(0, ceiling)`. Two things went wrong with
+   *  that, and both are standing rule 11.
+   *
+   *  It counted TOP-LEVEL nodes on a structure whose elements hang off
+   *  compositor grounds — so a nested scene of eleven real primitives
+   *  counted as six and passed, while a flat one of eight was cut.
+   *
+   *  And it cut from the TAIL, which is where the operators are. Measured
+   *  across both real essays: 13 of 30 operators the report named were
+   *  not in the chain at all, `halftone` 0 of 4 and `scanline` 0 of 3 —
+   *  the entire J · RASTER family never ran in 32 compiles. Restraint was
+   *  removing a film's surface texture, which is not what restraint
+   *  means, and the program went on claiming what had been cut.
+   *
+   *  The slice is now scoped to the LADDER path, which is the flat chain
+   *  it was written for, and a constructed program is left whole — so
+   *  `applied` names what is actually in the chain and the report is true
+   *  by construction. Restraint still governs the picture: it decides how
+   *  many ELEMENTS the scene graph builds, upstream of here. */
 ): Program | null {
   const nodes = [...built.nodes];
   const applied: string[] = [];
@@ -1582,6 +1606,28 @@ function assemble(
     }
     if (!ok) continue;
     if (chainCost(candidate.map((n) => n.primitiveId)) > budgetMs) continue;
+    /* AN OPERATOR IS NOT ANOTHER THING ON SCREEN.
+     *
+     * The ceiling is restraint — "how much can be on screen at once" —
+     * and it is counted against what the construction BUILDS. A halftone,
+     * a grade, a scanline are treatments of the same image: they add
+     * texture, not clutter, and capping them is why a restrained film
+     * lost its surface rather than its density.
+     *
+     * The first attempt at this fix checked the whole candidate here,
+     * which only moved the cut earlier and produced the same silent loss.
+     * `treatment.test.ts` caught it in one run: a visual language moves
+     * operator appetites, and with operators suppressed the language
+     * reached only the scenes a human had ratified — which is precisely
+     * the "it uses the same filter palettes" complaint that test exists
+     * to prevent coming back.
+     *
+     * What still bounds an operator is `chainCost` against the frame
+     * budget, which is the honest limit: cost, not clutter. A scene graph
+     * routinely builds sixteen primitives for three elements, so ANY
+     * clutter gate here — on the candidate or on the construction —
+     * silences every operator on every constructed scene, which is the
+     * state this file was in. */
     // A scene whose subject is WORDS does not get its frame resampled.
     // `language.ts` already keeps this discipline — its `surface()` may
     // return nothing, documented as the one degree of freedom that stops a

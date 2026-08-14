@@ -434,6 +434,16 @@ export interface WorldContext {
   out?: SceneWorld;
 }
 
+/** How many primitives may be drawn at once. Restraint caps it;
+ *  experimentalism buys headroom back. Stated once because two callers
+ *  now need it — the constructor, which assembles under it, and the
+ *  ladder, which is sliced to it. */
+function restraintCeiling(state: { values: Record<string, number> }): number {
+  const restraint = state.values.restraint ?? 0.5;
+  const experimentalism = state.values.experimentalism ?? 0.3;
+  return Math.round(4 + (1 - restraint) * 2 + experimentalism * 4);
+}
+
 export function composeScene(
   ir: EditorialIR,
   scene: Scene,
@@ -1034,12 +1044,17 @@ export function composeScene(
    * op, chosen because a thesis should take the frame rather than because
    * a curve crossed 0.55. */
 
-  // Restraint caps how much can be on screen at once. Experimentalism buys
-  // headroom back.
-  const restraint = state.values.restraint ?? 0.5;
-  const experimentalism = state.values.experimentalism ?? 0.3;
-  const ceiling = Math.round(4 + (1 - restraint) * 2 + experimentalism * 4);
-  if (chain.length > ceiling) {
+  /* THE LADDER PATH ONLY, NOW.
+   *
+   * A construction is assembled under this ceiling rather than sliced to
+   * it — `chain.slice(0, ceiling)` counted top-level nodes on a nested
+   * structure and cut the operator tail off the end, so the report named
+   * a halftone that was not there. The ladder produces a genuinely flat
+   * chain, which is what the slice was written for, so it stays here and
+   * is skipped for anything the constructor built. */
+  const ceilingHere = restraintCeiling(state);
+  if (!program && chain.length > ceilingHere) {
+    const ceiling = ceilingHere;
     const dropped = chain.length - ceiling;
     // Drop from the tail — motif and rung primitives are added first and
     // are the ones that carry meaning.
@@ -1258,8 +1273,8 @@ export function composeScene(
     tier: rung.tier,
     density,
     motionEnergy: state.values.motionEnergy ?? 0.5,
-    experimentalism,
-    restraint,
+    experimentalism: state.values.experimentalism ?? 0.3,
+    restraint: state.values.restraint ?? 0.5,
     contested: Boolean(reading?.contested),
     pinned: override?.type === "pin",
     sceneIndex,
