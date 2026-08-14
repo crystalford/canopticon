@@ -12,7 +12,7 @@
 // evidence rather than on instinct — and so a source that turns out to be
 // substrate is never cut for looking decorative.
 
-import { PRIMITIVES } from "../primitives/registry.ts";
+import { PRIMITIVES, overwritingPrimitives } from "../primitives/registry.ts";
 import type { ComposedScene } from "./compose.ts";
 
 export interface PrimitiveUsage {
@@ -67,6 +67,32 @@ export interface UsageReport {
   groundedScenes: number;
   /** Every compositor → ground pairing this film used, with counts. */
   grounds: { link: string; uses: number }[];
+  /** THE PALETTE'S OWN DEBT, independent of this film.
+   *
+   *  Everything above measures what THIS compile did. This is a static
+   *  property of the palette: how many primitives declare an input and
+   *  paint over it when handed one. It cannot change between films, and
+   *  it is why so much of the palette is unreachable — an operator that
+   *  replaces what it was applied to is correctly refused by every guard
+   *  in the constructor, silently, because refusing is right.
+   *
+   *  Carried on every report so it is a number on a screen rather than
+   *  something someone found once. See `overwritingPrimitives`. */
+  uncomposable: { count: number; families: { family: string; ids: string[] }[] };
+}
+
+/** The uncomposable half of the palette, grouped so it reads as a list
+ *  of families to fix rather than as twenty-three unrelated ids. */
+function uncomposableDebt(): { count: number; families: { family: string; ids: string[] }[] } {
+  const all = overwritingPrimitives();
+  const byFamily = new Map<string, string[]>();
+  for (const p of all) byFamily.set(p.family, [...(byFamily.get(p.family) ?? []), p.id]);
+  return {
+    count: all.length,
+    families: [...byFamily]
+      .map(([family, ids]) => ({ family, ids }))
+      .sort((a, b) => b.ids.length - a.ids.length),
+  };
 }
 
 export function analyseUsage(scenes: ComposedScene[]): UsageReport {
@@ -164,6 +190,7 @@ export function analyseUsage(scenes: ComposedScene[]): UsageReport {
       .map(([link, n]) => ({ link, uses: n }))
       .sort((a, b) => b.uses - a.uses),
     linkHonesty: honesty(scenes),
+    uncomposable: uncomposableDebt(),
     heldScenes: scenes.filter((sc) => sc.nodes.length === 0 || sc.held === true).length,
     groundedScenes,
     grounds: [...grounds.entries()]
