@@ -1044,6 +1044,43 @@ const OPERATORS: Operator[] = [
  *  clock instead of running it as a stage. */
 const MOTION_TAIL = ["parallax_layers", "ease_profile"];
 
+/* HOW THE FILM MOVES, PER ACT.
+ *
+ * `O · MOTION CRAFT` has six primitives. Five of them —`anticipation`,
+ * `overshoot`, `follow_through`, `damping`, `seamless_loop` — are written,
+ * registered, typed ANIMATION → ANIMATION, and have NEVER been put in a
+ * chain. The executor that runs them has been live the whole time and only
+ * ever ran `ease_profile`, so every shot of every film has moved with the
+ * same anonymous ease.
+ *
+ * They are the cheapest expressive thing in the palette: they re-time what
+ * is already there rather than drawing anything, they cost 1ms/frame, and
+ * they are the difference between a thing that arrives and a thing that
+ * ARRIVES. So the ACT chooses one — the same reading that decides what
+ * changes decides how that change carries itself.
+ *
+ * `anticipation` is a small counter-move before the main one, which is
+ * what a DECLARE is: gather, then state. `overshoot` passes the target and
+ * settles — an INTENSIFY going too far and coming back. `damping` is a
+ * settle with no overshoot at all, which is a QUALIFY: less than was
+ * claimed. `follow_through` lets the tail keep going after the body has
+ * stopped, which is what a WITHDRAW leaves behind.
+ *
+ * Deliberately not one per act. SUSTAIN and NONE get nothing, because the
+ * absence of authored motion is a reading too. */
+const MOTION_CHARACTER: Partial<Record<Act, { id: string; amount: number; why: string }>> = {
+  DECLARE: { id: "anticipation", amount: 0.45, why: "gathers before it states" },
+  INTENSIFY: { id: "overshoot", amount: 0.6, why: "goes too far, and comes back" },
+  ACCUMULATE: { id: "overshoot", amount: 0.4, why: "arrives with more force each time" },
+  CONTRAST: { id: "anticipation", amount: 0.62, why: "draws back before it turns" },
+  QUALIFY: { id: "damping", amount: 0.7, why: "settles without insisting" },
+  WITHDRAW: { id: "follow_through", amount: 0.55, why: "the tail keeps going after it leaves" },
+  CONVERGE: { id: "damping", amount: 0.45, why: "closes without a bounce" },
+  RECALL: { id: "follow_through", amount: 0.4, why: "carries its own history in" },
+  TRANSFORM: { id: "overshoot", amount: 0.5, why: "passes through what it becomes" },
+  REVEAL: { id: "anticipation", amount: 0.35, why: "holds a beat before it shows" },
+};
+
 /** Primitives that RESAMPLE the finished frame — they slice it, offset it,
  *  quantise it or re-read it as characters. Every one is a good treatment
  *  for a picture and every one destroys type.
@@ -1354,7 +1391,7 @@ export function constructPrograms(
      * recursively. This is the fourth consumer to need that reminder. */
     const setsType = Boolean(beat.setsType) && flatIds(built.nodes).some(isSetType);
     for (const stack of stacks) {
-      const program = assemble(c.id, built, stack, style, budgetMs, setsType);
+      const program = assemble(c.id, built, stack, style, budgetMs, setsType, act);
       if (!program) continue;
       program.dislocated = dislocated;
       // The visual IDEA this program is a realisation of, carried onto
@@ -1490,6 +1527,9 @@ function assemble(
   style: Style,
   budgetMs: number,
   setsType = false,
+  /** What kind of change this moment is — decides the film's motion
+   *  character for this shot. See `MOTION_CHARACTER`. */
+  act?: Act,
 ): Program | null {
   const nodes = [...built.nodes];
   const applied: string[] = [];
@@ -1550,7 +1590,16 @@ function assemble(
     applied.push(op.id);
   }
 
-  // The motion tail, if it still fits and can legally attach.
+  // The motion tail, if it still fits and can legally attach. The act's
+  // own character goes LAST, so it re-times the eased motion rather than
+  // being flattened by it.
+  const character = act ? MOTION_CHARACTER[act] : undefined;
+  /* The character is tried SEPARATELY, not appended to the tail's loop.
+   * That loop `break`s the moment one of its two primitives will not
+   * attach — so hanging the act's motion off the end meant it only ever
+   * ran on the chains where parallax AND ease had both already fitted.
+   * Measured: 2 of 52 scenes. It re-times whatever is there; it does not
+   * care what came before it. */
   for (const primitiveId of MOTION_TAIL) {
     if (setsType && !mayFollowPresentedType(primitiveId)) continue;
     const last = nodes[nodes.length - 1]?.primitiveId;
@@ -1573,6 +1622,35 @@ function assemble(
           : { kind: Math.round(style.restraint > 0.6 ? 0 : 1), amount: 0.25 + style.energy * 0.5 },
       reason: "given depth and eased, so the shot moves like a shot",
     });
+  }
+
+  /* WHERE THE CHARACTER CAN ACTUALLY GO.
+   *
+   * Motion craft is ANIMATION → ANIMATION, and most chains end on
+   * `layer_over`, which emits IMAGE. Appending to the end therefore
+   * attached in 5 of 52 scenes and the other 47 kept the same anonymous
+   * ease. It re-times what it is handed and passes it on unchanged, so it
+   * belongs at the LAST point in the chain the type system allows — not
+   * at the end for the sake of it. Searched from the back, so it re-times
+   * as much of the shot as it legally can. */
+  if (character && (!setsType || mayFollowPresentedType(character.id))) {
+    const withIt = [...nodes.map((n) => n.primitiveId), character.id];
+    if (chainCost(withIt) <= budgetMs) {
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        const before = nodes[i]?.primitiveId;
+        const after = nodes[i + 1]?.primitiveId;
+        if (!before || !canChain(before, character.id)) continue;
+        if (after && !canChain(character.id, after)) continue;
+        nodes.splice(i + 1, 0, {
+          primitiveId: character.id,
+          // Pulled back by restraint — a spare film still moves like
+          // itself, just less.
+          params: { amount: character.amount * (1 - style.restraint * 0.45) },
+          reason: `${character.why} — because this moment ${String(act).toLowerCase()}s`,
+        });
+        break;
+      }
+    }
   }
 
   const ids = nodes.map((n) => n.primitiveId);
