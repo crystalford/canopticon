@@ -12,10 +12,26 @@ function runTrajectory() {
   const ctx = cv.getContext("2d");
   const GAP = { cut: 3, bridge: 1, oneshot: 0, montage: 7 };
 
+  /* THE WORDS UNDER THE LINE — and one that is always readable.
+   *
+   * This wrote a verb per moment and then BLANKED any that did not fit,
+   * which on a 65-scene film is all of them: the strip would be empty
+   * and the panel would be back to an unexplained curve. So the moment
+   * you are actually on is also printed in the heading, where it has the
+   * whole width to itself and cannot be squeezed out.
+   *
+   * (For most of this panel's life none of it rendered at all — see the
+   * note in `view-read.js`. `#tnames` was never in the markup, so this
+   * function returned on its first line.) */
   function names() {
+    const comps = runOf().comps.filter((c) => !(window.FILM.cutScenes || []).includes(c.scene.id));
+    const now = document.getElementById("tnow");
+    if (now) {
+      const c = comps.find((x) => x.scene.id === APP.sel) || comps[0];
+      now.textContent = c ? stateVerb(c).toLowerCase() : "";
+    }
     const el = document.getElementById("tnames");
     if (!el) return;
-    const comps = runOf().comps.filter((c) => !(window.FILM.cutScenes || []).includes(c.scene.id));
     el.innerHTML = comps.map((c) => `<div style="flex:${c.scene.dur}" class="${c.scene.id === APP.sel ? "on" : ""}">${stateVerb(c)}</div>`).join("");
     el.querySelectorAll("div").forEach((d) => {
       if (d.scrollWidth > d.clientWidth) d.textContent = "";

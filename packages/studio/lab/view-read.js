@@ -52,7 +52,29 @@ function viewRead(root) {
         <span class="num" id="tc2">${fmt(PLAY.t)}</span>
       </div>
       <div class="block statecard" id="statecard"></div>
-      <div class="block traject" id="traject"><div class="tlab"><span class="key">Abstraction</span><span class="tnote">how far from literal, across the film</span></div><canvas id="tcv"></canvas></div>
+      ${/* THE LINE HAD NO LEGEND, AND HALF OF IT WAS NEVER ON THE PAGE.
+          *
+          * `runTrajectory` builds a `names()` strip — one word per moment,
+          * from the same five-verb vocabulary the state card prints — and
+          * writes it into `#tnames`. `#tnames` was never in this markup,
+          * so the function returned on its first line every time it ran.
+          * What shipped was the curve alone, under the word ABSTRACTION,
+          * with nothing anywhere saying which way was up.
+          *
+          * On a real film that curve is nearly FLAT, because the restraint
+          * ceiling holds it down — so the one thing on screen was a
+          * horizontal dashed line labelled with a term of art. It is not
+          * surprising nobody understood it.
+          *
+          * Three fixes, no new concept: the words go back under the line,
+          * the two ends of the axis are named in the language a person
+          * would use, and the heading says what the panel is FOR. */ ""}
+      <div class="block traject" id="traject">
+        <div class="tlab"><span class="key">The shape of it</span><span class="tnote">this moment <i id="tnow"></i></span></div>
+        <div class="tscale"><span>abstract</span><span>plain</span></div>
+        <canvas id="tcv"></canvas>
+        <div class="tnames" id="tnames"></div>
+      </div>
       <div class="tmeta">
         <button class="b q sm" id="pp2">${PLAY.on ? "Pause" : "Play"}</button>
         <span class="num" id="tc">${fmt(PLAY.t)}</span><span class="of">of ${fmt(f.runtime)}</span>
@@ -83,7 +105,12 @@ function viewRead(root) {
       <div class="block sound" id="voicebox">
         <div class="dhead"><span class="key">Voice</span><span class="tnote" id="sndstate"></span></div>
         <div class="sndbar" id="sndbar" hidden><div class="sndfill" id="sndfill"></div></div>
-        <div class="dacts"><button class="b pri" id="recvoice">Add narration</button><button class="b sm" id="revoice" hidden>Record it again</button></div>
+        ${/* NO BUTTONS HERE ANY MORE. This panel used to carry "Add
+            narration" and "Record it again", which together with the top
+            bar's "Shoot it again" made three controls for one intention
+            and left a film able to be re-shot into a take with no voice.
+            RENDER makes the film, picture and voice, in one press. This
+            reports what the voice IS. */ ""}
         <p class="note" id="sndnote"></p>
       </div>
     </div></div>
@@ -120,8 +147,9 @@ function viewRead(root) {
  * So on a narrow screen only the FILM and its scrubber stay pinned (252
  * pixels, under a third of the screen) and the state card and the voice
  * panel move to the top of the writing, where they scroll away like any
- * other block. Nothing is hidden — "Add narration" in particular is a
- * button a phone must be able to reach, and hiding it to save height
+ * other block. Nothing is hidden: the voice panel reports state rather
+ * than carrying a button now — RENDER in the top bar does the voice — but
+ * a phone must still be able to READ it, and hiding it to save height
  * would have been the same mistake in a new place.
  *
  * Done here rather than in CSS because it is a change of ORDER, not of
@@ -698,8 +726,6 @@ function bindDirect(root) {
    * ever set by clicking a chip on the panel itself. */
   const snd = root.querySelector("#sndstate");
   const note = root.querySelector("#sndnote");
-  const rec = root.querySelector("#recvoice");
-  const again = root.querySelector("#revoice");
   const real = Boolean(window.STUDIO && window.STUDIO.projectId);
   const paintSnd = () => {
     const total = liveScenes().length;
@@ -707,8 +733,6 @@ function bindDirect(root) {
     if (!real) {
       snd.textContent = "the example";
       note.textContent = "The example film has no compiler behind it. Make a film from your own writing to add a voice.";
-      rec.hidden = true;
-      again.hidden = true;
       return;
     }
     snd.textContent = n === 0 ? "silent" : n >= total ? `narrated · ${total} moments` : `${n} of ${total} recorded`;
@@ -719,21 +743,17 @@ function bindDirect(root) {
      * recordings exist, the plan names them, and fetching them fails. That
      * has to be its own sentence or the panel is confidently wrong. */
     if (VOICE.failed && VOICE.failed.length) {
-      note.textContent = `The recordings exist but ${VOICE.failed.length} would not load — ${VOICE.failed[0]}. The film is narrated; this page cannot reach the audio.`;
-      rec.hidden = true;
-      again.hidden = false;
-      again.textContent = "Record it again";
+      note.textContent = `The recordings exist but ${VOICE.failed.length} would not load — ${VOICE.failed[0]}. The film is narrated; this page cannot reach the audio. RENDER records it again.`;
       return;
     }
+    /* EVERY SENTENCE ENDS AT THE SAME PLACE, because there is one button
+     * now and the panel's job is to say whether it needs pressing. */
     note.textContent =
       n === 0
-        ? "This film has no voice yet. Adding one speaks each moment once, stores it, and re-times the film to the real recording — then PLAY has sound."
+        ? "This film has no voice yet. RENDER speaks each moment once, stores it, and re-times the film to the real recording — then PLAY has sound."
         : n >= total
-          ? "Every moment is spoken. PLAY plays it; the render writes it into the file."
-          : "Some moments are still silent. Add narration again to finish them.";
-    rec.hidden = n >= total && total > 0;
-    rec.textContent = n === 0 ? "Add narration" : "Finish the narration";
-    again.hidden = !(n > 0);
+          ? "Every moment is spoken. PLAY plays it; EXPORT writes it into the file."
+          : "Some moments are still silent. RENDER finishes them — the ones already recorded are kept.";
   };
   paintSnd();
   // So a load failure discovered after this render can repaint the panel
@@ -812,22 +832,6 @@ function bindDirect(root) {
       );
     }, 2500);
   };
-  const runVoice = async (force) => {
-    const id = window.STUDIO && window.STUDIO.projectId;
-    if (!id) return;
-    rec.disabled = true;
-    again.disabled = true;
-    if (snd) snd.textContent = "starting…";
-    try {
-      await narrateFilm(id, force ? { force: true } : {});
-      watch();
-    } catch (e) {
-      rec.disabled = false;
-      again.disabled = false;
-      paintSnd();
-      toast("Could not start the recording — " + e.message);
-    }
-  };
   /* A RECORDING THIS PAGE DID NOT START, AND ONE IT DID.
    *
    * The first case is the operator starting a recording and navigating
@@ -877,8 +881,6 @@ function bindDirect(root) {
       })
       .catch(() => {});
   }
-  if (rec) rec.onclick = () => runVoice(false);
-  if (again) again.onclick = () => runVoice(true);
   root.querySelector("#scope").onclick = () => {
     const order = ["sentence", "section", "film"];
     APP.scope = order[(order.indexOf(APP.scope) + 1) % 3];

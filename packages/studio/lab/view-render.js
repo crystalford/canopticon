@@ -19,7 +19,7 @@ function openRender() {
   paintRender();
 }
 function closeSheet() {
-  if (RENDER.running) return toast("A render is running \u2014 cancel it first");
+  if (RENDER.running) return toast("An export is running \u2014 cancel it first");
   const el = document.getElementById("sheet");
   if (el) el.remove();
 }
@@ -45,7 +45,7 @@ function paintRender(prog, done) {
   const voiced = nar ? nar.narrated : 0;
 
   if (done) {
-    box.innerHTML = `<div class="head"><span class="col"><span class="eyebrow">Render</span><h3>${esc(f.title)}</h3></span></div>
+    box.innerHTML = `<div class="head"><span class="col"><span class="eyebrow">Export</span><h3>${esc(f.title)}</h3></span></div>
     <div class="rdone"><p class="lead">The film is made \u2014 ${done.frames} frames, ${fmt(f.runtime)}, ${done.narrated ? done.narrated + " narrated moments" : "silent"}.</p>
     <p class="note">${
       done.durationExact === false
@@ -55,14 +55,14 @@ function paintRender(prog, done) {
           : `The file runs to ${fmt(f.runtime)}, exactly \u2014 every frame written once, at its own time.`
     }</p>
     <div class="ract"><a class="b pri big" id="dl" download="${esc(f.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase())}.webm">Download the film</a>
-    <button class="b" id="again">Render again</button></div></div>`;
+    <button class="b" id="again">Export again</button></div></div>`;
     const a = box.querySelector("#dl");
     a.href = URL.createObjectURL(done.blob);
     box.querySelector("#again").onclick = () => paintRender();
     return;
   }
   if (prog) {
-    box.innerHTML = `<div class="head"><span class="col"><span class="eyebrow">Rendering</span><h3>${esc(f.title)}</h3></span><span class="meta">${Math.round(prog.pct * 100)}%</span></div>
+    box.innerHTML = `<div class="head"><span class="col"><span class="eyebrow">Exporting</span><h3>${esc(f.title)}</h3></span><span class="meta">${Math.round(prog.pct * 100)}%</span></div>
     <p class="lead">${esc(prog.stage)}</p>
     <div class="rbar"><s style="width:${(prog.pct * 100).toFixed(1)}%"></s></div>
     <p class="note">A render is paced by its own sound, so it takes about as long as the film runs. Leave this open.</p>
@@ -70,7 +70,7 @@ function paintRender(prog, done) {
     box.querySelector("#cancel").onclick = () => { RENDER.cancel = true; toast("Cancelled"); };
     return;
   }
-  box.innerHTML = `<div class="head"><span class="col"><span class="eyebrow">Render</span><h3>Make the file</h3></span>
+  box.innerHTML = `<div class="head"><span class="col"><span class="eyebrow">Export</span><h3>Write the file</h3></span>
     <span class="meta">${fmt(f.runtime)} \u00b7 ${frames} frames</span></div>
   <div class="cchoices" style="padding:0 0 var(--s5)">
     <div class="crow"><span class="clabel">Size</span><div class="segs" data-r="size">${Object.keys(SIZES).map((k) => `<button data-opt="${k}" class="${ROPT.size === k ? "on" : ""}">${k} \u00b7 ${SIZES[k][0]}\u00d7${SIZES[k][1]}</button>`).join("")}</div></div>
@@ -79,7 +79,7 @@ function paintRender(prog, done) {
   </div>
   <div class="rfacts">${[["Format", "WebM \u00b7 VP9"], ["Frames", frames + " at " + ROPT.fps + " fps"], ["Voice", voiced ? voiced + " moments narrated" : "silent"]].map(([k, v]) => `<span class="fact"><span>${k}</span><i>${v}</i></span>`).join("")}</div>
   ${plan ? "" : '<div class="notice" style="margin-top:var(--s4)"><i class="dot clay"></i><span>This film has no compiled plan in the page \u2014 the example is composed live here rather than on the server. Make a film from your own writing and this button produces a file.</span></div>'}
-  <div class="ract"><button class="b pri big" id="run" ${plan ? "" : "disabled"}>Render the film</button><button class="b" id="close2">Not now</button></div>`;
+  <div class="ract"><button class="b pri big" id="run" ${plan ? "" : "disabled"}>Export the film</button><button class="b" id="close2">Not now</button></div>`;
   box.querySelectorAll("[data-r]").forEach((row) => row.querySelectorAll("[data-opt]").forEach((b) => (b.onclick = () => {
     const k = row.dataset.r, v = b.dataset.opt;
     ROPT[k] = k === "fps" ? +v : k === "captions" ? v === "true" : v;
@@ -92,9 +92,9 @@ function paintRender(prog, done) {
       const out = await renderFilm(plan, { width: w, height: h, fps: ROPT.fps, captions: ROPT.captions, narration: ROPT.narration, onProgress: (p) => paintRender(p) });
       // A cancelled render is not a finished one, and must not paint the
       // success screen with a Download button for a partial file.
-      if (out.cancelled) { paintRender(); toast("Render cancelled \u2014 nothing was written"); return; }
+      if (out.cancelled) { paintRender(); toast("Export cancelled \u2014 nothing was written"); return; }
       paintRender(null, out);
-    } catch (e) { paintRender(); toast("Render failed \u2014 " + e.message); }
+    } catch (e) { paintRender(); toast("Export failed \u2014 " + e.message); }
   };
 }
 Object.assign(window, { openRender, closeSheet, paintRender, ROPT });

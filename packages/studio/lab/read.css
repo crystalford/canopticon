@@ -89,6 +89,29 @@
 
 .traject{position:relative}
 .traject canvas{display:block;width:100%;height:38px;cursor:crosshair}
+/* WHICH WAY IS UP. The curve's whole meaning is its height and nothing
+ * said so, which is most of why the panel read as decoration.
+ *
+ * STACKED, NOT SPREAD ACROSS. These first shipped as a flex row — one
+ * word at each end of a line above the canvas — which says the axis runs
+ * left to right. It runs bottom to top. A legend pointing the wrong way
+ * is worse than none, so they sit against the canvas's own two edges. */
+/* Measured off the canvas, not off the header. `bottom` clears the names
+ * strip (13px + 3px margin) and `height` IS the canvas height, so the two
+ * words sit on its own two edges however tall the heading above wraps. */
+.tscale{position:absolute;right:2px;bottom:16px;height:38px;pointer-events:none;
+  display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end}
+.tscale span{font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);
+  background:var(--panel);padding:0 2px;line-height:1}
+/* ONE WORD PER MOMENT, under the moment it describes — built by
+ * `runTrajectory`'s `names()` since it was written, and never given an
+ * element to write into. Proportional to each scene's duration, so the
+ * strip lines up with the curve above it and with the film's own clock. */
+.tnames{display:flex;gap:1px;margin-top:3px;height:13px;overflow:hidden}
+.tnames div{flex:1;min-width:0;font-size:9px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--dim);text-align:center;white-space:nowrap;overflow:hidden;
+  border-top:1px solid var(--line2);padding-top:2px}
+.tnames div.on{color:var(--sage);border-top-color:var(--sageline)}
 .tmeta{display:flex;align-items:center;gap:var(--s3);font-size:11.5px;color:var(--dim);margin-top:-4px}
 .tmeta .num{font-size:13px;color:var(--ink2)}
 .tmeta .of{margin-right:auto}
@@ -200,6 +223,9 @@
 /* the line, said in words */
 .tlab{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3);margin-bottom:9px}
 .tnote{font-size:11px;color:var(--dim)}
+/* The moment you are on, named. The strip below blanks a label that does
+ * not fit; this one always has the room. */
+.tnote i{font-style:normal;color:var(--sage)}
 .sound .segs{margin-top:2px}
 .dacts{flex-wrap:wrap}
 /* A note under a row of actions needs air between them. Without this it

@@ -250,8 +250,11 @@ function renderBar() {
     <button class="b q sm ${APP.view === "films" ? "on" : ""}" data-go="films">Your films</button>
     ${onFilm ? `<button class="b q sm ${APP.hood ? "on" : ""}" data-hood>Directing</button>` : ""}
     <button class="b q sm phone-hide ${APP.view === "build" ? "on" : ""}" data-go="build">How it was made</button>
-    ${onFilm ? '<button class="b sm" data-reshoot title="Compose the same writing again \u2014 a different film from the same words"><span class="wide-only">Shoot it again</span><span class="phone-only">Again</span></button>' : ""}
-    ${onFilm ? '<button class="b pri sm" data-render>Render</button>' : ""}
+    ${/* TWO VERBS, AND THEY MEAN WHAT THEY MEAN IN FILM.
+        * RENDER makes the film. EXPORT writes the file. See `renderNow`
+        * below for why these used to be three buttons. */ ""}
+    ${onFilm ? '<button class="b q sm phone-hide" data-export title="Write the finished film out as a video file">Export</button>' : ""}
+    ${onFilm ? '<button class="b pri sm" data-again title="Put the writing through the system as it is now \u2014 a new take, and the voice with it">Render</button>' : ""}
   </div>`;
   const q = (s, fn) => document.querySelectorAll(s).forEach((b) => (b.onclick = () => fn(b)));
   q("[data-go]", (b) => go(b.dataset.go));
@@ -261,36 +264,70 @@ function renderBar() {
     APP.hood = !APP.hood;
     render();
   });
-  q("[data-render]", openRender);
-  q("[data-reshoot]", reshootNow);
+  q("[data-export]", openRender);
+  q("[data-again]", renderNow);
 }
 
-/* ── SHOOT IT AGAIN ──────────────────────────────────────────────────
+/* ── RENDER — MAKE THE FILM, PICTURE AND VOICE ───────────────────
  *
- * The only control this Studio had on a finished film was RENDER, which
- * writes down what is already there. The compiler is deterministic, so
- * one essay contained one film and there was no way to ask for another.
+ * THIS WAS THREE BUTTONS AND THEY WERE THE WORST THING IN THE STUDIO.
  *
- * This asks for another take: the same writing, composed again. Nothing
- * written or approved moves — not the essay, the cuts, the anchors, the
- * ratified readings, the pins or the recorded voice — and no TTS is
- * spent. Each take is its own IR version, so Undo is going back a
- * version, and the same take always composes the same film. */
-async function reshootNow() {
+ *   "Shoot it again"   in the top bar   — composed the picture again
+ *   "Add narration"    in the film view — recorded the voice
+ *   "Record it again"  next to it       — recorded the voice again
+ *
+ * Three controls for one intention, in two different places, each doing
+ * half a job. A film could be re-shot into a take with no voice, or given
+ * a voice for a take that had already moved on, and neither button said
+ * so. There is no version of making a film in which the picture and the
+ * sound are separate errands.
+ *
+ * ONE BUTTON. It puts the writing through the system AS IT IS NOW —
+ * which is the other half of the point, because the reason to press it is
+ * usually to see what the compiler learned since last time. Then it
+ * records the voice, ALWAYS, without being asked again.
+ *
+ * IT IS CHEAP WHEN IT CAN BE. Narration is keyed by the scene’s text and
+ * a take never touches the text, so every existing recording is reused
+ * and only the silent or stale moments cost TTS. Pressing this on a fully
+ * narrated film spends nothing on the voice.
+ *
+ * Nothing written or approved moves — not the essay, the cuts, the
+ * anchors, the ratified readings or the pins. Each take is its own IR
+ * version, so Undo is going back a version, and the same take always
+ * composes the same film.
+ *
+ * The verb it does NOT do is export. Writing a video file out is its own
+ * act, it is called EXPORT, and it is the button beside this one. */
+async function renderNow() {
   if (!window.STUDIO || !window.STUDIO.projectId) {
-    return toast("The example film composes in this page \u2014 open one of yours to shoot it again");
+    return toast("The example film composes in this page \u2014 open one of yours to render it");
   }
   const id = window.STUDIO.projectId;
-  busy(true, "composing it again");
+  busy(true, "making it again");
   try {
     const out = await reshootFilm(id);
+    /* THE VOICE, IN THE SAME PRESS.
+     *
+     * Started BEFORE the reload rather than after, so the recording is
+     * already under way by the time the film view mounts and picks up its
+     * progress bar. A failure here is reported and does not lose the
+     * take: the picture is already written, and telling someone their
+     * render failed when it did not is worse than a silent film. */
+    let voice = true;
+    try {
+      await narrateFilm(id, {});
+    } catch (e) {
+      voice = false;
+      toast("The take is made, but the voice would not start \u2014 " + e.message);
+    }
     // Re-open so the Preview, the plan and the narration all come from
     // the take that was just written rather than the one before it.
     await loadProject(id);
     adoptFilm();
-    toast(out.how || `Take ${(out.take ?? 0) + 1}`);
+    if (voice) toast(`${out.how || `Take ${(out.take ?? 0) + 1}`} \u00b7 recording the voice`);
   } catch (e) {
-    toast("Could not shoot it again \u2014 " + e.message);
+    toast("Could not render it \u2014 " + e.message);
   } finally {
     busy(false);
   }
@@ -429,5 +466,5 @@ window.addEventListener("DOMContentLoaded", async () => {
 Object.assign(window, {
   APP, PLAY, VERBS, MARK, go, render, renderBar, changed, mark, undo, redo, retime, snapshot,
   selectScene, selScene, stepScene, toast, busy, esc, fmt, loop, stopLoops, sliderHTML, bindSliders,
-  openFinder, closeFinder, jumpTo, readIntent, saveNow, queueSave, reshootNow,
+  openFinder, closeFinder, jumpTo, readIntent, saveNow, queueSave, renderNow,
 });
