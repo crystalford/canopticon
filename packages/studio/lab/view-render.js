@@ -77,7 +77,7 @@ function paintRender(prog, done) {
     <div class="crow"><span class="clabel">Rate</span><div class="segs" data-r="fps">${[24, 30, 60].map((k) => `<button data-opt="${k}" class="${ROPT.fps === k ? "on" : ""}">${k} fps</button>`).join("")}</div></div>
     <div class="crow"><span class="clabel">Captions</span><div class="segs" data-r="captions">${[["on", true], ["off", false]].map(([l, v]) => `<button data-opt="${v}" class="${ROPT.captions === v ? "on" : ""}">${l}</button>`).join("")}</div></div>
   </div>
-  <div class="rfacts">${[["Format", "WebM \u00b7 VP9"], ["Frames", frames + " at " + ROPT.fps + " fps"], ["Voice", voiced ? voiced + " moments narrated" : "silent \u2014 no voice bought"], ["Cost", "$0.00 \u2014 rendered in this page"]].map(([k, v]) => `<span class="fact"><span>${k}</span><i>${v}</i></span>`).join("")}</div>
+  <div class="rfacts">${[["Format", "WebM \u00b7 VP9"], ["Frames", frames + " at " + ROPT.fps + " fps"], ["Voice", voiced ? voiced + " moments narrated" : "silent"]].map(([k, v]) => `<span class="fact"><span>${k}</span><i>${v}</i></span>`).join("")}</div>
   ${plan ? "" : '<div class="notice" style="margin-top:var(--s4)"><i class="dot clay"></i><span>This film has no compiled plan in the page \u2014 the example is composed live here rather than on the server. Make a film from your own writing and this button produces a file.</span></div>'}
   <div class="ract"><button class="b pri big" id="run" ${plan ? "" : "disabled"}>Render the film</button><button class="b" id="close2">Not now</button></div>`;
   box.querySelectorAll("[data-r]").forEach((row) => row.querySelectorAll("[data-opt]").forEach((b) => (b.onclick = () => {

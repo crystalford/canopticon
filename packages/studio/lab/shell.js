@@ -147,7 +147,7 @@ async function saveNow() {
     window.__lastRun = dryRun();
     commit(window.__lastRun);
     APP.dirty = false;
-    if (r) APP.cost = r.cache.misses + " of " + r.cache.total + " rebuilt · " + r.ttsCalls + " voice calls";
+    if (r) APP.cost = (r.cache.misses ? r.cache.misses + " of " + r.cache.total + " moments redrawn" : "nothing to redraw") + (r.ttsCalls ? " · " + r.ttsCalls + " recorded" : "");
     render();
   } catch (e) {
     APP.cost = "not saved — " + e.message;
@@ -221,7 +221,7 @@ function renderBar() {
   document.getElementById("bar").innerHTML = `
   <button class="mark" data-go="films" title="Your films">${MARK}<b>CANOPTICON</b></button>
   ${onFilm ? `<div class="bardiv"></div><div class="btitle">${esc(f.title)}</div>
-  <div class="bstate"><i class="dot ${demo ? "" : APP.dirty ? "clay" : "sage"}"></i>${demo ? "not stored" : APP.dirty ? "saving" : "saved"}</div>
+  <div class="bstate"><i class="dot ${demo ? "" : APP.dirty ? "clay" : "sage"}"></i>${demo ? "example — not saved" : APP.dirty ? "saving" : "saved"}</div>
   ${APP.cost ? `<div class="lab">${esc(APP.cost)}</div>` : ""}` : ""}
   <div class="btools">
     <button class="b q sm" data-undo ${APP.past.length ? "" : "disabled"}>Undo</button>
@@ -230,7 +230,7 @@ function renderBar() {
     <button class="b q sm" data-go="start">New</button>
     <button class="b q sm ${APP.view === "films" ? "on" : ""}" data-go="films">Films</button>
     ${onFilm ? `<button class="b q sm ${APP.hood ? "on" : ""}" data-hood>Under the hood</button>` : ""}
-    <button class="b q sm ${APP.view === "build" ? "on" : ""}" data-go="build">Build</button>
+    <button class="b q sm ${APP.view === "build" ? "on" : ""}" data-go="build">Backstage</button>
     ${onFilm ? '<button class="b pri sm" data-render>Render</button>' : ""}
   </div>`;
   const q = (s, fn) => document.querySelectorAll(s).forEach((b) => (b.onclick = () => fn(b)));
@@ -320,7 +320,7 @@ function openFinder() {
   if (document.getElementById("finder")) return;
   const el = document.createElement("div");
   el.id = "finder";
-  el.innerHTML = `<div class="finder-box"><input id="finder-q" placeholder="Find a moment — by something it says" autocomplete="off"><div id="finder-list"></div></div>`;
+  el.innerHTML = `<div class="finder-box"><input id="finder-q" placeholder="Find a moment — type something it says" autocomplete="off"><div id="finder-list"></div></div>`;
   document.body.appendChild(el);
   el.onclick = (ev) => ev.target === el && closeFinder();
   const q = document.getElementById("finder-q");

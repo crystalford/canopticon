@@ -13,7 +13,7 @@ const LABP = { params: {}, seed: 1337 };
 
 function viewBuild(root) {
   root.innerHTML = `<div class="page"><div class="wrap">
-    <div class="head"><span class="col"><span class="eyebrow">Backstage</span><h1>Build</h1><p class="sub">How the machine made it. Nothing here is required to direct a film — a director should be able to finish one without ever opening this room.</p></span></div>
+    <div class="head"><span class="col"><span class="eyebrow">Backstage</span><h1>Backstage</h1><p class="sub">How the machine made it. Nothing here is required to direct a film — a director should be able to finish one without ever opening this room.</p></span></div>
     <div class="etabs">${ETABS.map(([id, l]) => `<button data-etab="${id}" class="${APP.eng === id ? "on" : ""}">${l}</button>`).join("")}</div>
     <div id="ebody"></div>
   </div></div>`;
@@ -34,7 +34,7 @@ function engCompile(host) {
     <span class="stat"><b>${run.comps.filter((c) => c.misses).length}</b><span>scenes touched</span></span>
     <span class="stat"><b>${((400 + run.miss * 310) / 1000).toFixed(1)}s</b><span>estimated wall time</span></span>
     <span class="stat"><b>${Math.max(...run.comps.map((c) => c.cost))} ms</b><span>peak frame cost</span></span>
-    <span class="stat"><b>$0.00</b><span>spend</span></span>
+    <span class="stat"></span>
   </div>
   <table class="t"><thead><tr><th>Scene</th><th>Function</th><th>Rung</th><th>Chain</th><th>Cache</th><th>Reason</th><th>Cost</th></tr></thead><tbody>
   ${run.comps.map((c) => `<tr><td class="n">${String(c.scene.n).padStart(2, "0")}</td>
@@ -46,7 +46,7 @@ function engCompile(host) {
     <td class="n">${c.cost} ms</td></tr>`).join("")}
   </tbody></table>
   ${hist.length ? `<span class="key" style="display:block;margin:28px 0 12px">Build history</span>
-   <table class="t"><tbody>${hist.map((h) => `<tr><td class="n">${h.at.toTimeString().slice(0, 8)}</td><td>${h.miss} recomputed of ${h.total}</td><td class="n">${h.ms.toFixed(1)}s</td></tr>`).join("")}</tbody></table>` : ""}`;
+   <table class="t"><tbody>${hist.map((h) => `<tr><td class="n">${h.at.toTimeString().slice(0, 8)}</td><td>${h.miss} recomputed of ${h.total}</td><td class="n">${h.ms == null ? "\u2014" : h.ms.toFixed(1) + "s"}</td></tr>`).join("")}</tbody></table>` : ""}`;
 }
 
 function engShots(host) {

@@ -6,26 +6,26 @@
  */
 const HOOD_TABS = [["direct", "Direct"], ["structure", "Structure"], ["visual", "Visual"], ["motion", "Motion"], ["continuity", "Continuity"]];
 const MATERIALS = [["documentary", "paper"], ["technical", "ink"], ["pixel", "screen"], ["surreal", "particles"], ["kinetic", "light"]];
-const MODES = [["cut", "Cut"], ["bridge", "Bridge"], ["oneshot", "One shot"], ["montage", "Montage"]];
+const MODES = [["cut", "Cut"], ["hybrid", "Mixed"], ["oneshot", "One shot"], ["montage", "Montage"]];
 const MODE_BLURB = {
   cut: "Every moment is its own shot. The film changes by cutting.",
-  bridge: "Moments touch, and carry something across the join.",
+  hybrid: "Mostly cuts, but the film travels where the voice leaves a gap.",
   oneshot: "Continuous visual transformation. No cuts — the film must travel through intermediate states.",
   montage: "Moments collide, held apart. The collision is the argument.",
 };
 const Q = {
-  abstraction: { q: "What is this becoming?", stops: [["grounded", 0.15], ["analytical", 0.45], ["abstract", 0.8]] },
-  visualDensity: { q: "How much at once?", stops: [["sparse", 0.2], ["full", 0.55], ["dense", 0.88]] },
-  motionEnergy: { q: "How should it move?", stops: [["hold", 0.12], ["drift", 0.45], ["surge", 0.85]] },
-  humanPresence: { q: "Is anybody there?", stops: [["absent", 0.12], ["implied", 0.45], ["present", 0.85]] },
-  experimentalism: { q: "How should it see?", stops: [["observe", 0.12], ["interpret", 0.45], ["transform", 0.85]] },
-  typographicWeight: { q: "How loud is the type?", stops: [["quiet", 0.2], ["spoken", 0.5], ["shouted", 0.85]] },
+  abstraction: { q: "How abstract", stops: [["grounded", 0.15], ["analytical", 0.45], ["abstract", 0.8]] },
+  visualDensity: { q: "How much at once", stops: [["sparse", 0.2], ["full", 0.55], ["dense", 0.88]] },
+  motionEnergy: { q: "How much it moves", stops: [["hold", 0.12], ["drift", 0.45], ["surge", 0.85]] },
+  humanPresence: { q: "Human presence", stops: [["absent", 0.12], ["implied", 0.45], ["present", 0.85]] },
+  experimentalism: { q: "How it reads the material", stops: [["observe", 0.12], ["interpret", 0.45], ["transform", 0.85]] },
+  typographicWeight: { q: "How loud the type is", stops: [["quiet", 0.2], ["spoken", 0.5], ["shouted", 0.85]] },
 };
 
 function openHood() {
   const el = document.createElement("div");
   el.id = "hood";
-  el.innerHTML = `<div class="hoodhead"><span class="col"><span class="eyebrow">Deeper</span><h3>Under the hood</h3></span><button class="b q sm" id="hoodclose">Close</button></div>
+  el.innerHTML = `<div class="hoodhead"><span class="col"><span class="eyebrow">Deeper</span><h3>Controls</h3></span><button class="b q sm" id="hoodclose">Close</button></div>
   <div class="hoodtabs">${HOOD_TABS.map(([id, l]) => `<button data-ht="${id}" class="${APP.hoodTab === id ? "on" : ""}">${l}</button>`).join("")}</div>
   <div class="hoodbody" id="hoodbody"></div>`;
   document.body.appendChild(el);
@@ -143,7 +143,7 @@ function bindHood(host, s, c) {
         f.identity[param] = target;
         if (param === "experimentalism" && window.STUDIO && !window.STUDIO.demo) queueSave();
         changed();
-        return toast("The film " + b.textContent + "s");
+        return toast("The film — " + b.textContent.toLowerCase());
       }
       const now = param === "abstraction" ? c.abstraction : c.state[param] ?? 0;
       mark("“" + b.textContent + "” on one moment");

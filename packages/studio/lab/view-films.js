@@ -62,10 +62,10 @@ function viewFilms(root) {
       <button class="b" id="ex">Open the example</button>
     </div>
     ${ps.length
-      ? `<span class="key">Yours · ${ps.length}</span><div class="filmlist">${ps.map((p) => `<button class="filmrow" data-open="${p.projectId}">
+      ? `<span class="key">Yours · ${ps.length}</span><div class="filmlist">${ps.map((p) => `<span class="filmrow"><button class="filmopen" data-open="${p.projectId}">
           <span><b>${esc(p.title || "Untitled")}</b><p>${p.acts ? `${p.acts} part${p.acts === 1 ? "" : "s"}` : "Not yet cut"}${p.stale ? ` · ${p.stale} to re-record` : ""}</p></span>
           <span class="m">${p.scenes ?? "—"} moments</span>
-          <span class="m">${p.narrated ? (p.narrated >= (p.scenes || 0) ? "narrated" : `${p.narrated}/${p.scenes} voiced`) : "silent"}</span></button>`).join("")}</div>`
+          <span class="m">${p.narrated ? (p.narrated >= (p.scenes || 0) ? "narrated" : `${p.narrated}/${p.scenes} voiced`) : "silent"}</span></button><button class="b q sm filmdel" data-del="${p.projectId}" title="Delete this film">Delete</button></span>`).join("")}</div>`
       : `<div class="empty"><h2 style="margin-bottom:8px">Nothing here yet</h2><p class="note">Make one from something you have already written. CANOPTICON reads it, cuts it into moments, and composes a shot for every sentence — then you direct what it made.</p></div>`}
   </div></div>`;
   const on = (id, fn) => {
@@ -76,6 +76,26 @@ function viewFilms(root) {
   on("#ex", useExample);
   on("#retry", filmsRefresh);
   root.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => openFilm(b.dataset.open)));
+  /* DELETE. The library grew monotonically — no delete, no rename, no way
+   * to get rid of a test film. `deleteProject` has existed in the bridge
+   * since it was written and was called from nowhere. */
+  root.querySelectorAll("[data-del]").forEach((b) => (b.onclick = async (e) => {
+    e.stopPropagation();
+    const row = b.closest(".filmrow");
+    const name = row ? (row.querySelector("b") || {}).textContent : "this film";
+    if (!confirm(`Delete “${name}”? The writing, the plan and any recorded voice go with it.`)) return;
+    b.disabled = true;
+    try {
+      await deleteProject(b.dataset.del);
+      if (window.STUDIO && window.STUDIO.projectId === b.dataset.del) loadDemo();
+      await filmsRefresh();
+      render();
+      toast("Deleted");
+    } catch (err) {
+      b.disabled = false;
+      toast("Could not delete — " + err.message);
+    }
+  }));
 }
 
 Object.assign(window, { viewFilms, filmsRefresh, openFilm, useExample, adoptFilm });

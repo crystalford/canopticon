@@ -9,13 +9,18 @@
  * claims is the interface got the least room on screen.
  */
 const FILM_CHAINS = new Map();
-const VERB_BY_FN = { hook: "OPEN", establish: "GROUND", evidence: "ACCUMULATE", turn: "BREAK", resolve: "SETTLE" };
+/* ONE VOCABULARY ON SCREEN.
+ *
+ * This printed an eight-word private vocabulary — OPEN / GROUND /
+ * ACCUMULATE / BREAK / SETTLE / DISSOLVE / DECOMPOSE / HOLD — on the film
+ * overlay, while the state card six inches away printed a DIFFERENT
+ * five-word one (`MOVES`), at the same time, overlapping by three, with
+ * neither defined anywhere the operator could read. The card's five have
+ * prose behind them, so the overlay says what the card says. */
 function stateVerb(c) {
-  if (c.tier === "DISSOLVED") return "DISSOLVE";
-  if (c.tier === "DECOMPOSED") return c.scene.fn === "turn" ? "BREAK" : "DECOMPOSE";
-  return VERB_BY_FN[c.scene.fn] || "HOLD";
+  return MOVES[movementOf(c, c.scene)][0];
 }
-const HINTS = ["More abstract", "Too literal", "Let it breathe", "Like memory", "Bring a person in", "Pull back to the system"];
+const HINTS = ["More abstract", "More literal", "Slower", "Quieter", "Bring a person in", "Pull back"];
 const MODE_WORD = { cut: "cut", bridge: "bridged", oneshot: "one continuous shot", montage: "montage" };
 const SCOPE_WORD = { sentence: "this moment", section: "this section", film: "the whole film" };
 const liveScenes = () => window.FILM.scenes.filter((s) => !(window.FILM.cutScenes || []).includes(s.id));
@@ -47,7 +52,7 @@ function viewRead(root) {
         <span class="num" id="tc2">${fmt(PLAY.t)}</span>
       </div>
       <div class="block statecard" id="statecard"></div>
-      <div class="block traject" id="traject"><div class="tlab"><span class="key">How abstract it gets</span><span class="tnote">across the whole film</span></div><canvas id="tcv"></canvas></div>
+      <div class="block traject" id="traject"><div class="tlab"><span class="key">Abstraction</span><span class="tnote">how far from literal, across the film</span></div><canvas id="tcv"></canvas></div>
       <div class="tmeta">
         <button class="b q sm" id="pp2">${PLAY.on ? "Pause" : "Play"}</button>
         <span class="num" id="tc">${fmt(PLAY.t)}</span><span class="of">of ${fmt(f.runtime)}</span>
@@ -55,10 +60,10 @@ function viewRead(root) {
       </div>
       <div class="block direct">
         <div class="dhead"><span class="key">Direct</span><button class="scope" id="scope">${SCOPE_WORD[APP.scope]}</button></div>
-        <label class="said"><input id="say" placeholder="Say what should change" value="${esc(APP.said)}"></label>
+        <label class="said"><input id="say" placeholder="More abstract, quieter, slower, longer\u2026" value="${esc(APP.said)}"></label>
         <div class="hints">${HINTS.map((h) => `<button data-hint="${esc(h)}">${esc(h)}</button>`).join("")}</div>
         <div id="heardhost"></div>
-        <div class="dacts"><button class="b sm" id="explore">Explore readings</button><button class="b sm" id="editbtn">Rewrite this</button><button class="b q sm" id="cutbtn"></button></div>
+        <div class="dacts"><button class="b sm" id="explore">Other ways to draw this</button><button class="b sm" id="editbtn">Rewrite this</button><button class="b q sm" id="cutbtn"></button></div>
       </div>
       <!-- SOUND, WHICH USED TO REPORT RATHER THAN ACT.
            Three buttons that set a field and repainted a label, under a
@@ -68,10 +73,18 @@ function viewRead(root) {
            arrive at render, it never would, and following the instruction
            produced a permanently silent film. "My voice" is gone for the
            same reason it went from Create: there is no recording path. -->
-      <div class="block sound"><div class="dhead"><span class="key">Sound</span><span class="tnote" id="sndstate"></span></div>
-        <div class="segs" data-voice>${["Synthesised", "None"].map((o) => `<button data-v="${o}" class="${(f.voice || "None") === o ? "on" : ""}">${o}</button>`).join("")}</div>
+      <!-- THE VOICE. One control, one state, no mystery.
+           This was three chips that set a local field nobody read, a
+           status line that called a narrated film silent, and a Record
+           button hidden whenever that line said silent. So the one thing
+           the operator has asked for repeatedly — a film they can hear —
+           was gated behind a panel that could not tell them whether the
+           film had a voice, and hid the button that would give it one. -->
+      <div class="block sound" id="voicebox">
+        <div class="dhead"><span class="key">Voice</span><span class="tnote" id="sndstate"></span></div>
         <div class="sndbar" id="sndbar" hidden><div class="sndfill" id="sndfill"></div></div>
-        <div class="dacts"><button class="b sm" id="recvoice">Record the voice</button></div>
+        <div class="dacts"><button class="b pri" id="recvoice">Add narration</button><button class="b sm" id="revoice" hidden>Record it again</button></div>
+        <p class="note" id="sndnote"></p>
       </div>
     </div></div>
     <div class="argside"><div class="argwrap" id="argwrap">${argumentHTML()}</div>
@@ -121,7 +134,7 @@ function argumentHTML() {
   });
   if (tail.trim()) out += `<p>${esc(tail).replace(/\n\n+/g, "</p><p>")}</p>`;
   if (unbound.length)
-    out += `<div class="acthead"><span class="anum">Also</span><h2>Not located in the source</h2></div><p>` +
+    out += `<div class="acthead"><span class="anum">Also</span><h2>Not found in your writing</h2></div><p>` +
       unbound.map((s) => `<span class="sn ${s.id === APP.sel ? "on" : ""}" data-sn="${s.id}">${esc(s.text)}</span> `).join("") + "</p>";
   return out;
 }
@@ -214,7 +227,7 @@ function paintState() {
     ${bent ? '<span class="chip sage">directed</span>' : ""}${(f.cutScenes || []).includes(s.id) ? '<span class="chip clay">out</span>' : ""}</div>
   <p class="scwhat">${mwhat}</p>
   <div class="moves">${MOVES.map(([n], i) => `<span class="${i === mi ? "on" : i < mi ? "past" : ""}">${n}</span>`).join("")}</div>
-  <p class="scwhy">${carried.length ? `Carrying through <b>${carried.join("</b>, <b>")}</b>. ` : ""}Held ${s.dur.toFixed(1)}s${(st._held || []).length ? ", where an invariant is holding it" : ""}.</p>`;
+  <p class="scwhy">${carried.length ? `Carrying through <b>${carried.join("</b>, <b>")}</b>. ` : ""}On screen for ${s.dur.toFixed(1)}s${(st._held || []).length ? " \u2014 held there by a rule you set" : ""}.</p>`;
 }
 
 function bringCurrentIntoView(instant) {
@@ -330,6 +343,13 @@ const VOICE = { loading: null, loadedFor: null };
 async function voiceOn() {
   const plan = window.STUDIO && window.STUDIO.plan;
   if (!plan || !window.loadNarration) return;
+  /* SILENCE SAYS WHY IT IS SILENT. Pressing play on a film with no voice
+   * produced pictures and nothing else, with no way to tell whether the
+   * audio had failed, was still loading, or had never been bought. */
+  if (narratedCount() === 0) {
+    toast("This film has no voice yet — use Add narration");
+    return;
+  }
   const key = window.STUDIO.projectId || "demo";
   if (VOICE.loadedFor !== key) {
     if (!VOICE.loading) {
@@ -517,10 +537,10 @@ function showAlternatives() {
   const others = LADDER.filter((l) => l.tier !== c.tier).slice(0, 3);
   const host = document.createElement("div");
   host.className = "alts2";
-  host.innerHTML = `<span class="key" style="display:block;margin-bottom:10px">Three other readings of “${esc(s.label)}”</span>
+  host.innerHTML = `<span class="key" style="display:block;margin-bottom:10px">Other ways to draw “${esc(s.label)}”</span>
   <div class="altrow">${others.map((l, i) => `<button class="alt2" data-take="${l.tier}">
     <span class="frame"><canvas></canvas></span>
-    <span class="cap"><b>${"ABC"[i]} · ${l.tier[0] + l.tier.slice(1).toLowerCase()}</b><i>${esc(TIER_BLURB[l.tier])}</i></span></button>`).join("")}</div>`;
+    <span class="cap"><b>${l.tier[0] + l.tier.slice(1).toLowerCase()}</b><i>${esc(TIER_BLURB[l.tier])}</i></span></button>`).join("")}</div>`;
   anchor.closest("p").after(host);
   host.querySelectorAll(".alt2").forEach((el, i) => {
     const l = others[i];
@@ -590,79 +610,68 @@ function bindDirect(root) {
   cb.onclick = () => { cutSentence(APP.sel); };
   /* The voice chosen at Create has to be visible SOMEWHERE afterwards, or it
    * is a question the product asked and then forgot the answer to. */
+  /* ── THE VOICE, SAID PLAINLY ──────────────────────────────────────
+   *
+   * Three states, no ambiguity, and a button that is never hidden on a
+   * real project: a film with no voice is exactly the film that needs the
+   * button. The count comes from the compiled plan, which has always
+   * known the truth — the old panel asked a local field that was only
+   * ever set by clicking a chip on the panel itself. */
   const snd = root.querySelector("#sndstate");
+  const note = root.querySelector("#sndnote");
   const rec = root.querySelector("#recvoice");
+  const again = root.querySelector("#revoice");
+  const real = Boolean(window.STUDIO && window.STUDIO.projectId);
   const paintSnd = () => {
-    const f = window.FILM;
     const total = liveScenes().length;
     const n = narratedCount();
-    /* SILENT MEANS "NO VOICE ON THE PLAN", NOT "NO CHIP CLICKED".
-     *
-     * This was `(f.voice || "None") === "None"`. `f.voice` is only ever set
-     * by clicking a chip on this panel \u2014 `toFilm` never populates it from
-     * the IR \u2014 so on every reopened film it was undefined, the panel said
-     * the film was silent, and `rec.hidden = silent` REMOVED the only
-     * recording control from a film that already had a voice. The plan
-     * knows the truth and `narratedCount()` has been reading it all along. */
-    const silent = n === 0 && (f.voice || "None") === "None";
-    /* WHAT IS TRUE, rather than what is reassuring. Recording spends model
-     * calls NOW; rendering never buys a voice. */
-    snd.textContent = silent
-      ? "silent \u2014 the words are burned into the frames"
-      : n >= total && total > 0
-        ? `narrated \u2014 all ${total} moments`
-        : n
-          ? `${n} of ${total} moments recorded`
-          : "not recorded yet \u2014 recording speaks each moment once and stores it";
-    if (rec) {
-      // Never hidden on a real project: recording is how a silent film
-      // stops being one, so hiding it on a silent film hid the fix.
-      rec.hidden = !(window.STUDIO && window.STUDIO.projectId);
-      rec.textContent = n >= total && total > 0 ? "Re-record the voice" : "Record the voice";
+    if (!real) {
+      snd.textContent = "the example";
+      note.textContent = "The example film has no compiler behind it. Make a film from your own writing to add a voice.";
+      rec.hidden = true;
+      again.hidden = true;
+      return;
     }
+    snd.textContent = n === 0 ? "silent" : n >= total ? `narrated · ${total} moments` : `${n} of ${total} recorded`;
+    note.textContent =
+      n === 0
+        ? "This film has no voice yet. Adding one speaks each moment once, stores it, and re-times the film to the real recording — then PLAY has sound."
+        : n >= total
+          ? "Every moment is spoken. PLAY plays it; the render writes it into the file."
+          : "Some moments are still silent. Add narration again to finish them.";
+    rec.hidden = n >= total && total > 0;
+    rec.textContent = n === 0 ? "Add narration" : "Finish the narration";
+    again.hidden = !(n > 0);
   };
   paintSnd();
-  root.querySelectorAll("[data-voice] [data-v]").forEach((b) => (b.onclick = () => {
-    mark("choosing a voice");
-    window.FILM.voice = b.dataset.v;
-    root.querySelectorAll("[data-voice] [data-v]").forEach((x) => x.classList.toggle("on", x === b));
+  const runVoice = async (force) => {
+    const id = window.STUDIO && window.STUDIO.projectId;
+    if (!id) return;
+    const bar = root.querySelector("#sndbar");
+    const fill = root.querySelector("#sndfill");
+    const total = liveScenes().length || 1;
+    if (bar) bar.hidden = false;
+    rec.disabled = true;
+    again.disabled = true;
+    await narrateNow(
+      id,
+      (p) => {
+        if (fill) fill.style.width = Math.round((p.done / total) * 100) + "%";
+        if (snd) snd.textContent = `recording — ${p.done} of ${total}`;
+      },
+      undefined,
+      force,
+    );
+    // A new recording is a new artifact. The decoded buffers are keyed by
+    // sha256, so the preview has to fetch again or it plays the old voice.
+    VOICE.loadedFor = null;
+    rec.disabled = false;
+    again.disabled = false;
+    if (bar) bar.hidden = true;
     paintSnd();
-  }));
-  if (rec) {
-    rec.onclick = async () => {
-      const id = window.STUDIO && window.STUDIO.projectId;
-      if (!id) {
-        toast("The example film has no compiler behind it \u2014 open a stored film to record a voice");
-        return;
-      }
-      const bar = root.querySelector("#sndbar");
-      const fill = root.querySelector("#sndfill");
-      const total = liveScenes().length || 1;
-      if (bar) bar.hidden = false;
-      rec.disabled = true;
-      // ONE runner, shared with Create. Narration spends money; two
-      // implementations of it is the last thing this codebase needs.
-      // Re-record means re-record. `force` is what makes the server pick
-      // up scenes it has already voiced; without it this button reported
-      // "no voice was recorded" on a fully narrated film.
-      const again = narratedCount() >= total && total > 0;
-      await narrateNow(
-        id,
-        (p) => {
-          if (fill) fill.style.width = Math.round((p.done / total) * 100) + "%";
-          if (snd) snd.textContent = `recording \u2014 ${p.done} of ${total}`;
-        },
-        undefined,
-        again,
-      );
-      // A new recording is a new artifact — the decoded buffers are keyed
-      // by sha256, so the preview must be told to fetch again.
-      VOICE.loadedFor = null;
-      rec.disabled = false;
-      if (bar) bar.hidden = true;
-      paintSnd();
-    };
-  }
+  };
+  if (rec) rec.onclick = () => runVoice(false);
+  if (again) again.onclick = () => runVoice(true);
   root.querySelector("#scope").onclick = () => {
     const order = ["sentence", "section", "film"];
     APP.scope = order[(order.indexOf(APP.scope) + 1) % 3];
@@ -707,9 +716,11 @@ function paintHeard() {
   host.innerHTML = `<div class="heard2"><span class="key">Heard · ${SCOPE_WORD[APP.scope]}</span>
     <p>${esc(h.said)}</p>
     <div class="rows">${Object.entries(h.d).map(([k, v]) => {
-      const now = k === "abstraction" ? c.abstraction : c.state[k] ?? 0;
-      return `<span>${paramName(k)} <i>${now.toFixed(2)} → ${clamp(now + v, 0, 1).toFixed(2)}</i></span>`;
-    }).join("")}${h.dur ? `<span>duration <i>${s.dur.toFixed(1)}s → ${(s.dur + h.dur).toFixed(1)}s</i></span>` : ""}</div>
+      /* WHAT CHANGES, IN WORDS. This printed "abstraction 0.42 → 0.60" —
+       * two-decimal engine parameters in the one card whose whole job is
+       * to say what the film will do differently. */
+      return `<span>${paramName(k)} <i>${moreOrLess(k, v)}</i></span>`;
+    }).join("")}${h.dur ? `<span>${paramName("duration")} <i>${h.dur > 0 ? "longer" : "shorter"}, by ${Math.abs(h.dur).toFixed(1)}s</i></span>` : ""}</div>
     <div class="act"><button class="b pri sm" id="ap">Apply</button><button class="b sm" id="cn">Cancel</button></div></div>`;
   document.getElementById("ap").onclick = () => {
     const scenes = APP.scope === "film" ? liveScenes() : APP.scope === "section" ? liveScenes().filter((x) => x.act === s.act) : [s];
@@ -737,8 +748,31 @@ function bendScene(s, d, dur) {
     directVerb(window.STUDIO.projectId, s.id, Object.keys(d)[0]).catch((e) => toast("Compiler: " + e.message));
 }
 const paramName = (id) => {
+  /* Plain names for the dials, so a card can say "how abstract" rather
+   * than `humanPresence`. Falls back to the registry, then to the id. */
+  const PLAIN = {
+    abstraction: "how abstract",
+    visualDensity: "how much at once",
+    motionEnergy: "how much it moves",
+    humanPresence: "human presence",
+    typographicWeight: "how loud the type is",
+    archivalWeight: "archival feel",
+    dataWeight: "how much data",
+    restraint: "restraint",
+    experimentalism: "how far it goes",
+    cutRhythm: "how fast it cuts",
+    duration: "how long it holds",
+  };
+  if (PLAIN[id]) return PLAIN[id];
   const p = (window.PARAMS || []).find((x) => x.id === id);
   return p ? p.name.toLowerCase() : id;
+};
+
+/** A direction in words rather than a delta. "more" and "much more" is
+ *  what a director says; 0.42 → 0.60 is what a debugger says. */
+const moreOrLess = (id, v) => {
+  const size = Math.abs(v) >= 0.28 ? "much " : Math.abs(v) >= 0.12 ? "" : "slightly ";
+  return `${size}${v > 0 ? "more" : "less"}`;
 };
 
 Object.assign(window, { viewRead, TIER_SHORT, readingLine, argumentHTML, setCurrent, paintState, stateVerb, bendScene, paramName, compFor, runOf, liveScenes, cutSentence, sizeFilm, startEdit, hear, TIER_BLURB, MODE_WORD, SCOPE_WORD, FILM_CHAINS, bringCurrentIntoView });

@@ -323,7 +323,10 @@ function commit(run) {
     at: new Date(),
     miss: run.miss,
     total: run.total,
-    ms: (400 + run.miss * 310 + (run.fresh ? 1800 : 0)) / 1000,
+    /* NOT MEASURED, SO NOT REPORTED. This computed a plausible-looking
+     * number from the miss count and printed it as "estimated wall time"
+     * and as elapsed time in the history table. Nothing was timed. */
+    ms: null,
   });
   CACHE.history = CACHE.history.slice(0, 6);
 }

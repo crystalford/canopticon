@@ -185,14 +185,14 @@ function viewStart(root) {
         <button class="b pri big" id="create" ${r.words < 12 ? "disabled" : ""}>Create the film</button>
         <p class="note">${
           NEW.voice === "Synthesised"
-            ? "The cut is instant, free and repeatable. The voice is recorded once, frozen and hashed — the only step that spends anything, and it is what the film is then timed to."
-            : "Nothing is sent to a model to cut your writing, and no voice is bought. The same words always cut the same way."
+            ? "The cut is instant, free and repeatable. The voice is recorded once, frozen and hashed — the only step that costs anything, and it is what the film is then timed to."
+            : "Nothing is sent to a model to cut your writing, and no voice is recorded. The same words always cut the same way."
         }</p>
       </div>
     </div>
 
     ${NEW.err ? `<div class="notice" style="margin-top:var(--s5)"><i class="dot clay"></i><span>${esc(NEW.err)}</span></div>` : ""}
-    <p class="note startalt">Rather see a finished one? <button id="ex">Open the example film</button> — a four-minute investigation you can direct straight away.</p>
+    <p class="note startalt">Rather see a finished one? <button id="ex">Open the example film</button> — an investigation you can direct straight away.</p>
   </div></div>`;
 
   const ta = root.querySelector("#ask");
