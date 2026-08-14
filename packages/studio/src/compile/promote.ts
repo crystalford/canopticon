@@ -39,6 +39,7 @@
 
 import type { EditorialIR, Scene } from "../ir/schema.ts";
 import type { FilmTimeline } from "../narrate/timeline.ts";
+import { ASSERTS, type Act, type ActReading, DENIES, HEDGE, readAct } from "./act.ts";
 import { detectSubjects } from "./subject.ts";
 
 /** HOW MUCH OF THE FILM'S ATTENTION THIS MOMENT GETS, 0..4.
@@ -122,6 +123,18 @@ export type ArgumentRole =
 export interface Intervention {
   sceneId: string;
   kind: InterventionKind;
+  /** WHAT KIND OF CHANGE THIS MOMENT IS.
+   *
+   *  `kind` answers whether the moment is active and how; `act` answers
+   *  what it DOES. They are separate fields because they are separate
+   *  questions, and collapsing them is how `COMPOSE` came to mean "draw
+   *  something" and therefore to mean nothing — 63% of a real film's
+   *  pictures came out of that one bucket, on one chain shape.
+   *
+   *  Read `act.ts` for the vocabulary. Nothing below the allocator reads
+   *  this yet; it is decided and reported first so that the decision can
+   *  be checked against a real essay before anything is drawn from it. */
+  act: ActReading;
   intensity: Intensity;
   role: ArgumentRole;
   /** Present when `kind` needs one. Null for `SPOKEN`. */
@@ -174,17 +187,16 @@ const CONTRAST = [
  *
  * So it is detected across ADJACENT SCENES, and both halves are promoted
  * together — which is also how it should read on screen: two lines, the
- * second landing when the second is spoken. */
-const DENIES = /\b(?:is|was|are|were|do|does|did)(?:n['’]t| not)\b|\bnever\b/i;
-const ASSERTS = /^\s*(?:it|they|that|this|he|she)\b/i;
-
-/** Hedges. A hedged sentence is not a thesis, whatever else it looks like.
- *  Same discipline as `extract-reading.ts`'s hedge floor and for the same
- *  reason: an essay is allowed to be uncertain, and dramatising an
- *  uncertainty into a full-screen statement is the compiler putting words
- *  in the author's mouth. */
-const HEDGE =
-  /\b(?:probably|perhaps|maybe|arguably|seems?|appears?|suggests?|might|may|could|allegedly|reportedly|apparently|roughly|approximately|tends? to|often|usually|sometimes)\b/i;
+ * second landing when the second is spoken.
+ *
+ * `DENIES`, `ASSERTS` and `HEDGE` now live in `act.ts` and are imported
+ * rather than declared here. They were only ever used to move a SCORE —
+ * a hedge became `× 0.45`, a denial/assertion pair became a shared quota
+ * slot — and in both cases the finding itself, that the essay is
+ * qualifying or that the argument has just reversed across a cut, was
+ * destroyed. They are read as state changes there and as score inputs
+ * here, from one definition, because two implementations of one rule is
+ * how the Lab and the Worker came to disagree about 57 of 88 scenes. */
 
 /** A short, unhedged declarative. Nine words is about the length past
  *  which a line stops being a statement and starts being a sentence. */
@@ -314,7 +326,7 @@ interface Candidate {
 }
 
 /** Everything this sentence offers, with what it is worth. */
-function candidatesFor(scene: Scene, refrains: Set<string>): Candidate[] {
+function candidatesFor(scene: Scene, refrains: Map<string, number>): Candidate[] {
   const t = scene.narration.text.trim();
   const out: Candidate[] = [];
   const hedged = HEDGE.test(t);
@@ -364,7 +376,7 @@ function candidatesFor(scene: Scene, refrains: Set<string>): Candidate[] {
 
   // THE AUTHOR'S OWN REFRAIN. A phrase they wrote twice is a phrase they
   // meant; nothing about this is the compiler's opinion.
-  for (const phrase of refrains) {
+  for (const phrase of refrains.keys()) {
     const at = norm(t).indexOf(phrase);
     if (at < 0) continue;
     // Recover the verbatim span rather than the normalised one — what goes
@@ -398,8 +410,15 @@ function candidatesFor(scene: Scene, refrains: Set<string>): Candidate[] {
 
 /** Phrases the essay repeats. Three to six words, normalised, seen twice
  *  or more — the author's refrain, found by counting rather than by
- *  interpretation. */
-function findRefrains(ir: EditorialIR): Set<string> {
+ *  interpretation.
+ *
+ *  THE COUNTS WERE ALREADY HERE AND WERE THROWN AWAY. `seen` knows exactly
+ *  how many times the essay says each phrase; the old version reduced it
+ *  to a Set on the way out, so "this is the third time" was one line from
+ *  existing and was never available to anything. It is returned now,
+ *  because a refrain RETURNING is a different visual event from a refrain
+ *  arriving, and the film could not previously tell them apart. */
+function findRefrains(ir: EditorialIR): Map<string, number> {
   const seen = new Map<string, number>();
   for (const scene of ir.scenes) {
     const w = norm(scene.narration.text).split(" ");
@@ -410,9 +429,66 @@ function findRefrains(ir: EditorialIR): Set<string> {
       }
     }
   }
-  const out = new Set<string>();
-  for (const [g, n] of seen) if (n >= 2 && g.split(" ").length >= 3) out.add(g);
+  /* AND A REFRAIN HAS TO BE SOMETHING THE ESSAY CHOSE TO REPEAT.
+   *
+   * Measured on the real essay before this filter: 24 "refrains", of which
+   * "this is the", "in front of", "for a while", "it's not a" and "the
+   * only one" are not refrains at all. They are English. An author does
+   * not decide to say "in front of" twice; the language does.
+   *
+   * So a repeated span counts only if something survives when the weak
+   * words are trimmed off both ends — the same test that governs what may
+   * go on screen, applied to what may count as repetition. It is not a new
+   * threshold: `WEAK` and this trim already decide every promoted phrase.
+   *
+   * This also corrects the existing candidate scorer, which was only
+   * protected from the same grammar by accident: `candidatesFor` runs the
+   * trim afterwards and drops what changed under it, so a grammar refrain
+   * was silently rejected there rather than never being one.
+   *
+   * AND FOUR WORDS RATHER THAN THREE, which is the difference between the
+   * essay's VOCABULARY and its ECHOES. Measured: "the debate bro" appears
+   * six times in a 65-scene essay about a debate bro. That is the subject
+   * being named, and reporting the sixth mention as "the sixth time the
+   * essay says this" is the compiler mistaking a noun for an event — the
+   * same error, in a new place. "The debate bro AT his best" and "the
+   * debate bro AT the fallacy moment" are four words, appear twice, and
+   * are a deliberate parallel the author built. */
+  const out = new Map<string, number>();
+  for (const [g, n] of seen) {
+    if (n < 2) continue;
+    const w = g.split(" ");
+    if (w.length < 4) continue;
+    if (w.filter((x) => !WEAK.has(x)).length < 2) continue;
+    out.set(g, n);
+  }
   return out;
+}
+
+/** WHICH TIME THIS IS.
+ *
+ *  How many of the film's refrains this scene contains that have already
+ *  been said — so the first use of a refrain reads as 1 and every return
+ *  reads as 2, 3, 4. Accumulated in scene order by the caller, because
+ *  the answer depends on where in the film you are standing, which is
+ *  exactly what a Set could not express. */
+function refrainOccurrence(
+  text: string,
+  refrains: Map<string, number>,
+  said: Map<string, number>,
+): number {
+  let occurrence = 1;
+  const t = norm(text);
+  for (const phrase of refrains.keys()) {
+    if (!t.includes(phrase)) continue;
+    const n = (said.get(phrase) ?? 0) + 1;
+    said.set(phrase, n);
+    // The LONGEST refrain in the sentence wins by being counted highest —
+    // a scene containing both a twice-said phrase and a fourth-said one is
+    // the fourth time, not the second.
+    occurrence = Math.max(occurrence, n);
+  }
+  return occurrence;
 }
 
 /** How many moments an essay of this length should actually SHOW.
@@ -737,18 +813,60 @@ export function allocate(ir: EditorialIR, timeline?: FilmTimeline | null): Inter
    *  breathing rule: the film may clear where the author started a new
    *  paragraph, and nowhere else. */
   let lastPassage: string | undefined;
+  /** Which refrains the film has already said, and how many times. */
+  const said = new Map<string, number>();
+  /** The previous scene, for the signals that only exist across a cut —
+   *  the denial/assertion reversal, the long-then-short compression, and
+   *  the essay stopping hedging. All three have been computable since this
+   *  compiler was written and none of them has ever been compared. */
+  let previous: { sentence: string; act: Act } | null = null;
+  const timed = new Map((timeline?.scenes ?? []).map((s) => [s.sceneId, s]));
+  const pauseBefore = new Map((timeline?.pauses ?? []).map((p) => [p.beforeSceneId, p]));
 
   return scored.map(({ scene, role, best, score }) => {
     const rank = promoted.get(scene.sceneId);
     const namesHere = detectSubjects(scene.narration.text).map((x) => x.text.toLowerCase());
     const wasStanding = new Set(standing);
     for (const n of namesHere) standing.add(n);
+    const newPassage = scene.passageId !== lastPassage;
+
+    /* THE ACT. Read once, for every scene, promoted or not — what a moment
+     * DOES is independent of whether it is one of the ones carrying words,
+     * and a held scene still develops the argument.
+     *
+     * `decide` runs first only because silence is its decision and this
+     * layer does not overrule it. Everything else the act reads, it reads
+     * for itself. `refrainOccurrence` mutates `said`, so it is called
+     * exactly once per scene and in scene order. */
+    const decided =
+      rank === undefined || !best
+        ? decide(scene, wasStanding, newPassage)
+        : { kind: "TEXT" as InterventionKind, why: "" };
+    const counted = (scene.figures ?? []).find((f) => f.kind === "count");
+    const t = timed.get(scene.sceneId);
+    const rest = pauseBefore.get(scene.sceneId);
+    const act = readAct({
+      sentence: scene.narration.text,
+      role,
+      previous,
+      named: namesHere,
+      standing: wasStanding,
+      figures: (scene.figures ?? []).length,
+      route: (scene.route ?? []).length,
+      count: counted && Number.isFinite(counted.value) ? Math.round(counted.value) : null,
+      refrainOccurrence: refrainOccurrence(scene.narration.text, refrains, said),
+      relativeRate: t?.relativeRate ?? null,
+      leadPause: rest ? { ms: rest.ms, kind: rest.kind } : null,
+      silent: decided.kind === "NONE",
+    });
+    lastPassage = scene.passageId;
+    previous = { sentence: scene.narration.text, act: act.act };
+
     if (rank === undefined || !best) {
-      const decided = decide(scene, wasStanding, scene.passageId !== lastPassage);
-      lastPassage = scene.passageId;
       return {
         sceneId: scene.sceneId,
         kind: decided.kind,
+        act,
         intensity: 0 as const,
         role,
         payload: null,
@@ -758,6 +876,7 @@ export function allocate(ir: EditorialIR, timeline?: FilmTimeline | null): Inter
             ? `no text — ${shown} of ${total} moments carry it, and this was not among them`
             : "no text — nothing in this sentence is a visual anchor",
           decided.why,
+          `${act.act.toLowerCase()} — ${act.why}`,
         ],
         score,
       };
@@ -775,11 +894,11 @@ export function allocate(ir: EditorialIR, timeline?: FilmTimeline | null): Inter
             : rank < shown * 0.7
               ? 2
               : 1;
-    lastPassage = scene.passageId;
     const offset = locate(scene.narration.text, best.text);
     return {
       sceneId: scene.sceneId,
       kind: "TEXT" as const,
+      act,
       intensity,
       role,
       payload: { text: best.text, offset },
@@ -787,6 +906,7 @@ export function allocate(ir: EditorialIR, timeline?: FilmTimeline | null): Inter
       why: [
         best.why,
         rank < 0 ? role.toLowerCase() : `${role.toLowerCase()} · rank ${rank + 1} of ${shown}`,
+        `${act.act.toLowerCase()} — ${act.why}`,
       ],
       score,
     };

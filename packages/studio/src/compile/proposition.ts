@@ -122,7 +122,15 @@ const CONTRAST = [
   /\b([\w'’-]+(?:\s+[\w'’-]+){0,2}),\s+not\s+([\w'’-]+(?:\s+[\w'’-]+){0,2})/i,
   /\bnot\s+([\w'’-]+(?:\s+[\w'’-]+){0,2})\s+but\s+([\w'’-]+(?:\s+[\w'’-]+){0,2})/i,
   /\b([\w'’-]+(?:\s+[\w'’-]+){0,2})\s+(?:vs\.?|versus)\s+([\w'’-]+(?:\s+[\w'’-]+){0,2})/i,
-  /\b(?:is|was|are|were)(?:n['’]t| not)\s+(?:a|an|the)\s+([\w'’-]+)/i,
+  /* IT'S NOT A CREDENTIAL — the third contraction, and the third time this
+   * shape has been missed for the same reason.
+   *
+   * The header above records `isn't` failing a `\bnot\b` word boundary.
+   * This is its mirror: `is not` and `isn't` both matched, and `it's not`
+   * did not, because the verb has contracted onto the SUBJECT rather than
+   * onto the negation. Measured on the real essay — "It's not a credential
+   * you get once" is a category claim and read as a held frame. */
+  /(?:\b(?:is|was|are|were)|['’](?:s|re))\s*(?:n['’]t|\s+not)\s+(?:a|an|the)\s+([\w'’-]+)/i,
 ];
 
 /** PRESENTED AS. The register in which a claim is reported rather than
@@ -132,8 +140,16 @@ const CONTRAST = [
  *  Deliberately the same markers `extract-reading.ts` already uses for the
  *  hedge floor. Reusing them costs nothing and means the two layers can
  *  never disagree about whether a sentence is reporting or asserting. */
+/* NOTE ON `brand`, WHICH WAS HERE AND IS NOT.
+ *
+ * Every other entry in this list is a PREDICATE — something the sentence
+ * does to a claim. `brand` was a bare noun, so on an essay whose subject
+ * happens to be a personal brand it fired on the noun rather than on the
+ * claim: "A method and a brand fail differently under pressure" is a
+ * sentence about failure modes and read as a sentence about performance.
+ * A token may inform what is happening; a token may not BE the reading. */
 const PERFORMS_MARKERS =
-  /\b(?:presented? as|framed as|billed as|positioned as|described as|characteri[sz]ed as|passe[sd]? for|dressed up as|so-called|claim(?:s|ed|ing)? to be|purport\w*|on paper|in public|performance|perform\w*|display\w* as|brand)\b/i;
+  /\b(?:presented? as|framed as|billed as|positioned as|described as|characteri[sz]ed as|passe[sd]? for|dressed up as|so-called|claim(?:s|ed|ing)? to be|purport\w*|on paper|in public|performance|perform\w*|display\w* as|branded as)\b/i;
 
 /** Polarity. A BECOMES with one of these in the sentence is a DEGRADES —
  *  the difference between "turned into a method" and "collapsed into a
@@ -148,7 +164,7 @@ const COLLAPSE =
 
 /** Again. Refrain-shaped words the prose uses about its own material. */
 const AGAIN =
-  /\b(?:again|repeat\w*|over and over|each time|every time|the same \w+ (?:again|twice)|continuously|recurring|recurs?|cycle|loop\w*)\b/i;
+  /\b(?:again|repeat\w*|over and over|each time|every time|the same \w+ (?:again|twice)|continuously|constantly|recurring|recurs?|cycle|loop\w*)\b/i;
 
 /** WHAT AN ACTION DOES, COMPOSITIONALLY.
  *
@@ -167,8 +183,21 @@ const CONSEQUENCE: Array<[RegExp, RelationKind]> = [
     "OBSERVES",
   ],
   [/\b(contain\w*|hold|held|hous\w*|enclos\w*|surround\w*|inside|within|cover\w*)/i, "CONTAINS"],
+  /* BECAME.
+   *
+   * `becam` was written as a stem and sits inside `\b(…)\b`, so the
+   * trailing boundary has to fall after "becam" — and in "became" the next
+   * character is a letter. The most common past tense of the verb this
+   * whole relation is NAMED after has never matched, here or in
+   * `semantic-scene.ts`, which carries the same table and is what
+   * `film-state.ts` reads to decide whether the film TRANSFORMS.
+   * `language.ts:42` documents the example as "A became B".
+   *
+   * And `was never` was a literal two-word phrase, so "was just never"
+   * missed. An adverb between the verb and the negation is ordinary
+   * English and is now allowed for. */
   [
-    /\b(becam|become[s]?|turn|turned|transform|transformed|made into|grew into|was never|is never|replace[ds]?)\b/i,
+    /\b(became|become[sd]?|turn|turned|transform|transformed|made into|grew into|(?:was|is)\s+(?:\w+\s+)?never|replace[ds]?)\b/i,
     "BECOMES",
   ],
   [
@@ -184,7 +213,12 @@ const CONSEQUENCE: Array<[RegExp, RelationKind]> = [
     /\b(moved away|away from|reced\w*|withdrew|retreat\w*|depart\w*|left|further from|diverg\w*)/i,
     "DEPARTS",
   ],
-  [/\b(reveal\w*|expos\w*|uncover\w*|disclos\w*|show(?:ed|s)? through|through)/i, "REVEALS"],
+  /* The bare `through` alternative was here, immediately after the
+   * specific `show(?:ed|s)? through` it made redundant, and it matched the
+   * preposition — so "through the much more ordinary mechanism of
+   * motivated reasoning" read as something being revealed. A preposition
+   * is not a consequence. */
+  [/\b(reveal\w*|expos\w*|uncover\w*|disclos\w*|show(?:ed|s|ing)? through)/i, "REVEALS"],
   [
     /\b(conceal\w*|hid|hidden|obscur\w*|cover(?:ed)? up|behind|buried|withheld|redact\w*)/i,
     "CONCEALS",

@@ -112,8 +112,13 @@ const CONSEQUENCE: Array<[RegExp, RelationKind]> = [
     "OBSERVES",
   ],
   [/\b(contain\w*|hold|held|hous\w*|enclos\w*|surround\w*|inside|within|cover\w*)/i, "CONTAINS"],
+  /* `becam` inside `\b(…)\b` cannot match "became" — the boundary has to
+   * fall after "becam" and the next character is a letter. This is the
+   * table `film-state.ts` reads to decide whether the film TRANSFORMS, so
+   * the most common past tense of the verb has never moved an element.
+   * Kept identical to `proposition.ts`, which carries the same table. */
   [
-    /\b(becam|become[s]?|turn|turned|transform|transformed|made into|grew into|was never|is never|replace[ds]?)\b/i,
+    /\b(became|become[sd]?|turn|turned|transform|transformed|made into|grew into|(?:was|is)\s+(?:\w+\s+)?never|replace[ds]?)\b/i,
     "BECOMES",
   ],
   [
