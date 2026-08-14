@@ -212,6 +212,27 @@ function restraintAt(ir: EditorialIR, sceneIndex: number, positions: number[]): 
   return typeof v === "number" ? v : 0.5;
 }
 
+/** A BREATH IS THE PICTURE LEAVING, NOT THE PICTURE MISSING.
+ *
+ *  `NONE` is real punctuation and the allocator is right to call it: a
+ *  new paragraph opens, the last idea has finished developing, and the
+ *  frame goes quiet in the gap. The author's own paragraph decides where,
+ *  which is better than any threshold.
+ *
+ *  What was wrong is what quiet looked like. The scene composed to an
+ *  empty chain, so the frame was flat ground FROM ITS FIRST FRAME — the
+ *  previous idea did not end, it was cut off, and on a real film that is
+ *  13 scenes of 65 spent on blank colour. A breath the audience can hear
+ *  is a shot going out; a breath they cannot is a projector fault.
+ *
+ *  So the standing picture comes into the scene and withdraws across it,
+ *  leaving the frame clear by the end — which is what the next idea was
+ *  supposed to arrive into. It is the film's existing arrival move,
+ *  reversed: `world.ts` brings an element on with
+ *  `scale: [scale * 0.12, scale]`, and this is the same vocabulary read
+ *  backwards, so nothing new had to be invented to say "going". */
+const DEPART = { scale: -0.88, x: 0, why: "the last idea goes out, and the frame is left clear" };
+
 function driftHeld(
   nodes: ComposedNode[],
   act: Act | undefined,
@@ -221,14 +242,20 @@ function driftHeld(
   depth: number,
   ms: number,
   restraint: number,
+  /** An explicit move, when the caller knows one the act table does not
+   *  cover — a breath is not an act, it is the absence of one. */
+  profile?: { scale: number; x: number; why: string },
 ): { nodes: ComposedNode[]; why: string } | null {
-  const d = DRIFT[act ?? "NONE"];
+  const d = profile ?? DRIFT[act ?? "NONE"];
   // A window the solver never measured cannot carry a timed move, and a
   // move too short to see is noise in the hash.
   if (!d || ms < 400) return null;
   // A restrained film drifts less; it never drifts nothing, because a
   // frozen frame is what this exists to stop.
-  const gain = (1 - restraint * 0.55) * Math.min(1.9, 1 + depth * 0.35);
+  // A DEPARTURE IS NOT DAMPED. Restraint decides how much a held shot
+  // drifts; it does not get to leave a picture half-gone on screen when
+  // the film asked for a clear frame.
+  const gain = profile ? 1 : (1 - restraint * 0.55) * Math.min(1.9, 1 + depth * 0.35);
   const ds = d.scale * gain;
   const dx = d.x * gain;
   let touched = 0;
@@ -1734,6 +1761,70 @@ export function composeAll(
      * same small move five times over — which reads as a stutter. Reset
      * by anything that composes its own picture. */
     if (allocated?.kind !== "HOLD") heldRun = 0;
+    /* ── THE BREATH ────────────────────────────────────────────────────
+     *
+     * See `DEPART`. A NONE scene composed to an empty chain, so the frame
+     * was flat ground from its first frame and the idea before it was cut
+     * off rather than ended — 13 scenes of 65 on blank colour. The
+     * standing picture comes in and goes out across the scene, leaving
+     * the frame clear for the new paragraph, which is what the clearing
+     * was for.
+     *
+     * The words never come with it. A breath that carried the last
+     * caption would put a line on screen at exactly the moment the film
+     * decided to stop showing things, and it would be the previous
+     * scene's line at that. */
+    if (allocated?.kind === "NONE" && composed.nodes.length === 0) {
+      const standing = [...out].reverse().find((c) => c.nodes.length > 0);
+      /* AND THE WORDS DO NOT COME WITH IT.
+       *
+       * `withoutTrailingWords` takes a caption off the end of a chain,
+       * which is enough for a hold. It cannot take one out of the MIDDLE,
+       * because something downstream is consuming it and removing it
+       * would hand that consumer nothing. Measured: one breath of
+       * thirteen inherited `glyph_geometry` mid-chain and would have put
+       * the previous paragraph's line back on screen at the exact moment
+       * the film decided to stop showing things.
+       *
+       * A hold may keep such a caption and say so. A breath may not: the
+       * whole point of the beat is that the last idea is finished. So
+       * when the words cannot be taken out, the frame is simply clear —
+       * which is what it did before this existed, and is right here —
+       * and the report says which of the two happened. */
+      const bare = standing
+        ? caption
+          ? withoutTrailingWords(standing.nodes, caption.text)
+          : standing.nodes
+        : [];
+      const stillLettered =
+        caption !== null &&
+        flattenGround(bare).some((n) =>
+          Object.values(n.params).some(
+            (v) => typeof v === "string" && v.length > 2 && caption?.text.includes(v),
+          ),
+        );
+      const leaving =
+        standing && !stillLettered
+          ? driftHeld(bare, undefined, 0, onTimeline?.durationMs || 3_000, 0, DEPART)
+          : null;
+      if (stillLettered) {
+        composed.notes.push(
+          `a breath — the frame is clear rather than emptying, because "${caption?.text}" is painted into the standing chain rather than layered over it`,
+        );
+      } else if (leaving) {
+        composed.nodes = leaving.nodes;
+        composed.costMsPerFrame = chainCost(
+          flattenGround(composed.nodes).map((n) => n.primitiveId),
+        );
+        composed.determinism = standing?.determinism ?? composed.determinism;
+        composed.notes.push(`a breath — ${leaving.why}`);
+      } else if (!standing) {
+        // Nothing is standing, so there is nothing to see leave. The
+        // frame is clear because the film has not drawn anything yet,
+        // which is a different fact and is reported as one.
+        composed.notes.push("a breath — nothing was standing, so the frame is simply clear");
+      }
+    }
     if (allocated?.kind === "HOLD") {
       /* HOLD REACHES BACK PAST SILENCE.
        *
