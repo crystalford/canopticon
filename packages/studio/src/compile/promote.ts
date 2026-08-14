@@ -39,6 +39,7 @@
 
 import type { EditorialIR, Scene } from "../ir/schema.ts";
 import type { FilmTimeline } from "../narrate/timeline.ts";
+import { detectSubjects } from "./subject.ts";
 
 /** HOW MUCH OF THE FILM'S ATTENTION THIS MOMENT GETS, 0..4.
  *
@@ -61,7 +62,28 @@ export type Intensity = 0 | 1 | 2 | 3 | 4;
  *  and whether a scene draws anything at all is a separate question that
  *  nothing in this compiler can currently answer. Naming this `NONE`
  *  would claim a capability that does not exist. */
-export type InterventionKind = "SPOKEN" | "TEXT";
+export type InterventionKind =
+  /** Nothing is drawn. The film's own ground, and the voice alone.
+   *
+   *  The decision the compiler could not previously express — not because
+   *  nobody wanted it, but because four separate layers each independently
+   *  guaranteed a picture, so a higher layer asking for silence was
+   *  overruled by a lower one manufacturing something. */
+  | "NONE"
+  /** What is already on screen stays on screen. Nothing new arrives.
+   *
+   *  COMPOSITIONAL, not simulated: the world's persistent elements are
+   *  recomposed at their inherited places. A particle field does not keep
+   *  running across the boundary — retaining live chain instances is the
+   *  exact opposite of the buffer disposal that stopped the tab dying
+   *  mid-film, and that is a decision about long-film export rather than
+   *  something to slip into a change about breathing room. */
+  | "HOLD"
+  /** The words are the intervention. */
+  | "TEXT"
+  /** The compiler builds a picture for this moment. Today's default, and
+   *  now one option among four rather than the only outcome. */
+  | "COMPOSE";
 
 /** What a TEXT intervention needs in order to happen: the words, and
  *  where they sit in the sentence so they can be timed to the voice. */
@@ -408,7 +430,97 @@ function quota(sceneCount: number, totalMs?: number): { shown: number; major: nu
  *  development paragraph is never a thesis however well it is written. */
 const MAJOR: ArgumentRole[] = ["TITLE", "THESIS", "DIAGNOSTIC", "CONCLUSION", "STANDARD"];
 
-/** PROMOTE THE FILM'S TEXT.
+/* ── WHAT HAPPENS TO THE VISUAL WORLD ────────────────────────────────
+ *
+ * The decision the compiler could not make. Every scene got a picture,
+ * so the only question ever asked was WHICH one — and with four layers
+ * independently guaranteeing that something be drawn, whatever the
+ * semantic material could be bent into was going to win.
+ *
+ * Everything below is checkable against the prose, which is the same bar
+ * the promotion signals keep. Nothing here reads a noun's KIND: the
+ * question is whether this sentence introduces something, not what that
+ * something is. A token may inform what is happening; it may never name
+ * what is drawn.
+ *
+ * DELIBERATELY NOT TUNED. The thresholds are the simplest defensible
+ * ones, because the point of this pass is to find out what the film
+ * grammar does when it finally has permission to breathe — and tuning
+ * before looking is how the last several passes went wrong. */
+function decide(
+  scene: Scene,
+  standing: Set<string>,
+  newPassage: boolean,
+): { kind: InterventionKind; why: string } {
+  // CHECKABLE MATERIAL OUTRANKS SILENCE. A printed figure or a drawn
+  // route is the prose asking for a picture, and holding through one
+  // would be the machine ignoring its own evidence.
+  if ((scene.figures ?? []).length > 0) {
+    return { kind: "COMPOSE", why: "composed — the prose printed a figure" };
+  }
+  if ((scene.route ?? []).length >= 2) {
+    return { kind: "COMPOSE", why: "composed — the prose drew a route" };
+  }
+
+  // SOMETHING NEW ARRIVES. Not "this sentence names a thing" — this
+  // sentence names a thing the film has not established yet.
+  const named = detectSubjects(scene.narration.text).map((x) => x.text.toLowerCase());
+  const arriving = named.filter((n) => !standing.has(n));
+  if (arriving.length > 0) {
+    return { kind: "COMPOSE", why: `composed — "${arriving[0]}" arrives` };
+  }
+
+  /* A BREATH BETWEEN IDEAS.
+   *
+   * Measured before this existed: NONE fired zero times in seventeen
+   * scenes. `standing` never empties, so once anything is established
+   * every non-arriving scene becomes a HOLD and the film can persist but
+   * can never clear. A world that only ever accumulates is not breathing
+   * either — it is just a picture that refuses to leave.
+   *
+   * So the film clears when a NEW PARAGRAPH opens by introducing
+   * nothing. That is punctuation rather than a threshold: the author has
+   * finished developing one idea, the next has not arrived yet, and the
+   * frame goes quiet in the gap. The boundary is the author's own —
+   * `passageId` is their paragraph — so the prose decides where the film
+   * breathes rather than a number I picked.
+   *
+   * The first version also required a run of holds immediately before the
+   * boundary, and that was me inventing a threshold. It never fired:
+   * a paragraph's last sentence is usually its payoff and usually
+   * promoted, which resets the run at exactly the point being tested. */
+  if (newPassage && standing.size > 0) {
+    return {
+      kind: "NONE",
+      why: "nothing on screen — a new idea begins and the last one has finished developing",
+    };
+  }
+
+  // NOTHING NEW, BUT SOMETHING IS ALREADY STANDING. The world persists
+  // and the sentence develops it. This is the one that stops a film
+  // generating an unrelated picture every time the narrator opens their
+  // mouth.
+  if (standing.size > 0) {
+    return { kind: "HOLD", why: "held — nothing new arrives, and the world is already standing" };
+  }
+
+  /* NOTHING NAMED IS NOT NOTHING TO SHOW.
+   *
+   * This returned NONE, and the measurement was immediate and total: a
+   * hand-authored fixture whose prose names nothing depictable came out
+   * as a film of entirely empty scenes. Which is the exact error the
+   * proposition layer exists to prevent, arriving from the opposite
+   * direction — the old compiler read "no noun" as "reach for a noun
+   * anyway", and this read it as "there is nothing here".
+   *
+   * An essay of ideas names nothing and is most of what this system is
+   * for. So the default is to compose. Silence is a decision the film
+   * makes at a boundary, never the residue of a sentence that happened
+   * not to mention an object. */
+  return { kind: "COMPOSE", why: "composed — the film's own state carries this moment" };
+}
+
+/** ALLOCATE THE FILM'S VISUAL ATTENTION.
  *
  *  Film-level, before any visual decision. Returns one entry per scene —
  *  most of them level 0, which is the whole point. */
@@ -598,20 +710,38 @@ export function allocate(ir: EditorialIR, timeline?: FilmTimeline | null): Inter
     for (const s of group) promoted.set(s.scene.sceneId, rank);
   });
 
+  /* WHAT THE FILM HAS ALREADY ESTABLISHED, accumulated in scene order.
+   *
+   * `.map` runs in order, so this is the world as it stood when each
+   * scene arrived. It is what lets HOLD mean "the thing is already there"
+   * rather than "nothing was promoted here" — the difference between a
+   * film that persists and a film that merely fails to draw. */
+  const standing = new Set<string>();
+  /** The passage the previous scene belonged to. Read only by the
+   *  breathing rule: the film may clear where the author started a new
+   *  paragraph, and nowhere else. */
+  let lastPassage: string | undefined;
+
   return scored.map(({ scene, role, best, score }) => {
     const rank = promoted.get(scene.sceneId);
+    const namesHere = detectSubjects(scene.narration.text).map((x) => x.text.toLowerCase());
+    const wasStanding = new Set(standing);
+    for (const n of namesHere) standing.add(n);
     if (rank === undefined || !best) {
+      const decided = decide(scene, wasStanding, scene.passageId !== lastPassage);
+      lastPassage = scene.passageId;
       return {
         sceneId: scene.sceneId,
-        kind: "SPOKEN" as const,
+        kind: decided.kind,
         intensity: 0 as const,
         role,
         payload: null,
         window: null,
         why: [
           best
-            ? `spoken only — ${shown} of ${total} moments carry text, and this was not among them`
-            : "spoken only — nothing in this sentence is a visual anchor",
+            ? `no text — ${shown} of ${total} moments carry it, and this was not among them`
+            : "no text — nothing in this sentence is a visual anchor",
+          decided.why,
         ],
         score,
       };
@@ -629,6 +759,7 @@ export function allocate(ir: EditorialIR, timeline?: FilmTimeline | null): Inter
             : rank < shown * 0.7
               ? 2
               : 1;
+    lastPassage = scene.passageId;
     const offset = locate(scene.narration.text, best.text);
     return {
       sceneId: scene.sceneId,

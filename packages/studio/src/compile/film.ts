@@ -57,6 +57,13 @@ export interface FilmShot {
 export interface FilmScene {
   sceneId: string;
   actId: string;
+  /** THE FILM CHOSE TO SHOW NOTHING NEW HERE.
+   *
+   *  Read by the renderer, and it is the whole difference between
+   *  silence and a bug: an empty chain that arrived by accident renders
+   *  as clean ground and looks exactly like an intended hold. With this,
+   *  one is drawn and the other is reported. */
+  held?: boolean;
   label: string;
   /** The prose this scene carries. Shown under the frame, because a
    *  documentary compiler that hides its own sentence from you is hard to
@@ -314,6 +321,7 @@ export function buildFilmPlan(ir: EditorialIR, report: CompileReport): FilmPlan 
     scenes.push({
       sceneId: composed.sceneId,
       actId: composed.actId,
+      ...(composed.held ? { held: true } : {}),
       label: irScene?.label ?? "",
       text: irScene?.narration.text ?? "",
       startMs: window?.startMs ?? 0,

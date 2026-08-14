@@ -328,3 +328,92 @@ Exposure, not corruption. The position doesn't produce more distortion. It produ
     );
   });
 });
+
+/* THE FILM DECIDES WHAT HAPPENS TO THE VISUAL WORLD.
+ *
+ * Not "which picture for this sentence" — whether this moment gets one at
+ * all, and whether what is already there should simply stay. Every scene
+ * used to produce geometry, so the only question ever asked was WHICH,
+ * and with four separate layers each guaranteeing something be drawn, a
+ * higher layer asking for silence was overruled by a lower one.
+ *
+ * These assert the GRAMMAR is reachable and reasoned, not that a
+ * particular sentence gets a particular kind. What the film should
+ * actually look like is a judgement made by watching it. */
+describe("the film decides what happens to the visual world", () => {
+  const ARGUMENT = `The Costume
+
+A claim to authority is a live, continuously-renewed performance. It is renewed in public. Nobody audits the renewal.
+
+The fallacy isn't a lapse. It's a diagnosis.
+
+Logic was never really being tested. It was being displayed as a brand.
+
+When reality stops cooperating the brand has two options: concede, or manufacture the win.
+
+Given a live audience and a persona built on winning, the manufacture option wins almost every time. Not through conscious deception, usually.
+
+The record can show this. A single clip cannot.
+
+Total spend reached $282,345.84 across 2024-2025. Peak occupancy reached 7,000 people in July 2023.
+
+Exposure, not corruption. The position doesn't produce more distortion. It produces the only distortion anyone can catch.`;
+
+  const decided = (essay: string) => {
+    const seed = segmentEssay(essay, { projectId: "p" });
+    const parsed = parseIR(JSON.parse(JSON.stringify(seed.ir)));
+    if (!parsed.ok) throw new Error("invalid IR");
+    return allocate(parsed.ir);
+  };
+
+  it("reaches every decision it declares", () => {
+    const kinds = new Set(decided(ARGUMENT).map((i) => i.kind));
+    for (const k of ["TEXT", "COMPOSE", "HOLD", "NONE"]) {
+      expect(kinds.has(k as never), `${k} is declared but never reached`).toBe(true);
+    }
+  });
+
+  /* THE ONE THAT WOULD HAVE CAUGHT THE OLD BEHAVIOUR. Under the previous
+   * compiler this is 100% — every scene drew, always. */
+  it("does not draw something new on every scene", () => {
+    const all = decided(ARGUMENT);
+    const quiet = all.filter((i) => i.kind === "HOLD" || i.kind === "NONE");
+    expect(quiet.length).toBeGreaterThan(0);
+    expect(quiet.length / all.length).toBeGreaterThan(0.1);
+  });
+
+  it("accounts for every decision in words a director can read", () => {
+    for (const i of decided(ARGUMENT)) {
+      expect(i.why.length, i.sceneId).toBeGreaterThan(0);
+      expect(i.why[i.why.length - 1], i.sceneId).toBeTruthy();
+    }
+  });
+
+  /* CHECKABLE MATERIAL OUTRANKS SILENCE. A printed figure is the prose
+   * asking for a picture; holding through one is the machine ignoring its
+   * own evidence. */
+  it("never holds through a sentence that printed a figure", () => {
+    for (const i of decided(ARGUMENT)) {
+      if (i.kind === "HOLD" || i.kind === "NONE") {
+        expect(i.why.join(" "), i.sceneId).not.toContain("figure");
+      }
+    }
+  });
+
+  /* NOTHING NAMED IS NOT NOTHING TO SHOW. An essay of ideas names nothing
+   * depictable and is most of what this system is for; the first version
+   * of this rule read "no noun" as "nothing here" and emptied a whole
+   * film. Silence is a decision made at a boundary, never the residue of
+   * a sentence that happened not to mention an object. */
+  it("still composes for prose that names nothing at all", () => {
+    const abstract = `Ideas
+
+Every claim to authority is renewed continuously. It is never audited. That is the mechanism.`;
+    const kinds = decided(abstract).map((i) => i.kind);
+    expect(kinds.filter((k) => k === "COMPOSE" || k === "TEXT").length).toBeGreaterThan(0);
+  });
+
+  it("is deterministic", () => {
+    expect(decided(ARGUMENT).map((i) => i.kind)).toEqual(decided(ARGUMENT).map((i) => i.kind));
+  });
+});

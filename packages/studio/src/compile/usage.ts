@@ -45,7 +45,18 @@ export interface UsageReport {
    *  can render as its last element. */
   decorativeLinks: { link: string; uses: number }[];
   /** How much of this film's chaining is real, 0..1. */
-  linkHonesty: number;
+  linkHonesty: number | null;
+  /** HOW MUCH OF THE FILM DREW NOTHING NEW, 0..1.
+   *
+   *  Reported beside the measures because without it they mislead. A film
+   *  that holds and falls silent genuinely costs less and is genuinely
+   *  more deterministic — those are true facts, and read alone on a
+   *  dashboard they look like the film got better rather than quieter.
+   *
+   *  Not a score. A film SHOULD hold; an essay does not need a new picture
+   *  every time the narrator opens their mouth. This exists so the two
+   *  cases can be told apart, not so one of them can be minimised. */
+  heldScenes: number;
   /** GROUNDS — scenes composited from two inputs rather than one.
    *
    *  Counted separately because a ground link is honest by construction:
@@ -153,6 +164,7 @@ export function analyseUsage(scenes: ComposedScene[]): UsageReport {
       .map(([link, n]) => ({ link, uses: n }))
       .sort((a, b) => b.uses - a.uses),
     linkHonesty: honesty(scenes),
+    heldScenes: scenes.filter((sc) => sc.nodes.length === 0 || sc.held === true).length,
     groundedScenes,
     grounds: [...grounds.entries()]
       .map(([link, n]) => ({ link, uses: n }))
@@ -164,7 +176,7 @@ export function analyseUsage(scenes: ComposedScene[]): UsageReport {
  *  A film of five-primitive chains where only the last one reads anything is
  *  not five times richer than a film of one — and until this was measured
  *  there was no way to tell those two films apart from the outside. */
-function honesty(scenes: ComposedScene[]): number {
+function honesty(scenes: ComposedScene[]): number | null {
   let total = 0;
   let real = 0;
   for (const scene of scenes) {
@@ -182,5 +194,9 @@ function honesty(scenes: ComposedScene[]): number {
       real += node.ground.length;
     }
   }
-  return total === 0 ? 1 : Math.round((real / total) * 1000) / 1000;
+  /* NULL, NOT 1. A film with no links anywhere has nothing to be honest
+   * or dishonest about, and reporting a perfect score for it is the one
+   * outright lie in this file — it would say a film that drew nothing was
+   * flawlessly wired. "Not measured" is the true answer. */
+  return total === 0 ? null : Math.round((real / total) * 1000) / 1000;
 }

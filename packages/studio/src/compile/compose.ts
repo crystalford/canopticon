@@ -175,6 +175,14 @@ export interface RuleHit {
 
 export interface ComposedScene {
   sceneId: string;
+  /** THE FILM CHOSE THIS. True when the scene draws nothing new — either
+   *  nothing at all, or the previous composition still standing.
+   *
+   *  It is a DECLARATION, and that is its whole job. An empty chain that
+   *  arrived by accident renders as clean ground and is indistinguishable
+   *  from an intended silence; the renderer reports one and refuses the
+   *  other, and this is what tells them apart. */
+  held?: boolean;
   actId: string;
   tier: Rung["tier"];
   /** Abstraction AFTER rules and invariants, which is what actually drove
@@ -370,6 +378,45 @@ export function composeScene(
       ? 0
       : Math.max(state.values.typographicWeight ?? 0, 0.25 + promotion.intensity * 0.18)
     : (state.values.typographicWeight ?? 0);
+
+  /* NOTHING ON SCREEN, AND EVERY FLOOR BELOW THIS SKIPPED.
+   *
+   * The four guarantees that a scene produces geometry — `scene.fit`
+   * never returning zero, the ladder backstop, the unconditional SUBJECT
+   * push, and the `chain.length > 0` fallback — are all downstream of
+   * here. Any ONE of them alone would manufacture a picture, which is why
+   * a higher layer asking for silence was previously overruled by a lower
+   * layer that had been told it must always draw something.
+   *
+   * Returning here is what makes the decision stick. It is deliberately
+   * an early return rather than four conditionals: emptiness has to be
+   * CHOSEN in one place, and a genuine failure further down must still
+   * reach its loud fallback rather than become an invisible blank. */
+  if (promotion?.kind === "NONE") {
+    return {
+      sceneId: scene.sceneId,
+      actId: scene.actId,
+      held: true,
+      tier: rung.tier,
+      abstraction,
+      state,
+      nodes: [],
+      motifs: [],
+      ruleHits,
+      notes: [...notes, promotion.why[promotion.why.length - 1] ?? "nothing on screen"],
+      override: ir.overrides.find((o) => o.sceneId === scene.sceneId),
+      treatment: null,
+      costMsPerFrame: 0,
+      determinism: "L1",
+      phrase: { text: "", source: "nothing on screen" },
+      program: null,
+      alternatives: [],
+      shots: [],
+      world: null,
+      scenePlan: null,
+      graph: null,
+    } as ComposedScene;
+  }
 
   let treatment: Treatment | null = null;
   let chain: string[];
@@ -656,7 +703,12 @@ export function composeScene(
       notes.push(`world — ${sceneWorld.describes}`);
     }
 
-    const programs = constructPrograms(beat, style, MAX_CHAIN_MS);
+    const programs = constructPrograms(
+      beat,
+      style,
+      MAX_CHAIN_MS,
+      promotion?.kind === "TEXT" ? "TEXT" : "COMPOSE",
+    );
     const best = programs[0];
     if (best) {
       program = best;
@@ -1322,6 +1374,7 @@ export function composeAll(
       sceneStartMs: onTimeline?.startMs ?? 0,
       sceneDurationMs: onTimeline?.durationMs ?? 0,
     };
+    const allocated = promotions?.find((p) => p.sceneId === scene.sceneId) ?? null;
     const composed = composeScene(
       ir,
       scene,
@@ -1332,8 +1385,36 @@ export function composeAll(
       carried,
       carriedPlace,
       world,
-      promotions?.find((p) => p.sceneId === scene.sceneId) ?? null,
+      allocated,
     );
+    /* HOLD — THE SAME PICTURE, STILL THERE.
+     *
+     * Compositional, and the implementation is the honest one: a held
+     * scene's chain IS the previous scene's chain, node for node,
+     * parameter for parameter, seed for seed. So it hashes identically,
+     * hits the cache, and draws the same thing. The film persists instead
+     * of generating an unrelated picture every time the narrator opens
+     * their mouth.
+     *
+     * WHAT THIS DOES NOT DO, stated rather than discovered later. A chain
+     * is still rebuilt per scene, so a primitive that INTEGRATES state —
+     * a particle system carrying positions forward — restarts. The
+     * stateless procedural ones are functions of (seed, t) and continue
+     * perfectly if the renderer keeps advancing t, which is where the
+     * continuity actually comes from.
+     *
+     * That boundary is exactly where simulation hold would be needed, and
+     * simulation hold conflicts head-on with the buffer disposal that
+     * stopped the tab dying at scene 21 of 39. It is a real decision about
+     * long-film export, not something to slip in here. */
+    if (allocated?.kind === "HOLD" && out.length > 0) {
+      const before = out[out.length - 1] as ComposedScene;
+      if (before.nodes.length > 0) {
+        composed.nodes = before.nodes;
+        composed.held = true;
+        composed.notes.push(`held — the same composition as ${before.sceneId}, still standing`);
+      }
+    }
     if (world.out) {
       film = world.out.advance.state;
       previous = world.out.graph;

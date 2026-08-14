@@ -73,7 +73,13 @@ import type { FilmMode } from "./film-mode.ts";
 import type { Material } from "./grammar-visual.ts";
 import { EMPTY_READING, type IntentReading, bendStyle } from "./intent.ts";
 import { type Relation, relationBias } from "./relation.ts";
-import { type Mode, type Representation, realisationFit, representationsFor } from "./represent.ts";
+import {
+  type Mode,
+  REALISES,
+  type Representation,
+  realisationFit,
+  representationsFor,
+} from "./represent.ts";
 import { type SceneGraph, composeFromMeaning, serialiseScene } from "./scene-graph.ts";
 import type { SceneKind } from "./scene-kind.ts";
 import { readScene } from "./semantic-scene.ts";
@@ -1309,7 +1315,14 @@ export function buildConstruction(id: string, beat: Beat, raw: Style): PlannedNo
  *  it shows its working.
  *
  *  Sorted best first. The caller takes `[0]` and carries the rest. */
-export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Program[] {
+export function constructPrograms(
+  beat: Beat,
+  raw: Style,
+  budgetMs: number,
+  /** What the film allocated to this moment. When it allocated TEXT, only
+   *  a construction that can put words on screen may realise it. */
+  intervention?: "TEXT" | "COMPOSE",
+): Program[] {
   // AN EXPLICITLY DRAWN ROUTE IS THE STRONGEST THING A SENTENCE CAN DO.
   //
   // "Ottawa → IHAP grants → Provincial governments → Hotel contracts" also
@@ -1376,7 +1389,31 @@ export function constructPrograms(beat: Beat, raw: Style, budgetMs: number): Pro
     dislocated: boolean;
     rep: Representation | null;
   }[] = [];
-  for (const c of CONSTRUCTIONS) {
+  /* THE MEMBERSHIP GATE — the thing operators have always had and
+   * constructions never did.
+   *
+   * `permitted(style)` is a hard set filter: an operator outside it cannot
+   * run at all at that abstraction. The construction loop, by contrast,
+   * was `for (const c of CONSTRUCTIONS)` — the entire array, unfiltered by
+   * style, language, approach or tier. So every decision above it could
+   * only ever re-weight, and nothing anywhere could say "not this".
+   *
+   * The first thing the gate is used for is the failure it explains. When
+   * the film allocates TEXT to a moment, it has decided the words ARE the
+   * intervention — and a construction that draws a room or a body will
+   * happily win that scene and never put the promoted phrase on screen.
+   * That is how a line the argument turns on gets chosen film-wide and
+   * then silently fails to appear.
+   *
+   * `REALISES` already records which constructions can carry typography.
+   * This is that table used for its stated purpose rather than as another
+   * multiplier. */
+  const eligible =
+    intervention === "TEXT"
+      ? CONSTRUCTIONS.filter((c) => (REALISES[c.id] ?? []).includes("typographic"))
+      : CONSTRUCTIONS;
+
+  for (const c of eligible) {
     const raw0 = c.fit(beat) * (drewRoute && c.id !== "route" ? 0.5 : 1);
     // The construction's suitability, multiplied by how well it serves
     // the best idea it can serve. A construction that only realises the

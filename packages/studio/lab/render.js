@@ -128,6 +128,26 @@ function drawFrame(ctx, scenes, frame, fps, w, h, chrome) {
   const built = realiseScene(active, scenes);
 
   const localMs = ms - active.scene.startMs;
+  /* AN EMPTY CHAIN NOBODY ASKED FOR IS STILL A BUG.
+   *
+   * A held scene renders as the film's own ground and nothing else, which
+   * is correct and is what a held frame should look like. But that makes
+   * an accident look identical to a decision: a chain that went missing
+   * upstream would come out as clean ground and read as intentional.
+   * That is the invisible blank, and it is worse than the crash it
+   * replaced, because a crash at least says something is wrong.
+   *
+   * So emptiness has to be DECLARED. The compiler marks a scene it chose
+   * to hold; anything else that arrives empty is reported the way a
+   * broken chain is. */
+  if (built.empty && !active.scene.held) {
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#d8624a";
+    ctx.font = '500 13px "JetBrains Mono",monospace';
+    ctx.fillText("empty chain, and no hold was declared", 24, 50);
+    return;
+  }
   if (built.errors && built.errors.length) {
     ctx.fillStyle = BG;
     ctx.fillRect(0, 0, w, h);
