@@ -41,6 +41,7 @@ import type { EditorialIR, Scene } from "../ir/schema.ts";
 import type { FilmTimeline } from "../narrate/timeline.ts";
 import { ASSERTS, type Act, type ActReading, DENIES, HEDGE, readAct } from "./act.ts";
 import { detectSubjects } from "./subject.ts";
+import { isWeakWord } from "./phrase.ts";
 
 /** HOW MUCH OF THE FILM'S ATTENTION THIS MOMENT GETS, 0..4.
  *
@@ -217,42 +218,15 @@ function locate(sentence: string, span: string): number {
   return sentence.indexOf(span);
 }
 
-/** Words a promoted span may not begin or end on. A line ending on a
- *  preposition reads as a rendering error at 60px, and it is one. */
-const WEAK = new Set([
-  "a",
-  "an",
-  "the",
-  "and",
-  "or",
-  "but",
-  "of",
-  "to",
-  "in",
-  "on",
-  "at",
-  "by",
-  "for",
-  "with",
-  "from",
-  "as",
-  "that",
-  "this",
-  "it",
-  "its",
-  "is",
-  "was",
-  "are",
-  "were",
-  "be",
-  "been",
-  "not",
-  "no",
-  "so",
-  "than",
-  "then",
-  "into",
-]);
+/* WHICH WORDS CARRY NOTHING — asked of `phrase.ts`, which owns it.
+ *
+ * This was a local `WEAK` set doing the same job as that file's
+ * NEVER_FIRST/NEVER_LAST, and the two had drifted: fifty words this set
+ * did not have, including every subordinating conjunction, which is how
+ * "how humans move, not punish us because" reached the screen. Two lists
+ * of one rule is precisely the failure standing rule 9 names. */
+const WEAK = { has: (w: string) => isWeakWord(w) };
+
 
 /* TRIM WITHOUT LEAVING THE PROSE.
  *

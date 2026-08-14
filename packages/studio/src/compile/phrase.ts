@@ -310,6 +310,28 @@ export function trimPhrase(raw: string, maxWords: number): string {
     .toUpperCase();
 }
 
+/** WHETHER A WORD CARRIES ANYTHING — the one place that answers it.
+ *
+ *  STANDING RULE 9, and this file is the authority. `promote.ts` kept its
+ *  own `WEAK` set for exactly the same job — deciding which words a
+ *  promoted span may begin and end on — and the two disagreed. Measured:
+ *  `phrase.ts` knew fifty words that `WEAK` did not, including every
+ *  subordinating conjunction, so the allocator promoted
+ *
+ *      "how humans move, not punish us because"
+ *
+ *  to the screen. `trimPhrase` would never have produced that; the
+ *  allocator does not go through `trimPhrase`, and nothing made the two
+ *  agree.
+ *
+ *  Both ends, one predicate: a word that cannot start a phrase and a word
+ *  that cannot end one are the same kind of word, and keeping two sets
+ *  was how they drifted apart in the first place. */
+export function isWeakWord(word: string): boolean {
+  const w = strip(word);
+  return NEVER_LAST.has(w) || NEVER_FIRST.has(w);
+}
+
 /** Runs of two or more capitalised words that are not sentence-initial.
  *  Deliberately not single capitals: one capitalised word at the head of a
  *  sentence is just a sentence. */

@@ -98,10 +98,27 @@ function isHeading(line: string): boolean {
 }
 
 /** Split a paragraph into sentences. Abbreviations are the classic trap;
- *  this keeps a period attached when what follows is not a sentence start. */
+ *  this keeps a period attached when what follows is not a sentence start.
+ *
+ *  A SENTENCE MAY END INSIDE ITS QUOTATION MARKS, and this did not know
+ *  that. The lookbehind was `(?<=[.!?])`, which requires the terminator to
+ *  be the character IMMEDIATELY before the space — so
+ *
+ *      This is "Highlight to Search." It looks like a simple feature.
+ *
+ *  never split, because the character before the space is the closing
+ *  quote. Two sentences became one scene: one shot for two thoughts, one
+ *  window for two spans of speech, and a caption chosen from whichever
+ *  half won. Any essay that quotes anything hits this, which is most of
+ *  them — measured on a 27-scene consumer-tech piece that quotes a
+ *  feature name four times.
+ *
+ *  The terminator may now be followed by a closing quote or bracket
+ *  before the break. It still will not split on an abbreviation, because
+ *  what follows must still look like the start of a sentence. */
 function sentencesOf(paragraph: string): string[] {
   return paragraph
-    .split(/(?<=[.!?])\s+(?=["“'(]?[A-Z0-9$])/)
+    .split(/(?<=[.!?]["'”’)\]]?)\s+(?=["“'(]?[A-Z0-9$])/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 }
