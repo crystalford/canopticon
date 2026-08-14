@@ -167,6 +167,8 @@ export function buildFixtureIR(): EditorialIR {
   return {
     $schema: "https://canopticon.dev/schemas/v0/editorial-ir.json",
     projectId: "proj_fixture",
+    // The first take. A reshoot bumps this and nothing else.
+    variant: 0,
     title: "The Temporary Measure",
     irVersion: "0.1.0",
     continuity: "cut",

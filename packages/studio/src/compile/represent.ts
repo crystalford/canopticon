@@ -151,7 +151,39 @@ const APPROACH_LEAN: Record<string, Partial<Record<Mode, number>> | null> = {
   image: { literal: 2.0, structural: 1.6, diagrammatic: 0.8, typographic: 0.5, symbolic: 0.7 },
 };
 
-export function representationsFor(beat: Beat, style: Style): Representation[] {
+/** ANOTHER TAKE ON THE SAME SENTENCE.
+ *
+ *  Deterministic — a hash of (which take, which scene, which reading), so
+ *  the same variant always produces the same film and two variants
+ *  produce genuinely different ones. A MULTIPLIER, never a filter, which
+ *  is the discipline the approach lean already keeps: a printed figure
+ *  and a drawn route still reach the chart in every take, because both
+ *  are decided upstream of here on facts about the prose.
+ *
+ *  THE RANGE IS WIDE ON PURPOSE, and the first one was not. `clamp01`
+ *  saturates the winning reading at 1.0 — a text-driven film's
+ *  typographic idea scores 1.495 before the clamp and 1.0 after — so a
+ *  gentle ±10% cannot reorder anything, and the first version changed the
+ *  IDEA in one scene of twenty-two. A second take that differs only in
+ *  procedural noise is the button doing nothing, which is the thing this
+ *  exists to fix. [0.4, 1.9] genuinely overlaps a strong reading with the
+ *  ones behind it without ever promoting a reading that scored zero. */
+function takeWeight(variant: number, sceneIndex: number, k: number): number {
+  if (variant <= 0) return 1;
+  const h = (variant * 2654435761 + sceneIndex * 40503 + k * 97 + 0x9e3779b9) >>> 0;
+  return 0.4 + ((h % 1000) / 1000) * 1.5;
+}
+
+const MODE_ORDER: Mode[] = [
+  "literal",
+  "geometric",
+  "typographic",
+  "diagrammatic",
+  "structural",
+  "symbolic",
+];
+
+export function representationsFor(beat: Beat, style: Style, variant = 0): Representation[] {
   const subject = beat.subjects[0];
   const noun = subject?.text ?? "";
   const figurative = subject ? isFigurative(beat.sentence, subject.offset) : false;
@@ -193,15 +225,33 @@ export function representationsFor(beat: Beat, style: Style): Representation[] {
       : "form is always available",
   );
 
-  // TYPOGRAPHIC — the words are the image. Always available, because
-  // every sentence has words; this is the one mode that cannot fail for
-  // want of a subject, and it is currently the strongest thing the
-  // renderer does.
+  /* TYPOGRAPHIC — the words are the image. ONLY WHERE THERE ARE WORDS.
+   *
+   * This carried a flat 0.35 floor and the note "every sentence has
+   * words; a subject is not required". Both were true of the SENTENCE and
+   * false of the SCENE. Promotion decides film-wide which moments earn
+   * text; everywhere else `beat.phrase` is the empty string, and this
+   * reading still scored 0.35 — multiplied to 0.91 by a text-driven
+   * film's lean, which beat every reading that had something to draw.
+   *
+   * Measured on a real 52-scene film: 41 scenes composed TYPOGRAPHIC and
+   * 26 of them had nothing to set. Those 26 fell through `opsFor`'s
+   * no-words branch to one hardcoded shape, so `parametric_curve → place
+   * → geometry_draw` opened 42 of 52 frames and 19 of 135 primitives ever
+   * ran. That is the whole of "every shot looks the same".
+   *
+   * A reading that will draw nothing is not a weak reading, it is not a
+   * reading. Scoring it honestly is what lets GEOMETRIC, STRUCTURAL,
+   * SYMBOLIC and DIAGRAMMATIC — all of which were unreachable — take the
+   * scenes the film speaks rather than shows. */
+  const set = beat.phrase.trim();
   add(
     "typographic",
-    0.35 + style.typography * 0.45 + (figurative ? 0.15 : 0),
-    `the sentence's own words, set — "${beat.phrase}"`,
-    "every sentence has words; a subject is not required",
+    set ? 0.35 + style.typography * 0.45 + (figurative ? 0.15 : 0) : 0,
+    set ? `the sentence's own words, set — "${set}"` : "no words are shown at this moment",
+    set
+      ? "the film promoted this span to the screen"
+      : "the film speaks this line rather than showing it, so there is no type to set",
   );
 
   // DIAGRAMMATIC — the relation is the image. Earned by the prose rather
@@ -266,6 +316,14 @@ export function representationsFor(beat: Beat, style: Style): Representation[] {
   const lean = APPROACH_LEAN[beat.approach ?? "hybrid"];
   if (lean) {
     for (const r of out) r.weight = clamp01(r.weight * (lean[r.mode] ?? 1));
+  }
+  /* AND WHICH TAKE THIS IS. Applied last, over the top of everything the
+   * prose and the director decided, because a second take is a second
+   * opinion about the same evidence rather than different evidence. */
+  if (variant > 0) {
+    for (const r of out) {
+      r.weight = clamp01(r.weight * takeWeight(variant, beat.index, MODE_ORDER.indexOf(r.mode)));
+    }
   }
   return out.sort((a, b) => b.weight - a.weight);
 }

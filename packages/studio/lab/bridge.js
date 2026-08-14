@@ -462,6 +462,29 @@ const releaseScene = (projectId, sceneId) =>
     body: JSON.stringify({ sceneId, release: true }),
   });
 
+/** RESHOOT — another take of the same writing.
+ *
+ *  The film is deterministic on purpose, so until this existed one essay
+ *  had exactly one film in it and RENDER was the only button on a
+ *  finished thing. This asks the compiler to compose the same writing
+ *  again: a different reading of each sentence, a different construction
+ *  realising it, different seeds underneath — and, unless held, a
+ *  different KIND of picture, because a take that only jitters the
+ *  weights on a strongly-earned reading is a button that looks broken.
+ *
+ *  Nothing a person wrote or approved moves: the essay, the cuts, the
+ *  anchors, the ratified readings, the pins and the recorded voice are
+ *  all untouched, and no TTS is spent. Each take is its own IR version,
+ *  so going back is going back a version.
+ *
+ *  `opts.keepApproach` varies only the detail. `opts.approach` names one.
+ *  `opts.take` returns to a take already seen. */
+const reshootFilm = (projectId, opts = {}) =>
+  api(`/project/${projectId}/reshoot`, {
+    method: "POST",
+    body: JSON.stringify(opts),
+  });
+
 async function compileProject(projectId) {
   const report = await api(`/project/${projectId}/compile`, { method: "POST" });
   window.STUDIO.cache = report.cache;
@@ -492,6 +515,7 @@ Object.assign(window, {
   setColour,
   setContinuity,
   compileProject,
+  reshootFilm,
   lastProjectId: () => {
     try {
       return localStorage.getItem("canopticon.project");

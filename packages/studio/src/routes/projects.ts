@@ -697,6 +697,139 @@ app.post("/project/:id/intend", async (c) => {
   });
 });
 
+/* ── RESHOOT — another take of the same writing ────────────────────────
+ *
+ * THE BUTTON THE STUDIO NEVER HAD, and its absence was the oldest
+ * complaint about this system. The compiler is deterministic, which is
+ * the whole premise — but every seed in it was a hardcoded constant and
+ * every weight was fixed, so one essay contained exactly one film,
+ * permanently. The only control on the finished thing was RENDER, which
+ * writes down what is already there. A director who cannot ask for
+ * another take is not directing; they are receiving.
+ *
+ * A reshoot changes NOTHING a person wrote or approved:
+ *
+ *   the essay · the cuts · the acts · the anchors · the narration ·
+ *   the runtime · the ratified readings · the pins
+ *
+ * and it changes everything the machine inferred: which reading of each
+ * sentence wins, which construction realises it, and every procedural
+ * seed underneath. It is not randomness — take N is reproducible forever
+ * — and it is not a restyle, because the creative state is untouched.
+ *
+ * WHY IT MAY MOVE THE APPROACH. A take that only perturbs weights
+ * changes four scenes of twenty-two on a real essay, because a
+ * text-driven film's typographic reading is EARNED and outranks the
+ * alternatives by a wide margin in every take. That is correct
+ * behaviour and it is also a button that appears not to work. So a
+ * plain reshoot walks the approach as well — the same essay as a
+ * text film, then an abstract one, then a world one — which is a
+ * genuinely different film rather than the same film with different
+ * noise in it. Pass `approach` to hold it still, or `keepApproach` to
+ * ask for detail-only variation and be told that is what you got.
+ *
+ * NO TTS IS SPENT. Narration is keyed by the scene's text, which a
+ * reshoot never touches, so every recording is reused. */
+/** The walk a plain reshoot takes. `image` is deliberately absent: it
+ *  leans exactly like `world` because generative imagery is not a
+ *  material this build can produce, so walking onto it would be a take
+ *  that reports a change and makes none. */
+const TAKE_WALK = ["text", "abstract", "world", "hybrid"] as const;
+type Approach = (typeof TAKE_WALK)[number];
+
+app.post("/project/:id/reshoot", async (c) => {
+  const projectId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as {
+    /** Hold the picture's KIND still and vary only the detail. */
+    approach?: string;
+    /** Same, expressed as a flag — the Lab's "just try again" path. */
+    keepApproach?: boolean;
+    /** Go back to a take you have already seen. Absent means the next one. */
+    take?: number;
+  };
+
+  const project = await one<ProjectRow>(c.env.DB, "SELECT * FROM projects WHERE id = ?", [
+    projectId,
+  ]);
+  if (!project) return c.json({ error: "not found" }, 404);
+  const version = await loadVersion(c.env, projectId, project.current_ir_version);
+  if (!version) return c.json({ error: "no IR stored for this project" }, 400);
+  const parsed = parseIR(JSON.parse(version.ir_json));
+  if (!parsed.ok) return c.json({ error: "stored IR is invalid", details: parsed.errors }, 500);
+
+  const from = parsed.ir.variant ?? 0;
+  const take =
+    typeof body.take === "number" && Number.isFinite(body.take) && body.take >= 0
+      ? Math.floor(body.take)
+      : from + 1;
+
+  /* WHICH APPROACH THIS TAKE IS SHOT IN. An explicit one is the
+   * director's and is taken as given; otherwise the take walks the list,
+   * so asking three times gives three different films rather than three
+   * shades of one. */
+  let approach: EditorialIR["visualApproach"] = parsed.ir.visualApproach;
+  let movedApproach = false;
+  if (body.approach) {
+    if (!(TAKE_WALK as readonly string[]).includes(body.approach)) {
+      return c.json({ error: `no approach "${body.approach}"` }, 400);
+    }
+    approach = body.approach as Approach;
+    movedApproach = approach !== parsed.ir.visualApproach;
+  } else if (!body.keepApproach) {
+    const at = TAKE_WALK.indexOf(approach as Approach);
+    // An approach outside the walk (`image`, which has no material yet)
+    // starts the walk rather than being lost off the end of it.
+    approach = TAKE_WALK[(at < 0 ? 0 : at + 1) % TAKE_WALK.length] as Approach;
+    movedApproach = approach !== parsed.ir.visualApproach;
+  }
+
+  const next: EditorialIR = { ...parsed.ir, variant: take, visualApproach: approach };
+  const nextVersion = project.current_ir_version + 1;
+  const how = movedApproach
+    ? `take ${take + 1} — shot as ${LOOK[approach] ?? approach}`
+    : `take ${take + 1} — the same look, composed again`;
+  await writeVersion(c.env, projectId, next, nextVersion, project.current_ir_version, how);
+  await run(c.env.DB, "UPDATE projects SET current_ir_version = ? WHERE id = ?", [
+    nextVersion,
+    projectId,
+  ]);
+
+  const snap = await loadSnapshot(c.env, projectId);
+  const t = await frozenAlignments(c.env, next);
+  const rep = await compile(next, { snapshot: snap, alignments: t.alignments });
+  await saveSnapshot(c.env, projectId, rep.snapshot);
+
+  /* WHAT ACTUALLY CHANGED, counted rather than claimed. A reshoot that
+   * moved nothing is a thing the operator has to be told, because the
+   * button looks identical either way — and this compiler's standing
+   * position is that a no-op reports itself. */
+  const drew = rep.composed.filter((s) => s.nodes.length > 0).length;
+  return c.json({
+    projectId,
+    irVersion: nextVersion,
+    take,
+    from,
+    approach,
+    approachMoved: movedApproach,
+    how,
+    scenes: rep.composed.length,
+    composed: drew,
+    // Nothing spoken is regenerated: narration is keyed by the scene's
+    // own text and a reshoot never touches it.
+    narrationSpent: 0,
+    cache: rep.cache,
+  });
+});
+
+/** The approaches in the operator's words rather than the schema's. */
+const LOOK: Record<string, string> = {
+  text: "a film made of its own words",
+  abstract: "a film made of form",
+  world: "a film that builds a place and stays in it",
+  hybrid: "a film that takes each sentence as it comes",
+  image: "a film made of pictures",
+};
+
 app.post("/project/:id/direct", async (c) => {
   const projectId = c.req.param("id");
   const body = (await c.req.json().catch(() => ({}))) as {

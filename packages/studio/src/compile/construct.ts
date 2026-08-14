@@ -1189,6 +1189,11 @@ export function constructPrograms(
    *  construction that ignores the world cannot express it. See the gate
    *  below. */
   act?: Act,
+  /** WHICH TAKE. 0 is the film as it has always composed. Above 0 it
+   *  perturbs the representation weights and, below, which of the
+   *  candidates is taken first — so asking for another take moves the
+   *  KIND of picture, not just the noise inside one. */
+  variant = 0,
 ): Program[] {
   // AN EXPLICITLY DRAWN ROUTE IS THE STRONGEST THING A SENTENCE CAN DO.
   //
@@ -1248,7 +1253,7 @@ export function constructPrograms(
    * sentence — and gains no semantic responsibility. The choice of what
    * KIND of image to make is made above it, which is the correction that
    * stops this becoming the routing table again with more arithmetic. */
-  const reps = representationsFor(beat, style);
+  const reps = representationsFor(beat, style, variant);
 
   const applicable: {
     c: Construction;
@@ -1365,6 +1370,28 @@ export function constructPrograms(
   // Enough to be a real choice, few enough to read — and now drawn from
   // both readings rather than from the nouns alone.
   applicable.sort((a, b) => b.fit - a.fit);
+  /* ANOTHER TAKE REACHES PAST THE WINNER.
+   *
+   * The representation perturbation above moves what KIND of image the
+   * sentence wants. This moves which construction gets to make it — and
+   * both are needed, because on a real essay one construction takes fifty
+   * scenes out of fifty-two, so a take that only re-weighted readings
+   * would hand the same builder a slightly different brief and produce a
+   * film that looks identical.
+   *
+   * The alternatives are already built and already carried on the report
+   * for the director to pin. This is the same list, rotated: take N
+   * promotes a runner-up that genuinely fit this sentence rather than
+   * inventing a candidate that did not. A sentence with one applicable
+   * construction still has one, in every take. */
+  if (variant > 0 && applicable.length > 1) {
+    const h = (variant * 2246822519 + beat.index * 374761393 + 0x85ebca6b) >>> 0;
+    // Never past the third-best: below that a candidate is applicable
+    // rather than suitable, and a take is meant to be another reading of
+    // the sentence, not a worse one.
+    const lift = h % Math.min(3, applicable.length);
+    if (lift > 0) applicable.unshift(...applicable.splice(lift, 1));
+  }
   const considered = applicable.slice(0, 5);
 
   const stacks = operatorStacks(style, beat.index, intent);

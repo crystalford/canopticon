@@ -231,6 +231,7 @@ function renderBar() {
     <button class="b q sm ${APP.view === "films" ? "on" : ""}" data-go="films">Films</button>
     ${onFilm ? `<button class="b q sm ${APP.hood ? "on" : ""}" data-hood>Under the hood</button>` : ""}
     <button class="b q sm ${APP.view === "build" ? "on" : ""}" data-go="build">Backstage</button>
+    ${onFilm ? '<button class="b sm" data-reshoot title="Compose the same writing again \u2014 a different film from the same words">Shoot it again</button>' : ""}
     ${onFilm ? '<button class="b pri sm" data-render>Render</button>' : ""}
   </div>`;
   const q = (s, fn) => document.querySelectorAll(s).forEach((b) => (b.onclick = () => fn(b)));
@@ -242,6 +243,38 @@ function renderBar() {
     render();
   });
   q("[data-render]", openRender);
+  q("[data-reshoot]", reshootNow);
+}
+
+/* ── SHOOT IT AGAIN ──────────────────────────────────────────────────
+ *
+ * The only control this Studio had on a finished film was RENDER, which
+ * writes down what is already there. The compiler is deterministic, so
+ * one essay contained one film and there was no way to ask for another.
+ *
+ * This asks for another take: the same writing, composed again. Nothing
+ * written or approved moves — not the essay, the cuts, the anchors, the
+ * ratified readings, the pins or the recorded voice — and no TTS is
+ * spent. Each take is its own IR version, so Undo is going back a
+ * version, and the same take always composes the same film. */
+async function reshootNow() {
+  if (!window.STUDIO || !window.STUDIO.projectId) {
+    return toast("The example film composes in this page \u2014 open one of yours to shoot it again");
+  }
+  const id = window.STUDIO.projectId;
+  busy(true, "composing it again");
+  try {
+    const out = await reshootFilm(id);
+    // Re-open so the Preview, the plan and the narration all come from
+    // the take that was just written rather than the one before it.
+    await loadProject(id);
+    adoptFilm();
+    toast(out.how || `Take ${(out.take ?? 0) + 1}`);
+  } catch (e) {
+    toast("Could not shoot it again \u2014 " + e.message);
+  } finally {
+    busy(false);
+  }
 }
 
 function render() {
@@ -377,5 +410,5 @@ window.addEventListener("DOMContentLoaded", async () => {
 Object.assign(window, {
   APP, PLAY, VERBS, MARK, go, render, renderBar, changed, mark, undo, redo, retime, snapshot,
   selectScene, selScene, stepScene, toast, busy, esc, fmt, loop, stopLoops, sliderHTML, bindSliders,
-  openFinder, closeFinder, jumpTo, readIntent, saveNow, queueSave,
+  openFinder, closeFinder, jumpTo, readIntent, saveNow, queueSave, reshootNow,
 });

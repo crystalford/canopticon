@@ -424,6 +424,23 @@ export const EditorialIRSchema = z.object({
   logline: z.string().optional(),
   /** The essay. Single source of truth; scenes bind into it by offset. */
   essay: z.string(),
+  /** WHICH TAKE THIS IS.
+   *
+   *  The compiler is deterministic, which is the point — but every seed in
+   *  it was a hardcoded constant, so one essay had exactly one film in it
+   *  forever. There was no way to say "make it differently": the only
+   *  control was Render, which renders what is already there. A director
+   *  who cannot ask for another take is not directing.
+   *
+   *  A variant is not randomness and not a style. It is a different
+   *  READING of the same essay, chosen deterministically: it moves which
+   *  representation wins, which of the constructed candidates is taken,
+   *  and every procedural seed underneath. Same writing, same cuts, same
+   *  voice, same runtime — a different film.
+   *
+   *  0 is what every film composed before this field existed, so nothing
+   *  already made is restyled by it arriving. */
+  variant: z.number().int().min(0).default(0),
   acts: z.array(ActSchema).min(1),
   scenes: z.array(SceneSchema).min(1),
   entities: z.array(EntitySchema).default([]),

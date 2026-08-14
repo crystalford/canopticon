@@ -317,6 +317,13 @@ export function composeScene(
   const state = resolveStateAt(ir, scenePosition(ir, sceneIndex), positions);
   const notes: string[] = [];
   const ruleHits: RuleHit[] = [];
+  /* WHICH TAKE THIS IS. Every seed below is derived from it, so asking
+   * for another take moves the procedural detail as well as the choices —
+   * and it stays derived rather than random, which is what keeps L1
+   * determinism true within a take. `0` reproduces every film composed
+   * before the field existed, exactly. */
+  const take = ir.variant ?? 0;
+  if (take > 0) notes.push(`take ${take + 1} — the same writing, composed again`);
 
   // ── precedence 7: creative state preference ────────────────────────
   let abstraction = state.values.abstraction ?? 0;
@@ -649,7 +656,8 @@ export function composeScene(
      * would have put it. That single fact is most of what a persistent
      * world means on screen. */
     if (world) {
-      const rep = representationsFor(beat, style).sort((a, b) => b.weight - a.weight)[0] ?? null;
+      const rep =
+        representationsFor(beat, style, take).sort((a, b) => b.weight - a.weight)[0] ?? null;
       const counted = (scene.figures ?? []).find((f) => f.kind === "count");
       sceneWorld = stepWorld({
         state: world.state,
@@ -665,7 +673,7 @@ export function composeScene(
         energy: style.energy,
         abstraction: style.abstraction,
         typography: style.typography,
-        seed: 101 + sceneIndex * 7,
+        seed: 101 + sceneIndex * 7 + take * 9973,
         // WHAT THIS MOMENT EARNED, and when it is spoken. The typographic
         // recipe branches on the level and the arrival is cued to the
         // measured word — see `grammar-visual.ts`'s WORD and
@@ -736,6 +744,7 @@ export function composeScene(
       MAX_CHAIN_MS,
       promotion?.kind === "TEXT" ? "TEXT" : "COMPOSE",
       promotion?.act.act,
+      take,
     );
     const best = programs[0];
     if (best) {
@@ -992,7 +1001,7 @@ export function composeScene(
           ...textParamsFor(n.primitiveId, text, spec?.parameters ?? {}),
           ...n.params,
         },
-        seed: 20000 + sceneIdx * 17 + parentIdx * 211 + depth * 1009 + k,
+        seed: 20000 + sceneIdx * 17 + parentIdx * 211 + depth * 1009 + k + take * 7919,
         costMsPerFrame: spec?.estimatedCostMsPerFrame ?? 4,
         reason: n.reason,
         ...(n.ground && n.ground.length > 0
@@ -1052,7 +1061,7 @@ export function composeScene(
       params,
       // Derived, never random — same scene and position always seed the
       // same way, which is what makes L1 determinism real.
-      seed: 1000 + sceneIndex * 17 + i,
+      seed: 1000 + sceneIndex * 17 + i + take * 6113,
       costMsPerFrame: spec?.estimatedCostMsPerFrame ?? 4,
       reason: reasons.get(primitiveId) ?? "composed",
       /* THE SECOND INPUT, CARRIED. This is the whole fix.

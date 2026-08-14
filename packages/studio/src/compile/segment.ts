@@ -337,6 +337,8 @@ export function segmentEssay(essay: string, options: SegmentOptions): SegmentRep
   const ir: EditorialIR = {
     $schema: "https://canopticon.dev/schemas/v0/editorial-ir.json",
     projectId: options.projectId,
+    // The first take. A reshoot bumps this and nothing else.
+    variant: 0,
     title: title || "Untitled",
     irVersion: "0.1.0",
     // The segmenter never guesses how a film should move. CUT is the
