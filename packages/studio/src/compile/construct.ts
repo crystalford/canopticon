@@ -85,6 +85,7 @@ import { type SceneGraph, composeFromMeaning, serialiseScene } from "./scene-gra
 import type { SceneKind } from "./scene-kind.ts";
 import { readScene } from "./semantic-scene.ts";
 import type { DetectedSubject } from "./subject.ts";
+import { INTERFACE_WORDS } from "./subject.ts";
 
 export interface PlannedNode {
   primitiveId: string;
@@ -440,6 +441,10 @@ function statedCount(beat: Beat): number | null {
  * what the sentence DOES, and reaches the picture as a MOVE rather than as
  * a leg count. */
 
+/** The interface nouns as a set, built once. The list itself lives in
+ *  `subject.ts`, which owns what a noun is. */
+const INTERFACE_SET = new Set(INTERFACE_WORDS);
+
 export const CONSTRUCTIONS: Construction[] = [
   /* ── A SCENE. The composition itself, as a construction.
    *
@@ -560,6 +565,136 @@ export const CONSTRUCTIONS: Construction[] = [
       return {
         nodes: serialiseScene(scene, m),
         why: scene.describes,
+      };
+    },
+  },
+  /* ── A SCREEN. Software, shown as software.
+   *
+   * P · INTERFACE — device_frame, browser_chrome, ui_surface, cursor,
+   * interaction, spotlight — never ran once in 32 compiles across two
+   * real essays. Seven implemented primitives with real parameters, and
+   * nothing could reach them, because no construction built one and the
+   * scene graph's grammar has no idea what a phone is.
+   *
+   * That is worth fixing on its own and it is glaring on the essay that
+   * exposed it: a piece about a screenshot tool, in which the compiler
+   * drew abstract marks for twenty-eight sentences because it had no way
+   * to draw a screen. An essay about software should be able to show
+   * software.
+   *
+   * WHAT MAKES IT REAL RATHER THAN A TEMPLATE. Every number is read off
+   * the prose. Which device comes from the noun that was named — a laptop
+   * sentence is not a phone sentence. Whether a cursor or a gesture is on
+   * screen comes from whether the sentence describes someone DOING
+   * something. The spotlight appears only where the writing is about
+   * attention being directed, which is what a spotlight means. A sentence
+   * that merely mentions a phone gets a phone; a sentence about missing a
+   * target with your thumb gets the miss.
+   *
+   * It composes rather than replaces: the base is the trunk and
+   * everything else hangs off a compositor's ground, because `cursor`,
+   * `interaction` and `spotlight` are SOURCES — each one calls `bg()` and
+   * paints from nothing, so chaining one after the frame would erase the
+   * frame. Verified against the implementations in `lab/prims-d.js`
+   * rather than assumed from the type signature, which permits it. */
+  {
+    id: "screen",
+    fit(beat) {
+      const named = beat.subjects.findIndex((sub) => INTERFACE_SET.has(sub.text.toLowerCase()));
+      if (named < 0) return 0;
+      // Leading with it means the sentence is ABOUT the interface. Naming
+      // it later means the interface is where something else happened,
+      // which is still worth showing and is not the subject.
+      return named === 0 ? 0.99 : 0.72;
+    },
+    build(beat, style) {
+      const t = beat.sentence.toLowerCase();
+      const has = (re: RegExp) => re.test(t);
+      const nouns = beat.subjects.map((sub) => sub.text.toLowerCase());
+      const web = has(/\b(browser|web|google|search|url|tab|site|website|page)\b/);
+      const big = nouns.some((n) => /laptop|computer|monitor|keyboard|desktop/.test(n));
+      const nodes: PlannedNode[] = [
+        web
+          ? {
+              primitiveId: "browser_chrome",
+              params: {
+                url: 0.4 + style.density * 0.4,
+                tabs: Math.round(2 + style.density * 5),
+                scroll: 0.2 + style.energy * 0.5,
+              },
+              reason: "a browser, because the sentence is about the web",
+            }
+          : {
+              primitiveId: "device_frame",
+              // 0 phone · 1 tablet · 2 laptop, from the noun that was named.
+              params: {
+                kind: big ? 2 : nouns.some((n) => /tablet|ipad/.test(n)) ? 1 : 0,
+                scale: 0.62 + (1 - style.density) * 0.28,
+                content: 0.3 + style.density * 0.5,
+              },
+              reason: big
+                ? "a laptop, because that is what the sentence named"
+                : "a phone, held in the frame",
+            },
+      ];
+      /* WHAT IS HAPPENING TO IT. A gesture when the writing describes one;
+       * a pointer when it describes a hand rather than an action; neither
+       * when the sentence is only about the thing existing. */
+      const gesture = has(/\b(tap|tapp|swipe|swip|scroll|drag|pinch|crop|press|flip|slide)\w*\b/);
+      const pointing = has(/\b(thumb|finger|hand|cursor|point|click|miss|reach)\w*\b/);
+      if (gesture || pointing) {
+        nodes.push({
+          primitiveId: "layer_over",
+          params: { strength: 0.9 },
+          reason: gesture ? "and the gesture the sentence describes" : "and the hand doing it",
+          ground: [
+            gesture
+              ? {
+                  primitiveId: "interaction",
+                  // 0 tap · 1 swipe · 2 scroll, read off the verb.
+                  params: {
+                    kind: has(/\bscroll/) ? 2 : has(/\bswipe|drag|slide|crop/) ? 1 : 0,
+                    rate: 0.25 + style.energy * 0.6,
+                  },
+                  reason: "the gesture, at the film's own pace",
+                }
+              : {
+                  primitiveId: "cursor",
+                  params: {
+                    damping: 0.25 + style.restraint * 0.6,
+                    dwell: 0.2 + (1 - style.energy) * 0.6,
+                    click: has(/\bclick|press|tap/) ? 1 : 0,
+                  },
+                  reason: "a pointer, moving and settling",
+                },
+          ],
+        });
+      }
+      /* ATTENTION, WHERE THE WRITING IS ABOUT ATTENTION. A spotlight is a
+       * claim that one part of the screen matters and the rest does not,
+       * so it is earned by the sentence saying so rather than added for
+       * texture. */
+      if (has(/\b(highlight|select|attention|focus|notice|spot|find|look)\w*\b/)) {
+        nodes.push({
+          primitiveId: "layer_mask",
+          params: { strength: 0.85 },
+          reason: "with one part of it picked out, because the sentence is about noticing",
+          ground: [
+            {
+              primitiveId: "spotlight",
+              params: {
+                radius: 0.14 + (1 - style.density) * 0.3,
+                dim: 0.55 + style.restraint * 0.35,
+                move: style.energy * 0.8,
+              },
+              reason: "the attention itself",
+            },
+          ],
+        });
+      }
+      return {
+        nodes,
+        why: `${web ? "a browser" : big ? "a laptop" : "a phone"}${gesture ? ", being used" : pointing ? ", and the hand at it" : ""}`,
       };
     },
   },

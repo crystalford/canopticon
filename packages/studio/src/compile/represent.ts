@@ -353,6 +353,12 @@ export const REALISES: Record<string, Mode[]> = {
   scene: ["literal", "structural", "geometric", "typographic", "diagrammatic", "symbolic"],
   fixture: ["literal"],
   body: ["literal"],
+  /* A SCREEN IS LITERALLY THE THING AND ALSO A DIAGRAM OF IT — a phone
+   * showing what a phone does is a depiction and an explanation at once,
+   * which is why software writing reaches for screenshots. Not symbolic
+   * and not typographic: a device frame is a picture of an object, and a
+   * sentence whose material is its own words wants the type families. */
+  screen: ["literal", "diagrammatic", "structural"],
   space: ["literal", "structural"],
   paper: ["literal", "structural"],
   type: ["typographic", "symbolic"],
