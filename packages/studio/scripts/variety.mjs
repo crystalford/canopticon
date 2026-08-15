@@ -34,7 +34,9 @@ for (const [i, s] of built.stages.entries()) {
   const live = at ? at.units : [];
   const treatments = [...new Set(live.map((u) => u.treatment))].sort().join("+") || "-";
   const angles = [...new Set(live.map((u) => bucket(u.rot, 15)))].sort((a, b) => a - b).join(",");
-  const scales = [...new Set(live.map((u) => bucket(u.size, 0.05)))].sort((a, b) => a - b).join(",");
+  const scales = [...new Set(live.map((u) => bucket(u.size, 0.05)))]
+    .sort((a, b) => a - b)
+    .join(",");
   signatures.push(
     [s.world, s.layout, treatments, angles, scales, s.stage.regName ?? "-", s.entry].join("|"),
   );
@@ -57,13 +59,15 @@ for (const [i, sig] of signatures.entries()) {
   if (lastSeen.has(sig)) gaps.push(i - lastSeen.get(sig));
   lastSeen.set(sig, i);
 }
-const meanGap = gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : Infinity;
-const minGap = gaps.length > 0 ? Math.min(...gaps) : Infinity;
+const meanGap =
+  gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : Number.POSITIVE_INFINITY;
+const minGap = gaps.length > 0 ? Math.min(...gaps) : Number.POSITIVE_INFINITY;
 
 const worlds = new Set(built.stages.map((s) => s.world));
 const layouts = new Set(built.stages.map((s) => s.layout));
 const treatments = new Set();
-for (const s of built.stages) for (const u of s.stage.units) if (!u.dead) treatments.add(u.treatment);
+for (const s of built.stages)
+  for (const u of s.stage.units) if (!u.dead) treatments.add(u.treatment);
 
 console.log(`beats                ${signatures.length}`);
 console.log(`worlds in play       ${worlds.size}  ${[...worlds].join(" ")}`);
@@ -74,7 +78,7 @@ console.log(
 );
 console.log(`longest identical run ${longestRun} beats`);
 console.log(
-  `signature returns    after ${minGap === Infinity ? "never" : `${minGap} beats at soonest`}, ${
-    meanGap === Infinity ? "never" : `${meanGap.toFixed(1)} on average`
+  `signature returns    after ${minGap === Number.POSITIVE_INFINITY ? "never" : `${minGap} beats at soonest`}, ${
+    meanGap === Number.POSITIVE_INFINITY ? "never" : `${meanGap.toFixed(1)} on average`
   }`,
 );

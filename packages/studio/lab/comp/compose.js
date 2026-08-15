@@ -425,10 +425,14 @@ export function buildStages(cut) {
   let worldName = "COLLAGE";
   let lastSection = null;
   let worldRun = 0;
+  let beatIndex = -1;
   const recentWorlds = [];
+  /** Passage index → the world it was given. The film's memory. */
+  const topicWorlds = new Map();
 
   const filmMs = Math.max(1, cut.durationMs);
   for (const beat of cut.beats) {
+    beatIndex += 1;
     const rng = mulberry32(beat.seed);
     // WHERE THE FILM IS. Everything below is biased by a centre that is
     // itself travelling, which is the difference between a film and a style.
@@ -455,21 +459,25 @@ export function buildStages(cut) {
 
     // WHICH TEXT UNIVERSE THIS PASSAGE IS IN.
     const sectionKey = beat.sourceRange.startChar - (beat.sourceRange.startChar % 1);
-    const sectionIdx = sectionOf(cut, beat);
-    // A WORLD CHANGES ON A SECTION — OR WHEN IT HAS RUN TOO LONG. Sections
-    // are the writing's own structure and are the right trigger, but a long
-    // section left one universe running for forty beats, which is the
-    // template again wearing a different face.
-    worldRun += 1;
-    if (sectionIdx !== lastSection || worldRun > 14) {
-      worldRun = 0;
-      worldName = chooseWorld(sectionIdx, recentWorlds, rng, u);
-      recentWorlds.push(worldName);
-      if (recentWorlds.length > WORLD_MEMORY) recentWorlds.shift();
-      lastSection = sectionIdx;
-    }
+    // THE WORLD IS NOW CAUSED BY THE WRITING.
+    //
+    // It used to be `Math.floor(startChar / 420)` — a character counter. The
+    // film changed universes every 420 characters whatever the essay was
+    // doing, so every change on screen was uncaused, and an uncaused change
+    // reads as decoration however much variety sits underneath it.
+    const rd = beat.reading ?? { kind: "CLAIM", novelty: 1, returnsTo: null };
+    const chosen = chooseWorld(rd, worldName, worldRun, topicWorlds, rng, u);
+    worldRun = chosen.world === worldName ? worldRun + 1 : 0;
+    worldName = chosen.world;
+    // Remember which world this passage got, so that when the essay comes back
+    // to it later the picture comes back too. This is the only mechanism by
+    // which anything carries through a film.
+    topicWorlds.set(rd.passage ?? beatIndex, worldName);
     const world = WORLDS[worldName];
     void sectionKey;
+    void lastSection;
+    void recentWorlds;
+    void WORLD_MEMORY;
 
     // AND WHICH SPATIAL STRUCTURE. Drawn per beat from the world's own
     // vocabulary, so a passage keeps a family of geometries rather than one.
@@ -582,6 +590,14 @@ export function buildStages(cut) {
     // The world says what KIND of printing this is; the register says what
     // kind of page; the beat says how sure the argument is. All three.
     Object.assign(next.fieldTo, applyField(next.fieldTo, world));
+    // A RETURN IS NOT A REPEAT. When the essay comes back to something, the
+    // picture comes back worn — the wear is what shows the time that passed
+    // between the two visits, and it is the difference between a callback and
+    // a loop.
+    if (chosen.why === "return") {
+      next.fieldTo.wear = Math.min(0.92, next.fieldTo.wear + 0.18);
+      next.fieldTo.bite = Math.min(1, next.fieldTo.bite + 0.12);
+    }
 
     const fn = BEHAVIORS[vi.behavior] || BEHAVIORS.APPEAR;
     fn(next, beat, ctx);
@@ -631,7 +647,7 @@ export function buildStages(cut) {
 
     protect(next, beat);
 
-    stages.push({ beat, stage: next, entry, world: worldName, layout });
+    stages.push({ beat, stage: next, entry, world: worldName, layout, why: chosen.why });
     stage = next;
   }
   return { grid, stages };

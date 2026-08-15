@@ -26,6 +26,8 @@ const arg = (n, d) => {
   return i > -1 ? Number(process.argv[i + 1]) : d;
 };
 const FROM = arg("from", 0);
+const VW = arg("w", 1280);
+const VH = arg("h", 720);
 const TO = arg("to", 20000);
 
 const cut = JSON.parse(fs.readFileSync(cutPath, "utf8"));
@@ -33,7 +35,7 @@ const cut = JSON.parse(fs.readFileSync(cutPath, "utf8"));
 const html = `<!doctype html><meta charset="utf-8">
 <link rel="stylesheet" href="fonts.css">
 <style>html,body{margin:0;background:#000;overflow:hidden}
-canvas{display:block;width:1280px;height:720px}</style>
+canvas{display:block;width:100vw;height:100vh}</style>
 <body><canvas id="c" width="1280" height="720"></canvas><script type="module">
 import { buildStages } from "./comp/compose.js";
 import { drawFrame, prepareFilm } from "./paint/frame.js";
@@ -88,9 +90,12 @@ const EXE =
   ["/opt/pw-browsers/chromium-1194/chrome-linux/chrome"].find((p) => fs.existsSync(p));
 const browser = await chromium.launch({ headless: true, ...(EXE ? { executablePath: EXE } : {}) });
 const dir = path.resolve(path.dirname(outPath), ".clip-tmp");
+// The canvas always renders at 1280×720; the viewport scales it. A long film
+// at full size exceeds what can be sent, and a smaller recording of the whole
+// thing is worth more than a full-size fragment of it.
 const ctx = await browser.newContext({
-  viewport: { width: 1280, height: 720 },
-  recordVideo: { dir, size: { width: 1280, height: 720 } },
+  viewport: { width: VW, height: VH },
+  recordVideo: { dir, size: { width: VW, height: VH } },
 });
 const page = await ctx.newPage();
 page.on("pageerror", (e) => console.error("[pageerror]", e.message));

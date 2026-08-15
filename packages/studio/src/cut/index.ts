@@ -20,6 +20,7 @@ import type {
 } from "../film/schema.ts";
 import { canonicalJSON, sha256Hex } from "../lib/hash.ts";
 import { deriveSeed, mulberry32 } from "../lib/rng.ts";
+import { readPassages } from "../read/passage.ts";
 
 /** No beat below three frames at 30fps — under that it is a flicker, not a
  *  cut. A montage burst may go to two. */
@@ -38,7 +39,31 @@ export async function buildCut(input: CutInput): Promise<FilmCut> {
   const warnings: string[] = [];
 
   const timed = timeBeats(film.editorial, spine, pace, film.seed, warnings);
-  const beats = timed.map((b) => withIntent(b, film, chaos, density));
+
+  // READ THE WRITING, IN ORDER. Novelty and return are relations between
+  // passages, so this cannot be done per beat in isolation — it is exactly the
+  // step whose absence made every visual change in the film uncaused.
+  // ONE READING PER PASSAGE, NOT PER BEAT. Sub-beats share their parent's
+  // character range, so reading them individually made every subdivision
+  // "return" to the one before it — 85 returns out of 111 beats, which turns
+  // the film's memory into a stutter. A subdivision is the same passage
+  // continuing; it inherits the reading rather than earning its own.
+  const passageKeys: string[] = [];
+  const passageOf: number[] = [];
+  for (const b of timed) {
+    const key = `${b.sourceRange.startChar}:${b.sourceRange.endChar}`;
+    let idx = passageKeys.indexOf(key);
+    if (idx === -1) idx = passageKeys.push(key) - 1;
+    passageOf.push(idx);
+  }
+  const uniqueTexts = passageKeys.map((k) => {
+    const [a, z] = k.split(":").map(Number);
+    return film.essay.slice(a, z);
+  });
+  const readings = readPassages(uniqueTexts);
+  const beats = timed.map((b, i) =>
+    withIntent(b, film, chaos, density, readings[passageOf[i] as number], passageOf[i]),
+  );
 
   const durationMs =
     beats.length > 0 ? (beats[beats.length - 1] as TimedBeat).endMs : spine.totalMs;
@@ -252,6 +277,14 @@ function shell(
       instability: 1 - s.beat.certainty,
     },
     text: { promotion: "none", phrases: [], hierarchy: [], body: [], legibility: "open" },
+    reading: {
+      kind: "CLAIM",
+      novelty: 1,
+      returnsTo: null,
+      hasFigure: false,
+      isShort: false,
+      passage: 0,
+    },
     motif: null,
     seed: deriveSeed(filmSeed, id),
   };
@@ -274,7 +307,20 @@ const BY_ROLE: Record<EditorialBeat["role"], Behavior> = {
   close: "COLLAPSE",
 };
 
-function withIntent(beat: TimedBeat, film: Film, chaos: number, density: number): TimedBeat {
+function withIntent(
+  beat: TimedBeat,
+  film: Film,
+  chaos: number,
+  density: number,
+  reading?: {
+    kind: string;
+    novelty: number;
+    returnsTo: number | null;
+    hasFigure: boolean;
+    isShort: boolean;
+  },
+  passageIndex = 0,
+): TimedBeat {
   // SPLIT ON THE SEPARATOR, NEVER `startsWith`.
   //
   // A sub-beat is `b7.2`, so the parent is everything before the dot. The
@@ -369,6 +415,25 @@ function withIntent(beat: TimedBeat, film: Film, chaos: number, density: number)
       legibility:
         editorial?.legibility === "denied" ? "denied" : phrases.length > 0 ? "protected" : "open",
     },
+    reading: reading
+      ? {
+          kind: reading.kind,
+          // A subdivision is mid-passage: the writing has not moved, so the
+          // film must not treat it as if it had.
+          novelty: isSub ? 0 : reading.novelty,
+          returnsTo: isSub ? null : reading.returnsTo,
+          hasFigure: reading.hasFigure,
+          isShort: reading.isShort,
+          passage: passageIndex,
+        }
+      : {
+          kind: "CLAIM",
+          novelty: 1,
+          returnsTo: null,
+          hasFigure: false,
+          isShort: false,
+          passage: passageIndex,
+        },
     motif: editorial?.motifRef
       ? {
           id: editorial.motifRef.motifId,

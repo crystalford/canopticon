@@ -144,30 +144,70 @@ export const WORLDS = {
 
 export const WORLD_NAMES = Object.keys(WORLDS);
 
-/** WHICH UNIVERSE THIS PASSAGE IS IN.
+/** WHAT KIND OF PASSAGE GETS WHAT KIND OF UNIVERSE.
  *
- *  Driven by the essay's SECTIONS and by position in the film — never by what
- *  a sentence is about. A section is the natural unit: a world that changed
- *  every beat would be noise, and one that never changed is what produced the
- *  template.
+ *  THE ONE REAL MAPPING IN THE ENGINE, and the thing whose absence made every
+ *  visual change uncaused. It maps the SHAPE of the writing — is this a
+ *  quantity, a list, a question, an attribution — onto the kind of page that
+ *  shape belongs on. It never maps a noun onto a picture, which is the failure
+ *  that produced the same centipede in every film. "This passage is a list" is
+ *  a fact about the sentence; "this passage is about a city" is not.
  *
- *  A world is also not allowed to outstay its welcome, on the same principle
- *  registers already use, and the film deliberately does not revisit a world
- *  until it has been through others.
+ *  Several candidates per kind, because one would be a lookup table and a
+ *  lookup table is what we are recovering from.
  */
-export function chooseWorld(sectionIndex, recent, rng, u) {
-  // Open somewhere declarative, close somewhere declarative, and roam in
-  // between. The first impression should not be a ledger.
-  if (u < 0.06) return rng() < 0.5 ? "WORDMARK" : "COLLAGE";
+const BY_KIND = {
+  QUANTITY: ["LEDGER", "TERMINAL", "WORDMARK"],
+  ENUMERATION: ["LEDGER", "TERMINAL", "INDEX"],
+  QUESTION: ["WORDMARK", "CONCRETE", "TICKER"],
+  ATTRIBUTED: ["ERASURE", "INDEX", "RANSOM"],
+  NEGATION: ["ERASURE", "STENCIL", "RANSOM"],
+  CONCESSION: ["INDEX", "COLLAGE", "ERASURE"],
+  DIRECTIVE: ["STENCIL", "WORDMARK", "TICKER"],
+  EXPOSITION: ["INDEX", "TERMINAL", "COLLAGE"],
+  CLAIM: ["COLLAGE", "WORDMARK", "STENCIL", "CONCRETE"],
+};
 
-  const fresh = WORLD_NAMES.filter((w) => !recent.includes(w));
-  const pool = fresh.length > 0 ? fresh : WORLD_NAMES;
-  // The section index seeds the choice so the same essay maps the same way,
-  // and the rng breaks ties so the seed still re-rolls the whole film.
-  const i = Math.floor((sectionIndex * 0.6180339887 + rng() * 0.4) * pool.length) % pool.length;
-  return pool[i];
+/** WHICH UNIVERSE THIS PASSAGE IS IN — decided by the WRITING.
+ *
+ *  What this replaces: `Math.floor(startChar / 420)`. The film changed worlds
+ *  every 420 characters of essay, whatever the essay was doing. Changes that
+ *  are uncaused read as decoration, which is why the operator kept saying it
+ *  was the same thing however much variety was added underneath.
+ *
+ *  Three rules, in order of authority:
+ *
+ *   1. A RETURNING TOPIC GETS ITS OLD WORLD BACK. This is the only mechanism
+ *      in the engine by which anything carries through a film — when the essay
+ *      comes back to something it said before, the picture comes back too, and
+ *      the wear it has accumulated since is what shows the time that passed.
+ *   2. A PASSAGE THAT HAS MOVED MOVES THE FILM. High novelty against the
+ *      previous passage means new vocabulary, which means a new subject, which
+ *      is the moment to change.
+ *   3. OTHERWISE, HOLD. A passage continuing the last one's vocabulary is the
+ *      same thought continuing, and cutting to a new universe mid-thought is
+ *      exactly the arbitrariness this is here to remove.
+ */
+export function chooseWorld(reading, prev, held, memory, rng, u) {
+  // 1 — memory. A topic that has been here before brings its world with it.
+  if (reading.returnsTo !== null && memory.has(reading.returnsTo)) {
+    return { world: memory.get(reading.returnsTo), why: "return" };
+  }
+
+  // 3 — hold. Below the novelty floor the writing has not moved, so neither
+  // does the film. A long thought is allowed to occupy one place.
+  const moved = reading.novelty > 0.72 || held >= 12;
+  if (!moved && prev) return { world: prev, why: "hold" };
+
+  // 2 — the writing moved, so choose from what this KIND of passage wants,
+  // avoiding whatever we were just in so a change is legible as a change.
+  const want = BY_KIND[reading.kind] ?? BY_KIND.CLAIM;
+  const fresh = want.filter((w) => w !== prev);
+  const pool = fresh.length > 0 ? fresh : want;
+  // The opening is declarative whatever the writing is doing — a film should
+  // not begin in a ledger.
+  if (u < 0.05) return { world: pool.includes("WORDMARK") ? "WORDMARK" : pool[0], why: "open" };
+  return { world: pool[Math.floor(rng() * pool.length)], why: "move" };
 }
 
-/** How many worlds a film should pass through — enough that no single one
- *  defines it, not so many that none of them registers. */
 export const WORLD_MEMORY = 4;

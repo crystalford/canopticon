@@ -329,6 +329,22 @@ export interface TimedBeat {
     legibility: "protected" | "open" | "denied";
   };
   motif: { id: string; treatment: string; wearBefore: number; wearAfter: number } | null;
+  /** WHAT THIS PASSAGE IS, AND WHETHER THE WRITING HAS MOVED.
+   *
+   *  The film's changes used to be uncaused — world, register and layout all
+   *  came from a character counter and a seed, so nothing on screen was a
+   *  consequence of anything in the essay. This is the causal link: kind,
+   *  novelty against the previous passage, and whether this one returns to an
+   *  earlier one. Never a noun, never a subject. */
+  reading: {
+    kind: string;
+    novelty: number;
+    returnsTo: number | null;
+    hasFigure: boolean;
+    isShort: boolean;
+    /** Which PASSAGE this beat belongs to — sub-beats share one. */
+    passage: number;
+  };
   /** Derived on the Worker. The browser is GIVEN this number and never
    *  re-derives one from a string — see `lib/rng.ts`. */
   seed: number;
