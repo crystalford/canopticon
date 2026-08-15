@@ -323,6 +323,19 @@ The position does not produce more distortion. It produces the only distortion a
     // material for this role is 0 — the persisted material must not move.
     const continued = advance(entered.state, sem, geometricScene.elements, undefined, {});
     expect(continued.state.alive.find((p) => p.identity === "city")?.material).toBe(5);
+    /* AND THE ELEMENT ACTUALLY DRAWN, NOT ONLY THE LEDGER.
+     *
+     * `Persistent.material` and `Persistent.element.material` are two
+     * different fields, and only the second one is what `draw()` puts on
+     * screen via `Advance.elements`. A first version of this fix updated
+     * only the ledger — the bookkeeping said stone, `Advance.elements`
+     * still carried whatever glass the fresh composition happened to
+     * assign, and the construction that serialises `beat.world.graph`
+     * would have drawn glass while the report claimed stone. */
+    const continuedEl = continued.state.alive.find((p) => p.identity === "city")?.element;
+    expect(continuedEl?.material).toBe(5);
+    const drawn = continued.elements.find((e) => e.depicts === "city");
+    expect(drawn?.material).toBe(5);
 
     // TRANSFORM is the one decision allowed to change it — "the sentence
     // changed what it is" is a claim about the thing, not the palette.
@@ -330,5 +343,7 @@ The position does not produce more distortion. It produces the only distortion a
       act: "TRANSFORM",
     });
     expect(transformed.state.alive.find((p) => p.identity === "city")?.material).toBe(0);
+    expect(transformed.state.alive.find((p) => p.identity === "city")?.element.material).toBe(0);
+    expect(transformed.elements.find((e) => e.depicts === "city")?.material).toBe(0);
   });
 });

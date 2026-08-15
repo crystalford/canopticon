@@ -340,6 +340,20 @@ export function advance(
               ? "the sentence changed what it is"
               : "still here, unchanged",
       });
+      /* MATERIAL IS INHERITED TOO, WITH ONE EXCEPTION. `TRANSFORM` is the
+       * sentence claiming the thing itself changed — the one decision
+       * that means something other than "still the same material, drawn
+       * again." Every other branch keeps what it had.
+       *
+       * Computed ONCE and written to BOTH places it lives. This was
+       * written only onto the outer `Persistent.material` bookkeeping
+       * field — the actual `element.material` that `draw()` puts on
+       * screen still took `{...el}`'s FRESH value below it, so the
+       * ledger said the city stayed stone while the picture drew it as
+       * glass. Persistence nothing can see is not continuity, the same
+       * lesson this file's own `world.test.ts` names for the construction
+       * that draws it. */
+      const material = what === "TRANSFORM" ? (el.material ?? held.material) : held.material;
       alive.push({
         ...held,
         // THE PLACE IS INHERITED, and only the parts the new arrangement
@@ -348,6 +362,7 @@ export function advance(
         // new scene would have put it if it were arriving fresh.
         element: {
           ...el,
+          material,
           place: {
             ...el.place,
             x: what === "CONTINUE" ? held.element.place.x : (held.element.place.x + el.place.x) / 2,
@@ -360,16 +375,7 @@ export function advance(
         },
         lastSeen: i,
         multiplicity: what === "ACCUMULATE" ? held.multiplicity + 1 : held.multiplicity,
-        /* MATERIAL IS INHERITED TOO, WITH ONE EXCEPTION. `TRANSFORM` is
-         * the sentence claiming the thing itself changed — the one
-         * decision that means something other than "still the same
-         * material, drawn again." Every other branch keeps what it had,
-         * which is the fix: without this, `{...el}` above would have
-         * silently carried whatever `MATERIAL[mode][role]` happened to
-         * land on this scene, and "the same city" could turn from stone
-         * to glass because a different construction won the sentence
-         * after it, with nothing on the film state noticing. */
-        material: what === "TRANSFORM" ? (el.material ?? held.material) : held.material,
+        material,
       });
       continue;
     }
@@ -389,8 +395,14 @@ export function advance(
       // new arrival that happens to share a name.
       alive.push({
         ...was,
+        // A recall brings back exactly what left, material included —
+        // "it comes back where it was" and what it is made of is part
+        // of where it was. Written onto `element.material` too, for the
+        // same reason the CONTINUE branch above needs both: `element` is
+        // what actually gets drawn.
         element: {
           ...el,
+          material: was.material,
           place: {
             ...el.place,
             x: (was.element.place.x * 2 + el.place.x) / 3,
@@ -398,9 +410,6 @@ export function advance(
           },
         },
         lastSeen: i,
-        // A recall brings back exactly what left, material included —
-        // "it comes back where it was" and what it is made of is part of
-        // where it was.
         material: was.material,
       });
       continue;
