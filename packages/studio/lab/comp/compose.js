@@ -500,10 +500,13 @@ export function buildStages(cut) {
     }
     if (!topicForms.has(rd.passage)) topicForms.set(rd.passage, form);
     const built = buildForm(form);
+    // A form is normalised to unit extent, so scale IS its fraction of the
+    // frame. Below about a third it reads as a smudge rather than as a thing;
+    // above one it crops, which is a decision rather than a fault.
     const formPlace = {
-      x: 0.2 + rng() * 0.6,
-      y: 0.2 + rng() * 0.6,
-      scale: 0.3 + rng() * 0.9,
+      x: 0.28 + rng() * 0.44,
+      y: 0.28 + rng() * 0.44,
+      scale: 0.45 + rng() * 0.95 * (0.5 + arc.scale),
     };
     void sectionKey;
     void lastSection;

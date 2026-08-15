@@ -67,6 +67,19 @@ export function sampleForm(rng, bias = {}) {
     profusion: clamp01((bias.profusion ?? mid(rng)) + (rng() - 0.5) * 0.14),
     /** open ↔ closed. Whether it is a line or has an inside. */
     closure: clamp01((bias.closure ?? polar(rng)) + (rng() - 0.5) * 0.14),
+    /** GROWN ↔ BUILT. The factor whose absence made this whole space
+     *  botanical. A branching process can only produce biology — reeds, pods,
+     *  roots, anemones — because branching IS what a plant does. A thing that
+     *  was assembled rather than grown has a SPINE with repeated members
+     *  attached at intervals, not tips that split: that is a truss, a ladder,
+     *  a comb, a fence, a chassis, a bridge. Same recursion, different rule
+     *  about where children go. */
+    rigidity: clamp01((bias.rigidity ?? polar(rng)) + (rng() - 0.5) * 0.14),
+    /** FLAT ↔ RECEDING. A vanishing point applied to every coordinate. This
+     *  is the difference between a diagram of a road and a road: perspective
+     *  is not decoration, it is what makes a structure read as occupying
+     *  space rather than as a shape on a page. */
+    recession: clamp01((bias.recession ?? mid(rng) * 0.9) + (rng() - 0.5) * 0.14),
   };
   return derive(f, rng);
 }
@@ -99,7 +112,12 @@ function derive(f, rng, keepSeed) {
     radial: rng() < lerp(0.15, 0.8, c * 0.7 + (1 - o) * 0.4),
 
     /** Children per node, decaying with depth. Zero is a single stroke. */
-    branch: lerp(0, 3.1, a * 1.1 + p * 0.4 + j(0.15)),
+    // Branch and depth together decide the mark count exponentially, so the
+    // top of both ranges is where a form stops being a structure and becomes
+    // a filled rectangle. Measured: three or four samples in twenty read as
+    // solid white. The ranges are bounded against each other rather than
+    // independently.
+    branch: lerp(0, 2.7, a * 1.1 + p * 0.35 + j(0.12)),
     branchDecay: lerp(0.35, 1, a + j(0.1)),
     depth: 1 + Math.round(lerp(0, 5, a * 0.8 + p * 0.5 + j(0.2))),
 
@@ -112,7 +130,7 @@ function derive(f, rng, keepSeed) {
     /** Segment shape. Curl is accumulated rotation along a limb. */
     length: lerp(0.04, 0.42, p * 0.5 + (1 - a) * 0.5 + j(0.12)),
     lengthRatio: lerp(0.45, 1.05, a + j(0.12)),
-    thickness: lerp(0.0012, 0.055, (1 - a) * 0.8 + c * 0.5 + j(0.1)),
+    thickness: lerp(0.0012, 0.038, (1 - a) * 0.8 + c * 0.5 + j(0.1)),
     thickRatio: lerp(0.3, 0.98, a * 0.8 + j(0.1)),
     curl: lerp(0, 2.6, (1 - o) * (1 - a) * 1.4 + j(0.15)),
     wobble: lerp(0, 0.5, (1 - o) * c + j(0.12)),
@@ -140,6 +158,33 @@ function derive(f, rng, keepSeed) {
     accumulate: clamp01(p * 1.1 + j(0.2)),
     /** How the whole thing is drawn in over its beat. */
     growth: lerp(0.25, 1, p * 0.5 + a * 0.4 + j(0.2)),
+
+    /* ── BUILT rather than GROWN ─────────────────────────────────────── */
+    /** At 1 a limb does not split at its tip — it carries members along its
+     *  length at regular intervals. Ladder, truss, comb, fence, ribcage. */
+    rigid: f.rigidity,
+    /** How many members per span, and how far they stick out. */
+    members: 1 + Math.round(lerp(0, 13, f.rigidity * 0.7 + p * 0.5 + j(0.15))),
+    memberLen: lerp(0.12, 1.15, (1 - f.rigidity) * 0.4 + c * 0.5 + j(0.15)),
+    /** Whether members alternate sides, cross, or all point the same way —
+     *  the difference between a comb, a truss and a fence. */
+    memberSkew: lerp(-1, 1, rng()),
+    /** A second parallel spine, so a span has two chords and the members
+     *  become a truss between them rather than teeth on a comb. */
+    chords: rng() < f.rigidity * 0.75 ? 2 : 1,
+    chordGap: lerp(0.12, 0.75, c * 0.6 + j(0.2)),
+
+    /* ── space ───────────────────────────────────────────────────────── */
+    /** Perspective. Everything is pulled toward a vanishing point by an
+     *  amount that grows with distance from it. */
+    recede: f.recession * lerp(0.2, 1, j(0.3) + 0.5),
+    vanishX: lerp(-0.3, 1.3, rng()),
+    vanishY: lerp(-0.1, 0.9, rng()),
+    /** Repeated enclosure: a rectangle subdivided into a grid of smaller
+     *  ones. Facades, windows, panels, sheets, screens. */
+    grid: clamp01(o * f.rigidity * 1.6 - 0.15 + j(0.15)),
+    gridCols: 1 + Math.round(lerp(0, 11, o * 0.6 + p * 0.6)),
+    gridRows: 1 + Math.round(lerp(0, 9, o * 0.5 + p * 0.5)),
   };
 }
 
@@ -182,6 +227,31 @@ export function buildForm(form) {
     if (form.membrane > 0.12 && tips.length >= 3) {
       hulls.push({ pts: hull(tips, ox, oy, form, rng), born, fill: form.membrane });
     }
+    // A GRID OF ENCLOSURES. A rectangle divided into smaller rectangles is a
+    // facade, a sheet of panels, a screen, a window wall — and it is what a
+    // BUILT thing has that a grown thing does not.
+    if (form.grid > 0.2) {
+      const gw = form.length * 3.2;
+      const gh = form.length * 2.4;
+      const gx = ox - gw / 2;
+      const gy = oy - gh / 2;
+      for (let c2 = 0; c2 < form.gridCols; c2++) {
+        for (let r2 = 0; r2 < form.gridRows; r2++) {
+          if (budget.left-- <= 0) break;
+          const cw = gw / form.gridCols;
+          const ch = gh / form.gridRows;
+          rects.push({
+            x: gx + c2 * cw,
+            y: gy + r2 * ch,
+            w: cw * 0.86,
+            h: ch * 0.86,
+            born: born + ((c2 + r2) / (form.gridCols + form.gridRows)) * 0.4,
+            fill: rng() < form.grid * 0.55,
+          });
+        }
+      }
+    }
+
     // CELLS — orthogonal subdivision filled. A ruled structure becomes a
     // sheet with things printed on it.
     if (form.cells > 0.15) {
@@ -200,7 +270,80 @@ export function buildForm(form) {
       }
     }
   }
-  return { limbs, dots, hulls, rects, form };
+  // NORMALISE TO THE FRAME.
+  //
+  // A form's coordinates are in its own growth units — a `length` of 0.06 at
+  // depth 3 spans something like 0.2, and at depth 5 something like 0.9. Left
+  // unnormalised, one sample fills the frame and the next is a speck in the
+  // corner, and inside a film the speck is indistinguishable from a form that
+  // was never generated. So the built structure reports its own extent and is
+  // rescaled to a known fraction of the frame. This is what lets the
+  // compositor place a form the way it places anything else.
+  // PERSPECTIVE, applied to everything before normalisation so the whole
+  // structure recedes together. A flat diagram of a bridge is a shape; the
+  // same geometry with a vanishing point is a bridge.
+  if (form.recede > 0.04) {
+    const vx = (form.vanishX - 0.5) * 2;
+    const vy = (form.vanishY - 0.5) * 2;
+    const warp = (q) => {
+      const d = Math.hypot(q.x - vx, q.y - vy);
+      const k = 1 / (1 + d * form.recede * 2.2);
+      return { ...q, x: vx + (q.x - vx) * k, y: vy + (q.y - vy) * k };
+    };
+    for (const l of limbs) l.pts = l.pts.map(warp);
+    for (const h of hulls) h.pts = h.pts.map(warp);
+    for (const d of dots) Object.assign(d, warp(d));
+    for (const r of rects) {
+      const a2 = warp({ x: r.x, y: r.y });
+      const b2 = warp({ x: r.x + r.w, y: r.y + r.h });
+      r.x = a2.x;
+      r.y = a2.y;
+      r.w = b2.x - a2.x;
+      r.h = b2.y - a2.y;
+    }
+  }
+
+  const b = extent(limbs, dots, hulls, rects);
+  const span = Math.max(b.w, b.h) || 1;
+  const k = 1 / span;
+  const cx = b.x + b.w / 2;
+  const cy = b.y + b.h / 2;
+  const mapPt = (q) => ({ ...q, x: (q.x - cx) * k, y: (q.y - cy) * k });
+  return {
+    form,
+    limbs: limbs.map((l) => ({ ...l, pts: l.pts.map(mapPt), w: l.w * k })),
+    dots: dots.map((d) => ({ ...mapPt(d), r: d.r * k })),
+    hulls: hulls.map((h) => ({ ...h, pts: h.pts.map(mapPt) })),
+    rects: rects.map((r) => ({
+      ...r,
+      x: (r.x - cx) * k,
+      y: (r.y - cy) * k,
+      w: r.w * k,
+      h: r.h * k,
+    })),
+  };
+}
+
+function extent(limbs, dots, hulls, rects) {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  const see = (x, y) => {
+    if (x < x0) x0 = x;
+    if (y < y0) y0 = y;
+    if (x > x1) x1 = x;
+    if (y > y1) y1 = y;
+  };
+  for (const l of limbs) for (const q of l.pts) see(q.x, q.y);
+  for (const d of dots) see(d.x, d.y);
+  for (const h of hulls) for (const q of h.pts) see(q.x, q.y);
+  for (const r of rects) {
+    see(r.x, r.y);
+    see(r.x + r.w, r.y + r.h);
+  }
+  if (!Number.isFinite(x0)) return { x: 0, y: 0, w: 1, h: 1 };
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
 function grow(form, rng, limbs, dots, tips, x, y, angle, len, thick, depth, born, budget) {
@@ -230,7 +373,43 @@ function grow(form, rng, limbs, dots, tips, x, y, angle, len, thick, depth, born
   }
   limbs.push({ pts, w: thick, born: born + depth * 0.11 * form.growth, depth });
 
-  const kids = Math.round(form.branch * form.branchDecay ** depth);
+  // MEMBERS ALONG THE SPAN — the built rule. Instead of splitting at the tip,
+  // the limb carries struts at intervals, which is what a truss, a ladder, a
+  // comb, a fence and a chassis all are. Blended continuously with branching,
+  // so a half-rigid thing is part-grown and part-assembled and has no name.
+  if (form.rigid > 0.25) {
+    const n = Math.round(form.members * form.rigid);
+    for (let m = 1; m <= n; m++) {
+      if (budget.left-- <= 0) break;
+      const t = m / (n + 1);
+      const px = pts[Math.min(pts.length - 1, Math.floor(t * (pts.length - 1)))];
+      const perp = ca + Math.PI / 2;
+      const ml = len * form.memberLen;
+      const side = form.memberSkew >= 0 || m % 2 === 0 ? 1 : -1;
+      limbs.push({
+        pts: [
+          { x: px.x - Math.cos(perp) * ml * (side > 0 ? 0 : 1), y: px.y - Math.sin(perp) * ml * (side > 0 ? 0 : 1) },
+          { x: px.x + Math.cos(perp) * ml * side, y: px.y + Math.sin(perp) * ml * side },
+        ],
+        w: thick * 0.7,
+        born: born + t * 0.3 * form.growth,
+        depth: depth + 1,
+      });
+    }
+    // A SECOND CHORD turns teeth into a span.
+    if (form.chords === 2) {
+      const off = len * form.chordGap;
+      const perp = ca + Math.PI / 2;
+      limbs.push({
+        pts: pts.map((q) => ({ x: q.x + Math.cos(perp) * off, y: q.y + Math.sin(perp) * off })),
+        w: thick,
+        born: born + depth * 0.11 * form.growth,
+        depth,
+      });
+    }
+  }
+
+  const kids = Math.round(form.branch * form.branchDecay ** depth * (1 - form.rigid * 0.75));
   if (kids <= 0 || depth === form.depth) {
     tips.push({ x: cx, y: cy });
     // A TIP IS A CONTINUOUS THING. Swell gives it a body, open gives it
