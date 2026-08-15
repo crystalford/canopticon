@@ -31,6 +31,7 @@ const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
 fs.mkdirSync(outDir, { recursive: true });
 
 const SCRIPTS = [
+  "palette.js",
   "primitives.js",
   "prims-a.js",
   "prims-b.js",
