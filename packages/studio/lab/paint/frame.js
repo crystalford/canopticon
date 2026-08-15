@@ -53,6 +53,21 @@ export function drawFrame(ctx, film, frameIndex) {
   const { units, marks, stage, plate, field, edit, process, built, formPlace, grown } = res;
   const ink = inkOf(stage);
 
+  // THE PRESS IS THE STYLE'S, AND IT HAS COLOUR.
+  //
+  // `ground` and `ink` were scalars and the press interpolated between them,
+  // so every frame this engine ever made was greyscale — not as a decision but
+  // because colour could not be expressed. `steps` decides how many values
+  // exist between them, and at `grain` 0 the field is not evaluated at all,
+  // which is a genuinely clean impression: also previously unreachable, since
+  // the grain field ran unconditionally on every frame.
+  const sty = res.style;
+  const G = hsl(sty ? sty.hue : 0, sty ? sty.sat * 40 : 0, sty ? sty.ground * 100 : 8);
+  const K = hsl(sty ? sty.hue2 : 0, sty ? sty.sat * 85 : 0, sty ? sty.ink * 100 : 95);
+  const steps = sty ? sty.steps : 2;
+  const grainAmt = sty ? sty.grain : 1;
+
+
   // The plate runs coarser than the output and is upscaled without
   // smoothing. That is the photocopy's own resolution loss, and it halves
   // the per-pixel cost of everything below.
@@ -201,7 +216,8 @@ export function drawFrame(ctx, film, frameIndex) {
   /* ── 2 · THE PAPER — a live generative field ─────────────────────────
    * Advected by the plate as well as by its own flow, because the sheet and
    * the image printed on it are the same object. */
-  renderField(
+  if (grainAmt > 0.05)
+    renderField(
     buf.field,
     pw,
     ph,
@@ -209,6 +225,7 @@ export function drawFrame(ctx, film, frameIndex) {
     { ...field, flowX: field.flowX + plate.x * 0.4, flowY: field.flowY + plate.y * 0.4 },
     buf.fieldState,
   );
+  else buf.field.fill(0.5);
 
   /* ── 3 · THE PRESS ───────────────────────────────────────────────────*/
   const inkImg = p.getImageData(0, 0, pw, ph);
@@ -237,6 +254,7 @@ export function drawFrame(ctx, film, frameIndex) {
   // world's, and they disagree about how many values exist between black and
   // white — which is the difference the eye actually reads.
   const proc = PROCESSES[process] || PROCESSES.photocopy;
+  void proc;
 
   const bite = field.bite;
   const wear = field.wear;
@@ -270,18 +288,26 @@ export function drawFrame(ctx, film, frameIndex) {
       // THE MATERIAL DECIDES WHAT SURVIVES. Each process answers this
       // differently: a photocopy gives two values, a screen gives dots, a
       // clean impression keeps the whole continuum.
-      let v = proc(cov, fv, { bite, soft, speckle, dropout }, x, y);
+      // ONE PRESS, CONTINUOUS. Where the sheet is thin the ink does not take;
+      // `steps` quantises what survives, so 2 is a photocopy, 4 a litho plate
+      // and 256 a clean impression — and everything between exists.
+      const thr = 0.5 - (fv - 0.5) * bite * 2.0;
+      let v = smoothstep(thr - soft, thr + soft, cov);
+      if (grainAmt > 0.05) {
+        if (v < 0.5 && fv > speckle) v = Math.min(1, v + (fv - speckle) * 3.2 * grainAmt);
+        else if (v > 0.5 && fv < dropout) v = Math.max(0, v - (dropout - fv) * 2.6 * grainAmt);
+      }
+      if (steps < 200) v = Math.round(v * (steps - 1)) / (steps - 1);
 
       // The lamp. Full ink or full ground for a frame or two — a struck cut.
       if (flash) v = 1 - v;
       // The wipe's leading edge: everything past it is still the bare sheet.
       if (wipeAt >= 0 && x > wipeAt * pw) v = 0;
 
-      const b = grdB + (inkB - grdB) * v;
       const i = (rowD + x) << 2;
-      dst[i] = b;
-      dst[i + 1] = b;
-      dst[i + 2] = b;
+      dst[i] = G[0] + (K[0] - G[0]) * v;
+      dst[i + 1] = G[1] + (K[1] - G[1]) * v;
+      dst[i + 2] = G[2] + (K[2] - G[2]) * v;
       dst[i + 3] = 255;
     }
   }
@@ -289,7 +315,7 @@ export function drawFrame(ctx, film, frameIndex) {
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = `rgb(${grdB | 0},${grdB | 0},${grdB | 0})`;
+  ctx.fillStyle = `rgb(${G[0] | 0},${G[1] | 0},${G[2] | 0})`;
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(buf.outCanvas, 0, 0, w, h);
 }
@@ -339,4 +365,23 @@ export function prepareFilm(cut, stagesResult) {
 /** Grow a form to a moment, tolerating a stage built before forms existed. */
 function growAtSafe(built, t) {
   return growAt(built, t);
+}
+
+
+/** HSL to RGB bytes. The one place a colour is computed — standing rule 9. */
+function hsl(h, s, l) {
+  const S = Math.max(0, Math.min(100, s)) / 100;
+  const L = Math.max(0, Math.min(100, l)) / 100;
+  const c = (1 - Math.abs(2 * L - 1)) * S;
+  const hp = (((h % 360) + 360) % 360) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  const [r, g, b] =
+    hp < 1 ? [c, x, 0]
+    : hp < 2 ? [x, c, 0]
+    : hp < 3 ? [0, c, x]
+    : hp < 4 ? [0, x, c]
+    : hp < 5 ? [x, 0, c]
+    : [c, 0, x];
+  const m = L - c / 2;
+  return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
 }

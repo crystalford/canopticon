@@ -112,6 +112,17 @@ function derive(f, rng) {
   return {
     f,
 
+    /* COLOUR — which this engine has never had at all.
+     *
+     * Every frame ever rendered was greyscale, because `ground` and `ink`
+     * were scalars and the press interpolated between them. Saturation is its
+     * own dimension so a sample can be fully monochrome, fully saturated, or
+     * anywhere between; `machine` pushes hues apart because a printed thing
+     * and a screen thing disagree about how colour behaves. */
+    hue: Math.round(rng() * 360),
+    hue2: Math.round(rng() * 360),
+    sat: clamp01((1 - f.damage) * 0.5 + f.machine * 0.5 + j(0.35)) * (rng() < 0.3 ? 0 : 1),
+
     /* IMAGE */
     // 2 = a photocopy, 256 = a clean impression, and everything between.
     steps: Math.max(2, steps),
