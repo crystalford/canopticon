@@ -28,7 +28,9 @@ const b = await chromium.launch({
   executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
 });
 const pg = await b.newPage();
-await pg.setContent(`<canvas id="c" width="${COLS * CELL}" height="${ROWS * (CELL * 9) / 16}"></canvas>`);
+await pg.setContent(
+  `<canvas id="c" width="${COLS * CELL}" height="${(ROWS * (CELL * 9)) / 16}"></canvas>`,
+);
 const data = files.map((f) => fs.readFileSync(path.join(dir, f)).toString("base64"));
 
 const png = await pg.evaluate(

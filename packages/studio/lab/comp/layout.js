@@ -224,6 +224,14 @@ export const LAYOUT_NAMES = Object.keys(LAYOUTS);
 export function place(name, grid, stage, unit, rng, opts) {
   const fn = LAYOUTS[name] || LAYOUTS.grid;
   const p = fn(grid, stage, unit, rng, opts);
+  // Pull toward the frame's anchor. Without it the occupancy score sends every
+  // composition to the same region — measured on a contact sheet where almost
+  // every frame carried its mass left of centre.
+  if (opts.anchor) {
+    const k = opts.anchor.pull * (1 - unit.protection * 0.35);
+    p.x += (opts.anchor.x - unit.box.w / 2 - p.x) * k;
+    p.y += (opts.anchor.y - p.y) * k;
+  }
   const slack = (1 - unit.protection * 0.5) * opts.chaos;
   unit.box.x = p.x + (rng() - 0.5) * slack * (1 / grid.cols) * 0.9;
   unit.box.y = Math.max(-0.25, Math.min(1.1, p.y + (rng() - 0.5) * slack * (1 / grid.rows) * 0.9));

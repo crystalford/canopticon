@@ -490,8 +490,8 @@ export function buildStages(cut) {
   // rather than a colour scheme. This advances once every several passages,
   // so the colour drifts while everything else travels.
   const paletteWalk = makeWander(3, cut.seed ^ 0x27d4eb2f);
-  let palette = paletteOf(nextPoint(paletteWalk));
-  let sinceHue = 0;
+  let hueTurn = 0;
+  let palette = paletteOf(nextPoint(paletteWalk), hueTurn++);
   let point = nextPoint(wander);
   let style = sampleStyle(mulberry32(cut.seed ^ 0x5f3759df), asBias(point, FACTORS), palette);
   void blend;
@@ -573,11 +573,10 @@ export function buildStages(cut) {
       // vocabulary now sets where the film goes; the sequence explores around
       // it, so coverage survives and content decides the neighbourhood.
       point = blend(nextPoint(wander), rd.signature, 0.55);
-      sinceHue += 1;
-      if (sinceHue >= 3) {
-        palette = paletteOf(nextPoint(paletteWalk));
-        sinceHue = 0;
-      }
+      // A NEW PALETTE ON EVERY MOVE. It used to advance once every three, and
+      // with eleven moves in a real essay the whole film had four hues — which
+      // landed adjacent, so twenty frames came out black, white and one green.
+      palette = paletteOf(nextPoint(paletteWalk), hueTurn++);
       style = sampleStyle(
         rng,
         { ...asBias(point, FACTORS), damage: Math.min(0.92, point[1] * 0.5 + arc.wear * 0.5) },
@@ -621,6 +620,18 @@ export function buildStages(cut) {
     // vocabulary, so a passage keeps a family of geometries rather than one.
     const layoutPool = world.layouts;
     const layout = layoutPool[Math.floor(rng() * layoutPool.length)];
+
+    // WHERE THE FRAME'S MASS SITS. On the contact sheet almost every frame
+    // put its weight left of centre, because the placer scores occupancy the
+    // same way every time and there was nothing telling it the picture had an
+    // anchor. This is that anchor, and it travels with the composition dials
+    // rather than being re-rolled.
+    const anchorAngle = rng() * Math.PI * 2;
+    const anchor = {
+      x: 0.5 + Math.cos(anchorAngle) * style.eccentric * 0.42,
+      y: 0.5 + Math.sin(anchorAngle) * style.eccentric * 0.36,
+      pull: 0.25 + style.focus * 0.6,
+    };
     // HOW THIS BOUNDARY IS CUT. One per beat, decided once, so a re-roll of
     // the seed re-cuts the whole film rather than only re-placing it.
     const entry = chooseTransition(beat, turned, rng, opts.chaos);
@@ -673,7 +684,7 @@ export function buildStages(cut) {
     const ctx = {
       grid,
       rng,
-      opts,
+      opts: { ...opts, anchor },
       reg,
       regName,
       world,
@@ -682,6 +693,7 @@ export function buildStages(cut) {
       style,
       anchors,
       formPlace,
+
       arc,
       attackMs,
       durMs,
@@ -813,6 +825,7 @@ export function buildStages(cut) {
     for (const ph of beat.text.phrases) lastPhrase = ph.text;
 
     protect(next, beat);
+    legibility(next, beat, style);
 
     stages.push({
       beat,
@@ -840,6 +853,75 @@ export function buildStages(cut) {
  *  ink, at a real size — and only what would genuinely bury it gives way,
  *  and only where it actually covers it.
  */
+/** THE READABLE SET.
+ *
+ *  On a contact sheet of twenty frames, half were illegible: words cropped
+ *  mid-letter by the frame edge, type piled on type at the same scale,
+ *  phrases mangled by per-glyph jitter. In a still that reads as texture; at
+ *  one second a frame it is noise, and noise all looks the same — which is
+ *  most of why a film full of genuinely different parameters still felt
+ *  repetitive. If you cannot read it there is nothing to tell one frame from
+ *  the next.
+ *
+ *  So the frame has a READABLE SET and a TEXTURE SET, and the difference is
+ *  enforced rather than hoped for:
+ *
+ *   - the readable set is small, does not overlap ITSELF, is not jittered
+ *     past recognition, and may not lose more than a quarter of its width
+ *     off the edge;
+ *   - everything else must be genuinely small, so it reads as material
+ *     rather than as a word competing to be read.
+ *
+ *  Texture is still free to overlap, bleed and dissolve. This is a floor
+ *  under legibility, not a tidiness pass — that distinction is what went
+ *  wrong the first time, when protecting the key line dimmed the whole page.
+ */
+function legibility(stage, beat, style) {
+  const live = stage.units.filter((u) => !u.dead);
+  const readable = live
+    .filter((u) => u.protection >= 0.5)
+    .sort((a, b) => b.protection - a.protection || b.size - a.size);
+
+  // At most three things on a frame ask to be read. A fourth is a crowd.
+  const keep = readable.slice(0, 3);
+  for (const u of readable.slice(3)) {
+    u.role = "texture";
+    u.protection = 0.2;
+    u.size = Math.min(u.size, 0.05);
+  }
+
+  for (const [i, u] of keep.entries()) {
+    // A readable line is not mangled. Jitter and curvature are wonderful on
+    // texture and fatal on the one phrase the frame is about.
+    u.style = { ...u.style, glyphJitter: Math.min(u.style.glyphJitter, 0.12), curvature: Math.min(u.style.curvature, 0.18) };
+    // NO MORE THAN A QUARTER OFF THE EDGE. Bleed is vocabulary; losing the
+    // first three letters of the only phrase on screen is not.
+    const w = u.box.w;
+    u.box.x = Math.max(-w * 0.25, Math.min(1 - w * 0.75, u.box.x));
+    u.box.y = Math.max(-0.02, Math.min(0.96 - u.box.h * 0.5, u.box.y));
+
+    // And they do not sit on each other.
+    for (let j = 0; j < i; j++) {
+      const o = keep[j];
+      const ox = Math.min(u.box.x + u.box.w, o.box.x + o.box.w) - Math.max(u.box.x, o.box.x);
+      const oy = Math.min(u.box.y + u.box.h, o.box.y + o.box.h) - Math.max(u.box.y, o.box.y);
+      if (ox > 0 && oy > 0) {
+        // Push apart along whichever axis costs less.
+        if (oy < ox) u.box.y += u.box.y > o.box.y ? oy + 0.02 : -(oy + 0.02);
+        else u.box.x += u.box.x > o.box.x ? ox + 0.02 : -(ox + 0.02);
+        u.box.y = Math.max(-0.02, Math.min(0.96 - u.box.h * 0.5, u.box.y));
+      }
+    }
+  }
+
+  // Anything not in the readable set is material, and must look like it.
+  const cap = 0.035 + (style?.scaleSpread ?? 3) * 0.002;
+  for (const u of live) {
+    if (keep.includes(u)) continue;
+    if (u.size > cap) u.size = cap;
+  }
+}
+
 function protect(stage, beat) {
   if (beat.text.legibility === "denied") return;
   const key = stage.units.find((u) => !u.dead && u.role === "key" && u.born === beat.startMs);
@@ -1033,11 +1115,18 @@ function sectionOf(cut, beat) {
 /** The film's palette at a point on its own slow walk. Hue, a second hue for
  *  the ink, and saturation — which is its own dimension so a stretch of film
  *  can be fully monochrome and the next fully saturated. */
-function paletteOf(p) {
+function paletteOf(p, turn) {
+  // THE GOLDEN ANGLE, so successive palettes are maximally separated on the
+  // wheel by construction. A random hue per palette clusters — four random
+  // draws from 360° land within a quadrant more often than not, which is
+  // exactly what happened: a whole film in one green.
+  const hue = (turn * 137.508 + p[0] * 40) % 360;
   return {
-    hue: p[0] * 360,
-    hue2: (p[0] * 360 + 60 + p[1] * 240) % 360,
-    sat: p[2] < 0.22 ? 0 : 0.15 + p[2] * 0.85,
+    hue,
+    // The ink's hue is either near the ground's or across from it, never
+    // the small awkward interval between, where two colours merely disagree.
+    hue2: (hue + (p[1] < 0.5 ? 18 + p[1] * 40 : 150 + p[1] * 60)) % 360,
+    sat: p[2] < 0.18 ? 0 : 0.2 + p[2] * 0.8,
   };
 }
 
