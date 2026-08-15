@@ -201,10 +201,36 @@ describe("the cut", () => {
     const cut = await buildCut({ film, spine: estimateSpine(ESSAY, film.editorial.sections) });
     for (const beat of cut.beats) {
       const parent = film.editorial.beats.find((b) => b.id === beat.id.split(".")[0]);
-      expect(beat.text.phrases.map((p) => p.text)).toEqual(
-        (parent?.phrases ?? []).map((p) => p.text),
-      );
+      const own = (parent?.phrases ?? []).map((p) => p.text);
+      // A SUB-BEAT DOES NOT RESTATE. Long beats are subdivided so the film
+      // has an event rate independent of how long the sentence took to say;
+      // if every subdivision re-introduced its parent's phrase, the frame
+      // would fill with copies of one line. A montage burst is the deliberate
+      // exception — restating IS what a montage does.
+      const isSub = beat.id.includes(".");
+      const restates = !isSub || beat.visualIntent.continuity === "interrupt";
+      expect(beat.text.phrases.map((p) => p.text)).toEqual(restates ? own : []);
+      // The original guarantee, unchanged and still the point of this test:
+      // a beat never carries a DIFFERENT beat's phrases.
+      for (const p of beat.text.phrases) expect(own).toContain(p.text);
     }
+  });
+
+  it("gives every beat its own prose as texture stock, verbatim", async () => {
+    // The compositor's only other raw material. Without it, building a dense
+    // frame meant cloning the promoted phrase, which is where "it does one
+    // thing over and over" came from. Verbatim is not negotiable here either.
+    const film = await filmOf();
+    const cut = await buildCut({ film, spine: estimateSpine(ESSAY, film.editorial.sections) });
+    const flat = ESSAY.replace(/\s+/g, " ");
+    let seen = 0;
+    for (const beat of cut.beats) {
+      for (const fragment of beat.text.body) {
+        expect(flat).toContain(fragment);
+        seen++;
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
   });
 
   it("names no primitive, construction or noun-visual anywhere", async () => {

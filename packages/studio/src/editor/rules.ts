@@ -147,9 +147,18 @@ function readBeats(
   const motifByPhrase = new Map(motifs.map((m) => [m.phrase.toLowerCase(), m]));
   const emphases = groups.map((g) => Math.max(...g.map((s) => s.emphasis)));
   const sorted = [...emphases].sort((a, b) => b - a);
-  // ~30% of beats carry any text at all. Most narration stays unseen.
-  const phraseGate = sorted[Math.floor(sorted.length * 0.12)] ?? 1;
-  const wordGate = sorted[Math.floor(sorted.length * 0.32)] ?? 1;
+  // THE GATES USED TO SIT AT 0.12 AND 0.32, so roughly 68% of beats carried
+  // NO TEXT AT ALL and the film was mostly an empty page. That was defended
+  // as restraint, but restraint was already being applied in three other
+  // places — the density settle, the legibility dimmer and the merge pass —
+  // and four independent reductions multiply. The result was a film with
+  // almost nothing on it.
+  //
+  // Text is this engine's only raw material. The screen should nearly always
+  // carry some, and the EDITORIAL decision is which text is large and which
+  // is texture — not whether there is any.
+  const phraseGate = sorted[Math.floor(sorted.length * 0.42)] ?? 1;
+  const wordGate = sorted[Math.floor(sorted.length * 0.9)] ?? 1;
 
   return groups.map((group, i) => {
     const head = group[0] as Scored;

@@ -129,9 +129,27 @@ function timeBeats(
   // montage does.
   const out: TimedBeat[] = [];
   for (const s of staged) {
-    const isMontage = s.beat.continuity === "montage" || (pace > 0.65 && s.beat.emphasis > 0.7);
     const span = s.endMs - s.startMs;
-    const n = isMontage ? 3 + Math.round(pace * 4) : 1;
+    const isMontage = s.beat.continuity === "montage" || (pace > 0.65 && s.beat.emphasis > 0.7);
+
+    // A CEILING ON HOW LONG ONE STATE MAY HOLD.
+    //
+    // Beats are cut to the narration, and a paragraph of speech is eight or
+    // nine seconds. Handing the compositor one visual state to hold for nine
+    // seconds is the mechanical origin of "it's too slow and barely does
+    // anything" — however alive the material is underneath, the composition
+    // has not changed its mind in nine seconds.
+    //
+    // So a long beat is subdivided even when the writing is calm. The
+    // sub-beats inherit (they are the same argument, not a montage), but each
+    // one re-composes, which is what gives the film an event rate independent
+    // of how long the sentence took to say.
+    const maxHoldMs = 4600 - pace * 2800;
+    const n = isMontage
+      ? 3 + Math.round(pace * 4)
+      : span > maxHoldMs
+        ? Math.min(5, Math.ceil(span / maxHoldMs))
+        : 1;
     if (n === 1 || span < n * BURST_FLOOR_MS) {
       out.push(shell(s, s.startMs, s.endMs, 0, filmSeed));
       continue;
@@ -221,7 +239,7 @@ function shell(
       continuity: s.beat.continuity === "montage" ? "interrupt" : s.beat.continuity,
       instability: 1 - s.beat.certainty,
     },
-    text: { promotion: "none", phrases: [], hierarchy: [], legibility: "open" },
+    text: { promotion: "none", phrases: [], hierarchy: [], body: [], legibility: "open" },
     motif: null,
     seed: deriveSeed(filmSeed, id),
   };
@@ -265,14 +283,26 @@ function withIntent(beat: TimedBeat, film: Film, chaos: number, density: number)
 
   // A second operator is earned, not default: only where the beat is loud
   // or the film is chaotic, and never on a rest.
-  const wantsSecond = beat.editorialRole !== "rest" && rng() < chaos * 0.5 + beat.emphasis * 0.25;
+  const wantsSecond = beat.editorialRole !== "rest" && rng() < chaos * 0.25 + beat.emphasis * 0.15;
   const secondary: Behavior | undefined = wantsSecond
     ? beat.emphasis > 0.7
       ? "OVERPRINT"
       : "ECHO"
     : undefined;
 
-  const phrases = (editorial?.phrases ?? []).map((p, i) => ({
+  // A SUB-BEAT MUST NOT RE-INTRODUCE ITS PARENT'S PHRASES.
+  //
+  // Every sub-beat resolves to the same parent, so without this each one
+  // introduces the same promoted phrase again and the frame fills with copies
+  // of one line — the exact "does one thing over and over" failure, arriving
+  // through the mechanism meant to cure slowness.
+  //
+  // A MONTAGE sub-beat is the deliberate exception: restating the phrase in a
+  // burst is what a montage IS. A long-hold subdivision instead re-composes
+  // around the phrase already on screen.
+  const isSub = beat.id.includes(".");
+  const restates = !isSub || beat.visualIntent.continuity === "interrupt";
+  const phrases = (restates ? (editorial?.phrases ?? []) : []).map((p, i) => ({
     text: p.text,
     role: (i === 0 ? "key" : "support") as "key" | "support" | "fragment" | "texture",
     // The phrase arrives when its own words are spoken, not at the top of
@@ -298,6 +328,7 @@ function withIntent(beat: TimedBeat, film: Film, chaos: number, density: number)
       promotion: editorial?.promotion ?? "none",
       phrases,
       hierarchy: phrases.map((_, i) => (i === 0 ? 1 : 0.5)),
+      body: bodyFragments(film.essay, beat.sourceRange),
       legibility:
         editorial?.legibility === "denied" ? "denied" : phrases.length > 0 ? "protected" : "open",
     },
@@ -313,3 +344,28 @@ function withIntent(beat: TimedBeat, film: Film, chaos: number, density: number)
 }
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+
+/** The beat's own prose, cut into short verbatim fragments.
+ *
+ *  This is the compositor's TEXTURE stock. It is the essay's own words at
+ *  the essay's own offsets — never paraphrased, never generated — so the
+ *  same firewall that protects a promoted phrase covers the small print too.
+ *  Capped, because a texture pass wants a handful of fragments, not a
+ *  transcript.
+ */
+function bodyFragments(essay: string, range: { startChar: number; endChar: number }): string[] {
+  const words = essay
+    .slice(range.startChar, range.endChar)
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  const out: string[] = [];
+  for (let i = 0; i < words.length && out.length < 14; ) {
+    // Irregular lengths. Equal-length fragments read as a list.
+    const n = 2 + ((i * 7 + words.length) % 4);
+    out.push(words.slice(i, i + n).join(" "));
+    i += n;
+  }
+  return out;
+}

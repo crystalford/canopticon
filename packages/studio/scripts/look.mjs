@@ -12,7 +12,10 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+// `playwright-core` is the driver without the browser download; the browsers
+// are already on the image at PLAYWRIGHT_BROWSERS_PATH. Either package works,
+// so resolve whichever this environment actually has rather than pinning one.
+const { chromium } = await import("playwright-core").catch(() => import("playwright"));
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const LAB = process.env.LAB_DIR || path.resolve(HERE, "..", "lab");
@@ -114,11 +117,28 @@ console.log(`beats: ${info.beats}`);
 // beat is its least representative frame, because everything is at t=0 of
 // its own motion.
 const fps = cut.fps || 30;
-const step = Math.max(1, Math.floor(cut.beats.length / N));
 const picks = [];
-for (let i = 0; i < cut.beats.length && picks.length < N; i += step) {
-  const b = cut.beats[i];
-  picks.push({ i, frame: Math.round(((b.startMs + b.endMs) / 2 / 1000) * fps), b });
+
+// `--inside <beatIndex>` samples WITHIN one beat instead of across the film.
+// This is the check that matters most and the one that is easiest to skip: a
+// contact sheet of beat middles looks fine even when every beat is a frozen
+// still, because each frame is from a different beat. Sampling one beat is
+// the only way to see whether the film is actually moving.
+const inside = process.argv.indexOf("--inside");
+if (inside > -1) {
+  const bi = Number(process.argv[inside + 1]);
+  const b = cut.beats[bi];
+  const span = b.endMs - b.startMs;
+  for (let k = 0; k < N; k++) {
+    const ms = b.startMs + (span * k) / (N - 1 || 1);
+    picks.push({ i: k, frame: Math.round((ms / 1000) * fps), b });
+  }
+} else {
+  const step = Math.max(1, Math.floor(cut.beats.length / N));
+  for (let i = 0; i < cut.beats.length && picks.length < N; i += step) {
+    const b = cut.beats[i];
+    picks.push({ i, frame: Math.round(((b.startMs + b.endMs) / 2 / 1000) * fps), b });
+  }
 }
 
 for (const p of picks) {

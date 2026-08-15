@@ -315,6 +315,17 @@ export interface TimedBeat {
     phrases: { text: string; role: "key" | "support" | "fragment" | "texture"; atMs: number }[];
     /** Parallel to `phrases`. 1.0 marks the one protected unit. */
     hierarchy: number[];
+    /** THE BEAT'S OWN PROSE, in short fragments, for use as TEXTURE.
+     *
+     *  Without this the compositor's only raw material is the promoted
+     *  phrases, so building a dense frame meant cloning the key phrase — and
+     *  a frame covered in five copies of one line is exactly the "it does one
+     *  thing over and over" failure. A page of small body text behind a
+     *  headline is what editorial density actually looks like, and the essay
+     *  is already sitting right there.
+     *
+     *  Verbatim, like everything else that reaches the screen. */
+    body: string[];
     legibility: "protected" | "open" | "denied";
   };
   motif: { id: string; treatment: string; wearBefore: number; wearAfter: number } | null;

@@ -1,21 +1,32 @@
-/* THE RENDERER. Dumb, reliable, and monochrome by construction.
+/* THE RENDERER — ink, paper, and the press between them.
  *
- * It knows nothing about meaning, nouns or metaphor. It is handed a
- * resolved stage and it draws it.
+ * Three plates, and the separation is the whole design:
  *
- * THE KEY IDEA IS THAT DEGRADATION HAPPENS AT THRESHOLD TIME, NOT AS AN
- * OVERLAY. An overlay looks like a filter laid on a picture. A perturbed
- * threshold looks like a photocopy — because mechanically that is exactly
- * what a photocopier does.
+ *   PAPER   the generative field. Always moving, always boiling.
+ *   INK     the composition — type and marks — drawn as pure coverage.
+ *   PRESS   what happens when one meets the other.
+ *
+ * The old renderer had no paper at all. It filled a rectangle with a flat
+ * value, drew text on it, and perturbed a threshold with noise that had NO
+ * TIME TERM — so the "photocopy grain" was one frozen still image held for
+ * the whole film, and a six-second hold was six seconds of a JPEG. The
+ * animation literature is unambiguous about that failure: removing the
+ * frame-to-frame wobble is precisely what makes a drawing read as frozen
+ * rather than as still.
+ *
+ * DEGRADATION STILL HAPPENS AT THRESHOLD TIME, not as an overlay, because
+ * that is mechanically what a photocopier does. What is new is that the
+ * threshold is driven by a real moving material rather than by static noise.
  */
 
 import { resolveAt } from "../comp/compose.js";
+import { drawMark } from "../comp/marks.js";
+import { makeField, registration, renderField } from "../core/field.js";
 import { CASES, setType } from "../core/type.js";
-import { noise2 } from "../core/rng.js";
 
-/** The whole colour system. Four greys, a ground, an ink, and a polarity.
- *  There is no hue anywhere in this engine. When colour eventually arrives
- *  it arrives as one accent value in this object and nowhere else. */
+/** The whole colour system. A ground, an ink, and a polarity. No hue exists
+ *  anywhere in this engine; when colour arrives it arrives as one accent
+ *  value in this object and nowhere else. */
 export function inkOf(stage) {
   const flip = stage.ink.polarity === 1;
   const ground = flip ? stage.ink.ink : stage.ink.ground;
@@ -23,14 +34,11 @@ export function inkOf(stage) {
   return { ground, ink, flip };
 }
 
-const v = (n) => {
-  const b = Math.max(0, Math.min(255, Math.round(n * 255)));
-  return `rgb(${b},${b},${b})`;
+const smoothstep = (a, b, x) => {
+  const t = Math.max(0, Math.min(1, (x - a) / Math.max(1e-6, b - a)));
+  return t * t * (3 - 2 * t);
 };
 
-/** Draw the composition as VALUES into a plate, then threshold the plate.
- *  Two passes, and the split is what makes the material read as printing
- *  rather than as post-processing. */
 export function drawFrame(ctx, film, frameIndex) {
   const { stages, cut } = film;
   const w = ctx.canvas.width;
@@ -38,91 +46,215 @@ export function drawFrame(ctx, film, frameIndex) {
   const tMs = (frameIndex / cut.fps) * 1000;
   const res = resolveAt(stages, tMs);
   if (!res) return;
-  const { units, stage } = res;
+  const { units, marks, stage, plate, field } = res;
   const ink = inkOf(stage);
 
-  // The plate runs coarser than the output. Aesthetically correct for a
-  // photocopy, and it halves the per-pixel cost.
-  const pw = Math.max(2, Math.round(w * 0.72));
-  const ph = Math.max(2, Math.round(h * 0.72));
-  const plate = film._plate || (film._plate = document.createElement("canvas"));
-  if (plate.width !== pw) plate.width = pw;
-  if (plate.height !== ph) plate.height = ph;
-  const p = plate.getContext("2d", { willReadFrequently: true });
+  // The plate runs coarser than the output and is upscaled without
+  // smoothing. That is the photocopy's own resolution loss, and it halves
+  // the per-pixel cost of everything below.
+  const pw = Math.max(2, Math.round(w * 0.7));
+  const ph = Math.max(2, Math.round(h * 0.7));
 
+  const buf = ensureBuffers(film, pw, ph);
+  const p = buf.inkCtx;
+
+  /* ── 1 · THE INK PLATE — coverage only, white on black ───────────────
+   * Drawn as pure coverage rather than as final colour, so the press below
+   * can decide what actually takes. Nothing here knows the film's polarity. */
   p.setTransform(1, 0, 0, 1, 0, 0);
-  p.fillStyle = v(ink.ground);
+  p.fillStyle = "#000";
   p.fillRect(0, 0, pw, ph);
 
   p.save();
-  p.translate(pw / 2 + stage.plate.x * pw, ph / 2 + stage.plate.y * ph);
-  p.rotate((stage.plate.rot * Math.PI) / 180);
-  p.scale(stage.plate.scale, stage.plate.scale);
+  p.translate(pw / 2 + plate.x * pw, ph / 2 + plate.y * ph);
+  p.rotate((plate.rot * Math.PI) / 180);
+  p.scale(plate.scale, plate.scale);
   p.translate(-pw / 2, -ph / 2);
+
+  // Marks first — furniture sits under the words, which is what makes a
+  // block read as a block rather than as something pasted over the type.
+  const solids = [];
+  for (const m of marks) {
+    if (m.layer >= 8) continue;
+    drawMark(p, m, pw, ph, "#fff");
+    if (m.kind === "block" || m.kind === "bar") {
+      const gw = m.motion?.axis === "y" ? m.box.w : m.box.w * m.grow;
+      const gh = m.motion?.axis === "y" ? m.box.h * m.grow : m.box.h;
+      solids.push({
+        x: m.box.x + m.dx,
+        y: m.box.y + m.dy,
+        w: gw,
+        h: gh,
+      });
+    }
+  }
+
+  /** KNOCKOUT — type reversed out of solid ink.
+   *
+   *  Ink over ink is invisible: a block and a word are both full coverage, so
+   *  a line of text crossing a solid bar simply disappeared, and the small
+   *  print vanished under every mass on the page. Print solves this by
+   *  REVERSING the type out of the solid, and so does this — the glyphs are
+   *  erased from the coverage plate rather than added to it. Same operation a
+   *  press performs, one composite mode, and it is what makes a block and a
+   *  headline able to occupy the same space at all. */
+  const onSolid = (u) => {
+    const cx = u.box.x + u.box.w / 2;
+    const cy = u.box.y + u.box.h / 2;
+    for (const s of solids) {
+      if (cx >= s.x && cx <= s.x + s.w && cy >= s.y && cy <= s.y + s.h) return true;
+    }
+    return false;
+  };
 
   for (const u of units) {
     const text = (CASES[u.case] || CASES.as)(u.text);
+    const knock = onSolid(u);
     const drawOne = (dx, dy, alpha) => {
       p.save();
-      const m = setType(p, { ...u, text }, pw, ph);
+      if (knock) p.globalCompositeOperation = "destination-out";
+      const met = setType(p, { ...u, text }, pw, ph);
       const x = u.box.x * pw + dx;
-      const y = u.box.y * ph + m.ascent + dy;
+      const y = u.box.y * ph + met.ascent + dy;
       p.translate(x, y);
       if (u.rot) p.rotate((u.rot * Math.PI) / 180);
       p.scale(u.drawScale, u.drawScale);
       p.globalAlpha = Math.max(0, Math.min(1, alpha));
-      p.fillStyle = v(ink.ink);
+      p.fillStyle = "#fff";
       p.fillText(text, 0, 0);
       p.restore();
     };
-    // ECHO/MULTIPLY are repeats of ONE unit, not extra units — which is why
-    // a field of a phrase costs one object and stays one object.
     if (u.repeat) {
       for (let i = u.repeat.n; i >= 1; i--) {
-        drawOne(u.repeat.dx * pw * i, u.repeat.dy * ph * i, u.alpha * u.density * (1 - u.repeat.decay * i));
+        drawOne(
+          u.repeat.dx * pw * i,
+          u.repeat.dy * ph * i,
+          u.alpha * u.density * (1 - u.repeat.decay * i),
+        );
       }
     }
     drawOne(0, 0, u.alpha * u.density);
   }
+
+  // Rules and register marks print OVER the type, like real furniture.
+  for (const m of marks) {
+    if (m.layer < 8) continue;
+    drawMark(p, m, pw, ph, "#fff");
+  }
   p.restore();
 
-  // ── the material pass ───────────────────────────────────────────────
-  const img = p.getImageData(0, 0, pw, ph);
-  const d = img.data;
-  const f = stage.field;
-  const inkV = ink.ink;
-  const groundV = ink.ground;
-  const seed = cut.seed;
+  /* ── 2 · THE PAPER — a live generative field ─────────────────────────
+   * Advected by the plate as well as by its own flow, because the sheet and
+   * the image printed on it are the same object. */
+  renderField(
+    buf.field,
+    pw,
+    ph,
+    tMs,
+    { ...field, flowX: field.flowX + plate.x * 0.4, flowY: field.flowY + plate.y * 0.4 },
+    buf.fieldState,
+  );
+
+  /* ── 3 · THE PRESS ───────────────────────────────────────────────────*/
+  const inkImg = p.getImageData(0, 0, pw, ph);
+  const src = inkImg.data;
+  const out = buf.out;
+  const dst = out.data;
+  const F = buf.field;
+
+  const reg = registration(tMs, cut.seed, field.wear * 2.4 + 0.6);
+  const rx = Math.round(reg.x);
+  const ry = Math.round(reg.y);
+
+  const bite = field.bite;
+  const wear = field.wear;
+  // Edge softness IS ink bleed. A hard binary threshold aliases the type
+  // into sawtooth; a soft one spreads the way ink spreads into stock.
+  const soft = 0.07 + wear * 0.16;
+  const inkB = ink.ink * 255;
+  const grdB = ink.ground * 255;
+  // The bare sheet is never a flat value — toner speckles and the stock's
+  // own tone show through, and that is most of why it reads as paper.
+  const speckle = 0.52 + (1 - wear) * 0.30;
+  const dropout = 0.48 - (1 - wear) * 0.34;
+
   for (let y = 0; y < ph; y++) {
+    const sy = y + ry;
+    const yy = sy < 0 ? 0 : sy >= ph ? ph - 1 : sy;
+    const rowS = yy * pw;
+    const rowD = y * pw;
     for (let x = 0; x < pw; x++) {
-      const i = (y * x === 0 ? y * pw + x : y * pw + x) * 4;
-      // Luminance of what was drawn, 0..1.
-      let value = d[i] / 255;
-      // Paper grain perturbs the VALUE.
-      if (f.grain > 0) value += (noise2(seed, x * 0.9, y * 0.9) - 0.5) * f.grain * 0.5;
-      // The THRESHOLD wobbles — this is the photocopy.
-      let t = 0.5;
-      if (f.wear > 0) t += (noise2(seed + 7, x * 0.06, y * 0.06) - 0.5) * f.wear;
-      const on = ink.flip ? value > t : value < t;
-      const out = on ? inkV : groundV;
-      const b = Math.round(out * 255);
-      d[i] = b;
-      d[i + 1] = b;
-      d[i + 2] = b;
-      d[i + 3] = 255;
+      const sx = x + rx;
+      const xx = sx < 0 ? 0 : sx >= pw ? pw - 1 : sx;
+      // Coverage from the registered ink plate, tone from the paper under it.
+      const cov = src[(rowS + xx) << 2] / 255;
+      const fv = F[rowD + x];
+
+      // THE THRESHOLD IS THE MATERIAL. Where the sheet is thin the ink does
+      // not take; where it is heavy the ink floods. One expression, and it
+      // is the entire photocopy.
+      const thr = 0.5 - (fv - 0.5) * bite * 2.0;
+      let v = smoothstep(thr - soft, thr + soft, cov);
+
+      // Bare sheet picks up toner; solid ink drops out. Both driven by the
+      // same moving field, so the damage crawls rather than sitting still.
+      if (v < 0.5 && fv > speckle) v = Math.min(1, v + (fv - speckle) * 3.2);
+      else if (v > 0.5 && fv < dropout) v = Math.max(0, v - (dropout - fv) * 2.6);
+
+      const b = grdB + (inkB - grdB) * v;
+      const i = (rowD + x) << 2;
+      dst[i] = b;
+      dst[i + 1] = b;
+      dst[i + 2] = b;
+      dst[i + 3] = 255;
     }
   }
-  p.putImageData(img, 0, 0);
+  buf.outCtx.putImageData(out, 0, 0);
 
-  // ── composite to the frame ──────────────────────────────────────────
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = v(ink.ground);
+  ctx.fillStyle = `rgb(${grdB | 0},${grdB | 0},${grdB | 0})`;
   ctx.fillRect(0, 0, w, h);
-  ctx.drawImage(plate, 0, 0, w, h);
+  ctx.drawImage(buf.outCanvas, 0, 0, w, h);
 }
 
-/** Everything the renderer needs, assembled once. */
+/** Buffers are allocated once per film and reused. Allocating a 480k-entry
+ *  Float32Array and two ImageData every frame is a garbage-collection pause
+ *  in the middle of every export. */
+function ensureBuffers(film, pw, ph) {
+  let b = film._buf;
+  if (!b || b.pw !== pw || b.ph !== ph) {
+    const inkCanvas = document.createElement("canvas");
+    inkCanvas.width = pw;
+    inkCanvas.height = ph;
+    const outCanvas = document.createElement("canvas");
+    outCanvas.width = pw;
+    outCanvas.height = ph;
+    const outCtx = outCanvas.getContext("2d");
+    b = {
+      pw,
+      ph,
+      inkCanvas,
+      inkCtx: inkCanvas.getContext("2d", { willReadFrequently: true }),
+      outCanvas,
+      outCtx,
+      out: outCtx.createImageData(pw, ph),
+      field: new Float32Array(pw * ph),
+      fieldState: film._field,
+    };
+    film._buf = b;
+  }
+  return b;
+}
+
 export function prepareFilm(cut, stagesResult) {
-  return { cut, stages: stagesResult.stages, grid: stagesResult.grid, _plate: null };
+  return {
+    cut,
+    stages: stagesResult.stages,
+    grid: stagesResult.grid,
+    _buf: null,
+    // ONE field per film, built once. Its noise tiles cost a few
+    // milliseconds to generate and would be a stall on every frame.
+    _field: makeField(cut.seed),
+  };
 }
