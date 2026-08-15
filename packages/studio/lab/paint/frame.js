@@ -248,6 +248,27 @@ export function drawFrame(ctx, film, frameIndex) {
   }
   p.restore();
 
+  /* ── 1b · THE SHADOW PLATE ───────────────────────────────────────────
+   *
+   * Everything this engine has ever drawn was flat: a mark was on or off, and
+   * the frame had no direction, no depth and no atmosphere. A cast shadow is
+   * the cheapest real depth there is — the same coverage, thrown along the
+   * light and softened by how hard the light is. Drawn from the ink plate
+   * rather than re-drawn, so it costs one copy and cannot disagree with what
+   * cast it. */
+  if (sty && sty.lightDepth > 0.06) {
+    const sh = buf.shCtx;
+    const dx = Math.cos(sty.lightAngle) * sty.lightThrow * pw;
+    const dy = Math.sin(sty.lightAngle) * sty.lightThrow * ph;
+    sh.setTransform(1, 0, 0, 1, 0, 0);
+    sh.clearRect(0, 0, pw, ph);
+    // Softness IS the light's hardness, inverted. A hard light throws an edge
+    // you could cut yourself on; a soft one throws a suggestion.
+    sh.filter = `blur(${(1 - sty.lightHard) * 14 + 1}px)`;
+    sh.drawImage(buf.inkCanvas, dx, dy);
+    sh.filter = "none";
+  }
+
   /* ── 2 · THE PAPER — a live generative field ─────────────────────────
    * Advected by the plate as well as by its own flow, because the sheet and
    * the image printed on it are the same object. */
@@ -265,6 +286,16 @@ export function drawFrame(ctx, film, frameIndex) {
   /* ── 3 · THE PRESS ───────────────────────────────────────────────────*/
   const inkImg = p.getImageData(0, 0, pw, ph);
   const src = inkImg.data;
+  const shadow =
+    sty && sty.lightDepth > 0.06 ? buf.shCtx.getImageData(0, 0, pw, ph).data : null;
+
+  // THE LIGHT'S OWN FALL ACROSS THE FRAME. A raking gradient is atmosphere; a
+  // pool is hierarchy, because a lit element is the important element and that
+  // is composition work no amount of placement can do.
+  const lx = sty ? Math.cos(sty.lightAngle) : 0;
+  const ly = sty ? Math.sin(sty.lightAngle) : 0;
+  const lFocus = sty ? sty.lightFocus : 0;
+  const lDepth = sty ? sty.lightDepth : 0;
   const out = buf.out;
   const dst = out.data;
   const F = buf.field;
@@ -339,10 +370,32 @@ export function drawFrame(ctx, film, frameIndex) {
       // The wipe's leading edge: everything past it is still the bare sheet.
       if (wipeAt >= 0 && x > wipeAt * pw) v = 0;
 
+      // LIGHT. A gradient along the light's own direction, blended with a
+      // pool centred on the frame — `lightFocus` decides which, continuously.
+      let lit = 1;
+      if (lDepth > 0.06) {
+        const u2 = x / pw - 0.5;
+        const v2 = y / ph - 0.5;
+        const rake = 0.5 + (u2 * lx + v2 * ly);
+        const pool = 1 - Math.min(1, Math.hypot(u2, v2) * 1.7);
+        // A FLOOR ON THE SHADOW. Unclamped, `lightDepth` near 1 multiplies a
+        // whole frame to black and the words go with it — light that destroys
+        // legibility is not chiaroscuro, it is an exposure fault. Shadow is
+        // allowed to take two thirds of the value and no more.
+        lit = 1 - Math.min(0.62, lDepth) * (1 - (rake * (1 - lFocus) + pool * lFocus));
+      }
+      // …and the shadow thrown by whatever is standing in it.
+      if (shadow) {
+        const sv = shadow[((rowD + x) << 2) + 3] / 255;
+        // A cast shadow darkens the GROUND it falls on, never the ink standing
+        // in it — a letter is not shadowed by its own shadow.
+        lit *= 1 - sv * Math.min(0.45, lDepth) * (1 - v);
+      }
+
       const i = (rowD + x) << 2;
-      dst[i] = G[0] + (K[0] - G[0]) * v;
-      dst[i + 1] = G[1] + (K[1] - G[1]) * v;
-      dst[i + 2] = G[2] + (K[2] - G[2]) * v;
+      dst[i] = (G[0] + (K[0] - G[0]) * v) * lit;
+      dst[i + 1] = (G[1] + (K[1] - G[1]) * v) * lit;
+      dst[i + 2] = (G[2] + (K[2] - G[2]) * v) * lit;
       dst[i + 3] = 255;
     }
   }
@@ -364,6 +417,9 @@ function ensureBuffers(film, pw, ph) {
     const inkCanvas = document.createElement("canvas");
     inkCanvas.width = pw;
     inkCanvas.height = ph;
+    const shCanvas = document.createElement("canvas");
+    shCanvas.width = pw;
+    shCanvas.height = ph;
     const outCanvas = document.createElement("canvas");
     outCanvas.width = pw;
     outCanvas.height = ph;
@@ -375,6 +431,8 @@ function ensureBuffers(film, pw, ph) {
       inkCtx: inkCanvas.getContext("2d", { willReadFrequently: true }),
       outCanvas,
       outCtx,
+      shCanvas,
+      shCtx: shCanvas.getContext("2d", { willReadFrequently: true }),
       out: outCtx.createImageData(pw, ph),
       field: new Float32Array(pw * ph),
       fieldState: film._field,

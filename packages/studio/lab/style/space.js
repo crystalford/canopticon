@@ -169,6 +169,31 @@ function derive(f, rng, palette) {
     scanline: f.machine > 0.78 ? lerp(0.2, 0.6, f.damage) : 0,
     registration: lerp(0, 3.2, f.damage * (1 - f.machine)),
 
+    /* LIGHT — which this engine has never had in any form.
+     *
+     * Everything was flat coverage: a mark was on or off and the frame had no
+     * direction, no depth and no atmosphere. Chiaroscuro does three jobs at
+     * once and the middle one is the one this engine most needs — depth,
+     * VISUAL HIERARCHY, and mood. A lit element is the important element,
+     * which is composition work that no amount of placement can do. */
+    lightAngle: rng() * Math.PI * 2,
+    /** Hard light is dramatic and directional; soft is diffuse and intimate.
+     *  Film noir and a cloudy afternoon are the same dial. */
+    lightHard: clamp01(f.machine * 0.5 + f.contrast * 0.6 + j(0.2)),
+    lightThrow: lerp(0.004, 0.075, clamp01(f.contrast * 0.8 + j(0.25))),
+    /** How much of the frame is in shadow at all. At 0 the image is evenly
+     *  lit — which is where every frame has been until now. */
+    // COMMITTED, LIKE EVERY OTHER DIMENSION THAT MATTERS. Measured: adding
+    // light made the perceptual distance between frames WORSE — 0.325 to
+    // 0.216 — because a mid-range value put a similar soft gradient on every
+    // frame and homogenised them. A film needs frames that are flat graphic
+    // objects with no light at all, and frames that are almost entirely
+    // shadow. The middle of this dial is where atmosphere becomes haze.
+    lightDepth: polar(rng) < 0.34 ? 0 : lerp(0.3, 1, polar(rng)),
+    /** Whether the light falls ACROSS the frame or picks out one region. A
+     *  raking gradient is atmosphere; a pool of light is hierarchy. */
+    lightFocus: polar(rng),
+
     /* TYPE */
     weightAxis: lerp(300, 900, clamp01(f.weight * 1.1 + j(0.15))),
     tracking: lerp(-0.5, 2.4, clamp01((1 - f.fill) * 0.7 + f.order * 0.3 + j(0.2))),
