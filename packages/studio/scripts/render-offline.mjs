@@ -136,7 +136,7 @@ const built = await page.evaluate(
         const built = realiseScene(s, window.__scenes);
         return { id: s.scene.sceneId || "", errors: (built.errors || []).slice(0, 3) };
       } catch (e) {
-        return { id: s.scene.sceneId || "", errors: [String(e && e.message ? e.message : e)] };
+        return { id: s.scene.sceneId || "", errors: [String(e?.message ? e.message : e)] };
       }
     });
   },

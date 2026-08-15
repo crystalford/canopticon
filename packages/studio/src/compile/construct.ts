@@ -93,6 +93,8 @@ import type { SceneKind } from "./scene-kind.ts";
 import { readScene } from "./semantic-scene.ts";
 import type { DetectedSubject } from "./subject.ts";
 import { INTERFACE_WORDS } from "./subject.ts";
+import { synthesizeVisualIntent } from "./visual-intent.ts";
+import { chooseMedium } from "./visual-strategy.ts";
 
 export interface PlannedNode {
   primitiveId: string;
@@ -1543,6 +1545,16 @@ export function constructPrograms(
   // directed to feel overwhelming, but it is an overwhelming passive.
   const style = styleForBeat(beat, raw);
 
+  /* THE VISUAL STRATEGIST — one medium, decided before any primitive or
+   * construction is chosen. See `visual-strategy.ts` for what this
+   * actually answers and why it exists: not "what object represents this
+   * concept" but "what visual experience should happen here". Computed
+   * once, here, so both the LANGUAGE DISPATCH block below and (in a later
+   * phase) the ILLUSTRATIVE path can read the same decision rather than
+   * each guessing at it separately. */
+  const visualIntent = synthesizeVisualIntent(beat, style, intent, intervention, act);
+  const strategy = chooseMedium(contextFor(beat, style, beat.index), style, visualIntent);
+
   // HOW FAR THE DIRECTOR WILL LET THIS GO AGAINST THE GRAIN.
   //
   // Mostly the direction, because "make it absurd" is a request for
@@ -1827,20 +1839,29 @@ export function constructPrograms(
       const assembled = assembleLanguage(built, (id) => PRIMITIVES[id]?.outputs ?? []);
       if (assembled.length === 0) continue;
       const setsTypeLang = Boolean(beat.setsType) && flatIds(assembled).some(isSetType);
-      // A language that answered more of the fixed six questions has said
-      // more about THIS sentence specifically — a measure of how much of
-      // the beat it actually used, not a preference between languages.
+      // THE STRATEGIST'S OWN PICK IS REALISED AT FULL STRENGTH — UNLESS
+      // SOMETHING MORE CHECKABLE ALREADY GOVERNS THIS BEAT.
       //
-      // Kept deliberately modest against a CONSTRUCTION's `fit`, which is
-      // a claim checked against the prose (a printed figure, a drawn
-      // route, a named place) and is why constructions still win most
-      // sentences most of the time. This is additive competition, not a
-      // second vote of equal weight: a language should win where nothing
-      // fits well, or where a director has reason to prefer it, not by
-      // out-scoring a construction that has real, checkable purchase on
-      // the sentence. See `usage.ts`'s `languageDispatch` for how often it
-      // actually does win, measured rather than assumed.
-      const fit = Math.min(0.28, 0.12 + built.layers.length * 0.04);
+      // Every other language here is still the additive, deliberately
+      // modest candidate Phase 0 shipped — present so a director can see
+      // what else the beat could have been, not weighted to win. But the
+      // one language the Visual Strategist actually chose for this beat
+      // (see `visual-strategy.ts`) is realised as the moment's own answer
+      // to "what medium is this", not diluted alongside seven runners-up.
+      //
+      // Two things outrank it, same standing this file gives them
+      // everywhere else: a printed figure or a drawn route (checkable
+      // material outranks a preference), and an explicit `visualApproach:
+      // "world"` (the director's own strongest instruction, already the
+      // reason `scene`'s own `fit` returns 1.02 unconditionally below —
+      // deferring here rather than fighting that signal is what keeps a
+      // world film's continuity actually reaching the screen, since only
+      // `scene` reads `beat.world`). Both are the same "the Strategist's
+      // choice is a preference, however well-reasoned" boundary stated once
+      // rather than re-litigated per medium.
+      const isStrategistPick =
+        langId === strategy.medium && !visualIntent.printed && beat.approach !== "world";
+      const fit = isStrategistPick ? 0.95 : Math.min(0.28, 0.12 + built.layers.length * 0.04);
       for (const stack of stacks) {
         const program = assemble(
           `lang:${langId}`,
@@ -1853,7 +1874,9 @@ export function constructPrograms(
         );
         if (!program) continue;
         program.mode = LANGUAGE_MODE[langId];
-        program.idea = built.why;
+        program.idea = isStrategistPick
+          ? `Visual Strategist: ${strategy.why} — ${built.why}`
+          : built.why;
         program.score =
           fit * 4 +
           stack.reduce((a, op) => a + Math.max(0, appetiteFor(op, style, intent)), 0) * 0.5 -

@@ -64,13 +64,20 @@ describe("visual language constrains, it does not template", () => {
     const chains = programs.map((p) => p.nodes.map((n) => n.primitiveId).join("→"));
     expect(new Set(chains).size).toBe(3);
 
-    // And the difference is in the OPERATIONS, not in a swapped tail: each
-    // language reaches for operators the others do not.
+    // And the difference is in more than a swapped tail: each language
+    // reaches for operators the others do not, where it reaches for
+    // operators at all. A language is allowed to decline the operator
+    // tail entirely — TYPOGRAPHIC's own `surface()` returns almost nothing
+    // on purpose, documented in `language.ts` as "the single most
+    // important degree of freedom this layer adds" — so an empty stack on
+    // one side of a comparison is a real medium property, not a missing
+    // difference, and is excluded from this check rather than failed by it.
     const ops = programs.map((p) => new Set(p.operators));
     for (let i = 0; i < ops.length; i++) {
       for (let j = i + 1; j < ops.length; j++) {
         const a = must(ops[i]);
         const b = must(ops[j]);
+        if (a.size === 0 || b.size === 0) continue;
         const shared = [...a].filter((x) => b.has(x));
         expect(shared.length).toBeLessThan(Math.max(a.size, b.size));
       }
@@ -91,18 +98,38 @@ describe("abstraction opens the search space rather than selecting a chain", () 
   });
 
   it("permits decomposition at the top of the ladder", () => {
-    const high = must(
-      constructPrograms(beatFor(DETECTOR), styleFor("surreal", { abstraction: 0.9 }), 64)[0],
+    // Checked across every candidate, not only the winner. Since the
+    // Visual Strategist (`visual-strategy.ts`) gives one medium real
+    // authority over the top slot, the winning program's own chain may
+    // not accept every operator — a typographic reading refuses the whole
+    // resampling family on purpose, same discipline as the test above.
+    // What must still hold is the thing this test actually names: high
+    // abstraction opens the search space, so decomposition is reachable
+    // SOMEWHERE in the offered candidates, not nowhere.
+    const high = constructPrograms(
+      beatFor(DETECTOR),
+      styleFor("surreal", { abstraction: 0.9 }),
+      64,
     );
-    expect(["fragment", "sort", "split"].some((o) => high.operators.includes(o))).toBe(true);
+    expect(
+      high.some((p) => ["fragment", "sort", "split"].some((o) => p.operators.includes(o))),
+    ).toBe(true);
   });
 
-  it("does not change WHAT is built, only how far it may be taken", () => {
+  it("a medium, once chosen, does not change with how far abstraction takes it", () => {
+    // Superseded from "does not change WHAT is built" — under the Visual
+    // Strategist, WHICH MEDIUM a moment lives in is allowed to respond to
+    // the film's own abstraction curve; that is the whole point of giving
+    // medium selection real authority instead of diluting it inside a flat
+    // competition (see the "Visual Strategist" plan). What still must not
+    // happen is a construction changing ITS OWN identity underneath a
+    // fixed medium — checked here on ILLUSTRATIVE specifically, the one
+    // medium abstraction was always meant to reshape without recasting.
     const low = must(
-      constructPrograms(beatFor(DETECTOR), styleFor("pixel", { abstraction: 0.1 }), 64)[0],
+      constructPrograms(beatFor(DETECTOR), styleFor("documentary", { abstraction: 0.1 }), 64)[0],
     );
     const high = must(
-      constructPrograms(beatFor(DETECTOR), styleFor("pixel", { abstraction: 0.9 }), 64)[0],
+      constructPrograms(beatFor(DETECTOR), styleFor("documentary", { abstraction: 0.9 }), 64)[0],
     );
     expect(low.construction).toBe(high.construction);
   });
