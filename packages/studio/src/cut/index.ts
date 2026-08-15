@@ -144,11 +144,23 @@ function timeBeats(
     // sub-beats inherit (they are the same argument, not a montage), but each
     // one re-composes, which is what gives the film an event rate independent
     // of how long the sentence took to say.
-    const maxHoldMs = 4600 - pace * 2800;
+    // THE MEASURED TARGET, not an invented one.
+    //
+    // Modern features run a 4–6s average shot length; The Bourne Supremacy at
+    // 2.4s is cited as extremely short, frantic cutting. High-energy montage
+    // and title work runs half a second to just under one. This engine was
+    // averaging 2.9s a beat — cutting SLOWER than the fastest-cut action film
+    // ever made, while trying to be a title sequence. That single number is
+    // why forty-seven seconds of it carries about four seconds of film.
+    //
+    // So a held state now lasts between about 0.45s and 1.6s depending on
+    // pace, and a long narration paragraph is cut into as many pieces as that
+    // takes rather than a maximum of five.
+    const maxHoldMs = 1600 - pace * 1150;
     const n = isMontage
-      ? 3 + Math.round(pace * 4)
+      ? 3 + Math.round(pace * 6)
       : span > maxHoldMs
-        ? Math.min(5, Math.ceil(span / maxHoldMs))
+        ? Math.min(16, Math.ceil(span / maxHoldMs))
         : 1;
     if (n === 1 || span < n * BURST_FLOOR_MS) {
       out.push(shell(s, s.startMs, s.endMs, 0, filmSeed));
@@ -301,14 +313,39 @@ function withIntent(beat: TimedBeat, film: Film, chaos: number, density: number)
   // burst is what a montage IS. A long-hold subdivision instead re-composes
   // around the phrase already on screen.
   const isSub = beat.id.includes(".");
+  const subIndex = isSub ? Number(beat.id.split(".")[1] ?? 0) : 0;
   const restates = !isSub || beat.visualIntent.continuity === "interrupt";
-  const phrases = (restates ? (editorial?.phrases ?? []) : []).map((p, i) => ({
-    text: p.text,
-    role: (i === 0 ? "key" : "support") as "key" | "support" | "fragment" | "texture",
-    // The phrase arrives when its own words are spoken, not at the top of
-    // the beat. This is the whole reason the spine exists.
-    atMs: beat.startMs,
-  }));
+  const body = bodyFragments(film.essay, beat.sourceRange);
+
+  // A SUB-BEAT CARRIES ITS OWN WORDS.
+  //
+  // It used to carry none, so cutting faster only re-ARRANGED the same
+  // promoted phrase — and with nine promoted phrases across a hundred and
+  // twelve seconds, a faster cut rate would have made the sameness worse
+  // rather than better. There is far more text in the essay than the nine
+  // lines worth promoting, and a film moving through the writing is the
+  // difference between compression and elongation.
+  //
+  // The promoted phrase still owns its own beat, at full scale. A
+  // subdivision takes the NEXT fragment of the same passage, set smaller —
+  // the argument continuing rather than the headline repeating.
+  const phrases = restates
+    ? (editorial?.phrases ?? []).map((p, i) => ({
+        text: p.text,
+        role: (i === 0 ? "key" : "support") as "key" | "support" | "fragment" | "texture",
+        // The phrase arrives when its own words are spoken, not at the top of
+        // the beat. This is the whole reason the spine exists.
+        atMs: beat.startMs,
+      }))
+    : body.length > 0
+      ? [
+          {
+            text: body[(subIndex - 1 + body.length) % body.length] as string,
+            role: "support" as const,
+            atMs: beat.startMs,
+          },
+        ]
+      : [];
 
   const intent: VisualIntent = {
     behavior,
@@ -328,7 +365,7 @@ function withIntent(beat: TimedBeat, film: Film, chaos: number, density: number)
       promotion: editorial?.promotion ?? "none",
       phrases,
       hierarchy: phrases.map((_, i) => (i === 0 ? 1 : 0.5)),
-      body: bodyFragments(film.essay, beat.sourceRange),
+      body,
       legibility:
         editorial?.legibility === "denied" ? "denied" : phrases.length > 0 ? "protected" : "open",
     },

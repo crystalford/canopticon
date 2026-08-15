@@ -202,17 +202,28 @@ describe("the cut", () => {
     for (const beat of cut.beats) {
       const parent = film.editorial.beats.find((b) => b.id === beat.id.split(".")[0]);
       const own = (parent?.phrases ?? []).map((p) => p.text);
-      // A SUB-BEAT DOES NOT RESTATE. Long beats are subdivided so the film
-      // has an event rate independent of how long the sentence took to say;
-      // if every subdivision re-introduced its parent's phrase, the frame
-      // would fill with copies of one line. A montage burst is the deliberate
-      // exception — restating IS what a montage does.
+      // A SUB-BEAT DOES NOT RESTATE ITS PARENT'S HEADLINE — it carries the
+      // NEXT FRAGMENT of the same passage. Subdividing gives the film an
+      // event rate independent of how long a sentence took to say; if every
+      // subdivision re-introduced the parent's phrase, cutting faster would
+      // only re-arrange the same nine lines and make the sameness worse.
+      // A montage burst is the deliberate exception — restating IS what a
+      // montage does.
       const isSub = beat.id.includes(".");
       const restates = !isSub || beat.visualIntent.continuity === "interrupt";
-      expect(beat.text.phrases.map((p) => p.text)).toEqual(restates ? own : []);
-      // The original guarantee, unchanged and still the point of this test:
-      // a beat never carries a DIFFERENT beat's phrases.
-      for (const p of beat.text.phrases) expect(own).toContain(p.text);
+      if (restates) {
+        expect(beat.text.phrases.map((p) => p.text)).toEqual(own);
+      } else {
+        // Whatever a sub-beat carries, it is its own passage's prose and
+        // never another beat's promoted phrase.
+        for (const p of beat.text.phrases) expect(beat.text.body).toContain(p.text);
+      }
+      // THE GUARANTEE THIS TEST EXISTS FOR, unchanged: every word on screen
+      // is the essay's own, at this beat's own range. `"b10".startsWith("b1")`
+      // once gave beats 10-12 the opening beat's text and the closing line
+      // rendered blank while every report looked correct.
+      const flat = ESSAY.replace(/\s+/g, " ");
+      for (const p of beat.text.phrases) expect(flat).toContain(p.text);
     }
   });
 
