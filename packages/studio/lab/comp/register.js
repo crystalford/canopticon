@@ -99,7 +99,7 @@ const ORDER = ["STATEMENT", "DOCUMENT", "COLLISION", "VOID", "DECAY"];
  *  Reads only the beat's editorial position and the film's own history. No
  *  noun, no subject, no topic — the same guarantee the behaviour layer keeps.
  */
-export function chooseRegister(beat, prev, runLength, rng) {
+export function chooseRegister(beat, prev, runLength, rng, open) {
   const role = beat.editorialRole;
   const vi = beat.visualIntent;
 
@@ -121,10 +121,16 @@ export function chooseRegister(beat, prev, runLength, rng) {
   // alone keeps re-electing the same page and the film becomes one idea held
   // for a minute — which is the complaint, arriving through the mechanism
   // meant to cure it.
+  // THE VOCABULARY OPENS ACROSS THE FILM. A film that can reach every
+  // register from its first frame is at full range immediately and stays
+  // there, which is another way of having no development at all.
+  const allowed = open ?? ORDER;
+  if (!allowed.includes(want)) want = allowed[allowed.length - 1];
+
   const cap = want === "VOID" ? 2 : 3;
   if (want === prev && runLength >= cap) {
-    const others = ORDER.filter((r) => r !== prev && r !== "DECAY");
-    want = others[Math.floor(rng() * others.length)];
+    const others = allowed.filter((r) => r !== prev && r !== "DECAY");
+    if (others.length > 0) want = others[Math.floor(rng() * others.length)];
   }
   return want;
 }

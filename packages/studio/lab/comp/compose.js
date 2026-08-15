@@ -34,6 +34,7 @@
 import { FIELD_REST } from "../core/field.js";
 import { boilOffset, boilStep } from "../core/noise.js";
 import { mulberry32 } from "../core/rng.js";
+import { arcAt, vocabularyAt } from "./arc.js";
 import { emitMarks } from "./marks.js";
 import { applyField, chooseRegister, lerp, REGISTERS } from "./register.js";
 import { chooseTransition, resolveTransition } from "./transition.js";
@@ -158,7 +159,7 @@ export function place(grid, stage, unit, rng, opts) {
 
 const ROLE_PROTECTION = { key: 1, support: 0.6, fragment: 0.2, texture: 0.36 };
 
-function makeUnit(text, role, beat, grid, rng, opts, reg) {
+function makeUnit(text, role, beat, grid, rng, opts, reg, arcScale = 1) {
   const intent = beat.visualIntent;
   const R = reg ?? REGISTERS.COLLISION;
   // SCALE WITH A REAL RANGE. The old engine ran 0.18..0.52 for everything,
@@ -176,7 +177,7 @@ function makeUnit(text, role, beat, grid, rng, opts, reg) {
   // them, which is how twenty texture units once resolved and drew nothing.
   const base =
     role === "key"
-      ? lerp(R.keyScale, Math.min(1, intent.scale * 0.7 + intent.intensity * 0.5))
+      ? lerp(R.keyScale, Math.min(1, (intent.scale * 0.7 + intent.intensity * 0.5) * arcScale))
       : role === "support"
         ? lerp(R.supportScale, intent.scale)
         : Math.max(0.03, 0.030 + rng() * 0.026);
@@ -257,6 +258,9 @@ const BEHAVIORS = {
     ctx.push(stage, 0.25);
   },
   ACCUMULATE(stage, beat, ctx) {
+    // Accumulation that also DRIFTS APART reads as evidence piling up;
+    // accumulation that stays put reads as a list.
+    converge(stage, beat, ctx, null, -0.35);
     // THE ESSAY'S OWN SMALL PRINT, not five copies of the headline.
     //
     // This used to clone the highest-protection unit over and over, which is
@@ -282,7 +286,7 @@ const BEHAVIORS = {
     let col = null;
     let line = 0;
     for (let i = 0; i < want && stock.length > 0; i++) {
-      const u = makeUnit(stock[i % stock.length], "texture", beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg);
+      const u = makeUnit(stock[i % stock.length], "texture", beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg, ctx.arc.scale);
       u.box.w = Math.min(0.9, u.text.length * u.size * 0.5);
       u.box.h = u.size * 1.3;
       const perCol = 3 + Math.floor(ctx.rng() * 4);
@@ -307,6 +311,9 @@ const BEHAVIORS = {
   },
   COLLAPSE(stage, beat, ctx) {
     introduce(stage, beat, ctx, { kind: "fade", dur: ctx.attackMs });
+    // Everything on the page is drawn INTO the surviving line rather than
+    // simply switched off around it.
+    converge(stage, beat, ctx, null, 0.85);
     const alive = stage.units.filter((u) => !u.dead).sort((a, b) => b.protection - a.protection);
     alive.slice(1).forEach((u, i) => {
       u.die = beat.startMs + 140 + i * 70;
@@ -336,6 +343,7 @@ const BEHAVIORS = {
   },
   REASSEMBLE(stage, beat, ctx) {
     introduce(stage, beat, ctx, { kind: "fade", dur: ctx.attackMs * 1.5 });
+    converge(stage, beat, ctx, null, 0.5);
     stage.fieldTo.turbulence = Math.max(0.05, stage.fieldTo.turbulence - 0.2);
     stage.fieldTo.bite = Math.max(0.05, stage.fieldTo.bite - 0.15);
     ctx.push(stage, 0.5);
@@ -376,12 +384,65 @@ const BEHAVIORS = {
 function introduce(stage, beat, ctx, motion) {
   for (const [i, p] of beat.text.phrases.entries()) {
     const role = i === 0 ? "key" : "support";
-    const u = makeUnit(p.text, role, beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg);
+    const u = makeUnit(p.text, role, beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg, ctx.arc.scale);
     u.box.w = Math.min(1.6, u.text.length * u.size * 0.46);
     u.box.h = u.size * 1.25;
     u.motion = { ...motion, t0: beat.startMs, delay: i * (ctx.attackMs * 0.32) };
     place(ctx.grid, stage, u, ctx.rng, ctx.opts);
+    migrate(stage, u, ctx, beat);
     stage.units.push(u);
+  }
+}
+
+/** TRANSFORM, DO NOT REPLACE.
+ *
+ *  Everything used to arrive from nowhere: a unit was created at its final
+ *  box and faded up, while whatever had been there died separately. So the
+ *  film could only ever CUT TO a fresh arrangement — nothing on screen was
+ *  ever the thing that had been there a moment ago, and nothing converged,
+ *  travelled or became anything. That is most of why a long stretch reads as
+ *  one moment held rather than as a sequence going somewhere.
+ *
+ *  A new unit may instead claim an existing one as its ORIGIN and travel
+ *  from it — inheriting its position and scale at the boundary and arriving
+ *  at its own over the attack. The source is retired as the new one lands,
+ *  so what the eye follows is one thing becoming another.
+ *
+ *  How willing the film is to do this rises across its length: at the start
+ *  nothing has a past to come from, and by the end almost everything does.
+ */
+function migrate(stage, u, ctx, beat) {
+  if (ctx.rng() > ctx.arc.morph * 0.85) return;
+  const pool = stage.units.filter((x) => !x.dead && x.born < beat.startMs);
+  if (pool.length === 0) return;
+  // Prefer the nearest thing of comparable weight — a headline grows out of
+  // a headline, not out of a caption on the far side of the frame.
+  const src = pool
+    .map((x) => ({
+      x,
+      d: Math.hypot(x.box.x - u.box.x, x.box.y - u.box.y) + Math.abs(x.size - u.size) * 2.2,
+    }))
+    .sort((a, b) => a.d - b.d)[0].x;
+  u.from = { x: src.box.x, y: src.box.y, size: src.size, rot: src.rot };
+  src.die = src.die ?? beat.startMs + ctx.attackMs * 0.8;
+}
+
+/** CONVERGENCE. Scattered small print MIGRATES toward the thing that
+ *  matters, so a page of evidence visibly becomes a single claim. The
+ *  opposite move — one line dispersing into many — is the same mechanism
+ *  with the endpoints swapped. */
+function converge(stage, beat, ctx, toward, strength) {
+  const target = toward ?? stage.units.filter((x) => !x.dead).sort((a, b) => b.protection - a.protection)[0];
+  if (!target) return;
+  for (const x of stage.units) {
+    if (x.dead || x.protection >= 0.6 || x.born >= beat.startMs) continue;
+    x.pull = {
+      x: target.box.x + target.box.w / 2,
+      y: target.box.y + target.box.h / 2,
+      k: strength,
+      t0: beat.startMs,
+      dur: Math.max(600, ctx.durMs * 0.9),
+    };
   }
 }
 
@@ -443,10 +504,16 @@ export function buildStages(cut) {
   const stages = [];
   let regName = "STATEMENT";
   let regRun = 0;
+  let lastPhrase = null;
 
+  const filmMs = Math.max(1, cut.durationMs);
   for (const beat of cut.beats) {
     const rng = mulberry32(beat.seed);
-    const attackMs = (1 - cut.settings.pace) * 300 + 60;
+    // WHERE THE FILM IS. Everything below is biased by a centre that is
+    // itself travelling, which is the difference between a film and a style.
+    const u = beat.startMs / filmMs;
+    const arc = arcAt(u);
+    const attackMs = ((1 - cut.settings.pace) * 300 + 60) / (0.6 + arc.rate * 0.7);
     const durMs = Math.max(1, beat.endMs - beat.startMs);
 
     // A SUB-BEAT IS THE SAME EDITORIAL BEAT, so the composition does not decay
@@ -458,7 +525,7 @@ export function buildStages(cut) {
     // the argument has not moved on, only the composition has.
     let turned = false;
     if (!isSub) {
-      const next_ = chooseRegister(beat, regName, regRun, rng);
+      const next_ = chooseRegister(beat, regName, regRun, rng, vocabularyAt(u));
       turned = next_ !== regName;
       regRun = turned ? 0 : regRun + 1;
       regName = next_;
@@ -519,6 +586,7 @@ export function buildStages(cut) {
       opts,
       reg,
       regName,
+      arc,
       attackMs,
       durMs,
       /** A steady push through the whole beat — the frame is always
@@ -548,13 +616,19 @@ export function buildStages(cut) {
     const vi = beat.visualIntent;
     next.fieldTo.turbulence = clamp01(0.1 + vi.instability * 0.55 + opts.chaos * 0.25);
     next.fieldTo.tone = clamp01(0.32 + vi.intensity * 0.55);
-    next.fieldTo.bite = clamp01(0.1 + vi.instability * 0.4 + vi.intensity * 0.2);
+    next.fieldTo.bite = clamp01(arc.bite + vi.instability * 0.3 + vi.intensity * 0.15);
     next.fieldTo.coarse = clamp01(0.25 + vi.density * 0.6);
     next.fieldTo.flowX = (rng() - 0.5) * 0.05 * (0.4 + opts.chaos);
     next.fieldTo.flowY = (rng() - 0.5) * 0.04 * (0.4 + opts.chaos);
     // WEAR ONLY EVER ACCUMULATES. A photocopy of a photocopy — the film has
     // an arrow, and the last minute cannot look like the first.
-    next.fieldTo.wear = Math.min(0.85, next.field.wear + 0.012 + vi.instability * 0.02);
+    // WEAR IS THE FILM'S ARROW. Per-beat accumulation alone drifts; the arc
+    // guarantees the last minute cannot look like the first however the
+    // beats happen to fall.
+    next.fieldTo.wear = Math.min(
+      0.88,
+      Math.max(next.field.wear + 0.006, arc.wear * 0.8 + vi.instability * 0.08),
+    );
     // The register says what kind of paper this page is printed on; the beat
     // still says how unsure the argument is. Both, not one.
     Object.assign(next.fieldTo, applyField(next.fieldTo, reg));
@@ -572,7 +646,7 @@ export function buildStages(cut) {
     // just laid down, every time, and the frame came out empty while the
     // report said the density target was met. It only ever gets to retire
     // what was already there.
-    const target = vi.density * reg.crowd;
+    const target = vi.density * reg.crowd * (0.5 + arc.density);
     const older = () => next.units.filter((u) => !u.dead && u.born < beat.startMs);
     let guard = 24;
     while (coverage(next) > target + 0.3 && guard-- > 0) {
@@ -580,6 +654,30 @@ export function buildStages(cut) {
       if (!weakest || weakest.protection >= 1) break;
       weakest.dead = true;
     }
+
+    // THE FILM IS NEVER TEXT-BLIND.
+    //
+    // A rest introduces nothing, by design — but if the last phrase has also
+    // aged out, the frame carries no words at all. Thirty seconds into a film
+    // about writing, a wordless screen reads as a fault rather than as
+    // negative space, and on this essay it happened on eight beats of
+    // thirty-nine.
+    //
+    // Tested against SURVIVAL, not against the roster: units carry `die`
+    // times inside the beat, so a stage with sixteen live units when it is
+    // built can be empty by the time anyone looks at it. The roster test
+    // passed and the frame was still blank.
+    const mid = beat.startMs + (beat.endMs - beat.startMs) * 0.5;
+    const survives = next.units.some((x) => !x.dead && (x.die === null || x.die > mid));
+    if (!survives && lastPhrase) {
+      const u = makeUnit(lastPhrase, "support", beat, grid, rng, opts, reg, arc.scale);
+      u.box.w = Math.min(0.9, u.text.length * u.size * 0.5);
+      u.box.h = u.size * 1.3;
+      u.motion = { kind: "fade", dur: attackMs * 2, t0: beat.startMs };
+      place(grid, next, u, rng, opts);
+      next.units.push(u);
+    }
+    for (const ph of beat.text.phrases) lastPhrase = ph.text;
 
     protect(next, beat);
 
@@ -696,17 +794,39 @@ export function resolveAt(stages, tMs) {
     const jx = (bo.x % 1 - 0.5) * 0.0035;
     const jy = (bo.y % 1 - 0.5) * 0.0035;
 
+    let bx = u.box.x + u.drift.x * age + jx;
+    let by = u.box.y + u.drift.y * age + jy;
+    let bsize = 1;
+
+    // MIGRATION. The unit travels from what it came out of to where it
+    // belongs, over its own attack. This is the whole difference between a
+    // thing appearing and a thing BECOMING — the eye follows one object
+    // across the boundary instead of watching one vanish and another arrive.
+    if (u.from) {
+      const mp = smoothstep(
+        Math.max(0, Math.min(1, (tMs - u.born) / Math.max(1, u.motion?.dur ?? 1) / 1.6)),
+      );
+      bx += (u.from.x - u.box.x) * (1 - mp);
+      by += (u.from.y - u.box.y) * (1 - mp);
+      bsize *= 1 + (u.from.size / Math.max(1e-4, u.size) - 1) * (1 - mp);
+    }
+
+    // CONVERGENCE. Scattered material drawn toward — or pushed away from —
+    // what matters, across the beat rather than at its boundary. A page of
+    // evidence visibly becomes one claim.
+    if (u.pull) {
+      const pp = smoothstep(Math.max(0, Math.min(1, (tMs - u.pull.t0) / u.pull.dur)));
+      const k = u.pull.k * pp;
+      bx += (u.pull.x - (bx + u.box.w / 2)) * k;
+      by += (u.pull.y - (by + u.box.h / 2)) * k;
+    }
+
     out.push({
       ...u,
-      box: {
-        x: u.box.x + u.drift.x * age + jx,
-        y: u.box.y + u.drift.y * age + jy,
-        w: u.box.w,
-        h: u.box.h,
-      },
-      rot: u.rot + u.drift.rot * age,
+      box: { x: bx, y: by, w: u.box.w, h: u.box.h },
+      rot: u.rot + u.drift.rot * age + (u.from ? (u.from.rot - u.rot) * 0.4 : 0),
       alpha,
-      drawScale: scale * (1 + u.drift.scale * age * 0.1),
+      drawScale: scale * bsize * (1 + u.drift.scale * age * 0.1),
     });
   }
 
