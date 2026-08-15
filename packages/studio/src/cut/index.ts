@@ -284,6 +284,7 @@ function shell(
       hasFigure: false,
       isShort: false,
       passage: 0,
+      signature: [],
     },
     motif: null,
     seed: deriveSeed(filmSeed, id),
@@ -318,6 +319,7 @@ function withIntent(
     returnsTo: number | null;
     hasFigure: boolean;
     isShort: boolean;
+    signature: number[];
   },
   passageIndex = 0,
 ): TimedBeat {
@@ -425,6 +427,7 @@ function withIntent(
           hasFigure: reading.hasFigure,
           isShort: reading.isShort,
           passage: passageIndex,
+          signature: reading.signature,
         }
       : {
           kind: "CLAIM",
@@ -433,6 +436,7 @@ function withIntent(
           hasFigure: false,
           isShort: false,
           passage: passageIndex,
+          signature: [],
         },
     motif: editorial?.motifRef
       ? {

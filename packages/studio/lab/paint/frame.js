@@ -115,6 +115,19 @@ export function drawFrame(ctx, film, frameIndex) {
   // Marks next — furniture sits under the words, which is what makes a
   // block read as a block rather than as something pasted over the type.
   const solids = [];
+  // THE FORM IS A SOLID TOO. Type bound to a structure was drawn over the
+  // structure's own ink — both full coverage, so the words disappeared into
+  // the thing they were labelling. Knockout already existed for blocks and
+  // bars; the form was simply never in the list.
+  if (built && formPlace) {
+    const s2 = formPlace.scale;
+    solids.push({
+      x: formPlace.x - s2 * 0.5,
+      y: formPlace.y - s2 * 0.5,
+      w: s2,
+      h: s2,
+    });
+  }
   for (const m of marks) {
     if (m.layer >= 8) continue;
     drawMark(p, m, pw, ph, "#fff");

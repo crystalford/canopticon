@@ -132,8 +132,16 @@ function derive(f, rng, palette) {
     /* IMAGE */
     // 2 = a photocopy, 256 = a clean impression, and everything between.
     steps: Math.max(2, steps),
-    ground: inverted ? lerp(0.02, 0.16, 1 - f.weight) : lerp(0.99, 0.82, f.weight),
-    ink: inverted ? lerp(0.86, 1, f.contrast) : lerp(0.12, 0.02, f.contrast),
+    // A CONTRAST FLOOR. Ground and ink were derived independently, so a
+    // sample could put light type on a light ground and the words vanished —
+    // the operator reported white on white and black on black. Legibility is
+    // not a taste question here: a film whose words cannot be read has failed
+    // at the only thing it does. The floor is on LIGHTNESS, so colour is free
+    // to do whatever it likes above it.
+    ...contrasted(
+      inverted ? lerp(0.02, 0.16, 1 - f.weight) : lerp(0.99, 0.82, f.weight),
+      inverted ? lerp(0.86, 1, f.contrast) : lerp(0.12, 0.02, f.contrast),
+    ),
     // Zero is a PERFECTLY CLEAN frame. The old renderer ran its grain field
     // unconditionally on every frame ever made, so this value could not be
     // reached and no film could contain a clean image.
@@ -212,4 +220,22 @@ function derive(f, rng, palette) {
  *  is actually visiting new points or circling a few. */
 export function styleKey(s) {
   return FACTORS.map((k) => Math.round(s.f[k] * 20)).join(",");
+}
+
+
+/** Push a ground and an ink apart until they can be told from each other.
+ *  0.42 of the lightness range is roughly where type stops being readable at
+ *  the sizes this engine sets. */
+const CONTRAST_FLOOR = 0.42;
+
+function contrasted(ground, ink) {
+  const gap = ink - ground;
+  if (Math.abs(gap) >= CONTRAST_FLOOR) return { ground, ink };
+  const mid = (ground + ink) / 2;
+  const half = CONTRAST_FLOOR / 2;
+  const dir = gap >= 0 ? 1 : -1;
+  return {
+    ground: Math.max(0, Math.min(1, mid - dir * half)),
+    ink: Math.max(0, Math.min(1, mid + dir * half)),
+  };
 }

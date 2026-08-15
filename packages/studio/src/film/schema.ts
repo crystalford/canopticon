@@ -344,6 +344,9 @@ export interface TimedBeat {
     isShort: boolean;
     /** Which PASSAGE this beat belongs to — sub-beats share one. */
     passage: number;
+    /** The passage's own vocabulary, projected into the visual latent space.
+     *  This is what makes two different essays make two different films. */
+    signature: number[];
   };
   /** Derived on the Worker. The browser is GIVEN this number and never
    *  re-derives one from a string — see `lib/rng.ts`. */

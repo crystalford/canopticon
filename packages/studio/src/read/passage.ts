@@ -64,6 +64,21 @@ export interface PassageReading {
    *  A returning topic is the film's memory, and the reason anything carries
    *  through at all. */
   returnsTo: number | null;
+  /** A DETERMINISTIC PROJECTION OF THIS PASSAGE'S VOCABULARY.
+   *
+   *  Twelve numbers in 0..1, produced by hashing each content word to a fixed
+   *  direction and averaging. Crude by design — no model, no training, and
+   *  checkable by running it twice — but real: two passages sharing vocabulary
+   *  land near each other and two that share none land apart.
+   *
+   *  WHY THIS EXISTS. Measured across three genuinely different essays, the
+   *  films' visual trajectories were 0.44–0.70 apart in a space where two
+   *  random points average 1.4 — because the trajectory came from the SEED.
+   *  Two essays with the same seed walked the same path and the writing only
+   *  decided when to step, not where to go. That is a template however large
+   *  the space is. This is what makes an essay about an audit land somewhere
+   *  an essay about baking bread does not. */
+  signature: number[];
   /** Surface facts, each checkable by reading the sentence. */
   hasFigure: boolean;
   hasProperNoun: boolean;
@@ -138,6 +153,26 @@ function kindOf(text: string, terms: string[]): PassageKind {
  *  passage read in isolation cannot have either. This is where a film gets a
  *  memory.
  */
+/** Hash a word to a stable direction in `d` dimensions. Deterministic and
+ *  cheap; the only property required is that different words disagree. */
+function project(word: string, d: number): number[] {
+  let h = 2166136261;
+  for (let i = 0; i < word.length; i++) {
+    h ^= word.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const out: number[] = [];
+  for (let k = 0; k < d; k++) {
+    h ^= h << 13;
+    h ^= h >>> 17;
+    h ^= h << 5;
+    out.push(((h >>> 0) % 10000) / 10000 - 0.5);
+  }
+  return out;
+}
+
+const SIG_DIMS = 12;
+
 export function readPassages(texts: string[]): PassageReading[] {
   const out: PassageReading[] = [];
   const sets: Set<string>[] = [];
@@ -167,7 +202,25 @@ export function readPassages(texts: string[]): PassageReading[] {
       }
     }
 
+    // Average the words' directions, then squash to 0..1. Averaging is what
+    // makes it a topic rather than a hash: a passage's signature moves only a
+    // little when one word changes and a lot when the subject does.
+    const acc = new Array(SIG_DIMS).fill(0);
+    for (const t of terms) {
+      const v = project(t, SIG_DIMS);
+      for (let k = 0; k < SIG_DIMS; k++) acc[k] += v[k] as number;
+    }
+    const n = Math.max(1, terms.length);
+    const signature = acc.map((v) => {
+      // √n normalisation: the mean of n random directions shrinks as 1/√n, so
+      // dividing by n alone would make every long passage converge on 0.5 and
+      // every film about anything would look the same.
+      const z = (v / n) * Math.sqrt(n) * 2.2;
+      return Math.max(0, Math.min(1, 0.5 + z));
+    });
+
     out.push({
+      signature,
       kind: kindOf(text, terms),
       terms: terms.slice(0, 24),
       novelty,

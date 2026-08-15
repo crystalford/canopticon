@@ -485,6 +485,7 @@ export function buildStages(cut) {
   let sinceHue = 0;
   let point = nextPoint(wander);
   let style = sampleStyle(mulberry32(cut.seed ^ 0x5f3759df), asBias(point, FACTORS), palette);
+  void blend;
   let form = sampleForm(
     mulberry32(cut.seed ^ 0x1b873593),
     asBias(point.slice(FACTORS.length), FORM_KEYS),
@@ -553,7 +554,16 @@ export function buildStages(cut) {
       // whether a twenty-minute film keeps discovering: the next point is
       // maximally far from every point already used, by construction, so
       // minute fifteen is somewhere minute two never went.
-      point = nextPoint(wander);
+      // THE WRITING CHOOSES THE REGION; THE SEQUENCE COVERS IT.
+      //
+      // Measured across three genuinely different essays: their trajectories
+      // were 0.44–0.70 apart in a space where two random points average 1.4,
+      // because the walk was seeded from `cut.seed`. Two essays with the same
+      // seed walked the SAME path and the writing only decided when to step.
+      // That is a template however large the space is. The passage's own
+      // vocabulary now sets where the film goes; the sequence explores around
+      // it, so coverage survives and content decides the neighbourhood.
+      point = blend(nextPoint(wander), rd.signature, 0.55);
       sinceHue += 1;
       if (sinceHue >= 3) {
         palette = paletteOf(nextPoint(paletteWalk));
@@ -570,7 +580,7 @@ export function buildStages(cut) {
       // the same region. The passage decides the neighbourhood; standing
       // still inside it for fifty seconds is what made twenty minutes feel
       // like four.
-      const p2 = step(wander, 0.22);
+      const p2 = blend(step(wander, 0.22), rd.signature, 0.35);
       style = sampleStyle(rng, asBias(p2, FACTORS), palette);
       form = sampleForm(rng, asBias(p2.slice(FACTORS.length), FORM_KEYS));
     }
@@ -1010,4 +1020,21 @@ function paletteOf(p) {
     hue2: (p[0] * 360 + 60 + p[1] * 240) % 360,
     sat: p[2] < 0.22 ? 0 : 0.15 + p[2] * 0.85,
   };
+}
+
+
+/** Pull a sequence point toward what the writing is about.
+ *
+ *  `w` is how much the vocabulary decides. At 0 the film ignores its essay
+ *  and walks the seed's path; at 1 it stops covering the space and clusters
+ *  wherever the words happen to project. Both failures are real and the
+ *  midpoint is the design: the writing picks the neighbourhood, the sequence
+ *  guarantees the film keeps finding new places inside it.
+ */
+function blend(point, signature, w) {
+  if (!signature || signature.length === 0) return point;
+  return point.map((v, i) => {
+    const s = signature[i % signature.length];
+    return Math.max(0, Math.min(1, v * (1 - w) + s * w));
+  });
 }
