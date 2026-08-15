@@ -36,6 +36,7 @@ import { boilOffset, boilStep } from "../core/noise.js";
 import { mulberry32 } from "../core/rng.js";
 import { emitMarks } from "./marks.js";
 import { applyField, chooseRegister, lerp, REGISTERS } from "./register.js";
+import { chooseTransition, resolveTransition } from "./transition.js";
 
 /* ── the grid ──────────────────────────────────────────────────────────── */
 
@@ -463,6 +464,9 @@ export function buildStages(cut) {
       regName = next_;
     }
     const reg = REGISTERS[regName];
+    // HOW THIS BOUNDARY IS CUT. One per beat, decided once, so a re-roll of
+    // the seed re-cuts the whole film rather than only re-placing it.
+    const entry = chooseTransition(beat, turned, rng, opts.chaos);
 
     // A REGISTER CHANGE IS A PAGE TURN.
     //
@@ -579,7 +583,7 @@ export function buildStages(cut) {
 
     protect(next, beat);
 
-    stages.push({ beat, stage: next });
+    stages.push({ beat, stage: next, entry });
     stage = next;
   }
   return { grid, stages };
@@ -642,6 +646,17 @@ export function resolveAt(stages, tMs) {
     y: st.plate.y + st.plateVel.y * dt,
     rot: st.plate.rot + st.plateVel.rot * dt,
   };
+
+  // THE EDIT, if this moment is still inside one. A transition rides ON the
+  // plate the beat is already moving rather than replacing it, so a cut never
+  // stops the film dead to perform itself.
+  const tr = resolveTransition(active.entry, active.beat.startMs, tMs, active.beat.seed);
+  if (tr) {
+    plate.scale *= tr.plate.scale;
+    plate.x += tr.plate.x;
+    plate.y += tr.plate.y;
+    plate.rot += tr.plate.rot;
+  }
 
   // The field eases from where it was toward where this beat wants it, over
   // the beat — a material that changes state, not a setting that switches.
@@ -724,6 +739,7 @@ export function resolveAt(stages, tMs) {
     stage: st,
     plate,
     field,
+    edit: tr,
     beat: active.beat,
   };
 }

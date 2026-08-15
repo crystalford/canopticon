@@ -46,7 +46,7 @@ export function drawFrame(ctx, film, frameIndex) {
   const tMs = (frameIndex / cut.fps) * 1000;
   const res = resolveAt(stages, tMs);
   if (!res) return;
-  const { units, marks, stage, plate, field } = res;
+  const { units, marks, stage, plate, field, edit } = res;
   const ink = inkOf(stage);
 
   // The plate runs coarser than the output and is upscaled without
@@ -177,6 +177,16 @@ export function drawFrame(ctx, film, frameIndex) {
   const rx = Math.round(reg.x);
   const ry = Math.round(reg.y);
 
+  // THE EDIT AT PRESS TIME. Flash, tear and wipe are not effects laid over a
+  // finished picture — they happen where the ink meets the paper, which is
+  // why they read as the press misbehaving rather than as a filter.
+  const flash = edit?.flash ?? 0;
+  const slice = edit?.slice ?? 0;
+  const wipeAt = edit?.wipe ?? -1;
+  // A TEAR is bands of the sheet landing out of register with each other.
+  const bands = 7;
+  const bandH = Math.ceil(ph / bands);
+
   const bite = field.bite;
   const wear = field.wear;
   // Edge softness IS ink bleed. A hard binary threshold aliases the type
@@ -194,8 +204,13 @@ export function drawFrame(ctx, film, frameIndex) {
     const yy = sy < 0 ? 0 : sy >= ph ? ph - 1 : sy;
     const rowS = yy * pw;
     const rowD = y * pw;
+    // Each band slips by its own amount, decaying as the impression settles.
+    const band = (y / bandH) | 0;
+    const slip = slice
+      ? Math.round((((band * 2654435761) % 97) / 97 - 0.5) * slice * pw * 0.16)
+      : 0;
     for (let x = 0; x < pw; x++) {
-      const sx = x + rx;
+      const sx = x + rx + slip;
       const xx = sx < 0 ? 0 : sx >= pw ? pw - 1 : sx;
       // Coverage from the registered ink plate, tone from the paper under it.
       const cov = src[(rowS + xx) << 2] / 255;
@@ -211,6 +226,11 @@ export function drawFrame(ctx, film, frameIndex) {
       // same moving field, so the damage crawls rather than sitting still.
       if (v < 0.5 && fv > speckle) v = Math.min(1, v + (fv - speckle) * 3.2);
       else if (v > 0.5 && fv < dropout) v = Math.max(0, v - (dropout - fv) * 2.6);
+
+      // The lamp. Full ink or full ground for a frame or two — a struck cut.
+      if (flash) v = 1 - v;
+      // The wipe's leading edge: everything past it is still the bare sheet.
+      if (wipeAt >= 0 && x > wipeAt * pw) v = 0;
 
       const b = grdB + (inkB - grdB) * v;
       const i = (rowD + x) << 2;
