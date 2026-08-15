@@ -13,9 +13,11 @@ That single sentence separates a *director's instrument* from an *AI director*. 
 
 Corollary, which prevents the architecture drifting back toward an automated slideshow:
 
-> **The system composes audiovisual passages from a visual grammar. Blocks are implementation primitives, not the director's vocabulary.**
+> **The system composes a persistent visual world that transforms in response to the argument. Procedural computation, typography, generated imagery, camera movement, materials, lighting and simulation are implementation techniques beneath that world — not the director's vocabulary, and not the abstraction itself.**
 
-The director should be able to direct an entire film without ever knowing that one renderer is Remotion and another is Manim.
+*(This corollary was, for most of this project's history, "audiovisual passages from a visual grammar" — grammar over primitives, correctly, but not yet the claim that the film is a world a camera moves through and a thing persists in. The distinction is not cosmetic: a slideshow can have a grammar. A world is what a grammar composes into, and it is what makes "the same city, three scenes later, still the same city — same place in the frame, same material, observed from wherever the camera has moved to" a sentence this system can make true rather than merely intend.)*
+
+The director should be able to direct an entire film without ever knowing that one renderer is Remotion and another is Manim, that a camera transform is baked into a `place` node's params before a chain ever runs, or that "stone" survived four scenes as a field on a ledger entry rather than as a picture someone remembered to keep drawing.
 
 ---
 
@@ -50,6 +52,8 @@ CREATIVE POLICY        (constraints, curves, rules)
       ↓
 EDITORIAL COMPOSITION  (what happens in this passage)
       ↓
+WORLD STATE            (what persists: identity, place, material, camera)
+      ↓
 VISUAL / SONIC LANGUAGE
       ↓
 INDIVIDUAL SHOTS
@@ -59,7 +63,11 @@ RENDERERS
 PIXELS + AUDIO
 ```
 
-The technical spec starts at layer 4. This document starts at layer 1.
+WORLD STATE is where an argument stops being a sequence of independent pictures and starts being a place a camera moves through. It is not a rendering layer and not a shot — it is what a shot *inherits before it is built*: which identities are on screen and where the film left them, what they are made of, and where the camera is standing. Everything below it — primitives, typography, generated imagery, camera movement, materials, lighting, simulation — is how the world gets rendered at one moment. None of it is what the director is directing.
+
+*(Not the same "world" the Capability Map uses — that document's "world population" is a density dial, how much life exists in a scene beyond its subject. This is cross-scene persistence: identity, place, material and camera surviving from one scene into the next. Two real, unrelated concepts that happen to share a word; see the Capability Map for the first one.)*
+
+The technical spec starts at layer 5. This document starts at layer 1.
 
 ---
 
@@ -282,6 +290,18 @@ Visual memory applies to any recurring element: a person, an institution, a plac
 
 **When the composition engine encounters a concept with an established motif, developing it is the default. Inventing a new treatment requires a reason** (a rule, an override, or a deliberate `break_grammar` instruction).
 
+### The camera is one continuous observer, not a per-shot device
+
+A shot does not choose its own camera. The film has one, and it is part of what persists — the same standing as an identity's place or its material. An act that intensifies pushes the camera in; one that withdraws pulls it wide; most acts leave it exactly where it was, because a camera that moves on every line reads as nervous, not directed. What it never does is reset: a scene does not get handed a fresh, neutral view of its own subject just because a different construction happened to win it. The camera's position is a fact about the film's state, asked and answered once per scene, the same question `advance()` asks about who is on screen and where.
+
+This is what makes a push-in mean something across a passage rather than inside a single shot — a viewer can end up somewhere that reads as a different place entirely, provided the film travelled there rather than jumped.
+
+### Material is a property of the thing, not of the shot
+
+"Stone" is not a fact about how the third scene happened to be lit. It is a fact about the city, and it survives exactly as long as the city does — through a scene that draws it differently, through a scene that recalls it after an absence, through anything short of the argument itself claiming the city became something else. A construction is free to choose *how* to depict a persistent identity; it is not free to silently reassign what that identity is made of, any more than it is free to move where the identity stands.
+
+The distinction that makes this survivable rather than brittle: **TRANSFORM is a decision, not an accident.** When the argument says something changed — "the request became a mandate," "what had been informal hardened into policy" — the material is allowed to move, because the sentence is making exactly that claim. Every other case inherits.
+
 ---
 
 # PART 7 — DIRECTORIAL RULES
@@ -447,6 +467,8 @@ The technical spec is otherwise sound. Three amendments:
 ## 10.2 What stays deferred
 
 Unchanged from the technical spec: no sonification, maps, Manim, interviews, OTIO, or accessibility profiles in Phase 0 — architectural hooks only. Natural-language rule authoring and natural-language re-direction ("make Act II feel increasingly mechanical") are Phase 2; ship the constraint structures first so the language layer has something to compile *into*.
+
+**Also deferred, explicitly, now that WORLD STATE is real rather than aspirational:** a genuine 3D/spatial rendering backend — real world-space coordinates independent of the frame, a camera with position and orientation rather than a 2D pan/zoom/parallax transform, physically-modeled lighting, mesh geometry. The camera and material work described in Part 6 above is built entirely on the existing 2D compositing pipeline: `observe()` transforms an element's `place` (scale, x, y) before it is serialised into primitive params, and a persistent entity's material is one of eight canvas rendering styles, not a physical surface property. This was a deliberate scope decision, not an oversight — the primitive atlas twice named the same reason for deferring 3D beyond an experimental `extrude`/`camera_3d` pair: prove the foundation works end-to-end on a real essay before building a second render backend under it. That foundation now exists and is measured. The 3D backend is **Phase 2**, gated on this one, not silently promised and not silently forgotten.
 
 ## 10.3 The amended validation demo
 
