@@ -25,8 +25,12 @@ app.get("/voices", (c) => c.json({ voices: VOICES }));
 /** SPEAK THE FILM. Long — one TTS and one ASR call per span — so it runs
  *  in `waitUntil` and the caller polls. A 60-second film is 4-6 spans. */
 app.post("/film/:id/narrate", async (c) => {
-  const film = await loadFilm(c.env, c.req.param("id"));
-  if (!film) return c.json({ error: "no such film" }, 404);
+  const loaded = await loadFilm(c.env, c.req.param("id"));
+  if (loaded.kind === "legacy") {
+    return c.json({ error: "re-read this film before narrating it", legacy: true }, 409);
+  }
+  if (loaded.kind === "missing") return c.json({ error: "no such film" }, 404);
+  const { film } = loaded;
   const body = await c.req.json().catch(() => ({}));
   const voice =
     typeof body.voice === "string" ? body.voice : (film.narration.voice ?? VOICES[0]?.id);
@@ -80,8 +84,9 @@ app.get("/film/:id/narrate/:job", async (c) => {
  *  span re-narrated is a different artifact and must not hit a stale
  *  cache. */
 app.get("/film/:id/vo/:spanId", async (c) => {
-  const film = await loadFilm(c.env, c.req.param("id"));
-  if (!film) return c.json({ error: "no such film" }, 404);
+  const loaded = await loadFilm(c.env, c.req.param("id"));
+  if (loaded.kind !== "ok") return c.json({ error: "no such film" }, 404);
+  const { film } = loaded;
   const span = film.narration.spans.find((s) => s.spanId === c.req.param("spanId"));
   const asset = span?.voAssetId ? film.assets.find((a) => a.assetId === span.voAssetId) : null;
   if (!asset) return c.json({ error: "not narrated" }, 404);

@@ -119,6 +119,55 @@ describe("the record refuses words the essay did not write", () => {
   });
 });
 
+describe("films made by the previous engine", () => {
+  // The shape a pre-reset record actually has: no `schema`, an `acts` and
+  // `scenes` array, and the essay at the top level.
+  const oldRecord = {
+    projectId: "film_old",
+    title: "An Older Film",
+    essay: ESSAY,
+    irVersion: 4,
+    acts: [{ actId: "act_1", title: "" }],
+    scenes: [{ sceneId: "s01", actId: "act_1", narration: { text: "It sold a mood." } }],
+    visualApproach: "world",
+    motifs: [{ motifId: "time", concept: "TIME", chain: ["text_stagger"], states: [] }],
+  };
+
+  it("is not mistaken for a current film", () => {
+    // The whole point: parseFilm must REFUSE it. If it ever accepted one,
+    // the engine would try to cut a film out of a record describing an
+    // engine that no longer exists.
+    expect(parseFilm(oldRecord).ok).toBe(false);
+  });
+
+  it("gives up its essay intact, which is all that was ever needed", () => {
+    // Everything else in that record was derived from this. There is
+    // nothing to convert — only to re-read.
+    expect(oldRecord.essay).toBe(ESSAY);
+    const reread = readEssayStructurally(oldRecord.essay);
+    expect(reread.beats.length).toBeGreaterThan(0);
+    for (const b of reread.beats) {
+      for (const p of b.phrases) {
+        expect(ESSAY.slice(p.offset, p.offset + p.text.length)).toBe(p.text);
+      }
+    }
+  });
+
+  it("re-reads into a record the current engine accepts", async () => {
+    const film = await filmOf();
+    const parsed = parseFilm({ ...film, filmId: oldRecord.projectId, title: oldRecord.title });
+    expect(parsed.ok, parsed.ok ? "" : JSON.stringify(parsed.errors)).toBe(true);
+  });
+
+  it("a current film is never flagged as legacy", async () => {
+    // The detector must not misfire on a real film — that would offer to
+    // re-read something that is already current, spending a model call for
+    // nothing.
+    const film = await filmOf();
+    expect(JSON.stringify(film).includes("canopticon.film/1")).toBe(true);
+  });
+});
+
 describe("the cut", () => {
   it("is deterministic, and a different seed is a different film", async () => {
     const film = await filmOf(1);

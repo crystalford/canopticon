@@ -36,8 +36,43 @@ export async function viewFilm(root, go, id) {
   let raf = 0;
   let startedAt = 0;
 
+  /** A film the previous engine made. Its essay survives; nothing else in
+   *  it means anything now. Offer the re-read rather than a dead end — and
+   *  make it a button, because a page load must not spend a model call. */
+  function offerReread(info) {
+    $("title").textContent = info.title || "A film from the previous engine";
+    $("sub").textContent = `${info.words} words · made before the engine was rebuilt`;
+    canvas.style.display = "none";
+    $("play").style.display = "none";
+    $("reroll").style.display = "none";
+    $("export").style.display = "none";
+    const btn = document.createElement("button");
+    btn.textContent = "Re-read with the new engine";
+    $("play").parentElement.prepend(btn);
+    $("warnings").innerHTML =
+      `<p class="warn">the essay is kept and re-read; the old version stays in the film's history</p>
+       <p class="warn">the previous recordings cannot carry over — record it again to hear it</p>`;
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      $("status").textContent = "reading the essay…";
+      try {
+        await api.reread(id);
+        location.reload();
+      } catch (err) {
+        $("status").textContent = err.message;
+        btn.disabled = false;
+      }
+    });
+  }
+
   async function load() {
-    const meta = await api.film(id);
+    let meta;
+    try {
+      meta = await api.film(id);
+    } catch (err) {
+      if (err.legacy) return offerReread(err.body);
+      throw err;
+    }
     $("title").textContent = meta.film.title;
     cut = await api.cut(id);
     // The faces are the material. Drawing before they load renders a

@@ -33,17 +33,60 @@ interface VersionRow {
   version: number;
 }
 
-async function loadFilm(env: Env, id: string): Promise<Film | null> {
+/** WHAT A STORED RECORD TURNS OUT TO BE.
+ *
+ *  Three outcomes, not two. Collapsing "there is no such film" and "this
+ *  film predates the engine" into one `null` is what would make every
+ *  pre-reset film list on the front page and then 404 on open — visible
+ *  and broken, which is worse than either alone. */
+export type Loaded =
+  | { kind: "ok"; film: Film }
+  | { kind: "legacy"; essay: string; title: string }
+  | { kind: "missing" };
+
+/** Old films were `EditorialIR`: no `schema` field, a `scenes` array, and —
+ *  the part that matters — the essay at the top level. Everything else in
+ *  that record was DERIVED from the essay, so there is nothing to convert.
+ *  The essay is recovered and re-read; the derivation is redone. */
+function readLegacy(raw: unknown): Loaded {
+  if (!raw || typeof raw !== "object") return { kind: "missing" };
+  const o = raw as Record<string, unknown>;
+  const looksOld = Array.isArray(o.scenes) || Array.isArray(o.acts);
+  const essay = typeof o.essay === "string" ? o.essay.trim() : "";
+  // An old record whose essay is gone cannot be re-read into anything.
+  // Say it is missing rather than offering to rebuild an empty film.
+  if (!looksOld || essay.length < 40) return { kind: "missing" };
+  const title = typeof o.title === "string" && o.title.trim() ? o.title.trim() : "Untitled";
+  return { kind: "legacy", essay, title };
+}
+
+async function loadFilm(env: Env, id: string): Promise<Loaded> {
   const row = await one<VersionRow>(
     env.DB,
     `SELECT ir_json, version FROM ir_versions WHERE project_id = ?
      ORDER BY version DESC LIMIT 1`,
     [id],
   );
-  if (!row) return null;
-  const parsed = parseFilm(JSON.parse(row.ir_json));
-  return parsed.ok ? parsed.film : null;
+  if (!row) return { kind: "missing" };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(row.ir_json);
+  } catch {
+    return { kind: "missing" };
+  }
+  const parsed = parseFilm(raw);
+  return parsed.ok ? { kind: "ok", film: parsed.film } : readLegacy(raw);
 }
+
+/** The 409 an old film gets instead of a dead 404, so the browser can
+ *  offer the fix rather than showing a wall. */
+const legacyBody = (id: string, l: Extract<Loaded, { kind: "legacy" }>) => ({
+  error: "this film was made by the previous engine",
+  legacy: true,
+  filmId: id,
+  title: l.title,
+  words: l.essay.split(/\s+/).filter(Boolean).length,
+});
 
 async function saveFilm(env: Env, film: Film, summary: string): Promise<number> {
   const last = await one<{ v: number }>(
@@ -68,11 +111,92 @@ async function saveFilm(env: Env, film: Film, summary: string): Promise<number> 
 /* ── the front door ────────────────────────────────────────────────── */
 
 app.get("/films", async (c) => {
-  const rows = await all<ProjectRow>(
+  // EVERY FILM EVER MADE IS A ROW IN THIS TABLE, including the ones the
+  // previous engine made. Listing them without saying which is which is
+  // how a front page fills with links that 404 — so the latest stored
+  // record is checked for the new schema marker in the same query rather
+  // than in a hundred round trips.
+  const rows = await all<ProjectRow & { engine: string | null }>(
     c.env.DB,
-    "SELECT id, title, created_at, current_ir_version FROM projects ORDER BY created_at DESC LIMIT 100",
+    `SELECT p.id, p.title, p.created_at, p.current_ir_version,
+            (SELECT CASE WHEN v.ir_json LIKE '%canopticon.film/1%' THEN 'film' ELSE 'legacy' END
+               FROM ir_versions v
+              WHERE v.project_id = p.id
+              ORDER BY v.version DESC LIMIT 1) AS engine
+       FROM projects p
+      ORDER BY p.created_at DESC LIMIT 100`,
   );
-  return c.json({ films: rows });
+  return c.json({
+    films: rows.map((r) => ({ ...r, legacy: r.engine !== "film" })),
+  });
+});
+
+/** RE-READ AN OLD FILM.
+ *
+ *  Not a conversion — there is nothing in an old record worth converting.
+ *  Its scenes, constructions and chains describe an engine that no longer
+ *  exists; its ESSAY is the only thing that was ever the source of truth,
+ *  and everything else was derived from it. So the essay is recovered and
+ *  the derivation is simply redone by the current engine.
+ *
+ *  A POST, not a side effect of opening the film: a GET must not write,
+ *  and the operator decides when to spend a model call.
+ *
+ *  `ir_versions` is append-only, so the old record survives this untouched
+ *  and the film keeps its id, its title and its place in the list. */
+app.post("/film/:id/reread", async (c) => {
+  const id = c.req.param("id");
+  const loaded = await loadFilm(c.env, id);
+  if (loaded.kind === "ok") {
+    return c.json({ error: "this film is already on the current engine", filmId: id }, 409);
+  }
+  if (loaded.kind === "missing") return c.json({ error: "no such film" }, 404);
+
+  const { essay, title } = loaded;
+  const body = await c.req.json().catch(() => ({}));
+  const seg = segmentEssay(essay);
+  const read = await analyseEssay(c.env.AI, essay);
+  const film: Film = {
+    schema: "canopticon.film/1",
+    filmId: id,
+    title: title || seg.title,
+    essay,
+    seed: Number.isInteger(body.seed) ? Number(body.seed) : freshFilmSeed(),
+    settings: SettingsSchema.parse(body.settings ?? {}),
+    editorial: read.editorial,
+    editorialHash: read.editorialHash,
+    editorialProvenance: read.provenance,
+    // The old recordings cannot come across: they were cut per SCENE, at
+    // sentence boundaries, under keys naming scene ids that no longer
+    // exist. The new engine speaks paragraph-scale spans. Saying the film
+    // is silent is honest; quietly serving mismatched audio would not be.
+    narration: { voice: null, spans: planSpans(essay, read.editorial) },
+    assets: [],
+    createdAt: nowIso(),
+  };
+
+  const checked = parseFilm(film);
+  if (!checked.ok) {
+    return c.json({ error: "the re-read film did not validate", details: checked.errors }, 500);
+  }
+  const version = await saveFilm(c.env, film, "re-read by the film engine");
+  await run(c.env.DB, "UPDATE projects SET title = ? WHERE id = ?", [film.title, id]);
+
+  return c.json({
+    filmId: id,
+    version,
+    title: film.title,
+    seed: film.seed,
+    beats: film.editorial.beats.length,
+    sections: film.editorial.sections.length,
+    motifs: film.editorial.motifs.length,
+    spans: film.narration.spans.length,
+    spokenWords: seg.spokenWords,
+    editorial: describeProvenance(film.editorialProvenance),
+    narration:
+      "none — the previous engine's recordings could not carry over, so record it again to hear it",
+    notes: read.notes,
+  });
 });
 
 /** ESSAY IN. The one entry point. Runs the editor (model, verified,
@@ -135,8 +259,11 @@ app.post("/film", async (c) => {
 });
 
 app.get("/film/:id", async (c) => {
-  const film = await loadFilm(c.env, c.req.param("id"));
-  if (!film) return c.json({ error: "no such film" }, 404);
+  const id = c.req.param("id");
+  const loaded = await loadFilm(c.env, id);
+  if (loaded.kind === "legacy") return c.json(legacyBody(id, loaded), 409);
+  if (loaded.kind === "missing") return c.json({ error: "no such film" }, 404);
+  const { film } = loaded;
   return c.json({ film, editorial: describeProvenance(film.editorialProvenance) });
 });
 
@@ -153,8 +280,11 @@ app.delete("/film/:id", async (c) => {
  *  frozen and is NOT recomputed, so a different look costs no model call
  *  and no narration. */
 app.post("/film/:id/settings", async (c) => {
-  const film = await loadFilm(c.env, c.req.param("id"));
-  if (!film) return c.json({ error: "no such film" }, 404);
+  const id = c.req.param("id");
+  const loaded = await loadFilm(c.env, id);
+  if (loaded.kind === "legacy") return c.json(legacyBody(id, loaded), 409);
+  if (loaded.kind === "missing") return c.json({ error: "no such film" }, 404);
+  const { film } = loaded;
   const body = await c.req.json().catch(() => ({}));
   const next: Film = {
     ...film,
@@ -171,8 +301,11 @@ app.post("/film/:id/settings", async (c) => {
 /** THE SEAM. A pure function of the frozen record: one D1 read, no model
  *  call, no narration. The browser turns this into pixels. */
 app.get("/film/:id/cut", async (c) => {
-  const film = await loadFilm(c.env, c.req.param("id"));
-  if (!film) return c.json({ error: "no such film" }, 404);
+  const id = c.req.param("id");
+  const loaded = await loadFilm(c.env, id);
+  if (loaded.kind === "legacy") return c.json(legacyBody(id, loaded), 409);
+  if (loaded.kind === "missing") return c.json({ error: "no such film" }, 404);
+  const { film } = loaded;
 
   const { spoken, stale } = await loadSpans(c.env, film);
   const measured = spoken

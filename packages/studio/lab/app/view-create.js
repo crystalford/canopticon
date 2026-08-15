@@ -80,7 +80,11 @@ export async function viewCreate(root, go) {
         `<label>Made already</label>${r.films
           .map(
             (f) =>
-              `<div class="film" data-id="${f.id}"><span>${escape(f.title)}</span><span class="note">${f.created_at.slice(0, 10)}</span></div>`,
+              `<div class="film" data-id="${f.id}"><span>${escape(f.title)}</span><span class="note">${
+                // Say which engine made it. A film that needs re-reading
+                // should announce that in the list, not on a dead page.
+                f.legacy ? "previous engine · needs re-reading" : f.created_at.slice(0, 10)
+              }</span></div>`,
           )
           .join("")}`;
       for (const el of $("films").querySelectorAll(".film")) {
