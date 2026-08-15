@@ -52,15 +52,25 @@ export const FACTORS = [
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp01 = (n) => Math.max(0, Math.min(1, n));
-/** A value near the middle far more often than at the ends — the sum of two
- *  uniforms. Uniform sampling of every dimension puts most points at the
- *  extremes in high dimensions, which is how "generative" comes out looking
- *  uniformly deranged. */
+/** A value near the middle far more often than at the ends. */
 const mid = (rng) => (rng() + rng()) / 2;
-/** …and its opposite, for the dimensions that should commit. */
+
+/** COMMITTED. Pushed toward one end or the other, hard.
+ *
+ *  The previous version of this squeezed toward 0.3/0.7 and the one above it
+ *  toward 0.5, so NO DIMENSION EVER REACHED AN EXTREME. Measured on a real
+ *  film: mean frame tone 0.484 with under 3% midtone — every frame roughly
+ *  half black and half white, forever. That is not a coincidence, it is these
+ *  two functions: a film built from dimensions that always sit near the middle
+ *  has no empty frames and no packed ones, no quiet and no loud, and reads as
+ *  one texture however many parameters vary underneath.
+ *
+ *  I wrote them to avoid "uniformly deranged" output and produced uniformly
+ *  average output instead, which is worse — deranged is at least memorable. */
 const polar = (rng) => {
-  const v = mid(rng);
-  return v < 0.5 ? v * 0.6 : 1 - (1 - v) * 0.6;
+  const v = rng();
+  const k = 3.2; // how hard it commits
+  return v < 0.5 ? 0.5 * (2 * v) ** k : 1 - 0.5 * (2 * (1 - v)) ** k;
 };
 
 /** Sample a style. Every call returns a point that has not been visited.
@@ -98,15 +108,15 @@ export function driftStyle(style, rng, amount) {
  *  together" is stated, which is the knowledge a preset table used to hold
  *  implicitly in each of its rows. */
 function derive(f, rng, palette) {
-  const j = (n) => (rng() - 0.5) * n; // a little independent play
+  const j = (n) => (rng() - 0.5) * n;
+  // Commit a factor that arrived near the middle, so a derived dial can still
+  // reach its ends even when the latent point is unremarkable.
+  const polarOf = (v) => (v < 0.5 ? 0.5 * (2 * v) ** 2.4 : 1 - 0.5 * (2 * (1 - v)) ** 2.4); // a little independent play
 
   // ── the image itself ───────────────────────────────────────────────────
   // How many values exist between black and white. THIS is the dimension
   // whose absence made every frame of every film 96–99% pure black or white:
   // the old engine had one press and it always thresholded.
-  const steps = Math.round(
-    lerp(256, 2, clamp01(f.damage * 0.55 + f.machine * 0.25 + f.weight * 0.2)) ** 1,
-  );
   const inverted = f.weight > 0.55;
 
   return {
@@ -131,7 +141,10 @@ function derive(f, rng, palette) {
 
     /* IMAGE */
     // 2 = a photocopy, 256 = a clean impression, and everything between.
-    steps: Math.max(2, steps),
+    // REACHABLE. The old expression needed damage, machine and weight all near
+    // 1 simultaneously to leave 256, so on a real film it was 256 on all 111
+    // beats — a dial with one value. Driven by a single committed factor now.
+    steps: [2, 2, 3, 4, 6, 12, 256][Math.floor(polarOf(f.damage) * 6.99)],
     // A CONTRAST FLOOR. Ground and ink were derived independently, so a
     // sample could put light type on a light ground and the words vanished —
     // the operator reported white on white and black on black. Legibility is
@@ -188,6 +201,22 @@ function derive(f, rng, palette) {
     verticality: rng() < lerp(0.02, 0.4, 1 - f.order) ? lerp(0.4, 1, rng()) : 0,
     stacking: clamp01(f.fill * 0.8 + (1 - f.order) * 0.3 + j(0.25)),
     stroke: rng() < lerp(0.02, 0.35, 1 - f.weight) ? lerp(0.006, 0.03, f.contrast) : 0,
+
+    /* THE PICTURE AS A WHOLE — what was entirely missing.
+     *
+     * Nothing decided what the FRAME was doing. A form got a random position,
+     * the type either bound to it or went to the grid, and the result was
+     * always "some things at middling density somewhere in the middle". These
+     * are the dimensions of a composition rather than of its contents, and
+     * they are deliberately committed: a film needs frames that are nearly
+     * empty and frames that are packed, not a hundred frames at 50%. */
+    occupancy: lerp(0.015, 0.95, polar(rng)),
+    /** 0 spreads the mass evenly, 1 puts almost all of it in one element. */
+    focus: polar(rng),
+    /** Where the mass sits: 0 dead centre, 1 pinned to an edge. */
+    eccentric: polar(rng),
+    /** The ratio between the largest and smallest thing on the frame. */
+    scaleSpread: lerp(1.1, 14, polar(rng)),
 
     /* PLACEMENT — what used to be eleven named layouts. */
     gridStrength: clamp01(f.order * 1.25 - 0.1 + j(0.12)),

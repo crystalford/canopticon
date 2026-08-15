@@ -81,6 +81,9 @@ function makeUnit(text, role, beat, grid, rng, opts, reg, arcScale = 1, world, s
   const intent = beat.visualIntent;
   const R = reg ?? REGISTERS.COLLISION;
   const Wd = world ?? WORLDS.COLLAGE;
+  // SCALE SPREAD. A key line and a texture line differed by a fixed ratio, so
+  // every frame had the same tonal hierarchy. This is the ratio itself.
+  const spread = style?.scaleSpread ?? 3;
   // THE WORLD DECIDES HOW THIS IS SET. Face, case and treatment all come from
   // the universe this passage is in, not from a fixed table keyed on role —
   // which is what made every unit in every film the same horizontal line.
@@ -100,10 +103,11 @@ function makeUnit(text, role, beat, grid, rng, opts, reg, arcScale = 1, world, s
   // them, which is how twenty texture units once resolved and drew nothing.
   const base =
     role === "key"
-      ? lerp(R.keyScale, Math.min(1, (intent.scale * 0.7 + intent.intensity * 0.5) * arcScale))
+      ? lerp(R.keyScale, Math.min(1, (intent.scale * 0.7 + intent.intensity * 0.5) * arcScale)) *
+        (0.55 + (Wd.spread ?? 1) * 0.15)
       : role === "support"
         ? lerp(R.supportScale, intent.scale)
-        : Math.max(0.03, 0.030 + rng() * 0.026);
+        : Math.max(0.022, (0.030 + rng() * 0.026) * (3 / spread));
   return {
     id: `${beat.id}:${role}:${text.slice(0, 12)}`,
     text,
@@ -200,7 +204,12 @@ const BEHAVIORS = {
     // on its first test and no texture was ever laid down. The frame stayed
     // empty for exactly the reason that was hardest to see.
     const stock = beat.text.body ?? [];
-    const want = Math.round(lerp(ctx.reg.texture, beat.visualIntent.density));
+    // FOCUS. At 1 almost everything is in one element and the rest is a
+    // whisper; at 0 the frame is many equal things. Previously fixed.
+    const focus = ctx.style?.focus ?? 0.5;
+    const want = Math.round(
+      lerp(ctx.reg.texture, ctx.style?.occupancy ?? beat.visualIntent.density) * (1 - focus * 0.85),
+    );
 
     // BODY COPY SETS IN COLUMNS. Placing each fragment independently against
     // the occupancy map scatters them, and several landing in one coarse grid
@@ -593,10 +602,15 @@ export function buildStages(cut) {
     // A form is normalised to unit extent, so scale IS its fraction of the
     // frame. Below about a third it reads as a smudge rather than as a thing;
     // above one it crops, which is a decision rather than a fault.
+    // WHERE THE MASS SITS, and how much of the frame it takes. Both were
+    // random in a narrow band, so the form was always mid-sized and roughly
+    // central — another dimension that never reached an end.
+    const ecc = style.eccentric;
+    const ang = rng() * Math.PI * 2;
     const formPlace = {
-      x: 0.28 + rng() * 0.44,
-      y: 0.28 + rng() * 0.44,
-      scale: 0.45 + rng() * 0.95 * (0.5 + arc.scale),
+      x: 0.5 + Math.cos(ang) * ecc * 0.55,
+      y: 0.5 + Math.sin(ang) * ecc * 0.45,
+      scale: lerp2(0.22, 1.9, style.focus) * (0.55 + arc.scale * 0.6),
     };
     void sectionKey;
     void lastSection;
@@ -739,7 +753,12 @@ export function buildStages(cut) {
     // just laid down, every time, and the frame came out empty while the
     // report said the density target was met. It only ever gets to retire
     // what was already there.
-    const target = vi.density * reg.crowd * world.crowd * (0.5 + arc.density);
+    // THE FRAME'S OWN OCCUPANCY, not the beat's density alone. Nothing decided
+    // what the PICTURE was doing, so every frame came out at middling density
+    // — and a film of a hundred frames all at 50% reads as one texture however
+    // much varies underneath it. A film needs nearly-empty frames and packed
+    // ones.
+    const target = style.occupancy * (0.55 + vi.density * 0.5) * world.crowd;
     const older = () => next.units.filter((u) => !u.dead && u.born < beat.startMs);
     let guard = 24;
     while (coverage(next) > target + 0.3 && guard-- > 0) {
@@ -1038,3 +1057,6 @@ function blend(point, signature, w) {
     return Math.max(0, Math.min(1, v * (1 - w) + s * w));
   });
 }
+
+
+const lerp2 = (a, b, t) => a + (b - a) * t;
