@@ -124,8 +124,21 @@ const picks = [];
 // contact sheet of beat middles looks fine even when every beat is a frozen
 // still, because each frame is from a different beat. Sampling one beat is
 // the only way to see whether the film is actually moving.
+// `--clip <fromMs> <toMs>` renders EVERY frame in a range, for muxing into
+// an actual moving picture. Stills cannot answer the only question that
+// matters about a film.
+const clip = process.argv.indexOf("--clip");
 const inside = process.argv.indexOf("--inside");
-if (inside > -1) {
+if (clip > -1) {
+  const from = Number(process.argv[clip + 1]);
+  const to = Number(process.argv[clip + 2]);
+  const f0 = Math.round((from / 1000) * fps);
+  const f1 = Math.round((to / 1000) * fps);
+  for (let f = f0; f < f1; f++) {
+    const b = cut.beats.find((x) => f / fps >= x.startMs / 1000 && f / fps < x.endMs / 1000);
+    picks.push({ i: f - f0, frame: f, b: b ?? cut.beats[0], quiet: true });
+  }
+} else if (inside > -1) {
   const bi = Number(process.argv[inside + 1]);
   const b = cut.beats[bi];
   const span = b.endMs - b.startMs;
@@ -143,8 +156,14 @@ if (inside > -1) {
 
 for (const p of picks) {
   const data = await page.evaluate((f) => window.__draw(f), p.frame);
-  const file = path.join(outDir, `beat-${String(p.i).padStart(2, "0")}.png`);
+  const file = path.join(
+    outDir,
+    p.quiet
+      ? `seq-${String(p.i).padStart(5, "0")}.png`
+      : `beat-${String(p.i).padStart(2, "0")}.png`,
+  );
   fs.writeFileSync(file, Buffer.from(data, "base64"));
+  if (p.quiet) continue;
   const txt = p.b.text.phrases.map((x) => `"${x.text}"`).join(" ");
   console.log(
     `  ${path.basename(file)}  ${p.b.editorialRole.padEnd(9)} ${p.b.visualIntent.behavior.padEnd(11)} ${txt}`,
