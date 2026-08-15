@@ -347,6 +347,10 @@ export interface TimedBeat {
     /** The passage's own vocabulary, projected into the visual latent space.
      *  This is what makes two different essays make two different films. */
     signature: number[];
+    /** How fast this passage wants to be read, and how much it deserves to be
+     *  dwelt on. Together these are the film's rhythm. */
+    tempo: number;
+    weight: number;
   };
   /** Derived on the Worker. The browser is GIVEN this number and never
    *  re-derives one from a string — see `lib/rng.ts`. */

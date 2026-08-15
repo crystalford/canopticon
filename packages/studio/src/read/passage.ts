@@ -79,6 +79,17 @@ export interface PassageReading {
    *  the space is. This is what makes an essay about an audit land somewhere
    *  an essay about baking bread does not. */
   signature: number[];
+  /** TEMPO — how fast this passage wants to be read, 0 slow to 1 urgent.
+   *
+   *  Read off the prose itself: short sentences and hard stops are quick,
+   *  long subordinated ones are slow. Punctuation density is the strongest
+   *  signal a text gives about its own pace and it costs nothing to read.
+   *  This is what lets a film slow down for one thing and then rush. */
+  tempo: number;
+  /** WEIGHT — how much this passage deserves to be dwelt on. A short
+   *  declarative sentence standing alone is a held moment; a clause inside a
+   *  list is not. */
+  weight: number;
   /** Surface facts, each checkable by reading the sentence. */
   hasFigure: boolean;
   hasProperNoun: boolean;
@@ -219,8 +230,28 @@ export function readPassages(texts: string[]): PassageReading[] {
       return Math.max(0, Math.min(1, 0.5 + z));
     });
 
+    // TEMPO AND WEIGHT, from the writing's own shape.
+    const sentences = text.split(/[.!?]+/).filter((x) => x.trim().length > 0);
+    const meanLen =
+      sentences.length > 0
+        ? sentences.reduce((n, x) => n + x.trim().split(/\s+/).length, 0) / sentences.length
+        : terms.length;
+    // A twenty-eight-word sentence and a five-word one are read at different
+    // speeds by any reader; this is that, normalised.
+    const tempo = Math.max(0, Math.min(1, 1 - (meanLen - 5) / 26));
+    const stops = (text.match(/[.!?;:]/g) ?? []).length / Math.max(1, terms.length);
+    const weight = Math.max(
+      0,
+      Math.min(
+        1,
+        (sentences.length <= 2 ? 0.6 : 0.2) + stops * 2.2 + (terms.length < 12 ? 0.3 : 0),
+      ),
+    );
+
     out.push({
       signature,
+      tempo,
+      weight,
       kind: kindOf(text, terms),
       terms: terms.slice(0, 24),
       novelty,

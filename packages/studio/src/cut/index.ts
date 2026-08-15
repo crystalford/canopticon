@@ -38,7 +38,23 @@ export async function buildCut(input: CutInput): Promise<FilmCut> {
   const { pace, chaos, density } = film.settings;
   const warnings: string[] = [];
 
-  const timed = timeBeats(film.editorial, spine, pace, film.seed, warnings);
+  // READ THE WRITING FIRST. Timing now depends on each passage's own pace, so
+  // the reading cannot come after the cut — a passage's prose decides how long
+  // its beats are, which is the whole point of reading it.
+  const readings = readPassages(
+    film.editorial.beats.map((b) => film.essay.slice(b.range.startChar, b.range.endChar)),
+  );
+  const byEditorialId = new Map(film.editorial.beats.map((b, i) => [b.id, i]));
+
+  const timed = timeBeats(
+    film.editorial,
+    spine,
+    pace,
+    film.seed,
+    warnings,
+    readings,
+    byEditorialId,
+  );
 
   // READ THE WRITING, IN ORDER. Novelty and return are relations between
   // passages, so this cannot be done per beat in isolation — it is exactly the
@@ -48,22 +64,10 @@ export async function buildCut(input: CutInput): Promise<FilmCut> {
   // "return" to the one before it — 85 returns out of 111 beats, which turns
   // the film's memory into a stutter. A subdivision is the same passage
   // continuing; it inherits the reading rather than earning its own.
-  const passageKeys: string[] = [];
-  const passageOf: number[] = [];
-  for (const b of timed) {
-    const key = `${b.sourceRange.startChar}:${b.sourceRange.endChar}`;
-    let idx = passageKeys.indexOf(key);
-    if (idx === -1) idx = passageKeys.push(key) - 1;
-    passageOf.push(idx);
-  }
-  const uniqueTexts = passageKeys.map((k) => {
-    const [a, z] = k.split(":").map(Number);
-    return film.essay.slice(a, z);
+  const beats = timed.map((b) => {
+    const idx = byEditorialId.get(b.id.split(".")[0] as string) ?? 0;
+    return withIntent(b, film, chaos, density, readings[idx], idx);
   });
-  const readings = readPassages(uniqueTexts);
-  const beats = timed.map((b, i) =>
-    withIntent(b, film, chaos, density, readings[passageOf[i] as number], passageOf[i]),
-  );
 
   const durationMs =
     beats.length > 0 ? (beats[beats.length - 1] as TimedBeat).endMs : spine.totalMs;
@@ -109,6 +113,8 @@ function timeBeats(
   pace: number,
   filmSeed: number,
   warnings: string[],
+  readings: ReturnType<typeof readPassages>,
+  byEditorialId: Map<string, number>,
 ): TimedBeat[] {
   if (editorial.beats.length === 0) return [];
 
@@ -181,11 +187,29 @@ function timeBeats(
     // So a held state now lasts between about 0.45s and 1.6s depending on
     // pace, and a long narration paragraph is cut into as many pieces as that
     // takes rather than a maximum of five.
-    const maxHoldMs = 1600 - pace * 1150;
+    // RHYTHM, NOT A RATE.
+    //
+    // Every beat lasted about the same time, so the film changed by the same
+    // amount every second — measured, adjacent frames differed by 0.396 and
+    // distant frames by 0.346, almost the same number. Everything equally
+    // different from everything is what one texture feels like. A real film
+    // has enormous differences at a cut and near-zero within a shot, and its
+    // rate of change is itself a shape.
+    //
+    // So the passage's own prose sets its pace: short sentences and hard
+    // stops run quick, long subordinated ones run slow. And a passage the
+    // writing weights heavily gets HELD — one long beat where the film stops
+    // and looks at a single thing, which is what makes the rush either side
+    // of it mean anything.
+    const rd = readings[byEditorialId.get(s.beat.id) ?? 0];
+    const tempo = rd?.tempo ?? 0.5;
+    const weight = rd?.weight ?? 0.4;
+    const held = weight > 0.62 && s.beat.emphasis > 0.45;
+    const maxHoldMs = held ? 3600 + weight * 2600 : (2100 - pace * 1400) * (1.35 - tempo * 0.95);
     const n = isMontage
       ? 3 + Math.round(pace * 6)
       : span > maxHoldMs
-        ? Math.min(16, Math.ceil(span / maxHoldMs))
+        ? Math.min(20, Math.ceil(span / maxHoldMs))
         : 1;
     if (n === 1 || span < n * BURST_FLOOR_MS) {
       out.push(shell(s, s.startMs, s.endMs, 0, filmSeed));
@@ -285,6 +309,8 @@ function shell(
       isShort: false,
       passage: 0,
       signature: [],
+      tempo: 0.5,
+      weight: 0.4,
     },
     motif: null,
     seed: deriveSeed(filmSeed, id),
@@ -320,6 +346,8 @@ function withIntent(
     hasFigure: boolean;
     isShort: boolean;
     signature: number[];
+    tempo: number;
+    weight: number;
   },
   passageIndex = 0,
 ): TimedBeat {
@@ -428,6 +456,8 @@ function withIntent(
           isShort: reading.isShort,
           passage: passageIndex,
           signature: reading.signature,
+          tempo: reading.tempo,
+          weight: reading.weight,
         }
       : {
           kind: "CLAIM",
@@ -437,19 +467,51 @@ function withIntent(
           isShort: false,
           passage: passageIndex,
           signature: [],
+          tempo: 0.5,
+          weight: 0.4,
         },
-    motif: editorial?.motifRef
-      ? {
-          id: editorial.motifRef.motifId,
-          treatment: editorial.motifRef.treatment,
-          wearBefore: 0,
-          wearAfter: 0,
-        }
-      : null,
+    // A MOTIF APPEARS WHEREVER ITS WORDS DO.
+    //
+    // `motifRef` was only set where the editor PROMOTED a phrase, so eight
+    // beats in eighty-one carried a motif and the visual memory had almost
+    // nothing to remember with. A motif is present when the passage says it,
+    // whether or not that sentence was chosen for the screen — and the test is
+    // the same verbatim substring check a figure gets, so it can be checked
+    // against the prose by anyone.
+    motif: motifIn(film, beat, editorial),
   };
 }
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+
+/** Which motif this beat's own prose contains, if any. Longest phrase wins —
+ *  "machine that turns writing" is a more specific claim than "machine that
+ *  turns", and the specific one is the one the audience will recognise. */
+function motifIn(
+  film: Film,
+  beat: TimedBeat,
+  editorial: EditorialBeat | undefined,
+): TimedBeat["motif"] {
+  const text = film.essay.slice(beat.sourceRange.startChar, beat.sourceRange.endChar).toLowerCase();
+  let best: { id: string; len: number } | null = null;
+  for (const m of film.editorial.motifs) {
+    const p = m.phrase.toLowerCase();
+    if (p.length < 6 || !text.includes(p)) continue;
+    if (!best || p.length > best.len) best = { id: m.id, len: p.length };
+  }
+  if (!best) return null;
+  const m = film.editorial.motifs.find((x) => x.id === best?.id);
+  return {
+    id: best.id,
+    // The editor's own treatment when it named one; otherwise the motif's
+    // declared arc decides how this appearance reads.
+    treatment:
+      editorial?.motifRef?.treatment ??
+      (m?.arc === "degrade" ? "degrade" : m?.arc === "invert" ? "restate" : "repeat"),
+    wearBefore: 0,
+    wearAfter: 0,
+  };
+}
 
 /** The beat's own prose, cut into short verbatim fragments.
  *

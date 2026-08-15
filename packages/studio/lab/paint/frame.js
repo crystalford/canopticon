@@ -68,11 +68,18 @@ export function drawFrame(ctx, film, frameIndex) {
   const grainAmt = sty ? sty.grain : 1;
 
 
-  // The plate runs coarser than the output and is upscaled without
-  // smoothing. That is the photocopy's own resolution loss, and it halves
-  // the per-pixel cost of everything below.
-  const pw = Math.max(2, Math.round(w * 0.7));
-  const ph = Math.max(2, Math.round(h * 0.7));
+  // RESOLUTION IS THE STYLE'S, NOT A CONSTANT.
+  //
+  // The plate ran at 0.7 of the output on every frame of every film and was
+  // upscaled with smoothing off, so EVERYTHING was soft and chunky whether it
+  // wanted to be or not — the operator listed resolution as a complaint and
+  // this was the whole of it. A photocopy's resolution loss is a decision; a
+  // clean impression should be sharp. `machine` decides, so a crisp
+  // mechanical frame renders at full resolution and a degraded one genuinely
+  // loses detail.
+  const scaleOfPlate = sty ? 0.55 + sty.f.machine * 0.45 : 0.7;
+  const pw = Math.max(2, Math.round(w * scaleOfPlate));
+  const ph = Math.max(2, Math.round(h * scaleOfPlate));
 
   const buf = ensureBuffers(film, pw, ph);
   const p = buf.inkCtx;

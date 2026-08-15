@@ -36,7 +36,9 @@ import { boilOffset, boilStep } from "../core/noise.js";
 import { mulberry32 } from "../core/rng.js";
 import { arcAt, vocabularyAt } from "./arc.js";
 import { LAYOUTS, emptiest, place } from "./layout.js";
+import { partition, placeInZone, zoneFor } from "./frame.js";
 import { emitMarks } from "./marks.js";
+import { invoke, makeMotifs, trace, verbFor } from "./motif.js";
 import {
   attachPoints,
   buildForm,
@@ -322,7 +324,7 @@ function introduce(stage, beat, ctx, motion) {
     u.box.w = Math.min(1.6, u.text.length * u.size * 0.46);
     u.box.h = u.size * 1.25;
     u.motion = { ...motion, t0: beat.startMs, delay: i * (ctx.attackMs * 0.32) };
-    if (!bindToForm(u, ctx)) place(ctx.layout, ctx.grid, stage, u, ctx.rng, ctx.opts);
+    if (!bindToForm(u, ctx)) placeInFrame(u, ctx, stage);
     migrate(stage, u, ctx, beat);
     stage.units.push(u);
   }
@@ -388,6 +390,27 @@ function converge(stage, beat, ctx, toward, strength) {
  *  one sitting in it. That relation is the difference between a composition
  *  and two systems that happen to share a canvas.
  */
+/** LAYERED PLACEMENT. A unit goes to the zone its importance earns, and obeys
+ *  that zone's own alignment and baseline — rather than being scored against a
+ *  global occupancy map, which asks "where is there room" when the question a
+ *  designer asks is "what is this, and where does that kind of thing go".
+ *
+ *  The old scored placer is kept for the low end: texture genuinely does want
+ *  to go wherever there is room, and forcing it into a zone would tidy away
+ *  the material the composition is made of. */
+function placeInFrame(u, ctx, stage) {
+  if (u.protection < 0.35 && ctx.rng() < 0.55) {
+    place(ctx.layout, ctx.grid, stage, u, ctx.rng, ctx.opts);
+    return;
+  }
+  const z = zoneFor(ctx.zones, u, ctx.rng);
+  const p = placeInZone(z, u, ctx.rng, ctx.style);
+  u.box.x = p.x;
+  u.box.y = p.y;
+  u.rot = p.rot;
+  u.zone = z.role;
+}
+
 function bindToForm(u, ctx) {
   const s = ctx.style;
   const anchors = ctx.anchors;
@@ -490,6 +513,10 @@ export function buildStages(cut) {
   // rather than a colour scheme. This advances once every several passages,
   // so the colour drifts while everything else travels.
   const paletteWalk = makeWander(3, cut.seed ^ 0x27d4eb2f);
+  // THE MOTIF LEDGER. `cut.motifs` and `beat.motif` have existed and driven
+  // nothing at all — a complete grammar sitting one wire short of the screen,
+  // which is a failure this codebase has produced before.
+  const motifs = makeMotifs(cut, FACTORS.length + FORM_KEYS.length);
   let hueTurn = 0;
   let palette = paletteOf(nextPoint(paletteWalk), hueTurn++);
   let point = nextPoint(wander);
@@ -553,6 +580,19 @@ export function buildStages(cut) {
     // that holds drifts a little, one that has moved leaps, and one that
     // RETURNS comes back to its own earlier form grown further — which is what
     // makes a callback read as time passed rather than as a loop.
+    // A MOTIF APPEARANCE OUTRANKS EVERYTHING. If this beat carries one, the
+    // film goes to that motif's own identity transformed by a verb, rather
+    // than to wherever the sequence was heading — because a returning idea
+    // deciding what the screen does IS the visual argument.
+    let motifOver = null;
+    const mo = beat.motif ? motifs.get(beat.motif.id) : null;
+    if (mo) {
+      const verb = verbFor(mo, beat.motif.treatment, beat.startMs, u);
+      const inv = invoke(mo, verb, beat.startMs, rng);
+      motifOver = { verb, over: inv.over, id: mo.id };
+      point = inv.point;
+    }
+
     const leap = chosen.why === "move" || chosen.why === "open";
     if (chosen.why === "return" && topicForms.has(rd.passage)) {
       // A return goes back to its own place, grown further.
@@ -572,25 +612,41 @@ export function buildStages(cut) {
       // That is a template however large the space is. The passage's own
       // vocabulary now sets where the film goes; the sequence explores around
       // it, so coverage survives and content decides the neighbourhood.
-      point = blend(nextPoint(wander), rd.signature, 0.55);
+      point = motifOver ? point : blend(nextPoint(wander), rd.signature, 0.55);
       // A NEW PALETTE ON EVERY MOVE. It used to advance once every three, and
       // with eleven moves in a real essay the whole film had four hues — which
       // landed adjacent, so twenty frames came out black, white and one green.
       palette = paletteOf(nextPoint(paletteWalk), hueTurn++);
       style = sampleStyle(
         rng,
-        { ...asBias(point, FACTORS), damage: Math.min(0.92, point[1] * 0.5 + arc.wear * 0.5) },
+        {
+          ...asBias(point, FACTORS),
+          damage: Math.min(0.92, point[1] * 0.5 + arc.wear * 0.5),
+          ...(motifOver?.over ?? {}),
+        },
         palette,
       );
-      form = sampleForm(rng, asBias(point.slice(FACTORS.length), FORM_KEYS));
+      form = sampleForm(rng, {
+        ...asBias(point.slice(FACTORS.length), FORM_KEYS),
+        ...(motifOver?.over ?? {}),
+      });
     } else {
       // A HOLD STILL TRAVELS — a smaller step along a second sequence inside
       // the same region. The passage decides the neighbourhood; standing
       // still inside it for fifty seconds is what made twenty minutes feel
       // like four.
-      const p2 = blend(step(wander, 0.22), rd.signature, 0.35);
-      style = sampleStyle(rng, asBias(p2, FACTORS), palette);
-      form = sampleForm(rng, asBias(p2.slice(FACTORS.length), FORM_KEYS));
+      // THE TRACE. A motif seen recently pulls the film toward itself even in
+      // passages that do not carry it — which is the difference between a film
+      // with recurring images and a film with a memory. It decays over about a
+      // minute, so the pull is strongest just after an appearance.
+      const tr = trace(motifs, beat.startMs);
+      let p2 = motifOver ? point : blend(step(wander, 0.22), rd.signature, 0.35);
+      if (!motifOver && tr) p2 = blend(p2, tr.point, tr.weight);
+      style = sampleStyle(rng, { ...asBias(p2, FACTORS), ...(motifOver?.over ?? {}) }, palette);
+      form = sampleForm(rng, {
+        ...asBias(p2.slice(FACTORS.length), FORM_KEYS),
+        ...(motifOver?.over ?? {}),
+      });
     }
     if (!topicForms.has(rd.passage)) topicForms.set(rd.passage, form);
     const built = buildForm(form);
@@ -626,6 +682,11 @@ export function buildStages(cut) {
     // same way every time and there was nothing telling it the picture had an
     // anchor. This is that anchor, and it travels with the composition dials
     // rather than being re-rolled.
+    // THE FRAME IS DIVIDED BEFORE ANYTHING IS PLACED. Elements scattered by an
+    // algorithm is what a plugin does; a designer decides the structure first
+    // and fills it second.
+    const zones = partition(style, rng);
+
     const anchorAngle = rng() * Math.PI * 2;
     const anchor = {
       x: 0.5 + Math.cos(anchorAngle) * style.eccentric * 0.42,
@@ -685,6 +746,7 @@ export function buildStages(cut) {
       grid,
       rng,
       opts: { ...opts, anchor },
+      zones,
       reg,
       regName,
       world,
@@ -818,7 +880,7 @@ export function buildStages(cut) {
         u.box.w = Math.min(0.9, u.text.length * u.size * 0.5);
         u.box.h = u.size * 1.3;
         u.motion = { kind: "fade", dur: attackMs * 2, t0: beat.startMs, delay: k * 60 };
-        place(layout, grid, next, u, rng, opts);
+        placeInFrame(u, { grid, rng, opts: { ...opts, anchor }, layout, zones, style }, next);
         next.units.push(u);
       }
     }
@@ -833,7 +895,8 @@ export function buildStages(cut) {
       entry,
       world: worldName,
       layout,
-      why: chosen.why,
+      why: motifOver ? `motif:${motifOver.verb}` : chosen.why,
+      motif: motifOver,
       process: world.process ?? "photocopy",
       style,
       form,
