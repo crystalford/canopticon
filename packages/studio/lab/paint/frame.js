@@ -24,7 +24,7 @@ import { drawMark } from "../comp/marks.js";
 import { makeField, registration, renderField } from "../core/field.js";
 import { layoutText } from "../comp/treatment.js";
 import { drawForm } from "../form/draw.js";
-import { growAt } from "../form/grow.js";
+import { formTransform, growAt } from "../form/grow.js";
 import { PROCESSES } from "./process.js";
 import { FACES } from "../core/type.js";
 
@@ -99,7 +99,17 @@ export function drawFrame(ctx, film, frameIndex) {
   // the press treat it exactly as they treat text. A form composited after the
   // press would be a sticker on a photocopy.
   if (built && formPlace) {
-    drawForm(p, growAtSafe(built, grown ?? 0), formPlace.x, formPlace.y, formPlace.scale, pw, ph);
+    // A FORM KEEPS MOVING AFTER IT HAS GROWN. It used to draw itself in and
+    // then stop — the same frozen-frame failure the type had before the boil,
+    // arriving through the one part of the engine that was meant to be alive.
+    const t = grown ?? 0;
+    const m = formTransform(built.form, t);
+    p.save();
+    p.translate((formPlace.x + m.dx) * pw, (formPlace.y + m.dy) * ph);
+    p.rotate((m.rot * Math.PI) / 180);
+    p.translate(-formPlace.x * pw, -formPlace.y * ph);
+    drawForm(p, growAt(built, t), formPlace.x, formPlace.y, formPlace.scale * m.scale, pw, ph);
+    p.restore();
   }
 
   // Marks next — furniture sits under the words, which is what makes a
@@ -178,6 +188,11 @@ export function drawFrame(ctx, film, frameIndex) {
         p.textBaseline = "alphabetic";
         p.translate(r.x, r.y);
         if (r.rot) p.rotate((r.rot * Math.PI) / 180);
+        // SYNTHETIC AXES. Four self-hosted faces cannot be a hundred
+        // typefaces — but a face at 40% width, sheared, is not the same object
+        // as the face it came from, and the transform is free.
+        if (r.widthScale && r.widthScale !== 1) p.scale(r.widthScale, 1);
+        if (r.shear) p.transform(1, 0, r.shear, 1, 0, 0);
         if (r.flipY) p.scale(1, -1);
         if (r.alpha !== undefined) p.globalAlpha = Math.max(0, Math.min(1, alpha * r.alpha));
         if (r.stroke) {
@@ -359,12 +374,6 @@ export function prepareFilm(cut, stagesResult) {
     // milliseconds to generate and would be a stall on every frame.
     _field: makeField(cut.seed),
   };
-}
-
-
-/** Grow a form to a moment, tolerating a stage built before forms existed. */
-function growAtSafe(built, t) {
-  return growAt(built, t);
 }
 
 

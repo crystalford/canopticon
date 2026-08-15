@@ -46,6 +46,8 @@ const W = (ctx, s) => ctx.measureText(s).width;
  *  predates the style space still renders rather than taking the whole frame
  *  down — degrade, flag, continue. */
 const FALLBACK = {
+  widthScale: 1,
+  shear: 0,
   caseMix: 0.7,
   weightAxis: 700,
   tracking: 0.2,
@@ -175,6 +177,8 @@ function mk(text, x, y, px, rot, face, weight, tracking, s, ci, u) {
     weight,
     tracking,
     stroke: s.stroke > 0 ? px * s.stroke : 0,
+    widthScale: s.widthScale ?? 1,
+    shear: s.shear ?? 0,
   };
 }
 

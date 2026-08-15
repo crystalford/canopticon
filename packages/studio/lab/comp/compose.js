@@ -37,7 +37,14 @@ import { mulberry32 } from "../core/rng.js";
 import { arcAt, vocabularyAt } from "./arc.js";
 import { LAYOUTS, emptiest, place } from "./layout.js";
 import { emitMarks } from "./marks.js";
-import { buildForm, driftForm, formKey, sampleForm } from "../form/grow.js";
+import {
+  attachPoints,
+  buildForm,
+  driftForm,
+  formKey,
+  formTransform,
+  sampleForm,
+} from "../form/grow.js";
 import { FACTORS, driftStyle, sampleStyle, styleKey } from "../style/space.js";
 import { asBias, makeWander, next as nextPoint, step } from "../style/wander.js";
 import { WORLDS, WORLD_MEMORY, chooseWorld } from "./world.js";
@@ -306,7 +313,7 @@ function introduce(stage, beat, ctx, motion) {
     u.box.w = Math.min(1.6, u.text.length * u.size * 0.46);
     u.box.h = u.size * 1.25;
     u.motion = { ...motion, t0: beat.startMs, delay: i * (ctx.attackMs * 0.32) };
-    place(ctx.layout, ctx.grid, stage, u, ctx.rng, ctx.opts);
+    if (!bindToForm(u, ctx)) place(ctx.layout, ctx.grid, stage, u, ctx.rng, ctx.opts);
     migrate(stage, u, ctx, beat);
     stage.units.push(u);
   }
@@ -362,6 +369,30 @@ function converge(stage, beat, ctx, toward, strength) {
       dur: Math.max(600, ctx.durMs * 0.9),
     };
   }
+}
+
+/** Put a word ON the structure rather than near it.
+ *
+ *  Returns false when this unit is not binding, so the placer takes it — the
+ *  two are alternatives, not layers. A tip gets a word at its end lying along
+ *  its own tangent; a span gets one running with it; an edge or a cell gets
+ *  one sitting in it. That relation is the difference between a composition
+ *  and two systems that happen to share a canvas.
+ */
+function bindToForm(u, ctx) {
+  const s = ctx.style;
+  const anchors = ctx.anchors;
+  const fp = ctx.formPlace;
+  if (!anchors || anchors.length === 0 || !fp) return false;
+  if (ctx.rng() > s.attachment * (u.protection >= 1 ? 0.55 : 1)) return false;
+  const a = anchors[Math.floor(ctx.rng() * anchors.length)];
+  // Form coordinates are unit-extent and centred, so this is the same
+  // transform `drawForm` applies — one convention, both places.
+  u.box.x = fp.x + a.x * fp.scale - u.box.w * 0.5;
+  u.box.y = fp.y + a.y * fp.scale;
+  u.rot = a.kind === "tip" || a.kind === "span" ? a.angle : u.rot;
+  u.bound = a.kind;
+  return true;
 }
 
 function coverage(stage) {
@@ -445,8 +476,15 @@ export function buildStages(cut) {
     "recession",
   ];
   const wander = makeWander(FACTORS.length + FORM_KEYS.length, cut.seed);
+  // THE PALETTE HAS ITS OWN, SLOWER WALK. Sampled per beat, hue strobed — a
+  // film cutting every second through independent random hues is a fault
+  // rather than a colour scheme. This advances once every several passages,
+  // so the colour drifts while everything else travels.
+  const paletteWalk = makeWander(3, cut.seed ^ 0x27d4eb2f);
+  let palette = paletteOf(nextPoint(paletteWalk));
+  let sinceHue = 0;
   let point = nextPoint(wander);
-  let style = sampleStyle(mulberry32(cut.seed ^ 0x5f3759df), asBias(point, FACTORS));
+  let style = sampleStyle(mulberry32(cut.seed ^ 0x5f3759df), asBias(point, FACTORS), palette);
   let form = sampleForm(
     mulberry32(cut.seed ^ 0x1b873593),
     asBias(point.slice(FACTORS.length), FORM_KEYS),
@@ -516,10 +554,16 @@ export function buildStages(cut) {
       // maximally far from every point already used, by construction, so
       // minute fifteen is somewhere minute two never went.
       point = nextPoint(wander);
-      style = sampleStyle(rng, {
-        ...asBias(point, FACTORS),
-        damage: Math.min(0.92, point[1] * 0.5 + arc.wear * 0.5),
-      });
+      sinceHue += 1;
+      if (sinceHue >= 3) {
+        palette = paletteOf(nextPoint(paletteWalk));
+        sinceHue = 0;
+      }
+      style = sampleStyle(
+        rng,
+        { ...asBias(point, FACTORS), damage: Math.min(0.92, point[1] * 0.5 + arc.wear * 0.5) },
+        palette,
+      );
       form = sampleForm(rng, asBias(point.slice(FACTORS.length), FORM_KEYS));
     } else {
       // A HOLD STILL TRAVELS — a smaller step along a second sequence inside
@@ -527,11 +571,15 @@ export function buildStages(cut) {
       // still inside it for fifty seconds is what made twenty minutes feel
       // like four.
       const p2 = step(wander, 0.22);
-      style = sampleStyle(rng, asBias(p2, FACTORS));
+      style = sampleStyle(rng, asBias(p2, FACTORS), palette);
       form = sampleForm(rng, asBias(p2.slice(FACTORS.length), FORM_KEYS));
     }
     if (!topicForms.has(rd.passage)) topicForms.set(rd.passage, form);
     const built = buildForm(form);
+    // WHERE WORDS MAY BIND TO THE STRUCTURE. Form and type have been two
+    // systems sharing a canvas — the form drawn behind, the type placed by
+    // its own occupancy logic, neither aware of the other.
+    const anchors = attachPoints(built);
     // A form is normalised to unit extent, so scale IS its fraction of the
     // frame. Below about a third it reads as a smudge rather than as a thing;
     // above one it crops, which is a decision rather than a fault.
@@ -608,6 +656,8 @@ export function buildStages(cut) {
       worldName,
       layout,
       style,
+      anchors,
+      formPlace,
       arc,
       attackMs,
       durMs,
@@ -948,4 +998,16 @@ function sectionOf(cut, beat) {
   const motifs = cut.motifs ?? [];
   void motifs;
   return Math.floor(beat.sourceRange.startChar / 420);
+}
+
+
+/** The film's palette at a point on its own slow walk. Hue, a second hue for
+ *  the ink, and saturation — which is its own dimension so a stretch of film
+ *  can be fully monochrome and the next fully saturated. */
+function paletteOf(p) {
+  return {
+    hue: p[0] * 360,
+    hue2: (p[0] * 360 + 60 + p[1] * 240) % 360,
+    sat: p[2] < 0.22 ? 0 : 0.15 + p[2] * 0.85,
+  };
 }

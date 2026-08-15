@@ -69,7 +69,7 @@ const polar = (rng) => {
  *  own arc pushes `damage` up over its length, a loud passage pushes `weight`,
  *  and none of that requires a preset to exist.
  */
-export function sampleStyle(rng, bias = {}) {
+export function sampleStyle(rng, bias = {}, palette) {
   const f = {
     order: clamp01((bias.order ?? polar(rng)) + (rng() - 0.5) * 0.12),
     damage: clamp01((bias.damage ?? mid(rng) * 0.85) + (rng() - 0.5) * 0.12),
@@ -78,7 +78,7 @@ export function sampleStyle(rng, bias = {}) {
     contrast: clamp01((bias.contrast ?? polar(rng)) + (rng() - 0.5) * 0.12),
     machine: clamp01((bias.machine ?? polar(rng)) + (rng() - 0.5) * 0.12),
   };
-  return derive(f, rng);
+  return derive(f, rng, palette);
 }
 
 /** Move to a NEARBY point. A film that jumps to an unrelated style every time
@@ -90,14 +90,14 @@ export function driftStyle(style, rng, amount) {
   for (const k of FACTORS) {
     f[k] = clamp01(style.f[k] + (rng() - 0.5) * 2 * amount);
   }
-  return derive(f, rng);
+  return derive(f, rng, style.palette);
 }
 
 /** THE DERIVATION. Forty parameters from six factors. This function is the
  *  actual design work — it is where "high damage and low tonal range travel
  *  together" is stated, which is the knowledge a preset table used to hold
  *  implicitly in each of its rows. */
-function derive(f, rng) {
+function derive(f, rng, palette) {
   const j = (n) => (rng() - 0.5) * n; // a little independent play
 
   // ── the image itself ───────────────────────────────────────────────────
@@ -119,9 +119,15 @@ function derive(f, rng) {
      * own dimension so a sample can be fully monochrome, fully saturated, or
      * anywhere between; `machine` pushes hues apart because a printed thing
      * and a screen thing disagree about how colour behaves. */
-    hue: Math.round(rng() * 360),
-    hue2: Math.round(rng() * 360),
-    sat: clamp01((1 - f.damage) * 0.5 + f.machine * 0.5 + j(0.35)) * (rng() < 0.3 ? 0 : 1),
+    // THE PALETTE TRAVELS SLOWLY WHILE EVERYTHING ELSE TRAVELS FAST.
+    //
+    // Sampled per beat, hue strobed: a film cutting every second through
+    // independent random hues is a fault, not a colour scheme. The palette
+    // comes from its own slow walk and the beat only varies WITHIN it.
+    palette,
+    hue: Math.round(((palette?.hue ?? rng() * 360) + j(24)) % 360),
+    hue2: Math.round(((palette?.hue2 ?? rng() * 360) + j(30)) % 360),
+    sat: clamp01((palette?.sat ?? (1 - f.damage) * 0.5 + f.machine * 0.5) + j(0.18)),
 
     /* IMAGE */
     // 2 = a photocopy, 256 = a clean impression, and everything between.
@@ -151,6 +157,20 @@ function derive(f, rng) {
     // Scale range as a fraction of frame height. `contrast` opens the gap.
     scaleMin: lerp(0.02, 0.06, 1 - f.contrast),
     scaleMax: lerp(0.10, 0.62, f.contrast * 0.8 + f.weight * 0.3),
+
+    /* SETTING — synthetic axes. Four self-hosted faces cannot be a hundred
+       typefaces, but a face at 40% width, sheared 14° and stroked is not the
+       same object as the face it came from. Width, shear and a per-run
+       perspective multiply four into a great many. */
+    widthScale: lerp(0.42, 1.9, clamp01(f.contrast * 0.6 + j(0.4) + 0.3)),
+    shear: lerp(-0.42, 0.42, clamp01((1 - f.order) * 0.8 + j(0.4))) * (rng() < 0.55 ? 0 : 1),
+    /** Type set INTO the frame's depth rather than on its surface. */
+    typeDepth: rng() < lerp(0.05, 0.5, 1 - f.order) ? lerp(0.15, 0.85, rng()) : 0,
+
+    /** HOW MUCH THE WORDS BIND TO THE FORM. At 0 they are two systems sharing
+     *  a canvas — which is what they have been. At 1 the type is placed on the
+     *  form's own skeleton: along a limb, at a tip, inside a membrane. */
+    attachment: clamp01((1 - f.order) * 0.5 + f.fill * 0.6 + j(0.35)),
 
     /* SETTING — what used to be thirteen named treatments is now four
        continuous dimensions, so `line`, `arc`, `column` and `perLetter` are

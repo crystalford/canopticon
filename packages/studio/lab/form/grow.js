@@ -159,6 +159,20 @@ function derive(f, rng, keepSeed) {
     /** How the whole thing is drawn in over its beat. */
     growth: lerp(0.25, 1, p * 0.5 + a * 0.4 + j(0.2)),
 
+    /* ── MOTION AFTER GROWTH ─────────────────────────────────────────────
+     * A form drew itself in and then STOPPED — static for the rest of its
+     * beat, which is the same frozen-frame failure the type had before the
+     * boil and the plate drift were added, arriving through the one part of
+     * the engine that was supposed to be alive. */
+    driftX: lerp(-0.09, 0.09, rng()) * (1 - o * 0.6),
+    driftY: lerp(-0.09, 0.09, rng()) * (1 - o * 0.6),
+    spin: lerp(-26, 26, rng()) * (1 - o * 0.8),
+    breathe: lerp(0, 0.22, (1 - o) * c + j(0.1)),
+    breatheHz: lerp(0.15, 1.4, p + j(0.2)),
+    /** Per-limb sway — the structure moves within itself, not only as a
+     *  block. A rigid thing sways less, which is what rigid means. */
+    sway: lerp(0, 0.05, (1 - o) * (1 - f.rigidity) + j(0.05)),
+
     /* ── BUILT rather than GROWN ─────────────────────────────────────── */
     /** At 1 a limb does not split at its tip — it carries members along its
      *  length at regular intervals. Ladder, truss, comb, fence, ribcage. */
@@ -493,14 +507,84 @@ const angleDiff = (a, b) => {
 /** What has grown by `t` (0..1 across the beat). Everything carries a `born`
  *  time, so the structure draws itself in rather than appearing. */
 export function growAt(built, t) {
+  const f = built.form;
   const alive = (o) => t >= o.born;
-  const frac = (o) => clamp01((t - o.born) / Math.max(0.06, built.form.growth * 0.5));
+  const frac = (o) => clamp01((t - o.born) / Math.max(0.06, f.growth * 0.5));
+  // SWAY. Each limb moves at its own phase, so the structure articulates
+  // rather than sliding as one block — the same reason every text unit carries
+  // its own drift phase.
+  const swayed = (pts, phase) =>
+    f.sway < 0.001
+      ? pts
+      : pts.map((q, i) => ({
+          ...q,
+          x: q.x + Math.sin(t * 5.4 + phase + i * 0.4) * f.sway,
+          y: q.y + Math.cos(t * 4.1 + phase + i * 0.3) * f.sway,
+        }));
   return {
-    limbs: built.limbs.filter(alive).map((l) => ({ ...l, grown: frac(l) })),
+    limbs: built.limbs
+      .filter(alive)
+      .map((l, i) => ({ ...l, pts: swayed(l.pts, i * 1.7), grown: frac(l) })),
     dots: built.dots.filter(alive).map((d) => ({ ...d, grown: frac(d) })),
-    hulls: built.hulls.filter(alive).map((h) => ({ ...h, grown: frac(h) })),
+    hulls: built.hulls
+      .filter(alive)
+      .map((h, i) => ({ ...h, pts: swayed(h.pts, i * 2.3), grown: frac(h) })),
     rects: built.rects.filter(alive).map((r) => ({ ...r, grown: frac(r) })),
   };
+}
+
+/** Where the whole form is at a moment — drift, spin and breath, resolved
+ *  analytically so frame 900 drawn directly is frame 900. */
+export function formTransform(form, t) {
+  return {
+    dx: form.driftX * t,
+    dy: form.driftY * t,
+    rot: form.spin * t,
+    scale: 1 + Math.sin(t * form.breatheHz * 6.28) * form.breathe,
+  };
+}
+
+/** ATTACHMENT POINTS — where words may bind to a structure.
+ *
+ *  Form and type have been two systems sharing a canvas: the form drawn
+ *  behind, the type placed by its own occupancy logic, neither aware of the
+ *  other. These are the places on a structure a word can actually belong —
+ *  a tip, a node along a limb, a point on a boundary — with the local tangent
+ *  so the word can lie along it rather than across it. */
+export function attachPoints(built) {
+  const out = [];
+  for (const l of built.limbs) {
+    const n = l.pts.length;
+    if (n < 2) continue;
+    const a = l.pts[n - 2];
+    const b = l.pts[n - 1];
+    out.push({
+      x: b.x,
+      y: b.y,
+      angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
+      kind: "tip",
+    });
+    if (n > 3) {
+      const m = Math.floor(n / 2);
+      const p0 = l.pts[m - 1];
+      const p1 = l.pts[m];
+      out.push({
+        x: p1.x,
+        y: p1.y,
+        angle: (Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180) / Math.PI,
+        kind: "span",
+      });
+    }
+  }
+  for (const h of built.hulls) {
+    for (let i = 0; i < h.pts.length; i += Math.max(1, Math.floor(h.pts.length / 6))) {
+      out.push({ x: h.pts[i].x, y: h.pts[i].y, angle: 0, kind: "edge" });
+    }
+  }
+  for (const r of built.rects) {
+    out.push({ x: r.x + r.w * 0.06, y: r.y + r.h * 0.6, angle: 0, kind: "cell" });
+  }
+  return out;
 }
 
 /** A fingerprint, for measuring whether the engine visits new regions or
