@@ -1,0 +1,54 @@
+/* THE FILM'S FACES, SELF-HOSTED.
+ *
+ * Not a CDN link. The font is the material this engine is made of, and a
+ * network dependency in the middle of it means a headless render silently
+ * falls back to a system face — which is exactly what happened to every
+ * offline frame produced before these files existed. `font-display: block`
+ * rather than `swap` for the same reason: a frame drawn in the fallback
+ * while the real face loads is a frame rendered in the wrong typeface.
+ *
+ * All four families are OFL — see fonts/OFL.txt.
+ */
+
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url("fonts/space-grotesk-500.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Space Grotesk";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("fonts/space-grotesk-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Archivo Black";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("fonts/archivo-black.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Newsreader";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("fonts/newsreader-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Newsreader";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("fonts/newsreader-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url("fonts/jetbrains-mono-500.woff2") format("woff2");
+}

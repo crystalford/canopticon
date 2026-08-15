@@ -1,0 +1,51 @@
+/* The tool, not the film. The film is monochrome by mandate; this is just
+   the room you stand in while you make one. */
+:root {
+  --bg: #0d0f11;
+  --panel: #16191c;
+  --line: #262b30;
+  --ink: #e8eaec;
+  --mute: #8b959d;
+  --live: #d8d2c2;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 15px/1.55 "Space Grotesk", system-ui, sans-serif;
+}
+main { max-width: 940px; margin: 0 auto; padding: 40px 24px 80px; }
+h1 { font: 400 30px/1.1 "Archivo Black", sans-serif; margin: 0 0 4px; letter-spacing: -0.01em; }
+.sub { color: var(--mute); margin: 0 0 32px; font-size: 14px; }
+label { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); margin: 22px 0 8px; }
+textarea {
+  width: 100%; min-height: 260px; padding: 16px; resize: vertical;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 3px;
+  font: 400 15px/1.6 "Newsreader", Georgia, serif;
+}
+textarea:focus, select:focus, button:focus { outline: 1px solid var(--live); outline-offset: 1px; }
+.row { display: flex; gap: 24px; flex-wrap: wrap; }
+.dial { flex: 1 1 180px; }
+input[type=range] { width: 100%; accent-color: var(--live); }
+.ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--mute); }
+select {
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 3px; padding: 9px 10px; font: inherit; font-size: 14px;
+}
+button {
+  background: var(--live); color: #14171a; border: 0; border-radius: 3px;
+  padding: 13px 24px; font: 700 14px/1 "Space Grotesk", sans-serif;
+  letter-spacing: 0.04em; cursor: pointer;
+}
+button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+button:disabled { opacity: 0.45; cursor: default; }
+.actions { margin-top: 30px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.note { color: var(--mute); font-size: 13px; }
+.films { margin-top: 44px; border-top: 1px solid var(--line); padding-top: 20px; }
+.film { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.film:hover { color: var(--live); }
+canvas { width: 100%; background: #000; border: 1px solid var(--line); display: block; }
+.warn { color: var(--mute); font-size: 12px; margin: 3px 0; font-family: "JetBrains Mono", monospace; }
+.bar { height: 3px; background: var(--line); margin: 14px 0; }
+.bar > i { display: block; height: 100%; background: var(--live); width: 0; }

@@ -1,11 +1,13 @@
 # Canopticon
 
 > **If you are an AI reading this to understand the project: this file is the
-> source of truth. The primary product is CANOPTICON STUDIO — a deterministic
-> editorial compiler for documentary and video-essay film. Everything else in
-> this monorepo is a separate, compartmentalized system that is maintained but
-> not grown. Do not design Studio against the older systems' docs; Studio's
-> authority is `docs/studio/`, in the order given below.**
+> source of truth. The primary product is CANOPTICON STUDIO — an editorial
+> film generator for essays. Everything else in this monorepo is a separate,
+> compartmentalized system that is maintained but not grown.**
+>
+> **Studio's only design authority is `docs/studio/CANOPTICON_FILM_ENGINE.md`.
+> `docs/studio/archive/` describes an engine that was DELETED and binds
+> nothing — do not design against it, however confident it sounds.**
 
 - **Studio** (primary): studio.canopticon.com · **Record**: canopticon.com
 - **Twitter**: @canoptics · **GitHub**: crystalford/canopticon
@@ -22,308 +24,139 @@
 
 # THE PRIMARY PRODUCT — Canopticon Studio
 
-**Essay in, film out.** A film is the *compiled artifact* of a versioned,
-reproducible source representation — not a one-off render. The video is built
-from code: 111 procedural primitives across 18 families, chained by a
-composition engine that reads the director's intent.
+**Essay in, film out.** You paste an essay, choose a voice and three dials, and
+get a film. One visual language: `TYPOGRAPHIC_EDITORIAL` — **monochrome
+generative editorial collage**. Experimental documentary, kinetic typography,
+punk/zine cut-and-paste, photocopy, newspaper, propaganda, title sequence.
+
+**It is not** an AI video generator, a prompt-to-video wrapper, a template
+engine, or an auto-generated After Effects kinetic-typography preset. The goal
+is *typography behaving as a living visual material inside an editorial
+composition* — text as the raw material of the film, not text animated over a
+background.
 
 ```
-ESSAY / SCRIPT
-     ↓
-NARRATIVE IR            acts → scenes, bound to the prose by character offset
-     ↓
-CREATIVE STATE          the film's evolving personality, as curves
-     ↓
-COMPOSITION ENGINE      intent → a CONSTRUCTED program
-     ↓
-CONSTRUCTIONS           build a thing, parameterised from the prose
-OPERATORS               orthogonal — applied to anything constructed
-     ↓
-PROCEDURAL PALETTE      128 primitives — the instruction set, not the menu
-     ↓
-CONSTRAINT SOLVER       narration anchors → time windows
-     ↓
-RENDER DAG              content-hashed, cache-aware
-     ↓
+ESSAY
+  ↓  EDITOR            what matters, what turns, which phrases earn the screen
+  ↓                    (one LLM call, verified, frozen; rules editor as fallback)
+  ↓  NARRATION         spans → TTS → ASR → word-level alignment
+  ↓  SPINE             the authoritative clock, measured from the voice
+  ↓  CUT               beats, visual intent, seeds          ── FilmCut ──▶
+  ↓  COMPOSITOR        one composition that behaviours mutate    (browser)
+  ↓  RENDERER          monochrome; degradation at threshold time (browser)
 FILM
 ```
 
-**It is not** an AI video generator, a prompt-to-video wrapper, or a template
-engine. If a design decision would make it resemble any of those, it is the
-wrong decision.
+The Worker decides **what happens and when**. The browser decides **what it
+looks like** — every placement decision needs `ctx.measureText`, which does not
+exist on a Worker, and one engine guessing what the other will draw is how this
+system previously ended up with two that disagreed about 57 of 88 scenes.
 
-## Authority order (highest first)
+## Authority
 
-| # | Document | Answers |
-|---|---|---|
-| 1 | `docs/studio/CANOPTICON_CREATIVE_CONSTITUTION.md` | What does the director express? |
-| 2 | `docs/studio/CANOPTICON_PRIMITIVE_ATLAS.md` | What can the machine paint with? |
-| 3 | `docs/studio/CANOPTICON_PHASE0_MASTER_SPEC.md` | How does it compile, cache, store? |
+`docs/studio/CANOPTICON_FILM_ENGINE.md` — the only design authority.
 
-`docs/studio/CANOPTICON_00_HANDOFF_BRIEF.md` is the entry point and build
-sequence. **Where the Master Spec contradicts the Constitution, the
-Constitution wins** — three parts of the Master Spec are already superseded
-and the code implements the amended version:
-
-1. Flat per-act `vocabularyMix` → **Creative State control points**. Vocabulary
-   mix is a derived, overridable output, never the authoring model.
-2. Four fixed block types → **recipes over typed primitives**. Blocks remain as
-   defaults the engine can reach past.
-3. Per-block cache hashing → **per-primitive cache hashing**.
+`docs/studio/archive/` holds the documents for the **deleted** primitive engine.
+Three of them used to be listed here as "authority order, highest first", which
+meant a fresh session could faithfully rebuild the 130-primitive engine from
+documents it had been told to obey, days after it was removed. They bind
+nothing. Read them for the failures they record, not for direction.
 
 ## Standing rules — non-negotiable
 
-1. **AI output is an input artifact, never a function.** TTS audio, alignment
-   JSON, and segmentation proposals are generated once, frozen, hashed, and
-   committed. The compiler never calls an AI service at render time.
-2. **Timing is anchor-based, never frame-based.** No frame ranges in the IR.
-3. **The operator is always in control.** The system proposes; the human
-   ratifies. No auto-mutation of the IR.
-4. **No `Math.random()`.** Everything stochastic takes a seed.
-5. **Every primitive declares typed inputs and outputs.** A primitive that
-   consumes nothing and produces only final pixels is a recipe, not a primitive.
-6. **Overrides survive restyling.** A pin is never silently discarded by a
-   recompile; tension is *reported*, not resolved unilaterally.
-7. **Determinism is claimed honestly.** L1 (semantic) always. L2 (pixel) within
-   a pinned environment. L2-GPU for shader/3D. L3 is never claimed.
-8. **Degrade, flag, continue.** A failure in one scene never blocks the rest of
-   the film from compiling.
-9. **One authoritative translation point per semantic quantity.** The semantic
-   layer says *this plane has visual importance 0.30*; it never says *make it
-   smaller*. Exactly one function turns that number into parameters —
-   `applyPlane` in `scene-plan.ts` — and any new consumer goes inside it. The
-   failure this prevents is real and cheap to fall into: weight meaning scale
-   in one file, opacity in another, count in a third, until nobody can say
-   what "weight" means. It also keeps the door open for the thing that makes
-   this worth having — a *visual grammar* deciding HOW importance manifests,
-   so a low-weight subject is smaller and dimmer in one film and fragmented,
-   occluded and intermittent in another, from the same 0.30.
-10. **A semantic capability is not complete until a pixel differs.** Name which
-    of the six states it has actually reached — DETECTED → INTERPRETED →
-    PLANNED → BOUND → COMPOSITED → RENDERED. `PLANNED` is the dangerous one:
-    a missing thing announces itself, a planned thing looks finished from
-    every angle except the screen. See `docs/studio/CANOPTICON_CAPABILITY_MAP.md`.
-11. **A compositional structure is not implemented until every system that
-    operates on a visual program treats it recursively.** Cache, cost,
-    determinism, palette usage, serialisation to the executor — all of them,
-    or none. The N-plane stack needed four separate fixes for this and every
-    one of them would have failed silently, because "it renders, therefore it
-    works" is the exact failure mode a partially-recursive structure produces.
+1. **AI output is an input artifact, never a function.** The editorial reading
+   and the narration are generated once, verified, hashed, frozen and committed.
+   Nothing calls a model at render time.
+2. **A promoted phrase is the essay's own text**, verified as a literal
+   substring at its own offset before the record is stored. A model that
+   paraphrases there is writing ad copy onto somebody's essay. This is the
+   same firewall the Record keeps around quotes.
+3. **Timing is measured, never assumed.** The visual edit answers to real audio.
+   Where a measurement was impossible the spine says so rather than pretending.
+4. **No `Math.random()`.** Every seed is derived on the Worker and travels to
+   the browser as a number; the browser never hashes a string into a seed. Two
+   copies of that step drifting apart changes every frame of every film with no
+   error to notice.
+5. **Determinism is claimed honestly.** Same essay + seed + settings = the same
+   film. The browser export muxes real voice but cannot be frame-exact, and says
+   which it was.
+6. **The operator controls the inputs and the seed.** The system is not asked to
+   negotiate a shot. Steering belongs in language later, never in a panel of
+   enum dropdowns.
+7. **Degrade, flag, continue.** One span that will not synthesise must not
+   silence the film, and must not be invisible either.
+8. **Readability is protected.** Illegibility is an explicit editorial decision,
+   never an accident of a downstream effect. The old engine's worst failure was
+   selecting the right phrase and then destroying it three stages later.
+9. **The creative primitive is a BEHAVIOR, not an object.** No `primitiveId`,
+   no `constructionId`, no noun→picture mapping anywhere in the production path.
+   `tests/engine.test.ts` enforces this by scanning the source.
+10. **One composition, evolving.** Inheritance is the default and only
+    `interrupt` clears. A film is not a sequence of pictures that replace each
+    other — that is the failure four rebuilds kept producing.
 
 ## The prioritisation function
 
-> **Would this make the next generated film better — more semantically
-> faithful, more visually expressive, more coherent, more directed?**
+> **Would I actually watch this?**
 
-Build it. If it only makes the architecture cleaner without unlocking
-creative capability, defer it. If it adds another selectable effect to a
-menu, don't build it. If it lets the machine make a kind of scene it could
-not make before, that is the highest priority there is.
+Then: does it feel authored? Does it feel like the writing became cinema rather
+than being decorated? Could two essays produce genuinely different films in one
+visual language, and two seeds different films without looking like noise?
 
-## The test for every decision
-
-> **Does this let the director express intention, or does it make them specify
-> implementation?**
-
-If the latter, it belongs in an Advanced panel or nowhere.
+A green test suite cannot answer any of these. The development loop is
+**BUILD → DEPLOY → LOOK → CRITIQUE → CHANGE → DEPLOY**.
 
 ## What's built
 
-`packages/studio` — its own Worker, own D1 (`canopticon-studio`), own R2, own
-migration numbering in `supabase/migrations-studio/`.
+`packages/studio` — its own Worker, own D1 (`canopticon-studio`), own R2. The
+Lab is served by the same Worker as static assets (`wrangler.toml`'s
+`[assets] directory = "./lab"`), so editing `lab/*` and merging publishes it.
 
-**The pipeline, end to end.** An essay goes in as prose and comes out as a
-compiled plan. Verified on a real 88-scene institutional investigation:
+**Worker** — `film/schema.ts` (the record, and the verbatim check in
+`parseFilm`) · `film/segment.ts` (the author's own structure) · `editor/`
+(prompt, model call, verifier, rules editor) · `narrate/` (tts kept whole, asr,
+spans, store) · `timeline/` (the Needleman–Wunsch word aligner, spine, estimate)
+· `cut/` (beats × spine → FilmCut).
 
-```
-POST /project/ingest       essay text → a compilable IR
-POST /project/:id/read     propose readings — a model call, bounded
-POST /project/:id/ratify   the human act: approve or reject
-POST /project/:id/narrate  speak it once, hash it, freeze it, measure it
-POST /project/:id/compile  the plan, cached per primitive
-```
+**Browser** — `lab/comp/compose.js` (the compositor: one live composition,
+behaviours as operators, placement solved against an occupancy map) ·
+`lab/paint/frame.js` (monochrome; degradation at threshold time) ·
+`lab/export/` (encode, voice) · `lab/fonts/` (four OFL families, self-hosted).
 
-- `src/compile/segment.ts` — the intake. **Deterministic, no model, by
-  design.** Acts from the essay's own headings; scenes bound by character
-  offset, scanning forward so a repeated line binds to its own occurrence;
-  bullets kept whole; a figure-bearing scene held rigid. It deliberately
-  does **not** decide what a sentence is about.
-- `src/compile/figures.ts` — quantities lifted by regex and checked as
-  literal substrings, plus routes the prose drew explicitly. **No model
-  ever touches a figure.** An approximation of `$282,345.84` is a different
-  finding.
-- `src/compile/extract-reading.ts` — the one model call, at authoring time,
-  frozen and ratified. Declines rather than guesses. The hedge floor
-  overrules the model, and reads the register — institutional framing
-  ("presented as", "framed as") and quoted spans count; bare "claims" does
-  not, because an essay about asylum *claimants* is not hedging.
-- `src/compile/subject.ts` — **what the sentence names**, from a lexicon
-  matched as whole words, each hit carrying its verbatim text and offset.
-  The same distinction figures use: whether a sentence NAMES a depictable
-  thing is checkable against the prose, so it needs no model and no
-  ratification. It is what makes the object families reachable at all.
-- `src/compile/phrase.ts` — **the words on screen, chosen not truncated.**
-  Candidates from the sentence — the verbatim figure, a proper-noun run,
-  the noun it names, its first strong clause — trimmed so a phrase can
-  never begin or end on a function word, deduped against the last six
-  scenes.
-- `src/compile/construct.ts` — **the layer above the palette.**
-  CONSTRUCTIONS build a thing with its numbers read off the prose ("nine
-  numbered rooms" is a nine-segment chain; a detector vents and blinks
-  where a camera domes and does not). OPERATORS are orthogonal and apply
-  to anything constructed. CANDIDATES are several genuinely different
-  programs per beat, carried on the report. A visual language moves each
-  operator's appetite rather than naming a tail; abstraction is a
-  PERMISSION that opens and closes which operations may run at all.
-- `src/compile/treatment.ts` — the ratified-reading path. A human-approved
-  interpretation still outranks everything the constructor infers.
-- `src/compile/compose.ts` — the composition engine. Abstraction ladder
-  (GROUNDED → ANNOTATED → DECOMPOSED → DISSOLVED), the Constitution's
-  8-level precedence order, motif development, restraint ceiling.
-- `src/compile/solver.ts` — anchor-based timing, overflow auto-split at
-  sentence boundaries, underflow J-cut/underrun, elastic-vs-rigid cascade,
-  and the cut into shots.
-- `src/compile/shot-plan.ts` — what varies across a cut. Deterministic, and
-  it escalates. A contested line is held flatter.
-- `src/compile/ground.ts` — **the second input.** A chain is a line and says
-  only "then"; a ground says "and". Decides — from the abstraction rung,
-  motion energy, density and restraint — whether a scene is composited over
-  its own small chain, and refuses on three stated grounds: a pinned scene,
-  a restrained film, and a contested line (which is never dramatised).
-- `src/narrate/` — narration as a frozen input artifact. `tts.ts` speaks it,
-  `align.ts` measures it, `index.ts` hashes both into R2 and names them on
-  the IR. Both calls are LADDERS that report the shape they could not use,
-  because the last serious bug here was an unverified assumption about a
-  Workers AI response shape.
-- `src/compile/hash.ts` · `cache.ts` — per-primitive SHA-256 node hashing
-  over canonical JSON; cache diff with a stated reason per recomputation.
-  The node's ground is in the payload — swapping the layer behind a
-  sentence has to move the hash or the film keeps rendering the old one.
-- `src/primitives/registry.ts` — **generated**, 128 primitives / 20 families.
-  Regenerate with `node scripts/gen-primitive-registry.mjs packages/studio/lab`.
-- `lab/` — the Lab. Where primitives actually paint (canvas, seeded, in the
-  browser) and where one earns its place before being wired in.
+**Zero D1 migration was needed** — `ir_versions.ir_json` is an opaque blob.
 
-**Timing comes off the audio, not off character counts.** `POST
-/project/:id/narrate` speaks each scene once, hashes the bytes into R2,
-records an Asset with its provenance, measures word timings, and freezes the
-measurement as a second Asset. The anchors the segmenter authored
-(`{sceneId}_start` / `{sceneId}_end`) then resolve, `missing_alignment`
-clears, and the window is the measured one. Alignment is called what it is —
-`asr-proportional`, sentence boundaries landing on real word boundaries at
-real measured times — not dressed up as forced.
+## Known gaps, stated plainly
 
-**Two inputs, not two stacked frames.** Five compositors in `M · COMPOSITING`
-take a second input: `layer_over`, `layer_blend`, `layer_mask`,
-`field_displace`, `field_erode`. A compositor's first input is the previous
-stage's canvas — every primitive paints one — and its second is a GROUND, a
-chain of its own run on the same clock. Two of them are typed on that second
-input for real: `field_displace` and `field_erode` read a field's NUMBERS, so
-a branch that only paints a picture of a field is refused rather than
-silently doing nothing. This is what lets a gravity field move a sentence
-instead of being painted over by it.
-
-**A figure is not an interpretation.** This is the distinction that makes the
-whole thing work on real material. A *reading* — what a sentence is about — is
-proposed by a model and ratified by a human, and a scene without one falls back
-to the film's own curve. A *figure* is checkable by anyone, so it needs neither.
-Which means an institutional essay reaches the chart family from prose alone,
-before a model has seen a single sentence.
-
-**The instrument.** `studio.canopticon.com` serves the Lab: six views over ONE
-compiler. FILMS lists what is stored and takes a pasted essay; NARRATIVE shows
-the prose with every scene bound to its own span; EDITORIAL is the creative
-state, and dragging it writes a new IR version and reports what the edit cost;
-PREVIEW runs the real chain, plays the frozen narration on the Web Audio
-clock, and RENDER writes a `.webm` frame by exact index with the voice on its
-own track; COMPILE is the audit;
-LAB is where a primitive earns its place. Keyboard throughout, and `/` finds a
-scene by what it says.
-
-**There is no second engine.** The Lab used to reimplement the ladder, the
-resolver and the cost table in the browser. It reads the Worker's composition
-now — two implementations of one rule is how they disagreed about 57 of 88
-scenes without anyone noticing.
-
-**The engine proposes; the director ratifies — applied to depiction.**
-`POST /project/:id/direct` pins one of the constructed alternatives to a
-scene, which is precedence 1 and was always meant to be reachable. The
-Preview's right column opens with the VISUAL IDEA — what the shot IS, in a
-sentence — above the chain rather than instead of it.
-
-**Tested** (212 tests): a hand-authored IR resolves to correct windows; an
-unchanged recompile is 100% cache hit; editing one sentence recomputes only
-what depends on it; moving the last control point leaves the film's opening
-untouched and spends zero TTS; a pin survives a restyle with the tension
-reported; the same IR always produces the same hashes; the real essay segments,
-validates, compiles and re-compiles clean; and the flagship chain is asserted
-to consume its own upstream at every stage. Narration: a frozen alignment
-clears `missing_alignment` AND moves the window to the measured time, audio
-survives a failed alignment, and one scene's failure degrades that scene
-only. Grounds: the ground reaches the hash, costs what it costs, and a field
-compositor refuses a ground that is not a field. Construction: the same
-sentence in documentary, pixel and surreal produces three chains differing
-in their OPERATIONS rather than a swapped tail; none of the chains a real
-essay compiles to is a ladder rung; and the paragraph the architecture is
-judged on ("they walked around the city like insects... then there were
-dozens of them, moving in strange synchronized waves") builds bodies,
-carries them across a sentence made of pronouns, and escalates — more of
-them, with the wander taken out.
-
-**Known gaps, stated plainly.**
-
-- **No server-side renderer.** Chains execute in the browser, so a compile
-  produces a plan and the export records the canvas in real time. That is L2
-  honestly — frames are captured on the browser's clock — not L3.
-- **Some of the palette's consumers still ignore their declared input.**
-  The compiler measures this (`usage.linkHonesty`, `usage.decorativeLinks`,
-  `usage.grounds`) and the Compile view prints it, so pruning happens on
-  evidence. The whole raster family was fixed the moment it became
-  load-bearing: every one of them declared IMAGE → IMAGE and rastered a
-  synthetic "1997" plate, so an operator applied to a constructed object
-  replaced it rather than transforming it. That is the difference between
-  an operator and a slide, and it is the check to run on any primitive
-  before treating it as one.
-- **The Studio's information architecture is still the compiler's, not a
-  director's.** The VISUAL IDEA card with its alternatives, the six
-  director verbs and the OVERVIEW contact sheet are the creative loop's
-  first pieces; a shot-level inspector, a visual-rhythm view, and
-  fork/compare are not built.
-- **Narration has no pauses, no script-vs-spoken split, and no
-  regenerate-this-paragraph.** A scene whose prose moved after recording is
-  correctly reported STALE and re-recorded on the next pass — that is the
-  correctness hole and it is closed — but breath, emphasis and a spoken
-  script that differs deliberately from the written one are not built.
-- **Opening a film fetches its plan once.** Narrate a film you already have
-  open and the Preview will not hear it until you re-open it from FILMS.
-- **Narration is verified live.** `@cf/deepgram/aura-1` speaks — 13.8KB of
-  mp3 for a short line, returned as a **ReadableStream**, which is exactly
-  why the recovery ladder does not assume a shape. `@cf/myshell-ai/melotts`
-  answered "capacity temporarily exceeded", which is why it is second.
-  Both whisper models return real word timings. A 61-scene film narrated
-  end to end: 61 of 61, zero failures, 6m22s of speech. `POST /v1/tts/probe`
-  and the PROBE THE BINDING button in FILMS re-ask that question any time.
+- **The legibility pass is partial.** The occlusion budget and knockout are
+  designed but not built, so dense beats currently overlap and can bury the key
+  phrase. This is the next thing.
+- **Only ten behaviours exist** of the ~26 in the vocabulary. Montage, TEAR,
+  SMEAR, STUTTER, DRIFT and the rest are unbuilt.
+- **The material pass is grain + threshold only.** Halftone, registration
+  error, ink bleed and wear-driven text mutation are designed, not built.
+- **Audio and deterministic rendering are mutually exclusive.** The browser
+  export muxes voice but is paced to real time to do it; there is no
+  frame-accurate audio path. Writing a muxer was tried once and shipped corrupt
+  files. Do not try again without a reason.
+- **Export costs real time** — a 60-second film takes about 60 seconds.
+- **Narration needs the deployed Worker.** `env.AI` does not exist in a sandbox,
+  so local iteration is silent and estimated-timing. **The narrated film is
+  judged after deploy, always.**
+- **`POST /v1/editorial/probe` has not been run against production.** Run it
+  before trusting a single film — the deleted `extract-reading.ts` records a
+  route that never once succeeded and wore the costume of polite failure for
+  weeks.
 
 ## What's next
 
-Stage 2 is done. `noise_field` + `flow_field` → `glyph_to_points` →
-`particle_flow` + `particle_seek` → motion craft → compositing, and the
-milestone with it: the text-dissolution chain runs end to end, and with a
-ground under it a sentence now comes apart in the shape of the field acting
-on it rather than under a random mask.
+1. The legibility pass with a real occlusion budget and knockout.
+2. The rest of the behaviour vocabulary, and motif memory with wear.
+3. The material pass — halftone, registration, bleed, wear-driven mutation.
+4. Then only the critique loop: watch films, change numbers, deploy.
 
-The immediate next thing is not a feature, it is a probe. Run
-`POST /v1/tts/probe` against production and find out what the TTS binding
-actually returns before a single scene is narrated for real — the last
-serious bug in this system was exactly this assumption left unchecked.
-
-Then Stage 3 (documentary workhorses), Stage 4 (Director's Control Surface,
-visual memory, override types), Stage 5 (remainder — cut from the bottom).
-
-Build the **five views** alongside stages 1–4, not after: Narrative,
-Editorial, Preview, Compile, Lab. **Lab first** — it is how you find out
-whether a primitive reads on screen before it goes near the pipeline.
-
+Later, and gated on evidence, not appetite: generated imagery as *world
+material* (segment → depth → layers), and any 3D/WebGL decision. Neither is
+scoped and neither is needed to find out whether the typographic engine works.
 ---
 
 # COMPARTMENTALIZED — maintained, not grown
@@ -405,9 +238,10 @@ Shared across every Worker in the monorepo; nothing else is shared.
   pnpm exec biome check .        # CI runs this WITHOUT --write
   pnpm -r test
   ```
-- The **Lab runs locally as a static page** — open
-  `packages/studio/lab/Canopticon.html` in a browser. It needs no server, and
-  it is the fastest way to see whether a primitive actually looks good.
+- The **Lab is ES modules**, so it needs an HTTP origin — `file://` is blocked
+  by CORS. `packages/studio/scripts/look.mjs` serves `lab/` and renders a
+  FilmCut headless, which is the fastest way to see frames without deploying.
+  It is silent and estimated-timing; the narrated film is judged after deploy.
 - To inspect the live Record, trigger `.github/workflows/canopticon-admin-probe.yml`
   (workflow_dispatch with a `path`); it calls canopticon.com through Cloudflare
   Access and commits the response to `ops/probe/response.json`. It is hardcoded
