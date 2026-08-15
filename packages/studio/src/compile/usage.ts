@@ -102,6 +102,16 @@ export interface UsageReport {
    *  actually holding on a real compile, the same discipline this file
    *  applies to the palette: not asserted, watched. */
   worldContinuity: { honored: number; total: number };
+  /** HOW OFTEN THE RESURRECTED GRAMMAR DISPATCH ACTUALLY WINS.
+   *
+   * `language.ts`'s seven grammars were wired into `constructPrograms` as
+   * an additional, additive candidate source (see `construct.ts`, the
+   * `LANGUAGE DISPATCH` block) — declared but unreachable is exactly the
+   * state this file's own header warns against, so this is that same
+   * "measure it, don't assume it" discipline applied to the new source. A
+   * language-built program carries `lang:<LanguageId>` as its
+   * `program.construction`. */
+  languageDispatch: { wins: number; total: number; byLanguage: Record<string, number> };
 }
 
 /** Construction ids that actually read `beat.world` when it is handed to
@@ -127,6 +137,27 @@ function worldContinuity(scenes: ComposedScene[]): { honored: number; total: num
     if (WORLD_AWARE.has(scene.program?.construction ?? "")) honored++;
   }
   return { honored, total };
+}
+
+/** How often a scene's WINNING program came from `language.ts`'s grammar
+ *  dispatch rather than a `CONSTRUCTIONS` entry, and which grammar it was —
+ *  the number that decides whether Phase 0's resurrection actually changed
+ *  anything or only added dead weight to the competition. */
+function languageDispatch(scenes: ComposedScene[]): {
+  wins: number;
+  total: number;
+  byLanguage: Record<string, number>;
+} {
+  let wins = 0;
+  const byLanguage: Record<string, number> = {};
+  for (const scene of scenes) {
+    const id = scene.program?.construction;
+    if (!id?.startsWith("lang:")) continue;
+    wins++;
+    const langId = id.slice("lang:".length);
+    byLanguage[langId] = (byLanguage[langId] ?? 0) + 1;
+  }
+  return { wins, total: scenes.length, byLanguage };
 }
 
 /** The uncomposable half of the palette, grouped so it reads as a list
@@ -245,6 +276,7 @@ export function analyseUsage(scenes: ComposedScene[]): UsageReport {
       .map(([link, n]) => ({ link, uses: n }))
       .sort((a, b) => b.uses - a.uses),
     worldContinuity: worldContinuity(scenes),
+    languageDispatch: languageDispatch(scenes),
   };
 }
 

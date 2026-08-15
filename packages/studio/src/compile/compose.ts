@@ -29,6 +29,7 @@ import { bridgeMsFor } from "../narrate/timeline.ts";
 import {
   type Determinism,
   PRIMITIVES,
+  canChain,
   chainCost,
   chainDeterminism,
   chainOverwrites,
@@ -1395,7 +1396,15 @@ export function composeScene(
           `${n.primitiveId} dropped — it would have moved the words this scene is presenting`,
         );
       }
-      nodes = kept;
+      // THE DROP JUST ABOVE CAN BREAK AN ADJACENCY THE GUARD EARLIER IN
+      // THIS FUNCTION ALREADY PROVED VALID — see `revalidateAdjacency`.
+      const revalidated = revalidateAdjacency(kept);
+      for (const id of revalidated.dropped) {
+        notes.push(
+          `${id} dropped — the stage it followed was removed above, and it no longer chains`,
+        );
+      }
+      nodes = revalidated.nodes;
     }
   }
 
@@ -1654,6 +1663,46 @@ function sceneSubjects(sentence: string, carried: DetectedSubject | null): Detec
  *  geometry_draw → layer_over(words) → layer_over(plate)` — so the first
  *  version of this, which only took trailing nodes, removed nothing at all
  *  wherever a second layer sat on top of the line. */
+/** REMOVING A NODE FROM THE MIDDLE OF A CHAIN CAN LEAVE THE TWO NEIGHBOURS
+ *  IT USED TO STAND BETWEEN NO LONGER LEGALLY CHAINED TO EACH OTHER.
+ *
+ *  Several passes drop nodes after the chain was already validated —
+ *  dropping whatever would move presented type, dropping the second of two
+ *  nodes that set the same words. Each of them removes a node because of
+ *  what IT does, not because of what its removal does to the seam on
+ *  either side of the gap it leaves. A dropped compositor can leave a
+ *  GEOMETRY-only source sitting directly before a primitive that needs
+ *  ANIMATION — exactly the kind of chain the palette's own type system
+ *  exists to refuse, reintroduced by the refusal's own cleanup.
+ *
+ *  Re-checked here, at one level of nesting at a time — a ground is its
+ *  own sequential chain, independent of the level composited over it — and
+ *  cascading, because dropping one node can expose a second bad seam
+ *  behind it. Every id it removes is returned so the caller can report it
+ *  rather than let it disappear a second time. */
+function revalidateAdjacency(nodes: ComposedNode[]): { nodes: ComposedNode[]; dropped: string[] } {
+  const dropped: string[] = [];
+  const withGroundsChecked = nodes.map((n) => {
+    if (!n.ground || n.ground.length === 0) return n;
+    const sub = revalidateAdjacency(n.ground);
+    dropped.push(...sub.dropped);
+    return sub.nodes.length === n.ground.length ? n : { ...n, ground: sub.nodes };
+  });
+  const out = [...withGroundsChecked];
+  let cursor = 1;
+  while (cursor < out.length) {
+    const prev = out[cursor - 1];
+    const cur = out[cursor];
+    if (prev && cur && !canChain(prev.primitiveId, cur.primitiveId)) {
+      dropped.push(cur.primitiveId);
+      out.splice(cursor, 1);
+      continue;
+    }
+    cursor++;
+  }
+  return { nodes: out, dropped };
+}
+
 function withoutTrailingWords(nodes: ComposedNode[], phrase: string): ComposedNode[] {
   const carries = (n: ComposedNode): boolean =>
     Object.values(n.params).some(
@@ -1806,7 +1855,17 @@ export function composeAll(
       if (kept.length !== composed.nodes.length) {
         composed.notes.push("the same line was set twice in this scene — the second was dropped");
       }
-      composed.nodes = kept;
+      // THE DUPLICATE WAS OFTEN THE ONLY THING CHAINED TO ITS NEIGHBOUR ON
+      // ONE SIDE. Removing it can leave that neighbour reading straight off
+      // whatever came before the duplicate instead — an adjacency nobody
+      // validated. See `revalidateAdjacency`.
+      const revalidated = revalidateAdjacency(kept);
+      for (const id of revalidated.dropped) {
+        composed.notes.push(
+          `${id} dropped — the duplicate line removed above broke the chain it was in`,
+        );
+      }
+      composed.nodes = revalidated.nodes;
     }
 
     /* HOLD — THE SAME PICTURE, STILL THERE.

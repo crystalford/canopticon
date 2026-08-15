@@ -73,6 +73,13 @@ import { chartFor, serialiseFigures } from "./figures.ts";
 import type { FilmMode } from "./film-mode.ts";
 import type { Material } from "./grammar-visual.ts";
 import { EMPTY_READING, type IntentReading, bendStyle } from "./intent.ts";
+import {
+  LANGUAGE_IDS,
+  type LanguageId,
+  assemble as assembleLanguage,
+  chainFor,
+  contextFor,
+} from "./language.ts";
 import { type Relation, relationBias } from "./relation.ts";
 import {
   type Mode,
@@ -387,6 +394,21 @@ export interface Program {
    *  a director should not have to infer which one they are looking at. */
   dislocated?: boolean;
 }
+
+/** A rough correspondence between a `language.ts` grammar and the
+ *  `represent.ts` Mode vocabulary the Studio already shows a director —
+ *  not a claim that the two are the same axis, only that a language
+ *  candidate should describe itself in the same words a construction
+ *  candidate does. */
+const LANGUAGE_MODE: Record<LanguageId, string> = {
+  TYPOGRAPHIC: "typographic",
+  GEOMETRIC: "geometric",
+  DIAGRAMMATIC: "diagrammatic",
+  COMPUTATIONAL: "structural",
+  MATERIAL: "literal",
+  SIGNAL: "symbolic",
+  ILLUSTRATIVE: "literal",
+};
 
 /* ════════════════════════════════════════════════════════════════════
    CONSTRUCTIONS — build a thing, with its numbers read off the prose.
@@ -1775,8 +1797,88 @@ export function constructPrograms(
     }
   }
 
+  /* LANGUAGE DISPATCH — a second, independent source of candidates.
+   *
+   * `language.ts` answers the same question the CONSTRUCTIONS loop above
+   * answers — what should this sentence look like — from a disconnected
+   * vocabulary: seven grammars, each declining or answering six fixed
+   * questions from checkable facts about the prose. Wired in additively:
+   * every CONSTRUCTIONS candidate above is untouched, this only adds more
+   * candidates to the same competition, run through the same `assemble`
+   * (operator stacks, cost budget, overwrite guards, motion tail) that
+   * already governs every constructed program — so a language candidate
+   * competes on equal, honest terms rather than as decoration bolted on
+   * the side.
+   *
+   * Same eligibility gates as CONSTRUCTIONS: a holding scene with nothing
+   * printed is reserved for constructions that read `beat.world`, because
+   * no language here reads it either; TEXT intervention needs a language
+   * that actually set words this beat, not merely one able to in general. */
+  if (!(holding && !printed)) {
+    const langCtx = contextFor(beat, style, beat.index);
+    for (const langId of LANGUAGE_IDS) {
+      // ILLUSTRATIVE delegates to CONSTRUCTIONS by design (see its own
+      // definition in language.ts) — nothing new to add on that path.
+      if (langId === "ILLUSTRATIVE") continue;
+      const built = chainFor(langId, langCtx);
+      if (!built) continue;
+      const hasWords = built.layers.some((l) => l.role === "words");
+      if (intervention === "TEXT" && !hasWords) continue;
+      const assembled = assembleLanguage(built, (id) => PRIMITIVES[id]?.outputs ?? []);
+      if (assembled.length === 0) continue;
+      const setsTypeLang = Boolean(beat.setsType) && flatIds(assembled).some(isSetType);
+      // A language that answered more of the fixed six questions has said
+      // more about THIS sentence specifically — a measure of how much of
+      // the beat it actually used, not a preference between languages.
+      //
+      // Kept deliberately modest against a CONSTRUCTION's `fit`, which is
+      // a claim checked against the prose (a printed figure, a drawn
+      // route, a named place) and is why constructions still win most
+      // sentences most of the time. This is additive competition, not a
+      // second vote of equal weight: a language should win where nothing
+      // fits well, or where a director has reason to prefer it, not by
+      // out-scoring a construction that has real, checkable purchase on
+      // the sentence. See `usage.ts`'s `languageDispatch` for how often it
+      // actually does win, measured rather than assumed.
+      const fit = Math.min(0.28, 0.12 + built.layers.length * 0.04);
+      for (const stack of stacks) {
+        const program = assemble(
+          `lang:${langId}`,
+          { nodes: assembled, why: built.why },
+          stack,
+          style,
+          budgetMs,
+          setsTypeLang,
+          act,
+        );
+        if (!program) continue;
+        program.mode = LANGUAGE_MODE[langId];
+        program.idea = built.why;
+        program.score =
+          fit * 4 +
+          stack.reduce((a, op) => a + Math.max(0, appetiteFor(op, style, intent)), 0) * 0.5 -
+          stack.length * style.restraint * 0.5;
+        programs.push(program);
+      }
+    }
+  }
+
   programs.sort((a, b) => b.score - a.score);
-  return diversify(programs);
+  /* NEVER THE SAME PROGRAM TWICE. Two different operator stacks — or, now,
+   * two different languages — can legally end up drawing the identical
+   * sequence of primitives, most often because every operator in a stack
+   * failed to attach and the candidate came back unchanged from its base.
+   * A picker offering the same chain under two names is not a second
+   * choice. Kept in score order, so of two identical chains the
+   * higher-scoring one survives. */
+  const seenChains = new Set<string>();
+  const distinct = programs.filter((p) => {
+    const signature = flatIds(p.nodes).join("→");
+    if (seenChains.has(signature)) return false;
+    seenChains.add(signature);
+    return true;
+  });
+  return diversify(distinct);
 }
 
 /** Put a genuinely different program second.
