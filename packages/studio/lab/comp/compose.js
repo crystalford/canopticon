@@ -38,7 +38,8 @@ import { arcAt, vocabularyAt } from "./arc.js";
 import { LAYOUTS, emptiest, place } from "./layout.js";
 import { emitMarks } from "./marks.js";
 import { buildForm, driftForm, formKey, sampleForm } from "../form/grow.js";
-import { driftStyle, sampleStyle, styleKey } from "../style/space.js";
+import { FACTORS, driftStyle, sampleStyle, styleKey } from "../style/space.js";
+import { asBias, makeWander, next as nextPoint, step } from "../style/wander.js";
 import { WORLDS, WORLD_MEMORY, chooseWorld } from "./world.js";
 import { applyField, chooseRegister, lerp, REGISTERS } from "./register.js";
 import { chooseTransition, resolveTransition } from "./transition.js";
@@ -431,8 +432,25 @@ export function buildStages(cut) {
   // A LOOK AND A FORM PER BEAT. Both are points in continuous spaces, drifting
   // while the writing holds and leaping when it moves — so a film visits
   // hundreds of them and repeats none.
-  let style = sampleStyle(mulberry32(cut.seed ^ 0x5f3759df));
-  let form = sampleForm(mulberry32(cut.seed ^ 0x1b873593));
+  // THE FILM TRAVELS. One low-discrepancy walk drives BOTH spaces, so the
+  // look and the form agree about where they are — sampled independently, a
+  // clean orderly style kept landing on a chaotic organic form and the frame
+  // disagreed with itself.
+  const FORM_KEYS = [
+    "articulation",
+    "orthogonality",
+    "profusion",
+    "closure",
+    "rigidity",
+    "recession",
+  ];
+  const wander = makeWander(FACTORS.length + FORM_KEYS.length, cut.seed);
+  let point = nextPoint(wander);
+  let style = sampleStyle(mulberry32(cut.seed ^ 0x5f3759df), asBias(point, FACTORS));
+  let form = sampleForm(
+    mulberry32(cut.seed ^ 0x1b873593),
+    asBias(point.slice(FACTORS.length), FORM_KEYS),
+  );
   const topicForms = new Map();
   const recentWorlds = [];
   /** Passage index → the world it was given. The film's memory. */
@@ -489,14 +507,28 @@ export function buildStages(cut) {
     // makes a callback read as time passed rather than as a loop.
     const leap = chosen.why === "move" || chosen.why === "open";
     if (chosen.why === "return" && topicForms.has(rd.passage)) {
+      // A return goes back to its own place, grown further.
       form = driftForm(topicForms.get(rd.passage), rng, 0.12);
       style = driftStyle(style, rng, 0.2);
     } else if (leap) {
-      style = sampleStyle(rng, { damage: Math.min(0.9, arc.wear * 0.7 + rng() * 0.4) });
-      form = sampleForm(rng, { profusion: clamp01(arc.density * 0.6 + rng() * 0.5) });
+      // A MOVE ADVANCES THE SEQUENCE. This is the only line that decides
+      // whether a twenty-minute film keeps discovering: the next point is
+      // maximally far from every point already used, by construction, so
+      // minute fifteen is somewhere minute two never went.
+      point = nextPoint(wander);
+      style = sampleStyle(rng, {
+        ...asBias(point, FACTORS),
+        damage: Math.min(0.92, point[1] * 0.5 + arc.wear * 0.5),
+      });
+      form = sampleForm(rng, asBias(point.slice(FACTORS.length), FORM_KEYS));
     } else {
-      style = driftStyle(style, rng, 0.07);
-      form = driftForm(form, rng, 0.05);
+      // A HOLD STILL TRAVELS — a smaller step along a second sequence inside
+      // the same region. The passage decides the neighbourhood; standing
+      // still inside it for fifty seconds is what made twenty minutes feel
+      // like four.
+      const p2 = step(wander, 0.22);
+      style = sampleStyle(rng, asBias(p2, FACTORS));
+      form = sampleForm(rng, asBias(p2.slice(FACTORS.length), FORM_KEYS));
     }
     if (!topicForms.has(rd.passage)) topicForms.set(rd.passage, form);
     const built = buildForm(form);
