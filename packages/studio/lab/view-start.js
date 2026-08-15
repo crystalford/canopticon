@@ -70,7 +70,7 @@ let CHOICES = {
   approaches: [
     { id: "text", label: "Text driven", note: "The writing itself is the material — typography, kinetic text, particles, hard cuts." },
     { id: "abstract", label: "Abstract", note: "No attempt to depict the nouns. Geometry, fields, light, motion, spatial relation." },
-    { id: "world", label: "World", note: "Persistent objects and spaces that evolve as the narration goes on." },
+    { id: "world", label: "World", note: "One continuous space, held the whole film through — every scene the same kind of picture, so what persists stays recognisable. Not for variety." },
     { id: "hybrid", label: "Let CANOPTICON decide", note: "The system chooses the visual language from your writing, sentence by sentence." },
   ],
   editing: [
