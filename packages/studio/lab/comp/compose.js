@@ -35,7 +35,10 @@ import { FIELD_REST } from "../core/field.js";
 import { boilOffset, boilStep } from "../core/noise.js";
 import { mulberry32 } from "../core/rng.js";
 import { arcAt, vocabularyAt } from "./arc.js";
+import { LAYOUTS, emptiest, place } from "./layout.js";
 import { emitMarks } from "./marks.js";
+import { TREATMENTS } from "./treatment.js";
+import { WORLDS, WORLD_MEMORY, chooseWorld } from "./world.js";
 import { applyField, chooseRegister, lerp, REGISTERS } from "./register.js";
 import { chooseTransition, resolveTransition } from "./transition.js";
 
@@ -61,107 +64,19 @@ export function buildGrid(seed) {
 
 /* ── placement ─────────────────────────────────────────────────────────── */
 
-function occupancy(grid, units) {
-  const a = Array.from({ length: grid.cols }, () => new Float32Array(grid.rows));
-  for (const u of units) {
-    if (u.dead) continue;
-    const c0 = Math.max(0, Math.floor(u.box.x * grid.cols));
-    const c1 = Math.min(grid.cols - 1, Math.ceil((u.box.x + u.box.w) * grid.cols) - 1);
-    const r0 = Math.max(0, Math.floor(u.box.y * grid.rows));
-    const r1 = Math.min(grid.rows - 1, Math.ceil((u.box.y + u.box.h) * grid.rows) - 1);
-    for (let c = c0; c <= c1; c++) {
-      for (let rr = r0; rr <= r1; rr++) a[c][rr] += u.density * (0.4 + u.protection * 0.6);
-    }
-  }
-  return a;
-}
-
-/** Place a unit by scoring grid-aligned candidates.
- *
- *  THE SIGN ON THE OVERLAP TERM IS THE WHOLE ARGUMENT. It used to be
- *  negative for everything — every unit pushed away from every other, which
- *  produces a tidy, evenly-spaced, inert page. It is now negative only in
- *  proportion to what the unit is PROTECTING. A texture unit is rewarded for
- *  landing on top of something; the key phrase is the only thing that
- *  genuinely repels, and even it only repels what would bury it.
- */
-export function place(grid, stage, unit, rng, opts) {
-  const occ = occupancy(grid, stage.units);
-  const wEmpty = 0.5 - opts.density * 0.55;
-  const wTension = 0.35 + opts.chaos * 0.7;
-
-  let cx = 0.5;
-  let cy = 0.5;
-  let mass = 0;
-  for (const u of stage.units) {
-    if (u.dead) continue;
-    const m = u.density * u.box.w * u.box.h;
-    cx += (u.box.x + u.box.w / 2) * m;
-    cy += (u.box.y + u.box.h / 2) * m;
-    mass += m;
-  }
-  if (mass > 0) {
-    cx /= mass + 1;
-    cy /= mass + 1;
-  }
-
-  const spanC = Math.max(1, Math.round(unit.box.w * grid.cols));
-  const spanR = Math.max(1, Math.round(unit.box.h * grid.rows));
-
-  // BLEED IS A CANDIDATE, NOT AN ERROR. Letting the loop start below zero
-  // and end past the last column is what allows a headline to run off the
-  // edge — the single most characteristic move in this visual language, and
-  // one the old margin clamp made structurally impossible.
-  const over = Math.round(grid.cols * grid.bleed * unit.bleed);
-  let best = null;
-  for (let c = -over; c + spanC <= grid.cols + over; c++) {
-    for (let r = 0; r + spanR <= grid.rows; r++) {
-      let local = 0;
-      for (let i = 0; i < spanC; i++) {
-        for (let j = 0; j < spanR; j++) {
-          const cc = c + i;
-          const rr = r + j;
-          if (cc < 0 || cc >= grid.cols || rr < 0 || rr >= grid.rows) continue;
-          local += occ[cc][rr];
-        }
-      }
-      local /= spanC * spanR;
-      const x = c / grid.cols;
-      const y = r / grid.rows;
-      const asym = Math.hypot(x + unit.box.w / 2 - cx, y + unit.box.h / 2 - cy);
-      // How far off-frame this candidate runs, 0..1.
-      const outside =
-        Math.max(0, -x) + Math.max(0, x + unit.box.w - 1);
-      const score =
-        wEmpty * (1 - Math.min(1, local)) +
-        wTension * Math.min(1, asym * 1.6) +
-        // A protected unit wants clear ground; an unprotected one is happy
-        // to land on the pile, and SHOULD, or the page never layers.
-        // Texture WANTS to land on the pile — but not on the same square inch
-        // as the last five fragments, which turns small print into mush.
-        (0.5 - unit.protection * 1.7) * Math.min(1, local) +
-        unit.bleed * grid.bleed * Math.min(1, outside * 3) +
-        0.25 * (grid.symmetry === "axial" && Math.abs(x + unit.box.w / 2 - 0.5) < 0.08 ? 1 : 0);
-      if (!best || score > best.score) best = { x, y, score };
-    }
-  }
-  if (!best) best = { x: grid.margin, y: grid.baseline, score: 0 };
-
-  const slackX = (rng() - 0.5) * opts.chaos * (1 / grid.cols) * 0.9 * (1 - unit.protection * 0.5);
-  const slackY = (rng() - 0.5) * opts.chaos * (1 / grid.rows) * 0.9 * (1 - unit.protection * 0.5);
-  unit.box.x = best.x + slackX;
-  unit.box.y = Math.max(-0.08, Math.min(1 - unit.box.h * 0.35, best.y + slackY));
-  unit.rot = (rng() - 0.5) * opts.chaos * 9 * (1 - unit.protection * 0.7);
-  return unit;
-}
-
 /* ── units ─────────────────────────────────────────────────────────────── */
 
 const ROLE_PROTECTION = { key: 1, support: 0.6, fragment: 0.2, texture: 0.36 };
 
-function makeUnit(text, role, beat, grid, rng, opts, reg, arcScale = 1) {
+function makeUnit(text, role, beat, grid, rng, opts, reg, arcScale = 1, world) {
   const intent = beat.visualIntent;
   const R = reg ?? REGISTERS.COLLISION;
+  const Wd = world ?? WORLDS.COLLAGE;
+  // THE WORLD DECIDES HOW THIS IS SET. Face, case and treatment all come from
+  // the universe this passage is in, not from a fixed table keyed on role —
+  // which is what made every unit in every film the same horizontal line.
+  const pool = role === "texture" ? Wd.treatments.texture : Wd.treatments.key;
+  const treatment = pool[Math.floor(rng() * pool.length)];
   // SCALE WITH A REAL RANGE. The old engine ran 0.18..0.52 for everything,
   // which is the safe middle of the page at all times. A key line can now
   // reach most of the frame height, and a texture line can be genuinely
@@ -186,16 +101,14 @@ function makeUnit(text, role, beat, grid, rng, opts, reg, arcScale = 1) {
     text,
     role,
     protection: ROLE_PROTECTION[role] ?? 0.3,
-    face:
-      role === "key"
-        ? "poster"
-        : role === "support"
-          ? rng() < 0.35
-            ? "news"
-            : "grotesque"
-          : "mono",
-    weight: role === "key" ? 400 : role === "support" ? 500 : 500,
-    case: role === "key" ? "upper" : "as",
+    face: role === "key" ? Wd.faces.key : role === "support" ? Wd.faces.support : Wd.faces.texture,
+    weight: role === "key" ? 400 : 500,
+    case: role === "key" ? Wd.case : "as",
+    treatment,
+    // A treatment's own random dimension, fixed per unit so it is stable
+    // across every frame the unit lives for.
+    jitter: rng(),
+    chaos: opts.chaos * (1 + (Wd.chaosBoost ?? 0)),
     tracking: role === "key" ? -0.15 + rng() * 0.5 : 0.1 + rng() * 0.3,
     box: { x: grid.margin, y: grid.baseline, w: 0, h: 0 },
     size: base,
@@ -208,7 +121,9 @@ function makeUnit(text, role, beat, grid, rng, opts, reg, arcScale = 1) {
     // A SHORT line cropping off the edge is a decision; a LONG one cropping
     // is just a lost word. Bleed is earned by brevity and by scale.
     bleed:
-      role === "key" ? Math.min(1, base * 2.6) * Math.max(0, 1 - text.length / 34) * R.bleed : 0,
+      role === "key"
+        ? Math.min(1, base * 2.6) * Math.max(0, 1 - text.length / 34) * R.bleed * (Wd.bleedBoost ?? 1)
+        : 0,
     born: beat.startMs,
     die: null,
     dead: false,
@@ -286,12 +201,12 @@ const BEHAVIORS = {
     let col = null;
     let line = 0;
     for (let i = 0; i < want && stock.length > 0; i++) {
-      const u = makeUnit(stock[i % stock.length], "texture", beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg, ctx.arc.scale);
+      const u = makeUnit(stock[i % stock.length], "texture", beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg, ctx.arc.scale, ctx.world);
       u.box.w = Math.min(0.9, u.text.length * u.size * 0.5);
       u.box.h = u.size * 1.3;
       const perCol = 3 + Math.floor(ctx.rng() * 4);
       if (col === null || line >= perCol) {
-        place(ctx.grid, stage, u, ctx.rng, ctx.opts);
+        place(ctx.layout, ctx.grid, stage, u, ctx.rng, ctx.opts);
         col = { x: u.box.x, y: u.box.y, lead: u.box.h * (1.5 + ctx.rng() * 0.5) };
         line = 1;
       } else {
@@ -384,11 +299,11 @@ const BEHAVIORS = {
 function introduce(stage, beat, ctx, motion) {
   for (const [i, p] of beat.text.phrases.entries()) {
     const role = i === 0 ? "key" : "support";
-    const u = makeUnit(p.text, role, beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg, ctx.arc.scale);
+    const u = makeUnit(p.text, role, beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg, ctx.arc.scale, ctx.world);
     u.box.w = Math.min(1.6, u.text.length * u.size * 0.46);
     u.box.h = u.size * 1.25;
     u.motion = { ...motion, t0: beat.startMs, delay: i * (ctx.attackMs * 0.32) };
-    place(ctx.grid, stage, u, ctx.rng, ctx.opts);
+    place(ctx.layout, ctx.grid, stage, u, ctx.rng, ctx.opts);
     migrate(stage, u, ctx, beat);
     stage.units.push(u);
   }
@@ -505,6 +420,12 @@ export function buildStages(cut) {
   let regName = "STATEMENT";
   let regRun = 0;
   let lastPhrase = null;
+  // THE WORLD CHANGES ON A SECTION, not on a beat. Every beat would be noise;
+  // never would be the template.
+  let worldName = "COLLAGE";
+  let lastSection = null;
+  let worldRun = 0;
+  const recentWorlds = [];
 
   const filmMs = Math.max(1, cut.durationMs);
   for (const beat of cut.beats) {
@@ -531,6 +452,29 @@ export function buildStages(cut) {
       regName = next_;
     }
     const reg = REGISTERS[regName];
+
+    // WHICH TEXT UNIVERSE THIS PASSAGE IS IN.
+    const sectionKey = beat.sourceRange.startChar - (beat.sourceRange.startChar % 1);
+    const sectionIdx = sectionOf(cut, beat);
+    // A WORLD CHANGES ON A SECTION — OR WHEN IT HAS RUN TOO LONG. Sections
+    // are the writing's own structure and are the right trigger, but a long
+    // section left one universe running for forty beats, which is the
+    // template again wearing a different face.
+    worldRun += 1;
+    if (sectionIdx !== lastSection || worldRun > 14) {
+      worldRun = 0;
+      worldName = chooseWorld(sectionIdx, recentWorlds, rng, u);
+      recentWorlds.push(worldName);
+      if (recentWorlds.length > WORLD_MEMORY) recentWorlds.shift();
+      lastSection = sectionIdx;
+    }
+    const world = WORLDS[worldName];
+    void sectionKey;
+
+    // AND WHICH SPATIAL STRUCTURE. Drawn per beat from the world's own
+    // vocabulary, so a passage keeps a family of geometries rather than one.
+    const layoutPool = world.layouts;
+    const layout = layoutPool[Math.floor(rng() * layoutPool.length)];
     // HOW THIS BOUNDARY IS CUT. One per beat, decided once, so a re-roll of
     // the seed re-cuts the whole film rather than only re-placing it.
     const entry = chooseTransition(beat, turned, rng, opts.chaos);
@@ -586,6 +530,9 @@ export function buildStages(cut) {
       opts,
       reg,
       regName,
+      world,
+      worldName,
+      layout,
       arc,
       attackMs,
       durMs,
@@ -632,6 +579,9 @@ export function buildStages(cut) {
     // The register says what kind of paper this page is printed on; the beat
     // still says how unsure the argument is. Both, not one.
     Object.assign(next.fieldTo, applyField(next.fieldTo, reg));
+    // The world says what KIND of printing this is; the register says what
+    // kind of page; the beat says how sure the argument is. All three.
+    Object.assign(next.fieldTo, applyField(next.fieldTo, world));
 
     const fn = BEHAVIORS[vi.behavior] || BEHAVIORS.APPEAR;
     fn(next, beat, ctx);
@@ -646,7 +596,7 @@ export function buildStages(cut) {
     // just laid down, every time, and the frame came out empty while the
     // report said the density target was met. It only ever gets to retire
     // what was already there.
-    const target = vi.density * reg.crowd * (0.5 + arc.density);
+    const target = vi.density * reg.crowd * world.crowd * (0.5 + arc.density);
     const older = () => next.units.filter((u) => !u.dead && u.born < beat.startMs);
     let guard = 24;
     while (coverage(next) > target + 0.3 && guard-- > 0) {
@@ -670,18 +620,18 @@ export function buildStages(cut) {
     const mid = beat.startMs + (beat.endMs - beat.startMs) * 0.5;
     const survives = next.units.some((x) => !x.dead && (x.die === null || x.die > mid));
     if (!survives && lastPhrase) {
-      const u = makeUnit(lastPhrase, "support", beat, grid, rng, opts, reg, arc.scale);
+      const u = makeUnit(lastPhrase, "support", beat, grid, rng, opts, reg, arc.scale, world);
       u.box.w = Math.min(0.9, u.text.length * u.size * 0.5);
       u.box.h = u.size * 1.3;
       u.motion = { kind: "fade", dur: attackMs * 2, t0: beat.startMs };
-      place(grid, next, u, rng, opts);
+      place(layout, grid, next, u, rng, opts);
       next.units.push(u);
     }
     for (const ph of beat.text.phrases) lastPhrase = ph.text;
 
     protect(next, beat);
 
-    stages.push({ beat, stage: next, entry });
+    stages.push({ beat, stage: next, entry, world: worldName, layout });
     stage = next;
   }
   return { grid, stages };
@@ -865,3 +815,14 @@ export function resolveAt(stages, tMs) {
 }
 
 const clamp01 = (n) => Math.max(0, Math.min(1, n));
+
+
+/** Which of the essay's sections a beat belongs to. Sections are the natural
+ *  unit for a world change — they are the writing's own structure, and using
+ *  them means the film's universes line up with the argument's parts rather
+ *  than with a timer. */
+function sectionOf(cut, beat) {
+  const motifs = cut.motifs ?? [];
+  void motifs;
+  return Math.floor(beat.sourceRange.startChar / 420);
+}

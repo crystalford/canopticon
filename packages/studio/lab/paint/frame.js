@@ -22,7 +22,8 @@
 import { resolveAt } from "../comp/compose.js";
 import { drawMark } from "../comp/marks.js";
 import { makeField, registration, renderField } from "../core/field.js";
-import { CASES, setType } from "../core/type.js";
+import { layoutText } from "../comp/treatment.js";
+import { FACES } from "../core/type.js";
 
 /** The whole colour system. A ground, an ink, and a polarity. No hue exists
  *  anywhere in this engine; when colour arrives it arrives as one accent
@@ -119,32 +120,60 @@ export function drawFrame(ctx, film, frameIndex) {
     }
   };
 
+  /* THE TYPE, VIA ITS TREATMENT.
+   *
+   * A unit is no longer one `fillText`. `layoutText` returns GLYPH RUNS — one
+   * for a line, one per glyph for `perLetter`, one per letter down the page
+   * for `column`, one per character along a curve for `arc` — and this loop
+   * draws whatever it is handed. That is the whole reason the treatments can
+   * be added freely: knockout, boil, migration, convergence and the press all
+   * operate here, over runs, so a new way of setting type inherits every one
+   * of them without touching this file again.
+   */
   for (const u of units) {
-    const text = (CASES[u.case] || CASES.as)(u.text);
-    const drawOne = (dx, dy, alpha) => {
+    const laid = layoutText(p, u, pw, ph);
+    if (laid.runs.length === 0) continue;
+
+    const drawRuns = (dx, dy, alpha) => {
       p.save();
-      const met = setType(p, { ...u, text }, pw, ph);
-      const x = u.box.x * pw + dx;
-      const y = u.box.y * ph + met.ascent + dy;
-      p.translate(x, y);
+      p.translate(u.box.x * pw + dx, u.box.y * ph + dy);
       if (u.rot) p.rotate((u.rot * Math.PI) / 180);
       p.scale(u.drawScale, u.drawScale);
       p.globalAlpha = Math.max(0, Math.min(1, alpha));
-      p.fillStyle = "#fff";
-      p.fillText(text, 0, 0);
+      for (const r of laid.runs) {
+        p.save();
+        p.letterSpacing = `${((r.tracking ?? 0) * 0.06).toFixed(3)}em`;
+        p.font = `${r.weight || 700} ${r.px}px ${FACES[r.face] || FACES.grotesque}`;
+        p.textAlign = "left";
+        p.textBaseline = "alphabetic";
+        p.translate(r.x, r.y);
+        if (r.rot) p.rotate((r.rot * Math.PI) / 180);
+        if (r.flipY) p.scale(1, -1);
+        if (r.alpha !== undefined) p.globalAlpha = Math.max(0, Math.min(1, alpha * r.alpha));
+        if (r.stroke) {
+          p.strokeStyle = "#fff";
+          p.lineWidth = r.stroke;
+          p.strokeText(r.text, 0, 0);
+        } else {
+          p.fillStyle = "#fff";
+          p.fillText(r.text, 0, 0);
+        }
+        p.restore();
+      }
       p.restore();
     };
+
     if (u.repeat) {
       for (let i = u.repeat.n; i >= 1; i--) {
-        drawOne(
+        drawRuns(
           u.repeat.dx * pw * i,
           u.repeat.dy * ph * i,
           u.alpha * u.density * (1 - u.repeat.decay * i),
         );
       }
     }
-    drawOne(0, 0, u.alpha * u.density);
-    if (solids.length > 0) knockout(() => drawOne(0, 0, u.alpha * u.density));
+    drawRuns(0, 0, u.alpha * u.density);
+    if (solids.length > 0) knockout(() => drawRuns(0, 0, u.alpha * u.density));
   }
 
   // Rules and register marks print OVER the type, like real furniture.
