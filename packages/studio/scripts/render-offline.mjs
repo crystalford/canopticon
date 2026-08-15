@@ -56,6 +56,7 @@ console.log(
 // is assembled here rather than loading index.html — the UI would drag in
 // views, state and an app shell none of which this needs.
 const SCRIPTS = [
+  "palette.js",
   "primitives.js",
   "prims-a.js",
   "prims-b.js",
@@ -124,10 +125,20 @@ const built = await page.evaluate(
     window.__canvas = canvas;
     window.__scenes = buildForRender(plan, W, H);
     window.__captions = CAPTIONS;
-    return window.__scenes.map((s) => ({
-      id: s.scene.sceneId || "",
-      errors: (s.built.errors || []).slice(0, 3),
-    }));
+    // `entry.built` is populated lazily by `realiseScene` — see render.js's
+    // own comment, "build one scene's chain, and release every other one".
+    // Reading `.built` before anything has asked for a frame reads null,
+    // always, for every scene: this pre-flight check had never actually
+    // run. Building here to check for errors costs nothing extra — the
+    // frame loop below rebuilds via the same lazy path regardless.
+    return window.__scenes.map((s) => {
+      try {
+        const built = realiseScene(s, window.__scenes);
+        return { id: s.scene.sceneId || "", errors: (built.errors || []).slice(0, 3) };
+      } catch (e) {
+        return { id: s.scene.sceneId || "", errors: [String(e && e.message ? e.message : e)] };
+      }
+    });
   },
   { plan, W, H, CAPTIONS },
 );
