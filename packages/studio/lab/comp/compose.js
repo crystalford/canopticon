@@ -35,6 +35,7 @@ import { FIELD_REST } from "../core/field.js";
 import { boilOffset, boilStep } from "../core/noise.js";
 import { mulberry32 } from "../core/rng.js";
 import { emitMarks } from "./marks.js";
+import { applyField, chooseRegister, lerp, REGISTERS } from "./register.js";
 
 /* ── the grid ──────────────────────────────────────────────────────────── */
 
@@ -154,25 +155,30 @@ export function place(grid, stage, unit, rng, opts) {
 
 /* ── units ─────────────────────────────────────────────────────────────── */
 
-const ROLE_PROTECTION = { key: 1, support: 0.6, fragment: 0.2, texture: 0.22 };
+const ROLE_PROTECTION = { key: 1, support: 0.6, fragment: 0.2, texture: 0.36 };
 
-function makeUnit(text, role, beat, grid, rng, opts) {
+function makeUnit(text, role, beat, grid, rng, opts, reg) {
   const intent = beat.visualIntent;
+  const R = reg ?? REGISTERS.COLLISION;
   // SCALE WITH A REAL RANGE. The old engine ran 0.18..0.52 for everything,
   // which is the safe middle of the page at all times. A key line can now
   // reach most of the frame height, and a texture line can be genuinely
   // small — the contrast between those two is most of what makes a page
   // read as designed rather than as laid out.
+  // SCALE COMES FROM THE REGISTER. A statement page and a document page
+  // disagree about how big a headline is by a factor of five, and that
+  // disagreement is most of what makes them read as different kinds of page
+  // rather than as the same page at different densities.
+  //
+  // The texture floor is a press limit, not a taste: below about 0.03 of
+  // frame height the stems are under a plate pixel and the threshold erases
+  // them, which is how twenty texture units once resolved and drew nothing.
   const base =
     role === "key"
-      ? 0.10 + intent.scale * 0.30 + intent.intensity * 0.10
+      ? lerp(R.keyScale, Math.min(1, intent.scale * 0.7 + intent.intensity * 0.5))
       : role === "support"
-        ? 0.045 + intent.scale * 0.075
-        // NOT SMALLER THAN THE PRESS CAN PRINT. Texture used to run
-        // 0.016–0.038 of frame height, which is 8–19px on the plate — stems
-        // under a pixel wide, so the threshold pass erased every one of
-        // them. Twenty texture units existed, resolved, and drew nothing.
-        : 0.030 + rng() * 0.030;
+        ? lerp(R.supportScale, intent.scale)
+        : Math.max(0.03, 0.030 + rng() * 0.026);
   return {
     id: `${beat.id}:${role}:${text.slice(0, 12)}`,
     text,
@@ -199,7 +205,8 @@ function makeUnit(text, role, beat, grid, rng, opts) {
     // is the one that should crop; a caption never does.
     // A SHORT line cropping off the edge is a decision; a LONG one cropping
     // is just a lost word. Bleed is earned by brevity and by scale.
-    bleed: role === "key" ? Math.min(1, base * 2.6) * Math.max(0, 1 - text.length / 34) : 0,
+    bleed:
+      role === "key" ? Math.min(1, base * 2.6) * Math.max(0, 1 - text.length / 34) * R.bleed : 0,
     born: beat.startMs,
     die: null,
     dead: false,
@@ -263,15 +270,34 @@ const BEHAVIORS = {
     // on its first test and no texture was ever laid down. The frame stayed
     // empty for exactly the reason that was hardest to see.
     const stock = beat.text.body ?? [];
-    const want = Math.round(3 + beat.visualIntent.density * 16);
+    const want = Math.round(lerp(ctx.reg.texture, beat.visualIntent.density));
+
+    // BODY COPY SETS IN COLUMNS. Placing each fragment independently against
+    // the occupancy map scatters them, and several landing in one coarse grid
+    // cell overprint into mush that reads as noise rather than as small
+    // print. Real small text is a COLUMN: one left edge, one leading, lines
+    // stacked. So the first line is placed, and the rest of its column
+    // follows it down — which is also why it reads as a document.
+    let col = null;
+    let line = 0;
     for (let i = 0; i < want && stock.length > 0; i++) {
-      const u = makeUnit(stock[i % stock.length], "texture", beat, ctx.grid, ctx.rng, ctx.opts);
+      const u = makeUnit(stock[i % stock.length], "texture", beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg);
       u.box.w = Math.min(0.9, u.text.length * u.size * 0.5);
       u.box.h = u.size * 1.3;
+      const perCol = 3 + Math.floor(ctx.rng() * 4);
+      if (col === null || line >= perCol) {
+        place(ctx.grid, stage, u, ctx.rng, ctx.opts);
+        col = { x: u.box.x, y: u.box.y, lead: u.box.h * (1.5 + ctx.rng() * 0.5) };
+        line = 1;
+      } else {
+        u.box.x = col.x + (ctx.rng() - 0.5) * 0.006;
+        u.box.y = col.y + col.lead * line;
+        u.rot = 0;
+        line++;
+      }
       // Staggered arrival. Twenty fragments landing on one frame is a paste;
       // twenty landing over a second and a half is a page being set.
       u.motion = { kind: "fade", dur: ctx.attackMs, t0: beat.startMs, delay: i * 70 };
-      place(ctx.grid, stage, u, ctx.rng, ctx.opts);
       stage.units.push(u);
       stage.fieldTo.wear = Math.min(1, stage.fieldTo.wear + 0.004);
     }
@@ -321,7 +347,10 @@ const BEHAVIORS = {
       // echo and becomes a stack of identical lines — the repetition the
       // whole rebuild exists to remove, reintroduced by the one behaviour
       // whose job is repetition.
-      n: 1 + Math.round(beat.visualIntent.intensity * 2),
+      // ONE OR TWO. Even at three this stops reading as an echo and becomes a
+      // stack of identical lines, which is the single most repetitive-looking
+      // thing the engine can do and the first thing the operator named.
+      n: 1 + Math.round(beat.visualIntent.intensity),
       dx: (1 / ctx.grid.cols) * 0.5,
       dy: (1 / ctx.grid.rows) * 0.35,
       decay: 0.16,
@@ -346,7 +375,7 @@ const BEHAVIORS = {
 function introduce(stage, beat, ctx, motion) {
   for (const [i, p] of beat.text.phrases.entries()) {
     const role = i === 0 ? "key" : "support";
-    const u = makeUnit(p.text, role, beat, ctx.grid, ctx.rng, ctx.opts);
+    const u = makeUnit(p.text, role, beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg);
     u.box.w = Math.min(1.6, u.text.length * u.size * 0.46);
     u.box.h = u.size * 1.25;
     u.motion = { ...motion, t0: beat.startMs, delay: i * (ctx.attackMs * 0.32) };
@@ -411,6 +440,8 @@ export function buildStages(cut) {
     ink: { polarity: 0, ground: 0.1, ink: 0.95, hold: 0 },
   };
   const stages = [];
+  let regName = "STATEMENT";
+  let regRun = 0;
 
   for (const beat of cut.beats) {
     const rng = mulberry32(beat.seed);
@@ -422,13 +453,49 @@ export function buildStages(cut) {
     // every sub-beat instead retired the headline three subdivisions after it
     // arrived, and the film went text-blind between promoted phrases.
     const isSub = beat.id.includes(".");
-    const carry = (u) => (isSub ? { ...u } : age(u, beat));
+    // WHAT KIND OF PAGE THIS IS. A sub-beat keeps its parent's register —
+    // the argument has not moved on, only the composition has.
+    let turned = false;
+    if (!isSub) {
+      const next_ = chooseRegister(beat, regName, regRun, rng);
+      turned = next_ !== regName;
+      regRun = turned ? 0 : regRun + 1;
+      regName = next_;
+    }
+    const reg = REGISTERS[regName];
+
+    // A REGISTER CHANGE IS A PAGE TURN.
+    //
+    // Registers set the scale, density and furniture of NEW units — so on
+    // their own they changed nothing visible, because most of the frame is
+    // inherited and inherited type keeps the scale it was born at. A document
+    // page still carrying a statement page's headline is a statement page. So
+    // the turn is enforced: texture goes, furniture goes, and the one
+    // protected line is re-cut to the new register's measure rather than
+    // surviving at the old one. This is the "and then the next thing, which
+    // would have to be different" made structural.
+    const carry = (u) => {
+      if (isSub) return { ...u };
+      const a = age(u, beat);
+      if (!turned) return a;
+      if (a.protection < 0.6) {
+        a.die = a.die ?? beat.startMs + 90 + rng() * 220;
+        return a;
+      }
+      a.size = lerp(reg.keyScale, 0.35);
+      a.bleed = Math.min(a.bleed, reg.bleed);
+      return a;
+    };
+
+
     const next = {
       units:
         beat.visualIntent.continuity === "interrupt"
           ? stage.units.filter((u) => !u.dead && u.protection >= 0.6).map(carry)
           : stage.units.map(carry),
-      marks: stage.marks.filter((m) => !m.dead).map((m) => ({ ...m })),
+      marks: stage.marks
+        .filter((m) => !m.dead)
+        .map((m) => (turned ? { ...m, die: m.die ?? beat.startMs + 120 + rng() * 260 } : { ...m })),
       field: { ...stage.field },
       fieldTo: { ...stage.field },
       plate: { ...stage.plate },
@@ -446,6 +513,8 @@ export function buildStages(cut) {
       grid,
       rng,
       opts,
+      reg,
+      regName,
       attackMs,
       durMs,
       /** A steady push through the whole beat — the frame is always
@@ -469,6 +538,7 @@ export function buildStages(cut) {
       },
     };
 
+
     // THE FIELD ANSWERS TO THE ARGUMENT, and to nothing else. None of these
     // is a picture of anything; they are the state of a material.
     const vi = beat.visualIntent;
@@ -481,6 +551,9 @@ export function buildStages(cut) {
     // WEAR ONLY EVER ACCUMULATES. A photocopy of a photocopy — the film has
     // an arrow, and the last minute cannot look like the first.
     next.fieldTo.wear = Math.min(0.85, next.field.wear + 0.012 + vi.instability * 0.02);
+    // The register says what kind of paper this page is printed on; the beat
+    // still says how unsure the argument is. Both, not one.
+    Object.assign(next.fieldTo, applyField(next.fieldTo, reg));
 
     const fn = BEHAVIORS[vi.behavior] || BEHAVIORS.APPEAR;
     fn(next, beat, ctx);
@@ -495,7 +568,7 @@ export function buildStages(cut) {
     // just laid down, every time, and the frame came out empty while the
     // report said the density target was met. It only ever gets to retire
     // what was already there.
-    const target = vi.density;
+    const target = vi.density * reg.crowd;
     const older = () => next.units.filter((u) => !u.dead && u.born < beat.startMs);
     let guard = 24;
     while (coverage(next) > target + 0.3 && guard-- > 0) {

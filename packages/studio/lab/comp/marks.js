@@ -54,12 +54,17 @@ export function emitMarks(stage, beat, ctx) {
   const r = ctx.rng;
   const intent = beat.visualIntent;
   const heavy = intent.intensity;
+  // HOW MUCH FURNITURE THIS KIND OF PAGE CARRIES. A document is ruled and
+  // screened; a statement page is one line and a hairline. Without this the
+  // same furniture appears on every register and they converge back into one
+  // look no matter how differently the type is set.
+  const M = ctx.reg?.marks ?? { rule: 0.6, bar: 0.5, block: 0.5, screen: 0.4, frame: 0.3 };
 
   // ── a rule under the strongest thing on the frame ────────────────────
   // Editorial furniture in its oldest form. It takes its width from the
   // unit it belongs to, so it is never a decoration floating on its own.
   const key = live.slice().sort((a, b) => b.protection - a.protection)[0];
-  if (key && r() < 0.55 + heavy * 0.4) {
+  if (key && r() < M.rule * (0.6 + heavy * 0.5)) {
     const under = r() < 0.72;
     stage.marks.push(
       mark(
@@ -81,7 +86,7 @@ export function emitMarks(stage, beat, ctx) {
   // Bleed is vocabulary, not overflow. It runs PAST the frame deliberately,
   // which is the single cheapest thing that stops a composition reading as
   // a slide with margins.
-  if (r() < 0.3 + intent.density * 0.5) {
+  if (r() < M.bar * (0.35 + intent.density * 0.6)) {
     const vertical = r() < 0.42;
     const thick = 0.02 + r() * (0.05 + heavy * 0.16);
     const along = -0.15 + r() * 0.5;
@@ -111,7 +116,7 @@ export function emitMarks(stage, beat, ctx) {
   // Mass, not illustration. It is placed by the same occupancy the type is
   // placed by, so it fills the composition's actual hole rather than a
   // remembered one.
-  if (heavy > 0.55 && r() < heavy * 0.7) {
+  if (heavy > 0.5 && r() < M.block * heavy) {
     const hole = emptiest(ctx.grid, live);
     const w = (1 / ctx.grid.cols) * (1 + Math.round(r() * 2));
     const h = (1 / ctx.grid.rows) * (1 + Math.round(r() * 2));
@@ -128,7 +133,7 @@ export function emitMarks(stage, beat, ctx) {
   // The one mark that is pure material: a region where the ink is screened
   // rather than solid. It is what a photograph leaves behind when there is
   // no photograph.
-  if (r() < 0.22 + intent.density * 0.45) {
+  if (r() < M.screen * (0.3 + intent.density * 0.6)) {
     const hole = emptiest(ctx.grid, live);
     stage.marks.push(
       mark(
@@ -154,7 +159,7 @@ export function emitMarks(stage, beat, ctx) {
   // ── register marks, on an interrupt ──────────────────────────────────
   // Crop and registration marks say "this is a printed sheet" in one stroke
   // and cost four short lines. They arrive on a cut, never on a hold.
-  if (intent.continuity === "interrupt" && r() < 0.5) {
+  if (intent.continuity === "interrupt" && r() < M.frame * 1.6) {
     stage.marks.push(
       mark("frame", { x: 0.03, y: 0.03, w: 0.94, h: 0.94 }, beat, ctx, {
         density: 0.5,

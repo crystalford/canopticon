@@ -89,30 +89,40 @@ export function drawFrame(ctx, film, frameIndex) {
     }
   }
 
-  /** KNOCKOUT — type reversed out of solid ink.
+  /** KNOCKOUT — type reversed out of solid ink, WHERE IT ACTUALLY OVERLAPS.
    *
    *  Ink over ink is invisible: a block and a word are both full coverage, so
-   *  a line of text crossing a solid bar simply disappeared, and the small
-   *  print vanished under every mass on the page. Print solves this by
-   *  REVERSING the type out of the solid, and so does this — the glyphs are
-   *  erased from the coverage plate rather than added to it. Same operation a
-   *  press performs, one composite mode, and it is what makes a block and a
-   *  headline able to occupy the same space at all. */
-  const onSolid = (u) => {
-    const cx = u.box.x + u.box.w / 2;
-    const cy = u.box.y + u.box.h / 2;
+   *  a line crossing a solid mass simply disappears. Print reverses the type
+   *  out of the solid, and so does this.
+   *
+   *  THE FIRST VERSION DECIDED THIS PER UNIT, from the centre of its box —
+   *  which is right only for type smaller than the block it sits on. A
+   *  headline spanning half the frame has its centre somewhere else entirely,
+   *  so no knockout fired and light type printed onto a light block: the
+   *  white-on-white the operator could not read. A unit is not on or off a
+   *  solid, it is PARTLY on one, and the reversal has to follow the geometry
+   *  rather than a boolean.
+   *
+   *  So the type is drawn twice: once normally, then again in destination-out
+   *  CLIPPED to each solid. Outside the solid the first pass stands; inside
+   *  it, the second erases. Exactly what a press does, and correct for type
+   *  of any size. */
+  const knockout = (draw) => {
     for (const s of solids) {
-      if (cx >= s.x && cx <= s.x + s.w && cy >= s.y && cy <= s.y + s.h) return true;
+      p.save();
+      p.beginPath();
+      p.rect(s.x * pw, s.y * ph, s.w * pw, s.h * ph);
+      p.clip();
+      p.globalCompositeOperation = "destination-out";
+      draw();
+      p.restore();
     }
-    return false;
   };
 
   for (const u of units) {
     const text = (CASES[u.case] || CASES.as)(u.text);
-    const knock = onSolid(u);
     const drawOne = (dx, dy, alpha) => {
       p.save();
-      if (knock) p.globalCompositeOperation = "destination-out";
       const met = setType(p, { ...u, text }, pw, ph);
       const x = u.box.x * pw + dx;
       const y = u.box.y * ph + met.ascent + dy;
@@ -134,6 +144,7 @@ export function drawFrame(ctx, film, frameIndex) {
       }
     }
     drawOne(0, 0, u.alpha * u.density);
+    if (solids.length > 0) knockout(() => drawOne(0, 0, u.alpha * u.density));
   }
 
   // Rules and register marks print OVER the type, like real furniture.
