@@ -37,7 +37,8 @@ import { mulberry32 } from "../core/rng.js";
 import { arcAt, vocabularyAt } from "./arc.js";
 import { LAYOUTS, emptiest, place } from "./layout.js";
 import { emitMarks } from "./marks.js";
-import { TREATMENTS } from "./treatment.js";
+import { buildForm, driftForm, formKey, sampleForm } from "../form/grow.js";
+import { driftStyle, sampleStyle, styleKey } from "../style/space.js";
 import { WORLDS, WORLD_MEMORY, chooseWorld } from "./world.js";
 import { applyField, chooseRegister, lerp, REGISTERS } from "./register.js";
 import { chooseTransition, resolveTransition } from "./transition.js";
@@ -68,15 +69,14 @@ export function buildGrid(seed) {
 
 const ROLE_PROTECTION = { key: 1, support: 0.6, fragment: 0.2, texture: 0.36 };
 
-function makeUnit(text, role, beat, grid, rng, opts, reg, arcScale = 1, world) {
+function makeUnit(text, role, beat, grid, rng, opts, reg, arcScale = 1, world, style) {
   const intent = beat.visualIntent;
   const R = reg ?? REGISTERS.COLLISION;
   const Wd = world ?? WORLDS.COLLAGE;
   // THE WORLD DECIDES HOW THIS IS SET. Face, case and treatment all come from
   // the universe this passage is in, not from a fixed table keyed on role —
   // which is what made every unit in every film the same horizontal line.
-  const pool = role === "texture" ? Wd.treatments.texture : Wd.treatments.key;
-  const treatment = pool[Math.floor(rng() * pool.length)];
+
   // SCALE WITH A REAL RANGE. The old engine ran 0.18..0.52 for everything,
   // which is the safe middle of the page at all times. A key line can now
   // reach most of the frame height, and a texture line can be genuinely
@@ -104,9 +104,11 @@ function makeUnit(text, role, beat, grid, rng, opts, reg, arcScale = 1, world) {
     face: role === "key" ? Wd.faces.key : role === "support" ? Wd.faces.support : Wd.faces.texture,
     weight: role === "key" ? 400 : 500,
     case: role === "key" ? Wd.case : "as",
-    treatment,
-    // A treatment's own random dimension, fixed per unit so it is stable
-    // across every frame the unit lives for.
+    // THE STYLE POINT THIS UNIT IS SET BY. Not a named treatment — a point in
+    // a continuous space, so no two units in a film are set the same way.
+    style,
+    altFace: rng() < 0.5 ? Wd.faces.support : Wd.faces.texture,
+    trackingOffset: (rng() - 0.5) * 0.6,
     jitter: rng(),
     chaos: opts.chaos * (1 + (Wd.chaosBoost ?? 0)),
     tracking: role === "key" ? -0.15 + rng() * 0.5 : 0.1 + rng() * 0.3,
@@ -201,7 +203,7 @@ const BEHAVIORS = {
     let col = null;
     let line = 0;
     for (let i = 0; i < want && stock.length > 0; i++) {
-      const u = makeUnit(stock[i % stock.length], "texture", beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg, ctx.arc.scale, ctx.world);
+      const u = makeUnit(stock[i % stock.length], "texture", beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg, ctx.arc.scale, ctx.world, ctx.style);
       u.box.w = Math.min(0.9, u.text.length * u.size * 0.5);
       u.box.h = u.size * 1.3;
       const perCol = 3 + Math.floor(ctx.rng() * 4);
@@ -299,7 +301,7 @@ const BEHAVIORS = {
 function introduce(stage, beat, ctx, motion) {
   for (const [i, p] of beat.text.phrases.entries()) {
     const role = i === 0 ? "key" : "support";
-    const u = makeUnit(p.text, role, beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg, ctx.arc.scale, ctx.world);
+    const u = makeUnit(p.text, role, beat, ctx.grid, ctx.rng, ctx.opts, ctx.reg, ctx.arc.scale, ctx.world, ctx.style);
     u.box.w = Math.min(1.6, u.text.length * u.size * 0.46);
     u.box.h = u.size * 1.25;
     u.motion = { ...motion, t0: beat.startMs, delay: i * (ctx.attackMs * 0.32) };
@@ -426,6 +428,12 @@ export function buildStages(cut) {
   let lastSection = null;
   let worldRun = 0;
   let beatIndex = -1;
+  // A LOOK AND A FORM PER BEAT. Both are points in continuous spaces, drifting
+  // while the writing holds and leaping when it moves — so a film visits
+  // hundreds of them and repeats none.
+  let style = sampleStyle(mulberry32(cut.seed ^ 0x5f3759df));
+  let form = sampleForm(mulberry32(cut.seed ^ 0x1b873593));
+  const topicForms = new Map();
   const recentWorlds = [];
   /** Passage index → the world it was given. The film's memory. */
   const topicWorlds = new Map();
@@ -474,6 +482,29 @@ export function buildStages(cut) {
     // which anything carries through a film.
     topicWorlds.set(rd.passage ?? beatIndex, worldName);
     const world = WORLDS[worldName];
+
+    // WHERE IN THE SPACES THIS MOMENT SITS. The writing decides: a passage
+    // that holds drifts a little, one that has moved leaps, and one that
+    // RETURNS comes back to its own earlier form grown further — which is what
+    // makes a callback read as time passed rather than as a loop.
+    const leap = chosen.why === "move" || chosen.why === "open";
+    if (chosen.why === "return" && topicForms.has(rd.passage)) {
+      form = driftForm(topicForms.get(rd.passage), rng, 0.12);
+      style = driftStyle(style, rng, 0.2);
+    } else if (leap) {
+      style = sampleStyle(rng, { damage: Math.min(0.9, arc.wear * 0.7 + rng() * 0.4) });
+      form = sampleForm(rng, { profusion: clamp01(arc.density * 0.6 + rng() * 0.5) });
+    } else {
+      style = driftStyle(style, rng, 0.07);
+      form = driftForm(form, rng, 0.05);
+    }
+    if (!topicForms.has(rd.passage)) topicForms.set(rd.passage, form);
+    const built = buildForm(form);
+    const formPlace = {
+      x: 0.2 + rng() * 0.6,
+      y: 0.2 + rng() * 0.6,
+      scale: 0.3 + rng() * 0.9,
+    };
     void sectionKey;
     void lastSection;
     void recentWorlds;
@@ -541,6 +572,7 @@ export function buildStages(cut) {
       world,
       worldName,
       layout,
+      style,
       arc,
       attackMs,
       durMs,
@@ -655,6 +687,7 @@ export function buildStages(cut) {
           reg,
           arc.scale,
           world,
+          style,
         );
         u.box.w = Math.min(0.9, u.text.length * u.size * 0.5);
         u.box.h = u.size * 1.3;
@@ -675,6 +708,10 @@ export function buildStages(cut) {
       layout,
       why: chosen.why,
       process: world.process ?? "photocopy",
+      style,
+      form,
+      built,
+      formPlace,
     });
     stage = next;
   }
@@ -855,6 +892,12 @@ export function resolveAt(stages, tMs) {
     field,
     edit: tr,
     process: active.process ?? "photocopy",
+    style: active.style,
+    form: active.form,
+    built: active.built,
+    formPlace: active.formPlace,
+    // How far through its own beat this moment is — the form grows on it.
+    grown: k,
     beat: active.beat,
   };
 }

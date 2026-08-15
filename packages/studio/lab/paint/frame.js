@@ -23,6 +23,8 @@ import { resolveAt } from "../comp/compose.js";
 import { drawMark } from "../comp/marks.js";
 import { makeField, registration, renderField } from "../core/field.js";
 import { layoutText } from "../comp/treatment.js";
+import { drawForm } from "../form/draw.js";
+import { growAt } from "../form/grow.js";
 import { PROCESSES } from "./process.js";
 import { FACES } from "../core/type.js";
 
@@ -48,7 +50,7 @@ export function drawFrame(ctx, film, frameIndex) {
   const tMs = (frameIndex / cut.fps) * 1000;
   const res = resolveAt(stages, tMs);
   if (!res) return;
-  const { units, marks, stage, plate, field, edit, process } = res;
+  const { units, marks, stage, plate, field, edit, process, built, formPlace, grown } = res;
   const ink = inkOf(stage);
 
   // The plate runs coarser than the output and is upscaled without
@@ -73,7 +75,19 @@ export function drawFrame(ctx, film, frameIndex) {
   p.scale(plate.scale, plate.scale);
   p.translate(-pw / 2, -ph / 2);
 
-  // Marks first — furniture sits under the words, which is what makes a
+  // THE FORM, FIRST AND INTO THE SAME PLATE.
+  //
+  // Everything this engine ever rendered was words on a surface — it had never
+  // once depicted anything, which is why no amount of typographic variety ever
+  // stopped the films reading as one thing. The form goes into the ink plate
+  // rather than over the finished picture, so knockout, boil, registration and
+  // the press treat it exactly as they treat text. A form composited after the
+  // press would be a sticker on a photocopy.
+  if (built && formPlace) {
+    drawForm(p, growAtSafe(built, grown ?? 0), formPlace.x, formPlace.y, formPlace.scale, pw, ph);
+  }
+
+  // Marks next — furniture sits under the words, which is what makes a
   // block read as a block rather than as something pasted over the type.
   const solids = [];
   for (const m of marks) {
@@ -319,4 +333,10 @@ export function prepareFilm(cut, stagesResult) {
     // milliseconds to generate and would be a stall on every frame.
     _field: makeField(cut.seed),
   };
+}
+
+
+/** Grow a form to a moment, tolerating a stage built before forms existed. */
+function growAtSafe(built, t) {
+  return growAt(built, t);
 }

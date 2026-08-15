@@ -42,8 +42,23 @@ const W = (ctx, s) => ctx.measureText(s).width;
  *  place a discrete choice survives is whether a word breaks to a new line,
  *  because a line break genuinely is discrete.
  */
+/** A style is required. The default exists so a unit built by a path that
+ *  predates the style space still renders rather than taking the whole frame
+ *  down — degrade, flag, continue. */
+const FALLBACK = {
+  caseMix: 0.7,
+  weightAxis: 700,
+  tracking: 0.2,
+  stacking: 0,
+  verticality: 0,
+  curvature: 0,
+  glyphJitter: 0,
+  faceEntropy: 0,
+  stroke: 0,
+};
+
 export function layoutText(ctx, u, fw, fh) {
-  const s = u.style;
+  const s = u.style ?? FALLBACK;
   const text = s.caseMix > 0.62 ? u.text.toUpperCase() : u.text;
   const px0 = Math.max(6, u.size * fh);
   const face = u.face;
