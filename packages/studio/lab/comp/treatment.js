@@ -1,235 +1,138 @@
-/* TREATMENTS — how a piece of text becomes marks on the plate.
+/* SETTING TEXT — one continuous function, not thirteen named treatments.
  *
- * THE COMPLAINT THIS ANSWERS: "it's like you're presenting me with a template…
- * repetitive same text effects and same angles and positioning. A monotype
- * collage should be able to generate ten minutes of monotype collage things
- * happening."
+ * The previous version of this file had a table: `line`, `arc`, `column`,
+ * `perLetter`, `stack`, `outline`, `mirror`, `justify`… thirteen rows, chosen
+ * from. That is a preset system, and a preset system cannot produce a way of
+ * setting type that its author did not type out. Once you have seen `arc`
+ * twice you have seen `arc`.
  *
- * Exactly right, and the count is embarrassing. Before this file, a unit was
- * drawn ONE way: a single horizontal line, left-aligned, one face, one size,
- * one baseline — and for the protected headline the rotation resolved to about
- * ±1.3° even at maximum chaos. Every register, every transition, every arc and
- * every seed was a variation AROUND that one construction. Thousands of
- * parameter combinations, one look, because there was one way to set type.
+ * So there is one function, and it takes CONTINUOUS PARAMETERS. Those thirteen
+ * are now regions of a space rather than entries in a list — and, far more
+ * importantly, so is everything between and around them:
  *
- * A treatment is a function from a string to GLYPH RUNS. It never draws —
- * it returns placements, so `frame.js` keeps a single draw path and knockout,
- * boil, migration, convergence and the press all keep working over whatever a
- * treatment invents. Standing rule 11: every system that operates on a visual
- * program treats the new structure, or none of them do.
+ *   curvature 0   + verticality 0   + jitter 0    → a plain line
+ *   curvature 0.8 + verticality 0                 → set along an arc
+ *   curvature 0   + verticality 1                 → running down the frame
+ *   curvature 0   + jitter 0.9                    → every glyph its own object
+ *   curvature 0.3 + verticality 0.4 + jitter 0.5  → has no name, and exists
  *
- * Measurement goes through `core/type.js`'s `fit`/`setType` and nowhere else.
- * A second measuring function is how two parts of the engine come to disagree
- * about how wide a word is.
+ * The last line is the point. There are not thirteen ways to set a phrase;
+ * there is a continuum, and a film that samples it does not repeat itself
+ * because the samples are never the same.
+ *
+ * Runs go out, not pixels — the renderer keeps one draw path, so knockout,
+ * boil, migration and the press operate over anything this invents.
  */
 
-import { CASES, FACES, fit } from "../core/type.js";
+import { FACES, fit } from "../core/type.js";
 
-/** One run: a string drawn at a place, at an angle, in a face. A `line` is one
- *  run; `perLetter` is one run per glyph. The renderer does not care which. */
-function run(text, x, y, px, rot, u, extra) {
-  return {
-    text,
-    x,
-    y,
-    px,
-    rot: rot ?? 0,
-    face: u.face,
-    weight: u.weight,
-    tracking: u.tracking,
-    ...extra,
-  };
-}
+const clamp01 = (n) => Math.max(0, Math.min(1, n));
 
-/** Set the context to a face at a size, so a measurement is the truth. */
-function useFont(ctx, u, px, tracking) {
-  ctx.letterSpacing = `${((tracking ?? u.tracking ?? 0) * 0.06).toFixed(3)}em`;
-  ctx.font = `${u.weight || 700} ${px}px ${FACES[u.face] || FACES.grotesque}`;
+function useFont(ctx, face, weight, px, tracking) {
+  ctx.letterSpacing = `${(tracking * 0.06).toFixed(3)}em`;
+  ctx.font = `${Math.round(weight)}px ${FACES[face] || FACES.grotesque}`;
+  ctx.font = `${Math.round(weight)} ${px}px ${FACES[face] || FACES.grotesque}`;
 }
 
 const W = (ctx, s) => ctx.measureText(s).width;
 
-/* ── the treatments ───────────────────────────────────────────────────── */
+/** Set a unit's text as glyph runs, from the style's continuous parameters.
+ *
+ *  Every decision below is a dial reading, not a branch on a name. The one
+ *  place a discrete choice survives is whether a word breaks to a new line,
+ *  because a line break genuinely is discrete.
+ */
+export function layoutText(ctx, u, fw, fh) {
+  const s = u.style;
+  const text = s.caseMix > 0.62 ? u.text.toUpperCase() : u.text;
+  const px0 = Math.max(6, u.size * fh);
+  const face = u.face;
+  const weight = s.weightAxis;
+  const tracking = s.tracking + (u.trackingOffset ?? 0);
 
-export const TREATMENTS = {
-  /** One horizontal line. The engine's only idea until now, kept because it
-   *  is the right answer often — just not always. */
-  line(ctx, u, fw, fh) {
-    const px = fit(ctx, u.text, u.box.w * fw, u.size * fh, u.weight, u.face);
-    useFont(ctx, u, px);
-    return [run(u.text, 0, 0, px, 0, u)];
-  },
+  // STACKING breaks the phrase into lines. At 0 it is one line; at 1 every
+  // word is its own line. In between, lines of a few words — which is what a
+  // measure is, arrived at continuously rather than chosen.
+  const words = text.split(/\s+/).filter(Boolean);
+  const perLine = Math.max(1, Math.round((1 - clamp01(s.stacking)) * (words.length - 1)) + 1);
+  const lines = [];
+  for (let i = 0; i < words.length; i += perLine) lines.push(words.slice(i, i + perLine).join(" "));
 
-  /** Squeezed. Negative tracking to the edge of collision — the newspaper
-   *  headline that has to fit and will not be shrunk. */
-  condensed(ctx, u, fw, fh) {
-    const t = -0.45 - u.jitter * 0.35;
-    const px = fit(ctx, u.text, u.box.w * fw, u.size * fh * 1.25, u.weight, u.face);
-    useFont(ctx, u, px, t);
-    return [run(u.text, 0, 0, px, 0, u, { tracking: t })];
-  },
+  // VERTICALITY turns a line into a column of single characters, continuously:
+  // at 0.5 the line is set normally but rotated a quarter turn; at 1 it is one
+  // glyph per row reading downward.
+  const vertical = s.verticality;
+  const runs = [];
+  const lead = px0 * (0.82 + s.stacking * 0.5);
 
-  /** Pulled apart. Wide tracking is a different reading speed, not a
-   *  different decoration. */
-  expanded(ctx, u, fw, fh) {
-    const t = 1.2 + u.jitter * 2.2;
-    const px = fit(ctx, u.text, u.box.w * fw, u.size * fh * 0.7, u.weight, u.face) * 0.8;
-    useFont(ctx, u, px, t);
-    return [run(u.text, 0, 0, px, 0, u, { tracking: t })];
-  },
+  for (const [li, line] of lines.entries()) {
+    const chars = vertical > 0.5 ? [...line.replace(/\s+/g, "")] : null;
+    const px = lines.length > 1 ? px0 * 0.9 : fitToBox(ctx, line, u, fw, px0, face, weight, tracking);
+    useFont(ctx, face, weight, px, tracking);
 
-  /** LETTER-SPACED TO EXACTLY FILL ITS MEASURE. The oldest editorial move
-   *  there is, and it needs real measurement — the tracking is solved for,
-   *  not chosen. */
-  justify(ctx, u, fw, fh) {
-    const measure = u.box.w * fw;
-    const px = u.size * fh * 0.8;
-    useFont(ctx, u, px, 0);
-    const natural = W(ctx, u.text);
-    const gaps = Math.max(1, u.text.length - 1);
-    // em of extra space per gap, converted back into the tracking unit
-    // `setType` uses, so one convention governs spacing everywhere.
-    const extraEm = (measure - natural) / gaps / px;
-    const t = extraEm / 0.06;
-    useFont(ctx, u, px, t);
-    return [run(u.text, 0, 0, px, 0, u, { tracking: t })];
-  },
-
-  /** One word per line, stacked. A block of type rather than a line of it. */
-  stack(ctx, u, fw, fh) {
-    const words = u.text.split(/\s+/).filter(Boolean);
-    const px = fit(ctx, longest(words), u.box.w * fw, u.size * fh, u.weight, u.face);
-    useFont(ctx, u, px);
-    const lead = px * (0.86 + u.jitter * 0.3);
-    return words.map((wd, i) => run(wd, 0, i * lead, px, 0, u));
-  },
-
-  /** One LETTER per line, running down. Type as a vertical object. */
-  column(ctx, u, fw, fh) {
-    const chars = [...u.text.replace(/\s+/g, "")];
-    const px = u.size * fh * 0.85;
-    useFont(ctx, u, px);
-    const lead = px * (0.78 + u.jitter * 0.25);
-    return chars.map((c, i) => run(c, 0, i * lead, px, 0, u));
-  },
-
-  /** The line turned on its side. Reading up the left edge or down the right
-   *  is a whole different composition from the same words. */
-  rotate90(ctx, u, fw, fh) {
-    const px = fit(ctx, u.text, u.box.h * fh * 3.2, u.size * fh, u.weight, u.face);
-    useFont(ctx, u, px);
-    return [run(u.text, 0, 0, px, u.jitter < 0.5 ? -90 : 90, u)];
-  },
-
-  /** Set along a curve, each glyph at its own angle. */
-  arc(ctx, u, fw, fh) {
-    const chars = [...u.text];
-    const px = u.size * fh * 0.7;
-    useFont(ctx, u, px);
-    const radius = (u.box.w * fw) / (0.6 + u.jitter * 0.8);
-    const total = chars.reduce((n, c) => n + W(ctx, c), 0);
-    const sweep = total / radius;
-    let a = -sweep / 2;
-    const flip = u.jitter > 0.6 ? -1 : 1;
-    return chars.map((c) => {
-      const w = W(ctx, c);
-      const step = w / radius;
-      const mid = a + step / 2;
-      const x = Math.sin(mid) * radius;
-      const y = flip * (radius - Math.cos(mid) * radius);
-      a += step;
-      return run(c, x, y, px, (flip * mid * 180) / Math.PI, u);
-    });
-  },
-
-  /** EVERY GLYPH PLACED ON ITS OWN — scaled, rotated, nudged. This is the one
-   *  that most obviously breaks the template, and the one the old engine could
-   *  not express at all. */
-  perLetter(ctx, u, fw, fh) {
-    const chars = [...u.text];
-    const base = u.size * fh * 0.9;
-    let x = 0;
-    return chars.map((c, i) => {
-      const n = frac(u.phase + i * 2654435761);
-      const m = frac(u.phase * 3 + i * 40503);
-      const px = base * (0.55 + n * 1.1);
-      useFont(ctx, u, px);
-      const w = W(ctx, c);
-      const r = run(c, x, (m - 0.5) * base * 0.9, px, (n - 0.5) * 46 * (0.3 + u.chaos), u);
-      x += w * (0.72 + m * 0.5);
-      return r;
-    });
-  },
-
-  /** Stroked, not filled. Same letterforms, opposite weight on the page. */
-  outline(ctx, u, fw, fh) {
-    const px = fit(ctx, u.text, u.box.w * fw, u.size * fh, u.weight, u.face);
-    useFont(ctx, u, px);
-    return [run(u.text, 0, 0, px, 0, u, { stroke: Math.max(1, px * 0.018) })];
-  },
-
-  /** Broken at a word boundary and separated. One phrase occupying two places
-   *  on the frame is a composition; the same phrase in one place is a label. */
-  split(ctx, u, fw, fh) {
-    const words = u.text.split(/\s+/).filter(Boolean);
-    if (words.length < 2) return TREATMENTS.line(ctx, u, fw, fh);
-    const at = 1 + Math.floor(u.jitter * (words.length - 1));
-    const a = words.slice(0, at).join(" ");
-    const b = words.slice(at).join(" ");
-    const px = fit(ctx, longest([a, b]), u.box.w * fw, u.size * fh, u.weight, u.face);
-    useFont(ctx, u, px);
-    const dx = (0.25 + u.jitter * 0.7) * u.box.w * fw;
-    const dy = px * (1.1 + u.jitter * 1.6);
-    return [run(a, 0, 0, px, 0, u), run(b, dx, dy, px, 0, u)];
-  },
-
-  /** Reflected. The second copy is the first one's shadow on the other side
-   *  of an axis. */
-  mirror(ctx, u, fw, fh) {
-    const px = fit(ctx, u.text, u.box.w * fw, u.size * fh, u.weight, u.face);
-    useFont(ctx, u, px);
-    return [
-      run(u.text, 0, 0, px, 0, u),
-      run(u.text, 0, px * 1.15, px, 0, u, { flipY: true, alpha: 0.55 }),
-    ];
-  },
-
-  /** One word tiled as pattern. Repetition used deliberately, which is a
-   *  style — the operator said so — rather than an accident. */
-  repeat(ctx, u, fw, fh) {
-    const word = u.text.split(/\s+/)[0] ?? u.text;
-    const px = u.size * fh * 0.5;
-    useFont(ctx, u, px);
-    const w = W(ctx, word);
-    const cols = Math.max(2, Math.round((u.box.w * fw) / Math.max(1, w * 1.15)));
-    const rows = 2 + Math.round(u.jitter * 4);
-    const out = [];
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        out.push(run(word, c * w * 1.15, r * px * 1.05, px, 0, u));
+    if (chars) {
+      // A column. Its spacing follows the same leading as everything else, so
+      // a vertical and a horizontal unit on one page still belong together.
+      for (const [ci, c] of chars.entries()) {
+        runs.push(mk(c, 0, li * lead * 6 + ci * px * 0.8, px, 0, face, weight, tracking, s, ci, u));
       }
+      continue;
     }
-    return out;
-  },
-};
 
-export const TREATMENT_NAMES = Object.keys(TREATMENTS);
+    // CURVATURE bends the baseline. At 0 the maths degenerates to a straight
+    // line, so there is no branch — a flat arc IS a line.
+    if (s.curvature > 0.02 || s.glyphJitter > 0.02) {
+      const cs = [...line];
+      const total = cs.reduce((n, c) => n + W(ctx, c), 0);
+      const radius = total / Math.max(0.001, s.curvature * 1.9);
+      let a = -(total / radius) / 2;
+      let x = 0;
+      for (const [ci, c] of cs.entries()) {
+        const w = W(ctx, c);
+        const step = w / radius;
+        const midA = a + step / 2;
+        const onArc = s.curvature > 0.02;
+        const jx = jitter(u.phase, ci, 1) * s.glyphJitter;
+        const jy = jitter(u.phase, ci, 2) * s.glyphJitter;
+        const jr = jitter(u.phase, ci, 3) * s.glyphJitter;
+        const jp = 1 + jitter(u.phase, ci, 4) * s.glyphJitter * 1.1;
+        runs.push(
+          mk(
+            c,
+            (onArc ? Math.sin(midA) * radius : x) + jx * px * 0.5,
+            li * lead + (onArc ? radius - Math.cos(midA) * radius : 0) + jy * px * 0.6,
+            px * Math.max(0.35, jp),
+            (onArc ? (midA * 180) / Math.PI : 0) + jr * 40,
+            face,
+            weight,
+            tracking,
+            s,
+            ci,
+            u,
+          ),
+        );
+        a += step;
+        x += w * (1 + jitter(u.phase, ci, 5) * s.glyphJitter * 0.5);
+      }
+      continue;
+    }
 
-/** Lay out a unit's text, whatever its treatment. Returns runs plus the box
- *  they actually occupy, because a treatment decides its own extent and the
- *  compositor must not assume a single line's worth. */
-export function layoutText(ctx, unit, frameW, frameH) {
-  const text = (CASES[unit.case] || CASES.as)(unit.text);
-  const u = { ...unit, text };
-  const fn = TREATMENTS[unit.treatment] || TREATMENTS.line;
-  const runs = fn(ctx, u, frameW, frameH);
+    runs.push(mk(line, 0, li * lead, px, 0, face, weight, tracking, s, 0, u));
+  }
+
+  // VERTICALITY between 0 and 0.5 rotates the whole unit rather than
+  // rebuilding it as a column — the same dial, continuous across its range.
+  if (vertical > 0 && vertical <= 0.5) {
+    const deg = vertical * 180;
+    for (const r of runs) r.rot += deg;
+  }
 
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
   let y1 = -Infinity;
   for (const r of runs) {
-    useFont(ctx, u, r.px, r.tracking);
+    useFont(ctx, r.face, r.weight, r.px, r.tracking);
     const w = W(ctx, r.text);
     x0 = Math.min(x0, r.x);
     y0 = Math.min(y0, r.y - r.px * 0.78);
@@ -237,11 +140,37 @@ export function layoutText(ctx, unit, frameW, frameH) {
     y1 = Math.max(y1, r.y + r.px * 0.24);
   }
   if (!Number.isFinite(x0)) return { runs: [], w: 0, h: 0 };
-  return { runs, w: x1 - x0, h: y1 - y0, ox: x0, oy: y0 };
+  return { runs, w: x1 - x0, h: y1 - y0 };
 }
 
-const longest = (a) => a.reduce((b, s) => (s.length > b.length ? s : b), "");
-const frac = (n) => {
-  const x = Math.sin(n * 0.0001) * 43758.5453;
-  return x - Math.floor(x);
-};
+function mk(text, x, y, px, rot, face, weight, tracking, s, ci, u) {
+  // FACE ENTROPY. At 0 one face throughout; at 1 the glyphs disagree. This is
+  // the ransom note and the Swiss page as two readings of one dial.
+  const mixed =
+    s.faceEntropy > 0.15 && Math.abs(jitter(u.phase, ci, 6)) < s.faceEntropy
+      ? u.altFace
+      : face;
+  return {
+    text,
+    x,
+    y,
+    px,
+    rot,
+    face: mixed,
+    weight,
+    tracking,
+    stroke: s.stroke > 0 ? px * s.stroke : 0,
+  };
+}
+
+function fitToBox(ctx, text, u, fw, px0, face, weight, tracking) {
+  useFont(ctx, face, weight, px0, tracking);
+  return fit(ctx, text, u.box.w * fw, px0, weight, face);
+}
+
+/** Deterministic per-glyph noise in −1..1. Seeded from the unit's own phase so
+ *  a glyph's jitter is stable across every frame it lives for. */
+function jitter(phase, i, salt) {
+  const x = Math.sin((phase + i * 374761393 + salt * 668265263) * 0.0001) * 43758.5453;
+  return (x - Math.floor(x)) * 2 - 1;
+}
