@@ -156,6 +156,7 @@ describe("silence is not a pause in the film's clock", () => {
           bornAt: 0,
           lastSeen: 2,
           multiplicity: 1,
+          material: 0,
         },
       ],
       retired: [],

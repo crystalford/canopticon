@@ -67,6 +67,18 @@ export interface Persistent {
   lastSeen: number;
   /** How many of it the film currently holds. Grows under ACCUMULATE. */
   multiplicity: number;
+  /* WHAT IT IS MADE OF, AND IT DID NOT USED TO PERSIST.
+   *
+   * `element.material` is recomputed every scene from `MATERIAL[mode][role]`
+   * (`scene-graph.ts`) — a property of THIS scene's composition, not of the
+   * thing. So a continuing identity's material only ever survived by
+   * coincidence: the same role composed under the same mode happens to
+   * land on the same index. Carried here explicitly, it is read once when
+   * the entity first appears and held unless the sentence itself claims
+   * the thing changed — see the `TRANSFORM` branch in `advance()`. "This
+   * one is metal" now means something a scene change cannot silently
+   * undo. */
+  material: number;
 }
 
 export interface FilmState {
@@ -243,7 +255,16 @@ export function advance(
     const alive = named
       .map((identity) => {
         const el = elementFor(identity);
-        return el ? { identity, element: el, bornAt: i, lastSeen: i, multiplicity: 1 } : null;
+        return el
+          ? {
+              identity,
+              element: el,
+              bornAt: i,
+              lastSeen: i,
+              multiplicity: 1,
+              material: el.material ?? 0,
+            }
+          : null;
       })
       .filter((p): p is Persistent => p !== null);
     for (const a of alive)
@@ -321,6 +342,16 @@ export function advance(
         },
         lastSeen: i,
         multiplicity: what === "ACCUMULATE" ? held.multiplicity + 1 : held.multiplicity,
+        /* MATERIAL IS INHERITED TOO, WITH ONE EXCEPTION. `TRANSFORM` is
+         * the sentence claiming the thing itself changed — the one
+         * decision that means something other than "still the same
+         * material, drawn again." Every other branch keeps what it had,
+         * which is the fix: without this, `{...el}` above would have
+         * silently carried whatever `MATERIAL[mode][role]` happened to
+         * land on this scene, and "the same city" could turn from stone
+         * to glass because a different construction won the sentence
+         * after it, with nothing on the film state noticing. */
+        material: what === "TRANSFORM" ? (el.material ?? held.material) : held.material,
       });
       continue;
     }
@@ -349,11 +380,22 @@ export function advance(
           },
         },
         lastSeen: i,
+        // A recall brings back exactly what left, material included —
+        // "it comes back where it was" and what it is made of is part of
+        // where it was.
+        material: was.material,
       });
       continue;
     }
     decisions.push({ identity, what: "ENTER", why: "the film has not seen it before" });
-    alive.push({ identity, element: el, bornAt: i, lastSeen: i, multiplicity: 1 });
+    alive.push({
+      identity,
+      element: el,
+      bornAt: i,
+      lastSeen: i,
+      multiplicity: 1,
+      material: el.material ?? 0,
+    });
   }
 
   // WHAT LEFT. Retired rather than deleted, because the film may want it

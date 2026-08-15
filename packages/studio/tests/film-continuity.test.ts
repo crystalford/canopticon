@@ -294,4 +294,41 @@ The position does not produce more distortion. It produces the only distortion a
     const flat = advance(held.state, sem, graph.elements, undefined, { subject: "passage p001" });
     expect(flat.decisions.map((d) => d.what)).not.toContain("TRANSFORM");
   });
+
+  it("material is inherited, not recomputed, while an identity continues", () => {
+    /* `Element.material` comes from `MATERIAL[mode][role]` and is a
+     * property of THIS SCENE'S composition — a continuing identity that
+     * happened to be composed under a different mode would silently take
+     * on a different material with nothing on the film state noticing.
+     * `literal` PRIMARY is 5; `geometric` PRIMARY is 0 — chosen because
+     * they are the two poles a real essay actually alternates between. */
+    const subs = detectSubjects("The city held its shape.");
+    const sem = readScene(
+      "The city held its shape.",
+      subs,
+      readRelation("The city held its shape."),
+      null,
+    );
+    const literalScene = composeFromMeaning("literal", { ...MAT, noun: "city" }, sem);
+    const geometricScene = composeFromMeaning("geometric", { ...MAT, noun: "city" }, sem);
+    const cityEl = (g: typeof literalScene) => g.elements.find((e) => e.depicts === "city");
+    expect(cityEl(literalScene)?.material).toBe(5);
+    expect(cityEl(geometricScene)?.material).toBe(0);
+
+    const entered = advance(EMPTY_FILM, sem, literalScene.elements, undefined, {});
+    const city = entered.state.alive.find((p) => p.identity === "city");
+    expect(city?.material).toBe(5);
+
+    // The SAME identity, continuing, now composed under a mode whose
+    // material for this role is 0 — the persisted material must not move.
+    const continued = advance(entered.state, sem, geometricScene.elements, undefined, {});
+    expect(continued.state.alive.find((p) => p.identity === "city")?.material).toBe(5);
+
+    // TRANSFORM is the one decision allowed to change it — "the sentence
+    // changed what it is" is a claim about the thing, not the palette.
+    const transformed = advance(entered.state, sem, geometricScene.elements, undefined, {
+      act: "TRANSFORM",
+    });
+    expect(transformed.state.alive.find((p) => p.identity === "city")?.material).toBe(0);
+  });
 });
