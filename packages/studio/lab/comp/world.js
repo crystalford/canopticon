@@ -25,6 +25,7 @@ export const WORLDS = {
   /** Mass against type on a photocopied sheet. What the engine used to be,
    *  demoted from being the whole product to being one of ten. */
   COLLAGE: {
+    process: "photocopy",
     faces: { key: "poster", support: "grotesque", texture: "mono" },
     treatments: { key: ["line", "condensed", "split", "mirror"], texture: ["line", "stack"] },
     layouts: ["grid", "grid", "scatter", "diagonalRun"],
@@ -37,6 +38,7 @@ export const WORLDS = {
   /** A terminal. Strict columns, one face, everything aligned to a character
    *  cell, the material almost clean. */
   TERMINAL: {
+    process: "scan",
     faces: { key: "mono", support: "mono", texture: "mono" },
     treatments: { key: ["line", "justify"], texture: ["line", "stack"] },
     layouts: ["columnStack", "columnStack", "edgeRun"],
@@ -49,6 +51,7 @@ export const WORLDS = {
   /** A ransom note. Every word a different size and face, hard angles, nothing
    *  agreeing with anything. */
   RANSOM: {
+    process: "dissolve",
     faces: { key: "poster", support: "news", texture: "grotesque" },
     treatments: { key: ["perLetter", "perLetter", "split"], texture: ["perLetter", "line"] },
     layouts: ["scatter", "radial", "grid"],
@@ -62,6 +65,7 @@ export const WORLDS = {
   /** Concrete poetry. The text IS the shape — no grid, letters placed as
    *  objects, the page read as a picture of itself. */
   CONCRETE: {
+    process: "clean",
     faces: { key: "grotesque", support: "grotesque", texture: "grotesque" },
     treatments: { key: ["arc", "column", "perLetter"], texture: ["column", "arc"] },
     layouts: ["ring", "spiral", "radial", "centreOut"],
@@ -73,6 +77,7 @@ export const WORLDS = {
 
   /** A single line running across the frame, tracked out, nothing else. */
   TICKER: {
+    process: "clean",
     faces: { key: "grotesque", support: "mono", texture: "mono" },
     treatments: { key: ["expanded", "justify"], texture: ["expanded"] },
     layouts: ["edgeRun", "centreOut"],
@@ -85,6 +90,7 @@ export const WORLDS = {
   /** Tabular. Ruled rows, aligned columns, figures where figures go. The
    *  register of evidence rather than of argument. */
   LEDGER: {
+    process: "litho",
     faces: { key: "mono", support: "mono", texture: "mono" },
     treatments: { key: ["justify", "line"], texture: ["line"] },
     layouts: ["columnStack", "grid"],
@@ -96,6 +102,7 @@ export const WORLDS = {
 
   /** Cut forms. Heavy stencilled type, outlines, sprayed edges. */
   STENCIL: {
+    process: "dissolve",
     faces: { key: "poster", support: "poster", texture: "grotesque" },
     treatments: { key: ["outline", "condensed", "line"], texture: ["outline", "repeat"] },
     layouts: ["grid", "edgeRun", "diagonalRun"],
@@ -108,6 +115,7 @@ export const WORLDS = {
   /** Marginalia. Small type at the edges, notes on notes, the main body
    *  mostly absent. */
   INDEX: {
+    process: "clean",
     faces: { key: "news", support: "news", texture: "mono" },
     treatments: { key: ["line", "stack"], texture: ["line", "stack", "column"] },
     layouts: ["edgeRun", "nested", "columnStack"],
@@ -119,6 +127,7 @@ export const WORLDS = {
 
   /** One word, enormous, cropped by the frame, recomposed constantly. */
   WORDMARK: {
+    process: "screen",
     faces: { key: "poster", support: "poster", texture: "grotesque" },
     treatments: { key: ["line", "condensed", "rotate90", "mirror"], texture: ["repeat"] },
     layouts: ["centreOut", "grid", "mirroredPair"],
@@ -132,6 +141,7 @@ export const WORLDS = {
   /** Redaction. The page is mostly struck out and what survives is the
    *  reading. Blocks dominate; the type knocks out of them. */
   ERASURE: {
+    process: "litho",
     faces: { key: "news", support: "news", texture: "news" },
     treatments: { key: ["line", "split"], texture: ["line", "stack"] },
     layouts: ["columnStack", "grid"],

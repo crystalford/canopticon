@@ -23,6 +23,7 @@ import { resolveAt } from "../comp/compose.js";
 import { drawMark } from "../comp/marks.js";
 import { makeField, registration, renderField } from "../core/field.js";
 import { layoutText } from "../comp/treatment.js";
+import { PROCESSES } from "./process.js";
 import { FACES } from "../core/type.js";
 
 /** The whole colour system. A ground, an ink, and a polarity. No hue exists
@@ -47,7 +48,7 @@ export function drawFrame(ctx, film, frameIndex) {
   const tMs = (frameIndex / cut.fps) * 1000;
   const res = resolveAt(stages, tMs);
   if (!res) return;
-  const { units, marks, stage, plate, field, edit } = res;
+  const { units, marks, stage, plate, field, edit, process } = res;
   const ink = inkOf(stage);
 
   // The plate runs coarser than the output and is upscaled without
@@ -216,6 +217,13 @@ export function drawFrame(ctx, film, frameIndex) {
   const bands = 7;
   const bandH = Math.ceil(ph / bands);
 
+  // WHICH PROCESS THIS PASSAGE IS PRINTED BY. Measured across seven worlds,
+  // every frame this engine had ever produced was 96–99.9% pure black or pure
+  // white, because one press ran on all of them. The process is now the
+  // world's, and they disagree about how many values exist between black and
+  // white — which is the difference the eye actually reads.
+  const proc = PROCESSES[process] || PROCESSES.photocopy;
+
   const bite = field.bite;
   const wear = field.wear;
   // Edge softness IS ink bleed. A hard binary threshold aliases the type
@@ -245,16 +253,10 @@ export function drawFrame(ctx, film, frameIndex) {
       const cov = src[(rowS + xx) << 2] / 255;
       const fv = F[rowD + x];
 
-      // THE THRESHOLD IS THE MATERIAL. Where the sheet is thin the ink does
-      // not take; where it is heavy the ink floods. One expression, and it
-      // is the entire photocopy.
-      const thr = 0.5 - (fv - 0.5) * bite * 2.0;
-      let v = smoothstep(thr - soft, thr + soft, cov);
-
-      // Bare sheet picks up toner; solid ink drops out. Both driven by the
-      // same moving field, so the damage crawls rather than sitting still.
-      if (v < 0.5 && fv > speckle) v = Math.min(1, v + (fv - speckle) * 3.2);
-      else if (v > 0.5 && fv < dropout) v = Math.max(0, v - (dropout - fv) * 2.6);
+      // THE MATERIAL DECIDES WHAT SURVIVES. Each process answers this
+      // differently: a photocopy gives two values, a screen gives dots, a
+      // clean impression keeps the whole continuum.
+      let v = proc(cov, fv, { bite, soft, speckle, dropout }, x, y);
 
       // The lamp. Full ink or full ground for a frame or two — a struck cut.
       if (flash) v = 1 - v;

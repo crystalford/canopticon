@@ -634,20 +634,48 @@ export function buildStages(cut) {
     // built can be empty by the time anyone looks at it. The roster test
     // passed and the frame was still blank.
     const mid = beat.startMs + (beat.endMs - beat.startMs) * 0.5;
-    const survives = next.units.some((x) => !x.dead && (x.die === null || x.die > mid));
-    if (!survives && lastPhrase) {
-      const u = makeUnit(lastPhrase, "support", beat, grid, rng, opts, reg, arc.scale, world);
-      u.box.w = Math.min(0.9, u.text.length * u.size * 0.5);
-      u.box.h = u.size * 1.3;
-      u.motion = { kind: "fade", dur: attackMs * 2, t0: beat.startMs };
-      place(layout, grid, next, u, rng, opts);
-      next.units.push(u);
+    // A FLOOR, NOT A ZERO CHECK. Firing only when the frame is completely
+    // wordless left frames carrying a single fragment on an empty page, which
+    // reads as a fault rather than as restraint. Measured: several frames at
+    // 98% bare ground with one line on them.
+    const surviving = next.units.filter(
+      (x) => !x.dead && (x.die === null || x.die > mid),
+    ).length;
+    const floor = Math.max(2, Math.round(1 + vi.density * 3));
+    if (surviving < floor && (lastPhrase || beat.text.body?.length)) {
+      const stock = [lastPhrase, ...(beat.text.body ?? [])].filter(Boolean);
+      for (let k = surviving; k < floor && stock.length > 0; k++) {
+        const u = makeUnit(
+          stock[k % stock.length],
+          k === surviving ? "support" : "texture",
+          beat,
+          grid,
+          rng,
+          opts,
+          reg,
+          arc.scale,
+          world,
+        );
+        u.box.w = Math.min(0.9, u.text.length * u.size * 0.5);
+        u.box.h = u.size * 1.3;
+        u.motion = { kind: "fade", dur: attackMs * 2, t0: beat.startMs, delay: k * 60 };
+        place(layout, grid, next, u, rng, opts);
+        next.units.push(u);
+      }
     }
     for (const ph of beat.text.phrases) lastPhrase = ph.text;
 
     protect(next, beat);
 
-    stages.push({ beat, stage: next, entry, world: worldName, layout, why: chosen.why });
+    stages.push({
+      beat,
+      stage: next,
+      entry,
+      world: worldName,
+      layout,
+      why: chosen.why,
+      process: world.process ?? "photocopy",
+    });
     stage = next;
   }
   return { grid, stages };
@@ -826,6 +854,7 @@ export function resolveAt(stages, tMs) {
     plate,
     field,
     edit: tr,
+    process: active.process ?? "photocopy",
     beat: active.beat,
   };
 }
