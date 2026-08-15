@@ -167,6 +167,17 @@ export interface Beat {
          *  reads `beat.approach` instead, because what the picture is made
          *  of and whether the film cuts are two questions. */
         mode?: FilmMode;
+        /** TRUE WHEN THE WORLD IS HOLDING SOMETHING FROM BEFORE — a
+         *  CONTINUE, TRANSFORM, ACCUMULATE or RECALL among this scene's
+         *  decisions. The eligibility gate below used to infer this from
+         *  `act` (a property of the SENTENCE, read independently) and the
+         *  two can disagree: "years later the city forgot its residents"
+         *  reads as declarative while its entities are being RECALLED,
+         *  which let a construction with no notion of the world win a
+         *  scene that was holding two identities. This is the ground
+         *  truth instead — the world's own decisions, not a proxy for
+         *  them. */
+        holding?: boolean;
       }
     | null
     | undefined;
@@ -1586,8 +1597,20 @@ export function constructPrograms(
    * So this is "semantic understanding ≠ visual depiction" as a filter
    * rather than a weight, and it is the strongest form of it in the
    * compiler: a sentence may contain a concrete entity, and unless the
-   * act is DECLARE that entity does not get built. */
-  const introducing = !act || act === "DECLARE" || act === "NONE" || act === "QUALIFY";
+   * world says so this scene is not building a new one.
+   *
+   * READ OFF THE WORLD'S OWN DECISION, NOT A PROXY FOR IT. This used to
+   * read `act` — a classification of the SENTENCE, computed independently
+   * of what `advance()` actually decided — as a stand-in for "is this
+   * scene introducing or holding." The two can disagree: "years later the
+   * city forgot its residents" reads as declarative, and its entities are
+   * RECALLED. Measured on a real essay: that scene handed two recalled
+   * identities to a construction with no notion of a world, silently,
+   * while the report said `act: DECLARE` and looked correct. `beat.world`
+   * now carries `holding` — set from the same decisions this gate exists
+   * to honour — so the gate asks the world rather than guessing from the
+   * sentence's grammar. */
+  const holding = beat.world?.holding ?? false;
   /* CHECKABLE MATERIAL IS NOT GATED. A printed quantity and a drawn route
    * are facts about the prose that anyone can verify, and this compiler's
    * standing position is that they outrank a preference. The gate is about
@@ -1596,7 +1619,7 @@ export function constructPrograms(
   const eligible =
     intervention === "TEXT"
       ? CONSTRUCTIONS.filter((c) => (REALISES[c.id] ?? []).includes("typographic"))
-      : introducing || printed || !beat.world
+      : !holding || printed
         ? CONSTRUCTIONS
         : CONSTRUCTIONS.filter((c) => c.usesWorld);
 

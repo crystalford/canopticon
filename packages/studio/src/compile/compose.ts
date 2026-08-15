@@ -421,6 +421,16 @@ const REALTIME_FRAME_MS = 16;
  *  against the one it wasn't using. */
 const MAX_CHAIN_MS = REALTIME_FRAME_MS * 4;
 
+/** The `Continuity` decisions that mean "the world is holding something
+ *  from before, and a construction with no notion of it would be
+ *  starting over." Read by `beat.world.holding`'s own assignment below,
+ *  and matched by name against `film-state.ts`'s `Continuity` union
+ *  rather than importing the type — this file already imports enough
+ *  from `film-state.ts` for one more name to be easy to miss keeping in
+ *  sync, and a plain string set is the same discipline `usage.ts` uses
+ *  for the identical set. */
+const HOLDING_DECISIONS = new Set(["CONTINUE", "TRANSFORM", "ACCUMULATE", "RECALL"]);
+
 /** What the film carries into a scene, and what the scene hands back. Held
  *  as one object rather than three more positional arguments because it is
  *  ONE thing — the film's state — and splitting it would let a caller
@@ -901,6 +911,12 @@ export function composeScene(
         ...(sceneWorld.tweens.size > 0 && sceneWorld.bridgeMs + sceneWorld.moveMs > 0
           ? { bridge: { tweens: sceneWorld.tweens, ms: sceneWorld.bridgeMs || sceneWorld.moveMs } }
           : {}),
+        // THE GATE'S GROUND TRUTH — see `holding` in `construct.ts`'s
+        // `constructPrograms`. A CONTINUE, TRANSFORM, ACCUMULATE or
+        // RECALL among THIS scene's own decisions, not a classification
+        // of the sentence that can disagree with what the world actually
+        // did.
+        holding: sceneWorld.advance.decisions.some((d) => HOLDING_DECISIONS.has(d.what)),
       };
       notes.push(`world — ${sceneWorld.describes}`);
     }

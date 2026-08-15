@@ -15,6 +15,7 @@
 import { overwritingPrimitives } from "../primitives/composability.ts";
 import { PRIMITIVES } from "../primitives/registry.ts";
 import type { ComposedScene } from "./compose.ts";
+import { CONSTRUCTIONS } from "./construct.ts";
 
 export interface PrimitiveUsage {
   primitiveId: string;
@@ -80,6 +81,52 @@ export interface UsageReport {
    *  Carried on every report so it is a number on a screen rather than
    *  something someone found once. See `overwritingPrimitives`. */
   uncomposable: { count: number; families: { family: string; ids: string[] }[] };
+  /** DOES A SCENE HOLDING SOMETHING FROM BEFORE ACTUALLY SHOW IT?
+   *
+   *  Investigated as "make every construction read the persisted world."
+   *  Measured instead: none of the 7 non-`scene` constructions ever
+   *  emit a `place` node or a `geometry_draw`-family node — they build
+   *  data charts, route maps, network graphs, typography, document
+   *  surfaces and atmosphere plates, none of which has a notion of "the
+   *  entity's inherited position" to nudge. There is no shared seam to
+   *  reach into; inventing one would be fabricating a translation point
+   *  nothing downstream reads, the same failure this measure exists to
+   *  catch elsewhere in the palette.
+   *
+   *  What is real and load-bearing is the ACT GATE in `construct.ts`
+   *  (search `usesWorld`): a scene holding a CONTINUE, TRANSFORM,
+   *  ACCUMULATE or RECALL is restricted to constructions that read
+   *  `beat.world` — today, only `scene` — unless the prose printed a
+   *  checkable figure or route, which outranks the gate on this
+   *  compiler's own standing terms. `honored`/`total` measure that gate
+   *  actually holding on a real compile, the same discipline this file
+   *  applies to the palette: not asserted, watched. */
+  worldContinuity: { honored: number; total: number };
+}
+
+/** Construction ids that actually read `beat.world` when it is handed to
+ *  them. Read off the palette rather than hardcoded, so this measure
+ *  cannot drift from the same declaration `construct.ts`'s act gate
+ *  enforces. */
+const WORLD_AWARE = new Set(CONSTRUCTIONS.filter((c) => c.usesWorld).map((c) => c.id));
+
+/** Scenes the film is HOLDING something in — a continuing, transformed,
+ *  accumulated or recalled identity, the cases where a picture that
+ *  ignores the world is a picture that starts over. ENTER and CUT are not
+ *  counted: an identity arriving fresh has nothing to be honoured or
+ *  betrayed. */
+const HOLDING: ReadonlySet<string> = new Set(["CONTINUE", "TRANSFORM", "ACCUMULATE", "RECALL"]);
+
+function worldContinuity(scenes: ComposedScene[]): { honored: number; total: number } {
+  let honored = 0;
+  let total = 0;
+  for (const scene of scenes) {
+    const decisions = scene.world?.decisions ?? [];
+    if (!decisions.some((d) => HOLDING.has(d.what))) continue;
+    total++;
+    if (WORLD_AWARE.has(scene.program?.construction ?? "")) honored++;
+  }
+  return { honored, total };
 }
 
 /** The uncomposable half of the palette, grouped so it reads as a list
@@ -197,6 +244,7 @@ export function analyseUsage(scenes: ComposedScene[]): UsageReport {
     grounds: [...grounds.entries()]
       .map(([link, n]) => ({ link, uses: n }))
       .sort((a, b) => b.uses - a.uses),
+    worldContinuity: worldContinuity(scenes),
   };
 }
 

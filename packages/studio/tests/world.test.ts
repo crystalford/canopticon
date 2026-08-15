@@ -11,6 +11,7 @@ import { type ComposedNode, composeAll } from "../src/compile/compose.ts";
 import { bridgeSignature, hashPayload } from "../src/compile/hash.ts";
 import { compile } from "../src/compile/index.ts";
 import { segmentEssay } from "../src/compile/segment.ts";
+import { analyseUsage } from "../src/compile/usage.ts";
 import { type EditorialIR, parseIR } from "../src/ir/schema.ts";
 import type { FilmTimeline } from "../src/narrate/timeline.ts";
 import { allActive } from "./active.ts";
@@ -101,6 +102,31 @@ const composed = (mode: Parameters<typeof irFor>[0], approach?: Parameters<typeo
 };
 
 describe("the world reaches the compiler", () => {
+  it("a holding scene is never handed to a construction that ignores the world", () => {
+    /* THE MEASURED ANSWER TO "MAKE EVERY CONSTRUCTION READ THE WORLD."
+     *
+     * None of the 7 non-`scene` constructions ever emit a `place` node or
+     * a `geometry_draw`-family node — checked directly against
+     * `construct.ts`. They build data charts, route maps, network
+     * graphs, typography, document surfaces and atmosphere plates, none
+     * of which has a notion of "the entity's inherited position" to
+     * nudge. There is no shared seam to reach into.
+     *
+     * What IS real, here, on a REALISTIC compile — `approach: "hybrid"`,
+     * not the forced `"world"` every other test in this file uses, which
+     * would make this assertion trivially true by construction — is the
+     * act gate in `construct.ts` (`usesWorld`): every scene the film is
+     * genuinely HOLDING something in lands on a construction that can
+     * actually show it. See `usage.ts`'s `worldContinuity`. */
+    const scenes = composed("oneshot", "hybrid");
+    const { worldContinuity } = analyseUsage(scenes);
+    expect(
+      worldContinuity.total,
+      "the fixture must hold at least one identity for this to test anything",
+    ).toBeGreaterThan(0);
+    expect(worldContinuity.honored).toBe(worldContinuity.total);
+  });
+
   it("carries identities across scenes rather than composing from nothing", () => {
     const scenes = composed("oneshot");
     const decided = scenes.flatMap((s) => s.world?.decisions ?? []);
