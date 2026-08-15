@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import { type ComposedNode, composeAll } from "../src/compile/compose.ts";
 import { EMPTY_FILM, type FilmState, rest } from "../src/compile/film-state.ts";
 import { allocate } from "../src/compile/promote.ts";
+import { CAMERA_STILL } from "../src/compile/scene-graph.ts";
 import { segmentEssay } from "../src/compile/segment.ts";
 import { parseIR } from "../src/ir/schema.ts";
 
@@ -161,6 +162,7 @@ describe("silence is not a pause in the film's clock", () => {
       ],
       retired: [],
       sceneIndex: 3,
+      camera: CAMERA_STILL,
     };
     const after = rest(state);
     expect(after.alive).toHaveLength(1);

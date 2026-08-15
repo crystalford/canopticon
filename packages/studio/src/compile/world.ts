@@ -33,16 +33,20 @@
 // scenes it happened to draw one particular way would have no memory at
 // all — it would have a habit.
 
+import type { Act } from "./act.ts";
+import type { Camera } from "./camera.ts";
 import { type FilmMode, MODES, bridge, elementKey, step } from "./film-mode.ts";
 import { type Advance, type ContinuityRead, EMPTY_FILM, type FilmState } from "./film-state.ts";
 import type { Material } from "./grammar-visual.ts";
 import type { Representation } from "./represent.ts";
 import {
+  type Element,
   type SceneGraph,
   at,
   choreograph,
   choreographAct,
   composeFromMeaning,
+  observe,
 } from "./scene-graph.ts";
 import { type SemanticScene, readScene } from "./semantic-scene.ts";
 
@@ -73,6 +77,12 @@ export interface SceneWorld {
   /** How long the MOVE runs — the whole scene, because a move is what the
    *  scene does. Zero when the scene is bridging or standing still. */
   moveMs: number;
+  /** Where the camera stands after this scene. Already baked into
+   *  `graph`'s element places via `observe()` — carried here so the next
+   *  scene's `advanceCamera()` has somewhere to move on from, and so a
+   *  future consumer can ask what the camera is doing without
+   *  re-deriving it from place deltas. */
+  camera: Camera;
   describes: string;
 }
 
@@ -120,6 +130,69 @@ export interface WorldInputs {
  *  Elements carry no id of their own, so the role plus the operation list
  *  is what says "this is the same thing". */
 const key = elementKey;
+
+/* ── THE CAMERA'S OWN GRAMMAR ──────────────────────────────────────────
+ *
+ * `Camera`, `CAMERA_STILL` and `observe()` (`scene-graph.ts`) were fully
+ * written and had zero production callers — confirmed by grep, and
+ * `act.ts`'s own comment says why: "nothing carries a Camera on the world
+ * state." It does now (`FilmState.camera`), and this is the one place
+ * that decides what an ACT does to it, per standing rule 9 — a director
+ * asking for INTENSIFY gets the same camera answer whether the winning
+ * construction is a body, a chart or type.
+ *
+ * SMALL AND BOUNDED, on purpose. `MOTION_CHARACTER` in `construct.ts` is
+ * the direct precedent — one entry per act, deliberately not exhaustive,
+ * SUSTAIN and NONE get nothing at all because the absence of camera
+ * movement is a reading too, same as the absence of authored motion is
+ * there. A camera that moves on every act reads as nervous, not directed.
+ *
+ * `parallax` decays toward the new act's own rather than holding the old
+ * one, because parallax is how strongly THIS move separates the planes —
+ * carrying forward the previous act's separation would let one CONTRAST
+ * cut's parallax bleed into an unrelated QUALIFY three scenes later. */
+const CAMERA_DELTA: Partial<Record<Act, { zoom: number; parallax: number }>> = {
+  DECLARE: { zoom: 0.04, parallax: 0.06 },
+  INTENSIFY: { zoom: 0.09, parallax: 0.1 },
+  CONTRAST: { zoom: 0.07, parallax: 0.14 },
+  ACCUMULATE: { zoom: 0.03, parallax: 0.04 },
+  WITHDRAW: { zoom: -0.12, parallax: 0.08 },
+  CONVERGE: { zoom: -0.04, parallax: 0.02 },
+  QUALIFY: { zoom: -0.05, parallax: 0.01 },
+  REVEAL: { zoom: 0.05, parallax: 0.08 },
+  TRANSFORM: { zoom: 0.02, parallax: 0.12 },
+  RECALL: { zoom: 0.03, parallax: 0.05 },
+};
+
+const CAMERA_ZOOM_MIN = 0.82;
+const CAMERA_ZOOM_MAX = 1.55;
+
+/** Where the camera stands after this scene's act.
+ *
+ *  Holds still — returns `camera` unchanged — on SUSTAIN, NONE, or no
+ *  act reading at all, matching `MOTION_CHARACTER`'s own omissions.
+ *
+ *  WHAT IT LOOKS AT: the highest-emphasis element still on screen, so a
+ *  push-in or a pull-wide is observing something rather than drifting
+ *  toward an arbitrary point. Eased a third of the way there per scene,
+ *  not jumped — a run of scenes about the same thing settles rather than
+ *  snapping, the same discipline `advance()`'s own place-inheritance
+ *  uses for CONTINUE. */
+function advanceCamera(camera: Camera, act: Act | undefined, elements: Element[]): Camera {
+  const delta = act ? CAMERA_DELTA[act] : undefined;
+  if (!delta) return camera;
+
+  const zoom = Math.min(CAMERA_ZOOM_MAX, Math.max(CAMERA_ZOOM_MIN, camera.zoom + delta.zoom));
+  const parallax = Math.min(1, Math.max(0, delta.parallax));
+
+  const focus = [...elements].sort((a, b) => (b.emphasis ?? 0) - (a.emphasis ?? 0))[0];
+  const targetX = focus ? focus.place.x : 0.5;
+  const targetY = focus ? focus.place.y : 0.5;
+  const x = camera.x + (targetX - camera.x) * 0.34;
+  const y = camera.y + (targetY - camera.y) * 0.34;
+
+  return { zoom, x, y, parallax };
+}
 
 /** ADVANCE THE WORLD ONE SCENE. Pure — call it as often as you like; only
  *  the caller that adopts `advance.state` moves the film. */
@@ -170,11 +243,38 @@ export function stepWorld(input: WorldInputs): SceneWorld {
       tweens: new Map(),
       bridgeMs: 0,
       moveMs: 0,
+      // Continuity refused, so the camera holds where it was too — this
+      // scene composed fresh, and a camera move over a picture the world
+      // itself was refused would be observing a lie.
+      camera: input.state.camera,
       describes: `composed fresh — ${(e as Error).message}`,
     };
   }
 
-  const graph: SceneGraph = { elements: adv.elements, describes: fresh.describes };
+  /* THE CAMERA REACHES THE FRAME THROUGH `observe()`, THE SAME PATH THE
+   * PLACE PRIMITIVE ALREADY READS.
+   *
+   * `chain.js` only lets ONE param be live-tweened between two values —
+   * `place`'s x/y/scale, because only `place` reads its params inside
+   * `frame()` rather than capturing them at construction time. So the
+   * camera cannot invent a new primitive or a second tween channel; it
+   * has to arrive as a transform ALREADY BAKED into the elements'
+   * `place`, before `serialiseScene` ever turns them into node params.
+   * `observe()` is exactly that transform, and applying it here — before
+   * anything downstream sees `graph` — is the one call site that makes
+   * it real instead of dead code.
+   *
+   * This also gets camera MOTION for free across a bridge, with no
+   * second mechanism: the bridge below tweens `elementKey`-matched
+   * elements between `input.previous` (last scene's graph, camera
+   * already baked in from ITS call to `observe()`) and this scene's
+   * `graph` (this scene's camera baked in). Two static camera views,
+   * compared like any other place change, read as one camera move. */
+  const nextCamera = advanceCamera(input.state.camera, input.read?.act, adv.elements);
+  const graph: SceneGraph = observe(
+    { elements: adv.elements, describes: fresh.describes },
+    nextCamera,
+  );
 
   /* THE MOVE — the temporal grammar, connected.
    *
@@ -261,6 +361,7 @@ export function stepWorld(input: WorldInputs): SceneWorld {
       tweens: moves,
       bridgeMs: 0,
       moveMs,
+      camera: nextCamera,
       describes: `${adv.describes} · ${moveDescribes}`,
     };
   }
@@ -298,6 +399,7 @@ export function stepWorld(input: WorldInputs): SceneWorld {
         tweens,
         bridgeMs,
         moveMs: 0,
+        camera: nextCamera,
         describes: `${adv.describes} · ${bridged.describes}`,
       };
     }
@@ -311,6 +413,7 @@ export function stepWorld(input: WorldInputs): SceneWorld {
     tweens,
     bridgeMs,
     moveMs: 0,
+    camera: nextCamera,
     describes: adv.describes,
   };
 }

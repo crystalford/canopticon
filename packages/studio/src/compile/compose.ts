@@ -34,6 +34,7 @@ import {
   chainOverwrites,
 } from "../primitives/registry.ts";
 import type { Act } from "./act.ts";
+import type { Camera } from "./camera.ts";
 import {
   type Beat,
   OPERATOR_CHAINS,
@@ -392,6 +393,12 @@ export interface ComposedScene {
     bridgeMs: number;
     /** True when this scene refused continuity and started again. */
     cut: boolean;
+    /** Where the camera stands after this scene — already baked into
+     *  every element's `place` via `observe()`, carried here so a
+     *  consumer (or a test) can ask what it is doing without
+     *  re-deriving it from place deltas. See `world.ts`'s
+     *  `advanceCamera()`. */
+    camera: Camera;
   } | null;
 }
 
@@ -1455,6 +1462,7 @@ export function composeScene(
             alive: sceneWorld.advance.state.alive.map((p) => p.identity),
             bridgeMs: sceneWorld.bridgeMs,
             cut: sceneWorld.advance.cut,
+            camera: sceneWorld.camera,
           }
         : null,
   };
@@ -2019,7 +2027,13 @@ export function composeAll(
       caption = null;
     }
     if (world.out) {
-      film = world.out.advance.state;
+      /* THE CAMERA COMES FROM `world.out.camera`, NOT FROM `advance.state`.
+       * `advance()` carries `state.camera` through UNCHANGED — camera
+       * movement is decided in `stepWorld`'s `advanceCamera()`, above
+       * entity continuity, so `advance.state.camera` is still last
+       * scene's value. Without this override, the next scene would keep
+       * calling `advanceCamera()` from the same starting point forever. */
+      film = { ...world.out.advance.state, camera: world.out.camera };
       previous = world.out.graph;
     } else if (composed.nodes.length === 0) {
       /* A SILENT SCENE STILL COSTS THE FILM A SCENE.

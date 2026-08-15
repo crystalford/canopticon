@@ -30,6 +30,7 @@
 // is a compositional decision rather than an absence of one.
 
 import type { Act } from "./act.ts";
+import type { Camera } from "./camera.ts";
 import type { PlannedNode } from "./construct.ts";
 import { elementKey } from "./film-mode.ts";
 import { type Material, type Op, applyEmphasis, realiseOps } from "./grammar-visual.ts";
@@ -696,17 +697,13 @@ export function serialiseScene(
  * less under a pan than one at depth 1, so a lateral move separates the
  * planes the way a real one does.
  */
-export interface Camera {
-  /** 1 = the frame as composed. >1 pushes in. */
-  zoom: number;
-  /** Where the camera is looking, in frame coordinates. */
-  x: number;
-  y: number;
-  /** How strongly depth separates under movement, 0..1. */
-  parallax: number;
-}
-
-export const CAMERA_STILL: Camera = { zoom: 1, x: 0.5, y: 0.5, parallax: 0 };
+// `Camera`/`CAMERA_STILL` now live in `camera.ts` — a real circular
+// import (this file → `film-mode.ts` → `film-state.ts`, which needs a
+// `Camera` too) made a value import of them from here into `film-state.ts`
+// evaluate to `undefined`. Re-exported so nothing that already imports
+// them from this module has to change.
+export type { Camera } from "./camera.ts";
+export { CAMERA_STILL } from "./camera.ts";
 
 /** Observe a scene through a camera. Returns a new graph; the scene is
  *  untouched, because the whole point is that the same scene can be

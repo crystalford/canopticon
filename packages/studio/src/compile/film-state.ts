@@ -40,6 +40,7 @@
 // a second system.
 
 import type { Act } from "./act.ts";
+import { CAMERA_STILL, type Camera } from "./camera.ts";
 import type { Element } from "./scene-graph.ts";
 import type { SemanticScene } from "./semantic-scene.ts";
 
@@ -88,6 +89,18 @@ export interface FilmState {
    *  tense. */
   retired: Persistent[];
   sceneIndex: number;
+  /* THE CAMERA, and it lives HERE rather than only on the per-call
+   * context `world.ts` builds each scene. `Camera`/`observe()`
+   * (`scene-graph.ts`) and `bridgeCamera()` (`film-mode.ts`) were both
+   * fully written and had zero callers, because nothing on the film's
+   * OWN state carried a camera forward — a value that resets every call
+   * cannot persist across a `let film: FilmState` loop.
+   *
+   * `advance()` does not decide where the camera looks — that is
+   * `world.ts`'s `advanceCamera()`, one place, per standing rule 9. This
+   * field only carries whatever it was handed; every return below passes
+   * `state.camera` through unchanged. */
+  camera: Camera;
 }
 
 export interface Decision {
@@ -116,7 +129,12 @@ export interface Advance {
   elements: Element[];
 }
 
-export const EMPTY_FILM: FilmState = { alive: [], retired: [], sceneIndex: 0 };
+export const EMPTY_FILM: FilmState = {
+  alive: [],
+  retired: [],
+  sceneIndex: 0,
+  camera: CAMERA_STILL,
+};
 
 /** How the film is allowed to move between scenes.
  *
@@ -270,7 +288,7 @@ export function advance(
     for (const a of alive)
       decisions.push({ identity: a.identity, what: "ENTER", why: "after the cut" });
     return {
-      state: { alive, retired, sceneIndex: i },
+      state: { alive, retired, sceneIndex: i, camera: state.camera },
       decisions,
       cut: true,
       describes: `CUT — ${named.join(", ") || "nothing"} replaces what was there`,
@@ -416,7 +434,7 @@ export function advance(
     return acc;
   }, {});
   return {
-    state: { alive, retired, sceneIndex: i },
+    state: { alive, retired, sceneIndex: i, camera: state.camera },
     decisions,
     cut: false,
     describes:

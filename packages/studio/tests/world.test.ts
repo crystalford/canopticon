@@ -211,6 +211,68 @@ describe("the world reaches the compiler", () => {
   });
 });
 
+describe("the camera", () => {
+  /* `Camera`/`observe()`/`bridgeCamera()` were fully written and had zero
+   * production callers — confirmed by grep, and `act.ts`'s own comment
+   * said why: nothing carried a Camera on the world state. It does now
+   * (`FilmState.camera`), and these assertions go through `composeAll`
+   * exactly like the rest of this file, per its own opening comment: a
+   * green suite with no caller proves nothing. */
+  it("moves across the film rather than sitting at CAMERA_STILL", () => {
+    const ir = irFor("hybrid");
+    const scenes = composeAll(ir, measuredTimeline(ir));
+    const cameras = scenes
+      .map((s) => s.world?.camera)
+      .filter((c): c is NonNullable<typeof c> => !!c);
+    expect(cameras.length).toBeGreaterThan(0);
+    // At least one scene actually pushed, pulled or panned — a camera
+    // that never leaves {zoom:1, x:0.5, y:0.5, parallax:0} is dead code
+    // wearing a field.
+    expect(cameras.some((c) => c.zoom !== 1 || c.parallax !== 0)).toBe(true);
+    // And it is not the same value copy-pasted onto every scene — the
+    // film's own acts are moving it, scene to scene.
+    const distinct = new Set(
+      cameras.map((c) => `${c.zoom.toFixed(3)},${c.x.toFixed(3)},${c.y.toFixed(3)}`),
+    );
+    expect(distinct.size).toBeGreaterThan(1);
+  });
+
+  it("stays within its own bounds however long the film runs", () => {
+    const ir = irFor("hybrid");
+    const scenes = composeAll(ir, measuredTimeline(ir));
+    for (const s of scenes) {
+      const cam = s.world?.camera;
+      if (!cam) continue;
+      expect(cam.zoom).toBeGreaterThanOrEqual(0.82);
+      expect(cam.zoom).toBeLessThanOrEqual(1.55);
+      expect(cam.parallax).toBeGreaterThanOrEqual(0);
+      expect(cam.parallax).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("reaches the frame through place — the only channel a primitive live-tweens", () => {
+    /* `observe()` bakes the camera into every element's `place` BEFORE
+     * `serialiseScene` ever turns it into node params, which is what
+     * makes this real rather than a number nobody reads. Proven by
+     * comparing a pushed-in scene's SCENE construction against what the
+     * same elements would render at CAMERA_STILL: the place params must
+     * differ by the zoom, not just the camera object on the report. */
+    const ir = irFor("hybrid");
+    const scenes = composeAll(ir, measuredTimeline(ir));
+    const pushed = scenes.find((s) => (s.world?.camera.zoom ?? 1) > 1.08);
+    expect(
+      pushed,
+      "the fixture must produce at least one real push-in for this to test anything",
+    ).toBeTruthy();
+    const placeNodes = flat(pushed?.nodes ?? []).filter((n) => n.primitiveId === "place");
+    expect(placeNodes.length).toBeGreaterThan(0);
+    // A push-in scales up what it is looking at. `place`'s own `scale`
+    // param is where that has to land for a primitive to ever see it.
+    const scales = placeNodes.map((n) => Number(n.params.scale ?? 1));
+    expect(scales.some((s) => s > 1)).toBe(true);
+  });
+});
+
 describe("the bridge", () => {
   it("runs in the measured silence, and nowhere else", () => {
     const ir = irFor("oneshot");
