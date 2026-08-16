@@ -13,10 +13,12 @@ import { api } from "./api.js";
 
 export async function viewFilm(root, go, id) {
   root.innerHTML = `
-    <h1 id="title">…</h1>
-    <p class="sub" id="sub"></p>
+    <div class="phead">
+      <h1 id="title">…</h1>
+      <p class="sub" id="sub"></p>
+    </div>
     <canvas id="stage" width="1280" height="720"></canvas>
-    <div class="bar"><i id="played"></i></div>
+    <div class="progress"><i id="played"></i></div>
     <div class="actions">
       <button id="play">Play</button>
       <button class="ghost" id="reroll">Another seed</button>

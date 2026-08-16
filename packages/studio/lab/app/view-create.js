@@ -19,8 +19,10 @@ const DIALS = [
 
 export async function viewCreate(root, go) {
   root.innerHTML = `
-    <h1>Canopticon Studio</h1>
-    <p class="sub">Paste an essay. Get a film.</p>
+    <div class="phead">
+      <h1>Make a film out of something you wrote</h1>
+      <p class="sub">It reads your writing, finds the moments the argument turns on, and composes a shot for every sentence.</p>
+    </div>
     <label for="essay">The writing</label>
     <textarea id="essay" placeholder="Paste an essay — 150 to 300 words makes a minute."></textarea>
     <p class="note" id="count"></p>
