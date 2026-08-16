@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-16T02:23:06Z",
+  "run_id": "31921746927",
+  "method": "POST",
+  "path": "/v1/editorial/probe",
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"model\": \"@cf/meta/llama-4-scout-17b-16e-instruct\",\n  \"reason\": null,\n  \"attempts\": [],\n  \"rawFirst400\": \"```json\\n{\\n  \\\"thesis\\\": \\\"if PC is doing anything for cognition in someone without diagnosed gut pathology, the most defensible current hypothesis is that it's acting as gut-barrier infrastructure repair with cognition as a distant, inflammation-mediated downstream effect — not as a choline-supply intervention on the brain's own neurotransmitter machinery\\\",\\n  \\\"register\\\": \\\"analytic\\\",\\n  \\\"sections\\\": [\\n \",\n  \"parsed\": {\n    \"sections\": 10,\n    \"beats\": 8\n  },\n  \"verified\": {\n    \"declined\": true,\n    \"beats\": 8,\n    \"promoted\": 4,\n    \"motifs\": 2,\n    \"rejectedPhrases\": 1,\n    \"notes\": [\n      \"motif \\\"gut-brain axis\\\" occurs 1× — not a recurrence\",\n      \"1 of 5 phrases were not the essay's own words and were dropped\",\n      \"the reading covered only 13% of the essay — it did not read the whole thing, so the whole reading is untrusted\"\n    ]\n  }\n}"
+}
