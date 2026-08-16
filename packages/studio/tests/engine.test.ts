@@ -117,6 +117,83 @@ describe("the record refuses words the essay did not write", () => {
     );
     expect(checked.declined).toBe(true);
   });
+
+  /** THE PRODUCTION FAILURE, exactly. Run against the deployed Worker for
+   *  the first time, the model returned sections and beats covering only
+   *  the first third of a 1730-character essay, and stopped — every
+   *  phrase it offered was genuinely verbatim, so the phrase firewall
+   *  reported no damage. `planSpans` walks sections, so the uncovered two
+   *  thirds was never sent to TTS: the film narrated the opening and
+   *  silently dropped the rest of the essay, with every status along the
+   *  way reporting success. */
+  it("declines a reading that stopped a third of the way through the essay", () => {
+    const long = `${ESSAY}\n\nA fourth paragraph the model never reached, long enough on its own that losing it is losing most of the essay, not a trailing clause.`;
+    const checked = verifyEditorial(
+      {
+        sections: [{ id: "s1", startChar: 0, endChar: 120, function: "hook" }],
+        beats: [
+          {
+            id: "b1",
+            sectionId: "s1",
+            startChar: 0,
+            endChar: 60,
+            role: "open",
+            phrases: [{ text: "Gimmick Economy", offset: 0 }],
+          },
+        ],
+      },
+      long,
+    );
+    expect(checked.declined).toBe(true);
+    expect(checked.notes.some((n) => /did not read the whole thing/.test(n))).toBe(true);
+  });
+
+  /** THE REPAIR, on an ordinary ragged edge rather than a catastrophic
+   *  one: sections that are individually fine but leave small gaps and
+   *  stop short of the essay's own end must be TILED to full coverage,
+   *  not merely tolerated — a gap is a stretch of prose `planSpans` would
+   *  never speak and a gap at the end is picture that stops before the
+   *  voice does. */
+  it("tiles sections and beats to the essay's own edges rather than declining a minor gap", () => {
+    const checked = verifyEditorial(
+      {
+        sections: [
+          { id: "s1", startChar: 0, endChar: 60, function: "hook" },
+          // a real gap between 60 and 122 — not spoken unless repaired
+          { id: "s2", startChar: 122, endChar: ESSAY.length - 20, function: "evidence" },
+        ],
+        beats: [
+          {
+            id: "b1",
+            sectionId: "s1",
+            startChar: 0,
+            endChar: 60,
+            role: "open",
+            phrases: [{ text: "Gimmick Economy", offset: 0 }],
+          },
+          {
+            id: "b2",
+            sectionId: "s2",
+            startChar: 122,
+            endChar: ESSAY.length - 20,
+            role: "develop",
+            phrases: [],
+          },
+        ],
+      },
+      ESSAY,
+    );
+    expect(checked.declined).toBe(false);
+    const secs = checked.editorial.sections;
+    expect(secs[0]?.range.startChar).toBe(0);
+    expect(secs[secs.length - 1]?.range.endChar).toBe(ESSAY.length);
+    for (let i = 1; i < secs.length; i++) {
+      expect(secs[i]?.range.startChar).toBe(secs[i - 1]?.range.endChar);
+    }
+    const beats = checked.editorial.beats;
+    expect(beats[0]?.range.startChar).toBe(0);
+    expect(beats[beats.length - 1]?.range.endChar).toBe(ESSAY.length);
+  });
 });
 
 describe("films made by the previous engine", () => {

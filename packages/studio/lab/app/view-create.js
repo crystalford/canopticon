@@ -111,8 +111,19 @@ export async function viewCreate(root, go) {
         },
       });
       if ($("voice").value) {
+        // WAITED FOR, not fired and forgotten. Navigating on the 202 opened
+        // a film whose cut had no voice on it yet, so a narrated film played
+        // silent and looked like narration had failed.
         status.textContent = `${made.beats} beats · speaking ${made.spans} spans…`;
-        await api.narrate(made.filmId, $("voice").value).catch(() => undefined);
+        const done = await api
+          .narrateAndWait(made.filmId, $("voice").value, (p) => {
+            status.textContent =
+              p.state === "done"
+                ? "measuring…"
+                : `${made.beats} beats · speaking ${p.spoken ?? 0}/${p.spans ?? made.spans} spans…`;
+          })
+          .catch((err) => ({ failures: [err.message] }));
+        for (const f of done.failures ?? []) console.warn("narration:", f);
       }
       go(`film/${made.filmId}`);
     } catch (err) {
