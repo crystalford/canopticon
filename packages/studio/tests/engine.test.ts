@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildCut } from "../src/cut/index.ts";
+import { callEditor } from "../src/editor/model.ts";
 import { readEssayStructurally } from "../src/editor/rules.ts";
 import { verifyEditorial } from "../src/editor/verify.ts";
 import { type Film, parseFilm } from "../src/film/schema.ts";
@@ -193,6 +194,149 @@ describe("the record refuses words the essay did not write", () => {
     const beats = checked.editorial.beats;
     expect(beats[0]?.range.startChar).toBe(0);
     expect(beats[beats.length - 1]?.range.endChar).toBe(ESSAY.length);
+  });
+});
+
+/** THE ACTUAL FAILURE, reproduced without a network call. Caught live: one
+ *  call asked to hold an essay's structure and its content and a hard
+ *  full-coverage requirement at once was covering as little as 5% of a
+ *  real essay and stopping — not a token cutoff, a well-formed but far too
+ *  short JSON response. Split into two calls so structure (cheap, and the
+ *  part that has to fully tile the essay) is decided before content (the
+ *  expensive part) ever has to think about section boundaries at all. */
+describe("the editor's two model calls", () => {
+  /** A fake binding that plays two different model roles depending on
+   *  which system prompt it is handed — the same binding a real Worker
+   *  hands to both `callSections` and `callBeats`, distinguished the same
+   *  way the model itself is: by what it was asked. */
+  function fakeAi(opts: {
+    sections: unknown;
+    beats: unknown;
+    calls?: { model: string; systemPrompt: string; userPrompt: string; maxTokens: number }[];
+  }) {
+    return {
+      async run(model: string, input: Record<string, unknown>) {
+        const messages = input.messages as { role: string; content: string }[];
+        const system = messages.find((m) => m.role === "system")?.content ?? "";
+        const user = messages.find((m) => m.role === "user")?.content ?? "";
+        opts.calls?.push({
+          model,
+          systemPrompt: system,
+          userPrompt: user,
+          maxTokens: input.max_tokens as number,
+        });
+        const isBeats = system.includes("SECOND pass");
+        return { response: JSON.stringify(isBeats ? opts.beats : opts.sections) };
+      },
+    };
+  }
+
+  it("feeds pass 1's own sections into pass 2, and the merge covers the whole essay", async () => {
+    const calls: { model: string; systemPrompt: string; userPrompt: string; maxTokens: number }[] =
+      [];
+    const ai = fakeAi({
+      sections: {
+        thesis: "the essay's own claim",
+        register: "analytic",
+        sections: [
+          {
+            id: "s1",
+            startChar: 0,
+            endChar: 120,
+            function: "hook",
+            intensity: 0.6,
+            certainty: 0.7,
+          },
+          {
+            id: "s2",
+            startChar: 120,
+            endChar: ESSAY.length,
+            function: "evidence",
+            intensity: 0.5,
+            certainty: 0.7,
+          },
+        ],
+        motifs: [],
+      },
+      beats: {
+        beats: [
+          { id: "b1", sectionId: "s1", startChar: 0, endChar: 120, role: "open", phrases: [] },
+          {
+            id: "b2",
+            sectionId: "s2",
+            startChar: 120,
+            endChar: ESSAY.length,
+            role: "develop",
+            phrases: [{ text: "It sold a mood", offset: ESSAY.indexOf("It sold a mood") }],
+          },
+        ],
+      },
+      calls,
+    });
+
+    const call = await callEditor(ai, ESSAY);
+    expect(call.ok).toBe(true);
+    expect(call.sectionsPass.ok).toBe(true);
+    expect(call.beatsPass?.ok).toBe(true);
+
+    // Pass 2 was handed pass 1's real sections, not asked to invent its own.
+    const beatsCall = calls.find((c) => c.systemPrompt.includes("SECOND pass"));
+    expect(beatsCall?.userPrompt).toContain('"id":"s2"');
+    expect(beatsCall?.userPrompt).toContain(`"endChar":${ESSAY.length}`);
+
+    // The merge is what verifyEditorial actually consumes — full coverage,
+    // not declined, because both passes, independently small, both reached
+    // the essay's own end.
+    const checked = verifyEditorial(call.json, ESSAY);
+    expect(checked.declined).toBe(false);
+    const secs = checked.editorial.sections;
+    expect(secs[0]?.range.startChar).toBe(0);
+    expect(secs[secs.length - 1]?.range.endChar).toBe(ESSAY.length);
+  });
+
+  it("never calls pass 2 when pass 1 produced no sections to build on", async () => {
+    const calls: { model: string; systemPrompt: string }[] = [];
+    const ai = fakeAi({
+      sections: { thesis: "x", register: "analytic", sections: [], motifs: [] },
+      beats: { beats: [] },
+      calls: calls as never,
+    });
+    const call = await callEditor(ai, ESSAY);
+    expect(call.ok).toBe(false);
+    expect(call.beatsPass).toBe(null);
+    // Only pass 1 ever ran — an empty section list is a reason to stop,
+    // not a smaller version of the beats task to attempt anyway.
+    expect(calls.filter((c) => c.systemPrompt.includes("SECOND pass"))).toHaveLength(0);
+  });
+
+  it("gives the heavier beats pass more token budget than the structure pass, both scaled to the essay", async () => {
+    const calls: { systemPrompt: string; maxTokens: number }[] = [];
+    const ai = fakeAi({
+      sections: {
+        thesis: "x",
+        register: "analytic",
+        sections: [{ id: "s1", startChar: 0, endChar: ESSAY.length, function: "hook" }],
+        motifs: [],
+      },
+      beats: {
+        beats: [
+          {
+            id: "b1",
+            sectionId: "s1",
+            startChar: 0,
+            endChar: ESSAY.length,
+            role: "open",
+            phrases: [],
+          },
+        ],
+      },
+      calls: calls as never,
+    });
+    await callEditor(ai, ESSAY);
+    const sectionsCall = calls.find((c) => !c.systemPrompt.includes("SECOND pass"));
+    const beatsCall = calls.find((c) => c.systemPrompt.includes("SECOND pass"));
+    expect(sectionsCall?.maxTokens).toBeGreaterThan(0);
+    expect(beatsCall?.maxTokens).toBeGreaterThan(sectionsCall?.maxTokens ?? 0);
   });
 });
 

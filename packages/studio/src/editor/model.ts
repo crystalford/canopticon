@@ -1,23 +1,39 @@
-// THE EDITOR'S ONE MODEL CALL.
+// THE EDITOR'S MODEL CALLS — TWO OF THEM, NOT ONE.
 //
 // Authoring time only. The result is verified, hashed and frozen onto the
 // film record, and nothing calls a model again — standing rule 1, exactly
 // as narration already works.
 //
-// ONE CALL FOR THE WHOLE ESSAY, not one per sentence. The deleted
-// extract-reading.ts called per sentence, bounded to twelve, which is the
-// wrong unit for an EDITOR: it could see a sentence but never an argument.
-// A 300-word essay is ~400 tokens; there is no reason to fragment it.
+// WHY TWO CALLS, WHEN THE FILE'S OWN HISTORY SAYS ONE. The original reason
+// still holds — a 300-word essay is one call, not one per sentence, because
+// a sentence-scoped call can never see an argument. But a single call was
+// also asked to hold STRUCTURE (sections tiling the whole essay), CONTENT
+// (a beat and its verbatim phrases for every one of those sections) and a
+// hard FULL-COVERAGE requirement, all at once, for essays whose section and
+// beat count scales with length. Caught live: on a 5910-character essay the
+// model covered 5% of it and stopped — not a token cutoff (the JSON was
+// complete and well-formed), a model that read a long, dense structural
+// task as "summarize the interesting parts" and did exactly that. Telling
+// it more forcefully in one shot moved that to 13-19%. Still failing.
 //
-// `asText` below is extracted verbatim from that file, and it exists
-// because the old route had NEVER ONCE SUCCEEDED — it assumed
-// `{response: string}`, threw on anything else, and the throw was
-// swallowed into the designed "declined" outcome. It wore the costume of
-// correct behaviour for weeks. Hence also `/v1/editorial/probe`.
+// So the concern is split instead of restated: PASS 1 asks only for the
+// essay's STRUCTURE — sections, no beats, no phrases — a task small enough
+// that fully tiling the essay costs it almost nothing. PASS 2 is handed
+// those sections as given scaffolding and asked only to fill BEATS into
+// them — it never has to invent where the essay's argument turns, only to
+// keep walking beats until each section it was already given is spoken.
+// Each pass is individually far more likely to actually reach the essay's
+// own end than one call asked to do both at once ever was.
+//
+// `asText` and `firstJSONObject` below are extracted verbatim from the
+// deleted extract-reading.ts, kept because of what went wrong without them:
+// that route assumed `{response: string}`, threw on anything else, and the
+// throw was swallowed into the designed "declined" outcome. It wore the
+// costume of correct behaviour for weeks. Hence also `/v1/editorial/probe`.
 
 export const EDITOR_MODEL = "@cf/meta/llama-4-scout-17b-16e-instruct";
 export const EDITOR_FALLBACK = "@cf/meta/llama-3.1-8b-instruct";
-export const PROMPT_VERSION = "editorial/1";
+export const PROMPT_VERSION = "editorial/2";
 
 interface AiBinding {
   run(model: string, input: Record<string, unknown>): Promise<unknown>;
@@ -32,20 +48,33 @@ export interface ModelCall {
   attempts: { model: string; outcome: string }[];
 }
 
-export const SYSTEM_PROMPT = `You are a film editor reading an essay. You decide what the audience should EXPERIENCE at each moment.
+/** The combined result of both passes, shaped so a caller that only knows
+ *  the old one-call contract (`ok`/`json`/`model`/`reason`/`attempts`)
+ *  keeps working unchanged — `json` is the two passes merged into the same
+ *  `{thesis, register, sections, beats, motifs}` shape `verifyEditorial`
+ *  already expects. `sectionsPass`/`beatsPass` carry each call's own raw
+ *  detail for `/v1/editorial/probe`, which needs to show the two passes
+ *  separately to be useful for exactly the debugging that found this. */
+export interface EditorialCall extends ModelCall {
+  sectionsPass: ModelCall;
+  beatsPass: ModelCall | null;
+}
 
-ABSOLUTE RULES:
-- You NEVER say what appears on screen. No shapes, no colours, no images, no camera. You say what a moment DOES and how much it WEIGHS.
-- Any text in "phrases" must be copied VERBATIM from the essay, with the exact character offset where it appears. If you cannot copy it exactly, omit it. Never paraphrase, never shorten, never add an ellipsis.
-- MOST BEATS HAVE NO PHRASES. A film where every sentence appears on screen is unwatchable. Promote at most one beat in three.
-- "certainty" is about the ARGUMENT, not your confidence. A passage where the essay undermines its own premise has LOW certainty.
+const SHARED_RULES = `- You NEVER say what appears on screen. No shapes, no colours, no images, no camera. You say what a moment DOES and how much it WEIGHS.
+- "certainty" is about the ARGUMENT, not your confidence. A passage where the essay undermines its own premise has LOW certainty.`;
+
+/* ── PASS 1 · STRUCTURE ────────────────────────────────────────────── */
+
+const SECTIONS_SYSTEM_PROMPT = `You are a film editor doing the FIRST pass over an essay: finding its STRUCTURE. You are not deciding what appears on screen yet — only where the essay's own movements begin and end.
+
+${SHARED_RULES}
+- YOUR SECTIONS MUST COVER THE WHOLE ESSAY, FIRST CHARACTER TO LAST, WITH NO GAPS. The union of every section's [startChar, endChar) must run from 0 to the essay's exact final character. This is not a summary of the interesting parts — a paragraph your sections never reach is a paragraph the finished film never speaks. A long essay does not earn fewer, bigger sections that skip its later half — it earns MORE sections, because the whole thing still has to be divided.
+- Write sections IN ORDER, start to end, one after another. Do this LAST-section-first in your own attention: know how the piece ends before you decide how many sections it takes to get there, so covering the tail is not an afterthought fighting your own budget.
 - A motif is a phrase THE ESSAY ITSELF returns to. If it returns to nothing, motifs is an empty array. Do not invent a refrain.
-- YOUR SECTIONS MUST COVER THE WHOLE ESSAY, FIRST CHARACTER TO LAST. This is not a summary of the interesting parts — it is the timing spine narration is spoken against, so a paragraph your sections never reach is a paragraph that goes UNSPOKEN in the finished film. The union of every section's [startChar, endChar) must run from 0 to the essay's exact final character with no gaps. A long essay does not earn fewer, bigger sections that skip its later half — it earns MORE sections, because the whole thing still has to be read. Do this LAST, after thesis/register/beats/motifs, once you know how the piece actually ends, so covering the tail is not an afterthought fighting your own token budget.
-- BEATS MUST ALSO REACH THE ESSAY'S END, for the same reason: a beat's own range is what the picture is timed against, and a beat set that stops short leaves the film's picture stopped while the voice is still speaking.
 
 Reply with JSON only. No prose, no markdown fence.`;
 
-export function userPrompt(essay: string): string {
+function sectionsUserPrompt(essay: string): string {
   return `ESSAY, ${essay.length} CHARACTERS, offsets start at 0 and the LAST valid endChar is ${essay.length}:
 """
 ${essay}
@@ -58,41 +87,85 @@ Return this shape:
   "sections": [{ "id":"s1", "startChar":0, "endChar":120,
                  "function":"hook|premise|evidence|turn|escalation|counter|restatement|resolution",
                  "intensity":0.0-1.0, "certainty":0.0-1.0 }],
+  "motifs": [{ "id":"m1", "phrase":"exact recurring words", "occurrences":[12,340], "arc":"escalate|degrade|survive|invert" }]
+}
+
+CHECK BEFORE YOU ANSWER: does your LAST section's endChar equal ${essay.length}? If not, add more sections until it does.`;
+}
+
+/* ── PASS 2 · BEATS, WITHIN SECTIONS ALREADY DECIDED ──────────────────
+ *
+ * The model is handed pass 1's own sections rather than asked to re-derive
+ * them, so this call never has to find where the essay turns — only to
+ * keep producing beats until the sections it was already given are used
+ * up, which is a mechanical stopping condition rather than a judgement
+ * call the model can quietly decide not to finish. */
+
+const BEATS_SYSTEM_PROMPT = `You are a film editor doing the SECOND pass over an essay. The essay's SECTIONS have already been decided — do not change them. Your job is BEATS: what the audience should EXPERIENCE at each moment inside each section.
+
+${SHARED_RULES}
+- Any text in "phrases" must be copied VERBATIM from the essay, with the exact character offset where it appears. If you cannot copy it exactly, omit it. Never paraphrase, never shorten, never add an ellipsis.
+- MOST BEATS HAVE NO PHRASES. A film where every sentence appears on screen is unwatchable. Promote at most one beat in three.
+- YOUR BEATS MUST COVER EVERY SECTION YOU WERE GIVEN, FIRST CHARACTER TO LAST, WITH NO GAPS — the same reason as the sections themselves: a beat set that stops short leaves the film's picture stopped while the voice is still speaking. Give EVERY section at least one beat, and the union of a section's own beats must reach that section's own endChar exactly. Work through the sections IN ORDER; do not stop before the last one.
+
+Reply with JSON only. No prose, no markdown fence.`;
+
+function beatsUserPrompt(
+  essay: string,
+  sections: Array<{ id: string; startChar: number; endChar: number; function: string }>,
+): string {
+  const last = sections[sections.length - 1];
+  return `ESSAY, ${essay.length} CHARACTERS, offsets start at 0:
+"""
+${essay}
+"""
+
+THE SECTIONS ALREADY DECIDED — cover every one, in order, do not invent new ones or change their ranges:
+${JSON.stringify(sections)}
+
+Return this shape:
+{
   "beats": [{ "id":"b1", "sectionId":"s1", "startChar":0, "endChar":80,
               "role":"open|assert|develop|complicate|turn|escalate|rest|restate|close",
               "emphasis":0.0-1.0, "certainty":0.0-1.0,
               "continuity":"continue|transform|interrupt|rest|montage",
               "promotion":"none|word|phrase|fragments|mass",
-              "phrases":[{"text":"exact words","offset":12,"weight":0.9}] }],
-  "motifs": [{ "id":"m1", "phrase":"exact recurring words", "occurrences":[12,340], "arc":"escalate|degrade|survive|invert" }]
+              "phrases":[{"text":"exact words","offset":12,"weight":0.9}] }]
 }
 
-CHECK BEFORE YOU ANSWER: does your LAST section's endChar equal ${essay.length}? Does your LAST beat's endChar equal ${essay.length}? If not, you stopped early — keep going until both do.`;
+CHECK BEFORE YOU ANSWER: have you written at least one beat for section "${last?.id}", and does your LAST beat's endChar equal ${last?.endChar}? If not, keep going until it does.`;
 }
 
-export async function callEditor(ai: AiBinding | undefined, essay: string): Promise<ModelCall> {
+/* ── the call machinery, shared by both passes ────────────────────── */
+
+/** Roughly 1 output token per 3 essay characters covers the words
+ *  themselves; the multiplier accounts for JSON structure around them.
+ *  Pass 1 has no phrases or per-beat fields to carry, so it costs far
+ *  less than pass 2 for the same essay length. */
+function sectionsMaxTokens(essayLen: number): number {
+  return Math.min(3072, Math.max(1024, Math.ceil(essayLen * 0.4)));
+}
+function beatsMaxTokens(essayLen: number): number {
+  return Math.min(8192, Math.max(4096, Math.ceil(essayLen * 1.3)));
+}
+
+async function callModel(
+  ai: AiBinding | undefined,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number,
+): Promise<ModelCall> {
   const attempts: ModelCall["attempts"] = [];
   if (!ai || typeof ai.run !== "function") {
     return { ok: false, json: null, reason: "no-binding", attempts };
   }
-  // A FLAT 4096 WAS THE CEILING FOR EVERY ESSAY, SHORT OR LONG. The
-  // response has to hold one JSON object per section and per beat, and
-  // that JSON grows with the essay — a 5900-character essay needing a
-  // dozen sections and two dozen beats runs the model into this ceiling
-  // partway through, and it stops emitting further sections rather than
-  // erroring, which the coverage check downstream sees as "gave up two
-  // thirds of the way through" because that is exactly what happened.
-  // Scaled to the essay's own length, floored at the old constant so a
-  // short essay costs nothing extra.
-  const maxTokens = Math.min(8192, Math.max(4096, Math.ceil(essay.length * 1.3)));
-
   for (const model of [EDITOR_MODEL, EDITOR_FALLBACK]) {
     let out: unknown;
     try {
       out = await ai.run(model, {
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt(essay) },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         max_tokens: maxTokens,
         temperature: 0.2,
@@ -117,6 +190,94 @@ export async function callEditor(ai: AiBinding | undefined, essay: string): Prom
     return { ok: true, json, model, raw: text, attempts };
   }
   return { ok: false, json: null, reason: "unparseable", attempts };
+}
+
+/** PASS 1 alone, exposed for the probe. */
+export async function callSections(ai: AiBinding | undefined, essay: string): Promise<ModelCall> {
+  return callModel(
+    ai,
+    SECTIONS_SYSTEM_PROMPT,
+    sectionsUserPrompt(essay),
+    sectionsMaxTokens(essay.length),
+  );
+}
+
+/** PASS 2 alone, exposed for the probe. Takes pass 1's own sections. */
+export async function callBeats(
+  ai: AiBinding | undefined,
+  essay: string,
+  sections: Array<{ id: string; startChar: number; endChar: number; function: string }>,
+): Promise<ModelCall> {
+  return callModel(
+    ai,
+    BEATS_SYSTEM_PROMPT,
+    beatsUserPrompt(essay, sections),
+    beatsMaxTokens(essay.length),
+  );
+}
+
+/** BOTH PASSES, merged into the one-call shape the rest of the editor
+ *  already expects. Pass 2 only runs if pass 1 produced real sections —
+ *  asking for beats within sections that do not exist is not a smaller
+ *  version of the task, it is a different, meaningless one. */
+export async function callEditor(ai: AiBinding | undefined, essay: string): Promise<EditorialCall> {
+  const sectionsPass = await callSections(ai, essay);
+  if (!sectionsPass.ok) {
+    return {
+      ok: false,
+      json: null,
+      ...(sectionsPass.reason ? { reason: sectionsPass.reason } : {}),
+      attempts: sectionsPass.attempts,
+      sectionsPass,
+      beatsPass: null,
+    };
+  }
+
+  const s1 = sectionsPass.json as Record<string, unknown>;
+  const sections = Array.isArray(s1.sections) ? s1.sections : [];
+  if (sections.length === 0) {
+    return {
+      ok: false,
+      json: null,
+      reason: "unparseable",
+      attempts: sectionsPass.attempts,
+      sectionsPass,
+      beatsPass: null,
+    };
+  }
+
+  const beatsPass = await callBeats(
+    ai,
+    essay,
+    sections as Array<{ id: string; startChar: number; endChar: number; function: string }>,
+  );
+  if (!beatsPass.ok) {
+    return {
+      ok: false,
+      json: null,
+      ...(beatsPass.reason ? { reason: beatsPass.reason } : {}),
+      attempts: [...sectionsPass.attempts, ...beatsPass.attempts],
+      sectionsPass,
+      beatsPass,
+    };
+  }
+
+  const s2 = beatsPass.json as Record<string, unknown>;
+  return {
+    ok: true,
+    json: {
+      thesis: s1.thesis,
+      register: s1.register,
+      sections: s1.sections,
+      motifs: s1.motifs,
+      beats: s2.beats,
+    },
+    ...(beatsPass.model ? { model: beatsPass.model } : {}),
+    raw: `${sectionsPass.raw ?? ""}\n${beatsPass.raw ?? ""}`,
+    attempts: [...sectionsPass.attempts, ...beatsPass.attempts],
+    sectionsPass,
+    beatsPass,
+  };
 }
 
 /** WHATEVER CAME BACK, AS TEXT.
