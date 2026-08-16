@@ -36,6 +36,30 @@ export interface Verified {
 /** More than this share of phrases invented → do not trust the reading. */
 const REJECT_CEILING = 0.6;
 
+/** THE CHECK THIS FILE DID NOT HAVE, AND THE FAILURE THAT PROVED IT.
+ *
+ *  Run against production for the first time, the model returned five
+ *  sections covering characters 0–635 of a 1730-character essay. It read
+ *  the first third and stopped. Nothing here looked, because every phrase
+ *  it DID offer was genuinely the essay's own text — so the firewall this
+ *  file exists to be reported no damage at all.
+ *
+ *  The consequence is not cosmetic. `planSpans` walks SECTIONS, so the
+ *  uncovered two thirds was never spoken: the film narrated the opening
+ *  and silently dropped the rest of the writing. Every signal downstream
+ *  stayed green — 201 created, 202 accepted, `spoken 5 / spans 5 /
+ *  measured 5 / failures []`, and a cut that announced "every word timed
+ *  to the voice". The one number that looked like confirmation,
+ *  `spokenWords: 286`, was counted off the essay rather than off the
+ *  spans, so it reported the whole essay while a third of it was planned.
+ *
+ *  Ragged edges are repaired below — a model miscounting a boundary by a
+ *  clause is ordinary. A model that offered this little of the essay did
+ *  not read it, and no amount of stretching one section over the missing
+ *  two thirds would make its structural judgement real. Under this floor
+ *  the reading is declined and the rules editor runs instead. */
+const COVERAGE_FLOOR = 0.75;
+
 export function verifyEditorial(raw: unknown, essay: string): Verified {
   const notes: string[] = [];
   if (!raw || typeof raw !== "object") {
@@ -43,7 +67,7 @@ export function verifyEditorial(raw: unknown, essay: string): Verified {
   }
   const o = raw as Record<string, unknown>;
 
-  const sections = readSections(o.sections, essay, notes);
+  const { sections, coverage } = readSections(o.sections, essay, notes);
   const motifs = readMotifs(o.motifs, essay, notes);
   const motifIds = new Set(motifs.map((m) => m.id));
   const sectionIds = new Set(sections.map((s) => s.id));
@@ -86,12 +110,36 @@ export function verifyEditorial(raw: unknown, essay: string): Verified {
     notes.push(`${rejected} of ${offered} phrases were not the essay's own words and were dropped`);
   }
 
-  const tooDamaged = beats.length === 0 || (offered > 0 && rejected / offered > REJECT_CEILING);
+  // BEATS ARE TILED TOO, and for the same reason as sections: `timeBeats`
+  // finds each beat's start and end by looking up spine words INSIDE its
+  // own range, so a beat set that stops short of the essay produces a cut
+  // that stops short of the recording. Caught live: a film whose sections
+  // covered the essay still ended its picture 3.3 seconds before its own
+  // voice did, because the model's beats were narrower than its sections.
+  // A held gap between two beats is folded into whichever beat is nearer,
+  // the same repair as a gap between sections — a beat that runs a little
+  // long is an ordinary edit; a silent picture under real narration is not.
+  beats.sort((a, b) => a.range.startChar - b.range.startChar);
+  const beatCoverage = beats.length > 0 ? tileCoverage(beats, essay) : 0;
+
+  const coverageFloorMissed = beats.length > 0 && Math.min(coverage, beatCoverage) < COVERAGE_FLOOR;
+  const tooDamaged =
+    beats.length === 0 ||
+    (offered > 0 && rejected / offered > REJECT_CEILING) ||
+    coverageFloorMissed;
   if (tooDamaged) {
+    const pct = Math.round(Math.min(coverage, beatCoverage) * 100);
     notes.push(
       beats.length === 0
         ? "no usable beats"
-        : `over ${Math.round(REJECT_CEILING * 100)}% of phrases were invented — the whole reading is untrusted`,
+        : coverageFloorMissed
+          ? `the reading covered only ${pct}% of the essay — it did not read the whole thing, so the whole reading is untrusted`
+          : `over ${Math.round(REJECT_CEILING * 100)}% of phrases were invented — the whole reading is untrusted`,
+    );
+  } else if (coverage < 0.999 || beatCoverage < 0.999) {
+    const pct = Math.round(Math.min(coverage, beatCoverage) * 100);
+    notes.push(
+      `the reading covered ${pct}% of the essay; the gaps were folded into the neighbouring sections and beats so all of it is spoken and shown`,
     );
   }
 
@@ -150,7 +198,11 @@ function keep(
   };
 }
 
-function readSections(v: unknown, essay: string, notes: string[]): Section[] {
+function readSections(
+  v: unknown,
+  essay: string,
+  notes: string[],
+): { sections: Section[]; coverage: number } {
   const out: Section[] = [];
   for (const item of asArray(v)) {
     const s = item as Record<string, unknown>;
@@ -164,8 +216,80 @@ function readSections(v: unknown, essay: string, notes: string[]): Section[] {
       certainty: unit(s.certainty, 0.7),
     });
   }
-  if (out.length === 0) notes.push("no usable sections — treating the essay as one");
-  return out;
+  if (out.length === 0) {
+    notes.push("no usable sections — treating the essay as one");
+    return { sections: out, coverage: 0 };
+  }
+  out.sort((a, b) => a.range.startChar - b.range.startChar);
+  return { sections: out, coverage: tileCoverage(out, essay) };
+}
+
+/** Every character of the essay must belong to exactly one item in
+ *  `ranges`, because a character claimed by none of them is a character
+ *  `timeBeats`/`planSpans` never reach — narration that stops speaking, or
+ *  a picture that stops being drawn, while the other continues. Both
+ *  sections and beats need this, so it is one function: measures how much
+ *  of the essay the caller's own ranges actually reached BEFORE repairing
+ *  anything (repairing first would always report 100%), then closes every
+ *  gap by folding it into whichever neighbour is nearer, split at the
+ *  sentence boundary closest to the gap's middle so a repair does not
+ *  leave a section or beat opening mid-clause.
+ *
+ *  `ranges` must already be sorted by `range.startChar` and non-empty.
+ *  Mutates in place and returns the coverage measured before the repair. */
+function tileCoverage(ranges: { range: { startChar: number; endChar: number } }[], essay: string) {
+  let offered = 0;
+  let reach = 0;
+  for (const r of ranges) {
+    offered += Math.max(0, r.range.endChar - Math.max(r.range.startChar, reach));
+    reach = Math.max(reach, r.range.endChar);
+  }
+  const coverage = essay.length > 0 ? offered / essay.length : 0;
+
+  const first = ranges[0];
+  if (!first) return coverage;
+  first.range.startChar = 0;
+
+  let prev = first.range;
+  for (let i = 1; i < ranges.length; i++) {
+    const here = ranges[i]?.range;
+    if (!here) continue;
+    if (here.startChar > prev.endChar) {
+      const cut = sentenceBoundaryNear(essay, Math.round((prev.endChar + here.startChar) / 2));
+      prev.endChar = Math.max(prev.startChar + 1, cut);
+      here.startChar = prev.endChar;
+    } else {
+      here.startChar = prev.endChar;
+    }
+    here.endChar = Math.max(here.endChar, here.startChar + 1);
+    prev = here;
+  }
+  prev.endChar = essay.length;
+
+  return coverage;
+}
+
+/** The nearest end-of-sentence or paragraph break to `at`, or `at` itself.
+ *  Bounded so a repair never drags a boundary halfway across the essay. */
+function sentenceBoundaryNear(essay: string, at: number): number {
+  const WINDOW = 400;
+  let best = at;
+  let bestGap = Number.POSITIVE_INFINITY;
+  const from = Math.max(0, at - WINDOW);
+  const to = Math.min(essay.length, at + WINDOW);
+  for (let i = from; i < to; i++) {
+    const isBreak =
+      (essay[i] === "\n" && essay[i + 1] === "\n") ||
+      (".!?".includes(essay[i] as string) && /\s/.test(essay[i + 1] ?? " "));
+    if (!isBreak) continue;
+    const end = essay[i] === "\n" ? i + 2 : i + 1;
+    const gap = Math.abs(end - at);
+    if (gap < bestGap) {
+      bestGap = gap;
+      best = end;
+    }
+  }
+  return best;
 }
 
 function readMotifs(v: unknown, essay: string, notes: string[]): Motif[] {
