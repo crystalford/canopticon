@@ -40,11 +40,13 @@ ABSOLUTE RULES:
 - MOST BEATS HAVE NO PHRASES. A film where every sentence appears on screen is unwatchable. Promote at most one beat in three.
 - "certainty" is about the ARGUMENT, not your confidence. A passage where the essay undermines its own premise has LOW certainty.
 - A motif is a phrase THE ESSAY ITSELF returns to. If it returns to nothing, motifs is an empty array. Do not invent a refrain.
+- YOUR SECTIONS MUST COVER THE WHOLE ESSAY, FIRST CHARACTER TO LAST. This is not a summary of the interesting parts — it is the timing spine narration is spoken against, so a paragraph your sections never reach is a paragraph that goes UNSPOKEN in the finished film. The union of every section's [startChar, endChar) must run from 0 to the essay's exact final character with no gaps. A long essay does not earn fewer, bigger sections that skip its later half — it earns MORE sections, because the whole thing still has to be read. Do this LAST, after thesis/register/beats/motifs, once you know how the piece actually ends, so covering the tail is not an afterthought fighting your own token budget.
+- BEATS MUST ALSO REACH THE ESSAY'S END, for the same reason: a beat's own range is what the picture is timed against, and a beat set that stops short leaves the film's picture stopped while the voice is still speaking.
 
 Reply with JSON only. No prose, no markdown fence.`;
 
 export function userPrompt(essay: string): string {
-  return `ESSAY (character offsets start at 0):
+  return `ESSAY, ${essay.length} CHARACTERS, offsets start at 0 and the LAST valid endChar is ${essay.length}:
 """
 ${essay}
 """
@@ -63,7 +65,9 @@ Return this shape:
               "promotion":"none|word|phrase|fragments|mass",
               "phrases":[{"text":"exact words","offset":12,"weight":0.9}] }],
   "motifs": [{ "id":"m1", "phrase":"exact recurring words", "occurrences":[12,340], "arc":"escalate|degrade|survive|invert" }]
-}`;
+}
+
+CHECK BEFORE YOU ANSWER: does your LAST section's endChar equal ${essay.length}? Does your LAST beat's endChar equal ${essay.length}? If not, you stopped early — keep going until both do.`;
 }
 
 export async function callEditor(ai: AiBinding | undefined, essay: string): Promise<ModelCall> {
@@ -71,6 +75,17 @@ export async function callEditor(ai: AiBinding | undefined, essay: string): Prom
   if (!ai || typeof ai.run !== "function") {
     return { ok: false, json: null, reason: "no-binding", attempts };
   }
+  // A FLAT 4096 WAS THE CEILING FOR EVERY ESSAY, SHORT OR LONG. The
+  // response has to hold one JSON object per section and per beat, and
+  // that JSON grows with the essay — a 5900-character essay needing a
+  // dozen sections and two dozen beats runs the model into this ceiling
+  // partway through, and it stops emitting further sections rather than
+  // erroring, which the coverage check downstream sees as "gave up two
+  // thirds of the way through" because that is exactly what happened.
+  // Scaled to the essay's own length, floored at the old constant so a
+  // short essay costs nothing extra.
+  const maxTokens = Math.min(8192, Math.max(4096, Math.ceil(essay.length * 1.3)));
+
   for (const model of [EDITOR_MODEL, EDITOR_FALLBACK]) {
     let out: unknown;
     try {
@@ -79,7 +94,7 @@ export async function callEditor(ai: AiBinding | undefined, essay: string): Prom
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt(essay) },
         ],
-        max_tokens: 4096,
+        max_tokens: maxTokens,
         temperature: 0.2,
       });
     } catch (err) {
