@@ -37,6 +37,7 @@ import { mulberry32 } from "../core/rng.js";
 import { arcAt, vocabularyAt } from "./arc.js";
 import { LAYOUTS, emptiest, place } from "./layout.js";
 import { partition, placeInZone, zoneFor } from "./frame.js";
+import { authorIdea, ideaKey, stateAt } from "./idea.js";
 import { emitMarks } from "./marks.js";
 import { emitSigns } from "./sign.js";
 import { invoke, makeMotifs, trace, verbFor } from "./motif.js";
@@ -530,6 +531,12 @@ export function buildStages(cut) {
   const topicForms = new Map();
   // Where a motif last stood, so a recall can draw a line back to it.
   let lastMotifPlace = null;
+  // THE PASSAGE'S OWN IDEA — authored once, then travelled through. A passage
+  // used to be N independent samples, so it had no beginning, middle or end
+  // and could not develop.
+  let idea = null;
+  let ideaStart = 0;
+  let ideaEnd = 1;
   const recentWorlds = [];
   /** Passage index → the world it was given. The film's memory. */
   const topicWorlds = new Map();
@@ -615,7 +622,15 @@ export function buildStages(cut) {
       // That is a template however large the space is. The passage's own
       // vocabulary now sets where the film goes; the sequence explores around
       // it, so coverage survives and content decides the neighbourhood.
+      // A MOVE AUTHORS A NEW IDEA. The sequence point is where it STARTS; the
+      // behaviour decides where it ends up, and every beat between is a
+      // position on that path.
       point = motifOver ? point : blend(nextPoint(wander), rd.signature, 0.55);
+      idea = authorIdea(point, rd, rng, arc);
+      ideaStart = beat.startMs;
+      // The passage runs until the writing moves again; estimated from the
+      // beat's own span so a one-beat passage still completes its arc.
+      ideaEnd = beat.startMs + Math.max(1200, (beat.endMs - beat.startMs) * 6);
       // A NEW PALETTE ON EVERY MOVE. It used to advance once every three, and
       // with eleven moves in a real essay the whole film had four hues — which
       // landed adjacent, so twenty frames came out black, white and one green.
@@ -643,7 +658,15 @@ export function buildStages(cut) {
       // with recurring images and a film with a memory. It decays over about a
       // minute, so the pull is strongest just after an appearance.
       const tr = trace(motifs, beat.startMs);
-      let p2 = motifOver ? point : blend(step(wander, 0.22), rd.signature, 0.35);
+      // A HOLD TRAVELS ALONG THE IDEA, not along a second random sequence.
+      // This is the difference between a passage that changes and a passage
+      // that GOES somewhere: the beats of one paragraph are now positions on
+      // a single journey rather than unrelated samples near each other.
+      let p2 = motifOver
+        ? point
+        : idea
+          ? stateAt(idea, (beat.startMs - ideaStart) / Math.max(1, ideaEnd - ideaStart))
+          : blend(step(wander, 0.22), rd.signature, 0.35);
       if (!motifOver && tr) p2 = blend(p2, tr.point, tr.weight);
       style = sampleStyle(rng, { ...asBias(p2, FACTORS), ...(motifOver?.over ?? {}) }, palette);
       form = sampleForm(rng, {
@@ -919,6 +942,7 @@ export function buildStages(cut) {
       layout,
       why: motifOver ? `motif:${motifOver.verb}` : chosen.why,
       motif: motifOver,
+      idea: idea ? ideaKey(idea) : null,
       process: world.process ?? "photocopy",
       style,
       form,

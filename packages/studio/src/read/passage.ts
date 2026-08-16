@@ -236,22 +236,21 @@ export function readPassages(texts: string[]): PassageReading[] {
       sentences.length > 0
         ? sentences.reduce((n, x) => n + x.trim().split(/\s+/).length, 0) / sentences.length
         : terms.length;
-    // A twenty-eight-word sentence and a five-word one are read at different
-    // speeds by any reader; this is that, normalised.
-    const tempo = Math.max(0, Math.min(1, 1 - (meanLen - 5) / 26));
+    // RAW scores here; they become PERCENTILES below, and that distinction is
+    // the whole fix. An absolute formula saturates — measured on a real essay,
+    // all thirteen passages scored between 0.71 and 1.00 for weight, so every
+    // passage was "heavy" and every idea in the film shared one rhythm. Weight
+    // is not an absolute property of a paragraph; it is a comparison with the
+    // other paragraphs in the same essay, exactly as an average shot length is
+    // a baseline a film establishes for itself rather than a number in a book.
+    const tempoRaw = 1 - meanLen / 30;
     const stops = (text.match(/[.!?;:]/g) ?? []).length / Math.max(1, terms.length);
-    const weight = Math.max(
-      0,
-      Math.min(
-        1,
-        (sentences.length <= 2 ? 0.6 : 0.2) + stops * 2.2 + (terms.length < 12 ? 0.3 : 0),
-      ),
-    );
+    const weightRaw = stops * 2 + (sentences.length <= 2 ? 0.4 : 0) + (terms.length < 12 ? 0.4 : 0);
 
     out.push({
       signature,
-      tempo,
-      weight,
+      tempo: tempoRaw,
+      weight: weightRaw,
       kind: kindOf(text, terms),
       terms: terms.slice(0, 24),
       novelty,
@@ -262,5 +261,26 @@ export function readPassages(texts: string[]): PassageReading[] {
     });
     sets.push(set);
   }
+
+  // PERCENTILE, NOT MAGNITUDE. Now that every passage has a raw score, rank
+  // them against each other: the essay's own quietest passage is 0 and its
+  // heaviest is 1, whatever the absolute numbers were. This guarantees a
+  // spread — some passages ARE held and some DO rush, in any essay, which an
+  // absolute threshold could never promise.
+  const rank = (key: "tempo" | "weight") => {
+    // COMPUTE EVERY RANK BEFORE ASSIGNING ANY. Writing back inside the loop
+    // means later lookups read values already replaced by their own ranks, so
+    // the ranking silently reads a table it is halfway through rewriting —
+    // which is why every passage came out heavy and every idea shared one
+    // rhythm even after the percentile fix.
+    const sorted = out.map((o) => o[key]).sort((a, b) => a - b);
+    const ranks = out.map((o) => {
+      const i = sorted.findIndex((v) => v >= o[key]);
+      return out.length > 1 ? i / (out.length - 1) : 0.5;
+    });
+    for (const [i, o] of out.entries()) o[key] = ranks[i] as number;
+  };
+  rank("tempo");
+  rank("weight");
   return out;
 }
