@@ -382,12 +382,29 @@ A platform pays for attention, not accuracy, so the fastest route to revenue is 
 
   const call = await callEditor(c.env.AI, essay);
   const checked = call.ok ? verifyEditorial(call.json, essay) : null;
+
+  // EACH PASS, SEPARATELY. The two-pass split exists because a single call
+  // asked to hold structure and content and full coverage at once was
+  // quietly dropping the coverage requirement — and that failure was only
+  // findable by looking at each pass's own raw output and coverage, not
+  // the merged result. This is that same diagnostic, kept live rather than
+  // done by hand against production the way it was found.
+  const passSummary = (p: typeof call.sectionsPass) => ({
+    ok: p.ok,
+    model: p.model ?? null,
+    reason: p.reason ?? null,
+    attempts: p.attempts,
+    rawFirst400: p.raw ? p.raw.slice(0, 400) : null,
+    rawLength: p.raw?.length ?? null,
+  });
+
   return c.json({
     ok: call.ok,
     model: call.model ?? null,
     reason: call.reason ?? null,
     attempts: call.attempts,
-    rawFirst400: call.raw ? call.raw.slice(0, 400) : null,
+    sectionsPass: passSummary(call.sectionsPass),
+    beatsPass: call.beatsPass ? passSummary(call.beatsPass) : null,
     parsed: call.json
       ? {
           sections: Array.isArray((call.json as Record<string, unknown>).sections)
