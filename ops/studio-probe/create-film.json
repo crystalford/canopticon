@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-16T00:40:56Z",
+  "run_id": "31917786741",
+  "method": "POST",
+  "path": "/v1/film",
+  "status": 201,
+  "body": "{\n  \"filmId\": \"film_1ba109df38dc4881b9b9\",\n  \"title\": \"The City That Learned To Watch\",\n  \"seed\": 3621396826,\n  \"beats\": 5,\n  \"sections\": 5,\n  \"motifs\": 2,\n  \"spans\": 5,\n  \"spokenWords\": 286,\n  \"editorial\": \"read by @cf/meta/llama-4-scout-17b-16e-instruct\",\n  \"notes\": []\n}"
+}
