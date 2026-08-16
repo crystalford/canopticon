@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-16T02:11:51Z",
+  "run_id": "31921332385",
+  "method": "POST",
+  "path": "/v1/editorial/probe",
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"model\": \"@cf/meta/llama-4-scout-17b-16e-instruct\",\n  \"reason\": null,\n  \"attempts\": [],\n  \"rawFirst400\": \"```\\n{\\n  \\\"thesis\\\": \\\"The medium doesn't reward having been right before. It rewards winning now.\\\",\\n  \\\"register\\\": \\\"polemic\\\",\\n  \\\"sections\\\": [\\n    {\\n      \\\"id\\\": \\\"s1\\\",\\n      \\\"startChar\\\": 0,\\n      \\\"endChar\\\": 120,\\n      \\\"function\\\": \\\"premise\\\",\\n      \\\"intensity\\\": 0.8,\\n      \\\"certainty\\\": 0.9\\n    }\\n  ],\\n  \\\"beats\\\": [\\n    {\\n      \\\"id\\\": \\\"b1\\\",\\n      \\\"sectionId\\\": \\\"s1\\\",\\n      \\\"startChar\\\": 0,\\n      \\\"endChar\\\": 39,\\n  \",\n  \"parsed\": {\n    \"sections\": 1,\n    \"beats\": 3\n  },\n  \"verified\": {\n    \"declined\": true,\n    \"beats\": 3,\n    \"promoted\": 2,\n    \"motifs\": 0,\n    \"rejectedPhrases\": 0,\n    \"notes\": [\n      \"the reading covered only 43% of the essay — it did not read the whole thing, so the whole reading is untrusted\"\n    ]\n  }\n}"
+}
