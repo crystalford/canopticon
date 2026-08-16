@@ -258,10 +258,22 @@ function withIntent(beat: TimedBeat, film: Film, chaos: number, density: number)
     | undefined;
   const rng = mulberry32(beat.seed);
 
+  // A promoted phrase must never be silenced. FREEZE is the one behaviour
+  // that introduces nothing at all — correct for a genuine rest, where the
+  // editorial reading gave this beat no text either — but wrong for a beat
+  // that scored low-emphasis (hence role "rest") and STILL carries a
+  // promoted phrase: those are two independent judgements, and the compiler
+  // must not let the quieter one erase the phrase the editor chose to show.
+  // Confirmed on a real film: the phrase was present in the record and
+  // never appeared on screen, because its beat's role happened to be "rest".
+  const hasPhrases = (editorial?.phrases?.length ?? 0) > 0;
+  const roleBehavior = BY_ROLE[beat.editorialRole] ?? "APPEAR";
   const behavior: Behavior =
     beat.visualIntent.continuity === "interrupt" && beat.visualIntent.rhythm === "burst"
       ? "INTERRUPT"
-      : (BY_ROLE[beat.editorialRole] ?? "APPEAR");
+      : roleBehavior === "FREEZE" && hasPhrases
+        ? "APPEAR"
+        : roleBehavior;
 
   // A second operator is earned, not default: only where the beat is loud
   // or the film is chaotic, and never on a rest.

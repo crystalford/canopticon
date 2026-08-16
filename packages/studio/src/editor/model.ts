@@ -145,8 +145,19 @@ CHECK BEFORE YOU ANSWER: have you written at least one beat for section "${last?
 function sectionsMaxTokens(essayLen: number): number {
   return Math.min(3072, Math.max(1024, Math.ceil(essayLen * 0.4)));
 }
-function beatsMaxTokens(essayLen: number): number {
-  return Math.min(8192, Math.max(4096, Math.ceil(essayLen * 1.3)));
+/** Pass 2's cost does not scale with essay length alone — it scales with
+ *  how many BEATS the essay's own sections demand, and the system prompt
+ *  requires at least one beat per section. A finely-sectioned essay (many
+ *  short sections) needs meaningfully more JSON skeleton — id, range,
+ *  role, emphasis, certainty, continuity, promotion — than a coarsely-
+ *  sectioned essay of the same length, and that per-beat overhead was
+ *  previously invisible to this budget. Underestimating it truncates the
+ *  response mid-object: valid JSON with an unbalanced final brace, which
+ *  `firstJSONObject` cannot recover, so the call comes back "unparseable"
+ *  and the whole essay silently falls back to the rules editor. */
+function beatsMaxTokens(essayLen: number, sectionCount: number): number {
+  const skeleton = sectionCount * 260;
+  return Math.min(16384, Math.max(4096, Math.ceil(essayLen * 1.3 + skeleton)));
 }
 
 async function callModel(
@@ -212,7 +223,7 @@ export async function callBeats(
     ai,
     BEATS_SYSTEM_PROMPT,
     beatsUserPrompt(essay, sections),
-    beatsMaxTokens(essay.length),
+    beatsMaxTokens(essay.length, sections.length),
   );
 }
 

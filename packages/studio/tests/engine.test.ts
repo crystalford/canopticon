@@ -389,6 +389,127 @@ describe("films made by the previous engine", () => {
   });
 });
 
+describe("the rules editor never leaves the screen dark too long", () => {
+  // A real film (film_21f2667c858a4753aa67) had nine straight beats with no
+  // phrases before the tenth said anything — the global percentile gates
+  // that decide which beats earn text know nothing about WHERE they fall,
+  // and a quiet, even opening can starve the first third of a film. This
+  // essay is built the same way: long, even-toned, no figures or turns, so
+  // most sentences score near the same emphasis and would previously have
+  // clustered into a long unpromoted run at the start.
+  const EVEN_ESSAY = Array.from(
+    { length: 24 },
+    (_, i) =>
+      `The committee reviewed the proposal again on a Tuesday afternoon in a room that had reviewed many proposals before it, and nobody present felt the meeting had moved the matter forward in any direction worth naming as progress today number ${i}.`,
+  ).join(" ");
+
+  it("never runs more than three consecutive beats with no phrases", () => {
+    const editorial = readEssayStructurally(EVEN_ESSAY);
+    expect(editorial.beats.length).toBeGreaterThan(8);
+    let run = 0;
+    let longest = 0;
+    for (const b of editorial.beats) {
+      run = b.phrases.length === 0 ? run + 1 : 0;
+      longest = Math.max(longest, run);
+    }
+    expect(longest).toBeLessThanOrEqual(3);
+  });
+
+  it("still keeps every forced phrase verbatim and at its real offset", () => {
+    const editorial = readEssayStructurally(EVEN_ESSAY);
+    for (const b of editorial.beats) {
+      for (const p of b.phrases) {
+        expect(EVEN_ESSAY.slice(p.offset, p.offset + p.text.length)).toBe(p.text);
+      }
+    }
+  });
+});
+
+describe("a promoted phrase is never behaviourally silenced", () => {
+  // FREEZE is the one behaviour that introduces nothing at all — correct
+  // for a genuine rest, where the beat has no text either. But role and
+  // promotion are two independent judgements: a beat can score low enough
+  // to read as "rest" and still carry a phrase the editor chose to show.
+  // Before this fix, `BY_ROLE` sent every "rest" beat to FREEZE regardless,
+  // so a real, verbatim, promoted phrase could sit in the record and never
+  // once appear on screen — confirmed on a real film, where the rendered
+  // canvas showed nothing for beats that the record said had text.
+  it("does not map a 'rest' role with a real phrase to FREEZE", async () => {
+    const phraseText = "It sold a mood.";
+    const offset = ESSAY.indexOf(phraseText);
+    expect(offset).toBeGreaterThanOrEqual(0);
+
+    const editorial = {
+      thesis: "",
+      register: "analytic" as const,
+      sections: [
+        {
+          id: "s1",
+          range: { startChar: 0, endChar: ESSAY.length },
+          function: "hook" as const,
+          intensity: 0.5,
+          certainty: 0.7,
+        },
+      ],
+      beats: [
+        {
+          id: "b1",
+          sectionId: "s1",
+          range: { startChar: 0, endChar: 40 },
+          role: "open" as const,
+          emphasis: 0.6,
+          certainty: 0.7,
+          continuity: "continue" as const,
+          promotion: "none" as const,
+          phrases: [],
+        },
+        {
+          id: "b2",
+          sectionId: "s1",
+          range: { startChar: 40, endChar: offset + phraseText.length },
+          role: "rest" as const,
+          emphasis: 0.1,
+          certainty: 0.7,
+          continuity: "rest" as const,
+          promotion: "phrase" as const,
+          phrases: [{ text: phraseText, offset, weight: 0.9 }],
+        },
+      ],
+      motifs: [],
+      callbacks: [],
+    };
+
+    const film: Film = {
+      schema: "canopticon.film/1",
+      filmId: "f2",
+      title: "Test",
+      essay: ESSAY,
+      seed: 1,
+      settings: { pace: 0.5, chaos: 0.5, density: 0.5 },
+      editorial,
+      editorialHash: await hashRecord(editorial),
+      editorialProvenance: {
+        source: "rules",
+        promptVersion: "test",
+        createdAt: "2020-01-01T00:00:00.000Z",
+        rejectedPhrases: 0,
+      },
+      narration: { voice: null, spans: [] },
+      assets: [],
+      createdAt: "2020-01-01T00:00:00.000Z",
+    };
+
+    const spine = estimateSpine(ESSAY, editorial.sections);
+    const cut = await buildCut({ film, spine });
+    const b2 = cut.beats.find((b) => b.id === "b2" || b.id.startsWith("b2."));
+    expect(b2, "beat b2 must survive into the cut").toBeDefined();
+    // biome-ignore lint/style/noNonNullAssertion: asserted above
+    expect(b2!.text.phrases.length).toBeGreaterThan(0);
+    // biome-ignore lint/style/noNonNullAssertion: asserted above
+    expect(b2!.visualIntent.behavior).not.toBe("FREEZE");
+  });
+});
+
 describe("the cut", () => {
   it("is deterministic, and a different seed is a different film", async () => {
     const film = await filmOf(1);
