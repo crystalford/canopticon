@@ -158,13 +158,58 @@ input[type="range"]::-moz-range-thumb {
 .actions + .actions { margin-top: var(--s4); padding-top: 0; border-top: none; }
 
 /* ── the film ─────────────────────────────────────────────── */
-canvas { width: 100%; background: #000; border: 1px solid var(--line); border-radius: var(--r); display: block; }
-/* The bar reads as 3px, but a 3px-tall click target is nearly
- * impossible to hit — that's why scrubbing never worked, not the JS.
- * Padding widens the actual hit area to ~19px; background-clip keeps
- * the visible line exactly as thin as before. */
-.progress { height: 3px; background: var(--line2); background-clip: content-box; margin: var(--s4) 0; padding: 8px 0; cursor: pointer; touch-action: none; }
-.progress > i { display: block; height: 100%; background: var(--sage); width: 0; transition: width 0.05s linear; }
+/* A REAL PLAYER, not a canvas with a decoration underneath it. Two prior
+ * attempts at the seek bar both put it as a separate element below the
+ * video — first a 3px line with no real hit area, then a taller one that
+ * was still low-contrast against the page. Both were technically
+ * clickable and both read as nothing there. The actual ask, stated
+ * plainly: a seek bar ON the video, a playhead, click-the-video-to-play —
+ * the ordinary shape of every video player, which this one never had.
+ *
+ * .scrub overlays the bottom of .viewer with a dark scrim behind a
+ * translucent-white track — the one styling choice that stays legible
+ * regardless of what the film itself is doing (solid black, solid white,
+ * or the procedural noise field), because it never depends on contrast
+ * against the PAGE, only against the SCRIM painted for exactly this. */
+.viewer { position: relative; }
+.viewer canvas { width: 100%; background: #000; border: 1px solid var(--line); border-radius: var(--r); display: block; cursor: pointer; }
+.scrub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 30px;
+  padding: 0 var(--s3);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+  border-radius: 0 0 var(--r) var(--r);
+}
+.scrubtrack { position: relative; width: 100%; height: 4px; background: rgba(255, 255, 255, 0.35); border-radius: 2px; }
+.scrubtrack > i {
+  display: block;
+  position: relative;
+  height: 100%;
+  background: var(--sage);
+  width: 0;
+  border-radius: 2px;
+  transition: width 0.05s linear;
+}
+.scrubtrack > i::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--sage2);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6);
+  transform: translateY(-50%);
+}
+.scrub:hover .scrubtrack > i::after { background: var(--ink); }
 
 /* ── films made already ───────────────────────────────────── */
 .films { margin-top: var(--s7); border-top: 1px solid var(--line); padding-top: var(--s5); }
