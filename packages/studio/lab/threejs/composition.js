@@ -1,218 +1,86 @@
-/* THREEJS RENDERER — Layer 4 (COMPOSITION).
+/* THREEJS RENDERER — Layer 4 (COMPOSITION): the editorial type layer.
  *
- * Canvas 2D overlay layer for UI chrome, typography, and final composite.
- * This layer sits on top of all procedural layers and is where editorial
- * type rendering happens. Future support for compositing other elements
- * (captions, credits, watermarks, interactive UI).
+ * Draws the SAME editorial content the Canvas 2D backend draws — same
+ * stages, same units, same beats, same behaviors — on top of the
+ * procedural WebGL ground. It reuses `resolveAt` from the compositor
+ * directly rather than re-deriving anything: there is exactly one
+ * editorial timeline, and both backends read it.
  *
- * Layer 4 (COMPOSITION): Canvas 2D overlay, final composite, UI chrome
+ * Text is drawn with native Canvas 2D `fillText` — full browser font
+ * rasterisation, not a WebGL glyph pass — because that is the highest
+ * quality text rendering available and the ground layer has already been
+ * flattened to pixels by the time this runs. There is nothing to gain and
+ * legibility to lose by pushing type through WebGL.
  *
- * Orchestrates the multi-pass rendering pipeline and handles the final
- * output to Canvas 2D context for display and export.
+ * KNOCKOUT: the procedural ground is a noisy monochrome threshold field,
+ * unlike Canvas 2D's authored plate. Standing rule 8 — "illegibility is
+ * an explicit editorial decision, never an accident of a downstream
+ * effect" — means type cannot be left to whatever value happens to sit
+ * under it. Each unit gets a solid backing in the stage's own ground
+ * colour before its ink is drawn. This is a scoped, honest stand-in for
+ * the occlusion-budget legibility pass named as a known gap in
+ * CANOPTICON_FILM_ENGINE.md — not that system, just its minimum
+ * guarantee: real contrast, every frame, regardless of what renders
+ * beneath it.
  */
 
-/**
- * Initialize composition layer with Canvas 2D context for overlay.
- * Returns a render function that composites all layers.
- */
-export function initCompositionLayer(canvas, ctx, config) {
-  return {
-    // Composite all layers into the canvas context
-    render(groundPixels, imageryPixels) {
-      return compositeAllLayers(ctx, canvas, groundPixels, imageryPixels, config);
-    },
-    // Add typography/captions overlay
-    renderText(text, position, style) {
-      return renderTextOverlay(ctx, canvas, text, position, style);
-    },
-    // Add UI chrome (credits, watermarks, etc.)
-    renderChrome(elements) {
-      return renderChrome(ctx, canvas, elements);
-    },
-  };
-}
+import { resolveAt } from "../comp/compose.js";
+import { CASES, setType } from "../core/type.js";
+import { inkOf } from "../paint/frame.js";
 
-/**
- * Composite all rendering layers into final output.
- * Order: Imagery (back) → Ground → Text → Chrome (front)
- */
-function compositeAllLayers(ctx, canvas, groundPixels, imageryPixels, config) {
-  // Ground layer (from WebGL)
-  if (groundPixels) {
-    const imageData = new ImageData(groundPixels, canvas.width, canvas.height);
-    ctx.putImageData(imageData, 0, 0);
-  } else {
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
+const v = (n) => {
+  const b = Math.max(0, Math.min(255, Math.round(n * 255)));
+  return `rgb(${b},${b},${b})`;
+};
 
-  // Imagery composite (when enabled)
-  if (imageryPixels && config?.includeImageryLayer) {
-    // TODO: Apply blend mode and composite imagery
-    // Once imagery.js is fully integrated, composite here
-  }
-
-  // Text overlays and chrome are rendered directly to ctx
-  // (see renderTextOverlay and renderChrome below)
-}
-
-/**
- * Render typography overlay on the composed frame.
- * Positions text at the specified location with the given styling.
- */
-function renderTextOverlay(ctx, canvas, text, position, style) {
-  const {
-    font = '16px "Space Grotesk"',
-    color = "#000",
-    maxWidth = canvas.width - 40,
-    textAlign = "left",
-    lineHeight = 1.4,
-    opacity = 1,
-  } = style;
+/** Draw the editorial type for the given absolute film time onto `ctx`.
+ *  `stages` is `buildStages(cut).stages` — the same value the Canvas 2D
+ *  path passes to `prepareFilm`. Call this AFTER the ground layer has
+ *  been composited into `ctx`, so the knockout paints over real pixels. */
+export function renderTypeLayer(ctx, w, h, stages, tMs) {
+  const res = resolveAt(stages, tMs);
+  if (!res) return;
+  const { units, stage } = res;
+  const ink = inkOf(stage);
 
   ctx.save();
-  ctx.globalAlpha = opacity;
-  ctx.font = font;
-  ctx.fillStyle = color;
-  ctx.textAlign = textAlign;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = true;
 
-  // Handle line breaks and word wrapping
-  const lines = wrapText(ctx, text, maxWidth);
-  const lineHeightPx = parseInt(font) * lineHeight;
+  for (const u of units) {
+    const text = (CASES[u.case] || CASES.as)(u.text);
+    const drawOne = (dx, dy, alpha) => {
+      ctx.save();
+      const m = setType(ctx, { ...u, text }, w, h);
+      const x = u.box.x * w + dx;
+      const y = u.box.y * h + m.ascent + dy;
+      ctx.translate(x, y);
+      if (u.rot) ctx.rotate((u.rot * Math.PI) / 180);
+      ctx.scale(u.drawScale, u.drawScale);
+      const a = Math.max(0, Math.min(1, alpha));
+      if (a <= 0) {
+        ctx.restore();
+        return;
+      }
 
-  lines.forEach((line, i) => {
-    const y = position.y + i * lineHeightPx;
-    ctx.fillText(line, position.x, y);
-  });
+      // Knockout backing, padded around the measured glyph box.
+      const pad = m.px * 0.18;
+      ctx.globalAlpha = a * 0.94;
+      ctx.fillStyle = v(ink.ground);
+      ctx.fillRect(-pad, -m.ascent - pad, m.w + pad * 2, m.h + pad * 2);
 
+      ctx.globalAlpha = a;
+      ctx.fillStyle = v(ink.ink);
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    };
+    // ECHO/MULTIPLY: repeats of one unit, same discipline as drawFrame.
+    if (u.repeat) {
+      for (let i = u.repeat.n; i >= 1; i--) {
+        drawOne(u.repeat.dx * w * i, u.repeat.dy * h * i, u.alpha * u.density * (1 - u.repeat.decay * i));
+      }
+    }
+    drawOne(0, 0, u.alpha * u.density);
+  }
   ctx.restore();
-}
-
-/**
- * Word-wrap text to fit within a maximum width.
- */
-function wrapText(ctx, text, maxWidth) {
-  const words = text.split(" ");
-  const lines = [];
-  let currentLine = "";
-
-  words.forEach((word) => {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    const testWidth = ctx.measureText(testLine).width;
-
-    if (testWidth > maxWidth && currentLine) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
-    }
-  });
-
-  if (currentLine) lines.push(currentLine);
-  return lines;
-}
-
-/**
- * Render UI chrome elements (credits, watermarks, info, etc.).
- * Elements array: [{ type, text, position, style }]
- */
-function renderChrome(ctx, canvas, elements) {
-  if (!elements || elements.length === 0) return;
-
-  elements.forEach((element) => {
-    switch (element.type) {
-      case "credit":
-        renderCredit(ctx, canvas, element);
-        break;
-      case "watermark":
-        renderWatermark(ctx, canvas, element);
-        break;
-      case "info":
-        renderInfo(ctx, canvas, element);
-        break;
-      case "corner-mark":
-        renderCornerMark(ctx, canvas, element);
-        break;
-    }
-  });
-}
-
-function renderCredit(ctx, canvas, element) {
-  const { text, position = "bottom-right", style = {} } = element;
-  const defaultStyle = {
-    font: '12px "Newsreader"',
-    color: "rgba(0,0,0,0.6)",
-    position: { x: canvas.width - 10, y: canvas.height - 10 },
-    textAlign: "right",
-    opacity: 0.7,
-  };
-  const finalStyle = { ...defaultStyle, ...style, position: style.position || {} };
-  renderTextOverlay(ctx, canvas, text, finalStyle.position, finalStyle);
-}
-
-function renderWatermark(ctx, canvas, element) {
-  const { text, position = "center", style = {} } = element;
-  const centerX = canvas.width / 2;
-  const centerY = canvas.height / 2;
-  const defaultStyle = {
-    font: 'bold 24px "Archivo Black"',
-    color: "rgba(0,0,0,0.1)",
-    position: { x: centerX, y: centerY },
-    textAlign: "center",
-    opacity: 0.15,
-  };
-  const finalStyle = { ...defaultStyle, ...style };
-  renderTextOverlay(ctx, canvas, text, finalStyle.position, finalStyle);
-}
-
-function renderInfo(ctx, canvas, element) {
-  const { text, position = "top-left", style = {} } = element;
-  const defaultStyle = {
-    font: '14px "JetBrains Mono"',
-    color: "rgba(0,0,0,0.8)",
-    position: { x: 10, y: 20 },
-    textAlign: "left",
-    opacity: 0.9,
-  };
-  const finalStyle = { ...defaultStyle, ...style, position: style.position || {} };
-  renderTextOverlay(ctx, canvas, text, finalStyle.position, finalStyle);
-}
-
-function renderCornerMark(ctx, canvas, element) {
-  const { text, corner = "top-left", style = {} } = element;
-  const positions = {
-    "top-left": { x: 8, y: 16 },
-    "top-right": { x: canvas.width - 8, y: 16 },
-    "bottom-left": { x: 8, y: canvas.height - 8 },
-    "bottom-right": { x: canvas.width - 8, y: canvas.height - 8 },
-  };
-  const defaultStyle = {
-    font: '11px "JetBrains Mono"',
-    color: "rgba(0,0,0,0.7)",
-    textAlign: corner.includes("right") ? "right" : "left",
-    opacity: 0.8,
-  };
-  const finalStyle = { ...defaultStyle, ...style };
-  renderTextOverlay(ctx, canvas, text, positions[corner], finalStyle);
-}
-
-/**
- * Orchestration: render all layers and composite them.
- * Called from the main render loop once per frame.
- */
-export function renderComposite(ctx, canvas, groundPixels, imageryPixels, textElements, chromeElements, config) {
-  // Composite background layers (ground + imagery)
-  compositeAllLayers(ctx, canvas, groundPixels, imageryPixels, config);
-
-  // Render text overlays (captions, narration, etc.)
-  if (textElements && textElements.length > 0) {
-    textElements.forEach((element) => {
-      renderTextOverlay(ctx, canvas, element.text, element.position, element.style);
-    });
-  }
-
-  // Render UI chrome (credits, watermarks, info)
-  if (chromeElements && chromeElements.length > 0) {
-    renderChrome(ctx, canvas, chromeElements);
-  }
 }

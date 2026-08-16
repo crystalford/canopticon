@@ -54,7 +54,14 @@ export async function buildCut(input: CutInput): Promise<FilmCut> {
   }));
 
   // Three.js config derived from film settings
-  let threeConfig: { noiseIntensity: number; warpFieldType: "radial" | "linear" | "turbulent"; parallaxDepth: number; includeImageryLayer: boolean } | undefined;
+  let threeConfig:
+    | {
+        noiseIntensity: number;
+        warpFieldType: "radial" | "linear" | "turbulent";
+        parallaxDepth: number;
+        includeImageryLayer: boolean;
+      }
+    | undefined;
   if (film.renderBackend === "threejs-procedural") {
     const warpType: "radial" | "linear" | "turbulent" =
       film.settings.chaos > 0.6 ? "turbulent" : film.settings.chaos > 0.3 ? "radial" : "linear";

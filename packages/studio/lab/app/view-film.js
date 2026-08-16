@@ -9,6 +9,7 @@ import { buildStages } from "../comp/compose.js";
 import { encodeExact, RENDER } from "../export/encode.js";
 import { loadVoice, playVoice, stopVoice, voiceTrack } from "../export/voice.js";
 import { drawFrame, prepareFilm } from "../paint/frame.js";
+import { renderTypeLayer } from "../threejs/composition.js";
 import { initThreeJSRenderer } from "../threejs/render.js";
 import { api } from "./api.js";
 
@@ -43,7 +44,8 @@ export async function viewFilm(root, go, id) {
   let cut = null;
   let raf = 0;
   let startedAt = 0;
-  let renderer = null; // Renderer instance (Three.js or Canvas 2D)
+  let renderer = null; // Three.js renderer instance, or null for Canvas 2D legacy
+  let threeStages = null; // Editorial stages for the Three.js type layer (Layer 4)
 
   /** A film the previous engine made. Its essay survives; nothing else in
    *  it means anything now. Offer the re-read rather than a dead end — and
@@ -87,19 +89,23 @@ export async function viewFilm(root, go, id) {
 
     // Dispose of previous renderer if exists
     if (renderer?.dispose) renderer.dispose();
+    renderer = null;
+    film = null;
+    threeStages = null;
 
-    // Initialize renderer based on backend
+    // The faces are the material for BOTH backends — Layer 4's type layer
+    // draws real editorial text same as the legacy renderer does. Drawing
+    // before they load renders a system fallback and everything judged is
+    // the wrong typeface.
+    await document.fonts.ready;
+
     if (cut.renderBackend === "threejs-procedural") {
       renderer = initThreeJSRenderer(canvas, cut);
+      threeStages = buildStages(cut).stages;
       $("sub").textContent =
         `${cut.beats.length} beats · ${(cut.durationMs / 1000).toFixed(1)}s · seed ${cut.seed} · Three.js · ${meta.editorial}`;
     } else {
-      // Canvas 2D legacy renderer
-      // The faces are the material. Drawing before they load renders a
-      // system fallback and everything you judge is the wrong typeface.
-      await document.fonts.ready;
       film = prepareFilm(cut, buildStages(cut));
-      renderer = null; // Canvas 2D uses direct drawFrame
       $("sub").textContent =
         `${cut.beats.length} beats · ${(cut.durationMs / 1000).toFixed(1)}s · seed ${cut.seed} · Canvas 2D · ${meta.editorial}`;
     }
@@ -110,13 +116,31 @@ export async function viewFilm(root, go, id) {
     if (cut.voice) await loadVoice(cut).catch(() => undefined);
 
     // Initial frame render
-    if (renderer?.renderFrame) {
-      renderer.renderFrame(0, 0);
+    if (renderer) {
+      renderThreeJSFrame(0);
     } else {
       drawFrame(ctx, film, 0);
     }
 
     describeVoice(meta.film);
+  }
+
+  /** Layer 1+2 (WebGL ground) composited onto the visible 2D canvas, then
+   *  Layer 4 (editorial type) drawn on top of it — same stages, same
+   *  timeline, same behaviors as the legacy renderer. `ms` is absolute
+   *  film time, matching what `resolveAt` expects. */
+  function renderThreeJSFrame(ms) {
+    const beatIndex = Math.max(
+      0,
+      cut.beats.findIndex((b) => b.startMs <= ms && ms < b.endMs),
+    );
+    const timeInBeat = ms - (cut.beats[beatIndex]?.startMs ?? 0);
+    const pixelData = renderer.renderFrame(beatIndex, timeInBeat);
+    if (pixelData) {
+      const imageData = new ImageData(pixelData, canvas.width, canvas.height);
+      ctx.putImageData(imageData, 0, 0);
+    }
+    if (threeStages) renderTypeLayer(ctx, canvas.width, canvas.height, threeStages, ms);
   }
 
   /* ── narration, on a film that already exists ─────────────────────
@@ -205,17 +229,11 @@ export async function viewFilm(root, go, id) {
     const tick = () => {
       const ms = performance.now() - startedAt;
       if (ms >= cut.durationMs) return stop();
-      const frameIndex = Math.round((ms / 1000) * cut.fps);
-      const beatIndex = cut.beats.findIndex((b) => b.startMs <= ms && ms < b.endMs) || 0;
-      const timeInBeat = ms - (cut.beats[beatIndex]?.startMs ?? 0);
 
-      if (renderer?.renderFrame) {
-        const pixelData = renderer.renderFrame(beatIndex, timeInBeat);
-        if (pixelData) {
-          const imageData = new ImageData(pixelData, canvas.width, canvas.height);
-          ctx.putImageData(imageData, 0, 0);
-        }
+      if (renderer) {
+        renderThreeJSFrame(ms);
       } else {
+        const frameIndex = Math.round((ms / 1000) * cut.fps);
         drawFrame(ctx, film, frameIndex);
       }
 
@@ -225,26 +243,18 @@ export async function viewFilm(root, go, id) {
     tick();
   });
 
-  // Scrubbing: click on progress bar to seek
+  // Scrubbing: click on progress bar to seek, on either backend.
   const progress = $("played").parentElement;
   progress?.addEventListener("click", (e) => {
-    if (!cut || !film && !renderer) return;
+    if (!cut || (!film && !renderer)) return;
     const rect = progress.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     const ms = pct * cut.durationMs;
     stop();
     startedAt = performance.now() - ms;
 
-    // Render frame at this position
-    const beatIndex = cut.beats.findIndex((b) => b.startMs <= ms && ms < b.endMs) || 0;
-    const timeInBeat = ms - (cut.beats[beatIndex]?.startMs ?? 0);
-
-    if (renderer?.renderFrame) {
-      const pixelData = renderer.renderFrame(beatIndex, timeInBeat);
-      if (pixelData) {
-        const imageData = new ImageData(pixelData, canvas.width, canvas.height);
-        ctx.putImageData(imageData, 0, 0);
-      }
+    if (renderer) {
+      renderThreeJSFrame(ms);
     } else {
       const frameIndex = Math.round((ms / 1000) * cut.fps);
       drawFrame(ctx, film, frameIndex);
@@ -264,7 +274,7 @@ export async function viewFilm(root, go, id) {
   });
 
   $("export").addEventListener("click", async () => {
-    if (renderer?.renderFrame && cut.renderBackend === "threejs-procedural") {
+    if (renderer) {
       $("status").textContent = "export not yet supported for Three.js backend";
       return;
     }

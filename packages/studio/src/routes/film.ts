@@ -305,7 +305,13 @@ app.post("/film/:id/settings", async (c) => {
       body.seed === "new" ? freshFilmSeed() : Number.isInteger(body.seed) ? body.seed : film.seed,
   };
   const version = await saveFilm(c.env, next, "settings changed");
-  return c.json({ ok: true, version, seed: next.seed, settings: next.settings, renderBackend: next.renderBackend });
+  return c.json({
+    ok: true,
+    version,
+    seed: next.seed,
+    settings: next.settings,
+    renderBackend: next.renderBackend,
+  });
 });
 
 /* ── the cut ───────────────────────────────────────────────────────── */

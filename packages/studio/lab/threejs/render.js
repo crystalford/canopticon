@@ -1,16 +1,28 @@
-/* THREEJS RENDERER — Layer 1 (GROUND).
+/* THREEJS RENDERER — Layer 1+2 (GROUND + TRANSFORM), procedural.
  *
- * A new rendering backend using Three.js/WebGL for procedural transformations,
- * noise fields, and advanced material handling. This implements Layer 1 of the
- * multi-pass rendering architecture:
+ * A WebGL rendering backend for procedural ground geometry, warp fields,
+ * and noise. This implements the bottom of the four-layer pipeline:
  *
- * Layer 1 (GROUND): Three.js WebGL base render with procedural geometry/materials
- * Layer 2 (TRANSFORM): Noise fields, warp deformation, parallax depth
- * Layer 3 (IMAGERY): Generated/fetched imagery layers (FLUX, etc.)
- * Layer 4 (COMPOSITION): Canvas 2D overlay, final composite, UI chrome
+ * Layer 1 (GROUND): WebGL base render with procedural geometry/materials
+ * Layer 2 (TRANSFORM): warp fields (radial/linear/turbulent), fBm noise,
+ *   temporal drift, parallax depth
+ * Layer 3 (IMAGERY): generated/fetched imagery — scaffolded, not wired
+ *   (see imagery.js; awaits a FLUX decision)
+ * Layer 4 (COMPOSITION): editorial type over the ground — see
+ *   composition.js, wired live
  *
- * The renderer receives a FilmCut with renderBackend='threejs-procedural' and
- * threeConfig containing noise intensity, warp field type, and parallax depth.
+ * The renderer receives a FilmCut with renderBackend='threejs-procedural'
+ * and threeConfig containing noise intensity, warp field type, and
+ * parallax depth, all derived deterministically from the film's own
+ * settings (chaos/density) in cut/index.ts.
+ *
+ * WHY AN OFFSCREEN CANVAS: a <canvas> element binds to exactly one
+ * context type for its lifetime — once something calls `getContext("2d")`
+ * on it, a later `getContext("webgl2")` on the SAME element returns null.
+ * The visible stage canvas is owned by Canvas 2D (it's what the type
+ * layer and the legacy backend both draw into), so WebGL renders into a
+ * private offscreen canvas and its pixels are read back and composited
+ * onto the visible one — never the other way around.
  */
 
 import { mulberry32 } from "../core/rng.js";
@@ -18,8 +30,11 @@ import { mulberry32 } from "../core/rng.js";
 /* ── initialization ────────────────────────────────────────────────── */
 
 /**
- * Initialize a Three.js renderer for a given canvas and film cut.
- * Returns an object with methods to render frames and clean up.
+ * Initialize a Three.js/WebGL renderer sized to match `canvas` (the
+ * visible stage element). Returns an object with `renderFrame` and
+ * `dispose`. `renderFrame` returns ground pixel data only — the caller
+ * (view-film.js) composites it onto the visible 2D context and then
+ * draws the type layer on top via composition.js.
  */
 export function initThreeJSRenderer(canvas, cut) {
   const config = cut.threeConfig || {
@@ -29,14 +44,18 @@ export function initThreeJSRenderer(canvas, cut) {
     includeImageryLayer: false,
   };
 
-  // Placeholder WebGL context and geometry state
-  const gl = canvas.getContext("webgl2", { premultipliedAlpha: true });
+  const width = canvas.width || 1280;
+  const height = canvas.height || 720;
+
+  // Private offscreen canvas — see file header. Never the visible stage.
+  const glCanvas = document.createElement("canvas");
+  glCanvas.width = width;
+  glCanvas.height = height;
+  const gl = glCanvas.getContext("webgl2", { premultipliedAlpha: true });
   if (!gl) {
     throw new Error("WebGL 2 not supported");
   }
 
-  const width = canvas.width || 1280;
-  const height = canvas.height || 720;
   gl.viewport(0, 0, width, height);
 
   // PRNG for deterministic procedural generation
@@ -238,29 +257,36 @@ function buildShaders(gl, config) {
     }
 
     void main() {
-      // Layer 1 base: UV gradients with multi-octave detail
-      float base = fract(vUv.x * 8.0) * fract(vUv.y * 8.0);
-      float detail = fract(vUv.x * 16.0 + vUv.y * 16.0) * 0.5;
-      base = mix(base, detail, 0.3);
+      // fBm: layered sine octaves, decaying amplitude, summed — this is
+      // what CENTRES the field near 0.5 rather than near its dark end, which
+      // is what made the first version of this shader render nearly solid
+      // black: a low-mean field can almost never clear a threshold near 0.7.
+      float n = 0.0;
+      float amp = 0.5;
+      float freq = 3.0;
+      for (int i = 0; i < 4; i++) {
+        n += amp * sin(vPosition.x * freq + vPosition.z * freq * 0.8 + time * 0.15 * float(i + 1));
+        freq *= 2.0;
+        amp *= 0.55;
+      }
+      float base = n * 0.5 + 0.5;
 
-      // Layer 2 temporal modulation: evolve over the beat
-      float t1 = sin(time * 0.5);
-      float t2 = sin(time * 0.3 + 1.5);
-      float temporal = (t1 * 0.6 + t2 * 0.4) * 0.5 + 0.5;
-      float value = base * temporal * density;
+      // Fold in the SAME height signal the vertex shader warped the mesh
+      // with, so the texture visibly tracks the warp field rather than
+      // reading as an unrelated decorative overlay on top of it.
+      base = clamp(base + vPosition.y * 0.9, 0.0, 1.0);
 
-      // Adaptive threshold based on position and time
-      float position_factor = (sin(vPosition.x * 2.0) + sin(vPosition.z * 2.0)) * 0.25 + 0.5;
-      float threshold = 0.5 + density * 0.3 + position_factor * 0.1;
-      float final = step(threshold, value);
+      // Fine dither grain — the photocopy's actual grain, same role as
+      // frame.js's f.grain term in the Canvas 2D material pass.
+      float grain = fract(sin(vPosition.x * 91.7 + vPosition.z * 53.3 + time * 0.05) * 43758.5453);
+      base = mix(base, grain, 0.12);
 
-      // Perlin-like noise for texture
-      float noise = fract(sin(vPosition.x * 12.47 + vPosition.z * 34.1 + time * 0.1) * 43758.5);
-      float noise2 = fract(sin(vPosition.x * 34.1 + vPosition.z * 12.47 + time * 0.15) * 43758.5);
-      float combined_noise = mix(noise, noise2, 0.5);
-
-      // Blend noise with threshold for texture variation
-      final = mix(final, combined_noise, 0.15 * density);
+      // THRESHOLD WOBBLES around 0.5 — frame.js's own photocopy technique
+      // (t = 0.5 + wobble), rather than the field being pushed toward a
+      // fixed cutoff. This is what makes it read as printing, not filtering.
+      float wobble = (sin(vPosition.x * 6.0 + time * 0.2) + sin(vPosition.z * 6.0 - time * 0.17)) * 0.06;
+      float threshold = 0.5 + wobble * density;
+      float final = step(threshold, base);
 
       outColor = vec4(final, final, final, 1.0);
     }
