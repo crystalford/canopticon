@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-16T01:20:10Z",
+  "run_id": "31919329976",
+  "method": "GET",
+  "path": "/health",
+  "status": 200,
+  "body": "{\n  \"ok\": true,\n  \"service\": \"canopticon-studio\",\n  \"engine\": \"TYPOGRAPHIC_EDITORIAL\"\n}"
+}
