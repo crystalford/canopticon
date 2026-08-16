@@ -44,19 +44,84 @@ jobs:
       - name: Test
         run: pnpm -r test
 
+      # WHICH WORKERS ACTUALLY CHANGED. The dry-run bundle checks below exist
+      # to catch a Worker that no longer builds — real protection for a
+      # Worker whose files changed, and near-zero value for one that did not,
+      # since nothing about it is different from the last time it passed.
+      # The video Worker's bundle step is also the expensive one: it has a
+      # Cloudflare Container binding (`Dockerfile.video-renderer`), so even a
+      # DRY RUN builds and validates that Docker image — six minutes on a
+      # push that never touched `packages/video`, against ~1 second for a
+      # Worker with no container. Running it unconditionally on every PR was
+      # most of why this job took six times as long as its own checks needed.
+      # Falls back to running everything when there is no base to diff
+      # against (a fresh branch, a manual dispatch, an unresolvable SHA) —
+      # skipping is an optimisation earned by evidence, never the default.
+      - name: Determine changed Workers
+        id: changed
+        run: |
+          set -euo pipefail
+          BASE=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --depth=1 origin "${{ github.base_ref }}" 2>/dev/null && BASE="origin/${{ github.base_ref }}"
+          elif [ -n "${{ github.event.before }}" ] && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            git fetch --depth=1 origin "${{ github.event.before }}" 2>/dev/null && BASE="${{ github.event.before }}"
+          fi
+
+          if [ -z "$BASE" ]; then
+            echo "no base to diff against — treating every Worker as changed"
+            for p in api video blindspot studio; do echo "$p=true" >> "$GITHUB_OUTPUT"; done
+            exit 0
+          fi
+
+          # TWO DOTS, NOT THREE. Caught live: `checkout@v4`'s shallow clone
+          # plus a separate `--depth=1` fetch of the base leaves two
+          # disconnected shallow histories with no common ancestor, so the
+          # three-dot form's merge-base lookup fails outright — "fatal: no
+          # merge base" on every single PR, the first time this ran. A plain
+          # two-dot diff compares the two trees directly and needs no
+          # ancestry between them, which is all this ever actually wanted:
+          # "what files differ", not "what changed excluding the base's own
+          # later commits". Guarded too — a diff failure fails open the same
+          # way an unresolvable base does, not silently as "nothing changed".
+          if ! CHANGED="$(git diff --name-only "$BASE" HEAD)"; then
+            echo "diff against $BASE failed — treating every Worker as changed"
+            for p in api video blindspot studio; do echo "$p=true" >> "$GITHUB_OUTPUT"; done
+            exit 0
+          fi
+          echo "changed files since $BASE:"
+          echo "$CHANGED"
+          # A change to shared workspace config can affect every Worker's
+          # build, so it marks all of them changed rather than none.
+          if echo "$CHANGED" | grep -qE '^(pnpm-lock\.yaml|pnpm-workspace\.yaml|tsconfig\.base\.json|packages/shared/|\.github/workflows/ci\.yml)$'; then
+            for p in api video blindspot studio; do echo "$p=true" >> "$GITHUB_OUTPUT"; done
+            exit 0
+          fi
+          for p in api video blindspot studio; do
+            if echo "$CHANGED" | grep -qE "^(packages/$p/|supabase/migrations(-$p)?/)"; then
+              echo "$p=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$p=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+
       - name: API bundle (wrangler dry-run)
+        if: steps.changed.outputs.api == 'true'
         working-directory: packages/api
         run: pnpm exec wrangler deploy --dry-run
 
       - name: Video Worker bundle (wrangler dry-run)
+        if: steps.changed.outputs.video == 'true'
         working-directory: packages/video
         run: pnpm exec wrangler deploy --dry-run
 
       - name: Blindspot Worker bundle (wrangler dry-run)
+        if: steps.changed.outputs.blindspot == 'true'
         working-directory: packages/blindspot
         run: pnpm exec wrangler deploy --dry-run
 
       - name: Studio Worker bundle (wrangler dry-run)
+        if: steps.changed.outputs.studio == 'true'
         working-directory: packages/studio
         run: pnpm exec wrangler deploy --dry-run
 
