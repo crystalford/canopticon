@@ -74,7 +74,21 @@ jobs:
             exit 0
           fi
 
-          CHANGED="$(git diff --name-only "$BASE"...HEAD)"
+          # TWO DOTS, NOT THREE. Caught live: `checkout@v4`'s shallow clone
+          # plus a separate `--depth=1` fetch of the base leaves two
+          # disconnected shallow histories with no common ancestor, so the
+          # three-dot form's merge-base lookup fails outright — "fatal: no
+          # merge base" on every single PR, the first time this ran. A plain
+          # two-dot diff compares the two trees directly and needs no
+          # ancestry between them, which is all this ever actually wanted:
+          # "what files differ", not "what changed excluding the base's own
+          # later commits". Guarded too — a diff failure fails open the same
+          # way an unresolvable base does, not silently as "nothing changed".
+          if ! CHANGED="$(git diff --name-only "$BASE" HEAD)"; then
+            echo "diff against $BASE failed — treating every Worker as changed"
+            for p in api video blindspot studio; do echo "$p=true" >> "$GITHUB_OUTPUT"; done
+            exit 0
+          fi
           echo "changed files since $BASE:"
           echo "$CHANGED"
           # A change to shared workspace config can affect every Worker's
