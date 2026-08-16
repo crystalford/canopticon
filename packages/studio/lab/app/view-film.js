@@ -19,8 +19,12 @@ export async function viewFilm(root, go, id) {
       <h1 id="title">…</h1>
       <p class="sub" id="sub"></p>
     </div>
-    <canvas id="stage" width="1280" height="720"></canvas>
-    <div class="progress"><i id="played"></i></div>
+    <div class="viewer">
+      <canvas id="stage" width="1280" height="720"></canvas>
+      <div class="scrub" id="scrub">
+        <div class="scrubtrack"><i id="played"></i></div>
+      </div>
+    </div>
     <div class="actions">
       <button id="play">Play</button>
       <button class="ghost" id="reroll">Reseed</button>
@@ -285,39 +289,46 @@ export async function viewFilm(root, go, id) {
     tick();
   }
 
-  $("play").addEventListener("click", () => {
+  const togglePlay = () => {
     if (raf) return pause();
     playFrom(positionMs >= cut.durationMs ? 0 : positionMs);
-  });
+  };
+  $("play").addEventListener("click", togglePlay);
+  // Click the video itself to play/pause — the thing every real player
+  // does and this one never did. Lives on the canvas specifically, not
+  // the whole .viewer, so it can never fight the scrub bar for a click.
+  canvas.addEventListener("click", togglePlay);
 
   /* ── the scrubber ──────────────────────────────────────────────────
    *
-   * Pointer events, not click: a click-only handler cannot drag, and a
-   * seek that does not survive into playback is a still-frame viewer, not
-   * a scrubber. Press anywhere on the bar to jump, drag to scrub with the
-   * frame following live, release to resume playing if the film was
-   * playing when you grabbed it. */
-  const progress = $("played").parentElement;
+   * A real seek bar, overlaid on the video itself — not a decorative line
+   * living somewhere below it. Pointer events, not click: a click-only
+   * handler cannot drag, and a seek that does not survive into playback
+   * is a still-frame viewer, not a scrubber. Press anywhere to jump, drag
+   * to scrub with the frame following live, release to resume playing if
+   * the film was playing when you grabbed it. */
+  const scrub = $("scrub");
   let wasPlaying = false;
   const seekPct = (e) => {
-    const rect = progress.getBoundingClientRect();
+    const rect = scrub.getBoundingClientRect();
     return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   };
-  progress.addEventListener("pointerdown", (e) => {
+  scrub.addEventListener("pointerdown", (e) => {
     if (!cut || (!film && !renderer)) return;
     e.preventDefault();
+    e.stopPropagation(); // never also fire the canvas's play/pause toggle
     wasPlaying = raf !== 0;
     pause();
-    progress.setPointerCapture(e.pointerId);
+    scrub.setPointerCapture(e.pointerId);
     renderAt(seekPct(e) * cut.durationMs);
   });
-  progress.addEventListener("pointermove", (e) => {
-    if (!cut || !progress.hasPointerCapture(e.pointerId)) return;
+  scrub.addEventListener("pointermove", (e) => {
+    if (!cut || !scrub.hasPointerCapture(e.pointerId)) return;
     renderAt(seekPct(e) * cut.durationMs);
   });
-  progress.addEventListener("pointerup", (e) => {
-    if (!cut || !progress.hasPointerCapture(e.pointerId)) return;
-    progress.releasePointerCapture(e.pointerId);
+  scrub.addEventListener("pointerup", (e) => {
+    if (!cut || !scrub.hasPointerCapture(e.pointerId)) return;
+    scrub.releasePointerCapture(e.pointerId);
     if (wasPlaying) playFrom(positionMs);
   });
 

@@ -158,39 +158,46 @@ input[type="range"]::-moz-range-thumb {
 .actions + .actions { margin-top: var(--s4); padding-top: 0; border-top: none; }
 
 /* ── the film ─────────────────────────────────────────────── */
-canvas { width: 100%; background: #000; border: 1px solid var(--line); border-radius: var(--r); display: block; }
-/* THE SCRUBBER WAS NEVER MISSING — IT WAS INVISIBLE. Real bug, found by
- * comparing the actual rendered pixels against the page background: the
- * empty track was --line2 (#2e343a) on a --void (#0e1013) page, a
- * contrast ratio low enough to read as "nothing here," and at position
- * 0 the sage fill is 0px wide, so a fresh film showed no colour at all.
- * A working, clickable, correctly-sized control that looks like empty
- * space is not a working control.
+/* A REAL PLAYER, not a canvas with a decoration underneath it. Two prior
+ * attempts at the seek bar both put it as a separate element below the
+ * video — first a 3px line with no real hit area, then a taller one that
+ * was still low-contrast against the page. Both were technically
+ * clickable and both read as nothing there. The actual ask, stated
+ * plainly: a seek bar ON the video, a playhead, click-the-video-to-play —
+ * the ordinary shape of every video player, which this one never had.
  *
- * Fixed with actual contrast (--line3, clearly visible against --void)
- * and a thumb that exists at every position including zero — the one
- * thing every real player scrubber has that this one never did. Padding
- * still widens the real hit area to ~19px; background-clip keeps the
- * VISIBLE track exactly as thin as the fill is drawn. */
-.progress {
-  position: relative;
-  height: 4px;
-  background: var(--line3);
-  background-clip: content-box;
-  margin: var(--s4) 0;
-  padding: 8px 0;
+ * .scrub overlays the bottom of .viewer with a dark scrim behind a
+ * translucent-white track — the one styling choice that stays legible
+ * regardless of what the film itself is doing (solid black, solid white,
+ * or the procedural noise field), because it never depends on contrast
+ * against the PAGE, only against the SCRIM painted for exactly this. */
+.viewer { position: relative; }
+.viewer canvas { width: 100%; background: #000; border: 1px solid var(--line); border-radius: var(--r); display: block; cursor: pointer; }
+.scrub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 30px;
+  padding: 0 var(--s3);
+  display: flex;
+  align-items: center;
   cursor: pointer;
   touch-action: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+  border-radius: 0 0 var(--r) var(--r);
 }
-.progress > i {
+.scrubtrack { position: relative; width: 100%; height: 4px; background: rgba(255, 255, 255, 0.35); border-radius: 2px; }
+.scrubtrack > i {
   display: block;
   position: relative;
   height: 100%;
   background: var(--sage);
   width: 0;
+  border-radius: 2px;
   transition: width 0.05s linear;
 }
-.progress > i::after {
+.scrubtrack > i::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -199,10 +206,10 @@ canvas { width: 100%; background: #000; border: 1px solid var(--line); border-ra
   height: 14px;
   border-radius: 50%;
   background: var(--sage2);
-  box-shadow: 0 0 0 2px var(--void);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6);
   transform: translateY(-50%);
 }
-.progress:hover > i::after { background: var(--ink); }
+.scrub:hover .scrubtrack > i::after { background: var(--ink); }
 
 /* ── films made already ───────────────────────────────────── */
 .films { margin-top: var(--s7); border-top: 1px solid var(--line); padding-top: var(--s5); }

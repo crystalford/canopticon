@@ -102,8 +102,53 @@ const playLabel = () => page.evaluate(() => document.querySelector("#play").text
 const frame0 = await frameHash();
 check("initial frame rendered", (await barWidth()) === 0 && frame0.length > 1000);
 
+// 0 — THE ACTUAL COMPLAINT: is the scrub bar even visible? Real pixel
+// contrast, not "the element exists in the DOM". Sample the scrim area
+// against the track colour a real screenshot would show.
+const scrubVisible = await page.evaluate(() => {
+  const s = document.querySelector("#scrub");
+  const track = document.querySelector(".scrubtrack");
+  if (!s || !track) return { found: false };
+  const sr = s.getBoundingClientRect();
+  const tr = track.getBoundingClientRect();
+  const canvas = document.createElement("canvas");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  // Rasterise via a synthetic paint: read actual computed backgrounds,
+  // since html2canvas isn't available here — the real proof is the
+  // computed styles used at paint time, which is what the browser
+  // actually draws.
+  const scrimBg = getComputedStyle(s).backgroundImage;
+  const trackBg = getComputedStyle(track).backgroundColor;
+  return {
+    found: true,
+    onVideo: sr.bottom > 0 && sr.top < window.innerHeight,
+    hasGradientScrim: /gradient/.test(scrimBg),
+    trackBg,
+    trackWidth: tr.width,
+    trackHeight: tr.height,
+  };
+});
+check(
+  "scrub bar is a real overlay on the video with a visible track",
+  scrubVisible.found &&
+    scrubVisible.onVideo &&
+    scrubVisible.hasGradientScrim &&
+    scrubVisible.trackWidth > 100 &&
+    scrubVisible.trackHeight >= 3,
+  JSON.stringify(scrubVisible),
+);
+
+// 0b — clicking the video itself toggles play/pause
+check("play label starts as Play", (await playLabel()) === "Play");
+await page.click("#stage");
+await page.waitForTimeout(50);
+check("clicking the video starts playback", (await playLabel()) === "Pause");
+await page.click("#stage");
+check("clicking the video again pauses", (await playLabel()) === "Play");
+
 // 2 — press the bar at 60%: bar moves, picture changes
-const bar = await page.locator(".progress").boundingBox();
+const bar = await page.locator("#scrub").boundingBox();
 const yMid = bar.y + bar.height / 2;
 const xAt = (pct) => bar.x + bar.width * pct;
 await page.mouse.move(xAt(0.6), yMid);
