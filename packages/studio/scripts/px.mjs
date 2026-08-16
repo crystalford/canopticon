@@ -16,7 +16,7 @@ for (const f of files) {
   const data = fs.readFileSync(`${dir}/${f}`).toString("base64");
   const r = await pg.evaluate(async (d) => {
     const img = new Image();
-    img.src = "data:image/png;base64," + d;
+    img.src = `data:image/png;base64,${d}`;
     await img.decode();
     const c = document.getElementById("c");
     c.width = img.width;
@@ -24,10 +24,10 @@ for (const f of files) {
     const x = c.getContext("2d");
     x.drawImage(img, 0, 0);
     const p = x.getImageData(0, 0, c.width, c.height).data;
-    let dark = 0,
-      light = 0,
-      mid = 0,
-      edges = 0;
+    let dark = 0;
+    let light = 0;
+    let mid = 0;
+    let edges = 0;
     const w = c.width;
     for (let i = 0; i < p.length; i += 4) {
       const v = p[i];
@@ -49,5 +49,5 @@ for (const [f, r] of rows)
 const mids = rows.map((r) => r[1].mid);
 console.log(
   "\nMIDTONE range across every frame:",
-  (Math.min(...mids) * 100).toFixed(1) + "% .. " + (Math.max(...mids) * 100).toFixed(1) + "%",
+  `${(Math.min(...mids) * 100).toFixed(1)}% .. ${(Math.max(...mids) * 100).toFixed(1)}%`,
 );

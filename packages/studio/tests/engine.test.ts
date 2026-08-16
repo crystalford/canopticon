@@ -14,8 +14,10 @@ import { type Film, parseFilm } from "../src/film/schema.ts";
 import { hashRecord } from "../src/lib/hash.ts";
 import { mulberry32 } from "../src/lib/rng.ts";
 import { readTimings } from "../src/narrate/asr.ts";
+import { planSpans } from "../src/narrate/spans.ts";
 import { locateWords } from "../src/text/prose.ts";
 import { estimateSpine } from "../src/timeline/estimate.ts";
+import { buildSpine } from "../src/timeline/spine.ts";
 import { alignSpan } from "../src/timeline/words.ts";
 
 const ESSAY = `Gimmick Economy
@@ -265,6 +267,53 @@ describe("the spine", () => {
       // screen before the word that earns it.
       if (next) expect(next.startMs).toBeGreaterThanOrEqual(w.startMs);
     }
+  });
+
+  /** THE CLAIM THE WHOLE ENGINE RESTS ON, asserted rather than assumed.
+   *
+   *  A narrated film is supposed to be cut against the recording — that is
+   *  the inversion this thing exists for. But nothing exercised the
+   *  measured branch end to end, and every clip ever looked at in the
+   *  sandbox was built on `estimateSpine`, so "the picture answers to the
+   *  voice" was a claim about a code path nobody had run. Here each span
+   *  is spoken at a deliberately UNEVEN pace — a slow opening, a fast
+   *  close — which no estimator can know, so a cut that follows it can
+   *  only have come from the measurement. */
+  it("cuts against the recording, not against the character count", async () => {
+    const film = await filmOf();
+    const spans = planSpans(ESSAY, film.editorial);
+    expect(spans.length).toBeGreaterThan(0);
+
+    const measured = spans.map((span) => {
+      const words = locateWords(ESSAY.slice(span.range.startChar, span.range.endChar));
+      let at = 0;
+      const heard = words.map((w, k) => {
+        const dur = k < words.length / 2 ? 600 : 200;
+        const one = { word: w.text, startMs: at, endMs: at + dur };
+        at += dur + 40;
+        return one;
+      });
+      return { span, heard, durationMs: at };
+    });
+
+    const spine = buildSpine(ESSAY, measured);
+    expect(spine.source).toBe("measured");
+    expect(spine.words.some((w) => w.measured)).toBe(true);
+
+    // Every spine word sits where the recording put it, to the millisecond.
+    const heardFirst = measured[0]?.heard.slice(0, 4).map((h) => h.endMs - h.startMs) ?? [];
+    const spineFirst = spine.words
+      .filter((w) => w.measured)
+      .slice(0, 4)
+      .map((w) => w.endMs - w.startMs);
+    expect(spineFirst).toEqual(heardFirst);
+
+    const heardCut = await buildCut({ film, spine });
+    const guessed = await buildCut({ film, spine: estimateSpine(ESSAY, film.editorial.sections) });
+    expect(heardCut.spine.source).toBe("measured");
+    // And it is a DIFFERENT film — if the measurement changed nothing, the
+    // spine would be decorative and the inversion would not be real.
+    expect(heardCut.durationMs).not.toBe(guessed.durationMs);
   });
 });
 
