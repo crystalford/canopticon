@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-16T00:41:20Z",
+  "run_id": "31917811209",
+  "method": "POST",
+  "path": "/v1/film/film_1ba109df38dc4881b9b9/narrate",
+  "status": 202,
+  "body": "{\n  \"started\": true,\n  \"job\": \"nar_8f12d1aeb85a4df69bd3\",\n  \"spans\": 5\n}"
+}
