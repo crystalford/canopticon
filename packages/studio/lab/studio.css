@@ -1,51 +1,173 @@
-/* The tool, not the film. The film is monochrome by mandate; this is just
-   the room you stand in while you make one. */
+/* CANOPTICON — design language, second edition.
+ *
+ * Editorial, not technical. The argument is set in a serif and given the
+ * room a serif needs; the instrument speaks in a grotesque and stays quiet.
+ *
+ * COLOUR MEANS SOMETHING OR IT IS ABSENT:
+ *   sage  what YOU chose            selection, applied direction
+ *   ice   what the ENGINE decided   readings, inferences, alternatives
+ *   clay  what needs attention      unsaved, refused, failed
+ * There is no decorative colour.
+ *
+ * RESTORED, not reinvented. The engine reset that gave this tool a new
+ * compiler also deleted its whole front end — this design language,
+ * `theme.css`/`read.css`, and every page but two — as an unflagged side
+ * effect of a PR whose own description said it touched the engine only.
+ * What follows is that design language, carried onto the app that
+ * actually exists now: two routes, not seven, so the parts of the old
+ * sheet built for a finder modal, a director's drawer and a backstage
+ * table are not reproduced — there is nothing here for them to dress.
+ */
 :root {
-  --bg: #0d0f11;
-  --panel: #16191c;
-  --line: #262b30;
-  --ink: #e8eaec;
-  --mute: #8b959d;
-  --live: #d8d2c2;
+  --void: #0e1013;
+  --panel: #141719;
+  --raise: #1a1e21;
+  --raise2: #22272a;
+  --line: #22262a;
+  --line2: #2e343a;
+  --line3: #414951;
+  --ink: #f4f6f6;
+  --ink2: #bdc4c6;
+  --ink3: #8e979a;
+  --dim: #666f73;
+  --sage: #a9c6b0;
+  --sage2: #c2dbc8;
+  --sagebg: rgba(169, 198, 176, 0.11);
+  --sageline: #3c5343;
+  --ice: #93b3c7;
+  --icebg: rgba(147, 179, 199, 0.1);
+  --iceline: #334754;
+  --clay: #cf8b6a;
+  --claybg: rgba(207, 139, 106, 0.11);
+  --clayline: #5a3729;
+  --serif: "Newsreader", Georgia, serif;
+  --sans: "Space Grotesk", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --bar: 56px;
+  --r: 3px;
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 36px;
+  --s7: 56px;
 }
 * { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--void);
   color: var(--ink);
-  font: 400 15px/1.55 "Space Grotesk", system-ui, sans-serif;
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
-main { max-width: 940px; margin: 0 auto; padding: 40px 24px 80px; }
-h1 { font: 400 30px/1.1 "Archivo Black", sans-serif; margin: 0 0 4px; letter-spacing: -0.01em; }
-.sub { color: var(--mute); margin: 0 0 32px; font-size: 14px; }
-label { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); margin: 22px 0 8px; }
+a { color: var(--sage); text-decoration: none; }
+a:hover { color: var(--sage2); }
+button { font: inherit; background: none; border: none; color: inherit; cursor: pointer; }
+input, textarea, select { font: inherit; color: inherit; }
+textarea { resize: vertical; }
+::selection { background: rgba(169, 198, 176, 0.26); }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line2); border: 3px solid var(--void); border-radius: 7px; }
+::-webkit-scrollbar-thumb:hover { background: var(--line3); }
+
+/* ── type ─────────────────────────────────────────────────── */
+h1, h2, h3, h4 { margin: 0; font-weight: 400; }
+h1 { font-family: var(--serif); font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; }
+h2 { font-family: var(--serif); font-size: 22px; line-height: 1.2; letter-spacing: -0.01em; }
+p { margin: 0; }
+label, .key {
+  display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--dim); margin: 0 0 8px;
+}
+.sub { color: var(--ink3); font-size: 14px; margin: 6px 0 0; max-width: 60ch; }
+.note { color: var(--ink3); font-size: 13px; line-height: 1.55; }
+.warn { color: var(--clay); font-size: 12.5px; margin: 4px 0; font-family: var(--mono); }
+.id, .hash { font-family: var(--mono); font-size: 11.5px; color: var(--ink3); }
+
+/* ── the room ─────────────────────────────────────────────── */
+.bar {
+  display: flex; align-items: center; gap: var(--s4); height: var(--bar);
+  padding: 0 24px; position: sticky; top: 0; z-index: 30; white-space: nowrap;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.mark { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.mark b { font-size: 11px; font-weight: 600; letter-spacing: 0.3em; color: var(--ink2); }
+.bardiv { width: 1px; height: 20px; background: var(--line2); flex-shrink: 0; }
+.btitle { font-family: var(--serif); font-size: 16px; letter-spacing: -0.01em; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.btools { margin-left: auto; display: flex; align-items: center; gap: var(--s1); flex-shrink: 0; }
+
+main.wrap { max-width: 900px; margin: 0 auto; padding: var(--s7) var(--s5) 100px; }
+.phead { margin-bottom: var(--s6); }
+
+/* ── buttons ──────────────────────────────────────────────── */
+.b, button:not(.mark) {
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1; gap: 7px;
+  height: 40px; padding: 0 20px; font-size: 13.5px; font-weight: 600; color: #0d1710;
+  background: var(--sage); border: 1px solid var(--sage); border-radius: var(--r);
+  white-space: nowrap; transition: border-color 0.13s, color 0.13s, background 0.13s;
+}
+button:not(.mark):hover { background: var(--sage2); border-color: var(--sage2); }
+button:not(.mark):disabled { background: none; border-color: var(--line); color: var(--dim); cursor: default; }
+button.ghost, .b.q {
+  background: transparent; color: var(--ink2); border-color: var(--line2); font-weight: 500;
+}
+button.ghost:hover, .b.q:hover { border-color: var(--line3); color: var(--ink); background: var(--raise); }
+button.ghost:disabled { background: none; }
+.b.sm { height: 30px; padding: 0 12px; font-size: 12px; }
+.b.on { background: var(--sagebg); border-color: var(--sageline); color: var(--sage); }
+
+/* ── form ─────────────────────────────────────────────────── */
 textarea {
-  width: 100%; min-height: 260px; padding: 16px; resize: vertical;
-  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 3px;
-  font: 400 15px/1.6 "Newsreader", Georgia, serif;
+  width: 100%; min-height: 260px; padding: 18px; resize: vertical;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r);
+  font: 400 15.5px/1.65 var(--serif);
 }
-textarea:focus, select:focus, button:focus { outline: 1px solid var(--live); outline-offset: 1px; }
-.row { display: flex; gap: 24px; flex-wrap: wrap; }
-.dial { flex: 1 1 180px; }
-input[type=range] { width: 100%; accent-color: var(--live); }
-.ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--mute); }
+textarea::placeholder { color: var(--dim); font-style: italic; }
+textarea:focus, select:focus, button:focus-visible {
+  outline: 1px solid var(--sage); outline-offset: 1px;
+}
 select {
   background: var(--panel); color: var(--ink); border: 1px solid var(--line);
-  border-radius: 3px; padding: 9px 10px; font: inherit; font-size: 14px;
+  border-radius: var(--r); padding: 10px 12px; font-size: 14px;
 }
-button {
-  background: var(--live); color: #14171a; border: 0; border-radius: 3px;
-  padding: 13px 24px; font: 700 14px/1 "Space Grotesk", sans-serif;
-  letter-spacing: 0.04em; cursor: pointer;
+.dial select { width: 100%; }
+.row { display: flex; gap: var(--s5); flex-wrap: wrap; margin-top: var(--s6); }
+.dial { flex: 1 1 190px; }
+.dial .note { margin-top: 6px; font-size: 12px; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
+  background: var(--line2); border-radius: 2px; margin: 12px 0 6px;
 }
-button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
-button:disabled { opacity: 0.45; cursor: default; }
-.actions { margin-top: 30px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.note { color: var(--mute); font-size: 13px; }
-.films { margin-top: 44px; border-top: 1px solid var(--line); padding-top: 20px; }
-.film { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
-.film:hover { color: var(--live); }
-canvas { width: 100%; background: #000; border: 1px solid var(--line); display: block; }
-.warn { color: var(--mute); font-size: 12px; margin: 3px 0; font-family: "JetBrains Mono", monospace; }
-.bar { height: 3px; background: var(--line); margin: 14px 0; }
-.bar > i { display: block; height: 100%; background: var(--live); width: 0; }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 3px; height: 14px; border-radius: 1px;
+  background: var(--sage); cursor: ew-resize;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 3px; height: 14px; border: none; border-radius: 1px; background: var(--sage); cursor: ew-resize;
+}
+.ends { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--dim); }
+.actions {
+  margin-top: var(--s6); display: flex; gap: var(--s3); align-items: center;
+  flex-wrap: wrap; padding-top: var(--s5); border-top: 1px solid var(--line);
+}
+.actions + .actions { margin-top: var(--s4); padding-top: 0; border-top: none; }
+
+/* ── the film ─────────────────────────────────────────────── */
+canvas { width: 100%; background: #000; border: 1px solid var(--line); border-radius: var(--r); display: block; }
+.progress { height: 3px; background: var(--line2); margin: var(--s4) 0; }
+.progress > i { display: block; height: 100%; background: var(--sage); width: 0; transition: width 0.05s linear; }
+
+/* ── films made already ───────────────────────────────────── */
+.films { margin-top: var(--s7); border-top: 1px solid var(--line); padding-top: var(--s5); }
+.film {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--s4);
+  padding: 13px 0; border-bottom: 1px solid var(--line); cursor: pointer;
+}
+.film span:first-child { font-family: var(--serif); font-size: 15.5px; color: var(--ink2); }
+.film:hover span:first-child { color: var(--sage); }
+.film span.note { font-size: 12px; flex-shrink: 0; }
