@@ -210,7 +210,11 @@ export async function viewFilm(root, go, id) {
       const timeInBeat = ms - (cut.beats[beatIndex]?.startMs ?? 0);
 
       if (renderer?.renderFrame) {
-        renderer.renderFrame(beatIndex, timeInBeat);
+        const pixelData = renderer.renderFrame(beatIndex, timeInBeat);
+        if (pixelData) {
+          const imageData = new ImageData(pixelData, canvas.width, canvas.height);
+          ctx.putImageData(imageData, 0, 0);
+        }
       } else {
         drawFrame(ctx, film, frameIndex);
       }
@@ -219,6 +223,34 @@ export async function viewFilm(root, go, id) {
       raf = requestAnimationFrame(tick);
     };
     tick();
+  });
+
+  // Scrubbing: click on progress bar to seek
+  const progress = $("played").parentElement;
+  progress?.addEventListener("click", (e) => {
+    if (!cut || !film && !renderer) return;
+    const rect = progress.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    const ms = pct * cut.durationMs;
+    stop();
+    startedAt = performance.now() - ms;
+
+    // Render frame at this position
+    const beatIndex = cut.beats.findIndex((b) => b.startMs <= ms && ms < b.endMs) || 0;
+    const timeInBeat = ms - (cut.beats[beatIndex]?.startMs ?? 0);
+
+    if (renderer?.renderFrame) {
+      const pixelData = renderer.renderFrame(beatIndex, timeInBeat);
+      if (pixelData) {
+        const imageData = new ImageData(pixelData, canvas.width, canvas.height);
+        ctx.putImageData(imageData, 0, 0);
+      }
+    } else {
+      const frameIndex = Math.round((ms / 1000) * cut.fps);
+      drawFrame(ctx, film, frameIndex);
+    }
+
+    $("played").style.width = `${pct * 100}%`;
   });
 
   $("reroll").addEventListener("click", async () => {

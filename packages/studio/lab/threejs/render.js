@@ -302,11 +302,18 @@ function renderThreeFrame(state, beatIndex, timeInBeat) {
   // Draw
   gl.drawElements(gl.TRIANGLES, groundGeometry.vertexCount, gl.UNSIGNED_INT, 0);
 
+  // Read pixels from the WebGL context for display
+  const pixels = new Uint8Array(width * height * 4);
+  gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
   // Clean up
   gl.deleteVertexArray(vao);
   gl.deleteBuffer(posBuffer);
   gl.deleteBuffer(uvBuffer);
   gl.deleteBuffer(indexBuffer);
+
+  // Return Uint8ClampedArray for Canvas 2D ImageData
+  return new Uint8ClampedArray(pixels);
 }
 
 /* ── matrix math ──────────────────────────────────────────────────── */
