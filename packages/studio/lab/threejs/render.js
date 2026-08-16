@@ -128,8 +128,14 @@ function buildProceduralGeometry(width, height, config, rng) {
 
 /**
  * Create shader programs for ground rendering with warp fields and noise.
+ * Layer 2 (TRANSFORM) adds sophisticated warp field types, fBm noise,
+ * and temporal drift patterns for complex deformations.
  */
 function buildShaders(gl, config) {
+  // Warp field type determines the deformation pattern (radial/linear/turbulent)
+  const warpTypeIndex =
+    config.warpFieldType === "radial" ? 0 : config.warpFieldType === "linear" ? 1 : 2;
+
   const vertexSource = `#version 300 es
     precision highp float;
 
@@ -141,22 +147,71 @@ function buildShaders(gl, config) {
     uniform mat4 view;
     uniform float time;
     uniform float warpIntensity;
+    uniform int warpType;  // 0=radial, 1=linear, 2=turbulent
 
     out vec3 vNormal;
     out vec2 vUv;
     out vec3 vPosition;
 
+    // Fractional Brownian Motion (fBm) for natural-looking noise
+    float fbm(vec3 p, float t) {
+      float value = 0.0;
+      float amplitude = 1.0;
+      float frequency = 1.0;
+      float max_value = 0.0;
+
+      for (int i = 0; i < 4; i++) {
+        // Layered sine waves with varying frequencies
+        value += amplitude *
+          sin(p.x * frequency + t * 0.3) *
+          sin(p.z * frequency * 0.7 + t * 0.2) *
+          sin((p.x + p.z) * frequency * 0.5 + t * 0.4);
+        max_value += amplitude;
+        amplitude *= 0.5;
+        frequency *= 2.0;
+      }
+      return value / max_value;
+    }
+
     void main() {
       vec3 pos = position;
+      float warp = 0.0;
 
-      // Layer 2: Warp field (deterministic based on config)
-      // Simple sine-wave warping for procedural deformation
-      float warp = sin(pos.x * 3.0 + time * 0.5) * 0.1 +
-                   sin(pos.z * 3.0 + time * 0.3) * 0.1;
-      pos.y += warp * warpIntensity;
+      if (warpType == 0) {
+        // Radial warp: swirl around center, drifts over time
+        float dist = length(pos.xz);
+        float angle = atan(pos.z, pos.x);
+        float spiral = sin(dist * 3.0 + angle * 2.0 + time * 0.4) * 0.1;
+        warp = spiral + fbm(pos, time) * 0.05;
+        pos.y += warp * warpIntensity;
 
-      // Parallax depth effect (move vertices slightly based on depth)
-      pos.z += uv.x * uv.y * 0.2 * warpIntensity;
+      } else if (warpType == 1) {
+        // Linear warp: directional flow, like wind or current
+        float flow_x = sin(pos.x * 2.0 + time * 0.6) * 0.1;
+        float flow_z = cos(pos.z * 2.0 + time * 0.5) * 0.1;
+        warp = flow_x + flow_z + fbm(pos, time) * 0.08;
+        pos.x += flow_x * warpIntensity * 0.3;
+        pos.z += flow_z * warpIntensity * 0.3;
+        pos.y += warp * warpIntensity;
+
+      } else {
+        // Turbulent warp: chaotic, swirling deformation
+        float turb = fbm(pos * 1.5, time);
+        float chaotic_x = sin(pos.x * 4.0 + time * 0.7 + turb * 2.0) * 0.15;
+        float chaotic_z = sin(pos.z * 4.0 + time * 0.5 + turb * 1.5) * 0.15;
+        warp = turb * 0.2 + sin(time + length(pos.xz)) * 0.1;
+        pos.x += chaotic_x * warpIntensity;
+        pos.z += chaotic_z * warpIntensity;
+        pos.y += warp * warpIntensity;
+      }
+
+      // Enhanced parallax: depth varies with warp for more dramatic effect
+      float depth_scale = 0.1 + length(vec2(warp)) * 0.2;
+      pos.z += uv.x * uv.y * depth_scale * warpIntensity;
+
+      // Temporal drift: vertices drift slightly based on their position and time
+      pos.x += sin(time * 0.3 + uv.x * 5.0) * 0.02 * warpIntensity;
+      pos.z += cos(time * 0.25 + uv.y * 5.0) * 0.02 * warpIntensity;
 
       gl_Position = projection * view * vec4(pos, 1.0);
       vNormal = normal;
@@ -177,22 +232,35 @@ function buildShaders(gl, config) {
 
     out vec4 outColor;
 
-    void main() {
-      // Monochrome procedural material (Layer 1)
-      // Base value from UV gradients
-      float base = fract(vUv.x * 8.0) * fract(vUv.y * 8.0);
+    // Hash function for pseudo-random values
+    float hash(float x) {
+      return fract(sin(x) * 43758.5453);
+    }
 
-      // Add temporal modulation
-      float temporal = sin(time * 0.5) * 0.5 + 0.5;
+    void main() {
+      // Layer 1 base: UV gradients with multi-octave detail
+      float base = fract(vUv.x * 8.0) * fract(vUv.y * 8.0);
+      float detail = fract(vUv.x * 16.0 + vUv.y * 16.0) * 0.5;
+      base = mix(base, detail, 0.3);
+
+      // Layer 2 temporal modulation: evolve over the beat
+      float t1 = sin(time * 0.5);
+      float t2 = sin(time * 0.3 + 1.5);
+      float temporal = (t1 * 0.6 + t2 * 0.4) * 0.5 + 0.5;
       float value = base * temporal * density;
 
-      // Threshold degradation based on intensity
-      float threshold = 0.5 + density * 0.3;
+      // Adaptive threshold based on position and time
+      float position_factor = (sin(vPosition.x * 2.0) + sin(vPosition.z * 2.0)) * 0.25 + 0.5;
+      float threshold = 0.5 + density * 0.3 + position_factor * 0.1;
       float final = step(threshold, value);
 
-      // Add subtle noise
-      float noise = fract(sin(vPosition.x * 12.47 + vPosition.z * 34.1) * 43758.5);
-      final = mix(final, noise, 0.1);
+      // Perlin-like noise for texture
+      float noise = fract(sin(vPosition.x * 12.47 + vPosition.z * 34.1 + time * 0.1) * 43758.5);
+      float noise2 = fract(sin(vPosition.x * 34.1 + vPosition.z * 12.47 + time * 0.15) * 43758.5);
+      float combined_noise = mix(noise, noise2, 0.5);
+
+      // Blend noise with threshold for texture variation
+      final = mix(final, combined_noise, 0.15 * density);
 
       outColor = vec4(final, final, final, 1.0);
     }
@@ -208,12 +276,14 @@ function buildShaders(gl, config) {
       time: gl.getUniformLocation(program, "time"),
       warpIntensity: gl.getUniformLocation(program, "warpIntensity"),
       density: gl.getUniformLocation(program, "density"),
+      warpType: gl.getUniformLocation(program, "warpType"),
     },
     attributes: {
       position: gl.getAttribLocation(program, "position"),
       normal: gl.getAttribLocation(program, "normal"),
       uv: gl.getAttribLocation(program, "uv"),
     },
+    warpTypeValue: warpTypeIndex,
   };
 }
 
@@ -275,6 +345,7 @@ function renderThreeFrame(state, beatIndex, timeInBeat) {
   gl.uniform1f(groundShaders.uniforms.time, state.time);
   gl.uniform1f(groundShaders.uniforms.warpIntensity, config.noiseIntensity);
   gl.uniform1f(groundShaders.uniforms.density, config.noiseIntensity);
+  gl.uniform1i(groundShaders.uniforms.warpType, groundShaders.warpTypeValue);
 
   // Bind geometry and render
   const vao = gl.createVertexArray();
