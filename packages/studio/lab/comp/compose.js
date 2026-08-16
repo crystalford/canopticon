@@ -38,6 +38,7 @@ import { arcAt, vocabularyAt } from "./arc.js";
 import { LAYOUTS, emptiest, place } from "./layout.js";
 import { partition, placeInZone, zoneFor } from "./frame.js";
 import { emitMarks } from "./marks.js";
+import { emitSigns } from "./sign.js";
 import { invoke, makeMotifs, trace, verbFor } from "./motif.js";
 import {
   attachPoints,
@@ -527,6 +528,8 @@ export function buildStages(cut) {
     asBias(point.slice(FACTORS.length), FORM_KEYS),
   );
   const topicForms = new Map();
+  // Where a motif last stood, so a recall can draw a line back to it.
+  let lastMotifPlace = null;
   const recentWorlds = [];
   /** Passage index → the world it was given. The film's memory. */
   const topicWorlds = new Map();
@@ -726,6 +729,7 @@ export function buildStages(cut) {
         beat.visualIntent.continuity === "interrupt"
           ? stage.units.filter((u) => !u.dead && u.protection >= 0.6).map(carry)
           : stage.units.map(carry),
+      signs: (stage.signs ?? []).map((g) => ({ ...g })),
       marks: stage.marks
         .filter((m) => !m.dead)
         .map((m) => (turned ? { ...m, die: m.die ?? beat.startMs + 120 + rng() * 260 } : { ...m })),
@@ -819,6 +823,24 @@ export function buildStages(cut) {
     if (vi.secondary && BEHAVIORS[vi.secondary]) BEHAVIORS[vi.secondary](next, beat, ctx);
 
     emitMarks(next, beat, ctx);
+
+    // SIGNS — marks that POINT rather than depict. A strike-through says
+    // "not this" about something specific; a bracket says "these belong
+    // together"; a connector on a recall says "this, again". None names a
+    // noun, so none can walk back into the failure that put the same
+    // centipede in every film.
+    ctx.recallFrom =
+      motifOver?.verb === "RECALL" && lastMotifPlace
+        ? lastMotifPlace
+        : null;
+    next.signs = [
+      ...(next.signs ?? []).filter((g) => beat.startMs - g.born < 4200),
+      ...emitSigns(next, beat, ctx),
+    ];
+    if (motifOver) {
+      const k = next.units.find((u) => !u.dead && u.protection >= 0.9);
+      if (k) lastMotifPlace = { x: k.box.x + k.box.w * 0.5, y: k.box.y + k.box.h * 0.5 };
+    }
 
     // THE SETTLE PASS MUST NOT UNDO THIS BEAT.
     //
@@ -1144,6 +1166,7 @@ export function resolveAt(stages, tMs) {
   }
 
   return {
+    signs: st.signs ?? [],
     units: out.sort((a, b) => a.layer - b.layer),
     marks: marks.sort((a, b) => a.layer - b.layer),
     stage: st,

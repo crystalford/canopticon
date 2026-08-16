@@ -21,6 +21,7 @@
 
 import { resolveAt } from "../comp/compose.js";
 import { drawMark } from "../comp/marks.js";
+import { drawSign } from "../comp/sign.js";
 import { makeField, registration, renderField } from "../core/field.js";
 import { layoutText } from "../comp/treatment.js";
 import { drawForm } from "../form/draw.js";
@@ -50,7 +51,8 @@ export function drawFrame(ctx, film, frameIndex) {
   const tMs = (frameIndex / cut.fps) * 1000;
   const res = resolveAt(stages, tMs);
   if (!res) return;
-  const { units, marks, stage, plate, field, edit, process, built, formPlace, grown } = res;
+  const { units, marks, signs, stage, plate, field, edit, process, built, formPlace, grown } =
+    res;
   const ink = inkOf(stage);
 
   // THE PRESS IS THE STYLE'S, AND IT HAS COLOUR.
@@ -241,6 +243,10 @@ export function drawFrame(ctx, film, frameIndex) {
     if (solids.length > 0) knockout(() => drawRuns(0, 0, u.alpha * u.density));
   }
 
+  // SIGNS PRINT OVER THE TYPE, because that is what annotating is — a mark
+  // made on top of something already written, by someone reading it.
+  for (const g of signs ?? []) drawSign(p, g, pw, ph, tMs, "#fff");
+
   // Rules and register marks print OVER the type, like real furniture.
   for (const m of marks) {
     if (m.layer < 8) continue;
@@ -296,6 +302,15 @@ export function drawFrame(ctx, film, frameIndex) {
   const ly = sty ? Math.sin(sty.lightAngle) : 0;
   const lFocus = sty ? sty.lightFocus : 0;
   const lDepth = sty ? sty.lightDepth : 0;
+  // HARD LIGHT CUTS; SOFT LIGHT FADES.
+  //
+  // Every lit frame got a smooth gradient, and a smooth gradient is close to
+  // every other smooth gradient — measured, adding light made the perceptual
+  // distance between frames WORSE. A hard-edged shaft is both more dramatic
+  // and more DIFFERENT: it puts an edge somewhere specific instead of a haze
+  // everywhere. `lightHard` is the width of that transition, and at its top
+  // the boundary is a line.
+  const lEdge = sty ? Math.max(0.012, (1 - sty.lightHard) * 0.55) : 0.5;
   const out = buf.out;
   const dst = out.data;
   const F = buf.field;
@@ -382,7 +397,18 @@ export function drawFrame(ctx, film, frameIndex) {
         // whole frame to black and the words go with it — light that destroys
         // legibility is not chiaroscuro, it is an exposure fault. Shadow is
         // allowed to take two thirds of the value and no more.
-        lit = 1 - Math.min(0.62, lDepth) * (1 - (rake * (1 - lFocus) + pool * lFocus));
+        const shape = rake * (1 - lFocus) + pool * lFocus;
+        // The transition is `lEdge` wide: a haze at 0.55, a cut at 0.012.
+        const t2 = Math.max(0, Math.min(1, (shape - (0.5 - lEdge)) / (lEdge * 2)));
+        // LIGHT BRIGHTENS AS WELL AS DARKENS. Mine only ever multiplied down,
+        // so every lit frame was a DARKER version of the same image and the
+        // tonal range compressed — which is why adding light reduced the
+        // separation between frames instead of increasing it. A lamp makes
+        // what it falls on brighter than the surroundings; that is the whole
+        // of what a lamp is.
+        const sm = t2 * t2 * (3 - 2 * t2);
+        const d2 = Math.min(0.62, lDepth);
+        lit = 1 - d2 + sm * d2 * (1 + d2 * 0.85);
       }
       // …and the shadow thrown by whatever is standing in it.
       if (shadow) {
