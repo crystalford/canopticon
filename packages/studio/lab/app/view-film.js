@@ -23,7 +23,7 @@ export async function viewFilm(root, go, id) {
     <div class="progress"><i id="played"></i></div>
     <div class="actions">
       <button id="play">Play</button>
-      <button class="ghost" id="reroll">Another seed</button>
+      <button class="ghost" id="reroll">Reseed</button>
       <button class="ghost" id="export">Export</button>
       <button class="ghost" id="back">New film</button>
       <span class="note" id="status"></span>
