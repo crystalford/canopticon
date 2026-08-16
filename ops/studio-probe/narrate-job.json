@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-16T00:41:43Z",
+  "run_id": "31917826230",
+  "method": "GET",
+  "path": "/v1/film/film_1ba109df38dc4881b9b9/narrate/nar_8f12d1aeb85a4df69bd3",
+  "status": 200,
+  "body": "{\n  \"state\": \"done\",\n  \"finishedAt\": \"2026-08-16T00:41:24.063Z\",\n  \"spoken\": 5,\n  \"spans\": 5,\n  \"measured\": 5,\n  \"failures\": []\n}"
+}
