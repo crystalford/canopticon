@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-16T02:37:58Z",
+  "run_id": "31922298669",
+  "method": "POST",
+  "path": "/v1/film",
+  "status": 201,
+  "body": "{\n  \"filmId\": \"film_7b84c2f7e07b4db4a98c\",\n  \"title\": \"The Mucosal-Cognitive Axis: A Structural Thesis on Phosphatidylcholine\",\n  \"seed\": 4004129062,\n  \"beats\": 26,\n  \"sections\": 12,\n  \"motifs\": 3,\n  \"spans\": 12,\n  \"spokenWords\": 870,\n  \"editorial\": \"read by @cf/meta/llama-4-scout-17b-16e-instruct, 1 invented phrases dropped\",\n  \"notes\": [\n    \"1 of 11 phrases were not the essay's own words and were dropped\"\n  ]\n}"
+}
