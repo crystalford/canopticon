@@ -53,20 +53,43 @@ export async function buildCut(input: CutInput): Promise<FilmCut> {
     beatIds: film.editorial.beats.filter((b) => b.motifRef?.motifId === m.id).map((b) => b.id),
   }));
 
-  const body = {
+  // Three.js config derived from film settings
+  let threeConfig:
+    | {
+        noiseIntensity: number;
+        warpFieldType: "radial" | "linear" | "turbulent";
+        parallaxDepth: number;
+        includeImageryLayer: boolean;
+      }
+    | undefined;
+  if (film.renderBackend === "threejs-procedural") {
+    const warpType: "radial" | "linear" | "turbulent" =
+      film.settings.chaos > 0.6 ? "turbulent" : film.settings.chaos > 0.3 ? "radial" : "linear";
+    threeConfig = {
+      noiseIntensity: film.settings.density,
+      warpFieldType: warpType,
+      parallaxDepth: 0.1 + film.settings.density * 0.4,
+      includeImageryLayer: false,
+    };
+  }
+
+  const bodyBase = {
     filmId: film.filmId,
     seed: film.seed,
     rendererContract: "1" as const,
     durationMs,
     fps: 30 as const,
     settings: film.settings,
+    renderBackend: film.renderBackend,
     spine: { source: spine.source, wordTimedMs, totalMs: spine.totalMs },
     motifs,
     beats,
     voice: input.voice ?? null,
     warnings,
   };
-  return { ...body, cutHash: await sha256Hex(canonicalJSON(body)) };
+
+  const body = threeConfig ? { ...bodyBase, threeConfig } : bodyBase;
+  return { ...body, cutHash: await sha256Hex(canonicalJSON(body)) } as FilmCut;
 }
 
 /* ── timing ────────────────────────────────────────────────────────── */

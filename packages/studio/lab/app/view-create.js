@@ -40,6 +40,22 @@ export async function viewCreate(root, go) {
       </div>`,
       ).join("")}
     </div>
+    <div class="row">
+      <div class="dial">
+        <label>Rendering</label>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <label style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="radio" id="backend-canvas" name="renderBackend" value="canvas-2d-legacy" checked>
+            <span>Classic Canvas</span>
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="radio" id="backend-threejs" name="renderBackend" value="threejs-procedural">
+            <span>Three.js Procedural</span>
+          </label>
+        </div>
+        <p class="note">Canvas for stability, Three.js for WebGL procedural rendering</p>
+      </div>
+    </div>
     <div class="actions">
       <button id="go">Generate film</button>
       <span class="note" id="status"></span>
@@ -103,9 +119,11 @@ export async function viewCreate(root, go) {
     $("go").disabled = true;
     status.textContent = "reading the essay…";
     try {
+      const selectedBackend = document.querySelector('input[name="renderBackend"]:checked')?.value || "canvas-2d-legacy";
       const made = await api.create({
         essay: essay.value,
         voice: $("voice").value || null,
+        renderBackend: selectedBackend,
         settings: {
           pace: Number($("pace").value) / 100,
           chaos: Number($("chaos").value) / 100,
