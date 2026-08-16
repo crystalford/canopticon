@@ -151,12 +151,22 @@ function readBeats(
   const phraseGate = sorted[Math.floor(sorted.length * 0.12)] ?? 1;
   const wordGate = sorted[Math.floor(sorted.length * 0.32)] ?? 1;
 
-  return groups.map((group, i) => {
+  interface Interim {
+    group: Scored[];
+    head: Scored;
+    emphasis: number;
+    certainty: number;
+    role: EditorialBeat["role"];
+    continuity: EditorialBeat["continuity"];
+    candidatePhrases: Phrase[];
+    promotion: EditorialBeat["promotion"];
+  }
+
+  const interim: Interim[] = groups.map((group, i) => {
     const head = group[0] as Scored;
     const emphasis = emphases[i] as number;
     const certainty = Math.min(...group.map((s) => s.certainty));
     const prev = groups[i - 1];
-    const text = group.map((s) => s.text).join(" ");
 
     const role: EditorialBeat["role"] =
       i === 0
@@ -182,36 +192,63 @@ function readBeats(
             ? "transform"
             : "continue";
 
-    const phrases = choosePhrases(essay, group, motifByPhrase);
+    const candidatePhrases = choosePhrases(essay, group, motifByPhrase);
     const promotion: EditorialBeat["promotion"] =
-      phrases.length === 0
+      candidatePhrases.length === 0
         ? "none"
         : emphasis >= phraseGate
-          ? phrases.length > 1
+          ? candidatePhrases.length > 1
             ? "fragments"
             : "phrase"
           : emphasis >= wordGate
             ? "word"
             : "none";
 
+    return { group, head, emphasis, certainty, role, continuity, candidatePhrases, promotion };
+  });
+
+  // NO BLANK RUN LONGER THAN THIS. The percentile gates above choose WHICH
+  // beats earn text by how loud they are for the whole essay — a fair rule
+  // globally, but blind to WHERE those loud beats fall. A real essay whose
+  // opening runs quiet and even left nine straight beats with nothing on
+  // screen while the voice kept talking (confirmed on a real film) — that
+  // reads as broken, not restrained. This is a floor under the gate, not a
+  // replacement for it: it never invents a phrase, only promotes a beat
+  // that already has one once too much of the film has gone silent.
+  const MAX_BLANK_RUN = 3;
+  let sinceLastPromoted = 0;
+  for (const b of interim) {
+    if (b.promotion !== "none") {
+      sinceLastPromoted = 0;
+      continue;
+    }
+    sinceLastPromoted++;
+    if (sinceLastPromoted > MAX_BLANK_RUN && b.candidatePhrases.length > 0) {
+      b.promotion = b.candidatePhrases.length > 1 ? "fragments" : "word";
+      sinceLastPromoted = 0;
+    }
+  }
+
+  return interim.map((b, i) => {
+    const phrases = b.promotion === "none" ? [] : b.candidatePhrases;
     const motif = phrases.find((p) => p.motifId);
     const beat: EditorialBeat = {
       id: `b${i + 1}`,
-      sectionId: head.sectionId,
+      sectionId: b.head.sectionId,
       range: {
-        startChar: head.startChar,
-        endChar: (group[group.length - 1] as Scored).endChar,
+        startChar: b.head.startChar,
+        endChar: (b.group[b.group.length - 1] as Scored).endChar,
       },
-      role,
-      emphasis,
-      certainty,
-      continuity,
-      promotion: promotion === "none" ? "none" : promotion,
-      phrases: promotion === "none" ? [] : phrases,
+      role: b.role,
+      emphasis: b.emphasis,
+      certainty: b.certainty,
+      continuity: b.continuity,
+      promotion: b.promotion,
+      phrases,
     };
     if (motif?.motifId) {
       const m = motifs.find((x) => x.id === motif.motifId);
-      const seen = m ? m.occurrences.filter((o) => o < head.startChar).length : 0;
+      const seen = m ? m.occurrences.filter((o) => o < b.head.startChar).length : 0;
       beat.motifRef = {
         motifId: motif.motifId,
         treatment:
@@ -219,12 +256,11 @@ function readBeats(
             ? "establish"
             : m?.arc === "degrade"
               ? "degrade"
-              : role === "close"
+              : b.role === "close"
                 ? "restate"
                 : "repeat",
       };
     }
-    void text;
     return beat;
   });
 }

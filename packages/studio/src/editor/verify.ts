@@ -24,6 +24,7 @@ import {
   SECTION_FUNCTIONS,
   type Section,
 } from "../film/schema.ts";
+import { pickPhraseInRange } from "../text/prose.ts";
 
 export interface Verified {
   editorial: EditorialModel;
@@ -120,6 +121,32 @@ export function verifyEditorial(raw: unknown, essay: string): Verified {
   // the same repair as a gap between sections — a beat that runs a little
   // long is an ordinary edit; a silent picture under real narration is not.
   beats.sort((a, b) => a.range.startChar - b.range.startChar);
+
+  // THE SAME BLANK-RUN FLOOR THE RULES EDITOR HOLDS ITSELF TO. The model is
+  // only ever told "promote at most one beat in three" — a ceiling, not a
+  // guarantee against nine straight beats with nothing to show, and the
+  // model can cluster its silence at the front of a film exactly the way
+  // the percentile-gated rules editor could. This never invents a phrase —
+  // it only reaches into the beat's own text once too much of the film has
+  // gone silent, the identical rule `readEssayStructurally` enforces.
+  const MAX_BLANK_RUN = 3;
+  let sinceLastPromoted = 0;
+  for (const b of beats) {
+    if (b.phrases.length > 0) {
+      sinceLastPromoted = 0;
+      continue;
+    }
+    sinceLastPromoted++;
+    if (sinceLastPromoted > MAX_BLANK_RUN) {
+      const found = pickPhraseInRange(essay, b.range.startChar, b.range.endChar);
+      if (found) {
+        b.phrases.push({ text: found.text, offset: found.offset, weight: 0.6 });
+        b.promotion = "word";
+        sinceLastPromoted = 0;
+      }
+    }
+  }
+
   const beatCoverage = beats.length > 0 ? tileCoverage(beats, essay) : 0;
 
   const coverageFloorMissed = beats.length > 0 && Math.min(coverage, beatCoverage) < COVERAGE_FLOOR;
