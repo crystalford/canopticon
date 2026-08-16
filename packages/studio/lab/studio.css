@@ -159,12 +159,50 @@ input[type="range"]::-moz-range-thumb {
 
 /* ── the film ─────────────────────────────────────────────── */
 canvas { width: 100%; background: #000; border: 1px solid var(--line); border-radius: var(--r); display: block; }
-/* The bar reads as 3px, but a 3px-tall click target is nearly
- * impossible to hit — that's why scrubbing never worked, not the JS.
- * Padding widens the actual hit area to ~19px; background-clip keeps
- * the visible line exactly as thin as before. */
-.progress { height: 3px; background: var(--line2); background-clip: content-box; margin: var(--s4) 0; padding: 8px 0; cursor: pointer; touch-action: none; }
-.progress > i { display: block; height: 100%; background: var(--sage); width: 0; transition: width 0.05s linear; }
+/* THE SCRUBBER WAS NEVER MISSING — IT WAS INVISIBLE. Real bug, found by
+ * comparing the actual rendered pixels against the page background: the
+ * empty track was --line2 (#2e343a) on a --void (#0e1013) page, a
+ * contrast ratio low enough to read as "nothing here," and at position
+ * 0 the sage fill is 0px wide, so a fresh film showed no colour at all.
+ * A working, clickable, correctly-sized control that looks like empty
+ * space is not a working control.
+ *
+ * Fixed with actual contrast (--line3, clearly visible against --void)
+ * and a thumb that exists at every position including zero — the one
+ * thing every real player scrubber has that this one never did. Padding
+ * still widens the real hit area to ~19px; background-clip keeps the
+ * VISIBLE track exactly as thin as the fill is drawn. */
+.progress {
+  position: relative;
+  height: 4px;
+  background: var(--line3);
+  background-clip: content-box;
+  margin: var(--s4) 0;
+  padding: 8px 0;
+  cursor: pointer;
+  touch-action: none;
+}
+.progress > i {
+  display: block;
+  position: relative;
+  height: 100%;
+  background: var(--sage);
+  width: 0;
+  transition: width 0.05s linear;
+}
+.progress > i::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--sage2);
+  box-shadow: 0 0 0 2px var(--void);
+  transform: translateY(-50%);
+}
+.progress:hover > i::after { background: var(--ink); }
 
 /* ── films made already ───────────────────────────────────── */
 .films { margin-top: var(--s7); border-top: 1px solid var(--line); padding-top: var(--s5); }
