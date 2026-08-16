@@ -311,6 +311,7 @@ function shell(
       signature: [],
       tempo: 0.5,
       weight: 0.4,
+      terms: [],
     },
     motif: null,
     seed: deriveSeed(filmSeed, id),
@@ -348,6 +349,7 @@ function withIntent(
     signature: number[];
     tempo: number;
     weight: number;
+    terms: string[];
   },
   passageIndex = 0,
 ): TimedBeat {
@@ -458,6 +460,7 @@ function withIntent(
           signature: reading.signature,
           tempo: reading.tempo,
           weight: reading.weight,
+          terms: reading.terms,
         }
       : {
           kind: "CLAIM",
@@ -469,6 +472,7 @@ function withIntent(
           signature: [],
           tempo: 0.5,
           weight: 0.4,
+          terms: [],
         },
     // A MOTIF APPEARS WHEREVER ITS WORDS DO.
     //

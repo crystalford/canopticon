@@ -351,6 +351,8 @@ export interface TimedBeat {
      *  dwelt on. Together these are the film's rhythm. */
     tempo: number;
     weight: number;
+    /** The passage's own content words — what the MIND admits as nodes. */
+    terms: string[];
   };
   /** Derived on the Worker. The browser is GIVEN this number and never
    *  re-derives one from a string — see `lib/rng.ts`. */

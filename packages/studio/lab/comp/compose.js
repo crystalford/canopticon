@@ -39,6 +39,7 @@ import { LAYOUTS, emptiest, place } from "./layout.js";
 import { partition, placeInZone, zoneFor } from "./frame.js";
 import { authorIdea, ideaKey, stateAt } from "./idea.js";
 import { emitMarks } from "./marks.js";
+import { admit, makeMind, relax, snapshot } from "./mind.js";
 import { emitSigns } from "./sign.js";
 import { invoke, makeMotifs, trace, verbFor } from "./motif.js";
 import {
@@ -531,6 +532,12 @@ export function buildStages(cut) {
   const topicForms = new Map();
   // Where a motif last stood, so a recall can draw a line back to it.
   let lastMotifPlace = null;
+  // THE MIND. One structure for the whole film that never clears — the answer
+  // to "where does a twenty-minute film GO". At minute one it holds three
+  // things; at minute twenty it holds sixty with a history, and a structure
+  // that accumulates cannot return to an earlier state.
+  const mind = makeMind();
+  let ops = [];
   // THE PASSAGE'S OWN IDEA — authored once, then travelled through. A passage
   // used to be N independent samples, so it had no beginning, middle or end
   // and could not develop.
@@ -845,6 +852,16 @@ export function buildStages(cut) {
     fn(next, beat, ctx);
     if (vi.secondary && BEHAVIORS[vi.secondary]) BEHAVIORS[vi.secondary](next, beat, ctx);
 
+    // WHAT HAPPENS TO A MIND WHEN THIS SENTENCE ENTERS IT. The operations are
+    // not chosen — they FOLLOW from the relation between what arrived and what
+    // was already held.
+    if (!isSub) {
+      ops = admit(mind, rd, beat, rng);
+      relax(mind, 22);
+    } else {
+      relax(mind, 6);
+    }
+
     emitMarks(next, beat, ctx);
 
     // SIGNS — marks that POINT rather than depict. A strike-through says
@@ -943,6 +960,8 @@ export function buildStages(cut) {
       why: motifOver ? `motif:${motifOver.verb}` : chosen.why,
       motif: motifOver,
       idea: idea ? ideaKey(idea) : null,
+      mind: snapshot(mind),
+      ops,
       process: world.process ?? "photocopy",
       style,
       form,
@@ -1198,6 +1217,8 @@ export function resolveAt(stages, tMs) {
     field,
     edit: tr,
     process: active.process ?? "photocopy",
+    mind: active.mind,
+    ops: active.ops,
     style: active.style,
     form: active.form,
     built: active.built,

@@ -53,6 +53,7 @@ export function drawFrame(ctx, film, frameIndex) {
   if (!res) return;
   const { units, marks, signs, stage, plate, field, edit, process, built, formPlace, grown } =
     res;
+  const mind = res.mind;
   const ink = inkOf(stage);
 
   // THE PRESS IS THE STYLE'S, AND IT HAS COLOUR.
@@ -118,6 +119,52 @@ export function drawFrame(ctx, film, frameIndex) {
     p.rotate((m.rot * Math.PI) / 180);
     p.translate(-formPlace.x * pw, -formPlace.y * ph);
     drawForm(p, growAt(built, t), formPlace.x, formPlace.y, formPlace.scale * m.scale, pw, ph);
+    p.restore();
+  }
+
+  /* THE MIND — everything the film has heard, still here.
+   *
+   * Drawn before the type and after the form, into the same coverage plate.
+   * ACTIVATION is brightness and MASS is size, so a node that has been
+   * mentioned often is large and a node not mentioned for a minute is a faint
+   * dot that has not moved. Nothing is ever removed: what the audience reads
+   * as memory is literally the accumulated structure, still on screen. */
+  if (mind && mind.nodes.length > 0) {
+    const byId = new Map(mind.nodes.map((n) => [n.id, n]));
+    p.save();
+    for (const e of mind.edges) {
+      const a = byId.get(e.a);
+      const b = byId.get(e.b);
+      if (!a || !b) continue;
+      // An edge is only as present as the dimmer of the two things it joins —
+      // a relationship to something forgotten is itself forgotten.
+      const act = Math.min(a.act, b.act);
+      p.globalAlpha = Math.max(0.04, act * Math.min(1, e.w) * 0.8);
+      p.strokeStyle = "#fff";
+      p.lineWidth = Math.max(0.5, e.w * ph * 0.0022);
+      p.beginPath();
+      p.moveTo(a.x * pw, a.y * ph);
+      p.lineTo(b.x * pw, b.y * ph);
+      p.stroke();
+    }
+    for (const n of mind.nodes) {
+      p.globalAlpha = Math.max(0.06, n.act);
+      p.fillStyle = "#fff";
+      const r = Math.max(1, n.mass * ph * 0.008 * (0.5 + n.act * 0.9));
+      p.beginPath();
+      // An abstraction is drawn as a ring rather than a dot: it stands for
+      // several things and is therefore not one of them.
+      if (n.abstracted) {
+        p.arc(n.x * pw, n.y * ph, r * 1.6, 0, Math.PI * 2);
+        p.lineWidth = Math.max(1, r * 0.5);
+        p.strokeStyle = "#fff";
+        p.stroke();
+      } else {
+        p.arc(n.x * pw, n.y * ph, r, 0, Math.PI * 2);
+        p.fill();
+      }
+    }
+    p.globalAlpha = 1;
     p.restore();
   }
 
