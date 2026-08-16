@@ -44,6 +44,12 @@ export async function viewFilm(root, go, id) {
   let cut = null;
   let raf = 0;
   let startedAt = 0;
+  /** THE PLAYHEAD. The one piece of state the old player never had — it
+   *  knew only "playing since startedAt" or "stopped", so Play always
+   *  restarted at zero and a click on the bar could paint a still but
+   *  never actually MOVE the film. Every play/pause/seek path below reads
+   *  and writes this, in film milliseconds. */
+  let positionMs = 0;
   let renderer = null; // Three.js renderer instance, or null for Canvas 2D legacy
   let threeStages = null; // Editorial stages for the Three.js type layer (Layer 4)
 
@@ -133,12 +139,7 @@ export async function viewFilm(root, go, id) {
       .join("");
     if (cut.voice) await loadVoice(cut).catch(() => undefined);
 
-    // Initial frame render
-    if (renderer) {
-      renderThreeJSFrame(0);
-    } else {
-      drawFrame(ctx, film, 0);
-    }
+    renderAt(0);
 
     describeVoice(meta.film);
   }
@@ -232,53 +233,92 @@ export async function viewFilm(root, go, id) {
     $("record").disabled = false;
   });
 
-  function stop() {
+  /** Draw the film at an absolute time and move the bar there. The one
+   *  render path every interaction shares — play ticks, seeks, drags and
+   *  the initial frame all go through here, so there is no way for the
+   *  picture, the bar and the playhead to disagree. */
+  function renderAt(ms) {
+    positionMs = Math.max(0, Math.min(cut.durationMs, ms));
+    if (renderer) {
+      renderThreeJSFrame(positionMs);
+    } else {
+      drawFrame(ctx, film, Math.round((positionMs / 1000) * cut.fps));
+    }
+    $("played").style.width = `${(positionMs / cut.durationMs) * 100}%`;
+  }
+
+  /** Pause where it stands. The playhead survives — Play continues from
+   *  here, which is the entire difference from the old stop(). */
+  function pause() {
     cancelAnimationFrame(raf);
     raf = 0;
     stopVoice();
     $("play").textContent = "Play";
   }
 
-  $("play").addEventListener("click", async () => {
-    if (raf) return stop();
-    $("play").textContent = "Stop";
-    startedAt = performance.now();
-    if (cut.voice) await playVoice(cut, 0);
+  /** Stop for flows that genuinely restart — reroll, re-record, export. */
+  function stop() {
+    pause();
+    positionMs = 0;
+  }
+
+  async function playFrom(ms) {
+    pause();
+    positionMs = Math.max(0, Math.min(cut.durationMs, ms));
+    $("play").textContent = "Pause";
+    startedAt = performance.now() - positionMs;
+    // scheduleVoice was built for exactly this: spans already past are
+    // skipped and one mid-sentence starts partway in, so the voice lands
+    // where the picture landed.
+    if (cut.voice) await playVoice(cut, positionMs);
     const tick = () => {
-      const ms = performance.now() - startedAt;
-      if (ms >= cut.durationMs) return stop();
-
-      if (renderer) {
-        renderThreeJSFrame(ms);
-      } else {
-        const frameIndex = Math.round((ms / 1000) * cut.fps);
-        drawFrame(ctx, film, frameIndex);
+      const ms2 = performance.now() - startedAt;
+      if (ms2 >= cut.durationMs) {
+        renderAt(cut.durationMs);
+        pause();
+        positionMs = 0; // the NEXT play starts over; the bar shows the end
+        return;
       }
-
-      $("played").style.width = `${(ms / cut.durationMs) * 100}%`;
+      renderAt(ms2);
       raf = requestAnimationFrame(tick);
     };
     tick();
+  }
+
+  $("play").addEventListener("click", () => {
+    if (raf) return pause();
+    playFrom(positionMs >= cut.durationMs ? 0 : positionMs);
   });
 
-  // Scrubbing: click on progress bar to seek, on either backend.
+  /* ── the scrubber ──────────────────────────────────────────────────
+   *
+   * Pointer events, not click: a click-only handler cannot drag, and a
+   * seek that does not survive into playback is a still-frame viewer, not
+   * a scrubber. Press anywhere on the bar to jump, drag to scrub with the
+   * frame following live, release to resume playing if the film was
+   * playing when you grabbed it. */
   const progress = $("played").parentElement;
-  progress?.addEventListener("click", (e) => {
-    if (!cut || (!film && !renderer)) return;
+  let wasPlaying = false;
+  const seekPct = (e) => {
     const rect = progress.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const ms = pct * cut.durationMs;
-    stop();
-    startedAt = performance.now() - ms;
-
-    if (renderer) {
-      renderThreeJSFrame(ms);
-    } else {
-      const frameIndex = Math.round((ms / 1000) * cut.fps);
-      drawFrame(ctx, film, frameIndex);
-    }
-
-    $("played").style.width = `${pct * 100}%`;
+    return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  };
+  progress.addEventListener("pointerdown", (e) => {
+    if (!cut || (!film && !renderer)) return;
+    e.preventDefault();
+    wasPlaying = raf !== 0;
+    pause();
+    progress.setPointerCapture(e.pointerId);
+    renderAt(seekPct(e) * cut.durationMs);
+  });
+  progress.addEventListener("pointermove", (e) => {
+    if (!cut || !progress.hasPointerCapture(e.pointerId)) return;
+    renderAt(seekPct(e) * cut.durationMs);
+  });
+  progress.addEventListener("pointerup", (e) => {
+    if (!cut || !progress.hasPointerCapture(e.pointerId)) return;
+    progress.releasePointerCapture(e.pointerId);
+    if (wasPlaying) playFrom(positionMs);
   });
 
   $("reroll").addEventListener("click", async () => {
