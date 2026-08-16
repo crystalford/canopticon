@@ -49,7 +49,14 @@ export async function viewFilm(root, go, id) {
 
   /** A film the previous engine made. Its essay survives; nothing else in
    *  it means anything now. Offer the re-read rather than a dead end — and
-   *  make it a button, because a page load must not spend a model call. */
+   *  make it a button, because a page load must not spend a model call.
+   *
+   *  ONE BUTTON, NOT TWO. The standalone "Record the narration" button
+   *  below operates on spans that only exist once the essay has been
+   *  re-read into the new engine's IR — on a legacy film there is no span
+   *  yet, so it has nothing to do here and is hidden. Re-reading and
+   *  recording are folded into one action instead: the operator picks a
+   *  voice (or leaves the film silent) and clicks once. */
   function offerReread(info) {
     $("title").textContent = info.title || "A film from the previous engine";
     $("sub").textContent = `${info.words} words · made before the engine was rebuilt`;
@@ -57,17 +64,28 @@ export async function viewFilm(root, go, id) {
     $("play").style.display = "none";
     $("reroll").style.display = "none";
     $("export").style.display = "none";
+    $("record").style.display = "none";
     const btn = document.createElement("button");
-    btn.textContent = "Re-read with the new engine";
+    btn.textContent = "Re-read & record the narration";
     $("play").parentElement.prepend(btn);
     $("warnings").innerHTML =
       `<p class="warn">the essay is kept and re-read; the old version stays in the film's history</p>
-       <p class="warn">the previous recordings cannot carry over — record it again to hear it</p>`;
+       <p class="warn">the previous recordings cannot carry over — this reads it and records it fresh</p>`;
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       $("status").textContent = "reading the essay…";
       try {
         await api.reread(id);
+        const voice = $("voice").value;
+        if (voice) {
+          $("status").textContent = "recording narration…";
+          await api.narrateAndWait(id, voice, (p) => {
+            $("status").textContent =
+              p.state === "done"
+                ? "measuring…"
+                : `speaking ${p.spoken ?? 0}/${p.spans ?? "?"} spans…`;
+          });
+        }
         location.reload();
       } catch (err) {
         $("status").textContent = err.message;
