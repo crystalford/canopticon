@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-16T01:20:46Z",
+  "run_id": "31919341913",
+  "method": "POST",
+  "path": "/v1/film",
+  "status": 201,
+  "body": "{\n  \"filmId\": \"film_8184c01d2771417ca589\",\n  \"title\": \"The City That Learned To Watch\",\n  \"seed\": 3129968760,\n  \"beats\": 16,\n  \"sections\": 9,\n  \"motifs\": 2,\n  \"spans\": 9,\n  \"spokenWords\": 286,\n  \"editorial\": \"read structurally — the model's reading did not survive verification\",\n  \"notes\": [\n    \"the reading covered only 31% of the essay — it did not read the whole thing, so the whole reading is untrusted\"\n  ]\n}"
+}
