@@ -24,6 +24,11 @@ export async function viewFilm(root, go, id) {
       <button class="ghost" id="back">New film</button>
       <span class="note" id="status"></span>
     </div>
+    <div class="actions">
+      <select id="voice"><option value="">Voice…</option></select>
+      <button class="ghost" id="record">Record the narration</button>
+      <span class="note" id="vostatus"></span>
+    </div>
     <div id="warnings"></div>`;
 
   const $ = (s) => root.querySelector(`#${s}`);
@@ -86,7 +91,79 @@ export async function viewFilm(root, go, id) {
       .join("");
     if (cut.voice) await loadVoice(cut).catch(() => undefined);
     drawFrame(ctx, film, 0);
+    describeVoice(meta.film);
   }
+
+  /* ── narration, on a film that already exists ─────────────────────
+   *
+   * There was no way to record a film you already had open. Narration
+   * could only be asked for at creation, so a film whose recording failed,
+   * or whose prose was edited afterwards, or that was made silent and
+   * wanted a voice, had no route back except making it again. The cut
+   * itself already REPORTS a stale span — "the writing changed after it
+   * was recorded" — which made the absence worse: the system told the
+   * operator about a problem it gave them no way to fix. */
+  function describeVoice(f) {
+    const spans = f?.narration?.spans ?? [];
+    const recorded = spans.filter((s) => s.voAssetId).length;
+    $("vostatus").textContent = spans.length
+      ? recorded === 0
+        ? `${spans.length} spans, none recorded — this film is silent`
+        : recorded < spans.length
+          ? `${recorded}/${spans.length} spans recorded`
+          : `${recorded} spans recorded · ${f.narration.voice ?? "unknown voice"}`
+      : "";
+    if (f?.narration?.voice) $("voice").value = f.narration.voice;
+    $("record").textContent = recorded > 0 ? "Record it again" : "Record the narration";
+  }
+
+  api
+    .voices()
+    .then((r) => {
+      for (const v of r.voices ?? []) {
+        const o = document.createElement("option");
+        o.value = v.id;
+        o.textContent = `${v.label} — ${v.note}`;
+        $("voice").append(o);
+      }
+    })
+    .catch(() => {
+      $("voice").disabled = true;
+      $("record").disabled = true;
+      $("vostatus").textContent = "voices unavailable";
+    });
+
+  $("record").addEventListener("click", async () => {
+    const voice = $("voice").value;
+    if (!voice) {
+      $("vostatus").textContent = "choose a voice first";
+      return;
+    }
+    stop();
+    $("record").disabled = true;
+    try {
+      const done = await api.narrateAndWait(id, voice, (p) => {
+        $("vostatus").textContent =
+          p.state === "done"
+            ? "measuring…"
+            : `speaking ${p.spoken ?? 0}/${p.spans ?? "?"} spans…`;
+      });
+      // RELOAD THE CUT. The film's plan is fetched once when the view
+      // opens, so a film narrated while open would have gone on playing
+      // the silent plan until it was opened again from FILMS — which is
+      // exactly the gap this button would otherwise have shipped with.
+      await load();
+      $("vostatus").textContent =
+        `${done.spoken}/${done.spans} spans · ${done.measured} measured` +
+        (done.failures?.length ? ` · ${done.failures.length} failed` : "");
+      for (const f of done.failures ?? []) {
+        $("warnings").insertAdjacentHTML("beforeend", `<p class="warn">${escape(f)}</p>`);
+      }
+    } catch (err) {
+      $("vostatus").textContent = err.message;
+    }
+    $("record").disabled = false;
+  });
 
   function stop() {
     cancelAnimationFrame(raf);
