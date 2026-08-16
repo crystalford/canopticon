@@ -1,0 +1,8 @@
+{
+  "requested_at": "2026-08-16T00:39:30Z",
+  "run_id": "31917739710",
+  "method": "POST",
+  "path": "/v1/tts/probe",
+  "status": 200,
+  "body": "{\n  \"attempts\": [\n    {\n      \"model\": \"@cf/deepgram/aura-1\",\n      \"shape\": \"ReadableStream\",\n      \"bytes\": 14576,\n      \"sniffed\": {\n        \"contentType\": \"audio/mpeg\",\n        \"extension\": \"mp3\"\n      }\n    },\n    {\n      \"model\": \"@cf/myshell-ai/melotts\",\n      \"threw\": \"AiError: 3043: Internal server error\"\n    }\n  ]\n}"
+}
