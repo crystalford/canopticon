@@ -182,6 +182,8 @@ export const NarrationSpanSchema = z.object({
 });
 export type NarrationSpan = z.infer<typeof NarrationSpanSchema>;
 
+export const RENDER_BACKENDS = ["canvas-2d-legacy", "threejs-procedural"] as const;
+
 export const FilmSchema = z.object({
   schema: z.literal("canopticon.film/1"),
   filmId: z.string(),
@@ -191,6 +193,8 @@ export const FilmSchema = z.object({
   /** Same essay + same seed + same settings = the same film, forever. */
   seed: z.number().int().min(0),
   settings: SettingsSchema,
+  /** Which rendering backend to use. */
+  renderBackend: z.enum(RENDER_BACKENDS).default("canvas-2d-legacy"),
 
   /** FROZEN. Hashed. Never regenerated at render time — standing rule 1,
    *  structurally, exactly as narration already works. */
@@ -332,6 +336,14 @@ export interface FilmCut {
   durationMs: number;
   fps: 30;
   settings: Settings;
+  renderBackend: (typeof RENDER_BACKENDS)[number];
+  /** Three.js-specific rendering parameters. Only used when renderBackend is "threejs-procedural". */
+  threeConfig?: {
+    noiseIntensity: number;
+    warpFieldType: "radial" | "linear" | "turbulent";
+    parallaxDepth: number;
+    includeImageryLayer: boolean;
+  };
   spine: { source: WordSpine["source"]; wordTimedMs: number; totalMs: number };
   motifs: { id: string; phrase: string; arc: string; beatIds: string[] }[];
   beats: TimedBeat[];

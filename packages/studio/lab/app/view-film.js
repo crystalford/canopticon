@@ -9,6 +9,7 @@ import { buildStages } from "../comp/compose.js";
 import { encodeExact, RENDER } from "../export/encode.js";
 import { loadVoice, playVoice, stopVoice, voiceTrack } from "../export/voice.js";
 import { drawFrame, prepareFilm } from "../paint/frame.js";
+import { initThreeJSRenderer } from "../threejs/render.js";
 import { api } from "./api.js";
 
 export async function viewFilm(root, go, id) {
@@ -42,6 +43,7 @@ export async function viewFilm(root, go, id) {
   let cut = null;
   let raf = 0;
   let startedAt = 0;
+  let renderer = null; // Renderer instance (Three.js or Canvas 2D)
 
   /** A film the previous engine made. Its essay survives; nothing else in
    *  it means anything now. Offer the re-read rather than a dead end — and
@@ -82,17 +84,38 @@ export async function viewFilm(root, go, id) {
     }
     $("title").textContent = meta.film.title;
     cut = await api.cut(id);
-    // The faces are the material. Drawing before they load renders a
-    // system fallback and everything you judge is the wrong typeface.
-    await document.fonts.ready;
-    film = prepareFilm(cut, buildStages(cut));
-    $("sub").textContent =
-      `${cut.beats.length} beats · ${(cut.durationMs / 1000).toFixed(1)}s · seed ${cut.seed} · ${meta.editorial}`;
+
+    // Dispose of previous renderer if exists
+    if (renderer?.dispose) renderer.dispose();
+
+    // Initialize renderer based on backend
+    if (cut.renderBackend === "threejs-procedural") {
+      renderer = initThreeJSRenderer(canvas, cut);
+      $("sub").textContent =
+        `${cut.beats.length} beats · ${(cut.durationMs / 1000).toFixed(1)}s · seed ${cut.seed} · Three.js · ${meta.editorial}`;
+    } else {
+      // Canvas 2D legacy renderer
+      // The faces are the material. Drawing before they load renders a
+      // system fallback and everything you judge is the wrong typeface.
+      await document.fonts.ready;
+      film = prepareFilm(cut, buildStages(cut));
+      renderer = null; // Canvas 2D uses direct drawFrame
+      $("sub").textContent =
+        `${cut.beats.length} beats · ${(cut.durationMs / 1000).toFixed(1)}s · seed ${cut.seed} · Canvas 2D · ${meta.editorial}`;
+    }
+
     $("warnings").innerHTML = (cut.warnings ?? [])
       .map((w) => `<p class="warn">${escape(w)}</p>`)
       .join("");
     if (cut.voice) await loadVoice(cut).catch(() => undefined);
-    drawFrame(ctx, film, 0);
+
+    // Initial frame render
+    if (renderer?.renderFrame) {
+      renderer.renderFrame(0, 0);
+    } else {
+      drawFrame(ctx, film, 0);
+    }
+
     describeVoice(meta.film);
   }
 
@@ -182,7 +205,16 @@ export async function viewFilm(root, go, id) {
     const tick = () => {
       const ms = performance.now() - startedAt;
       if (ms >= cut.durationMs) return stop();
-      drawFrame(ctx, film, Math.round((ms / 1000) * cut.fps));
+      const frameIndex = Math.round((ms / 1000) * cut.fps);
+      const beatIndex = cut.beats.findIndex((b) => b.startMs <= ms && ms < b.endMs) || 0;
+      const timeInBeat = ms - (cut.beats[beatIndex]?.startMs ?? 0);
+
+      if (renderer?.renderFrame) {
+        renderer.renderFrame(beatIndex, timeInBeat);
+      } else {
+        drawFrame(ctx, film, frameIndex);
+      }
+
       $("played").style.width = `${(ms / cut.durationMs) * 100}%`;
       raf = requestAnimationFrame(tick);
     };
@@ -200,6 +232,11 @@ export async function viewFilm(root, go, id) {
   });
 
   $("export").addEventListener("click", async () => {
+    if (renderer?.renderFrame && cut.renderBackend === "threejs-procedural") {
+      $("status").textContent = "export not yet supported for Three.js backend";
+      return;
+    }
+
     stop();
     RENDER.cancel = false;
     $("export").disabled = true;

@@ -36,6 +36,7 @@ async function filmOf(seed = 1): Promise<Film> {
     essay: ESSAY,
     seed,
     settings: { pace: 0.5, chaos: 0.5, density: 0.5 },
+    renderBackend: "canvas-2d-legacy",
     editorial,
     editorialHash: await hashRecord(editorial),
     editorialProvenance: {
@@ -531,6 +532,7 @@ describe("a promoted phrase is never behaviourally silenced", () => {
       essay: ESSAY,
       seed: 1,
       settings: { pace: 0.5, chaos: 0.5, density: 0.5 },
+      renderBackend: "canvas-2d-legacy",
       editorial,
       editorialHash: await hashRecord(editorial),
       editorialProvenance: {

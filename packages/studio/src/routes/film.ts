@@ -11,7 +11,7 @@ import { analyseEssay, describeProvenance } from "../editor/index.ts";
 import { callEditor } from "../editor/model.ts";
 import { verifyEditorial } from "../editor/verify.ts";
 import type { Env } from "../env.ts";
-import { type Film, SettingsSchema, parseFilm } from "../film/schema.ts";
+import { type Film, RENDER_BACKENDS, SettingsSchema, parseFilm } from "../film/schema.ts";
 import { segmentEssay } from "../film/segment.ts";
 import { all, newId, nowIso, one, run } from "../lib/d1.ts";
 import { freshFilmSeed } from "../lib/rng.ts";
@@ -156,6 +156,9 @@ app.post("/film/:id/reread", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const seg = segmentEssay(essay);
   const read = await analyseEssay(c.env.AI, essay);
+  const renderBackend = RENDER_BACKENDS.includes(body.renderBackend)
+    ? body.renderBackend
+    : "canvas-2d-legacy";
   const film: Film = {
     schema: "canopticon.film/1",
     filmId: id,
@@ -163,6 +166,7 @@ app.post("/film/:id/reread", async (c) => {
     essay,
     seed: Number.isInteger(body.seed) ? Number(body.seed) : freshFilmSeed(),
     settings: SettingsSchema.parse(body.settings ?? {}),
+    renderBackend,
     editorial: read.editorial,
     editorialHash: read.editorialHash,
     editorialProvenance: read.provenance,
@@ -211,6 +215,9 @@ app.post("/film", async (c) => {
   const settings = SettingsSchema.parse(body.settings ?? {});
   const voice = typeof body.voice === "string" && body.voice ? body.voice : null;
   const seed = Number.isInteger(body.seed) ? Number(body.seed) : freshFilmSeed();
+  const renderBackend = RENDER_BACKENDS.includes(body.renderBackend)
+    ? body.renderBackend
+    : "canvas-2d-legacy";
 
   const seg = segmentEssay(essay);
   const read = await analyseEssay(c.env.AI, essay);
@@ -222,6 +229,7 @@ app.post("/film", async (c) => {
     essay,
     seed,
     settings,
+    renderBackend,
     editorial: read.editorial,
     editorialHash: read.editorialHash,
     editorialProvenance: read.provenance,
@@ -286,14 +294,18 @@ app.post("/film/:id/settings", async (c) => {
   if (loaded.kind === "missing") return c.json({ error: "no such film" }, 404);
   const { film } = loaded;
   const body = await c.req.json().catch(() => ({}));
+  const renderBackend = RENDER_BACKENDS.includes(body.renderBackend)
+    ? body.renderBackend
+    : film.renderBackend;
   const next: Film = {
     ...film,
     settings: SettingsSchema.parse({ ...film.settings, ...(body.settings ?? {}) }),
+    renderBackend,
     seed:
       body.seed === "new" ? freshFilmSeed() : Number.isInteger(body.seed) ? body.seed : film.seed,
   };
   const version = await saveFilm(c.env, next, "settings changed");
-  return c.json({ ok: true, version, seed: next.seed, settings: next.settings });
+  return c.json({ ok: true, version, seed: next.seed, settings: next.settings, renderBackend: next.renderBackend });
 });
 
 /* ── the cut ───────────────────────────────────────────────────────── */
