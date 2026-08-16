@@ -195,6 +195,51 @@ describe("the record refuses words the essay did not write", () => {
     expect(beats[0]?.range.startChar).toBe(0);
     expect(beats[beats.length - 1]?.range.endChar).toBe(ESSAY.length);
   });
+
+  /** The rules editor was given a blank-run floor; the model path had none.
+   *  "Promote at most one beat in three" is a ceiling on the prompt, not a
+   *  guarantee against the model clustering its silence — it can leave a
+   *  long unpromoted stretch exactly the way the percentile-gated rules
+   *  editor could, and a film accepted as `source: "model"` would carry the
+   *  identical blank opening with no fallback path left to catch it. */
+  it("does not let an accepted model reading run long stretches with no phrases either", () => {
+    const MODEL_ESSAY = Array.from(
+      { length: 12 },
+      (_, i) =>
+        `The Committee Report discussed the matter again without reaching any real resolution this time either, session number ${i} of many.`,
+    ).join(" ");
+    const beats = Array.from({ length: 12 }, (_, i) => {
+      const startChar = Math.min(i * 130, MODEL_ESSAY.length);
+      return {
+        id: `b${i + 1}`,
+        sectionId: "s1",
+        startChar,
+        endChar: Math.min(startChar + 130, MODEL_ESSAY.length),
+        role: "develop",
+        promotion: "none",
+        phrases: [],
+      };
+    });
+    const checked = verifyEditorial(
+      {
+        sections: [{ id: "s1", startChar: 0, endChar: MODEL_ESSAY.length, function: "evidence" }],
+        beats,
+      },
+      MODEL_ESSAY,
+    );
+    let run = 0;
+    let longest = 0;
+    for (const b of checked.editorial.beats) {
+      run = b.phrases.length === 0 ? run + 1 : 0;
+      longest = Math.max(longest, run);
+    }
+    expect(longest).toBeLessThanOrEqual(3);
+    for (const b of checked.editorial.beats) {
+      for (const p of b.phrases) {
+        expect(MODEL_ESSAY.slice(p.offset, p.offset + p.text.length)).toBe(p.text);
+      }
+    }
+  });
 });
 
 /** THE ACTUAL FAILURE, reproduced without a network call. Caught live: one

@@ -169,3 +169,59 @@ export function trimToStrongEdges(phrase: string): string {
   while (words.length > 1 && isStopword(words[words.length - 1] as string)) words.pop();
   return words.join(" ").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
 }
+
+const FIGURE_RE =
+  /(?:[$£€]\s?\d[\d,]*(?:\.\d+)?(?:\s?(?:million|billion|thousand))?|\b\d[\d,]*(?:\.\d+)?\s?(?:%|per cent|percent)|\b(?:19|20)\d{2}\b|\b\d[\d,]{2,}(?:\.\d+)?\b)/;
+const PROPER_RUN_RE =
+  /\b(?:[A-Z][\w'’-]*)(?:\s+(?:of|the|and|for|de|van|von)?\s*[A-Z][\w'’-]*)*\b/g;
+
+/** Whatever the essay's own words are, in a given char range, when nothing
+ *  else has chosen text for it. Never invented — a printed figure, then a
+ *  name, then the range's own strongest short clause. Verified as a literal
+ *  substring at its own offset before it is ever returned, the same rule
+ *  every promoted phrase in this codebase is held to.
+ *
+ *  A shared fallback rather than one written twice: both the rules editor
+ *  (which builds phrases sentence-by-sentence) and the model verifier
+ *  (which needs a last-resort phrase for a beat the model left empty) need
+ *  the identical "find something real to show" logic, and a second copy is
+ *  how the two drift apart. */
+export function pickPhraseInRange(
+  essay: string,
+  startChar: number,
+  endChar: number,
+): { text: string; offset: number } | null {
+  const slice = essay.slice(startChar, endChar);
+
+  const fig = slice.match(FIGURE_RE);
+  if (fig?.index !== undefined) {
+    return verifiedAt(essay, startChar + fig.index, fig[0]);
+  }
+
+  const runs = [...slice.matchAll(PROPER_RUN_RE)]
+    // Skip a capital that is only there because it opens the sentence.
+    .filter((m) => (m.index ?? 0) > 0 || m[0].split(/\s+/).length > 1)
+    .sort((a, b) => b[0].length - a[0].length);
+  const run = runs[0];
+  if (run?.index !== undefined && run[0].length >= 4) {
+    return verifiedAt(essay, startChar + run.index, run[0]);
+  }
+
+  const clause = slice.split(/[,;:—.!?]/)[0] ?? slice;
+  const trimmed = trimToStrongEdges(clause);
+  const at = slice.indexOf(trimmed);
+  const wordCount = trimmed.split(/\s+/).length;
+  if (trimmed.length >= 4 && wordCount <= 7 && at >= 0) {
+    return verifiedAt(essay, startChar + at, trimmed);
+  }
+
+  return null;
+}
+
+function verifiedAt(
+  essay: string,
+  offset: number,
+  text: string,
+): { text: string; offset: number } | null {
+  return essay.slice(offset, offset + text.length) === text ? { text, offset } : null;
+}
