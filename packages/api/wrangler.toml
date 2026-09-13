@@ -36,11 +36,10 @@ index_name = "canopticon-embeddings"
 [ai]
 binding = "AI"
 
-# Cron Triggers — fires the `scheduled()` handler in src/index.ts.
-# Currently every Monday at 12:00 UTC: the watcher loops over enabled
-# monitors and kicks off the agent for each. Add more cron lines for
-# different cadences as the monitor cluster grows.
-[triggers]
+# Cron Triggers — DISABLED 2026-09-09 at the operator's explicit request,
+# to stop background Cloudflare spend on a product that isn't being
+# actively used right now (v2 is being built elsewhere). Fires the
+# `scheduled()` handler in src/index.ts. Was:
 # every 2 minutes: drain stuck/queued digest_jobs (the safety net under
 # ingest). Was every minute; halved after live D1_ERROR "exceeded its CPU
 # time limit and was reset" events traced to this account's shared D1 CPU
@@ -54,7 +53,12 @@ binding = "AI"
 # the loop, the same problem the auto-drafted signed readings had, worse
 # (it published). Growth is operator-initiated now — see index.ts's
 # scheduled() comment.
-crons = ["*/2 * * * *", "0 12 * * 1"]
+#
+# Re-enable by uncommenting the two lines below. Everything else about
+# the Worker (the public site, the operator console, on-demand actions)
+# is untouched — this only stops the unattended background sweep.
+# [triggers]
+# crons = ["*/2 * * * *", "0 12 * * 1"]
 
 [vars]
 LOG_LEVEL = "info"
