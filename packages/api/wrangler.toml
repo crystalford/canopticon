@@ -36,35 +36,32 @@ index_name = "canopticon-embeddings"
 [ai]
 binding = "AI"
 
-# Cron Triggers — cut down 2026-09-13 at the operator's explicit request to
-# stop background Cloudflare spend on a product that isn't being actively
-# used right now (v2 is being built elsewhere). Fires the `scheduled()`
-# handler in src/index.ts.
+# Cron Triggers — DISABLED 2026-09-13 at the operator's explicit request:
+# this product is not being actively used right now (attention has moved
+# to v2, built elsewhere), so there is no live on-demand traffic for the
+# `scheduled()` handler in src/index.ts to be a safety net for either.
+# Fully off, not just slowed.
 #
-# NOT fully removed. index.ts's scheduled() default branch is not only an
-# unattended sweep — it is the ONLY dispatcher for work that on-demand,
-# operator-initiated actions enqueue and then return without running
-# inline: a video import (graph/lib/video-intake.ts), record expansion
-# (graph/lib/record-builder.ts), and ZIP/bulk extraction beyond the first
-# three jobs (operator/routes.ts) all leave rows in digest_jobs for this
-# tick to pick up; on-demand research's pass 2 follow-up
-# (graph/lib/deep-research.ts's advanceResearchRun) has no other call
-# site either. Removing the trigger entirely — tried first, caught by
-# review on PR #163 — would have left those operator-initiated actions
-# stuck "queued"/"Researching…" forever with no error, which is worse
-# than the cost this is trying to cut. So: kept, just far less often.
-# every 30 minutes: same drain/settle/research-advance/enrichment logic
-# as before (see index.ts), just 1/15th as often (48 ticks/day instead of
-# 720) — a queued job now waits up to 30 minutes instead of ~2, which
-# nothing operator-facing is latency-sensitive enough to notice.
+# A prior pass on this same PR (#163) tried a */30 reduced cadence instead
+# of full removal, because the default branch of scheduled() is also the
+# only dispatcher for digest_jobs rows that on-demand actions enqueue
+# without running inline — video import (graph/lib/video-intake.ts),
+# record expansion (graph/lib/record-builder.ts), bulk ZIP extraction past
+# the first 3 jobs (operator/routes.ts), and on-demand research's pass 2
+# (graph/lib/deep-research.ts's advanceResearchRun). That distinction
+# stops mattering when nothing is enqueuing those jobs in the first place:
+# the operator confirmed the site is effectively idle, so there's nothing
+# for the dispatcher to be a safety net for right now. If that changes —
+# the Worker comes back into active use before this line does — re-enable
+# with a cadence (not a full uncomment of */2) so a stray queued job from
+# that renewed use doesn't wait forever; see the git history on this file
+# for the */30 version and its reasoning.
 #
-# The weekly monitor-watcher cron ("0 12 * * 1") is dropped, not just
-# slowed: monitors are their own unattended recurring check, not a
-# dispatcher anything on-demand depends on, so there's nothing it would
-# strand by being off. Re-enable it by adding "0 12 * * 1" back into the
-# crons list below if the monitor feature is needed again.
-[triggers]
-crons = ["*/30 * * * *"]
+# Re-enable by uncommenting the two lines below. Everything else about
+# the Worker (the public site, the operator console, on-demand actions)
+# is untouched — this only stops the background sweep.
+# [triggers]
+# crons = ["*/2 * * * *", "0 12 * * 1"]
 
 [vars]
 LOG_LEVEL = "info"
