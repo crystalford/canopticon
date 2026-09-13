@@ -36,29 +36,35 @@ index_name = "canopticon-embeddings"
 [ai]
 binding = "AI"
 
-# Cron Triggers — DISABLED 2026-09-09 at the operator's explicit request,
-# to stop background Cloudflare spend on a product that isn't being
-# actively used right now (v2 is being built elsewhere). Fires the
-# `scheduled()` handler in src/index.ts. Was:
-# every 2 minutes: drain stuck/queued digest_jobs (the safety net under
-# ingest). Was every minute; halved after live D1_ERROR "exceeded its CPU
-# time limit and was reset" events traced to this account's shared D1 CPU
-# budget getting exhausted by concurrent background work (index.ts's
-# scheduled() has the full account).
-# monday 12:00 UTC: run the weekly monitor watchers
+# Cron Triggers — cut down 2026-09-13 at the operator's explicit request to
+# stop background Cloudflare spend on a product that isn't being actively
+# used right now (v2 is being built elsewhere). Fires the `scheduled()`
+# handler in src/index.ts.
 #
-# There used to be a third cron here (every 4 hours: autonomous expand
-# sweep, ranked by edge_degree — graph/lib/autonomous-expand.ts). Retired:
-# it was unattended growth + unattended publishing with no operator in
-# the loop, the same problem the auto-drafted signed readings had, worse
-# (it published). Growth is operator-initiated now — see index.ts's
-# scheduled() comment.
+# NOT fully removed. index.ts's scheduled() default branch is not only an
+# unattended sweep — it is the ONLY dispatcher for work that on-demand,
+# operator-initiated actions enqueue and then return without running
+# inline: a video import (graph/lib/video-intake.ts), record expansion
+# (graph/lib/record-builder.ts), and ZIP/bulk extraction beyond the first
+# three jobs (operator/routes.ts) all leave rows in digest_jobs for this
+# tick to pick up; on-demand research's pass 2 follow-up
+# (graph/lib/deep-research.ts's advanceResearchRun) has no other call
+# site either. Removing the trigger entirely — tried first, caught by
+# review on PR #163 — would have left those operator-initiated actions
+# stuck "queued"/"Researching…" forever with no error, which is worse
+# than the cost this is trying to cut. So: kept, just far less often.
+# every 30 minutes: same drain/settle/research-advance/enrichment logic
+# as before (see index.ts), just 1/15th as often (48 ticks/day instead of
+# 720) — a queued job now waits up to 30 minutes instead of ~2, which
+# nothing operator-facing is latency-sensitive enough to notice.
 #
-# Re-enable by uncommenting the two lines below. Everything else about
-# the Worker (the public site, the operator console, on-demand actions)
-# is untouched — this only stops the unattended background sweep.
-# [triggers]
-# crons = ["*/2 * * * *", "0 12 * * 1"]
+# The weekly monitor-watcher cron ("0 12 * * 1") is dropped, not just
+# slowed: monitors are their own unattended recurring check, not a
+# dispatcher anything on-demand depends on, so there's nothing it would
+# strand by being off. Re-enable it by adding "0 12 * * 1" back into the
+# crons list below if the monitor feature is needed again.
+[triggers]
+crons = ["*/30 * * * *"]
 
 [vars]
 LOG_LEVEL = "info"
