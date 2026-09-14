@@ -92,9 +92,14 @@ describe("public site — Phase 1 skeleton", () => {
     expect(res.headers.get("cache-control")).toContain("immutable");
     expect(res.headers.get("x-styles-hash")).toBeTruthy();
     const css = await res.text();
-    // Sanity: spot-check the design system tokens are present.
-    expect(css).toContain("--pub-paper");
+    // Sanity: spot-check the design system tokens are present. (--pub-* used
+    // to be checked here; that warm-paper set was deleted — it had zero
+    // references anywhere and only looked live.)
     expect(css).toContain("--op-paper");
+    expect(css).toContain("--accent");
+    // One accent, and it is red. The five per-zone hues are gone.
+    expect(css).toContain("#e0433c");
+    expect(css).not.toContain("--z-investigations");
     expect(css.length).toBeGreaterThan(60_000);
   });
 

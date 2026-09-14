@@ -59,3 +59,6 @@ supabase/.temp/
 # scripts/make-film.ts and scripts/render-offline.mjs. Tens of MB each.
 packages/studio/films/**/out/*.webm
 packages/studio/films/strategies/out/*.webm
+
+# Screenshot output from packages/api/scripts/look.mts
+.look/

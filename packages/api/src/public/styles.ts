@@ -20,26 +20,17 @@ export const STYLES_CSS = `/* ==================================================
    ============================================================================ */
 
 :root {
-  /* ---- PUBLIC · warm paper -------------------------------------------- */
-  --pub-paper:    #ecebe9;
-  --pub-paper-2:  #e3e1de;
-  --pub-paper-3:  #d4d1cc;
-  --pub-surface:  #f8f7f5;
-  --pub-ink:      #171614;
-  --pub-ink-2:    #2d2b28;
-  --pub-ink-3:    #56524e;
-  --pub-ink-mute: #837e78;
-  --pub-ink-faint:#aea9a2;
-  --pub-rule:     #d9d6d1;
-  --pub-rule-soft:#e7e4df;
-  --pub-accent:   #3a63a0;     /* muted ink-blue — quieter than before */
-  --pub-accent-2: #2c4d7e;
-  --pub-accent-bg:#e8ecf3;
-  --pub-accent-bd:#c4d1e3;
-
-  /* ---- OPERATOR · warm dark instrument -------------------------------- */
-  --op-paper:     #0d0e11;
-  --op-paper-2:   #16171c;
+  /* ---- Ground · dark ---------------------------------------------------
+     The warm-paper --pub-* set that used to sit here was deleted: it was
+     defined for "legacy embeds that reference it directly", and nothing in
+     the repo referenced any of it. A dead palette that looks live is how a
+     reader of this file ends up designing against the wrong colours. */
+  --op-paper:     #0e1013;
+  --op-paper-2:   #14171a;
+  /* The hover ground. There wasn't one — every list row and card changed
+     only its border on hover, which is why nothing on the site felt like it
+     responded to the pointer. */
+  --op-paper-hover:#191d20;
   --op-paper-3:   #212229;
   --op-paper-4:   #2d2e37;
   --op-surface:   #131419;
@@ -52,12 +43,15 @@ export const STYLES_CSS = `/* ==================================================
   --op-ink-3:     #a5a8b3;
   --op-ink-mute:  #787b86;
   --op-ink-faint: #484a54;
-  --op-rule:      #242630;
-  --op-rule-bright:#353844;
-  --op-accent:    #5d8bc6;     /* cool glow — muted */
-  --op-accent-2:  #7ea6d8;
-  --op-accent-bg: #101c2b;
-  --op-accent-bd: #28425f;
+  --op-rule:      #23272b;
+  --op-rule-bright:#2e3439;
+  /* One accent, and it is red. It was a muted ink-blue, alongside five
+     per-zone accents (teal, pink, green, crimson, another blue) that each
+     claimed a section of the site — six accents is no accent. */
+  --op-accent:    #e0433c;
+  --op-accent-2:  #ef6a63;     /* hover / brighter state */
+  --op-accent-bg: rgba(224,67,60,0.10);
+  --op-accent-bd: #7a2c26;
 
   /* ---- Semantics (register + confidence) — shared --------------------- */
   --confirmed:    #2f7d52;     /* citable, multiply-sourced, high confidence */
@@ -86,9 +80,12 @@ export const STYLES_CSS = `/* ==================================================
   --propose-bd-d: #453564;
 
   /* ---- Type ----------------------------------------------------------- */
-  --sans:  'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --sans:  'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  /* Newsreader stays. The design handoff dropped the serif and set everything
+     in one grotesque; this publication is long-form and a serif reading
+     measure is worth more here than typographic uniformity. */
   --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
-  --mono:  'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+  --mono:  'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
 
   /* ---- Geometry ------------------------------------------------------- */
   --r-sm: 4px;
@@ -110,6 +107,7 @@ export const STYLES_CSS = `/* ==================================================
   color-scheme: dark;
   --paper: var(--op-paper);
   --paper-2: var(--op-paper-2);
+  --paper-hover: var(--op-paper-hover);
   --paper-3: var(--op-paper-3);
   --surface: var(--op-surface);
   --ink: var(--op-ink);
@@ -808,19 +806,14 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
    ============================================================================ */
 
 /* ---- Zone identity (a label + one accent token per neighbourhood) ------ */
+/* --zone-accent used to resolve to one of five per-section hues. They are
+   gone: the publication is two kinds of thing, not five zones, and a site
+   that changes its accent colour per section has no accent colour. The
+   variable itself stays — it's referenced throughout — and now always
+   resolves to the one accent. */
 :root {
   --zone-accent: var(--accent);
-  --z-reference: #2f7d96;
-  --z-investigations: #ab5172;
-  --z-topics: #2f8472;
-  --z-collections: #a8455a;
-  --z-latest: #51689c;
 }
-[data-zone="reference"]    { --zone-accent: var(--z-reference); }
-[data-zone="investigations"]{ --zone-accent: var(--z-investigations); }
-[data-zone="topics"]       { --zone-accent: var(--z-topics); }
-[data-zone="collections"]  { --zone-accent: var(--z-collections); }
-[data-zone="latest"]       { --zone-accent: var(--z-latest); }
 .zone-label {
   display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono);
   font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--zone-accent);
@@ -843,12 +836,12 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10px;
   letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 11px;
 }
+/* The type dot. Every kind used to set its own hue via --td; with one accent
+   there is nothing left for six colours to distinguish, and the label beside
+   the dot already says what the thing is. The dot is now a neutral marker,
+   and --td survives only as the override hook for anything that genuinely
+   needs to stand out. */
 .card-type::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--td, var(--ink-faint)); }
-.t-investigation { --td: var(--z-investigations); }
-.t-entity, .t-profile { --td: var(--z-reference); }
-.t-topic { --td: var(--z-topics); }
-.t-collection { --td: var(--z-collections); }
-.t-thesis { --td: var(--z-investigations); }
 .card-title { font-family: var(--sans); font-weight: 600; font-size: 19px; letter-spacing: -0.02em; line-height: 1.18; color: var(--ink); margin-bottom: 7px; }
 .cardlink:hover .card-title { color: var(--accent-2); }
 .card-dek { font-family: var(--serif); font-size: 14.5px; line-height: 1.5; color: var(--ink-3); margin-bottom: 12px; text-wrap: pretty; }
@@ -957,7 +950,6 @@ details.more > summary:hover { color: var(--accent); }
 /* ============================================================================
    DOCUMENTED RECORD — the hardened forensic template (Piece kind)
    ============================================================================ */
-.t-documented-record { --td: var(--z-investigations); }
 
 /* "What this is / is not" framing box */
 .dr-frame { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; max-width: 880px; margin: 26px 0 40px; }
@@ -1015,7 +1007,9 @@ details.more > summary:hover { color: var(--accent); }
 /* ============================================================================
    PIECE KINDS — Essay (prose-first §5.8) + Research Report
    ============================================================================ */
-.t-essay, .t-research-report { --td: var(--z-investigations); }
+/* The two kinds the publication is made of get the accent dot; everything
+   else stays neutral. */
+.t-essay, .t-research-report, .t-documented-record { --td: var(--accent); }
 
 /* Essay — scaffolding recedes, prose leads */
 .essay-wrap { max-width: 768px; }
@@ -1061,20 +1055,13 @@ details.more > summary:hover { color: var(--accent); }
 /* ============================================================================
    v3.4 — THE LIGHTHOUSE (corpus library · patterns · gap map · timeline)
    ============================================================================ */
-:root { --z-patterns: #6a57a0; --z-library: #46834f; }
-[data-zone="patterns"] { --zone-accent: var(--z-patterns); }
-[data-zone="library"] { --zone-accent: var(--z-library); }
-.t-library { --td: var(--z-library); }
-.t-pattern { --td: var(--z-patterns); }
-.pub-nav-links a[href$="patterns.html"].active::after { background: var(--z-patterns); }
+/* The violet/green zone accents for patterns and library are gone with the
+   rest of the per-zone palette. (The nav rule that lived here keyed off a
+   "patterns.html" href — a static filename this server-rendered site has
+   never served.) */
 
-/* ---- download bar ------------------------------------------------------- */
-.dl-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 28px; padding: 13px 16px; border: 1px solid var(--rule); border-radius: var(--r); background: var(--paper-2); }
-.dl-btn { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: var(--ink); padding: 7px 13px; border: 1px solid var(--accent-bd); border-radius: var(--r-sm); background: var(--surface); white-space: nowrap; transition: background .12s, border-color .12s; }
-.dl-btn:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent-2); }
-.dl-btn svg { stroke: var(--accent); }
-.dl-meta { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
-.dl-pdf { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); line-height: 1.4; }
+/* The .dl-bar download strip is gone — replaced by the sticky .docrail in
+   the v3 block at the end of this sheet. Nothing renders these classes. */
 
 /* ---- recurring-actor seed (entity rail) --------------------------------- */
 .ra-seed { border: 1px solid var(--rule); border-left: 2px solid var(--accent); border-radius: var(--r); background: var(--surface); padding: 14px 15px; }
@@ -1111,7 +1098,7 @@ details.more > summary:hover { color: var(--accent); }
 @media (max-width: 680px) { .inside-list { grid-template-columns: 1fr; } }
 
 /* ---- chain cards -------------------------------------------------------- */
-.chain-card { border: 1px solid var(--rule); border-left: 2px solid var(--z-patterns); border-radius: var(--r-lg); background: var(--surface); padding: 20px 22px; }
+.chain-card { border: 1px solid var(--rule); border-left: 2px solid var(--rule-bright); border-radius: var(--r-lg); background: var(--surface); padding: 20px 22px; }
 .working { border: 1px solid var(--rule); border-radius: var(--r); background: var(--paper-2); overflow: hidden; }
 .working > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 15px; }
 .working > summary::-webkit-details-marker { display: none; }
@@ -1125,7 +1112,7 @@ details.more > summary:hover { color: var(--accent); }
 .wk-label { font-size: 13px; color: var(--ink); line-height: 1.3; }
 
 /* ---- pattern cards / pages ---------------------------------------------- */
-.pattern-feature { border-left: 3px solid var(--z-patterns); padding: 24px 26px; }
+.pattern-feature { border-left: 3px solid var(--rule-bright); padding: 24px 26px; }
 .cg-pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--rule); color: var(--ink-mute); }
 .cg-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-faint); display: inline-block; }
 .cg-dot.high { background: var(--confirmed); } .cg-dot.medium { background: var(--accent); } .cg-dot.exploratory { background: var(--ink-mute); }
@@ -1595,7 +1582,10 @@ details.seam-file > summary:hover .open-tag { color: var(--ink); border-color: v
 details.seam-file[open] .open-tag .when-closed { display: none; }
 details.seam-file:not([open]) .open-tag .when-open { display: none; }
 .reading {
-  margin-top: 26px; border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+  /* The left edge was a 2px accent stripe. It read as a tasteful detail in
+     muted blue and reads as a long red bar down the page in the new accent —
+     the loudest thing on a page whose job is to be read. */
+  margin-top: 26px; border: 1px solid var(--rule); border-left: 2px solid var(--rule-bright);
   border-radius: var(--r-lg); background: var(--paper-2); padding: 26px 22px 24px;
   box-shadow: 0 24px 52px -28px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.02);
 }
@@ -1794,6 +1784,192 @@ a.plain:hover { color: var(--accent-2); }
   .subject-grid { display: block !important; }
   .subject-side { margin-top: 24px; }
 }
+
+/* ============================================================================
+   v3 — THE PUBLICATION
+   The component vocabulary the essays/research/about surfaces are built from.
+   Named classes rather than per-renderer inline styles, so the pages share
+   one set of decisions instead of drifting into near-identical variants.
+   ============================================================================ */
+
+/* ---- page head ---------------------------------------------------------- */
+.phead { max-width: 760px; margin: 0 0 44px; }
+.eyebrow {
+  font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 14px;
+}
+.phead h1 {
+  font-family: var(--sans); font-weight: 700; font-size: clamp(30px, 4vw, 40px);
+  line-height: 1.06; letter-spacing: -0.03em; color: var(--ink); margin: 0;
+}
+.phead-dek {
+  margin: 16px 0 0; font-family: var(--serif); font-size: 17.5px; line-height: 1.55;
+  color: var(--ink-3); text-wrap: pretty;
+}
+.sec { max-width: 760px; margin: 0 0 40px; }
+.sec h2 {
+  font-family: var(--sans); font-weight: 600; font-size: 21px; letter-spacing: -0.015em;
+  color: var(--ink); margin: 0 0 14px;
+}
+.sec h3 { font-family: var(--sans); font-weight: 600; font-size: 15px; color: var(--ink); margin: 0 0 7px; }
+.sec p { font-family: var(--serif); font-size: 16.5px; line-height: 1.65; color: var(--ink-2); margin: 0 0 14px; }
+.sec p.lead { color: var(--ink); }
+.sec code { font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
+.sec a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-bd); }
+.sec a:hover { color: var(--accent-2); border-bottom-color: var(--accent-2); }
+
+/* ---- dense list rows (essays index) ------------------------------------
+   date | title + dek | read time. A table in behaviour, links in markup —
+   each row is one <a>, so the whole row is the hit area. */
+.tbl { border-top: 1px solid var(--rule); max-width: 880px; }
+.row {
+  display: grid; grid-template-columns: 110px minmax(0,1fr) 76px; gap: 20px;
+  align-items: baseline; padding: 17px 12px; border-bottom: 1px solid var(--rule);
+  text-decoration: none; transition: background .12s;
+}
+.row:hover { background: var(--paper-hover); }
+.row-date, .row-meta {
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); white-space: nowrap;
+}
+.row-meta { text-align: right; }
+.row-title {
+  font-family: var(--sans); font-weight: 600; font-size: 17px; letter-spacing: -0.015em;
+  line-height: 1.25; color: var(--ink); transition: color .12s;
+}
+.row:hover .row-title { color: var(--accent); }
+.row-dek {
+  font-family: var(--serif); font-size: 14.5px; line-height: 1.45; color: var(--ink-3);
+  margin-top: 4px; text-wrap: pretty;
+}
+@media (max-width: 760px) {
+  .row { grid-template-columns: 1fr; gap: 5px; padding: 15px 4px; }
+  .row-meta { display: none; }
+}
+
+/* ---- research card grid ------------------------------------------------- */
+.rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr)); gap: 1px;
+  background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
+.rcard {
+  display: flex; flex-direction: column; gap: 9px; background: var(--paper-2);
+  padding: 20px 21px 17px; text-decoration: none; transition: background .12s;
+}
+.rcard:hover { background: var(--paper-hover); }
+.rcard-badge {
+  font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: 0.15em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.rcard-title {
+  font-family: var(--sans); font-weight: 600; font-size: 16.5px; line-height: 1.22;
+  letter-spacing: -0.015em; color: var(--ink); transition: color .12s;
+}
+.rcard:hover .rcard-title { color: var(--accent); }
+.rcard-note { font-family: var(--serif); font-size: 14px; line-height: 1.45; color: var(--ink-3); text-wrap: pretty; }
+.rcard-meta {
+  margin-top: auto; padding-top: 10px; display: flex; gap: 12px;
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-mute);
+}
+
+/* ---- state strip (homepage) --------------------------------------------
+   1px gaps over the rule colour, so the dividers ARE the grid gap. */
+.state {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule);
+  border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; margin: 0 0 48px;
+}
+.state-cell { background: var(--paper-2); padding: 17px 19px; }
+.state-n { font-family: var(--sans); font-weight: 700; font-size: 27px; line-height: 1; color: var(--ink); letter-spacing: -0.02em; }
+.state-k {
+  margin-top: 7px; font-family: var(--mono); font-size: 8.5px; font-weight: 500;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mute);
+}
+@media (max-width: 760px) { .state { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---- document layout: content + sticky rail ----------------------------
+   The page container widens when it carries a rail: .container.reading is
+   920px, which is a good measure for one column and too narrow once 300px
+   of it is a sidebar — the prose ends up at ~570px and reads cramped. */
+.container.reading.withrail { max-width: 1160px; }
+.docgrid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 54px; align-items: start; }
+.docrail { position: sticky; top: 26px; display: flex; flex-direction: column; gap: 3px; }
+.docrail-row {
+  display: flex; justify-content: space-between; gap: 12px; padding: 9px 0;
+  border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 11.5px;
+}
+.docrail-row dt { color: var(--ink-mute); }
+.docrail-row dd { margin: 0; color: var(--ink-2); text-align: right; }
+.docrail-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.docrail-btn {
+  display: block; text-align: center; padding: 10px 14px; border: 1px solid var(--rule-bright);
+  border-radius: var(--r-sm); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-2); text-decoration: none; transition: border-color .12s, color .12s;
+}
+.docrail-btn:hover { border-color: var(--accent); color: var(--accent); }
+@media (max-width: 900px) {
+  .docgrid { grid-template-columns: 1fr; gap: 32px; }
+  .docrail { position: static; }
+}
+
+/* ---- the answer-first block --------------------------------------------
+   Also the speakable target in the page's structured data, so it is the one
+   passage that has to stand alone. */
+.tldr {
+  border-left: 2px solid var(--accent); background: var(--accent-bg);
+  padding: 16px 20px; margin: 0 0 30px; border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.tldr-k {
+  font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--accent); margin-bottom: 9px;
+}
+.tldr p { font-family: var(--serif); font-size: 16.5px; line-height: 1.6; color: var(--ink); margin: 0; text-wrap: pretty; }
+
+/* ---- table of contents -------------------------------------------------- */
+.toc { border: 1px solid var(--rule); border-radius: var(--r); padding: 17px 20px; margin: 0 0 34px; background: var(--paper-2); }
+.toc-k {
+  font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--ink-mute); margin-bottom: 11px;
+}
+.toc ol { margin: 0; padding-left: 20px; }
+.toc li { margin: 0 0 7px; }
+.toc a { font-family: var(--sans); font-size: 14.5px; line-height: 1.35; color: var(--ink-2); text-decoration: none; }
+.toc a:hover { color: var(--accent); }
+
+/* ---- citation box ------------------------------------------------------
+   Named .citebox, not .cite — .cite is already an inline citation chip
+   (a flex row with a dot ::before, defined near the top of this sheet). */
+.citebox { border: 1px solid var(--rule); border-radius: var(--r); padding: 16px 19px; margin: 34px 0 0; }
+.citebox-k {
+  font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--ink-mute); margin-bottom: 10px;
+}
+.citebox pre {
+  margin: 0 0 12px; padding: 11px 13px; background: var(--paper); border: 1px solid var(--rule);
+  border-radius: var(--r-sm); font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+  color: var(--ink-2); white-space: pre-wrap; word-break: break-word; overflow-x: auto;
+}
+.citebox pre:last-child { margin-bottom: 0; }
+
+/* ---- standards grid (about) --------------------------------------------- */
+.std { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule);
+  border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
+.std-card { background: var(--paper-2); padding: 19px 21px; }
+.std-card h3 { margin: 0 0 7px; }
+.std-card p { font-family: var(--serif); font-size: 14.5px; line-height: 1.5; color: var(--ink-3); margin: 0; }
+@media (max-width: 860px) { .std { grid-template-columns: 1fr; } }
+
+/* ---- newsletter --------------------------------------------------------- */
+.sub-form { display: flex; gap: 8px; margin-top: 12px; max-width: 420px; }
+.sub-form input {
+  flex: 1; min-width: 0; padding: 10px 13px; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--rule-bright); border-radius: var(--r-sm); font-family: var(--sans); font-size: 14px;
+}
+.sub-form input::placeholder { color: var(--ink-mute); }
+.sub-form input:focus { outline: 1px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.sub-form button {
+  padding: 10px 17px; border: 1px solid var(--accent); background: var(--accent); color: #fff;
+  border-radius: var(--r-sm); font-family: var(--mono); font-size: 11px; letter-spacing: 0.07em;
+  text-transform: uppercase; cursor: pointer; white-space: nowrap;
+}
+.sub-form button:hover { background: var(--accent-2); border-color: var(--accent-2); }
+@media (max-width: 520px) { .sub-form { flex-direction: column; } }
 
 `;
 
