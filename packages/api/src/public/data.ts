@@ -164,6 +164,122 @@ export async function listLibrary(db: D1Database, userId: string): Promise<Piece
   );
 }
 
+// ---- The two public doors -------------------------------------------------
+//
+// Essays and Research are the whole publication now. Both read `pieces`;
+// the only difference is `kind`. Uploads land as 'research-report' (see
+// operator/routes.ts createAndExtract); 'essay' is set when an uploaded
+// .md matches the essay convention.
+//
+// Only published/canonical surface here, so a working-material row never
+// reaches an index or the sitemap.
+
+export const ESSAY_KINDS = ["essay"] as const;
+export const RESEARCH_KINDS = ["research-report", "documented-record"] as const;
+
+// An index row carries enough to render a list entry without loading the
+// body: `body_chars` is LENGTH(body_md), which is all a read-time estimate
+// needs and is far cheaper than selecting every document's full text.
+export interface IndexPiece extends PieceSummary {
+  body_chars: number;
+  updated_at: string;
+}
+
+export function readMinutes(bodyChars: number): number {
+  return Math.max(1, Math.round(bodyChars / 5 / 220));
+}
+
+async function listPiecesOfKind(
+  db: D1Database,
+  userId: string,
+  kinds: readonly string[],
+): Promise<IndexPiece[]> {
+  const placeholders = kinds.map(() => "?").join(",");
+  return all<IndexPiece>(
+    db,
+    `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
+            byline, published_at, signed_by, updated_at,
+            LENGTH(body_md) AS body_chars
+       FROM pieces
+      WHERE user_id = ? AND publication_status IN ('published','canonical')
+        AND kind IN (${placeholders})
+      ORDER BY COALESCE(published_at, created_at) DESC`,
+    [userId, ...kinds],
+  );
+}
+
+export async function listEssays(db: D1Database, userId: string): Promise<IndexPiece[]> {
+  return listPiecesOfKind(db, userId, ESSAY_KINDS);
+}
+
+export async function listResearch(db: D1Database, userId: string): Promise<IndexPiece[]> {
+  return listPiecesOfKind(db, userId, RESEARCH_KINDS);
+}
+
+export interface PublishedPieceRef {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  kind: string;
+  updated_at: string;
+  published_at: string | null;
+}
+
+// Every publicly-visible piece, for the sitemap, llms.txt and the feed.
+// One query behind all three so those three can never disagree about what
+// is published.
+export async function listPublishedPieces(
+  db: D1Database,
+  userId: string,
+): Promise<PublishedPieceRef[]> {
+  return all<PublishedPieceRef>(
+    db,
+    `SELECT slug, title, subtitle, kind, updated_at, published_at
+       FROM pieces
+      WHERE user_id = ? AND publication_status IN ('published','canonical')
+      ORDER BY COALESCE(published_at, created_at) DESC
+      LIMIT 5000`,
+    [userId],
+  );
+}
+
+// Counts for the homepage state strip.
+export async function publicationCounts(
+  db: D1Database,
+  userId: string,
+): Promise<{ essays: number; research: number; sources: number; lastPublished: string | null }> {
+  const [essays, research, sources, last] = await Promise.all([
+    one<{ n: number }>(
+      db,
+      `SELECT COUNT(*) AS n FROM pieces WHERE user_id = ?
+         AND publication_status IN ('published','canonical') AND kind = 'essay'`,
+      [userId],
+    ),
+    one<{ n: number }>(
+      db,
+      `SELECT COUNT(*) AS n FROM pieces WHERE user_id = ?
+         AND publication_status IN ('published','canonical')
+         AND kind IN ('research-report','documented-record')`,
+      [userId],
+    ),
+    one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM sources WHERE user_id = ?", [userId]).catch(
+      () => ({ n: 0 }),
+    ),
+    one<{ d: string | null }>(
+      db,
+      `SELECT MAX(COALESCE(published_at, created_at)) AS d FROM pieces
+        WHERE user_id = ? AND publication_status IN ('published','canonical')`,
+      [userId],
+    ),
+  ]);
+  return {
+    essays: essays?.n ?? 0,
+    research: research?.n ?? 0,
+    sources: sources?.n ?? 0,
+    lastPublished: last?.d ? last.d.slice(0, 10) : null,
+  };
+}
+
 // Topics a piece belongs to — for the piece page's "filed under" line.
 export async function topicsForPiece(
   db: D1Database,

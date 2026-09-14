@@ -9,12 +9,15 @@
 import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
 import { all, one } from "../lib/d1";
-import { getPieceBySlug, resolveOperatorId } from "./data";
+import { getPieceBySlug, listPublishedPieces, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
+import { feedJson, llmsTxt, pieceMarkdown } from "./machine";
+import { renderAbout } from "./render/about";
 import { renderActivityPage } from "./render/activity";
 import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
 import { renderHome } from "./render/home";
+import { renderEssaysIndex, renderResearchIndex } from "./render/indexes";
 import { renderInstrumentsIndex } from "./render/instruments";
 import { renderInvestigationsIndex, renderLibraryIndex } from "./render/investigations";
 import { renderMethodology } from "./render/methodology";
@@ -38,17 +41,26 @@ const app = new Hono<AuthContext>();
 // ---- citation tracker (spec Part 14 #10) ----------------------------------
 // AI crawlers fetching public pages = the leading indicator of citation.
 // Best-effort fire-and-forget logging; never blocks or fails a render.
-const AI_BOTS: Array<[RegExp, string]> = [
-  [/GPTBot/i, "gptbot"],
-  [/OAI-SearchBot/i, "oai-search"],
-  [/ChatGPT-User/i, "chatgpt-user"],
-  [/ClaudeBot|Claude-Web|anthropic-ai/i, "claudebot"],
-  [/PerplexityBot/i, "perplexity"],
-  [/Google-Extended/i, "google-extended"],
-  [/Bytespider/i, "bytespider"],
-  [/CCBot/i, "ccbot"],
-  [/Amazonbot/i, "amazonbot"],
-  [/cohere-ai/i, "cohere"],
+// One list, two consumers: the `agents` are what robots.txt names in its
+// allow-list, the `re` is what the tracker below matches a live User-Agent
+// against. They were separate before, which meant the file could invite a
+// crawler the analytics didn't count, or count one it never invited.
+const AI_CRAWLERS: Array<{ agents: string[]; re: RegExp; key: string }> = [
+  { agents: ["GPTBot"], re: /GPTBot/i, key: "gptbot" },
+  { agents: ["OAI-SearchBot"], re: /OAI-SearchBot/i, key: "oai-search" },
+  { agents: ["ChatGPT-User"], re: /ChatGPT-User/i, key: "chatgpt-user" },
+  {
+    agents: ["ClaudeBot", "Claude-Web", "Claude-SearchBot", "anthropic-ai"],
+    re: /ClaudeBot|Claude-Web|Claude-SearchBot|anthropic-ai/i,
+    key: "claudebot",
+  },
+  { agents: ["PerplexityBot"], re: /PerplexityBot/i, key: "perplexity" },
+  { agents: ["Google-Extended"], re: /Google-Extended/i, key: "google-extended" },
+  { agents: ["Applebot-Extended"], re: /Applebot-Extended/i, key: "applebot-extended" },
+  { agents: ["Bytespider"], re: /Bytespider/i, key: "bytespider" },
+  { agents: ["CCBot"], re: /CCBot/i, key: "ccbot" },
+  { agents: ["Amazonbot"], re: /Amazonbot/i, key: "amazonbot" },
+  { agents: ["cohere-ai"], re: /cohere-ai/i, key: "cohere" },
 ];
 
 app.use("*", async (c, next) => {
@@ -56,13 +68,13 @@ app.use("*", async (c, next) => {
   try {
     const ua = c.req.header("user-agent") ?? "";
     if (!ua) return;
-    const hit = AI_BOTS.find(([re]) => re.test(ua));
+    const hit = AI_CRAWLERS.find((b) => b.re.test(ua));
     if (!hit) return;
     const path = new URL(c.req.url).pathname;
     if (path === "/styles.css" || path.startsWith("/favicon")) return;
     c.executionCtx.waitUntil(
       c.env.DB.prepare("INSERT INTO citation_hits (id, path, bot, user_agent) VALUES (?, ?, ?, ?)")
-        .bind(crypto.randomUUID(), path, hit[1], ua.slice(0, 300))
+        .bind(crypto.randomUUID(), path, hit.key, ua.slice(0, 300))
         .run()
         .then(() => {}),
     );
@@ -215,11 +227,34 @@ app.get("/styles.css", () => {
 // being able to enumerate the site; before this, there was nothing to
 // enumerate against. /op/* stays disallowed (Cloudflare Access gates it
 // anyway, but no reason to advertise it to a crawler).
+// Crawl access is a decision here, not an inherited default. The content is
+// CC BY 4.0 and being read — by people and by answer engines — is the entire
+// point, so every AI crawler we track is also explicitly invited.
+//
+// ⚠️ Cloudflare blocks AI crawlers by default on zones created after July
+// 2025. This file says the opposite, and a file cannot overrule the edge:
+// if "Block AI Bots" is on for the canopticon.com zone, these crawlers get a
+// 403 before the Worker ever runs and every allow line below is decorative.
+// Verify with: curl -A GPTBot https://canopticon.com/
 app.get("/robots.txt", () => {
+  const aiAgents = AI_CRAWLERS.flatMap((b) => b.agents).map((a) => `User-agent: ${a}`);
   return new Response(
-    ["User-agent: *", "Disallow: /op/", "Sitemap: https://canopticon.com/sitemap.xml", ""].join(
-      "\n",
-    ),
+    [
+      "# canopticon.com",
+      "# Everything published here is CC BY 4.0. Being cited is the point.",
+      "",
+      "User-agent: *",
+      "Disallow: /op/",
+      "Allow: /",
+      "",
+      "# AI crawlers — explicitly allowed, not merely un-blocked.",
+      ...aiAgents,
+      "Disallow: /op/",
+      "Allow: /",
+      "",
+      "Sitemap: https://canopticon.com/sitemap.xml",
+      "",
+    ].join("\n"),
     {
       headers: {
         "content-type": "text/plain; charset=utf-8",
@@ -229,23 +264,32 @@ app.get("/robots.txt", () => {
   );
 });
 
+// The sitemap enumerated `pages` (subject pages) and NOT `pieces` — which
+// meant every uploaded research document and every essay, the entire actual
+// publication, was invisible to search engines. Pieces come first now;
+// subject pages follow only where a reading has actually been signed, since
+// an unsigned subject page is scaffolding and thin pages are a ranking
+// liability rather than a neutral one.
 app.get("/sitemap.xml", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  const staticUrls = ["/", "/topics", "/investigations", "/library", "/method", "/how-it-works"];
+  const staticUrls = ["/", "/essays", "/research", "/about", "/method"];
   let pageUrls: Array<{ loc: string; lastmod: string }> = [];
   if (userId) {
+    const pieces = await listPublishedPieces(c.env.DB, userId).catch(() => []);
+    pageUrls = pieces.map((p) => ({
+      loc: `/p/${p.slug}`,
+      lastmod: (p.updated_at || p.published_at || "").slice(0, 10),
+    }));
     const rows = await all<{ slug: string; updated_at: string; signed_status: string }>(
       c.env.DB,
-      "SELECT slug, updated_at, signed_status FROM pages WHERE user_id = ? ORDER BY updated_at DESC LIMIT 5000",
+      `SELECT slug, updated_at, signed_status FROM pages
+        WHERE user_id = ? AND signed_status = 'published'
+        ORDER BY updated_at DESC LIMIT 5000`,
       [userId],
     ).catch(() => []);
-    pageUrls = rows.flatMap((r) => {
-      const urls = [{ loc: `/s/${r.slug}`, lastmod: r.updated_at.slice(0, 10) }];
-      if (r.signed_status === "published") {
-        urls.push({ loc: `/s/${r.slug}?mode=signed`, lastmod: r.updated_at.slice(0, 10) });
-      }
-      return urls;
-    });
+    pageUrls.push(
+      ...rows.map((r) => ({ loc: `/s/${r.slug}`, lastmod: r.updated_at.slice(0, 10) })),
+    );
   }
   const urlEntries = [...staticUrls.map((loc) => ({ loc, lastmod: "" })), ...pageUrls]
     .map(
@@ -274,6 +318,16 @@ app.get("/sitemap.xml", async (c) => {
 app.get("/", async (c) =>
   htmlResponse(await renderHome(c.env, { isOperator: c.get("is_operator") })),
 );
+
+// ---- The two doors --------------------------------------------------------
+//
+// Essays and Research are the publication. Everything else below this point
+// is either a supporting surface (a document page, a quote receipt, a
+// timeline) or a route kept alive so existing links don't 404 — see the
+// "unlinked but alive" block further down.
+
+app.get("/essays", async (c) => htmlResponse(await renderEssaysIndex(c.env)));
+app.get("/research", async (c) => htmlResponse(await renderResearchIndex(c.env)));
 
 // ---- Topics ---------------------------------------------------------------
 
@@ -327,7 +381,27 @@ app.get("/investigations/:slug", async (c) => {
 // slug collision (they were the original /p/ tenant); subject pages fall
 // back to a /s/ alias below for unambiguous links.
 app.get("/p/:slug", async (c) => {
-  const slug = c.req.param("slug");
+  const raw = c.req.param("slug");
+  // The markdown twin is handled here rather than on its own `/p/:slug.md`
+  // route. It HAD its own route, registered after this one — so every
+  // request for a twin matched `/p/:slug` with the ".md" still attached,
+  // found no piece by that slug, and 404'd. The endpoint had never worked.
+  // Folding it in means route order can't shadow it again.
+  if (raw.endsWith(".md")) {
+    const mdSlug = raw.slice(0, -3);
+    const userId = await resolveOperatorId(c.env.DB);
+    const piece = userId ? await getPieceBySlug(c.env.DB, userId, mdSlug) : null;
+    if (!piece || piece.publication_status === "working-material") {
+      return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+    }
+    return new Response(pieceMarkdown(piece), {
+      headers: {
+        "content-type": "text/markdown; charset=utf-8",
+        "cache-control": "public, max-age=300",
+      },
+    });
+  }
+  const slug = raw;
   // Try the piece renderer first (original semantics).
   const html = await renderPiece(c.env, slug);
   if (html) return htmlResponse(html);
@@ -364,18 +438,29 @@ app.get("/s/:slug", async (c) => {
 // Clean-markdown download — the "source of record" button on every
 // piece page links here. Returns the raw body_md with a Content-Disposition
 // that triggers a download in browsers.
-app.get("/p/:slug.md", async (c) => {
-  const slug = (c.req.param("slug") ?? "").replace(/\.md$/, "");
-  if (!slug) return c.notFound();
+// ---- the machine face -----------------------------------------------------
+//
+// llms.txt and feed.json are generated from the same listPublishedPieces()
+// query the sitemap uses, so the three can never disagree about what exists.
+
+app.get("/llms.txt", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  if (!userId) return c.notFound();
-  const piece = await getPieceBySlug(c.env.DB, userId, slug);
-  if (!piece || piece.publication_status === "working-material") return c.notFound();
-  return new Response(piece.body_md ?? "", {
+  const pieces = userId ? await listPublishedPieces(c.env.DB, userId).catch(() => []) : [];
+  return new Response(llmsTxt(pieces), {
     headers: {
-      "content-type": "text/markdown; charset=utf-8",
-      "content-disposition": `attachment; filename="${slug}.md"`,
-      "cache-control": "public, max-age=300",
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "public, max-age=3600",
+    },
+  });
+});
+
+app.get("/feed.json", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  const pieces = userId ? await listPublishedPieces(c.env.DB, userId).catch(() => []) : [];
+  return new Response(feedJson(pieces), {
+    headers: {
+      "content-type": "application/feed+json; charset=utf-8",
+      "cache-control": "public, max-age=3600",
     },
   });
 });
@@ -556,7 +641,12 @@ app.get("/patterns", (c) => c.redirect("/investigations", 301));
 
 // ---- Library --------------------------------------------------------------
 
+// /library is now the OPERATOR's working surface, not a public door: it
+// lists working-material alongside published pieces and carries the upload
+// dropzone. A logged-out visitor asking for it wants the published research,
+// so send them there rather than showing them a second, messier copy of it.
 app.get("/library", async (c) => {
+  if (!c.get("is_operator")) return c.redirect("/research", 301);
   const ingested = c.req.query("ingested");
   const error = c.req.query("error");
   const importing = c.req.query("importing");
@@ -585,9 +675,13 @@ app.get("/briefs/:slug", async (c) => {
 
 // ---- Utility pages (still placeholders until trailing Phase 2) -----------
 
-// Method — how verification works, in plain words. Absorbs About.
+// About is a real page again. It used to 301 to /method, which left the site
+// with a page on how verification works and none on what the site is — the
+// first thing both a reader and an answer engine want to know.
+app.get("/about", () => htmlResponse(renderAbout()));
+
+// Method — how verification works, in plain words. Linked from /about.
 app.get("/method", () => htmlResponse(renderMethodology()));
-app.get("/about", (c) => c.redirect("/method", 301));
 
 app.get("/methodology", (c) => c.redirect("/method", 301));
 

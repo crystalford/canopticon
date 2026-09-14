@@ -54,13 +54,17 @@ describe("public site — Phase 1 skeleton", () => {
   });
 
   it("each primary destination renders real surfaces without JS", async () => {
-    for (const path of ["/topics", "/investigations", "/library"]) {
+    // The three doors are Essays, Research and About. /topics and
+    // /investigations still resolve — they are unlinked, not removed — so they
+    // are checked here too, to keep old inbound links from rotting silently.
+    for (const path of ["/essays", "/research", "/topics", "/investigations"]) {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(200);
       const html = await res.text();
-      // The Record shell renders server-side (wordmark + three-door nav).
+      // The Record shell renders server-side (wordmark + nav).
       expect(html, `path ${path} shell`).toContain('class="wordmark"');
-      expect(html, `path ${path} nav`).toContain(">Investigations<");
+      expect(html, `path ${path} nav`).toContain(">Essays<");
+      expect(html, `path ${path} nav`).toContain(">Research<");
       // Empty corpus → graceful empty state, not a crash.
       expect(html, `path ${path} empty state`).toMatch(/No .* yet|is empty|No published/i);
       // Confirms no client-side rendering needed — content sits in HTML.

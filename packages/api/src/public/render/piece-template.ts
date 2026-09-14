@@ -22,6 +22,7 @@ import {
   topicsForPiece,
 } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
+import { isEssay, pieceJsonLd, pieceMarkdownUrl, pieceUrl } from "../machine";
 
 // ---- public entry point -----------------------------------------------
 
@@ -43,12 +44,21 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
     fed,
   });
 
+  // The piece page emitted no structured data at all, while subject pages and
+  // every arrangement did — the page type the publication is actually made of
+  // was the least machine-legible one on the site.
+  const essay = isEssay(piece.kind);
   return renderPage({
     title: piece.title,
     description: piece.subtitle ?? `${piece.title} — a Canopticon piece.`,
-    body,
-    activeNav: isEditorialKind(piece.kind) ? "/investigations" : "/library",
-    zone: isEditorialKind(piece.kind) ? "investigations" : "library",
+    body: `${body}\n${pieceJsonLd(piece)}`,
+    activeNav: essay ? "/essays" : "/research",
+    zone: essay ? "essays" : "research",
+    canonical: pieceUrl(piece.slug),
+    ogType: "article",
+    markdownUrl: pieceMarkdownUrl(piece.slug),
+    publishedTime: piece.published_at ?? piece.created_at,
+    modifiedTime: piece.updated_at,
   });
 }
 
