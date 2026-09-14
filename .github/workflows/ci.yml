@@ -97,13 +97,44 @@ jobs:
             for p in api video blindspot studio; do echo "$p=true" >> "$GITHUB_OUTPUT"; done
             exit 0
           fi
+          # The Record's migrations live in `supabase/migrations/`; every other
+          # package has its own `-<pkg>` directory beside it. The optional
+          # group this used to use, `supabase/migrations(-$p)?/`, matched the
+          # BARE path for all four packages — so one API migration marked
+          # video changed and ran the container build this step exists to
+          # skip. Caught live on the first PR to add a file under
+          # `supabase/migrations/`: it failed there on runner disk space, not
+          # on anything in the diff.
           for p in api video blindspot studio; do
-            if echo "$CHANGED" | grep -qE "^(packages/$p/|supabase/migrations(-$p)?/)"; then
+            if [ "$p" = "api" ]; then MIGRATIONS="supabase/migrations/"; else MIGRATIONS="supabase/migrations-$p/"; fi
+            if echo "$CHANGED" | grep -qE "^(packages/$p/|$MIGRATIONS)"; then
               echo "$p=true" >> "$GITHUB_OUTPUT"
             else
               echo "$p=false" >> "$GITHUB_OUTPUT"
             fi
           done
+
+      # The video Worker's dry run builds `Dockerfile.video-renderer`, and its
+      # torch + whisperx layer needs several GB more than an ubuntu-latest
+      # runner has left once the preinstalled toolchains are accounted for. It
+      # failed here on "No space left on device" with 29 MB free, in a layer
+      # no diff had touched — a red X that says nothing about the change.
+      # None of these directories is used by this job. Only the CodeQL subtree
+      # of the tool cache goes: the rest holds the Node and pnpm this job is
+      # running on.
+      - name: Free runner disk for the container build
+        if: steps.changed.outputs.video == 'true'
+        run: |
+          set -euo pipefail
+          echo "before:"; df -h / | tail -1
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /usr/local/share/boost \
+            /opt/hostedtoolcache/CodeQL
+          echo "after:"; df -h / | tail -1
 
       - name: API bundle (wrangler dry-run)
         if: steps.changed.outputs.api == 'true'
