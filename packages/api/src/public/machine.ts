@@ -246,7 +246,12 @@ export function pieceMarkdown(piece: PieceDetail): string {
 
 type LlmsEntry = PublishedPieceRef;
 
-export function llmsTxt(entries: LlmsEntry[]): string {
+export interface AnswerEntry {
+  question: string;
+  slug: string;
+}
+
+export function llmsTxt(entries: LlmsEntry[], answers: AnswerEntry[] = []): string {
   const essays = entries.filter((e) => isEssay(e.kind));
   const research = entries.filter((e) => !isEssay(e.kind));
   const line = (e: LlmsEntry) =>
@@ -265,6 +270,15 @@ export function llmsTxt(entries: LlmsEntry[]): string {
   }
   if (research.length) {
     parts.push("## Research", "", ...research.map(line), "");
+  }
+  if (answers.length) {
+    // Listed as questions, because that is the form a retrieval query takes.
+    parts.push(
+      "## Answers",
+      "",
+      ...answers.map((a) => `- [${a.question}](${SITE}/answers/${a.slug})`),
+      "",
+    );
   }
   parts.push(
     "## Optional",

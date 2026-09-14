@@ -1270,6 +1270,41 @@ app.post("/library/research/:id/discard", async (c) => {
 // no caller at all and anything left queued — zip entries past the first
 // three, chiefly — was stranded permanently and silently. This is the
 // replacement: the operator presses a button, a bounded batch runs.
+// Build the citable atoms for one document: findings and questions.
+//
+// Explicitly a button, not a hook on upload. It costs several model calls, and
+// the operator should see what a document produced before any of it acquires a
+// URL — human review at the document level is one of the properties that keeps
+// generated pages on the right side of the scaled-content line.
+app.post("/library/:id/extract-atoms", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const pieceId = c.req.param("id");
+  const { extractAeoAtoms } = await import("../graph/lib/aeo-extract");
+  try {
+    const stats = await extractAeoAtoms(c.env, userId, pieceId);
+    return c.redirect(
+      `/library?atoms=${stats.findings}.${stats.questions_new}.${stats.questions_merged}.${stats.killed}`,
+    );
+  } catch (e) {
+    return c.redirect(`/library?error=${encodeURIComponent(String(e).slice(0, 180))}`);
+  }
+});
+
+// Promote one proposed question to a public page. The gate runs here, inside
+// publishQuestion, and refuses rather than publishing something thin.
+app.post("/answers/:id/publish", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { publishQuestion } = await import("../graph/lib/aeo-extract");
+  const res = await publishQuestion(c.env, userId, c.req.param("id"));
+  return c.redirect(
+    res.ok
+      ? "/library?published=1"
+      : `/library?error=${encodeURIComponent(res.reason ?? "refused")}`,
+  );
+});
+
 app.post("/library/drain", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");

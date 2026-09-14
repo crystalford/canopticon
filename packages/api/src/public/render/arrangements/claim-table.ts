@@ -163,25 +163,24 @@ export async function renderClaimTablePage(env: PublicEnv, slug: string): Promis
   const claims = await loadClaims(env, subject);
   const inner = renderClaimTableBlock(claims);
 
-  // schema.org ClaimReview per row — AI engines can lift individual claims
-  // with attribution + verbatim source. itemReviewed is the Claim; author is
-  // the actor who made it; reviewBody is our balance line.
+  // This emitted ClaimReview per row. It shouldn't have.
+  //
+  // ClaimReview is restricted to publishers in Google's fact-check programme —
+  // algorithmically-determined authoritative fact-checking organisations — and
+  // the rich result was retired in June 2025 regardless. Emitting it is a claim
+  // to a standing this publication does not have, and it renders nothing.
+  //
+  // Plain `Claim` is left: valid schema.org, honest about what these rows are
+  // (attributed assertions, not adjudications), and `isBasedOn` carries the
+  // provenance that actually matters.
   const jsonLd = JSON.stringify({
     "@context": "https://schema.org",
     "@graph": claims.slice(0, 25).map((c, i) => ({
-      "@type": "ClaimReview",
+      "@type": "Claim",
       "@id": `https://canopticon.com/ct/${subject.slug}#claim-${i}`,
-      itemReviewed: {
-        "@type": "Claim",
-        text: c.label,
-        ...(c.actor ? { author: { "@type": "Person", name: c.actor } } : {}),
-      },
-      reviewBody:
-        c.rank === "contested"
-          ? `Contested in the corpus (evidence balance ${c.evidence_balance >= 0 ? "+" : ""}${c.evidence_balance.toFixed(1)}).`
-          : `Stance: ${c.stance}; evidence balance ${c.evidence_balance >= 0 ? "+" : ""}${c.evidence_balance.toFixed(1)}.`,
-      author: { "@id": "https://canopticon.com/#org" },
-      ...(c.piece_slug ? { isBasedOn: `https://canopticon.com/library/${c.piece_slug}` } : {}),
+      text: c.label,
+      ...(c.actor ? { author: { "@type": "Person", name: c.actor } } : {}),
+      ...(c.piece_slug ? { isBasedOn: `https://canopticon.com/p/${c.piece_slug}` } : {}),
     })),
   }).replace(/<\/script/gi, "<\\/script");
 

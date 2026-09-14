@@ -2,6 +2,7 @@
 // archive). The piece page itself is rendered by piece-template.ts, not
 // here — see that file for the public face of a single document.
 
+import * as GATE from "../../lib/aeo";
 import { looksLikeMachineFilename } from "../../lib/title";
 import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
 import { escapeHtml, renderPage } from "../layout";
@@ -274,6 +275,52 @@ ${filterRow}
 // machine-filename shape (long, no spaces, a file extension or a uuid-ish
 // segment) and show a plain placeholder with the real filename kept
 // visible underneath in mono, never hidden.
+interface QuestionReview {
+  id: string;
+  question: string;
+  slug: string;
+  status: string;
+  evidence_count: number;
+  answer_words: number;
+}
+
+// What a document produced, and whether each question is allowed to become a
+// page. Operator-only — a proposed question has no URL, so this is the one
+// place it can be seen and judged before it becomes public.
+function renderAtomReview(
+  pieceId: string,
+  atoms: { findings: number; questions: QuestionReview[] } | undefined,
+): string {
+  const extract = `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/extract-atoms" style="display:inline">
+  <button type="submit" class="atom-run">${atoms ? "Re-extract" : "Extract findings & questions"}</button>
+</form>`;
+  if (!atoms || (atoms.findings === 0 && atoms.questions.length === 0)) {
+    return `<div class="atoms">${extract}</div>`;
+  }
+  const rows = atoms.questions
+    .map((q) => {
+      const { gateQuestion } = GATE;
+      const gate = gateQuestion({
+        evidenceCount: q.evidence_count,
+        answerWords: q.answer_words,
+      });
+      const action =
+        q.status === "published"
+          ? `<span class="atom-live">live</span>`
+          : gate.publishable
+            ? `<form method="POST" action="/op/answers/${escapeHtml(q.id)}/publish" style="display:inline"><button type="submit" class="atom-pub">Publish</button></form>`
+            : `<span class="atom-blocked" title="${escapeHtml(gate.reason ?? "")}">held</span>`;
+      return `    <li><span class="atom-q">${escapeHtml(q.question)}</span>
+      <span class="atom-meta">${q.evidence_count} source${q.evidence_count === 1 ? "" : "s"} · ${q.answer_words}w</span>
+      ${action}</li>`;
+    })
+    .join("\n");
+  return `<div class="atoms">
+  <div class="atom-head"><b>${atoms.findings}</b> finding${atoms.findings === 1 ? "" : "s"} · <b>${atoms.questions.length}</b> question${atoms.questions.length === 1 ? "" : "s"} ${extract}</div>
+  ${atoms.questions.length ? `<ul class="atom-list">\n${rows}\n  </ul>` : ""}
+</div>`;
+}
+
 // Essay lint notes, written into the piece's metadata at upload time. Shown
 // here rather than only on the upload confirmation, which is seen once and
 // then gone. Advisory — the piece published regardless.
@@ -303,6 +350,9 @@ export async function renderLibraryIndex(
     videoError?: string;
     /** Count of jobs started by the "Process queue" button. */
     draining?: string;
+    /** "findings.new.merged.killed" from the atom extraction button. */
+    atoms?: string;
+    published?: string;
   } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
@@ -332,13 +382,20 @@ export async function renderLibraryIndex(
     ? `<div class="op-banner op-banner-error">${escapeHtml(opts.error)}</div>`
     : opts.ingested
       ? `<div class="op-banner">Uploaded ${escapeHtml(opts.ingested)} document${opts.ingested === "1" ? "" : "s"} — extraction started automatically.</div>`
-      : opts.draining
-        ? `<div class="op-banner">${
-            opts.draining === "0"
-              ? "Nothing was waiting in the queue."
-              : `Started ${escapeHtml(opts.draining)} queued job${opts.draining === "1" ? "" : "s"}. They run in the background — reload in a minute, and press again if more are still queued.`
-          }</div>`
-        : "";
+      : opts.atoms
+        ? (() => {
+            const [f, n, m, k] = opts.atoms.split(".");
+            return `<div class="op-banner">Extracted <b>${escapeHtml(f ?? "0")}</b> findings and <b>${escapeHtml(n ?? "0")}</b> new questions (<b>${escapeHtml(m ?? "0")}</b> merged into existing ones).${Number(k) > 0 ? ` ${escapeHtml(k ?? "0")} span${k === "1" ? "" : "s"} were discarded for not matching the document verbatim.` : ""} Nothing is public until you publish it.</div>`;
+          })()
+        : opts.published
+          ? `<div class="op-banner">Answer published.</div>`
+          : opts.draining
+            ? `<div class="op-banner">${
+                opts.draining === "0"
+                  ? "Nothing was waiting in the queue."
+                  : `Started ${escapeHtml(opts.draining)} queued job${opts.draining === "1" ? "" : "s"}. They run in the background — reload in a minute, and press again if more are still queued.`
+              }</div>`
+            : "";
 
   // Operator affordance strip — only rendered when logged in. Surfaces the
   // bulk extract action (the work behind it lives at POST /op/library/extract
@@ -529,6 +586,36 @@ export async function renderLibraryIndex(
     : [];
   const fedByPiece = new Map(fedRows.map((r) => [r.piece_id, r] as const));
 
+  // Proposed atoms, per document. Operator-only: these have no URL until they
+  // pass the gate AND the operator publishes them, so this list is the only
+  // place they are visible.
+  const atomsByPiece = new Map<string, { findings: number; questions: QuestionReview[] }>();
+  if (opts.isOperator && userId) {
+    const { all: allRows } = await import("../../lib/d1");
+    const fRows = await allRows<{ piece_id: string; n: number }>(
+      env.DB,
+      "SELECT piece_id, COUNT(*) AS n FROM findings WHERE user_id = ? GROUP BY piece_id",
+      [userId],
+    ).catch(() => []);
+    const qRows = await allRows<QuestionReview & { piece_id: string }>(
+      env.DB,
+      `SELECT DISTINCT e.piece_id, q.id, q.question, q.slug, q.status,
+              (SELECT COUNT(*) FROM question_evidence e2 WHERE e2.question_id = q.id) AS evidence_count,
+              (SELECT COALESCE(SUM(LENGTH(e3.answer_text) - LENGTH(REPLACE(e3.answer_text,' ','')) + 1), 0)
+                 FROM question_evidence e3 WHERE e3.question_id = q.id) AS answer_words
+         FROM question_evidence e JOIN questions q ON q.id = e.question_id
+        WHERE e.user_id = ?
+        ORDER BY evidence_count DESC`,
+      [userId],
+    ).catch(() => []);
+    for (const r of fRows) atomsByPiece.set(r.piece_id, { findings: r.n, questions: [] });
+    for (const r of qRows) {
+      const cur = atomsByPiece.get(r.piece_id) ?? { findings: 0, questions: [] };
+      cur.questions.push(r);
+      atomsByPiece.set(r.piece_id, cur);
+    }
+  }
+
   const rows = pieces.length
     ? pieces
         .map((p) => {
@@ -559,8 +646,13 @@ export async function renderLibraryIndex(
             fed && fed.nodes > 0
               ? `<span><b>${fed.nodes}</b> fact${fed.nodes === 1 ? "" : "s"}${fed.subjects > 0 ? ` · ${fed.subjects} subject${fed.subjects === 1 ? "" : "s"}` : ""}</span>`
               : `<span class="lib-fed-quiet">not extracted</span>`;
+          const atoms = atomsByPiece.get(p.id);
+          const atomBlock =
+            opts.isOperator && p.publication_status !== "working-material"
+              ? renderAtomReview(p.id, atoms)
+              : "";
           return `<tr>
-  <td>${title}${renderLintNotes(p.metadata)}</td>
+  <td>${title}${renderLintNotes(p.metadata)}${atomBlock}</td>
   <td class="coord">${escapeHtml(kindLabel(p.kind))}</td>
   <td class="lib-fed">${fedCell}</td>
   <td>${status}</td>

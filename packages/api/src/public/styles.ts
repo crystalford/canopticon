@@ -1958,6 +1958,27 @@ pre.convention {
 .toc a { font-family: var(--sans); font-size: 14.5px; line-height: 1.35; color: var(--ink-2); text-decoration: none; }
 .toc a:hover { color: var(--accent); }
 
+/* ---- atom review (operator's library view) -------------------------------
+   Proposed findings and questions have no public URL. This is the only place
+   they can be seen, so the gate's verdict is shown per question rather than
+   left implicit: "held" means the page would be too thin to exist. */
+.atoms { margin-top: 9px; }
+.atom-head { font-family: var(--mono); font-size: 11px; color: var(--ink-3); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.atom-run, .atom-pub {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: var(--r-sm); cursor: pointer;
+  border: 1px solid var(--rule-bright); background: none; color: var(--ink-2);
+}
+.atom-run:hover { border-color: var(--ink-3); color: var(--ink); }
+.atom-pub { border-color: var(--accent-bd); background: var(--accent-bg); color: var(--accent); }
+.atom-pub:hover { border-color: var(--accent); }
+.atom-list { list-style: none; margin: 9px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.atom-list li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; }
+.atom-q { color: var(--ink-2); }
+.atom-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-mute); white-space: nowrap; }
+.atom-live { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--confirmed); }
+.atom-blocked { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); cursor: help; }
+
 /* ---- essay lint (operator's library view) -------------------------------- */
 .lint { margin-top: 6px; }
 .lint > summary {
@@ -1969,6 +1990,60 @@ pre.convention {
 .lint[open] > summary::before { content: "▾ "; }
 .lint ul { margin: 7px 0 0; padding-left: 18px; }
 .lint li { font-size: 12.5px; line-height: 1.45; color: var(--ink-3); margin-bottom: 5px; }
+
+/* ---- findings ------------------------------------------------------------
+   A figure, what it measures, when, who reported it, and the sentence it came
+   from. The figure leads because that is the part a reader scans for and the
+   part a retriever lifts; the quote sits under it as the receipt. */
+.findings { margin: 44px 0 0; border-top: 1px solid var(--rule); padding-top: 26px; }
+.findings h2 {
+  font-family: var(--sans); font-weight: 600; font-size: 20px; letter-spacing: -0.015em;
+  color: var(--ink); margin: 0 0 6px;
+}
+.finding-list { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 1px;
+  background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
+.finding { background: var(--paper-2); padding: 17px 19px; }
+.finding-head { display: flex; align-items: baseline; gap: 11px; flex-wrap: wrap; }
+.finding-figure {
+  font-family: var(--sans); font-weight: 700; font-size: 21px; letter-spacing: -0.02em;
+  color: var(--accent); line-height: 1.1;
+}
+.finding-measures { font-family: var(--sans); font-size: 14.5px; color: var(--ink); }
+.finding-meta {
+  margin-top: 5px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.finding-quote {
+  margin: 11px 0 0; padding-left: 13px; border-left: 2px solid var(--rule-bright);
+  font-family: var(--serif); font-size: 15px; line-height: 1.55; color: var(--ink-3);
+  text-wrap: pretty;
+}
+.finding-receipt {
+  display: inline-block; margin-top: 9px; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute); text-decoration: none;
+}
+.finding-receipt:hover { color: var(--accent); }
+
+/* ---- answer pages --------------------------------------------------------
+   The question is the H1 and the answer is the first thing under it, because
+   retrieval is passage-level and that passage should be complete on its own. */
+.container.reading.answer { max-width: 820px; }
+.row-q { grid-template-columns: 1fr; }
+.ev { margin: 0 0 22px; padding: 0; }
+.ev blockquote {
+  margin: 0; padding: 14px 18px; background: var(--paper-2);
+  border: 1px solid var(--rule); border-left: 2px solid var(--accent-bd);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  font-family: var(--serif); font-size: 16.5px; line-height: 1.6; color: var(--ink-2);
+  text-wrap: pretty;
+}
+.ev figcaption {
+  margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+  display: flex; gap: 9px; align-items: center; flex-wrap: wrap;
+}
+.ev figcaption a { color: var(--ink-3); text-decoration: none; }
+.ev figcaption a:hover { color: var(--accent); }
+.ev-receipt { color: var(--ink-mute) !important; }
 
 /* ---- the unreviewed flag ------------------------------------------------
    A real banner, not a chip. It says no human has read the page you are

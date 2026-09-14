@@ -12,6 +12,7 @@
 // design build); this file is template + section-parser only.
 
 import { renderMarkdown } from "../../cms/lib/render-post";
+import { type FindingRow, findingsForPiece } from "../../graph/lib/aeo-extract";
 import { parseEssay } from "../../lib/essay";
 import {
   type PieceDetail,
@@ -50,11 +51,16 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   const topics = await topicsForPiece(env.DB, userId, piece.id);
   const related = await listInvestigations(env.DB, userId);
   const fed = await loadWhatItFed(env, userId, piece.id);
+  // Findings are the densest thing a research document produces and the only
+  // primitive with strong evidence behind it. They live on the document's own
+  // page — no new URL, so no thin-content exposure at all.
+  const findings = await findingsForPiece(env.DB, userId, piece.id).catch(() => []);
 
   const body = renderPieceBody(piece, {
     topics: topics.map((t) => ({ slug: t.slug, label: t.label })),
     related: related.filter((r) => r.id !== piece.id).slice(0, 6),
     fed,
+    findings,
   });
 
   // The piece page emitted no structured data at all, while subject pages and
@@ -94,6 +100,39 @@ interface PieceCtx {
   topics: Array<{ slug: string; label: string }>;
   related: PieceSummary[];
   fed?: FedSummary;
+  findings?: FindingRow[];
+}
+
+// The figure, what it measures, when, who reported it, and the sentence it
+// came from — with a link to that quote's own receipt. A statistic stated
+// beside its named source and date is the single best-evidenced shape for
+// being cited, and it is exactly what the verification layer already produces.
+function renderFindings(findings: FindingRow[] | undefined): string {
+  if (!findings?.length) return "";
+  const rows = findings
+    .map(
+      (f) => `  <li class="finding">
+    <div class="finding-head">
+      <span class="finding-figure">${escapeHtml(f.figure)}</span>
+      <span class="finding-measures">${escapeHtml(f.measures)}</span>
+    </div>
+    <div class="finding-meta">${[f.period, f.attributed_to]
+      .filter(Boolean)
+      .map((x) => escapeHtml(String(x)))
+      .join(' <span class="sep">·</span> ')}</div>
+    <blockquote class="finding-quote">${escapeHtml(f.verbatim_text)}</blockquote>
+    <a class="finding-receipt" href="/q/${escapeAttr(f.quote_id)}">verified quote ↗</a>
+  </li>`,
+    )
+    .join("\n");
+  return `<section class="findings">
+  <h2>What this document establishes</h2>
+  <p class="note">Each figure below is quoted word-for-word from the document and
+  checked against it by machine.</p>
+  <ol class="finding-list">
+${rows}
+  </ol>
+</section>`;
 }
 
 // "This document fed the fabric" — the receipt loop. Counts the typed-graph
@@ -168,6 +207,7 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
 ${renderBreadcrumbs(piece)}
 ${renderPageHead(piece)}
 ${bodyBlock}
+${renderFindings(ctx.findings)}
 ${renderCiteBox(piece)}
 ${renderWhatItFed(ctx.fed)}
 ${renderDepositNote(piece, ctx.topics)}

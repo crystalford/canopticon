@@ -8,12 +8,14 @@
 
 import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
+import { listPublishedQuestions } from "../graph/lib/aeo-extract";
 import { all, one } from "../lib/d1";
 import { getPieceBySlug, listPublishedPieces, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
 import { feedJson, llmsTxt, pieceMarkdown } from "./machine";
 import { renderAbout } from "./render/about";
 import { renderActivityPage } from "./render/activity";
+import { renderAnswerPage, renderAnswersIndex } from "./render/answers";
 import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
 import { renderFront } from "./render/front";
@@ -278,7 +280,7 @@ app.get("/robots.txt", () => {
 // liability rather than a neutral one.
 app.get("/sitemap.xml", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  const staticUrls = ["/", "/essays", "/research", "/about", "/method"];
+  const staticUrls = ["/", "/essays", "/research", "/answers", "/about", "/method"];
   let pageUrls: Array<{ loc: string; lastmod: string }> = [];
   if (userId) {
     const pieces = await listPublishedPieces(c.env.DB, userId).catch(() => []);
@@ -295,6 +297,12 @@ app.get("/sitemap.xml", async (c) => {
     ).catch(() => []);
     pageUrls.push(
       ...rows.map((r) => ({ loc: `/s/${r.slug}`, lastmod: r.updated_at.slice(0, 10) })),
+    );
+    // Published answers are real pages and belong in the sitemap. Proposed
+    // ones are not listed here because they have no URL.
+    const answers = await listPublishedQuestions(c.env.DB, userId).catch(() => []);
+    pageUrls.push(
+      ...answers.map((a) => ({ loc: `/answers/${a.slug}`, lastmod: a.updated_at.slice(0, 10) })),
     );
   }
   const urlEntries = [...staticUrls.map((loc) => ({ loc, lastmod: "" })), ...pageUrls]
@@ -331,6 +339,16 @@ app.get("/", async (c) => htmlResponse(await renderFront(c.env)));
 // "unlinked but alive" block further down.
 
 app.get("/essays", async (c) => htmlResponse(await renderEssaysIndex(c.env)));
+
+// Answers — one page per question, shared across every document that answers
+// it. A question the gate has not passed has no page at all; it returns 404
+// rather than publishing something thin at a real URL.
+app.get("/answers", async (c) => htmlResponse(await renderAnswersIndex(c.env)));
+app.get("/answers/:slug", async (c) => {
+  const html = await renderAnswerPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
 app.get("/research", async (c) => htmlResponse(await renderResearchIndex(c.env)));
 
 // ---- Topics ---------------------------------------------------------------
@@ -537,7 +555,8 @@ app.get("/confirm", async (c) => {
 app.get("/llms.txt", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   const pieces = userId ? await listPublishedPieces(c.env.DB, userId).catch(() => []) : [];
-  return new Response(llmsTxt(pieces), {
+  const answers = userId ? await listPublishedQuestions(c.env.DB, userId).catch(() => []) : [];
+  return new Response(llmsTxt(pieces, answers), {
     headers: {
       "content-type": "text/plain; charset=utf-8",
       "cache-control": "public, max-age=3600",
@@ -743,6 +762,8 @@ app.get("/library", async (c) => {
   const importing = c.req.query("importing");
   const videoError = c.req.query("video_error");
   const draining = c.req.query("draining");
+  const atoms = c.req.query("atoms");
+  const published = c.req.query("published");
   return htmlResponse(
     await renderLibraryIndex(c.env, {
       isOperator: c.get("is_operator"),
@@ -751,6 +772,8 @@ app.get("/library", async (c) => {
       ...(importing ? { importing } : {}),
       ...(videoError ? { videoError } : {}),
       ...(draining ? { draining } : {}),
+      ...(atoms ? { atoms } : {}),
+      ...(published ? { published } : {}),
     }),
   );
 });
