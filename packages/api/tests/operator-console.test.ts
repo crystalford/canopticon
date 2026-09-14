@@ -161,12 +161,18 @@ describe("public site is byte-stable for anonymous viewers (no regression)", () 
     expect(pat.headers.get("location")).toBe("/investigations");
   });
 
-  it("retired destinations 301 into Method (About/Methodology absorbed)", async () => {
-    for (const path of ["/about", "/methodology"]) {
-      const res = await app.fetch(new Request(`http://test${path}`), env);
-      expect(res.status, path).toBe(301);
-      expect(res.headers.get("location"), path).toBe("/method");
-    }
+  // /about is a real page again — it answers "what is this publication",
+  // which /method (how verification works) never did. /methodology still
+  // folds into /method.
+  it("/about renders and /methodology still 301s into Method", async () => {
+    const about = await app.fetch(new Request("http://test/about"), env);
+    expect(about.status).toBe(200);
+    expect(await about.text()).toContain("What's published here");
+
+    const methodology = await app.fetch(new Request("http://test/methodology"), env);
+    expect(methodology.status).toBe(301);
+    expect(methodology.headers.get("location")).toBe("/method");
+
     const method = await app.fetch(new Request("http://test/method"), env);
     expect(method.status).toBe(200);
   });
@@ -177,8 +183,8 @@ describe("public site is byte-stable for anonymous viewers (no regression)", () 
     expect(res.headers.get("content-type")).toMatch(/svg/);
   });
 
-  it("anonymous /library renders without an operator strip", async () => {
-    const res = await app.fetch(new Request("http://test/library"), env);
+  it("anonymous /research renders without an operator strip", async () => {
+    const res = await app.fetch(new Request("http://test/research"), env);
     expect(res.status).toBe(200);
     const html = await res.text();
     // The operator strip only renders when is_operator=true. Anonymous view

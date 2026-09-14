@@ -47,20 +47,29 @@ describe("public site — Phase 1 skeleton", () => {
     expect(html).toMatch(/<!doctype html>/i);
     expect(html).toMatch(/<title>CANOPTICON[^<]*<\/title>/);
     expect(html).toContain("canopticon");
-    expect(html).toContain("Canopticon keeps files on the stories we're told.");
+    expect(html).toContain("research documents kept whole");
     expect(html).toMatch(/\/styles\.css\?v=/);
     // The design build's data-mode toggle is on the root <html>
     expect(html).toMatch(/<html[^>]*data-mode="public"/);
+    // Site-level identity, so every page's publisher resolves to one
+    // organisation rather than a fresh one per URL.
+    expect(html).toContain('"@id":"https://canopticon.com/#org"');
+    expect(html).toContain('"@type":"WebSite"');
+    expect(html).toContain('<link rel="canonical" href="https://canopticon.com/" />');
   });
 
   it("each primary destination renders real surfaces without JS", async () => {
-    for (const path of ["/topics", "/investigations", "/library"]) {
+    // The three doors are Essays, Research and About. /topics and
+    // /investigations still resolve — they are unlinked, not removed — so they
+    // are checked here too, to keep old inbound links from rotting silently.
+    for (const path of ["/essays", "/research", "/topics", "/investigations"]) {
       const res = await app.fetch(new Request(`http://test${path}`), env);
       expect(res.status, `path ${path}`).toBe(200);
       const html = await res.text();
-      // The Record shell renders server-side (wordmark + three-door nav).
+      // The Record shell renders server-side (wordmark + nav).
       expect(html, `path ${path} shell`).toContain('class="wordmark"');
-      expect(html, `path ${path} nav`).toContain(">Investigations<");
+      expect(html, `path ${path} nav`).toContain(">Essays<");
+      expect(html, `path ${path} nav`).toContain(">Research<");
       // Empty corpus → graceful empty state, not a crash.
       expect(html, `path ${path} empty state`).toMatch(/No .* yet|is empty|No published/i);
       // Confirms no client-side rendering needed — content sits in HTML.
@@ -88,9 +97,14 @@ describe("public site — Phase 1 skeleton", () => {
     expect(res.headers.get("cache-control")).toContain("immutable");
     expect(res.headers.get("x-styles-hash")).toBeTruthy();
     const css = await res.text();
-    // Sanity: spot-check the design system tokens are present.
-    expect(css).toContain("--pub-paper");
+    // Sanity: spot-check the design system tokens are present. (--pub-* used
+    // to be checked here; that warm-paper set was deleted — it had zero
+    // references anywhere and only looked live.)
     expect(css).toContain("--op-paper");
+    expect(css).toContain("--accent");
+    // One accent, and it is red. The five per-zone hues are gone.
+    expect(css).toContain("#e0433c");
+    expect(css).not.toContain("--z-investigations");
     expect(css.length).toBeGreaterThan(60_000);
   });
 

@@ -51,8 +51,17 @@ async function loggedInRequest(path: string): Promise<Request> {
 }
 
 describe("attachAuthState — the one-site permission middleware", () => {
-  it("anonymous /library has no operator strip", async () => {
+  // /library became the operator's working surface (it lists working-material
+  // and carries the upload dropzone), so an anonymous visitor is sent to the
+  // published research index instead of being shown a stripped-down copy of it.
+  it("anonymous /library redirects to the public research index", async () => {
     const res = await app.fetch(new Request("http://test/library"), env);
+    expect(res.status).toBe(301);
+    expect(res.headers.get("location")).toBe("/research");
+  });
+
+  it("anonymous /research has no operator strip", async () => {
+    const res = await app.fetch(new Request("http://test/research"), env);
     const html = await res.text();
     expect(res.status).toBe(200);
     expect(html).not.toContain('class="op-strip"');
@@ -77,12 +86,18 @@ describe("attachAuthState — the one-site permission middleware", () => {
     );
     const cookieValue = buildSessionCookie(cookie).split(";")[0] as string;
     const res = await app.fetch(
-      new Request("http://test/library", { headers: { cookie: cookieValue } }),
+      new Request("http://test/research", { headers: { cookie: cookieValue } }),
       env,
     );
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).not.toContain('class="op-strip"');
+    // And the operator-only surface stays shut to it.
+    const lib = await app.fetch(
+      new Request("http://test/library", { headers: { cookie: cookieValue } }),
+      env,
+    );
+    expect(lib.status).toBe(301);
   });
 
   it("a valid cookie reveals operator affordances on the SAME public page", async () => {

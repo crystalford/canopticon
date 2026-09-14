@@ -126,13 +126,30 @@ export async function runDigestJob(env: Env, jobId: string): Promise<void> {
   if (!job) return;
   if (job.status === "completed") return;
 
-  // Claim the job (no attempt increment here — that only counts failures).
+  // Claim the job ATOMICALLY (no attempt increment here — that only counts
+  // failures). The WHERE clause is the claim: it matches exactly the rows
+  // drainDigestJobs() is willing to hand out — queued, or running with a
+  // dead heartbeat — so whichever caller's UPDATE lands first is the one
+  // that owns the job, and every other caller sees changes === 0 and stops.
+  //
+  // This UPDATE used to be unconditional, which meant two overlapping
+  // callers both "claimed" the same job and both ran it: duplicate model
+  // calls, and two executions racing to purge and rewrite the same piece's
+  // graph rows on the chunks_done === 0 path below. The cron could hit that
+  // by overlapping ticks; the manual drain button makes a double-click
+  // enough.
   const nowIso = new Date().toISOString();
-  await run(
+  const staleCutoff = new Date(Date.now() - STALE_MS).toISOString();
+  const claim = await run(
     env.DB,
-    "UPDATE digest_jobs SET status='running', step='digesting', heartbeat_at=?, updated_at=? WHERE id=?",
-    [nowIso, nowIso, jobId],
+    `UPDATE digest_jobs SET status='running', step='digesting', heartbeat_at=?, updated_at=?
+      WHERE id=?
+        AND status <> 'completed'
+        AND (status = 'queued'
+             OR (status = 'running' AND (heartbeat_at IS NULL OR heartbeat_at < ?)))`,
+    [nowIso, nowIso, jobId, staleCutoff],
   );
+  if (!claim.meta.changes) return;
 
   try {
     // First tick only: clear legacy flat claims for the piece. Typed-graph

@@ -8,7 +8,9 @@ moved here in June 2026 when the repo docs were brought in line with the actual
 built system.
 
 - For the current architecture, see the repo root [`CLAUDE.md`](../../CLAUDE.md).
-- For the current vision spec, see [`../canonical-spec-v2.4.md`](../canonical-spec-v2.4.md).
+  It is the only source of truth; there is no separate vision spec any more.
+- The v2 graph-era specs were moved here too, in September 2026 — see
+  [`v2-graph-era/`](v2-graph-era/).
 - For how the project got from there to here, see [`../LINEAGE.md`](../LINEAGE.md).
 
 If anything in this folder contradicts those three, the archive is wrong — it

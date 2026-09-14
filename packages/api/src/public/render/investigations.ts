@@ -2,6 +2,7 @@
 // archive). The piece page itself is rendered by piece-template.ts, not
 // here — see that file for the public face of a single document.
 
+import { looksLikeMachineFilename } from "../../lib/title";
 import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
 import { escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
@@ -273,12 +274,23 @@ ${filterRow}
 // machine-filename shape (long, no spaces, a file extension or a uuid-ish
 // segment) and show a plain placeholder with the real filename kept
 // visible underneath in mono, never hidden.
-function looksLikeMachineFilename(title: string): boolean {
-  if (/\s/.test(title)) return false;
-  if (title.length < 20) return false;
-  const hasExt = /\.(md|txt|pdf|html?|docx?|csv|json)$/i.test(title);
-  const hasUuidish = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(title);
-  return hasExt || hasUuidish;
+// Essay lint notes, written into the piece's metadata at upload time. Shown
+// here rather than only on the upload confirmation, which is seen once and
+// then gone. Advisory — the piece published regardless.
+function renderLintNotes(metadataJson: string | null | undefined): string {
+  let notes: Array<{ level: string; message: string }> = [];
+  try {
+    const meta = JSON.parse(metadataJson || "{}") as { essay_lint?: typeof notes };
+    notes = Array.isArray(meta.essay_lint) ? meta.essay_lint : [];
+  } catch {
+    return "";
+  }
+  const loud = notes.filter((n) => n.level === "error" || n.level === "warn");
+  if (!loud.length) return "";
+  return `<details class="lint">
+  <summary>${loud.length} note${loud.length === 1 ? "" : "s"} on this essay's structure</summary>
+  <ul>${loud.map((n) => `<li>${escapeHtml(n.message)}</li>`).join("")}</ul>
+</details>`;
 }
 
 export async function renderLibraryIndex(
@@ -289,6 +301,8 @@ export async function renderLibraryIndex(
     error?: string;
     importing?: string;
     videoError?: string;
+    /** Count of jobs started by the "Process queue" button. */
+    draining?: string;
   } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
@@ -318,7 +332,13 @@ export async function renderLibraryIndex(
     ? `<div class="op-banner op-banner-error">${escapeHtml(opts.error)}</div>`
     : opts.ingested
       ? `<div class="op-banner">Uploaded ${escapeHtml(opts.ingested)} document${opts.ingested === "1" ? "" : "s"} — extraction started automatically.</div>`
-      : "";
+      : opts.draining
+        ? `<div class="op-banner">${
+            opts.draining === "0"
+              ? "Nothing was waiting in the queue."
+              : `Started ${escapeHtml(opts.draining)} queued job${opts.draining === "1" ? "" : "s"}. They run in the background — reload in a minute, and press again if more are still queued.`
+          }</div>`
+        : "";
 
   // Operator affordance strip — only rendered when logged in. Surfaces the
   // bulk extract action (the work behind it lives at POST /op/library/extract
@@ -328,7 +348,7 @@ export async function renderLibraryIndex(
   let opStrip = "";
   if (opts.isOperator && userId) {
     const { one } = await import("../../lib/d1");
-    const counts = await one<{ total: number; unextracted: number }>(
+    const counts = await one<{ total: number; unextracted: number; queued: number }>(
       env.DB,
       `SELECT
          (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS total,
@@ -336,11 +356,14 @@ export async function renderLibraryIndex(
             WHERE p.user_id = ? AND NOT EXISTS (
               SELECT 1 FROM digest_jobs j
                WHERE j.user_id = p.user_id AND j.piece_id = p.id AND j.status = 'completed')
-         ) AS unextracted`,
-      [userId, userId],
+         ) AS unextracted,
+         (SELECT COUNT(*) FROM digest_jobs
+            WHERE user_id = ? AND status IN ('queued','running')) AS queued`,
+      [userId, userId, userId],
     ).catch(() => null);
     const total = counts?.total ?? 0;
     const unextracted = counts?.unextracted ?? 0;
+    const queued = counts?.queued ?? 0;
     const extractBtn =
       unextracted > 0
         ? `<form method="POST" action="/op/library/extract" style="display:inline;margin-right:8px">
@@ -353,6 +376,17 @@ export async function renderLibraryIndex(
         ? `<form method="POST" action="/op/library/extract" style="display:inline" onsubmit="return confirm('Re-extract all ${total} documents?');">
   <input type="hidden" name="mode" value="all" />
   <button type="submit" class="op-strip-btn">Re-extract all (${total})</button>
+</form>`
+        : "";
+    // Queued jobs used to be drained by the every-2-minute cron. The cron is
+    // off (nothing runs unattended any more), so anything enqueued without
+    // being run inline — zip entries past the first three — would otherwise
+    // sit in the queue forever with no way to move it. A button the operator
+    // presses is the whole mechanism, and it costs nothing unpressed.
+    const drainBtn =
+      queued > 0
+        ? `<form method="POST" action="/op/library/drain" style="display:inline;margin-right:8px">
+  <button type="submit" class="op-strip-btn op-strip-btn-primary">Process queue (${queued})</button>
 </form>`
         : "";
     // The upload dropzone. This existed only on the old /op/library screen
@@ -412,7 +446,7 @@ export async function renderLibraryIndex(
     opStrip = `<div class="op-strip">
   <div class="op-strip-top">
     <div class="op-strip-label">Operator</div>
-    <div class="op-strip-actions">${extractBtn}${reextractBtn}</div>
+    <div class="op-strip-actions">${drainBtn}${extractBtn}${reextractBtn}</div>
   </div>
   ${dropzone}
   ${videoImportBanner}
@@ -526,7 +560,7 @@ export async function renderLibraryIndex(
               ? `<span><b>${fed.nodes}</b> fact${fed.nodes === 1 ? "" : "s"}${fed.subjects > 0 ? ` · ${fed.subjects} subject${fed.subjects === 1 ? "" : "s"}` : ""}</span>`
               : `<span class="lib-fed-quiet">not extracted</span>`;
           return `<tr>
-  <td>${title}</td>
+  <td>${title}${renderLintNotes(p.metadata)}</td>
   <td class="coord">${escapeHtml(kindLabel(p.kind))}</td>
   <td class="lib-fed">${fedCell}</td>
   <td>${status}</td>

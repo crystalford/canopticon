@@ -153,15 +153,148 @@ export async function getPieceBySlug(
 // Library: every piece including working-material, with a status tag so
 // the raw research layer is honest about what's a finished publication
 // vs an interior chain pass.
-export async function listLibrary(db: D1Database, userId: string): Promise<PieceSummary[]> {
-  return all<PieceSummary>(
+export async function listLibrary(
+  db: D1Database,
+  userId: string,
+): Promise<Array<PieceSummary & { metadata: string }>> {
+  // metadata comes along so the operator's own view can surface the essay
+  // lint notes stored at upload time (operator/routes.ts createAndExtract).
+  return all<PieceSummary & { metadata: string }>(
     db,
     `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
-            byline, published_at, signed_by
+            byline, published_at, signed_by, metadata
        FROM pieces WHERE user_id = ?
       ORDER BY COALESCE(published_at, created_at) DESC`,
     [userId],
   );
+}
+
+// ---- The two public doors -------------------------------------------------
+//
+// Essays and Research are the whole publication now. Both read `pieces`;
+// the only difference is `kind`. Uploads land as 'research-report' (see
+// operator/routes.ts createAndExtract); 'essay' is set when an uploaded
+// .md matches the essay convention.
+//
+// Only published/canonical surface here, so a working-material row never
+// reaches an index or the sitemap.
+
+// Research is defined as "not an essay", not as an allow-list of two kinds.
+//
+// An allow-list of research-report + documented-record silently orphaned the
+// other four published kinds the schema permits (thesis, synthesis, brief,
+// note): they appeared in the sitemap, llms.txt and the feed — all of which
+// treat every non-essay kind as research — and their own pages said
+// "Research" in the nav and breadcrumb, but no index anywhere linked to them.
+// The seed corpus contains a canonical thesis, so this was not hypothetical.
+export const ESSAY_KINDS = ["essay"] as const;
+
+// An index row carries enough to render a list entry without loading the
+// body: `body_chars` is LENGTH(body_md), which is all a read-time estimate
+// needs and is far cheaper than selecting every document's full text.
+export interface IndexPiece extends PieceSummary {
+  body_chars: number;
+  updated_at: string;
+  /** The first 400 characters of body_md — enough for displayTitle() to
+   *  recover a real heading when the stored title is a raw filename, without
+   *  pulling every document's full text into an index query. */
+  body_head: string | null;
+}
+
+export function readMinutes(bodyChars: number): number {
+  return Math.max(1, Math.round(bodyChars / 5 / 220));
+}
+
+async function listPiecesByKind(
+  db: D1Database,
+  userId: string,
+  match: "essay" | "not-essay",
+): Promise<IndexPiece[]> {
+  const placeholders = ESSAY_KINDS.map(() => "?").join(",");
+  return all<IndexPiece>(
+    db,
+    `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
+            byline, published_at, signed_by, updated_at,
+            LENGTH(body_md) AS body_chars, SUBSTR(body_md, 1, 400) AS body_head
+       FROM pieces
+      WHERE user_id = ? AND publication_status IN ('published','canonical')
+        AND kind ${match === "essay" ? "IN" : "NOT IN"} (${placeholders})
+      ORDER BY COALESCE(published_at, created_at) DESC`,
+    [userId, ...ESSAY_KINDS],
+  );
+}
+
+export async function listEssays(db: D1Database, userId: string): Promise<IndexPiece[]> {
+  return listPiecesByKind(db, userId, "essay");
+}
+
+export async function listResearch(db: D1Database, userId: string): Promise<IndexPiece[]> {
+  return listPiecesByKind(db, userId, "not-essay");
+}
+
+export interface PublishedPieceRef {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  kind: string;
+  updated_at: string;
+  published_at: string | null;
+  body_head: string | null;
+}
+
+// Every publicly-visible piece, for the sitemap, llms.txt and the feed.
+// One query behind all three so those three can never disagree about what
+// is published.
+export async function listPublishedPieces(
+  db: D1Database,
+  userId: string,
+): Promise<PublishedPieceRef[]> {
+  return all<PublishedPieceRef>(
+    db,
+    `SELECT slug, title, subtitle, kind, updated_at, published_at,
+            SUBSTR(body_md, 1, 400) AS body_head
+       FROM pieces
+      WHERE user_id = ? AND publication_status IN ('published','canonical')
+      ORDER BY COALESCE(published_at, created_at) DESC
+      LIMIT 5000`,
+    [userId],
+  );
+}
+
+// Counts for the homepage state strip.
+export async function publicationCounts(
+  db: D1Database,
+  userId: string,
+): Promise<{ essays: number; research: number; sources: number; lastPublished: string | null }> {
+  const [essays, research, sources, last] = await Promise.all([
+    one<{ n: number }>(
+      db,
+      `SELECT COUNT(*) AS n FROM pieces WHERE user_id = ?
+         AND publication_status IN ('published','canonical') AND kind = 'essay'`,
+      [userId],
+    ),
+    one<{ n: number }>(
+      db,
+      `SELECT COUNT(*) AS n FROM pieces WHERE user_id = ?
+         AND publication_status IN ('published','canonical') AND kind <> 'essay'`,
+      [userId],
+    ),
+    one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM sources WHERE user_id = ?", [userId]).catch(
+      () => ({ n: 0 }),
+    ),
+    one<{ d: string | null }>(
+      db,
+      `SELECT MAX(COALESCE(published_at, created_at)) AS d FROM pieces
+        WHERE user_id = ? AND publication_status IN ('published','canonical')`,
+      [userId],
+    ),
+  ]);
+  return {
+    essays: essays?.n ?? 0,
+    research: research?.n ?? 0,
+    sources: sources?.n ?? 0,
+    lastPublished: last?.d ? last.d.slice(0, 10) : null,
+  };
 }
 
 // Topics a piece belongs to — for the piece page's "filed under" line.

@@ -1,11 +1,17 @@
 # Canopticon — version lineage
 
+> **Note added 2026-09-14.** This document ends at the "Fabric" era and does
+> not cover what came after it: the graph-growing ambition was stopped, the
+> film engine was parked, and the project narrowed to publishing research
+> documents and essays well. The specs this file cites by name — including
+> `canonical-spec-v2.4.md`, `canonical-spec-v2.6.md` and `renovation-brief.md`
+> — now live in `docs/archive/v2-graph-era/`. **The only current architecture
+> document is the repo root `CLAUDE.md`.** Read what follows as history.
+
 The clear trace of how this project evolved. Every era below was a real,
-committed system; each was superseded by the next. **The current system is the
-"Fabric" era (June 2026 onward).** Specs from earlier eras live in
-`docs/archive/` and should not be designed against — they describe systems that
-no longer exist. The single current vision spec is `canonical-spec-v2.6.md`;
-the current built architecture is in the repo root `CLAUDE.md`.
+committed system; each was superseded by the next. Specs from earlier eras live
+in `docs/archive/` and should not be designed against — they describe systems
+that no longer exist.
 
 Use this document to understand *why* the current shape exists and what each
 earlier decision was reacting to.

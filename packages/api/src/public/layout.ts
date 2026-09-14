@@ -16,18 +16,19 @@ export interface NavItem {
   label: string;
 }
 
-// Five doors. The Record (home IS the front of the record), the signed
-// Investigations, Watchlist (the standing-research engine, given a real
-// surface instead of living only behind /v1/admin/beats), Videos (published
-// video essays — the video Worker's own product, reached from here rather
-// than only from within a File), and Method (how verification works —
-// absorbs About). Everything else is reached by walking the web, not by nav.
+// Three doors, because there are three things: the essays, the research, and
+// an explanation of what this is.
+//
+// It was five — Record, Investigations, Watchlist, Videos, Method — and four
+// of those led to surfaces built for a version of this project that tried to
+// grow itself. Advertising empty rooms in the nav is how the site came to
+// feel like scaffolding; thin pages are also a ranking liability rather than
+// a neutral one. The retired routes still resolve, they are just no longer
+// announced. Everything else is reached by walking the site, not by nav.
 export const PRIMARY_NAV: NavItem[] = [
-  { href: "/", label: "Record" },
-  { href: "/investigations", label: "Investigations" },
-  { href: "/watchlist", label: "Watchlist" },
-  { href: "/videos", label: "Videos" },
-  { href: "/method", label: "Method" },
+  { href: "/essays", label: "Essays" },
+  { href: "/research", label: "Research" },
+  { href: "/about", label: "About" },
 ];
 
 export interface RenderPageArgs {
@@ -45,20 +46,61 @@ export interface RenderPageArgs {
    *  and render bare. Legacy renderers (not yet rebuilt) keep the old
    *  .container wrapper by default. */
   bare?: boolean;
+  /** og:type — "article" for a piece, "website" for an index. */
+  ogType?: "website" | "article";
+  /** Absolute URL of this page's plain-text twin, advertised to crawlers as
+   *  rel=alternate and to readers as a link on the page itself. */
+  markdownUrl?: string;
+  /** ISO dates for article metadata, emitted as OpenGraph article:* tags. */
+  publishedTime?: string;
+  modifiedTime?: string;
 }
+
+const SITE_ORIGIN = "https://canopticon.com";
 
 export function renderPage(args: RenderPageArgs): string {
   const fullTitle = args.title
     ? `${escapeHtml(args.title)} — CANOPTICON`
     : "CANOPTICON — The standing record";
+  // The fallback description for any page that doesn't set its own. It used
+  // to describe the graph era ("documented facts with their receipts …
+  // signed analysis"), which is no longer what the site is.
   const description = escapeHtml(
     args.description ??
-      "CANOPTICON keeps files on the stories we're told. Documented facts with their receipts, disputes shown as disputes, and signed analysis — every claim traceable to a stored source.",
+      "Canopticon publishes research documents kept whole and essays that argue from them — every quote verified word-for-word against its stored source, and everything free to read and quote.",
   );
   const mode = args.mode ?? "public";
   const zone = args.zone ?? "home";
   const cssHref = `/styles.css?v=${stylesHash()}`;
   const canonical = args.canonical ?? "";
+  const ogType = args.ogType ?? "website";
+  // Social + answer-engine metadata. None of this existed: no OpenGraph, no
+  // Twitter card, and `canonical` was supported but passed on exactly one
+  // page in the repo, so every other URL was free to be indexed under any
+  // query string that reached it.
+  const social = [
+    `<meta property="og:site_name" content="Canopticon" />`,
+    `<meta property="og:type" content="${ogType}" />`,
+    `<meta property="og:title" content="${escapeAttr(args.title || "Canopticon")}" />`,
+    `<meta property="og:description" content="${description}" />`,
+    canonical ? `<meta property="og:url" content="${escapeAttr(canonical)}" />` : "",
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:site" content="@canoptics" />`,
+    `<meta name="twitter:title" content="${escapeAttr(args.title || "Canopticon")}" />`,
+    `<meta name="twitter:description" content="${description}" />`,
+    args.publishedTime
+      ? `<meta property="article:published_time" content="${escapeAttr(args.publishedTime)}" />`
+      : "",
+    args.modifiedTime
+      ? `<meta property="article:modified_time" content="${escapeAttr(args.modifiedTime)}" />`
+      : "",
+    args.markdownUrl
+      ? `<link rel="alternate" type="text/markdown" href="${escapeAttr(args.markdownUrl)}" />`
+      : "",
+    `<link rel="alternate" type="application/feed+json" title="Canopticon" href="${SITE_ORIGIN}/feed.json" />`,
+  ]
+    .filter(Boolean)
+    .join("\n");
   return `<!doctype html>
 <html lang="en" data-mode="${mode}" data-zone="${escapeAttr(zone)}">
 <head>
@@ -67,9 +109,10 @@ export function renderPage(args: RenderPageArgs): string {
 <title>${fullTitle}</title>
 <meta name="description" content="${description}" />
 ${canonical ? `<link rel="canonical" href="${escapeAttr(canonical)}" />` : ""}
+${social}
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&display=swap" />
 <link rel="stylesheet" href="${cssHref}" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="alternate icon" href="/favicon.ico" />
@@ -134,16 +177,20 @@ function renderFooter(): string {
     <div>
       <a href="/" class="wordmark">CANOPTICON<span class="dot">·</span></a>
       <div class="coord" style="margin-top:8px">THE STANDING RECORD <span class="sep">·</span> canopticon.com <span class="sep">·</span> @canoptics</div>
+      <form class="sub-form" method="post" action="/subscribe">
+        <label for="sub-email" class="visually-hidden">Email address</label>
+        <input id="sub-email" type="email" name="email" placeholder="you@example.com" required autocomplete="email" />
+        <button type="submit">Get new work</button>
+      </form>
     </div>
     <div class="foot-links">
-      <a href="/">The Record</a>
-      <a href="/investigations">Investigations</a>
-      <a href="/watchlist">Watchlist</a>
-      <a href="/library">Library</a>
-      <a href="/activity">Activity</a>
+      <a href="/essays">Essays</a>
+      <a href="/research">Research</a>
+      <a href="/about">About</a>
       <a href="/method">Method</a>
-      <a href="/how-it-works">How this works</a>
       <a href="/search">Search</a>
+      <a href="/llms.txt">llms.txt</a>
+      <a href="/feed.json">Feed</a>
     </div>
   </div>
 </footer>`;

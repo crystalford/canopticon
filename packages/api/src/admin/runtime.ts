@@ -22,6 +22,33 @@ import { type Role, callRole, modelForRole } from "../llm/router.ts";
 const app = new Hono<AuthContext>();
 app.use("*", requireAuth());
 
+// ---------------------------------------------------------------------------
+// The corpus split — two populations that must never be treated as one.
+//
+// `pieces` holds two things that look identical in the schema and are not:
+//
+//   feed-upload    the operator's OWN documents, uploaded by them.
+//   record-expand  third-party pages the retired crawler banked as SOURCE
+//                  material (graph/lib/record-builder.ts:710), which sets
+//                  working-material deliberately — it was never meant to be
+//                  published. Wikipedia articles, news pieces, transcripts.
+//
+// Publishing the second group would put copyrighted text on canopticon.com
+// under the CC BY 4.0 the About page asserts over everything, and bulk
+// duplicated third-party text is what search engines penalise a whole domain
+// for. So every query using these is guarded twice: on `ingested_from`, which
+// is the real filter, and on the `web-fetched` tag, which is a second one.
+// Getting this wrong publishes somebody else's work under the operator's name.
+// ---------------------------------------------------------------------------
+
+/** SQL fragment: the operator's own uploads, never anything web-fetched. */
+export const OWN_UPLOADS_SQL = `json_extract(metadata, '$.ingested_from') = 'feed-upload'
+   AND (tags IS NULL OR tags NOT LIKE '%web-fetched%')`;
+
+/** SQL fragment: the crawler's banked third-party material. */
+export const WEB_FETCHED_SQL = `(json_extract(metadata, '$.ingested_from') = 'record-expand'
+    OR tags LIKE '%web-fetched%')`;
+
 app.get("/runtime", async (c) => {
   const userId = c.get("user_id");
 
@@ -333,10 +360,18 @@ app.get("/backfill-library", async (c) => {
   const userId = c.get("user_id");
   const nowIso = new Date().toISOString();
 
+  // ⚠ This promoted EVERY working-material row. That was written when the
+  // only working-material pieces were the operator's own older uploads; the
+  // retired record-expand crawler has since banked ~100 third-party pages
+  // (Wikipedia articles, news, transcripts) in the same table with the same
+  // status, deliberately unpublished. One query string would have put all of
+  // them on canopticon.com as Canopticon's own work under CC BY 4.0.
+  // Now scoped to the operator's own uploads, matching /publish-uploads.
   const publishResult = await run(
     c.env.DB,
     `UPDATE pieces SET publication_status = 'published', published_at = ?
-      WHERE user_id = ? AND publication_status = 'working-material'`,
+      WHERE user_id = ? AND publication_status = 'working-material'
+        AND ${OWN_UPLOADS_SQL}`,
     [nowIso, userId],
   );
 
@@ -367,6 +402,155 @@ app.get("/backfill-library", async (c) => {
     retitled_count: retitled.length,
     retitled,
   });
+});
+
+// GET /v1/admin/corpus-split — read-only. What is actually in the corpus,
+// grouped so the two populations are visible before anything acts on them.
+app.get("/corpus-split", async (c) => {
+  const userId = c.get("user_id");
+  const groups = await all<{
+    ingested_from: string | null;
+    publication_status: string;
+    kind: string;
+    n: number;
+  }>(
+    c.env.DB,
+    `SELECT json_extract(metadata, '$.ingested_from') AS ingested_from,
+            publication_status, kind, COUNT(*) AS n
+       FROM pieces WHERE user_id = ?
+      GROUP BY ingested_from, publication_status, kind
+      ORDER BY n DESC`,
+    [userId],
+  );
+  const own = await all<{ slug: string; title: string; publication_status: string; chars: number }>(
+    c.env.DB,
+    `SELECT slug, title, publication_status, COALESCE(length(body_md), 0) AS chars
+       FROM pieces
+      WHERE user_id = ? AND ${OWN_UPLOADS_SQL}
+      ORDER BY COALESCE(published_at, created_at) DESC
+      LIMIT 200`,
+    [userId],
+  );
+  const webFetched = await one<{ n: number }>(
+    c.env.DB,
+    `SELECT COUNT(*) AS n FROM pieces WHERE user_id = ? AND ${WEB_FETCHED_SQL}`,
+    [userId],
+  );
+  return c.json({
+    ok: true,
+    groups,
+    own_uploads: { count: own.length, pieces: own },
+    web_fetched: { count: webFetched?.n ?? 0 },
+  });
+});
+
+// GET /v1/admin/publish-uploads?confirm=1 — promote the operator's own
+// uploads, and only those. Idempotent; safe to re-run.
+app.get("/publish-uploads", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const userId = c.get("user_id");
+  const willPublish = await all<{ slug: string; title: string }>(
+    c.env.DB,
+    `SELECT slug, title FROM pieces
+      WHERE user_id = ? AND publication_status = 'working-material' AND ${OWN_UPLOADS_SQL}`,
+    [userId],
+  );
+  const res = await run(
+    c.env.DB,
+    `UPDATE pieces
+        SET publication_status = 'published',
+            published_at = COALESCE(published_at, created_at),
+            updated_at = ?
+      WHERE user_id = ? AND publication_status = 'working-material' AND ${OWN_UPLOADS_SQL}`,
+    [new Date().toISOString(), userId],
+  );
+  return c.json({
+    ok: true,
+    published: res.meta.changes ?? 0,
+    slugs: willPublish.map((p) => p.slug),
+    titles: willPublish.map((p) => p.title),
+  });
+});
+
+// GET /v1/admin/purge-web-fetched?confirm=1[&execute=1]
+//
+// DRY RUN unless &execute=1. Reports exactly what would be destroyed so the
+// operator sees the number before it happens.
+//
+// The deletion has to go through `nodes`, not `pieces`. `nodes.piece_id` is a
+// plain TEXT column with no foreign key (migration 0027), so deleting a piece
+// does NOT cascade — it would leave that piece's quotes alive but unmoored,
+// and quote-receipt.ts's LEFT JOIN would render a receipt with no document
+// behind it. Deleting the nodes DOES cascade correctly: quotes.source_id,
+// quotes.node_id, edges.src/dst_node_id, node_props.node_id and
+// assertions.node_id are all ON DELETE CASCADE. purgeTypedGraphForPiece()
+// already does exactly that one delete, so it is reused rather than
+// reimplemented here.
+//
+// NOT REVERSIBLE. The R2 objects and uploaded_files rows survive, but the
+// extracted graph is not rebuildable without re-fetching the original URLs.
+app.get("/purge-web-fetched", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const execute = c.req.query("execute") === "1";
+  const userId = c.get("user_id");
+
+  const pieces = await all<{ id: string; slug: string; title: string; source_id: string | null }>(
+    c.env.DB,
+    `SELECT id, slug, title, json_extract(metadata, '$.source_id') AS source_id
+       FROM pieces WHERE user_id = ? AND ${WEB_FETCHED_SQL}
+      ORDER BY created_at`,
+    [userId],
+  );
+  if (!pieces.length) {
+    return c.json({ ok: true, execute, pieces: 0, note: "nothing web-fetched left to purge" });
+  }
+
+  // Count the collateral up front. This is the number that gets shown to the
+  // operator before anything is destroyed.
+  const ids = pieces.map((p) => p.id);
+  const placeholders = ids.map(() => "?").join(",");
+  const impact = await one<{ nodes: number; quotes: number }>(
+    c.env.DB,
+    `SELECT
+       (SELECT COUNT(*) FROM nodes WHERE user_id = ? AND piece_id IN (${placeholders})) AS nodes,
+       (SELECT COUNT(*) FROM quotes WHERE user_id = ? AND node_id IN
+          (SELECT id FROM nodes WHERE user_id = ? AND piece_id IN (${placeholders}))) AS quotes`,
+    [userId, ...ids, userId, userId, ...ids],
+  ).catch(() => null);
+
+  const summary = {
+    ok: true,
+    execute,
+    pieces: pieces.length,
+    nodes: impact?.nodes ?? 0,
+    quotes: impact?.quotes ?? 0,
+    sample: pieces.slice(0, 15).map((p) => p.title),
+  };
+  if (!execute) {
+    return c.json({ ...summary, note: "DRY RUN — re-call with &execute=1 to destroy this" });
+  }
+
+  // One piece at a time. 13k nodes across ~100 pieces is far past what a
+  // single D1 request should attempt, and a partial run is safe to resume
+  // because the selection query no longer matches whatever already went.
+  const { purgeTypedGraphForPiece } = await import("../graph/lib/digestion-typed.ts");
+  let done = 0;
+  for (const p of pieces) {
+    await purgeTypedGraphForPiece(c.env, userId, p.id);
+    if (p.source_id) {
+      await run(c.env.DB, "DELETE FROM sources WHERE id = ? AND user_id = ?", [
+        p.source_id,
+        userId,
+      ]).catch(() => undefined);
+    }
+    await run(c.env.DB, "DELETE FROM pieces WHERE id = ? AND user_id = ?", [p.id, userId]);
+    done++;
+  }
+  return c.json({ ...summary, purged: done });
 });
 
 // GET /v1/admin/resettle?confirm=1&step=<name>

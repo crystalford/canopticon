@@ -1,230 +1,247 @@
 # Canopticon
 
 > **If you are an AI reading this to understand the project: this file is the
-> source of truth. The primary product is CANOPTICON STUDIO — an editorial
-> film generator for essays. Everything else in this monorepo is a separate,
-> compartmentalized system that is maintained but not grown.**
+> source of truth. The primary product is THE PUBLICATION — canopticon.com,
+> `packages/api`. You upload research documents and essays; it publishes them
+> as citable, machine-readable artifacts. Everything else in this monorepo is
+> a separate, compartmentalized system that is maintained but not grown.**
 >
-> **Studio's only design authority is `docs/studio/CANOPTICON_FILM_ENGINE.md`.
-> `docs/studio/archive/` describes an engine that was DELETED and binds
-> nothing — do not design against it, however confident it sounds.**
+> **This changed on 2026-09-14.** This file previously said the primary
+> product was CANOPTICON STUDIO, a generative film engine. It isn't, and
+> hasn't been used. Studio is parked (see COMPARTMENTALIZED below) and the
+> operator is continuing that work separately. Do not design against
+> `docs/studio/`, however confident it sounds.
 
-- **Studio** (primary): studio.canopticon.com · **Record**: canopticon.com
+- **The Record** (primary): canopticon.com · **Studio** (parked): studio.canopticon.com
 - **Twitter**: @canoptics · **GitHub**: crystalford/canopticon
-
-> **`studio.canopticon.com` is attached and serving.** The custom domain was
-> added in the Cloudflare dashboard by hand and is DONE — this file used to
-> carry it as an outstanding one-time setup step, which then read as an open
-> blocker to every session that opened it. It stays out of `wrangler.toml`
-> because the deploy token lacks Workers Routes Edit on the zone and
-> declaring a route there would fail the deploy; that is a fact about the
-> config file, not a task.
 
 ---
 
-# THE PRIMARY PRODUCT — Canopticon Studio
+# THE PRIMARY PRODUCT — the publication
 
-**Essay in, film out.** You paste an essay, choose a voice and three dials, and
-get a film. One visual language: `TYPOGRAPHIC_EDITORIAL` — **monochrome
-generative editorial collage**. Experimental documentary, kinetic typography,
-punk/zine cut-and-paste, photocopy, newspaper, propaganda, title sequence.
+**Document in, published page out.** Drop a `.md`, `.txt`, `.pdf` or `.zip`
+on `/library` and it is live at `/p/<slug>` — upload *is* publication, with
+no draft step and no approval gauntlet. Two kinds of thing get published and
+nothing else:
 
-**It is not** an AI video generator, a prompt-to-video wrapper, a template
-engine, or an auto-generated After Effects kinetic-typography preset. The goal
-is *typography behaving as a living visual material inside an editorial
-composition* — text as the raw material of the film, not text animated over a
-background.
+- **Research** — a primary document, kept whole and published as itself
+  rather than summarised away. Indexed at `/research`.
+- **Essays** — arguments written to the convention below. Indexed at `/essays`.
 
 ```
-ESSAY
-  ↓  EDITOR            what matters, what turns, which phrases earn the screen
-  ↓                    (one LLM call, verified, frozen; rules editor as fallback)
-  ↓  NARRATION         spans → TTS → ASR → word-level alignment
-  ↓  SPINE             the authoritative clock, measured from the voice
-  ↓  CUT               beats, visual intent, seeds          ── FilmCut ──▶
-  ↓  COMPOSITOR        one composition that behaviours mutate    (browser)
-  ↓  RENDERER          monochrome; degradation at threshold time (browser)
-FILM
+UPLOAD  ──▶  extract  ──▶  pieces row (published)  ──▶  /p/<slug>
+                                   │
+                                   ├──▶  /p/<slug>.md      the plain-text twin
+                                   ├──▶  JSON-LD            Article / DigitalDocument / FAQPage
+                                   ├──▶  /sitemap.xml · /llms.txt · /feed.json
+                                   └──▶  /q/<id>            verified quote receipts
 ```
 
-The Worker decides **what happens and when**. The browser decides **what it
-looks like** — every placement decision needs `ctx.measureText`, which does not
-exist on a Worker, and one engine guessing what the other will draw is how this
-system previously ended up with two that disagreed about 57 of 88 scenes.
+**The goal is citability.** Not traffic for its own sake — being quotable,
+by people and by answer engines, with the provenance intact. That is the one
+thing this publication can do that a Substack cannot, and every design
+decision should be read against it.
 
-## Authority
+## The essay convention
 
-`docs/studio/CANOPTICON_FILM_ENGINE.md` — the only design authority.
+An essay is a Markdown file. Its shape *is* the page's shape — the table of
+contents, the section anchors, the Q&A structured data and the source links
+are all derived from it, and **nothing calls a model at any point.**
 
-`docs/studio/archive/` holds the documents for the **deleted** primitive engine.
-Three of them used to be listed here as "authority order, highest first", which
-meant a fresh session could faithfully rebuild the 130-primitive engine from
-documents it had been told to obey, days after it was removed. They bind
-nothing. Read them for the failures they record, not for direction.
+```
+# Title
+A one-line dek.
+
+A summary paragraph that stands alone.
+
+## A question ending in a question mark?
+The answer, in the first sentence or two.
+Supporting paragraphs after that, citing sources as [1].
+
+## Sources
+1. Author. Title. Publisher, 2026.
+```
+
+An upload is classified as an essay when a majority of its `##` headings are
+questions — that contract is exactly what the essay template and the FAQ
+markup need. `packages/api/src/lib/essay.ts` is the parser, the classifier
+and an advisory lint (opening paragraphs over 70 words, uncited sources).
+**The lint never blocks a publish.** Notes are stored in the piece's metadata
+and shown in `/library`.
 
 ## Standing rules — non-negotiable
 
-1. **AI output is an input artifact, never a function.** The editorial reading
-   and the narration are generated once, verified, hashed, frozen and committed.
-   Nothing calls a model at render time.
-2. **A promoted phrase is the essay's own text**, verified as a literal
-   substring at its own offset before the record is stored. A model that
-   paraphrases there is writing ad copy onto somebody's essay. This is the
-   same firewall the Record keeps around quotes.
-3. **Timing is measured, never assumed.** The visual edit answers to real audio.
-   Where a measurement was impossible the spine says so rather than pretending.
-4. **No `Math.random()`.** Every seed is derived on the Worker and travels to
-   the browser as a number; the browser never hashes a string into a seed. Two
-   copies of that step drifting apart changes every frame of every film with no
-   error to notice.
-5. **Determinism is claimed honestly.** Same essay + seed + settings = the same
-   film. The browser export muxes real voice but cannot be frame-exact, and says
-   which it was.
-6. **The operator controls the inputs and the seed.** The system is not asked to
-   negotiate a shot. Steering belongs in language later, never in a panel of
-   enum dropdowns.
-7. **Degrade, flag, continue.** One span that will not synthesise must not
-   silence the film, and must not be invisible either.
-8. **Readability is protected.** Illegibility is an explicit editorial decision,
-   never an accident of a downstream effect. The old engine's worst failure was
-   selecting the right phrase and then destroying it three stages later.
-9. **The creative primitive is a BEHAVIOR, not an object.** No `primitiveId`,
-   no `constructionId`, no noun→picture mapping anywhere in the production path.
-   `tests/engine.test.ts` enforces this by scanning the source.
-10. **One composition, evolving.** Inheritance is the default and only
-    `interrupt` clears. A film is not a sequence of pictures that replace each
-    other — that is the failure four rebuilds kept producing.
+1. **Verification is mechanical, never vouched for.** Every published quote
+   is checked as a literal substring of a stored source, with its byte offset
+   recorded, by code — not by an operator's say-so. Quotes that fail are
+   dropped. `/q/<id>` is the public receipt.
+2. **Upload is authorization.** The operator approves by uploading; there are
+   no confirmation gauntlets and no draft→publish rail for documents.
+3. **Nothing is written twice.** A page, its `.md` twin, its JSON-LD, the
+   sitemap, `llms.txt` and the feed are all generated from one query over one
+   table. They cannot drift apart because there is only one of them. New
+   surfaces go in `public/machine.ts`, not into a second renderer.
+4. **Nothing runs unattended.** The cron is disabled (`packages/api/wrangler.toml`).
+   Work happens when a person does something. If you need a queue drained,
+   add a button, not a schedule — an idle site should cost nothing.
+5. **AI output is an input artifact, never a function.** Nothing calls a model
+   at render time. If a model wrote something, it was frozen into a row first.
+6. **Say what is true.** If a date is unknown, the page says so. If extraction
+   only read part of a document, don't imply full coverage. An honest gap
+   beats a confident guess — this is a record.
+7. **No JavaScript required to read.** Every public page server-renders
+   complete. A crawler that runs no JS must see everything a reader sees.
 
 ## The prioritisation function
 
-> **Would I actually watch this?**
+> **Would I publish something here today, and would it be a pleasant ten
+> minutes?**
 
-Then: does it feel authored? Does it feel like the writing became cinema rather
-than being decorated? Could two essays produce genuinely different films in one
-visual language, and two seeds different films without looking like noise?
-
-A green test suite cannot answer any of these. The development loop is
-**BUILD → DEPLOY → LOOK → CRITIQUE → CHANGE → DEPLOY**.
+Then: is it findable, is it quotable, does the provenance survive? A green
+test suite answers none of those.
 
 ## What's built
 
-`packages/studio` — its own Worker, own D1 (`canopticon-studio`), own R2. The
-Lab is served by the same Worker as static assets (`wrangler.toml`'s
-`[assets] directory = "./lab"`), so editing `lab/*` and merging publishes it.
+`packages/api` — its own Worker, own D1 (`canopticon`), own R2, own Vectorize.
 
-**Worker** — `film/schema.ts` (the record, and the verbatim check in
-`parseFilm`) · `film/segment.ts` (the author's own structure) · `editor/`
-(prompt, model call, verifier, rules editor) · `narrate/` (tts kept whole, asr,
-spans, store) · `timeline/` (the Needleman–Wunsch word aligner, spine, estimate)
-· `cut/` (beats × spine → FilmCut).
+**Public** — `public/routes.ts` (every public route) · `public/layout.ts`
+(the shell: head, OG/canonical, nav, footer, mailing-list form) ·
+`public/machine.ts` (JSON-LD, the `.md` twin, APA/BibTeX, llms.txt, feed) ·
+`public/data.ts` (all piece queries) · `public/styles.ts` (one stylesheet,
+served at `/styles.css`) · `public/render/` (`indexes.ts`, `about.ts`,
+`piece-template.ts`, `quote-receipt.ts`, `search.ts`, `arrangements/timeline.ts`).
 
-**Browser** — `lab/comp/compose.js` (the compositor: one live composition,
-behaviours as operators, placement solved against an occupancy map) ·
-`lab/paint/frame.js` (monochrome; degradation at threshold time) ·
-`lab/export/` (encode, voice) · `lab/fonts/` (four OFL families, self-hosted).
+**Ingest** — `operator/routes.ts`'s `createAndExtract()` is the spine:
+SHA-256 dedup → R2 → `uploaded_files` → `extract.ts` → a published `pieces`
+row. `graph/lib/digestion-typed.ts` pulls verified quotes and typed nodes out
+of the text.
 
-**Zero D1 migration was needed** — `ir_versions.ir_json` is an opaque blob.
+**Design** — dark ground, one red accent (`#e0433c`), Archivo + JetBrains
+Mono, Newsreader for reading columns. Component vocabulary lives in
+`styles.ts` under "v3 — THE PUBLICATION".
+
+**Looking at it** — `packages/api/scripts/look.mts` serves the real app
+against a seeded in-memory D1 and screenshots six pages. There is no local
+dev server; this is the fastest way to see a change without deploying.
 
 ## Known gaps, stated plainly
 
-- **The legibility pass is partial.** The occlusion budget and knockout are
-  designed but not built, so dense beats currently overlap and can bury the key
-  phrase. This is the next thing.
-- **Only ten behaviours exist** of the ~26 in the vocabulary. Montage, TEAR,
-  SMEAR, STUTTER, DRIFT and the rest are unbuilt.
-- **The material pass is grain + threshold only.** Halftone, registration
-  error, ink bleed and wear-driven text mutation are designed, not built.
-- **Audio and deterministic rendering are mutually exclusive.** The browser
-  export muxes voice but is paced to real time to do it; there is no
-  frame-accurate audio path. Writing a muxer was tried once and shipped corrupt
-  files. Do not try again without a reason.
-- **Export costs real time** — a 60-second film takes about 60 seconds.
-- **Narration needs the deployed Worker.** `env.AI` does not exist in a sandbox,
-  so local iteration is silent and estimated-timing. **The narrated film is
-  judged after deploy, always.**
-- **`POST /v1/editorial/probe` has not been run against production.** Run it
-  before trusting a single film — the deleted `extract-reading.ts` records a
-  route that never once succeeded and wore the costume of polite failure for
-  weeks.
+- **⚠ Cloudflare blocks AI crawlers by default** on zones created after July
+  2025. `robots.txt` invites them explicitly, but a file cannot overrule the
+  edge: if *Block AI Bots* is on for the canopticon.com zone, they get a 403
+  before the Worker runs and the whole AEO effort is decorative. **This is a
+  dashboard change only the operator can make.** Verify with
+  `curl -A GPTBot https://canopticon.com/`.
+- **Extraction reads at most ~72KB of any document** (`MAX_CHUNKS = 3` in
+  `digestion-typed.ts`). Fine for timelines and quotes; don't imply the graph
+  has read a whole book.
+- **No email sending.** The mailing list collects addresses and can
+  unsubscribe; nothing goes out.
+- **The graph is real, not scaffolding.** Measured live 2026-09-14:
+  **13,075 nodes · 18,774 edges · 6,137 verified quotes · 1,902 assertions**
+  over 116 pieces. `docs/canopticon-renovation.md` says it "has never eaten a
+  real corpus" and an earlier version of this file repeated that — both are
+  out of date. The legacy flat tables (`entities`, `topics`, `claims`) are at
+  zero; the typed graph is what carries content.
+
+## The corpus has two populations — never treat them as one
+
+`pieces` holds two things the schema cannot tell apart:
+
+| | `ingested_from: feed-upload` | `ingested_from: record-expand` |
+|---|---|---|
+| what | the operator's own uploaded documents | third-party pages a retired crawler banked |
+| status | published | `working-material`, **deliberately** |
+| publish it? | yes | **never** |
+
+The second group is source material to quote from, not content. Publishing it
+would put Wikipedia articles and copyrighted news text on canopticon.com as
+Canopticon's own work under the CC BY 4.0 `/about` asserts over everything,
+and bulk duplicated third-party text is what search engines penalise a whole
+domain for.
+
+Every query that acts on one population is guarded twice — on `ingested_from`
+and on the `web-fetched` tag — via `OWN_UPLOADS_SQL` / `WEB_FETCHED_SQL` in
+`admin/runtime.ts`, asserted by `tests/corpus-guards.test.ts`. **Do not write
+a new query over `pieces` that publishes or deletes without using them.**
+
+Admin endpoints (probe-reachable, `?confirm=1`):
+`/v1/admin/corpus-split` (read-only) · `/v1/admin/publish-uploads` ·
+`/v1/admin/purge-web-fetched` (dry run unless `&execute=1`).
+
+⚠ A purge deletes through `nodes`, never `pieces` alone: `nodes.piece_id` has
+no foreign key (migration 0027), so deleting a piece does **not** cascade and
+would leave its quotes alive but unmoored — a `/q/<id>` receipt with no
+document behind it. `purgeTypedGraphForPiece()` is the correct primitive.
 
 ## What's next
 
-1. The legibility pass with a real occlusion budget and knockout.
-2. The rest of the behaviour vocabulary, and motif memory with wear.
-3. The material pass — halftone, registration, bleed, wear-driven mutation.
-4. Then only the critique loop: watch films, change numbers, deploy.
+1. Upload real documents and write real essays. Everything else is downstream
+   of whether that is pleasant.
+2. Retire the ~11 unlinked arrangement routes and shrink `subject-page.ts`
+   (2,400 lines) once nothing links to them.
+3. Then measure: `/citations` already logs GPTBot, ClaudeBot and
+   PerplexityBot hits, so whether any of this worked is answerable.
 
-Later, and gated on evidence, not appetite: generated imagery as *world
-material* (segment → depth → layers), and any 3D/WebGL decision. Neither is
-scoped and neither is needed to find out whether the typographic engine works.
 ---
 
 # COMPARTMENTALIZED — maintained, not grown
 
-These are separate systems that predate the Studio pivot. They are kept and
-they keep working. **Do not grow them, do not couple them to Studio, and do
-not treat their docs as design authority for anything.** Each has its own
-Worker, its own database, and its own deploy.
+Separate systems, each with its own Worker, database and deploy. **Do not
+grow them, do not couple them to the publication, and do not treat their
+docs as design authority for anything.**
 
-### `packages/api` — **the Record** (canopticon.com)
+### `packages/studio` — the film engine (studio.canopticon.com)
 
-A forensic intelligence publication: a typed graph (7 node kinds, 6 edge
-families) grown from uploaded research documents, rendered as a citable public
-wiki with signed interpretive readings on top. Real, working, and full of real
-content — 50+ research documents, subject pages, investigations, a library.
+An editorial film generator: essay in, film out. Real, deployed, and the
+largest thing in the repo by recent churn. **Parked, not dead** — the
+operator is continuing this work separately, and it costs nothing idle (no
+cron, no containers). Its own design authority is
+`docs/studio/CANOPTICON_FILM_ENGINE.md`; `docs/studio/archive/` describes a
+DELETED engine and binds nothing.
 
-Its own D1, migrations in `supabase/migrations/`, deployed by
-`deploy-api.yml`. Treat it as a **record-keeping / CMS system**: fix bugs,
-keep it live, don't extend the model.
-
-Its own internal rules, still true of it: the operator approves and never
-authors; upload is authorization; verification is mechanical (every published
-quote is a literal substring of a real stored source, verified by an
-independent different-family judge); an attributed assertion is never silently
-a neutral fact.
-
-Historical docs for the Record live in `docs/` (`canonical-spec-v2.6.md`,
-`canopticon-renovation.md`, `LINEAGE.md`, `docs/archive/`). **They describe
-the Record only.** They are not Studio design input.
+It was the primary product in this file until 2026-09-14. It isn't now. The
+honest summary of why: it is a genuinely good engine that was never finished
+to the point of being used, and pursuing it kept the publication from
+shipping.
 
 ### `packages/video` — render surface + reaction tool (video.canopticon.com)
 
-Two unrelated things sharing a Worker. `routes/from-reading.ts` drafts an
-already-signed Record analysis into a video script through a human-approval
-rail. `src/react/*` is a standalone personal reaction-video tool (record on
-camera against an external clip). Neither is Studio; Studio does not build on
-either.
+`routes/from-reading.ts` drafts a Record analysis into a video script;
+`src/react/*` is a standalone reaction-video tool. Carries a Cloudflare
+Container (`standard-4`) for rendering — **on-demand only, nothing schedules
+it.** If costs ever spike, check Containers/Durable Objects usage here first.
 
 ### `packages/blindspot` — Instruments (blindspot.canopticon.com)
 
-A standing home for standalone software side-projects, each judged on its own
-merits. The Blind Spot (an inequality-measurement instrument) is the first.
+Standalone software side-projects, each judged on its own merits. The Blind
+Spot (an inequality-measurement instrument) is the first. Push-button, no
+cron, near-zero maintenance.
+
+### Dormant inside `packages/api`
+
+The autonomous-growth machinery — `autonomous-expand.ts`, `deep-research.ts`,
+`settle-pipeline.ts`, `watcher.ts`, `profile-generator.ts`, and the
+enrichment passes — is unwired and unreachable now the cron is off. It is
+kept for reference. **This is the "make the thing build itself" impulse that
+stalled the project twice.** Leave it alone.
 
 ---
 
 # Stack
 
-Shared across every Worker in the monorepo; nothing else is shared.
-
 - **Runtime**: Cloudflare Workers + **Hono**, TypeScript.
-- **Storage**: **D1** (SQLite) · **R2** · **Vectorize** (Record only).
-- **AI**: **Workers AI**, and nothing else. Narration was reviewed against
-  MiniMax and ElevenLabs and Workers AI kept: a third-party voice provider
-  would be an external API key, an external outage surface, and the only
-  part of the pipeline able to fail for reasons off-platform — inside a
-  system whose whole premise is a reproducible artifact. `@cf/deepgram/aura-1`
-  answers in ~500ms and is billed inside Workers AI. (`packages/video` DOES
-  call MiniMax directly, for voice CLONING, with its own key. That is the
-  compartmentalized system and is not a precedent for Studio.) The Record
-  routes by role
-  (`packages/api/src/llm/router.ts`). Studio uses it only at authoring time
-  (segmentation, TTS) and freezes the output.
+- **Storage**: **D1** (SQLite) · **R2** · **Vectorize** (search).
+- **AI**: **Workers AI** only, and only at authoring time (extraction, TTS),
+  never at render time. (`packages/video` calls MiniMax directly for voice
+  cloning with its own key — compartmentalized, not a precedent.)
 - **Rendering**: server-rendered HTML by string concatenation. No JSX, no
-  React, no client framework, no frontend build step. Studio's Lab is plain
-  canvas + vanilla JS for the same reason.
+  React, no client framework, no frontend build step.
 - **Migrations**: plain numbered SQL, applied on deploy via
-  `wrangler d1 migrations apply`. Each Worker has its own directory —
-  `supabase/migrations/` (Record), `migrations-video/`, `migrations-studio/`.
+  `wrangler d1 migrations apply`. `supabase/migrations/` (Record),
+  `migrations-video/`, `migrations-studio/`. **Legacy tables are never
+  dropped** — they are unread, which costs nothing, and dropping them risks
+  live data.
 - **Host**: Cloudflare, auto-deploy on merge to `main` per-package.
 
 # Dev environment — IMPORTANT
@@ -238,23 +255,22 @@ Shared across every Worker in the monorepo; nothing else is shared.
   pnpm exec biome check .        # CI runs this WITHOUT --write
   pnpm -r test
   ```
-- The **Lab is ES modules**, so it needs an HTTP origin — `file://` is blocked
-  by CORS. `packages/studio/scripts/look.mjs` serves `lab/` and renders a
-  FilmCut headless, which is the fastest way to see frames without deploying.
-  It is silent and estimated-timing; the narrated film is judged after deploy.
+- To SEE a change: `packages/api/scripts/look.mts` (needs
+  `pnpm add -D -w playwright` and `CHROMIUM_PATH` pointing at the Chromium
+  already on the machine — do not run `playwright install`).
 - To inspect the live Record, trigger `.github/workflows/canopticon-admin-probe.yml`
   (workflow_dispatch with a `path`); it calls canopticon.com through Cloudflare
-  Access and commits the response to `ops/probe/response.json`. It is hardcoded
-  to canopticon.com and cannot reach the other Workers.
+  Access and commits the response to `ops/probe/response.json`.
 - Branch convention: `claude/<name>`. Never push to `main` directly; PR + CI +
-  squash-merge.
+  squash-merge. Branches are reused across PRs, so a designated branch may
+  carry a stale tip with no merge base — archive it before force-pushing.
 
 # Env / bindings
 
 ```
-Studio:  DB (D1 canopticon-studio) · FILES (R2) · AI
 Record:  DB (D1 canopticon) · FILES (R2) · EMBEDDINGS (Vectorize) · AI
+Studio:  DB (D1 canopticon-studio) · FILES (R2) · AI
 Secrets: ANTHROPIC_API_KEY (optional) · CRON_SECRET
          CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (admin probe)
-         SESSION_SECRET (Record operator session cookie)
+         SESSION_SECRET (operator session cookie)
 ```
