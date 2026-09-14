@@ -10,6 +10,7 @@
 // emitted.
 
 import { parseEssay } from "../lib/essay";
+import { displayTitle } from "../lib/title";
 import type { PieceDetail, PublishedPieceRef } from "./data";
 
 export const SITE = "https://canopticon.com";
@@ -34,6 +35,13 @@ export function pieceUrl(slug: string): string {
 
 export function pieceMarkdownUrl(slug: string): string {
   return `${SITE}/p/${slug}.md`;
+}
+
+// The title a document publishes under. Shared with the HTML page so the
+// JSON-LD headline, the markdown twin, llms.txt, the feed and the citation
+// strings can never call the same document something different.
+export function pieceTitle(piece: { title: string; body_md?: string | null }): string {
+  return displayTitle(piece.title, piece.body_md);
 }
 
 export function isEssay(kind: string): boolean {
@@ -112,8 +120,8 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
   const base: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": essay ? "Article" : "DigitalDocument",
-    name: piece.title,
-    headline: piece.title,
+    name: pieceTitle(piece),
+    headline: pieceTitle(piece),
     url,
     inLanguage: "en",
     isAccessibleForFree: true,
@@ -191,7 +199,7 @@ export function ldScript(doc: unknown): string {
 export function citeApa(piece: PieceDetail): string {
   const year = dateOnly(piece.published_at ?? piece.created_at).slice(0, 4) || "n.d.";
   const author = piece.byline || "Canopticon";
-  return `${author}. (${year}). ${piece.title}. Canopticon. ${pieceUrl(piece.slug)}`;
+  return `${author}. (${year}). ${pieceTitle(piece)}. Canopticon. ${pieceUrl(piece.slug)}`;
 }
 
 export function citeBibtex(piece: PieceDetail): string {
@@ -199,7 +207,7 @@ export function citeBibtex(piece: PieceDetail): string {
   const author = piece.byline || "Canopticon";
   return [
     `@misc{canopticon-${piece.slug},`,
-    `  title        = {${piece.title}},`,
+    `  title        = {${pieceTitle(piece)}},`,
     `  author       = {${author}},`,
     `  year         = {${year}},`,
     `  howpublished = {\\url{${pieceUrl(piece.slug)}}},`,
@@ -217,7 +225,7 @@ export function pieceMarkdown(piece: PieceDetail): string {
   const published = dateOnly(piece.published_at ?? piece.created_at);
   const modified = dateOnly(piece.updated_at ?? piece.published_at ?? piece.created_at);
   const head = [
-    `# ${piece.title}`,
+    `# ${pieceTitle(piece)}`,
     "",
     piece.subtitle ? `> ${piece.subtitle}\n` : "",
     `${isEssay(piece.kind) ? "Essay" : "Research document"} · Canopticon · published ${published}${
@@ -242,7 +250,7 @@ export function llmsTxt(entries: LlmsEntry[]): string {
   const essays = entries.filter((e) => isEssay(e.kind));
   const research = entries.filter((e) => !isEssay(e.kind));
   const line = (e: LlmsEntry) =>
-    `- [${e.title}](${pieceMarkdownUrl(e.slug)})${e.subtitle ? `: ${e.subtitle}` : ""}`;
+    `- [${displayTitle(e.title, e.body_head)}](${pieceMarkdownUrl(e.slug)})${e.subtitle ? `: ${e.subtitle}` : ""}`;
 
   const parts = [
     "# Canopticon",
@@ -276,7 +284,7 @@ export function feedJson(entries: LlmsEntry[]): string {
     return {
       id: pieceUrl(e.slug),
       url: pieceUrl(e.slug),
-      title: e.title,
+      title: displayTitle(e.title, e.body_head),
       ...(e.subtitle ? { summary: e.subtitle } : {}),
       date_published: `${published}T00:00:00Z`,
       date_modified: `${dateOnly(e.updated_at)}T00:00:00Z`,

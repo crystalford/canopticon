@@ -2,6 +2,7 @@
 // archive). The piece page itself is rendered by piece-template.ts, not
 // here — see that file for the public face of a single document.
 
+import { looksLikeMachineFilename } from "../../lib/title";
 import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
 import { escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
@@ -273,14 +274,6 @@ ${filterRow}
 // machine-filename shape (long, no spaces, a file extension or a uuid-ish
 // segment) and show a plain placeholder with the real filename kept
 // visible underneath in mono, never hidden.
-function looksLikeMachineFilename(title: string): boolean {
-  if (/\s/.test(title)) return false;
-  if (title.length < 20) return false;
-  const hasExt = /\.(md|txt|pdf|html?|docx?|csv|json)$/i.test(title);
-  const hasUuidish = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(title);
-  return hasExt || hasUuidish;
-}
-
 // Essay lint notes, written into the piece's metadata at upload time. Shown
 // here rather than only on the upload confirmation, which is seen once and
 // then gone. Advisory — the piece published regardless.

@@ -9,6 +9,7 @@
 // work. Built from the same row and card components the indexes use, so the
 // front door and the indexes cannot drift into looking like two sites.
 
+import { displayTitle } from "../../lib/title";
 import {
   type IndexPiece,
   type PublicEnv,
@@ -55,7 +56,7 @@ function lead(p: IndexPiece): string {
   return `<section class="sec" style="margin-bottom:52px">
   <div class="eyebrow">Latest essay</div>
   <h1 style="font-family:var(--sans);font-weight:700;font-size:clamp(28px,3.8vw,38px);line-height:1.06;letter-spacing:-0.03em;margin:0 0 14px">
-    <a href="/p/${escapeHtml(p.slug)}" style="color:var(--ink);text-decoration:none;border:0">${escapeHtml(p.title)}</a>
+    <a href="/p/${escapeHtml(p.slug)}" style="color:var(--ink);text-decoration:none;border:0">${escapeHtml(displayTitle(p.title, p.body_head))}</a>
   </h1>
   ${p.subtitle ? `<p class="phead-dek" style="margin:0 0 18px">${escapeHtml(p.subtitle)}</p>` : ""}
   <div class="coord" style="gap:12px;flex-wrap:wrap">

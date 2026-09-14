@@ -135,14 +135,44 @@ dev server; this is the fastest way to see a change without deploying.
 - **Extraction reads at most ~72KB of any document** (`MAX_CHUNKS = 3` in
   `digestion-typed.ts`). Fine for timelines and quotes; don't imply the graph
   has read a whole book.
-- **`digest_jobs` has no drain.** With the cron off, anything queued and not
-  run inline (zip entries past the first three) sits forever. Needs an
-  operator-pressed button.
 - **No email sending.** The mailing list collects addresses and can
   unsubscribe; nothing goes out.
-- **The graph is mostly scaffolding.** `docs/canopticon-renovation.md` is
-  blunt about this: it "has never eaten a real corpus". Timelines, quote
-  receipts and search are the parts worth keeping.
+- **The graph is real, not scaffolding.** Measured live 2026-09-14:
+  **13,075 nodes · 18,774 edges · 6,137 verified quotes · 1,902 assertions**
+  over 116 pieces. `docs/canopticon-renovation.md` says it "has never eaten a
+  real corpus" and an earlier version of this file repeated that — both are
+  out of date. The legacy flat tables (`entities`, `topics`, `claims`) are at
+  zero; the typed graph is what carries content.
+
+## The corpus has two populations — never treat them as one
+
+`pieces` holds two things the schema cannot tell apart:
+
+| | `ingested_from: feed-upload` | `ingested_from: record-expand` |
+|---|---|---|
+| what | the operator's own uploaded documents | third-party pages a retired crawler banked |
+| status | published | `working-material`, **deliberately** |
+| publish it? | yes | **never** |
+
+The second group is source material to quote from, not content. Publishing it
+would put Wikipedia articles and copyrighted news text on canopticon.com as
+Canopticon's own work under the CC BY 4.0 `/about` asserts over everything,
+and bulk duplicated third-party text is what search engines penalise a whole
+domain for.
+
+Every query that acts on one population is guarded twice — on `ingested_from`
+and on the `web-fetched` tag — via `OWN_UPLOADS_SQL` / `WEB_FETCHED_SQL` in
+`admin/runtime.ts`, asserted by `tests/corpus-guards.test.ts`. **Do not write
+a new query over `pieces` that publishes or deletes without using them.**
+
+Admin endpoints (probe-reachable, `?confirm=1`):
+`/v1/admin/corpus-split` (read-only) · `/v1/admin/publish-uploads` ·
+`/v1/admin/purge-web-fetched` (dry run unless `&execute=1`).
+
+⚠ A purge deletes through `nodes`, never `pieces` alone: `nodes.piece_id` has
+no foreign key (migration 0027), so deleting a piece does **not** cascade and
+would leave its quotes alive but unmoored — a `/q/<id>` receipt with no
+document behind it. `purgeTypedGraphForPiece()` is the correct primitive.
 
 ## What's next
 
@@ -150,8 +180,7 @@ dev server; this is the fastest way to see a change without deploying.
    of whether that is pleasant.
 2. Retire the ~11 unlinked arrangement routes and shrink `subject-page.ts`
    (2,400 lines) once nothing links to them.
-3. An operator button to drain `digest_jobs`.
-4. Then measure: `/citations` already logs GPTBot, ClaudeBot and
+3. Then measure: `/citations` already logs GPTBot, ClaudeBot and
    PerplexityBot hits, so whether any of this worked is answerable.
 
 ---

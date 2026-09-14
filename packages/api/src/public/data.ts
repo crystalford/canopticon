@@ -195,6 +195,10 @@ export const ESSAY_KINDS = ["essay"] as const;
 export interface IndexPiece extends PieceSummary {
   body_chars: number;
   updated_at: string;
+  /** The first 400 characters of body_md — enough for displayTitle() to
+   *  recover a real heading when the stored title is a raw filename, without
+   *  pulling every document's full text into an index query. */
+  body_head: string | null;
 }
 
 export function readMinutes(bodyChars: number): number {
@@ -211,7 +215,7 @@ async function listPiecesByKind(
     db,
     `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
             byline, published_at, signed_by, updated_at,
-            LENGTH(body_md) AS body_chars
+            LENGTH(body_md) AS body_chars, SUBSTR(body_md, 1, 400) AS body_head
        FROM pieces
       WHERE user_id = ? AND publication_status IN ('published','canonical')
         AND kind ${match === "essay" ? "IN" : "NOT IN"} (${placeholders})
@@ -235,6 +239,7 @@ export interface PublishedPieceRef {
   kind: string;
   updated_at: string;
   published_at: string | null;
+  body_head: string | null;
 }
 
 // Every publicly-visible piece, for the sitemap, llms.txt and the feed.
@@ -246,7 +251,8 @@ export async function listPublishedPieces(
 ): Promise<PublishedPieceRef[]> {
   return all<PublishedPieceRef>(
     db,
-    `SELECT slug, title, subtitle, kind, updated_at, published_at
+    `SELECT slug, title, subtitle, kind, updated_at, published_at,
+            SUBSTR(body_md, 1, 400) AS body_head
        FROM pieces
       WHERE user_id = ? AND publication_status IN ('published','canonical')
       ORDER BY COALESCE(published_at, created_at) DESC

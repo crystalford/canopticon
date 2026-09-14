@@ -30,6 +30,7 @@ import {
   isEssay,
   pieceJsonLd,
   pieceMarkdownUrl,
+  pieceTitle,
   pieceUrl,
 } from "../machine";
 
@@ -59,8 +60,8 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   const essay = isEssay(piece.kind);
   const faq = essay ? essayFaq(piece.body_md ?? "") : undefined;
   return renderPage({
-    title: piece.title,
-    description: piece.subtitle ?? `${piece.title} — a Canopticon piece.`,
+    title: pieceTitle(piece),
+    description: piece.subtitle ?? `${pieceTitle(piece)} — a Canopticon piece.`,
     body: `${body}\n${pieceJsonLd(piece, faq?.length ? { faq } : {})}`,
     activeNav: essay ? "/essays" : "/research",
     zone: essay ? "essays" : "research",
@@ -235,7 +236,7 @@ function renderBreadcrumbs(piece: PieceDetail): string {
   <span class="arr">›</span>
   <a href="${escapeAttr(section.href)}">${escapeHtml(section.name)}</a>
   <span class="arr">›</span>
-  <span class="cur">${escapeHtml(piece.title)}</span>
+  <span class="cur">${escapeHtml(pieceTitle(piece))}</span>
 </div>`;
 }
 
@@ -275,7 +276,7 @@ function renderPageHead(piece: PieceDetail): string {
   return `<div class="page-head">
   <div class="zone-label">${escapeHtml(label)}</div>
   ${tagRow}
-  <h1>${escapeHtml(piece.title)}</h1>
+  <h1>${escapeHtml(pieceTitle(piece))}</h1>
   ${piece.subtitle ? `<p class="ph-sub" style="font-style:italic">${escapeHtml(piece.subtitle)}</p>` : ""}
   ${dateLine}
 </div>`;

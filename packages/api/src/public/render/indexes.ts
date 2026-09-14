@@ -10,6 +10,7 @@
 // possibly indexed, and moving every document's canonical URL to win a path
 // segment would trade real link equity for a cosmetic gain.
 
+import { displayTitle } from "../../lib/title";
 import {
   type IndexPiece,
   type PublicEnv,
@@ -35,7 +36,7 @@ function essayRow(p: IndexPiece): string {
   return `<a class="row" href="/p/${escapeHtml(p.slug)}">
   <div class="row-date">${escapeHtml(date)}</div>
   <div class="row-main">
-    <div class="row-title">${escapeHtml(p.title)}</div>
+    <div class="row-title">${escapeHtml(displayTitle(p.title, p.body_head))}</div>
     ${dek}
   </div>
   <div class="row-meta">${readMinutes(p.body_chars)} min</div>
@@ -47,7 +48,7 @@ function researchCard(p: IndexPiece): string {
   const note = p.subtitle ? `<div class="rcard-note">${escapeHtml(p.subtitle)}</div>` : "";
   return `<a class="rcard" href="/p/${escapeHtml(p.slug)}">
   <div class="rcard-badge">${escapeHtml(kindLabel(p.kind))}</div>
-  <div class="rcard-title">${escapeHtml(p.title)}</div>
+  <div class="rcard-title">${escapeHtml(displayTitle(p.title, p.body_head))}</div>
   ${note}
   <div class="rcard-meta"><span>${escapeHtml(date)}</span><span>${readMinutes(p.body_chars)} min</span></div>
 </a>`;
