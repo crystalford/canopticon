@@ -25,6 +25,12 @@ import { renderPiece } from "./render/piece-template";
 import { renderNotFound } from "./render/placeholder";
 import { renderEntityPage } from "./render/record";
 import { renderSearchPage } from "./render/search";
+import {
+  renderConfirmed,
+  renderSubscribeError,
+  renderSubscribed,
+  renderUnsubscribed,
+} from "./render/subscribe";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
 import { renderVideosPage } from "./render/videos";
 import { renderWatchlistPage } from "./render/watchlist";
@@ -438,6 +444,93 @@ app.get("/s/:slug", async (c) => {
 // Clean-markdown download — the "source of record" button on every
 // piece page links here. Returns the raw body_md with a Content-Disposition
 // that triggers a download in browsers.
+// ---- mailing list ---------------------------------------------------------
+//
+// A plain form POST, because the site's no-JS contract applies here too. The
+// existing JSON endpoint (v1/public/subscribe) stays for programmatic use;
+// this is the one a person's browser submits.
+//
+// No sending infrastructure exists yet. That is deliberate — addresses are
+// worth collecting now, a campaign system is not worth building now — and the
+// confirmation page says as much rather than implying a welcome email is on
+// its way.
+
+const EMAIL_RE = /^[^@\s]+@[^@\s.]+\.[^@\s]+$/;
+
+app.post("/subscribe", async (c) => {
+  const form = await c.req.parseBody();
+  const email = String(form.email ?? "")
+    .trim()
+    .toLowerCase();
+  if (!EMAIL_RE.test(email) || email.length > 254) {
+    return htmlResponse(renderSubscribeError("That doesn't look like an email address."), {
+      status: 400,
+    });
+  }
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) {
+    return htmlResponse(renderSubscribeError("The mailing list isn't accepting sign-ups yet."), {
+      status: 503,
+    });
+  }
+  // The table's UNIQUE (email, thesis_id) does not catch repeats here: SQLite
+  // treats NULLs as distinct, and thesis_id is NULL for a plain site-wide
+  // subscription. So the duplicate check is explicit.
+  const existing = await one<{ id: string }>(
+    c.env.DB,
+    "SELECT id FROM pub_subscriptions WHERE email = ? AND thesis_id IS NULL AND unsubscribed_at IS NULL",
+    [email],
+  ).catch(() => null);
+  if (existing) return htmlResponse(renderSubscribed(true));
+
+  await c.env.DB.prepare(
+    `INSERT INTO pub_subscriptions (id, user_id, email, channels, unsubscribe_token, confirmation_token)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      crypto.randomUUID(),
+      userId,
+      email,
+      JSON.stringify(["articles"]),
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+    )
+    .run();
+  return htmlResponse(renderSubscribed(false));
+});
+
+app.get("/unsubscribe", async (c) => {
+  const token = c.req.query("token") ?? "";
+  if (!token) return htmlResponse(renderUnsubscribed(false), { status: 400 });
+  const row = await one<{ id: string }>(
+    c.env.DB,
+    "SELECT id FROM pub_subscriptions WHERE unsubscribe_token = ? AND unsubscribed_at IS NULL",
+    [token],
+  ).catch(() => null);
+  if (!row) return htmlResponse(renderUnsubscribed(false), { status: 404 });
+  await c.env.DB.prepare("UPDATE pub_subscriptions SET unsubscribed_at = ? WHERE id = ?")
+    .bind(new Date().toISOString(), row.id)
+    .run();
+  return htmlResponse(renderUnsubscribed(true));
+});
+
+app.get("/confirm", async (c) => {
+  const token = c.req.query("token") ?? "";
+  if (!token) return htmlResponse(renderConfirmed(false), { status: 400 });
+  const row = await one<{ id: string }>(
+    c.env.DB,
+    "SELECT id FROM pub_subscriptions WHERE confirmation_token = ? AND unsubscribed_at IS NULL",
+    [token],
+  ).catch(() => null);
+  if (!row) return htmlResponse(renderConfirmed(false), { status: 404 });
+  await c.env.DB.prepare(
+    "UPDATE pub_subscriptions SET confirmed = 1, confirmation_token = NULL WHERE id = ?",
+  )
+    .bind(row.id)
+    .run();
+  return htmlResponse(renderConfirmed(true));
+});
+
 // ---- the machine face -----------------------------------------------------
 //
 // llms.txt and feed.json are generated from the same listPublishedPieces()

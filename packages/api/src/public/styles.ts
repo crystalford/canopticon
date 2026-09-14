@@ -2004,6 +2004,10 @@ pre.convention {
 @media (max-width: 860px) { .std { grid-template-columns: 1fr; } }
 
 /* ---- newsletter --------------------------------------------------------- */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
 .sub-form { display: flex; gap: 8px; margin-top: 12px; max-width: 420px; }
 .sub-form input {
   flex: 1; min-width: 0; padding: 10px 13px; background: var(--paper); color: var(--ink);

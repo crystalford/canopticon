@@ -174,6 +174,11 @@ function renderFooter(): string {
     <div>
       <a href="/" class="wordmark">CANOPTICON<span class="dot">·</span></a>
       <div class="coord" style="margin-top:8px">THE STANDING RECORD <span class="sep">·</span> canopticon.com <span class="sep">·</span> @canoptics</div>
+      <form class="sub-form" method="post" action="/subscribe">
+        <label for="sub-email" class="visually-hidden">Email address</label>
+        <input id="sub-email" type="email" name="email" placeholder="you@example.com" required autocomplete="email" />
+        <button type="submit">Get new work</button>
+      </form>
     </div>
     <div class="foot-links">
       <a href="/essays">Essays</a>
