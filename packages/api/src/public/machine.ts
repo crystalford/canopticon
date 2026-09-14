@@ -9,6 +9,7 @@
 // document's own text and metadata; if it isn't in the piece, it isn't
 // emitted.
 
+import { parseEssay } from "../lib/essay";
 import type { PieceDetail, PublishedPieceRef } from "./data";
 
 export const SITE = "https://canopticon.com";
@@ -71,6 +72,31 @@ export function sourceLines(body_md: string): string[] {
 export interface PieceLdOptions {
   /** Question/answer pairs for FAQPage, when the piece has them. */
   faq?: Array<{ question: string; answer: string; anchor: string }>;
+}
+
+// An essay's question headings and their answer-first opening paragraphs are
+// already the Q&A pairs — no model is asked to invent them, and none could
+// do it more faithfully than the author's own structure.
+//
+// Note on FAQPage: Google deprecated FAQ rich results in 2026, so this no
+// longer produces a visible SERP snippet there. It is still emitted because
+// other engines and crawlers consume it, and it costs nothing.
+export function essayFaq(bodyMd: string): PieceLdOptions["faq"] {
+  return parseEssay(bodyMd)
+    .sections.filter((s) => s.isQuestion && s.paragraphs.length)
+    .map((s) => ({
+      question: s.heading,
+      answer: stripInline(s.paragraphs[0] ?? ""),
+      anchor: `#${s.anchor}`,
+    }));
+}
+
+function stripInline(md: string): string {
+  return md
+    .replace(/\[(\d+)\]/g, "")
+    .replace(/[*_`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // An essay is an Article; a research document is a DigitalDocument published

@@ -153,11 +153,16 @@ export async function getPieceBySlug(
 // Library: every piece including working-material, with a status tag so
 // the raw research layer is honest about what's a finished publication
 // vs an interior chain pass.
-export async function listLibrary(db: D1Database, userId: string): Promise<PieceSummary[]> {
-  return all<PieceSummary>(
+export async function listLibrary(
+  db: D1Database,
+  userId: string,
+): Promise<Array<PieceSummary & { metadata: string }>> {
+  // metadata comes along so the operator's own view can surface the essay
+  // lint notes stored at upload time (operator/routes.ts createAndExtract).
+  return all<PieceSummary & { metadata: string }>(
     db,
     `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
-            byline, published_at, signed_by
+            byline, published_at, signed_by, metadata
        FROM pieces WHERE user_id = ?
       ORDER BY COALESCE(published_at, created_at) DESC`,
     [userId],

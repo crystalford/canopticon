@@ -1817,6 +1817,11 @@ a.plain:hover { color: var(--accent-2); }
 .sec code { font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
 .sec a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-bd); }
 .sec a:hover { color: var(--accent-2); border-bottom-color: var(--accent-2); }
+pre.convention {
+  margin: 0 0 14px; padding: 16px 18px; background: var(--paper-2); border: 1px solid var(--rule);
+  border-radius: var(--r); font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+  color: var(--ink-2); white-space: pre-wrap; overflow-x: auto;
+}
 
 /* ---- dense list rows (essays index) ------------------------------------
    date | title + dek | read time. A table in behaviour, links in markup —
@@ -1931,6 +1936,49 @@ a.plain:hover { color: var(--accent-2); }
 .toc li { margin: 0 0 7px; }
 .toc a { font-family: var(--sans); font-size: 14.5px; line-height: 1.35; color: var(--ink-2); text-decoration: none; }
 .toc a:hover { color: var(--accent); }
+
+/* ---- essay lint (operator's library view) -------------------------------- */
+.lint { margin-top: 6px; }
+.lint > summary {
+  cursor: pointer; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.05em;
+  color: var(--accent); list-style: none;
+}
+.lint > summary::-webkit-details-marker { display: none; }
+.lint > summary::before { content: "▸ "; }
+.lint[open] > summary::before { content: "▾ "; }
+.lint ul { margin: 7px 0 0; padding-left: 18px; }
+.lint li { font-size: 12.5px; line-height: 1.45; color: var(--ink-3); margin-bottom: 5px; }
+
+/* ---- essay body --------------------------------------------------------- */
+.essay-body section { margin: 0 0 30px; scroll-margin-top: 24px; }
+.essay-body h2 {
+  font-family: var(--sans); font-weight: 600; font-size: 22px; letter-spacing: -0.02em;
+  line-height: 1.24; color: var(--ink); margin: 0 0 12px;
+}
+.essay-body h2 .anchor-link { color: inherit; text-decoration: none; }
+.essay-body h2 .anchor-link:hover { color: var(--accent); }
+/* The § appears on hover only — every heading is its own URL, and the answer
+   in a Q&A structured-data entry links to exactly this anchor. */
+.essay-body h2 .anchor-link::after {
+  content: " §"; color: var(--accent); opacity: 0; transition: opacity .12s;
+}
+.essay-body h2:hover .anchor-link::after { opacity: 1; }
+.essay-body p {
+  font-family: var(--serif); font-size: 17px; line-height: 1.68; color: var(--ink-2);
+  margin: 0 0 14px; text-wrap: pretty;
+}
+/* The opening paragraph of each section is the answer to its heading. */
+.essay-body p.lead { color: var(--ink); }
+.essay-body sup a { color: var(--accent); text-decoration: none; padding: 0 1px; }
+.essay-body a { color: var(--accent); }
+.essay-body code { font-family: var(--mono); font-size: 13.5px; color: var(--ink-2); }
+.essay-sources { border-top: 1px solid var(--rule); padding-top: 22px; }
+.essay-sources ol { margin: 0; padding-left: 22px; }
+.essay-sources li {
+  font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--ink-3);
+  margin: 0 0 8px; scroll-margin-top: 24px;
+}
+.essay-sources li:target { color: var(--ink); }
 
 /* ---- citation box ------------------------------------------------------
    Named .citebox, not .cite — .cite is already an inline citation chip

@@ -12,6 +12,7 @@
 // design build); this file is template + section-parser only.
 
 import { renderMarkdown } from "../../cms/lib/render-post";
+import { parseEssay } from "../../lib/essay";
 import {
   type PieceDetail,
   type PieceSummary,
@@ -22,7 +23,15 @@ import {
   topicsForPiece,
 } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
-import { citeApa, citeBibtex, isEssay, pieceJsonLd, pieceMarkdownUrl, pieceUrl } from "../machine";
+import {
+  citeApa,
+  citeBibtex,
+  essayFaq,
+  isEssay,
+  pieceJsonLd,
+  pieceMarkdownUrl,
+  pieceUrl,
+} from "../machine";
 
 // ---- public entry point -----------------------------------------------
 
@@ -48,10 +57,11 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   // every arrangement did — the page type the publication is actually made of
   // was the least machine-legible one on the site.
   const essay = isEssay(piece.kind);
+  const faq = essay ? essayFaq(piece.body_md ?? "") : undefined;
   return renderPage({
     title: piece.title,
     description: piece.subtitle ?? `${piece.title} — a Canopticon piece.`,
-    body: `${body}\n${pieceJsonLd(piece)}`,
+    body: `${body}\n${pieceJsonLd(piece, faq?.length ? { faq } : {})}`,
     activeNav: essay ? "/essays" : "/research",
     zone: essay ? "essays" : "research",
     canonical: pieceUrl(piece.slug),
@@ -315,12 +325,15 @@ function renderCiteBox(piece: PieceDetail): string {
 
 function renderDepositNote(piece: PieceDetail, topics: PieceCtx["topics"]): string {
   if (topics.length === 0 && !isEditorialKind(piece.kind)) return "";
+  // "Signed" was the graph era's word for an operator-approved reading. An
+  // uploaded essay or document isn't signed by anyone, so saying so was a
+  // claim the system could no longer back.
   const lead =
     piece.kind === "essay"
-      ? "This is a signed essay — interpretation, not primary evidence"
+      ? "This is an essay — an argument, not primary evidence"
       : piece.kind === "documented-record"
         ? "This is a documented record; the source log below carries every external reference inline"
-        : "This is a signed piece; its findings carry their sources inline, in the text";
+        : "This is a research document, published as itself; its sources are named in the text";
   const topicLinks = topics
     .map(
       (t) =>
@@ -358,6 +371,8 @@ function renderOnward(piece: PieceDetail, ctx: PieceCtx): string {
 
 function renderBodyForKind(piece: PieceDetail, sections: ParsedSections, _ctx: PieceCtx): string {
   switch (piece.kind) {
+    case "essay":
+      return renderEssayBody(piece);
     case "research-report":
     case "brief":
       return renderResearchReportBody(piece, sections);
@@ -366,6 +381,71 @@ function renderBodyForKind(piece: PieceDetail, sections: ParsedSections, _ctx: P
     default:
       return renderProseBody(piece, sections);
   }
+}
+
+// An essay renders from its own structure (lib/essay.ts), not from the
+// heading-matching used for research reports: the summary becomes the
+// answer-first block, each `##` becomes an anchored, self-linking section,
+// and the jump list is generated from those same anchors. The anchors are
+// also the URLs this page's Q&A structured data points at, so a quoted
+// answer links to the exact passage it came from.
+function renderEssayBody(piece: PieceDetail): string {
+  const essay = parseEssay(piece.body_md ?? "");
+  if (!essay.sections.length && !essay.summary) {
+    return `<section class="prose" style="margin:24px 0 0"><em style="color:var(--ink-mute)">This essay has no body yet.</em></section>`;
+  }
+
+  const tldr = essay.summary
+    ? `<div class="tldr">
+  <div class="tldr-k">In one paragraph</div>
+  <p>${escapeHtml(essay.summary)}</p>
+</div>`
+    : "";
+
+  const toc = essay.sections.length
+    ? `<nav class="toc" aria-label="Sections">
+  <div class="toc-k">In this essay</div>
+  <ol>
+${essay.sections
+  .map((s) => `    <li><a href="#${s.anchor}">${escapeHtml(s.heading)}</a></li>`)
+  .join("\n")}
+  </ol>
+</nav>`
+    : "";
+
+  const body = essay.sections
+    .map(
+      (s) => `<section id="${s.anchor}">
+  <h2><a href="#${s.anchor}" class="anchor-link">${escapeHtml(s.heading)}</a></h2>
+  ${s.paragraphs
+    .map((p, i) => `<p${i === 0 ? ' class="lead"' : ""}>${renderEssayInline(p)}</p>`)
+    .join("\n  ")}
+</section>`,
+    )
+    .join("\n");
+
+  const sources = essay.sources.length
+    ? `<section class="essay-sources">
+  <h2>Sources</h2>
+  <ol>
+${essay.sources.map((s, i) => `    <li id="src-${i + 1}">${renderInline(s)}</li>`).join("\n")}
+  </ol>
+</section>`
+    : "";
+
+  return `<div class="essay-body">
+${tldr}
+${toc}
+${body}
+${sources}
+</div>`;
+}
+
+// Essay prose: the existing inline markdown pass, plus the one thing the
+// essay convention adds — a bare [n] is a reference to the nth entry in the
+// Sources block, and becomes a superscript link to it.
+function renderEssayInline(md: string): string {
+  return renderInline(md).replace(/\[(\d+)\]/g, '<sup><a href="#src-$1">$1</a></sup>');
 }
 
 function renderResearchReportBody(piece: PieceDetail, sections: ParsedSections): string {

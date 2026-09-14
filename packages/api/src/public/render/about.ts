@@ -73,6 +73,18 @@ export function renderAbout(): string {
   engine without the surrounding paragraphs. The table of contents, the structured data
   and the markdown twin on every page are all derived from that same structure — nothing
   is authored twice.</p>
+  <p>Concretely, an essay is a Markdown file shaped like this:</p>
+  <pre class="convention"># Title
+A one-line dek.
+
+A summary paragraph that stands alone.
+
+## A question ending in a question mark?
+The answer, in the first sentence or two.
+Supporting paragraphs after that, citing sources as [1].
+
+## Sources
+1. Author. Title. Publisher, 2026.</pre>
 </section>
 
 <section class="sec">

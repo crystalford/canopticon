@@ -30,6 +30,7 @@ import { composeScript } from "../graph/lib/studio/compose";
 import { runSurfacingL1, runSurfacingL2 } from "../graph/lib/surfacing";
 import { runSynthesisSurfacer } from "../graph/lib/synthesis-surfacer";
 import { all, insertOne, one, run } from "../lib/d1";
+import { type LintNote, lintEssay, looksLikeEssay, parseEssay } from "../lib/essay";
 import { resolveOperatorId } from "../public/data";
 import { CHAT_CLIENT_JS } from "./client/chat-js";
 import { CMDK_CLIENT_JS } from "./client/cmdk-js";
@@ -243,6 +244,10 @@ export interface CreatedPiece {
   title: string;
   body_md: string;
   sourceId: string;
+  /** Set when the upload was classified as an essay. Advisory only — the
+   *  piece is published either way; these are surfaced on the upload
+   *  confirmation so the answer-first discipline stays visible. */
+  lint?: LintNote[];
 }
 
 // Create + extract — the fast, deterministic half of ingest. Returns the new
@@ -316,11 +321,21 @@ export async function createAndExtract(
 
   const slug = await ensureUniqueSlug(env.DB, userId, slugify(title || `piece-${Date.now()}`));
   const nowIso = new Date().toISOString();
+  // Essays and research documents arrive through the same door. What tells
+  // them apart is the essay convention itself — a majority of `##` headings
+  // phrased as questions — because that contract is exactly what the essay
+  // template and its Q&A structured data need. See lib/essay.ts.
+  const essay = looksLikeEssay(body_md);
+  const parsedEssay = essay ? parseEssay(body_md) : null;
   const pieceId = await insertOne(env.DB, "pieces", {
     user_id: userId,
     slug,
     title,
-    kind: "research-report",
+    kind: essay ? "essay" : "research-report",
+    // The dek — the line under the title, before the summary — becomes the
+    // subtitle, which is what the index rows, the meta description and the
+    // OpenGraph tags all read from.
+    ...(parsedEssay?.dek ? { subtitle: parsedEssay.dek } : {}),
     // "working-material" (the table's own default) was built for chained
     // multi-pass research where only the final synthesis gets a public URL
     // (see supabase/migrations/0015_pieces.sql) — a plain upload is never
@@ -348,10 +363,21 @@ export async function createAndExtract(
       extracted_chars: extracted.extracted_chars,
       classification: extracted.classification,
       content_sha256: sha256,
+      // Stored, not just flashed on the redirect: an upload confirmation is
+      // seen once and then gone, and these notes are worth having next to
+      // the piece whenever the operator next looks at it.
+      ...(parsedEssay ? { essay_lint: lintEssay(parsedEssay) } : {}),
       ...opts.extraMetadata,
     }),
   });
-  return { pieceId, slug, title, body_md, sourceId: extracted.source_id };
+  return {
+    pieceId,
+    slug,
+    title,
+    body_md,
+    sourceId: extracted.source_id,
+    ...(parsedEssay ? { lint: lintEssay(parsedEssay) } : {}),
+  };
 }
 
 async function contentSha256(bytes: Uint8Array): Promise<string> {

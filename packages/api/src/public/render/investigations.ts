@@ -281,6 +281,25 @@ function looksLikeMachineFilename(title: string): boolean {
   return hasExt || hasUuidish;
 }
 
+// Essay lint notes, written into the piece's metadata at upload time. Shown
+// here rather than only on the upload confirmation, which is seen once and
+// then gone. Advisory — the piece published regardless.
+function renderLintNotes(metadataJson: string | null | undefined): string {
+  let notes: Array<{ level: string; message: string }> = [];
+  try {
+    const meta = JSON.parse(metadataJson || "{}") as { essay_lint?: typeof notes };
+    notes = Array.isArray(meta.essay_lint) ? meta.essay_lint : [];
+  } catch {
+    return "";
+  }
+  const loud = notes.filter((n) => n.level === "error" || n.level === "warn");
+  if (!loud.length) return "";
+  return `<details class="lint">
+  <summary>${loud.length} note${loud.length === 1 ? "" : "s"} on this essay's structure</summary>
+  <ul>${loud.map((n) => `<li>${escapeHtml(n.message)}</li>`).join("")}</ul>
+</details>`;
+}
+
 export async function renderLibraryIndex(
   env: PublicEnv,
   opts: {
@@ -526,7 +545,7 @@ export async function renderLibraryIndex(
               ? `<span><b>${fed.nodes}</b> fact${fed.nodes === 1 ? "" : "s"}${fed.subjects > 0 ? ` · ${fed.subjects} subject${fed.subjects === 1 ? "" : "s"}` : ""}</span>`
               : `<span class="lib-fed-quiet">not extracted</span>`;
           return `<tr>
-  <td>${title}</td>
+  <td>${title}${renderLintNotes(p.metadata)}</td>
   <td class="coord">${escapeHtml(kindLabel(p.kind))}</td>
   <td class="lib-fed">${fedCell}</td>
   <td>${status}</td>
