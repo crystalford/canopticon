@@ -62,9 +62,12 @@ export function renderPage(args: RenderPageArgs): string {
   const fullTitle = args.title
     ? `${escapeHtml(args.title)} — CANOPTICON`
     : "CANOPTICON — The standing record";
+  // The fallback description for any page that doesn't set its own. It used
+  // to describe the graph era ("documented facts with their receipts …
+  // signed analysis"), which is no longer what the site is.
   const description = escapeHtml(
     args.description ??
-      "CANOPTICON keeps files on the stories we're told. Documented facts with their receipts, disputes shown as disputes, and signed analysis — every claim traceable to a stored source.",
+      "Canopticon publishes research documents kept whole and essays that argue from them — every quote verified word-for-word against its stored source, and everything free to read and quote.",
   );
   const mode = args.mode ?? "public";
   const zone = args.zone ?? "home";

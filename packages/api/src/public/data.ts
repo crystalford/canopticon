@@ -179,8 +179,15 @@ export async function listLibrary(
 // Only published/canonical surface here, so a working-material row never
 // reaches an index or the sitemap.
 
+// Research is defined as "not an essay", not as an allow-list of two kinds.
+//
+// An allow-list of research-report + documented-record silently orphaned the
+// other four published kinds the schema permits (thesis, synthesis, brief,
+// note): they appeared in the sitemap, llms.txt and the feed — all of which
+// treat every non-essay kind as research — and their own pages said
+// "Research" in the nav and breadcrumb, but no index anywhere linked to them.
+// The seed corpus contains a canonical thesis, so this was not hypothetical.
 export const ESSAY_KINDS = ["essay"] as const;
-export const RESEARCH_KINDS = ["research-report", "documented-record"] as const;
 
 // An index row carries enough to render a list entry without loading the
 // body: `body_chars` is LENGTH(body_md), which is all a read-time estimate
@@ -194,12 +201,12 @@ export function readMinutes(bodyChars: number): number {
   return Math.max(1, Math.round(bodyChars / 5 / 220));
 }
 
-async function listPiecesOfKind(
+async function listPiecesByKind(
   db: D1Database,
   userId: string,
-  kinds: readonly string[],
+  match: "essay" | "not-essay",
 ): Promise<IndexPiece[]> {
-  const placeholders = kinds.map(() => "?").join(",");
+  const placeholders = ESSAY_KINDS.map(() => "?").join(",");
   return all<IndexPiece>(
     db,
     `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
@@ -207,18 +214,18 @@ async function listPiecesOfKind(
             LENGTH(body_md) AS body_chars
        FROM pieces
       WHERE user_id = ? AND publication_status IN ('published','canonical')
-        AND kind IN (${placeholders})
+        AND kind ${match === "essay" ? "IN" : "NOT IN"} (${placeholders})
       ORDER BY COALESCE(published_at, created_at) DESC`,
-    [userId, ...kinds],
+    [userId, ...ESSAY_KINDS],
   );
 }
 
 export async function listEssays(db: D1Database, userId: string): Promise<IndexPiece[]> {
-  return listPiecesOfKind(db, userId, ESSAY_KINDS);
+  return listPiecesByKind(db, userId, "essay");
 }
 
 export async function listResearch(db: D1Database, userId: string): Promise<IndexPiece[]> {
-  return listPiecesOfKind(db, userId, RESEARCH_KINDS);
+  return listPiecesByKind(db, userId, "not-essay");
 }
 
 export interface PublishedPieceRef {
@@ -263,8 +270,7 @@ export async function publicationCounts(
     one<{ n: number }>(
       db,
       `SELECT COUNT(*) AS n FROM pieces WHERE user_id = ?
-         AND publication_status IN ('published','canonical')
-         AND kind IN ('research-report','documented-record')`,
+         AND publication_status IN ('published','canonical') AND kind <> 'essay'`,
       [userId],
     ),
     one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM sources WHERE user_id = ?", [userId]).catch(

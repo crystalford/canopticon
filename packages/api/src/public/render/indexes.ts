@@ -23,6 +23,10 @@ import { emptyState, formatDate, kindLabel } from "./components";
 
 const CANONICAL = "https://canopticon.com";
 
+// Shared with the homepage, which is built from the same two components so
+// the front door and the indexes can't drift into looking like two sites.
+export { essayRow, researchCard };
+
 // A dense list row: date | title + dek | read time. The right-hand column
 // is hidden under 760px (see .tbl in styles.ts).
 function essayRow(p: IndexPiece): string {

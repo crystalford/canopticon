@@ -47,10 +47,15 @@ describe("public site — Phase 1 skeleton", () => {
     expect(html).toMatch(/<!doctype html>/i);
     expect(html).toMatch(/<title>CANOPTICON[^<]*<\/title>/);
     expect(html).toContain("canopticon");
-    expect(html).toContain("Canopticon keeps files on the stories we're told.");
+    expect(html).toContain("research documents kept whole");
     expect(html).toMatch(/\/styles\.css\?v=/);
     // The design build's data-mode toggle is on the root <html>
     expect(html).toMatch(/<html[^>]*data-mode="public"/);
+    // Site-level identity, so every page's publisher resolves to one
+    // organisation rather than a fresh one per URL.
+    expect(html).toContain('"@id":"https://canopticon.com/#org"');
+    expect(html).toContain('"@type":"WebSite"');
+    expect(html).toContain('<link rel="canonical" href="https://canopticon.com/" />');
   });
 
   it("each primary destination renders real surfaces without JS", async () => {

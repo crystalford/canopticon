@@ -136,14 +136,33 @@ function makeDb(): D1Database {
         if (/FROM pieces WHERE user_id = \? AND slug = \?/i.test(sql)) {
           return ALL.find((p) => p.slug === bound[1]) ?? null;
         }
-        if (/COUNT\(\*\)/i.test(sql)) return { n: ALL.length };
+        if (/MAX\(/i.test(sql)) return { d: "2026-09-10T00:00:00.000Z" };
+        // The counts query asks three different questions with the same
+        // COUNT(*) shape, so answer by what each one filters on — otherwise
+        // the state strip shows the same number in every cell and looks
+        // plausible while being meaningless.
+        if (/COUNT\(\*\)/i.test(sql)) {
+          if (/kind = 'essay'/i.test(sql)) return { n: ESSAYS.length };
+          if (/kind <> 'essay'/i.test(sql)) return { n: RESEARCH.length };
+          if (/FROM sources/i.test(sql)) return { n: ALL.length };
+          return { n: ALL.length };
+        }
         return null;
       },
       async all() {
         if (/FROM pieces/i.test(sql) && /publication_status IN/i.test(sql)) {
-          const kinds = bound.slice(1).filter((b) => typeof b === "string");
-          const hit = kinds.length ? ALL.filter((p) => kinds.includes(p.kind)) : ALL;
-          return { results: hit };
+          const kinds = bound.slice(1).filter((b): b is string => typeof b === "string");
+          if (!kinds.length) return { results: ALL };
+          // NOT IN must actually exclude. Matching the bound values as an
+          // allow-list regardless of the operator made /research render the
+          // essays back — a fixture that quietly contradicts the query it is
+          // standing in for is worse than no fixture.
+          const negated = /kind NOT IN/i.test(sql);
+          return {
+            results: ALL.filter((p) =>
+              negated ? !kinds.includes(p.kind) : kinds.includes(p.kind),
+            ),
+          };
         }
         return { results: [] };
       },
@@ -192,6 +211,7 @@ const browser = await chromium.launch({
 });
 
 const SHOTS: Array<[string, string, number]> = [
+  ["front", "/", 1400],
   ["essays", "/essays", 1400],
   ["research", "/research", 1400],
   ["piece", "/p/the-logic-costume", 1400],

@@ -153,6 +153,32 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
   return docs.map(ldScript).join("\n");
 }
 
+// Site-level identity, emitted once on the front page. The @id values are
+// what every other document's `publisher` can point at, so search engines
+// resolve one organisation rather than a new one per page.
+//
+// Ported from the old graph-era home page, which is the only place it lived;
+// its description still called this "a forensic intelligence publication
+// system ... a typed graph of verified facts", which describes the product
+// this stopped being.
+export function siteJsonLd(): string {
+  return ldScript({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${SITE}/#site`,
+        url: `${SITE}/`,
+        name: "Canopticon",
+        description:
+          "Research documents published as themselves, and essays that argue from them. Quotes are verified word-for-word against the stored source. CC BY 4.0.",
+        publisher: { "@id": `${SITE}/#org` },
+      },
+      { ...ORG, "@id": `${SITE}/#org` },
+    ],
+  });
+}
+
 // Matches the escaping already used by arrangements/shared.ts: the only
 // sequence that can break out of a JSON-LD script block is `</script`.
 export function ldScript(doc: unknown): string {

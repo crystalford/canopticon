@@ -16,7 +16,7 @@ import { renderAbout } from "./render/about";
 import { renderActivityPage } from "./render/activity";
 import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
-import { renderHome } from "./render/home";
+import { renderFront } from "./render/front";
 import { renderEssaysIndex, renderResearchIndex } from "./render/indexes";
 import { renderInstrumentsIndex } from "./render/instruments";
 import { renderInvestigationsIndex, renderLibraryIndex } from "./render/investigations";
@@ -321,9 +321,7 @@ app.get("/sitemap.xml", async (c) => {
 // dashboard. Spec v2.5 Part 9 retired the separate console; the OUT
 // surface was IN/OUT scaffolding that survived the rename and is
 // now gone too.
-app.get("/", async (c) =>
-  htmlResponse(await renderHome(c.env, { isOperator: c.get("is_operator") })),
-);
+app.get("/", async (c) => htmlResponse(await renderFront(c.env)));
 
 // ---- The two doors --------------------------------------------------------
 //
