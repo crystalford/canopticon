@@ -1,29 +1,34 @@
 # CANOPTICON
 
-A **forensic intelligence publication system**. One operator drops research
-documents in; the system reads them into a typed graph of facts, grows a
-citable public wiki from that graph, drafts signed interpretive readings on top
-of the facts, and the operator approves. **The operator approves; the operator
-never authors.**
+A **citable public record**. Research documents and essays are uploaded and
+published as themselves — kept whole, given a permanent address, and made as
+legible to search and answer engines as to people.
 
-> **Orientation:** the current architecture is in [`CLAUDE.md`](CLAUDE.md). The
-> vision spec is [`docs/canonical-spec-v2.6.md`](docs/canonical-spec-v2.6.md).
-> The full version history — how the project evolved from a chat-first CMS to
-> the current fabric — is traced in [`docs/LINEAGE.md`](docs/LINEAGE.md).
-> Older specs live in [`docs/archive/`](docs/archive/) and are superseded.
+> **Orientation:** the current architecture is in [`CLAUDE.md`](CLAUDE.md) —
+> read that first, and treat it as the source of truth. The version history is
+> traced in [`docs/LINEAGE.md`](docs/LINEAGE.md). Everything under
+> [`docs/archive/`](docs/archive/) is superseded and binds nothing.
 
-## The fabric
+## The shape
 
 ```
-DOCUMENTS  →  FACTS (typed graph)  →  PAGES (neutral wiki ⇄ signed reading)  →  TRANSFORMS
-   IN           extract                 grow + draft (operator signs)            OUT
+UPLOAD  ──▶  extract  ──▶  published page at /p/<slug>
+                               │
+                               ├──▶  /p/<slug>.md    a plain-text twin
+                               ├──▶  JSON-LD          Article · DigitalDocument · FAQPage
+                               ├──▶  /sitemap.xml · /llms.txt · /feed.json
+                               └──▶  /q/<id>          verified quote receipts
 ```
 
-Every subject — an entity, an event, or a **theme** (a received account the
-corpus engages with) — is **one page in two modes**: a neutral wiki view
-(facts with receipts, contested claims shown as contested) and a signed
-reading (the same facts, re-sequenced under a thesis). The firewall guarantees
-an attributed assertion is never silently rendered as a neutral fact.
+Upload *is* publication — there is no draft step. Two kinds of thing get
+published: **research** (a primary document, published as itself) and
+**essays** (arguments written to a Markdown convention where each section
+answers the question it asks). The convention is documented in `CLAUDE.md`
+and on the site's own `/about` page.
+
+Every quote drawn from a stored source is verified as a literal substring of
+that source, with its byte offset recorded, by code rather than by assertion.
+Each one gets its own citable URL. That is the part a blog cannot copy.
 
 ## Stack
 
@@ -32,18 +37,19 @@ an attributed assertion is never silently rendered as a neutral fact.
 - **Rendering** — server-rendered HTML strings. No React, no client framework,
   no JS required to read.
 - **Storage** — D1 (SQLite) · R2 (documents) · Vectorize (embeddings).
-- **AI** — Workers AI via a per-role model router; Anthropic optional near
-  launch.
-- **Host** — Cloudflare; auto-deploys on merge to `main`.
+- **AI** — Workers AI, at authoring time only. Nothing calls a model to render
+  a page.
+- **Host** — Cloudflare; auto-deploys on merge to `main`. No cron: an idle
+  site costs nothing.
 
 ## Repo layout
 
-- `packages/api/` — the Worker (extraction, the typed graph, surfacing,
-  drafting, all surfaces). The whole app lives here.
+- `packages/api/` — **the publication.** The primary product.
+- `packages/studio/` — a generative film engine. Parked, maintained, not grown.
+- `packages/video/`, `packages/blindspot/` — separate compartmentalized tools.
 - `supabase/migrations/` — D1 schema migrations (applied on deploy).
-- `docs/` — the current spec + the lineage; `docs/archive/` is history.
-- `.github/workflows/` — CI, deploy, and the admin probe used to drive the
-  live system.
+- `docs/` — lineage and reference; `docs/archive/` is history.
+- `.github/workflows/` — CI, deploy, and the admin probe.
 
 ## Develop
 
@@ -51,9 +57,12 @@ All testing and deployment is **live on Cloudflare** — there is no local dev
 server. Verify before pushing:
 
 ```
-pnpm --filter @canopticon/api exec tsc --noEmit
-pnpm exec biome check packages/api/src
-pnpm --filter @canopticon/api exec vitest run
+pnpm -r typecheck
+pnpm exec biome check .        # CI runs this WITHOUT --write
+pnpm -r test
 ```
+
+To *see* a change without deploying, `packages/api/scripts/look.mts` renders
+the real app against a seeded in-memory database and screenshots it.
 
 Work on `claude/<name>` branches; PR → CI → squash-merge to `main` deploys.
