@@ -23,6 +23,7 @@ import {
   getQuestionBySlug,
   listPublishedQuestions,
 } from "../../graph/lib/aeo-extract";
+import { countWords, gateQuestion } from "../../lib/aeo";
 import { displayTitle } from "../../lib/title";
 import { type PublicEnv, resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
@@ -89,7 +90,19 @@ export async function renderAnswerPage(env: PublicEnv, slug: string): Promise<st
   if (!q || q.status !== "published") return null;
 
   const evidence = await evidenceForQuestion(env.DB, userId, q.id);
-  if (!evidence.length) return null;
+  // The gate again, on the evidence that will actually appear. `status` records
+  // what cleared the gate when the operator published it; this checks what is
+  // true now. The two diverge whenever a source document is unpublished or
+  // re-extracted, and the render is the last place to catch it before a thin
+  // page is served.
+  if (
+    !gateQuestion({
+      evidenceCount: evidence.length,
+      answerWords: evidence.reduce((n, e) => n + countWords(e.answer_text), 0),
+    }).publishable
+  ) {
+    return null;
+  }
 
   // The answer-first block: the longest verified span, stated before anything
   // else on the page. This is the passage a retriever is most likely to lift.

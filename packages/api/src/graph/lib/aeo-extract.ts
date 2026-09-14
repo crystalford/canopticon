@@ -24,7 +24,14 @@
 // is frozen into rows, and pages are built from the rows (CLAUDE.md rule 5).
 
 import type { Env } from "../../env";
-import { countWords, normaliseQuestion, questionSlug } from "../../lib/aeo";
+import {
+  MIN_ANSWER_WORDS,
+  MIN_EVIDENCE,
+  countWords,
+  gateQuestion,
+  normaliseQuestion,
+  questionSlug,
+} from "../../lib/aeo";
 import { all, one, run } from "../../lib/d1";
 import { callRole } from "../../llm/router";
 import { chunkText } from "./digestion";
@@ -226,6 +233,10 @@ export async function extractAeoAtoms(
         continue;
       }
       const merged = await upsertQuestion(env, userId, question);
+      if (!merged) {
+        stats.killed++;
+        continue;
+      }
       if (merged.created) stats.questions_new++;
       else stats.questions_merged++;
       // The unique index absorbs a repeat of the same (question, piece, quote).
@@ -255,8 +266,12 @@ async function upsertQuestion(
   env: Env,
   userId: string,
   question: string,
-): Promise<{ id: string; created: boolean }> {
+): Promise<{ id: string; created: boolean } | null> {
   const norm = normaliseQuestion(question);
+  // A question made only of filler normalises to nothing. Every such question
+  // would share the empty merge key and fuse into a single nonsense page —
+  // the exact false merge the key is written to avoid. Drop it instead.
+  if (!norm) return null;
   const existing = await one<{ id: string }>(
     env.DB,
     "SELECT id FROM questions WHERE user_id = ? AND question_norm = ?",
@@ -289,6 +304,15 @@ async function upsertQuestion(
  * be answering them, and the row is the merge point.
  */
 export async function clearAeoAtoms(env: Env, userId: string, pieceId: string): Promise<void> {
+  // Which questions this piece was answering, read BEFORE the delete — after
+  // it there is no way back to them, and they are exactly the rows whose
+  // evidence just changed.
+  const touched = await all<{ question_id: string }>(
+    env.DB,
+    "SELECT DISTINCT question_id FROM question_evidence WHERE user_id = ? AND piece_id = ?",
+    [userId, pieceId],
+  );
+
   await run(env.DB, "DELETE FROM findings WHERE user_id = ? AND piece_id = ?", [userId, pieceId]);
   await run(env.DB, "DELETE FROM question_evidence WHERE user_id = ? AND piece_id = ?", [
     userId,
@@ -302,6 +326,61 @@ export async function clearAeoAtoms(env: Env, userId: string, pieceId: string): 
        AND NOT EXISTS (SELECT 1 FROM question_evidence e WHERE e.question_id = questions.id)`,
     [userId],
   );
+
+  await regateQuestions(
+    env,
+    userId,
+    touched.map((t) => t.question_id),
+  );
+}
+
+/**
+ * Re-apply the gate to questions whose evidence changed, demoting any that no
+ * longer clear it.
+ *
+ * The gate runs at the publish transition, but evidence is not frozen after
+ * it: re-extracting a document deletes that document's answers, and a page
+ * that published on three sources can be left standing on one. Without this
+ * the site accumulates live URLs below the substance floor — which is the
+ * failure the gate exists to prevent, and enforcement for it lands on the
+ * whole domain rather than the page.
+ *
+ * Demotion, not deletion: the question is still a real question, and the next
+ * document to answer it re-earns the page through `publishQuestion`.
+ */
+export async function regateQuestions(
+  env: Env,
+  userId: string,
+  questionIds: string[],
+): Promise<number> {
+  let demoted = 0;
+  for (const questionId of questionIds) {
+    const q = await one<{ status: string }>(
+      env.DB,
+      "SELECT status FROM questions WHERE id = ? AND user_id = ?",
+      [questionId, userId],
+    );
+    if (!q || q.status !== "published") continue;
+
+    const rows = await all<{ answer_text: string }>(
+      env.DB,
+      "SELECT answer_text FROM question_evidence WHERE user_id = ? AND question_id = ?",
+      [userId, questionId],
+    );
+    const gate = gateQuestion({
+      evidenceCount: rows.length,
+      answerWords: rows.reduce((n, r) => n + countWords(r.answer_text), 0),
+    });
+    if (gate.publishable) continue;
+
+    await run(
+      env.DB,
+      "UPDATE questions SET status = 'proposed', updated_at = ? WHERE id = ? AND user_id = ?",
+      [new Date().toISOString(), questionId, userId],
+    );
+    demoted++;
+  }
+  return demoted;
 }
 
 // ---------------------------------------------------------------------------
@@ -387,17 +466,34 @@ export async function evidenceForQuestion(
   );
 }
 
-/** Published questions, for the index and the machine surfaces. */
+/**
+ * Published questions, for the index and the machine surfaces.
+ *
+ * `status = 'published'` alone is not enough to promise a URL. The page itself
+ * renders only evidence drawn from published pieces and only above the gate,
+ * so a question whose sources were later unpublished — or whose evidence fell
+ * under the floor — resolves to a 404. Listing it in the sitemap, llms.txt and
+ * the feed would be advertising a missing page to exactly the crawlers this
+ * publication is trying to be citable by. So the list applies the page's own
+ * two conditions rather than trusting the flag.
+ */
 export async function listPublishedQuestions(
   db: D1Database,
   userId: string,
 ): Promise<Array<{ id: string; question: string; slug: string; updated_at: string }>> {
   return all(
     db,
-    `SELECT id, question, slug, updated_at FROM questions
-      WHERE user_id = ? AND status = 'published'
-      ORDER BY updated_at DESC LIMIT 2000`,
-    [userId],
+    `SELECT qs.id, qs.question, qs.slug, qs.updated_at
+       FROM questions qs
+       JOIN question_evidence e ON e.question_id = qs.id
+       JOIN pieces p ON p.id = e.piece_id
+      WHERE qs.user_id = ? AND qs.status = 'published'
+        AND p.publication_status IN ('published','canonical')
+      GROUP BY qs.id
+     HAVING COUNT(*) >= ?
+        AND SUM(LENGTH(e.answer_text) - LENGTH(REPLACE(e.answer_text,' ','')) + 1) >= ?
+      ORDER BY qs.updated_at DESC LIMIT 2000`,
+    [userId, MIN_EVIDENCE, MIN_ANSWER_WORDS],
   );
 }
 
@@ -424,7 +520,6 @@ export async function publishQuestion(
     "SELECT answer_text FROM question_evidence WHERE user_id = ? AND question_id = ?",
     [userId, questionId],
   );
-  const { gateQuestion } = await import("../../lib/aeo");
   const gate = gateQuestion({
     evidenceCount: rows.length,
     answerWords: rows.reduce((n, r) => n + countWords(r.answer_text), 0),
