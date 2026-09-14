@@ -223,10 +223,11 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
 /* ============================================================================
    WORDMARK
    ============================================================================ */
+/* Plain lowercase wordmark, no mark and no tagline. The dot-and-subtitle
+   lockup read as two competing pieces of chrome before the nav even began. */
 .wordmark {
-  font-family: var(--sans); font-weight: 600; font-size: 16px;
-  letter-spacing: -0.04em; display: inline-flex; align-items: baseline; gap: 9px;
-  color: var(--ink);
+  font-family: var(--sans); font-weight: 600; font-size: 17px;
+  letter-spacing: -0.02em; color: var(--ink); text-transform: lowercase;
 }
 .wordmark .dot { color: var(--accent); }
 .wordmark-sub {
@@ -1263,8 +1264,8 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
 }
 .wordmark {
-  font-weight: 650; font-size: 16px; letter-spacing: -0.02em;
-  display: inline-flex; align-items: baseline; gap: 9px; white-space: nowrap;
+  font-weight: 600; font-size: 17px; letter-spacing: -0.02em; white-space: nowrap;
+  text-transform: lowercase;
 }
 .wordmark .dot { color: var(--accent); text-shadow: 0 0 7px rgba(93,139,198,.6); }
 .wordmark-sub {
@@ -1335,7 +1336,13 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
 .nav-search .q { color: var(--accent); }
 
 /* ---- shell ---- */
-main { max-width: 1060px; margin: 0 auto; padding: 34px 20px 70px; }
+/* main sets the page gutter but NOT a width. It used to cap at 1060px, which
+   sat inside every .container (1100px) and clamped before that container's
+   own max-width could ever apply — so .container.docpage's 1260px was
+   unreachable and the document page's reading column came out at 596px
+   instead of ~836px. Width belongs to the container that knows what kind of
+   page it is. */
+main { margin: 0 auto; padding: 34px 20px 70px; }
 #app.in { animation: fadeUp .3s cubic-bezier(.22,.61,.36,1) both; }
 @keyframes fadeUp { from { opacity: .35; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { #app.in { animation: none; } .redact span { animation: none !important; color: inherit !important; background: transparent !important; } .redact-bar::after { animation: none !important; } }
@@ -1892,25 +1899,39 @@ pre.convention {
    The page container widens when it carries a rail: .container.reading is
    920px, which is a good measure for one column and too narrow once 300px
    of it is a sidebar — the prose ends up at ~570px and reads cramped. */
-.container.reading.withrail { max-width: 1160px; }
-.docgrid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 54px; align-items: start; }
-.docrail { position: sticky; top: 26px; display: flex; flex-direction: column; gap: 3px; }
+/* The document page: reading card + a rail BESIDE it, not inside it. */
+.container.docpage { max-width: 1260px; }
+.docgrid { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 40px; align-items: start; }
+.docgrid > .reading { margin-top: 0; }
+.docrail {
+  position: sticky; top: 26px; margin-top: 26px;
+  border: 1px solid var(--rule); border-radius: var(--r-lg);
+  background: var(--paper-2); padding: 6px 18px 18px;
+}
 .docrail-row {
-  display: flex; justify-content: space-between; gap: 12px; padding: 9px 0;
-  border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 11.5px;
+  display: flex; justify-content: space-between; gap: 12px; padding: 11px 0;
+  border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.04em;
 }
-.docrail-row dt { color: var(--ink-mute); }
+.docrail-row:last-of-type { border-bottom: none; }
+.docrail-row dt { color: var(--ink-mute); text-transform: uppercase; font-size: 10px; letter-spacing: 0.12em; }
 .docrail-row dd { margin: 0; color: var(--ink-2); text-align: right; }
-.docrail-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.docrail-actions { display: flex; flex-direction: column; gap: 9px; margin-top: 16px; }
+/* The primary action carries the accent. A page whose whole point is being
+   taken away and cited should not make "take it away" the quietest thing on
+   it — both buttons were neutral grey before. */
 .docrail-btn {
-  display: block; text-align: center; padding: 10px 14px; border: 1px solid var(--rule-bright);
-  border-radius: var(--r-sm); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--ink-2); text-decoration: none; transition: border-color .12s, color .12s;
+  display: block; text-align: center; padding: 11px 14px; border: 1px solid var(--rule-bright);
+  border-radius: var(--r-sm); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-2); text-decoration: none;
+  transition: border-color .12s, color .12s, background .12s;
 }
-.docrail-btn:hover { border-color: var(--accent); color: var(--accent); }
-@media (max-width: 900px) {
-  .docgrid { grid-template-columns: 1fr; gap: 32px; }
-  .docrail { position: static; }
+.docrail-btn:hover { border-color: var(--ink-3); color: var(--ink); background: var(--paper-hover); }
+.docrail-btn.primary { border-color: var(--accent-bd); background: var(--accent-bg); color: var(--accent); }
+.docrail-btn.primary:hover { border-color: var(--accent); background: rgba(224,67,60,0.16); color: var(--accent-2); }
+@media (max-width: 1000px) {
+  .docgrid { grid-template-columns: 1fr; gap: 26px; }
+  .docrail { position: static; margin-top: 0; }
 }
 
 /* ---- the answer-first block --------------------------------------------
@@ -1948,6 +1969,17 @@ pre.convention {
 .lint[open] > summary::before { content: "▾ "; }
 .lint ul { margin: 7px 0 0; padding-left: 18px; }
 .lint li { font-size: 12.5px; line-height: 1.45; color: var(--ink-3); margin-bottom: 5px; }
+
+/* ---- the unreviewed flag ------------------------------------------------
+   A real banner, not a chip. It says no human has read the page you are
+   about to read, which is the single most important thing on it. */
+.unreviewed {
+  display: block; margin: 0 0 20px; padding: 11px 15px;
+  border: 1px solid var(--corr-bd); border-left: 2px solid var(--correction);
+  border-radius: var(--r-sm); background: var(--corr-bg);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+  letter-spacing: 0.02em; color: var(--ink-2);
+}
 
 /* ---- essay body --------------------------------------------------------- */
 .essay-body section { margin: 0 0 30px; scroll-margin-top: 24px; }
