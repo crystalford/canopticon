@@ -20,6 +20,7 @@ import type { Env } from "../env";
 import { buildBrief } from "../graph/lib/briefs/pipeline";
 import { proposeBriefs } from "../graph/lib/briefs/proposer";
 import {
+  drainDigestJobs,
   enqueueDigest,
   ensureJobsTable,
   jobStatusForPiece,
@@ -1262,6 +1263,25 @@ app.post("/library/research/:id/discard", async (c) => {
 //     a pipeline change to refill the typed graph; mirrors /v1/admin/reextract)
 // Either way: enqueue durable jobs + kick each off via waitUntil for instant
 // start. The every-minute cron drain catches anything killed mid-run.
+// Drain the digest queue, by hand.
+//
+// drainDigestJobs() was previously only ever called from the every-2-minute
+// cron in index.ts's scheduled(). With the cron disabled, this function had
+// no caller at all and anything left queued — zip entries past the first
+// three, chiefly — was stranded permanently and silently. This is the
+// replacement: the operator presses a button, a bounded batch runs.
+app.post("/library/drain", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  await ensureJobsTable(c.env);
+  // Bounded deliberately. Each job is several LLM calls against a shared D1
+  // CPU budget, and the account has thrown "exceeded its CPU time limit" under
+  // exactly this kind of concurrent load before. Press it again for more.
+  const jobIds = await drainDigestJobs(c.env, 3).catch(() => []);
+  for (const id of jobIds) c.executionCtx.waitUntil(runDigestJob(c.env, id));
+  return c.redirect(`/library?draining=${jobIds.length}`);
+});
+
 app.post("/library/extract", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/op/library");

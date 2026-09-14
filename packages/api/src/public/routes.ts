@@ -744,6 +744,7 @@ app.get("/library", async (c) => {
   const error = c.req.query("error");
   const importing = c.req.query("importing");
   const videoError = c.req.query("video_error");
+  const draining = c.req.query("draining");
   return htmlResponse(
     await renderLibraryIndex(c.env, {
       isOperator: c.get("is_operator"),
@@ -751,6 +752,7 @@ app.get("/library", async (c) => {
       ...(error ? { error } : {}),
       ...(importing ? { importing } : {}),
       ...(videoError ? { videoError } : {}),
+      ...(draining ? { draining } : {}),
     }),
   );
 });
