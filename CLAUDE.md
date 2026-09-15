@@ -147,21 +147,32 @@ dev server; this is the fastest way to see a change without deploying.
   out of date. The legacy flat tables (`entities`, `topics`, `claims`) are at
   zero; the typed graph is what carries content.
 
-## The corpus has two populations — never treat them as one
+## The corpus has more than one population — never treat them as one
 
-`pieces` holds two things the schema cannot tell apart:
+`pieces` holds several things the schema cannot tell apart. Measured live
+2026-09-15, after the purge below:
 
-| | `ingested_from: feed-upload` | `ingested_from: record-expand` |
-|---|---|---|
-| what | the operator's own uploaded documents | third-party pages a retired crawler banked |
-| status | published | `working-material`, **deliberately** |
-| publish it? | yes | **never** |
+| `ingested_from` | n | what | publish it? |
+|---|---|---|---|
+| `feed-upload` | 50 | the operator's own uploaded documents | yes — all published |
+| `deep-research` | 6 | the dormant research pipeline's own output (4 published, 2 `working-material`) | **look first** |
+| `record-expand` | 0 | third-party pages a retired crawler banked | **never** — purged |
 
-The second group is source material to quote from, not content. Publishing it
-would put Wikipedia articles and copyrighted news text on canopticon.com as
-Canopticon's own work under the CC BY 4.0 `/about` asserts over everything,
-and bulk duplicated third-party text is what search engines penalise a whole
-domain for.
+The `record-expand` group was source material to quote from, never content.
+Publishing it would have put Wikipedia articles and copyrighted news text on
+canopticon.com as Canopticon's own work under the CC BY 4.0 `/about` asserts
+over everything, and bulk duplicated third-party text is what search engines
+penalise a whole domain for. **All 60 were deleted on 2026-09-15** (0 nodes
+and 0 quotes attached — they had never been digested, so no provenance was
+lost). The guard stays: the crawler is retired but unwired, not deleted.
+
+⚠ **`deep-research` is a third population, and it is not what the guards are
+about.** It is neither the operator's own uploads nor banked third-party
+pages — it is output from the dormant autonomous machinery, and 4 of the 6 are
+already published. `OWN_UPLOADS_SQL` excludes it and `WEB_FETCHED_SQL` does not
+match it, which is why the purge left it alone. Any new query written against
+a two-population mental model will mishandle these six. Decide about them
+deliberately; do not let them ride along in a filter aimed at something else.
 
 Every query that acts on one population is guarded twice — on `ingested_from`
 and on the `web-fetched` tag — via `OWN_UPLOADS_SQL` / `WEB_FETCHED_SQL` in
