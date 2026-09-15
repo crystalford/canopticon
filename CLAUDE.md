@@ -69,6 +69,35 @@ and an advisory lint (opening paragraphs over 70 words, uncited sources).
 **The lint never blocks a publish.** Notes are stored in the piece's metadata
 and shown in `/library`.
 
+## Questions are the spine, documents are the evidence
+
+The inversion that makes the corpus compound. A **document** is one primary
+source, kept whole, published as itself, static. A **question** is a standing
+unit of inquiry that never stops growing — the synthesis ACROSS documents.
+They are different things and conflating them is what produces thin pages.
+
+A question has three states:
+
+| state | URL? | what it is |
+|---|---|---|
+| **open** | none | the corpus raised it and cannot answer it — this is the research queue, and the reason is stated: "3 documents gesture at this, none answers it" |
+| **answered** | yes | enough verified evidence to state a position, with what remains unresolved said plainly |
+| **contested** | yes | two sources in the corpus disagree, both verified, both receipts live — the page only a verification-first publication can publish |
+
+The loop: an open question seeds a research run → the run produces a DOCUMENT
+→ extraction merges its evidence back onto that question → open becomes
+answered, and the new document raises new open questions.
+
+Two consequences worth stating, because both are easy to get wrong:
+
+- **Not 1-2 questions per document.** 15-25 DISTINCT questions across the whole
+  corpus, each fed by several documents. Per-document question pages compete
+  with their own source document for the same queries; a site's own pages
+  displace each other rather than compounding.
+- **The standing answer is model-drafted and operator-approved**, then frozen
+  into a row. Never generated at render (rule 5). A page carrying only stacked
+  quotes is a well-organised quote list, which is not worth a URL.
+
 ## Standing rules — non-negotiable
 
 1. **Verification is mechanical, never vouched for.** Every published quote
