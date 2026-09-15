@@ -4,6 +4,7 @@
 
 import * as GATE from "../../lib/aeo";
 import { looksLikeMachineFilename } from "../../lib/title";
+import { modelForRole } from "../../llm/router";
 import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
@@ -294,6 +295,11 @@ interface QuestionReview {
  * toggle is to see that for yourself on a real document rather than take a
  * one-chunk benchmark's word for it.
  */
+/** "@cf/meta/llama-4-scout-17b-16e-instruct" -> "llama-4-scout-17b-16e-instruct". */
+function shortModel(model: string): string {
+  return model.split("/").pop() ?? model;
+}
+
 const AEO_MODEL_SUGGESTIONS = [
   "@cf/meta/llama-4-scout-17b-16e-instruct",
   "@cf/openai/gpt-oss-120b",
@@ -315,11 +321,18 @@ function renderAtomReview(
   // Free text rather than a fixed list on purpose: Cloudflare's catalog churns
   // faster than this file gets edited, and a hardcoded <select> would quietly
   // become a list of models that no longer exist. Blank means the role's own.
-  const options = AEO_MODEL_SUGGESTIONS.map(
-    (m) => `<option value="${escapeAttr(m)}"></option>`,
-  ).join("");
+  // Name the default rather than saying "default". An empty field that does
+  // something unnamed is a field you cannot reason about: you can't tell
+  // whether you have already run this model, and "blank vs the one I typed"
+  // is not a comparison you can describe afterwards.
+  const fallback = modelForRole("bulk_extraction").model;
+  const options = [fallback, ...AEO_MODEL_SUGGESTIONS.filter((m) => m !== fallback)]
+    .map((m) => `<option value="${escapeAttr(m)}">${m === fallback ? "default" : ""}</option>`)
+    .join("");
   const extract = `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/extract-atoms" class="atom-form">
-  <input list="aeo-models" name="model" class="atom-model" placeholder="default model" autocomplete="off">
+  <input list="aeo-models" name="model" class="atom-model" autocomplete="off"
+         placeholder="${escapeAttr(shortModel(fallback))} (default)"
+         title="${escapeAttr(`Leave blank to use ${fallback}`)}">
   <datalist id="aeo-models">${options}</datalist>
   <button type="submit" class="atom-run">${atoms ? "Re-extract" : "Extract findings & questions"}</button>
 </form>`;
@@ -386,6 +399,8 @@ export async function renderLibraryIndex(
     draining?: string;
     /** "findings.new.merged.killed" from the atom extraction button. */
     atoms?: string;
+    /** Which model produced that run, so the banner can name it. */
+    model?: string;
     published?: string;
   } = {},
 ): Promise<string> {
@@ -419,7 +434,8 @@ export async function renderLibraryIndex(
       : opts.atoms
         ? (() => {
             const [f, n, m, k] = opts.atoms.split(".");
-            return `<div class="op-banner">Extracted <b>${escapeHtml(f ?? "0")}</b> findings and <b>${escapeHtml(n ?? "0")}</b> new questions (<b>${escapeHtml(m ?? "0")}</b> merged into existing ones).${Number(k) > 0 ? ` ${escapeHtml(k ?? "0")} span${k === "1" ? "" : "s"} were discarded for not matching the document verbatim.` : ""} Nothing is public until you publish it.</div>`;
+            const by = opts.model ? ` using <b>${escapeHtml(shortModel(opts.model))}</b>` : "";
+            return `<div class="op-banner">Extracted <b>${escapeHtml(f ?? "0")}</b> findings and <b>${escapeHtml(n ?? "0")}</b> new questions (<b>${escapeHtml(m ?? "0")}</b> merged into existing ones)${by}.${Number(k) > 0 ? ` ${escapeHtml(k ?? "0")} span${k === "1" ? "" : "s"} were discarded for not matching the document verbatim.` : ""} Nothing is public until you publish it.</div>`;
           })()
         : opts.published
           ? `<div class="op-banner">Answer published.</div>`

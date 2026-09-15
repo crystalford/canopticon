@@ -763,6 +763,7 @@ app.get("/library", async (c) => {
   const videoError = c.req.query("video_error");
   const draining = c.req.query("draining");
   const atoms = c.req.query("atoms");
+  const atomsModel = c.req.query("model");
   const published = c.req.query("published");
   return htmlResponse(
     await renderLibraryIndex(c.env, {
@@ -773,6 +774,7 @@ app.get("/library", async (c) => {
       ...(videoError ? { videoError } : {}),
       ...(draining ? { draining } : {}),
       ...(atoms ? { atoms } : {}),
+      ...(atomsModel ? { model: atomsModel } : {}),
       ...(published ? { published } : {}),
     }),
   );
