@@ -48,12 +48,12 @@ jobs:
       # to catch a Worker that no longer builds — real protection for a
       # Worker whose files changed, and near-zero value for one that did not,
       # since nothing about it is different from the last time it passed.
-      # The video Worker's bundle step is also the expensive one: it has a
-      # Cloudflare Container binding (`Dockerfile.video-renderer`), so even a
-      # DRY RUN builds and validates that Docker image — six minutes on a
-      # push that never touched `packages/video`, against ~1 second for a
-      # Worker with no container. Running it unconditionally on every PR was
-      # most of why this job took six times as long as its own checks needed.
+      # This used to be the difference between a one-minute job and a
+      # nine-minute one, because the video Worker's dry run built its Docker
+      # image. It no longer does (see `--containers-rollout none` below), so
+      # skipping is now a smaller win — worth keeping, since a dry run still
+      # costs a wrangler startup and says nothing new about a Worker whose
+      # files did not change.
       # Falls back to running everything when there is no base to diff
       # against (a fresh branch, a manual dispatch, an unresolvable SHA) —
       # skipping is an optimisation earned by evidence, never the default.
@@ -114,37 +114,26 @@ jobs:
             fi
           done
 
-      # The video Worker's dry run builds `Dockerfile.video-renderer`, and its
-      # torch + whisperx layer needs several GB more than an ubuntu-latest
-      # runner has left once the preinstalled toolchains are accounted for. It
-      # failed here on "No space left on device" with 29 MB free, in a layer
-      # no diff had touched — a red X that says nothing about the change.
-      # None of these directories is used by this job. Only the CodeQL subtree
-      # of the tool cache goes: the rest holds the Node and pnpm this job is
-      # running on.
-      - name: Free runner disk for the container build
-        if: steps.changed.outputs.video == 'true'
-        run: |
-          set -euo pipefail
-          echo "before:"; df -h / | tail -1
-          sudo rm -rf \
-            /usr/local/lib/android \
-            /usr/share/dotnet \
-            /opt/ghc \
-            /usr/local/.ghcup \
-            /usr/local/share/boost \
-            /opt/hostedtoolcache/CodeQL
-          echo "after:"; df -h / | tail -1
-
       - name: API bundle (wrangler dry-run)
         if: steps.changed.outputs.api == 'true'
         working-directory: packages/api
         run: pnpm exec wrangler deploy --dry-run
 
+      # `--containers-rollout none` is what keeps this step honest about its
+      # own job. The video Worker has a Container binding, so a plain dry run
+      # BUILDS Dockerfile.video-renderer — six minutes, several GB, and once
+      # a runner-disk failure that turned CI red on a PR touching none of it.
+      # None of that tests what a bundle check is for, which is "does this
+      # Worker still compile". Measured: 6min -> ~2s, and the Worker and all
+      # its bindings are still validated.
+      #
+      # The Dockerfile is not left unchecked: deploy-video.yml is path-filtered
+      # on it and builds the real image when it changes. Code is checked here,
+      # the deployable is checked there.
       - name: Video Worker bundle (wrangler dry-run)
         if: steps.changed.outputs.video == 'true'
         working-directory: packages/video
-        run: pnpm exec wrangler deploy --dry-run
+        run: pnpm exec wrangler deploy --dry-run --containers-rollout none
 
       - name: Blindspot Worker bundle (wrangler dry-run)
         if: steps.changed.outputs.blindspot == 'true'
