@@ -412,7 +412,20 @@ app.get("/p/:slug", async (c) => {
   if (raw.endsWith(".md")) {
     const mdSlug = raw.slice(0, -3);
     const userId = await resolveOperatorId(c.env.DB);
-    const piece = userId ? await getPieceBySlug(c.env.DB, userId, mdSlug) : null;
+    let piece = userId ? await getPieceBySlug(c.env.DB, userId, mdSlug) : null;
+    if (!piece && userId) {
+      // The twin follows retired slugs too. Missing this would leave every
+      // `.md` citation of a renamed document dead while its HTML kept working
+      // — the machine-readable half broken and nothing to show for it.
+      const { one: oneRow } = await import("../lib/d1");
+      const alias = await oneRow<{ slug: string }>(
+        c.env.DB,
+        `SELECT p.slug FROM piece_slug_aliases a JOIN pieces p ON p.id = a.piece_id
+          WHERE a.user_id = ? AND a.old_slug = ?`,
+        [userId, mdSlug],
+      ).catch(() => null);
+      if (alias?.slug) piece = await getPieceBySlug(c.env.DB, userId, alias.slug);
+    }
     if (!piece || piece.publication_status === "working-material") {
       return htmlResponse(renderNotFound(c.req.path), { status: 404 });
     }
@@ -427,6 +440,23 @@ app.get("/p/:slug", async (c) => {
   // Try the piece renderer first (original semantics).
   const html = await renderPiece(c.env, slug);
   if (html) return htmlResponse(html);
+
+  // A retired slug. Every document published before migration 0052 had a
+  // filename-with-a-UUID for a URL; /v1/admin/reslug renamed them and banked
+  // the old slug here. A citation already in the world must keep resolving —
+  // a 404 is worse than the ugly URL it replaced — so this 301s to the
+  // current one rather than falling through to the not-found page.
+  const aliasUser = await resolveOperatorId(c.env.DB);
+  if (aliasUser) {
+    const { one: oneRow } = await import("../lib/d1");
+    const alias = await oneRow<{ slug: string }>(
+      c.env.DB,
+      `SELECT p.slug FROM piece_slug_aliases a JOIN pieces p ON p.id = a.piece_id
+        WHERE a.user_id = ? AND a.old_slug = ?`,
+      [aliasUser, slug],
+    ).catch(() => null);
+    if (alias?.slug && alias.slug !== slug) return c.redirect(`/p/${alias.slug}`, 301);
+  }
   // Fall through to subject pages. mode=signed reveals the operator's reading.
   const { renderSubjectPage } = await import("./render/subject-page");
   const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";

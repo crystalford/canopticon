@@ -17,6 +17,8 @@ import { enqueueDigest, ensureJobsTable, runDigestJob } from "../graph/lib/diges
 import { draftMeme } from "../graph/lib/meme-draft.ts";
 import { SETTLE_STEP_RUNNERS } from "../graph/lib/settle-pipeline.ts";
 import { all, insertOne, one, run } from "../lib/d1.ts";
+import { looksLikeMachineSlug, pieceSlug } from "../lib/slug.ts";
+import { UNTITLED, displayTitle } from "../lib/title.ts";
 import { type Role, callRole, modelForRole } from "../llm/router.ts";
 
 const app = new Hono<AuthContext>();
@@ -446,6 +448,113 @@ app.get("/corpus-split", async (c) => {
 
 // GET /v1/admin/publish-uploads?confirm=1 — promote the operator's own
 // uploads, and only those. Idempotent; safe to re-run.
+// GET /v1/admin/reslug?confirm=1[&execute=1]
+//
+// Every document published before migration 0052 has a slug like
+// `compass-artifact-wf-facec16e-…-text-markdown` — the upload's filename,
+// with a UUID in it. That is the string a person pastes into a footnote and
+// the string a machine keys on, and it signals nothing.
+//
+// Renaming gets more expensive with every inbound link that exists, so this
+// is deliberately a one-time repair run early rather than a permanent
+// feature. Scoped to the operator's OWN UPLOADS by the same guard as every
+// other destructive endpoint here: third-party banked pages are never
+// published and have no URL worth repairing.
+//
+// The old slug becomes an alias (0052) in the SAME batch as the rename, so
+// there is no window in which the old URL is dead — and a citation already
+// in the world keeps resolving, which is the whole reason this is safe to do.
+//
+// Dry run unless &execute=1.
+app.get("/reslug", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const execute = c.req.query("execute") === "1";
+  const userId = c.get("user_id");
+  const rows = await all<{ id: string; slug: string; title: string; body_head: string }>(
+    c.env.DB,
+    `SELECT id, slug, title, SUBSTR(body_md, 1, 400) AS body_head
+       FROM pieces
+      WHERE user_id = ? AND ${OWN_UPLOADS_SQL}`,
+    [userId],
+  );
+
+  const taken = new Set(
+    (
+      await all<{ slug: string }>(c.env.DB, "SELECT slug FROM pieces WHERE user_id = ?", [userId])
+    ).map((r) => r.slug),
+  );
+  const aliased = new Set(
+    (
+      await all<{ old_slug: string }>(
+        c.env.DB,
+        "SELECT old_slug FROM piece_slug_aliases WHERE user_id = ?",
+        [userId],
+      ).catch(() => [])
+    ).map((r) => r.old_slug),
+  );
+
+  const planned: Array<{ id: string; from: string; to: string; title: string }> = [];
+  const skipped: Array<{ slug: string; why: string }> = [];
+  for (const r of rows) {
+    if (!looksLikeMachineSlug(r.slug)) {
+      skipped.push({ slug: r.slug, why: "already readable" });
+      continue;
+    }
+    // displayTitle, not the raw title: a piece whose stored title is also a
+    // filename still has a real heading in its body, and that is the name
+    // this slug should come from.
+    const name = displayTitle(r.title, r.body_head);
+    if (name === UNTITLED) {
+      skipped.push({ slug: r.slug, why: "no title to build a slug from" });
+      continue;
+    }
+    let candidate = pieceSlug(name);
+    if (!candidate) {
+      skipped.push({ slug: r.slug, why: "title produced an empty slug" });
+      continue;
+    }
+    // Uniqueness across BOTH live slugs and retired ones: reusing an old slug
+    // for a different document would silently redirect its citations to the
+    // wrong page, which is worse than the ugly slug it replaced.
+    if (taken.has(candidate) || aliased.has(candidate)) {
+      let n = 2;
+      while (taken.has(`${candidate}-${n}`) || aliased.has(`${candidate}-${n}`)) n++;
+      candidate = `${candidate}-${n}`;
+    }
+    taken.add(candidate);
+    planned.push({ id: r.id, from: r.slug, to: candidate, title: name });
+  }
+
+  if (execute) {
+    for (const p of planned) {
+      await run(
+        c.env.DB,
+        `INSERT OR IGNORE INTO piece_slug_aliases (id, user_id, piece_id, old_slug)
+         VALUES (?, ?, ?, ?)`,
+        [crypto.randomUUID(), userId, p.id, p.from],
+      );
+      await run(
+        c.env.DB,
+        "UPDATE pieces SET slug = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+        [p.to, new Date().toISOString(), p.id, userId],
+      );
+    }
+  }
+
+  return c.json({
+    ok: true,
+    execute,
+    considered: rows.length,
+    renamed: execute ? planned.length : 0,
+    would_rename: planned.length,
+    planned: planned.slice(0, 60),
+    skipped: skipped.slice(0, 20),
+    ...(execute ? {} : { note: "DRY RUN — re-call with &execute=1 to apply" }),
+  });
+});
+
 app.get("/publish-uploads", async (c) => {
   if (c.req.query("confirm") !== "1") {
     return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
