@@ -78,9 +78,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # path is never taken and no build backend is needed. Upgrading pip is the
 # fix; switching to --extra-index-url would ALSO fix it but would reopen
 # the multi-GB CUDA problem this layer exists to avoid.
+#
+# PIN torch TO THE MAJOR.MINOR WHISPERX ASKS FOR, or this layer silently
+# undoes itself. Measured in CI 2026-09-15: installing `torch` unpinned from
+# the CPU index resolved to 2.14.0+cpu, whisperx declares `torch~=2.8.0`, and
+# 2.14 does not satisfy that — so the next pip UNINSTALLED the CPU build and
+# pulled 2.8.0 from regular PyPI, where the default wheel is the CUDA one:
+#
+#   Uninstalling torch-2.14.0+cpu
+#   Downloading torch-2.8.0 (888.1 MB)
+#   Downloading nvidia_cudnn_cu12 (706.8 MB), nvidia_cublas_cu12 (594.3 MB),
+#   nvidia_nccl_cu12 (322.4 MB), cusparse, cusparselt, cusolver, cufft, triton
+#
+# ~3GB of CUDA in an image whose entire point is not having any, six minutes
+# of build time, and the "No space left on device" failure that turned CI red
+# on a PR touching none of this. Nothing in this file changed to cause it —
+# torch released 2.14 and the constraint drifted out from under us.
+#
+# So the pin is load-bearing, not tidiness. When whisperx's torch requirement
+# moves, move this with it; do not just unpin it.
 RUN pip3 install --break-system-packages --no-cache-dir --upgrade pip \
   && pip3 install --break-system-packages --no-cache-dir \
-    torch torchaudio --index-url https://download.pytorch.org/whl/cpu \
+    'torch==2.8.*' 'torchaudio==2.8.*' --index-url https://download.pytorch.org/whl/cpu \
   && pip3 install --break-system-packages --no-cache-dir \
     whisperx==3.* \
     librosa==0.10.*
