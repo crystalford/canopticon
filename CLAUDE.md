@@ -126,12 +126,15 @@ dev server; this is the fastest way to see a change without deploying.
 
 ## Known gaps, stated plainly
 
-- **⚠ Cloudflare blocks AI crawlers by default** on zones created after July
-  2025. `robots.txt` invites them explicitly, but a file cannot overrule the
-  edge: if *Block AI Bots* is on for the canopticon.com zone, they get a 403
-  before the Worker runs and the whole AEO effort is decorative. **This is a
-  dashboard change only the operator can make.** Verify with
-  `curl -A GPTBot https://canopticon.com/`.
+- **AI crawlers get through — checked by the operator 2026-09-15.** Cloudflare
+  blocks them by default on zones created after July 2025, and a `robots.txt`
+  that invites them cannot overrule the edge: with *Block AI Bots* on, they get
+  a 403 before the Worker runs and the whole AEO effort is decorative. It is
+  off for the canopticon.com zone, so the premise holds. Worth re-checking
+  after any zone-settings change, since nothing in the repo would show it
+  breaking: `curl -A GPTBot https://canopticon.com/`. **Only the operator can
+  run this** — an agent sandbox's egress policy denies canopticon.com, and a
+  403 from that proxy looks nothing like a 403 from Cloudflare.
 - **Extraction reads at most ~72KB of any document** (`MAX_CHUNKS = 3` in
   `digestion-typed.ts`). Fine for timelines and quotes; don't imply the graph
   has read a whole book.
