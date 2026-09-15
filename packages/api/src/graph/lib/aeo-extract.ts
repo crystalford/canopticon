@@ -172,6 +172,24 @@ export async function extractAeoAtoms(
   const stats: AeoStats = { findings: 0, questions_new: 0, questions_merged: 0, killed: 0 };
 
   for (const [i, chunk] of chunks.entries()) {
+    // Reuses the `bulk_extraction` role deliberately, and a bigger model is
+    // NOT an upgrade here. Measured live 2026-09-15 via /v1/admin/debug-model
+    // on an AEO-shaped prompt at this exact max_tokens:
+    //
+    //   llama-4-scout-17b (this role)  11.7s — clean JSON, verbatim quotes,
+    //                                  questions phrased as a searcher types
+    //   gpt-oss-120b                   >30s, no response at all
+    //
+    // The catalog's stronger models are REASONING models, and reasoning_content
+    // scales with task difficulty until it eats the token budget and the call
+    // dies — the same failure that zeroed the corpus's yield across 50
+    // documents in July (see bulk_extraction's `why` in llm/router.ts). The
+    // trap is that they look fine when probed: gpt-oss-120b answered a
+    // one-sentence version of this prompt in 2.4s. Difficulty, not size, is
+    // what sets the latency, so a cheap sanity ping proves nothing.
+    //
+    // So this is not a cost-vs-quality tradeoff. The 17B non-reasoning model
+    // is the one that produces output; the 120B one produces none.
     const out = await callRole(env, "bulk_extraction", {
       userId,
       system: PROMPT,
