@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-09-15T23:05:13Z",
-  "run_id": "35034043015",
+  "requested_at": "2026-09-15T23:05:51Z",
+  "run_id": "35034071853",
   "method": "GET",
-  "path": "/v1/admin/purge-web-fetched?confirm=1",
+  "path": "/v1/admin/purge-web-fetched?confirm=1&execute=1",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"execute\": false,\n  \"pieces\": 60,\n  \"nodes\": 0,\n  \"quotes\": 0,\n  \"sample\": [\n    \"Chrystia Freeland - Wikipedia\",\n    \"Home | The National Post Home Page | National Post\",\n    \"World Economic Forum - Wikipedia\",\n    \"Mark Carney - Wikipedia\",\n    \"About | Prime Minister of Canada\",\n    \"World Economic Forum | Flickr\",\n    \"World Economic Forum (WEF) - Exeter Centre for Circular Economy\",\n    \"The World Economic Forum - Office of the President, Georgetown University\",\n    \"Mark Carney - Prime Minister of Canada | Prime Minister of Canada\",\n    \"Meet Mark Carney | Liberal Party of Canada\",\n    \"Mélanie Joly - Wikipedia\",\n    \"The Honourable Mélanie Joly - Member of Parliament - Members of Parliament - House of Commons of Canada\",\n    \"The Honourable Mélanie Joly - Canada.ca\",\n    \"Profile\",\n    \"The Honourable Mélanie Joly | Prime Minister of Canada\"\n  ],\n  \"note\": \"DRY RUN — re-call with &execute=1 to destroy this\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"execute\": true,\n  \"pieces\": 60,\n  \"nodes\": 0,\n  \"quotes\": 0,\n  \"sample\": [\n    \"Chrystia Freeland - Wikipedia\",\n    \"Home | The National Post Home Page | National Post\",\n    \"World Economic Forum - Wikipedia\",\n    \"Mark Carney - Wikipedia\",\n    \"About | Prime Minister of Canada\",\n    \"World Economic Forum | Flickr\",\n    \"World Economic Forum (WEF) - Exeter Centre for Circular Economy\",\n    \"The World Economic Forum - Office of the President, Georgetown University\",\n    \"Mark Carney - Prime Minister of Canada | Prime Minister of Canada\",\n    \"Meet Mark Carney | Liberal Party of Canada\",\n    \"Mélanie Joly - Wikipedia\",\n    \"The Honourable Mélanie Joly - Member of Parliament - Members of Parliament - House of Commons of Canada\",\n    \"The Honourable Mélanie Joly - Canada.ca\",\n    \"Profile\",\n    \"The Honourable Mélanie Joly | Prime Minister of Canada\"\n  ],\n  \"purged\": 60\n}"
 }
