@@ -5,7 +5,7 @@
 import * as GATE from "../../lib/aeo";
 import { looksLikeMachineFilename } from "../../lib/title";
 import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
-import { escapeHtml, renderPage } from "../layout";
+import { escapeAttr, escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
 import { renderLiveStatusBanner } from "./status-banner";
 
@@ -282,7 +282,24 @@ interface QuestionReview {
   status: string;
   evidence_count: number;
   answer_words: number;
+  models?: string | null;
 }
+
+/**
+ * Models worth trying, as autocomplete hints only — the field takes anything.
+ *
+ * Measured 2026-09-15 on an AEO-shaped prompt (see aeo-extract.ts): scout
+ * answers in ~12s, gpt-oss-120b did not answer at all inside 30s because it
+ * spends the budget reasoning. Both are listed anyway: the point of the
+ * toggle is to see that for yourself on a real document rather than take a
+ * one-chunk benchmark's word for it.
+ */
+const AEO_MODEL_SUGGESTIONS = [
+  "@cf/meta/llama-4-scout-17b-16e-instruct",
+  "@cf/openai/gpt-oss-120b",
+  "@cf/google/gemma-4-26b-a4b-it",
+  "@cf/nvidia/nemotron-3-120b-a12b",
+];
 
 // What a document produced, and whether each question is allowed to become a
 // page. Operator-only — a proposed question has no URL, so this is the one
@@ -291,7 +308,19 @@ function renderAtomReview(
   pieceId: string,
   atoms: { findings: number; questions: QuestionReview[] } | undefined,
 ): string {
-  const extract = `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/extract-atoms" style="display:inline">
+  // The model picker. A re-run replaces this piece's atoms, so the way to
+  // compare two models is to run one, read it, then run the other — and the
+  // model is recorded on every row, so which produced what survives the page.
+  //
+  // Free text rather than a fixed list on purpose: Cloudflare's catalog churns
+  // faster than this file gets edited, and a hardcoded <select> would quietly
+  // become a list of models that no longer exist. Blank means the role's own.
+  const options = AEO_MODEL_SUGGESTIONS.map(
+    (m) => `<option value="${escapeAttr(m)}"></option>`,
+  ).join("");
+  const extract = `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/extract-atoms" class="atom-form">
+  <input list="aeo-models" name="model" class="atom-model" placeholder="default model" autocomplete="off">
+  <datalist id="aeo-models">${options}</datalist>
   <button type="submit" class="atom-run">${atoms ? "Re-extract" : "Extract findings & questions"}</button>
 </form>`;
   if (!atoms || (atoms.findings === 0 && atoms.questions.length === 0)) {
@@ -310,8 +339,13 @@ function renderAtomReview(
           : gate.publishable
             ? `<form method="POST" action="/op/answers/${escapeHtml(q.id)}/publish" style="display:inline"><button type="submit" class="atom-pub">Publish</button></form>`
             : `<span class="atom-blocked" title="${escapeHtml(gate.reason ?? "")}">held</span>`;
+      const models = (q.models ?? "")
+        .split(",")
+        .map((m) => m.trim().split("/").pop() ?? "")
+        .filter(Boolean);
+      const by = models.length ? ` · ${escapeHtml(models.join(", "))}` : "";
       return `    <li><span class="atom-q">${escapeHtml(q.question)}</span>
-      <span class="atom-meta">${q.evidence_count} source${q.evidence_count === 1 ? "" : "s"} · ${q.answer_words}w</span>
+      <span class="atom-meta">${q.evidence_count} source${q.evidence_count === 1 ? "" : "s"} · ${q.answer_words}w${by}</span>
       ${action}</li>`;
     })
     .join("\n");
@@ -602,7 +636,9 @@ export async function renderLibraryIndex(
       `SELECT DISTINCT e.piece_id, q.id, q.question, q.slug, q.status,
               (SELECT COUNT(*) FROM question_evidence e2 WHERE e2.question_id = q.id) AS evidence_count,
               (SELECT COALESCE(SUM(LENGTH(e3.answer_text) - LENGTH(REPLACE(e3.answer_text,' ','')) + 1), 0)
-                 FROM question_evidence e3 WHERE e3.question_id = q.id) AS answer_words
+                 FROM question_evidence e3 WHERE e3.question_id = q.id) AS answer_words,
+              (SELECT GROUP_CONCAT(DISTINCT e4.model)
+                 FROM question_evidence e4 WHERE e4.question_id = q.id) AS models
          FROM question_evidence e JOIN questions q ON q.id = e.question_id
         WHERE e.user_id = ?
         ORDER BY evidence_count DESC`,

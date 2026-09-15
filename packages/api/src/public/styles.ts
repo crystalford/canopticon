@@ -1962,6 +1962,18 @@ pre.convention {
    Proposed findings and questions have no public URL. This is the only place
    they can be seen, so the gate's verdict is shown per question rather than
    left implicit: "held" means the page would be too thin to exist. */
+/* The model picker sits inline with the run button. Plain text input, not a
+   select: Cloudflare's catalog churns faster than this file does, so a fixed
+   list would go stale into a menu of models that no longer exist. */
+.atom-form { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.atom-model {
+  font-family: var(--mono); font-size: 11px; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--rule-bright); border-radius: var(--r-sm); padding: 6px 9px;
+  min-width: 0; width: 220px; max-width: 100%;
+}
+.atom-model::placeholder { color: var(--ink-mute); }
+.atom-model:focus { outline: 1px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+
 .atoms { margin-top: 9px; }
 .atom-head { font-family: var(--mono); font-size: 11px; color: var(--ink-3); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .atom-run, .atom-pub {

@@ -33,7 +33,7 @@ import {
   questionSlug,
 } from "../../lib/aeo";
 import { all, one, run } from "../../lib/d1";
-import { callRole } from "../../llm/router";
+import { callRole, modelForRole } from "../../llm/router";
 import { chunkText } from "./digestion";
 import { locateVerbatim } from "./digestion-typed";
 
@@ -88,6 +88,8 @@ export interface AeoStats {
   questions_merged: number;
   /** Spans the model returned that were not in the document. */
   killed: number;
+  /** Which model actually ran, so the caller can report it back. */
+  model: string;
 }
 
 const str = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
@@ -144,13 +146,18 @@ export async function extractAeoAtoms(
   env: Env,
   userId: string,
   pieceId: string,
+  opts: { model?: string } = {},
 ): Promise<AeoStats> {
+  // The role's own model unless the operator picked one, and either way it is
+  // recorded on every row this run writes — see migration 0051.
+  const model = opts.model?.trim() || modelForRole("bulk_extraction").model;
   const piece = await one<{ body_md: string; title: string }>(
     env.DB,
     "SELECT body_md, title FROM pieces WHERE id = ? AND user_id = ?",
     [pieceId, userId],
   );
-  if (!piece?.body_md) return { findings: 0, questions_new: 0, questions_merged: 0, killed: 0 };
+  if (!piece?.body_md)
+    return { findings: 0, questions_new: 0, questions_merged: 0, killed: 0, model };
 
   // The source node this piece's quotes hang from. The typed extractor makes
   // one per piece; reuse it so /q/ receipts resolve back to the document
@@ -169,7 +176,7 @@ export async function extractAeoAtoms(
   await clearAeoAtoms(env, userId, pieceId);
 
   const chunks = chunkText(piece.body_md).slice(0, MAX_CHUNKS);
-  const stats: AeoStats = { findings: 0, questions_new: 0, questions_merged: 0, killed: 0 };
+  const stats: AeoStats = { findings: 0, questions_new: 0, questions_merged: 0, killed: 0, model };
 
   for (const [i, chunk] of chunks.entries()) {
     // Reuses the `bulk_extraction` role deliberately, and a bigger model is
@@ -195,7 +202,12 @@ export async function extractAeoAtoms(
       system: PROMPT,
       messages: [{ role: "user", content: [{ type: "text", text: chunk }] }],
       max_tokens: MAX_TOKENS,
-      idempotency_key: `${pieceId}:aeo:${i}`,
+      // Keyed on the model too: re-running the same piece under a different
+      // model is a DIFFERENT call, and sharing a key would serve the first
+      // model's cached answer for the second — silently comparing a model
+      // against itself, which is the one way this toggle could lie.
+      idempotency_key: `${pieceId}:aeo:${model}:${i}`,
+      model,
     });
     const { findings, questions } = parse(out.text);
 
@@ -218,8 +230,9 @@ export async function extractAeoAtoms(
       }
       await run(
         env.DB,
-        `INSERT INTO findings (id, user_id, piece_id, quote_id, figure, measures, period, attributed_to)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO findings
+           (id, user_id, piece_id, quote_id, figure, measures, period, attributed_to, model)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           crypto.randomUUID(),
           userId,
@@ -229,6 +242,7 @@ export async function extractAeoAtoms(
           measures,
           str(f.period) || null,
           str(f.attributed_to) || null,
+          model,
         ],
       );
       stats.findings++;
@@ -261,9 +275,9 @@ export async function extractAeoAtoms(
       await run(
         env.DB,
         `INSERT OR IGNORE INTO question_evidence
-           (id, user_id, question_id, piece_id, quote_id, answer_text)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [crypto.randomUUID(), userId, merged.id, pieceId, quoteId, located(chunk, answer)],
+           (id, user_id, question_id, piece_id, quote_id, answer_text, model)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [crypto.randomUUID(), userId, merged.id, pieceId, quoteId, located(chunk, answer), model],
       );
     }
   }
@@ -412,6 +426,7 @@ export interface FindingRow {
   attributed_to: string | null;
   quote_id: string;
   verbatim_text: string;
+  model: string | null;
 }
 
 export async function findingsForPiece(
@@ -422,7 +437,7 @@ export async function findingsForPiece(
   return all<FindingRow>(
     db,
     `SELECT f.id, f.figure, f.measures, f.period, f.attributed_to,
-            f.quote_id, q.verbatim_text
+            f.quote_id, q.verbatim_text, f.model
        FROM findings f JOIN quotes q ON q.id = f.quote_id
       WHERE f.user_id = ? AND f.piece_id = ?
       ORDER BY f.created_at`,
@@ -437,6 +452,8 @@ export interface QuestionRow {
   status: string;
   evidence_count: number;
   answer_words: number;
+  /** Distinct models behind this question's evidence, comma-separated. */
+  models: string | null;
 }
 
 /** Questions touched by one piece, with the numbers the gate reads. */
@@ -450,7 +467,9 @@ export async function questionsForPiece(
     `SELECT qs.id, qs.question, qs.slug, qs.status,
             (SELECT COUNT(*) FROM question_evidence e2 WHERE e2.question_id = qs.id) AS evidence_count,
             (SELECT COALESCE(SUM(LENGTH(e3.answer_text) - LENGTH(REPLACE(e3.answer_text,' ','')) + 1), 0)
-               FROM question_evidence e3 WHERE e3.question_id = qs.id) AS answer_words
+               FROM question_evidence e3 WHERE e3.question_id = qs.id) AS answer_words,
+            (SELECT GROUP_CONCAT(DISTINCT e4.model)
+               FROM question_evidence e4 WHERE e4.question_id = qs.id) AS models
        FROM questions qs
       WHERE qs.user_id = ?
         AND EXISTS (SELECT 1 FROM question_evidence e WHERE e.question_id = qs.id AND e.piece_id = ?)

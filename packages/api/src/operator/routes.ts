@@ -1281,10 +1281,15 @@ app.post("/library/:id/extract-atoms", async (c) => {
   if (!userId) return c.redirect("/library");
   const pieceId = c.req.param("id");
   const { extractAeoAtoms } = await import("../graph/lib/aeo-extract");
+  // Optional model override, so the same document can be run under several
+  // models and the results compared. Which model produced which row is stored
+  // (migration 0051) — without that the comparison would not outlive the page.
+  const body = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+  const picked = typeof body.model === "string" ? body.model : (c.req.query("model") ?? "");
   try {
-    const stats = await extractAeoAtoms(c.env, userId, pieceId);
+    const stats = await extractAeoAtoms(c.env, userId, pieceId, { model: picked });
     return c.redirect(
-      `/library?atoms=${stats.findings}.${stats.questions_new}.${stats.questions_merged}.${stats.killed}`,
+      `/library?atoms=${stats.findings}.${stats.questions_new}.${stats.questions_merged}.${stats.killed}&model=${encodeURIComponent(stats.model)}`,
     );
   } catch (e) {
     return c.redirect(`/library?error=${encodeURIComponent(String(e).slice(0, 180))}`);
