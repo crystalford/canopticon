@@ -22,6 +22,13 @@
  *    responsibility. Canadian political economy is public-interest material
  *    and the operator does review, so naming them is what makes the exemption
  *    true rather than merely asserted.
+ *
+ * This byline is where BOTH of those now live. The piece page used to repeat
+ * editorial responsibility in its disclosure banner as well; that was cut,
+ * because the transparency-dilemma experiments found detailed disclosures
+ * measure worse than one-line ones and human-oversight framing does not
+ * rescue the trust cost. The attribution did not weaken — it stopped being
+ * said twice, once badly.
  */
 export const EDITOR = "Chris Telford";
 
