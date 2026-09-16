@@ -241,8 +241,20 @@ document behind it. `purgeTypedGraphForPiece()` is the correct primitive.
 
 1. Upload real documents and write real essays. Everything else is downstream
    of whether that is pleasant.
-2. Retire the ~11 unlinked arrangement routes and shrink `subject-page.ts`
-   (2,400 lines) once nothing links to them.
+2. **Arrangement routes: deliberately deferred, with the reason measured.**
+   The plan was to retire the ~11 unlinked ones and shrink `subject-page.ts`
+   (2,400 lines). Two findings say not yet, and not urgently:
+   - **They are not unlinked any more.** 8 of the 13 now have inbound links
+     from `subject-page.ts`, which fixed the "see standalone" embeds. The
+     stated precondition — once nothing links to them — is not met.
+   - **The crawl exposure is nil.** The worry was that `/s/:slug` subject
+     pages are in the sitemap (the query allows 5,000) and link out to every
+     arrangement, putting thin auto-generated pages in front of crawlers.
+     Measured 2026-09-16: the sitemap is **56 URLs — 50 documents, 5 static
+     pages, and exactly one subject page**. One. Nothing else is announced,
+     so the scaled-content risk this was meant to avert does not exist.
+   What is left is code hygiene on a file nothing points at. Worth doing when
+   the graph is next touched; not worth a large deletion to tick a box.
 3. Then measure: `/citations` already logs GPTBot, ClaudeBot and
    PerplexityBot hits, so whether any of this worked is answerable.
 
