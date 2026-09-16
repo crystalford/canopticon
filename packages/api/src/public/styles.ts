@@ -1404,13 +1404,14 @@ main { margin: 0 auto; padding: 34px 20px 70px; }
 .btn .arr { font-family: var(--mono); color: var(--accent); }
 
 .depth {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
-  background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-lg);
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg);
   overflow: hidden; margin-top: 38px;
   box-shadow: 0 24px 48px -28px rgba(0,0,0,.7);
 }
 @media (max-width: 640px) { .depth { grid-template-columns: 1fr 1fr; } }
-.depth .cell { background: var(--surface); padding: 16px 18px 14px; }
+.depth .cell { background: var(--surface); padding: 16px 18px 14px;
+  box-shadow: inset -1px 0 0 var(--rule), inset 0 -1px 0 var(--rule); }
 .depth .n {
   font-family: var(--mono); font-size: clamp(24px, 3.4vw, 32px); font-weight: 500;
   color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1.1;
@@ -1859,11 +1860,25 @@ pre.convention {
 }
 
 /* ---- research card grid ------------------------------------------------- */
-.rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr)); gap: 1px;
-  background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
+/* HAIRLINES BELONG TO THE CARD, NOT TO THE CONTAINER.
+   These grids drew dividers with a 1px gap over a container painted the rule
+   colour, so the gaps themselves were the lines. Neat while every cell is
+   covered — and the moment the last row is short, the uncovered cells show
+   that rule colour at full size, which is the grey slab that appeared under
+   /research. Worst on .rgrid, whose item count is data-driven and whose
+   columns are auto-fit, so the final row is almost never full.
+   Each card now paints its own right and bottom hairline inside its own box
+   and the container carries the CARD colour, so an empty cell has nothing
+   left to leak. Clipping still trims the trailing edges onto the border.
+   NO BACKTICKS IN THIS FILE'S COMMENTS: it is one big template literal, a
+   backtick ends it, and then biome --write reformats the CSS as TypeScript
+   and silently eats braces. That is how .docrail lost its mobile rule. */
+.rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr)); gap: 0;
+  background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
 .rcard {
   display: flex; flex-direction: column; gap: 9px; background: var(--paper-2);
   padding: 20px 21px 17px; text-decoration: none; transition: background .12s;
+  box-shadow: inset -1px 0 0 var(--rule), inset 0 -1px 0 var(--rule);
 }
 .rcard:hover { background: var(--paper-hover); }
 .rcard-badge {
@@ -1884,10 +1899,11 @@ pre.convention {
 /* ---- state strip (homepage) --------------------------------------------
    1px gaps over the rule colour, so the dividers ARE the grid gap. */
 .state {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule);
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; background: var(--paper-2);
   border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; margin: 0 0 48px;
 }
-.state-cell { background: var(--paper-2); padding: 17px 19px; }
+.state-cell { background: var(--paper-2); padding: 17px 19px;
+  box-shadow: inset -1px 0 0 var(--rule), inset 0 -1px 0 var(--rule); }
 .state-n { font-family: var(--sans); font-weight: 700; font-size: 27px; line-height: 1; color: var(--ink); letter-spacing: -0.02em; }
 .state-k {
   margin-top: 7px; font-family: var(--mono); font-size: 8.5px; font-weight: 500;
@@ -2192,9 +2208,10 @@ pre.convention {
 .citebox pre:last-child { margin-bottom: 0; }
 
 /* ---- standards grid (about) --------------------------------------------- */
-.std { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule);
+.std { display: grid; grid-template-columns: 1fr 1fr; gap: 0; background: var(--paper-2);
   border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
-.std-card { background: var(--paper-2); padding: 19px 21px; }
+.std-card { background: var(--paper-2); padding: 19px 21px;
+  box-shadow: inset -1px 0 0 var(--rule), inset 0 -1px 0 var(--rule); }
 .std-card h3 { margin: 0 0 7px; }
 .std-card p { font-family: var(--serif); font-size: 14.5px; line-height: 1.5; color: var(--ink-3); margin: 0; }
 @media (max-width: 860px) { .std { grid-template-columns: 1fr; } }
