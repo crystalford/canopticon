@@ -109,19 +109,38 @@ export async function renderAnswerPage(env: PublicEnv, slug: string): Promise<st
   const lead = evidence.reduce((a, b) => (b.answer_text.length > a.answer_text.length ? b : a));
   const sources = [...new Set(evidence.map((e) => e.piece_slug))].length;
 
+  // The standing answer, when a person has approved one. Served from the
+  // column it was written into, never generated here (standing rule 5), so two
+  // readers and a crawler all get the same words.
+  //
+  // Falls back to the longest verified quote. That is weaker — a quote answers
+  // in its source's voice and context, not the question's — but it is true,
+  // and the gate stops such a page being published at all, so this fallback is
+  // only ever seen by the operator previewing.
+  const standing = q.answer_approved_at && q.standing_answer ? q.standing_answer : null;
+  const contested = q.contested === 1;
+
   const body = `<div class="container reading answer">
   <div class="scope crumbs">
     <a href="/">Home</a><span class="arr">›</span>
     <a href="/answers">Answers</a>
   </div>
   <header class="page-head">
-    <div class="zone-label">Answer</div>
+    <div class="zone-label">${contested ? "Contested" : "Answer"}</div>
     <h1>${escapeHtml(q.question)}</h1>
   </header>
 
+  ${
+    contested
+      ? `<div class="contested-note">The documents on file <b>disagree</b> about this. Both
+  accounts are quoted below, verbatim and with receipts, and neither is presented as
+  settled.</div>`
+      : ""
+  }
+
   <div class="tldr">
-    <div class="tldr-k">In short</div>
-    <p>${escapeHtml(lead.answer_text)}</p>
+    <div class="tldr-k">${standing ? "What the record establishes" : "In short"}</div>
+    <p>${escapeHtml(standing ?? lead.answer_text)}</p>
   </div>
 
   <section class="sec" style="max-width:none">
@@ -131,7 +150,11 @@ export async function renderAnswerPage(env: PublicEnv, slug: string): Promise<st
 
   <p class="note" style="margin-top:26px">Answered from ${sources} document${sources === 1 ? "" : "s"} on file.
   Every quote above is checked as a literal substring of its source; quotes that fail
-  are removed. <a href="/method">How verification works →</a></p>
+  are removed.${
+    standing
+      ? " The summary above was drafted from those quotes and read by the editor before publication; the quotes themselves are the evidence."
+      : ""
+  } <a href="/method">How verification works →</a></p>
 </div>
 ${ldScript({
   "@context": "https://schema.org",

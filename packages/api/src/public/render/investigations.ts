@@ -284,6 +284,9 @@ interface QuestionReview {
   evidence_count: number;
   answer_words: number;
   models?: string | null;
+  has_draft?: number;
+  answer_approved_at?: string | null;
+  contested?: number;
 }
 
 /**
@@ -360,7 +363,16 @@ function renderAtomReview(
       const gate = gateQuestion({
         evidenceCount: q.evidence_count,
         answerWords: q.answer_words,
+        hasApprovedAnswer: Boolean(q.answer_approved_at),
       });
+      // The route to a page now runs Draft -> Approve -> Publish, so the
+      // action shown is whichever step is actually next. A single "Publish"
+      // button that silently refuses is worse than no button.
+      const draftAction = q.has_draft
+        ? q.answer_approved_at
+          ? ""
+          : `<form method="POST" action="/op/answers/${escapeHtml(q.id)}/draft/approve" style="display:inline"><button type="submit" class="atom-pub">Approve answer</button></form>`
+        : `<form method="POST" action="/op/answers/${escapeHtml(q.id)}/draft" style="display:inline"><button type="submit" class="atom-run">Draft answer</button></form>`;
       const action =
         q.status === "published"
           ? `<span class="atom-live">live</span>`
@@ -372,9 +384,10 @@ function renderAtomReview(
         .map((m) => m.trim().split("/").pop() ?? "")
         .filter(Boolean);
       const by = models.length ? ` · ${escapeHtml(models.join(", "))}` : "";
-      return `    <li><span class="atom-q">${escapeHtml(q.question)}</span>
+      const flag = q.contested ? ` <span class="atom-contested">contested</span>` : "";
+      return `    <li><span class="atom-q">${escapeHtml(q.question)}</span>${flag}
       <span class="atom-meta">${q.evidence_count} source${q.evidence_count === 1 ? "" : "s"} · ${q.answer_words}w${by}</span>
-      ${action}</li>`;
+      ${draftAction}${action}</li>`;
     })
     .join("\n");
   return `<div class="atoms">
@@ -671,7 +684,9 @@ export async function renderLibraryIndex(
               (SELECT COALESCE(SUM(LENGTH(e3.answer_text) - LENGTH(REPLACE(e3.answer_text,' ','')) + 1), 0)
                  FROM question_evidence e3 WHERE e3.question_id = q.id) AS answer_words,
               (SELECT GROUP_CONCAT(DISTINCT e4.model)
-                 FROM question_evidence e4 WHERE e4.question_id = q.id) AS models
+                 FROM question_evidence e4 WHERE e4.question_id = q.id) AS models,
+              CASE WHEN q.standing_answer IS NULL THEN 0 ELSE 1 END AS has_draft,
+              q.answer_approved_at, q.contested
          FROM question_evidence e JOIN questions q ON q.id = e.question_id
         WHERE e.user_id = ?
         ORDER BY evidence_count DESC`,

@@ -2105,6 +2105,21 @@ pre.convention {
 .fig-prov { margin-top: 7px; font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
 .fig-prov a { color: var(--ink-2); text-decoration: none; }
 .fig-prov a:hover { color: var(--accent); }
+
+/* ---- a contested question ------------------------------------------------
+   The page nothing else on the internet publishes: two sources in the same
+   corpus contradicting each other, both quoted verbatim, both with live
+   receipts, and no pretence the matter is settled. Marked, not hidden. */
+.atom-contested {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--contested); margin-left: 6px;
+}
+.contested-note {
+  margin: 0 0 18px; padding: 11px 15px;
+  border: 1px solid var(--cont-bd); border-left: 2px solid var(--contested);
+  border-radius: var(--r-sm); background: var(--cont-bg);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.55; color: var(--ink-2);
+}
 .provenance a:hover { text-decoration: underline; }
 
 /* ---- essay body --------------------------------------------------------- */

@@ -1320,6 +1320,29 @@ app.post("/library/:id/lede/approve", async (c) => {
   return c.redirect(ok ? "/library?lede=approved" : "/library?error=no+proposed+passage");
 });
 
+// Draft what the corpus establishes about one question, from its verified
+// evidence and nothing else. Stored unapproved — prose cannot be
+// substring-checked, so a person is the only honest gate.
+app.post("/answers/:id/draft", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { draftStandingAnswer } = await import("../graph/lib/standing-answer");
+  const res = await draftStandingAnswer(c.env, userId, c.req.param("id"));
+  return c.redirect(
+    res.ok
+      ? `/library?drafted=1${res.contested ? "&contested=1" : ""}`
+      : `/library?error=${encodeURIComponent(res.reason ?? "could not draft")}`,
+  );
+});
+
+app.post("/answers/:id/draft/approve", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { approveStandingAnswer } = await import("../graph/lib/standing-answer");
+  const ok = await approveStandingAnswer(c.env, userId, c.req.param("id"));
+  return c.redirect(ok ? "/library?drafted=approved" : "/library?error=no+draft+to+approve");
+});
+
 // Promote one proposed question to a public page. The gate runs here, inside
 // publishQuestion, and refuses rather than publishing something thin.
 app.post("/answers/:id/publish", async (c) => {

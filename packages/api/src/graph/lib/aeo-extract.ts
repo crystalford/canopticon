@@ -399,9 +399,15 @@ export async function regateQuestions(
       "SELECT answer_text FROM question_evidence WHERE user_id = ? AND question_id = ?",
       [userId, questionId],
     );
+    const approved = await one<{ answer_approved_at: string | null }>(
+      env.DB,
+      "SELECT answer_approved_at FROM questions WHERE id = ? AND user_id = ?",
+      [questionId, userId],
+    );
     const gate = gateQuestion({
       evidenceCount: rows.length,
       answerWords: rows.reduce((n, r) => n + countWords(r.answer_text), 0),
+      hasApprovedAnswer: Boolean(approved?.answer_approved_at),
     });
     if (gate.publishable) continue;
 
@@ -580,10 +586,19 @@ export async function getQuestionBySlug(
   db: D1Database,
   userId: string,
   slug: string,
-): Promise<{ id: string; question: string; slug: string; status: string } | null> {
+): Promise<{
+  id: string;
+  question: string;
+  slug: string;
+  status: string;
+  standing_answer: string | null;
+  answer_approved_at: string | null;
+  contested: number;
+} | null> {
   return one(
     db,
-    "SELECT id, question, slug, status FROM questions WHERE user_id = ? AND slug = ?",
+    `SELECT id, question, slug, status, standing_answer, answer_approved_at, contested
+       FROM questions WHERE user_id = ? AND slug = ?`,
     [userId, slug],
   );
 }
@@ -599,9 +614,17 @@ export async function publishQuestion(
     "SELECT answer_text FROM question_evidence WHERE user_id = ? AND question_id = ?",
     [userId, questionId],
   );
+  // A page with quotes but no approved standing answer is a quote list. The
+  // gate refuses it — see lib/aeo.ts and migration 0054.
+  const q = await one<{ answer_approved_at: string | null }>(
+    env.DB,
+    "SELECT answer_approved_at FROM questions WHERE id = ? AND user_id = ?",
+    [questionId, userId],
+  );
   const gate = gateQuestion({
     evidenceCount: rows.length,
     answerWords: rows.reduce((n, r) => n + countWords(r.answer_text), 0),
+    hasApprovedAnswer: Boolean(q?.answer_approved_at),
   });
   if (!gate.publishable) return { ok: false, reason: gate.reason };
   await run(

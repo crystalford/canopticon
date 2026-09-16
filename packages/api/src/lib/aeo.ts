@@ -72,6 +72,14 @@ export const MIN_ANSWER_WORDS = 40;
 export interface GateInput {
   evidenceCount: number;
   answerWords: number;
+  /**
+   * Whether a person has approved a standing answer for this question.
+   *
+   * Without one the page is a list of quotes under a heading. That is a
+   * well-organised quote list, not something worth citing, and the thin-page
+   * cost lands on the whole domain rather than the page.
+   */
+  hasApprovedAnswer?: boolean;
 }
 
 export interface GateResult {
@@ -102,6 +110,12 @@ export function gateQuestion(input: GateInput): GateResult {
       publishable: false,
       reason: `answer is ${input.answerWords} words; needs at least ${MIN_ANSWER_WORDS}`,
     };
+  }
+  // Optional on the input so existing callers that only know about evidence
+  // keep compiling, but false is a refusal: a question with evidence and no
+  // standing answer is exactly the quote list this gate exists to stop.
+  if (input.hasApprovedAnswer === false) {
+    return { publishable: false, reason: "no approved standing answer" };
   }
   return { publishable: true, reason: null };
 }
