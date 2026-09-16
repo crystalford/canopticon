@@ -11,8 +11,8 @@
 -- evidence and nothing else, and approved by a person before the page exists.
 -- Frozen into this column rather than generated at render (standing rule 5:
 -- AI output is an input artifact, never a function).
-ALTER TABLE questions ADD COLUMN standing_answer TEXT;
-ALTER TABLE questions ADD COLUMN answer_approved_at TEXT;
+ALTER TABLE aeo_questions ADD COLUMN standing_answer TEXT;
+ALTER TABLE aeo_questions ADD COLUMN answer_approved_at TEXT;
 
 -- Where the corpus's own sources disagree.
 --
@@ -25,4 +25,4 @@ ALTER TABLE questions ADD COLUMN answer_approved_at TEXT;
 -- each other, both quoted verbatim, both with live receipts, and no pretence
 -- that the disagreement is settled. It is what a verification-first record is
 -- actually for.
-ALTER TABLE questions ADD COLUMN contested INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE aeo_questions ADD COLUMN contested INTEGER NOT NULL DEFAULT 0;

@@ -1008,9 +1008,9 @@ app.post("/answers/:id/research", async (c) => {
   const q = await oneRow<{ question: string; sources: number }>(
     c.env.DB,
     `SELECT question,
-            (SELECT COUNT(DISTINCT e.piece_id) FROM question_evidence e
-              WHERE e.question_id = questions.id) AS sources
-       FROM questions WHERE id = ? AND user_id = ?`,
+            (SELECT COUNT(DISTINCT e.piece_id) FROM aeo_question_evidence e
+              WHERE e.question_id = aeo_questions.id) AS sources
+       FROM aeo_questions WHERE id = ? AND user_id = ?`,
     [c.req.param("id"), userId],
   ).catch(() => null);
   if (!q?.question) return c.redirect("/library?error=no+such+question");

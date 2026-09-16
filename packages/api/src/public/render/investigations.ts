@@ -682,20 +682,20 @@ export async function renderLibraryIndex(
     const { all: allRows } = await import("../../lib/d1");
     const fRows = await allRows<{ piece_id: string; n: number }>(
       env.DB,
-      "SELECT piece_id, COUNT(*) AS n FROM findings WHERE user_id = ? GROUP BY piece_id",
+      "SELECT piece_id, COUNT(*) AS n FROM aeo_findings WHERE user_id = ? GROUP BY piece_id",
       [userId],
     ).catch(() => []);
     const qRows = await allRows<QuestionReview & { piece_id: string }>(
       env.DB,
       `SELECT DISTINCT e.piece_id, q.id, q.question, q.slug, q.status,
-              (SELECT COUNT(*) FROM question_evidence e2 WHERE e2.question_id = q.id) AS evidence_count,
+              (SELECT COUNT(*) FROM aeo_question_evidence e2 WHERE e2.question_id = q.id) AS evidence_count,
               (SELECT COALESCE(SUM(LENGTH(e3.answer_text) - LENGTH(REPLACE(e3.answer_text,' ','')) + 1), 0)
-                 FROM question_evidence e3 WHERE e3.question_id = q.id) AS answer_words,
+                 FROM aeo_question_evidence e3 WHERE e3.question_id = q.id) AS answer_words,
               (SELECT GROUP_CONCAT(DISTINCT e4.model)
-                 FROM question_evidence e4 WHERE e4.question_id = q.id) AS models,
+                 FROM aeo_question_evidence e4 WHERE e4.question_id = q.id) AS models,
               CASE WHEN q.standing_answer IS NULL THEN 0 ELSE 1 END AS has_draft,
               q.answer_approved_at, q.contested
-         FROM question_evidence e JOIN questions q ON q.id = e.question_id
+         FROM aeo_question_evidence e JOIN aeo_questions q ON q.id = e.question_id
         WHERE e.user_id = ?
         ORDER BY evidence_count DESC`,
       [userId],
