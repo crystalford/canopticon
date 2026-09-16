@@ -71,7 +71,10 @@ describe("mailing list", () => {
     const { db, writes } = makeDb();
     const res = await post(db, "email=Reader%40Example.com");
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain("You're on the list");
+    // NOT "you're on the list" — they are not, until they confirm. The page
+    // used to say so before anything was ever sent; now a confirmation goes
+    // out and the copy has to match what actually happened.
+    expect(await res.text()).toContain("Check your email");
     const insert = writes.find((w) => /INSERT INTO pub_subscriptions/i.test(w.sql));
     expect(insert, "an address must actually be written").toBeTruthy();
     // Normalised, so the duplicate guard can't be defeated by capitalisation.

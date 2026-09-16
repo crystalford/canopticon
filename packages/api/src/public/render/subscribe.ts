@@ -29,12 +29,12 @@ ${body}
 
 export function renderSubscribed(alreadyOnList: boolean): string {
   return notice(
-    "You're on the list",
-    alreadyOnList ? "You were already on the list" : "You're on the list",
+    alreadyOnList ? "Already on the list" : "Check your email",
+    alreadyOnList ? "You were already on the list" : "Check your email",
     `  <p class="lead">${
       alreadyOnList
         ? "That address is already subscribed, so nothing changed."
-        : "Thanks — your address is stored."
+        : "We have sent you a link to confirm. Nothing is sent until you click it."
     }</p>
   <p>New essays and research documents go out when they're published, which is
   irregular by design. Nothing else is ever sent, and every email carries an
@@ -64,4 +64,24 @@ export function renderConfirmed(found: boolean): string {
 
 export function renderSubscribeError(message: string): string {
   return notice("Mailing list", "That didn't work", `  <p class="lead">${message}</p>`);
+}
+
+/**
+ * The operator's way back in.
+ *
+ * `/library` is where uploading happens and it is session-gated. It used to
+ * redirect a signed-out visitor to `/research`, which meant a lapsed cookie
+ * looked exactly like the page not existing. Saying so, and pointing at the
+ * door, costs one page and removes the only genuinely blocking bug on the site.
+ */
+export function renderSignedOut(): string {
+  return notice(
+    "Sign in",
+    "Sign in to continue",
+    `  <p class="lead">The library is where documents are uploaded and reviewed. It needs an
+  operator session.</p>
+  <p><a href="/auth/login">Sign in →</a></p>
+  <p>If you are not the operator, the published documents are at
+  <a href="/research">Research</a> and the essays at <a href="/essays">Essays</a>.</p>`,
+  );
 }

@@ -569,6 +569,80 @@ app.get("/reslug", async (c) => {
   });
 });
 
+// GET /v1/admin/announce?slug=<piece>&confirm=1[&execute=1]
+//
+// Tell the confirmed subscribers about one published piece. The mailing list
+// collected addresses and sent nothing since it shipped; this is the other
+// half, and lib/email.ts is the sender.
+//
+// CONFIRMED SUBSCRIBERS ONLY, and never the unsubscribed. Anyone can type
+// anyone's address into a public form, so an unconfirmed row is an assertion
+// about someone who has not agreed to anything — mailing them is the one
+// mistake here that cannot be taken back.
+//
+// Dry run unless &execute=1, because unlike every other endpoint in this file
+// the effect is not in a database this operator controls. It is in other
+// people's inboxes, and there is no undo.
+app.get("/announce", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const slug = c.req.query("slug") ?? "";
+  if (!slug) return c.json({ ok: false, error: "missing ?slug=" }, 400);
+  const execute = c.req.query("execute") === "1";
+  const userId = c.get("user_id");
+
+  const piece = await one<{ slug: string; title: string; subtitle: string | null }>(
+    c.env.DB,
+    `SELECT slug, title, subtitle FROM pieces
+      WHERE user_id = ? AND slug = ? AND publication_status IN ('published','canonical')`,
+    [userId, slug],
+  );
+  if (!piece) return c.json({ ok: false, error: "no published piece with that slug" }, 404);
+
+  const recipients = await all<{ email: string; unsubscribe_token: string }>(
+    c.env.DB,
+    `SELECT email, unsubscribe_token FROM pub_subscriptions
+      WHERE user_id = ? AND confirmed = 1 AND unsubscribed_at IS NULL`,
+    [userId],
+  );
+
+  if (!execute) {
+    return c.json({
+      ok: true,
+      execute: false,
+      piece: { slug: piece.slug, title: piece.title },
+      recipients: recipients.length,
+      note: "DRY RUN — re-call with &execute=1 to send. There is no undo.",
+    });
+  }
+
+  const { sendAnnouncement } = await import("../lib/email");
+  const url = `https://canopticon.com/p/${piece.slug}`;
+  let sent = 0;
+  const failures: string[] = [];
+  for (const r of recipients) {
+    const res = await sendAnnouncement(c.env, r.email, {
+      title: piece.title,
+      subtitle: piece.subtitle,
+      url,
+      unsubscribeToken: r.unsubscribe_token,
+    });
+    if (res.ok) sent++;
+    else if (failures.length < 5 && res.reason) failures.push(res.reason);
+  }
+  return c.json({
+    ok: true,
+    execute: true,
+    piece: { slug: piece.slug, title: piece.title },
+    recipients: recipients.length,
+    sent,
+    // Surfaced rather than swallowed: a missing key and an unverified sending
+    // domain both produce zero sends and look identical from the outside.
+    ...(failures.length ? { failures } : {}),
+  });
+});
+
 // GET /v1/admin/unpublish-briefs?confirm=1[&execute=1]
 //
 // The four published deep-research briefs are ~2KB pass-1 summaries of

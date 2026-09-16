@@ -2,7 +2,7 @@
 // public surfaces. All use the design build's class system.
 
 import type { EntitySummary, PatternSummary, PieceSummary } from "../data";
-import { escapeHtml } from "../layout";
+import { escapeAttr, escapeHtml } from "../layout";
 
 // Map a piece kind to its design-system card-type class + label.
 export function pieceTypeChip(kind: string, subtype: string | null): string {
@@ -143,9 +143,23 @@ function patternKindLabel(kind: string): string {
   }
 }
 
-export function emptyState(message: string): string {
+/**
+ * An empty section, with somewhere to go from it.
+ *
+ * `onward` is not decoration. A crawl of the site from the nav found exactly
+ * one dead end — a link on the front page to a page that said "nothing here
+ * yet" and offered no way forward. That is the shape of thing the operator
+ * kept running into and having to report. An empty state that names the next
+ * step is a signpost; one that does not is a full stop.
+ */
+export function emptyState(message: string, onward?: { href: string; label: string }): string {
   return `<div class="card soft" style="padding:28px;text-align:center;color:var(--ink-3)">
   <p style="font-family:var(--serif);font-size:15.5px;margin:0">${escapeHtml(message)}</p>
+  ${
+    onward
+      ? `<p style="margin:12px 0 0"><a href="${escapeAttr(onward.href)}">${escapeHtml(onward.label)}</a></p>`
+      : ""
+  }
 </div>`;
 }
 
