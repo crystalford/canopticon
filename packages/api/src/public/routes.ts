@@ -8,7 +8,6 @@
 
 import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
-import { listCorpusFindings } from "../graph/lib/aeo-extract";
 import { all, one } from "../lib/d1";
 import { getPieceBySlug, listPublishedPieces, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
@@ -17,7 +16,6 @@ import { renderAbout } from "./render/about";
 import { renderActivityPage } from "./render/activity";
 import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
-import { renderFiguresIndex } from "./render/figures";
 import { renderFront } from "./render/front";
 import { renderEssaysIndex, renderResearchIndex } from "./render/indexes";
 import { renderInstrumentsIndex } from "./render/instruments";
@@ -27,7 +25,13 @@ import { renderPiece } from "./render/piece-template";
 import { renderNotFound } from "./render/placeholder";
 import { renderEntityPage } from "./render/record";
 import { renderSearchPage } from "./render/search";
-import { renderConfirmed, renderSignedOut, renderSubscribeError, renderSubscribed, renderUnsubscribed } from "./render/subscribe";
+import {
+  renderConfirmed,
+  renderSignedOut,
+  renderSubscribeError,
+  renderSubscribed,
+  renderUnsubscribed,
+} from "./render/subscribe";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
 import { renderVideosPage } from "./render/videos";
 import { renderWatchlistPage } from "./render/watchlist";
@@ -333,13 +337,22 @@ app.get("/", async (c) => htmlResponse(await renderFront(c.env)));
 
 app.get("/essays", async (c) => htmlResponse(await renderEssaysIndex(c.env)));
 
-// /numbers — every verified figure in the corpus on one page. One aggregate
-// page rather than one per figure: see render/figures.ts on why splitting it
-// would spend the advantage cannibalising itself. Was /figures, which is
-// ambiguous — illustrations or quantities? — and did not match the page's own
-// heading. The old path still resolves so nothing that linked it breaks.
-app.get("/numbers", async (c) => htmlResponse(await renderFiguresIndex(c.env)));
-app.get("/figures", (c) => c.redirect("/numbers", 301));
+// /numbers and /figures are GONE, and the reasoning is worth keeping.
+//
+// An index of every verified figure was the strongest-evidenced citable
+// primitive on paper — statistics with a named source and date. It did not
+// survive contact with this corpus. The documents span media theory, public
+// health, housing, polling method and carbon finance, so a single global list
+// stacks an overdose statistic beside a mortgage rate beside a McLuhan figure
+// and asks a reader to make sense of it. "What is numbers" was the correct
+// reaction and no name fixed it.
+//
+// It was also the same structural mistake as /answers: findings ALREADY render
+// on each document's own page, beside the thing they are about. The index was
+// a second copy of that, stripped of context, competing with its own sources.
+// Both paths now 301 to /research, which is where the numbers actually live.
+app.get("/numbers", (c) => c.redirect("/research", 301));
+app.get("/figures", (c) => c.redirect("/research", 301));
 app.get("/research", async (c) => htmlResponse(await renderResearchIndex(c.env)));
 
 // ---- Topics ---------------------------------------------------------------
@@ -617,12 +630,7 @@ app.get("/confirm", async (c) => {
 app.get("/llms.txt", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   const pieces = userId ? await listPublishedPieces(c.env.DB, userId).catch(() => []) : [];
-  const figures = userId
-    ? await listCorpusFindings(c.env.DB, userId, 1000)
-        .then((f) => f.length)
-        .catch(() => 0)
-    : 0;
-  return new Response(llmsTxt(pieces, figures), {
+  return new Response(llmsTxt(pieces), {
     headers: {
       "content-type": "text/plain; charset=utf-8",
       "cache-control": "public, max-age=3600",

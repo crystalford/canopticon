@@ -102,8 +102,17 @@ something it cannot answer.
 
 What survives publicly is on the document's own page and creates no new URL:
 the **lead passage** (selected verbatim, never composed) and the **findings**
-block. Plus `/numbers`, one index of every verified figure — the
-strongest-evidenced primitive, and it duplicates no single document.
+block.
+
+`/numbers` was built and removed for the same reason `/answers` was. An index
+of every verified figure is the strongest-evidenced primitive *on paper*, and
+it did not survive contact with this corpus: the documents span media theory,
+public health, housing, polling method and carbon finance, so one global list
+stacks an overdose statistic beside a mortgage rate and asks a reader to make
+sense of it. It was also a second copy of findings that already render beside
+the thing they are about. **Two derived indexes built, two removed — the
+pattern to notice is that a page the evidence supports in the abstract can
+still be incoherent for the reader this corpus actually has.**
 
 ## Standing rules — non-negotiable## Standing rules — non-negotiable
 

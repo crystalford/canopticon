@@ -29,7 +29,6 @@ const ROUTES: string[] = [
   "/research",
   "/about",
   "/method",
-  "/numbers",
   "/library",
   "/search",
   "/activity",
@@ -94,7 +93,8 @@ for (const route of ROUTES) {
     status: res.status,
     content: Math.max(0, text.length - chromeChars),
     announced: navHrefs.has(route) ? "nav" : html.includes(`href="${route}"`) ? "self" : "—",
-    note: res.status !== 200 ? `→ ${res.headers.get("location") ?? ""}` : empty ? "EMPTY STATE" : "",
+    note:
+      res.status !== 200 ? `→ ${res.headers.get("location") ?? ""}` : empty ? "EMPTY STATE" : "",
   });
 }
 
@@ -155,7 +155,8 @@ console.log(`\n${unreachable.length} page(s) resolving but linked from nowhere i
 console.log(`\n${reachable.size} route(s) reachable by clicking from the nav.`);
 if (deadEnds.length) {
   console.log(`\n${deadEnds.length} DEAD END(S) — reachable by clicking, and empty:`);
-  for (const [route, from, n] of deadEnds) console.log(`  ${route}  (${n} chars) ← linked from ${from}`);
+  for (const [route, from, n] of deadEnds)
+    console.log(`  ${route}  (${n} chars) ← linked from ${from}`);
 } else {
   console.log("\nNo reachable dead ends.");
 }

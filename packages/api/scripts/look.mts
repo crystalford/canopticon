@@ -60,7 +60,6 @@ const SHOTS: Array<[string, string, number]> = [
   // The research template WITH the provenance banner — a different code path
   // from the essay above, and the only page that renders that block at all.
   ["piece-auto", "/p/budget-2026-estimates", 1400],
-  ["numbers", "/numbers", 1400],
   ["about", "/about", 1400],
   ["essays-mobile", "/essays", 390],
   ["piece-mobile", "/p/the-logic-costume", 390],
