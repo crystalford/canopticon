@@ -174,8 +174,15 @@ dev server; this is the fastest way to see a change without deploying.
 - **Extraction reads at most ~72KB of any document** (`MAX_CHUNKS = 3` in
   `digestion-typed.ts`). Fine for timelines and quotes; don't imply the graph
   has read a whole book.
-- **No email sending.** The mailing list collects addresses and can
-  unsubscribe; nothing goes out.
+- **Email is built but unconfigured.** `lib/email.ts` sends via Resend over
+  HTTP (a Worker cannot do SMTP). Signup now sends a confirmation, `/confirm`
+  spends the token, and `/v1/admin/announce?slug=…` mails one published piece
+  to CONFIRMED subscribers only — dry run unless `&execute=1`, because unlike
+  every other endpoint the effect is in other people's inboxes and there is no
+  undo. **Nothing sends until `RESEND_API_KEY` is set and the sending domain is
+  verified with the provider**; without the key every call returns a stated
+  reason and writes nothing, so an unconfigured deploy is inert rather than
+  half-working.
 - **The graph is real, not scaffolding.** Measured live 2026-09-14:
   **13,075 nodes · 18,774 edges · 6,137 verified quotes · 1,902 assertions**
   over 116 pieces. `docs/canopticon-renovation.md` says it "has never eaten a
@@ -191,7 +198,7 @@ dev server; this is the fastest way to see a change without deploying.
 | `ingested_from` | n | what | publish it? |
 |---|---|---|---|
 | `feed-upload` | 50 | the operator's own uploaded documents | yes — all published |
-| `deep-research` | 6 | the dormant research pipeline's own output (4 published, 2 `working-material`) | **look first** |
+| `deep-research` | 6 | the dormant research pipeline's own output — all `working-material` | **no** — unpublished 2026-09-16 |
 | `record-expand` | 0 | third-party pages a retired crawler banked | **never** — purged |
 
 The `record-expand` group was source material to quote from, never content.
@@ -202,13 +209,19 @@ penalise a whole domain for. **All 60 were deleted on 2026-09-15** (0 nodes
 and 0 quotes attached — they had never been digested, so no provenance was
 lost). The guard stays: the crawler is retired but unwired, not deleted.
 
-⚠ **`deep-research` is a third population, and it is not what the guards are
-about.** It is neither the operator's own uploads nor banked third-party
-pages — it is output from the dormant autonomous machinery, and 4 of the 6 are
-already published. `OWN_UPLOADS_SQL` excludes it and `WEB_FETCHED_SQL` does not
-match it, which is why the purge left it alone. Any new query written against
-a two-population mental model will mishandle these six. Decide about them
-deliberately; do not let them ride along in a filter aimed at something else.
+⚠ **`deep-research` is a third population and needs its own guard.** Neither
+the operator's uploads nor banked third-party pages, so `OWN_UPLOADS_SQL`
+excludes it and `WEB_FETCHED_SQL` does not match it — which is why the purge
+and the reslug both correctly stepped around it. Use `DEEP_RESEARCH_SQL`.
+
+Four of the six were published until 2026-09-16 and are now all
+`working-material`. They were ~2KB pass-1 summaries of third-party web pages
+with no quotes and no receipts, published under a CC BY byline: the weakest
+pages on a site whose whole argument is provenance. Two reasons they were thin,
+both worth remembering — their sources were Wikipedia and government bio pages,
+and pass 2 (the follow-up searches and re-synthesis) only ever ran from the
+cron, so with the cron off they were frozen mid-process and published anyway.
+Unpublished, not deleted; the rows are intact.
 
 Every query that acts on one population is guarded twice — on `ingested_from`
 and on the `web-fetched` tag — via `OWN_UPLOADS_SQL` / `WEB_FETCHED_SQL` in
@@ -320,7 +333,7 @@ stalled the project twice.** Leave it alone.
 ```
 Record:  DB (D1 canopticon) · FILES (R2) · EMBEDDINGS (Vectorize) · AI
 Studio:  DB (D1 canopticon-studio) · FILES (R2) · AI
-Secrets: ANTHROPIC_API_KEY (optional) · CRON_SECRET
+Secrets: ANTHROPIC_API_KEY (optional) · RESEND_API_KEY (optional) · CRON_SECRET
          CF_ACCESS_CLIENT_ID · CF_ACCESS_CLIENT_SECRET (admin probe)
          SESSION_SECRET (operator session cookie)
 ```

@@ -83,4 +83,8 @@ export interface Env {
   // llm/router.ts's callResearchWriter) — the cost gate denies anything
   // unwhitelisted by default, so this can't accidentally start spending.
   RESEARCH_LLM_PROVIDER?: string;
+  // Mail. Absent means nothing sends — see lib/email.ts on why that is the
+  // deliberate behaviour rather than a half-configured one. The sending
+  // domain must also be verified with the provider or every send is rejected.
+  RESEND_API_KEY?: string;
 }

@@ -525,6 +525,7 @@ app.post("/subscribe", async (c) => {
   ).catch(() => null);
   if (existing) return htmlResponse(renderSubscribed(true));
 
+  const confirmToken = crypto.randomUUID();
   await c.env.DB.prepare(
     `INSERT INTO pub_subscriptions (id, user_id, email, channels, unsubscribe_token, confirmation_token)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -535,10 +536,50 @@ app.post("/subscribe", async (c) => {
       email,
       JSON.stringify(["articles"]),
       crypto.randomUUID(),
-      crypto.randomUUID(),
+      confirmToken,
     )
     .run();
+  // The confirmation. Anyone can type anyone's address into a public form, so
+  // an unconfirmed row is an assertion about someone who has not agreed to
+  // anything — which is why `confirmed` is in the schema and why it stayed 0
+  // for every row until this existed.
+  //
+  // waitUntil, not awaited: the provider's latency is not the subscriber's
+  // problem, and a mail failure must not turn a successful signup into an
+  // error page. If it fails the row simply stays unconfirmed, which is the
+  // correct end state anyway.
+  const { sendConfirmation } = await import("../lib/email");
+  // Started before it is handed anywhere, so it runs either way.
+  const confirming = sendConfirmation(c.env, email, confirmToken).then(
+    () => undefined,
+    () => undefined,
+  );
+  // waitUntil when there is a context to wait in, and never at the cost of the
+  // response: Hono THROWS on `c.executionCtx` when none exists, which turned a
+  // successful signup into a 500 and told the reader they were not on the list
+  // when they were. The mail is best-effort; the subscription is not.
+  try {
+    c.executionCtx.waitUntil(confirming);
+  } catch {
+    // No execution context — the send is already in flight, unawaited.
+  }
   return htmlResponse(renderSubscribed(false));
+});
+
+app.get("/confirm", async (c) => {
+  const token = c.req.query("token") ?? "";
+  if (!token) return htmlResponse(renderSubscribed(false), { status: 400 });
+  // Single-use: the token is cleared as it is spent, so a forwarded or
+  // logged link cannot confirm the address a second time.
+  const res = await c.env.DB.prepare(
+    `UPDATE pub_subscriptions SET confirmed = 1, confirmation_token = NULL
+      WHERE confirmation_token = ?`,
+  )
+    .bind(token)
+    .run()
+    .catch(() => null);
+  const ok = (res?.meta?.changes ?? 0) > 0;
+  return htmlResponse(renderConfirmed(ok), { status: ok ? 200 : 404 });
 });
 
 app.get("/unsubscribe", async (c) => {

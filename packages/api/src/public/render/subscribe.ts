@@ -29,12 +29,12 @@ ${body}
 
 export function renderSubscribed(alreadyOnList: boolean): string {
   return notice(
-    "You're on the list",
-    alreadyOnList ? "You were already on the list" : "You're on the list",
+    alreadyOnList ? "Already on the list" : "Check your email",
+    alreadyOnList ? "You were already on the list" : "Check your email",
     `  <p class="lead">${
       alreadyOnList
         ? "That address is already subscribed, so nothing changed."
-        : "Thanks — your address is stored."
+        : "We have sent you a link to confirm. Nothing is sent until you click it."
     }</p>
   <p>New essays and research documents go out when they're published, which is
   irregular by design. Nothing else is ever sent, and every email carries an
