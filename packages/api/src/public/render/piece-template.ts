@@ -12,6 +12,9 @@
 // design build); this file is template + section-parser only.
 
 import { renderMarkdown } from "../../cms/lib/render-post";
+import { type FindingRow, findingsForPiece } from "../../graph/lib/aeo-extract";
+import { type LedeRow, ledeForPiece } from "../../graph/lib/lede";
+import { EDITOR, resolveByline, showsUpdate } from "../../lib/byline";
 import { parseEssay } from "../../lib/essay";
 import {
   type PieceDetail,
@@ -34,6 +37,8 @@ import {
   pieceUrl,
 } from "../machine";
 
+/** Bylines that name the machinery rather than an author. Never rendered. */
+
 // ---- public entry point -----------------------------------------------
 
 export async function renderPiece(env: PublicEnv, slug: string): Promise<string | null> {
@@ -47,11 +52,18 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   const topics = await topicsForPiece(env.DB, userId, piece.id);
   const related = await listInvestigations(env.DB, userId);
   const fed = await loadWhatItFed(env, userId, piece.id);
+  // Findings are the densest thing a research document produces and the only
+  // primitive with strong evidence behind it. They live on the document's own
+  // page — no new URL, so no thin-content exposure at all.
+  const findings = await findingsForPiece(env.DB, userId, piece.id).catch(() => []);
+  const lede = await ledeForPiece(env.DB, userId, piece.id).catch(() => null);
 
   const body = renderPieceBody(piece, {
     topics: topics.map((t) => ({ slug: t.slug, label: t.label })),
     related: related.filter((r) => r.id !== piece.id).slice(0, 6),
     fed,
+    findings,
+    lede,
   });
 
   // The piece page emitted no structured data at all, while subject pages and
@@ -62,10 +74,20 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   return renderPage({
     title: pieceTitle(piece),
     description: piece.subtitle ?? `${pieceTitle(piece)} — a Canopticon piece.`,
-    body: `${body}\n${pieceJsonLd(piece, faq?.length ? { faq } : {})}`,
+    body: `${body}\n${pieceJsonLd(piece, {
+      ...(faq?.length ? { faq } : {}),
+      // Only once approved — the structured data must not carry a passage the
+      // page itself is not showing.
+      ...(lede?.approved_at ? { lede: lede.verbatim_text } : {}),
+    })}`,
     activeNav: essay ? "/essays" : "/research",
     zone: essay ? "essays" : "research",
     canonical: pieceUrl(piece.slug),
+    // The body brings its own `.container.docpage`. Without `bare`, renderPage
+    // wraps it in a second `.container` — two lots of side padding, and the
+    // outer's max-width:1100px clamping before .docpage's 1260px can apply,
+    // which squeezed the reading column to ~530px and pushed it off centre.
+    bare: true,
     ogType: "article",
     markdownUrl: pieceMarkdownUrl(piece.slug),
     publishedTime: piece.published_at ?? piece.created_at,
@@ -86,6 +108,57 @@ interface PieceCtx {
   topics: Array<{ slug: string; label: string }>;
   related: PieceSummary[];
   fed?: FedSummary;
+  findings?: FindingRow[];
+  lede?: LedeRow | null;
+}
+
+/**
+ * The passage a retriever is meant to lift, placed before the body so it is
+ * the first prose on the page.
+ *
+ * It is the document's OWN words — selected, never composed — so it carries a
+ * /q/ receipt like any other quote. Rendered only once a person has approved
+ * it: a passage can be perfectly verbatim and still misrepresent what the
+ * document weighs, and no substring check catches that.
+ */
+function renderLede(lede: LedeRow | null | undefined): string {
+  if (!lede?.approved_at) return "";
+  return `<div class="tldr lede">
+  <p>${escapeHtml(lede.verbatim_text)}</p>
+  <a class="ev-receipt" href="/q/${escapeAttr(lede.quote_id)}">Verified passage →</a>
+</div>`;
+}
+
+// The figure, what it measures, when, who reported it, and the sentence it
+// came from — with a link to that quote's own receipt. A statistic stated
+// beside its named source and date is the single best-evidenced shape for
+// being cited, and it is exactly what the verification layer already produces.
+function renderFindings(findings: FindingRow[] | undefined): string {
+  if (!findings?.length) return "";
+  const rows = findings
+    .map(
+      (f) => `  <li class="finding">
+    <div class="finding-head">
+      <span class="finding-figure">${escapeHtml(f.figure)}</span>
+      <span class="finding-measures">${escapeHtml(f.measures)}</span>
+    </div>
+    <div class="finding-meta">${[f.period, f.attributed_to]
+      .filter(Boolean)
+      .map((x) => escapeHtml(String(x)))
+      .join(' <span class="sep">·</span> ')}</div>
+    <blockquote class="finding-quote">${escapeHtml(f.verbatim_text)}</blockquote>
+    <a class="finding-receipt" href="/q/${escapeAttr(f.quote_id)}">verified quote ↗</a>
+  </li>`,
+    )
+    .join("\n");
+  return `<section class="findings">
+  <h2>What this document establishes</h2>
+  <p class="note">Each figure below is quoted word-for-word from the document and
+  checked against it by machine.</p>
+  <ol class="finding-list">
+${rows}
+  </ol>
+</section>`;
 }
 
 // "This document fed the fabric" — the receipt loop. Counts the typed-graph
@@ -135,7 +208,6 @@ function renderWhatItFed(fed: FedSummary | undefined): string {
 
 function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   const sections = parseSections(piece.body_md ?? "");
-  const kindClass = "container reading withrail";
   const videoMeta = parseVideoMetadata(piece);
 
   // A video-transcript piece: lead with the argument summary (Phase 2,
@@ -151,20 +223,22 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
 </details>`
     : renderBodyForKind(piece, sections, ctx);
 
-  // Content column + a sticky metadata rail. This replaced a full-width
-  // download bar that sat between the title and the first paragraph — it
-  // pushed the document's own opening below the fold to advertise a file
-  // format. Provenance belongs beside the document, not in front of it.
-  return `<div class="${kindClass}">
+  // The rail sits OUTSIDE the reading card, not inside it. It was inside,
+  // which meant 300px of sidebar came out of the document's own measure and
+  // squeezed the prose to roughly 570px. The card now holds only the
+  // document; the rail is a separate column beside it.
+  return `<div class="container docpage">
+<div class="docgrid">
+  <article class="reading">
 ${renderBreadcrumbs(piece)}
 ${renderPageHead(piece)}
-<div class="docgrid">
-  <div>
+${renderLede(ctx.lede)}
 ${bodyBlock}
+${renderFindings(ctx.findings)}
 ${renderCiteBox(piece)}
 ${renderWhatItFed(ctx.fed)}
 ${renderDepositNote(piece, ctx.topics)}
-  </div>
+  </article>
 ${renderDocRail(piece)}
 </div>
 ${renderOnward(piece, ctx)}
@@ -249,8 +323,28 @@ function renderPageHead(piece: PieceDetail): string {
   // one case that carries real information is an auto-generated piece no
   // human has read, so that is the only case that still renders.
   const autoGenerated = isAutoGenerated(piece);
+  // Its own class, not .opinion-tag — that one is scoped to `.analysis`,
+  // which a piece page is not, so this rendered as unstyled text wrapping
+  // one word per line down the left of the page.
+  // What this used to say: "Unreviewed — written and published automatically.
+  // No operator has read this."
+  //
+  // It was false — the operator directs, reads and publishes this work — and
+  // it was the worst line on the page for the one thing this publication is
+  // for. It sat above the H1 declaring the content both anonymous and
+  // unreviewed, which is the exact profile the March 2026 core update hit
+  // hardest (AI content farms lost 60-80% of traffic while sites publishing
+  // original data gained 22% visibility).
+  //
+  // Deleting it outright would also have been wrong. Google does not penalise
+  // AI content for being AI — across 600,000 pages the correlation between
+  // AI share and ranking is about zero — but disclosure supports trust, which
+  // is part of E-E-A-T, and the August 2026 EU rule expects it for
+  // public-interest material. So the disclosure stays and becomes accurate:
+  // a named editor, the review stated, and the mechanical verification that
+  // is this site's actual claim to being believed.
   const warningTag = autoGenerated
-    ? `<span class="opinion-tag">● unreviewed — written and published automatically, no operator has read this</span>`
+    ? `<div class="provenance">Directed and reviewed by ${escapeHtml(EDITOR)}, who holds editorial responsibility. Drafted with AI assistance; every quote is checked verbatim against a stored source. <a href="/method">How this is verified →</a></div>`
     : "";
   const confidence = readConfidence(piece);
   const confSection =
@@ -258,11 +352,22 @@ function renderPageHead(piece: PieceDetail): string {
       ? `<span class="row" style="gap:7px">${confDots(confidence)}<span class="coord">${escapeHtml(confidence)} confidence</span></span>`
       : "";
   const reading = readingTime(piece.body_md ?? "");
+  // "the operator" is internal vocabulary — createAndExtract deliberately
+  // leaves byline unset for exactly this reason, but older rows still carry
+  // it and it renders on the page as "By the operator".
+  const byline = resolveByline(piece.byline);
   const dateBits = [
-    piece.byline
-      ? `<span class="sig" style="font-family:var(--serif);font-style:italic;color:var(--ink)">By ${escapeHtml(piece.byline)}</span>`
+    byline
+      ? `<span class="sig" style="font-family:var(--serif);font-style:italic;color:var(--ink)">By ${escapeHtml(byline)}</span>`
       : "",
     piece.published_at ? `<span>${escapeHtml(formatDate(piece.published_at))}</span>` : "",
+    // An update date is a ranking input, not decoration — freshness is a large
+    // share of some engines' signal and the citation research names
+    // update-date visibility directly. Only when it is genuinely later; a page
+    // that says "Updated" on its publication day is noise.
+    showsUpdate(piece.published_at, piece.updated_at)
+      ? `<span class="updated">Updated ${escapeHtml(formatDate(piece.updated_at ?? ""))}</span>`
+      : "",
     reading ? `<span>${escapeHtml(reading)}</span>` : "",
   ].filter(Boolean);
   const dateLine = dateBits.length
@@ -307,7 +412,7 @@ ${rows
   .join("\n")}
   </dl>
   <div class="docrail-actions">
-    <a class="docrail-btn" href="${md}">Read as markdown</a>
+    <a class="docrail-btn primary" href="${md}">Read as markdown</a>
     <a class="docrail-btn" href="${md}" download>Download .md</a>
   </div>
 </aside>`;

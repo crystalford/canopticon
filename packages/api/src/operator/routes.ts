@@ -969,6 +969,61 @@ app.post("/search/research", async (c) => {
   return c.redirect(`/op/research?q=${encodeURIComponent(q)}${angleParam}`);
 });
 
+// Advance a stalled research run one step.
+//
+// THIS EXISTS BECAUSE THE CRON IS OFF. researchOnDemand runs pass 1 inline and
+// then deliberately does NOT chain pass 2 into the same execution — the
+// follow-up searches and re-synthesis were picked up by index.ts's scheduled()
+// handler instead. With the cron disabled (wrangler.toml), nothing dispatches
+// them: a run that finds follow-up queries parks at `pass2_pending` and shows
+// "Researching…" forever, with no error anywhere. Exactly the shape of the
+// digest_jobs stranding caught in review earlier.
+//
+// Standing rule 4 says the fix for a queue with no dispatcher is a button, not
+// a schedule. This is that button.
+app.post("/research/advance", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { advanceResearchRun, reapStaleResearchRuns } = await import("../graph/lib/deep-research");
+  // The reap first and cheaply (one UPDATE, no model calls): a run whose
+  // execution died mid-pass would otherwise block the queue behind it.
+  await reapStaleResearchRuns(c.env, userId).catch(() => {});
+  const report = await advanceResearchRun(c.env, userId).catch(() => null);
+  return c.redirect(
+    `/library?research=${encodeURIComponent(report?.advanced ? "advanced" : "nothing-pending")}`,
+  );
+});
+
+// Research one open question.
+//
+// The seed is the question itself and the angle is the measured gap, so the
+// run has a stated reason rather than a topic: "3 documents raised this, one
+// source answers it". Whatever it produces comes back as an unpublished draft
+// document, and its extraction merges evidence onto this same question through
+// the merge key — which is what makes the corpus close its own gaps.
+app.post("/answers/:id/research", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { one: oneRow } = await import("../lib/d1");
+  const q = await oneRow<{ question: string; sources: number }>(
+    c.env.DB,
+    `SELECT question,
+            (SELECT COUNT(DISTINCT e.piece_id) FROM question_evidence e
+              WHERE e.question_id = questions.id) AS sources
+       FROM questions WHERE id = ? AND user_id = ?`,
+    [c.req.param("id"), userId],
+  ).catch(() => null);
+  if (!q?.question) return c.redirect("/library?error=no+such+question");
+
+  const angle =
+    q.sources > 0
+      ? `The record already has ${q.sources} document${q.sources === 1 ? "" : "s"} touching this but cannot answer it. Find what is missing.`
+      : "Nothing on the record answers this yet.";
+  const { researchOnDemand } = await import("../graph/lib/deep-research");
+  c.executionCtx.waitUntil(researchOnDemand(c.env, userId, q.question, angle).catch(() => {}));
+  return c.redirect(`/op/research?q=${encodeURIComponent(q.question)}`);
+});
+
 // The on-demand research screen — its own dedicated page (operator/
 // screens/research.ts), not a query param bolted onto /search. See that
 // file's header comment for why.
@@ -1270,6 +1325,93 @@ app.post("/library/research/:id/discard", async (c) => {
 // no caller at all and anything left queued — zip entries past the first
 // three, chiefly — was stranded permanently and silently. This is the
 // replacement: the operator presses a button, a bounded batch runs.
+// Build the citable atoms for one document: findings and questions.
+//
+// Explicitly a button, not a hook on upload. It costs several model calls, and
+// the operator should see what a document produced before any of it acquires a
+// URL — human review at the document level is one of the properties that keeps
+// generated pages on the right side of the scaled-content line.
+app.post("/library/:id/extract-atoms", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const pieceId = c.req.param("id");
+  const { extractAeoAtoms } = await import("../graph/lib/aeo-extract");
+  // Optional model override, so the same document can be run under several
+  // models and the results compared. Which model produced which row is stored
+  // (migration 0051) — without that the comparison would not outlive the page.
+  const body = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+  const picked = typeof body.model === "string" ? body.model : (c.req.query("model") ?? "");
+  try {
+    const stats = await extractAeoAtoms(c.env, userId, pieceId, { model: picked });
+    return c.redirect(
+      `/library?atoms=${stats.findings}.${stats.questions_new}.${stats.questions_merged}.${stats.killed}&model=${encodeURIComponent(stats.model)}`,
+    );
+  } catch (e) {
+    return c.redirect(`/library?error=${encodeURIComponent(String(e).slice(0, 180))}`);
+  }
+});
+
+// Propose the passage a retriever should lift. Selection, not composition —
+// see graph/lib/lede.ts for why that distinction is the whole design.
+app.post("/library/:id/lede", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { proposeLede } = await import("../graph/lib/lede");
+  const res = await proposeLede(c.env, userId, c.req.param("id"));
+  return c.redirect(
+    res.ok
+      ? "/library?lede=proposed"
+      : `/library?error=${encodeURIComponent(res.reason ?? "could not select a passage")}`,
+  );
+});
+
+// Nothing renders until a person has read it: a passage can be perfectly
+// verbatim and still misrepresent what the document weighs.
+app.post("/library/:id/lede/approve", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { approveLede } = await import("../graph/lib/lede");
+  const ok = await approveLede(c.env, userId, c.req.param("id"));
+  return c.redirect(ok ? "/library?lede=approved" : "/library?error=no+proposed+passage");
+});
+
+// Draft what the corpus establishes about one question, from its verified
+// evidence and nothing else. Stored unapproved — prose cannot be
+// substring-checked, so a person is the only honest gate.
+app.post("/answers/:id/draft", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { draftStandingAnswer } = await import("../graph/lib/standing-answer");
+  const res = await draftStandingAnswer(c.env, userId, c.req.param("id"));
+  return c.redirect(
+    res.ok
+      ? `/library?drafted=1${res.contested ? "&contested=1" : ""}`
+      : `/library?error=${encodeURIComponent(res.reason ?? "could not draft")}`,
+  );
+});
+
+app.post("/answers/:id/draft/approve", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { approveStandingAnswer } = await import("../graph/lib/standing-answer");
+  const ok = await approveStandingAnswer(c.env, userId, c.req.param("id"));
+  return c.redirect(ok ? "/library?drafted=approved" : "/library?error=no+draft+to+approve");
+});
+
+// Promote one proposed question to a public page. The gate runs here, inside
+// publishQuestion, and refuses rather than publishing something thin.
+app.post("/answers/:id/publish", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { publishQuestion } = await import("../graph/lib/aeo-extract");
+  const res = await publishQuestion(c.env, userId, c.req.param("id"));
+  return c.redirect(
+    res.ok
+      ? "/library?published=1"
+      : `/library?error=${encodeURIComponent(res.reason ?? "refused")}`,
+  );
+});
+
 app.post("/library/drain", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   if (!userId) return c.redirect("/library");

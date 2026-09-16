@@ -175,6 +175,20 @@ export interface CallRoleArgs {
   max_tokens: number;
   /** Idempotency key for the cost ledger. */
   idempotency_key?: string;
+  /**
+   * Run this ONE call against a different model than the role names.
+   *
+   * For comparing models on a real workload without editing the routing
+   * table — the AEO pass exposes it as an operator toggle. Everything else
+   * about the role still applies, including `operation_type`, so the cost
+   * ledger and its whitelist (which key on operation_type, not model) keep
+   * working and the spend still lands under the right heading.
+   *
+   * Not a routing decision. A role's model is the considered choice, made on
+   * measurement; this is the instrument you measure WITH. If an override
+   * proves better, change the table.
+   */
+  model?: string;
 }
 
 /** Call an LLM by spec-defined ROLE. The router fills in provider, model,
@@ -183,7 +197,7 @@ export async function callRole(env: Env, role: Role, args: CallRoleArgs): Promis
   const cfg = ROUTES[role];
   const input: LlmCallInput = {
     provider: cfg.provider,
-    model: cfg.model,
+    model: args.model ?? cfg.model,
     system: args.system,
     messages: args.messages,
     max_tokens: args.max_tokens,

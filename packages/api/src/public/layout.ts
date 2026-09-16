@@ -28,6 +28,8 @@ export interface NavItem {
 export const PRIMARY_NAV: NavItem[] = [
   { href: "/essays", label: "Essays" },
   { href: "/research", label: "Research" },
+  { href: "/answers", label: "Answers" },
+  { href: "/figures", label: "Figures" },
   { href: "/about", label: "About" },
 ];
 
@@ -143,7 +145,7 @@ function renderNav(activeHref?: string): string {
   // styles.ts under the max-width:680px block).
   return `<nav class="nav">
   <div class="nav-inner">
-    <a href="/" class="wordmark">CANOPTICON<span class="dot">·</span><span class="wordmark-sub">The standing record</span></a>
+    <a href="/" class="wordmark">canopticon</a>
     <input type="checkbox" id="nav-toggle" class="nav-toggle" />
     <label for="nav-toggle" class="nav-burger" aria-label="Menu"><span></span></label>
     <div class="nav-links">
@@ -175,7 +177,7 @@ function renderFooter(): string {
   return `<footer class="foot">
   <div class="foot-inner">
     <div>
-      <a href="/" class="wordmark">CANOPTICON<span class="dot">·</span></a>
+      <a href="/" class="wordmark">canopticon</a>
       <div class="coord" style="margin-top:8px">THE STANDING RECORD <span class="sep">·</span> canopticon.com <span class="sep">·</span> @canoptics</div>
       <form class="sub-form" method="post" action="/subscribe">
         <label for="sub-email" class="visually-hidden">Email address</label>
@@ -186,6 +188,8 @@ function renderFooter(): string {
     <div class="foot-links">
       <a href="/essays">Essays</a>
       <a href="/research">Research</a>
+      <a href="/answers">Answers</a>
+      <a href="/figures">Figures</a>
       <a href="/about">About</a>
       <a href="/method">Method</a>
       <a href="/search">Search</a>

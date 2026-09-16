@@ -9,6 +9,7 @@
 // document's own text and metadata; if it isn't in the piece, it isn't
 // emitted.
 
+import { resolveByline } from "../lib/byline";
 import { parseEssay } from "../lib/essay";
 import { displayTitle } from "../lib/title";
 import type { PieceDetail, PublishedPieceRef } from "./data";
@@ -78,6 +79,8 @@ export function sourceLines(body_md: string): string[] {
 // ---- structured data ------------------------------------------------------
 
 export interface PieceLdOptions {
+  /** Approved lead passage, verbatim — see graph/lib/lede.ts. */
+  lede?: string;
   /** Question/answer pairs for FAQPage, when the piece has them. */
   faq?: Array<{ question: string; answer: string; anchor: string }>;
 }
@@ -127,7 +130,12 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
     isAccessibleForFree: true,
     license: LICENSE.url,
     publisher: ORG,
-    author: piece.byline ? { "@type": "Person", name: piece.byline } : ORG,
+    // The SAME name the page shows. These drifted once: the visible byline was
+    // repaired to a real person while this kept emitting the stored
+    // placeholder ("the operator") or fell back to the organisation — and a
+    // named Person here is the half a crawler actually parses, which is where
+    // the authorship citation signal lives.
+    author: { "@type": "Person", name: resolveByline(piece.byline) },
     datePublished: published,
     dateModified: modified,
     wordCount: words(piece.body_md ?? ""),
@@ -138,6 +146,10 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
     },
   };
   if (piece.subtitle) base.description = piece.subtitle;
+  // `abstract` is the passage this document wants lifted, when one has been
+  // selected and approved. Verbatim from the document, so it agrees exactly
+  // with what a crawler finds on the page rather than paraphrasing it.
+  if (opts.lede) base.abstract = opts.lede;
   if (citations.length) base.citation = citations;
   if (essay) {
     base.speakable = {
@@ -246,7 +258,16 @@ export function pieceMarkdown(piece: PieceDetail): string {
 
 type LlmsEntry = PublishedPieceRef;
 
-export function llmsTxt(entries: LlmsEntry[]): string {
+export interface AnswerEntry {
+  question: string;
+  slug: string;
+}
+
+export function llmsTxt(
+  entries: LlmsEntry[],
+  answers: AnswerEntry[] = [],
+  figureCount = 0,
+): string {
   const essays = entries.filter((e) => isEssay(e.kind));
   const research = entries.filter((e) => !isEssay(e.kind));
   const line = (e: LlmsEntry) =>
@@ -265,6 +286,27 @@ export function llmsTxt(entries: LlmsEntry[]): string {
   }
   if (research.length) {
     parts.push("## Research", "", ...research.map(line), "");
+  }
+  if (answers.length) {
+    // Listed as questions, because that is the form a retrieval query takes.
+    parts.push(
+      "## Answers",
+      "",
+      ...answers.map((a) => `- [${a.question}](${SITE}/answers/${a.slug})`),
+      "",
+    );
+  }
+  if (figureCount > 0) {
+    // Named with its count, because the useful thing about this surface is
+    // that it is a compiled set of verified statistics rather than one more
+    // page of prose — and a statistic beside its named source and date is the
+    // shape most likely to be worth lifting.
+    parts.push(
+      "## Figures",
+      "",
+      `- [Every number on the record](${SITE}/figures): ${figureCount} statistics extracted from the documents above, each checked word-for-word against its source and linked to a receipt.`,
+      "",
+    );
   }
   parts.push(
     "## Optional",

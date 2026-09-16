@@ -215,6 +215,10 @@ const SHOTS: Array<[string, string, number]> = [
   ["essays", "/essays", 1400],
   ["research", "/research", 1400],
   ["piece", "/p/the-logic-costume", 1400],
+  // /answers renders from an empty fixture on purpose: the empty state is
+  // what the page looks like until the pass has run on a real document.
+  ["answers", "/answers", 1400],
+  ["figures", "/figures", 1400],
   ["about", "/about", 1400],
   ["essays-mobile", "/essays", 390],
   ["piece-mobile", "/p/the-logic-costume", 390],

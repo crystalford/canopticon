@@ -69,6 +69,35 @@ and an advisory lint (opening paragraphs over 70 words, uncited sources).
 **The lint never blocks a publish.** Notes are stored in the piece's metadata
 and shown in `/library`.
 
+## Questions are the spine, documents are the evidence
+
+The inversion that makes the corpus compound. A **document** is one primary
+source, kept whole, published as itself, static. A **question** is a standing
+unit of inquiry that never stops growing — the synthesis ACROSS documents.
+They are different things and conflating them is what produces thin pages.
+
+A question has three states:
+
+| state | URL? | what it is |
+|---|---|---|
+| **open** | none | the corpus raised it and cannot answer it — this is the research queue, and the reason is stated: "3 documents gesture at this, none answers it" |
+| **answered** | yes | enough verified evidence to state a position, with what remains unresolved said plainly |
+| **contested** | yes | two sources in the corpus disagree, both verified, both receipts live — the page only a verification-first publication can publish |
+
+The loop: an open question seeds a research run → the run produces a DOCUMENT
+→ extraction merges its evidence back onto that question → open becomes
+answered, and the new document raises new open questions.
+
+Two consequences worth stating, because both are easy to get wrong:
+
+- **Not 1-2 questions per document.** 15-25 DISTINCT questions across the whole
+  corpus, each fed by several documents. Per-document question pages compete
+  with their own source document for the same queries; a site's own pages
+  displace each other rather than compounding.
+- **The standing answer is model-drafted and operator-approved**, then frozen
+  into a row. Never generated at render (rule 5). A page carrying only stacked
+  quotes is a well-organised quote list, which is not worth a URL.
+
 ## Standing rules — non-negotiable
 
 1. **Verification is mechanical, never vouched for.** Every published quote
@@ -126,12 +155,15 @@ dev server; this is the fastest way to see a change without deploying.
 
 ## Known gaps, stated plainly
 
-- **⚠ Cloudflare blocks AI crawlers by default** on zones created after July
-  2025. `robots.txt` invites them explicitly, but a file cannot overrule the
-  edge: if *Block AI Bots* is on for the canopticon.com zone, they get a 403
-  before the Worker runs and the whole AEO effort is decorative. **This is a
-  dashboard change only the operator can make.** Verify with
-  `curl -A GPTBot https://canopticon.com/`.
+- **AI crawlers get through — checked by the operator 2026-09-15.** Cloudflare
+  blocks them by default on zones created after July 2025, and a `robots.txt`
+  that invites them cannot overrule the edge: with *Block AI Bots* on, they get
+  a 403 before the Worker runs and the whole AEO effort is decorative. It is
+  off for the canopticon.com zone, so the premise holds. Worth re-checking
+  after any zone-settings change, since nothing in the repo would show it
+  breaking: `curl -A GPTBot https://canopticon.com/`. **Only the operator can
+  run this** — an agent sandbox's egress policy denies canopticon.com, and a
+  403 from that proxy looks nothing like a 403 from Cloudflare.
 - **Extraction reads at most ~72KB of any document** (`MAX_CHUNKS = 3` in
   `digestion-typed.ts`). Fine for timelines and quotes; don't imply the graph
   has read a whole book.
@@ -144,21 +176,32 @@ dev server; this is the fastest way to see a change without deploying.
   out of date. The legacy flat tables (`entities`, `topics`, `claims`) are at
   zero; the typed graph is what carries content.
 
-## The corpus has two populations — never treat them as one
+## The corpus has more than one population — never treat them as one
 
-`pieces` holds two things the schema cannot tell apart:
+`pieces` holds several things the schema cannot tell apart. Measured live
+2026-09-15, after the purge below:
 
-| | `ingested_from: feed-upload` | `ingested_from: record-expand` |
-|---|---|---|
-| what | the operator's own uploaded documents | third-party pages a retired crawler banked |
-| status | published | `working-material`, **deliberately** |
-| publish it? | yes | **never** |
+| `ingested_from` | n | what | publish it? |
+|---|---|---|---|
+| `feed-upload` | 50 | the operator's own uploaded documents | yes — all published |
+| `deep-research` | 6 | the dormant research pipeline's own output (4 published, 2 `working-material`) | **look first** |
+| `record-expand` | 0 | third-party pages a retired crawler banked | **never** — purged |
 
-The second group is source material to quote from, not content. Publishing it
-would put Wikipedia articles and copyrighted news text on canopticon.com as
-Canopticon's own work under the CC BY 4.0 `/about` asserts over everything,
-and bulk duplicated third-party text is what search engines penalise a whole
-domain for.
+The `record-expand` group was source material to quote from, never content.
+Publishing it would have put Wikipedia articles and copyrighted news text on
+canopticon.com as Canopticon's own work under the CC BY 4.0 `/about` asserts
+over everything, and bulk duplicated third-party text is what search engines
+penalise a whole domain for. **All 60 were deleted on 2026-09-15** (0 nodes
+and 0 quotes attached — they had never been digested, so no provenance was
+lost). The guard stays: the crawler is retired but unwired, not deleted.
+
+⚠ **`deep-research` is a third population, and it is not what the guards are
+about.** It is neither the operator's own uploads nor banked third-party
+pages — it is output from the dormant autonomous machinery, and 4 of the 6 are
+already published. `OWN_UPLOADS_SQL` excludes it and `WEB_FETCHED_SQL` does not
+match it, which is why the purge left it alone. Any new query written against
+a two-population mental model will mishandle these six. Decide about them
+deliberately; do not let them ride along in a filter aimed at something else.
 
 Every query that acts on one population is guarded twice — on `ingested_from`
 and on the `web-fetched` tag — via `OWN_UPLOADS_SQL` / `WEB_FETCHED_SQL` in

@@ -223,10 +223,11 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
 /* ============================================================================
    WORDMARK
    ============================================================================ */
+/* Plain lowercase wordmark, no mark and no tagline. The dot-and-subtitle
+   lockup read as two competing pieces of chrome before the nav even began. */
 .wordmark {
-  font-family: var(--sans); font-weight: 600; font-size: 16px;
-  letter-spacing: -0.04em; display: inline-flex; align-items: baseline; gap: 9px;
-  color: var(--ink);
+  font-family: var(--sans); font-weight: 600; font-size: 17px;
+  letter-spacing: -0.02em; color: var(--ink); text-transform: lowercase;
 }
 .wordmark .dot { color: var(--accent); }
 .wordmark-sub {
@@ -1263,8 +1264,8 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
 }
 .wordmark {
-  font-weight: 650; font-size: 16px; letter-spacing: -0.02em;
-  display: inline-flex; align-items: baseline; gap: 9px; white-space: nowrap;
+  font-weight: 600; font-size: 17px; letter-spacing: -0.02em; white-space: nowrap;
+  text-transform: lowercase;
 }
 .wordmark .dot { color: var(--accent); text-shadow: 0 0 7px rgba(93,139,198,.6); }
 .wordmark-sub {
@@ -1335,7 +1336,13 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
 .nav-search .q { color: var(--accent); }
 
 /* ---- shell ---- */
-main { max-width: 1060px; margin: 0 auto; padding: 34px 20px 70px; }
+/* main sets the page gutter but NOT a width. It used to cap at 1060px, which
+   sat inside every .container (1100px) and clamped before that container's
+   own max-width could ever apply — so .container.docpage's 1260px was
+   unreachable and the document page's reading column came out at 596px
+   instead of ~836px. Width belongs to the container that knows what kind of
+   page it is. */
+main { margin: 0 auto; padding: 34px 20px 70px; }
 #app.in { animation: fadeUp .3s cubic-bezier(.22,.61,.36,1) both; }
 @keyframes fadeUp { from { opacity: .35; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { #app.in { animation: none; } .redact span { animation: none !important; color: inherit !important; background: transparent !important; } .redact-bar::after { animation: none !important; } }
@@ -1892,25 +1899,39 @@ pre.convention {
    The page container widens when it carries a rail: .container.reading is
    920px, which is a good measure for one column and too narrow once 300px
    of it is a sidebar — the prose ends up at ~570px and reads cramped. */
-.container.reading.withrail { max-width: 1160px; }
-.docgrid { display: grid; grid-template-columns: minmax(0,1fr) 300px; gap: 54px; align-items: start; }
-.docrail { position: sticky; top: 26px; display: flex; flex-direction: column; gap: 3px; }
+/* The document page: reading card + a rail BESIDE it, not inside it. */
+.container.docpage { max-width: 1260px; }
+.docgrid { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 40px; align-items: start; }
+.docgrid > .reading { margin-top: 0; }
+.docrail {
+  position: sticky; top: 26px; margin-top: 26px;
+  border: 1px solid var(--rule); border-radius: var(--r-lg);
+  background: var(--paper-2); padding: 6px 18px 18px;
+}
 .docrail-row {
-  display: flex; justify-content: space-between; gap: 12px; padding: 9px 0;
-  border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 11.5px;
+  display: flex; justify-content: space-between; gap: 12px; padding: 11px 0;
+  border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.04em;
 }
-.docrail-row dt { color: var(--ink-mute); }
+.docrail-row:last-of-type { border-bottom: none; }
+.docrail-row dt { color: var(--ink-mute); text-transform: uppercase; font-size: 10px; letter-spacing: 0.12em; }
 .docrail-row dd { margin: 0; color: var(--ink-2); text-align: right; }
-.docrail-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
+.docrail-actions { display: flex; flex-direction: column; gap: 9px; margin-top: 16px; }
+/* The primary action carries the accent. A page whose whole point is being
+   taken away and cited should not make "take it away" the quietest thing on
+   it — both buttons were neutral grey before. */
 .docrail-btn {
-  display: block; text-align: center; padding: 10px 14px; border: 1px solid var(--rule-bright);
-  border-radius: var(--r-sm); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--ink-2); text-decoration: none; transition: border-color .12s, color .12s;
+  display: block; text-align: center; padding: 11px 14px; border: 1px solid var(--rule-bright);
+  border-radius: var(--r-sm); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--ink-2); text-decoration: none;
+  transition: border-color .12s, color .12s, background .12s;
 }
-.docrail-btn:hover { border-color: var(--accent); color: var(--accent); }
-@media (max-width: 900px) {
-  .docgrid { grid-template-columns: 1fr; gap: 32px; }
-  .docrail { position: static; }
+.docrail-btn:hover { border-color: var(--ink-3); color: var(--ink); background: var(--paper-hover); }
+.docrail-btn.primary { border-color: var(--accent-bd); background: var(--accent-bg); color: var(--accent); }
+.docrail-btn.primary:hover { border-color: var(--accent); background: rgba(224,67,60,0.16); color: var(--accent-2); }
+@media (max-width: 1000px) {
+  .docgrid { grid-template-columns: 1fr; gap: 26px; }
+  .docrail { position: static; margin-top: 0; }
 }
 
 /* ---- the answer-first block --------------------------------------------
@@ -1937,6 +1958,39 @@ pre.convention {
 .toc a { font-family: var(--sans); font-size: 14.5px; line-height: 1.35; color: var(--ink-2); text-decoration: none; }
 .toc a:hover { color: var(--accent); }
 
+/* ---- atom review (operator's library view) -------------------------------
+   Proposed findings and questions have no public URL. This is the only place
+   they can be seen, so the gate's verdict is shown per question rather than
+   left implicit: "held" means the page would be too thin to exist. */
+/* The model picker sits inline with the run button. Plain text input, not a
+   select: Cloudflare's catalog churns faster than this file does, so a fixed
+   list would go stale into a menu of models that no longer exist. */
+.atom-form { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.atom-model {
+  font-family: var(--mono); font-size: 11px; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--rule-bright); border-radius: var(--r-sm); padding: 6px 9px;
+  min-width: 0; width: 220px; max-width: 100%;
+}
+.atom-model::placeholder { color: var(--ink-mute); }
+.atom-model:focus { outline: 1px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+
+.atoms { margin-top: 9px; }
+.atom-head { font-family: var(--mono); font-size: 11px; color: var(--ink-3); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.atom-run, .atom-pub {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: var(--r-sm); cursor: pointer;
+  border: 1px solid var(--rule-bright); background: none; color: var(--ink-2);
+}
+.atom-run:hover { border-color: var(--ink-3); color: var(--ink); }
+.atom-pub { border-color: var(--accent-bd); background: var(--accent-bg); color: var(--accent); }
+.atom-pub:hover { border-color: var(--accent); }
+.atom-list { list-style: none; margin: 9px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.atom-list li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; }
+.atom-q { color: var(--ink-2); }
+.atom-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-mute); white-space: nowrap; }
+.atom-live { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--confirmed); }
+.atom-blocked { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); cursor: help; }
+
 /* ---- essay lint (operator's library view) -------------------------------- */
 .lint { margin-top: 6px; }
 .lint > summary {
@@ -1948,6 +2002,148 @@ pre.convention {
 .lint[open] > summary::before { content: "▾ "; }
 .lint ul { margin: 7px 0 0; padding-left: 18px; }
 .lint li { font-size: 12.5px; line-height: 1.45; color: var(--ink-3); margin-bottom: 5px; }
+
+/* ---- findings ------------------------------------------------------------
+   A figure, what it measures, when, who reported it, and the sentence it came
+   from. The figure leads because that is the part a reader scans for and the
+   part a retriever lifts; the quote sits under it as the receipt. */
+.findings { margin: 44px 0 0; border-top: 1px solid var(--rule); padding-top: 26px; }
+.findings h2 {
+  font-family: var(--sans); font-weight: 600; font-size: 20px; letter-spacing: -0.015em;
+  color: var(--ink); margin: 0 0 6px;
+}
+.finding-list { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 1px;
+  background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
+.finding { background: var(--paper-2); padding: 17px 19px; }
+.finding-head { display: flex; align-items: baseline; gap: 11px; flex-wrap: wrap; }
+.finding-figure {
+  font-family: var(--sans); font-weight: 700; font-size: 21px; letter-spacing: -0.02em;
+  color: var(--accent); line-height: 1.1;
+}
+.finding-measures { font-family: var(--sans); font-size: 14.5px; color: var(--ink); }
+.finding-meta {
+  margin-top: 5px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.finding-quote {
+  margin: 11px 0 0; padding-left: 13px; border-left: 2px solid var(--rule-bright);
+  font-family: var(--serif); font-size: 15px; line-height: 1.55; color: var(--ink-3);
+  text-wrap: pretty;
+}
+.finding-receipt {
+  display: inline-block; margin-top: 9px; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute); text-decoration: none;
+}
+.finding-receipt:hover { color: var(--accent); }
+
+/* ---- answer pages --------------------------------------------------------
+   The question is the H1 and the answer is the first thing under it, because
+   retrieval is passage-level and that passage should be complete on its own. */
+.container.reading.answer { max-width: 820px; }
+.row-q { grid-template-columns: 1fr; }
+.ev { margin: 0 0 22px; padding: 0; }
+.ev blockquote {
+  margin: 0; padding: 14px 18px; background: var(--paper-2);
+  border: 1px solid var(--rule); border-left: 2px solid var(--accent-bd);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  font-family: var(--serif); font-size: 16.5px; line-height: 1.6; color: var(--ink-2);
+  text-wrap: pretty;
+}
+.ev figcaption {
+  margin-top: 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+  display: flex; gap: 9px; align-items: center; flex-wrap: wrap;
+}
+.ev figcaption a { color: var(--ink-3); text-decoration: none; }
+.ev figcaption a:hover { color: var(--accent); }
+.ev-receipt { color: var(--ink-mute) !important; }
+
+/* ---- the provenance note -------------------------------------------------
+   Was .unreviewed, styled in the correction palette because it was a warning:
+   "no operator has read this". It is not a warning any more. It names who is
+   responsible and how the quotes are checked, which is a credential, so it
+   reads as a quiet note rather than an alarm above the headline.
+
+   Still a block rather than a chip, because it has to survive being the first
+   thing an answer engine lifts off the page along with the H1. */
+.provenance {
+  display: block; margin: 0 0 20px; padding: 10px 14px;
+  border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+  border-radius: var(--r-sm); background: var(--paper-2);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.55;
+  letter-spacing: 0.02em; color: var(--ink-2);
+}
+.provenance a { color: var(--accent); text-decoration: none; white-space: nowrap; }
+/* The update date is a ranking input, not a footnote — give it the accent so a
+   reader (and the eye scanning a SERP snippet) registers that this is current. */
+.updated { color: var(--accent); }
+
+/* ---- the lead passage ----------------------------------------------------
+   The document's own words, selected rather than composed, sitting before the
+   body so it is the first prose on the page — which is what a passage-level
+   retriever reaches for. Quoted styling on purpose: it IS a quote, and it
+   carries a receipt. */
+.lede { border-left: 2px solid var(--accent); }
+.lede p { margin: 0 0 8px; }
+.atom-lede {
+  display: flex; gap: 12px; align-items: flex-start; justify-content: space-between;
+  margin: 0 0 10px; padding: 9px 12px; background: var(--paper-2);
+  border: 1px solid var(--rule); border-radius: var(--r-sm);
+}
+.atom-lede-text {
+  font-family: var(--serif); font-size: 13px; line-height: 1.5; color: var(--ink-2);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.atom-lede-act { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+@media (max-width: 620px) { .atom-lede { flex-direction: column; } }
+
+/* ---- /figures ------------------------------------------------------------
+   Reuses the .finding vocabulary from the document page rather than inventing
+   a second one — it is the same object, shown in a different place. The extra
+   row is provenance: which document it came from, and the receipt. */
+.fig-list { margin-top: 26px; }
+.fig-row { margin-bottom: 18px; }
+.fig-prov { margin-top: 7px; font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
+.fig-prov a { color: var(--ink-2); text-decoration: none; }
+.fig-prov a:hover { color: var(--accent); }
+
+/* ---- a contested question ------------------------------------------------
+   The page nothing else on the internet publishes: two sources in the same
+   corpus contradicting each other, both quoted verbatim, both with live
+   receipts, and no pretence the matter is settled. Marked, not hidden. */
+/* ---- the research queue --------------------------------------------------
+   Operator-only. Nothing in it has a public URL — these are the questions the
+   corpus raised and cannot answer, each shown with the SIZE of its gap, which
+   is what turns a topic into a research prompt. */
+.op-queue {
+  margin: 0 0 30px; padding: 16px 18px; border: 1px solid var(--rule);
+  border-left: 2px solid var(--accent); border-radius: var(--r-sm);
+  background: var(--paper-2);
+}
+.op-queue-head {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-2); margin-bottom: 4px;
+}
+.op-queue-note {
+  display: block; text-transform: none; letter-spacing: 0; margin-top: 4px;
+  font-size: 10.5px; color: var(--ink-mute);
+}
+.op-queue-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.op-queue-list li {
+  display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+  padding: 8px 0; border-top: 1px solid var(--rule);
+}
+
+.atom-contested {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--contested); margin-left: 6px;
+}
+.contested-note {
+  margin: 0 0 18px; padding: 11px 15px;
+  border: 1px solid var(--cont-bd); border-left: 2px solid var(--contested);
+  border-radius: var(--r-sm); background: var(--cont-bg);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.55; color: var(--ink-2);
+}
+.provenance a:hover { text-decoration: underline; }
 
 /* ---- essay body --------------------------------------------------------- */
 .essay-body section { margin: 0 0 30px; scroll-margin-top: 24px; }

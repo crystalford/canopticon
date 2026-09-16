@@ -2,9 +2,11 @@
 // archive). The piece page itself is rendered by piece-template.ts, not
 // here — see that file for the public face of a single document.
 
+import * as GATE from "../../lib/aeo";
 import { looksLikeMachineFilename } from "../../lib/title";
+import { modelForRole } from "../../llm/router";
 import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
-import { escapeHtml, renderPage } from "../layout";
+import { escapeAttr, escapeHtml, renderPage } from "../layout";
 import { emptyState, formatDate, kindLabel, pieceCard, sectionHeader } from "./components";
 import { renderLiveStatusBanner } from "./status-banner";
 
@@ -274,6 +276,127 @@ ${filterRow}
 // machine-filename shape (long, no spaces, a file extension or a uuid-ish
 // segment) and show a plain placeholder with the real filename kept
 // visible underneath in mono, never hidden.
+interface QuestionReview {
+  id: string;
+  question: string;
+  slug: string;
+  status: string;
+  evidence_count: number;
+  answer_words: number;
+  models?: string | null;
+  has_draft?: number;
+  answer_approved_at?: string | null;
+  contested?: number;
+}
+
+/**
+ * Models worth trying, as autocomplete hints only — the field takes anything.
+ *
+ * Measured 2026-09-15 on an AEO-shaped prompt (see aeo-extract.ts): scout
+ * answers in ~12s, gpt-oss-120b did not answer at all inside 30s because it
+ * spends the budget reasoning. Both are listed anyway: the point of the
+ * toggle is to see that for yourself on a real document rather than take a
+ * one-chunk benchmark's word for it.
+ */
+/** "@cf/meta/llama-4-scout-17b-16e-instruct" -> "llama-4-scout-17b-16e-instruct". */
+function shortModel(model: string): string {
+  return model.split("/").pop() ?? model;
+}
+
+const AEO_MODEL_SUGGESTIONS = [
+  "@cf/meta/llama-4-scout-17b-16e-instruct",
+  "@cf/openai/gpt-oss-120b",
+  "@cf/google/gemma-4-26b-a4b-it",
+  "@cf/nvidia/nemotron-3-120b-a12b",
+];
+
+// What a document produced, and whether each question is allowed to become a
+// page. Operator-only — a proposed question has no URL, so this is the one
+// place it can be seen and judged before it becomes public.
+function renderAtomReview(
+  pieceId: string,
+  atoms: { findings: number; questions: QuestionReview[] } | undefined,
+  lede?: { verbatim_text: string; approved_at: string | null } | null,
+): string {
+  // The model picker. A re-run replaces this piece's atoms, so the way to
+  // compare two models is to run one, read it, then run the other — and the
+  // model is recorded on every row, so which produced what survives the page.
+  //
+  // Free text rather than a fixed list on purpose: Cloudflare's catalog churns
+  // faster than this file gets edited, and a hardcoded <select> would quietly
+  // become a list of models that no longer exist. Blank means the role's own.
+  // Name the default rather than saying "default". An empty field that does
+  // something unnamed is a field you cannot reason about: you can't tell
+  // whether you have already run this model, and "blank vs the one I typed"
+  // is not a comparison you can describe afterwards.
+  const fallback = modelForRole("bulk_extraction").model;
+  const options = [fallback, ...AEO_MODEL_SUGGESTIONS.filter((m) => m !== fallback)]
+    .map((m) => `<option value="${escapeAttr(m)}">${m === fallback ? "default" : ""}</option>`)
+    .join("");
+  // The lede sits with the other per-document actions: propose a passage, read
+  // it, approve it. Unapproved means nothing renders publicly, so this is the
+  // only place it can be judged.
+  const ledeBlock = lede
+    ? `<div class="atom-lede">
+    <div class="atom-lede-text">${escapeHtml(lede.verbatim_text)}</div>
+    <div class="atom-lede-act">${
+      lede.approved_at
+        ? `<span class="atom-live">live</span>`
+        : `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/lede/approve" style="display:inline"><button type="submit" class="atom-pub">Approve passage</button></form>`
+    }
+    <form method="POST" action="/op/library/${escapeHtml(pieceId)}/lede" style="display:inline"><button type="submit" class="atom-run">Re-select</button></form></div>
+  </div>`
+    : `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/lede" style="display:inline"><button type="submit" class="atom-run">Select lead passage</button></form>`;
+  const extract = `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/extract-atoms" class="atom-form">
+  <input list="aeo-models" name="model" class="atom-model" autocomplete="off"
+         placeholder="${escapeAttr(shortModel(fallback))} (default)"
+         title="${escapeAttr(`Leave blank to use ${fallback}`)}">
+  <datalist id="aeo-models">${options}</datalist>
+  <button type="submit" class="atom-run">${atoms ? "Re-extract" : "Extract findings & questions"}</button>
+</form>`;
+  if (!atoms || (atoms.findings === 0 && atoms.questions.length === 0)) {
+    return `<div class="atoms">${ledeBlock}${extract}</div>`;
+  }
+  const rows = atoms.questions
+    .map((q) => {
+      const { gateQuestion } = GATE;
+      const gate = gateQuestion({
+        evidenceCount: q.evidence_count,
+        answerWords: q.answer_words,
+        hasApprovedAnswer: Boolean(q.answer_approved_at),
+      });
+      // The route to a page now runs Draft -> Approve -> Publish, so the
+      // action shown is whichever step is actually next. A single "Publish"
+      // button that silently refuses is worse than no button.
+      const draftAction = q.has_draft
+        ? q.answer_approved_at
+          ? ""
+          : `<form method="POST" action="/op/answers/${escapeHtml(q.id)}/draft/approve" style="display:inline"><button type="submit" class="atom-pub">Approve answer</button></form>`
+        : `<form method="POST" action="/op/answers/${escapeHtml(q.id)}/draft" style="display:inline"><button type="submit" class="atom-run">Draft answer</button></form>`;
+      const action =
+        q.status === "published"
+          ? `<span class="atom-live">live</span>`
+          : gate.publishable
+            ? `<form method="POST" action="/op/answers/${escapeHtml(q.id)}/publish" style="display:inline"><button type="submit" class="atom-pub">Publish</button></form>`
+            : `<span class="atom-blocked" title="${escapeHtml(gate.reason ?? "")}">held</span>`;
+      const models = (q.models ?? "")
+        .split(",")
+        .map((m) => m.trim().split("/").pop() ?? "")
+        .filter(Boolean);
+      const by = models.length ? ` · ${escapeHtml(models.join(", "))}` : "";
+      const flag = q.contested ? ` <span class="atom-contested">contested</span>` : "";
+      return `    <li><span class="atom-q">${escapeHtml(q.question)}</span>${flag}
+      <span class="atom-meta">${q.evidence_count} source${q.evidence_count === 1 ? "" : "s"} · ${q.answer_words}w${by}</span>
+      ${draftAction}${action}</li>`;
+    })
+    .join("\n");
+  return `<div class="atoms">
+  ${ledeBlock}
+  <div class="atom-head"><b>${atoms.findings}</b> finding${atoms.findings === 1 ? "" : "s"} · <b>${atoms.questions.length}</b> question${atoms.questions.length === 1 ? "" : "s"} ${extract}</div>
+  ${atoms.questions.length ? `<ul class="atom-list">\n${rows}\n  </ul>` : ""}
+</div>`;
+}
+
 // Essay lint notes, written into the piece's metadata at upload time. Shown
 // here rather than only on the upload confirmation, which is seen once and
 // then gone. Advisory — the piece published regardless.
@@ -303,6 +426,11 @@ export async function renderLibraryIndex(
     videoError?: string;
     /** Count of jobs started by the "Process queue" button. */
     draining?: string;
+    /** "findings.new.merged.killed" from the atom extraction button. */
+    atoms?: string;
+    /** Which model produced that run, so the banner can name it. */
+    model?: string;
+    published?: string;
   } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
@@ -332,13 +460,21 @@ export async function renderLibraryIndex(
     ? `<div class="op-banner op-banner-error">${escapeHtml(opts.error)}</div>`
     : opts.ingested
       ? `<div class="op-banner">Uploaded ${escapeHtml(opts.ingested)} document${opts.ingested === "1" ? "" : "s"} — extraction started automatically.</div>`
-      : opts.draining
-        ? `<div class="op-banner">${
-            opts.draining === "0"
-              ? "Nothing was waiting in the queue."
-              : `Started ${escapeHtml(opts.draining)} queued job${opts.draining === "1" ? "" : "s"}. They run in the background — reload in a minute, and press again if more are still queued.`
-          }</div>`
-        : "";
+      : opts.atoms
+        ? (() => {
+            const [f, n, m, k] = opts.atoms.split(".");
+            const by = opts.model ? ` using <b>${escapeHtml(shortModel(opts.model))}</b>` : "";
+            return `<div class="op-banner">Extracted <b>${escapeHtml(f ?? "0")}</b> findings and <b>${escapeHtml(n ?? "0")}</b> new questions (<b>${escapeHtml(m ?? "0")}</b> merged into existing ones)${by}.${Number(k) > 0 ? ` ${escapeHtml(k ?? "0")} span${k === "1" ? "" : "s"} were discarded for not matching the document verbatim.` : ""} Nothing is public until you publish it.</div>`;
+          })()
+        : opts.published
+          ? `<div class="op-banner">Answer published.</div>`
+          : opts.draining
+            ? `<div class="op-banner">${
+                opts.draining === "0"
+                  ? "Nothing was waiting in the queue."
+                  : `Started ${escapeHtml(opts.draining)} queued job${opts.draining === "1" ? "" : "s"}. They run in the background — reload in a minute, and press again if more are still queued.`
+              }</div>`
+            : "";
 
   // Operator affordance strip — only rendered when logged in. Surfaces the
   // bulk extract action (the work behind it lives at POST /op/library/extract
@@ -389,6 +525,14 @@ export async function renderLibraryIndex(
   <button type="submit" class="op-strip-btn op-strip-btn-primary">Process queue (${queued})</button>
 </form>`
         : "";
+    // Same reasoning as the drain button above: pass 2 of on-demand research
+    // was dispatched only by the cron, so with the cron off a run that finds
+    // follow-up queries parks at pass2_pending and shows "Researching…"
+    // forever. Shown unconditionally rather than gated on a count, because the
+    // cheap thing to get wrong here is not knowing a run is stuck.
+    const advanceBtn = `<form method="POST" action="/op/research/advance" style="display:inline;margin-right:8px">
+  <button type="submit" class="op-strip-btn">Advance research</button>
+</form>`;
     // The upload dropzone. This existed only on the old /op/library screen
     // (operator/screens/library.ts's dropzone()) before that screen was
     // redirected away into this same public page — the extract/re-extract
@@ -446,7 +590,7 @@ export async function renderLibraryIndex(
     opStrip = `<div class="op-strip">
   <div class="op-strip-top">
     <div class="op-strip-label">Operator</div>
-    <div class="op-strip-actions">${drainBtn}${extractBtn}${reextractBtn}</div>
+    <div class="op-strip-actions">${drainBtn}${advanceBtn}${extractBtn}${reextractBtn}</div>
   </div>
   ${dropzone}
   ${videoImportBanner}
@@ -529,6 +673,81 @@ export async function renderLibraryIndex(
     : [];
   const fedByPiece = new Map(fedRows.map((r) => [r.piece_id, r] as const));
 
+  // Proposed atoms, per document. Operator-only: these have no URL until they
+  // pass the gate AND the operator publishes them, so this list is the only
+  // place they are visible.
+  const atomsByPiece = new Map<string, { findings: number; questions: QuestionReview[] }>();
+  const ledeByPiece = new Map<string, { verbatim_text: string; approved_at: string | null }>();
+  if (opts.isOperator && userId) {
+    const { all: allRows } = await import("../../lib/d1");
+    const fRows = await allRows<{ piece_id: string; n: number }>(
+      env.DB,
+      "SELECT piece_id, COUNT(*) AS n FROM findings WHERE user_id = ? GROUP BY piece_id",
+      [userId],
+    ).catch(() => []);
+    const qRows = await allRows<QuestionReview & { piece_id: string }>(
+      env.DB,
+      `SELECT DISTINCT e.piece_id, q.id, q.question, q.slug, q.status,
+              (SELECT COUNT(*) FROM question_evidence e2 WHERE e2.question_id = q.id) AS evidence_count,
+              (SELECT COALESCE(SUM(LENGTH(e3.answer_text) - LENGTH(REPLACE(e3.answer_text,' ','')) + 1), 0)
+                 FROM question_evidence e3 WHERE e3.question_id = q.id) AS answer_words,
+              (SELECT GROUP_CONCAT(DISTINCT e4.model)
+                 FROM question_evidence e4 WHERE e4.question_id = q.id) AS models,
+              CASE WHEN q.standing_answer IS NULL THEN 0 ELSE 1 END AS has_draft,
+              q.answer_approved_at, q.contested
+         FROM question_evidence e JOIN questions q ON q.id = e.question_id
+        WHERE e.user_id = ?
+        ORDER BY evidence_count DESC`,
+      [userId],
+    ).catch(() => []);
+    const lRows = await allRows<{
+      piece_id: string;
+      verbatim_text: string;
+      approved_at: string | null;
+    }>(
+      env.DB,
+      `SELECT p.id AS piece_id, q.verbatim_text, p.lede_approved_at AS approved_at
+         FROM pieces p JOIN quotes q ON q.id = p.lede_quote_id
+        WHERE p.user_id = ?`,
+      [userId],
+    ).catch(() => []);
+    for (const r of lRows) ledeByPiece.set(r.piece_id, r);
+    for (const r of fRows) atomsByPiece.set(r.piece_id, { findings: r.n, questions: [] });
+    for (const r of qRows) {
+      const cur = atomsByPiece.get(r.piece_id) ?? { findings: 0, questions: [] };
+      cur.questions.push(r);
+      atomsByPiece.set(r.piece_id, cur);
+    }
+  }
+
+  // The research queue: questions the corpus raised and cannot answer.
+  const { openQuestions } = await import("../../graph/lib/standing-answer");
+  const open =
+    opts.isOperator && userId ? await openQuestions(env.DB, userId, 12).catch(() => []) : [];
+
+  // Each row states the SIZE OF THE GAP, not just that a gap exists. "2
+  // documents touch this, none answers it" is a research prompt; a bare
+  // question is a topic, and a topic is what produced the sprawl this
+  // publication is recovering from.
+  const queueBlock = open.length
+    ? `<section class="op-queue">
+  <div class="op-queue-head">Questions the record raised and cannot answer
+    <span class="op-queue-note">Nothing here has a public page. Each is a research prompt with its gap measured.</span>
+  </div>
+  <ul class="op-queue-list">
+${open
+  .map(
+    (q) => `    <li>
+      <span class="atom-q">${escapeHtml(q.question)}</span>
+      <span class="atom-meta">${q.sources} document${q.sources === 1 ? "" : "s"} · ${q.evidence_count} quote${q.evidence_count === 1 ? "" : "s"} · ${q.answer_words}w${q.has_draft ? " · drafted" : ""}</span>
+      <form method="POST" action="/op/answers/${escapeAttr(q.id)}/research" style="display:inline"><button type="submit" class="atom-run">Research this</button></form>
+    </li>`,
+  )
+  .join("\n")}
+  </ul>
+</section>`
+    : "";
+
   const rows = pieces.length
     ? pieces
         .map((p) => {
@@ -559,8 +778,13 @@ export async function renderLibraryIndex(
             fed && fed.nodes > 0
               ? `<span><b>${fed.nodes}</b> fact${fed.nodes === 1 ? "" : "s"}${fed.subjects > 0 ? ` · ${fed.subjects} subject${fed.subjects === 1 ? "" : "s"}` : ""}</span>`
               : `<span class="lib-fed-quiet">not extracted</span>`;
+          const atoms = atomsByPiece.get(p.id);
+          const atomBlock =
+            opts.isOperator && p.publication_status !== "working-material"
+              ? renderAtomReview(p.id, atoms, ledeByPiece.get(p.id))
+              : "";
           return `<tr>
-  <td>${title}${renderLintNotes(p.metadata)}</td>
+  <td>${title}${renderLintNotes(p.metadata)}${atomBlock}</td>
   <td class="coord">${escapeHtml(kindLabel(p.kind))}</td>
   <td class="lib-fed">${fedCell}</td>
   <td>${status}</td>
@@ -611,6 +835,7 @@ export async function renderLibraryIndex(
 ${weightBand}
 ${uploadBanner}
 ${opStrip}
+${queueBlock}
 <section>${sectionHeader(`All material (${pieces.length})`)}${table}</section>
 <style>
   .lib-weight {

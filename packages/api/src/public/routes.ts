@@ -8,14 +8,18 @@
 
 import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
+import { listPublishedQuestions } from "../graph/lib/aeo-extract";
+import { listCorpusFindings } from "../graph/lib/aeo-extract";
 import { all, one } from "../lib/d1";
 import { getPieceBySlug, listPublishedPieces, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
 import { feedJson, llmsTxt, pieceMarkdown } from "./machine";
 import { renderAbout } from "./render/about";
 import { renderActivityPage } from "./render/activity";
+import { renderAnswerPage, renderAnswersIndex } from "./render/answers";
 import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
+import { renderFiguresIndex } from "./render/figures";
 import { renderFront } from "./render/front";
 import { renderEssaysIndex, renderResearchIndex } from "./render/indexes";
 import { renderInstrumentsIndex } from "./render/instruments";
@@ -278,7 +282,7 @@ app.get("/robots.txt", () => {
 // liability rather than a neutral one.
 app.get("/sitemap.xml", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  const staticUrls = ["/", "/essays", "/research", "/about", "/method"];
+  const staticUrls = ["/", "/essays", "/research", "/answers", "/figures", "/about", "/method"];
   let pageUrls: Array<{ loc: string; lastmod: string }> = [];
   if (userId) {
     const pieces = await listPublishedPieces(c.env.DB, userId).catch(() => []);
@@ -295,6 +299,12 @@ app.get("/sitemap.xml", async (c) => {
     ).catch(() => []);
     pageUrls.push(
       ...rows.map((r) => ({ loc: `/s/${r.slug}`, lastmod: r.updated_at.slice(0, 10) })),
+    );
+    // Published answers are real pages and belong in the sitemap. Proposed
+    // ones are not listed here because they have no URL.
+    const answers = await listPublishedQuestions(c.env.DB, userId).catch(() => []);
+    pageUrls.push(
+      ...answers.map((a) => ({ loc: `/answers/${a.slug}`, lastmod: a.updated_at.slice(0, 10) })),
     );
   }
   const urlEntries = [...staticUrls.map((loc) => ({ loc, lastmod: "" })), ...pageUrls]
@@ -331,6 +341,21 @@ app.get("/", async (c) => htmlResponse(await renderFront(c.env)));
 // "unlinked but alive" block further down.
 
 app.get("/essays", async (c) => htmlResponse(await renderEssaysIndex(c.env)));
+
+// Answers — one page per question, shared across every document that answers
+// it. A question the gate has not passed has no page at all; it returns 404
+// rather than publishing something thin at a real URL.
+app.get("/answers", async (c) => htmlResponse(await renderAnswersIndex(c.env)));
+
+// /figures — the corpus's verified numbers on one page. One aggregate page
+// rather than one per figure: see render/figures.ts on why splitting it would
+// spend the advantage cannibalising itself.
+app.get("/figures", async (c) => htmlResponse(await renderFiguresIndex(c.env)));
+app.get("/answers/:slug", async (c) => {
+  const html = await renderAnswerPage(c.env, c.req.param("slug"));
+  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
+  return htmlResponse(html);
+});
 app.get("/research", async (c) => htmlResponse(await renderResearchIndex(c.env)));
 
 // ---- Topics ---------------------------------------------------------------
@@ -394,7 +419,20 @@ app.get("/p/:slug", async (c) => {
   if (raw.endsWith(".md")) {
     const mdSlug = raw.slice(0, -3);
     const userId = await resolveOperatorId(c.env.DB);
-    const piece = userId ? await getPieceBySlug(c.env.DB, userId, mdSlug) : null;
+    let piece = userId ? await getPieceBySlug(c.env.DB, userId, mdSlug) : null;
+    if (!piece && userId) {
+      // The twin follows retired slugs too. Missing this would leave every
+      // `.md` citation of a renamed document dead while its HTML kept working
+      // — the machine-readable half broken and nothing to show for it.
+      const { one: oneRow } = await import("../lib/d1");
+      const alias = await oneRow<{ slug: string }>(
+        c.env.DB,
+        `SELECT p.slug FROM piece_slug_aliases a JOIN pieces p ON p.id = a.piece_id
+          WHERE a.user_id = ? AND a.old_slug = ?`,
+        [userId, mdSlug],
+      ).catch(() => null);
+      if (alias?.slug) piece = await getPieceBySlug(c.env.DB, userId, alias.slug);
+    }
     if (!piece || piece.publication_status === "working-material") {
       return htmlResponse(renderNotFound(c.req.path), { status: 404 });
     }
@@ -409,6 +447,23 @@ app.get("/p/:slug", async (c) => {
   // Try the piece renderer first (original semantics).
   const html = await renderPiece(c.env, slug);
   if (html) return htmlResponse(html);
+
+  // A retired slug. Every document published before migration 0052 had a
+  // filename-with-a-UUID for a URL; /v1/admin/reslug renamed them and banked
+  // the old slug here. A citation already in the world must keep resolving —
+  // a 404 is worse than the ugly URL it replaced — so this 301s to the
+  // current one rather than falling through to the not-found page.
+  const aliasUser = await resolveOperatorId(c.env.DB);
+  if (aliasUser) {
+    const { one: oneRow } = await import("../lib/d1");
+    const alias = await oneRow<{ slug: string }>(
+      c.env.DB,
+      `SELECT p.slug FROM piece_slug_aliases a JOIN pieces p ON p.id = a.piece_id
+        WHERE a.user_id = ? AND a.old_slug = ?`,
+      [aliasUser, slug],
+    ).catch(() => null);
+    if (alias?.slug && alias.slug !== slug) return c.redirect(`/p/${alias.slug}`, 301);
+  }
   // Fall through to subject pages. mode=signed reveals the operator's reading.
   const { renderSubjectPage } = await import("./render/subject-page");
   const mode = c.req.query("mode") === "signed" ? "signed" : "neutral";
@@ -537,7 +592,13 @@ app.get("/confirm", async (c) => {
 app.get("/llms.txt", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   const pieces = userId ? await listPublishedPieces(c.env.DB, userId).catch(() => []) : [];
-  return new Response(llmsTxt(pieces), {
+  const answers = userId ? await listPublishedQuestions(c.env.DB, userId).catch(() => []) : [];
+  const figures = userId
+    ? await listCorpusFindings(c.env.DB, userId, 1000)
+        .then((f) => f.length)
+        .catch(() => 0)
+    : 0;
+  return new Response(llmsTxt(pieces, answers, figures), {
     headers: {
       "content-type": "text/plain; charset=utf-8",
       "cache-control": "public, max-age=3600",
@@ -743,6 +804,9 @@ app.get("/library", async (c) => {
   const importing = c.req.query("importing");
   const videoError = c.req.query("video_error");
   const draining = c.req.query("draining");
+  const atoms = c.req.query("atoms");
+  const atomsModel = c.req.query("model");
+  const published = c.req.query("published");
   return htmlResponse(
     await renderLibraryIndex(c.env, {
       isOperator: c.get("is_operator"),
@@ -751,6 +815,9 @@ app.get("/library", async (c) => {
       ...(importing ? { importing } : {}),
       ...(videoError ? { videoError } : {}),
       ...(draining ? { draining } : {}),
+      ...(atoms ? { atoms } : {}),
+      ...(atomsModel ? { model: atomsModel } : {}),
+      ...(published ? { published } : {}),
     }),
   );
 });
