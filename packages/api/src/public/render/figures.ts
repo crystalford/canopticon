@@ -70,7 +70,10 @@ export async function renderFiguresIndex(env: PublicEnv): Promise<string> {
 ${
   findings.length
     ? `<ul class="findings fig-list">\n${findings.map(row).join("\n")}\n  </ul>`
-    : emptyState("No figures extracted yet.")
+    : emptyState("No numbers yet — they appear as documents are processed.", {
+        href: "/research",
+        label: "Read the documents →",
+      })
 }`;
 
   return renderPage({

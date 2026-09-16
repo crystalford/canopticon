@@ -51,13 +51,21 @@ async function loggedInRequest(path: string): Promise<Request> {
 }
 
 describe("attachAuthState — the one-site permission middleware", () => {
-  // /library became the operator's working surface (it lists working-material
-  // and carries the upload dropzone), so an anonymous visitor is sent to the
-  // published research index instead of being shown a stripped-down copy of it.
-  it("anonymous /library redirects to the public research index", async () => {
+  // /library is the operator's working surface — it lists working-material and
+  // carries the upload dropzone — so an anonymous visitor does not get in.
+  //
+  // WHAT THEY GET INSTEAD IS THE POINT. This used to 301 to /research, which
+  // meant a lapsed session was indistinguishable from the page not existing:
+  // the operator clicked through to upload, landed on a different page, and
+  // had nothing to tell them why. They reported being unable to find where to
+  // upload more than once, and this was the reason.
+  it("anonymous /library says how to sign in rather than silently redirecting", async () => {
     const res = await app.fetch(new Request("http://test/library"), env);
-    expect(res.status).toBe(301);
-    expect(res.headers.get("location")).toBe("/research");
+    const html = await res.text();
+    expect(res.status).toBe(401);
+    expect(html).toContain("/auth/login");
+    // Still no leak: the signed-out page must not show the working surface.
+    expect(html).not.toContain('class="op-strip"');
   });
 
   it("anonymous /research has no operator strip", async () => {
@@ -77,6 +85,8 @@ describe("attachAuthState — the one-site permission middleware", () => {
     expect(html).not.toContain('data-mode="operator"');
   });
 
+  // The security property, unchanged by the above: a forged cookie is treated
+  // as anonymous, so it gets the sign-in page and never the working surface.
   it("a forged cookie value (wrong secret) is silently anonymous", async () => {
     // Sign with the WRONG secret — the middleware must verify, find it bad,
     // and fall through as anonymous (no throw).
@@ -92,12 +102,14 @@ describe("attachAuthState — the one-site permission middleware", () => {
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).not.toContain('class="op-strip"');
-    // And the operator-only surface stays shut to it.
+    // And the operator-only surface stays shut to it — sign-in page, never
+    // the working surface.
     const lib = await app.fetch(
       new Request("http://test/library", { headers: { cookie: cookieValue } }),
       env,
     );
-    expect(lib.status).toBe(301);
+    expect(lib.status).toBe(401);
+    expect(await lib.text()).not.toContain('class="op-strip"');
   });
 
   it("a valid cookie reveals operator affordances on the SAME public page", async () => {

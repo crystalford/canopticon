@@ -65,3 +65,23 @@ export function renderConfirmed(found: boolean): string {
 export function renderSubscribeError(message: string): string {
   return notice("Mailing list", "That didn't work", `  <p class="lead">${message}</p>`);
 }
+
+/**
+ * The operator's way back in.
+ *
+ * `/library` is where uploading happens and it is session-gated. It used to
+ * redirect a signed-out visitor to `/research`, which meant a lapsed cookie
+ * looked exactly like the page not existing. Saying so, and pointing at the
+ * door, costs one page and removes the only genuinely blocking bug on the site.
+ */
+export function renderSignedOut(): string {
+  return notice(
+    "Sign in",
+    "Sign in to continue",
+    `  <p class="lead">The library is where documents are uploaded and reviewed. It needs an
+  operator session.</p>
+  <p><a href="/auth/login">Sign in →</a></p>
+  <p>If you are not the operator, the published documents are at
+  <a href="/research">Research</a> and the essays at <a href="/essays">Essays</a>.</p>`,
+  );
+}

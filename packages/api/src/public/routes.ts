@@ -27,12 +27,7 @@ import { renderPiece } from "./render/piece-template";
 import { renderNotFound } from "./render/placeholder";
 import { renderEntityPage } from "./render/record";
 import { renderSearchPage } from "./render/search";
-import {
-  renderConfirmed,
-  renderSubscribeError,
-  renderSubscribed,
-  renderUnsubscribed,
-} from "./render/subscribe";
+import { renderConfirmed, renderSignedOut, renderSubscribeError, renderSubscribed, renderUnsubscribed } from "./render/subscribe";
 import { renderTopicHub, renderTopicsIndex } from "./render/topics";
 import { renderVideosPage } from "./render/videos";
 import { renderWatchlistPage } from "./render/watchlist";
@@ -824,10 +819,18 @@ app.get("/patterns", (c) => c.redirect("/investigations", 301));
 
 // /library is now the OPERATOR's working surface, not a public door: it
 // lists working-material alongside published pieces and carries the upload
-// dropzone. A logged-out visitor asking for it wants the published research,
-// so send them there rather than showing them a second, messier copy of it.
+// dropzone.
+//
+// IT USED TO 301 A LOGGED-OUT VISITOR TO /research, and that was the single
+// worst thing on the site. This is where uploading happens, it is the page the
+// operator needs most, and a lapsed session turned it into a silent bounce to
+// a different page with no explanation and no way back in — while exactly one
+// link to /auth/* existed anywhere in the codebase. The operator reported, more
+// than once, not being able to find where to upload. This was why.
+//
+// Now it says what it is and where the door is.
 app.get("/library", async (c) => {
-  if (!c.get("is_operator")) return c.redirect("/research", 301);
+  if (!c.get("is_operator")) return htmlResponse(renderSignedOut(), { status: 401 });
   const ingested = c.req.query("ingested");
   const error = c.req.query("error");
   const importing = c.req.query("importing");
