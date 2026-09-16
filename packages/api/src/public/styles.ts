@@ -2076,6 +2076,25 @@ pre.convention {
 /* The update date is a ranking input, not a footnote — give it the accent so a
    reader (and the eye scanning a SERP snippet) registers that this is current. */
 .updated { color: var(--accent); }
+
+/* ---- the lead passage ----------------------------------------------------
+   The document's own words, selected rather than composed, sitting before the
+   body so it is the first prose on the page — which is what a passage-level
+   retriever reaches for. Quoted styling on purpose: it IS a quote, and it
+   carries a receipt. */
+.lede { border-left: 2px solid var(--accent); }
+.lede p { margin: 0 0 8px; }
+.atom-lede {
+  display: flex; gap: 12px; align-items: flex-start; justify-content: space-between;
+  margin: 0 0 10px; padding: 9px 12px; background: var(--paper-2);
+  border: 1px solid var(--rule); border-radius: var(--r-sm);
+}
+.atom-lede-text {
+  font-family: var(--serif); font-size: 13px; line-height: 1.5; color: var(--ink-2);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.atom-lede-act { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+@media (max-width: 620px) { .atom-lede { flex-direction: column; } }
 .provenance a:hover { text-decoration: underline; }
 
 /* ---- essay body --------------------------------------------------------- */

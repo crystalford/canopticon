@@ -1296,6 +1296,30 @@ app.post("/library/:id/extract-atoms", async (c) => {
   }
 });
 
+// Propose the passage a retriever should lift. Selection, not composition —
+// see graph/lib/lede.ts for why that distinction is the whole design.
+app.post("/library/:id/lede", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { proposeLede } = await import("../graph/lib/lede");
+  const res = await proposeLede(c.env, userId, c.req.param("id"));
+  return c.redirect(
+    res.ok
+      ? "/library?lede=proposed"
+      : `/library?error=${encodeURIComponent(res.reason ?? "could not select a passage")}`,
+  );
+});
+
+// Nothing renders until a person has read it: a passage can be perfectly
+// verbatim and still misrepresent what the document weighs.
+app.post("/library/:id/lede/approve", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { approveLede } = await import("../graph/lib/lede");
+  const ok = await approveLede(c.env, userId, c.req.param("id"));
+  return c.redirect(ok ? "/library?lede=approved" : "/library?error=no+proposed+passage");
+});
+
 // Promote one proposed question to a public page. The gate runs here, inside
 // publishQuestion, and refuses rather than publishing something thin.
 app.post("/answers/:id/publish", async (c) => {

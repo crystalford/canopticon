@@ -313,6 +313,7 @@ const AEO_MODEL_SUGGESTIONS = [
 function renderAtomReview(
   pieceId: string,
   atoms: { findings: number; questions: QuestionReview[] } | undefined,
+  lede?: { verbatim_text: string; approved_at: string | null } | null,
 ): string {
   // The model picker. A re-run replaces this piece's atoms, so the way to
   // compare two models is to run one, read it, then run the other — and the
@@ -329,6 +330,20 @@ function renderAtomReview(
   const options = [fallback, ...AEO_MODEL_SUGGESTIONS.filter((m) => m !== fallback)]
     .map((m) => `<option value="${escapeAttr(m)}">${m === fallback ? "default" : ""}</option>`)
     .join("");
+  // The lede sits with the other per-document actions: propose a passage, read
+  // it, approve it. Unapproved means nothing renders publicly, so this is the
+  // only place it can be judged.
+  const ledeBlock = lede
+    ? `<div class="atom-lede">
+    <div class="atom-lede-text">${escapeHtml(lede.verbatim_text)}</div>
+    <div class="atom-lede-act">${
+      lede.approved_at
+        ? `<span class="atom-live">live</span>`
+        : `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/lede/approve" style="display:inline"><button type="submit" class="atom-pub">Approve passage</button></form>`
+    }
+    <form method="POST" action="/op/library/${escapeHtml(pieceId)}/lede" style="display:inline"><button type="submit" class="atom-run">Re-select</button></form></div>
+  </div>`
+    : `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/lede" style="display:inline"><button type="submit" class="atom-run">Select lead passage</button></form>`;
   const extract = `<form method="POST" action="/op/library/${escapeHtml(pieceId)}/extract-atoms" class="atom-form">
   <input list="aeo-models" name="model" class="atom-model" autocomplete="off"
          placeholder="${escapeAttr(shortModel(fallback))} (default)"
@@ -337,7 +352,7 @@ function renderAtomReview(
   <button type="submit" class="atom-run">${atoms ? "Re-extract" : "Extract findings & questions"}</button>
 </form>`;
   if (!atoms || (atoms.findings === 0 && atoms.questions.length === 0)) {
-    return `<div class="atoms">${extract}</div>`;
+    return `<div class="atoms">${ledeBlock}${extract}</div>`;
   }
   const rows = atoms.questions
     .map((q) => {
@@ -363,6 +378,7 @@ function renderAtomReview(
     })
     .join("\n");
   return `<div class="atoms">
+  ${ledeBlock}
   <div class="atom-head"><b>${atoms.findings}</b> finding${atoms.findings === 1 ? "" : "s"} · <b>${atoms.questions.length}</b> question${atoms.questions.length === 1 ? "" : "s"} ${extract}</div>
   ${atoms.questions.length ? `<ul class="atom-list">\n${rows}\n  </ul>` : ""}
 </div>`;
@@ -640,6 +656,7 @@ export async function renderLibraryIndex(
   // pass the gate AND the operator publishes them, so this list is the only
   // place they are visible.
   const atomsByPiece = new Map<string, { findings: number; questions: QuestionReview[] }>();
+  const ledeByPiece = new Map<string, { verbatim_text: string; approved_at: string | null }>();
   if (opts.isOperator && userId) {
     const { all: allRows } = await import("../../lib/d1");
     const fRows = await allRows<{ piece_id: string; n: number }>(
@@ -660,6 +677,18 @@ export async function renderLibraryIndex(
         ORDER BY evidence_count DESC`,
       [userId],
     ).catch(() => []);
+    const lRows = await allRows<{
+      piece_id: string;
+      verbatim_text: string;
+      approved_at: string | null;
+    }>(
+      env.DB,
+      `SELECT p.id AS piece_id, q.verbatim_text, p.lede_approved_at AS approved_at
+         FROM pieces p JOIN quotes q ON q.id = p.lede_quote_id
+        WHERE p.user_id = ?`,
+      [userId],
+    ).catch(() => []);
+    for (const r of lRows) ledeByPiece.set(r.piece_id, r);
     for (const r of fRows) atomsByPiece.set(r.piece_id, { findings: r.n, questions: [] });
     for (const r of qRows) {
       const cur = atomsByPiece.get(r.piece_id) ?? { findings: 0, questions: [] };
@@ -701,7 +730,7 @@ export async function renderLibraryIndex(
           const atoms = atomsByPiece.get(p.id);
           const atomBlock =
             opts.isOperator && p.publication_status !== "working-material"
-              ? renderAtomReview(p.id, atoms)
+              ? renderAtomReview(p.id, atoms, ledeByPiece.get(p.id))
               : "";
           return `<tr>
   <td>${title}${renderLintNotes(p.metadata)}${atomBlock}</td>

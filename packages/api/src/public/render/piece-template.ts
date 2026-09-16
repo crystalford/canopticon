@@ -13,6 +13,7 @@
 
 import { renderMarkdown } from "../../cms/lib/render-post";
 import { type FindingRow, findingsForPiece } from "../../graph/lib/aeo-extract";
+import { type LedeRow, ledeForPiece } from "../../graph/lib/lede";
 import { EDITOR, resolveByline, showsUpdate } from "../../lib/byline";
 import { parseEssay } from "../../lib/essay";
 import {
@@ -55,12 +56,14 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   // primitive with strong evidence behind it. They live on the document's own
   // page — no new URL, so no thin-content exposure at all.
   const findings = await findingsForPiece(env.DB, userId, piece.id).catch(() => []);
+  const lede = await ledeForPiece(env.DB, userId, piece.id).catch(() => null);
 
   const body = renderPieceBody(piece, {
     topics: topics.map((t) => ({ slug: t.slug, label: t.label })),
     related: related.filter((r) => r.id !== piece.id).slice(0, 6),
     fed,
     findings,
+    lede,
   });
 
   // The piece page emitted no structured data at all, while subject pages and
@@ -71,7 +74,12 @@ export async function renderPiece(env: PublicEnv, slug: string): Promise<string 
   return renderPage({
     title: pieceTitle(piece),
     description: piece.subtitle ?? `${pieceTitle(piece)} — a Canopticon piece.`,
-    body: `${body}\n${pieceJsonLd(piece, faq?.length ? { faq } : {})}`,
+    body: `${body}\n${pieceJsonLd(piece, {
+      ...(faq?.length ? { faq } : {}),
+      // Only once approved — the structured data must not carry a passage the
+      // page itself is not showing.
+      ...(lede?.approved_at ? { lede: lede.verbatim_text } : {}),
+    })}`,
     activeNav: essay ? "/essays" : "/research",
     zone: essay ? "essays" : "research",
     canonical: pieceUrl(piece.slug),
@@ -101,12 +109,30 @@ interface PieceCtx {
   related: PieceSummary[];
   fed?: FedSummary;
   findings?: FindingRow[];
+  lede?: LedeRow | null;
 }
 
 // The figure, what it measures, when, who reported it, and the sentence it
 // came from — with a link to that quote's own receipt. A statistic stated
 // beside its named source and date is the single best-evidenced shape for
 // being cited, and it is exactly what the verification layer already produces.
+/**
+ * The passage a retriever is meant to lift, placed before the body so it is
+ * the first prose on the page.
+ *
+ * It is the document's OWN words — selected, never composed — so it carries a
+ * /q/ receipt like any other quote. Rendered only once a person has approved
+ * it: a passage can be perfectly verbatim and still misrepresent what the
+ * document weighs, and no substring check catches that.
+ */
+function renderLede(lede: LedeRow | null | undefined): string {
+  if (!lede?.approved_at) return "";
+  return `<div class="tldr lede">
+  <p>${escapeHtml(lede.verbatim_text)}</p>
+  <a class="ev-receipt" href="/q/${escapeAttr(lede.quote_id)}">Verified passage →</a>
+</div>`;
+}
+
 function renderFindings(findings: FindingRow[] | undefined): string {
   if (!findings?.length) return "";
   const rows = findings
@@ -206,6 +232,7 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
   <article class="reading">
 ${renderBreadcrumbs(piece)}
 ${renderPageHead(piece)}
+${renderLede(ctx.lede)}
 ${bodyBlock}
 ${renderFindings(ctx.findings)}
 ${renderCiteBox(piece)}

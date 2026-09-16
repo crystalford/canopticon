@@ -79,6 +79,8 @@ export function sourceLines(body_md: string): string[] {
 // ---- structured data ------------------------------------------------------
 
 export interface PieceLdOptions {
+  /** Approved lead passage, verbatim — see graph/lib/lede.ts. */
+  lede?: string;
   /** Question/answer pairs for FAQPage, when the piece has them. */
   faq?: Array<{ question: string; answer: string; anchor: string }>;
 }
@@ -144,6 +146,10 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
     },
   };
   if (piece.subtitle) base.description = piece.subtitle;
+  // `abstract` is the passage this document wants lifted, when one has been
+  // selected and approved. Verbatim from the document, so it agrees exactly
+  // with what a crawler finds on the page rather than paraphrasing it.
+  if (opts.lede) base.abstract = opts.lede;
   if (citations.length) base.citation = citations;
   if (essay) {
     base.speakable = {
