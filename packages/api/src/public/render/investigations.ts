@@ -525,6 +525,14 @@ export async function renderLibraryIndex(
   <button type="submit" class="op-strip-btn op-strip-btn-primary">Process queue (${queued})</button>
 </form>`
         : "";
+    // Same reasoning as the drain button above: pass 2 of on-demand research
+    // was dispatched only by the cron, so with the cron off a run that finds
+    // follow-up queries parks at pass2_pending and shows "Researching…"
+    // forever. Shown unconditionally rather than gated on a count, because the
+    // cheap thing to get wrong here is not knowing a run is stuck.
+    const advanceBtn = `<form method="POST" action="/op/research/advance" style="display:inline;margin-right:8px">
+  <button type="submit" class="op-strip-btn">Advance research</button>
+</form>`;
     // The upload dropzone. This existed only on the old /op/library screen
     // (operator/screens/library.ts's dropzone()) before that screen was
     // redirected away into this same public page — the extract/re-extract
@@ -582,7 +590,7 @@ export async function renderLibraryIndex(
     opStrip = `<div class="op-strip">
   <div class="op-strip-top">
     <div class="op-strip-label">Operator</div>
-    <div class="op-strip-actions">${drainBtn}${extractBtn}${reextractBtn}</div>
+    <div class="op-strip-actions">${drainBtn}${advanceBtn}${extractBtn}${reextractBtn}</div>
   </div>
   ${dropzone}
   ${videoImportBanner}
@@ -712,6 +720,34 @@ export async function renderLibraryIndex(
     }
   }
 
+  // The research queue: questions the corpus raised and cannot answer.
+  const { openQuestions } = await import("../../graph/lib/standing-answer");
+  const open =
+    opts.isOperator && userId ? await openQuestions(env.DB, userId, 12).catch(() => []) : [];
+
+  // Each row states the SIZE OF THE GAP, not just that a gap exists. "2
+  // documents touch this, none answers it" is a research prompt; a bare
+  // question is a topic, and a topic is what produced the sprawl this
+  // publication is recovering from.
+  const queueBlock = open.length
+    ? `<section class="op-queue">
+  <div class="op-queue-head">Questions the record raised and cannot answer
+    <span class="op-queue-note">Nothing here has a public page. Each is a research prompt with its gap measured.</span>
+  </div>
+  <ul class="op-queue-list">
+${open
+  .map(
+    (q) => `    <li>
+      <span class="atom-q">${escapeHtml(q.question)}</span>
+      <span class="atom-meta">${q.sources} document${q.sources === 1 ? "" : "s"} · ${q.evidence_count} quote${q.evidence_count === 1 ? "" : "s"} · ${q.answer_words}w${q.has_draft ? " · drafted" : ""}</span>
+      <form method="POST" action="/op/answers/${escapeAttr(q.id)}/research" style="display:inline"><button type="submit" class="atom-run">Research this</button></form>
+    </li>`,
+  )
+  .join("\n")}
+  </ul>
+</section>`
+    : "";
+
   const rows = pieces.length
     ? pieces
         .map((p) => {
@@ -799,6 +835,7 @@ export async function renderLibraryIndex(
 ${weightBand}
 ${uploadBanner}
 ${opStrip}
+${queueBlock}
 <section>${sectionHeader(`All material (${pieces.length})`)}${table}</section>
 <style>
   .lib-weight {

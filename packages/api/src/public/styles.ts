@@ -2110,6 +2110,29 @@ pre.convention {
    The page nothing else on the internet publishes: two sources in the same
    corpus contradicting each other, both quoted verbatim, both with live
    receipts, and no pretence the matter is settled. Marked, not hidden. */
+/* ---- the research queue --------------------------------------------------
+   Operator-only. Nothing in it has a public URL — these are the questions the
+   corpus raised and cannot answer, each shown with the SIZE of its gap, which
+   is what turns a topic into a research prompt. */
+.op-queue {
+  margin: 0 0 30px; padding: 16px 18px; border: 1px solid var(--rule);
+  border-left: 2px solid var(--accent); border-radius: var(--r-sm);
+  background: var(--paper-2);
+}
+.op-queue-head {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-2); margin-bottom: 4px;
+}
+.op-queue-note {
+  display: block; text-transform: none; letter-spacing: 0; margin-top: 4px;
+  font-size: 10.5px; color: var(--ink-mute);
+}
+.op-queue-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.op-queue-list li {
+  display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;
+  padding: 8px 0; border-top: 1px solid var(--rule);
+}
+
 .atom-contested {
   font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--contested); margin-left: 6px;

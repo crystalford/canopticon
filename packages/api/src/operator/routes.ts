@@ -969,6 +969,61 @@ app.post("/search/research", async (c) => {
   return c.redirect(`/op/research?q=${encodeURIComponent(q)}${angleParam}`);
 });
 
+// Advance a stalled research run one step.
+//
+// THIS EXISTS BECAUSE THE CRON IS OFF. researchOnDemand runs pass 1 inline and
+// then deliberately does NOT chain pass 2 into the same execution — the
+// follow-up searches and re-synthesis were picked up by index.ts's scheduled()
+// handler instead. With the cron disabled (wrangler.toml), nothing dispatches
+// them: a run that finds follow-up queries parks at `pass2_pending` and shows
+// "Researching…" forever, with no error anywhere. Exactly the shape of the
+// digest_jobs stranding caught in review earlier.
+//
+// Standing rule 4 says the fix for a queue with no dispatcher is a button, not
+// a schedule. This is that button.
+app.post("/research/advance", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { advanceResearchRun, reapStaleResearchRuns } = await import("../graph/lib/deep-research");
+  // The reap first and cheaply (one UPDATE, no model calls): a run whose
+  // execution died mid-pass would otherwise block the queue behind it.
+  await reapStaleResearchRuns(c.env, userId).catch(() => {});
+  const report = await advanceResearchRun(c.env, userId).catch(() => null);
+  return c.redirect(
+    `/library?research=${encodeURIComponent(report?.advanced ? "advanced" : "nothing-pending")}`,
+  );
+});
+
+// Research one open question.
+//
+// The seed is the question itself and the angle is the measured gap, so the
+// run has a stated reason rather than a topic: "3 documents raised this, one
+// source answers it". Whatever it produces comes back as an unpublished draft
+// document, and its extraction merges evidence onto this same question through
+// the merge key — which is what makes the corpus close its own gaps.
+app.post("/answers/:id/research", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { one: oneRow } = await import("../lib/d1");
+  const q = await oneRow<{ question: string; sources: number }>(
+    c.env.DB,
+    `SELECT question,
+            (SELECT COUNT(DISTINCT e.piece_id) FROM question_evidence e
+              WHERE e.question_id = questions.id) AS sources
+       FROM questions WHERE id = ? AND user_id = ?`,
+    [c.req.param("id"), userId],
+  ).catch(() => null);
+  if (!q?.question) return c.redirect("/library?error=no+such+question");
+
+  const angle =
+    q.sources > 0
+      ? `The record already has ${q.sources} document${q.sources === 1 ? "" : "s"} touching this but cannot answer it. Find what is missing.`
+      : "Nothing on the record answers this yet.";
+  const { researchOnDemand } = await import("../graph/lib/deep-research");
+  c.executionCtx.waitUntil(researchOnDemand(c.env, userId, q.question, angle).catch(() => {}));
+  return c.redirect(`/op/research?q=${encodeURIComponent(q.question)}`);
+});
+
 // The on-demand research screen — its own dedicated page (operator/
 // screens/research.ts), not a query param bolted onto /search. See that
 // file's header comment for why.
