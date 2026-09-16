@@ -1,8 +1,8 @@
 {
-  "requested_at": "2026-09-16T14:10:35Z",
-  "run_id": "35106714226",
+  "requested_at": "2026-09-16T14:10:56Z",
+  "run_id": "35106751930",
   "method": "GET",
-  "path": "/v1/admin/unpublish-briefs?confirm=1",
+  "path": "/v1/admin/unpublish-briefs?confirm=1&execute=1",
   "status": 200,
-  "body": "{\n  \"ok\": true,\n  \"execute\": false,\n  \"count\": 4,\n  \"pieces\": [\n    {\n      \"slug\": \"research-brief-chrystia-freeland-2026-07-23\",\n      \"title\": \"Research brief: Chrystia Freeland (2026-07-23)\"\n    },\n    {\n      \"slug\": \"research-brief-mark-carney-2026-07-23\",\n      \"title\": \"Research brief: Mark Carney (2026-07-23)\"\n    },\n    {\n      \"slug\": \"research-brief-melanie-joly-2026-07-23\",\n      \"title\": \"Research brief: Melanie Joly (2026-07-23)\"\n    },\n    {\n      \"slug\": \"research-brief-net-zero-and-carbon-credit-finance-2026-07-24\",\n      \"title\": \"Research brief: Net-zero and carbon-credit finance (2026-07-24)\"\n    }\n  ],\n  \"note\": \"DRY RUN — re-call with &execute=1 to unpublish\"\n}"
+  "body": "{\n  \"ok\": true,\n  \"execute\": true,\n  \"count\": 4,\n  \"pieces\": [\n    {\n      \"slug\": \"research-brief-chrystia-freeland-2026-07-23\",\n      \"title\": \"Research brief: Chrystia Freeland (2026-07-23)\"\n    },\n    {\n      \"slug\": \"research-brief-mark-carney-2026-07-23\",\n      \"title\": \"Research brief: Mark Carney (2026-07-23)\"\n    },\n    {\n      \"slug\": \"research-brief-melanie-joly-2026-07-23\",\n      \"title\": \"Research brief: Melanie Joly (2026-07-23)\"\n    },\n    {\n      \"slug\": \"research-brief-net-zero-and-carbon-credit-finance-2026-07-24\",\n      \"title\": \"Research brief: Net-zero and carbon-credit finance (2026-07-24)\"\n    }\n  ]\n}"
 }
