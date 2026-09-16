@@ -9,6 +9,7 @@
 // document's own text and metadata; if it isn't in the piece, it isn't
 // emitted.
 
+import { resolveByline } from "../lib/byline";
 import { parseEssay } from "../lib/essay";
 import { displayTitle } from "../lib/title";
 import type { PieceDetail, PublishedPieceRef } from "./data";
@@ -127,7 +128,12 @@ export function pieceJsonLd(piece: PieceDetail, opts: PieceLdOptions = {}): stri
     isAccessibleForFree: true,
     license: LICENSE.url,
     publisher: ORG,
-    author: piece.byline ? { "@type": "Person", name: piece.byline } : ORG,
+    // The SAME name the page shows. These drifted once: the visible byline was
+    // repaired to a real person while this kept emitting the stored
+    // placeholder ("the operator") or fell back to the organisation — and a
+    // named Person here is the half a crawler actually parses, which is where
+    // the authorship citation signal lives.
+    author: { "@type": "Person", name: resolveByline(piece.byline) },
     datePublished: published,
     dateModified: modified,
     wordCount: words(piece.body_md ?? ""),

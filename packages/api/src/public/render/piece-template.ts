@@ -13,6 +13,7 @@
 
 import { renderMarkdown } from "../../cms/lib/render-post";
 import { type FindingRow, findingsForPiece } from "../../graph/lib/aeo-extract";
+import { EDITOR, resolveByline, showsUpdate } from "../../lib/byline";
 import { parseEssay } from "../../lib/essay";
 import {
   type PieceDetail,
@@ -36,38 +37,6 @@ import {
 } from "../machine";
 
 /** Bylines that name the machinery rather than an author. Never rendered. */
-/**
- * The person who holds editorial responsibility for everything published here.
- *
- * Named on purpose, and it is not decoration. Two independent reasons:
- *
- * 1. CITABILITY. A study of 366,087 citations across 12 AI search models put
- *    named authors at a 1.40 citation odds ratio against 1.12 overall — a
- *    bylined piece is roughly 25% likelier to be cited than anonymous content.
- *    An earlier pass here SUPPRESSED the byline because the stored value read
- *    as placeholder text ("the operator"). That removed a citation signal
- *    instead of repairing one.
- * 2. DISCLOSURE. From August 2026, EU transparency rules require AI-generated
- *    text on matters of public interest to be disclosed UNLESS it had
- *    substantive human review and a NAMED PERSON holds editorial
- *    responsibility. Canadian political economy is public-interest material,
- *    and the operator does review. Naming them is what makes the exemption
- *    true rather than merely claimed.
- */
-const EDITOR = "Chris Telford";
-
-/**
- * Stored bylines that are placeholders rather than people. They render as the
- * editor's name instead of being hidden — the rows were written before there
- * was a name to use, and rewriting them in the database would be a migration
- * to fix a display problem.
- */
-const INTERNAL_BYLINES = new Set([
-  "the operator",
-  "operator",
-  "canopticon",
-  "canopticon research agent",
-]);
 
 // ---- public entry point -----------------------------------------------
 
@@ -359,13 +328,19 @@ function renderPageHead(piece: PieceDetail): string {
   // "the operator" is internal vocabulary — createAndExtract deliberately
   // leaves byline unset for exactly this reason, but older rows still carry
   // it and it renders on the page as "By the operator".
-  const stored = (piece.byline ?? "").trim();
-  const byline = !stored || INTERNAL_BYLINES.has(stored.toLowerCase()) ? EDITOR : stored;
+  const byline = resolveByline(piece.byline);
   const dateBits = [
     byline
       ? `<span class="sig" style="font-family:var(--serif);font-style:italic;color:var(--ink)">By ${escapeHtml(byline)}</span>`
       : "",
     piece.published_at ? `<span>${escapeHtml(formatDate(piece.published_at))}</span>` : "",
+    // An update date is a ranking input, not decoration — freshness is a large
+    // share of some engines' signal and the citation research names
+    // update-date visibility directly. Only when it is genuinely later; a page
+    // that says "Updated" on its publication day is noise.
+    showsUpdate(piece.published_at, piece.updated_at)
+      ? `<span class="updated">Updated ${escapeHtml(formatDate(piece.updated_at ?? ""))}</span>`
+      : "",
     reading ? `<span>${escapeHtml(reading)}</span>` : "",
   ].filter(Boolean);
   const dateLine = dateBits.length

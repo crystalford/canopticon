@@ -6,6 +6,7 @@
 // pinned here.
 
 import { describe, expect, it } from "vitest";
+import { EDITOR, resolveByline, showsUpdate } from "../src/lib/byline";
 import { looksLikeMachineSlug, pieceSlug } from "../src/lib/slug";
 import { displayTitle, looksLikeGenericTitle, looksLikeMachineFilename } from "../src/lib/title";
 
@@ -117,5 +118,30 @@ describe("titles that name a section instead of the work", () => {
     // The length floor outranks the extension check; over-correcting a real
     // title is worse than letting one odd one through.
     expect(looksLikeMachineFilename("notes.md")).toBe(false);
+  });
+});
+
+describe("authorship and freshness", () => {
+  it("resolves placeholder bylines to the named editor", () => {
+    // The stored rows predate there being a name. Hiding them removed the
+    // citation signal; rewriting the database would be a migration to fix a
+    // display problem.
+    for (const p of ["the operator", "Canopticon", "canopticon research agent", "", null]) {
+      expect(resolveByline(p)).toBe(EDITOR);
+    }
+  });
+
+  it("leaves a real byline alone", () => {
+    expect(resolveByline("Jane Smith")).toBe("Jane Smith");
+  });
+
+  it("only calls something updated when it is a day or more later", () => {
+    // A page that says "Updated" on its publication day is noise, and a record
+    // that cries update over a whitespace change is worse than a quiet one.
+    const pub = "2026-09-01T00:00:00.000Z";
+    expect(showsUpdate(pub, "2026-09-01T06:00:00.000Z")).toBe(false);
+    expect(showsUpdate(pub, "2026-09-03T00:00:00.000Z")).toBe(true);
+    expect(showsUpdate(pub, null)).toBe(false);
+    expect(showsUpdate(null, pub)).toBe(false);
   });
 });

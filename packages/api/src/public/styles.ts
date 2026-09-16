@@ -2073,6 +2073,9 @@ pre.convention {
   letter-spacing: 0.02em; color: var(--ink-2);
 }
 .provenance a { color: var(--accent); text-decoration: none; white-space: nowrap; }
+/* The update date is a ranking input, not a footnote — give it the accent so a
+   reader (and the eye scanning a SERP snippet) registers that this is current. */
+.updated { color: var(--accent); }
 .provenance a:hover { text-decoration: underline; }
 
 /* ---- essay body --------------------------------------------------------- */
