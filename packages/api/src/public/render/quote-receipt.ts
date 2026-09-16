@@ -132,7 +132,7 @@ export async function renderQuoteReceipt(env: PublicEnv, quoteId: string): Promi
 <article class="q-receipt">
   <header class="q-head">
     <div class="kicker">Verbatim quote · Receipt</div>
-    <h1 class="q-h1">A quote on the record</h1>
+    <h1 class="q-h1">A verified quote</h1>
     <p class="q-sub">This is the receipt at the end of every superscript. The text below is a literal substring of the source document — checked mechanically, not vouched.</p>
   </header>
 

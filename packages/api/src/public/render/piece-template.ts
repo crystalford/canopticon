@@ -460,7 +460,7 @@ function renderDepositNote(piece: PieceDetail, topics: PieceCtx["topics"]): stri
     ? ` Filed under ${topicLinks}. Its claims feed the record — each one still pointing outward to the external sources named in the piece.`
     : "";
   return `<div class="piece-note">
-  <span class="dr-h">How this connects to the record</span>
+  <span class="dr-h">Where this came from</span>
   <p>${escapeHtml(lead)}.${topicSentence ? topicSentence : ""} The piece argues; the sources carry the proof.</p>
 </div>`;
 }

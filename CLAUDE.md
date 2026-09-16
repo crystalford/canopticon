@@ -69,36 +69,43 @@ and an advisory lint (opening paragraphs over 70 words, uncited sources).
 **The lint never blocks a publish.** Notes are stored in the piece's metadata
 and shown in `/library`.
 
-## Questions are the spine, documents are the evidence
+## Questions are a worklist, not a page type
 
-The inversion that makes the corpus compound. A **document** is one primary
-source, kept whole, published as itself, static. A **question** is a standing
-unit of inquiry that never stops growing — the synthesis ACROSS documents.
-They are different things and conflating them is what produces thin pages.
+Tried and cut back. Questions ARE extracted from documents and they do merge
+across them — but they get **no public URL**. They live in `/library` as the
+operator's research queue: a question the documents provoked, with what is
+missing attached, which is a far better research prompt than a topic.
 
-A question has three states:
+Why the public pages went, having been built:
 
-| state | URL? | what it is |
-|---|---|---|
-| **open** | none | the corpus raised it and cannot answer it — this is the research queue, and the reason is stated: "3 documents gesture at this, none answers it" |
-| **answered** | yes | enough verified evidence to state a position, with what remains unresolved said plainly |
-| **contested** | yes | two sources in the corpus disagree, both verified, both receipts live — the page only a verification-first publication can publish |
+- **The evidence graded them moderate.** The commissioned research put
+  *statistics with a named source and date* top (GEO, 3 of 9 tactics) and
+  *question + sourced answer* only moderate. The spine was built on the weaker
+  finding.
+- **They compete with the documents.** Retrieval is passage-level, and a
+  site's own pages displace each other rather than compounding. 50 dense
+  documents are already bags of citable passages; a 2-4 sentence answer page
+  is thin beside a 45KB dossier and takes queries from it.
 
-The loop: an open question seeds a research run → the run produces a DOCUMENT
-→ extraction merges its evidence back onto that question → open becomes
-answered, and the new document raises new open questions.
+**Find patterns across the corpus; never let repeatability be the mechanism
+that decides what matters.** Cross-document detection is most of why extraction
+exists. But frequency is a tally standing in for a quality judgement, and a
+question worth chasing is worth chasing the first time it is asked. It is a
+especially bad proxy here: the documents are the operator's own research
+output, not independent sources, so three of them "agreeing" may be one
+upstream page echoing three times. The queue is therefore ordered recent-first
+— a list order, not a ranking.
 
-Two consequences worth stating, because both are easy to get wrong:
+The signals that ARE about quality are not counts: sources contradicting each
+other, a figure carrying a named source and a date, and the corpus raising
+something it cannot answer.
 
-- **Not 1-2 questions per document.** 15-25 DISTINCT questions across the whole
-  corpus, each fed by several documents. Per-document question pages compete
-  with their own source document for the same queries; a site's own pages
-  displace each other rather than compounding.
-- **The standing answer is model-drafted and operator-approved**, then frozen
-  into a row. Never generated at render (rule 5). A page carrying only stacked
-  quotes is a well-organised quote list, which is not worth a URL.
+What survives publicly is on the document's own page and creates no new URL:
+the **lead passage** (selected verbatim, never composed) and the **findings**
+block. Plus `/numbers`, one index of every verified figure — the
+strongest-evidenced primitive, and it duplicates no single document.
 
-## Standing rules — non-negotiable
+## Standing rules — non-negotiable## Standing rules — non-negotiable
 
 1. **Verification is mechanical, never vouched for.** Every published quote
    is checked as a literal substring of a stored source, with its byte offset

@@ -173,9 +173,28 @@ export interface OpenQuestion {
 /**
  * Questions the corpus raised and cannot yet answer — the research queue.
  *
- * These have no URL and never will until they clear the gate. Their value is
- * as a worklist: each one is a question this corpus provoked, with the size of
- * the gap attached, which is a far better research prompt than a topic.
+ * Operator-only; these have no public URL. Their value is as a worklist: each
+ * is a question the documents provoked, with what is missing attached, which
+ * is a far better research prompt than a topic.
+ *
+ * NOT RANKED BY HOW OFTEN A QUESTION RECURS.
+ *
+ * Finding patterns across the corpus is worth doing — that is most of why the
+ * extraction exists. What is wrong is letting REPEATABILITY BE THE MECHANISM
+ * that decides what matters. A question worth chasing is worth chasing the
+ * first time it is asked, and frequency is not a quality judgement, it is a
+ * tally standing in for one.
+ *
+ * It is a particularly bad proxy here. The documents are not independent
+ * sources: they are the operator's own research output and can share upstream
+ * pages and the same model's habits, so three of them "agreeing" may be one
+ * page echoing three times.
+ *
+ * The signals that ARE about quality survive elsewhere and are not counts:
+ * whether sources contradict each other (`contested`), whether a figure
+ * carries a named source and a date, and whether the corpus raises something
+ * it cannot answer. This ordering is therefore deliberately just stable and
+ * recent — a list order, not a ranking. The operator judges each on its own.
  */
 export async function openQuestions(
   db: D1Database,
@@ -195,7 +214,7 @@ export async function openQuestions(
             qs.answer_approved_at AS approved
        FROM aeo_questions qs
       WHERE qs.user_id = ? AND qs.status <> 'published'
-      ORDER BY evidence_count DESC, qs.created_at
+      ORDER BY qs.created_at DESC
       LIMIT ?`,
     [userId, limit],
   );

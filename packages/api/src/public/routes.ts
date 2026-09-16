@@ -8,7 +8,6 @@
 
 import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
-import { listPublishedQuestions } from "../graph/lib/aeo-extract";
 import { listCorpusFindings } from "../graph/lib/aeo-extract";
 import { all, one } from "../lib/d1";
 import { getPieceBySlug, listPublishedPieces, resolveOperatorId } from "./data";
@@ -16,7 +15,6 @@ import { htmlResponse } from "./layout";
 import { feedJson, llmsTxt, pieceMarkdown } from "./machine";
 import { renderAbout } from "./render/about";
 import { renderActivityPage } from "./render/activity";
-import { renderAnswerPage, renderAnswersIndex } from "./render/answers";
 import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
 import { renderFiguresIndex } from "./render/figures";
@@ -282,7 +280,11 @@ app.get("/robots.txt", () => {
 // liability rather than a neutral one.
 app.get("/sitemap.xml", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  const staticUrls = ["/", "/essays", "/research", "/answers", "/figures", "/about", "/method"];
+  // Empty indexes are NOT announced. layout.ts says it plainly about the nav —
+  // "thin pages are a ranking liability rather than a neutral one" — and a
+  // sitemap entry is the same promise made to a crawler. /numbers joins this
+  // list below, once it actually has rows.
+  const staticUrls = ["/", "/essays", "/research", "/about", "/method"];
   let pageUrls: Array<{ loc: string; lastmod: string }> = [];
   if (userId) {
     const pieces = await listPublishedPieces(c.env.DB, userId).catch(() => []);
@@ -299,12 +301,6 @@ app.get("/sitemap.xml", async (c) => {
     ).catch(() => []);
     pageUrls.push(
       ...rows.map((r) => ({ loc: `/s/${r.slug}`, lastmod: r.updated_at.slice(0, 10) })),
-    );
-    // Published answers are real pages and belong in the sitemap. Proposed
-    // ones are not listed here because they have no URL.
-    const answers = await listPublishedQuestions(c.env.DB, userId).catch(() => []);
-    pageUrls.push(
-      ...answers.map((a) => ({ loc: `/answers/${a.slug}`, lastmod: a.updated_at.slice(0, 10) })),
     );
   }
   const urlEntries = [...staticUrls.map((loc) => ({ loc, lastmod: "" })), ...pageUrls]
@@ -342,20 +338,13 @@ app.get("/", async (c) => htmlResponse(await renderFront(c.env)));
 
 app.get("/essays", async (c) => htmlResponse(await renderEssaysIndex(c.env)));
 
-// Answers — one page per question, shared across every document that answers
-// it. A question the gate has not passed has no page at all; it returns 404
-// rather than publishing something thin at a real URL.
-app.get("/answers", async (c) => htmlResponse(await renderAnswersIndex(c.env)));
-
-// /figures — the corpus's verified numbers on one page. One aggregate page
-// rather than one per figure: see render/figures.ts on why splitting it would
-// spend the advantage cannibalising itself.
-app.get("/figures", async (c) => htmlResponse(await renderFiguresIndex(c.env)));
-app.get("/answers/:slug", async (c) => {
-  const html = await renderAnswerPage(c.env, c.req.param("slug"));
-  if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
-  return htmlResponse(html);
-});
+// /numbers — every verified figure in the corpus on one page. One aggregate
+// page rather than one per figure: see render/figures.ts on why splitting it
+// would spend the advantage cannibalising itself. Was /figures, which is
+// ambiguous — illustrations or quantities? — and did not match the page's own
+// heading. The old path still resolves so nothing that linked it breaks.
+app.get("/numbers", async (c) => htmlResponse(await renderFiguresIndex(c.env)));
+app.get("/figures", (c) => c.redirect("/numbers", 301));
 app.get("/research", async (c) => htmlResponse(await renderResearchIndex(c.env)));
 
 // ---- Topics ---------------------------------------------------------------
@@ -592,13 +581,12 @@ app.get("/confirm", async (c) => {
 app.get("/llms.txt", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   const pieces = userId ? await listPublishedPieces(c.env.DB, userId).catch(() => []) : [];
-  const answers = userId ? await listPublishedQuestions(c.env.DB, userId).catch(() => []) : [];
   const figures = userId
     ? await listCorpusFindings(c.env.DB, userId, 1000)
         .then((f) => f.length)
         .catch(() => 0)
     : 0;
-  return new Response(llmsTxt(pieces, answers, figures), {
+  return new Response(llmsTxt(pieces, figures), {
     headers: {
       "content-type": "text/plain; charset=utf-8",
       "cache-control": "public, max-age=3600",

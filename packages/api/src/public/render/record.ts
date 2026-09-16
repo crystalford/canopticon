@@ -31,7 +31,7 @@ export async function renderEntityPage(env: PublicEnv, slug: string): Promise<st
 
   const body = `
 <section style="margin-bottom:28px">
-  <p class="kicker" style="margin-bottom:14px">${escapeHtml(kindText)} · the record</p>
+  <p class="kicker" style="margin-bottom:14px">${escapeHtml(kindText)}</p>
   <h1 style="font-family:var(--serif);font-size:42px;line-height:1.1;letter-spacing:-0.018em;margin:0 0 8px;color:var(--ink)">${escapeHtml(entity.canonical_name)}</h1>
   ${entity.current_role ? `<p style="font-family:var(--serif);font-size:19px;font-style:italic;color:var(--ink-3);margin:0 0 16px">${escapeHtml(entity.current_role)}</p>` : ""}
   ${bioHtml ? `<div class="prose" style="max-width:680px">${bioHtml}</div>` : entity.description ? `<p style="font-family:var(--serif);font-size:16px;line-height:1.6;color:var(--ink-2);max-width:680px">${escapeHtml(entity.description)}</p>` : ""}
@@ -40,8 +40,7 @@ ${appearsIn}
 `;
   return renderPage({
     title: entity.canonical_name,
-    description:
-      entity.current_role ?? entity.description ?? `${entity.canonical_name} — the record.`,
+    description: entity.current_role ?? entity.description ?? `${entity.canonical_name}`,
     body,
     activeNav: "/record",
     zone: "record",

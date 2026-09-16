@@ -345,8 +345,8 @@ async function renderNeutral(
       : "";
   const establishedBlockWithStandalone = established.length
     ? establishedBlock.replace(
-        `<div class="sec-k">On the record</div>`,
-        `<div class="sec-k">On the record <a class="sec-standalone" href="/profile/${escapeAttr(page.slug)}">see profile →</a>${translateProduceLink}</div>`,
+        `<div class="sec-k">In the documents</div>`,
+        `<div class="sec-k">In the documents <a class="sec-standalone" href="/profile/${escapeAttr(page.slug)}">see profile →</a>${translateProduceLink}</div>`,
       )
     : establishedBlock;
   const versusProduceLink =
@@ -409,13 +409,13 @@ async function renderNeutral(
     ? `<section class="shape-block" aria-label="What this page will contain">
   <div class="sec-k">What this file will hold</div>
   <ul>
-    <li><b>On the record</b> — documented facts about ${escapeHtml(subject.label)}, each backed by a word-for-word quote from a source.</li>
+    <li><b>In the documents</b> — documented facts about ${escapeHtml(subject.label)}, each backed by a word-for-word quote from a source.</li>
     <li><b>Disputed</b> — claims where the evidence is split or rebutted, shown as disputed, never quietly as fact.</li>
     <li><b>Timeline</b> — dated events involving this subject, in order.</li>
     <li><b>People</b> — the named people connected to it, and their role.</li>
     <li><b>Connections</b> — links to other files (ownership, employment, funding, membership).</li>
   </ul>
-  <p>Nothing has been read into this file yet. Source documents are read into the record automatically; this page grows from that.</p>
+  <p>Nothing has been read into this file yet. Source documents are read in automatically; this page grows from that.</p>
 </section>`
     : "";
 
@@ -453,7 +453,7 @@ async function renderNeutral(
         : ""
     }
   </div>
-  <p class="thin-body">This file has ${sourceCount.count} source${sourceCount.count === 1 ? "" : "s"} on record so far <span class="redact-bar" style="width:60px"></span> more may surface as the record grows.</p>
+  <p class="thin-body">This file has ${sourceCount.count} source${sourceCount.count === 1 ? "" : "s"} on record so far <span class="redact-bar" style="width:60px"></span> more may surface as the collection grows.</p>
 </div>`
     : "";
   const opAffordance =
@@ -461,7 +461,7 @@ async function renderNeutral(
       ? `<form method="POST" action="/op/records/${escapeAttr(page.slug)}/expand" class="op-aff" style="display:flex">
   <span class="op-aff-label">Operator</span>
   <button class="op-aff-btn op-aff-btn-action" type="submit">Expand this file →</button>
-  <span class="op-aff-hint">not much on file yet — click to search the web for ${escapeHtml(subject.label)} and read new sources into the record</span>
+  <span class="op-aff-hint">not much on file yet — click to search the web for ${escapeHtml(subject.label)} and read new sources in</span>
 </form>`
       : "";
   // Operator-directed drafting: pick a subject, optionally give it an
@@ -894,7 +894,7 @@ async function renderSigned(
       (a) => `<div class="complicate-item">
   <blockquote class="complicate-quote">"${escapeHtml(a.label)}"</blockquote>
   <div class="complicate-attribution">
-    ${a.actor ? `Asserted by <b>${escapeHtml(a.actor)}</b>` : "Unattributed assertion"} · ${a.rank === "contested" ? "contested in the record" : "weakly supported"}${a.piece_slug ? ` · <a href="/library/${escapeAttr(a.piece_slug)}">source ↗</a>` : ""}
+    ${a.actor ? `Asserted by <b>${escapeHtml(a.actor)}</b>` : "Unattributed assertion"} · ${a.rank === "contested" ? "contested by the documents" : "weakly supported"}${a.piece_slug ? ` · <a href="/library/${escapeAttr(a.piece_slug)}">source ↗</a>` : ""}
   </div>
 </div>`,
     )
@@ -1752,7 +1752,7 @@ function renderEstablishedBlock(facts: FactRow[]): string {
 </div>`;
     })
     .join("");
-  return `<section id="on-the-record" data-schema="ItemList"><div class="sec-k">On the record</div>${rows}</section>`;
+  return `<section id="on-the-record" data-schema="ItemList"><div class="sec-k">In the documents</div>${rows}</section>`;
 }
 
 function renderContestedBlock(rows: AssertionRow[], subjectLabel: string): string {
@@ -1767,7 +1767,7 @@ function renderContestedBlock(rows: AssertionRow[], subjectLabel: string): strin
   // how well-supported the claim is, not a score.
   //
   // The line under each card used to read the raw internal signal
-  // ("Evidence balance +0.0 · contested in the record") — meaningful to
+  // ("Evidence balance +0.0 · contested by the documents") — meaningful to
   // someone who knows the pipeline, opaque to everyone else. Reworded to
   // say what it actually means: is this well-supported, leaned-against, or
   // genuinely split, in plain words, not a score.
@@ -2013,7 +2013,7 @@ function renderProvenance(sourceCount: SourceStats, hasSigned: boolean, page: Pa
   } else {
     lines.push("No signed analysis of this subject yet.");
   }
-  lines.push("Nobody wrote this page — it is built from the record, automatically.");
+  lines.push("Nobody wrote this page — it is built from the documents, automatically.");
   return `<div id="on-file" class="prov">${lines.join("<br/>")}</div>`;
 }
 

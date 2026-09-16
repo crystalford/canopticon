@@ -263,11 +263,7 @@ export interface AnswerEntry {
   slug: string;
 }
 
-export function llmsTxt(
-  entries: LlmsEntry[],
-  answers: AnswerEntry[] = [],
-  figureCount = 0,
-): string {
+export function llmsTxt(entries: LlmsEntry[], figureCount = 0): string {
   const essays = entries.filter((e) => isEssay(e.kind));
   const research = entries.filter((e) => !isEssay(e.kind));
   const line = (e: LlmsEntry) =>
@@ -287,15 +283,6 @@ export function llmsTxt(
   if (research.length) {
     parts.push("## Research", "", ...research.map(line), "");
   }
-  if (answers.length) {
-    // Listed as questions, because that is the form a retrieval query takes.
-    parts.push(
-      "## Answers",
-      "",
-      ...answers.map((a) => `- [${a.question}](${SITE}/answers/${a.slug})`),
-      "",
-    );
-  }
   if (figureCount > 0) {
     // Named with its count, because the useful thing about this surface is
     // that it is a compiled set of verified statistics rather than one more
@@ -304,7 +291,7 @@ export function llmsTxt(
     parts.push(
       "## Figures",
       "",
-      `- [Every number on the record](${SITE}/figures): ${figureCount} statistics extracted from the documents above, each checked word-for-word against its source and linked to a receipt.`,
+      `- [Every number on the record](${SITE}/numbers): ${figureCount} statistics extracted from the documents above, each checked word-for-word against its source and linked to a receipt.`,
       "",
     );
   }

@@ -17,8 +17,8 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   if (!userId) {
     return renderPage({
-      title: "Browse the record",
-      description: "Every file in the record — people, companies, events, and themes.",
+      title: "Browse everything",
+      description: "People, companies, events and themes named in the documents.",
       body: emptyState("No operator yet."),
       activeNav: "/topics",
       zone: "topics",
@@ -64,8 +64,8 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
 
   if (subjects.length === 0) {
     return renderPage({
-      title: "Browse the record",
-      description: "Every file in the record — people, companies, events, and themes.",
+      title: "Browse everything",
+      description: "People, companies, events and themes named in the documents.",
       body: emptyState(
         "No subjects yet. Drop research reports in the Library — pages grow as documents are read.",
       ),
@@ -186,14 +186,14 @@ export async function renderTopicsIndex(env: PublicEnv): Promise<string> {
   <div class="kicker"><span class="live"></span> The Record</div>
   <h1 class="topics-hero">The Record</h1>
   <p class="topics-lede">
-    Every file in the record — the widely-held stories the documents push back on, the people
+    The widely-held stories the documents push back on, the people
     and companies named, the events on the timeline. Nobody wrote these pages; they grew as
     documents were read. Each one carries its receipts.
   </p>
   ${facetBar}
 </section>
 ${themesSection}
-${plainSection("People", "The named people in the record", people, "Person", "No people have been read into the record yet.")}
+${plainSection("People", "People named in the documents", people, "Person", "No people have been read out of the documents yet.")}
 ${plainSection("Companies & other", "Organizations, places, and other subjects", entities, "Entity", "Nothing recognised here yet — files grow as documents are read.")}
 ${plainSection("Events", "Dated occurrences", events, "Event", "Dated occurrences, extracted with their source quotes. No event files yet.")}
 
@@ -298,9 +298,9 @@ ${plainSection("Events", "Dated occurrences", events, "Event", "Dated occurrence
 `;
 
   return renderPage({
-    title: "Browse the record",
+    title: "Browse everything",
     description:
-      "Every file in the record — the people and companies named, the events on the timeline, and the widely-held stories the documents push back on.",
+      "The people and companies named, the events on the timeline, and the widely-held stories the documents push back on.",
     body,
     activeNav: "/topics",
     zone: "topics",
