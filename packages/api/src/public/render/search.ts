@@ -83,7 +83,7 @@ export async function renderSearchPage(
         payload: JSON.stringify({ query }),
       }).catch(() => {});
 
-      summary = `No matches for <b>${escapeHtml(query)}</b> in the record yet.`;
+      summary = `No matches for <b>${escapeHtml(query)}</b> yet.`;
       resultsBlock = `<div class="search-empty">Try a different phrasing, or check <a href="/topics">Topics</a> for browsable doorways.</div>`;
 
       const preview =
@@ -131,7 +131,7 @@ export async function renderSearchPage(
 
   const body = `
 <section class="search-section">
-  <h1 class="search-h1">Ask the record</h1>
+  <h1 class="search-h1">Search</h1>
   <form class="search-form" method="GET" action="/search">
     <input
       class="search-input"
@@ -184,8 +184,7 @@ export async function renderSearchPage(
 
   return renderPage({
     title: query ? `Search · "${query}" · canopticon` : "Search · canopticon",
-    description:
-      "Ask the record — search documented facts, disputed claims, signed analyses, and sources.",
+    description: "Search documented facts, disputed claims, analyses and sources.",
     body,
     activeNav: "/search",
   });

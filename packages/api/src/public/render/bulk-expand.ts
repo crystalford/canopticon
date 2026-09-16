@@ -46,7 +46,7 @@ export async function renderBulkExpandResult(
   <h1 class="bulk-h1">Expanding the thinnest subjects</h1>
   ${summary}
   <div class="bulk-list">${banners.join("")}</div>
-  <p class="bulk-back"><a href="/">← Back to the record</a></p>
+  <p class="bulk-back"><a href="/">← Back</a></p>
 </section>
 <style>
   .bulk-section { max-width: 760px; margin: 32px auto; padding: 0 24px 80px; }
@@ -61,7 +61,7 @@ export async function renderBulkExpandResult(
 
   return renderPage({
     title: `Expanding ${subjects.length} subjects · canopticon`,
-    description: "Bulk-expanding the thinnest subjects in the record.",
+    description: "Bulk-expanding the thinnest subjects.",
     body,
   });
 }
@@ -73,7 +73,7 @@ export function renderBulkExpandEmpty(): string {
     body: `<section class="bulk-section">
   <h1 class="bulk-h1">Nothing to expand right now</h1>
   <p>${escapeHtml("Every subject either has enough facts on file already, or was expanded too recently to try again.")}</p>
-  <p class="bulk-back"><a href="/">← Back to the record</a></p>
+  <p class="bulk-back"><a href="/">← Back</a></p>
 </section>
 <style>
   .bulk-section { max-width: 760px; margin: 32px auto; padding: 0 24px 80px; font-family: var(--serif); color: var(--ink-2); }

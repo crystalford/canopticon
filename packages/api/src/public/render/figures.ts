@@ -58,11 +58,10 @@ export async function renderFiguresIndex(env: PublicEnv): Promise<string> {
   // These two are siblings: one indexes the corpus's questions, the other its
   // numbers, and they should not look like different kinds of page.
   const body = `<header class="phead">
-  <div class="eyebrow">Figures</div>
-  <h1>Every number on the record</h1>
-  <p class="phead-dek">Each figure below was extracted from a document on this site and
-  checked word-for-word against it by machine. The sentence it came from is shown with
-  it, and every one links to its own receipt.${
+  <div class="eyebrow">Numbers</div>
+  <h1>Every number, with its source</h1>
+  <p class="phead-dek">Every number here comes from a document on this site, shown with the
+  sentence it came from.${
     findings.length
       ? ` Currently <b>${findings.length}</b> figure${findings.length === 1 ? "" : "s"} from <b>${sources}</b> document${sources === 1 ? "" : "s"}.`
       : ""
@@ -75,7 +74,7 @@ ${
 }`;
 
   return renderPage({
-    title: "Figures — Canopticon",
+    title: "Numbers — Canopticon",
     description:
       "Every statistic extracted from the Canopticon corpus, each checked word-for-word against its source document and linked to a verifiable receipt.",
     body: `${body}\n${ldScript({
@@ -84,15 +83,15 @@ ${
       name: "Canopticon verified figures",
       description:
         "Statistics extracted from primary research documents, each verified as a literal substring of its source and linked to a receipt.",
-      url: "https://canopticon.com/figures",
+      url: "https://canopticon.com/numbers",
       license: "https://creativecommons.org/licenses/by/4.0/",
       isAccessibleForFree: true,
       // Honest about size. A Dataset that overstates what it contains is the
       // same failure as a page that implies coverage it does not have.
       variableMeasured: [...new Set(findings.map((f) => f.measures))].slice(0, 50),
     })}`,
-    activeNav: "/figures",
+    activeNav: "/numbers",
     zone: "research",
-    canonical: "https://canopticon.com/figures",
+    canonical: "https://canopticon.com/numbers",
   });
 }

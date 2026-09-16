@@ -156,14 +156,24 @@ export async function getPieceBySlug(
 export async function listLibrary(
   db: D1Database,
   userId: string,
+  opts: { includeUnpublished?: boolean } = {},
 ): Promise<Array<PieceSummary & { metadata: string }>> {
   // metadata comes along so the operator's own view can surface the essay
   // lint notes stored at upload time (operator/routes.ts createAndExtract).
+  //
+  // WORKING-MATERIAL IS OPERATOR-ONLY. This had no status filter at all, so
+  // every unpublished draft was listed by title to anyone who opened /library
+  // — while its /p/<slug> correctly 404'd. That is the worst shape: the page
+  // is withheld and its existence is not. It also silently undid unpublishing
+  // anything, which is the mechanism this codebase uses instead of deleting.
+  const visibility = opts.includeUnpublished
+    ? ""
+    : " AND publication_status IN ('published','canonical')";
   return all<PieceSummary & { metadata: string }>(
     db,
     `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
             byline, published_at, signed_by, metadata
-       FROM pieces WHERE user_id = ?
+       FROM pieces WHERE user_id = ?${visibility}
       ORDER BY COALESCE(published_at, created_at) DESC`,
     [userId],
   );

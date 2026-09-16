@@ -435,7 +435,9 @@ export async function renderLibraryIndex(
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const { listLibrary } = await import("../data");
-  const pieces = userId ? await listLibrary(env.DB, userId) : [];
+  const pieces = userId
+    ? await listLibrary(env.DB, userId, { includeUnpublished: opts.isOperator === true })
+    : [];
 
   // working-material never gets a public page (renderPiece refuses it,
   // by design — see piece-template.ts) — EXCEPT an on-demand research
@@ -583,7 +585,7 @@ export async function renderLibraryIndex(
     const videoImportForm = opts.importing
       ? ""
       : `<form method="POST" action="/op/library/import-video" class="op-video-form">
-  <input type="url" name="url" placeholder="Paste a video URL to transcribe and add to the record" required class="op-video-input" />
+  <input type="url" name="url" placeholder="Paste a video URL to transcribe and add" required class="op-video-input" />
   <button type="submit" class="op-strip-btn">Import video</button>
 </form>`;
 
@@ -731,8 +733,8 @@ export async function renderLibraryIndex(
   // publication is recovering from.
   const queueBlock = open.length
     ? `<section class="op-queue">
-  <div class="op-queue-head">Questions the record raised and cannot answer
-    <span class="op-queue-note">Nothing here has a public page. Each is a research prompt with its gap measured.</span>
+  <div class="op-queue-head">Questions the documents raised and cannot answer
+    <span class="op-queue-note">Nothing here has a public page. Each is a question to chase, judged on its own.</span>
   </div>
   <ul class="op-queue-list">
 ${open
@@ -827,8 +829,8 @@ ${open
   <div class="kicker" style="margin-bottom:16px"><span class="live"></span> The raw research</div>
   <h1 style="font-family:var(--serif);font-size:40px;line-height:1.12;letter-spacing:-0.015em;margin:0 0 12px;color:var(--ink)">Library</h1>
   <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
-    Every document the rest is built on, kept whole. Each row shows what it fed the record —
-    facts extracted, subjects it touched. Working material feeds the record but
+    Every document the rest is built on, kept whole. Each row shows what it fed —
+    facts extracted, subjects it touched. Working material feeds the rest but
     doesn't get its own public page.
   </p>
 </section>
@@ -873,7 +875,7 @@ ${queueBlock}
   return renderPage({
     title: "Library",
     description:
-      "Every source document the rest is built on. Each row shows what it fed the record — facts extracted, subjects it touched.",
+      "Every source document the rest is built on. Each row shows what it fed — facts extracted, subjects it touched.",
     body,
     activeNav: "/library",
     zone: "library",

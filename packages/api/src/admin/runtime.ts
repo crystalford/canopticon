@@ -44,6 +44,20 @@ app.use("*", requireAuth());
 // ---------------------------------------------------------------------------
 
 /** SQL fragment: the operator's own uploads, never anything web-fetched. */
+/**
+ * The third population: output of the dormant autonomous research pipeline.
+ *
+ * Neither the operator's own uploads nor banked third-party pages, so neither
+ * of the guards below matches it — which is why the purge and the reslug both
+ * correctly stepped around it, and why anything acting on it needs its own
+ * filter rather than borrowing one aimed at something else.
+ *
+ * Guarded twice like its siblings: on `ingested_from`, and on the
+ * `auto-research` tag that deep-research.ts writes at persist time.
+ */
+export const DEEP_RESEARCH_SQL = `json_extract(metadata, '$.ingested_from') = 'deep-research'
+   AND (tags IS NULL OR tags LIKE '%auto-research%')`;
+
 export const OWN_UPLOADS_SQL = `json_extract(metadata, '$.ingested_from') = 'feed-upload'
    AND (tags IS NULL OR tags NOT LIKE '%web-fetched%')`;
 
@@ -552,6 +566,58 @@ app.get("/reslug", async (c) => {
     planned: planned.slice(0, 60),
     skipped: skipped.slice(0, 20),
     ...(execute ? {} : { note: "DRY RUN — re-call with &execute=1 to apply" }),
+  });
+});
+
+// GET /v1/admin/unpublish-briefs?confirm=1[&execute=1]
+//
+// The four published deep-research briefs are ~2KB pass-1 summaries of
+// third-party web pages: no quotes, no receipts, no figures, published under a
+// CC BY byline as this site's own work. The Joly brief's own closing section
+// says the sources do not support any detail. They are the weakest pages on a
+// site whose entire argument is provenance, and thin-content enforcement lands
+// on a whole domain rather than a page.
+//
+// They are also pass-1 output of a two-pass process: researchOnDemand defers
+// the follow-up searches and re-synthesis to advanceResearchRun, which only
+// ever ran from the cron. With the cron off they were frozen mid-process and
+// published anyway.
+//
+// UNPUBLISH, NEVER DELETE. The rows stay and only visibility changes, so this
+// is reversible by flipping the column back. They leave /research, the
+// sitemap, llms.txt and the feed, and renderPiece already refuses
+// working-material so /p/<slug> stops resolving. The operator still reaches
+// them: renderLibraryIndex links working-material drafts to the review screen.
+//
+// Dry run unless &execute=1.
+app.get("/unpublish-briefs", async (c) => {
+  if (c.req.query("confirm") !== "1") {
+    return c.json({ ok: false, error: "missing ?confirm=1" }, 400);
+  }
+  const execute = c.req.query("execute") === "1";
+  const userId = c.get("user_id");
+  const affected = await all<{ slug: string; title: string }>(
+    c.env.DB,
+    `SELECT slug, title FROM pieces
+      WHERE user_id = ? AND publication_status IN ('published','canonical')
+        AND ${DEEP_RESEARCH_SQL}`,
+    [userId],
+  );
+  if (execute) {
+    await run(
+      c.env.DB,
+      `UPDATE pieces SET publication_status = 'working-material', updated_at = ?
+        WHERE user_id = ? AND publication_status IN ('published','canonical')
+          AND ${DEEP_RESEARCH_SQL}`,
+      [new Date().toISOString(), userId],
+    );
+  }
+  return c.json({
+    ok: true,
+    execute,
+    count: affected.length,
+    pieces: affected,
+    ...(execute ? {} : { note: "DRY RUN — re-call with &execute=1 to unpublish" }),
   });
 });
 

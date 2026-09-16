@@ -159,9 +159,8 @@ export async function renderActivityPage(env: PublicEnv): Promise<string> {
   <h1 class="act-h1">Everything published, in order.</h1>
   <p class="act-lede">
     Signed analyses, editorial pieces, and legacy briefs — the three places content
-    actually goes live on this site — in one chronological list. Anything flagged
-    <b>AI-drafted</b> was drafted with AI assistance and read by the editor before
-    publication; every quote in it is checked verbatim against a stored source.
+    actually goes live on this site — in one chronological list. Every quote on this
+    site is checked word-for-word against a stored source.
   </p>
 </section>
 
