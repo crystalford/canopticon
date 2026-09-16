@@ -112,10 +112,6 @@ interface PieceCtx {
   lede?: LedeRow | null;
 }
 
-// The figure, what it measures, when, who reported it, and the sentence it
-// came from — with a link to that quote's own receipt. A statistic stated
-// beside its named source and date is the single best-evidenced shape for
-// being cited, and it is exactly what the verification layer already produces.
 /**
  * The passage a retriever is meant to lift, placed before the body so it is
  * the first prose on the page.
@@ -133,6 +129,10 @@ function renderLede(lede: LedeRow | null | undefined): string {
 </div>`;
 }
 
+// The figure, what it measures, when, who reported it, and the sentence it
+// came from — with a link to that quote's own receipt. A statistic stated
+// beside its named source and date is the single best-evidenced shape for
+// being cited, and it is exactly what the verification layer already produces.
 function renderFindings(findings: FindingRow[] | undefined): string {
   if (!findings?.length) return "";
   const rows = findings

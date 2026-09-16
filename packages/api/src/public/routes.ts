@@ -9,6 +9,7 @@
 import { Hono } from "hono";
 import type { AuthContext } from "../auth/middleware";
 import { listPublishedQuestions } from "../graph/lib/aeo-extract";
+import { listCorpusFindings } from "../graph/lib/aeo-extract";
 import { all, one } from "../lib/d1";
 import { getPieceBySlug, listPublishedPieces, resolveOperatorId } from "./data";
 import { htmlResponse } from "./layout";
@@ -18,6 +19,7 @@ import { renderActivityPage } from "./render/activity";
 import { renderAnswerPage, renderAnswersIndex } from "./render/answers";
 import { renderBriefPage } from "./render/brief";
 import { renderCitationsPage } from "./render/citations";
+import { renderFiguresIndex } from "./render/figures";
 import { renderFront } from "./render/front";
 import { renderEssaysIndex, renderResearchIndex } from "./render/indexes";
 import { renderInstrumentsIndex } from "./render/instruments";
@@ -280,7 +282,7 @@ app.get("/robots.txt", () => {
 // liability rather than a neutral one.
 app.get("/sitemap.xml", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
-  const staticUrls = ["/", "/essays", "/research", "/answers", "/about", "/method"];
+  const staticUrls = ["/", "/essays", "/research", "/answers", "/figures", "/about", "/method"];
   let pageUrls: Array<{ loc: string; lastmod: string }> = [];
   if (userId) {
     const pieces = await listPublishedPieces(c.env.DB, userId).catch(() => []);
@@ -344,6 +346,11 @@ app.get("/essays", async (c) => htmlResponse(await renderEssaysIndex(c.env)));
 // it. A question the gate has not passed has no page at all; it returns 404
 // rather than publishing something thin at a real URL.
 app.get("/answers", async (c) => htmlResponse(await renderAnswersIndex(c.env)));
+
+// /figures — the corpus's verified numbers on one page. One aggregate page
+// rather than one per figure: see render/figures.ts on why splitting it would
+// spend the advantage cannibalising itself.
+app.get("/figures", async (c) => htmlResponse(await renderFiguresIndex(c.env)));
 app.get("/answers/:slug", async (c) => {
   const html = await renderAnswerPage(c.env, c.req.param("slug"));
   if (!html) return htmlResponse(renderNotFound(c.req.path), { status: 404 });
@@ -586,7 +593,12 @@ app.get("/llms.txt", async (c) => {
   const userId = await resolveOperatorId(c.env.DB);
   const pieces = userId ? await listPublishedPieces(c.env.DB, userId).catch(() => []) : [];
   const answers = userId ? await listPublishedQuestions(c.env.DB, userId).catch(() => []) : [];
-  return new Response(llmsTxt(pieces, answers), {
+  const figures = userId
+    ? await listCorpusFindings(c.env.DB, userId, 1000)
+        .then((f) => f.length)
+        .catch(() => 0)
+    : 0;
+  return new Response(llmsTxt(pieces, answers, figures), {
     headers: {
       "content-type": "text/plain; charset=utf-8",
       "cache-control": "public, max-age=3600",

@@ -445,6 +445,48 @@ export async function findingsForPiece(
   );
 }
 
+export interface CorpusFinding extends FindingRow {
+  piece_slug: string;
+  piece_title: string;
+  body_head: string | null;
+  published_at: string | null;
+}
+
+/**
+ * Every verified figure in the corpus, for the one aggregate page.
+ *
+ * ONE page, not one per figure. A statistic beside its named source and date
+ * is the strongest-evidenced citable primitive there is, and compiling them is
+ * closer to original data than commentary is — the March 2026 core update
+ * rewarded exactly that. But a site's own pages displace each other rather
+ * than compounding, so splitting this into hundreds of thin figure pages would
+ * spend that advantage cannibalising itself.
+ *
+ * Published pieces only: a figure whose source document is not public has no
+ * provenance a reader can follow, which is the only thing that makes it worth
+ * anything here.
+ */
+export async function listCorpusFindings(
+  db: D1Database,
+  userId: string,
+  limit = 500,
+): Promise<CorpusFinding[]> {
+  return all<CorpusFinding>(
+    db,
+    `SELECT f.id, f.figure, f.measures, f.period, f.attributed_to,
+            f.quote_id, f.model, q.verbatim_text,
+            p.slug AS piece_slug, p.title AS piece_title, p.published_at,
+            SUBSTR(p.body_md, 1, 400) AS body_head
+       FROM findings f
+       JOIN quotes q ON q.id = f.quote_id
+       JOIN pieces p ON p.id = f.piece_id
+      WHERE f.user_id = ? AND p.publication_status IN ('published','canonical')
+      ORDER BY COALESCE(p.published_at, p.created_at) DESC, f.created_at
+      LIMIT ?`,
+    [userId, limit],
+  );
+}
+
 export interface QuestionRow {
   id: string;
   question: string;

@@ -29,6 +29,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: "/essays", label: "Essays" },
   { href: "/research", label: "Research" },
   { href: "/answers", label: "Answers" },
+  { href: "/figures", label: "Figures" },
   { href: "/about", label: "About" },
 ];
 
@@ -188,6 +189,7 @@ function renderFooter(): string {
       <a href="/essays">Essays</a>
       <a href="/research">Research</a>
       <a href="/answers">Answers</a>
+      <a href="/figures">Figures</a>
       <a href="/about">About</a>
       <a href="/method">Method</a>
       <a href="/search">Search</a>

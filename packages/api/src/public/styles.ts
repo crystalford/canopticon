@@ -2095,6 +2095,16 @@ pre.convention {
 }
 .atom-lede-act { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
 @media (max-width: 620px) { .atom-lede { flex-direction: column; } }
+
+/* ---- /figures ------------------------------------------------------------
+   Reuses the .finding vocabulary from the document page rather than inventing
+   a second one — it is the same object, shown in a different place. The extra
+   row is provenance: which document it came from, and the receipt. */
+.fig-list { margin-top: 26px; }
+.fig-row { margin-bottom: 18px; }
+.fig-prov { margin-top: 7px; font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
+.fig-prov a { color: var(--ink-2); text-decoration: none; }
+.fig-prov a:hover { color: var(--accent); }
 .provenance a:hover { text-decoration: underline; }
 
 /* ---- essay body --------------------------------------------------------- */

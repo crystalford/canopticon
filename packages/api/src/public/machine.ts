@@ -263,7 +263,11 @@ export interface AnswerEntry {
   slug: string;
 }
 
-export function llmsTxt(entries: LlmsEntry[], answers: AnswerEntry[] = []): string {
+export function llmsTxt(
+  entries: LlmsEntry[],
+  answers: AnswerEntry[] = [],
+  figureCount = 0,
+): string {
   const essays = entries.filter((e) => isEssay(e.kind));
   const research = entries.filter((e) => !isEssay(e.kind));
   const line = (e: LlmsEntry) =>
@@ -289,6 +293,18 @@ export function llmsTxt(entries: LlmsEntry[], answers: AnswerEntry[] = []): stri
       "## Answers",
       "",
       ...answers.map((a) => `- [${a.question}](${SITE}/answers/${a.slug})`),
+      "",
+    );
+  }
+  if (figureCount > 0) {
+    // Named with its count, because the useful thing about this surface is
+    // that it is a compiled set of verified statistics rather than one more
+    // page of prose — and a statistic beside its named source and date is the
+    // shape most likely to be worth lifting.
+    parts.push(
+      "## Figures",
+      "",
+      `- [Every number on the record](${SITE}/figures): ${figureCount} statistics extracted from the documents above, each checked word-for-word against its source and linked to a receipt.`,
       "",
     );
   }
