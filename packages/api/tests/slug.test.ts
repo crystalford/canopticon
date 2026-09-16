@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { looksLikeMachineSlug, pieceSlug } from "../src/lib/slug";
+import { displayTitle, looksLikeGenericTitle, looksLikeMachineFilename } from "../src/lib/title";
 
 describe("recognising a filename pretending to be a URL", () => {
   it("catches the shape the whole corpus shipped with", () => {
@@ -62,5 +63,59 @@ describe("building a slug a person would recognise", () => {
   it("produces nothing rather than junk when there is no title", () => {
     expect(pieceSlug("")).toBe("");
     expect(pieceSlug("—")).toBe("");
+  });
+});
+
+describe("titles that name a section instead of the work", () => {
+  it("catches the generic headings the live corpus published under", () => {
+    // Measured in the corpus: "Profile", "Title and Executive Summary".
+    // The extractor takes the first heading, which is right most of the time
+    // and wrong in exactly this way.
+    for (const t of ["Profile", "Introduction", "Title and Executive Summary", "Overview"]) {
+      expect(looksLikeGenericTitle(t)).toBe(true);
+    }
+  });
+
+  it("does not fire on a real title", () => {
+    for (const t of [
+      "The Carney Performance",
+      "Did Banning Airbnb Actually Fix Canadian Housing?",
+      "Research Brief: Negative Partisanship",
+    ]) {
+      expect(looksLikeGenericTitle(t)).toBe(false);
+    }
+  });
+
+  it("looks past a generic heading to the real one in the body", () => {
+    expect(
+      displayTitle("Profile", "## Profile\n\n## Mark Carney and the Bank of England\n\nText"),
+    ).toBe("Mark Carney and the Bank of England");
+  });
+
+  it("keeps the subject when a generic word only prefixes it", () => {
+    expect(displayTitle("Introduction: The Pattern in Brief", "")).toBe("The Pattern in Brief");
+  });
+
+  it("strips a stray markdown heading mark", () => {
+    expect(displayTitle("# A Comprehensive Map of McLuhan's Thought", "")).toBe(
+      "A Comprehensive Map of McLuhan's Thought",
+    );
+  });
+
+  it("catches a filename whose download suffix added whitespace", () => {
+    // The live corpus has `..._text_markdown (1).md`. The " (1)" is whitespace,
+    // and the "anything with a space was written by a person" rule let it
+    // publish as a page title.
+    expect(
+      looksLikeMachineFilename(
+        "compass_artifact_wf-5af5d7fc-a6be-44e5-a7bb-c4b8b2100877_text_markdown (1).md",
+      ),
+    ).toBe(true);
+  });
+
+  it("still refuses to rename a short filename-ish title", () => {
+    // The length floor outranks the extension check; over-correcting a real
+    // title is worse than letting one odd one through.
+    expect(looksLikeMachineFilename("notes.md")).toBe(false);
   });
 });

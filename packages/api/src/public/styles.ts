@@ -2057,16 +2057,23 @@ pre.convention {
 .ev figcaption a:hover { color: var(--accent); }
 .ev-receipt { color: var(--ink-mute) !important; }
 
-/* ---- the unreviewed flag ------------------------------------------------
-   A real banner, not a chip. It says no human has read the page you are
-   about to read, which is the single most important thing on it. */
-.unreviewed {
-  display: block; margin: 0 0 20px; padding: 11px 15px;
-  border: 1px solid var(--corr-bd); border-left: 2px solid var(--correction);
-  border-radius: var(--r-sm); background: var(--corr-bg);
-  font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+/* ---- the provenance note -------------------------------------------------
+   Was .unreviewed, styled in the correction palette because it was a warning:
+   "no operator has read this". It is not a warning any more. It names who is
+   responsible and how the quotes are checked, which is a credential, so it
+   reads as a quiet note rather than an alarm above the headline.
+
+   Still a block rather than a chip, because it has to survive being the first
+   thing an answer engine lifts off the page along with the H1. */
+.provenance {
+  display: block; margin: 0 0 20px; padding: 10px 14px;
+  border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+  border-radius: var(--r-sm); background: var(--paper-2);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.55;
   letter-spacing: 0.02em; color: var(--ink-2);
 }
+.provenance a { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.provenance a:hover { text-decoration: underline; }
 
 /* ---- essay body --------------------------------------------------------- */
 .essay-body section { margin: 0 0 30px; scroll-margin-top: 24px; }
