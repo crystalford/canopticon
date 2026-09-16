@@ -29,7 +29,7 @@ const OUT = path.resolve(
   process.argv[2] ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".look"),
 );
 
-const { env, ALL } = await import("./fixture.mts");
+const { env } = await import("./fixture.mts");
 
 const server = http.createServer(async (req, res) => {
   try {
