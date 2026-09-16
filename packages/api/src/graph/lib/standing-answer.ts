@@ -71,7 +71,7 @@ export async function draftStandingAnswer(
 ): Promise<DraftResult> {
   const q = await one<{ question: string }>(
     env.DB,
-    "SELECT question FROM questions WHERE id = ? AND user_id = ?",
+    "SELECT question FROM aeo_questions WHERE id = ? AND user_id = ?",
     [questionId, userId],
   );
   if (!q) return { ok: false, reason: "no such question" };
@@ -79,7 +79,7 @@ export async function draftStandingAnswer(
   const evidence = await all<{ answer_text: string; piece_title: string }>(
     env.DB,
     `SELECT e.answer_text, p.title AS piece_title
-       FROM question_evidence e JOIN pieces p ON p.id = e.piece_id
+       FROM aeo_question_evidence e JOIN pieces p ON p.id = e.piece_id
       WHERE e.user_id = ? AND e.question_id = ?
         AND p.publication_status IN ('published','canonical')
       ORDER BY e.created_at`,
@@ -132,7 +132,7 @@ export async function draftStandingAnswer(
   // thing the approval step exists to prevent.
   await run(
     env.DB,
-    `UPDATE questions
+    `UPDATE aeo_questions
         SET standing_answer = ?, answer_approved_at = NULL, contested = ?, updated_at = ?
       WHERE id = ? AND user_id = ?`,
     [answer, contested ? 1 : 0, new Date().toISOString(), questionId, userId],
@@ -148,13 +148,13 @@ export async function approveStandingAnswer(
 ): Promise<boolean> {
   const row = await one<{ standing_answer: string | null }>(
     env.DB,
-    "SELECT standing_answer FROM questions WHERE id = ? AND user_id = ?",
+    "SELECT standing_answer FROM aeo_questions WHERE id = ? AND user_id = ?",
     [questionId, userId],
   );
   if (!row?.standing_answer) return false;
   await run(
     env.DB,
-    "UPDATE questions SET answer_approved_at = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+    "UPDATE aeo_questions SET answer_approved_at = ?, updated_at = ? WHERE id = ? AND user_id = ?",
     [new Date().toISOString(), new Date().toISOString(), questionId, userId],
   );
   return true;
@@ -185,15 +185,15 @@ export async function openQuestions(
   return all<OpenQuestion>(
     db,
     `SELECT qs.id, qs.question,
-            (SELECT COUNT(*) FROM question_evidence e WHERE e.question_id = qs.id)
+            (SELECT COUNT(*) FROM aeo_question_evidence e WHERE e.question_id = qs.id)
               AS evidence_count,
-            (SELECT COUNT(DISTINCT e2.piece_id) FROM question_evidence e2
+            (SELECT COUNT(DISTINCT e2.piece_id) FROM aeo_question_evidence e2
               WHERE e2.question_id = qs.id) AS sources,
             (SELECT COALESCE(SUM(LENGTH(e3.answer_text) - LENGTH(REPLACE(e3.answer_text,' ','')) + 1), 0)
-               FROM question_evidence e3 WHERE e3.question_id = qs.id) AS answer_words,
+               FROM aeo_question_evidence e3 WHERE e3.question_id = qs.id) AS answer_words,
             CASE WHEN qs.standing_answer IS NULL THEN 0 ELSE 1 END AS has_draft,
             qs.answer_approved_at AS approved
-       FROM questions qs
+       FROM aeo_questions qs
       WHERE qs.user_id = ? AND qs.status <> 'published'
       ORDER BY evidence_count DESC, qs.created_at
       LIMIT ?`,

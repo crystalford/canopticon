@@ -25,7 +25,7 @@
 -- findings — a figure, what it measures, when, and who reported it.
 -- The strongest-evidenced primitive, and the one the verification layer was
 -- already built for.
-CREATE TABLE findings (
+CREATE TABLE aeo_findings (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   piece_id TEXT NOT NULL REFERENCES pieces(id) ON DELETE CASCADE,
@@ -39,7 +39,7 @@ CREATE TABLE findings (
   attributed_to TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-CREATE INDEX findings_piece_idx ON findings (user_id, piece_id);
+CREATE INDEX findings_piece_idx ON aeo_findings(user_id, piece_id);
 
 -- ---------------------------------------------------------------------------
 -- questions — one row per distinct question, NOT one per document.
@@ -53,7 +53,7 @@ CREATE INDEX findings_piece_idx ON findings (user_id, piece_id);
 -- rather than compounding — so N near-duplicate pages is worse than one page
 -- with N sources. Merging is what makes the corpus get stronger as documents
 -- are added rather than more diluted.
-CREATE TABLE questions (
+CREATE TABLE aeo_questions (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   question TEXT NOT NULL,
@@ -66,24 +66,24 @@ CREATE TABLE questions (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-CREATE UNIQUE INDEX questions_user_norm_idx ON questions (user_id, question_norm);
-CREATE UNIQUE INDEX questions_user_slug_idx ON questions (user_id, slug);
-CREATE INDEX questions_user_status_idx ON questions (user_id, status);
+CREATE UNIQUE INDEX questions_user_norm_idx ON aeo_questions(user_id, question_norm);
+CREATE UNIQUE INDEX questions_user_slug_idx ON aeo_questions(user_id, slug);
+CREATE INDEX questions_user_status_idx ON aeo_questions(user_id, status);
 
 -- ---------------------------------------------------------------------------
 -- question_evidence — the answers, each one a verified span from a document.
 -- Several documents can answer the same question; that is the point.
-CREATE TABLE question_evidence (
+CREATE TABLE aeo_question_evidence (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  question_id TEXT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+  question_id TEXT NOT NULL REFERENCES aeo_questions(id) ON DELETE CASCADE,
   piece_id TEXT NOT NULL REFERENCES pieces(id) ON DELETE CASCADE,
   quote_id TEXT NOT NULL REFERENCES quotes(id) ON DELETE CASCADE,
   answer_text TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
-CREATE INDEX question_evidence_q_idx ON question_evidence (user_id, question_id);
-CREATE INDEX question_evidence_piece_idx ON question_evidence (user_id, piece_id);
+CREATE INDEX question_evidence_q_idx ON aeo_question_evidence(user_id, question_id);
+CREATE INDEX question_evidence_piece_idx ON aeo_question_evidence(user_id, piece_id);
 -- One document answers a given question once.
 CREATE UNIQUE INDEX question_evidence_unique_idx
-  ON question_evidence (question_id, piece_id, quote_id);
+  ON aeo_question_evidence(question_id, piece_id, quote_id);

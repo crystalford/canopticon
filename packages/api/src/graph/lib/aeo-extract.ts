@@ -230,7 +230,7 @@ export async function extractAeoAtoms(
       }
       await run(
         env.DB,
-        `INSERT INTO findings
+        `INSERT INTO aeo_findings
            (id, user_id, piece_id, quote_id, figure, measures, period, attributed_to, model)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
@@ -274,7 +274,7 @@ export async function extractAeoAtoms(
       // The unique index absorbs a repeat of the same (question, piece, quote).
       await run(
         env.DB,
-        `INSERT OR IGNORE INTO question_evidence
+        `INSERT OR IGNORE INTO aeo_question_evidence
            (id, user_id, question_id, piece_id, quote_id, answer_text, model)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [crypto.randomUUID(), userId, merged.id, pieceId, quoteId, located(chunk, answer), model],
@@ -306,7 +306,7 @@ async function upsertQuestion(
   if (!norm) return null;
   const existing = await one<{ id: string }>(
     env.DB,
-    "SELECT id FROM questions WHERE user_id = ? AND question_norm = ?",
+    "SELECT id FROM aeo_questions WHERE user_id = ? AND question_norm = ?",
     [userId, norm],
   );
   if (existing) return { id: existing.id, created: false };
@@ -317,14 +317,14 @@ async function upsertQuestion(
   let slug = questionSlug(question);
   const clash = await one<{ id: string }>(
     env.DB,
-    "SELECT id FROM questions WHERE user_id = ? AND slug = ?",
+    "SELECT id FROM aeo_questions WHERE user_id = ? AND slug = ?",
     [userId, slug],
   );
   if (clash) slug = `${slug}-${id.slice(0, 6)}`;
 
   await run(
     env.DB,
-    `INSERT INTO questions (id, user_id, question, question_norm, slug, status)
+    `INSERT INTO aeo_questions (id, user_id, question, question_norm, slug, status)
      VALUES (?, ?, ?, ?, ?, 'proposed')`,
     [id, userId, question, norm, slug],
   );
@@ -341,12 +341,15 @@ export async function clearAeoAtoms(env: Env, userId: string, pieceId: string): 
   // evidence just changed.
   const touched = await all<{ question_id: string }>(
     env.DB,
-    "SELECT DISTINCT question_id FROM question_evidence WHERE user_id = ? AND piece_id = ?",
+    "SELECT DISTINCT question_id FROM aeo_question_evidence WHERE user_id = ? AND piece_id = ?",
     [userId, pieceId],
   );
 
-  await run(env.DB, "DELETE FROM findings WHERE user_id = ? AND piece_id = ?", [userId, pieceId]);
-  await run(env.DB, "DELETE FROM question_evidence WHERE user_id = ? AND piece_id = ?", [
+  await run(env.DB, "DELETE FROM aeo_findings WHERE user_id = ? AND piece_id = ?", [
+    userId,
+    pieceId,
+  ]);
+  await run(env.DB, "DELETE FROM aeo_question_evidence WHERE user_id = ? AND piece_id = ?", [
     userId,
     pieceId,
   ]);
@@ -354,8 +357,8 @@ export async function clearAeoAtoms(env: Env, userId: string, pieceId: string): 
   // leaving an empty shell that the gate would refuse anyway.
   await run(
     env.DB,
-    `DELETE FROM questions WHERE user_id = ?
-       AND NOT EXISTS (SELECT 1 FROM question_evidence e WHERE e.question_id = questions.id)`,
+    `DELETE FROM aeo_questions WHERE user_id = ?
+       AND NOT EXISTS (SELECT 1 FROM aeo_question_evidence e WHERE e.question_id = aeo_questions.id)`,
     [userId],
   );
 
@@ -389,19 +392,19 @@ export async function regateQuestions(
   for (const questionId of questionIds) {
     const q = await one<{ status: string }>(
       env.DB,
-      "SELECT status FROM questions WHERE id = ? AND user_id = ?",
+      "SELECT status FROM aeo_questions WHERE id = ? AND user_id = ?",
       [questionId, userId],
     );
     if (!q || q.status !== "published") continue;
 
     const rows = await all<{ answer_text: string }>(
       env.DB,
-      "SELECT answer_text FROM question_evidence WHERE user_id = ? AND question_id = ?",
+      "SELECT answer_text FROM aeo_question_evidence WHERE user_id = ? AND question_id = ?",
       [userId, questionId],
     );
     const approved = await one<{ answer_approved_at: string | null }>(
       env.DB,
-      "SELECT answer_approved_at FROM questions WHERE id = ? AND user_id = ?",
+      "SELECT answer_approved_at FROM aeo_questions WHERE id = ? AND user_id = ?",
       [questionId, userId],
     );
     const gate = gateQuestion({
@@ -413,7 +416,7 @@ export async function regateQuestions(
 
     await run(
       env.DB,
-      "UPDATE questions SET status = 'proposed', updated_at = ? WHERE id = ? AND user_id = ?",
+      "UPDATE aeo_questions SET status = 'proposed', updated_at = ? WHERE id = ? AND user_id = ?",
       [new Date().toISOString(), questionId, userId],
     );
     demoted++;
@@ -444,7 +447,7 @@ export async function findingsForPiece(
     db,
     `SELECT f.id, f.figure, f.measures, f.period, f.attributed_to,
             f.quote_id, q.verbatim_text, f.model
-       FROM findings f JOIN quotes q ON q.id = f.quote_id
+       FROM aeo_findings f JOIN quotes q ON q.id = f.quote_id
       WHERE f.user_id = ? AND f.piece_id = ?
       ORDER BY f.created_at`,
     [userId, pieceId],
@@ -483,7 +486,7 @@ export async function listCorpusFindings(
             f.quote_id, f.model, q.verbatim_text,
             p.slug AS piece_slug, p.title AS piece_title, p.published_at,
             SUBSTR(p.body_md, 1, 400) AS body_head
-       FROM findings f
+       FROM aeo_findings f
        JOIN quotes q ON q.id = f.quote_id
        JOIN pieces p ON p.id = f.piece_id
       WHERE f.user_id = ? AND p.publication_status IN ('published','canonical')
@@ -513,14 +516,14 @@ export async function questionsForPiece(
   return all<QuestionRow>(
     db,
     `SELECT qs.id, qs.question, qs.slug, qs.status,
-            (SELECT COUNT(*) FROM question_evidence e2 WHERE e2.question_id = qs.id) AS evidence_count,
+            (SELECT COUNT(*) FROM aeo_question_evidence e2 WHERE e2.question_id = qs.id) AS evidence_count,
             (SELECT COALESCE(SUM(LENGTH(e3.answer_text) - LENGTH(REPLACE(e3.answer_text,' ','')) + 1), 0)
-               FROM question_evidence e3 WHERE e3.question_id = qs.id) AS answer_words,
+               FROM aeo_question_evidence e3 WHERE e3.question_id = qs.id) AS answer_words,
             (SELECT GROUP_CONCAT(DISTINCT e4.model)
-               FROM question_evidence e4 WHERE e4.question_id = qs.id) AS models
-       FROM questions qs
+               FROM aeo_question_evidence e4 WHERE e4.question_id = qs.id) AS models
+       FROM aeo_questions qs
       WHERE qs.user_id = ?
-        AND EXISTS (SELECT 1 FROM question_evidence e WHERE e.question_id = qs.id AND e.piece_id = ?)
+        AND EXISTS (SELECT 1 FROM aeo_question_evidence e WHERE e.question_id = qs.id AND e.piece_id = ?)
       ORDER BY evidence_count DESC, qs.created_at`,
     [userId, pieceId],
   );
@@ -543,7 +546,7 @@ export async function evidenceForQuestion(
     db,
     `SELECT e.answer_text, e.quote_id, p.slug AS piece_slug, p.title AS piece_title,
             SUBSTR(p.body_md, 1, 400) AS body_head
-       FROM question_evidence e JOIN pieces p ON p.id = e.piece_id
+       FROM aeo_question_evidence e JOIN pieces p ON p.id = e.piece_id
       WHERE e.user_id = ? AND e.question_id = ?
         AND p.publication_status IN ('published','canonical')
       ORDER BY e.created_at`,
@@ -569,8 +572,8 @@ export async function listPublishedQuestions(
   return all(
     db,
     `SELECT qs.id, qs.question, qs.slug, qs.updated_at
-       FROM questions qs
-       JOIN question_evidence e ON e.question_id = qs.id
+       FROM aeo_questions qs
+       JOIN aeo_question_evidence e ON e.question_id = qs.id
        JOIN pieces p ON p.id = e.piece_id
       WHERE qs.user_id = ? AND qs.status = 'published'
         AND p.publication_status IN ('published','canonical')
@@ -598,7 +601,7 @@ export async function getQuestionBySlug(
   return one(
     db,
     `SELECT id, question, slug, status, standing_answer, answer_approved_at, contested
-       FROM questions WHERE user_id = ? AND slug = ?`,
+       FROM aeo_questions WHERE user_id = ? AND slug = ?`,
     [userId, slug],
   );
 }
@@ -611,14 +614,14 @@ export async function publishQuestion(
 ): Promise<{ ok: boolean; reason: string | null }> {
   const rows = await all<{ answer_text: string }>(
     env.DB,
-    "SELECT answer_text FROM question_evidence WHERE user_id = ? AND question_id = ?",
+    "SELECT answer_text FROM aeo_question_evidence WHERE user_id = ? AND question_id = ?",
     [userId, questionId],
   );
   // A page with quotes but no approved standing answer is a quote list. The
   // gate refuses it — see lib/aeo.ts and migration 0054.
   const q = await one<{ answer_approved_at: string | null }>(
     env.DB,
-    "SELECT answer_approved_at FROM questions WHERE id = ? AND user_id = ?",
+    "SELECT answer_approved_at FROM aeo_questions WHERE id = ? AND user_id = ?",
     [questionId, userId],
   );
   const gate = gateQuestion({
@@ -629,7 +632,7 @@ export async function publishQuestion(
   if (!gate.publishable) return { ok: false, reason: gate.reason };
   await run(
     env.DB,
-    "UPDATE questions SET status = 'published', updated_at = ? WHERE id = ? AND user_id = ?",
+    "UPDATE aeo_questions SET status = 'published', updated_at = ? WHERE id = ? AND user_id = ?",
     [new Date().toISOString(), questionId, userId],
   );
   return { ok: true, reason: null };

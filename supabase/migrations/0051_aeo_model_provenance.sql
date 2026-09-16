@@ -13,5 +13,5 @@
 -- Nullable on purpose: rows written before this migration were all produced by
 -- the bulk_extraction default, but backfilling that would be asserting
 -- something no record actually says. An honest NULL beats a confident guess.
-ALTER TABLE findings ADD COLUMN model TEXT;
-ALTER TABLE question_evidence ADD COLUMN model TEXT;
+ALTER TABLE aeo_findings ADD COLUMN model TEXT;
+ALTER TABLE aeo_question_evidence ADD COLUMN model TEXT;
