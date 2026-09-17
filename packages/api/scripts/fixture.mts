@@ -139,6 +139,62 @@ the table above is a statement rather than an omission.
 2. Public Accounts 2025. Receiver General, 2025.
 `;
 
+// Findings, so the screenshots show the thing that was built rather than an
+// empty block. Two of these are deliberate:
+//
+//   · The first three quote RESEARCH_BODY word-for-word, including one span
+//     that STRADDLES A HARD WRAP, which is the case that made render-time
+//     matching necessary in the first place.
+//   · The last one quotes a sentence that is NOT in the body. That is not an
+//     oversight — body_md can be rewritten after extraction with no
+//     re-verification, so a finding whose quote has gone missing is a real
+//     state, and the page must show it in the findings list while quietly
+//     linking nothing inline. If that path ever starts throwing or linking
+//     text that is not there, a screenshot will show it.
+const FINDINGS = [
+  {
+    id: "f1",
+    figure: "+18.8%",
+    measures: "Health department estimate, year over year",
+    period: "2025-2026",
+    attributed_to: "Treasury Board Secretariat",
+    quote_id: "q-health",
+    verbatim_text: "Three departments account for most of the year-over-year movement",
+    model: null,
+  },
+  {
+    id: "f2",
+    figure: "+32.3%",
+    measures: "Housing department estimate, year over year",
+    period: "2025-2026",
+    attributed_to: "Treasury Board Secretariat",
+    // Straddles a newline in RESEARCH_BODY.
+    quote_id: "q-housing",
+    verbatim_text: "The housing figure is the one worth pausing on",
+    model: null,
+  },
+  {
+    id: "f3",
+    figure: "3-6%",
+    measures: "Divergence of actuals from tabled estimates",
+    period: "historical",
+    attributed_to: "Public Accounts",
+    quote_id: "q-variance",
+    verbatim_text: "Percentages are computed from the unrounded source values",
+    model: null,
+  },
+  {
+    id: "f4",
+    figure: "$1.2B",
+    measures: "A figure whose sentence is no longer in the document",
+    period: "2024",
+    attributed_to: "Receiver General",
+    quote_id: "q-missing",
+    verbatim_text: "This sentence does not appear anywhere in the body text.",
+    model: null,
+  },
+];
+
 const row = (slug: string, title: string, subtitle: string, kind: string, i: number) => ({
   id: slug,
   slug,
@@ -214,6 +270,14 @@ function makeDb(): D1Database {
               negated ? !kinds.includes(p.kind) : kinds.includes(p.kind),
             ),
           };
+        }
+        // Findings join aeo_findings to quotes; the piece id is the second
+        // bound value. Only research carries them, so the essay page still
+        // exercises the no-findings path.
+        if (/FROM aeo_findings/i.test(sql)) {
+          const pieceId = bound[1];
+          const piece = ALL.find((p) => p.id === pieceId);
+          return { results: piece && piece.kind !== "essay" ? FINDINGS : [] };
         }
         return { results: [] };
       },

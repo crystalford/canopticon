@@ -124,7 +124,12 @@ export async function renderQuoteReceipt(env: PublicEnv, quoteId: string): Promi
 
   const offsetLine =
     quote.byte_offset !== null && quote.byte_length !== null
-      ? `<div class="q-offset">Byte offset ${quote.byte_offset} · length ${quote.byte_length} bytes</div>`
+      ? // NOT "byte offset", and NOT a document position. locateVerbatim uses
+        // indexOf/slice, so these are UTF-16 character indices, and they are
+        // measured against the extraction window — a ~3000-char chunk whose
+        // index is never stored — rather than the document. Labelling them
+        // honestly is the whole point of this page.
+        `<div class="q-offset">Position ${quote.byte_offset} · ${quote.byte_length} characters <span class="q-offset-note">(within the extraction window)</span></div>`
       : "";
 
   const body = `
@@ -158,8 +163,9 @@ export async function renderQuoteReceipt(env: PublicEnv, quoteId: string): Promi
 
   <aside class="q-method">
     <div class="q-method-k">How this quote is verified</div>
-    <p>Every quote on canopticon is a <b>literal substring</b> of a stored source document. Whitespace differences are tolerated; word substitutions are not. The original document bytes are preserved in object storage at upload time; this quote is a span inside them.</p>
-    <p>The byte offset above is the exact position in the document. The check is mechanical and re-runs on every publish — if the source ever changes underneath this quote, the substring check fails and the citing page is pulled.</p>
+    <p>Every quote on canopticon is a <b>literal substring</b> of a stored source document. Whitespace differences are tolerated; word substitutions are not. The original file is preserved in object storage at upload time; this quote is a span inside the text extracted from it.</p>
+    <p>The check is mechanical, not vouched for. It runs when the quote is extracted, and again every time the document's own page is rendered: the span is located in the document afresh, and <b>if it can no longer be found, nothing is linked</b> — the page will not point at text that is not there.</p>
+    <p class="q-caveat">The position recorded above is relative to the window the extractor read, not to the whole document, and it is a character count rather than a byte count. It is kept because it is what was measured; it is not a citable coordinate, and this page would rather say so than imply a precision it does not have.</p>
   </aside>
 </article>
 
@@ -226,6 +232,8 @@ export async function renderQuoteReceipt(env: PublicEnv, quoteId: string): Promi
     color: var(--ink-3);
     letter-spacing: .02em;
   }
+  .q-offset-note { color: var(--ink-mute); }
+  .q-caveat { color: var(--ink-3); }
 
   .q-citing { margin-bottom: 36px; }
   .q-citing .sec-k {

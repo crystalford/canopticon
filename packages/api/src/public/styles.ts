@@ -321,6 +321,63 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
 .prose a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
 .prose a:hover { border-bottom-color: var(--accent); }
 
+/* ---- the inline receipt --------------------------------------------------
+   A verified passage, linked in the sentence it came from rather than in a
+   block at the foot of the page. Retrieval is passage-level: a claim in one
+   chunk with its proof in another gets lifted WITHOUT the proof, which is the
+   one thing this publication exists to prevent.
+
+   It deliberately does NOT look like an ordinary link. A link says go
+   elsewhere; this says this has been checked, and you can see the check. So:
+   the reading colour is kept, the underline is a hairline dotted rule, and a
+   small mark follows. Only on hover does it take the accent and admit to
+   being clickable.
+
+   Restraint is the whole design here. Highlighted inline links do not
+   measurably slow reading or hurt comprehension, but the distraction effect
+   scales with DENSITY — so only findings are linked, a handful per document,
+   never every entity. That last part is the wiki failure mode. */
+.prose a.receipt {
+  color: inherit;
+  /* Rendered at --ink-faint the dotted rule was invisible on the dark ground,
+     which left the check mark floating with nothing under it. --ink-3 reads
+     as a deliberate mark without competing with the text. */
+  text-decoration: underline dotted var(--ink-3);
+  text-underline-offset: 3.5px;
+  text-decoration-thickness: 1px;
+  scroll-margin-top: 80px;
+}
+.prose a.receipt::after {
+  content: "✓";
+  margin-left: 0.18em;
+  font-family: var(--sans);
+  font-size: 0.6em;
+  vertical-align: 0.45em;
+  color: var(--accent);
+  letter-spacing: 0;
+}
+.prose a.receipt:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.prose a.receipt:hover::after { color: var(--accent); }
+/* Arriving from the findings block: flash the passage so the eye lands on it
+   rather than merely scrolling near it. */
+.prose a.receipt:target {
+  background: var(--accent-wash, rgba(224,67,60,0.10));
+  border-bottom-color: var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px var(--accent-wash, rgba(224,67,60,0.10));
+}
+
+.finding-links { display: flex; gap: 16px; align-items: center; margin-top: 9px; }
+.finding-context {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-mute); text-decoration: none;
+}
+.finding-context:hover { color: var(--accent); }
+.finding-links .finding-receipt { margin-top: 0; }
+
 @media (max-width: 720px) {
   .prose { font-size: 17.5px; }
   .prose h2 { font-size: 21px; }

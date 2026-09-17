@@ -180,9 +180,23 @@ dev server; this is the fastest way to see a change without deploying.
   breaking: `curl -A GPTBot https://canopticon.com/`. **Only the operator can
   run this** — an agent sandbox's egress policy denies canopticon.com, and a
   403 from that proxy looks nothing like a 403 from Cloudflare.
-- **Extraction reads at most ~72KB of any document** (`MAX_CHUNKS = 3` in
-  `digestion-typed.ts`). Fine for timelines and quotes; don't imply the graph
-  has read a whole book.
+- **Extraction reads at most ~72KB of any document** — `MAX_CHUNKS = 3` in
+  **`graph/lib/aeo-extract.ts`**, against `chunkText`'s 24KB default. (This
+  file used to credit `digestion-typed.ts`; that module exports a `MAX_CHUNKS`
+  too, but nothing imports it, and the real chunker is `digestion.ts` at 3,000
+  chars × 32.) Fine for timelines and quotes; don't imply the graph has read a
+  whole book.
+- **`quotes.byte_offset` is not a document position and must never be used as
+  one.** It is measured against whatever string the writer happened to hold:
+  a ~3,000-char chunk in `digestion-typed.ts` (the bulk of the corpus, and the
+  chunk index is never stored), one of three 24KB chunks in `aeo-extract.ts`,
+  and only in `lede.ts` a true prefix of `body_md`. `chunkText` also re-joins
+  blocks with `"\n\n"` and carries an 800-char overlap, so a chunk is not even
+  a contiguous slice — the offset can be wrong in principle, not merely
+  shifted. They are character indices, not bytes. **To find a quote inside a
+  document, call `locateVerbatim(body_md, verbatim_text)` at render time**, as
+  `public/render/receipts.ts` does. `/q/<id>` used to tell readers the offset
+  was "the exact position in the document", and that was false.
 - **Email is built but unconfigured.** `lib/email.ts` sends via Resend over
   HTTP (a Worker cannot do SMTP). Signup now sends a confirmation, `/confirm`
   spends the token, and `/v1/admin/announce?slug=…` mails one published piece

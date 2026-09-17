@@ -78,6 +78,14 @@ export function renderInlineMarkdown(md: string): string {
     // both the link and the URL — leaving the raw markdown in place would
     // print the rejected URL to the reader, which is the thing we declined.
     if (!/^(https?:\/\/|mailto:|\/|#)/i.test(href)) return text;
+    // A receipt is not an ordinary link and should not read like one. It gets
+    // its own class so the reading column can mark it as "checked" rather than
+    // "go elsewhere", and an id so the findings block can point at the place
+    // in the document where the passage actually sits.
+    const receipt = href.match(/^\/q\/([A-Za-z0-9_-]+)$/);
+    if (receipt) {
+      return `<a class="receipt" id="q-${receipt[1]}" href="${href}">${text}</a>`;
+    }
     const ext = /^https?:\/\//i.test(href);
     const rel = ext ? ' rel="nofollow noopener" target="_blank"' : "";
     return `<a href="${href}"${rel}>${text}</a>`;
