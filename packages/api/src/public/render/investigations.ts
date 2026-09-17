@@ -465,9 +465,21 @@ function renderLeads(leads: Lead[]): string {
       const receipt = l.quote_id
         ? ` <a class="lead-receipt" href="/q/${escapeAttr(l.quote_id)}">quote ↗</a>`
         : "";
+      // The dig button. The seed and angle ride along in the form because a
+      // lead is a query result, not a stored row — and the angle is what
+      // makes the run worth starting: a run seeded with a bare topic returns
+      // a topic's worth of material.
+      const dig = l.seed
+        ? `
+      <form method="POST" action="/op/leads/dig" class="lead-dig-form">
+        <input type="hidden" name="seed" value="${escapeAttr(l.seed)}" />
+        <input type="hidden" name="angle" value="${escapeAttr(l.angle)}" />
+        <button type="submit" class="lead-dig">Dig here →</button>
+      </form>`
+        : "";
       return `    <li class="lead lead-${escapeAttr(l.kind)}">
       <span class="lead-k">${escapeHtml(label)}</span>
-      <span class="lead-sum">${escapeHtml(l.summary)}</span>${other}${receipt}
+      <span class="lead-sum">${escapeHtml(l.summary)}</span>${other}${receipt}${dig}
     </li>`;
     })
     .join("\n");

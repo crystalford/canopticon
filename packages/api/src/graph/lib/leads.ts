@@ -50,6 +50,19 @@ export interface Lead {
   other_piece_slug?: string | null;
   other_piece_title?: string | null;
   created_at: string;
+  /**
+   * What to search for if this lead is pulled, and why.
+   *
+   * These live here rather than in the renderer because they are part of what
+   * the lead IS. A research run seeded with a bare topic comes back with a
+   * topic's worth of material; seeded with the reason it was worth running,
+   * it comes back with an answer to something. The existing open-question
+   * button already works this way and it is the difference between "housing
+   * spending" and "two documents disagree about housing spending — which is
+   * right".
+   */
+  seed: string;
+  angle: string;
 }
 
 /**
@@ -118,6 +131,10 @@ export async function contradictionLeads(
     kind: "contradiction" as const,
     summary: `Two documents disagree: "${r.src_label}" ${r.edge_type} "${r.dst_label}"`,
     detail: r.verbatim_text ?? r.src_label,
+    seed: r.src_label,
+    angle:
+      `Two documents already on the record disagree about this. One says "${r.src_label}"; ` +
+      `the other says "${r.dst_label}". Find what a primary source says, and which is right.`,
     quote_id: r.quote_id,
     piece_id: r.piece_id,
     piece_slug: r.piece_slug,
@@ -178,6 +195,10 @@ export async function unsourcedFigureLeads(
     kind: "unsourced-figure" as const,
     summary: `${r.figure} — ${r.measures}, with no source named anywhere in the corpus`,
     detail: r.verbatim_text ?? r.figure,
+    seed: `${r.figure} ${r.measures}`,
+    angle:
+      "This figure appears on the record with no source named anywhere in it. " +
+      "Find who first reported it, when, and on what basis.",
     quote_id: r.quote_id,
     piece_id: r.piece_id,
     piece_slug: r.piece_slug,

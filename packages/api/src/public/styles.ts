@@ -2207,6 +2207,16 @@ pre.convention {
   font-family: var(--mono); font-size: 10px; color: var(--ink-mute); text-decoration: none;
 }
 .lead-other:hover, .lead-receipt:hover { color: var(--accent); }
+/* Following a lead is the act that grows the corpus, so the affordance reads
+   as an invitation rather than as another piece of metadata. */
+.lead-dig-form { display: inline; margin: 0; }
+.lead-dig {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; cursor: pointer; padding: 3px 9px;
+  border: 1px solid var(--rule-bright); border-radius: 4px;
+  background: transparent; color: var(--ink-3);
+}
+.lead-dig:hover { border-color: var(--accent); color: var(--accent); }
 .atom-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-mute); white-space: nowrap; }
 .atom-live { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--confirmed); }
 .atom-blocked { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); cursor: help; }
