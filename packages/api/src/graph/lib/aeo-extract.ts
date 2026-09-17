@@ -39,6 +39,16 @@ import { locateVerbatim } from "./digestion-typed";
 
 /** Matches the existing extractor's ceiling — about 72KB of any document. */
 const MAX_CHUNKS = 3;
+
+/**
+ * How much of a document this pass actually reads, in characters.
+ *
+ * Not simply MAX_CHUNKS x 24,000: chunkText carries an 800-char overlap tail
+ * into each subsequent chunk, so the covered span is smaller than the summed
+ * chunk length. Exported so the ingestion receipt can state the real figure
+ * instead of a rounder, friendlier, wrong one — standing rule 6.
+ */
+export const EXTRACTION_CHAR_CEILING = MAX_CHUNKS * 24000 - (MAX_CHUNKS - 1) * 800;
 const MAX_TOKENS = 3000;
 
 const PROMPT = `You read a research document and pull out only what can be CITED.

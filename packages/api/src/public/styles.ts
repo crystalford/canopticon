@@ -2169,6 +2169,44 @@ pre.convention {
 .atom-list { list-style: none; margin: 9px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .atom-list li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; }
 .atom-q { color: var(--ink-2); }
+
+/* ---- the ingestion receipt ----------------------------------------------
+   What the system did with a document, in the row of the document it is
+   about. The coverage line comes first and is styled to be READ rather than
+   skimmed past: a receipt that leads with how many spans were verified, while
+   staying quiet about the 75KB nobody looked at, implies a completeness the
+   system does not have. */
+.rcpt { margin-top: 8px; font-family: var(--mono); font-size: 11px; line-height: 1.55; }
+.rcpt-line { color: var(--ink-mute); }
+.rcpt-counts { color: var(--ink-3); margin-top: 2px; }
+.rcpt-counts b { color: var(--ink-2); font-weight: 600; }
+/* The gap is the honest part, so it is the part that carries colour. */
+.rcpt-gap { color: var(--accent-2, var(--ink-3)); }
+.rcpt-full { color: var(--ink-mute); }
+/* Not-extracted is a prompt to act, so it reads as a state rather than as an
+   absence of one. */
+.rcpt-none { color: var(--ink-3); font-style: italic; }
+
+/* ---- leads ---------------------------------------------------------------
+   Where the corpus is strange. Each is a query result, not a judgement — the
+   system points, it does not narrate. Ordered by recency, which is a list
+   order and never a ranking. */
+.lead-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.lead {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline;
+  padding: 5px 0 5px 10px; border-left: 2px solid var(--rule-bright);
+  margin-bottom: 4px;
+}
+.lead-contradiction { border-left-color: var(--accent); }
+.lead-k {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-mute); white-space: nowrap;
+}
+.lead-sum { font-family: var(--sans); font-size: 12.5px; color: var(--ink-2); }
+.lead-other, .lead-receipt {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-mute); text-decoration: none;
+}
+.lead-other:hover, .lead-receipt:hover { color: var(--accent); }
 .atom-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-mute); white-space: nowrap; }
 .atom-live { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--confirmed); }
 .atom-blocked { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); cursor: help; }

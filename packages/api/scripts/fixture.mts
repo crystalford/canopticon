@@ -188,12 +188,48 @@ const FINDINGS = [
     figure: "$1.2B",
     measures: "A figure whose sentence is no longer in the document",
     period: "2024",
-    attributed_to: "Receiver General",
+    // No attribution, deliberately: this makes f4 serve twice over. It is the
+    // quote-has-gone-missing case for the inline splice AND the
+    // unsourced-figure lead, so both render without a fifth fixture row.
+    attributed_to: null,
     quote_id: "q-missing",
     verbatim_text: "This sentence does not appear anywhere in the body text.",
     model: null,
   },
 ];
+
+// A contradiction between TWO documents — the lead type that cannot exist
+// inside a single document by definition, and therefore the one a
+// single-document fixture can never show.
+const CONTRADICTIONS = [
+  {
+    src_label: "Housing rose 32.3% year over year",
+    dst_label: "Housing funding was unchanged in 2026",
+    edge_type: "contradicts",
+    quote_id: "q-housing",
+    verbatim_text: "The housing figure is the one worth pausing on",
+    piece_id: "budget-2026-estimates",
+    piece_slug: "budget-2026-estimates",
+    piece_title: "Budget 2026: Main Estimates",
+    other_slug: "transfer-payments-2025",
+    other_title: "Transfer Payments 2025",
+    created_at: "2026-09-12T00:00:00.000Z",
+  },
+];
+
+// Per-piece extraction counts. Keyed by slug because the fixture uses the slug
+// as the piece id.
+//
+// budget-2026-estimates reports a body far larger than the fixture's actual
+// text. That is on purpose and it is the only way to render the TRUNCATED
+// branch of the receipt without carrying a 70KB string in this file — and the
+// truncated branch is the one that matters most, because it is the one that
+// admits the system did not read the whole document.
+const EXTRACTION = new Map<string, { quotes: number; nodes: number; body_chars: number }>([
+  ["budget-2026-estimates", { quotes: 47, nodes: 112, body_chars: 145300 }],
+  ["housing-starts-q3", { quotes: 12, nodes: 31, body_chars: 8400 }],
+  ["transfer-payments-2025", { quotes: 9, nodes: 22, body_chars: 15200 }],
+]);
 
 const row = (slug: string, title: string, subtitle: string, kind: string, i: number) => ({
   id: slug,
@@ -220,7 +256,7 @@ const row = (slug: string, title: string, subtitle: string, kind: string, i: num
   argument_summary_md: null,
   created_at: `2026-0${(i % 9) + 1}-1${i % 9}T00:00:00.000Z`,
   updated_at: "2026-09-10T00:00:00.000Z",
-  body_chars: (kind === "essay" ? BODY : RESEARCH_BODY).length,
+  body_chars: EXTRACTION.get(slug)?.body_chars ?? (kind === "essay" ? BODY : RESEARCH_BODY).length,
 });
 
 const ALL = [
@@ -271,13 +307,67 @@ function makeDb(): D1Database {
             ),
           };
         }
-        // Findings join aeo_findings to quotes; the piece id is the second
-        // bound value. Only research carries them, so the essay page still
-        // exercises the no-findings path.
+        // listLibrary, in its OPERATOR form. With includeUnpublished it drops
+        // the publication_status filter entirely, so it matches neither the
+        // branch above nor the one below and fell through to an empty list —
+        // which rendered /library as "No documents yet" for the operator while
+        // the public indexes were full.
+        if (/FROM pieces/i.test(sql) && /ORDER BY COALESCE\(published_at/i.test(sql)) {
+          return { results: ALL };
+        }
+        // The receipt's own body_chars lookup: no publication_status filter,
+        // so it falls past the branch above.
+        if (/FROM pieces/i.test(sql) && /body_chars/i.test(sql)) {
+          return { results: ALL.map((p) => ({ id: p.id, body_chars: p.body_chars })) };
+        }
+        // Three different queries hit aeo_findings and they need different
+        // shapes. Distinguish by what each one asks for, not by argument
+        // position — a fixture that answers the wrong shape renders a
+        // confident, meaningless page.
         if (/FROM aeo_findings/i.test(sql)) {
+          // Unsourced-figure leads.
+          if (/attributed_to IS NULL/i.test(sql)) {
+            return {
+              results: FINDINGS.filter((f) => !f.attributed_to).map((f) => ({
+                ...f,
+                piece_id: "budget-2026-estimates",
+                piece_slug: "budget-2026-estimates",
+                piece_title: "Budget 2026: Main Estimates",
+                created_at: "2026-09-13T00:00:00.000Z",
+              })),
+            };
+          }
+          // Grouped counts, per piece.
+          if (/GROUP BY piece_id/i.test(sql)) {
+            return {
+              results: [...EXTRACTION.keys()].map((slug) => ({
+                piece_id: slug,
+                n: FINDINGS.length,
+              })),
+            };
+          }
+          // findingsForPiece: the piece id is the second bound value. Only
+          // research carries findings, so the essay page still exercises the
+          // no-findings path.
           const pieceId = bound[1];
           const piece = ALL.find((p) => p.id === pieceId);
           return { results: piece && piece.kind !== "essay" ? FINDINGS : [] };
+        }
+        // Contradiction leads.
+        if (/FROM edges/i.test(sql) && /evidential/i.test(sql)) {
+          return { results: CONTRADICTIONS };
+        }
+        // Verified-span counts, per piece.
+        if (/FROM quotes/i.test(sql) && /GROUP BY sn\.piece_id/i.test(sql)) {
+          return {
+            results: [...EXTRACTION].map(([slug, e]) => ({ piece_id: slug, n: e.quotes })),
+          };
+        }
+        // Typed-graph node counts, per piece.
+        if (/FROM nodes/i.test(sql) && /GROUP BY piece_id/i.test(sql)) {
+          return {
+            results: [...EXTRACTION].map(([slug, e]) => ({ piece_id: slug, n: e.nodes })),
+          };
         }
         return { results: [] };
       },
@@ -295,12 +385,20 @@ function makeDb(): D1Database {
   } as unknown as D1Database;
 }
 
+// A known secret so look.mts can sign an operator session and actually SEE
+// the operator-only surfaces. /library is where uploading happens and where
+// the ingestion receipt renders; without this the screenshot tool could only
+// ever photograph the signed-out page, which is the same blind spot that let
+// the research-document rendering bug reach the operator instead of me.
+export const SESSION_SECRET = "look-fixture-secret";
+
 const env = {
   SUPABASE_URL: "http://localhost:54321",
   SUPABASE_SERVICE_ROLE_KEY: "test",
   ANTHROPIC_API_KEY: "test",
   OPENPARLIAMENT_USER_AGENT: "test",
   LOG_LEVEL: "error",
+  SESSION_SECRET,
   DB: makeDb(),
 };
 
