@@ -76,6 +76,69 @@ Checking takes time; the signal is instant. A live audience cannot pause to veri
 2. Postman, N. Amusing Ourselves to Death. Viking, 1985.
 `;
 
+// A RESEARCH DOCUMENT IS NOT SHAPED LIKE AN ESSAY, and for a long time this
+// fixture pretended it was: every piece, research included, rendered the essay
+// body above. So look.mts screenshotted a tidy Q&A page six times and reported
+// that the site looked fine, while the actual research pages rendered as walls
+// of text with raw pipe characters in them. The operator found that; the tool
+// built to find it could not, for the same reason the comment below already
+// gives about the provenance banner.
+//
+// This is what a deep-research run actually hands over: pipe tables,
+// hard-wrapped paragraphs, nested lists, a long section with no subheading, a
+// blockquote, and a sources list. Every one of those is a construct that was
+// silently unsupported. If a change makes documents look worse, it should be
+// visible in .look/research.png before anyone else has to see it.
+const RESEARCH_BODY = `Departmental spending for the 2026 cycle was tabled on 4 March. This
+extract covers the main estimates only; supplementary estimates A and B
+are not included and had not been tabled at time of writing.
+
+## What the estimates show
+
+Three departments account for most of the year-over-year movement. The
+remainder are within normal variance and are listed in the appendix for
+completeness rather than because anything turns on them.
+
+| Department | 2025 ($M) | 2026 ($M) | Change |
+| --- | ---: | ---: | ---: |
+| Health | 1,204 | 1,430 | +18.8% |
+| Transport | 880 | 812 | −7.7% |
+| Housing | 455 | 602 | +32.3% |
+| Defence | 2,310 | 2,344 | +1.5% |
+
+The housing figure is the one worth pausing on. It is the largest
+proportional increase in the table, and the estimate document attributes
+it to a single program transfer rather than to new money:
+
+> The increase reflects the consolidation of the Affordable Housing
+> Initiative into the departmental envelope. It does not represent
+> incremental appropriation.
+
+That distinction matters for any comparison against prior years, because
+the same dollars appeared under a different vote in 2025.
+
+## Method and limits
+
+- Figures are as tabled, not as spent. Actuals diverge from estimates,
+  historically by 3–6% at the departmental level.
+  - Lapsed funding is the usual cause.
+  - Reprofiling accounts for most of the remainder.
+- Percentages are computed from the unrounded source values, so they will
+  not always reproduce exactly from the rounded columns shown above.
+- No adjustment has been made for inflation.
+
+## Appendix: departments within variance
+
+Every remaining department moved by less than two percent in either
+direction. They are listed here so that the absence of a department from
+the table above is a statement rather than an omission.
+
+## Sources
+
+1. Main Estimates 2026-27. Treasury Board Secretariat, 4 March 2026.
+2. Public Accounts 2025. Receiver General, 2025.
+`;
+
 const row = (slug: string, title: string, subtitle: string, kind: string, i: number) => ({
   id: slug,
   slug,
@@ -87,7 +150,7 @@ const row = (slug: string, title: string, subtitle: string, kind: string, i: num
   byline: null,
   published_at: `2026-0${(i % 9) + 1}-1${i % 9}T00:00:00.000Z`,
   signed_by: null,
-  body_md: BODY,
+  body_md: kind === "essay" ? BODY : RESEARCH_BODY,
   body_html: null,
   chain_id: null,
   // The first research fixture carries `auto-research`, which is what gates
@@ -101,7 +164,7 @@ const row = (slug: string, title: string, subtitle: string, kind: string, i: num
   argument_summary_md: null,
   created_at: `2026-0${(i % 9) + 1}-1${i % 9}T00:00:00.000Z`,
   updated_at: "2026-09-10T00:00:00.000Z",
-  body_chars: BODY.length,
+  body_chars: (kind === "essay" ? BODY : RESEARCH_BODY).length,
 });
 
 const ALL = [

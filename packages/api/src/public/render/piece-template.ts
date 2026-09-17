@@ -11,7 +11,6 @@
 // CSS classes are all already in styles.ts (lifted verbatim from the
 // design build); this file is template + section-parser only.
 
-import { renderMarkdown } from "../../cms/lib/render-post";
 import { type FindingRow, findingsForPiece } from "../../graph/lib/aeo-extract";
 import { type LedeRow, ledeForPiece } from "../../graph/lib/lede";
 import { resolveByline, showsUpdate } from "../../lib/byline";
@@ -36,6 +35,11 @@ import {
   pieceTitle,
   pieceUrl,
 } from "../machine";
+// The publication's own renderer, NOT the CMS one. A document is not a post:
+// it arrives as an uploaded file carrying tables, nested lists and
+// hard-wrapped prose, none of which the CMS renderer handles — which is what
+// made a research dossier render as a wall of text. See render/markdown.ts.
+import { renderInlineMarkdown, renderMarkdown } from "./markdown";
 
 /** Bylines that name the machinery rather than an author. Never rendered. */
 
@@ -863,11 +867,7 @@ function renderSourceLog(md: string): string {
 // Render Markdown inline (no <p> wrap). Used for list items + finding
 // bodies where we want emphasis/links but not paragraph spacing.
 function renderInline(md: string): string {
-  let html = renderMarkdown(md);
-  // Strip a single leading/trailing <p> for inline contexts.
-  html = html.trim();
-  html = html.replace(/^<p>/, "").replace(/<\/p>$/, "");
-  return html;
+  return renderInlineMarkdown(md);
 }
 
 function confDots(level: string): string {

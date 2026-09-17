@@ -220,6 +220,115 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   color: var(--ink-2); text-wrap: pretty;
 }
 
+/* ---- the reading column, for everything inside a document body ----------
+   Until now .prose styled exactly one element: p. Everything else a real
+   research document carries — headings, lists, quotes, tables, code — fell
+   through to browser defaults, on a dark ground, at the wrong font. That is
+   the whole of the copy-paste look.
+
+   It is not only cosmetic. Retrieval is passage-level: a section that runs
+   past roughly 300 words with no visible subheading makes a model hunt for
+   the passage inside a wall of text, and that measurably lowers the odds of
+   being cited. Structure here IS retrieval structure. */
+
+.prose > :first-child { margin-top: 0; }
+.prose > :last-child  { margin-bottom: 0; }
+
+/* Headings step down in size but hold the sans voice, so a document's
+   skeleton is legible at a glance and at a scroll. */
+.prose h2, .prose h3, .prose h4 {
+  font-family: var(--sans); font-weight: 600; letter-spacing: -0.02em;
+  line-height: 1.22; color: var(--ink); text-wrap: balance;
+}
+.prose h2 { font-size: 24px; margin: 2em 0 0.65em; }
+.prose h3 { font-size: 19px; margin: 1.8em 0 0.55em; }
+.prose h4 {
+  font-size: 14px; margin: 1.6em 0 0.5em; font-family: var(--mono);
+  font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.prose h2 + h3 { margin-top: 1.1em; }
+
+/* Every heading is a citation target. The marker is quiet until hover so it
+   is available without littering the reading column with punctuation. */
+.prose :is(h2, h3, h4) .anchor-link { color: inherit; text-decoration: none; }
+.prose :is(h2, h3, h4) .anchor-link:hover { color: var(--accent); }
+.prose :is(h2, h3, h4) .anchor-link::after {
+  content: "#"; margin-left: 0.4em; color: var(--ink-faint);
+  font-family: var(--mono); font-size: 0.7em; opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.prose :is(h2, h3, h4):hover .anchor-link::after { opacity: 1; }
+
+.prose ul, .prose ol { margin: 0 0 1.1em; padding-left: 1.4em; }
+.prose li { margin-bottom: 0.4em; text-wrap: pretty; }
+.prose li:last-child { margin-bottom: 0; }
+.prose li > ul, .prose li > ol { margin: 0.4em 0 0; }
+.prose ul { list-style: none; padding-left: 1.1em; }
+.prose ul > li { position: relative; }
+.prose ul > li::before {
+  content: ""; position: absolute; left: -1.1em; top: 0.62em;
+  width: 4px; height: 4px; border-radius: 50%; background: var(--ink-faint);
+}
+/* Not decoration: on a Sources block these markers ARE the citation numbers
+   that [1] in the body points at, so they have to be readable. */
+.prose ol > li::marker { color: var(--ink-3); font-family: var(--mono); font-size: 0.85em; }
+
+/* A quotation is the one place a document speaks in another voice, so it
+   gets the accent rule rather than a grey slab. */
+.prose blockquote {
+  margin: 1.5em 0; padding: 0.15em 0 0.15em 1.15em;
+  border-left: 2px solid var(--accent); color: var(--ink-2);
+  font-style: italic;
+}
+.prose blockquote p { margin-bottom: 0.7em; }
+.prose blockquote p:last-child { margin-bottom: 0; }
+
+/* Tables were unsupported entirely and rendered as rows of pipe characters
+   in a paragraph. Mono digits so columns line up; the wrapper scrolls a wide
+   table instead of pushing the page sideways on a phone. */
+.table-wrap { margin: 1.6em 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.prose table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14.5px; }
+.prose thead th {
+  text-align: left; font-weight: 600; color: var(--ink-3);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em;
+  text-transform: uppercase; white-space: nowrap;
+  padding: 0 14px 9px 0; border-bottom: 1px solid var(--rule-bright);
+}
+.prose tbody td {
+  padding: 9px 14px 9px 0; border-bottom: 1px solid var(--rule);
+  color: var(--ink-2); vertical-align: top;
+}
+.prose tbody tr:last-child td { border-bottom: none; }
+.prose td:last-child, .prose th:last-child { padding-right: 0; }
+/* Numeric columns are the reason to use tabular figures at all. */
+.prose td[style*="right"], .prose td[style*="center"] { font-variant-numeric: tabular-nums; }
+
+.prose code {
+  font-family: var(--mono); font-size: 0.86em; color: var(--ink);
+  background: var(--paper-2); border: 1px solid var(--rule);
+  border-radius: 4px; padding: 0.1em 0.35em;
+}
+.prose pre {
+  margin: 1.4em 0; padding: 14px 16px; overflow-x: auto;
+  background: var(--paper-2); border: 1px solid var(--rule);
+  border-radius: var(--r);
+}
+.prose pre code { background: none; border: none; padding: 0; font-size: 13px; line-height: 1.55; }
+
+.prose hr { margin: 2.2em 0; border: none; border-top: 1px solid var(--rule); }
+
+.prose a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+.prose a:hover { border-bottom-color: var(--accent); }
+
+@media (max-width: 720px) {
+  .prose { font-size: 17.5px; }
+  .prose h2 { font-size: 21px; }
+  .prose h3 { font-size: 18px; }
+  /* The marker has no hover on touch, so show it rather than hide it. */
+  .prose :is(h2, h3, h4) .anchor-link::after { opacity: 0; }
+}
+
 /* ============================================================================
    WORDMARK
    ============================================================================ */

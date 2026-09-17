@@ -63,6 +63,11 @@ const SHOTS: Array<[string, string, number]> = [
   ["about", "/about", 1400],
   ["essays-mobile", "/essays", 390],
   ["piece-mobile", "/p/the-logic-costume", 390],
+  // A research document on a phone. The essay above does not cover it: a
+  // research body carries a wide pipe table, and a table is the one construct
+  // that can push a whole page sideways. The overflow check below is what
+  // actually catches that, and it needs a page with a table on it to check.
+  ["research-mobile", "/p/budget-2026-estimates", 390],
 ];
 
 for (const [name, urlPath, width] of SHOTS) {
