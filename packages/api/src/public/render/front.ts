@@ -9,6 +9,7 @@
 // work. Built from the same row and card components the indexes use, so the
 // front door and the indexes cannot drift into looking like two sites.
 
+import { UNGROUPED } from "../../graph/lib/topics";
 import { displayTitle } from "../../lib/title";
 import {
   type IndexPiece,
@@ -63,6 +64,68 @@ function sectionHead(label: string, href: string, allLabel: string): string {
 </div>`;
 }
 
+/**
+ * Research on the front page, in its sections.
+ *
+ * The operator: "the homepage just has some splashed randomly on the homepage
+ * and that's all the homepage is." Six documents, newest-first, from a corpus
+ * spanning several unrelated worlds — so the front page said nothing about
+ * what the site covers, only that it had recently published something.
+ *
+ * Sections fix that in the one place it matters most. A visitor sees the
+ * SHAPE of the corpus — the subjects it actually has — rather than a slice of
+ * its recency order. That is also what topical authority is built from: a
+ * crawler reading this page learns the site has areas, not just posts.
+ *
+ * A few per section rather than everything, with the section itself linking
+ * on: the front page advertises the corpus, it does not reproduce it.
+ *
+ * Falls back to the flat newest-first grid when nothing has been filed yet —
+ * one section holding all of it is worse than none, because it claims a
+ * taxonomy and then shows none of it.
+ */
+function renderResearchByTopic(research: IndexPiece[]): string {
+  if (!research.length) return "";
+
+  const groups = new Map<string, IndexPiece[]>();
+  for (const d of research) {
+    const key = d.topic?.trim() || UNGROUPED;
+    const list = groups.get(key) ?? [];
+    list.push(d);
+    groups.set(key, list);
+  }
+
+  if (groups.size < 2) {
+    return `<section style="margin:0 0 52px">
+${sectionHead("Research", "/research", "All research")}
+<div class="rgrid">${research.slice(0, 6).map(researchCard).join("\n")}</div>
+</section>`;
+  }
+
+  // Biggest sections first; the ungrouped holding pen never leads, and is not
+  // shown on the front page at all — "Everything else" is not an advertisement
+  // for anything. It is still reachable in full at /research.
+  const ordered = [...groups.entries()]
+    .filter(([topic]) => topic !== UNGROUPED)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 4);
+
+  return `<section style="margin:0 0 52px">
+${sectionHead("Research", "/research", "All research")}
+${ordered
+  .map(
+    ([topic, list]) => `<div class="topic-sec">
+  <div class="topic-head">
+    <h2>${escapeHtml(topic)}</h2>
+    <span class="topic-n">${list.length} document${list.length === 1 ? "" : "s"}</span>
+  </div>
+  <div class="rgrid">${list.slice(0, 3).map(researchCard).join("\n")}</div>
+</div>`,
+  )
+  .join("\n")}
+</section>`;
+}
+
 export async function renderFront(env: PublicEnv): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const [essays, research] = userId
@@ -88,14 +151,7 @@ ${sectionHead("Essays", "/essays", "All essays")}
 </section>`
     : ""
 }
-${
-  research.length
-    ? `<section style="margin:0 0 52px">
-${sectionHead("Research", "/research", "All research")}
-<div class="rgrid">${research.slice(0, 6).map(researchCard).join("\n")}</div>
-</section>`
-    : ""
-}`;
+${renderResearchByTopic(research)}`;
 
   return renderPage({
     title: "",

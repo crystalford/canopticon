@@ -2111,6 +2111,15 @@ pre.convention {
 .docrail-btn:hover { border-color: var(--ink-3); color: var(--ink); background: var(--paper-hover); }
 .docrail-btn.primary { border-color: var(--accent-bd); background: var(--accent-bg); color: var(--accent); }
 .docrail-btn.primary:hover { border-color: var(--accent); background: rgba(224,67,60,0.16); color: var(--accent-2); }
+/* A grid track sized 1fr is minmax(auto, 1fr), so a child wider than the
+   viewport EXPANDS THE TRACK instead of scrolling inside it — and every other
+   item in the grid stretches with it. That is how promoting a wide table to
+   the top of a document pushed the sidebar to 427px inside a 390px phone.
+   min-width:0 lets the track shrink and hands the overflow back to
+   .table-wrap, which is built to scroll it. */
+.docgrid > * { min-width: 0; }
+.table-wrap { max-width: 100%; }
+
 @media (max-width: 1000px) {
   .docgrid { grid-template-columns: 1fr; gap: 26px; }
   .docrail { position: static; margin-top: 0; }
@@ -2186,6 +2195,90 @@ pre.convention {
 /* Not-extracted is a prompt to act, so it reads as a state rather than as an
    absence of one. */
 .rcpt-none { color: var(--ink-3); font-style: italic; }
+
+/* ---- the working-title suggestion ---------------------------------------
+   A proposal, styled as one. It sits under a title that is already live and
+   already published, so it must not read as an error state — the document is
+   fine, its name is just the name of a research session. */
+.rn { margin-top: 8px; padding-left: 10px; border-left: 2px solid var(--rule-bright); }
+.rn-k {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.rn-note { font-family: var(--sans); font-size: 11.5px; color: var(--ink-3); margin: 2px 0 6px; }
+.rn-form { margin: 0 0 4px; }
+.rn-pick {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  font-family: var(--serif); font-size: 14px; line-height: 1.35;
+  padding: 6px 10px; border: 1px solid var(--rule); border-radius: 5px;
+  background: transparent; color: var(--ink-2);
+}
+.rn-pick:hover { border-color: var(--accent); color: var(--ink); }
+
+/* ---- structure first -----------------------------------------------------
+   A research document opening on paragraph one is a wall of text. These three
+   blocks put what the document already wrote about itself above the document
+   itself. Nothing here is composed by the site, and the labels say so. */
+
+/* The document's own summary, moved to the top. */
+.doc-lead {
+  margin: 0 0 28px; padding: 18px 20px;
+  border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+  border-radius: 0 var(--r) var(--r) 0; background: var(--paper-2);
+}
+.doc-lead-k {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.doc-lead-note {
+  font-family: var(--sans); font-size: 12px; color: var(--ink-mute);
+  margin: 4px 0 14px;
+}
+.doc-lead .prose { font-size: 15px; }
+
+/* What the document says it could NOT establish. On a publication whose whole
+   argument is provenance this is the most valuable block on the page, so it
+   reads as a statement rather than as a warning. */
+.doc-gaps {
+  margin: 0 0 28px; padding: 16px 20px;
+  border: 1px dashed var(--rule-bright); border-radius: var(--r);
+}
+.doc-gaps-k {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px;
+}
+.doc-gaps .prose { font-size: 15px; color: var(--ink-3); }
+
+/* The contents rail. */
+.doc-toc { margin: 0 0 32px; padding-bottom: 20px; border-bottom: 1px solid var(--rule); }
+.doc-toc-k {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-mute); margin-bottom: 10px;
+}
+.doc-toc ol { margin: 0; padding-left: 1.3em; }
+.doc-toc li { margin-bottom: 5px; font-family: var(--sans); font-size: 14px; }
+.doc-toc li::marker { color: var(--ink-faint); font-family: var(--mono); font-size: 0.8em; }
+.doc-toc a { color: var(--ink-2); text-decoration: none; }
+.doc-toc a:hover { color: var(--accent); }
+
+/* ---- topic sections ------------------------------------------------------
+   Sections inside an index a reader already asked for. NOT pages: /answers
+   and /numbers were both derived index pages and both were removed for
+   competing with the documents they indexed. */
+.topic-sec { margin: 0 0 44px; }
+.topic-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 16px; margin: 0 0 16px; padding-bottom: 9px;
+  border-bottom: 1px solid var(--rule);
+}
+.topic-head h2 {
+  margin: 0; font-family: var(--sans); font-weight: 600; font-size: 17px;
+  letter-spacing: -0.01em; color: var(--ink);
+}
+.topic-n {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-mute); white-space: nowrap;
+}
 
 /* The operator's own nav entry. Marked with the accent dot so it reads as
    "yours" rather than as a fourth public section — a reader never sees it. */

@@ -49,9 +49,13 @@ const RESEARCH = [
     "Wealth Estimates: A Review",
     "Three methods, three answers, one population.",
   ],
+  // A WORKING TITLE, verbatim in shape from the live corpus. The document
+  // publishes under its research session's name, and /library must offer a way
+  // out of it. Without one of these in the fixture the suggestion box could
+  // never appear in a screenshot.
   [
-    "procurement-exemptions",
-    "Procurement Exemptions",
+    "pass-7-mini-hardening-dossier",
+    "PASS 7-MINI — HARDENING DOSSIER",
     "Sole-source contracts above the threshold.",
   ],
 ];
@@ -93,7 +97,7 @@ const RESEARCH_BODY = `Departmental spending for the 2026 cycle was tabled on 4 
 extract covers the main estimates only; supplementary estimates A and B
 are not included and had not been tabled at time of writing.
 
-## What the estimates show
+## Summary — what the estimates show
 
 Three departments account for most of the year-over-year movement. The
 remainder are within normal variance and are listed in the appendix for
@@ -126,6 +130,12 @@ the same dollars appeared under a different vote in 2025.
 - Percentages are computed from the unrounded source values, so they will
   not always reproduce exactly from the rounded columns shown above.
 - No adjustment has been made for inflation.
+
+## Documentary gaps remaining
+
+- Supplementary estimates A and B were not tabled at time of writing, so the
+  full-year picture cannot be stated.
+- The housing transfer's originating vote is not named in the source document.
 
 ## Appendix: departments within variance
 
@@ -225,6 +235,18 @@ const CONTRADICTIONS = [
 // branch of the receipt without carrying a 70KB string in this file — and the
 // truncated branch is the one that matters most, because it is the one that
 // admits the system did not read the whole document.
+// Topics, so the grouped index and homepage render. One document is left
+// UNTOPICED on purpose: "Everything else" is a real state the page has to
+// handle, and a fixture where everything is filed would never show it.
+const TOPIC_BY_SLUG = new Map<string, string>([
+  ["budget-2026-estimates", "Money & markets"],
+  ["transfer-payments-2025", "Money & markets"],
+  ["housing-starts-q3", "Housing & cities"],
+  ["lobbying-registry-extract", "Politics & government"],
+  ["wealth-estimates-review", "Money & markets"],
+  // pass-7-mini-hardening-dossier deliberately absent.
+]);
+
 const EXTRACTION = new Map<string, { quotes: number; nodes: number; body_chars: number }>([
   ["budget-2026-estimates", { quotes: 47, nodes: 112, body_chars: 145300 }],
   ["housing-starts-q3", { quotes: 12, nodes: 31, body_chars: 8400 }],
@@ -257,6 +279,7 @@ const row = (slug: string, title: string, subtitle: string, kind: string, i: num
   created_at: `2026-0${(i % 9) + 1}-1${i % 9}T00:00:00.000Z`,
   updated_at: "2026-09-10T00:00:00.000Z",
   body_chars: EXTRACTION.get(slug)?.body_chars ?? (kind === "essay" ? BODY : RESEARCH_BODY).length,
+  topic: TOPIC_BY_SLUG.get(slug) ?? null,
 });
 
 const ALL = [
@@ -314,6 +337,19 @@ function makeDb(): D1Database {
         // the public indexes were full.
         if (/FROM pieces/i.test(sql) && /ORDER BY COALESCE\(published_at/i.test(sql)) {
           return { results: ALL };
+        }
+        // Bodies for the working-title rows. /library fetches body_md for just
+        // the flagged pieces to build rename candidates; without this branch
+        // the candidates come back empty and the suggestion silently never
+        // renders — which is exactly how it looked the first time.
+        if (/FROM pieces/i.test(sql) && /body_md/i.test(sql) && /id IN/i.test(sql)) {
+          const ids = bound.slice(1);
+          return {
+            results: ALL.filter((p) => ids.includes(p.id)).map((p) => ({
+              id: p.id,
+              body_md: p.body_md,
+            })),
+          };
         }
         // The receipt's own body_chars lookup: no publication_status filter,
         // so it falls past the branch above.

@@ -1024,6 +1024,59 @@ app.post("/answers/:id/research", async (c) => {
   return c.redirect(`/op/research?q=${encodeURIComponent(q.question)}`);
 });
 
+// FILE EVERY UNTOPICED DOCUMENT.
+//
+// Push-button, never scheduled (rule 4). Bounded per press, so one click
+// cannot spend an unbounded amount on a corpus that grew overnight — press it
+// again for the next batch.
+//
+// The model CHOOSES from a closed list rather than naming a topic, because
+// free naming across fifty documents produces forty near-duplicate labels and
+// groups nothing. See graph/lib/topics.ts.
+app.post("/library/topics", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { assignTopics } = await import("../graph/lib/topics");
+  const r = await assignTopics(c.env, userId, { limit: 25 }).catch(() => null);
+  if (!r) return c.redirect("/library?error=topic+pass+failed");
+  return c.redirect(`/library?topics=${r.assigned}.${r.ungrouped}`);
+});
+
+// ACCEPT A TITLE.
+//
+// A document published under the name its research session gave itself —
+// "PASS 7-MINI — HARDENING DOSSIER" — and /library offered candidates lifted
+// out of the document's own text. This is the click that takes one.
+//
+// It NEVER runs on its own. Upload is authorization for publishing (rule 2),
+// but a title is the most quoted line a document has, and renaming one
+// unasked is a different act from publishing it. So a rename requires a
+// person, and title_approved_at records that one happened.
+//
+// original_title keeps the working title forever, and only on the first
+// rename — so the name the operator knew the document by survives, and a
+// second rename cannot overwrite it with the first rename's output.
+app.post("/pieces/:id/title", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const form = await c.req.parseBody();
+  const title = typeof form.title === "string" ? form.title.trim() : "";
+  if (!title) return c.redirect("/library?error=a+title+cannot+be+empty");
+
+  const { run } = await import("../lib/d1");
+  await run(
+    c.env.DB,
+    `UPDATE pieces
+        SET original_title = COALESCE(original_title, title),
+            title = ?,
+            title_approved_at = ?,
+            updated_at = ?
+      WHERE id = ? AND user_id = ?`,
+    [title, new Date().toISOString(), new Date().toISOString(), c.req.param("id"), userId],
+  ).catch(() => {});
+  return c.redirect("/library?renamed=1");
+});
+
 // DIG A LEAD — the Wikipedia inversion.
 //
 // On Wikipedia you click a link and arrive at a page someone already wrote.

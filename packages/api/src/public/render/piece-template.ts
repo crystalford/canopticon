@@ -14,6 +14,7 @@
 import { type FindingRow, findingsForPiece } from "../../graph/lib/aeo-extract";
 import { type LedeRow, ledeForPiece } from "../../graph/lib/lede";
 import { resolveByline, showsUpdate } from "../../lib/byline";
+import { documentStructure } from "../../lib/document-structure";
 import { parseEssay } from "../../lib/essay";
 import {
   type PieceDetail,
@@ -705,7 +706,68 @@ function renderProseBody(_piece: PieceDetail, sections: ParsedSections): string 
   if (!all.trim()) {
     return `<section style="max-width:880px;margin:24px 0 0"><div class="prose" style="color:var(--ink-mute)"><em>This piece has no body yet. Edit it in <a href="/op/editorial" style="color:var(--accent)">Editorial</a>.</em></div></section>`;
   }
-  return `<section style="max-width:880px;margin:24px 0 0"><div class="prose">${renderMarkdown(all)}</div></section>`;
+  return `<section style="max-width:880px;margin:24px 0 0">${renderStructured(all)}</section>`;
+}
+
+/**
+ * STRUCTURE FIRST, THEN THE DOCUMENT.
+ *
+ * A 3.3k-word dossier opening on paragraph one is, in the operator's words,
+ * "absolutely insane to comb through if you aren't a machine". The answer is
+ * not to summarise it — standing rules forbid summarising a research document
+ * away, and it would be the wrong instinct anyway, because the document
+ * already distilled itself. The live PASS 7 dossier carries nine sections, a
+ * sixteen-row table of hardened facts, and its own DOCUMENTARY GAPS REMAINING.
+ * All of it was a thousand words down.
+ *
+ * So the page opens with what the document wrote about itself, and the
+ * document follows underneath, entire.
+ *
+ * The lead table is MOVED rather than copied — rule 3, nothing written twice —
+ * and the `.md` twin stays byte-exact, so "published as itself" holds where it
+ * does the most work: the machine-readable artifact is the document, the HTML
+ * page is a reading of it.
+ */
+function renderStructured(bodyMd: string): string {
+  const doc = documentStructure(bodyMd);
+
+  // Below four sections a rail is clutter — the page is already scannable.
+  const contents =
+    doc.contents.length >= 4
+      ? `<nav class="doc-toc" aria-label="Sections">
+  <div class="doc-toc-k">In this document</div>
+  <ol>
+${doc.contents
+  .filter((c) => c.level <= 3)
+  .map((c) => `    <li><a href="#${escapeAttr(c.anchor)}">${escapeHtml(c.text)}</a></li>`)
+  .join("\n")}
+  </ol>
+</nav>`
+      : "";
+
+  // The document's own summary, promoted. Labelled as the document's, because
+  // a reader should never have to wonder whether a page wrote this itself.
+  const lead = doc.leadTable
+    ? `<section class="doc-lead">
+  <div class="doc-lead-k">${escapeHtml(doc.leadTableHeading ?? "What this document establishes")}</div>
+  <p class="doc-lead-note">The document's own summary, moved to the top. Nothing here is written by this site.</p>
+  <div class="prose">${renderMarkdown(doc.leadTable, { anchors: false })}</div>
+</section>`
+    : "";
+
+  // What the document says it could NOT establish. On a publication whose
+  // whole argument is provenance, this is the most valuable block on the page,
+  // and it was at the bottom. Left in place in the body as well: it is short,
+  // and cutting a section out of the argument it belongs to would change the
+  // document rather than reorder it.
+  const gaps = doc.gaps
+    ? `<section class="doc-gaps">
+  <div class="doc-gaps-k">${escapeHtml(doc.gapsHeading ?? "What this document could not establish")}</div>
+  <div class="prose">${renderMarkdown(doc.gaps, { anchors: false })}</div>
+</section>`
+    : "";
+
+  return `${lead}${gaps}${contents}<div class="prose">${renderMarkdown(doc.remainder)}</div>`;
 }
 
 // ---- section parser ----------------------------------------------------

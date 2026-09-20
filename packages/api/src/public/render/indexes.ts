@@ -10,6 +10,7 @@
 // possibly indexed, and moving every document's canonical URL to win a path
 // segment would trade real link equity for a cosmetic gain.
 
+import { UNGROUPED } from "../../graph/lib/topics";
 import { displayTitle } from "../../lib/title";
 import {
   type IndexPiece,
@@ -79,6 +80,59 @@ ${
   });
 }
 
+/**
+ * The research index, in sections.
+ *
+ * Fifty documents spanning political research, tech, housing and several other
+ * worlds, in one undifferentiated list, was the operator's complaint and the
+ * site's largest topical-authority gap: search and answer engines accumulate
+ * authority per subject area, and a corpus with no clusters accumulates it in
+ * none of them.
+ *
+ * ⚠ THIS CREATES NO NEW URLS. /answers and /numbers were both derived index
+ * pages and both were removed for the same reason — thin pages competing with
+ * the documents they index. Sections inside an index a reader already asked
+ * for are navigation, not content. A topic earns a page of its own when it has
+ * enough documents to be worth one, and not before.
+ *
+ * Falls back to a flat grid when grouping would not help: one section holding
+ * everything is worse than no sections, because it implies a taxonomy exists
+ * and then shows none of it.
+ */
+function renderGroupedByTopic(docs: IndexPiece[]): string {
+  const flat = `<div class="rgrid">${docs.map(researchCard).join("\n")}</div>`;
+
+  const groups = new Map<string, IndexPiece[]>();
+  for (const d of docs) {
+    const key = d.topic?.trim() || UNGROUPED;
+    const list = groups.get(key) ?? [];
+    list.push(d);
+    groups.set(key, list);
+  }
+  // Nothing has been topiced yet, or everything landed in one bucket.
+  if (groups.size < 2) return flat;
+
+  // Biggest first, but the holding pen always last: "Everything else" is not a
+  // subject and must not lead a page that claims to have subjects.
+  const ordered = [...groups.entries()].sort((a, b) => {
+    if (a[0] === UNGROUPED) return 1;
+    if (b[0] === UNGROUPED) return -1;
+    return b[1].length - a[1].length;
+  });
+
+  return ordered
+    .map(
+      ([topic, list]) => `<section class="topic-sec">
+  <div class="topic-head">
+    <h2>${escapeHtml(topic)}</h2>
+    <span class="topic-n">${list.length} document${list.length === 1 ? "" : "s"}</span>
+  </div>
+  <div class="rgrid">${list.map(researchCard).join("\n")}</div>
+</section>`,
+    )
+    .join("\n");
+}
+
 export async function renderResearchIndex(env: PublicEnv): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
   const docs = userId ? await listResearch(env.DB, userId) : [];
@@ -88,11 +142,7 @@ export async function renderResearchIndex(env: PublicEnv): Promise<string> {
   <p class="phead-dek">Primary documents, kept whole and citable. Each one keeps its own page,
   its own address, and a machine-readable twin.</p>
 </header>
-${
-  docs.length
-    ? `<div class="rgrid">${docs.map(researchCard).join("\n")}</div>`
-    : emptyState("No research documents published yet.")
-}`;
+${docs.length ? renderGroupedByTopic(docs) : emptyState("No research documents published yet.")}`;
   return renderPage({
     title: "Research",
     description:
