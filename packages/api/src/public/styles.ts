@@ -2206,6 +2206,52 @@ pre.convention {
 }
 .rn-pick:hover { border-color: var(--accent); color: var(--ink); }
 
+/* ---- structure first -----------------------------------------------------
+   A research document opening on paragraph one is a wall of text. These three
+   blocks put what the document already wrote about itself above the document
+   itself. Nothing here is composed by the site, and the labels say so. */
+
+/* The document's own summary, moved to the top. */
+.doc-lead {
+  margin: 0 0 28px; padding: 18px 20px;
+  border: 1px solid var(--rule); border-left: 2px solid var(--accent);
+  border-radius: 0 var(--r) var(--r) 0; background: var(--paper-2);
+}
+.doc-lead-k {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.doc-lead-note {
+  font-family: var(--sans); font-size: 12px; color: var(--ink-mute);
+  margin: 4px 0 14px;
+}
+.doc-lead .prose { font-size: 15px; }
+
+/* What the document says it could NOT establish. On a publication whose whole
+   argument is provenance this is the most valuable block on the page, so it
+   reads as a statement rather than as a warning. */
+.doc-gaps {
+  margin: 0 0 28px; padding: 16px 20px;
+  border: 1px dashed var(--rule-bright); border-radius: var(--r);
+}
+.doc-gaps-k {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px;
+}
+.doc-gaps .prose { font-size: 15px; color: var(--ink-3); }
+
+/* The contents rail. */
+.doc-toc { margin: 0 0 32px; padding-bottom: 20px; border-bottom: 1px solid var(--rule); }
+.doc-toc-k {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-mute); margin-bottom: 10px;
+}
+.doc-toc ol { margin: 0; padding-left: 1.3em; }
+.doc-toc li { margin-bottom: 5px; font-family: var(--sans); font-size: 14px; }
+.doc-toc li::marker { color: var(--ink-faint); font-family: var(--mono); font-size: 0.8em; }
+.doc-toc a { color: var(--ink-2); text-decoration: none; }
+.doc-toc a:hover { color: var(--accent); }
+
 /* The operator's own nav entry. Marked with the accent dot so it reads as
    "yours" rather than as a fourth public section — a reader never sees it. */
 .nav a.nav-op { color: var(--ink-2); }

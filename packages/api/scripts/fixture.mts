@@ -97,7 +97,7 @@ const RESEARCH_BODY = `Departmental spending for the 2026 cycle was tabled on 4 
 extract covers the main estimates only; supplementary estimates A and B
 are not included and had not been tabled at time of writing.
 
-## What the estimates show
+## Summary — what the estimates show
 
 Three departments account for most of the year-over-year movement. The
 remainder are within normal variance and are listed in the appendix for
@@ -130,6 +130,12 @@ the same dollars appeared under a different vote in 2025.
 - Percentages are computed from the unrounded source values, so they will
   not always reproduce exactly from the rounded columns shown above.
 - No adjustment has been made for inflation.
+
+## Documentary gaps remaining
+
+- Supplementary estimates A and B were not tabled at time of writing, so the
+  full-year picture cannot be stated.
+- The housing transfer's originating vote is not named in the source document.
 
 ## Appendix: departments within variance
 
