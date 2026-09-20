@@ -2111,6 +2111,15 @@ pre.convention {
 .docrail-btn:hover { border-color: var(--ink-3); color: var(--ink); background: var(--paper-hover); }
 .docrail-btn.primary { border-color: var(--accent-bd); background: var(--accent-bg); color: var(--accent); }
 .docrail-btn.primary:hover { border-color: var(--accent); background: rgba(224,67,60,0.16); color: var(--accent-2); }
+/* A grid track sized 1fr is minmax(auto, 1fr), so a child wider than the
+   viewport EXPANDS THE TRACK instead of scrolling inside it — and every other
+   item in the grid stretches with it. That is how promoting a wide table to
+   the top of a document pushed the sidebar to 427px inside a 390px phone.
+   min-width:0 lets the track shrink and hands the overflow back to
+   .table-wrap, which is built to scroll it. */
+.docgrid > * { min-width: 0; }
+.table-wrap { max-width: 100%; }
+
 @media (max-width: 1000px) {
   .docgrid { grid-template-columns: 1fr; gap: 26px; }
   .docrail { position: static; margin-top: 0; }
