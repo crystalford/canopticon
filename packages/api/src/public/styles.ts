@@ -2187,6 +2187,16 @@ pre.convention {
    absence of one. */
 .rcpt-none { color: var(--ink-3); font-style: italic; }
 
+/* The operator's own nav entry. Marked with the accent dot so it reads as
+   "yours" rather than as a fourth public section — a reader never sees it. */
+.nav a.nav-op { color: var(--ink-2); }
+.nav a.nav-op::before {
+  content: ""; display: inline-block; width: 5px; height: 5px;
+  border-radius: 50%; background: var(--accent); margin-right: 6px;
+  vertical-align: middle;
+}
+.nav a.nav-op:hover { color: var(--accent); }
+
 /* ---- leads ---------------------------------------------------------------
    Where the corpus is strange. Each is a query result, not a judgement — the
    system points, it does not narrate. Ordered by recency, which is a list
