@@ -143,10 +143,13 @@ describe("attachAuthState — the one-site permission middleware", () => {
     expect(libHtml).toContain('action="/op/feed/upload"');
     expect(libHtml).toContain('type="file"');
 
-    // Every page also gets a small nav link back into /op/library once
-    // logged in — otherwise the only way to find the console is knowing
-    // the URL by heart.
-    expect(homeHtml).toContain('href="/op/library"');
+    // Every page also gets a way back to the working surface once logged in
+    // — otherwise the only way to find it is knowing the URL by heart.
+    //
+    // It points at /library directly now rather than /op/library, which was
+    // a 302 to the same place. One less hop, and the href matches the nav
+    // entry beside it so both say the same thing.
+    expect(homeHtml).toContain('href="/library"');
   });
 
   it("anonymous pages never show the upload form or the operator nav link", async () => {
@@ -154,5 +157,46 @@ describe("attachAuthState — the one-site permission middleware", () => {
     const html = await res.text();
     expect(html).not.toContain('action="/op/feed/upload"');
     expect(html).not.toContain('href="/op/library"');
+  });
+});
+
+describe("the operator can find where to upload", () => {
+  // THE OPERATOR REPORTED BEING UNABLE TO FIND THE UPLOAD BOX THREE TIMES.
+  //
+  // Twice it was treated as link placement and something got moved. It was
+  // not that. PRIMARY_NAV is a fixed constant — Essays, Research, About —
+  // with no branch for a signed-in operator, so the page they actually work
+  // on had never appeared in the main navigation at any auth state. The only
+  // route in was a topbar link labelled "operator →": an arrow, not a noun.
+  //
+  // These pin the fix at the level the failure actually occurred: not "a link
+  // exists somewhere in the HTML", but "the word Library is in the nav, and
+  // the operator bar says what it is for".
+  it("puts Library in the primary nav once signed in", async () => {
+    const dbWithOperator = makeEmptyDb({ withOperator: true });
+    const res = await app.fetch(await loggedInRequest("/"), { ...env, DB: dbWithOperator });
+    const html = await res.text();
+    const nav = html.slice(html.indexOf('<nav class="nav">'));
+    expect(nav.slice(0, 400)).toContain('href="/library"');
+    expect(nav.slice(0, 400)).toContain("Library");
+  });
+
+  it("names the operator bar link instead of pointing an arrow at it", async () => {
+    const dbWithOperator = makeEmptyDb({ withOperator: true });
+    const res = await app.fetch(await loggedInRequest("/"), { ...env, DB: dbWithOperator });
+    const html = await res.text();
+    expect(html).toContain("Library — upload a document");
+    // The old label said nothing about what was behind it.
+    expect(html).not.toContain("operator →");
+  });
+
+  it("leaves a reader's nav completely unchanged", async () => {
+    // The operator's entry must not become a fourth public section: a reader
+    // has no account and nothing to do there.
+    const res = await app.fetch(new Request("http://test/"), env);
+    const html = await res.text();
+    const nav = html.slice(html.indexOf('<nav class="nav">'));
+    expect(nav.slice(0, 400)).not.toContain('href="/library"');
+    expect(html).not.toContain("op-topbar");
   });
 });

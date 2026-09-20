@@ -135,8 +135,24 @@ app.use("*", async (c, next) => {
   const statusHtml = status
     ? `<span class="op-topbar-status${status.live ? " live" : ""}"><span class="op-topbar-dot"></span><span title="${status.title}">${status.text}</span></span>`
     : "";
-  const opTopbar = `<div class="op-topbar"><div class="op-topbar-inner"><span class="op-topbar-tag">Operator</span><a href="/op/library">operator →</a>${statusHtml}<div class="op-topbar-right"><a href="/v1/admin/runtime">runtime</a><a href="/citations">citations</a><a href="/auth/logout">sign out</a></div></div></div>\n`;
-  const injected = html.replace('<nav class="nav">', `${opTopbar}<nav class="nav">`);
+  // "operator →" was the ONLY route to the upload box from anywhere on the
+  // site, and it is an arrow rather than a noun. The operator reported being
+  // unable to find where to upload three separate times; twice I treated that
+  // as a link-placement problem and moved something. It was not. PRIMARY_NAV
+  // is a fixed constant — Essays, Research, About — with no branch for a
+  // signed-in operator, so THE PLACE THEY WORK HAS NEVER APPEARED IN THE MAIN
+  // NAVIGATION AT ANY AUTH STATE. A link you have to already know about is not
+  // a link.
+  const opTopbar = `<div class="op-topbar"><div class="op-topbar-inner"><span class="op-topbar-tag">Operator</span><a href="/library">Library — upload a document</a>${statusHtml}<div class="op-topbar-right"><a href="/v1/admin/runtime">runtime</a><a href="/citations">citations</a><a href="/auth/logout">sign out</a></div></div></div>\n`;
+  // Library joins the primary nav for the operator only, so a reader's nav is
+  // unchanged and the operator never has to remember a URL or hunt the footer.
+  // Injected here rather than in PRIMARY_NAV because auth state lives in the
+  // middleware, and this is the same seam the topbar already uses.
+  const withNav = html.replace(
+    '<nav class="nav">',
+    '<nav class="nav">\n      <a href="/library" class="nav-op">Library</a>',
+  );
+  const injected = withNav.replace('<nav class="nav">', `${opTopbar}<nav class="nav">`);
   c.res = new Response(injected, { status: res.status, headers: res.headers });
 });
 

@@ -1024,6 +1024,47 @@ app.post("/answers/:id/research", async (c) => {
   return c.redirect(`/op/research?q=${encodeURIComponent(q.question)}`);
 });
 
+// DIG A LEAD — the Wikipedia inversion.
+//
+// On Wikipedia you click a link and arrive at a page someone already wrote.
+// Here, clicking is the act that CREATES the next page: follow a lead, the
+// system researches it, and what comes back enters the corpus as a document
+// like any other — whose own extraction can then raise further leads. The
+// corpus gets bigger because somebody was curious, which is the whole of what
+// "it helps my research" was supposed to mean.
+//
+// The seed and the angle come from the form rather than a row, because a lead
+// is a QUERY RESULT and not a stored object. Storing them would mean keeping a
+// table in sync with a query that is cheaper to just re-run, and would give a
+// lead an identity it has not earned. Upload is authorization and so is this:
+// the operator is the only one who can reach the page that renders the button.
+//
+// Push-button, never scheduled (standing rule 4). Nothing here runs because
+// time passed.
+app.post("/leads/dig", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const form = await c.req.parseBody();
+  const seed = typeof form.seed === "string" ? form.seed.trim() : "";
+  const angle = typeof form.angle === "string" ? form.angle.trim() || undefined : undefined;
+  if (!seed) return c.redirect("/library?error=that+lead+carried+nothing+to+search+for");
+
+  const { researchOnDemand } = await import("../graph/lib/deep-research");
+  // Started before it is handed anywhere: c.executionCtx THROWS when there is
+  // no ExecutionContext, and an unguarded access here would 500 the request
+  // that started a perfectly good run. Same bug, same fix, as the subscribe
+  // route.
+  const run = researchOnDemand(c.env, userId, seed, angle).catch(() => {});
+  try {
+    c.executionCtx.waitUntil(run);
+  } catch {
+    // No execution context (tests, some runtimes) — the promise is already
+    // running; it simply is not kept alive past the response.
+  }
+  const angleParam = angle ? `&angle=${encodeURIComponent(angle)}` : "";
+  return c.redirect(`/op/research?q=${encodeURIComponent(seed)}${angleParam}`);
+});
+
 // The on-demand research screen — its own dedicated page (operator/
 // screens/research.ts), not a query param bolted onto /search. See that
 // file's header comment for why.

@@ -15,7 +15,6 @@ import {
   type PublicEnv,
   listEssays,
   listResearch,
-  publicationCounts,
   readMinutes,
   resolveOperatorId,
 } from "../data";
@@ -26,27 +25,18 @@ import { essayRow, researchCard } from "./indexes";
 
 const CANONICAL = "https://canopticon.com";
 
-function stateStrip(counts: {
-  essays: number;
-  research: number;
-  sources: number;
-  lastPublished: string | null;
-}): string {
-  const cells: Array<[string, string]> = [
-    [String(counts.essays), "Essays"],
-    [String(counts.research), "Research items"],
-    [String(counts.sources), "Sources on file"],
-    [counts.lastPublished ? formatDate(counts.lastPublished) : "—", "Last published"],
-  ];
-  return `<div class="state">
-${cells
-  .map(
-    ([n, k]) =>
-      `  <div class="state-cell"><div class="state-n">${escapeHtml(n)}</div><div class="state-k">${escapeHtml(k)}</div></div>`,
-  )
-  .join("\n")}
-</div>`;
-}
+// THE STATE STRIP IS GONE. It ran across the top of the front page as four
+// cells — Essays, Research items, Sources on file, Last published — and it was
+// the first thing any visitor saw.
+//
+// It was a waste of the best space on the site, and worse than neutral: it
+// opened with "0 Essays" and a Last-published date two months stale. The
+// first sentence the front page spoke was that it is empty and nobody is
+// tending it. Vanity metrics are a bad trade even when the numbers flatter;
+// these did not.
+//
+// What replaces it is the work itself, which is what a publication should
+// lead with. publicationCounts() is still used by other surfaces.
 
 // The lead essay gets the summary treatment: the standalone paragraph is the
 // one a reader — or an answer engine — is most likely to quote, so it is the
@@ -75,30 +65,21 @@ function sectionHead(label: string, href: string, allLabel: string): string {
 
 export async function renderFront(env: PublicEnv): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
-  const [essays, research, counts] = userId
-    ? await Promise.all([
-        listEssays(env.DB, userId),
-        listResearch(env.DB, userId),
-        publicationCounts(env.DB, userId),
-      ])
-    : [
-        [] as IndexPiece[],
-        [] as IndexPiece[],
-        { essays: 0, research: 0, sources: 0, lastPublished: null },
-      ];
+  const [essays, research] = userId
+    ? await Promise.all([listEssays(env.DB, userId), listResearch(env.DB, userId)])
+    : [[] as IndexPiece[], [] as IndexPiece[]];
 
   const [first, ...restEssays] = essays;
-  const body = `${stateStrip(counts)}
-${
-  first
-    ? lead(first)
-    : `<header class="phead">
+  const body = `${
+    first
+      ? lead(first)
+      : `<header class="phead">
   <div class="eyebrow">Canopticon</div>
   <h1>A record, kept in public</h1>
   <p class="phead-dek">Research documents published as themselves, and essays that argue
   from them. Free to read, free to quote, built to be cited.</p>
 </header>`
-}
+  }
 ${
   restEssays.length
     ? `<section style="margin:0 0 52px">

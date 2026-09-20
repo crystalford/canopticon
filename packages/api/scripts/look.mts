@@ -33,7 +33,15 @@ const { env } = await import("./fixture.mts");
 
 const server = http.createServer(async (req, res) => {
   try {
-    const r = await app.fetch(new Request(`http://local${req.url ?? "/"}`), env);
+    // Headers must be forwarded, not dropped. They were, and the Cookie
+    // header went with them — so an operator session could never reach the
+    // app and every operator-only page photographed as its sign-in screen.
+    const headers = new Headers();
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (typeof v === "string") headers.set(k, v);
+      else if (Array.isArray(v)) headers.set(k, v.join("; "));
+    }
+    const r = await app.fetch(new Request(`http://local${req.url ?? "/"}`, { headers }), env);
     res.writeHead(r.status, Object.fromEntries(r.headers));
     res.end(Buffer.from(await r.arrayBuffer()));
   } catch (e) {
@@ -52,7 +60,7 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
 });
 
-const SHOTS: Array<[string, string, number]> = [
+const SHOTS: Array<[string, string, number, "operator"?]> = [
   ["front", "/", 1400],
   ["essays", "/essays", 1400],
   ["research", "/research", 1400],
@@ -63,10 +71,35 @@ const SHOTS: Array<[string, string, number]> = [
   ["about", "/about", 1400],
   ["essays-mobile", "/essays", 390],
   ["piece-mobile", "/p/the-logic-costume", 390],
+  // A research document on a phone. The essay above does not cover it: a
+  // research body carries a wide pipe table, and a table is the one construct
+  // that can push a whole page sideways. The overflow check below is what
+  // actually catches that, and it needs a page with a table on it to check.
+  ["research-mobile", "/p/budget-2026-estimates", 390],
+  // OPERATOR-ONLY. /library is where documents are uploaded and where the
+  // ingestion receipt renders, and it 401s without a session — so until now
+  // the only thing this tool could photograph was the signed-out page. An
+  // operator surface nobody can see is an operator surface nobody checks.
+  ["library", "/library", 1400, "operator"],
+  ["library-mobile", "/library", 390, "operator"],
 ];
 
-for (const [name, urlPath, width] of SHOTS) {
+// A signed operator cookie, so the operator shots above render the real
+// working surface rather than the sign-in page.
+const { signSession, buildSessionCookie } = await import("../src/auth/session.ts");
+const { SESSION_SECRET } = await import("./fixture.mts");
+const opCookie = buildSessionCookie(
+  await signSession({ uid: "u1", exp: Math.floor(Date.now() / 1000) + 3600 }, SESSION_SECRET),
+).split(";")[0] as string;
+const [opName, opValue] = opCookie.split("=") as [string, string];
+
+for (const [name, urlPath, width, as] of SHOTS) {
   const page = await browser.newPage({ viewport: { width, height: 1000 } });
+  if (as === "operator") {
+    await page
+      .context()
+      .addCookies([{ name: opName, value: opValue, domain: "127.0.0.1", path: "/" }]);
+  }
   const errs: string[] = [];
   page.on("pageerror", (e) => errs.push(e.message));
   const resp = await page.goto(`${origin}${urlPath}`, { waitUntil: "networkidle" });

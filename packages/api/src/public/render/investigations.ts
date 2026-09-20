@@ -2,6 +2,8 @@
 // archive). The piece page itself is rendered by piece-template.ts, not
 // here — see that file for the public face of a single document.
 
+import type { IngestionReceipt } from "../../graph/lib/ingestion-receipt";
+import type { Lead } from "../../graph/lib/leads";
 import * as GATE from "../../lib/aeo";
 import { looksLikeMachineFilename } from "../../lib/title";
 import { modelForRole } from "../../llm/router";
@@ -400,6 +402,92 @@ function renderAtomReview(
 // Essay lint notes, written into the piece's metadata at upload time. Shown
 // here rather than only on the upload confirmation, which is seen once and
 // then gone. Advisory — the piece published regardless.
+/**
+ * THE INGESTION RECEIPT, per document.
+ *
+ * "What is the system doing with the research that I'm dropping into it?" —
+ * this is the answer, in the row of the document it is about. It was possible
+ * to upload a 140KB dossier, get a page back, and never learn that extraction
+ * had read half of it.
+ *
+ * THE GAP GOES FIRST. Extraction stops at a ceiling, and a receipt that led
+ * with "47 verified spans" while saying nothing about the 75KB nobody looked
+ * at would imply a coverage the system does not have. Standing rule 6: an
+ * honest gap beats a confident number.
+ */
+function renderReceipt(r: IngestionReceipt | undefined): string {
+  // Not extracted is a STATE, and it is the one that tells the operator to
+  // press a button — so it is rendered, not omitted. It must also be rendered
+  // HERE rather than by a second block: the row used to carry a separate
+  // "fed the fabric" cell fed by its own query, and the two could disagree.
+  // A screenshot caught them doing exactly that — one cell reading "not
+  // extracted" beside a receipt reporting 112 facts on the same document.
+  if (!r) return `<div class="rcpt"><span class="rcpt-none">Not extracted yet.</span></div>`;
+  const pct = r.total_chars > 0 ? Math.round((r.read_chars / r.total_chars) * 100) : 100;
+  const coverage = r.truncated
+    ? `<span class="rcpt-gap">Read the first ${r.read_chars.toLocaleString()} of ${r.total_chars.toLocaleString()} characters (${pct}%) — the rest was never looked at.</span>`
+    : `<span class="rcpt-full">Read in full — ${r.total_chars.toLocaleString()} characters.</span>`;
+
+  const counts = [
+    `<b>${r.quotes}</b> verified span${r.quotes === 1 ? "" : "s"}`,
+    r.nodes > 0 ? `<b>${r.nodes}</b> fact${r.nodes === 1 ? "" : "s"}` : "",
+    r.findings > 0 ? `<b>${r.findings}</b> figure${r.findings === 1 ? "" : "s"}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return `<div class="rcpt">
+  <div class="rcpt-line">${coverage}</div>
+  <div class="rcpt-line rcpt-counts">${counts}</div>
+  ${renderLeads(r.leads)}
+</div>`;
+}
+
+/**
+ * Leads — where this document made the corpus strange.
+ *
+ * Each one is a query result, not an opinion: the system points, it does not
+ * narrate. Ordered by recency, which is a LIST ORDER and not a ranking —
+ * ranking leads would end in ranking them by how often something recurs, and
+ * frequency is the one mechanism this must never use. The documents are the
+ * operator's own research output, so three of them agreeing may be one
+ * upstream page echoing three times.
+ */
+function renderLeads(leads: Lead[]): string {
+  if (!leads.length) return "";
+  const items = leads
+    .map((l) => {
+      const label = l.kind === "contradiction" ? "sources disagree" : "no source named";
+      const other =
+        l.kind === "contradiction" && l.other_piece_slug
+          ? ` <a class="lead-other" href="/library/${escapeAttr(l.other_piece_slug)}">${escapeHtml(l.other_piece_title ?? "the other document")}</a>`
+          : "";
+      const receipt = l.quote_id
+        ? ` <a class="lead-receipt" href="/q/${escapeAttr(l.quote_id)}">quote ↗</a>`
+        : "";
+      // The dig button. The seed and angle ride along in the form because a
+      // lead is a query result, not a stored row — and the angle is what
+      // makes the run worth starting: a run seeded with a bare topic returns
+      // a topic's worth of material.
+      const dig = l.seed
+        ? `
+      <form method="POST" action="/op/leads/dig" class="lead-dig-form">
+        <input type="hidden" name="seed" value="${escapeAttr(l.seed)}" />
+        <input type="hidden" name="angle" value="${escapeAttr(l.angle)}" />
+        <button type="submit" class="lead-dig">Dig here →</button>
+      </form>`
+        : "";
+      return `    <li class="lead lead-${escapeAttr(l.kind)}">
+      <span class="lead-k">${escapeHtml(label)}</span>
+      <span class="lead-sum">${escapeHtml(l.summary)}</span>${other}${receipt}${dig}
+    </li>`;
+    })
+    .join("\n");
+  return `<ul class="lead-list">
+${items}
+  </ul>`;
+}
+
 function renderLintNotes(metadataJson: string | null | undefined): string {
   let notes: Array<{ level: string; message: string }> = [];
   try {
@@ -634,7 +722,7 @@ export async function renderLibraryIndex(
   // Library weight — the proof-of-work line. Documents read, facts extracted,
   // subjects fed, contested claims surfaced. Numbers come straight from the
   // typed graph; if extraction hasn't run, the line shrinks honestly.
-  const { one, all: allRows } = await import("../../lib/d1");
+  const { one } = await import("../../lib/d1");
   const weight = userId
     ? await one<{
         docs: number;
@@ -655,25 +743,6 @@ export async function renderLibraryIndex(
         [userId, userId, userId, userId, userId],
       ).catch(() => null)
     : null;
-
-  // Per-piece "what it fed" — one query, indexed by piece_id. Renders in the
-  // table row so the operator can see at a glance which docs are pulling
-  // weight and which are dead. Includes node count and distinct-subjects count.
-  const fedRows = userId
-    ? await allRows<{ piece_id: string; nodes: number; subjects: number }>(
-        env.DB,
-        `SELECT n.piece_id,
-                COUNT(*) AS nodes,
-                COUNT(DISTINCT e.dst_node_id) AS subjects
-           FROM nodes n
-           LEFT JOIN edges e ON e.src_node_id = n.id AND e.family = 'aboutness'
-          WHERE n.user_id = ? AND n.piece_id IS NOT NULL
-            AND n.kind IN ('neutral_fact', 'event', 'assertion')
-          GROUP BY n.piece_id`,
-        [userId],
-      ).catch(() => [])
-    : [];
-  const fedByPiece = new Map(fedRows.map((r) => [r.piece_id, r] as const));
 
   // Proposed atoms, per document. Operator-only: these have no URL until they
   // pass the gate AND the operator publishes them, so this list is the only
@@ -722,6 +791,16 @@ export async function renderLibraryIndex(
     }
   }
 
+  // The ingestion receipt, per document: what extraction actually read, what
+  // survived verification, and where this document made the corpus strange.
+  // Operator-only and computed on view — nothing caches it, nothing sweeps.
+  const receipts =
+    opts.isOperator && userId
+      ? await (await import("../../graph/lib/ingestion-receipt"))
+          .ingestionReceipts(env.DB, userId)
+          .catch(() => new Map<string, IngestionReceipt>())
+      : new Map<string, IngestionReceipt>();
+
   // The research queue: questions the corpus raised and cannot answer.
   const { openQuestions } = await import("../../graph/lib/standing-answer");
   const open =
@@ -753,7 +832,6 @@ ${open
   const rows = pieces.length
     ? pieces
         .map((p) => {
-          const fed = fedByPiece.get(p.id);
           const isOnDemandDraft =
             p.publication_status === "working-material" && onDemandDrafts.has(p.id);
           const status = isOnDemandDraft
@@ -776,19 +854,15 @@ ${open
           const title = href
             ? `<a href="${href}" class="ac">${escapeHtml(displayTitle)}</a>${rawFilenameLine}`
             : `${escapeHtml(displayTitle)}${rawFilenameLine}`;
-          const fedCell =
-            fed && fed.nodes > 0
-              ? `<span><b>${fed.nodes}</b> fact${fed.nodes === 1 ? "" : "s"}${fed.subjects > 0 ? ` · ${fed.subjects} subject${fed.subjects === 1 ? "" : "s"}` : ""}</span>`
-              : `<span class="lib-fed-quiet">not extracted</span>`;
           const atoms = atomsByPiece.get(p.id);
           const atomBlock =
             opts.isOperator && p.publication_status !== "working-material"
               ? renderAtomReview(p.id, atoms, ledeByPiece.get(p.id))
               : "";
+          const receiptBlock = opts.isOperator ? renderReceipt(receipts.get(p.id)) : "";
           return `<tr>
-  <td>${title}${renderLintNotes(p.metadata)}${atomBlock}</td>
+  <td>${title}${renderLintNotes(p.metadata)}${receiptBlock}${atomBlock}</td>
   <td class="coord">${escapeHtml(kindLabel(p.kind))}</td>
-  <td class="lib-fed">${fedCell}</td>
   <td>${status}</td>
   <td class="coord">${p.published_at ? escapeHtml(formatDate(p.published_at)) : "—"}</td>
 </tr>`;
@@ -801,7 +875,6 @@ ${open
   <thead><tr>
     <th class="label">Title</th>
     <th class="label">Kind</th>
-    <th class="label">Fed the fabric</th>
     <th class="label">Status</th>
     <th class="label">Date</th>
   </tr></thead>
@@ -866,10 +939,22 @@ ${queueBlock}
   .lib-table td { padding: 14px 14px 14px 0; border-bottom: 1px solid var(--rule-soft, var(--rule)); vertical-align: top; font-size: 15px; line-height: 1.4; }
   .lib-table td.coord { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); }
   .lib-table tr:hover td { background: rgba(0,0,0,0.015); }
-  .lib-fed { color: var(--ink-2); font-size: 13.5px; }
-  .lib-fed b { color: var(--ink); font-weight: 600; }
-  .lib-fed-quiet { color: var(--ink-3); font-style: italic; font-size: 13px; }
   .lib-title-raw { font-family: var(--mono); font-size: 11px; color: var(--ink-mute); margin-top: 3px; word-break: break-all; }
+
+  /* On a phone the five-column table pushed the page 552px wide inside a
+     390px viewport. Nobody had seen it, because /library 401s without a
+     session and the screenshot tool could not log in until now. The table
+     becomes a stack of cards: each row a block, the secondary columns
+     labelled inline rather than by a header off the side of the screen. */
+  @media (max-width: 720px) {
+    .lib-table, .lib-table tbody, .lib-table tr, .lib-table td { display: block; width: 100%; }
+    .lib-table thead { display: none; }
+    .lib-table tr {
+      padding: 14px 0; border-bottom: 1px solid var(--rule-soft, var(--rule));
+    }
+    .lib-table td { border: none; padding: 0 0 4px; }
+    .lib-table td.coord { display: inline-block; width: auto; margin-right: 10px; }
+  }
 </style>
 `;
   return renderPage({

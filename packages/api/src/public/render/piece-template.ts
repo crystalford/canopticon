@@ -11,7 +11,6 @@
 // CSS classes are all already in styles.ts (lifted verbatim from the
 // design build); this file is template + section-parser only.
 
-import { renderMarkdown } from "../../cms/lib/render-post";
 import { type FindingRow, findingsForPiece } from "../../graph/lib/aeo-extract";
 import { type LedeRow, ledeForPiece } from "../../graph/lib/lede";
 import { resolveByline, showsUpdate } from "../../lib/byline";
@@ -36,6 +35,12 @@ import {
   pieceTitle,
   pieceUrl,
 } from "../machine";
+// The publication's own renderer, NOT the CMS one. A document is not a post:
+// it arrives as an uploaded file carrying tables, nested lists and
+// hard-wrapped prose, none of which the CMS renderer handles — which is what
+// made a research dossier render as a wall of text. See render/markdown.ts.
+import { renderInlineMarkdown, renderMarkdown } from "./markdown";
+import { spliceReceipts } from "./receipts";
 
 /** Bylines that name the machinery rather than an author. Never rendered. */
 
@@ -129,11 +134,18 @@ function renderLede(lede: LedeRow | null | undefined): string {
 </div>`;
 }
 
-// The figure, what it measures, when, who reported it, and the sentence it
-// came from — with a link to that quote's own receipt. A statistic stated
+// The figure, what it measures, when, and who reported it. A statistic stated
 // beside its named source and date is the single best-evidenced shape for
 // being cited, and it is exactly what the verification layer already produces.
-function renderFindings(findings: FindingRow[] | undefined): string {
+//
+// THE QUOTE ITSELF IS NO LONGER REPEATED HERE. It used to be: the same
+// sentence appeared once in the document body and again in a blockquote at
+// the bottom, which is the thing standing rule 3 exists to prevent. Now that
+// the span is linked in the passage it came from, this block's job is to be
+// the scannable structured index of what the document establishes, and to
+// point back into the prose — so "in context" goes to the sentence, and the
+// receipt link goes to the proof.
+function renderFindings(findings: FindingRow[] | undefined, placed: Set<string>): string {
   if (!findings?.length) return "";
   const rows = findings
     .map(
@@ -146,15 +158,25 @@ function renderFindings(findings: FindingRow[] | undefined): string {
       .filter(Boolean)
       .map((x) => escapeHtml(String(x)))
       .join(' <span class="sep">·</span> ')}</div>
-    <blockquote class="finding-quote">${escapeHtml(f.verbatim_text)}</blockquote>
-    <a class="finding-receipt" href="/q/${escapeAttr(f.quote_id)}">verified quote ↗</a>
+    <div class="finding-links">
+      ${
+        // Only when the span was actually placed in the prose. A finding whose
+        // quote no longer appears in the body (the document was edited after
+        // extraction) has no anchor to jump to, and a dead link on the
+        // provenance surface is worse than no link.
+        placed.has(f.quote_id)
+          ? `<a class="finding-context" href="#q-${escapeAttr(f.quote_id)}">in context ↓</a>`
+          : ""
+      }
+      <a class="finding-receipt" href="/q/${escapeAttr(f.quote_id)}">verified quote ↗</a>
+    </div>
   </li>`,
     )
     .join("\n");
   return `<section class="findings">
   <h2>What this document establishes</h2>
-  <p class="note">Each figure below is quoted word-for-word from the document and
-  checked against it by machine.</p>
+  <p class="note">Every figure below is quoted word-for-word from this document
+  and checked against it by machine. Follow one to the sentence it came from.</p>
   <ol class="finding-list">
 ${rows}
   </ol>
@@ -207,7 +229,15 @@ function renderWhatItFed(fed: FedSummary | undefined): string {
 }
 
 function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
-  const sections = parseSections(piece.body_md ?? "");
+  // Receipts are spliced into the markdown BEFORE sectioning, so every
+  // per-kind body path below inherits them without knowing they exist. The
+  // findings are the only spans linked: at roughly 53 verified quotes per
+  // piece, linking them all would be the density problem the reader research
+  // warns about, and a figure with a named source and a date is the
+  // best-evidenced citable shape there is.
+  const receipts = spliceReceipts(piece.body_md ?? "", ctx.findings ?? []);
+  const withReceipts = receipts.markdown;
+  const sections = parseSections(withReceipts);
   const videoMeta = parseVideoMetadata(piece);
 
   // A video-transcript piece: lead with the argument summary (Phase 2,
@@ -219,9 +249,9 @@ function renderPieceBody(piece: PieceDetail, ctx: PieceCtx): string {
     ? `${renderArgumentSummary(piece, videoMeta)}
 <details class="video-transcript-fold">
   <summary>Full transcript</summary>
-  ${renderBodyForKind(piece, sections, ctx)}
+  ${renderBodyForKind(piece, sections, ctx, withReceipts)}
 </details>`
-    : renderBodyForKind(piece, sections, ctx);
+    : renderBodyForKind(piece, sections, ctx, withReceipts);
 
   // The rail sits OUTSIDE the reading card, not inside it. It was inside,
   // which meant 300px of sidebar came out of the document's own measure and
@@ -234,7 +264,7 @@ ${renderBreadcrumbs(piece)}
 ${renderPageHead(piece)}
 ${renderLede(ctx.lede)}
 ${bodyBlock}
-${renderFindings(ctx.findings)}
+${renderFindings(ctx.findings, receipts.placed)}
 ${renderCiteBox(piece)}
 ${renderWhatItFed(ctx.fed)}
 ${renderDepositNote(piece, ctx.topics)}
@@ -485,10 +515,18 @@ function renderOnward(piece: PieceDetail, ctx: PieceCtx): string {
 
 // ---- per-kind body -----------------------------------------------------
 
-function renderBodyForKind(piece: PieceDetail, sections: ParsedSections, _ctx: PieceCtx): string {
+function renderBodyForKind(
+  piece: PieceDetail,
+  sections: ParsedSections,
+  _ctx: PieceCtx,
+  bodyMd: string,
+): string {
   switch (piece.kind) {
     case "essay":
-      return renderEssayBody(piece);
+      // The essay path parses body_md itself rather than using `sections`,
+      // so it needs the spliced copy handed to it explicitly — otherwise an
+      // essay would be the one kind that silently never showed a receipt.
+      return renderEssayBody(bodyMd);
     case "research-report":
     case "brief":
       return renderResearchReportBody(piece, sections);
@@ -505,8 +543,8 @@ function renderBodyForKind(piece: PieceDetail, sections: ParsedSections, _ctx: P
 // and the jump list is generated from those same anchors. The anchors are
 // also the URLs this page's Q&A structured data points at, so a quoted
 // answer links to the exact passage it came from.
-function renderEssayBody(piece: PieceDetail): string {
-  const essay = parseEssay(piece.body_md ?? "");
+function renderEssayBody(bodyMd: string): string {
+  const essay = parseEssay(bodyMd);
   if (!essay.sections.length && !essay.summary) {
     return `<section class="prose" style="margin:24px 0 0"><em style="color:var(--ink-mute)">This essay has no body yet.</em></section>`;
   }
@@ -863,11 +901,7 @@ function renderSourceLog(md: string): string {
 // Render Markdown inline (no <p> wrap). Used for list items + finding
 // bodies where we want emphasis/links but not paragraph spacing.
 function renderInline(md: string): string {
-  let html = renderMarkdown(md);
-  // Strip a single leading/trailing <p> for inline contexts.
-  html = html.trim();
-  html = html.replace(/^<p>/, "").replace(/<\/p>$/, "");
-  return html;
+  return renderInlineMarkdown(md);
 }
 
 function confDots(level: string): string {

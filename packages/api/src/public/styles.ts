@@ -220,6 +220,172 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   color: var(--ink-2); text-wrap: pretty;
 }
 
+/* ---- the reading column, for everything inside a document body ----------
+   Until now .prose styled exactly one element: p. Everything else a real
+   research document carries — headings, lists, quotes, tables, code — fell
+   through to browser defaults, on a dark ground, at the wrong font. That is
+   the whole of the copy-paste look.
+
+   It is not only cosmetic. Retrieval is passage-level: a section that runs
+   past roughly 300 words with no visible subheading makes a model hunt for
+   the passage inside a wall of text, and that measurably lowers the odds of
+   being cited. Structure here IS retrieval structure. */
+
+.prose > :first-child { margin-top: 0; }
+.prose > :last-child  { margin-bottom: 0; }
+
+/* Headings step down in size but hold the sans voice, so a document's
+   skeleton is legible at a glance and at a scroll. */
+.prose h2, .prose h3, .prose h4 {
+  font-family: var(--sans); font-weight: 600; letter-spacing: -0.02em;
+  line-height: 1.22; color: var(--ink); text-wrap: balance;
+}
+.prose h2 { font-size: 24px; margin: 2em 0 0.65em; }
+.prose h3 { font-size: 19px; margin: 1.8em 0 0.55em; }
+.prose h4 {
+  font-size: 14px; margin: 1.6em 0 0.5em; font-family: var(--mono);
+  font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.prose h2 + h3 { margin-top: 1.1em; }
+
+/* Every heading is a citation target. The marker is quiet until hover so it
+   is available without littering the reading column with punctuation. */
+.prose :is(h2, h3, h4) .anchor-link { color: inherit; text-decoration: none; }
+.prose :is(h2, h3, h4) .anchor-link:hover { color: var(--accent); }
+.prose :is(h2, h3, h4) .anchor-link::after {
+  content: "#"; margin-left: 0.4em; color: var(--ink-faint);
+  font-family: var(--mono); font-size: 0.7em; opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.prose :is(h2, h3, h4):hover .anchor-link::after { opacity: 1; }
+
+.prose ul, .prose ol { margin: 0 0 1.1em; padding-left: 1.4em; }
+.prose li { margin-bottom: 0.4em; text-wrap: pretty; }
+.prose li:last-child { margin-bottom: 0; }
+.prose li > ul, .prose li > ol { margin: 0.4em 0 0; }
+.prose ul { list-style: none; padding-left: 1.1em; }
+.prose ul > li { position: relative; }
+.prose ul > li::before {
+  content: ""; position: absolute; left: -1.1em; top: 0.62em;
+  width: 4px; height: 4px; border-radius: 50%; background: var(--ink-faint);
+}
+/* Not decoration: on a Sources block these markers ARE the citation numbers
+   that [1] in the body points at, so they have to be readable. */
+.prose ol > li::marker { color: var(--ink-3); font-family: var(--mono); font-size: 0.85em; }
+
+/* A quotation is the one place a document speaks in another voice, so it
+   gets the accent rule rather than a grey slab. */
+.prose blockquote {
+  margin: 1.5em 0; padding: 0.15em 0 0.15em 1.15em;
+  border-left: 2px solid var(--accent); color: var(--ink-2);
+  font-style: italic;
+}
+.prose blockquote p { margin-bottom: 0.7em; }
+.prose blockquote p:last-child { margin-bottom: 0; }
+
+/* Tables were unsupported entirely and rendered as rows of pipe characters
+   in a paragraph. Mono digits so columns line up; the wrapper scrolls a wide
+   table instead of pushing the page sideways on a phone. */
+.table-wrap { margin: 1.6em 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.prose table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 14.5px; }
+.prose thead th {
+  text-align: left; font-weight: 600; color: var(--ink-3);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em;
+  text-transform: uppercase; white-space: nowrap;
+  padding: 0 14px 9px 0; border-bottom: 1px solid var(--rule-bright);
+}
+.prose tbody td {
+  padding: 9px 14px 9px 0; border-bottom: 1px solid var(--rule);
+  color: var(--ink-2); vertical-align: top;
+}
+.prose tbody tr:last-child td { border-bottom: none; }
+.prose td:last-child, .prose th:last-child { padding-right: 0; }
+/* Numeric columns are the reason to use tabular figures at all. */
+.prose td[style*="right"], .prose td[style*="center"] { font-variant-numeric: tabular-nums; }
+
+.prose code {
+  font-family: var(--mono); font-size: 0.86em; color: var(--ink);
+  background: var(--paper-2); border: 1px solid var(--rule);
+  border-radius: 4px; padding: 0.1em 0.35em;
+}
+.prose pre {
+  margin: 1.4em 0; padding: 14px 16px; overflow-x: auto;
+  background: var(--paper-2); border: 1px solid var(--rule);
+  border-radius: var(--r);
+}
+.prose pre code { background: none; border: none; padding: 0; font-size: 13px; line-height: 1.55; }
+
+.prose hr { margin: 2.2em 0; border: none; border-top: 1px solid var(--rule); }
+
+.prose a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+.prose a:hover { border-bottom-color: var(--accent); }
+
+/* ---- the inline receipt --------------------------------------------------
+   A verified passage, linked in the sentence it came from rather than in a
+   block at the foot of the page. Retrieval is passage-level: a claim in one
+   chunk with its proof in another gets lifted WITHOUT the proof, which is the
+   one thing this publication exists to prevent.
+
+   It deliberately does NOT look like an ordinary link. A link says go
+   elsewhere; this says this has been checked, and you can see the check. So:
+   the reading colour is kept, the underline is a hairline dotted rule, and a
+   small mark follows. Only on hover does it take the accent and admit to
+   being clickable.
+
+   Restraint is the whole design here. Highlighted inline links do not
+   measurably slow reading or hurt comprehension, but the distraction effect
+   scales with DENSITY — so only findings are linked, a handful per document,
+   never every entity. That last part is the wiki failure mode. */
+.prose a.receipt {
+  color: inherit;
+  /* Rendered at --ink-faint the dotted rule was invisible on the dark ground,
+     which left the check mark floating with nothing under it. --ink-3 reads
+     as a deliberate mark without competing with the text. */
+  text-decoration: underline dotted var(--ink-3);
+  text-underline-offset: 3.5px;
+  text-decoration-thickness: 1px;
+  scroll-margin-top: 80px;
+}
+.prose a.receipt::after {
+  content: "✓";
+  margin-left: 0.18em;
+  font-family: var(--sans);
+  font-size: 0.6em;
+  vertical-align: 0.45em;
+  color: var(--accent);
+  letter-spacing: 0;
+}
+.prose a.receipt:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.prose a.receipt:hover::after { color: var(--accent); }
+/* Arriving from the findings block: flash the passage so the eye lands on it
+   rather than merely scrolling near it. */
+.prose a.receipt:target {
+  background: var(--accent-wash, rgba(224,67,60,0.10));
+  border-bottom-color: var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px var(--accent-wash, rgba(224,67,60,0.10));
+}
+
+.finding-links { display: flex; gap: 16px; align-items: center; margin-top: 9px; }
+.finding-context {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-mute); text-decoration: none;
+}
+.finding-context:hover { color: var(--accent); }
+.finding-links .finding-receipt { margin-top: 0; }
+
+@media (max-width: 720px) {
+  .prose { font-size: 17.5px; }
+  .prose h2 { font-size: 21px; }
+  .prose h3 { font-size: 18px; }
+  /* The marker has no hover on touch, so show it rather than hide it. */
+  .prose :is(h2, h3, h4) .anchor-link::after { opacity: 0; }
+}
+
 /* ============================================================================
    WORDMARK
    ============================================================================ */
@@ -2003,6 +2169,64 @@ pre.convention {
 .atom-list { list-style: none; margin: 9px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .atom-list li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; }
 .atom-q { color: var(--ink-2); }
+
+/* ---- the ingestion receipt ----------------------------------------------
+   What the system did with a document, in the row of the document it is
+   about. The coverage line comes first and is styled to be READ rather than
+   skimmed past: a receipt that leads with how many spans were verified, while
+   staying quiet about the 75KB nobody looked at, implies a completeness the
+   system does not have. */
+.rcpt { margin-top: 8px; font-family: var(--mono); font-size: 11px; line-height: 1.55; }
+.rcpt-line { color: var(--ink-mute); }
+.rcpt-counts { color: var(--ink-3); margin-top: 2px; }
+.rcpt-counts b { color: var(--ink-2); font-weight: 600; }
+/* The gap is the honest part, so it is the part that carries colour. */
+.rcpt-gap { color: var(--accent-2, var(--ink-3)); }
+.rcpt-full { color: var(--ink-mute); }
+/* Not-extracted is a prompt to act, so it reads as a state rather than as an
+   absence of one. */
+.rcpt-none { color: var(--ink-3); font-style: italic; }
+
+/* The operator's own nav entry. Marked with the accent dot so it reads as
+   "yours" rather than as a fourth public section — a reader never sees it. */
+.nav a.nav-op { color: var(--ink-2); }
+.nav a.nav-op::before {
+  content: ""; display: inline-block; width: 5px; height: 5px;
+  border-radius: 50%; background: var(--accent); margin-right: 6px;
+  vertical-align: middle;
+}
+.nav a.nav-op:hover { color: var(--accent); }
+
+/* ---- leads ---------------------------------------------------------------
+   Where the corpus is strange. Each is a query result, not a judgement — the
+   system points, it does not narrate. Ordered by recency, which is a list
+   order and never a ranking. */
+.lead-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.lead {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline;
+  padding: 5px 0 5px 10px; border-left: 2px solid var(--rule-bright);
+  margin-bottom: 4px;
+}
+.lead-contradiction { border-left-color: var(--accent); }
+.lead-k {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-mute); white-space: nowrap;
+}
+.lead-sum { font-family: var(--sans); font-size: 12.5px; color: var(--ink-2); }
+.lead-other, .lead-receipt {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-mute); text-decoration: none;
+}
+.lead-other:hover, .lead-receipt:hover { color: var(--accent); }
+/* Following a lead is the act that grows the corpus, so the affordance reads
+   as an invitation rather than as another piece of metadata. */
+.lead-dig-form { display: inline; margin: 0; }
+.lead-dig {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; cursor: pointer; padding: 3px 9px;
+  border: 1px solid var(--rule-bright); border-radius: 4px;
+  background: transparent; color: var(--ink-3);
+}
+.lead-dig:hover { border-color: var(--accent); color: var(--accent); }
 .atom-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-mute); white-space: nowrap; }
 .atom-live { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--confirmed); }
 .atom-blocked { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-mute); cursor: help; }
