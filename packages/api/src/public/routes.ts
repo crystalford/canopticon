@@ -864,6 +864,7 @@ app.get("/library", async (c) => {
   const atomsModel = c.req.query("model");
   const published = c.req.query("published");
   const renamed = c.req.query("renamed");
+  const topics = c.req.query("topics");
   return htmlResponse(
     await renderLibraryIndex(c.env, {
       isOperator: c.get("is_operator"),
@@ -876,6 +877,7 @@ app.get("/library", async (c) => {
       ...(atomsModel ? { model: atomsModel } : {}),
       ...(published ? { published } : {}),
       ...(renamed ? { renamed } : {}),
+      ...(topics ? { topics } : {}),
     }),
   );
 });

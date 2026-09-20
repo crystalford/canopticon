@@ -235,6 +235,18 @@ const CONTRADICTIONS = [
 // branch of the receipt without carrying a 70KB string in this file — and the
 // truncated branch is the one that matters most, because it is the one that
 // admits the system did not read the whole document.
+// Topics, so the grouped index and homepage render. One document is left
+// UNTOPICED on purpose: "Everything else" is a real state the page has to
+// handle, and a fixture where everything is filed would never show it.
+const TOPIC_BY_SLUG = new Map<string, string>([
+  ["budget-2026-estimates", "Money & markets"],
+  ["transfer-payments-2025", "Money & markets"],
+  ["housing-starts-q3", "Housing & cities"],
+  ["lobbying-registry-extract", "Politics & government"],
+  ["wealth-estimates-review", "Money & markets"],
+  // pass-7-mini-hardening-dossier deliberately absent.
+]);
+
 const EXTRACTION = new Map<string, { quotes: number; nodes: number; body_chars: number }>([
   ["budget-2026-estimates", { quotes: 47, nodes: 112, body_chars: 145300 }],
   ["housing-starts-q3", { quotes: 12, nodes: 31, body_chars: 8400 }],
@@ -267,6 +279,7 @@ const row = (slug: string, title: string, subtitle: string, kind: string, i: num
   created_at: `2026-0${(i % 9) + 1}-1${i % 9}T00:00:00.000Z`,
   updated_at: "2026-09-10T00:00:00.000Z",
   body_chars: EXTRACTION.get(slug)?.body_chars ?? (kind === "essay" ? BODY : RESEARCH_BODY).length,
+  topic: TOPIC_BY_SLUG.get(slug) ?? null,
 });
 
 const ALL = [

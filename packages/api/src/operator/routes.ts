@@ -1024,6 +1024,24 @@ app.post("/answers/:id/research", async (c) => {
   return c.redirect(`/op/research?q=${encodeURIComponent(q.question)}`);
 });
 
+// FILE EVERY UNTOPICED DOCUMENT.
+//
+// Push-button, never scheduled (rule 4). Bounded per press, so one click
+// cannot spend an unbounded amount on a corpus that grew overnight — press it
+// again for the next batch.
+//
+// The model CHOOSES from a closed list rather than naming a topic, because
+// free naming across fifty documents produces forty near-duplicate labels and
+// groups nothing. See graph/lib/topics.ts.
+app.post("/library/topics", async (c) => {
+  const userId = await resolveOperatorId(c.env.DB);
+  if (!userId) return c.redirect("/library");
+  const { assignTopics } = await import("../graph/lib/topics");
+  const r = await assignTopics(c.env, userId, { limit: 25 }).catch(() => null);
+  if (!r) return c.redirect("/library?error=topic+pass+failed");
+  return c.redirect(`/library?topics=${r.assigned}.${r.ungrouped}`);
+});
+
 // ACCEPT A TITLE.
 //
 // A document published under the name its research session gave itself —

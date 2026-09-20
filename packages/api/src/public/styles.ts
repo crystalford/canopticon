@@ -2252,6 +2252,25 @@ pre.convention {
 .doc-toc a { color: var(--ink-2); text-decoration: none; }
 .doc-toc a:hover { color: var(--accent); }
 
+/* ---- topic sections ------------------------------------------------------
+   Sections inside an index a reader already asked for. NOT pages: /answers
+   and /numbers were both derived index pages and both were removed for
+   competing with the documents they indexed. */
+.topic-sec { margin: 0 0 44px; }
+.topic-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 16px; margin: 0 0 16px; padding-bottom: 9px;
+  border-bottom: 1px solid var(--rule);
+}
+.topic-head h2 {
+  margin: 0; font-family: var(--sans); font-weight: 600; font-size: 17px;
+  letter-spacing: -0.01em; color: var(--ink);
+}
+.topic-n {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-mute); white-space: nowrap;
+}
+
 /* The operator's own nav entry. Marked with the accent dot so it reads as
    "yours" rather than as a fourth public section — a reader never sees it. */
 .nav a.nav-op { color: var(--ink-2); }

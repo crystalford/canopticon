@@ -205,6 +205,9 @@ export const ESSAY_KINDS = ["essay"] as const;
 export interface IndexPiece extends PieceSummary {
   body_chars: number;
   updated_at: string;
+  /** Model-assigned at authoring time and frozen (migration 0055). Null means
+   *  ungrouped, which is a real state — see graph/lib/topics.ts. */
+  topic: string | null;
   /** The first 400 characters of body_md — enough for displayTitle() to
    *  recover a real heading when the stored title is a raw filename, without
    *  pulling every document's full text into an index query. */
@@ -224,7 +227,7 @@ async function listPiecesByKind(
   return all<IndexPiece>(
     db,
     `SELECT id, slug, title, subtitle, kind, subtype, publication_status,
-            byline, published_at, signed_by, updated_at,
+            byline, published_at, signed_by, updated_at, topic,
             LENGTH(body_md) AS body_chars, SUBSTR(body_md, 1, 400) AS body_head
        FROM pieces
       WHERE user_id = ? AND publication_status IN ('published','canonical')

@@ -559,6 +559,8 @@ export async function renderLibraryIndex(
     published?: string;
     /** Set after a working title was replaced from /op/pieces/:id/title. */
     renamed?: string;
+    /** "assigned.ungrouped" from the topic pass. */
+    topics?: string;
   } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
@@ -596,17 +598,22 @@ export async function renderLibraryIndex(
             const by = opts.model ? ` using <b>${escapeHtml(shortModel(opts.model))}</b>` : "";
             return `<div class="op-banner">Extracted <b>${escapeHtml(f ?? "0")}</b> findings and <b>${escapeHtml(n ?? "0")}</b> new questions (<b>${escapeHtml(m ?? "0")}</b> merged into existing ones)${by}.${Number(k) > 0 ? ` ${escapeHtml(k ?? "0")} span${k === "1" ? "" : "s"} were discarded for not matching the document verbatim.` : ""} Nothing is public until you publish it.</div>`;
           })()
-        : opts.renamed
-          ? `<div class="op-banner">Title updated. The old one is kept on the row.</div>`
-          : opts.published
-            ? `<div class="op-banner">Answer published.</div>`
-            : opts.draining
-              ? `<div class="op-banner">${
-                  opts.draining === "0"
-                    ? "Nothing was waiting in the queue."
-                    : `Started ${escapeHtml(opts.draining)} queued job${opts.draining === "1" ? "" : "s"}. They run in the background — reload in a minute, and press again if more are still queued.`
-                }</div>`
-              : "";
+        : opts.topics
+          ? (() => {
+              const [a, u] = opts.topics.split(".");
+              return `<div class="op-banner">Filed <b>${escapeHtml(a ?? "0")}</b> document${a === "1" ? "" : "s"} into sections.${Number(u) > 0 ? ` <b>${escapeHtml(u ?? "0")}</b> fit none of them and sit in Everything else — a real answer, not a failure.` : ""} Press again for the next batch.</div>`;
+            })()
+          : opts.renamed
+            ? `<div class="op-banner">Title updated. The old one is kept on the row.</div>`
+            : opts.published
+              ? `<div class="op-banner">Answer published.</div>`
+              : opts.draining
+                ? `<div class="op-banner">${
+                    opts.draining === "0"
+                      ? "Nothing was waiting in the queue."
+                      : `Started ${escapeHtml(opts.draining)} queued job${opts.draining === "1" ? "" : "s"}. They run in the background — reload in a minute, and press again if more are still queued.`
+                  }</div>`
+                : "";
 
   // Operator affordance strip — only rendered when logged in. Surfaces the
   // bulk extract action (the work behind it lives at POST /op/library/extract
@@ -662,6 +669,9 @@ export async function renderLibraryIndex(
     // follow-up queries parks at pass2_pending and shows "Researching…"
     // forever. Shown unconditionally rather than gated on a count, because the
     // cheap thing to get wrong here is not knowing a run is stuck.
+    const topicsBtn = `<form method="POST" action="/op/library/topics" style="display:inline;margin-right:8px">
+  <button type="submit" class="op-strip-btn">File into sections</button>
+</form>`;
     const advanceBtn = `<form method="POST" action="/op/research/advance" style="display:inline;margin-right:8px">
   <button type="submit" class="op-strip-btn">Advance research</button>
 </form>`;
@@ -722,7 +732,7 @@ export async function renderLibraryIndex(
     opStrip = `<div class="op-strip">
   <div class="op-strip-top">
     <div class="op-strip-label">Operator</div>
-    <div class="op-strip-actions">${drainBtn}${advanceBtn}${extractBtn}${reextractBtn}</div>
+    <div class="op-strip-actions">${drainBtn}${topicsBtn}${advanceBtn}${extractBtn}${reextractBtn}</div>
   </div>
   ${dropzone}
   ${videoImportBanner}
