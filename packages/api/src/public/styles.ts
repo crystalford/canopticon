@@ -2187,6 +2187,25 @@ pre.convention {
    absence of one. */
 .rcpt-none { color: var(--ink-3); font-style: italic; }
 
+/* ---- the working-title suggestion ---------------------------------------
+   A proposal, styled as one. It sits under a title that is already live and
+   already published, so it must not read as an error state — the document is
+   fine, its name is just the name of a research session. */
+.rn { margin-top: 8px; padding-left: 10px; border-left: 2px solid var(--rule-bright); }
+.rn-k {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+.rn-note { font-family: var(--sans); font-size: 11.5px; color: var(--ink-3); margin: 2px 0 6px; }
+.rn-form { margin: 0 0 4px; }
+.rn-pick {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  font-family: var(--serif); font-size: 14px; line-height: 1.35;
+  padding: 6px 10px; border: 1px solid var(--rule); border-radius: 5px;
+  background: transparent; color: var(--ink-2);
+}
+.rn-pick:hover { border-color: var(--accent); color: var(--ink); }
+
 /* The operator's own nav entry. Marked with the accent dot so it reads as
    "yours" rather than as a fourth public section — a reader never sees it. */
 .nav a.nav-op { color: var(--ink-2); }

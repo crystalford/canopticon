@@ -49,9 +49,13 @@ const RESEARCH = [
     "Wealth Estimates: A Review",
     "Three methods, three answers, one population.",
   ],
+  // A WORKING TITLE, verbatim in shape from the live corpus. The document
+  // publishes under its research session's name, and /library must offer a way
+  // out of it. Without one of these in the fixture the suggestion box could
+  // never appear in a screenshot.
   [
-    "procurement-exemptions",
-    "Procurement Exemptions",
+    "pass-7-mini-hardening-dossier",
+    "PASS 7-MINI — HARDENING DOSSIER",
     "Sole-source contracts above the threshold.",
   ],
 ];
@@ -314,6 +318,19 @@ function makeDb(): D1Database {
         // the public indexes were full.
         if (/FROM pieces/i.test(sql) && /ORDER BY COALESCE\(published_at/i.test(sql)) {
           return { results: ALL };
+        }
+        // Bodies for the working-title rows. /library fetches body_md for just
+        // the flagged pieces to build rename candidates; without this branch
+        // the candidates come back empty and the suggestion silently never
+        // renders — which is exactly how it looked the first time.
+        if (/FROM pieces/i.test(sql) && /body_md/i.test(sql) && /id IN/i.test(sql)) {
+          const ids = bound.slice(1);
+          return {
+            results: ALL.filter((p) => ids.includes(p.id)).map((p) => ({
+              id: p.id,
+              body_md: p.body_md,
+            })),
+          };
         }
         // The receipt's own body_chars lookup: no publication_status filter,
         // so it falls past the branch above.

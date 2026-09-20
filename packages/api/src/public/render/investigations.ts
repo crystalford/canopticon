@@ -5,7 +5,8 @@
 import type { IngestionReceipt } from "../../graph/lib/ingestion-receipt";
 import type { Lead } from "../../graph/lib/leads";
 import * as GATE from "../../lib/aeo";
-import { looksLikeMachineFilename } from "../../lib/title";
+import { looksLikeMachineFilename, looksLikeWorkingTitle } from "../../lib/title";
+import { titleCandidates } from "../../lib/title-candidates";
 import { modelForRole } from "../../llm/router";
 import { type PublicEnv, listInvestigations, resolveOperatorId } from "../data";
 import { escapeAttr, escapeHtml, renderPage } from "../layout";
@@ -403,6 +404,43 @@ function renderAtomReview(
 // here rather than only on the upload confirmation, which is seen once and
 // then gone. Advisory — the piece published regardless.
 /**
+ * A working title, and the way out of it.
+ *
+ * "PASS 7-MINI — HARDENING DOSSIER" and "Phase 6" are what a research session
+ * called itself. They are the page's H1, its <title> tag and its citation
+ * line, and they made a real corpus read as a pile of scraps.
+ *
+ * This is deliberately a SUGGESTION and not a correction. Upload is
+ * authorization for publishing, so the document is already live under the
+ * name it arrived with; renaming is a separate act and needs a person. Every
+ * candidate is the document's own text, lifted out of it — so accepting one
+ * is choosing between things the document already says, not approving a
+ * model's guess about it.
+ *
+ * Renders nothing when the title looks fine, and nothing when the document
+ * offers no candidate worth showing. An empty suggestion box is worse than
+ * none: it implies the title is wrong and offers no way out.
+ */
+function renderRename(pieceId: string, current: string, candidates: string[] | undefined): string {
+  if (!candidates?.length) return "";
+  const options = candidates
+    .map(
+      (
+        c,
+      ) => `      <form method="POST" action="/op/pieces/${escapeAttr(pieceId)}/title" class="rn-form">
+        <input type="hidden" name="title" value="${escapeAttr(c)}" />
+        <button type="submit" class="rn-pick">${escapeHtml(c)}</button>
+      </form>`,
+    )
+    .join("\n");
+  return `<div class="rn">
+  <div class="rn-k">Working title — ${escapeHtml(current)}</div>
+  <div class="rn-note">From the document's own words. Pick one, or leave it.</div>
+${options}
+</div>`;
+}
+
+/**
  * THE INGESTION RECEIPT, per document.
  *
  * "What is the system doing with the research that I'm dropping into it?" —
@@ -519,6 +557,8 @@ export async function renderLibraryIndex(
     /** Which model produced that run, so the banner can name it. */
     model?: string;
     published?: string;
+    /** Set after a working title was replaced from /op/pieces/:id/title. */
+    renamed?: string;
   } = {},
 ): Promise<string> {
   const userId = await resolveOperatorId(env.DB);
@@ -556,15 +596,17 @@ export async function renderLibraryIndex(
             const by = opts.model ? ` using <b>${escapeHtml(shortModel(opts.model))}</b>` : "";
             return `<div class="op-banner">Extracted <b>${escapeHtml(f ?? "0")}</b> findings and <b>${escapeHtml(n ?? "0")}</b> new questions (<b>${escapeHtml(m ?? "0")}</b> merged into existing ones)${by}.${Number(k) > 0 ? ` ${escapeHtml(k ?? "0")} span${k === "1" ? "" : "s"} were discarded for not matching the document verbatim.` : ""} Nothing is public until you publish it.</div>`;
           })()
-        : opts.published
-          ? `<div class="op-banner">Answer published.</div>`
-          : opts.draining
-            ? `<div class="op-banner">${
-                opts.draining === "0"
-                  ? "Nothing was waiting in the queue."
-                  : `Started ${escapeHtml(opts.draining)} queued job${opts.draining === "1" ? "" : "s"}. They run in the background — reload in a minute, and press again if more are still queued.`
-              }</div>`
-            : "";
+        : opts.renamed
+          ? `<div class="op-banner">Title updated. The old one is kept on the row.</div>`
+          : opts.published
+            ? `<div class="op-banner">Answer published.</div>`
+            : opts.draining
+              ? `<div class="op-banner">${
+                  opts.draining === "0"
+                    ? "Nothing was waiting in the queue."
+                    : `Started ${escapeHtml(opts.draining)} queued job${opts.draining === "1" ? "" : "s"}. They run in the background — reload in a minute, and press again if more are still queued.`
+                }</div>`
+              : "";
 
   // Operator affordance strip — only rendered when logged in. Surfaces the
   // bulk extract action (the work behind it lives at POST /op/library/extract
@@ -801,6 +843,28 @@ export async function renderLibraryIndex(
           .catch(() => new Map<string, IngestionReceipt>())
       : new Map<string, IngestionReceipt>();
 
+  // WORKING TITLES. Candidates are computed here rather than stored, for the
+  // handful of rows that need them: the function is pure and cheap, so a
+  // stored column would only add a backfill and a way to go stale against an
+  // edited body. Bodies are fetched for the flagged pieces alone.
+  const flagged = opts.isOperator
+    ? pieces.filter((p) => looksLikeWorkingTitle(p.title)).slice(0, 12)
+    : [];
+  const candidatesByPiece = new Map<string, string[]>();
+  if (flagged.length && userId) {
+    const { all: allBodies } = await import("../../lib/d1");
+    const placeholders = flagged.map(() => "?").join(",");
+    const bodies = await allBodies<{ id: string; body_md: string | null }>(
+      env.DB,
+      `SELECT id, body_md FROM pieces WHERE user_id = ? AND id IN (${placeholders})`,
+      [userId, ...flagged.map((p) => p.id)],
+    ).catch(() => []);
+    for (const b of bodies) {
+      const cands = titleCandidates(b.body_md ?? "");
+      if (cands.length) candidatesByPiece.set(b.id, cands);
+    }
+  }
+
   // The research queue: questions the corpus raised and cannot answer.
   const { openQuestions } = await import("../../graph/lib/standing-answer");
   const open =
@@ -860,8 +924,11 @@ ${open
               ? renderAtomReview(p.id, atoms, ledeByPiece.get(p.id))
               : "";
           const receiptBlock = opts.isOperator ? renderReceipt(receipts.get(p.id)) : "";
+          const renameBlock = opts.isOperator
+            ? renderRename(p.id, p.title, candidatesByPiece.get(p.id))
+            : "";
           return `<tr>
-  <td>${title}${renderLintNotes(p.metadata)}${receiptBlock}${atomBlock}</td>
+  <td>${title}${renameBlock}${renderLintNotes(p.metadata)}${receiptBlock}${atomBlock}</td>
   <td class="coord">${escapeHtml(kindLabel(p.kind))}</td>
   <td>${status}</td>
   <td class="coord">${p.published_at ? escapeHtml(formatDate(p.published_at)) : "—"}</td>

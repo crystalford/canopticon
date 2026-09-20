@@ -139,3 +139,41 @@ export function displayTitle(title: string, bodyStart?: string | null): string {
   if (firstLine && firstLine.length <= 200) return firstLine;
   return UNTITLED;
 }
+
+/**
+ * A WORKING TITLE — the name a research session gave itself.
+ *
+ * Distinct from the two cases above. A machine filename is a UUID; a generic
+ * title is "Introduction". This is a title a person wrote deliberately, which
+ * is meaningful to them and meaningless to a reader: "PASS 7-MINI — HARDENING
+ * DOSSIER", "Phase 6", "ANCASTER V1".
+ *
+ * No heuristic can be certain — "Phase 6" could genuinely be what a document
+ * is about — so this NEVER renames anything by itself. It only decides whether
+ * to offer the operator candidates. The cost of a false positive is a
+ * suggestion nobody accepts; the cost of renaming unasked is changing the most
+ * quoted line a document has.
+ *
+ * The signals are process vocabulary and shouting, not length or style.
+ */
+const PROCESS_WORDS =
+  /\b(pass|phase|step|stage|round|iter(ation)?|draft|wip|scratch|temp|tmp|dossier|mini|v\d+|rev\s*\d+|final|attempt|run)\b/i;
+
+export function looksLikeWorkingTitle(title: string): boolean {
+  const t = (title ?? "").trim();
+  if (!t || looksLikeMachineFilename(t) || looksLikeGenericTitle(t)) return false;
+
+  const words = t.split(/\s+/).filter(Boolean);
+  const letters = t.replace(/[^A-Za-z]/g, "");
+  // Shouting: most real titles are not upper-case, and a document that names
+  // itself in caps is almost always naming a process artifact.
+  const shouted = letters.length >= 6 && letters === letters.toUpperCase();
+  const hasProcessWord = PROCESS_WORDS.test(t);
+  // A bare version-ish token on its own — "Phase 6", "V2" — with nothing else
+  // to go on.
+  const versionOnly = words.length <= 3 && /\d/.test(t) && hasProcessWord;
+
+  // Two independent signals, or one very strong one. A shouted title that also
+  // says PASS or DOSSIER is not ambiguous.
+  return (shouted && hasProcessWord) || versionOnly || (shouted && words.length <= 6);
+}
