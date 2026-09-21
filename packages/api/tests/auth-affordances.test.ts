@@ -63,7 +63,13 @@ describe("attachAuthState — the one-site permission middleware", () => {
     const res = await app.fetch(new Request("http://test/library"), env);
     const html = await res.text();
     expect(res.status).toBe(401);
-    expect(html).toContain("/auth/login");
+    // /op/login, not /auth/login. This assertion used to pin the broken link:
+    // /auth/login sits outside the Cloudflare Access path that has to inject
+    // the identity header before a session can be minted, so it could never
+    // work from here, and the test held it in place while the operator
+    // reported being unable to sign in.
+    expect(html).toContain("/op/login");
+    expect(html).not.toContain("/auth/login");
     // Still no leak: the signed-out page must not show the working surface.
     expect(html).not.toContain('class="op-strip"');
   });

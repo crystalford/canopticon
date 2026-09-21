@@ -132,3 +132,53 @@ describe("mailing list", () => {
     expect(html).toContain('type="email"');
   });
 });
+
+// The sign-in page is rendered by the same notice() helper as the mailing
+// list, and every field in that helper was hardcoded for the mailing list —
+// so the one page a locked-out operator reaches inherited all three.
+describe("the sign-in page does not inherit the mailing list's identity", () => {
+  it("points at /op/login, the mount Access actually protects", async () => {
+    const { db } = makeDb();
+    const res = await app.fetch(new Request("http://test/library"), envWith(db));
+    const html = await res.text();
+    // Minting a session needs Access to have injected an identity header, and
+    // Access is scoped to a path: it covers /op/* and cannot cover /*, since
+    // the publication is public. /auth/login sits outside the gate it depends
+    // on, so this link was the one link on this page that could never work.
+    expect(html).toContain('href="/op/login"');
+    expect(html).not.toContain('href="/auth/login"');
+  });
+
+  it("is not labelled Mailing list", async () => {
+    const { db } = makeDb();
+    const res = await app.fetch(new Request("http://test/library"), envWith(db));
+    expect(await res.text()).not.toContain("Mailing list");
+  });
+
+  it("declares no canonical, rather than /subscribed", async () => {
+    // It used to carry canonical=/subscribed, telling every crawler the
+    // sign-in page was a duplicate of the newsletter confirmation. A sign-in
+    // page is not a destination to lead anyone to, so it claims nothing.
+    const { db } = makeDb();
+    const res = await app.fetch(new Request("http://test/library"), envWith(db));
+    const html = await res.text();
+    expect(html).not.toContain("/subscribed");
+    expect(html).not.toMatch(/rel="canonical"/);
+  });
+
+  it("still gives the mailing-list notices their own eyebrow and canonical", async () => {
+    // The fix must not strip the helper's real callers of what they need.
+    const { db } = makeDb();
+    const res = await app.fetch(
+      new Request("http://test/subscribe", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: "email=reader@example.com",
+      }),
+      envWith(db),
+    );
+    const html = await res.text();
+    expect(html).toContain("Mailing list");
+    expect(html).toContain('rel="canonical" href="https://canopticon.com/subscribed"');
+  });
+});
