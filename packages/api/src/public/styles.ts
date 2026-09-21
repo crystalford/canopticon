@@ -99,6 +99,16 @@ export const STYLES_CSS = `/* ==================================================
   --reading-width: 680px;
   --measure: 64ch;
 
+  /* ---- The shell: ONE page width, ONE gutter -------------------------
+     There were five. The nav, the trust strip and the footer centred on
+     1060px while the content container centred on 1100px, document pages
+     on 1260px, reading pages on 920px and answer pages on 820px — so the
+     wordmark and the H1 directly beneath it never shared a left edge, on
+     any page. Everything that spans the page now resolves to these two
+     values, which is what makes separate components read as one page. */
+  --shell: 1180px;
+  --gutter: 32px;
+
   /* ---- Active (public default) ----------------------------------------
      THE RECORD: the dark instrument IS the public face. The operator
      tokens are promoted to the ground for everyone — one register, one
@@ -582,8 +592,7 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
 /* ============================================================================
    CONTAINERS / LAYOUT
    ============================================================================ */
-.container { max-width: 1100px; margin: 0 auto; padding: 44px 32px 80px; }
-.container.reading { max-width: 920px; }
+.container { max-width: var(--shell); margin: 0 auto; padding: 44px var(--gutter) 80px; }
 
 
 
@@ -1082,7 +1091,7 @@ details.more > summary:hover { color: var(--accent); }
 .rr-caveats li { font-family: var(--serif); font-size: 15.5px; line-height: 1.55; color: var(--ink-3); }
 
 /* shared piece provenance note */
-.piece-note { max-width: 880px; margin: 34px 0 0; padding: 16px 18px; border: 1px dashed var(--rule); border-radius: var(--r); background: var(--paper-2); }
+.piece-note { margin: 34px 0 0; padding: 16px 20px; border: 1px solid var(--rule); border-radius: var(--r); background: var(--paper-2); }
 .piece-note .dr-h { color: var(--ink-mute); display: block; margin-bottom: 8px; }
 .piece-note p { font-family: var(--serif); font-size: 15px; line-height: 1.55; color: var(--ink-3); margin: 0; }
 .piece-note a { color: var(--accent-2); border-bottom: 1px solid var(--accent-bd); }
@@ -1308,7 +1317,7 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
   opacity: .6;
 }
 .nav-inner {
-  max-width: 1060px; margin: 0 auto; padding: 13px 20px;
+  max-width: var(--shell); margin: 0 auto; padding: 13px var(--gutter);
   display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
 }
 .wordmark {
@@ -1338,7 +1347,7 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
    name is already investigations.ts's per-page bulk-extract card. ---- */
 .op-topbar { background: var(--paper-3); border-bottom: 1px solid var(--rule); }
 .op-topbar-inner {
-  max-width: 1060px; margin: 0 auto; padding: 6px 20px;
+  max-width: var(--shell); margin: 0 auto; padding: 6px var(--gutter);
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
   font-family: var(--mono); font-size: 10.5px; letter-spacing: .02em; color: var(--ink-mute);
 }
@@ -1353,6 +1362,11 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
 /* ---- mobile nav: checkbox-hack toggle, no client JS ---- */
 .nav-toggle { position: absolute; opacity: 0; pointer-events: none; }
 .nav-burger { display: none; }
+/* One gutter, narrowed once for phones. Because every spanning element reads
+   --gutter, this single declaration moves the nav, the content, the trust
+   strip and the footer together; they cannot drift apart at a breakpoint. */
+@media (max-width: 680px) { :root { --gutter: 20px; } }
+
 @media (max-width: 680px) {
   .nav-inner { position: relative; }
   .nav-burger {
@@ -1381,13 +1395,13 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
 .nav-search .q { color: var(--accent); }
 
 /* ---- shell ---- */
-/* main sets the page gutter but NOT a width. It used to cap at 1060px, which
-   sat inside every .container (1100px) and clamped before that container's
-   own max-width could ever apply — so .container.docpage's 1260px was
-   unreachable and the document page's reading column came out at 596px
-   instead of ~836px. Width belongs to the container that knows what kind of
-   page it is. */
-main { margin: 0 auto; padding: 34px 20px 70px; }
+/* main owns NOTHING: no width, no gutter, no padding. It used to add 20px of
+   side padding of its own, on top of the .container inside it — so the
+   content's left edge was the nav's plus 20, and the two drifted further
+   apart the narrower the viewport got. Every page's body sits in exactly one
+   .container (the document page brings its own and renders bare), and that
+   container is the single thing that positions content. */
+main { margin: 0; padding: 0; }
 #app.in { animation: fadeUp .3s cubic-bezier(.22,.61,.36,1) both; }
 @keyframes fadeUp { from { opacity: .35; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { #app.in { animation: none; }  .redact-bar::after { animation: none !important; } }
@@ -1615,15 +1629,15 @@ details.rcpt[open] > summary { border-color: var(--accent-bd); background: var(-
 
 
 
-.reading {
-  /* The left edge was a 2px accent stripe. It read as a tasteful detail in
-     muted blue and reads as a long red bar down the page in the new accent —
-     the loudest thing on a page whose job is to be read. */
-  margin-top: 26px; border: 1px solid var(--rule); border-left: 2px solid var(--rule-bright);
-  border-radius: var(--r-lg); background: var(--paper-2); padding: 26px 22px 24px;
-  box-shadow: 0 24px 52px -28px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.02);
-}
-@media (min-width: 700px) { .reading { padding: 32px 34px 30px; } }
+/* Reading content is NOT a card. It used to be one — a bordered, raised,
+   drop-shadowed panel with its own padding — which inset the prose 34px from
+   the container and put the H1 out of line with the wordmark directly above
+   it, and framed the article as an object sitting on the page rather than as
+   the page. Every index on the site already puts its content straight on the
+   ground; the document page now does too, so a reader moving between them
+   sees one surface. Panels inside it still carry frames, and that is now a
+   distinction that means something instead of decoration everywhere. */
+.reading { margin-top: 26px; }
 .reading .byline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; font-family: var(--mono); font-size: 11px; color: var(--ink-mute); }
 .reading .byline .sig { font-family: var(--serif); font-style: italic; font-size: 17px; color: var(--ink); }
 .reading .intent {
@@ -1717,7 +1731,7 @@ details.rcpt[open] > summary { border-color: var(--accent-bd); background: var(-
 
 /* ---- trust strip + footer ---- */
 .trust { border-top: 1px solid var(--rule); background: var(--surface); }
-.trust-inner { max-width: 1060px; margin: 0 auto; padding: 20px; display: flex; gap: 13px; align-items: flex-start; }
+.trust-inner { max-width: var(--shell); margin: 0 auto; padding: 20px var(--gutter); display: flex; gap: 13px; align-items: flex-start; }
 .trust-mark {
   flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; margin-top: 1px;
   background: var(--conf-bg); color: var(--confirmed); border: 1px solid var(--conf-bd);
@@ -1727,7 +1741,7 @@ details.rcpt[open] > summary { border-color: var(--accent-bd); background: var(-
 .trust a { color: var(--accent-2); white-space: nowrap; }
 .trust a:hover { text-decoration: underline; }
 .foot { border-top: 1px solid var(--rule); background: var(--paper-2); }
-.foot-inner { max-width: 1060px; margin: 0 auto; padding: 26px 20px 34px; display: flex; justify-content: space-between; gap: 16px 40px; flex-wrap: wrap; }
+.foot-inner { max-width: var(--shell); margin: 0 auto; padding: 26px var(--gutter) 34px; display: flex; justify-content: space-between; gap: 16px 40px; flex-wrap: wrap; }
 .foot .coord { font-size: 10.5px; }
 .foot-links { display: flex; gap: 6px 22px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-mute); }
 .foot-links a:hover { color: var(--ink); }
@@ -1735,7 +1749,7 @@ details.rcpt[open] > summary { border-color: var(--accent-bd); background: var(-
 
 /* misc */
 .thin-note {
-  border: 1px dashed var(--ink-faint); border-radius: var(--r); padding: 13px 16px;
+  border: 1px solid var(--rule); border-radius: var(--r); background: var(--paper-2); padding: 16px 20px;
   font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); line-height: 1.7; max-width: var(--measure);
   margin-top: 16px;
 }
@@ -1844,7 +1858,7 @@ pre.convention {
 /* ---- dense list rows (essays index) ------------------------------------
    date | title + dek | read time. A table in behaviour, links in markup —
    each row is one <a>, so the whole row is the hit area. */
-.tbl { border-top: 1px solid var(--rule); max-width: 880px; }
+.tbl { border-top: 1px solid var(--rule); }
 .row {
   display: grid; grid-template-columns: 110px minmax(0,1fr) 76px; gap: 20px;
   align-items: baseline; padding: 17px 12px; border-bottom: 1px solid var(--rule);
@@ -1883,14 +1897,19 @@ pre.convention {
    NO BACKTICKS IN THIS FILE'S COMMENTS: it is one big template literal, a
    backtick ends it, and then biome --write reformats the CSS as TypeScript
    and silently eats braces. That is how .docrail lost its mobile rule. */
-.rgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr)); gap: 0;
-  background: var(--paper-2); border: 1px solid var(--rule); border-radius: var(--r-lg); overflow: hidden; }
+/* The frame belongs to the CARD, not to the grid. It used to sit on the grid
+   container, so a topic holding one document drew a full-width bordered box
+   with the card in its left third and two thirds of framed emptiness beside
+   it. A card that carries its own border is a discrete object: one of them
+   is one card, three of them fill the row. */
+.rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .rcard {
   display: flex; flex-direction: column; gap: 9px; background: var(--paper-2);
-  padding: 20px 21px 17px; text-decoration: none; transition: background .12s;
-  box-shadow: inset -1px 0 0 var(--rule), inset 0 -1px 0 var(--rule);
+  border: 1px solid var(--rule); border-radius: var(--r-lg);
+  padding: 20px 21px 17px; text-decoration: none;
+  transition: background .12s, border-color .12s;
 }
-.rcard:hover { background: var(--paper-hover); }
+.rcard:hover { background: var(--paper-hover); border-color: var(--rule-bright); }
 .rcard-badge {
   font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: 0.15em;
   text-transform: uppercase; color: var(--ink-mute);
@@ -1922,7 +1941,6 @@ pre.convention {
    920px, which is a good measure for one column and too narrow once 300px
    of it is a sidebar — the prose ends up at ~570px and reads cramped. */
 /* The document page: reading card + a rail BESIDE it, not inside it. */
-.container.docpage { max-width: 1260px; }
 .docgrid { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 40px; align-items: start; }
 .docgrid > .reading { margin-top: 0; }
 .docrail {
@@ -1979,7 +1997,14 @@ pre.convention {
 .tldr p { font-family: var(--serif); font-size: 16.5px; line-height: 1.6; color: var(--ink); margin: 0; text-wrap: pretty; }
 
 /* ---- table of contents -------------------------------------------------- */
-.toc { border: 1px solid var(--rule); border-radius: var(--r); padding: 17px 20px; margin: 0 0 34px; background: var(--paper-2); }
+/* ---- ONE PANEL -----------------------------------------------------------
+   Furniture — contents, citation, gaps, provenance notes — all wear exactly
+   this: 1px solid rule, var(--r), paper-2, 16px 20px. There were four
+   treatments doing this job (solid, solid-nested, dashed-rule, dashed-faint),
+   and a reader cannot learn what a border means when it means four things.
+   Prose wears no frame at all, which is what makes a framed thing read as
+   furniture. -------------------------------------------------------------- */
+.toc { border: 1px solid var(--rule); border-radius: var(--r); padding: 16px 20px; margin: 0 0 34px; background: var(--paper-2); }
 .toc-k {
   font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--ink-mute); margin-bottom: 11px;
@@ -2081,7 +2106,7 @@ pre.convention {
    reads as a statement rather than as a warning. */
 .doc-gaps {
   margin: 0 0 28px; padding: 16px 20px;
-  border: 1px dashed var(--rule-bright); border-radius: var(--r);
+  border: 1px solid var(--rule); border-radius: var(--r); background: var(--paper-2);
 }
 .doc-gaps-k {
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
@@ -2208,7 +2233,6 @@ pre.convention {
 /* ---- answer pages --------------------------------------------------------
    The question is the H1 and the answer is the first thing under it, because
    retrieval is passage-level and that passage should be complete on its own. */
-.container.reading.answer { max-width: 820px; }
 
 .ev { margin: 0 0 22px; padding: 0; }
 .ev blockquote {
@@ -2343,13 +2367,13 @@ pre.convention {
 /* ---- citation box ------------------------------------------------------
    Named .citebox, not .cite — .cite is already an inline citation chip
    (a flex row with a dot ::before, defined near the top of this sheet). */
-.citebox { border: 1px solid var(--rule); border-radius: var(--r); padding: 16px 19px; margin: 34px 0 0; }
+.citebox { border: 1px solid var(--rule); border-radius: var(--r); background: var(--paper-2); padding: 16px 20px; margin: 34px 0 0; }
 .citebox-k {
   font-family: var(--mono); font-size: 9.5px; font-weight: 500; letter-spacing: 0.16em;
   text-transform: uppercase; color: var(--ink-mute); margin-bottom: 10px;
 }
 .citebox pre {
-  margin: 0 0 12px; padding: 11px 13px; background: var(--paper); border: 1px solid var(--rule);
+  margin: 0 0 12px; padding: 11px 13px; background: var(--paper);
   border-radius: var(--r-sm); font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
   color: var(--ink-2); white-space: pre-wrap; word-break: break-word; overflow-x: auto;
 }
