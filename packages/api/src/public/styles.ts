@@ -184,14 +184,6 @@ input, select, textarea { font: inherit; color: inherit; }
 .serif { font-family: var(--serif); }
 
 
-.coord {
-  font-family: var(--mono); font-size: 12px; letter-spacing: 0;
-  color: var(--ink-mute); font-variant-numeric: tabular-nums;
-  display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
-}
-.coord .sep { color: var(--ink-faint); }
-.coord .hi { color: var(--ink); }
-.coord .ac { color: var(--accent); }
 
 .label {
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
@@ -1995,6 +1987,29 @@ pre.convention {
   text-transform: uppercase; color: var(--accent); margin-bottom: 9px;
 }
 .tldr p { font-family: var(--serif); font-size: 16.5px; line-height: 1.6; color: var(--ink); margin: 0; text-wrap: pretty; }
+
+/* ---- the library table ---------------------------------------------------
+   .lib-table had NO rule at all, so it rendered on browser defaults: separate
+   cell borders rather than one row rule, which drew four disjoint underline
+   segments per row at four different vertical positions, and let a date wrap
+   mid-value ("2026-01-" / "10"). The operator's own working surface was the
+   least designed page on the site. It now follows the same row rhythm as the
+   public indexes. ------------------------------------------------------- */
+.lib-table { width: 100%; border-collapse: collapse; }
+.lib-table th {
+  text-align: left; padding: 0 14px 10px 0; border-bottom: 1px solid var(--rule);
+  vertical-align: bottom; white-space: nowrap;
+}
+/* The rule goes on the ROW, not on each cell. On the cells it came out as
+   four disjoint segments at different heights — one row of a table should
+   read as one row. */
+.lib-table tbody tr { border-bottom: 1px solid var(--rule-soft); }
+.lib-table tbody tr:last-child { border-bottom: none; }
+.lib-table td { padding: 15px 14px 15px 0; vertical-align: top; line-height: 1.45; }
+/* The three meta columns are fixed and narrow so the title column takes the
+   slack — the width belongs to the thing being read. */
+.lib-table th:not(:first-child), .lib-table td:not(:first-child) { width: 1%; white-space: nowrap; }
+.lib-table td:last-child, .lib-table th:last-child { padding-right: 0; text-align: right; }
 
 /* ---- table of contents -------------------------------------------------- */
 /* ---- ONE PANEL -----------------------------------------------------------

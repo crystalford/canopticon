@@ -962,9 +962,9 @@ ${open
             : "";
           return `<tr>
   <td>${title}${renameBlock}${renderLintNotes(p.metadata)}${receiptBlock}${atomBlock}</td>
-  <td class="coord">${escapeHtml(kindLabel(p.kind))}</td>
+  <td><span class="coord">${escapeHtml(kindLabel(p.kind))}</span></td>
   <td>${status}</td>
-  <td class="coord">${p.published_at ? escapeHtml(formatDate(p.published_at)) : "—"}</td>
+  <td><span class="coord">${p.published_at ? escapeHtml(formatDate(p.published_at)) : "—"}</span></td>
 </tr>`;
         })
         .join("")
@@ -995,15 +995,15 @@ ${open
   // each row's receipt, where they answer a question somebody has.
 
   const body = `
-<section style="margin-bottom:18px">
-  <div class="kicker" style="margin-bottom:16px"><span class="live"></span> The raw research</div>
-  <h1 style="font-family:var(--serif);font-size:40px;line-height:1.12;letter-spacing:-0.015em;margin:0 0 12px;color:var(--ink)">Library</h1>
-  <p style="font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);max-width:680px">
+<header class="phead">
+  <div class="eyebrow">The raw research</div>
+  <h1>Library</h1>
+  <p class="phead-dek">
     Every document the rest is built on, kept whole. Each row shows what it fed —
     facts extracted, subjects it touched. Working material feeds the rest but
     doesn't get its own public page.
   </p>
-</section>
+</header>
 ${uploadBanner}
 ${opStrip}
 <section>${sectionHeader(`All material (${pieces.length})`)}${table}</section>

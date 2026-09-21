@@ -117,3 +117,33 @@ function ruleFor(sel: string): string | undefined {
   const re = new RegExp(`(?:^|[\\n,])\\s*${escaped}\\s*(?:,[^{]*)?{([^}]*)}`, "m");
   return CSS.match(re)?.[1];
 }
+
+describe("a flex class never lands on a table cell", () => {
+  it(".coord is not applied to a td anywhere in the renderers", async () => {
+    // .coord is display:flex. On a <td> that destroys the element's
+    // table-cell behaviour: the browser wraps it in an anonymous cell, so it
+    // stops sharing the row box, and /library drew four disjoint row-rule
+    // segments at different heights because two of its four cells were no
+    // longer in the row. The class belongs on a span INSIDE the cell.
+    const { readdirSync, readFileSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const files: string[] = [];
+    (function walk(d: string) {
+      for (const e of readdirSync(d)) {
+        const f = join(d, e);
+        if (statSync(f).isDirectory()) walk(f);
+        else if (f.endsWith(".ts")) files.push(f);
+      }
+    })("src");
+    const offenders = files.filter((f) =>
+      /<td[^>]*class="[^"]*\bcoord\b/.test(readFileSync(f, "utf8")),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("declares .coord exactly once", () => {
+    // It was declared twice with the same selector and different values, so
+    // the first block was unreachable — a reader editing it changed nothing.
+    expect(CSS.match(/(^|\n)\.coord\s*{/g) ?? []).toHaveLength(1);
+  });
+});
