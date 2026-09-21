@@ -1024,6 +1024,23 @@ app.post("/answers/:id/research", async (c) => {
   return c.redirect(`/op/research?q=${encodeURIComponent(q.question)}`);
 });
 
+// SIGN IN, FROM INSIDE THE PREFIX ACCESS ACTUALLY PROTECTS.
+//
+// The same handler as /auth/login, mounted here on purpose. Minting a session
+// requires Cloudflare Access to have verified the visitor and injected their
+// email, and Access is scoped to a path — this site's application covers
+// /op/* and the admin API, and CANNOT cover /* because the publication is
+// meant to be publicly readable. So /auth/login sat outside the gate it
+// depends on, no header ever arrived, and signing in was impossible. The
+// operator reported being unable to reach the upload form four times.
+//
+// This mount needs no Cloudflare change. It still fails closed: no verified
+// email, no cookie — so it adds a route that works, never a way in.
+app.get("/login", async (c) => {
+  const { handleLogin } = await import("../auth/routes");
+  return handleLogin(c as never);
+});
+
 // FILE EVERY UNTOPICED DOCUMENT.
 //
 // Push-button, never scheduled (rule 4). Bounded per press, so one click

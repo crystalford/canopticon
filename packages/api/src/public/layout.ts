@@ -187,7 +187,7 @@ function renderFooter(): string {
       <a href="/essays">Essays</a>
       <a href="/research">Research</a>
       <a href="/library">Library</a>
-      <a href="/auth/login">Sign in</a>
+      <a href="/op/login">Sign in</a>
       <a href="/about">About</a>
       <a href="/method">Method</a>
       <a href="/search">Search</a>

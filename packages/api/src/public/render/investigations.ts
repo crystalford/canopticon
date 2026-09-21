@@ -357,8 +357,17 @@ function renderAtomReview(
   <datalist id="aeo-models">${options}</datalist>
   <button type="submit" class="atom-run">${atoms ? "Re-extract" : "Extract findings & questions"}</button>
 </form>`;
+  // FOLDED. Every row carried a lead-passage button, a model override box and
+  // an extract button — three controls times fifty documents, with the model
+  // name truncated mid-word, above the documents themselves. They are real
+  // actions and stay one click away; they are not what the page is for.
+  //
+  // A native <details>, so nothing here needs JavaScript (rule 7).
+  const fold = (inner: string, label: string) =>
+    `<details class="atom-more"><summary>${escapeHtml(label)}</summary>${inner}</details>`;
+
   if (!atoms || (atoms.findings === 0 && atoms.questions.length === 0)) {
-    return `<div class="atoms">${ledeBlock}${extract}</div>`;
+    return fold(`<div class="atoms">${ledeBlock}${extract}</div>`, "Extract");
   }
   const rows = atoms.questions
     .map((q) => {
@@ -393,11 +402,14 @@ function renderAtomReview(
       ${draftAction}${action}</li>`;
     })
     .join("\n");
-  return `<div class="atoms">
+  return fold(
+    `<div class="atoms">
   ${ledeBlock}
   <div class="atom-head"><b>${atoms.findings}</b> finding${atoms.findings === 1 ? "" : "s"} · <b>${atoms.questions.length}</b> question${atoms.questions.length === 1 ? "" : "s"} ${extract}</div>
   ${atoms.questions.length ? `<ul class="atom-list">\n${rows}\n  </ul>` : ""}
-</div>`;
+</div>`,
+    `${atoms.findings} finding${atoms.findings === 1 ? "" : "s"} · ${atoms.questions.length} question${atoms.questions.length === 1 ? "" : "s"}`,
+  );
 }
 
 // Essay lint notes, written into the piece's metadata at upload time. Shown
@@ -596,7 +608,7 @@ export async function renderLibraryIndex(
         ? (() => {
             const [f, n, m, k] = opts.atoms.split(".");
             const by = opts.model ? ` using <b>${escapeHtml(shortModel(opts.model))}</b>` : "";
-            return `<div class="op-banner">Extracted <b>${escapeHtml(f ?? "0")}</b> findings and <b>${escapeHtml(n ?? "0")}</b> new questions (<b>${escapeHtml(m ?? "0")}</b> merged into existing ones)${by}.${Number(k) > 0 ? ` ${escapeHtml(k ?? "0")} span${k === "1" ? "" : "s"} were discarded for not matching the document verbatim.` : ""} Nothing is public until you publish it.</div>`;
+            return `<div class="op-banner">Extracted <b>${escapeHtml(f ?? "0")}</b> findings and <b>${escapeHtml(n ?? "0")}</b> new questions (<b>${escapeHtml(m ?? "0")}</b> merged into existing ones)${by}.${Number(k) > 0 ? ` ${escapeHtml(k ?? "0")} span${k === "1" ? " was" : "s were"} discarded for not matching the document verbatim.` : ""} Nothing is public until you publish it.</div>`;
           })()
         : opts.topics
           ? (() => {
@@ -729,15 +741,23 @@ export async function renderLibraryIndex(
   <button type="submit" class="op-strip-btn">Import video</button>
 </form>`;
 
+    // UPLOADING IS THE POINT OF THIS PAGE, so it is the first thing on it.
+    //
+    // It used to sit under a row of five batch buttons — Process queue,
+    // File into sections, Advance research, Extract all, Re-extract all —
+    // which is five verbs of machinery in front of the one action the
+    // operator came to perform. Those are real and stay reachable, but they
+    // are maintenance, not the job, so they fold away behind a native
+    // <details>. No JavaScript, so standing rule 7 holds.
     opStrip = `<div class="op-strip">
-  <div class="op-strip-top">
-    <div class="op-strip-label">Operator</div>
-    <div class="op-strip-actions">${drainBtn}${topicsBtn}${advanceBtn}${extractBtn}${reextractBtn}</div>
-  </div>
   ${dropzone}
   ${videoImportBanner}
   ${videoStatus}
   ${videoImportForm}
+  <details class="op-more">
+    <summary>Maintenance</summary>
+    <div class="op-strip-actions">${drainBtn}${topicsBtn}${advanceBtn}${extractBtn}${reextractBtn}</div>
+  </details>
   <style>
     .op-video-form { display:flex; gap:8px; margin-top:10px; }
     .op-video-input { flex:1; font-size:13px; padding:8px 10px; border-radius:6px;
@@ -745,8 +765,36 @@ export async function renderLibraryIndex(
   </style>
 </div>
 <style>
-  .op-strip { padding:14px 16px; margin:0 0 18px;
+  .op-strip { padding:16px; margin:0 0 28px;
     border:1px solid var(--rule); border-radius:8px; background:rgba(0,0,0,.03); }
+
+  /* Maintenance folds away. Five batch verbs in front of the upload box made
+     the page look like a control panel instead of a place to put a document.
+     A native <details> keeps them one click away with no JavaScript. */
+  .op-more { margin-top: 12px; border-top: 1px solid var(--rule); padding-top: 10px; }
+  .op-more > summary {
+    cursor: pointer; list-style: none;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-mute);
+  }
+  .op-more > summary::-webkit-details-marker { display: none; }
+  .op-more > summary::before { content: "+ "; color: var(--ink-faint); }
+  .op-more[open] > summary::before { content: "− "; }
+  .op-more > summary:hover { color: var(--ink-2); }
+  .op-more .op-strip-actions { margin-top: 12px; }
+
+  /* Per-row machinery, folded. Same idiom as .op-more so the page has one
+     way of saying "there is more here if you want it". */
+  .atom-more { margin-top: 6px; }
+  .atom-more > summary {
+    cursor: pointer; list-style: none;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--ink-mute);
+  }
+  .atom-more > summary::-webkit-details-marker { display: none; }
+  .atom-more > summary::before { content: "+ "; color: var(--ink-faint); }
+  .atom-more[open] > summary::before { content: "− "; }
+  .atom-more > summary:hover { color: var(--ink-2); }
   .op-strip-top { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
   .op-strip-label { font-size:11px; letter-spacing:.12em; text-transform:uppercase;
     color:var(--ink-3); font-weight:600; }
@@ -757,7 +805,7 @@ export async function renderLibraryIndex(
   .op-dropzone-form { margin:0; }
   .op-dropzone {
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:4px; padding:22px 16px; border:1px dashed var(--rule-bright, var(--rule));
+    gap:5px; padding:34px 16px; border:1px dashed var(--rule-bright, var(--rule));
     border-radius:8px; background:var(--surface); cursor:pointer; text-align:center;
     transition: border-color .12s, background .12s;
   }
@@ -770,31 +818,6 @@ export async function renderLibraryIndex(
   .op-banner-error { border-color:var(--corr-bd, var(--rule)); background:var(--corr-bg, var(--surface)); }
 </style>`;
   }
-
-  // Library weight — the proof-of-work line. Documents read, facts extracted,
-  // subjects fed, contested claims surfaced. Numbers come straight from the
-  // typed graph; if extraction hasn't run, the line shrinks honestly.
-  const { one } = await import("../../lib/d1");
-  const weight = userId
-    ? await one<{
-        docs: number;
-        facts: number;
-        subjects: number;
-        contested: number;
-        threads: number;
-      }>(
-        env.DB,
-        `SELECT
-           (SELECT COUNT(*) FROM pieces WHERE user_id = ?) AS docs,
-           (SELECT COUNT(*) FROM nodes WHERE user_id = ?
-              AND kind IN ('neutral_fact', 'event', 'entity', 'assertion')) AS facts,
-           (SELECT COUNT(DISTINCT subject_node_id) FROM pages WHERE user_id = ?) AS subjects,
-           (SELECT COUNT(*) FROM assertions a JOIN nodes n ON n.id = a.node_id
-              WHERE n.user_id = ? AND a.rank = 'contested') AS contested,
-           (SELECT COUNT(*) FROM inquiry_threads WHERE user_id = ?) AS threads`,
-        [userId, userId, userId, userId, userId],
-      ).catch(() => null)
-    : null;
 
   // Proposed atoms, per document. Operator-only: these have no URL until they
   // pass the gate AND the operator publishes them, so this list is the only
@@ -961,18 +984,15 @@ ${open
         "No documents yet. Once research reports are dropped into the Library, every one will land here with what it fed showing in its row.",
       );
 
-  // The research-weight band — proof-of-work line that sits between the lede
-  // and the table. Sized for skim: large numerals, plain English on the labels.
-  const weightBand =
-    weight && weight.docs > 0
-      ? `<div class="lib-weight">
-  <div class="lw-cell"><b>${weight.docs}</b><span>source document${weight.docs === 1 ? "" : "s"}</span></div>
-  ${weight.facts > 0 ? `<div class="lw-cell"><b>${weight.facts.toLocaleString()}</b><span>facts extracted</span></div>` : ""}
-  ${weight.subjects > 0 ? `<div class="lw-cell"><b>${weight.subjects}</b><span>subject page${weight.subjects === 1 ? "" : "s"} fed</span></div>` : ""}
-  ${weight.contested > 0 ? `<div class="lw-cell"><b>${weight.contested}</b><span>contested claim${weight.contested === 1 ? "" : "s"}</span></div>` : ""}
-  ${weight.threads > 0 ? `<div class="lw-cell"><b>${weight.threads}</b><span>open thread${weight.threads === 1 ? "" : "s"}</span></div>` : ""}
-</div>`
-      : "";
+  // THE WEIGHT BAND IS GONE. It ran across the top: 57 source documents,
+  // 8,642 facts extracted, 4,712 subject pages fed, 1,682 open threads.
+  //
+  // Same trade as the state strip deleted from the front page, and the same
+  // verdict. Two of those numbers mean nothing to the person reading them —
+  // "subject pages fed" and "open threads" measure internals, not work — and
+  // all four pushed the upload box and the documents below the fold on the
+  // one page that exists to do a job. Per-document counts already live in
+  // each row's receipt, where they answer a question somebody has.
 
   const body = `
 <section style="margin-bottom:18px">
@@ -984,11 +1004,10 @@ ${open
     doesn't get its own public page.
   </p>
 </section>
-${weightBand}
 ${uploadBanner}
 ${opStrip}
-${queueBlock}
 <section>${sectionHeader(`All material (${pieces.length})`)}${table}</section>
+${queueBlock}
 <style>
   .lib-weight {
     display: flex; flex-wrap: wrap;
